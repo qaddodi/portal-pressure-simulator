@@ -2052,7 +2052,7 @@ button.finding:hover { background: var(--surface-2); }
 /* A phone, or a screen taller than wide: the words on top, the data below, the figure between. */
 /* (On a phone the words sit at the bottom over the Back/Next bar, on a glass pane rising from the bottom edge; the data card is at the top.) */
 .pz-shade.stack { width: auto !important; right: 0; top: auto; bottom: 0; height: 0; box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 -1px 0 var(--pz-glass-line), 0 -10px 24px -6px var(--pz-glass-drop), 0 -2px 5px -1px var(--pz-glass-drop); }
-.pz.stack .pz-text { left: 14px; right: 14px; top: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); margin-block: 0; width: auto; max-height: 40%; gap: 6px; }
+.pz.stack .pz-text { left: 14px; right: 14px; top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); margin-block: 0; width: auto; max-height: 40%; gap: 6px; }
 /* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: 12px; }
@@ -2074,18 +2074,22 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-tile { padding: 6px 10px; }
 .pz.stack .pzt-v { font-size: min(24px, 30cqi); }
 /* (Centred in the figure above the Back/Next bar: top and bottom set, its own height, auto margins.) */
-.pz.stack .pz-panel { top: 8px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); height: fit-content; margin-block: auto; translate: -50% 0; width: calc(100% - 16px); max-height: calc(100% - 88px - env(safe-area-inset-bottom, 0px)); padding: 16px; gap: 12px; }
+.pz.stack .pz-panel { top: 8px; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); height: fit-content; margin-block: auto; translate: -50% 0; width: calc(100% - 16px); max-height: calc(100% - 56px - env(safe-area-inset-bottom, 0px)); padding: 16px; gap: 12px; }
 .pz.stack .pz-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
 .pz.stack .pz-panel.fill { height: fit-content; }
 .pz.stack .pz-panel.fill .pz-grid { flex: none; }   /* (the six ladders keep their height; the card scrolls instead of the charts spilling out of their cells) */
 .pz.stack .pz-panel.fill .pz-cell .pz-ladder { flex: none; }
-.pz.stack .pz-bar { --pz-bar-h: 56px; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); translate: none; max-width: none; height: var(--pz-bar-h); justify-content: space-between; gap: 2px; padding: 5px 6px; overflow: visible; }
+.pz.stack .pz-bar { left: auto; right: 10px; top: auto; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); translate: none; max-width: none; height: 44px; gap: 0; padding: 0; overflow: visible; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; box-shadow: none; transition: top .45s var(--ease), right .45s var(--ease), opacity .3s var(--ease); }
+/* (A phone's controls ride on the words' kicker line: no glass of their own, the words' pane is behind them.) */
 .pz.stack .pz-bar.idle { opacity: 1; pointer-events: auto; transform: none; }
-.pz.stack .pz-bar .btn { min-height: 44px; padding: 0 14px; }
-.pz.stack .pz-bar .pzb-go:not(.pzb-next) { padding: 0 12px 0 8px; }
-.pz.stack .pz-bar .ib { width: 44px; height: 44px; }
-@media (max-width: 359px) { .pz.stack .pz-bar .pzb-go:not(.pzb-next) { padding: 0; width: 44px; } .pz.stack .pz-bar .pzb-go:not(.pzb-next) .pzb-l { display: none; } }
-.pz.stack .pz-bar .pzb-n { flex: 1; text-align: center; }
+.pz.stack .pz-bar .ib { width: 38px; min-width: 0; height: 44px; }
+.pz.stack .pz-bar .ib svg { width: 20px; height: 20px; }
+.pz.stack .pz-bar button.pzb-n { min-height: 44px; padding: 0 6px; font-size: 13px; }
+.pz.stack .pz-bar .pzb-go.pzb-next { min-height: 30px; height: 30px; margin: 0 4px; padding: 0 10px; font-size: 13px; }
+.pz.stack :is(.pz-text, .pz-panel) .pz-kick { min-height: 28px; padding-right: calc(var(--pz-bar-w, 200px) + 6px); }
+.pz.stack .pz-kick .pz-sec { flex: none; }
+@media (max-width: 359px) { .pz.stack .pz-bar .ib { width: 33px; } .pz.stack .pz-bar button.pzb-n { padding: 0 4px; } .pz.stack .pz-kick .pz-sec { display: none; } }
+.pz.stack .pz-kick .pz-kw { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pz.stack .pz-quadwrap { grid-template-columns: minmax(0, 1fr); }
 /* An upright tablet uses the phone's compact table (one line per row, no sideways scroll), drawn larger. */
 @media (min-width: 768px) and (max-width: 1100px) and (orientation: portrait) {
