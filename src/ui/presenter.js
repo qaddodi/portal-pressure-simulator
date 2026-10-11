@@ -21,7 +21,7 @@ import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=d0f1a6d8cf';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=b360ba9371';
-import { createHvpgMonitor } from './hvpg-proc.js?v=e6446dd751';
+import { createHvpgMonitor } from './hvpg-proc.js?v=0ac0f5eb5d';
 import { createTools } from './presenter-tools.js?v=3b66d6fec4';
 import { openHandout } from './handout.js?v=afd5fefc22';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -751,11 +751,11 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // ── The HVPG catheter (stage.setCatheter, as Measure › HVPG draws it), choreographed slide by slide: in along
   // the jugular route with the camera following, the tip close up, the balloon up and the still column, the
   // readings; each step eases on from wherever the last one left it, and it slides out with its slides.
-  const CC = { free: '#5CA4F2', wedge: '#A68CF2', bad: '#FF7A85' };   // the procedure's own colours
+  const CC = { free: '#5CA4F2', wedge: '#A9D14A', bad: '#FF7A85' };   // the procedure's own colours
   const cath = { on: false, raf: 0, t0: 0, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null };
   // The still column is shaded in the catheter's wedge colour (the WHVP callout's), so it reads as the catheter's
   // column of still blood, not as one more pressure on the map.
-  const wedgeInk = () => getComputedStyle(document.documentElement).getPropertyValue('--tr-wedge').trim() || '#7650C8';
+  const wedgeInk = () => getComputedStyle(document.documentElement).getPropertyValue('--tr-wedge').trim() || '#668C0A';
   function cathTrack(k, to, ms, delay = 0) { cath.tr[k] = { from: cath.v[k], to, t0: performance.now() + delay, ms: reduce.matches ? 0 : ms }; }
   function cathLabels() {
     const f = cath.fp, v = cath.v;

@@ -34,7 +34,7 @@ const STEPS = [
 ];
 // The tracing is a monitor, dark in both themes (the Over time chart's dark trace colours).
 const C = { bg: '#07090C', grid: '#1C2128', line: '#2A3038', text: '#9AA4B2', bright: '#E8EDF4',
-  free: '#5CA4F2', wedge: '#A68CF2', ok: '#4FD18B', caution: '#F2B84B', danger: '#FF7A85' };
+  free: '#5CA4F2', wedge: '#A9D14A', ok: '#4FD18B', caution: '#F2B84B', danger: '#FF7A85' };
 const sevOf = (v) => (v >= 10 ? 'danger' : v >= 5 ? 'caution' : 'ok');
 const sevWord = (v) => (v >= 10 ? 'Clinically significant portal hypertension (CSPH)' : v >= 5 ? 'Subclinical' : 'Normal');
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -288,7 +288,7 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
     ctx.fillText(blocked && t >= TB.probe0 ? 'Probing the ostium: the vein will not take the catheter…' : ph === 'idle' ? 'The tracing starts once the tip is in the hepatic vein.' : 'Waiting for the hepatic vein…', (L + R) / 2, (top + bot) / 2);
     return;
   }
-  // The trace, swept up to now: blue while free, violet once the balloon is up.
+  // The trace, swept up to now: blue while free, green once the balloon is up.
   const tNow = Math.min(t, T.back);
   const seg = (a, b, colr) => {
     if (tNow <= a) return;
