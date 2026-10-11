@@ -1529,9 +1529,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (ph) {
       ui.bar.classList.remove('idle');
       ui.bar.replaceChildren(
-        h('button', { class: 'btn sm', 'aria-label': 'Previous slide', disabled: i === 0, onclick: prev }, icon('chev-left'), 'Back'),
+        h('button', { class: 'btn sm pzb-go', 'aria-label': 'Previous slide', disabled: i === 0, onclick: prev }, icon('chev-left'), h('span', { class: 'pzb-l' }, 'Back')),
         countBtn,
-        h('button', { class: 'btn sm primary', 'aria-label': last ? 'Finish presenting' : skip ? 'Run the time-lapse to its end' : 'Next slide', onclick: last ? stop : next }, last ? 'Finish' : skip ? 'Skip' : 'Next', last ? null : icon('chev-right')),
+        h('button', { class: 'btn sm pzb-go pzb-next', 'aria-label': last ? 'Finish presenting' : skip ? 'Run the time-lapse to its end' : 'Next slide', onclick: last ? stop : next }, h('span', { class: 'pzb-l' }, last ? 'Finish' : skip ? 'Skip' : 'Next'), last ? null : icon('chev-right')),
         gear(),
         h('button', { class: 'ib', 'aria-label': 'Exit the presentation', title: 'Exit', onclick: stop }, icon('close')));
         return;
@@ -1545,7 +1545,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     ui.bar.replaceChildren(
       h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0, onclick: prev }, icon('chev-left')),
       countBtn, askBtn, askPop,
-      h('button', { class: 'ib', 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', title: skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)', disabled: last, onclick: next }, icon('chev-right')),
+      h('button', { class: 'ib pzb-next', 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', title: skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)', disabled: last, onclick: next }, icon('chev-right')),
       skip ? h('span', { class: 'pzb-skip', 'aria-hidden': 'true' }, '⏵ skip') : null,
       h('span', { class: 'pzb-sep' }),
       deck.slides.some((s) => s.quiz) ? h('button', { class: 'btn sm', 'aria-pressed': String(quiz), title: 'Quiz the room: ask first, reveal on the next click (Q)', onclick: toggleQuiz }, 'Quiz') : null,
