@@ -153,7 +153,7 @@ export function createDoppler({ onProbe }) {
   }
   function ingest(f) {
     frame = f;
-    if (f.probe !== probe) { buf = []; tOff = 0; synth = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
+    if (f.probe !== probe) { buf = []; wl = null; tOff = 0; synth = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
     const s = f.samples;
     if (f.clock === 'disease') {
       if (!synth && buf.length) synth = startSynth();
@@ -163,7 +163,7 @@ export function createDoppler({ onProbe }) {
     } else {
       if (synth && s?.t.length) { tOff = synth.t + 0.02 - s.t[0]; synth = null; }
       if (!s || !s.t.length) return;
-      if (buf.length && s.t[0] + tOff < buf[buf.length - 1][0] - 1e-9) { buf = []; tOff = 0; }
+      if (buf.length && s.t[0] + tOff < buf[buf.length - 1][0] - 1e-9) { buf = []; wl = null; tOff = 0; }
       for (let i = 0; i < s.t.length; i++) { const t = s.t[i] + tOff; if (!buf.length || t > buf[buf.length - 1][0]) buf.push([t, s.vel[i]]); }
     }
     if (!buf.length) return;
@@ -461,6 +461,7 @@ export function createDoppler({ onProbe }) {
   }
 
   function draw(now = performance.now()) {
+    labBusy = false;
     const { ctx, w, h: hh } = fitCanvas(cv);
     const dpr = cv.width / Math.max(1, w);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -564,18 +565,34 @@ export function createDoppler({ onProbe }) {
     ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
     if (waves && meta().kind === 'hepatic') {
       // The hepatic vein's waves named at their peaks (a presenter slide asks for it): the a-wave reversal on the
-      // atrial side of the baseline, then the S, v and D forward waves of the same beat, small and faded.
-      ctx.font = FONT(600, 11); ctx.textAlign = 'center';
-      const at = (t, v) => [padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr, padT + baseY - v * k * pxPerV];
-      for (const [t, v, name] of hvWaves(tNow - sweepSeconds, tNow, sgn)) {
-        // (The a-wave's letter sits just past the baseline on its side, clear of the spectrum, even when it barely crosses.)
-        const up = name === 'a', [x, y0] = at(t, v), y = up ? Math.min(y0, padT + baseY) : y0;
-        if (x < padL + 6 || x > padL + W - 6) continue;
-        const ty = clamp(y + (up ? -4 : 4), padT + (up ? 12 : 0), padT + H - (up ? 0 : 12));
-        ctx.textBaseline = up ? 'bottom' : 'top'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(name, x, ty);
-        ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillText(name, x, ty);
+      // atrial side of the baseline, then the S, v and D forward waves of the same beat. One beat is named at a time.
+      // Its letters are pinned to that beat's own moments, so they scroll with it; when the beat is about to leave the
+      // screen they fade out, and the newest whole beat gets them, fading in. Nothing glides or pops.
+      const dtL = labAt ? Math.min(0.1, (now - labAt) / 1000) : 0; labAt = now;
+      const edge = tNow - sweepSeconds + 0.7;                 // a beat starting before this is about to leave
+      if (wl && (wl.sgn !== sgn || wl.pts[0][0] < edge)) wl.out = true;
+      if (!wl || (wl.out && wl.alpha <= 0)) {
+        wl = null;
+        const pts = hvWaves(tNow - sweepSeconds, tNow, sgn);
+        if (pts.length && pts[0][0] >= edge) wl = { pts, sgn, alpha: 0, out: false };
       }
-    }
+      if (wl) {
+        wl.alpha = clamp(wl.alpha + (wl.out ? -1 : 1) * dtL / 0.4, 0, 1);
+        labBusy = wl.out ? wl.alpha > 0 : wl.alpha < 1;
+        const A = wl.alpha * wl.alpha * (3 - 2 * wl.alpha);
+        ctx.font = FONT(700, 13); ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        const at = (t, v) => [padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr, padT + baseY - v * k * pxPerV];
+        for (const [t, v, name] of wl.pts) {
+          // (The a-wave's letter sits just past the baseline on its side, clear of the spectrum, even when it barely crosses.)
+          const up = name === 'a', [x, y0] = at(t, v), y = up ? Math.min(y0, padT + baseY) : y0;
+          if (x < padL + 2 || x > padL + W - 2) continue;
+          const ty = clamp(y + (up ? -5 : 5), padT + (up ? 14 : 0), padT + H - (up ? 0 : 14));
+          ctx.textBaseline = up ? 'bottom' : 'top';
+          ctx.lineWidth = 4; ctx.strokeStyle = `rgba(0,0,0,${0.9 * A})`; ctx.strokeText(name, x, ty);
+          ctx.fillStyle = `rgba(255,255,255,${A})`; ctx.fillText(name, x, ty);
+        }
+      }
+    } else { wl = null; }
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = 'rgba(255,255,255,.4)';
     for (let sec = Math.ceil(tNow - sweepSeconds); sec <= tNow; sec++) {
@@ -592,6 +609,7 @@ export function createDoppler({ onProbe }) {
   // forward troughs are S (first) and D, with the a-wave that opens the beat. Read from a lightly smoothed trace; nothing is named when the pattern
   // is not triphasic (no clear reversal, or a single forward wave).
   let waves = false;
+  let wl = null, labAt = 0, labBusy = false;   // the beat whose waves are named: {pts, sgn, alpha, out}
   function hvWaves(t0, t1, sgn) {
     const p = buf.filter(([t]) => t >= t0 && t <= t1);
     if (p.length < 12) return [];
@@ -603,8 +621,11 @@ export function createDoppler({ onProbe }) {
     const crest = (i) => { for (let j = i - 1; j >= 0 && p[i][0] - p[j][0] < 0.3; j--) if (y[j] > y[i]) return false; for (let j = i + 1; j < y.length && p[j][0] - p[i][0] < 0.3; j++) if (y[j] > y[i]) return false; return true; };
     const aI = [];
     for (let i = 1; i < y.length - 1; i++) if (y[i] > bot * 0.15 && ext(i, 1) && crest(i) && (!aI.length || p[i][0] - p[aI.at(-1)][0] > 0.35)) aI.push(i);
-    // Only the newest whole beat is named, as a textbook marks one cycle: every beat at once crowds the trace.
+    // Only the newest settled whole beat is named, as a textbook marks one cycle: every beat at once crowds the trace.
+    // A beat is named once its closing a-wave has settled (the last 0.35 s of the record can still change), so the letters never shift afterwards.
+    const tEnd = p[p.length - 1][0] - 0.35;
     for (let b = aI.length - 2; b >= 0; b--) {
+      if (p[aI[b + 1]][0] > tEnd) continue;
       const lows = [];
       for (let i = aI[b] + 1; i < aI[b + 1]; i++) if (y[i] < bot * 0.25 && ext(i, -1)) lows.push(i);
       // Keep the deepest trough of each dip (troughs closer than 0.12 s are one wave), then the two deepest dips.
@@ -624,7 +645,7 @@ export function createDoppler({ onProbe }) {
     raf = 0;
     if (!frame || !cv.isConnected || !cv.offsetParent) return;
     draw(now);
-    if (live() && now - askedAt < 400) raf = requestAnimationFrame(loop);
+    if ((live() && now - askedAt < 400) || labBusy) raf = requestAnimationFrame(loop);
   }
   function redraw() {
     if (!frame) return;
@@ -633,7 +654,7 @@ export function createDoppler({ onProbe }) {
     if (!raf) raf = requestAnimationFrame(loop);
   }
   function update(f) { ingest(f); redraw(); }
-  function clear() { buf = []; redraw(); }
+  function clear() { buf = []; wl = null; redraw(); }
   /** Name the hepatic vein's a, S, v and D waves on the trace (the Presenter's waveform slides). */
   function setWaves(on) { if (waves !== !!on) { waves = !!on; ringKey = null; redraw(); } }
   return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves };
