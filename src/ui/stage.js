@@ -1183,7 +1183,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (top > H * 0.45) { ins.b = Math.max(ins.b, H - top + 8); ins.r = 0; }
       else if (bot <= H * 0.62) { ins.t = Math.max(ins.t, bot + 8); ins.r = 0; }
     }
-    if (W - ins.l - ins.r < Math.min(W * 0.5, 360)) ins.l = ins.r = 0;
+    // (While presenting, the slide's words and data card both stay clear even on a tablet: the figure frames into the
+    // column between them rather than going under them; only a strip too thin to frame anything gives way.)
+    if (W - ins.l - ins.r < (store.get().presenting ? 200 : Math.min(W * 0.5, 360))) ins.l = ins.r = 0;
     if (H - ins.t - ins.b < H * 0.35) { const k = (H * 0.65) / (ins.t + ins.b); ins.t *= k; ins.b *= k; }
     return ins;
   }
