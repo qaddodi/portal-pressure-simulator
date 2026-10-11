@@ -917,7 +917,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function setLevel(x, l) { if ((x.level ?? 1) === l) return; x.level = l; place(x); }
   function syncLift() {
     for (const x of Object.values(E)) {
-      const on = x.g.classList.contains('is-sel') || x.g.classList.contains('hl');
+      // (The sinusoids cross nothing, so they stay on their tier: lifted, the tier below would redraw their junctions
+      // as hard-edged patches.)
+      const on = (x.g.classList.contains('is-sel') || x.g.classList.contains('hl')) && !SIN_EDGES.has(x.e.id);
       if (on !== !!x.lifted) { x.lifted = on; place(x); }
     }
     // Within the focus tier the portal tree stays in front (as in the resting order), so a
@@ -962,7 +964,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the vessels (veins-gl.js, tube rows 10 and 11). It follows every move and pulse for free: no blur, no mask, no
   // outline to rebuild. Each source asks for vessels in a colour (null: the vessel's own); a vessel several sources
   // light takes the colour of the last in GLOW_RANK. Each eases in and out on its own, so a change cross-fades.
-  const GLOW_RANK = ['hover', 'flash', 'delta', 'dop', 'slide', 'focus'];
+  const GLOW_RANK = ['sel', 'hover', 'flash', 'delta', 'dop', 'slide', 'focus'];
   const glow = { src: new Map(), lit: new Map(), raf: 0, t: 0 };
   /** list: [{ id, col (a CSS colour, or null), amt (strength, 1 by default), wide (band width ×, ≤ 1.3), at (ms to wait before easing in) }] */
   function setGlowSrc(src, list) {
@@ -1971,9 +1973,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         setLevel(x, nearestLevel(x.opa));
       }
       x.rev = REVERSAL_WATCH.has(e.id) && isReversed(e, f);
-      const selOn = st.selection?.type === 'edge' && st.selection.id === e.id;
+      const selOn = (st.selection?.type === 'edge' && st.selection.id === e.id) || (st.selection?.type === 'node' && SIN_EDGES.has(e.id) && LABEL_VESSEL[st.selection.id] === e.id);   // a side's station dot is its sinusoids
       x.sel.classList.toggle('on', selOn);
       cls(x, 'is-sel', selOn);
+      // A selected side's sinusoids glow as one soft band over the whole network (the ring would be cut off square
+      // where the strands leave the vessel), eased in and out by the glow engine.
+      if (SIN_EDGES.has(e.id) && selOn !== !!x.selGlow) { x.selGlow = selOn; setGlowSrc('sel', [...SIN_EDGES].filter((id) => E[id]?.selGlow).map((id) => ({ id, col: null, amt: 1.5, wide: 1.2, dur: 450 }))); }
       if (selOn) setA(x.sel, 'stroke-width', (w + 12).toFixed(1));
       x.dopW = w;
     }
@@ -2479,7 +2484,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const shade = !x.isArt && !ghost;
       const veil = IVC_EDGES.has(id) && !ivcOn;
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
-      const flags = (sel && kind === 'v' ? F_SEL : 0) | (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0);
+      const flags = (sel && kind === 'v' && !SIN_EDGES.has(id) ? F_SEL : 0) | (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       // No congestion halo on the IVC itself: its wide halo would spill onto the bowel beside it.
       const heatA = kind === 'v' && heat && !IVC_EDGES.has(id) ? (x.heatA || 0) : 0;
