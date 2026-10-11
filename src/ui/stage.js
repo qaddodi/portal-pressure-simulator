@@ -3556,7 +3556,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         + '<path class="sp-beam" d="M66 48 L197.6 -23.9 A150 150 0 0 1 197.6 119.9 Z"/><g class="sp-waves">'
         + '<g><path class="sp-rip"/><path class="sp-front"/><path class="sp-rip"/></g>'.repeat(SCAN_N) + '</g>'
         + '<path class="sp-cable" d="M2 48 C10 48 14 48 20 48"/><g class="sp-head"><rect class="sp-body" x="18" y="36" width="40" height="24" rx="10"/>'
-        + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/></g></svg><span>FibroScan probe</span>';   // (constant markup)
+        + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/></g></svg>';   // (constant markup)
       sites.el.append(el); scan.el = el;
       void el.offsetWidth; el.classList.remove('cath-pre');
       if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = scan.nextTap = Infinity; }
@@ -4625,12 +4625,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
     if (!circuit) {
       // ── Anatomy ──
-      // The FibroScan probe is screen furniture on the liver: no label sits on it or its caption, and its callout takes a spot beside the
+      // The FibroScan probe is screen furniture on the liver: no label sits on it, and its callout takes a spot beside the
       // waves (off the beam, clear of vessels and of any card) before the others are placed. A quiz holds the number back with the card's.
       const tip = !scan.cover ? scanTipLocal() : null;
       if (tip) {
         const { tx, y } = tip;
-        placed.push({ x0: tx - 48, y0: y - 48, x1: tx + 12, y1: y + 12 }, { x0: tx - 12, y0: y - 58, x1: tx + 100, y1: y - 36 });   // the probe, then its caption
+        placed.push({ x0: tx - 48, y0: y - 48, x1: tx + 12, y1: y + 12 });   // the probe
         buildLines();
         const it = scanItem(), base = placed.length;
         it.ax = tx + 44; it.ay = y + 44;   // on the beam's axis, about 60 px from the tip

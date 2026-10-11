@@ -1212,11 +1212,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (!g || !vis(g) || g.classList.contains('lb-off')) return { probe: true, tool, shown: false };
       const pill = R(g.querySelector('.lb-bg')), bad = [], others = [];
       const hit = (a, b) => a.l < b.r - 0.5 && a.r > b.l + 0.5 && a.t < b.b - 0.5 && a.b > b.t + 0.5;
-      others.push(['probe caption', R(probe.querySelector('span'))], ['probe', R(probe.querySelector('.sp-head'))]);
+      others.push(['probe', R(probe.querySelector('.sp-head'))]);
       for (const e of document.querySelectorAll('#labels .lb:not(.lb-off):not([data-key="scan"])')) if (vis(e)) for (const t of e.querySelectorAll('text')) { const r = R(t); if (r.r - r.l > 1) others.push([`label ${e.dataset.key}`, r]); }
       for (const e of document.querySelectorAll('.cath-label.site, .stage-blocker:not([hidden]), .pz-text, .pz-data, .pz-panel, .pz-bar, #dock, #panel, #treatCard:not([hidden]), .action-card:not([hidden]), .stage-credit')) if (vis(e)) { const r = R(e); if (r.r - r.l > 2) others.push([e.id || e.className.split(' ')[0], r]); }
       for (const [n, r] of others) if (hit(pill, r)) bad.push(n);
       if (pill.l < wr.left || pill.r > wr.right || pill.t < wr.top || pill.b > wr.bottom) bad.push('off the stage');
+      if (probe.textContent.trim()) bad.push(`probe text "${probe.textContent.trim()}"`);   // the probe carries no caption: the orange number is the only callout
       if (!/\d/.test(g.textContent) || !/kPa/.test(g.textContent)) bad.push(`text "${g.textContent}"`);
       return { probe: true, tool, shown: true, bad };
     });

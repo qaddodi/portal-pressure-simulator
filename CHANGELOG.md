@@ -10,7 +10,7 @@
 - **FibroScan callout.** Wherever the FibroScan probe and its shear waves show on the figure (Explore with the FibroScan card
   open, and every FibroScan slide), an orange pill beside the waves reads the live stiffness (for example "12.5 kPa"), with
   a leader to the waves. It is placed by the figure's label solver before the other labels, so it keeps clear of them, the
-  probe and its caption, the cards and the credit; the number eases as the value changes, and the pill and leader fade in
+  probe, the cards and the credit; the probe carries no text label of its own; the number eases as the value changes, and the pill and leader fade in
   and out with the probe. In a quiz slide it waits with the card until the answer. The schistosomiasis and congestion
   slides' cards now list the liver stiffness too. Check: "FibroScan callout beside the waves" in `tests/e2e/smoke.mjs`.
 
