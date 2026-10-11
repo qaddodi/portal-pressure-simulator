@@ -64,7 +64,7 @@ import { SHUNTS } from './decks/shunts.js?v=70bf6db90e';
 import { TAP } from './decks/tap.js?v=3c8e9f864d';
 import { CIRCUIT } from './decks/circuit.js?v=344ea65d37';
 import { DOPPLER } from './decks/doppler.js?v=ae469f884a';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=02a9360021';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=b853e223af';
 import { PREHEPATIC } from './decks/prehepatic.js?v=101414c6b1';
 import { RIGHT_HEART } from './decks/right-heart.js?v=b0ba83da2b';
 import { BLEED } from './decks/variceal-bleed.js?v=ccfbfb6dc1';
@@ -72,7 +72,7 @@ import { TWO_INFLOWS } from './decks/two-inflows.js?v=d1119d3dc0';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=7665641172';
 import { SPLEEN } from './decks/spleen.js?v=17b510b533';
 import { NCPH } from './decks/ncph.js?v=54614e31b6';
-import { OUTFLOW } from './decks/outflow.js?v=e0346f762c';
+import { OUTFLOW } from './decks/outflow.js?v=b1f797c195';
 import { RECOMPENSATION } from './decks/recompensation.js?v=165b738165';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).

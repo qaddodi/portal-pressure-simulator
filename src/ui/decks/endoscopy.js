@@ -29,7 +29,7 @@ export const ENDOSCOPY = {
       id: 'grow', days: 180, ramp: { cirrhosis: [0.4, 0.6] }, lapse: { seconds: 10 }, cam: 'varices', labels: ['VAR'], tool: { kind: 'scope' },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'Small varices appear six months on',
-      line: 'With the HVPG at {hvpg}, past the CSPH threshold, blue columns have risen in the lower esophagus. Small varices are under 5 mm.',
+      line: 'The HVPG has risen to {hvpg}, above the 10 mmHg of CSPH, where varices grow more likely. Blue columns have risen in the lower esophagus; small varices are under 5 mm.',
       notes: 'Varices become possible once the HVPG reaches 10 mmHg, the threshold of clinically significant portal hypertension, and the risk rises with the gradient; below 10 they form less often, not never. Small varices become large in about one patient in ten each year. They start in the lower esophagus, where the palisade veins lie superficial in the lamina propria; deeper, the submucosal veins enlarge too. Small varices are under 5 mm and flatten with air; large ones are over 5 mm and do not.',
       ask: ['Below what HVPG are new varices uncommon?', '10 mmHg.'],
     },

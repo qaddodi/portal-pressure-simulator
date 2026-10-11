@@ -19,10 +19,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=c6a8f1cabe';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=2168ddc74a';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=6c519fac48';
 import { createHvpgMonitor } from './hvpg-proc.js?v=4b408e144c';
 import { createTools } from './presenter-tools.js?v=1ec444b98b';
-import { openHandout } from './handout.js?v=4b9fef7fc7';
+import { openHandout } from './handout.js?v=25a366ee55';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
 const KEY = 'pps.scripts';
@@ -1049,7 +1049,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // With a new patient and a move over the plate, the glide starts while the figure is still dim and runs on
     // through its fade back in, so the eye sees one motion, not a fade and then a move.
     // (The words come first: they set the space the camera frames into.)
-    wordsIn(s, q, st, to, swap);
+    // A time-lapse's words tell where it ends ("six months on, the HVPG is {hvpg}"), so their values are the end state's.
+    const said = lap ? await stateReady(stateOf[to]) : st;
+    if (!said || cut()) return;
+    wordsIn(s, q, said, to, swap);
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual && !q) app.dataset.lit = slideTargets(s).lit.join(' ');
     if (s.visual === 'table') fillTable(s, cut);

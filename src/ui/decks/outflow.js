@@ -49,7 +49,7 @@ export const OUTFLOW = {
       ask: ['Why can a standard TIPS not be placed when all three hepatic veins are blocked?', 'It needs a hepatic vein to start from; the stent goes from the IVC instead.'],
     },
     {
-      id: 'sos', preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central veins' }, terms: { 'central veins': 'lobule:central' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'],
+      id: 'sos', preset: 'sos', params: { fibrosis: { R: { post: 32 }, L: { post: 32 } } }, cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central veins' }, terms: { 'central veins': 'lobule:central' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'],
       kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'Chemotherapy injures the sinusoid lining',
       line: 'Chemotherapy injures the sinusoid lining; debris blocks the central veins, and within weeks the liver swells and ascites gathers.',
       causesHead: 'Causes', causes: ['Stem cell transplant conditioning', 'Oxaliplatin', 'Thiopurines', 'Pyrrolizidine alkaloids'],
@@ -59,7 +59,7 @@ export const OUTFLOW = {
     {
       id: 'soswedge', cath: 'result', data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['hvpg', 'ppg'], brackets: { hvpg: 'works' },
       kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'Here the wedge works',
-      line: 'The hepatic veins are open, and the block sits upstream of the free reading, so the wedged pressure rises: the HVPG is {hvpg}, and above 10 mmHg would support the diagnosis.',
+      line: 'The hepatic veins are open, and the block sits upstream of the free reading, so the wedged pressure rises: the HVPG is {hvpg}. After a transplant, a gradient above 10 mmHg strongly supports the diagnosis.',
       notes: 'In sinusoidal obstruction a transjugular catheter can enter the hepatic veins and wedge, and the obstruction lies between the wedged and the free readings, so the HVPG rises. After a stem cell transplant an HVPG above 10 mmHg strongly supports the diagnosis. A transjugular liver biopsy can be taken at the same time, without crossing the liver capsule, which matters with low platelets and ascites.',
       ask: ['Why can the wedge be read here but not when the hepatic veins are clotted?', 'Here the veins are open, so the catheter can wedge, and the block lies between the wedge and the free reading.'],
     },
