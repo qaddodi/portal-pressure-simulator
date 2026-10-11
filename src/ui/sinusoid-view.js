@@ -90,6 +90,7 @@ export function createSinusoidView({ host }) {
     let L = lead[key];
     if (!L) { L = lead[key] = document.createElementNS(NS, 'g'); for (const t of ['line', 'circle']) L.append(document.createElementNS(NS, t)); leaders.append(L); }
     L.setAttribute('class', `sv-lead sv-lead-${key}`);
+    L.setAttribute('data-target', `sinusoid:${SV_TARGET[key] || key}`);
     const [tx, ty] = toScreen(x, y), sx = R.cx + Math.sign(tx - R.cx) * (R.w / 2 + 3), sy = clamp(ty, R.cy - R.hh / 2 + 4, R.cy + R.hh / 2 - 4);
     const [ln, dot] = L.children;
     const on = Math.abs(tx - sx) > 6 && Math.sign(tx - R.cx) === Math.sign(tx - sx);   // (none when the name already sits on it)
