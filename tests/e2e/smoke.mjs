@@ -974,11 +974,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         const vis = (e) => R(e).width > 0 && R(e).height > 0;
         let rows;
         if (id === 'abdomen') {
-          // one column: every group reaches the edge; beside each other: the treatment column does, and the first column's rows share one edge
+          // one column: every row reaches the edge; beside each other: the controls do, and the readings share their column's edge
           const two = getComputedStyle(view.querySelector('.ab-main')).gridTemplateColumns.split(' ').length > 1;
-          const ref = two ? R(view.querySelector('.ab-report')).right : inner;
-          rows = [...['.ab-rx', '.ab-rx-diu', '.ab-diu', '.ab-drain'].flatMap((q) => [...view.querySelectorAll(q)].map((e) => [e, inner])),
-            ...['.ab-head', '.ab-iap', '.ab-tap', '.ab-tap > .ab-row', '.ab-labs'].flatMap((q) => [...view.querySelectorAll(q)].map((e) => [e, ref]))];
+          const read = view.querySelector('.ab-read');
+          const ref = two ? R(read).right - parseFloat(getComputedStyle(read).paddingRight) : inner;
+          rows = [...['.ab-ctl > .ab-row', '.ab-drain'].flatMap((q) => [...view.querySelectorAll(q)].map((e) => [e, inner])),
+            ...['.ab-vol', '.ab-iap', '.ab-tiles'].flatMap((q) => [...view.querySelectorAll(q)].map((e) => [e, ref]))];
         } else {
           // a picture's box and the notes beside or under it; side by side, the right-most reaches the edge
           const kids = [...view.children].filter(vis);

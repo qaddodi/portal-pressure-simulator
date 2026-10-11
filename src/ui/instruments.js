@@ -253,90 +253,93 @@ export function createVarixWall() {
 // The one home for ascites: how much there is, whether it is building up, what it does to the
 // abdomen, what a diagnostic tap would show, and the two treatments (diuretics, paracentesis).
 // Tapping the fluid on the figure, the Ascites readout's actions and Treat > Paracentesis all open it.
+// Two blocks: what you read (plain values and flat tiles, nothing pressable), then what you change, in one
+// control vocabulary: a stepper (value, then − and + side by side), the app's switch, and one button, Drain.
 const SEV = ['ok', 'caution', 'danger', 'danger'];
 const GRADE = ['None', 'Grade 1', 'Grade 2', 'Grade 3'];
 const GRADE_TIP = ['No free fluid', 'Grade 1: seen on ultrasound only', 'Grade 2: moderate, symmetric distension', 'Grade 3: tense, marked distension'];
 export function createAbdomen({ onAction }) {
-  // A − value + stepper with big tap targets; used for serum albumin and the litres to drain.
+  // The stepper for serum albumin and the litres to drain: its value is shown beside it, not between − and +.
   const stepper = (label, unit, min, max, stepBy, dp, start, onSet) => {
     let v = start;
-    const out = h('output', { class: 'ab-step-val' });
+    const out = h('output', { class: 'ab-out' });
     const paint = () => { out.textContent = `${v.toFixed(dp)} ${unit}`; minus.disabled = v <= min; plus.disabled = v >= max; };
     const go = (d) => { v = +clamp(v + d, min, max).toFixed(dp); paint(); onSet(v); };
-    const minus = h('button', { class: 'ab-step-btn', 'aria-label': `${label}: less`, onclick: () => go(-stepBy) }, '−');
-    const plus = h('button', { class: 'ab-step-btn', 'aria-label': `${label}: more`, onclick: () => go(stepBy) }, '+');
+    const minus = h('button', { class: 'ab-sb', 'aria-label': `${label}: less`, onclick: () => go(-stepBy) }, '−');
+    const plus = h('button', { class: 'ab-sb', 'aria-label': `${label}: more`, onclick: () => go(stepBy) }, '+');
     paint();
-    return { el: h('div', { class: 'ab-step', role: 'group', 'aria-label': label }, minus, out, plus), get: () => v, set: (x) => { v = x; paint(); } };
+    return { out, el: h('div', { class: 'ab-step', role: 'group', 'aria-label': label }, minus, plus), get: () => v, set: (x) => { v = x; paint(); } };
   };
-  // Paracentesis: litres, an albumin toggle, and a Drain button that spells out the dose.
-  const alb = h('button', { class: 'ab-chip', 'aria-pressed': 'true', onclick: () => { alb.setAttribute('aria-pressed', String(alb.getAttribute('aria-pressed') !== 'true')); paintVol(); } });
-  const albOn = () => alb.getAttribute('aria-pressed') === 'true';
-  const albNote = h('div', { class: 'ab-note ab-warn' });
-  const drainLbl = h('span');
+  // A switch row: the whole row is the tap target, the switch sits at its right edge.
+  const toggle = (ic, title, sub, tip, onclick) => h('button', { class: 'ab-row ab-tg', role: 'switch', 'aria-checked': 'false', title: tip, onclick },
+    ic ? icon(ic) : h('span'), h('span', { class: 'ab-txt' }, title, sub), h('span', { class: 'switch-vis', 'aria-hidden': 'true' }, h('i')));
+  // Paracentesis: litres, Drain, and the albumin switch under it whose advice turns amber above 5 L without it.
+  const albT = h('b'), albS = h('small');
+  const alb = toggle(null, albT, albS, 'Albumin 8 g per litre drained: advised above 5 L, optional below.',
+    () => { alb.setAttribute('aria-checked', String(!albOn())); paintVol(); });
+  alb.setAttribute('aria-checked', 'true');
+  const albOn = () => alb.getAttribute('aria-checked') === 'true';
   let hasFluid = true;
   const vol = stepper('Litres to drain', 'L', 1, 10, 0.5, 1, 5, () => paintVol());
-  const drain = h('button', { class: 'btn primary ab-drain', onclick: () => onAction({ kind: 'paracentesis', mL: vol.get() * 1000, albumin: albOn() }) }, icon('needle'), drainLbl);
+  const drain = h('button', { class: 'ab-drain', onclick: () => onAction({ kind: 'paracentesis', mL: vol.get() * 1000, albumin: albOn() }) });
   function paintVol() {
-    const L = vol.get();
-    alb.textContent = `Albumin ${Math.round(L * 8)} g`;
-    alb.title = 'Albumin 8 g per litre drained: advised above 5 L, optional below.';
-    albNote.textContent = L > 5 && !albOn() ? 'Above 5 L, give albumin to protect the circulation and kidneys.' : '';
-    drainLbl.textContent = hasFluid ? 'Drain' : 'No fluid';
+    const L = vol.get(), warn = L > 5 && !albOn();
+    albT.textContent = `Albumin ${Math.round(L * 8)} g`;
+    albS.textContent = warn ? 'Above 5 L, give albumin to protect the kidneys' : '8 g per litre drained · advised above 5 L';
+    albS.classList.toggle('ab-warn', warn);
+    drain.textContent = hasFluid ? 'Drain' : 'No fluid';
     drain.disabled = !hasFluid;
   }
   paintVol();
-  // Diuretics: a full-width button that fills accent when on, driving the same parameter as the Treatments chip.
-  const diu = h('button', { class: 'ab-diu', 'aria-pressed': 'false', title: 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites. Keep the 100 : 40 mg ratio (5 : 2).' }, icon('pill'),
-    h('span', { class: 'ab-diu-txt' }, h('b', {}, 'Diuretics'), h('small', {}, 'Spironolactone 100 : furosemide 40 mg')), h('span', { class: 'ab-diu-ratio' }, '5 : 2'));
-  diu.addEventListener('click', () => updateParams((p) => { p.diuretics = !p.diuretics; return p; }, { label: 'Diuretics' }));
+  // Diuretics drives the same parameter as the Treatments chip.
+  const diu = toggle('pill', h('b', {}, 'Diuretics'), h('small', {}, 'Spironolactone 100 : furosemide 40 mg · 5 : 2'),
+    'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites. Keep the 100 : 40 mg ratio (5 : 2).',
+    () => updateParams((p) => { p.diuretics = !p.diuretics; return p; }, { label: 'Diuretics' }));
   // Serum albumin is a patient input that drives ascites (oncotic pull back into the vessels) and the SAAG.
   const sa = stepper('Serum albumin', 'g/dL', 1.5, 5, 0.1, 1, 4, (v) => updateParams((p) => { p.albumin = v; return p; }, { label: 'Serum albumin' }));
-  const numEl = h('b', {}, '—'), gradeEl = h('span', { class: 'ab-grade' });
-  const trendEl = h('div', { class: 'ab-trend' });
-  // Abdominal pressure as one slim bar, 0–30 mmHg, ticked at 12 (IAH) and 20 (ACS).
-  const iapFill = h('i', { class: 'ab-iap-fill' }), iapVal = h('span', { class: 'ctl-val' });
-  const iapBar = h('div', { class: 'ab-iap-bar', role: 'img', title: '12 mmHg: intra-abdominal hypertension · 20 mmHg: compartment syndrome' }, iapFill,
-    h('i', { class: 'ab-iap-mark', style: { left: '40%' } }), h('i', { class: 'ab-iap-mark', style: { left: '66.7%' } }));
-  const iap = h('div', { class: 'ab-iap' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Abdominal pressure'), iapVal), iapBar);
-  // A small belly that fills with the fluid, beside the volume.
+  sa.out.classList.add('ab-wide');
+  // Volume, grade and daily change, with a small belly that fills with the fluid.
+  const numEl = h('span', {}, '—'), gradeEl = h('span', { class: 'ab-grade' }), trendEl = h('div', { class: 'ab-trend' });
   const bellyFill = h('i', { class: 'ab-belly-fill' });
   const belly = h('div', { class: 'ab-belly', 'aria-hidden': 'true' }, bellyFill);
-  // The diagnostic tap, g/dL: one row of three, SAAG first and emphasised.
-  const lab = (k, sub, cls = '') => { const v = h('b', {}, '—'); return [h('div', { class: `ab-lab ${cls}` }, h('span', {}, k), v, h('small', {}, sub)), v]; };
-  const [saagEl, saagV] = lab('SAAG', 'serum − ascitic', 'ab-key'), [tpEl, tpV] = lab('Protein', 'total, fluid'), [albEl, albV] = lab('Albumin', 'in fluid');
-  const tapNote = h('span', { class: 'ab-note' });
-  const tap = h('div', { class: 'ab-tap' }, h('div', { class: 'ab-row' }, h('span', { class: 'ab-tap-title' }, 'Diagnostic tap'), tapNote),
-    h('div', { class: 'ab-labs' }, saagEl, tpEl, albEl),
-    h('div', { class: 'ab-row' }, h('span', { class: 'ctl-label' }, 'Serum albumin'), sa.el));
-  const info = h('div', { class: 'ab-report' },
-    h('div', { class: 'ab-head' }, h('div', { class: 'ab-sum' }, h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L')), h('div', { class: 'ab-meta' }, gradeEl, trendEl)), belly),
-    iap, tap);
-  // Treat: one card, the diuretics button, then the tap row and a full-width Drain.
-  const treat = h('div', { class: 'ab-report' },
-    h('div', { class: 'ab-rx' },
-      h('div', { class: 'hv-k' }, 'Treat'),
-      h('div', { class: 'ab-rx-diu' }, diu),
-      h('div', { class: 'ab-row ab-rx-row' }, h('span', { class: 'ab-rx-txt' }, h('b', {}, 'Paracentesis'), h('small', {}, 'litres to drain')), vol.el),
-      h('div', { class: 'ab-drain-row' }, alb, drain), albNote));
-  const el = h('div', { class: 'ab', 'data-pane': 'abdomen' }, h('div', { class: 'hv-main ab-main' }, info, treat));
+  // Abdominal pressure as one slim bar, 0–30 mmHg, ticked at 12 (IAH) and 20 (ACS).
+  const iapFill = h('i', { class: 'ab-iap-fill' }), iapNum = h('b'), iapWord = h('span', { class: 'ab-w' });
+  const iapBar = h('div', { class: 'ab-iap-bar', role: 'img', title: '12 mmHg: intra-abdominal hypertension · 20 mmHg: compartment syndrome' }, iapFill,
+    h('i', { class: 'ab-iap-mark', style: { left: '40%' } }), h('i', { class: 'ab-iap-mark', style: { left: '66.7%' } }));
+  // The tap, g/dL: three flat tiles, SAAG first. With no result, one quiet line takes their place (same height).
+  const lab = (k) => { const v = h('span', { class: 'ab-n' }, '—'); return [h('dl', { class: 'ab-tile' }, h('dt', {}, k), h('dd', {}, v, h('span', { class: 'ab-u' }, 'g/dL'))), v]; };
+  const [saagEl, saagV] = lab('SAAG'), [tpEl, tpV] = lab('Fluid protein'), [albEl, albV] = lab('Fluid albumin');
+  const why = h('div', { class: 'ab-why' });
+  const tiles = h('div', { class: 'ab-tiles' }, saagEl, tpEl, albEl, why);
+  const read = h('div', { class: 'ab-read' },
+    h('div', { class: 'ab-vol' }, h('div', { class: 'ab-vol-l' }, h('div', { class: 'ab-big' }, h('b', {}, numEl, h('small', {}, 'L')), gradeEl), trendEl), belly),
+    h('div', { class: 'ab-iap' }, h('div', { class: 'ab-kv' }, h('span', {}, 'Abdominal pressure'), h('span', { class: 'ab-v' }, iapNum, iapWord)), iapBar),
+    tiles);
+  const ctl = h('div', { class: 'ab-ctl' },
+    h('div', { class: 'ab-row' }, icon('drop'), h('span', { class: 'ab-txt' }, h('b', {}, 'Serum albumin')), h('span', { class: 'ab-end' }, sa.out, sa.el)),
+    diu,
+    h('div', { class: 'ab-row' }, icon('needle'), h('span', { class: 'ab-txt' }, h('b', {}, 'Paracentesis')), h('span', { class: 'ab-end' }, vol.out, vol.el, drain)),
+    alb);
+  const el = h('div', { class: 'ab', 'data-pane': 'abdomen' }, h('div', { class: 'ab-main' }, read, ctl));
   // Every frame calls this, but a pane the learner is scrolling must not be touched when nothing changed: on a phone,
   // rewriting a text node or an attribute to the same value is enough to make the browser stop a scroll in flight.
   const setText = (el, t) => { if (el.textContent !== t) el.textContent = t; };
-  const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
+  const setAttr = (el, k, v) => { if (v == null) { if (el.hasAttribute(k)) el.removeAttribute(k); } else if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
   const setData = (el, k, v) => { if (el.dataset[k] !== v) el.dataset[k] = v; };
   function update(f) {
     const a = f.metrics.ascites, p = store.get().params;
     setText(numEl, fmt(a.volume / 1000, 1));
     setText(gradeEl, GRADE[a.grade] || a.label); setAttr(gradeEl, 'title', GRADE_TIP[a.grade] || '');
     setData(gradeEl, 'sev', SEV[a.grade] || 'danger');
-    setAttr(diu, 'aria-pressed', String(!!p.diuretics));
+    setAttr(diu, 'aria-checked', String(!!p.diuretics));
     diu.disabled = !(verbEnabled('drug:diuretics', 'drug:diuretics') || verbEnabled('drugs', 'drugs'));
     if (sa.get() !== p.albumin) sa.set(p.albumin);
     const r = a.ratePerDay, trend = Math.abs(r) < 20 ? 'steady' : r > 0 ? 'building up' : 'resolving';
     setText(trendEl, `${r > 0 ? '+' : ''}${fmt(r, 0)} mL a day · ${trend}`);
     const sev = a.iap >= 20 ? 'danger' : a.iap >= 12 ? 'caution' : 'ok';
-    setText(iapVal, `${fmt(a.iap, 0)} mmHg · ${a.iap >= 20 ? 'compartment syndrome' : a.iap >= 12 ? 'high' : 'normal'}`);
-    setData(iapVal, 'sev', sev); setData(iapFill, 'sev', sev);
+    setText(iapNum, `${fmt(a.iap, 0)} mmHg`);
+    setText(iapWord, `· ${a.iap >= 20 ? 'compartment syndrome' : a.iap >= 12 ? 'high' : 'normal'}`);
+    setData(iapWord, 'sev', sev); setData(iapFill, 'sev', sev);
     const iw = `${Math.round(clamp(a.iap / 30, 0, 1) * 1000) / 10}%`;
     if (iapFill.style.width !== iw) iapFill.style.width = iw;
     setAttr(iapBar, 'aria-label', `Abdominal pressure ${fmt(a.iap, 0)} mmHg`);
@@ -345,8 +348,9 @@ export function createAbdomen({ onAction }) {
     const inCase = !!store.get().found, tapped = a.volume > 150 && !inCase;
     const r1 = (x) => Math.round(x * 10) / 10, saag = r1(r1(p.albumin) - r1(a.albumin));
     setText(saagV, tapped ? fmt(saag, 1) : '—'); setText(tpV, tapped ? fmt(a.totalProtein, 1) : '—'); setText(albV, tapped ? fmt(a.albumin, 1) : '—');
-    setAttr(saagEl, 'title', tapped ? `SAAG ${fmt(p.albumin, 1)} − ${fmt(a.albumin, 1)} = ${fmt(saag, 1)} g/dL. ≥ 1.1 means portal hypertension.` : '');
-    setText(tapNote, inCase ? 'Order it in the case' : tapped ? 'g/dL' : 'Too little fluid to tap');
+    setAttr(saagEl, 'title', tapped ? `SAAG ${fmt(p.albumin, 1)} − ${fmt(a.albumin, 1)} = ${fmt(saag, 1)} g/dL. ≥ 1.1 means portal hypertension.` : null);
+    setText(why, inCase ? 'Order the tap in the case to see fluid results' : 'Too little fluid to tap');
+    setAttr(tiles, 'data-empty', tapped ? null : '');
     if (hasFluid !== a.volume > 150) { hasFluid = a.volume > 150; paintVol(); }
     // Whole percents only: rewriting the height every frame would keep restarting its ease.
     const bh = `${Math.round(a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0)}%`;

@@ -2156,9 +2156,8 @@ button.finding:hover { background: var(--surface-2); }
 .pz-ghost b { color: var(--text-2); opacity: .7; font-variant-numeric: tabular-nums; }
 .pz-data.tool-only .pz-tiles, .pz-data.tool-only .pz-ladder, .pz-data.tool-only .pz-lg { display: none; }
 .pz-tool .ab-main { display: block; }
-.pz-tool .ab-main > .ab-report + .ab-report, .pz-tool .ab-tap > .ab-row:last-child { display: none; }
 .pz-tool .ab-belly { width: clamp(68px, calc(10 * var(--pzh)), 120px); height: clamp(68px, calc(10 * var(--pzh)), 120px); }
-.pz-tool .ab-sum .hv-num b { font-size: clamp(28px, calc(4.4 * var(--pzh)), 48px); }
+.pz-tool .ab-big > b { font-size: clamp(28px, calc(4.4 * var(--pzh)), 48px); }
 .pz-tool { position: relative; flex: none; }
 /* The varix wall: the cross-section beside its stress meter and the r, w and ΔP of Laplace's law (the equation is the slide's). */
 .pz-tool[data-kind="wall"] .pz-inst { display: flex; flex-direction: row; align-items: center; gap: 14px; }
@@ -2203,10 +2202,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-tool .pt-range,
 .pz-tool .pt-chips,
 .pz-tool .pt-tools,
-.pz-tool .ab-step,
-.pz-tool .ab-chip,
-.pz-tool .ab-note,
-.pz-tool .ab-controls { display: none; }
+.pz-tool .ab-ctl { display: none; }
 .pz-tool .dop-head:empty, .pz-tool .dop-head:not(:has(> :not(select):not(.dop-btns))) { display: none; }
 .pz-tool[data-kind="doppler"] .dop-box { height: clamp(150px, calc(24 * var(--pzh)), 300px); }
 .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: clamp(220px, calc(38 * var(--pzh)), 440px); }
@@ -2924,55 +2920,6 @@ button.finding:hover { background: var(--surface-2); }
   .hv-main { flex: none; gap: 12px; }
 }
 
-/* ── Ascites ────────────────────────────────────── */
-.instrument-view.ab { display: flex; flex-direction: column; align-items: stretch; min-height: 100%; }
-.ab-report { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.ab-report .hv-num { margin-top: -4px; }
-.ab-grade { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); margin-left: 4px; }
-.ab-grade::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
-.ab-grade[data-sev="ok"]::before { background: var(--ok); }
-.ab-grade[data-sev="caution"]::before { background: var(--caution); }
-.ab-grade[data-sev="danger"]::before { background: var(--danger); }
-.ab-note { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
-.check-row .ab-note { margin-left: auto; text-align: right; }
-.ab .check-row { flex-wrap: wrap; }
-
-.ab-trend { font-size: var(--fs-14); color: var(--text-2); margin-top: -4px; }
-.ab-iap { display: grid; gap: 4px; }
-.ab-iap .ctl-val[data-sev="caution"] { color: var(--caution); }
-.ab-iap .ctl-val[data-sev="danger"] { color: var(--danger); }
-.ab-iap-bar { position: relative; height: 10px; border-radius: 5px; background: var(--surface-3); overflow: hidden; }
-.ab-iap-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--ok); transition: width .4s var(--ease); }
-.ab-iap-fill[data-sev="caution"] { background: var(--caution); }
-.ab-iap-fill[data-sev="danger"] { background: var(--danger); }
-.ab-iap-mark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--stage-bg); opacity: .9; }
-.ab-iap-scale { position: relative; height: 14px; font-size: var(--fs-12); color: var(--text-3); }
-.ab-iap-scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
-.ab-iap-scale span:first-child { transform: none; }
-.ab-iap-scale span:last-child { transform: translateX(-100%); }
-.ab-sum { display: grid; gap: 6px; min-width: 0; }
-.ab-sum .hv-num { display: flex; align-items: baseline; gap: 4px; margin-top: 0; }
-.ab-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.ab-meta .ab-trend { margin-top: 0; font-size: var(--fs-12); }
-.ab-head { padding-bottom: 12px; border-bottom: 1px solid var(--hairline); margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.ab-grade { margin-left: 0; padding: 2px 8px; border-radius: 99px; background: var(--surface-3); }
-.ab-belly { position: relative; flex: none; width: 68px; height: 68px; margin-right: 4px; border-radius: 50% 50% 44% 44%; border: 2px solid color-mix(in srgb, var(--text-3) 45%, transparent); overflow: hidden; background: var(--surface); }
-.ab-belly-fill { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--ascites) 55%, transparent), color-mix(in srgb, var(--ascites) 90%, transparent)); transition: height .6s var(--ease); }
-.ab-tap { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--hairline); }
-.ab-tap-title { font-size: var(--fs-14); font-weight: 600; color: var(--text); }
-.ab-labs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.ab-tap-line { font-size: var(--fs-14); color: var(--text); font-weight: 500; line-height: 1.4; margin-top: -2px; }
-.ab-tap-line:empty { display: none; }
-.ab-lab { display: grid; gap: 0; padding: 4px 10px; text-align: center; border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--hairline); }
-.ab-lab span { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
-.ab-lab b { transition: color .3s var(--ease); font-size: var(--fs-20); white-space: nowrap; font-weight: 650; color: var(--text); line-height: 1.1; font-variant-numeric: tabular-nums; }
-.ab-lab small { font-size: var(--fs-12); color: var(--text-3); }
-.ab-lab[data-hi="true"] { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-.ab-report dd[data-sev="caution"] { color: var(--caution); font-weight: 600; }
-.ab-report dd[data-sev="danger"] { color: var(--danger); font-weight: 600; }
-@container (min-width: 620px) {
-  .ab-main { grid-template-columns: minmax(0, 1fr) 260px; }
-}
 .instrument-workspace .instrument-view .chart-box.perf-donut { height: min(var(--plot-h), 300px); }
 @container (max-width: 649px) or style(--one-col: 1) {
   .instrument-workspace .instrument-view .chart-box.perf-donut { height: 250px; }
@@ -4144,47 +4091,6 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 body.hvpg-swap .metric[data-id="hvpg"] > :not(.k), body.hvpg-swap .pt canvas, body.hvpg-swap .pt-hero .pt-v, body.hvpg-swap .pt-hero .pt-sev,
 body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s var(--ease) both; }
 @media (prefers-reduced-motion: reduce) { body.hvpg-swap .metric[data-id="hvpg"] > :not(.k), body.hvpg-swap .pt canvas, body.hvpg-swap .pt-hero .pt-v, body.hvpg-swap .pt-hero .pt-sev, body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: none; } }
-/* Ascites: compact tap row (SAAG emphasised) and one treatment card with big tap targets. */
-.ab-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
-.ab-tap .ab-row .ab-note { font-weight: 500; }
-.ab-lab { padding: 6px 8px; gap: 1px; }
-.ab-lab small { font-size: 11px; line-height: 1.2; }
-.ab-lab.ab-key { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
-.ab-lab.ab-key span { color: var(--accent); }
-.ab-lab.ab-key b { font-size: 26px; }
-.ab-labs { align-items: stretch; }
-.ab-lab { align-content: center; }
-.ab-rx { display: grid; gap: 4px; padding: 10px 12px; border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--hairline); }
-.ab-rx-row { min-height: 44px; }
-.ab-rx-diu { display: grid; padding-bottom: 6px; border-bottom: 1px solid var(--hairline); }
-.ab-diu { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 14px; border-radius: var(--r-control); border: 1px solid var(--hairline); background: var(--surface-2); color: var(--text); text-align: left; cursor: pointer; touch-action: manipulation; transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast); }
-.ab-diu > svg { flex: none; width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.ab-diu-txt { display: grid; flex: 1; min-width: 0; line-height: 1.25; }
-.ab-diu-txt b { font-weight: 650; font-size: var(--fs-14); }
-.ab-diu-txt small { font-size: var(--fs-12); color: var(--text-3); transition: color var(--t-fast); }
-.ab-diu-ratio { flex: none; font-weight: 700; font-size: var(--fs-14); font-variant-numeric: tabular-nums; padding: 3px 10px; border-radius: var(--r-pill); background: var(--surface-3); color: var(--accent-ink, var(--accent)); transition: background var(--t-fast), color var(--t-fast); }
-.ab-diu:hover { border-color: var(--border-strong); }
-.ab-diu[aria-pressed="true"] { background: var(--accent); border-color: transparent; color: var(--on-accent); }
-.ab-diu[aria-pressed="true"] .ab-diu-txt small { color: inherit; opacity: .85; }
-.ab-diu[aria-pressed="true"] .ab-diu-ratio { background: rgba(255, 255, 255, .22); color: inherit; }
-.ab-diu:disabled { opacity: .45; cursor: not-allowed; }
-.ab-rx-txt { display: grid; min-width: 0; font-size: var(--fs-14); color: var(--text); line-height: 1.25; }
-.ab-rx-txt b { font-weight: 600; }
-.ab-rx-txt small { font-size: var(--fs-12); color: var(--text-3); }
-.ab-step { display: inline-flex; align-items: center; flex: none; border-radius: var(--r-pill); background: var(--surface-3); padding: 3px; }
-.ab-step-btn { width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--surface); color: var(--text); font-size: 20px; line-height: 1; cursor: pointer; box-shadow: var(--shadow-1); touch-action: manipulation; transition: opacity var(--t-fast); }
-.ab-step-btn:disabled { opacity: .35; cursor: not-allowed; }
-.ab-step-val { min-width: 74px; text-align: center; font-weight: 650; font-size: var(--fs-14); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ab-drain-row { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-top: 4px; }
-.ab-drain { min-height: 44px; justify-content: center; }
-.ab-chip { min-height: 44px; padding: 0 14px; border-radius: var(--r-control); border: 1px solid var(--hairline); background: var(--surface-2); color: var(--text-2); font-weight: 600; font-size: var(--fs-14); cursor: pointer; white-space: nowrap; touch-action: manipulation; transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast); }
-.ab-chip::before { content: '○ '; }
-.ab-chip[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 60%, transparent); color: var(--text); }
-.ab-chip[aria-pressed="true"]::before { content: '✓ '; color: var(--accent); }
-.ab-warn { color: var(--caution); }
-.ab-warn:empty { display: none; }
-.ab-iap { gap: 6px; }
-
 /* Phone: a slimmer card header. The title is centred on the row; the close button sits in the
    right corner with a 44px tap area inside the header row, clear of the tabs under it;
    a quiet status (e.g. "2 running") sits in the left corner. The Tests row never scrolls. */
@@ -4488,30 +4394,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .home.leaving { opacity: 0; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .home { animation: none; } }
 
-/* Ascites: one compact card at every size, so all of it, Treat included, fits without scrolling. */
-.dock-pane:has(> .ab) { padding-top: 8px; padding-bottom: 8px; }
-.ab-main, .ab-report { gap: 4px; }
-.ab-head { padding-bottom: 4px; margin-bottom: 0; gap: 8px; }
-.ab-sum { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
-.ab-sum > .hv-k, .ab-lab small, .ab-rx-txt, .ab-rx > .hv-k { display: none; }
-.ab-sum .hv-num { font-size: 26px; line-height: 1.1; }
-.ab-belly { width: 34px; height: 34px; border-width: 1.5px; }
-.ab-iap { gap: 3px; }
-.ab-iap-bar { height: 6px; }
-.ab-tap { gap: 4px; padding-top: 4px; }
-.ab-lab { display: flex; align-items: baseline; justify-content: center; gap: 6px; padding: 4px 6px; }
-.ab-lab b, .ab-lab.ab-key b { font-size: var(--fs-16, 16px); }
-.ab-step-btn { width: 30px; height: 30px; font-size: 18px; }
-.ab-step-val { min-width: 70px; padding: 0 4px; }
-.ab-rx { grid-template-columns: auto auto 1fr; align-items: center; gap: 6px; padding: 6px 8px; }
-.ab-rx-diu { grid-column: 1 / -1; padding-bottom: 6px; }
-.ab-rx-row, .ab-drain-row { display: contents; }
-.ab-rx .ab-warn { grid-column: 1 / -1; }
-.ab-diu { min-height: 40px; padding: 3px 12px; }
-.ab-diu > svg { width: 20px; height: 20px; }
-.ab-diu-txt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ab-drain, .ab-chip { min-height: 36px; padding: 0 10px; }
-
 /* The Presenter's reflowing scale (scaleKey): zone names over a band, cut-offs under it, numbered dots, a key. */
 .pz-sk { --sk: clamp(13px, calc(2.2 * var(--pzh) / var(--vz)), 26px); font: 500 var(--sk)/1.3 var(--font-ui); color: var(--text); padding: .4em 0 0; }
 .pzk-names, .pzk-bar, .pzk-axis { position: relative; margin: 0 1.2em; }
@@ -4578,15 +4460,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace.float-ui .instrument-view[data-pane="fibroscan"] > .chart-box { flex: 1 1 0; height: auto; min-height: 200px; }
   .instrument-workspace.float-ui .instrument-view[data-pane="fibroscan"] > .ctl-sub { margin: 0; flex: none; }
 }
-/* Ascites: the drain row's controls share the card's width instead of running past its edge. */
-.ab-rx { grid-template-columns: auto minmax(0, auto) minmax(0, 1fr); }
-.ab-chip, .ab-drain { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@container (min-width: 620px) {
-  /* Beside the tap, the treatment column is narrower: volume and albumin share a line, the drain button takes the next. */
-  .ab-main { grid-template-columns: minmax(0, 1fr) 300px; }
-  .ab-main .ab-rx { grid-template-columns: auto minmax(0, 1fr); }
-  .ab-main .ab-rx .ab-drain { grid-column: 1 / -1; }
-}
 /* A sheet's panes are sized by the sheet, so what they show can follow its height. */
 .instrument-workspace.float-ui .dock-pane { container-type: size; }
 /* The Pressure switch sits above Over time: the trace takes what is left under it, not a whole pane's height. */
@@ -4613,49 +4486,85 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"]:not(.nat) { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); }
   .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"]:not(.nat) .fibroscan-box { width: 100%; height: 100% !important; max-height: none; }
 }
-/* Ascites in the Tests card: three groups at their natural height, one column (two beside each other where the card is wide).
-   The readout (volume, grade, belly, abdominal pressure), the tap (three results, serum albumin), then the treatment, with
-   one gap between rows and a hairline between groups. Every tile (the three results, both steppers, the albumin and
-   diuretics toggles) is one box: same height, radius, hairline and fill; "on" is an accent tint, and Drain, the only action,
-   is the same box filled with the accent. The card itself is sized to this content by the dock (dock.js, fitHeight). */
-.dock-pane:has(> .instrument-view.ab) { padding-top: 10px; padding-bottom: 10px; container-type: inline-size; }
-.instrument-view.ab, .instrument-workspace.float-ui .dock-pane > .instrument-view.ab { --ab-gap: 9px; --ab-h: 40px; flex: none; min-height: 0; }
-.instrument-view.ab :is(.ab-main, .ab-report) { flex: none; gap: var(--ab-gap); align-content: start; }
-.instrument-view.ab .ab-main { align-items: start; }   /* grid: each column as tall as its rows */
-.instrument-view.ab .ab-report { align-self: stretch; align-items: stretch; }   /* flex column: every row the column's full width */
-.instrument-view.ab .ab-head { padding: 0; margin: 0; border: 0; }
-.instrument-view.ab .ab-sum .hv-num { font-size: 30px; }
-.instrument-view.ab .ab-belly { width: 40px; height: 40px; }
-.instrument-view.ab .ab-iap { gap: 6px; }
-.instrument-view.ab .ab-iap-bar { height: 8px; }
-.instrument-view.ab :is(.ab-tap, .ab-rx) { gap: 8px; padding: var(--ab-gap) 0 0; border: 0; border-top: 1px solid var(--hairline); border-radius: 0; background: none; }
-.instrument-view.ab .ab-labs { gap: 8px; }
-.instrument-view.ab .ab-row { min-height: var(--ab-h); }
-.instrument-view.ab .ab-rx-row, .instrument-view.ab .ab-drain-row { display: contents; }
-.instrument-view.ab :is(.ab-lab, .ab-step, .ab-chip, .ab-diu, .ab-drain) { box-sizing: border-box; min-height: var(--ab-h); border-radius: var(--r-control); border: 1px solid var(--hairline); background: var(--surface-2); color: var(--text); box-shadow: none; }
-.instrument-view.ab .ab-lab { display: flex; align-items: baseline; justify-content: center; gap: 6px; padding: 0 6px; align-items: center; }
-.instrument-view.ab .ab-lab b, .instrument-view.ab .ab-lab.ab-key b { font-size: var(--fs-16, 16px); }
-.instrument-view.ab .ab-lab.ab-key, .instrument-view.ab :is(.ab-chip, .ab-diu)[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--surface-2)); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
-.instrument-view.ab .ab-step { display: inline-flex; align-items: stretch; padding: 0; overflow: hidden; }
-.instrument-view.ab .ab-step-btn { width: 36px; height: auto; min-height: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: 20px; outline-offset: -3px; }
-.instrument-view.ab .ab-step-val { align-self: center; min-width: 56px; padding: 0 4px; }
-.instrument-view.ab .ab-diu { padding: 0 12px; gap: 12px; }
-.instrument-view.ab .ab-diu[aria-pressed="true"] .ab-diu-txt small { color: var(--text-3); opacity: 1; }
-.instrument-view.ab .ab-diu[aria-pressed="true"] .ab-diu-ratio { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent-ink, var(--accent)); }
-.instrument-view.ab .ab-chip, .instrument-view.ab .ab-drain { padding: 0 10px; gap: 6px; font-size: 13px; }
-.instrument-view.ab .ab-drain { justify-content: center; font-weight: 600; background: var(--accent); border-color: transparent; color: var(--on-accent); }
-.instrument-view.ab .ab-drain:disabled { opacity: .45; }
-.instrument-view.ab .ab-rx > .hv-k { display: none; }
-@media (min-width: 768px) {
-  .dock-pane:has(> .instrument-view.ab) { padding-top: 14px; padding-bottom: 14px; }
-  .instrument-view.ab, .instrument-workspace.float-ui .dock-pane > .instrument-view.ab { --ab-gap: 16px; --ab-h: 44px; }
-  .instrument-view.ab .ab-chip, .instrument-view.ab .ab-drain { font-size: var(--fs-14); padding: 0 14px; }
-}
+/* Ascites in the Tests card (instruments.js createAbdomen). Two blocks split by one hairline: what you read, then what
+   you change (side by side, the same height, where the card is wide). Readouts are plain text and flat tiles with the
+   label above the value, the Scope card's tile: no border, nothing that looks pressable. Controls share one vocabulary:
+   a stepper (the value, then − and + side by side), the app's switch on a row that is its own tap target, and one
+   filled button, Drain. The card is sized to this content by the dock (dock.js, fitHeight). */
+/* A phone's sheet is capped in height, so its rows and gaps are a little tighter and the whole card still fits without scrolling. */
+.dock-pane:has(> .instrument-view.ab) { --ab-g: 12px; --ab-rg: 10px; --ab-row: 42px; --ab-big: 28px; --ab-sb-w: 40px; --ab-sb-h: 34px; padding-top: 12px; padding-bottom: 8px; container-type: inline-size; }
+@media (min-width: 768px) { .dock-pane:has(> .instrument-view.ab) { --ab-g: 16px; --ab-rg: 12px; --ab-row: 44px; --ab-big: 30px; --ab-sb-w: 44px; --ab-sb-h: 36px; padding-top: 16px; padding-bottom: 12px; } }
+.instrument-view.ab, .instrument-workspace.float-ui .dock-pane > .instrument-view.ab { display: block; flex: none; min-height: 0; }
+.ab-main { display: grid; grid-template-columns: minmax(0, 1fr); }
+.ab-read { display: grid; gap: var(--ab-rg); align-content: start; min-width: 0; }
+.ab-ctl { display: grid; gap: 2px; align-content: start; min-width: 0; margin-top: var(--ab-g); padding-top: calc(var(--ab-g) - 5px); border-top: 1px solid var(--hairline); }
 @container (min-width: 620px) {
-  /* Side by side: the treatment column is set off by a hairline on its left, not above. */
-  .instrument-view.ab .ab-report + .ab-report { align-self: stretch; border-left: 1px solid var(--hairline); padding-left: var(--ab-gap); }
-  .instrument-view.ab .ab-report + .ab-report .ab-rx { border-top: 0; padding-top: 0; }
+  .instrument-workspace:not(.side) .ab-main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .instrument-workspace:not(.side) .ab-read { padding-right: var(--ab-g); }
+  .instrument-workspace:not(.side) .ab-ctl { margin-top: 0; padding: 0 0 0 var(--ab-g); border-top: 0; border-left: 1px solid var(--hairline); align-content: center; }
 }
+.ab-vol { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; }
+.ab-vol-l { display: grid; gap: 3px; min-width: 0; }
+.ab-big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.ab-big > b { font-size: var(--ab-big); font-weight: 600; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.ab-big > b small { margin-left: 3px; font-size: var(--fs-14); font-weight: 500; letter-spacing: 0; color: var(--text-3); }
+.ab-grade { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+.ab-grade::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); transition: background .3s var(--ease); }
+.ab-grade[data-sev="ok"]::before { background: var(--ok); }
+.ab-grade[data-sev="caution"]::before { background: var(--caution); }
+.ab-grade[data-sev="danger"]::before { background: var(--danger); }
+.ab-trend { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.ab-belly { position: relative; flex: none; width: 40px; height: 40px; border-radius: 50% 50% 44% 44%; border: 2px solid color-mix(in srgb, var(--text-3) 45%, transparent); overflow: hidden; background: var(--surface); }
+.ab-belly-fill { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--ascites) 55%, transparent), color-mix(in srgb, var(--ascites) 90%, transparent)); transition: height .6s var(--ease); }
+.ab-iap { display: grid; gap: 6px; }
+.ab-kv { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; }
+.ab-kv > span:first-child { color: var(--text-2); white-space: nowrap; }
+.ab-v { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 2px 6px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.ab-v b { font-weight: 650; color: var(--text); }
+.ab-w { color: var(--text-3); transition: color .3s var(--ease); }
+.ab-w[data-sev="caution"] { color: var(--caution); font-weight: 600; }
+.ab-w[data-sev="danger"] { color: var(--danger); font-weight: 600; }
+.ab-iap-bar { position: relative; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.ab-iap-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--ok); transition: width .45s var(--ease), background .3s var(--ease); }
+.ab-iap-fill[data-sev="caution"] { background: var(--caution); }
+.ab-iap-fill[data-sev="danger"] { background: var(--danger); }
+.ab-iap-mark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--stage-bg); opacity: .9; }
+.ab-tiles { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ab-tile { display: grid; gap: 1px; min-width: 0; margin: 0; padding: 6px 10px 7px; border-radius: var(--r-control); background: var(--surface-2); transition: opacity .25s var(--ease); }
+.ab-tile dt { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ab-tile dd { margin: 0; font-size: 17px; line-height: 1.25; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ab-n { font-weight: 650; color: var(--text); }
+.ab-u { margin-left: 3px; font-size: var(--fs-12); font-weight: 500; color: var(--text-3); }
+.ab-why { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 12px; border-radius: var(--r-control); background: var(--surface-2); color: var(--text-3); font-size: 13px; opacity: 0; visibility: hidden; transition: opacity .25s var(--ease), visibility .25s; }
+.ab-tiles[data-empty] .ab-tile { opacity: 0; }
+.ab-tiles[data-empty] .ab-why { opacity: 1; visibility: visible; }
+.ab-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; column-gap: 12px; min-height: var(--ab-row); padding: 3px 0; }
+.ab-row > svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
+.ab-txt { display: grid; min-width: 0; line-height: 1.3; }
+.ab-txt b { font-size: var(--fs-14); font-weight: 500; color: var(--text); }
+.ab-txt small { font-size: var(--fs-12); color: var(--text-3); transition: color .25s var(--ease); }
+.ab-txt small.ab-warn { color: var(--caution); }
+.ab-end { display: flex; align-items: center; gap: 8px; }
+.ab-out { min-width: 3.4em; text-align: right; font-size: var(--fs-14); font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ab-out.ab-wide { min-width: 4.9em; }
+.ab-step { display: inline-flex; flex: none; border-radius: var(--r-control); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); overflow: hidden; }
+.ab-sb { width: var(--ab-sb-w); height: var(--ab-sb-h); padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--text); font: 500 19px/1 var(--font-ui); cursor: pointer; touch-action: manipulation; outline-offset: -3px; transition: background var(--t-fast); }
+.ab-sb + .ab-sb { box-shadow: inset 1px 0 0 var(--border-strong); }
+.ab-sb:active:not(:disabled) { background: var(--surface-3); }
+.ab-sb:disabled { color: var(--text-3); opacity: .45; cursor: not-allowed; }
+.ab-tg { width: 100%; border: 0; border-radius: var(--r-control); background: none; text-align: left; cursor: pointer; touch-action: manipulation; }
+.ab-tg:disabled { opacity: .5; cursor: not-allowed; }
+.ab-tg .switch-vis { position: relative; flex: none; width: 38px; height: 22px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: background .2s var(--ease), box-shadow .2s var(--ease); }
+.ab-tg .switch-vis i { position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: transform .22s var(--ease); }
+.ab-tg[aria-checked="true"] .switch-vis { background: var(--accent); box-shadow: inset 0 0 0 1px transparent; }
+.ab-tg[aria-checked="true"] .switch-vis i { transform: translateX(16px); }
+.ab-drain { min-width: 84px; height: var(--ab-sb-h); padding: 0 14px; border: 0; border-radius: var(--r-control); background: var(--accent); color: var(--on-accent); font: 600 var(--fs-14)/1 var(--font-ui); cursor: pointer; touch-action: manipulation; transition: opacity .2s var(--ease), filter var(--t-fast); }
+.ab-drain:disabled { opacity: .4; cursor: not-allowed; }
+@media (hover: hover) {
+  .ab-sb:hover:not(:disabled) { background: var(--surface-2); }
+  .ab-drain:hover:not(:disabled) { filter: brightness(1.07); }
+}
+@media (prefers-reduced-motion: reduce) { .ab :is(*, *::before) { transition: none; } }
 
 /* Scope's readings: the grade leads with its status, wall stress is a meter toward the tear point, size and
    wall sit side by side, red signs and bands are chips. The position label sits on the view's dark rim. */
@@ -4830,7 +4739,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* A data card squeezed by long words (an imported deck's long title, a tool and several tiles) shrinks to fit (presenter.js
    fitCards), the tool's tap chips put the name over the number when narrow, and a tile's rating wraps inside the tile. */
 .pz-data.under > * { flex: none; }
-.pz-tool .ab-lab { flex-wrap: wrap; row-gap: 0; min-width: 0; }
 .pzt-r { min-width: 0; hyphens: auto; overflow-wrap: break-word; }
 .pz.stack .pzt-r { font-size: clamp(11px, 9cqi, 15px); }
 
