@@ -9,6 +9,7 @@ import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.j
 import { createLobuleZoom } from './lobule-zoom.js?v=922f5a6c8f';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
+import { glassCallout } from './callout.js?v=7bf909808a';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b96611a7c7';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
@@ -3374,6 +3375,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       let el = made.get(k);
       if (!el) {
         el = document.createElement('div'); el.className = `cath-label site ${d.cls} cath-pre`;
+        if (!d.res) el._glass = glassCallout(el);
         const sm = document.createElement('small'); sm.textContent = d.kicker;
         const b = document.createElement('b'), u = document.createElement('span'); u.textContent = d.unit ?? 'mmHg';
         el.append(sm, b, u);
@@ -3403,6 +3405,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (el._below == null && el.offsetHeight) { el._below = d.below ? y + 18 + el.offsetHeight < y1 : y - 18 - el.offsetHeight < y0; el.dataset.at = el._below ? 'ahead' : ''; }
       const half = el.offsetWidth / 2, cx = clamp(x, Math.min(x0 + half, (x0 + x1) / 2), Math.max(x1 - half, (x0 + x1) / 2));
       el.style.setProperty('--ax', `${(x - cx).toFixed(1)}px`);
+      el._glass?.(x - cx);
       el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`;
     }
   }
@@ -3672,9 +3675,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const k = document.createElement('small'); k.textContent = l.kicker || ''; el.append(k);
       const b = document.createElement('b'); b.textContent = l.text; el.append(b);
       if (l.unit) { const u = document.createElement('span'); u.textContent = l.unit; el.append(u); }
+      el._glass = glassCallout(el);
       return el;
     };
-    const fill = (el, l) => { if (el.firstChild.textContent !== l.kicker) el.firstChild.textContent = l.kicker || ''; const b = el.querySelector('b'); if (b.textContent !== l.text) b.textContent = l.text; };
+    const fill = (el, l) => { const sm = el.querySelector('small'); if (sm.textContent !== l.kicker) sm.textContent = l.kicker || ''; const b = el.querySelector('b'); if (b.textContent !== l.text) b.textContent = l.text; };
     const build = (l) => {
       if (l.at !== 'sum') return pill(l);
       // The two readings stacked (wedged above free, as on the tracing), a bracket joining them and
@@ -3716,6 +3720,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // Kept inside the stage: the box moves in and its pointer stays on the point.
         const half = el.offsetWidth / 2, cx = clamp(x + dx, Math.min(half + 8, W / 2), Math.max(W - half - 8, W / 2));
         el.style.setProperty('--ax', `${(x + dx - cx).toFixed(1)}px`);
+        el._glass(x + dx - cx);
         el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`;
         return;
       }

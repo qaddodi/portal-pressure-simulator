@@ -2760,31 +2760,30 @@ button.finding:hover { background: var(--surface-2); }
 .cath-on #labels { opacity: 0; visibility: hidden; }
 .cath-labels { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 .cath-labels[hidden] { display: none; }
-.cath-label { position: absolute; left: 0; top: 0; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border-radius: 14px; white-space: nowrap;
-  --c: var(--text); --rg: color-mix(in srgb, var(--c) 70%, var(--surface)); --px: 50%;
-  background: var(--surface); border: 2px solid var(--rg); color: var(--text); font: 500 12px var(--font-ui);
+.cath-label { position: absolute; left: 0; top: 0; isolation: isolate; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border: 2px solid transparent; border-radius: 14px; white-space: nowrap;
+  --c: var(--text); --rg: color-mix(in srgb, var(--c) 70%, transparent); --lo: 1;
+  color: var(--text); font: 500 12px var(--font-ui);
   box-shadow: 0 8px 24px rgba(16, 20, 30, .22);
-  translate: -50% calc(-100% - 18px); transition: opacity .4s var(--ease), top .4s var(--ease); }
-/* A pointer down to the tip (or up to the wedged vein, for the reading ahead of it). Card and pointer are one outline:
-   the ring colour is opaque (so overlaps never darken), ::after is the pointer in the ring colour and ::before the
-   same shape 2 px smaller in the card's fill, reaching 2 px into the card so it also opens the border where the two join. */
-.cath-label::before, .cath-label::after { content: ''; position: absolute; left: clamp(28px, calc(50% + clamp(-40%, var(--ax, 0px), 40%)), calc(100% - 28px)); translate: -50% 0; pointer-events: none; }
-.cath-label::after { z-index: -2; width: 26px; height: 13px; bottom: -13px; background: var(--rg); clip-path: polygon(0 0, 100% 0, 50% 100%); }
-.cath-label::before { z-index: -1; width: 20.34px; height: 12.17px; bottom: -10.17px; background: var(--surface); clip-path: polygon(0 0, 100% 0, 100% 2px, 50% 100%, 0 2px); }
+  translate: -50% calc(-100% - 18px); transition: top .4s var(--ease); }
+/* The body is frosted glass like the panels (the data card's tint and blur), drawn by callout.js as one shape: the card and
+   its pointer (down to the tip, or up to the wedged vein, for the reading ahead of it) with its 2 px outline.
+   The fades run on the label's children, not the label: a faded ancestor would stop the glass seeing the figure behind it. */
+.cath-label > * { opacity: var(--lo); transition: opacity .4s var(--ease); }
+.cl-glass { position: absolute; z-index: -1; pointer-events: none; background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); }
+.cl-glass svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.cl-glass path { fill: none; stroke: var(--rg); stroke-width: 4; stroke-linejoin: miter; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .cl-glass { background: color-mix(in srgb, var(--surface) 94%, transparent); } }
+@media (prefers-reduced-transparency: reduce) { .cl-glass { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 .cath-label[data-at="ahead"] { translate: -50% 18px; }
 .cath-label[data-at="ahead"].above { translate: -50% calc(-100% - 18px); }
-.cath-label[data-at="ahead"]::after { bottom: auto; top: -13px; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
-.cath-label[data-at="ahead"]::before { bottom: auto; top: -10.17px; clip-path: polygon(50% 0, 100% calc(100% - 2px), 100% 100%, 0 100%, 0 calc(100% - 2px)); }
-.cath-label[data-at="ahead"].above::after { top: auto; bottom: -13px; clip-path: polygon(0 0, 100% 0, 50% 100%); }
-.cath-label[data-at="ahead"].above::before { top: auto; bottom: -10.17px; clip-path: polygon(0 0, 100% 0, 100% 2px, 50% 100%, 0 2px); }
 .cath-label small { color: var(--c); font-weight: 700; font-size: 12px; letter-spacing: .06em; }
 .cath-label b { font-size: 26px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c); }
 .cath-label b + span { color: var(--text-3); font-size: 12px; font-weight: 600; margin-top: -2px; }
 .cath-label.free { --c: var(--tr-hv); }
 .cath-label.wedge { --c: var(--tr-wedge); }
-.cath-label.ghost { opacity: .5; }
+.cath-label.ghost { --lo: .5; }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
-.cath-label.site { transition: opacity .6s var(--ease) .35s, scale .6s var(--ease) .35s; }
+.cath-label.site { transition: scale .6s var(--ease) .35s; } .cath-label.site > * { transition: opacity .6s var(--ease) .35s; }
 .cath-label.site.pv { --c: var(--tr-pv); } .cath-label.site.ivc { --c: var(--tr-ivc); }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
 .scan-probe { --scan: #f0924a; /* the orange of the FibroScan card's readout (ORANGE in fibroscan.js) */ position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity .6s var(--ease); pointer-events: none; }
@@ -2822,7 +2821,7 @@ button.finding:hover { background: var(--surface-2); }
 /* Under an upright circuit (a phone) the two readings share one line, without the unit, so both clear the data card. */
 .app .cath-label.site.res.low { translate: calc(-100% - 10px) 10px; } .app .cath-label.site.res.coll.low { translate: 10px 10px; } .app .cath-label.site.res.gut.low { translate: -50% calc(100% + 18px); }
 .app .cath-label.site.res.low b + span { display: none; }
-.cath-label.site.res::before, .cath-label.site.res::after { display: none; }
+
 .cath-label.site.res small, .app.presenting .cath-label.site.res small { color: var(--text-3); font-size: calc(12px * var(--sk, 1)); letter-spacing: .02em; font-weight: 600; }
 .cath-label.site.res b, .app.presenting .cath-label.site.res b { color: var(--text); font-size: calc(16px * var(--sk, 1)); }
 .cath-label.site.res b + span, .app.presenting .cath-label.site.res b + span { color: var(--text-3); font-size: calc(11px * var(--sk, 1)); margin: 0; }
@@ -2834,7 +2833,7 @@ button.finding:hover { background: var(--surface-2); }
 .res-one .res-line { stroke: var(--res-c, var(--text)); stroke-width: var(--res-w, 1.5px); opacity: .8; transition: stroke-width .8s var(--ease), stroke .6s var(--ease), opacity .6s var(--ease); }
 .res-one.lit .res-line { opacity: 1; stroke-width: calc(var(--res-w, 1.5px) + 1.5px); }
 .res-one.lit .res-halo { stroke: var(--res-c); stroke-width: calc(var(--res-w, 1.5px) + 9px); opacity: .22; }
-.cath-label.site.off { opacity: 0; transition-delay: 0s; }
+.cath-label.site.off { --lo: 0; } .cath-label.site.off, .cath-label.site.off > * { transition-delay: 0s; }
 .cath-label.site { padding: 5px 12px 6px; } .cath-label.site b { font-size: 20px; }
 /* A phone keeps each site to one line (name, value, unit) so two fit in the small figure. */
 @media (max-width: 600px) { .cath-label.site { flex-direction: row; align-items: baseline; gap: 5px; padding: 4px 10px; border-radius: 11px; } .cath-label.site b { font-size: 16px; } .cath-label.site b + span { margin-top: 0; } }
@@ -2842,7 +2841,7 @@ button.finding:hover { background: var(--surface-2); }
 .cath-label.ok { --c: var(--ok); } .cath-label.caution { --c: color-mix(in srgb, var(--caution) 80%, var(--text)); } .cath-label.danger { --c: var(--danger); }
 @media (max-width: 600px) { .cath-label { padding: 5px 12px 6px; } .cath-label b { font-size: 21px; } .cath-label small, .cath-label b + span { font-size: 11px; } }
 /* The result: both readings stacked, a bracket joining them and the difference worked out beside it. */
-.cath-sum { position: absolute; inset: 0; transition: opacity .4s var(--ease); }
+.cath-sum { position: absolute; inset: 0; }
 .cath-leads { position: absolute; left: 0; top: 0; overflow: visible; }
 .cath-leads .lead { fill: none; stroke-width: 1.6; stroke: var(--text-3); stroke-linejoin: round; }
 .cath-leads .lead-dot { stroke: var(--surface); stroke-width: 1.5; fill: var(--text-3); }
@@ -2851,15 +2850,17 @@ button.finding:hover { background: var(--surface-2); }
 .cath-sum-box { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; transition: top .4s var(--ease); }
 .cath-sum-col { display: flex; flex-direction: column; gap: 10px; }
 .cath-label.in-sum { position: relative; translate: none; transition: none; }
-.cath-label.in-sum::before, .cath-label.in-sum::after { display: none; }
+.cath-label.in-sum > * { transition: opacity .4s var(--ease); }
 .cath-brace { flex: none; overflow: visible; }
 .cath-brace path { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 /* A reading fades in when it appears and out when it goes (opacity and a few pixels of rise only). */
-.cath-label.cath-pre, .cath-sum.cath-pre { opacity: 0; }
+.cath-label.cath-pre { --lo: 0; }
+.cath-sum.cath-pre .cath-label { --lo: 0; } .cath-sum.cath-pre .cath-brace, .cath-sum.cath-pre .cath-leads { opacity: 0; transition-delay: 0s; }
 /* The summary after the readings travel in: the bracket and leaders follow, then the HVPG fades and rises in. */
 .cath-sum .cath-brace, .cath-sum .cath-leads { transition: opacity .35s var(--ease) .65s; }
-.cath-sum .cath-label.in-sum.calc { transition: opacity .45s var(--ease) .75s, translate .45s var(--ease) .75s; }
-.cath-sum.cath-travel .cath-brace, .cath-sum.cath-travel .cath-leads, .cath-sum.cath-travel .cath-label.in-sum.calc { opacity: 0; transition: none; }
+.cath-sum .cath-label.in-sum.calc { transition: translate .45s var(--ease) .75s; } .cath-sum .cath-label.in-sum.calc > * { transition: opacity .45s var(--ease) .75s; }
+.cath-sum.cath-travel .cath-brace, .cath-sum.cath-travel .cath-leads { opacity: 0; transition: none; }
+.cath-sum.cath-travel .cath-label.in-sum.calc { --lo: 0; transition: none; } .cath-sum.cath-travel .cath-label.in-sum.calc > * { transition: none; }
 .cath-sum.cath-travel .cath-label.in-sum.calc { translate: 0 6px; }
 @keyframes hvpg-in { from { opacity: 0; translate: 0 5px; } }
 .hvpg-kv dd.in { animation: hvpg-in .45s var(--ease); }
