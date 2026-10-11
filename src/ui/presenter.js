@@ -1100,7 +1100,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const from = d === true ? slides[stateOf[i - 1]] : slides.find((x) => x.id === d);
     return { label: s.tool.deltaLabel || (d === true && s.lapse?.from) || from?.kicker || 'Before', value: `${fmt(r[g[0]], g[2])} ${g[1]}` };
   }
-  const cardTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'This patient, from the model'));
+  const cardTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'This patient'));
   // The talk so far, for a pressure trace: every state up to slide i, once each.
   // Each carries its time point (the deck's days so far) and what happened there (the first tick among its slides, else its title).
   const whenOf = (k) => {
