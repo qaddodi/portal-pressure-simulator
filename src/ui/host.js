@@ -7,7 +7,9 @@ const pending = new Map();
 
 function dispatch(msg) {
   if (msg.reqId && pending.has(msg.reqId)) {
-    const res = pending.get(msg.reqId); pending.delete(msg.reqId); res(msg);
+    // An engine error rejects its request, so nothing waits on it forever.
+    const p = pending.get(msg.reqId); pending.delete(msg.reqId);
+    if (msg.type === 'error') p.reject(new Error(msg.message)); else p.resolve(msg);
   }
   (handlers.get(msg.type) || []).forEach((fn) => fn(msg));
 }
@@ -15,7 +17,7 @@ function dispatch(msg) {
 export async function startHost() {
   let w;
   try {
-    w = new Worker(new URL('../worker.js?v=cf2cc58624', import.meta.url), { type: 'module' });
+    w = new Worker(new URL('../worker.js?v=16c63d6730', import.meta.url), { type: 'module' });
     await new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error('worker timeout')), 4000);
       w.onmessage = (e) => { clearTimeout(t); w.onmessage = (ev) => dispatch(ev.data); dispatch(e.data); resolve(); };
@@ -28,7 +30,7 @@ export async function startHost() {
     // engine alive, or let its late frames reach the fallback's subscribers.
     if (w) { w.onmessage = null; w.onerror = null; w.terminate(); }
     console.warn('Web Worker unavailable, running engine on main thread.', err);
-    const { createCore } = await import('../worker-core.js?v=49f666a803');
+    const { createCore } = await import('../worker-core.js?v=c0ea950974');
     const core = createCore((m) => setTimeout(() => dispatch(m), 0));
     impl = { post: (m) => core.handle(structuredClone(m)), kind: 'main' };
     impl.post({ type: 'init' });
@@ -44,6 +46,6 @@ export const host = {
   },
   request(type, payload = {}) {
     const reqId = reqSeq++;
-    return new Promise((resolve) => { pending.set(reqId, resolve); impl.post({ type, reqId, ...payload }); });
+    return new Promise((resolve, reject) => { pending.set(reqId, { resolve, reject }); impl.post({ type, reqId, ...payload }); });
   },
 };

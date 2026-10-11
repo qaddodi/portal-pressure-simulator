@@ -6,7 +6,7 @@
 // the four columns a deflation (0 engorged .. 1 strangulated) and up to four knuckle strengths
 // (0 none .. 1 a cinched band with its dusky knuckle).
 
-import { cssRGB } from './util.js?v=99ed58b0f2';
+import { cssRGB } from './util.js?v=0cca243d2a';
 
 const TAU = Math.PI * 2;
 const NCOL = 4;
@@ -227,6 +227,8 @@ export function createEndoGL() {
   gl.uniform4fv(u.c0, new Float32Array(c0)); gl.uniform4fv(u.c1, new Float32Array(c1));
   return {
     canvas: cv,
+    /** Free the GL context now (a presenter copy that is done), rather than whenever the browser gets to it. */
+    dispose() { gl.getExtension('WEBGL_lose_context')?.loseContext(); cv.width = cv.height = 0; },
     // Raw RGBA of the last frame (for tests).
     pixels() { const n = cv.width, a = new Uint8Array(n * n * 4); gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, a); return a; },
     // st: { grow, vis, red (0..1 red-sign strength), def: [4], kn: [16] }; draws into the shared canvas at res x res.

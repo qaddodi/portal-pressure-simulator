@@ -3,14 +3,14 @@
 
 import { store, hiddenNow } from './store.js?v=7fb7280c05';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=99ed58b0f2';
-import { lobuleFlows } from './lobule-model.js?v=78276222fb';
-import { createProfile } from './charts.js?v=7cf95e60eb';
-import { createPressureTime } from './pressure-time.js?v=a09f441b4c';
-import { createFibroScan } from './fibroscan.js?v=76bb698700';
-import { createHvpgProcedure } from './hvpg-proc.js?v=ea7aee7cc4';
-import { createDoppler } from './doppler.js?v=834b71ae78';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=6af9107275';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=0cca243d2a';
+import { lobuleFlows } from './lobule-model.js?v=4b6aa4841d';
+import { createProfile } from './charts.js?v=b9fe53b914';
+import { createPressureTime } from './pressure-time.js?v=b6b3aae48b';
+import { createFibroScan } from './fibroscan.js?v=0e979fa0d9';
+import { createHvpgProcedure } from './hvpg-proc.js?v=456e67ed78';
+import { createDoppler } from './doppler.js?v=d4daf2cb9a';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=fba9660a48';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
 const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
@@ -123,6 +123,10 @@ export function readoutValue(t, m, hidden) {
 const ALIAS = { flow: 'profile', perfusion: 'profile', chart: 'profile' };
 
 export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
+  // One app-wide relayout for a burst of changes (a mode change also changes the role and the lobule): every resize
+  // listener (the figure, the timeline, the presenter) runs once, not once per key.
+  let rzT = 0;
+  const resizeSoon = () => { clearTimeout(rzT); rzT = setTimeout(() => dispatchEvent(new Event('resize')), 30); };
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   // A phone's four tiles are narrow: short names and status words where the long ones would be cut off.
@@ -153,7 +157,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // Student mode keeps the two gradients (HVPG, PPG) and no "all readouts" chevron (CSS).
   const syncLobule = () => { const st = store.get(), on = !!st.lobule, pri = on ? LOBULE_PRIMARY : st.role === 'student' && st.mode === 'explore' ? STUDENT_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
   // A paused model sends no frames: fill the tiles from the last one at once (no dashes).
-  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); setTimeout(() => dispatchEvent(new Event('resize')), 30); });
+  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
   syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
@@ -178,7 +182,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       strip.animate({ height: [`${h0}px`, `${h1}px`] }, { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = () => dispatchEvent(new Event('resize'));
       strip.style.overflow = 'hidden'; setTimeout(() => { strip.style.overflow = ''; }, 300);
     }
-    setTimeout(() => dispatchEvent(new Event('resize')), 30);
+    resizeSoon();
   };
   moreBtn.addEventListener('click', () => setAll(!strip.classList.contains('all'), true));
   // Drag the strip up to open it, down to close it (touch only; where the chevron is shown). It follows
@@ -474,6 +478,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const on = workspace.classList.contains('fit');
     if (!fits && !on) return;
     clearTimeout(fitTimer);
+    if (!workspace.offsetParent) return;   // the dock is closed (display: none): nothing to fit
     const cs = getComputedStyle(workspace);
     const full = isSide() ? workspace.offsetParent.clientHeight - parseFloat(cs.top) - parseFloat(cs.bottom) : parseFloat(workspace.style.getPropertyValue('--instrument-h')) || workspace.offsetHeight;
     let need = 0;
@@ -504,7 +509,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     endPick();
     updateHeader(); layout();
     queueRefresh();
-    setTimeout(() => dispatchEvent(new Event('resize')), 30);
+    resizeSoon();
   }
   const canSplit = () => (isSide() ? stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') >= 620 : body.clientWidth >= 1000 || workspace.clientWidth >= 1000) || state === 'focus';
   // Pressure and Over time read as one story: where the card is roomy (desktop, iPad landscape) they open

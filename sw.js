@@ -3,7 +3,14 @@
 // is one and from the cache when there isn't, so the simulator keeps working in an exam hall
 // with poor Wi-Fi. Bump CACHE to drop old entries.
 const CACHE = 'pps-v3';
+const STAMP = /[?&]v=[0-9a-f]{6,}/;
 const SHELL = ['./', 'index.html', 'fonts/fonts.css', 'manifest.webmanifest', 'brand/mark.svg', 'brand/icon-192.png'];
+
+// A new stamp of a file replaces the older ones, so the cache holds one copy per file instead of one per release.
+function prune(c, url) {
+  const u = new URL(url);
+  return c.keys().then((keys) => Promise.all(keys.filter((k) => { const o = new URL(k.url); return o.pathname === u.pathname && o.search !== u.search && STAMP.test(k.url); }).map((k) => c.delete(k))));
+}
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -14,9 +21,9 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-  const stamped = /[?&]v=[0-9a-f]{6,}/.test(req.url);
+  const stamped = STAMP.test(req.url);
   if (stamped) {
-    e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); } return res; })));
+    e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy).then(() => prune(c, req.url))); } return res; })));
     return;
   }
   // Revalidate with the server rather than trusting the HTTP cache, so an installed app picks up

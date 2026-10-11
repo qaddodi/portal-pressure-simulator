@@ -46,7 +46,7 @@
 </head>
 <body>
   <div id="boot" role="status" aria-live="polite"><div class="boot-in"><svg aria-hidden="true"><image href="brand/mark.svg" width="64" height="64"/></svg><div class="boot-name">Portal Pressure Simulator</div><div class="boot-bar"><i></i></div><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Loading…</span></div></div>
-  <script>(function(){var MIN=1600,w=window,failed=false;function boot(){return document.getElementById('boot')}function hide(){var b=boot();if(!b||failed)return;b.classList.add('done');setTimeout(function(){b.remove()},600);oldNote()}function ready(){return w.ppsFigureReady}
+  <script>(function(){var MIN=600,w=window,failed=false;function boot(){return document.getElementById('boot')}function hide(){var b=boot();if(!b||failed)return;b.classList.add('done');setTimeout(function(){b.remove()},600);oldNote()}function ready(){return w.ppsFigureReady}
 function esc(t){return String(t).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})}
 function show(title,body,detail,actions){var b=boot();if(!b)return;failed=true;b.classList.remove('done');b.innerHTML='<div class="boot-msg" role="alert"><h1>'+title+'</h1>'+body+(detail?'<code>'+esc(detail)+'</code>':'')+actions+'</div>';var r=b.querySelector('[data-reload]'),c=b.querySelector('[data-anyway]');if(r)r.onclick=function(){location.reload()};if(c)c.onclick=function(){failed=false;b.remove()}}
 var ADVICE='<p>Please open it in a current version of <b>Chrome</b>, <b>Edge</b>, <b>Safari</b> or <b>Firefox</b>, or on your phone or tablet. If this computer opens pages in Internet Explorer mode, copy the address into Chrome or Edge instead.</p><p>Address: '+esc(location.href.split('#')[0])+'</p>';
@@ -222,17 +222,17 @@ function wait(){if(ready()){if(w.ppsUnsupported)return;failed=false;setTimeout(h
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=70c7eb21e9" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=48c0843423" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=d467b97383" />
-  <link rel="modulepreload" href="src/ui/util.js?v=99ed58b0f2" />
+  <link rel="modulepreload" href="src/ui/util.js?v=0cca243d2a" />
   <link rel="modulepreload" href="src/ui/store.js?v=7fb7280c05" />
-  <link rel="modulepreload" href="src/ui/colormap.js?v=240482e58e" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=90abef084d" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=a7dbd32090" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=7cf95e60eb" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=6af9107275" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=e02f426962" />
+  <link rel="modulepreload" href="src/ui/colormap.js?v=c17dfefa88" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=5417607a72" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=d92b76e328" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=b9fe53b914" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=fba9660a48" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=268580a917" />
   <link rel="modulepreload" href="src/engine/topology.js?v=34e377149b" />
-  <script type="module" src="src/ui/main.js?v=73a04143db"></script>
+  <script type="module" src="src/ui/main.js?v=af75e7dd05"></script>
 </body>
 </html>

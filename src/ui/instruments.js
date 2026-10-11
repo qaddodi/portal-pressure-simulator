@@ -2,13 +2,13 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { pressureColor } from './colormap.js?v=240482e58e';
-import { verbEnabled } from './actions.js?v=182f1ae2d8';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=99ed58b0f2';
+import { pressureColor } from './colormap.js?v=c17dfefa88';
+import { verbEnabled } from './actions.js?v=d63a2233cc';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=0cca243d2a';
 import { simTime, isPaused } from './clock.js?v=c643f5f6f2';
-import { createEndoGL } from './endo-gl.js?v=10099be73b';
-import { renderEndo } from './endo-render.js?v=9bbe9c9891';
-import { FONT } from './charts.js?v=7cf95e60eb';
+import { createEndoGL } from './endo-gl.js?v=54190751fe';
+import { renderEndo } from './endo-render.js?v=14e38d504c';
+import { FONT } from './charts.js?v=b9fe53b914';
 import { store, updateParams, varicesPresent } from './store.js?v=7fb7280c05';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -71,7 +71,7 @@ export function createEndoscopy({ onAction }) {
     t.cur = t.from + (t.to - t.from) * ease(k); t.v = t.cur;
     return k < 1 && t.cur !== t.to;
   }
-  store.on('running', () => { if (last && !isPaused()) draw(last.f, last.vx); });
+  const offRun = store.on('running', () => { if (last && !isPaused()) draw(last.f, last.vx); });
   function draw(f, vx) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return; // hidden/reflowing canvas: wait for its measured size
@@ -156,7 +156,7 @@ export function createEndoscopy({ onAction }) {
     ctx.restore();
     ctx.strokeStyle = cssVar('--scope-rim'); ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
   }
-  return { id: 'endoscopy', label: 'Endoscopy', el, update, setView() {} };
+  return { id: 'endoscopy', label: 'Endoscopy', el, update, setView() {}, dispose() { offRun(); cancelAnimationFrame(raf); raf = 0; gl?.dispose(); last = null; } };
 }
 
 // ── Varix wall cross-section (L3) ───────────────────

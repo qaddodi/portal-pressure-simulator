@@ -6,8 +6,8 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=7fb7280c05';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=99ed58b0f2';
-import { FONT } from './charts.js?v=7cf95e60eb';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=0cca243d2a';
+import { FONT } from './charts.js?v=b9fe53b914';
 
 // hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
@@ -82,6 +82,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
   }
   function ingest(f) {
     frame = f; wallAt = performance.now();
+    wake();
     if (f.clock !== clock) {
       clock = f.clock;
       // The disease clock is a trend: show it as one while it runs, then return to the learner's range.
@@ -209,11 +210,15 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const rate = frame.speed || 1;
     return lastT - LAG_S * rate + Math.min((performance.now() - wallAt) / 1000, LAG_S) * rate;
   }
+  // The scroll loop runs only while the trace is on screen and moving; the next sample (ingest) wakes it.
+  let ticking = false;
+  const live = () => frame?.running && range !== 'days' && cv.offsetParent && !document.hidden;
   function tickLoop() {
+    if (!live()) { ticking = false; return; }
     requestAnimationFrame(tickLoop);
-    if (frame?.running && range !== 'days' && cv.offsetParent && !document.hidden) draw();
+    draw();
   }
-  requestAnimationFrame(tickLoop);
+  function wake() { if (!ticking && live()) { ticking = true; requestAnimationFrame(tickLoop); } }
 
   function draw() {
     const { ctx, w, h: hh } = fitCanvas(cv);
@@ -553,10 +558,10 @@ export function createPressureTime({ marks = () => [] } = {}) {
 
   function update(f) { ingest(f); redraw(); }
   function redraw() { if (!frame) return; updateHero(); draw(); }
-  for (const k of ['hiddenReadouts', 'hvpgMeasured', 'showHvpg']) store.on(k, () => { yr.pressure = yr.hvpg = null; });
+  const offs = ['hiddenReadouts', 'hvpgMeasured', 'showHvpg'].map((k) => store.on(k, () => { yr.pressure = yr.hvpg = null; }));
   // A new patient (or the same one restarted) starts with empty traces.
   function clear() { clearHemo(); days = []; redraw(); }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear };
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, dispose() { offs.forEach((off) => off()); frame = null; } };
 }
 
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).

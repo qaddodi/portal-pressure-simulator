@@ -4,7 +4,7 @@
 // Progress lives on this device in pps.course; plans/course-api.md documents the shapes.
 
 import { store } from './store.js?v=7fb7280c05';
-import { h, svgIcon } from './util.js?v=99ed58b0f2';
+import { h, svgIcon } from './util.js?v=0cca243d2a';
 import { CASE_UNITS } from './cases/units.js?v=cead89ea1e';
 
 // A unit: id, n (its number), part ('A' mechanism, 'B' clinic), title, objective (what the student

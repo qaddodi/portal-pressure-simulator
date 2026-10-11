@@ -10,7 +10,7 @@
 //   mirrorMarker(...)     "?" then an arrow on the vessel the question is about
 
 import { store } from './store.js?v=7fb7280c05';
-import { h } from './util.js?v=99ed58b0f2';
+import { h } from './util.js?v=0cca243d2a';
 
 export const TRUST_LINE = 'Teaching model: shows how pressure and flow behave. It does not predict an individual patient.';
 export const trustLine = () => h('p', { class: 'trust-line' }, TRUST_LINE);

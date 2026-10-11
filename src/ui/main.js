@@ -1,31 +1,31 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=c256a9c041';
+import { startHost, host } from './host.js?v=fc5582e003';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7fb7280c05';
-import { createStage } from './stage.js?v=70c7eb21e9';
-import { createCreditPlacer } from './credit.js?v=56151b02ba';
-import { sinusoidSupported } from './sinusoid-view.js?v=733af01097';
-import { createInspector } from './inspector.js?v=90abef084d';
-import { createDock, CUTOFFS } from './dock.js?v=a7dbd32090';
-import { setHvpgStage } from './hvpg-proc.js?v=ea7aee7cc4';
-import { createWhy } from './why.js?v=d8dbde6e9c';
-import { createTimeline, LAPSES } from './timeline.js?v=e02f426962';
-import { createLearn } from './learn.js?v=43abcc6c1a';
-import { createCases, CASES } from './cases.js?v=88fdb3b058';
-import { isBlind } from './learning-kit.js?v=333c37f678';
-import { createCompare } from './compare.js?v=7c65626d58';
-import { createCard } from './card.js?v=3580632203';
-import { createChart, computeFindings } from './chart.js?v=e403f8ba14';
-import { createMenu, ROLES } from './menu.js?v=4ba4b905c0';
+import { createStage } from './stage.js?v=48c0843423';
+import { createCreditPlacer } from './credit.js?v=75a93423a6';
+import { sinusoidSupported } from './sinusoid-view.js?v=29e556a0c6';
+import { createInspector } from './inspector.js?v=5417607a72';
+import { createDock, CUTOFFS } from './dock.js?v=d92b76e328';
+import { setHvpgStage } from './hvpg-proc.js?v=456e67ed78';
+import { createWhy } from './why.js?v=be0d8de6eb';
+import { createTimeline, LAPSES } from './timeline.js?v=268580a917';
+import { createLearn } from './learn.js?v=50d0ec1d91';
+import { createCases, CASES } from './cases.js?v=1e20b125ca';
+import { isBlind } from './learning-kit.js?v=e08298baac';
+import { createCompare } from './compare.js?v=ef51d2f932';
+import { createCard } from './card.js?v=facfdc3af2';
+import { createChart, computeFindings } from './chart.js?v=da901d10c9';
+import { createMenu, ROLES } from './menu.js?v=b5ce459939';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
-import { caption } from './a11y.js?v=ef29b7ea22';
-import { startLMS } from './lms.js?v=10557462f4';
+import { caption } from './a11y.js?v=901065003b';
+import { startLMS } from './lms.js?v=9521e72efa';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=182f1ae2d8';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=240482e58e';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=d63a2233cc';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=c17dfefa88';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=99ed58b0f2';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=0cca243d2a';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const app = $('#app');
@@ -35,7 +35,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=ab256c54bb';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=de141fbb03';
 import { initTopbarMotion } from './topbar-motion.js?v=a941da3e97';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=b2eabea2e1';
@@ -87,7 +87,6 @@ async function main() {
   applyTheme(readLS('pps.theme'));
   applyI18n();
   startLMS();
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
   // Two roles (Student, Instructor); the old Researcher role is now Instructor.
   store.set({ role: readLS('pps.role') === 'student' || !readLS('pps.role') ? 'student' : 'instructor' });
   // Student mode shows the HVPG without measuring it first, unless Settings says otherwise.
@@ -99,9 +98,9 @@ async function main() {
   host.send({ type: 'visibility', visible: !document.hidden });
   bindParamSender((params, settle) => host.send({ type: 'setParams', params, settle }));
 
-  const healthy = await host.request('healthyProfile');
+  // Both asked at once: one round trip to the engine before any UI, not two.
+  const [healthy, { presets }] = await Promise.all([host.request('healthyProfile'), host.request('presets')]);
   store.set({ healthy: { P: healthy.P, Q: healthy.Q, metrics: healthy.metrics } });
-  const { presets } = await host.request('presets');
   store.set({ presetList: presets });
 
   why = createWhy($('#whyPop'));
@@ -141,7 +140,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=edc4e8689c'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=2b94b8ef9f'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -149,7 +148,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=247c96fb11'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=6ad54fa350'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -230,6 +229,11 @@ async function main() {
   if (!(await openDeepLink())) firstRun();
   // Startup has decided who the patient is (a deep link, a shared link, or the default one): the figure may frame itself.
   store.set({ booted: true });
+  // Offline support registers once the figure is up, so its install does not compete with the modules still loading.
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    const reg = () => navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
+    if (window.ppsFigureReady) reg(); else addEventListener('pps:figure-ready', reg, { once: true });
+  }
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
   setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); }), 3000);
   addEventListener('pps:lang', () => mainMenu.render());
@@ -304,7 +308,9 @@ function onFrame(f) {
   if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
   if (liteMemo && !f.params && !f.events?.length && now - lastPaint < 400) return;   // lite graphics: a few repaints a second
   lastPaint = now;
-  store.set({ frame: f, running: f.running, clock: f.clock, ...(f.clock === 'hemo' && store.get().lapse ? { lapse: 0, speed: f.speed } : {}) });
+  // running and clock only when they change: their listeners (the endoscopy redraw among them) need not re-run every frame.
+  const st0 = store.get();
+  store.set({ frame: f, ...(st0.running !== f.running ? { running: f.running } : {}), ...(st0.clock !== f.clock ? { clock: f.clock } : {}), ...(f.clock === 'hemo' && st0.lapse ? { lapse: 0, speed: f.speed } : {}) });
   stage.update(viewFrame(f));
   syncCollapse(f.metrics);
   card.update(f);
@@ -727,22 +733,37 @@ function hoverInfo(info) {
   const f = store.get().frame;
   const tool = store.get().tool;
   // A long press (info.peek) shows the readings on any screen, above the finger; hovering only where there is a pointer.
-  if (!info || !f || tool !== 'select' || store.get().shunting || (isPhone() && !info.peek) || store.get().imaging) { tipEl.classList.remove('on'); return; }
+  if (!info || !f || tool !== 'select' || store.get().shunting || (isPhone() && !info.peek) || store.get().imaging) { tipEl.classList.remove('on'); tipPlace = ''; return; }
   const e = EDGES[EI[info.id]], k = EI[info.id];
   const D = Math.max(0.5, f.D[k]) / 10;
   const v = f.Q[k] / (Math.PI * D * D / 4);
-  // Same language as the menu panel and the data card: tabular numbers, units smaller and muted.
-  const r = (a, n, u) => h('div', { class: 'r' }, h('span', { class: 'k' }, a), h('b', {}, n, h('span', { class: 'u' }, u)));
-  const art = e.kind === 'artery' || e.kind === 'arteriole';
-  const acc = art ? 'var(--artery)' : PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)';
-  tipEl.style.setProperty('--acc', acc);
-  tipEl.replaceChildren(h('div', { class: 't' }, h('i', { class: 'dot' }), e.label),
-    h('div', { class: 'rows' }, r('Pressure', edgeValue(e, f, 'pressure', null).v, 'mmHg'), r('Flow', fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 'L/min'),
-      // A lumped bed (the sinusoids) has no one diameter or velocity: its pressure drop and resistance instead.
-      ...(e.kind === 'liver' ? (() => { const b = bedStats(e, f); return [r('Drop to central v.', fmt(b.dp, 1), 'mmHg'), r('Resistance', b.r == null ? '—' : fmt(b.r, 1), 'mmHg·min/L')]; })()
-        : [r('Velocity', fmt(v, 1), 'cm/s'), r('Diameter', fmt(f.D[k], 1), 'mm')])), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
+  const liver = e.kind === 'liver', b = liver ? bedStats(e, f) : null;
+  const vals = [edgeValue(e, f, 'pressure', null).v, fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06),
+    ...(liver ? [fmt(b.dp, 1), b.r == null ? '—' : fmt(b.r, 1)] : [fmt(v, 1), fmt(f.D[k], 1)])].map(String);
+  // Built once per vessel; while it stays hovered each frame only changes the numbers, and the tip is measured
+  // and placed again only when the pointer moves or a number changes its length.
+  const shape = `${info.id}|${info.peek ? 1 : 0}`;
+  if (tipShape !== shape) {
+    tipShape = shape;
+    // Same language as the menu panel and the data card: tabular numbers, units smaller and muted.
+    const r = (a, u) => h('div', { class: 'r' }, h('span', { class: 'k' }, a), h('b', {}, '', h('span', { class: 'u' }, u)));
+    const art = e.kind === 'artery' || e.kind === 'arteriole';
+    const acc = art ? 'var(--artery)' : PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)';
+    tipEl.style.setProperty('--acc', acc);
+    // A lumped bed (the sinusoids) has no one diameter or velocity: its pressure drop and resistance instead.
+    const rows = [r('Pressure', 'mmHg'), r('Flow', 'L/min'), ...(liver ? [r('Drop to central v.', 'mmHg'), r('Resistance', 'mmHg·min/L')] : [r('Velocity', 'cm/s'), r('Diameter', 'mm')])];
+    tipEl.replaceChildren(h('div', { class: 't' }, h('i', { class: 'dot' }), e.label),
+      h('div', { class: 'rows' }, ...rows), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
+    tipVals = rows.map((row) => row.lastChild.firstChild);
+    tipPlace = '';
+  }
+  let lens = '';
+  vals.forEach((t, i) => { const n = tipVals[i]; if (n.data !== t) n.data = t; lens += t.length + ','; });
   tipEl.classList.add('on');
   tipEl.classList.toggle('peek', !!info.peek);
+  const place = `${info.x},${info.y}|${lens}`;
+  if (place === tipPlace) return;
+  tipPlace = place;
   const W = view.clientWidth, H = view.clientHeight, th = tipEl.offsetHeight, tw = tipEl.offsetWidth || 200;
   if (info.peek) {
     // Above the finger, so the finger doesn't hide it; below it only when there is no room above.
@@ -753,6 +774,7 @@ function hoverInfo(info) {
   tipEl.style.left = Math.max(8, Math.min(W - tw - 8, info.x + 16)) + 'px';
   tipEl.style.top = Math.max(8, Math.min(H - th - 8, info.y + 16)) + 'px';
 }
+let tipShape = '', tipVals = [], tipPlace = '';
 
 // The figure header carries the Then / Now / Change switch when a moment is pinned; a lesson or
 // case shows a slim banner in the top bar with its progress and a way out.
@@ -896,10 +918,13 @@ function fullscreenControl() {
     const p = on ? root.requestFullscreen() : document.exitFullscreen();
     p?.catch?.(() => sync());
   });
-  const sync = () => { if (!b.isConnected) { document.removeEventListener('fullscreenchange', sync); return; } const on = !!document.fullscreenElement; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); };
-  document.addEventListener('fullscreenchange', sync);
+  const sync = () => { const on = !!document.fullscreenElement; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); };
+  // One document listener for the session; it updates whichever Settings toggle is showing (each open builds a new one).
+  fsSync = sync;
+  if (!fsListening) { fsListening = true; document.addEventListener('fullscreenchange', () => fsSync?.()); }
   return b;
 }
+let fsSync = null, fsListening = false;
 // Interface zoom: scales the bars, dock, sheets and menus (the figure keeps its own zoom and text size).
 // The page applies the saved value before it paints (index.html); --ui-zoom undoes it on the figure.
 const UI_ZOOM_STEPS = [0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4];
@@ -1098,28 +1123,33 @@ function wireFloating() {
       if (need() <= avail - (fit < was ? 24 : 0)) break;
     }
     if (fit > steps) { tb.dataset.fit = String(steps); tb.classList.add('two-rows'); }
-    app.style.setProperty('--top-safe', px($('#topbar').offsetHeight));
-    app.style.setProperty('--vdock-h', px(vdock));
-    app.style.setProperty('--vdock-top', px(vd.offsetHeight ? vdTop : 0));
+    // Every box is read first and the custom properties written after, so the whole pass costs one layout
+    // instead of one per write; a value is written only when it changed, and the occupancy is announced
+    // (pps:occ: the cards and the credit place themselves again) only when something did change.
+    const tbH = tb.offsetHeight;
     const ws = $('#dock'), wsOn = app.classList.contains('dock-open') && !app.classList.contains('instrument-focus');
     const panelOcc = wide && app.classList.contains('panel-open') ? $('#panel').offsetWidth + gap : 0;
     const instrOcc = wsOn && ws.classList.contains('side') ? ws.offsetWidth + gap : 0;
     const tc = $('#treatCard'), treatOcc = wide && !tc.hidden ? tc.offsetWidth + gap : 0;
-    app.style.setProperty('--panel-occ', px(panelOcc));
-    app.style.setProperty('--instr-occ', px(instrOcc));
-    app.style.setProperty('--right-occ', px(panelOcc + instrOcc + treatOcc));
     const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? ws.offsetHeight + gap : 0;
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
     const bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
-    app.style.setProperty('--bot-occ', px(bot));
     // The patient chart is a bottom sheet on a phone, over the dock: the corner credit rides above it, unless the
     // sheet is so tall (a case's decision, nearly full screen) that there is no figure left to ride on.
     const pn = $('#panel'), lift = isPhone() && panelShown() && pn.offsetParent ? pn.offsetParent.clientHeight - pn.offsetTop + 8 : 0;
-    const tall = !!pn.offsetParent && lift > 0 && pn.offsetParent.clientHeight - lift < $('#topbar').offsetHeight + 48;
-    app.style.setProperty('--panel-h', px(tall || !lift ? 0 : lift + 4));
-    app.style.setProperty('--panel-cover', tall ? '1' : '0');
-    dispatchEvent(new Event('pps:occ'));
+    const tall = !!pn.offsetParent && lift > 0 && pn.offsetParent.clientHeight - lift < tbH + 48;
+    const vars = {
+      '--top-safe': px(tbH), '--vdock-h': px(vdock), '--vdock-top': px(vd.offsetHeight ? vdTop : 0),
+      '--panel-occ': px(panelOcc), '--instr-occ': px(instrOcc), '--right-occ': px(panelOcc + instrOcc + treatOcc), '--bot-occ': px(bot),
+      '--panel-h': px(tall || !lift ? 0 : lift + 4), '--panel-cover': tall ? '1' : '0',
+    };
+    let changed = false;
+    for (const k in vars) if (pubVals[k] !== vars[k]) { pubVals[k] = vars[k]; app.style.setProperty(k, vars[k]); changed = true; }
+    const sig = `${app.className}|${tb.className}|${tb.dataset.fit}`;
+    if (changed || sig !== pubSig) { pubSig = sig; dispatchEvent(new Event('pps:occ')); }
   };
+  const pubVals = {};
+  let pubSig = '';
   const soon = () => { if (!pubRaf) pubRaf = requestAnimationFrame(publish); };
   const ro = new ResizeObserver(soon);
   for (const id of ['#topbar', '#vdock', '#dock', '#panel', '#treatCard', '.tb-id', '.top-right', '.topbar .sb-right', '#viewSeg']) ro.observe($(id));
@@ -1369,6 +1399,7 @@ function wireKeyboard() {
       else if (stage.isShunting()) stage.cancelShunt();
       else if (store.get().tool !== 'select') setTool('select');
       else if (store.get().sinusoid && !store.get().selection) store.set({ sinusoid: false });
+      else if (panelShown() && !store.get().selection) closePanel();   // the patient chart (its close button says Esc)
       else store.set({ selection: null });
       return;
     }

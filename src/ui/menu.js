@@ -5,9 +5,9 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=7fb7280c05';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet } from './util.js?v=99ed58b0f2';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=0cca243d2a';
 import { SNAPSHOTS } from './snapshots.js?v=6c4f07ae98';
-import { pressureColor } from './colormap.js?v=240482e58e';
+import { pressureColor } from './colormap.js?v=c17dfefa88';
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 // Where each group's resistance sits along the pathway from the gut to the heart.
@@ -158,7 +158,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const z = uiScale(), pr = el.getBoundingClientRect(), rr = row.getBoundingClientRect(), w = 360 * z, ph = pv.offsetHeight * z;
     let x = pr.right + 8;
     if (x + w > innerWidth - 8) x = Math.max(8, innerWidth - w - 8);   // (no room beside the panel: over its right edge)
-    const y = clamp(rr.top - 40 * z, 8, innerHeight - ph - 8);
+    const y = clamp(rr.top - 40 * z, 8, visibleBottom() - ph - 8);
     pv.style.left = x / z + 'px'; pv.style.top = y / z + 'px';
     pv.classList.add('on');
   }

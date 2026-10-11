@@ -3,7 +3,7 @@
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=34e377149b';
 import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
 import { store, updateParams, isLocked, hiddenNow } from './store.js?v=7fb7280c05';
-import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=99ed58b0f2';
+import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=0cca243d2a';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -94,12 +94,17 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     if (locked) { input.disabled = true; wrap.title = 'Locked in this lesson or case'; }
     input.addEventListener('pointerdown', () => { fresh = true; });
     input.addEventListener('keydown', () => { fresh = true; });
+    // The thumb and its number follow the pointer at once; the model gets the newest value once per frame.
+    let pend = null, raf = 0;
+    const flush = () => { cancelAnimationFrame(raf); raf = 0; const p = pend; pend = null; if (p) updateParams((pp) => { set(pp, p.v); return pp; }, { history: p.history, label }); };
     input.addEventListener('input', () => {
       const v = parseFloat(input.value);
       paint(v);
-      updateParams((pp) => { set(pp, v); return pp; }, { history: fresh, label });
+      if (!pend) pend = { history: fresh }; pend.v = v;
       fresh = false;
+      if (!raf) raf = requestAnimationFrame(flush);
     });
+    input.addEventListener('change', flush);
     reset.addEventListener('click', () => {
       if (def == null || locked) return;
       paint(def);
@@ -153,6 +158,10 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     const activeBox = h('div', { class: 'changes' });
     const renderActive = (pp) => {
       const active = activeInterventions(pp);
+      // Rebuilt only when the list of changes reads differently (not on every step of a slider).
+      const sig = active.map((a) => a.label).join('\n');
+      if (activeBox._sig === sig) return;
+      activeBox._sig = sig;
       activeBox.replaceChildren(
         h('div', { class: 'changes-head' }, h('span', { class: 'overline' }, active.length ? `Active changes · ${active.length}` : 'Active changes'),
           active.length ? h('button', { class: 'link', style: { fontSize: 'var(--fs-12)' }, onclick: () => updateParams((q) => { for (const a of activeInterventions(q)) a.remove(q); return q; }, { label: 'Clear all changes' }) }, 'Clear all') : null),

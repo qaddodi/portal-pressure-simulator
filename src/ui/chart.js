@@ -9,11 +9,11 @@
 //   Advanced                             physiology knobs (instructor)
 
 import { store, updateParams, hiddenNow } from './store.js?v=7fb7280c05';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=99ed58b0f2';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=0cca243d2a';
 import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
-import { TILES, VITALS, readoutValue } from './dock.js?v=a7dbd32090';
-import { activeInterventions } from './inspector.js?v=90abef084d';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=182f1ae2d8';
+import { TILES, VITALS, readoutValue } from './dock.js?v=d92b76e328';
+import { activeInterventions } from './inspector.js?v=5417607a72';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=d63a2233cc';
 
 // Text that changes is rewritten in its text node (setting textContent replaces the node on every paint).
 const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
@@ -50,6 +50,11 @@ const FIND = {
   hb: (v) => ['Severe anemia', `Hemoglobin ${n1(v)} g/dL (< 7).`],
 };
 
+// A vital sign that has crossed its cut-off stays a finding until it is clearly back (the beat lifts cardiac output
+// across 6.5 and back several times a minute), so the count does not flicker.
+const STAY = { map: (m) => m.map < 67, hr: (m) => m.hr > 107, co: (m) => m.co > 6.3, ra: (m) => m.ra > 9.7, hb: (m) => m.blood.hb < 7.2 };
+const vitalOn = new Set();
+
 /** Every abnormal readout as a finding, most severe first: [{ id, sev, txt: [title, detail] }]. */
 export function computeFindings(m, hidden) {
   const found = [];
@@ -62,7 +67,9 @@ export function computeFindings(m, hidden) {
     if (txt) found.push({ id: t.id, sev, txt });
   }
   for (const x of VITALS) {
-    if (hidden?.has(x.hideKey) || !x.bad(m)) continue;
+    const on = x.bad(m) || (vitalOn.has(x.id) && !!STAY[x.id]?.(m));
+    if (on) vitalOn.add(x.id); else vitalOn.delete(x.id);
+    if (hidden?.has(x.hideKey) || !on) continue;
     found.push({ id: x.id, sev: 'danger', txt: FIND[x.id](x.v(m), m) });
   }
   return found.sort((a, b) => RANK[b.sev] - RANK[a.sev]);

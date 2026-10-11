@@ -19,13 +19,13 @@
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
 import { store } from './store.js?v=7fb7280c05';
-import { h, fmt, clamp } from './util.js?v=99ed58b0f2';
+import { h, fmt, clamp } from './util.js?v=0cca243d2a';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { createDoppler } from './doppler.js?v=834b71ae78';
-import { createFibroScan } from './fibroscan.js?v=76bb698700';
-import { createPressureTime } from './pressure-time.js?v=a09f441b4c';
+import { createDoppler } from './doppler.js?v=d4daf2cb9a';
+import { createFibroScan } from './fibroscan.js?v=0e979fa0d9';
+import { createPressureTime } from './pressure-time.js?v=b6b3aae48b';
 import { createFlowTime } from './flow-time.js?v=b18da85756';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=6af9107275';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=fba9660a48';
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava',
@@ -55,7 +55,7 @@ export function createTools({ host, stage }) {
     return (made[k] = inst);
   }
   const keyOf = (t) => (t.kind === 'trace' ? (t.range === 'beats' ? 'beats' : 'talk') : t.kind);
-  store.on('frame', (f) => {
+  const offFrame = store.on('frame', (f) => {
     if (!cur || !f || !box.isConnected) return;
     if (kind === 'doppler' && cur.ingest) { cur.update(f); return; }
     if (kind !== 'talk' && kind !== 'flowtime') cur.update(f);
@@ -97,7 +97,13 @@ export function createTools({ host, stage }) {
     },
     hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
-    dispose() { if (probe0 !== undefined) host.send({ type: 'probe', id: probe0 }); probe0 = undefined; lastSt = null; this.hide(); },
+    dispose() {
+      if (probe0 !== undefined) host.send({ type: 'probe', id: probe0 }); probe0 = undefined; lastSt = null; this.hide();
+      // Each presentation builds its own tools: let go of this one's instruments (and the endoscopy's GL context).
+      offFrame();
+      for (const k of Object.keys(made)) { made[k]?.dispose?.(); delete made[k]; }
+      box.replaceChildren();
+    },
   };
 }
 

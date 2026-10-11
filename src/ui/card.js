@@ -4,8 +4,8 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=7fb7280c05';
-import { h, icon, svgIcon, clamp, infoButton } from './util.js?v=99ed58b0f2';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=182f1ae2d8';
+import { h, icon, svgIcon, clamp, infoButton } from './util.js?v=0cca243d2a';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=d63a2233cc';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
@@ -218,12 +218,17 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       let fresh = true;
       input.addEventListener('pointerdown', () => { fresh = true; });
       input.addEventListener('keydown', () => { fresh = true; });
+      // The thumb and its number follow the pointer at once; the model gets the newest value once per frame.
+      let pend = null, raf = 0;
+      const flush = () => { cancelAnimationFrame(raf); raf = 0; const p = pend; pend = null; if (p) updateParams((pp) => { v.set(pp, p.x); return pp; }, { history: p.history, label: v.hist || lab }); };
       input.addEventListener('input', () => {
         const x = parseFloat(input.value);
         paint(x);
-        updateParams((pp) => { v.set(pp, x); return pp; }, { history: fresh, label: v.hist || lab });
+        if (!pend) pend = { history: fresh }; pend.x = x;
         fresh = false;
+        if (!raf) raf = requestAnimationFrame(flush);
       });
+      input.addEventListener('change', flush);
       // On a phone a short name sits on one row with its track; a long one stacks above it.
       const row = h('div', { class: 'ac-slider' + (lab.length > 13 ? ' long' : '') + (dis ? ' locked' : ''), title: dis ? LOCK_TIP : null },
         h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lab, v.info ? infoButton(v.info) : null), val),

@@ -14,15 +14,15 @@
 // P high contrast, Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
 import { store, replaceParams } from './store.js?v=7fb7280c05';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './util.js?v=99ed58b0f2';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './util.js?v=0cca243d2a';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { download } from './records.js?v=50fb9dd463';
-import { SITES } from './ladder.js?v=6a0d4913ff';
-import { sinusoidSupported } from './sinusoid-view.js?v=733af01097';
+import { SITES } from './ladder.js?v=7b629187ab';
+import { sinusoidSupported } from './sinusoid-view.js?v=29e556a0c6';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=ed6d5f65dc';
-import { createHvpgMonitor } from './hvpg-proc.js?v=ea7aee7cc4';
-import { createTools } from './presenter-tools.js?v=ada65d7910';
+import { createHvpgMonitor } from './hvpg-proc.js?v=456e67ed78';
+import { createTools } from './presenter-tools.js?v=9bc47b4b04';
 import { openHandout } from './handout.js?v=d01a4524e1';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
@@ -633,7 +633,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=cf2cc58624', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=16c63d6730', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -645,7 +645,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=49f666a803');
+      const { createCore } = await import('../worker-core.js?v=c0ea950974');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

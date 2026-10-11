@@ -167,12 +167,14 @@ export function createCreditPlacer(credit) {
   function soon() { if (!raf) raf = requestAnimationFrame(check); }
   addEventListener('resize', soon);
   addEventListener('pps:occ', soon);
-  addEventListener('transitionend', soon, true);
-  addEventListener('animationend', soon, true);
+  // Readout bars ease on every value and never cover the figure: their transitions are not a reason to look again.
+  const settled = (e) => { if (!e.target.classList?.contains('rb-fill')) soon(); };
+  addEventListener('transitionend', settled, true);
+  addEventListener('animationend', settled, true);
   const app = document.getElementById('app');
   if (app) new MutationObserver(soon).observe(app, { attributes: true, attributeFilter: ['class'] });
   // Cards open, close and resize in many ways; a light poll catches the ones no event announces.
-  setInterval(() => { if (!document.hidden) soon(); }, 450);
+  setInterval(() => { if (!document.hidden) soon(); }, 1000);
   soon();
   return { refresh: soon, corner: () => cur };
 }

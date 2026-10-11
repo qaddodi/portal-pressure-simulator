@@ -329,7 +329,7 @@ export function createCore(post) {
           if (visible) { lastFrame = performance.now(); frame(); }
         }
       }
-      catch (err) { post({ type: 'error', message: String(err && err.stack || err) }); }
+      catch (err) { post({ type: 'error', reqId: msg.reqId, message: String(err && err.stack || err) }); }   // reqId: the waiting request settles
       resolve();
     }
     busy = false;

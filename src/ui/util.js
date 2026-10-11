@@ -194,6 +194,8 @@ let openMenu = null;
 const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
 // sheet: on a phone the menu rises as a bottom sheet (full width, its text wraps) instead of a tall
 // popover; pass false for a menu that lays itself out.
+/** The bottom of what is visible: above the on-screen keyboard on iOS, where innerHeight does not shrink. */
+export const visibleBottom = () => { const v = window.visualViewport; return v ? Math.min(innerHeight, v.offsetTop + v.height) : innerHeight; };
 export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
   const asSheet = sheet && innerWidth < 768;
@@ -205,16 +207,20 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     const r = anchor.getBoundingClientRect(), z = uiScale(), mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
     let x = align === 'end' ? r.right - mr.width : align === 'center' ? r.left + r.width / 2 - mr.width / 2 : r.left;
     let y = place === 'above' ? r.top - mr.height - 8 : r.bottom + 8;
-    if (y + mr.height > innerHeight - 8) y = Math.max(8, r.top - mr.height - 8);
+    const vb = visibleBottom();
+    if (y + mr.height > vb - 8) y = Math.max(8, r.top - mr.height - 8);
     el.style.left = clamp(x, 8, innerWidth - mr.width - 8) / z + 'px';
-    el.style.top = clamp(y, 8, innerHeight - mr.height - 8) / z + 'px';
+    el.style.top = clamp(y, 8, vb - mr.height - 8) / z + 'px';
   };
   put();
   if (asSheet) swipeSheet(el, () => closePopover());
   const off = (e) => { if (!el.contains(e.target) && !anchor.contains(e.target)) closePopover(); };
   const esc = (e) => { if (e.key === 'Escape') closePopover(); };
+  // The keyboard opening or closing (a search field) moves the visible bottom: place the menu again.
+  const vv = window.visualViewport, onVV = () => { if (!asSheet) put(); };
   setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', esc); }, 0);
-  openMenu = { el, anchor, put, cleanup: () => { removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); onClose?.(); } };
+  vv?.addEventListener('resize', onVV);
+  openMenu = { el, anchor, put, cleanup: () => { removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); vv?.removeEventListener('resize', onVV); onClose?.(); } };
   anchor.setAttribute('aria-expanded', 'true');
   return el;
 }

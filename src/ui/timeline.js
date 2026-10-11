@@ -12,9 +12,9 @@
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
 import { store, replaceParams, onParamChange } from './store.js?v=7fb7280c05';
-import { host } from './host.js?v=c256a9c041';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=99ed58b0f2';
-import { activeInterventions } from './inspector.js?v=90abef084d';
+import { host } from './host.js?v=fc5582e003';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=0cca243d2a';
+import { activeInterventions } from './inspector.js?v=5417607a72';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
@@ -262,7 +262,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   // rebuilt when the timeline's contents change, or at most once a second as time passes.
   let trackW = 0;
   new ResizeObserver(() => { trackW = track.clientWidth; render(true); }).observe(track);
-  let lastRenderKey = '', lastMarksAt = 0, lastNow = -1, leapT = 0;
+  let lastRenderKey = '', lastMarksAt = 0, lastNow = -1, leapT = 0, markBtns = new Map();
   function render(force) {
     const W = trackW || (trackW = track.clientWidth);
     if (!W) return;
@@ -295,22 +295,31 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       lastSide[g.side] = g.x;
     }
     const cur = currentIndex();
-    marks.replaceChildren(...groups.map((g) => {
+    // A marker whose group, look and words are unchanged keeps its button and only moves (the clock drifts every
+    // marker along the story axis once a second); only new or changed groups build a button and its listeners.
+    const kept = new Map(), btns = groups.map((g) => {
       const es = g.items.map((i) => entries[i]);
       const top = es[es.length - 1];
       const future = cursor >= 0 && g.items[0] > cursor;
       const isCur = g.items.includes(cur) && g.lane === 'ch';
       const sev = g.lane === 'ev' ? es.reduce((a, e) => (['info', 'caution', 'danger', 'critical'].indexOf(e.sev) > ['info', 'caution', 'danger', 'critical'].indexOf(a) ? e.sev : a), 'info') : null;
-      const b = h('button', { class: `tl-m ${g.lane === 'ev' ? 'ev' : top.kind}${g.side === 'down' ? ' below' : ''}${future ? ' future' : ''}${isCur && cursor >= 0 ? ' cur' : ''}`, role: 'listitem', style: { left: `${g.x}px`, '--sev': sev ? SEV[sev] : '' },
-        'aria-label': es.map((e) => `${e.kind === 'event' ? 'Event' : e.kind === 'start' ? 'Start' : 'Change'} at ${fmtClock(e.t, e.day)}: ${e.label}`).join('; ') },
-      g.items.length > 1 ? h('span', { class: 'tl-count' }, String(g.items.length)) : null);
+      const cls = `tl-m ${g.lane === 'ev' ? 'ev' : top.kind}${g.side === 'down' ? ' below' : ''}${future ? ' future' : ''}${isCur && cursor >= 0 ? ' cur' : ''}`;
+      const aria = es.map((e) => `${e.kind === 'event' ? 'Event' : e.kind === 'start' ? 'Start' : 'Change'} at ${fmtClock(e.t, e.day)}: ${e.label}`).join('; ');
+      const sig = `${g.lane}|${g.items.join(',')}|${cls}|${sev}|${aria}|${es.map((e) => e.snap ? 1 : 0).join('')}`;
+      const old = markBtns.get(sig);
+      if (old) { kept.set(sig, old); const left = `${g.x}px`; if (old.style.left !== left) old.style.left = left; return old; }
+      const b = h('button', { class: cls, role: 'listitem', style: { left: `${g.x}px`, '--sev': sev ? SEV[sev] : '' }, 'aria-label': aria },
+        g.items.length > 1 ? h('span', { class: 'tl-count' }, String(g.items.length)) : null);
       if (!(g.items.length === 1 && top.kind === 'start')) tooltipFor(b, () => (es.length === 1 ? `${fmtClock(top.t, top.day)} · ${top.label}` : `${es.length} ${g.lane === 'ev' ? 'events' : 'changes'} · latest: ${top.label}`), 'top');
       if (g.items.length === 1 && top.kind === 'start') {
         b.title = 'Restart this patient';
         b.addEventListener('click', (ev) => popover(ev.currentTarget, [menuBtn('Restart this patient', () => onRestart?.())], { place: 'above', align: 'start', cls: 'time-pop' }));
       } else b.addEventListener('click', (ev) => openMarker(ev.currentTarget, g.items));
+      kept.set(sig, b);
       return b;
-    }));
+    });
+    markBtns = kept;
+    if (btns.length !== marks.children.length || btns.some((b, i) => marks.children[i] !== b)) marks.replaceChildren(...btns);
     paintTags(groups, W);
   }
 
@@ -505,7 +514,6 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     pinBtn.setAttribute('aria-label', s ? 'Stop comparing' : 'Compare from here');
   });
   onParamChange(({ label, history }) => { if (history || pending) noteParamChange(label); });
-  new ResizeObserver(() => render(true)).observe(track);
 
   return {
     reset, recordAction, addEvents, update, undo, redo, goTo, togglePin, jump,
