@@ -7,7 +7,7 @@ export const SNAPSHOTS = {
   "pvt-acute":{"P":[29.7,29.1,28.8,5.1,3.1,2.5,2,1.5],"hvpg":2.2,"pv":28.8,"pvFlow":0,"ascites":0,"fp":{"pv":28.8,"whvp":4.7,"fhvp":2.5,"ra":1.5,"ivc":2,"ppg":26.9,"hvpg":2.2,"asc":0,"saag":3.2,"tp":1.3,"lsm":5}},
   "pvt-chronic":{"P":[22.8,20.4,19.5,7.8,5.8,5.2,4.7,4.1],"hvpg":2.2,"pv":19.5,"pvFlow":0,"ascites":0,"fp":{"pv":19.5,"whvp":7.4,"fhvp":5.2,"ra":4.1,"ivc":4.7,"ppg":14.9,"hvpg":2.2,"asc":0,"saag":2.7,"tp":2.2,"lsm":5}},
   "svt":{"P":[11.1,8.1,6.9,6.5,4.4,3.7,3.2,2.7],"hvpg":2.3,"pv":6.9,"pvFlow":0.66,"ascites":0,"fp":{"pv":6.9,"whvp":6,"fhvp":3.7,"ra":2.7,"ivc":3.2,"ppg":3.8,"hvpg":2.3,"asc":0,"saag":2.4,"tp":2.8,"lsm":5}},
-  "schisto":{"P":[23.5,21.1,20.4,7.5,5.7,5.1,4.6,4.1],"hvpg":2,"pv":20.4,"pvFlow":0.93,"ascites":0,"fp":{"pv":20.4,"whvp":7.1,"fhvp":5.1,"ra":4.1,"ivc":4.6,"ppg":15.8,"hvpg":2,"asc":0,"saag":2.8,"tp":2.1,"lsm":5}},
+  "schisto":{"P":[23.7,21.4,20.7,9.5,5.6,5,4.5,4],"hvpg":3.7,"pv":20.7,"pvFlow":0.87,"ascites":0,"fp":{"pv":20.7,"whvp":8.7,"fhvp":5,"ra":4,"ivc":4.5,"ppg":16.2,"hvpg":3.7,"asc":0,"saag":2.5,"tp":2.4,"lsm":6.6}},
   "cirr-comp":{"P":[15.6,13,12,11,5.3,4.1,3.5,3],"hvpg":6.4,"pv":12,"pvFlow":1.12,"ascites":0,"fp":{"pv":12,"whvp":10.5,"fhvp":4.1,"ra":3,"ivc":3.5,"ppg":8.5,"hvpg":6.4,"asc":0,"saag":2.3,"tp":3.1,"lsm":12.5}},
   "csph":{"P":[21.1,18.7,17.8,16.9,6.1,4.8,4.2,3.7],"hvpg":11.7,"pv":17.8,"pvFlow":1.16,"ascites":0,"fp":{"pv":17.8,"whvp":16.4,"fhvp":4.8,"ra":3.7,"ivc":4.2,"ppg":13.6,"hvpg":11.7,"asc":3,"saag":2.5,"tp":2.7,"lsm":24.1}},
   "cirr-decomp":{"P":[26.4,23.9,23.2,22.7,6.7,5.6,5.3,4.7],"hvpg":17,"pv":23.2,"pvFlow":0.75,"ascites":1.4,"fp":{"pv":23.2,"whvp":22.7,"fhvp":5.6,"ra":4.7,"ivc":5.3,"ppg":17.9,"hvpg":17,"asc":1429,"saag":2,"tp":1.6,"lsm":28.8}},

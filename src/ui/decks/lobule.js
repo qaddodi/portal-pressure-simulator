@@ -40,11 +40,11 @@ export const LOBULE = {
       ask: ['Name the two parts of the raised resistance in cirrhosis.', 'Structural (scar, nodules, capillarised sinusoids) and dynamic (vascular tone).'],
     },
     {
-      id: 'sos', terms: { 'central veins': 'lobule:central' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central venules' }, data: 'tiles', tiles: ['hvpg', 'asc'],
-      kicker: 'Postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome: the central venule',
+      id: 'sos', terms: { 'central veins': 'lobule:central' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central veins' }, data: 'tiles', tiles: ['hvpg', 'asc'],
+      kicker: 'Postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome: the central vein',
       line: 'Injured endothelium swells and sloughs into the small central veins and blocks them.',
-      notes: 'Sinusoidal obstruction syndrome (veno-occlusive disease) follows injury to the sinusoidal endothelium of zone 3: myeloablative conditioning before stem cell transplantation (busulfan, cyclophosphamide, total body irradiation), oxaliplatin, and pyrrolizidine alkaloids in herbal teas. The cells round up and detach, red cells dissect into the space of Disse, and debris blocks the central venules. Weight gain, painful hepatomegaly, ascites and jaundice follow, classically within three weeks of transplant. The wedge lies upstream of the block, so the HVPG is raised; above 10 mmHg supports the diagnosis. Defibrotide is the treatment.',
-      ask: ['Why does the HVPG rise in sinusoidal obstruction syndrome?', 'The block is in the central venules, between the sinusoids the wedge reads and the free hepatic vein.'],
+      notes: 'Sinusoidal obstruction syndrome (veno-occlusive disease) follows injury to the sinusoidal endothelium of zone 3: myeloablative conditioning before stem cell transplantation (busulfan, cyclophosphamide, total body irradiation), oxaliplatin, and pyrrolizidine alkaloids in herbal teas. The cells round up and detach, red cells dissect into the space of Disse, and debris blocks the central veins. Weight gain, painful hepatomegaly, ascites and jaundice follow, classically within three weeks of transplant. The wedge lies upstream of the block, so the HVPG is raised; above 10 mmHg supports the diagnosis. Defibrotide is the treatment.',
+      ask: ['Why does the HVPG rise in sinusoidal obstruction syndrome?', 'The block is in the central veins, between the sinusoids the wedge reads and the free hepatic vein.'],
     },
     {
       id: 'cong', terms: { 'zone 3': 'lobule:zone3', 'central vein': 'lobule:central' }, layers: ['zones'], callout: { at: 'cv', label: 'Dilated zone 3 sinusoids' }, preset: 'rhf', cam: 'lobule:central', data: 'tiles', tiles: ['pv', 'hvpg'],
@@ -63,12 +63,12 @@ export const LOBULE = {
     {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg'], asc: true, note: 'Site in the lobule', rowHead: 'Disease',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'No block', ref: true }, { id: 'schisto', title: 'Schistosomiasis', note: 'Portal venules, in the tract' },
-        { id: 'cirr', title: 'Cirrhosis', note: 'Sinusoids, the space of Disse' }, { id: 'sos', title: 'Sinusoidal obstruction', note: 'Central venules' },
+        { id: 'cirr', title: 'Cirrhosis', note: 'Sinusoids, the space of Disse' }, { id: 'sos', title: 'Sinusoidal obstruction', note: 'Central veins' },
         { id: 'cong', title: 'Heart failure', note: 'No block: congestion of zone 3' }],
       kicker: 'Summary', title: 'Where each disease sits',
-      line: 'The wedge reads the sinusoids, so HVPG rises only when the block sits in them or in the central venules.',
+      line: 'The wedge reads the sinusoids, so HVPG rises only when the block sits in them or in the central veins.',
       notes: 'Read from top to bottom, the block moves along the lobule from the portal tract to the central vein. The HVPG rises only when the block lies between the sinusoids and the free hepatic vein: cirrhosis and sinusoidal obstruction. The ascites protein follows the sinusoid wall: low when the wall is capillarised (cirrhosis), high when it is still open (sinusoidal obstruction, congestion). Presinusoidal disease rarely causes ascites, because the sinusoids are at normal pressure.',
-      ask: ['A patient has ascites with high protein and a raised HVPG. Where is the block?', 'At the central venules: sinusoidal obstruction syndrome.'],
+      ask: ['A patient has ascites with high protein and a raised HVPG. Where is the block?', 'At the central veins: sinusoidal obstruction syndrome.'],
     },
   ],
 };

@@ -31,7 +31,7 @@ import { SLOT, DYE_BINS } from './blood.js?v=6c39f43ddf';
 export const N_SAMPLES = 64;
 export const FLOW_TEXELS = 3;          // per-vessel blood: see stage.js (syncBlood)
 const SLOT_W = SLOT;
-export const TUBE_TEXELS = 10;         // texels of per-vessel attributes (see the layout below)
+export const TUBE_TEXELS = 12;         // texels of per-vessel attributes (see the layout below)
 export const MAX_TIERS = 20;
 const S_OFF = 96;                      // arc length is stored offset by this, so it can run on past a vessel's start
 export const ORIGIN_GREY = 0.62;       // the lumen's color while the blood is colored by origin
@@ -70,7 +70,10 @@ void main() {
 //   6: congestion glow color (rgb), streak course length (world)
 //   7: flow streaks: phase at the upstream end, spacing (world), direction (±1, from → to), strength (0 off)
 //   8: a stretch recolored (the HVPG's wedged vein): color (rgb), amount (0 none)
-//   9: that stretch along the vessel (0–1): from, to; its soft edge (world); hover glow (0–1)
+//   9: that stretch along the vessel (0–1): from, to; its soft edge (world); hover (0–1: the lumen a little brighter)
+//  10: glow (a hovered, focused or highlighted vessel): color (rgb), amount (0 none)
+//  11: the glow's fade at the start, at the end (world; 0: runs on into the next glowing vessel); 1: its own color;
+//      its width (× the usual, 0 or 1 usual; at most 1.3: 15.6 past the wall, inside the vessel's cells)
 const FS = `#version 300 es
 precision highp float;
 precision highp int;
@@ -123,12 +126,16 @@ void main() {
   // ── Nearest point of each vessel in this cell ──
   int n = 0;
   int sid[MAXS];
-  float sd[MAXS], sh[MAXS], sr[MAXS], su[MAXS], sx[MAXS];
+  float sd[MAXS], sh[MAXS], sr[MAXS], su[MAXS], sx[MAXS], sv[MAXS], sk[MAXS];
   vec2 sg[MAXS];
   int cur = -1;
   // bx: signed distance across the nearest segment's line (the lumen's across coordinate, also
   // past the vessel's ends); bu: how far along (0–1), running on past either end.
   float bd = 1e9, bs = 1e9, br = 0.0, bu = 0.0, bx = 0.0;
+  // aU / aW: how far along, smooth off the wall: each nearby segment's course carried on straight past its ends,
+  // weighted softly by how near it is. (The nearest segment's own is constant across the fan off a bend's
+  // outside, and the glow's fade along the vessel, read from it, drew stripes there.)
+  float aM = 1e9, aW = 0.0, aU = 0.0;
   vec2 bg = vec2(0.0);
   vec4 clip = vec4(0.0, 1.0, 1.0, 0.0);
   bool dotted = false;
@@ -140,14 +147,17 @@ void main() {
     if (id != cur) {
       if (cur >= 0 && min(bd, bs) < reach) {
         int slot = n;
+        // When the slots are full, the vessel that matters least here gives way: the farthest, a glowing one
+        // counting as nearer by its glow's width (or a crowded join, the hepatic veins' at the IVC, drops its glow in blocks).
+        float key = bd - (T(cur, 10).a > 0.0 ? 16.0 : 0.0);
         if (n == MAXS) {
           slot = 0;
-          for (int s = 1; s < MAXS; s++) if (sd[s] > sd[slot]) slot = s;
-          if (bd >= sd[slot]) slot = -1;
+          for (int s = 1; s < MAXS; s++) if (sk[s] > sk[slot]) slot = s;
+          if (key >= sk[slot]) slot = -1;
         } else n++;
-        if (slot >= 0) { sid[slot] = cur; sd[slot] = bd; sh[slot] = bs; sr[slot] = br; su[slot] = bu; sg[slot] = bg; sx[slot] = bx; }
+        if (slot >= 0) { sk[slot] = key; sid[slot] = cur; sd[slot] = bd; sh[slot] = bs; sr[slot] = br; su[slot] = bu; sg[slot] = bg; sx[slot] = bx; sv[slot] = aW > 0.0 ? aU / aW : bu; }
       }
-      cur = id; bd = 1e9; bs = 1e9;
+      cur = id; bd = 1e9; bs = 1e9; aM = 1e9; aW = 0.0; aU = 0.0;
       if (id >= 0) { clip = T(id, 5); dotted = (int(T(id, 2).z + 0.5) & ${F_DOTTED}) != 0; }
     }
     if (k == cnt) break;
@@ -172,6 +182,11 @@ void main() {
       d = length(vec2(dist, along)) - r;
     }
     if (d < bd) { bd = d; bg = dist > 1e-5 ? q / dist : vec2(0.0); br = r; bu = (i + mix(t0, t1, he)) / LAST; bx = (ba.x * (p - a).y - ba.y * (p - a).x) * inversesqrt(L2); }
+    if (d < aM + 12.0) {
+      float uv = (i + mix(t0, t1, clamp(hr, -2.0, 3.0))) / LAST;
+      if (d < aM) { float k = exp((d - aM) / 1.5); aW = aW * k + 1.0; aU = aU * k + uv; aM = d; }
+      else { float w = exp((aM - d) / 1.5); aW += w; aU += w * uv; }
+    }
     float hs = clamp(dot(ps - a, ba) / L2, 0.0, 1.0);
     bs = min(bs, length(ps - a - ba * hs) - mix(rr.x, rr.y, mix(t0, t1, hs)));
   }
@@ -241,13 +256,46 @@ void main() {
     float gv = 0.58 * (1.0 - smoothstep(hw - 12.0, hw + 12.0, x)) * sheat[s] * sa[s];
     if (gv > glow.a) glow = vec4(shcol[s] * gv, gv);
   }
-  // ── Hover: a soft halo in the vessel's own colour, just outside its wall (under the network) ──
+  // ── Glow: one thin soft band hugging a lit vessel's wall on both sides (under the network), fading to nothing
+  // at a free end. Every highlight (hover, a slide's or step's vessels, the Doppler's) is this band, in its colour.
   for (int s = 0; s < MAXS; s++) {
-    if (s >= n || shov[s] <= 0.0) continue;
-    float e = sd[s] - swall[s];
-    float Lh = max(T(sid[s], 5).z, 1.0), ends = min(su[s], 1.0 - su[s]) * Lh;   // tapers off toward both ends, never a blunt cap
-    float gv = 0.8 * shov[s] * sa[s] * smoothstep(-0.5, 1.0, e) * (1.0 - smoothstep(1.0, 13.0, e)) * smoothstep(-6.0, 14.0, ends);
-    if (gv > glow.a) glow = vec4(scol[s] * gv, gv);
+    if (s >= n) continue;
+    vec4 gc = T(sid[s], 10);
+    if (gc.a <= 0.0) continue;
+    vec4 ge = T(sid[s], 11);
+    float e = sd[s] - swall[s], Lh = max(T(sid[s], 5).z, 1.0);
+    float ends = (ge.x > 0.0 ? smoothstep(0.0, ge.x, sv[s] * Lh) : 1.0) * (ge.y > 0.0 ? smoothstep(0.0, ge.y, (1.0 - sv[s]) * Lh) : 1.0);
+    float fall = 1.0 - smoothstep(0.0, 12.0 * clamp(ge.w, 1.0, 1.3), e);
+    float gv = min(0.9, 0.6 * gc.a) * sa[s] * smoothstep(-0.6, 0.6, e) * fall * ends;
+    // None inside another lit vessel's lumen (the cava's two lengths, lit together): each band ends at the
+    // other's wall, so a lit vessel's round end does not show as a disc in the next one's lumen.
+    for (int t = 0; t < MAXS; t++) if (t != s && t < n && T(sid[t], 10).a > 0.0) gv *= smoothstep(-0.6, 0.6, sd[t] - swall[t]);
+    if (gv > glow.a) glow = vec4((ge.z > 0.5 ? scol[s] : gc.rgb) * gv, gv);
+  }
+
+  // ── Hand-off at a join across tiers ──
+  // A vessel that ends on one in a lower tier draws a copy of that one near the junction (see
+  // below), so the join is one filleted shape. The copy is drawn as the lower vessel shows in its
+  // own tier (behind the organs: as faded as they leave it), and the lower tier draws that vessel
+  // only for what the copy leaves, so the merged shape is filled once: no brighter, doubled patch
+  // where the two overlap (the hepatic veins on the cava).
+  float keep[MAXS];
+  for (int s = 0; s < MAXS; s++) keep[s] = 1.0;
+  for (int j = 0; j < MAXJ; j++) {
+    if (j >= jn || jf[j] <= 0.0) continue;
+    for (int t = 0; t < MAXS; t++) {
+      if (t >= n || (jm[j] & (1 << t)) == 0) continue;
+      int ti = int(stier[t] + 0.5);
+      if (tierGroup[ti] == 2) continue;
+      for (int s = 0; s < MAXS; s++) {
+        if (s >= n || (jm[j] & (1 << s)) == 0 || stier[s] >= stier[t]) continue;
+        int lt = int(stier[s] + 0.5);
+        if (tierGroup[lt] == 2) continue;
+        float shown = tierAlpha[lt] * (tierGroup[lt] == 0 ? 1.0 - occl : 1.0);
+        float aC = sa[s] * jf[j] * sa[t] * min(tierAlpha[ti], shown), aO = sa[s] * shown;
+        if (aO > 1e-4) keep[s] = min(keep[s], clamp((1.0 - aC / aO) / max(1.0 - aC, 1e-4), 0.0, 1.0));
+      }
+    }
   }
 
   // ── Tiers, back to front ──
@@ -267,11 +315,12 @@ void main() {
     // share a junction with one of them, faded out with distance from that junction.
     float pres[MAXS];
     int mem = 0;
-    for (int s = 0; s < MAXS; s++) { pres[s] = 0.0; if (s < n && stier[s] == tt) { mem |= 1 << s; pres[s] = 1.0; } }
-    // A copy is drawn as translucent as the vessel it copies (relative to this tier), and no
+    for (int s = 0; s < MAXS; s++) { pres[s] = 0.0; if (s < n && stier[s] == tt) { mem |= 1 << s; pres[s] = keep[s]; } }
+    // A copy is drawn as translucent as the vessel it copies shows in its own tier, and no
     // more solid than this tier's own vessels are at the junction (one that fades into it).
+    int base = mem;
     if (grp != 2) for (int j = 0; j < MAXJ; j++) {
-      int own = jm[j] & mem;
+      int own = jm[j] & base;
       if (j >= jn || own == 0 || jf[j] <= 0.0) continue;
       float up = 0.0;
       for (int s = 0; s < MAXS; s++) if ((own & (1 << s)) != 0) up = max(up, sa[s]);
@@ -280,7 +329,8 @@ void main() {
         int lt = int(stier[s] + 0.5);
         if (tierGroup[lt] == 2) continue;
         mem |= 1 << s;
-        pres[s] = max(pres[s], jf[j] * up * min(1.0, tierAlpha[lt] / max(tierAlpha[ti], 1e-3)));
+        float shown = tierAlpha[lt] * (tierGroup[lt] == 0 ? 1.0 - occl : 1.0);
+        pres[s] = max(pres[s], jf[j] * up * min(1.0, shown / max(tierAlpha[ti], 1e-3)));
       }
     }
     // The tier's shape: plain union, filleted between vessels that share a junction.
@@ -311,6 +361,19 @@ void main() {
       ow = s; conn = 0; kc = 0.0;
       for (int j = 0; j < MAXJ; j++) if (j < jn && jk[j] > 0.0 && (jm[j] & (1 << ow)) != 0) { conn |= jm[j]; kc = max(kc, jk[j]); }
     }
+    // Inside the lumen of a copied trunk (a vein behind the organs that this tier's veins end on:
+    // the cava under the hepatic veins), the trunk owns the pixel: a vein's end does not show
+    // through it as a second, brighter stub, so the join reads as one shape.
+    float tin[MAXS];
+    for (int s = 0; s < MAXS; s++) {
+      tin[s] = 0.0;
+      if ((mem & (1 << s)) == 0 || stier[s] == tt || grp != 1 || tierGroup[int(stier[s] + 0.5)] != 0) continue;
+      tin[s] = clamp(-sd[s] / max(0.35 * sr[s], px), 0.0, 1.0) * step(1e-3, pres[s]);
+      if (tin[s] > 0.5 && stier[ow] == tt) {
+        ow = s; conn = 0; kc = 0.0;
+        for (int j = 0; j < MAXJ; j++) if (j < jn && jk[j] > 0.0 && (jm[j] & (1 << ow)) != 0) { conn |= jm[j]; kc = max(kc, jk[j]); }
+      }
+    }
     conn = (conn | (1 << ow)) & mem;
     // Attributes blended across the join by the same distances (soft weights), so color,
     // caliber and shading run on through the fillet.
@@ -322,6 +385,8 @@ void main() {
     for (int s = 0; s < MAXS; s++) {
       if ((conn & (1 << s)) == 0) continue;
       float w = s == ow && kc <= 0.0 ? 1.0 : exp(-(sd[s] - m) / tau);
+      for (int t = 0; t < MAXS; t++) if ((conn & (1 << t)) != 0 && t != s) w *= 1.0 - tin[t];
+      w = max(w, tin[s]);
       W += w; R += w * sr[s]; wall += w * swall[s]; alpha += w * sa[s] * pres[s]; col += w * scol[s]; g += w * sg[s];
     }
     R /= W; wall /= W; alpha /= W; col /= W;
@@ -379,15 +444,34 @@ void main() {
         if ((conn & (1 << s)) == 0 || (int(sflag[s] + 0.5) & ${F_DOTTED}) != 0) continue;
         float L2 = max(T(sid[s], 5).z, 1.0), ext = max(0.0, max(-su[s], su[s] - 1.0)) * L2;
         float wv = exp(-max(sd[s] - sd[ow], 0.0) / tb) * (s == ow ? 1.0 : pres[s]) * (1.0 - smoothstep(0.0, 1.1 * sr[s] + 1.5, ext)) + 1e-4;
+        for (int t = 0; t < MAXS; t++) if ((conn & (1 << t)) != 0 && t != s) wv *= 1.0 - tin[t];   // inside the trunk, its stream
         if (wv > w1) { w2 = w1; o2 = o1; w1 = wv; o1 = s; }
         else if (wv > w2) { w2 = wv; o2 = s; }
       }
       if (o1 < 0) { o1 = ow; o2 = -1; }
-      int id = sid[o1];
-      gId = uint(id + 1); gS = su[o1] * T(id, 5).z; gY = clamp(sx[o1] / max(sr[o1], 1e-3), -1.0, 1.0); gW = lumA;
-      gId2 = 0u; gB = 0.0;
-      if (o2 >= 0 && w2 > 0.01 * w1) {
-        gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = w2 / (w1 + w2);
+      // Where a copy of a lower tier's vessel (a trunk under the veins that end on it) leads, it adds to
+      // the lumen that tier already showed and keeps its stream: the blood and chevrons run on at full
+      // strength across the join instead of fading to what the copy alone covers or switching streams
+      // where the copy fades out.
+      bool lower = stier[o1] != tt && gId > 0u;
+      if (lower) {
+        bool same = false;
+        for (int s = 0; s < MAXS; s++) if ((conn & (1 << s)) != 0 && uint(sid[s] + 1) == gId) same = true;
+        lower = same;
+      }
+      if (lower) {
+        gW = min(1.0, lumA + gW * (1.0 - c.a * gf));
+        // Toward a vein of this tier, its stream joins in as it does from the vein's side.
+        if (o2 >= 0 && stier[o2] == tt && w2 > 0.01 * w1) {
+          gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = w2 / (w1 + w2);
+        }
+      } else {
+        int id = sid[o1];
+        gId = uint(id + 1); gS = su[o1] * T(id, 5).z; gY = clamp(sx[o1] / max(sr[o1], 1e-3), -1.0, 1.0); gW = lumA;
+        gId2 = 0u; gB = 0.0;
+        if (o2 >= 0 && w2 > 0.01 * w1) {
+          gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = w2 / (w1 + w2);
+        }
       }
     } else gW *= 1.0 - c.a * gf;
     if (grp == 0) { c *= 1.0 - occl; accB = over(c, accB); }
@@ -396,6 +480,14 @@ void main() {
   }
   vec4 o = over(accT, over(accN * netAlpha, over(glow, accB)));
   if (o.a < 0.002) discard;
+  // Dither by up to a level (triangular noise, fixed per pixel) before the 8-bit layer: the colour and
+  // alpha of a soft gradient (the glow's falloff) would round at different places and draw thin stripes.
+  uvec2 fc = uvec2(gl_FragCoord.xy);
+  uint hd = fc.x * 0x8da6b343u ^ fc.y * 0xd8163841u;
+  hd ^= hd >> 15; hd *= 0x2c1b3c6du; hd ^= hd >> 12; hd *= 0x297a2d39u; hd ^= hd >> 15;
+  float dn = (float(hd & 0xffffu) + float(hd >> 16)) / 65535.0 - 1.0;
+  o.a = clamp(o.a + dn / 255.0, 0.0, 1.0);
+  o.rgb = min(max(o.rgb + dn / 255.0, 0.0), vec3(o.a));
   outColor = o;
   bool fl = gId > 0u && gW > 0.01;
   outFlow = fl

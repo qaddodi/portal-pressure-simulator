@@ -1,30 +1,30 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=5f360b39e4';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=5edd069b32';
-import { createStage } from './stage.js?v=887668585d';
+import { startHost, host } from './host.js?v=137ea55eb7';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=9858da589a';
+import { createStage } from './stage.js?v=ac3169fe5c';
 import { createCreditPlacer } from './credit.js?v=b3a9118903';
-import { sinusoidSupported } from './sinusoid-view.js?v=de74e96d8e';
-import { createInspector } from './inspector.js?v=7eaae98614';
-import { createDock, CUTOFFS } from './dock.js?v=cc13479fce';
-import { setHvpgStage } from './hvpg-proc.js?v=ba33a59e09';
-import { createWhy } from './why.js?v=4f469f841e';
-import { createTimeline, LAPSES } from './timeline.js?v=30f6a2dab1';
-import { createLearn } from './learn.js?v=d0f5597022';
-import { createCases, CASES } from './cases.js?v=e7ff622ce5';
-import { isBlind } from './learning-kit.js?v=d80de1677e';
-import { createCompare } from './compare.js?v=6076ea1c5d';
-import { createCard } from './card.js?v=d6c7639034';
-import { createChart, computeFindings } from './chart.js?v=67f8e506cd';
-import { createMenu, ROLES } from './menu.js?v=aa899ed355';
+import { sinusoidSupported } from './sinusoid-view.js?v=f48a130c4b';
+import { createInspector } from './inspector.js?v=4dd2fb68b1';
+import { createDock, CUTOFFS } from './dock.js?v=178e1352ae';
+import { setHvpgStage } from './hvpg-proc.js?v=e3c93a9bb1';
+import { createWhy } from './why.js?v=f47dea1d57';
+import { createTimeline, LAPSES } from './timeline.js?v=b039acd70a';
+import { createLearn } from './learn.js?v=5b1a41d804';
+import { createCases, CASES } from './cases.js?v=82a7a4362c';
+import { isBlind } from './learning-kit.js?v=6d450ed1de';
+import { createCompare } from './compare.js?v=232ef8e809';
+import { createCard } from './card.js?v=0191bd086c';
+import { createChart, computeFindings } from './chart.js?v=c0b601436f';
+import { createMenu, ROLES } from './menu.js?v=5705a6e57f';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
-import { caption } from './a11y.js?v=7b9d1b7a21';
-import { startLMS } from './lms.js?v=fca5c89200';
+import { caption } from './a11y.js?v=294de40bc0';
+import { startLMS } from './lms.js?v=a3a163a016';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue } from './actions.js?v=6ac4d44543';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue } from './actions.js?v=b281539357';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
-import { EDGES } from '../engine/topology.js?v=706a39d50b';
+import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, uiScale, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=045e641b44';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -38,7 +38,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
 import { initTopbarMotion } from './topbar-motion.js?v=a941da3e97';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
-import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=2ab3fe1eb2';
+import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=b2eabea2e1';
 
 // Color lenses: [title, what it shows, legend swatch].
 // SMV, IMV, splenic vein, hepatic artery, systemic: as stage.js BLOOD_COLORS.
@@ -139,7 +139,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=ff24068d86'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=b07f5b5e80'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -147,7 +147,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=e97a577da4'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=9be9c1f52e'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -532,7 +532,7 @@ function buildHud() {
   store.on('colorMode', () => { $('#colorModeLabel').textContent = COLOR_MODES[store.get().colorMode]; });
   bleedEl = $('#bleedPill');
   enhanceRanges();
-  tipEl = h('div', { class: 'hover-tip', style: { display: 'none' } });
+  tipEl = h('div', { class: 'hover-tip', 'aria-hidden': 'true' });
   view.append(tipEl);
   stageClock = h('div', { class: 'stage-clock', 'aria-hidden': 'true' });
   view.append(stageClock);
@@ -723,15 +723,19 @@ function hoverInfo(info) {
   const f = store.get().frame;
   const tool = store.get().tool;
   // A long press (info.peek) shows the readings on any screen, above the finger; hovering only where there is a pointer.
-  if (!info || !f || tool !== 'select' || store.get().shunting || (isPhone() && !info.peek) || store.get().imaging) { tipEl.style.display = 'none'; tipEl.classList.remove('peek'); return; }
+  if (!info || !f || tool !== 'select' || store.get().shunting || (isPhone() && !info.peek) || store.get().imaging) { tipEl.classList.remove('on'); return; }
   const e = EDGES[EI[info.id]], k = EI[info.id];
   const D = Math.max(0.5, f.D[k]) / 10;
   const v = f.Q[k] / (Math.PI * D * D / 4);
-  const r = (a, b) => h('div', { class: 'r' }, a, h('b', {}, b));
-  tipEl.replaceChildren(h('div', { class: 't' }, e.label),
-    r('Pressure', `${edgeValue(e, f, 'pressure', null).v} mmHg`), r('Flow', `${fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06)} L/min`),
-    r('Velocity', `${fmt(v, 1)} cm/s`), r('Diameter', `${fmt(f.D[k], 1)} mm`), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
-  tipEl.style.display = '';
+  // Same language as the menu panel and the data card: tabular numbers, units smaller and muted.
+  const r = (a, n, u) => h('div', { class: 'r' }, h('span', { class: 'k' }, a), h('b', {}, n, h('span', { class: 'u' }, u)));
+  const art = e.kind === 'artery' || e.kind === 'arteriole';
+  const acc = art ? 'var(--artery)' : PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)';
+  tipEl.style.setProperty('--acc', acc);
+  tipEl.replaceChildren(h('div', { class: 't' }, h('i', { class: 'dot' }), e.label),
+    h('div', { class: 'rows' }, r('Pressure', edgeValue(e, f, 'pressure', null).v, 'mmHg'), r('Flow', fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 'L/min'),
+      r('Velocity', fmt(v, 1), 'cm/s'), r('Diameter', fmt(f.D[k], 1), 'mm')), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
+  tipEl.classList.add('on');
   tipEl.classList.toggle('peek', !!info.peek);
   const W = view.clientWidth, H = view.clientHeight, th = tipEl.offsetHeight, tw = tipEl.offsetWidth || 200;
   if (info.peek) {

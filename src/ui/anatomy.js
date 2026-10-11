@@ -504,10 +504,10 @@ export const EDGE_VESSEL = {
 };
 
 // The pressure-profile chart follows one path, gut → liver → heart, with plain station names;
-// `liver` marks the stations inside the liver (portal venule to central venule).
+// `liver` marks the stations inside the liver (portal venule to central vein).
 export const PROFILE_PATHS = [
   { id: 'main', label: 'Gut → liver → heart', nodes: ['INT', 'CONF', 'RPV', 'SIN_R', 'CV_R', 'RHV', 'IVCS', 'RA'],
-    names: { INT: 'Gut', CONF: 'Portal vein', RPV: 'Portal venule', SIN_R: 'Sinusoid', CV_R: 'Central venule', RHV: 'Hepatic vein', IVCS: 'IVC', RA: 'RA' },
+    names: { INT: 'Gut', CONF: 'Portal vein', RPV: 'Portal venule', SIN_R: 'Sinusoid', CV_R: 'Central vein', RHV: 'Hepatic vein', IVCS: 'IVC', RA: 'RA' },
     liver: ['RPV', 'CV_R'],
     // Gradients drawn as spans under the line, with the same values and cut-offs as the readout
     // tiles: HVPG = WHVP − FHVP (wedged − free hepatic vein) and PPG = portal vein − IVC.

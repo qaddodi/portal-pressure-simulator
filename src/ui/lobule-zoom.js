@@ -20,15 +20,15 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
-import { store } from './store.js?v=5edd069b32';
+import { store } from './store.js?v=9858da589a';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=e0a6918f70';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=58cca12828';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=045e641b44';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
-import { NODES, EDGES } from '../engine/topology.js?v=706a39d50b';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=cb8a3840bd';
+import { NODES, EDGES } from '../engine/topology.js?v=34e377149b';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=b96611a7c7';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=de74e96d8e';
+import { createSinusoidView } from './sinusoid-view.js?v=f48a130c4b';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -338,17 +338,26 @@ export function createLobuleZoom({ host }) {
   }
   // A short glide between framings (the buttons, Fit, a card opening).
   let glide = 0;
-  function glideTo(to, ms = 260) {
+  // A presenter's glide (focusOn): the labels ease out, are not laid out on the way, and ease back in where it lands.
+  let camMove = false, camInT = 0, camUntil = 0;
+  function camSettle() {
+    if (!camMove) return;
+    camMove = false; layoutKey = '';
+    if (fade > 0 && geo) layoutLabels();
+    requestAnimationFrame(() => { if (camMove) return; el.classList.remove('lz-cam'); el.classList.add('lz-cam-in'); clearTimeout(camInT); camInT = setTimeout(() => el.classList.remove('lz-cam-in'), 400); });
+  }
+  function glideTo(to, ms = 260, cam = false) {
     stopInertia();
     cancelAnimationFrame(glide);
     const from = { ...V }, t0 = performance.now();
-    if (reduce.matches || !fade) { Object.assign(V, to); viewChanged(); return; }
+    if (reduce.matches || !fade) { Object.assign(V, to); viewChanged(); camSettle(); return; }
+    if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; el.classList.remove('lz-cam-in'); el.classList.add('lz-cam'); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();
     const step = (now) => {
       const u = clamp((now - t0) / ms, 0, 1), e = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
       const k = from.k * Math.pow(to.k / from.k, e), a = (k - from.k) / ((to.k - from.k) || 1);
       V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? e : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? e : a);
       viewChanged();
-      if (u < 1) glide = requestAnimationFrame(step);
+      if (u < 1) glide = requestAnimationFrame(step); else camSettle();
     };
     glide = requestAnimationFrame(step);
   }
@@ -784,7 +793,7 @@ export function createLobuleZoom({ host }) {
   function panel() {
     const m = model;
     tissue.setAttribute('aria-label', m.hide ? 'Liver lobule. Pressures not measured.'
-      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central venule ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`);
+      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`);
     // Station cards on the figure.
     // Labels as in the anatomy: the station, its pressure, and the change from healthy once it reaches
     // 5 mmHg; while comparing, every change from the pinned moment (shown at 1, dropped below 0.7).
@@ -798,7 +807,7 @@ export function createLobuleZoom({ host }) {
     };
     setLab('triad', 'Portal venule', 'Portal venule', ...mv('triad', m.P1, m.R[0]));
     setLab('sin', 'Sinusoids', 'Sinusoids', ...mv('sin', m.P2, m.R[1]));
-    setLab('cv', 'Central venule', 'Central venule', ...mv('cv', m.P3, m.R[2]));
+    setLab('cv', 'Central vein', 'Central vein', ...mv('cv', m.P3, m.R[2]));
     // Lymph (Lymph layer on): the whole liver's rate and its protein; the change from healthy is on its card.
     if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
     else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), `mL/min · Protein ${Math.round(m.lyProt * 100)}%`, '', null);
@@ -898,14 +907,15 @@ export function createLobuleZoom({ host }) {
     callRing.setAttribute('cx', a[0]); callRing.setAttribute('cy', a[1]); callRing.setAttribute('r', rr);
   }
   function layoutLabels() {
+    // Laid out where the presenter's glide lands (see camSettle), or once its time is up if the hand cut it short.
+    if (camMove) { if (performance.now() >= camUntil) camSettle(); return; }
     const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${call ? call.at + call.label : ''}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
     if (key === layoutKey) return;
     layoutKey = key;
     pickAnchors(fr0);
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
     const { R, cx, cy } = g;
-    // Direct labels for the portal venule and sinusoids. Only the central venule
-    // needs a leader; its endpoint is the label's centre, behind the text halo.
+    // Every label has a leader to what it names, ending at the label's centre, behind the text halo.
     // Score nearby placements together so zooming, panning and narrow screens do not stack labels.
     const fr = fr0, placed = [];
     const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l))
@@ -966,7 +976,10 @@ export function createLobuleZoom({ host }) {
         const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad);
         const y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
         const box = { l: x - w / 2 - hm, r: x + w / 2 + hm, t: y - hh / 2 - hm, b: y + hh / 2 + hm };
+        // A label with a leader keeps a visible stretch of it: it never sits right over the vessel it names.
+        const lead = Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2));
         const cost = placed.reduce((sum, other) => sum + overlap(box, other) * 100, 0)
+          + Math.max(0, 16 - lead) * 40
           + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0)
           + own.reduce((sum, m) => sum + overlap(box, m) * 40, 0)
           + Math.hypot(x - preferred[0], y - preferred[1]);
@@ -975,10 +988,8 @@ export function createLobuleZoom({ host }) {
       const { x, y, box } = best;
       placed.push(box);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
-      L.el.classList.toggle('direct', k !== 'cv' && k !== 'lymph');
       L.el.classList.remove('left');
-      const leaderOn = k === 'cv' || k === 'lymph';
-      L.line.style.display = L.dotEl.style.display = leaderOn ? '' : 'none';
+      L.line.style.display = L.dotEl.style.display = '';
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]);
       L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
@@ -1088,7 +1099,10 @@ export function createLobuleZoom({ host }) {
   // The field mirrors the lobule's own state (rounded, so the tiles are redrawn only when it changes
   // visibly): septa and portal tracts thicken with fibrosis, bridging septa turn the lobules into
   // nodules in cirrhosis, the sinusoids pale as they capillarize, and congestion darkens zone 3.
-  const fieldState = () => { const m = model || (F ? lobuleState(F, store.get()) : null); const q = (x) => Math.round((x || 0) * 8) / 8; return m ? { su: q(m.septU), pre: q(m.fibPre), post: q(m.fibPost), sin: q(m.fibSin), cong: q(m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
+  // (With some hysteresis: a value wavering on a step boundary must not flip between two sets of tiles, redrawing them mid-dive.)
+  const fsLast = {};
+  const fsQ = (k, x) => { const v = x || 0, o = fsLast[k]; return o !== undefined && Math.abs(v - o) < 0.09 ? o : (fsLast[k] = Math.round(v * 8) / 8); };
+  const fieldState = () => { const m = model || (F ? lobuleState(F, store.get()) : null); return m ? { su: fsQ('su', m.septU), pre: fsQ('pre', m.fibPre), post: fsQ('post', m.fibPost), sin: fsQ('sin', m.fibSin), cong: fsQ('cong', m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
   function fieldTile(cs, dark, rd) {
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const cell = v('--og-liver-1', '#E9C3B6'), gap = v('--og-liver-2', '#C98E7E'), cvc = v('--vein-systemic', '#4F8CC9'), pvc = v('--vein-portal', '#7D6FB6');
@@ -1259,7 +1273,7 @@ export function createLobuleZoom({ host }) {
     if (!d || d.a <= 0.002) { if (field.width) { field.width = 0; field.height = 0; } field.style.opacity = '0'; fieldOp = 0; return; }
     if (!diveCtx) {
       const rect = host.getBoundingClientRect(), cs = getComputedStyle(host), dark = isDark();
-      diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs, dark, bg: rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7')) };
+      diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs, dark, bg: stageBg(cs, dark) };
     }
     const { W, H, cs, dark, bg } = diveCtx;
     const dpr = Math.min(1, devicePixelRatio || 1) * 0.8;   // in motion and behind the lobule: a modest resolution is plenty
@@ -1271,15 +1285,7 @@ export function createLobuleZoom({ host }) {
     c.globalCompositeOperation = 'source-over';
     // The surrounding lobules start drained and tinted like the liver being zoomed into (its fill, in
     // whichever theme), so the dive reads as one tissue; the lobule's own colours come in over it.
-    const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim() || (dark ? '#5A3440' : '#C98E7E'));
-    const tone = bg.map((x, i) => lerp(x, lv[i], 0.6));
-    const tk = tone.map((x) => x.toFixed(2)).join(',');
-    if (!t.liverQ || t.liverQ.k !== tk) {
-      const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
-      const cc = cv.getContext('2d'); cc.drawImage(t.cv, 0, 0); fieldQuiet(cc, tone, 1, t.tw, t.th);
-      t.liverQ = { k: tk, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() };
-    }
-    fieldFill(c, t.liverQ, d.x * dpr, d.y * dpr, rd, field.width, field.height);
+    fieldFill(c, liverTile(t, cs, dark, bg), d.x * dpr, d.y * dpr, rd, field.width, field.height);
     // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
     if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), d.x * dpr, d.y * dpr, rd, field.width, field.height); c.globalAlpha = 1; fieldFade(c, shadeOf(bg, dark), d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height); }
     // Emerging: the field spreads out from the dive point as it fades in.
@@ -1295,14 +1301,64 @@ export function createLobuleZoom({ host }) {
     field.style.opacity = fieldOp.toFixed(3);
   }
   let fieldOp = 0;
+  function liverTile(t, cs, dark, bg) {
+    const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim() || (dark ? '#5A3440' : '#C98E7E'));
+    const tone = bg.map((x, i) => lerp(x, lv[i], 0.6));
+    const tk = tone.map((x) => x.toFixed(2)).join(',');
+    if (!t.liverQ || t.liverQ.k !== tk) {
+      const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
+      const cc = cv.getContext('2d'); cc.drawImage(t.cv, 0, 0); fieldQuiet(cc, tone, 1, t.tw, t.th);
+      t.liverQ = { k: tk, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() };
+    }
+    return t.liverQ;
+  }
+  const stageBg = (cs, dark) => rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7'));
+  // Ahead of any dive, while the anatomy sits idle: everything the dive and the lobule's first frame would
+  // otherwise build mid-zoom (geometry, the vessels' WebGL, the field's tiles and their toned copies, the
+  // tissue bitmap and a first full draw, which compiles the shaders and uploads the network), as pieces
+  // the stage runs one per idle moment. Empty when nothing changed since the last preparation.
+  let prepKey = '';
+  function preparePieces() {
+    if (fade > 0 || !F) return [];
+    const rect = host.getBoundingClientRect(), W = Math.round(rect.width), H = Math.round(rect.height);
+    if (W < 2 || H < 2) return [];
+    const dark = isDark(), key = [W, H, dark, devicePixelRatio, lzRes, zonesOn, lymphOn, Object.values(fieldState()).join(',')].join('|');
+    if (key === prepKey) return [];
+    let cs, land, bg;
+    const q = [
+      () => { cs = getComputedStyle(host); bg = stageBg(cs, dark); land = api.landing(); },
+      () => ensureGL(),
+    ];
+    // The dive's field: every tile it steps through on the way to the landing size (see paintField).
+    const fdpr = Math.min(1, devicePixelRatio || 1) * 0.8;
+    q.push(() => {
+      const top = land.r * fdpr * 0.55;
+      for (let rd = 6; ; rd *= 2) { const r = rd; q.splice(q.indexOf(null), 0, () => liverTile(fieldTile(cs, dark, r), cs, dark, bg)); if (r >= top) break; }
+    }, null);
+    q.push(() => {   // the landed lobule: its state, then the tissue, then one full frame
+      const st = store.get();
+      model = lobuleState({ ...F, P: F.Pf || F.P }, st);
+      const cv = (n, d) => cs.getPropertyValue(n).trim() || d;
+      model.inks = { normal: cv('--flow-normal', '#16988F'), reversed: cv('--flow-reversed', '#EC7424'), portal: cv('--vein-portal', '#7B6FC4'), systemic: cv('--vein-systemic', '#4F8CC9') };
+      const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
+      quietTile(fieldTile(cs, dark, geo.R * V.k * dpr * 0.55), bg);
+    }, () => {
+      const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
+      paintTissue(W, H, dpr, dark, cs, !gl || gl.lost);
+    }, () => { if (fade <= 0) { draw(0); prepKey = key; } });
+    return q;
+  }
+  // Runs the pieces in order; a null is a placeholder that a piece fills in.
+  function prepareRun(q) { while (q.length) { const f = q.shift(); if (f) { f(); return q.length > 0; } } return false; }
   // Before a dive: the work its frames would otherwise stall on, done a piece per frame while the
   // anatomy is still only being magnified (the vessels' WebGL, then the field's tiles up to the size
   // the dive ends at). warm() does the next piece; true while any is left.
   let warmQ = [];
   function prewarm(rEnd) {
-    const cs = getComputedStyle(host), dark = isDark(), dpr = Math.min(1.5, devicePixelRatio || 1);
+    const cs = getComputedStyle(host), dark = isDark(), bg = stageBg(cs, dark), top = rEnd * Math.min(1, devicePixelRatio || 1) * 0.8 * 0.55;
     warmQ = [() => ensureGL()];
-    for (let rd = 8; rd < rEnd * dpr * 0.55 * 2; rd *= 2) { const r = rd; warmQ.push(() => fieldTile(cs, dark, r)); }
+    // The tiles paintField steps through (each a no-op when the idle preparation already drew it).
+    for (let rd = 6; ; rd *= 2) { const r = rd; warmQ.push(() => liverTile(fieldTile(cs, dark, r), cs, dark, bg)); if (r >= top) break; }
   }
   function warm() { const f = warmQ.shift(); if (f) f(); return warmQ.length > 0; }
 
@@ -2049,7 +2105,7 @@ export function createLobuleZoom({ host }) {
   store.on('sinusoid', (on) => diveSinusoid(!!on));
   store.on('lobule', (on) => { if (!on && store.get().sinusoid) { quietSin = true; store.set({ sinusoid: false }); quietSin = false; } });
 
-  return {
+  const api = {
     el,
     update,
     /** 0 = hidden, 1 = fully in the lobule. It fades in where it stands, over the dive's field. */
@@ -2087,7 +2143,7 @@ export function createLobuleZoom({ host }) {
     },
     setDive: paintField,
     onZoomOut(fn) { outHandler = fn; },
-    prewarm, warm,
+    prewarm, warm, preparePieces, prepareRun,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
@@ -2117,18 +2173,19 @@ export function createLobuleZoom({ host }) {
     focusOn(part, { zoom = 2, ms = 1400 } = {}) {
       if (!geo || sinTo) return;
       const F0 = fitV(); kFit = F0.k;
-      if (!part || part === 'fit') { atFit = true; glideTo(F0, ms); return; }
+      if (!part || part === 'fit') { atFit = true; glideTo(F0, ms, true); return; }
       const g = geo, tri = g.lobules[0].corners[3];
       const w = part === 'triad' ? [lerp(tri[0], g.cx, 0.12), lerp(tri[1], g.cy, 0.12)] : part === 'central' ? [g.cx, g.cy] : [lerp(tri[0], g.cx, 0.5), lerp(tri[1], g.cy, 0.5)];
       const f = freeRect(), mx = (f.l + f.r) / 2, my = (f.t + f.b) / 2, k = clamp(kFit * zoom, kFit, kFit * KMAX);
       const saved = { ...V };
       Object.assign(V, { k, x: mx - w[0] * k, y: my - w[1] * k }); clampV();
       const to = { ...V }; Object.assign(V, saved);
-      atFit = false; glideTo(to, ms);
+      atFit = false; glideTo(to, ms, true);
     },
     viewKey: () => `${V.k.toFixed(3)},${V.x.toFixed(1)},${V.y.toFixed(1)}|${geoKey}`,
     isOpen: () => fade > 0.98,
     isShown: () => fade > 0,
     setLobe,
   };
+  return api;
 }

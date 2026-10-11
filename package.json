@@ -14,6 +14,7 @@
     "smoke": "node tests/e2e/smoke.mjs",
     "smoke:dist": "node tests/e2e/smoke.mjs dist",
     "perf": "node scripts/perf.mjs",
+    "perf:dive": "node scripts/perf-dive.mjs",
     "check": "npm run lint && npm test && npm run build && npm run smoke && npm run smoke:dist",
     "scorm": "node scripts/scorm.mjs",
     "visual": "node tests/e2e/visual.mjs"
