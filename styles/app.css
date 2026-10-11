@@ -3448,7 +3448,7 @@ button.finding { cursor: pointer; }
   .vdock .readouts { width: 300px; }
 }
 @media (max-width: 767px) {
-  .topbar #viewSeg button { padding: 6px 7px; }
+  .topbar[data-fit] #viewSeg button { padding: 6px 7px; }
   .topbar .stage-bar.top { gap: 6px; min-width: 0; }
   .topbar .sb-right { flex: 0 1 auto; min-width: 0; overflow: hidden; }
   .topbar .lens-btn { min-width: 0; overflow: hidden; }
@@ -3752,7 +3752,10 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
   .topbar .lg-dots { display: grid; grid-template-columns: repeat(3, auto); gap: 1px 6px; line-height: 1.25; }
   .topbar .lg-dots span { gap: 3px; }
   .topbar .lg-dots i { flex: none; width: 7px; height: 7px; border-radius: 50%; }
-  .topbar #viewSeg button { padding: 6px 5px; }
+  .topbar[data-fit] #viewSeg button { padding: 6px 5px; }
+  .topbar[data-fit] .lg-scale { width: 40px; }
+  .topbar .lg-cap { display: none; }
+  .top-right .ib, .top-right .pal-btn { width: 34px; min-width: 34px; }
   .topbar .lens-btn { padding: 0 3px; }
 }
 @media (max-width: 380px) { .topbar #viewSeg button { padding: 6px 3px; } }
@@ -4885,4 +4888,29 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .pz.stack .pz-grip { bottom: 3px; height: 3px; width: 34px; }
   .pz:not(.stack) .pz-grip { left: 7px; bottom: auto; top: 50%; width: 4px; height: 38px; translate: 0 -50%; }
   .pz:not(.stack) .pz-data.under .pz-grip { left: auto; right: 7px; }
+}
+
+/* A phone held sideways (844x390, 667x375): laid out like a narrow iPad. One bar row, the Tests card docked
+   on the right at full height, and the play bar shortened to end at the card, so the figure keeps the height. */
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .tb-id { flex: 0 1 auto; }
+  .topbar[data-fit] .tb-id .menu-btn .scenario-v { max-width: 130px; }
+  .topbar .lg-title, .topbar .lg-num { display: none; }
+  .topbar[data-fit] .lg-scale { width: 56px; }
+  .topbar[data-fit] #viewSeg button { padding: 6px 7px; }
+  .app.dock-open:has(#dock.side:not([data-state="peek"])) .instrument-workspace.side { bottom: calc(env(safe-area-inset-bottom) + 6px); }
+  .app.dock-open:has(#dock.side) .vdock { right: calc(env(safe-area-inset-right) + var(--side-ws-w, 340px) + 14px); }
+  .app.dock-open:has(#dock.side) .vdock .readouts { display: none; }
+  .instrument-workspace.side .dop-vessel { min-width: 84px; }
+  .instrument-workspace.side .dop-tint { gap: 5px; padding: 0 8px; }
+  .instrument-workspace.side .dock-pane { padding-left: 12px; padding-right: 12px; }
+  .instrument-workspace.side .dop-sweep { width: 60px; flex-basis: 60px; padding-inline: 8px; gap: 6px; }
+  .app.dock-open:has(#dock.side) .vdock { grid-template-columns: minmax(0, 1fr); grid-template-areas: "st" "tl"; }
+}
+@media (max-width: 720px) and (max-height: 500px) and (orientation: landscape) {
+  .topbar[data-fit] .tb-id .menu-btn .scenario-v { max-width: 84px; }
+  .topbar[data-fit] #viewSeg button { padding: 6px 5px; }
+  .topbar[data-fit] .lg-scale { width: 40px; }
+  .topbar .lg-cap { display: none; }
+  .top-right .ib, .top-right .pal-btn { width: 34px; min-width: 34px; }
 }

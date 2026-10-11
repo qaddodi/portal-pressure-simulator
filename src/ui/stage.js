@@ -1158,6 +1158,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
     const ins = { t: 0, b: 0, l: 0, r: 0, W, H }, cards = [];
     if (!W || !H) return ins;
+    // A phone held sideways docks its cards at the side like a tablet (dock.js), so they count as side cards.
+    const wide = W >= 768 || (W > H && H <= 500 && W >= 640);
     for (const el of document.querySelectorAll('[data-safe]')) {
       if (el.hidden || el.closest('[hidden]')) continue;
       if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
@@ -1169,12 +1171,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const x0 = q.left - wr.left, x1 = q.right - wr.left, y1 = q.bottom - wr.top;
       if (x1 <= 0 || y1 <= 0 || x0 >= W || y0 >= H) continue;
       let edge = el.dataset.safe;
-      if (edge === 'right' && W < 768) edge = 'bottom';   // a phone's cards are sheets over the bottom
+      if (edge === 'right' && !wide) edge = 'bottom';   // a phone's cards are sheets over the bottom
       else if (edge === 'bottom' && el.classList.contains('side')) edge = 'right';   // the instruments docked at the side
       if (edge === 'top') ins.t = Math.max(ins.t, y1);
       else if (edge === 'bottom') ins.b = Math.max(ins.b, H - y0);
-      else if (W >= 768 && edge === 'right') { ins.r = Math.max(ins.r, W - x0); cards.push([y0, y1]); }
-      else if (W >= 768 && edge === 'left') ins.l = Math.max(ins.l, x1);
+      else if (wide && edge === 'right') { ins.r = Math.max(ins.r, W - x0); cards.push([y0, y1]); }
+      else if (wide && edge === 'left') ins.l = Math.max(ins.l, x1);
     }
     // Where the side cards would leave under 60% of the width (a tablet held upright), a short card is cleared
     // above (or below) instead, so the figure keeps the full width rather than shrinking into a strip.
@@ -1186,7 +1188,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // (While presenting, the slide's words and data card both stay clear even on a tablet: the figure frames into the
     // column between them rather than going under them; only a strip too thin to frame anything gives way.)
-    if (W - ins.l - ins.r < (store.get().presenting ? 200 : Math.min(W * 0.5, 360))) ins.l = ins.r = 0;
+    if (W - ins.l - ins.r < (store.get().presenting ? 200 : W < 768 ? 260 : Math.min(W * 0.5, 360))) ins.l = ins.r = 0;
     if (!exact && H - ins.t - ins.b < H * 0.35) { const k = (H * 0.65) / (ins.t + ins.b); ins.t *= k; ins.b *= k; }
     return ins;
   }

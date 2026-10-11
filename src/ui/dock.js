@@ -349,7 +349,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
   let heightRatio = typeof saved.h === 'number' ? saved.h : null, widthPx = typeof saved.w === 'number' ? saved.w : null;
   const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx })); } catch { /* storage unavailable */ } };
-  const sideMQ = matchMedia('(min-width: 700px) and (orientation: landscape)');
+  // A phone held sideways (667x375 and up) docks on the right too, like a narrow iPad: the figure keeps the full height.
+  const sideMQ = matchMedia('(min-width: 700px) and (orientation: landscape), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
+  const sidewaysMQ = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
   const isSide = () => sideMQ.matches;
 
   const live = h('span', { class: 'workspace-live', 'aria-live': 'off' });
@@ -438,8 +440,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     workspace.dataset.safe = side ? 'right' : 'bottom';
     divider.setAttribute('aria-orientation', side ? 'vertical' : 'horizontal');
     if (side) {
-      const W = stageWrap.clientWidth, w = clamp(widthPx ?? Math.max(440, W * 0.38), 360, Math.max(360, W * 0.62));
+      const W = stageWrap.clientWidth, w = clamp(widthPx ?? (sidewaysMQ.matches ? Math.max(340, W * 0.45) : Math.max(440, W * 0.38)), sidewaysMQ.matches ? 320 : 360, Math.max(360, W * 0.62));
       workspace.style.setProperty('--instrument-w', `${Math.round(w)}px`);
+      app.style.setProperty('--side-ws-w', `${Math.round(w)}px`);   // (a sideways phone's play bar ends at the card)
       divider.setAttribute('aria-valuenow', String(Math.round((w / W) * 100)));
     } else {
       // The sheet rises from above the vitals dock, at most to just under the top bar.

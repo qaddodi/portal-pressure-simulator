@@ -1134,7 +1134,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // slide of a deck; it may fade out only when no figure is left (src/ui/credit.js).
   await check(device, 'corner credit never touches a card', async (page) => {
     // (A phone held sideways too: the words' glass pane (.pz-shade) is a card like the others.)
-    const sizes = device === 'desktop' ? [[1440, 900], [820, 1180]] : [[390, 844], [844, 390], [932, 430]];
+    const sizes = device === 'desktop' ? [[1440, 900], [820, 1180]] : [[390, 844], [844, 390], [667, 375], [932, 430]];
     const creditHits = () => page.evaluate(() => {
       const c = document.querySelector('.stage-credit'), r = c.getBoundingClientRect();
       if (+getComputedStyle(c).opacity < 0.5) return [];
@@ -1175,6 +1175,44 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page, '?case=bleed'); await verify(`${at} case`);
       await open(page, '?script=circulation');
       for (let i = 0; i < 10; i++) { await verify(`${at} slide ${i + 1}`); await page.keyboard.press('ArrowRight'); }
+    }
+  });
+  // A phone held sideways is laid out like a narrow iPad: one bar row, Tests docked on the right at full height, the
+  // play bar ending at the card, the figure framed in the space left of it, and every test's controls and heading
+  // inside the card (styles/app.css, sideways block; dock.js isSide).
+  if (device === 'phone') await check(device, 'sideways phone docks Tests on the right', async (page) => {
+    for (const [w, hgt] of [[844, 390], [667, 375]]) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await open(page);
+      for (const id of ['profile', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan']) {
+        await page.evaluate((i) => window.pps.dock.show(i, { reveal: true }), id);
+        await page.waitForTimeout(700);
+        await page.waitForFunction(() => !document.querySelector('#dock').getAnimations({ subtree: false }).some((a) => a.playState === 'running') && document.querySelector('#dock').getBoundingClientRect().right <= innerWidth, null, { timeout: 5000 }).catch(() => {});
+        const bad = await page.evaluate(() => {
+          const out = [], R = (s) => document.querySelector(s).getBoundingClientRect();
+          const tb = document.querySelector('#topbar'), dock = R('#dock'), vd = R('#vdock');
+          if (tb.classList.contains('two-rows') || tb.offsetHeight > 60) out.push(`top bar takes ${tb.offsetHeight} px`);
+          if (!document.querySelector('#dock').classList.contains('side')) out.push('Tests is not docked at the side');
+          if (dock.right > innerWidth + 1 || dock.top > tb.offsetHeight + 8 || dock.bottom < innerHeight - 20) out.push(`Tests card ${Math.round(dock.top)}-${Math.round(dock.bottom)} right ${Math.round(dock.right)}/${innerWidth}, bar ${tb.offsetHeight}, not full height`);
+          if (vd.right > dock.left) out.push('the play bar runs under the Tests card');
+          const pane = document.querySelector('#dock .dock-pane.active');
+          for (const el of pane.querySelectorAll('*')) {
+            const st = getComputedStyle(el);
+            if (!el.offsetWidth || st.overflowX === 'auto' || st.overflowX === 'scroll') continue;
+            if (/^(h3|h4)$/i.test(el.tagName) || el.matches('[class*="-head"]')) {
+              const q = el.getBoundingClientRect();
+              if (q.left < dock.left - 1 || q.right > dock.right + 1) out.push(`${el.className || el.tagName} spills out of the card`);
+              if (el.scrollWidth > el.clientWidth + 2 && st.overflowX !== 'hidden') out.push(`${el.className || el.tagName} overflows by ${el.scrollWidth - el.clientWidth} px`);
+            }
+          }
+          // The figure is framed left of the card: its labels sit in the space the card leaves.
+          const lbs = [...document.querySelectorAll('#labels .lb:not(.lb-off) text')].map((t) => t.getBoundingClientRect()).filter((q) => q.width > 1);
+          const under = lbs.filter((q) => q.left + q.width / 2 > dock.left);
+          if (!lbs.length || under.length > lbs.length / 3) out.push(`figure framed under the card (${under.length}/${lbs.length} labels)`);
+          return out;
+        });
+        if (bad.length) throw new Error(`${w}×${hgt} ${id}: ${bad.join('; ')}`);
+      }
     }
   });
   // The figure's labels never sit on each other: at the home framing, for every patient, on a phone, an iPad
