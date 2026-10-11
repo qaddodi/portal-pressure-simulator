@@ -19,10 +19,10 @@
 import { store } from './store.js?v=9858da589a';
 import { h, fmt, clamp } from './util.js?v=045e641b44';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { createDoppler } from './doppler.js?v=00e261d58f';
-import { createFibroScan } from './fibroscan.js?v=d509e4f81f';
-import { createPressureTime } from './pressure-time.js?v=234ce62592';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=26d6d7b046';
+import { createDoppler } from './doppler.js?v=f3384c66d3';
+import { createFibroScan } from './fibroscan.js?v=d6da99fa63';
+import { createPressureTime } from './pressure-time.js?v=996d96acc8';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=0fa3b9e815';
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava',

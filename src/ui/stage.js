@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=34e377149b';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=9ba554dd14';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=42d782eda4';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=9858da589a';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=045e641b44';
@@ -251,14 +251,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function braid(pts, off, u0 = 0, span = null, ph = 0) {
     if (Math.abs(off) < 0.3) return pts;
     if (span) {
-      const [ua, ub] = span;
+      // One normal for every strand (across the vessel's chord), so a bend in the vessel never kinks a strand or
+      // makes two cross.
+      const [ua, ub] = span, n0 = pts.length - 1, A = pts[0], B = pts[n0];
+      const cl = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, nx = -(B[1] - A[1]) / cl, ny = (B[0] - A[0]) / cl;
       return pts.map((p, i) => {
-        const v = (i / (pts.length - 1) - ua) / (ub - ua);
+        const v = (i / n0 - ua) / (ub - ua);
         if (v <= 0 || v >= 1) return p;
-        const a = pts[i - 1], b = pts[i + 1];
-        let nx = -(b[1] - a[1]), ny = b[0] - a[0];
-        const n = Math.hypot(nx, ny) || 1; nx /= n; ny /= n;
-        const o = off * Math.sin(Math.PI * v) ** 1.4 * (1 + 0.2 * Math.sin(3 * Math.PI * v + ph));
+        const o = off * Math.sin(Math.PI * v) ** 1.4 * (1 + 0.1 * Math.sin(3 * Math.PI * v + ph));
         return [p[0] + nx * o, p[1] + ny * o];
       });
     }
@@ -2524,7 +2524,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const hov = (kind === 'v' || kind === 's') && Math.max(vh.amt.get(id) || 0, ra ? vh.amt.get(ra.e.id) || 0 : 0);
       if (hov) tubeData[o + 39] = easeInOut(hov);
       if (kind === 'v' || kind === 's') {
-        const la = glow.lit.get(id), lb = ra && glow.lit.get(ra.e.id), l = la || lb, lend = la && lb ? [la.end[0], lb.end[1]] : l?.end;
+        const la = glow.lit.get(id), lb = ra && glow.lit.get(ra.e.id), l = la || lb;
+        // A strand's glow fades out toward both its ends, where it meets its own glowing vessel: run on, it would be
+        // cut off square by the strand's cells at the junction.
+        const lend = kind === 's' ? [0.3 * obj.len, 0.3 * obj.len] : la && lb ? [la.end[0], lb.end[1]] : l?.end;
         const v = l ? easeInOut(Math.max(0, l.v)) * l.amt : 0;
         if (v > 0) {
           if (l.col) { const c = toRGB(l.col, cs); l.rgb = l.from && l.cu < 1 ? mix3(l.from, c, easeInOut(l.cu)) : c; }

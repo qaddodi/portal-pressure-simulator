@@ -6,7 +6,7 @@
 
 import { EDGES, dopplerK } from '../engine/topology.js?v=34e377149b';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=045e641b44';
-import { FONT } from './charts.js?v=d398c3ea35';
+import { FONT } from './charts.js?v=22b2119223';
 import { logAction } from './store.js?v=9858da589a';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=fe9fd40247';
 
