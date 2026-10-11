@@ -20,10 +20,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=1f252707d9';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=4e4ff7c066';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=65194679c6';
 import { createHvpgMonitor } from './hvpg-proc.js?v=649e6bbf50';
 import { createTools } from './presenter-tools.js?v=b822b8efd9';
-import { openHandout } from './handout.js?v=3c4d78c342';
+import { openHandout } from './handout.js?v=d9ff5444ac';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
 
@@ -1197,7 +1197,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       const [i, k] = rowAt(o), sl = i >= 0 ? slides[i] : null, x = typeof o === 'object' ? o : {};
       if (k == null || k < 0) return null;
       const title = x.title ?? sl?.title ?? '';
-      return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs };
+      return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs, key: x.key, calm: x.calm || [] };
     }).filter(Boolean);
   }
   const reveal = (c) => { c.classList.add('shown'); c.removeAttribute('role'); c.removeAttribute('tabindex'); c.removeAttribute('aria-label'); };
@@ -1250,10 +1250,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // Pressures always in whole mmHg (the model is not that precise); litres, kPa and flow keep their decimal.
     const val = (k, f) => { const v = fpv(k, f); return v == null ? '—' : PRESS.has(k) ? fmt(v, 0) : k === 'res' ? fmt(v, 1) : tileVal(k, v); };
     const first = rows[0]?.f;
-    const refOfRow = (r) => (r.vs ? fpOf(r.vs) : first);
+    // A row's 'vs' names a slide, or the key of a patient row no slide shows (the same liver without collaterals).
+    const vsRow = (r) => rows.find((x) => x.key === r.vs || (x.i >= 0 && slides[x.i]?.id === r.vs));
+    const refOfRow = (r) => (r.vs ? vsRow(r)?.f ?? fpOf(r.vs) : first);
     // (Lower-cased mid-sentence, but an acronym such as CSPH or TIPS stays as it is.)
     const lc = (t) => (/^[A-Z]{2}/.test(t) ? t : t.charAt(0).toLowerCase() + t.slice(1));
-    const vsName = (r) => { const t = rows.find((x) => slides[x.i]?.id === r.vs); return lc(t?.title || slides.find((x) => x.id === r.vs)?.title || ''); };
+    const vsName = (r) => { const t = vsRow(r); return lc(t?.title || slides.find((x) => x.id === r.vs)?.title || ''); };
     // The reference row (the healthy patient, or the baseline) keeps its numbers, the anchor for the arrows.
     const isRef = (r, n) => !!r.ref || (rel && !r.vs && n === 0);
     const cell = (k, r, n) => {
@@ -1262,8 +1264,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       if (k === 'spleen' && !(fpv(k, r.f) > 0)) return h('td', { class: 'num none' }, 'Removed');
       if (isRef(r, n)) return h('td', { class: 'num ref', 'data-rate': rel ? null : rateAbs(k, dirAbs(k, r.f)) }, val(k, r.f));
       const ref = refOfRow(r), d = rel ? (ref ? dirRel(k, r.f, ref) : 0) : dirAbs(k, r.f), v = val(k, r.f) + unitOf(k);
-      // Against normal, the colour follows the arrows (amber above, red well above); against a baseline, better or worse.
-      return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : ''), 'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel ? effOf(k, d) : null, title: v },
+      // Against normal, the colour follows the arrows (amber above, red well above); against a baseline, better or worse,
+      // except where a change is neither ('calm': a meal's small PPG rise, the HVPG's dip as a clot diverts portal flow).
+      const calm = (s.calm || []).includes(k) || r.calm.includes(k);
+      return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : ''), 'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: v },
         arrowEl(d), h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}`));
     };
     // Ascites as two columns, SAAG and protein, one arrow each; "None" spans both when there is no fluid.
@@ -1294,7 +1298,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
         ascCols ? [cutTh('saag', h('abbr', { title: 'Serum−ascites albumin gradient' }, 'SAAG'), CUT.saag), cutTh('tp', h('abbr', { title: 'Ascites protein' }, 'Prot.'), CUT.tp)] : null,
         notes.map((x) => h('th', {}, x)))),
       h('tbody', {}, rows.map((r, n) => h('tr', { ...(r.i >= 0 ? { tabindex: '0', onclick: go1(r), onkeydown: go1(r), 'aria-label': `${r.title}: go to this slide` } : { class: 'static' }),
-          'data-arrived': r.k === arrived || (rel && n > 0 && (r.vs ? rows.find((x) => slides[x.i]?.id === r.vs)?.k : rows[0].k) === arrived) ? '' : null },
+          'data-arrived': r.k === arrived || (rel && n > 0 && (r.vs ? vsRow(r)?.k : rows[0].k) === arrived) ? '' : null },
         h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')), h('span', { class: 'tw' }, h('span', { class: 'tn' }, nb(r.title)),
           r.vs ? h('span', { class: 'vs' }, `vs ${vsName(r)}`) : null)),
         cols.map((k) => cell(k, r, n)),

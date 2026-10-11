@@ -68,7 +68,7 @@ export const PVT_CIRRHOSIS = {
       ask: ['How is recanalization checked during anticoagulation?', 'By repeat imaging, Doppler or CT, about every three months.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'varix'], asc: false, rowHead: 'Step', vs: 'first',
+      id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'varix'], asc: false, rowHead: 'Step', vs: 'first', calm: ['hvpg'],
       of: [{ id: 'base', kicker: 'Cirrhosis', title: 'Before the clot' }, { id: 'clot', kicker: 'Cirrhosis', title: 'Partial clot' }, { id: 'band', kicker: 'Cirrhosis', title: 'After banding' }, { id: 'anticoag', kicker: 'Cirrhosis', title: 'Six months on' }],
       kicker: 'Summary', title: 'One clot, start to finish',
       line: 'The clot raised the portal pressure and the PPG but not the HVPG; anticoagulation brought both back down.',

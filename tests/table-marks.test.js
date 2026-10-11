@@ -58,7 +58,7 @@ test('every summary-table arrow matches its row\'s model state', async () => {
         return { ...x, f: i >= 0 ? fps[i] : xfps[extra.indexOf(o)], title: x.title ?? d.slides[i]?.title };
       });
       const rel = t.vs === 'first' || rows.some((r) => r.vs);
-      const fpOf = (id) => fps[d.slides.findIndex((s) => s.id === id)];
+      const fpOf = (id) => rows.find((r) => r.key === id)?.f ?? fps[d.slides.findIndex((s) => s.id === id)];
       rows.forEach((r, n) => {
         assert.ok(r.f, `${d.id}/${t.id}: row ${r.title} has no state`);
         const isRef = r.ref || (rel && !r.vs && n === 0);
@@ -86,6 +86,8 @@ test('every summary-table arrow matches its row\'s model state', async () => {
   assert.equal(cells['circulation/After a meal/pvFlow'], 1, 'a meal raises portal flow above the fasting range');
   assert.equal(cells['two-inflows/Hepatic artery clot/liver'], -1, 'a hepatic artery clot lowers liver blood flow');
   assert.equal(cells['two-inflows/Portal vein clot/pvFlow'], -2, 'a portal vein clot stops portal flow');
+  assert.ok(cells['circuit/With collaterals/ppg'] < 0, 'against the same liver, collaterals lower the gradient');
+  assert.equal(cells['circuit/With collaterals/res'], 0, 'collaterals leave the liver\'s own resistance alone');
 });
 
 test('tables that cannot be measured or have no organ say so', async () => {
