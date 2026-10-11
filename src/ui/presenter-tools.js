@@ -10,8 +10,8 @@
 //                                                   HVPG at every slide so far, one point per state; 'beats': the live trace
 //   tool: { kind: 'abdomen' }                       the belly with its ascites and collaterals
 //   tool: { kind: 'wall' }                          the varix in cross-section, Laplace's T, r and w (the scope's Wall mechanics)
-//   tool: { kind: 'flowtime' }                      portal pressure and portal flow over the slide's time-lapse (flow-time.js),
-//                                                   drawn as it plays; its ends named by the slide's lapse from and to
+//   tool: { kind: 'flowtime' }                      portal pressure and portal flow around a meal, the slide's time-lapse on a
+//                                                   teaching clock in minutes (flow-time.js), drawn as it plays
 //
 // Optional on any kind: title (the card's heading, in place of the kind's own). A slide may carry both data and tool:
 // the tool sits above the tiles. In quiz mode a tool with a reading (Doppler, FibroScan, the scope's grade) keeps it
@@ -24,7 +24,7 @@ import { EDGES } from '../engine/topology.js?v=34e377149b';
 import { createDoppler } from './doppler.js?v=d2e7e600cf';
 import { createFibroScan } from './fibroscan.js?v=d6da99fa63';
 import { createPressureTime } from './pressure-time.js?v=996d96acc8';
-import { createFlowTime } from './flow-time.js?v=ccb7c6565a';
+import { createFlowTime } from './flow-time.js?v=363082dd82';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=3df486cd8c';
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -66,8 +66,8 @@ export function createTools({ host, stage }) {
     sig: (t) => (t ? `${keyOf(t)}:${t.vessel || ''}` : ''),
     /** Put the slide's tool in the box. stateKey: the slide's model state (a new one clears a recording trace);
      *  chain: for the talk trace, [{ n, title, fp }] of every state up to this slide.
-     *  trail, reveal, ends: for the flow-time chart, its series, how far along to draw it and its end words (see progress). */
-    show(t, { quiz = false, stateKey = null, chain = [], trail = null, reveal = 1, ends } = {}) {
+     *  trail, reveal: for the flow-time chart, its series and how far along to draw it (see progress). */
+    show(t, { quiz = false, stateKey = null, chain = [], trail = null, reveal = 1 } = {}) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
@@ -85,11 +85,11 @@ export function createTools({ host, stage }) {
       box.dataset.kind = k;
       box.classList.toggle('ask', quiz && READS.has(t.kind));
       if (k === 'talk') inst.set(chain);
-      else if (k === 'flowtime') { this.ends = ends; inst.set(trail, reveal, ends); }
+      else if (k === 'flowtime') inst.set(trail, reveal);
       else { const f = store.get().frame; if (f) requestAnimationFrame(() => cur === inst && inst.update(f)); }
     },
     /** The flow-time chart drawn up to k (0 to 1) of its time-lapse, with its series (trail) once it is computed. */
-    progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k, this.ends); },
+    progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); },
     /** The earlier reading, faint beside the live one ({ label, value }), or null. Eases in and out. */
     ghost(g) {
       ghostEl.classList.toggle('on', !!g);

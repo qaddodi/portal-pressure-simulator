@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { flowTimeSeries } from '../src/ui/flow-time.js';
+import { flowTimeSeries, MINUTES } from '../src/ui/flow-time.js';
 import { CIRCULATION } from '../src/ui/decks/circulation.js';
 
 // The Circulation deck's meal slide, run off screen as the presenter does: its trail is the model's pressure and flow each day.
@@ -31,13 +31,19 @@ test('the meal slide charts portal pressure and flow over its time-lapse', async
   const dp = tr.at(-1)[1] / tr[0][1] - 1, dq = tr.at(-1)[2] / tr[0][2] - 1;
   assert.ok(dq > 0.15 && dp > 0 && dp < 1.5 / tr[0][1] && dq > 2 * dp, `flow +${(dq * 100).toFixed(0)}%, pressure +${(dp * 100).toFixed(0)}%`);
 
+  // On the teaching clock: flat while fasting, the model's days spread over the rise, the end held; one point a minute.
   const s = flowTimeSeries(tr);
-  assert.equal(s.t[0], 0); assert.equal(s.t.at(-1), 1);
-  assert.deepEqual(s.pv, tr.map((r) => r[1])); assert.deepEqual(s.flow, tr.map((r) => r[2]));
-  for (const [v, sc] of [[s.pv, s.pScale], [s.flow, s.fScale]]) {
-    assert.equal(sc.ticks.length, 5); assert.equal(sc.ticks[0], 0); assert.equal(sc.ticks[4], sc.max);
-    assert.ok(Math.max(...v) < sc.max && v[0] / sc.max > 0.3 && v[0] / sc.max <= 0.5, 'starts near halfway, peaks under the top');
-  }
+  assert.equal(s.min[0], MINUTES.from); assert.equal(s.min.at(-1), MINUTES.end); assert.equal(s.min.length, MINUTES.end - MINUTES.from + 1);
+  const ix = (m) => s.min.indexOf(m);
+  for (let m = MINUTES.from; m <= 0; m++) assert.equal(s.pv[ix(m)], tr[0][1]), assert.equal(s.flow[ix(m)], tr[0][2]);
+  for (let m = MINUTES.rise; m <= MINUTES.end; m++) assert.equal(s.pv[ix(m)], tr.at(-1)[1]), assert.equal(s.flow[ix(m)], tr.at(-1)[2]);
+  // Each model day lands on its own minute, exactly.
+  tr.forEach((r, d) => { const m = MINUTES.rise * d / meal.days; if (Number.isInteger(m)) assert.ok(Math.abs(s.flow[ix(m)] - r[2]) < 1e-9); });
+  // Scales: pressure from zero (its rise stays small), flow tight (its rise fills most of its band), all values inside.
+  assert.equal(s.pScale.min, 0);
+  assert.ok(Math.max(...s.pv) <= s.pScale.max && (tr.at(-1)[1] - tr[0][1]) / s.pScale.max < 0.15);
+  assert.ok(s.fScale.min <= Math.min(...s.flow) && Math.max(...s.flow) <= s.fScale.max);
+  assert.ok((tr.at(-1)[2] - tr[0][2]) / (s.fScale.max - s.fScale.min) > 0.5, 'the flow rise fills most of its band');
 });
 
 test('a flow-time series needs two finite points', () => {

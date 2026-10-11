@@ -21,7 +21,7 @@ import { sinusoidSupported } from './sinusoid-view.js?v=c6a8f1cabe';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=c0ed7d22e5';
 import { createHvpgMonitor } from './hvpg-proc.js?v=4b408e144c';
-import { createTools } from './presenter-tools.js?v=1ec444b98b';
+import { createTools } from './presenter-tools.js?v=0238a6b3e4';
 import { openHandout } from './handout.js?v=1efd6eee7f';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
@@ -1211,7 +1211,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       ui.dhT.textContent = cardTitle(s);
       ui.dhL.hidden = !lad;
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
-      if (s.tool) ui.tools.show(s.tool, { quiz: q, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: s.lapse && i > 0 && !q ? 0 : 1, ends: s.lapse ? [s.lapse.from || 'Start', s.lapse.to || 'End'] : undefined }); else ui.tools.hide();
+      if (s.tool) ui.tools.show(s.tool, { quiz: q, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: s.lapse && i > 0 && !q ? 0 : 1 }); else ui.tools.hide();
       if (s.tool) ui.tools.ghost(q ? null : toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
       const ms = fresh ? 0 : undefined;
