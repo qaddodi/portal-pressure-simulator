@@ -71,7 +71,7 @@ export function createTools({ host, stage }) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
-      stage?.setScanProbe?.(k === 'fibroscan');   // (the probe on the skin over the liver, where the reading comes from)
+      stage?.setScanProbe?.(k === 'fibroscan', { covered: quiz && READS.has(t.kind) });   // (the probe on the skin over the liver, where the reading comes from)
       if (k === 'doppler') {
         if (probe0 === undefined) probe0 = store.get().frame?.probe ?? null;
         host.send({ type: 'probe', id: t.vessel || 'PV_TRUNK' });

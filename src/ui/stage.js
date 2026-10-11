@@ -3508,7 +3508,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // line. Screen-space, at the liver's outline. Each tap (three a second) sends one shear wavefront: a soft arc that spreads and fades as
   // it crosses the liver. The true speed goes with √kPa (about 2.2× from 5 to 25 kPa); on screen it is exaggerated to
   // roughly linear in kPa (5× from 5 to 25) so the difference reads at a glance, easing to a new speed when the reading changes.
-  const scan = { on: false, el: null, raf: 0, v: 0, fronts: [], next: 0, nextTap: 0, last: 0 };
+  const scan = { on: false, el: null, raf: 0, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, cover: false, leaving: false };   // k: the stiffness the callout shows, eased; cover: a quiz holds the reading back
   const SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1 / 3, SCAN_N = 12, SCAN_HALF = 0.5, SCAN_GAP = 6;   // three pulses a second, so several fronts are in flight at once
   const scanSpeed = () => 35 * (clamp(F?.metrics?.lsm ?? 5, 4, 40) / 5) ** 1.3;   // px/s, steeper than linear: 35 at 5 kPa (clearly slow), 240 at 25 (7x), 520 from 40
   function scanArc(r) {
@@ -3522,6 +3522,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const dt = scan.last && !reduceMotion.matches ? Math.min(0.1, (now - scan.last) / 1000) : 0; scan.last = now;
     const target = scanSpeed();
     scan.v = scan.v ? scan.v + (target - scan.v) * (1 - Math.exp(-dt / 0.6)) : target;   // ease to a new kPa
+    const lsm = F?.metrics?.lsm;
+    if (Number.isFinite(lsm)) scan.k = scan.k == null || reduceMotion.matches ? lsm : scan.k + (lsm - scan.k) * (1 - Math.exp(-dt / 0.6));   // the callout's number eases too
     if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; }
     if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; scan.el.classList.remove('tap'); void scan.el.offsetWidth; scan.el.classList.add('tap'); }   // the probe itself shakes once a second; the waves keep their own rhythm
     const span = clamp(scan.v * 2.5, 70, SCAN_SPAN);   // slow fronts fade sooner, so a healthy liver shows a few calm arcs, not a crowd
@@ -3536,6 +3538,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       [...el.children].forEach((pth, j) => pth.setAttribute('d', scanArc(Math.max(1, r + (j - 1) * gap))));
     });
     scan.raf = requestAnimationFrame(scanTick);
+  }
+  // The top left of the right lobe (the patient's right is the figure's left): the tip sits on its edge, aimed 45° down toward the portal vein.
+  // Anchored to the liver, not the view: it pans off screen with the liver (and hides once the tip is out of view). Null when no probe shows.
+  function scanTipLocal() {
+    const lv = organEls.liver;
+    if (!scan.on || !lv || morph > 0.5) return null;
+    const r = lv.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+    return { tx: r.left - wr.left + r.width * 0.13, y: r.top - wr.top + r.height * 0.09 };
   }
   function scanPaint() {
     if (!scan.el) {
@@ -3552,19 +3562,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = scan.nextTap = Infinity; }
       if (!scan.raf) { scan.last = 0; scan.raf = requestAnimationFrame(scanTick); }
     }
-    const lv = organEls.liver, wr = wrap.getBoundingClientRect();
-    if (!lv || morph > 0.5) { scan.el.classList.add('off'); return; }
-    const r = lv.getBoundingClientRect();
-    // The top left of the right lobe (the patient's right is the figure's left): the tip sits on its edge, aimed 45° down toward the portal vein.
-    // Anchored to the liver, not the view: it pans off screen with the liver (and hides once the tip is out of view).
-    const tx = r.left - wr.left + r.width * 0.13, y = r.top - wr.top + r.height * 0.09, x = tx - SCAN_TIP[0];
+    const tip = scanTipLocal(), wr = wrap.getBoundingClientRect();
+    if (!tip) { scan.el.classList.add('off'); return; }
+    const { tx, y } = tip, x = tx - SCAN_TIP[0];
     scan.el.classList.toggle('off', tx < -30 || tx > wr.width + 30 || y < -30 || y > wr.height + 30);
     scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
-  function setScanProbe(on) {
+  // opts.covered: a quiz slide holds the reading back, so the callout waits too (the probe and its waves still show).
+  function setScanProbe(on, opts) {
+    scan.cover = !!opts?.covered;
     if (scan.on === !!on) return;
     scan.on = !!on;
-    if (on) { refreshCTM(); scanPaint(); return; }
+    if (on) { scan.leaving = false; refreshCTM(); scanPaint(); return; }
+    // The callout and its leader fade out with the probe, then go.
+    scan.leaving = true; scan.k = null;
+    pool.get('scan')?.g.classList.add('lb-off'); gScan.classList.add('off');
+    setTimeout(() => { if (scan.on) return; scan.leaving = false; const b = pool.get('scan'); if (b) b.g.style.display = 'none'; }, 700);
     const el = scan.el; scan.el = null; scan.fronts = []; scan.v = 0; scan.next = 0; scan.nextTap = 0;
     if (scan.raf) { cancelAnimationFrame(scan.raf); scan.raf = 0; }
     if (el) { el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); }
@@ -4033,7 +4046,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   labelSvg.before(glass);
   const gLeaders = s('g', { class: 'lb-leaders' });
   const gLabels = s('g', { class: 'lb-blocks' });
-  labelSvg.append(gLeaders, gLabels);
+  const gScan = s('g', { class: 'lb-scan off' }, s('path', { class: 'leader scan' }), s('circle', { class: 'leader-dot scan', r: 2.6 }));   // the FibroScan callout's leader: its own layer, so it eases with the probe
+  labelSvg.append(gLeaders, gScan, gLabels);
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   const measure = document.createElement('canvas').getContext('2d');
   const widths = new Map();
@@ -4114,7 +4128,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const kids = [];
       b.spans = [];
       b.textLines = [];
-      if (it.bg) kids.push(s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: 6 }));
+      if (it.bg) kids.push(s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: it.pill ? (it.h + 2 * it.padY) / 2 : 6 }));
       // A clickable caption is a larger target than its small letters.
       if (it.hit) kids.push(s('rect', { class: 'lb-hit', x: -10, y: -8, width: it.w + 20, height: it.h + 16, rx: 8 }));
       let y = 0;
@@ -4304,6 +4318,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     it.label = `${sid}: ${fmt(vel, 0)} centimeters per second`;
     return it;
   }
+  // The FibroScan probe's callout: the live stiffness, beside the waves, in their orange. A fixed width (the digits are tabular
+  // and the box is as wide as "88.8 kPa"), so the number eases without the pill ever resizing or moving.
+  function scanItem() {
+    const k = scan.k ?? F?.metrics?.lsm ?? 0, txt = k >= 100 ? String(Math.round(k)) : k.toFixed(1);
+    const val = { size: 14, weight: 700, cls: 'lb-scan-val' }, unit = { size: 10, weight: 600, cls: 'lb-scan-unit', gap: 3, t: 'kPa' };
+    const lines = [[{ ...val, t: txt }, unit]];
+    return { key: 'scan', src: ['scan'], cls: 'scan', lines, w: lineW([{ ...val, t: '88.8' }, unit]), h: LINE_H(lines[0]), align: 'middle', bg: true, pill: true, padX: 8, padY: 3,
+      label: `FibroScan stiffness ${txt} kPa`, pri: 20 };
+  }
   const LADDER_TAG = { SIN_R: 'WHVP', RHV: 'FHVP' };
   const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, MHV: 5, LHV: 5, RPV: 5, LPV: 5, SIN_L: 5, IMV: 4, LGV: 4, W_R: 12, W_M: 12, W_L: 12 };
   // Stations labelled only when zoomed in enough to give them room, in this order (see updateLabels).
@@ -4398,7 +4421,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get(), t = easeInOut(morph);
     const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, JSON.stringify((f.viewParams || st.params).stenosis),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges].join('|');
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, scan.on, scan.cover, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges].join('|');
   }
   // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
   // signature (geometry, widths, selection, layers, levels...), the morph and turn, the floating panels,
@@ -4430,7 +4453,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const next = [];
     for (const it of labelShown) {
       const [kind, id, mode, compact] = it.src;
-      const n = kind === 'vel' ? velItem(id, f) : nodeItem(id, f, mode, compact);
+      const n = kind === 'vel' ? velItem(id, f) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
       if (it.short) shortenItem(n);
       if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;
       for (let i = 0; i < n.lines.length; i++) {
@@ -4519,7 +4542,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const W = wr.width, H = wr.height;
     // A solve prefers slots that sit inside the stage as it is now, but never depends on the panels, and a pan
     // alone never searches again. A label a pan later pushes past the edge is pulled back in (see below).
-    const view = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };
+    const view = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }, plain = { ...view };   // plain: the whole stage, for the FibroScan callout, which keeps with its probe (see below)
     // A presenter slide's words hold the left (a phone: the top) under a fading shade; labels keep clear of it.
     if (st.presenting) { view.x0 = Math.max(view.x0, pzInset('--pz-l') + 30); view.y0 = Math.max(view.y0, pzInset('--pz-t') + 12); }
     const compact = W < 700;
@@ -4571,7 +4594,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const [dx, dy] = offset(dir, probe, ps.gap);
         const r = rectOf({ ...probe, x: it.ax + dx, y: it.ay + dy });
         if (placed.some((p) => hits(r, p))) return;
-        const inside = within(r, view), held = !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, view));
+        const V = it.key === 'scan' ? plain : view, inside = within(r, V), held = !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, V));
         let onLine = 0;
         if (useLines) {
           onLine = lineHits(r, 0);
@@ -4602,6 +4625,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
     if (!circuit) {
       // ── Anatomy ──
+      // The FibroScan probe is screen furniture on the liver: no label sits on it or its caption, and its callout takes a spot beside the
+      // waves (off the beam, clear of vessels and of any card) before the others are placed. A quiz holds the number back with the card's.
+      const tip = !scan.cover ? scanTipLocal() : null;
+      if (tip) {
+        const { tx, y } = tip;
+        placed.push({ x0: tx - 48, y0: y - 48, x1: tx + 12, y1: y + 12 }, { x0: tx - 12, y0: y - 58, x1: tx + 100, y1: y - 36 });   // the probe, then its caption
+        buildLines();
+        const it = scanItem(), base = placed.length;
+        it.ax = tx + 44; it.ay = y + 44;   // on the beam's axis, about 60 px from the tip
+        placed.push(...blockers);
+        placeMulti(it, ['NE', 'SW', 'E', 'S', 'N', 'W'], [{ gap: 44, leader: true, clear: true }, { gap: 58, leader: true, clear: true }, { gap: 72, leader: true, clear: true }, { gap: 44, leader: true }, { gap: 60, leader: true }]);
+        placed.splice(base, blockers.length);
+      }
       const lvl = st.labelLevel || 'key', zoomed = zoomedIn();
       // A presenter slide names exactly the stations it talks about (store.presentLabels).
       const pres = st.presenting && Array.isArray(st.presentLabels) ? st.presentLabels : null;
@@ -4821,8 +4857,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.live) { it.hide = false; continue; }
       // A label a pan has pushed over the stage edge is pulled back inside (with a leader to its station)
       // so it is never cut off; once its station has left the stage the label goes too.
-      const edge = rectOf(it);
-      const cx = Math.max(view.x0 - edge.x0, Math.min(0, view.x1 - edge.x1)), cy = Math.max(view.y0 - edge.y0, Math.min(0, view.y1 - edge.y1));
+      const edge = rectOf(it), V = it.key === 'scan' ? plain : view;
+      const cx = Math.max(V.x0 - edge.x0, Math.min(0, V.x1 - edge.x1)), cy = Math.max(V.y0 - edge.y0, Math.min(0, V.y1 - edge.y1));
       if (cx || cy) { it.x += cx; it.y += cy; if (Math.hypot(cx, cy) > 2) it.leader = true; }
       if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; labelVis.set(it.key, false); continue; }
       if (it.sel) { it.hide = false; continue; }
@@ -4853,7 +4889,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Leader lines and anchor dots, for the labels showing.
     for (const it of out) {
-      if (it.hide || it.live || it.cls === 'organ' || it.cls === 'lane') continue;
+      if (it.hide || it.live || it.cls === 'organ' || it.cls === 'lane' || it.key === 'scan') continue;
       const r = rectOf(it), le = leaderEnd(r, it.ax, it.ay);
       const far = Math.hypot(le.x - it.ax, le.y - it.ay) > 5;
       if (it.focusLeader) leaders += `<path class="leader focus${it.mk ? ` k-${it.mk}` : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
@@ -4862,8 +4898,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!circuit || it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
     }
     for (const it of out) renderBlock(it);
+    const sit = out.find((o) => o.key === 'scan'), sblk = pool.get('scan');
+    if (sit && !sit.hide) {
+      const le = leaderEnd(rectOf(sit), sit.ax, sit.ay);
+      const [lp, ld] = gScan.children;
+      lp.setAttribute('d', `M${sit.ax.toFixed(1)} ${sit.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}`);
+      ld.setAttribute('cx', sit.ax.toFixed(1)); ld.setAttribute('cy', sit.ay.toFixed(1));
+      gScan.classList.remove('off');
+    } else { gScan.classList.add('off'); if (sblk && sblk.seen !== frameNo) sblk.g.classList.add('lb-off'); }   // no callout this frame (circuit view, covered): it fades, never pops
     labelShown = out.filter((it) => it.src && !it.hide);
-    for (const [, b] of pool) if (b.seen !== frameNo) b.g.style.display = 'none';
+    for (const [k, b] of pool) if (b.seen !== frameNo && !(k === 'scan' && (scan.leaving || scan.on))) b.g.style.display = 'none';
     glass.hidden = !out.some((it) => it.key === 'liver' && !it.hide);
     if (gLeaders._last !== leaders) { gLeaders.innerHTML = leaders; gLeaders._last = leaders; }
     return true;

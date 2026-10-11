@@ -52,14 +52,14 @@ export const STIFFNESS = {
       ask: ['Give two reasons the platelet count falls in portal hypertension.', 'Splenic pooling in a large congested spleen, and less thrombopoietin from the liver.'],
     },
     {
-      id: 'schisto', preset: 'schisto', cam: 'liver', glow: ['liver'], sites: ['pv'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
+      id: 'schisto', preset: 'schisto', cam: 'liver', glow: ['liver'], sites: ['pv'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'pv', 'hvpg'], key: ['lsm', 'pv'],
       kicker: 'Where stiffness misleads', site: 'presin', title: 'In schistosomiasis the liver stays soft',
       line: 'The block is in the portal tracts, upstream of the sinusoids, so the wedge misses it as well. The HVPG is normal while portal vein pressure is high. Varices, a large spleen and low platelets with a soft liver suggest this diagnosis.',
       notes: 'In presinusoidal disease (schistosomiasis, porto-sinusoidal vascular disorder) the parenchyma is spared, so the stiffness is normal or only slightly raised, and the wedged pressure, which reads the sinusoids, misses the block too. Varices, a large spleen and low platelets with a soft liver point here. Spleen stiffness stays high, and the diagnosis rests on imaging, the history and often a liver biopsy.',
       ask: ['Large varices, a large spleen and a stiffness of 5 kPa. What is the likely level of the block?', 'Presinusoidal: schistosomiasis or porto-sinusoidal vascular disorder.'],
     },
     {
-      id: 'heart', preset: 'rhf', cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['ra', 'hvpg'], key: ['ra'],
+      id: 'heart', preset: 'rhf', cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'ra', 'hvpg'], key: ['lsm', 'ra'],
       kicker: 'Where stiffness misleads', site: 'cardiac', title: 'Congestion stiffens the liver',
       line: 'Readings above 25 kPa are common in decompensated heart failure and fall within days of diuresis. Check the jugular venous pressure and get an echocardiogram before calling it cirrhosis.',
       notes: 'Raised right atrial pressure fills the hepatic veins and sinusoids and stiffens the liver; readings over 25 kPa are common in decompensated heart failure and fall within days of diuresis. The HVPG is normal because the wedged and free pressures rise together. Hepatic outflow block (Budd–Chiari syndrome) does the same. Check the jugular venous pressure and an echocardiogram before reading a high stiffness as fibrosis.',
