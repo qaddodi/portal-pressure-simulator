@@ -96,9 +96,8 @@ export function createDoppler({ onProbe }) {
   // Normal-range gauge: a track with the usual band shaded and a marker for the current mean.
   const bandEl = h('i', { class: 'dop-band' });
   const markEl = h('i', { class: 'dop-mark' });
-  const nowEl = h('span', { class: 'dop-now' });
   const gLo = h('span', { class: 'dop-g-lo' }); const gHi = h('span', { class: 'dop-g-hi' }); const gZero = h('span', { class: 'dop-g-zero' }, '0');
-  const rangeEl = h('div', { class: 'dop-range', hidden: true }, h('div', { class: 'dop-track' }, bandEl, markEl, nowEl), h('div', { class: 'dop-ticks' }, gZero, gLo, gHi));
+  const rangeEl = h('div', { class: 'dop-range', hidden: true }, h('div', { class: 'dop-track' }, bandEl, markEl), h('div', { class: 'dop-ticks' }, gZero, gLo, gHi));
   const patternEl = h('div', { class: 'dop-pattern' });
   const noteEl = h('p', { class: 'dop-note' });
   const statEls = {};
@@ -226,8 +225,6 @@ export function createDoppler({ onProbe }) {
     rangeEl.dataset.out = mean < n0 || mean > n1 ? 'true' : 'false';
     bandEl.style.left = `${pos(n0)}%`; bandEl.style.width = `${pos(n1) - pos(n0)}%`;
     markEl.style.left = `${pos(mean)}%`;
-    nowEl.style.left = `${pos(mean)}%`; nowEl.style.transform = `translateX(-${pos(mean)}%)`;
-    set2(nowEl, num(mean, Math.abs(mean) < 10 ? 1 : 0));
     gZero.style.left = `${pos(0)}%`; gLo.style.left = `${pos(n0)}%`; gHi.style.left = `${pos(n1)}%`;
     set2(gLo, String(n0)); set2(gHi, `${n1} cm/s`);
     rangeEl.title = `Usual ${n0}–${n1} cm/s`;

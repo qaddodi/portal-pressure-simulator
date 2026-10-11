@@ -5049,11 +5049,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .dop .dop-vel b, .pz-tool .dop-vel b { font-size: clamp(40px, 7vh, 60px); }
 .dop .dop-vel small { font-size: var(--fs-14); }
 .dop .dop-pattern { margin: 0; font-size: var(--fs-14); color: var(--text-2); white-space: nowrap; }
-.dop-range { margin: 26px 2px 14px; }
+.dop-range { margin: 10px 8px 14px; }
 .dop-range[hidden] { display: none; }
 .dop-track { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); }
 .dop-band { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--ok); opacity: .45; transition: left .4s var(--ease), width .4s var(--ease); }
-.dop-mark { position: absolute; top: -4px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: var(--text); box-shadow: 0 0 0 2px var(--bg, transparent); transition: left .4s var(--ease); }
+.dop-mark { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--text); border: 3px solid var(--surface, var(--bg)); box-sizing: border-box; transition: left .4s var(--ease), background-color .3s var(--ease); }
 .dop-range[data-out="true"] .dop-mark { background: var(--caution); }
 .dop-ticks { position: relative; height: 14px; margin-top: 6px; font-size: 11px; line-height: 14px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .dop-ticks > span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; transition: left .4s var(--ease); }
@@ -5065,5 +5065,3 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .dop .dop-report .dop-stats dd { font-size: 16px; line-height: 1.1; white-space: nowrap; }
 .dop .dop-report .dop-stats dd small { font-size: 11px; font-weight: 500; letter-spacing: 0; color: var(--text-3); }
 
-.dop-now { position: absolute; bottom: 14px; font-size: 12px; font-weight: 700; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; transition: left .4s var(--ease), transform .4s var(--ease); }
-.dop-range[data-out="true"] .dop-now { color: var(--caution); }
