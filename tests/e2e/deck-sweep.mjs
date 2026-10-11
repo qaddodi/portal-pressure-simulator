@@ -41,6 +41,13 @@ const snap = (page) => page.evaluate(() => {
   for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) if (ov(boxes[keys[i]], boxes[keys[j]])) issues.push(`${keys[i]} overlaps ${keys[j]}`);
   const c = document.querySelector('.stage-credit');
   if (c && +getComputedStyle(c).opacity >= 0.5) { const r = c.getBoundingClientRect(); for (const el of document.querySelectorAll('.pz-text, .pz-data, .pz-panel, .pz-bar')) { const q = vis(el); if (q && q.left < r.right + 4 && q.right > r.left - 4 && q.top < r.bottom + 4 && q.bottom > r.top - 4) issues.push(`credit touches ${el.className.split(' ')[0]}`); } }
+  // A summary table: each cell's visible contents sit inside its column heading, and no two cells overlap.
+  const tb = document.querySelector('.pz-table');
+  if (tb && !tb.querySelector('td.pend')) {
+    const box = (el) => { const rs = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n; (n = w.nextNode());) if (n.textContent.trim() && !n.parentElement.closest('.sr-only')) { const g = document.createRange(); g.selectNodeContents(n); rs.push(...g.getClientRects()); } for (const e of el.querySelectorAll('svg, i')) if (!e.closest('.sr-only')) rs.push(e.getBoundingClientRect()); const v = rs.filter((q) => q.width && q.height); return v.length ? { l: Math.min(...v.map((q) => q.left)), r: Math.max(...v.map((q) => q.right)), t: Math.min(...v.map((q) => q.top)), b: Math.max(...v.map((q) => q.bottom)) } : null; };
+    const heads = [...tb.querySelectorAll('thead th')].map((th) => th.getBoundingClientRect());
+    for (const tr of tb.querySelectorAll('tbody tr')) { let k = 0; const seen = []; for (const c of tr.children) { const span = +(c.getAttribute('colspan') || 1), hs = heads.slice(k, k + span).filter((h) => h.width); k += span; if (c.matches('td.note') || !hs.length) continue; const b = box(c); if (!b) continue; const n = c.textContent.trim().slice(0, 20), L = Math.min(...hs.map((h) => h.left)), R = Math.max(...hs.map((h) => h.right)); if (b.l < L - 1 || b.r > R + 1) issues.push(`table cell "${n}" outside its column`); for (const o of seen) if (b.l < o.b.r - 1 && o.b.l < b.r - 1 && b.t < o.b.b - 1 && o.b.t < b.b - 1) issues.push(`table cells "${n}" and "${o.n}" overlap`); seen.push({ b, n }); } }
+  }
   const txt = (s) => { const el = document.querySelector(s); return vis(el) ? el.innerText.replace(/\s+/g, ' ').trim() : ''; };
   const terms = [...document.querySelectorAll('.pz-term')].map((t) => `${t.textContent}→${t.dataset.target}`);
   const count = document.querySelector('.pzb-n, .pz-count')?.textContent.trim();

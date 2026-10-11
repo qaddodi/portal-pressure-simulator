@@ -2089,7 +2089,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-bar .ib svg { width: 20px; height: 20px; }
 .pz.stack .pz-bar button.pzb-n { min-height: 44px; padding: 0 6px; font-size: 13px; }
 .pz.stack .pz-bar .pzb-go.pzb-next { min-height: 30px; height: 30px; margin: 0 4px; padding: 0 10px; font-size: 13px; }
-.pz.stack :is(.pz-text, .pz-panel) .pz-kick { min-height: 28px; padding-right: calc(var(--pz-bar-w, 200px) + 6px); }
+.pz.stack :is(.pz-text, .pz-panel) .pz-kick:not(.pz-table .pz-kick) { min-height: 28px; padding-right: calc(var(--pz-bar-w, 200px) + 6px); }   /* (not a table row's site dot) */
 .pz.stack .pz-kick .pz-sec { flex: none; }
 @media (max-width: 359px) { .pz.stack .pz-bar .ib { width: 33px; } .pz.stack .pz-bar button.pzb-n { padding: 0 4px; } .pz.stack .pz-kick .pz-sec { display: none; } }
 .pz.stack .pz-kick .pz-kw { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

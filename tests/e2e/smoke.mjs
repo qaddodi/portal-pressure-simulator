@@ -426,6 +426,47 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'));
   });
 
+  await check(device, 'presenter: summary table cells stay under their headings', async (page) => {
+    // Each cell's contents sit inside its column heading's width, and no two cells overlap, at each size (the desktop run
+    // also tries an upright iPad). (A phone's control padding once pushed the names into the HVPG column.)
+    const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
+    for (const size of sizes) {
+      if (size) await page.setViewportSize(size);
+      for (const deck of ['circulation', 'hvpg']) {
+        await open(page, `?script=${deck}&slide=99`);   // (the last slide: the summary)
+        await page.waitForFunction(() => { const t = document.querySelector('.pz-table'); return t && t.querySelector('tbody tr') && !t.querySelector('td.pend'); });
+        await page.waitForTimeout(600);
+        const bad = await page.evaluate(() => {
+          const t = document.querySelector('.pz-table'), out = [];
+          // What a cell shows: its text and icons, not the words kept for screen readers.
+          const box = (el) => {
+            const rs = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            for (let n; (n = w.nextNode());) if (n.textContent.trim() && !n.parentElement.closest('.sr-only')) { const g = document.createRange(); g.selectNodeContents(n); rs.push(...g.getClientRects()); }
+            for (const e of el.querySelectorAll('svg, i')) if (!e.closest('.sr-only')) rs.push(e.getBoundingClientRect());
+            const v = rs.filter((r) => r.width && r.height);
+            return v.length ? { left: Math.min(...v.map((r) => r.left)), right: Math.max(...v.map((r) => r.right)), top: Math.min(...v.map((r) => r.top)), bottom: Math.max(...v.map((r) => r.bottom)) } : null;
+          };
+          const heads = [...t.querySelectorAll('thead th')].map((th) => th.getBoundingClientRect());
+          for (const tr of t.querySelectorAll('tbody tr')) {
+            let k = 0; const seen = [];
+            for (const c of tr.children) {
+              const span = +(c.getAttribute('colspan') || 1), hs = heads.slice(k, k + span).filter((h) => h.width);
+              k += span;
+              if (c.matches('td.note') || !hs.length) continue;
+              const b = box(c); if (!b) continue;
+              const l = Math.min(...hs.map((h) => h.left)), r = Math.max(...hs.map((h) => h.right)), name = c.textContent.trim().slice(0, 20);
+              if (b.left < l - 1 || b.right > r + 1) out.push(`"${name}" runs outside its column (${Math.round(b.left)}-${Math.round(b.right)} in ${Math.round(l)}-${Math.round(r)})`);
+              for (const o of seen) if (b.left < o.b.right - 1 && o.b.left < b.right - 1 && b.top < o.b.bottom - 1 && o.b.top < b.bottom - 1) out.push(`"${name}" overlaps "${o.name}"`);
+              seen.push({ b, name });
+            }
+          }
+          return out;
+        });
+        if (bad.length) throw new Error(`${deck}${size ? ` at ${size.width}x${size.height}` : ''}: ${bad.slice(0, 4).join('; ')}`);
+      }
+    }
+  });
+
   await check(device, 'presenter: lobule labels never touch, leaders never cross', async (page) => {
     // The slides that name several lobule structures at once, at each size: no two labels, pills included, come within
     // a few pixels of each other; no leader runs under another label or crosses another leader. The desktop run also
