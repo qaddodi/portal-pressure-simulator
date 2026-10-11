@@ -5055,6 +5055,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .dop-band { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--ok); opacity: .45; transition: left .4s var(--ease), width .4s var(--ease); }
 .dop-mark { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--text); border: 3px solid var(--surface, var(--bg)); box-sizing: border-box; transition: left .4s var(--ease), background-color .3s var(--ease); }
 .dop-range[data-out="true"] .dop-mark { background: var(--caution); }
+.dop-vel b { transition: color .3s var(--ease); }
+.dop-vel[data-out="true"] b { color: var(--caution); }
+@media (prefers-reduced-motion: reduce) { .dop-vel b { transition: none; } }
 .dop-ticks { position: relative; height: 14px; margin-top: 6px; font-size: 11px; line-height: 14px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .dop-ticks > span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; transition: left .4s var(--ease); }
 .dop-g-hi { transform: translateX(-85%) !important; }

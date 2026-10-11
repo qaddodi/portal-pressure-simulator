@@ -216,13 +216,13 @@ export function createDoppler({ onProbe }) {
   // Place the normal band and the current mean on one scale: 0 to ~1.7x the top of the usual range, widened
   // when the mean falls outside (reversed flow reaches below zero). The marker eases there with CSS.
   function updateGauge(p, mean) {
-    if (!p.normal) { rangeEl.hidden = true; return; }
+    if (!p.normal) { rangeEl.hidden = true; velEl.dataset.out = 'false'; return; }
     const [n0, n1] = p.normal;
     const hi = Math.max(Math.round(n1 * 1.7), Math.ceil(mean * 1.1));
     const lo = Math.min(0, Math.floor(mean * 1.1));
     const pos = (v) => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
     rangeEl.hidden = false;
-    rangeEl.dataset.out = mean < n0 || mean > n1 ? 'true' : 'false';
+    rangeEl.dataset.out = velEl.dataset.out = mean < n0 || mean > n1 ? 'true' : 'false';
     bandEl.style.left = `${pos(n0)}%`; bandEl.style.width = `${pos(n1) - pos(n0)}%`;
     markEl.style.left = `${pos(mean)}%`;
     gZero.style.left = `${pos(0)}%`; gLo.style.left = `${pos(n0)}%`; gHi.style.left = `${pos(n1)}%`;
@@ -235,7 +235,7 @@ export function createDoppler({ onProbe }) {
     const r = reading();
     if (!r) {
       dirEl.textContent = frame?.clock === 'disease' ? 'Not available during time lapse' : 'Acquiring…'; dirEl.dataset.sev = '';
-      rangeEl.hidden = true;
+      rangeEl.hidden = true; velEl.dataset.out = 'false';
       for (const e of [velEl.firstChild, patternEl, noteEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
       for (const k in statEls) setStat(statEls[k].dd, '—');
       return;
