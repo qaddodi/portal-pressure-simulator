@@ -11,10 +11,12 @@ import { LEVELS, withOverview } from './decks.js?v=d207edb4a7';
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
 
-const CSS = `
-:root { color-scheme: light; --ink: #111; --ink-2: #3d3d3d; --ink-3: #6b6b6b; --rule: #cfcfcf; }
+// The handout is a printed page, black on white in any theme: its inks are the --print-* tokens, written in when it is made.
+const cssVar = (n) => (typeof document === 'undefined' ? '' : getComputedStyle(document.documentElement).getPropertyValue(n).trim());
+const css = () => `
+:root { color-scheme: light; --ink: ${cssVar('--print-ink')}; --ink-2: ${cssVar('--print-ink-2')}; --ink-3: ${cssVar('--print-ink-3')}; --rule: ${cssVar('--print-rule')}; --paper: ${cssVar('--print-paper')}; }
 * { box-sizing: border-box; }
-body { margin: 0; padding: 32px 16px 48px; background: #fff; color: var(--ink); font: 14px/1.5 Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-text-size-adjust: 100%; }
+body { margin: 0; padding: 32px 16px 48px; background: var(--paper); color: var(--ink); font: 14px/1.5 Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-text-size-adjust: 100%; }
 main { max-width: 1040px; margin: 0 auto; }
 .serif, h1, h2 { font-family: 'Source Serif 4', 'Iowan Old Style', Georgia, serif; }
 .cap { margin: 0 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
@@ -26,7 +28,7 @@ h1 { margin: 0; font-size: 30px; font-weight: 600; line-height: 1.12; letter-spa
 .plan { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 40px; margin-top: 18px; }
 .plan :is(ol, ul) { margin: 0; padding-left: 1.3em; }
 .plan li { padding: 1px 0; }
-button { font: 600 13px/1 Inter, system-ui, sans-serif; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--ink); background: var(--ink); color: #fff; cursor: pointer; }
+button { font: 600 13px/1 Inter, system-ui, sans-serif; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); cursor: pointer; }
 article { display: flex; gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--rule); break-inside: avoid; page-break-inside: avoid; }
 figure { flex: 0 0 44%; margin: 0; }
 figure img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 6px; }
@@ -89,7 +91,7 @@ export function handoutHTML(d, base = '') {
   const open = slides[0]?.visual === 'outline' ? slides[0] : null;
   const meta = [LEVELS[d.level] || (d.mine ? 'Your script' : ''), `${slides.length} slides`, d.minutes ? `about ${d.minutes} min` : ''].filter(Boolean).join(' · ');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Notes: ${esc(d.title)}</title><style>${CSS}</style></head><body><main>
+<title>Notes: ${esc(d.title)}</title><style>${css()}</style></head><body><main>
 <header><div class="top"><div><p class="cap">Speaker notes</p><h1>${esc(d.title)}</h1><p class="meta">${esc(meta)}</p></div>
 <button type="button" onclick="print()">Print</button></div>
 ${d.summary ? `<p class="sum">${esc(d.summary)}</p>` : ''}

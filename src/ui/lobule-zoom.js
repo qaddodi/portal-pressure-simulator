@@ -22,24 +22,20 @@
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { store } from './store.js?v=7fb7280c05';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=58cca12828';
-import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=045e641b44';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=46829a87f8';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=259b580d3f';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=f638e78199';
 import { NODES, EDGES } from '../engine/topology.js?v=34e377149b';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=3860b0d6cb';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=7ee26675d4';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=d0f1a6d8cf';
+import { createSinusoidView } from './sinusoid-view.js?v=c29067c667';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
 const N = N_SAMPLES;
 const MAXT = 320;                       // GPU rows: the lobule has ~170 vessels, ~285 with the lymphatics
 const LIGHT = (() => { const n = Math.hypot(-0.42, -0.91); return [-0.42 / n, -0.91 / n]; })();
-const BLOOD = {
-  originCol: [[0.9, 0.6, 0.16], [0.09, 0.62, 0.55], [0.49, 0.36, 0.86], [0.84, 0.2, 0.28], [0.44, 0.56, 0.75]],
-  dyeCol: [0.78, 0.96, 0.2], inkLight: [1, 1, 1], inkDark: [0.07, 0.08, 0.15], revCol: [1, 0.55, 0.16], chevInk: [0.08, 0.08, 0.1],
-};
-const ZONE_RGB = [[232, 104, 84], [214, 160, 92], [124, 98, 206]];   // zone 1 (oxygen-rich) → zone 3
+const tk = (n, a) => (a === undefined ? cssVar(n) : cssAlpha(n, a));   // a colour token, optionally with an alpha
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -84,7 +80,7 @@ const rgbCache = new Map();
 function rgb01(c) {
   let o = rgbCache.get(c);
   if (o) return o;
-  rgbCtx.fillStyle = '#000'; rgbCtx.fillStyle = c || '#000';
+  rgbCtx.fillStyle = '#000'; rgbCtx.fillStyle = c || '#000';   // colour-exempt: the parser's reset
   const f = rgbCtx.fillStyle;
   o = f[0] === '#' ? [1, 3, 5].map((i) => parseInt(f.slice(i, i + 2), 16) / 255) : f.match(/[\d.]+/g).slice(0, 3).map((v) => +v / 255);
   rgbCache.set(c, o);
@@ -145,7 +141,7 @@ function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp
   if (detail < 0.6 || w < 3) { c.shadowBlur = sb; return; }
   // Fibroblast nuclei: small dark spindles lying along the fibres.
   const nn = Math.round((L0 / (w * 2.6)) * detail);
-  c.fillStyle = `rgba(96, 58, 92, ${0.32 * a})`;
+  c.fillStyle = tk('--lz-shade', 0.32 * a);
   for (let k = 0; k < nn; k++) {
     const i = Math.min(n - 1, Math.max(1, Math.round(fibHash(seed * 41 + k) * n))), h = Wd[i] * (fibHash(seed * 43 + k) - 0.5) * 0.7;
     const x = P[i][0] + N[i][0] * h, y = P[i][1] + N[i][1] * h;
@@ -561,7 +557,7 @@ export function createLobuleZoom({ host }) {
   const worldCv = document.createElement('canvas');   // the lobule's tissue in world space (see paintTissue)
   const tubeData = new Float32Array(MAXT * TUBE_TEXELS * 4), flowData = new Float32Array(MAXT * FLOW_TEXELS * 4);
   let clock = 0, origins = null, originsF = null;
-  const pc = (p) => (model?.hide ? '#A0939C' : pressureColor(p));
+  const pc = (p) => (model?.hide ? tk('--lz-lumen-hidden') : pressureColor(p));
 
   function ensureGL() {
     if (glTried) return gl;
@@ -789,7 +785,7 @@ export function createLobuleZoom({ host }) {
     cancelAnimationFrame(easeRaf);
     if (eased.moving) easeRaf = requestAnimationFrame(glideP);
     const hs = getComputedStyle(host), cv = (n, d) => hs.getPropertyValue(n).trim() || d;
-    model.inks = { normal: cv('--flow-normal', '#16988F'), reversed: cv('--flow-reversed', '#EC7424'), portal: cv('--vein-portal', '#7B6FC4'), systemic: cv('--vein-systemic', '#4F8CC9') };
+    model.inks = { normal: cv('--flow-normal'), reversed: cv('--flow-reversed'), portal: cv('--vein-portal'), systemic: cv('--vein-systemic') };
     if (originOn() && originsF !== f) { origins = originFractions(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P); originsF = f; }
     panel();
     if (!raf) raf = requestAnimationFrame(loop);
@@ -1203,14 +1199,14 @@ export function createLobuleZoom({ host }) {
   const fieldState = () => { const m = model || (F ? lobuleState(F, store.get()) : null); return m ? { su: fsQ('su', m.septU), pre: fsQ('pre', m.fibPre), post: fsQ('post', m.fibPost), sin: fsQ('sin', m.fibSin), cong: fsQ('cong', m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
   function fieldTile(cs, dark, rd) {
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
-    const cell = v('--og-liver-1', '#E9C3B6'), gap = v('--og-liver-2', '#C98E7E'), cvc = v('--vein-systemic', '#4F8CC9'), pvc = v('--vein-portal', '#7D6FB6');
+    const cell = v('--og-liver-1'), gap = v('--og-liver-2'), cvc = v('--vein-systemic'), pvc = v('--vein-portal');
     const fs = fieldState();
     const key = [dark, cell, gap, cvc, pvc, Object.values(fs).join(',')].join('|');
     let tiles = tileSets.get(key);
     if (!tiles) { tiles = [6, 12, 24, 48, 96, 192, 384].map((R) => ({ R, cv: null })); tileSets.set(key, tiles); if (tileSets.size > 3) tileSets.delete(tileSets.keys().next().value); }
     else { tileSets.delete(key); tileSets.set(key, tiles); }
     const t = tiles.find((q) => q.R >= rd) || tiles[tiles.length - 1];
-    if (!t.cv) drawTile(t, { cell, gap, cvc, pvc, art: v('--artery', '#C8414D'), duct: v('--bile-duct', '#6E9B4E'), dark, fs });
+    if (!t.cv) drawTile(t, { cell, gap, cvc, pvc, art: v('--artery'), duct: v('--bile-duct'), dark, fs });
     return t;
   }
   // Tissue, not a diagram: the repeat is two lobules wide and two high, and every corner of the
@@ -1221,7 +1217,7 @@ export function createLobuleZoom({ host }) {
   function drawTile(t, { cell, gap, cvc, pvc, art, duct, dark, fs }) {
     const S3 = Math.sqrt(3), R = t.R;
     const hash = (i, j) => { let q = (i * 374761393 + j * 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };
-    const COL = dark ? 'rgb(199,186,153)' : 'rgb(237,222,186)', COLa = dark ? [0.78, 0.73, 0.6] : [0.93, 0.87, 0.73], edges = new Set();
+    const COL = tk('--collagen'), COLa = cssRGB01('--collagen'), edges = new Set();
     const TW = 6 * R, TH = 2 * S3 * R, tw = Math.round(TW), th = Math.round(TH);
     const cv = document.createElement('canvas'); cv.width = tw; cv.height = th;
     const c = cv.getContext('2d');
@@ -1264,7 +1260,7 @@ export function createLobuleZoom({ host }) {
       // Congestion: zone 3 pooled with blood (nutmeg).
       if (fs.cong > 0) {
         const n = c.createRadialGradient(x, y, R * 0.08, x, y, R * (0.35 + 0.25 * fs.cong));
-        n.addColorStop(0, `rgba(140,40,60,${(0.55 * fs.cong).toFixed(3)})`); n.addColorStop(1, 'rgba(140,40,60,0)');
+        n.addColorStop(0, tk('--lz-congestion', (0.55 * fs.cong).toFixed(3))); n.addColorStop(1, tk('--lz-congestion', 0));
         c.fillStyle = n; c.fillRect(x - R, y - R, 2 * R, 2 * R);
       }
       // Sinusoids: from each edge's portal side toward the central vein, each with a slight bend;
@@ -1339,7 +1335,7 @@ export function createLobuleZoom({ host }) {
   }
   // Behind the lobule the field steps back: most of its colour drained and its contrast lowered (q: 0..1).
   function fieldQuiet(c, bg, q, w, h) {
-    c.globalCompositeOperation = 'saturation'; c.fillStyle = `rgba(128,128,128,${(0.45 * q).toFixed(3)})`; c.fillRect(0, 0, w, h);
+    c.globalCompositeOperation = 'saturation'; c.fillStyle = `rgba(128,128,128,${(0.45 * q).toFixed(3)})`;   // colour-exempt: a grey for the saturation blend drains colour, it is not a colour c.fillRect(0, 0, w, h);
     c.globalCompositeOperation = 'source-over'; c.fillStyle = css(bg, 0.42 * q); c.fillRect(0, 0, w, h);
   }
   // A tile with fieldQuiet already applied (the lobule view's resting state), so panning and zooming
@@ -1390,7 +1386,7 @@ export function createLobuleZoom({ host }) {
     if (d.a < 1) {
       const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a);
       const mg = c.createRadialGradient(d.ox * dpr, d.oy * dpr, rho * 0.35, d.ox * dpr, d.oy * dpr, rho);
-      mg.addColorStop(0, 'rgba(0,0,0,1)'); mg.addColorStop(1, 'rgba(0,0,0,0)');
+      mg.addColorStop(0, 'rgba(0,0,0,1)'); mg.addColorStop(1, 'rgba(0,0,0,0)');   // colour-exempt: a mask
       c.globalCompositeOperation = 'destination-in';
       c.fillStyle = mg; c.fillRect(0, 0, field.width, field.height);
       c.globalCompositeOperation = 'source-over';
@@ -1400,7 +1396,7 @@ export function createLobuleZoom({ host }) {
   }
   let fieldOp = 0;
   function liverTile(t, cs, dark, bg) {
-    const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim() || (dark ? '#5A3440' : '#C98E7E'));
+    const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim());
     const tone = bg.map((x, i) => lerp(x, lv[i], 0.6));
     const tk = tone.map((x) => x.toFixed(2)).join(',');
     if (!t.liverQ || t.liverQ.k !== tk) {
@@ -1410,7 +1406,7 @@ export function createLobuleZoom({ host }) {
     }
     return t.liverQ;
   }
-  const stageBg = (cs, dark) => rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7'));
+  const stageBg = (cs, dark) => rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim());
   // Ahead of any dive, while the anatomy sits idle: everything the dive and the lobule's first frame would
   // otherwise build mid-zoom (geometry, the vessels' WebGL, the field's tiles and their toned copies, the
   // tissue bitmap and a first full draw, which compiles the shaders and uploads the network), as pieces
@@ -1437,7 +1433,7 @@ export function createLobuleZoom({ host }) {
       const st = store.get();
       model = lobuleState({ ...F, P: F.Pf || F.P }, st);
       const cv = (n, d) => cs.getPropertyValue(n).trim() || d;
-      model.inks = { normal: cv('--flow-normal', '#16988F'), reversed: cv('--flow-reversed', '#EC7424'), portal: cv('--vein-portal', '#7B6FC4'), systemic: cv('--vein-systemic', '#4F8CC9') };
+      model.inks = { normal: cv('--flow-normal'), reversed: cv('--flow-reversed'), portal: cv('--vein-portal'), systemic: cv('--vein-systemic') };
       const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
       quietTile(fieldTile(cs, dark, geo.R * V.k * dpr * 0.55), bg);
     }, () => {
@@ -1602,7 +1598,7 @@ export function createLobuleZoom({ host }) {
       if (ak !== attrKey) {
         attrKey = ak; glDirty = true;
         tubeData.fill(0);
-        const art = rgb01(cs.getPropertyValue('--artery').trim() || '#C8414D'), grey = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
+        const art = rgb01(cs.getPropertyValue('--artery').trim()), grey = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
         const LY = lyInk(m, dark);   // lymph: clear, a faint green (paler than the bile duct), deeper with more protein
         // The space of Disse fills as filtration rises: its tint deepens a little (it already widens).
         const deep = dark ? [0.62, 0.7, 0.58] : [0.79, 0.86, 0.74], LYd = LY.map((x, i) => lerp(x, deep[i], 0.45 * lyF(m)));
@@ -1668,12 +1664,12 @@ export function createLobuleZoom({ host }) {
       shOff: [1.2, 2.2], light: LIGHT, reach: 11, heat: false, organs: 0,
       casing: [...triplet(cs, '--casing-rgb'), num(cs, '--casing-a', 0.56) * 0.8],
       shadow: [...triplet(cs, '--shadow-rgb'), num(cs, '--shadow-a', 0.15)],
-      sheen: [...rgb01(cs.getPropertyValue('--light-ink').trim() || '#fff'), num(cs, '--tube-sheen', 0.42)],
-      shade: [...rgb01(cs.getPropertyValue('--tube-shade-ink').trim() || '#0A0612'), num(cs, '--tube-shade', 0.2)],
-      ring: [...rgb01(cs.getPropertyValue('--accent').trim() || '#3b6cf6'), 0.4],
+      sheen: [...rgb01(cs.getPropertyValue('--light-ink').trim()), num(cs, '--tube-sheen', 0.42)],
+      shade: [...rgb01(cs.getPropertyValue('--tube-shade-ink').trim()), num(cs, '--tube-shade', 0.2)],
+      ring: [...rgb01(cs.getPropertyValue('--accent').trim()), 0.4],
       netAlpha: 1, fx: true, tierAlpha: Array(MAX_TIERS).fill(1), tierGroup: Array(MAX_TIERS).fill(1),
     };
-    const blood = { alpha: flowA, on: bloodOn && flowA > 0.002, chev: chev && flowA > 0.002, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], ...BLOOD };
+    const blood = { alpha: flowA, on: bloodOn && flowA > 0.002, chev: chev && flowA > 0.002, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], ...bloodColors() };
     if (glDirty || dk !== drawKey) { glDirty = false; drawKey = dk; g.draw(T, look, blood); } else g.composite(look, blood);
   }
   const num = (cs, n, d) => { const v = parseFloat(cs.getPropertyValue(n)); return Number.isFinite(v) ? v : d; };
@@ -1696,7 +1692,7 @@ export function createLobuleZoom({ host }) {
     const c = tissue.getContext('2d');
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
-    const bg = v('--stage-bg', v('--bg', dark ? '#0E1422' : '#FBFAF7'));
+    const bg = v('--stage-bg', v('--bg'));
     c.fillStyle = bg; c.fillRect(0, 0, W, H);
     const { R, cx, cy } = G;
     // The neighbours are the dive's field, carried on: the same tissue, in the same state, fading into
@@ -1725,8 +1721,8 @@ export function createLobuleZoom({ host }) {
   // The lobule in world space (plates, septa, tracts, lymph): drawn into the cached bitmap.
   function paintLobule(c, m, G, dark, cs, bg, v) {
     const { R, cx, cy, lobules } = G;
-    { const l = lobules[0], bq = rgb01(bg); c.fillStyle = css(rgb01(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E')).map((x, i) => lerp(bq[i], x, 0.55)), 1); c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * 1.015, py = l.y + (y - l.y) * 1.015; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); c.fill(); }
-    const gap = rgb01(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E')), cell = rgb01(v('--og-liver-1', dark ? '#85514F' : '#E9C3B6'));
+    { const l = lobules[0], bq = rgb01(bg); c.fillStyle = css(rgb01(v('--og-liver-2')).map((x, i) => lerp(bq[i], x, 0.55)), 1); c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * 1.015, py = l.y + (y - l.y) * 1.015; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); c.fill(); }
+    const gap = rgb01(v('--og-liver-2')), cell = rgb01(v('--og-liver-1'));
     const COL = dark ? [0.78, 0.73, 0.6] : [0.93, 0.87, 0.73];
     const PRE = dark ? [0.86, 0.78, 0.6] : [0.78, 0.64, 0.44];   // periportal scar: deeper than COL to read on the tissue
     const col = (a) => css(COL, a);
@@ -1747,19 +1743,19 @@ export function createLobuleZoom({ host }) {
       const lw = (dead ? k.l * 0.7 : k.l) * (1 + 0.12 * sj), ww = (dead ? k.w * 0.7 : k.w) * (1 + 0.3 * sj);
       c.fillStyle = css(fill, dead ? 0.6 : dark ? 0.8 : 0.92);
       c.beginPath(); if (c.roundRect) c.roundRect(-lw / 2, -ww / 2, lw, ww, Math.min(lw, ww) * 0.38); else c.rect(-lw / 2, -ww / 2, lw, ww); c.fill();
-      if (!dead) { c.fillStyle = dark ? 'rgba(30,14,28,.22)' : 'rgba(110,60,84,.22)'; c.beginPath(); c.arc(k.nu * lw, 0, Math.max(0.9, ww * 0.16), 0, TAU); c.fill(); }
+      if (!dead) { c.fillStyle = tk('--lz-nodule-ink'); c.beginPath(); c.arc(k.nu * lw, 0, Math.max(0.9, ww * 0.16), 0, TAU); c.fill(); }
       c.restore();
     }
     // Zone 3 congestion: blood pooling around the central vein (nutmeg).
     if (cu > 0.04) {
       const gr = c.createRadialGradient(cx, cy, R * 0.05, cx, cy, R * 0.55);
-      gr.addColorStop(0, `rgba(128, 22, 44, ${0.5 * cu})`); gr.addColorStop(0.6, `rgba(128, 22, 44, ${0.22 * cu})`); gr.addColorStop(1, 'rgba(128, 22, 44, 0)');
+      gr.addColorStop(0, tk('--lz-nutmeg', 0.5 * cu)); gr.addColorStop(0.6, tk('--lz-nutmeg', 0.22 * cu)); gr.addColorStop(1, tk('--lz-nutmeg', 0));
       c.fillStyle = gr; c.fillRect(cx - R, cy - R, 2 * R, 2 * R);
     }
     // Zones of the acinus (toggle): hexagonal bands from the triads (1) to the central vein (3).
     if (zonesOn) {
-      [[1, 0], [0.66, 1], [0.36, 2]].forEach(([k, i]) => { hexPath(main, k); c.fillStyle = `rgba(${ZONE_RGB[i].join(',')}, ${dark ? 0.2 : 0.17})`; c.fill(); });
-      c.lineWidth = 1; c.strokeStyle = dark ? 'rgba(255,255,255,.3)' : 'rgba(60,40,60,.28)';
+      [[1, 0], [0.66, 1], [0.36, 2]].forEach(([k, i]) => { hexPath(main, k); c.fillStyle = tk(`--lz-zone-${i + 1}`, dark ? 0.2 : 0.17); c.fill(); });
+      c.lineWidth = 1; c.strokeStyle = tk('--lz-zone-line');
       for (const k of [0.66, 0.36]) { hexPath(main, k); c.stroke(); }
     }
     // Space of Disse collagen (capillarization) along every sinusoid.
@@ -1776,7 +1772,7 @@ export function createLobuleZoom({ host }) {
     // processes hugging its wall; activated (myofibroblasts), they grow, darken and lay down collagen.
     if (m.act > 0.08) {
       const a = m.act, L = G.rs0 * (2.4 + 1.4 * a), Wb = G.rs0 * (0.42 + 0.2 * a);
-      const body = `rgba(150, 96, 62, ${(0.22 + 0.3 * a).toFixed(3)})`, nuc = `rgba(96, 54, 40, ${(0.3 + 0.3 * a).toFixed(3)})`;
+      const body = tk('--lz-hsc-body', (0.22 + 0.3 * a).toFixed(3)), nuc = tk('--lz-hsc-nucleus', (0.3 + 0.3 * a).toFixed(3));
       // A tapered strand: from (x0, y0) along the wall, bowing toward the sinusoid, width w0 → 0.
       const strand = (k, x0, y0, sgn, len, w0, bow) => {
         const ux = Math.cos(k.a) * sgn, uy = Math.sin(k.a) * sgn, n = 10, Pq = [];
@@ -1809,7 +1805,7 @@ export function createLobuleZoom({ host }) {
       // Early: incomplete septa reaching out from the tracts; then complete portal-portal bridges.
       const reach = Math.min(1, 0.3 + 2.4 * su);
       c.save();
-      c.shadowColor = dark ? 'rgba(0,0,0,.5)' : 'rgba(110, 50, 50, .3)'; c.shadowBlur = R * 0.06 * su;   // nodules bulge beside the bands
+      c.shadowColor = tk('--lz-nodule-shadow'); c.shadowBlur = R * 0.06 * su;   // nodules bulge beside the bands
       crn.forEach((A, i) => {
         const B = crn[(i + 1) % 6], o = { w, rgb: COL, a: 0.55 + 0.45 * su, amp: R * 0.025, seed: 11 + i };
         if (reach >= 1) fibrousBand(c, A, B, o);
@@ -1827,7 +1823,7 @@ export function createLobuleZoom({ host }) {
       c.restore();
     } else {
       // Healthy: just the limiting plate, a hairline.
-      c.strokeStyle = dark ? 'rgba(255,255,255,.1)' : 'rgba(80,50,50,.14)'; c.lineWidth = 1;
+      c.strokeStyle = tk('--lz-plate-line'); c.lineWidth = 1;
       hexPath(lobules[0]); c.stroke();
     }
     // Portal tracts (connective tissue), thicker with portal fibrosis.
@@ -1858,11 +1854,11 @@ export function createLobuleZoom({ host }) {
   }
   // Without WebGL2: the vessels as plain strokes on the tissue.
   function paintFlatVessels(c, cs) {
-    const G = geo, art = cs.getPropertyValue('--artery').trim() || '#C8414D', casing = 'rgba(30, 24, 40, .45)';
+    const G = geo, art = cs.getPropertyValue('--artery').trim(), casing = tk('--lz-casing');
     c.lineCap = 'round'; c.lineJoin = 'round';
     for (const t of G.tubes) {
       const r = radiusAt(t, N >> 1), isArt = t.kind === 'ha' || t.kind === 'tw', disc = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd';
-      const color = isArt ? art : t.kind === 'bd' ? '#7A7D3C' : tubeInk(t, 0), rim = EDGE[t.kind];
+      const color = isArt ? art : t.kind === 'bd' ? tk('--lz-bile-duct') : tubeInk(t, 0), rim = EDGE[t.kind];
       const [x0, y0] = t.pts[0];
       if (disc) {
         c.fillStyle = rim ? `rgb(${rim.map((q) => Math.round(q * 255))})` : casing; c.beginPath(); c.arc(x0, y0, r + (rim ? 1.8 : 1.2), 0, TAU); c.fill();
@@ -1870,7 +1866,7 @@ export function createLobuleZoom({ host }) {
         continue;
       }
       const path = () => { c.beginPath(); t.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); };
-      if (selIds().has(t.id)) { c.strokeStyle = 'rgba(59, 108, 246, .45)'; c.lineWidth = 2 * r + 7; path(); c.stroke(); }
+      if (selIds().has(t.id)) { c.strokeStyle = tk('--lz-select'); c.lineWidth = 2 * r + 7; path(); c.stroke(); }
       if (!isArt) { c.strokeStyle = casing; c.lineWidth = 2 * r + 2; path(); c.stroke(); }
       c.strokeStyle = color; c.lineWidth = 2 * r; path(); c.stroke();
     }
@@ -1887,7 +1883,7 @@ export function createLobuleZoom({ host }) {
     if (!m.hide) {
       // The bile ductule is lined all round by a simple cuboidal epithelium: wedge-shaped cells side by side
       // around an open lumen, each with a darker round nucleus.
-      const dk = dark, cellFill = dk ? '#8E9150' : '#A3A55F', cellEdge = dk ? 'rgba(36, 38, 16, .55)' : 'rgba(66, 68, 28, .5)', nuc = dk ? '#3E4120' : '#5A5D2A', lumen = dk ? '#2C2F16' : '#6B6E36';
+      const cellFill = tk('--lz-duct-cell'), cellEdge = tk('--lz-duct-edge'), nuc = tk('--lz-duct-nucleus'), lumen = tk('--lz-duct-lumen');
       const NC = 16, TAU2 = Math.PI * 2;
       c.lineWidth = Math.max(0.3, G.R * 0.0013); c.strokeStyle = cellEdge; c.globalAlpha = 0.72;   // a little faded, so the ductule sits back in the tract
       for (const tr of G.triads) {
@@ -1921,7 +1917,7 @@ export function createLobuleZoom({ host }) {
       c.save();
       c.globalCompositeOperation = 'source-over';
       // On the pale tissue a faint shadow keeps the white streaks legible.
-      if (!dark) { c.shadowColor = 'rgba(60, 30, 50, .35)'; c.shadowBlur = 3; }
+      if (!dark) { c.shadowColor = tk('--lz-streak-shadow'); c.shadowBlur = 3; }
       c.lineCap = 'round'; c.lineJoin = 'round';
       for (let i = 0; i < n; i++) {
         const d = G.lymph[i];
@@ -1971,7 +1967,7 @@ export function createLobuleZoom({ host }) {
           drops.push(x, y, r * Math.min(1, e) * smooth(0.2, 0.8, tp), t.id + i);
         }
       }
-      c.fillStyle = dark ? 'rgba(214, 236, 204, .42)' : 'rgba(150, 186, 140, .42)';
+      c.fillStyle = tk('--lz-lymph');
       c.beginPath();
       for (let j = 0; j < drops.length; j += 4) { const [x, y, rr] = [drops[j], drops[j + 1], drops[j + 2]]; c.moveTo(x + rr, y); c.arc(x, y, rr, 0, TAU); }
       c.fill();
@@ -1986,15 +1982,15 @@ export function createLobuleZoom({ host }) {
         }
       }
       c.lineWidth = Math.max(0.5 / V.k, minR * 0.22);
-      c.strokeStyle = dark ? 'rgba(20, 14, 4, .9)' : 'rgba(255, 255, 255, .95)';
+      c.strokeStyle = tk('--lz-albumin-ring');
       c.stroke();
-      c.fillStyle = dark ? 'rgb(255, 196, 40)' : 'rgb(194, 82, 0)';
+      c.fillStyle = tk('--lz-albumin');
       c.fill();
       // The lymph runs beneath the blood: cut the drops away wherever a blood vessel (with its wall)
       // lies over them, so the arterioles, venules and sinusoids pass on top.
       c.save();
       c.globalCompositeOperation = 'destination-out';
-      c.fillStyle = c.strokeStyle = '#000';
+      c.fillStyle = c.strokeStyle = '#000';   // colour-exempt: an eraser (destination-out)
       c.lineCap = 'round'; c.lineJoin = 'round';
       for (const t of G.tubes) {
         if (t.lymph || t.kind === 'ly' || t.kind === 'lt' || t.kind === 'lv') continue;
@@ -2019,7 +2015,7 @@ export function createLobuleZoom({ host }) {
       if (seal > 0.02) {
         c.save();
         c.lineWidth = lw;
-        c.strokeStyle = dark ? `rgba(232, 196, 140, ${(0.6 * seal).toFixed(3)})` : `rgba(150, 104, 40, ${(0.5 * seal).toFixed(3)})`;
+        c.strokeStyle = tk('--lz-collagen', ((dark ? 0.6 : 0.5) * seal).toFixed(3));
         c.beginPath();
         for (const t of G.tubes) {
           if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
@@ -2040,7 +2036,7 @@ export function createLobuleZoom({ host }) {
     }
     if (flat && !m.hide && store.get().layers?.flow !== false) {
       // Red cells along the sinusoids at the model's flow.
-      c.fillStyle = dark ? 'rgba(255, 120, 140, .9)' : 'rgba(150, 18, 40, .8)';
+      c.fillStyle = tk('--lz-rbc');
       const sp = 0.1 * Math.max(0, m.flow);
       c.beginPath();
       for (const t of G.tubes) {
@@ -2253,7 +2249,7 @@ export function createLobuleZoom({ host }) {
     setDiveZoom(k, x, y, tx = x, ty = y) {
       diveScaled = k < 0.9999; if (!diveScaled) diveDrawn = false;
       // Scaled down, the tissue's own page fill would show as a pale card; a soft round mask keeps only the lobule and its rim.
-      const r = geo ? geo.R * V.k : 0, mask = k >= 0.9999 || !r ? '' : `radial-gradient(circle at ${x.toFixed(1)}px ${y.toFixed(1)}px, #000 ${(r * 1.02).toFixed(1)}px, transparent ${(r * 1.2).toFixed(1)}px)`;
+      const r = geo ? geo.R * V.k : 0, mask = k >= 0.9999 || !r ? '' : `radial-gradient(circle at ${x.toFixed(1)}px ${y.toFixed(1)}px, #000 ${(r * 1.02).toFixed(1)}px, transparent ${(r * 1.2).toFixed(1)}px)`;   // colour-exempt: a mask
       for (const e of [tissue, glCv, fx, leaders, labels]) {
         if (e === tissue || e === glCv) { e.style.maskImage = mask; e.style.webkitMaskImage = mask; }
         if (k >= 0.9999) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }

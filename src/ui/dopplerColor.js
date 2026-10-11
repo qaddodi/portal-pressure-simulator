@@ -10,6 +10,8 @@
 //   s  velocity variance from 0 (laminar) to 1 (turbulent)
 // and returns [r, g, b, a] (a of 0: black, nothing to draw). The Spectrum mode has no colour.
 
+import { cssRGB } from './util.js?v=259b580d3f';
+
 export const THETA = 60;                               // beam-to-flow angle in degrees (the spectral header's θ)
 export const COS_THETA = Math.cos(THETA * Math.PI / 180);
 
@@ -18,9 +20,14 @@ export const DOPPLER_MODES = [
   { id: 'velocity', label: 'Color', short: 'Color' },
   { id: 'variance', label: 'Variance', short: 'Variance' },
 ];
-const TOWARD = [224, 90, 48], AWAY = [58, 75, 168];                    // velocity map 1
-const VAR_TOWARD = [[240, 138, 40], [255, 232, 48]];                   // variance map 1: laminar → turbulent
-const VAR_AWAY = [[107, 88, 168], [46, 154, 92]];
+// The maps' colours are tokens (--dop-* in styles/tokens.css), read once on first use.
+let MAP = null;
+const map = () => MAP || (MAP = {
+  TOWARD: cssRGB('--dop-toward'), AWAY: cssRGB('--dop-away'),                          // velocity map 1
+  VAR_TOWARD: [cssRGB('--dop-var-toward'), cssRGB('--dop-var-toward-turb')],           // variance map 1: laminar → turbulent
+  VAR_AWAY: [cssRGB('--dop-var-away'), cssRGB('--dop-var-away-turb')],
+  WHITE: cssRGB('--dop-bright'),                                                      // the spectrum's bright end
+});
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
@@ -30,9 +37,9 @@ export function dopplerColor(mode, { u = 0, s = 0 }, invert = false, out = [0, 0
   if (mode !== 'velocity' && mode !== 'variance') { out[0] = out[1] = out[2] = out[3] = 0; return out; }
   const toward = (invert ? -u : u) >= 0;
   let c;
-  if (mode === 'velocity') c = toward ? TOWARD : AWAY;
+  if (mode === 'velocity') c = toward ? map().TOWARD : map().AWAY;
   else {
-    const [a, b] = toward ? VAR_TOWARD : VAR_AWAY, f = clamp01(s);
+    const [a, b] = toward ? map().VAR_TOWARD : map().VAR_AWAY, f = clamp01(s);
     out[0] = a[0] + (b[0] - a[0]) * f; out[1] = a[1] + (b[1] - a[1]) * f; out[2] = a[2] + (b[2] - a[2]) * f;
   }
   if (c) { out[0] = c[0]; out[1] = c[1]; out[2] = c[2]; }
@@ -45,14 +52,13 @@ export function dopplerColor(mode, { u = 0, s = 0 }, invert = false, out = [0, 0
 // spectrum's own near-white. The legend is painted with the same function, so it shows what the
 // trace shows.
 const SOFT = 0.28;                       // how far the map colour is pulled toward its own grey
-const WHITE = [236, 240, 250];           // the spectrum's bright end
 const LEGEND_T = 0.8;             // the nominal brightness the legend shows
 
 /** Softened, brightness-modulated colour: c is a map colour, t the pixel's signal brightness 0..1, cover how much of it to show. */
 export function shadeColor(c, t, cover, out = [0, 0, 0]) {
   const l = 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
-  const b = (0.3 + 0.7 * t) * cover, hl = 0.2 * t * t * Math.sqrt(t) * cover;
-  for (let k = 0; k < 3; k++) { const v = (c[k] * (1 - SOFT) + l * SOFT) * b + WHITE[k] * hl; out[k] = v > 255 ? 255 : v; }
+  const b = (0.3 + 0.7 * t) * cover, hl = 0.2 * t * t * Math.sqrt(t) * cover, W = (MAP || map()).WHITE;
+  for (let k = 0; k < 3; k++) { const v = (c[k] * (1 - SOFT) + l * SOFT) * b + W[k] * hl; out[k] = v > 255 ? 255 : v; }
   return out;
 }
 

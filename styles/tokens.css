@@ -91,19 +91,39 @@
   --fx-ink: rgba(22, 24, 29, .88);
   --stent-metal: #667285; --stent-marker: #545D6C; --stent-alpha: .65; --stent-glint: .38; --stent-rail-w: 1.15; --stent-strut-w: .8;
 
+  /* lens ramps (both themes): "#colour position" stops, interpolated in OKLab by colormap.js.
+     Pressure positions are mmHg; the others run 0 to 1 along their scale. */
+  --ramp-pressure: #DCEBF7 0, #7CC4E4 5, #6A7FD8 10, #8E4FC4 12, #C0307A 20, #6E0B3A 30;
+  --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #1B366A 1;
+  --ramp-velocity: #EBCB7E 0, #D9923A .35, #A3511F .7, #5A220E 1;
+  --ramp-heat: #B4B8C2 0, #F4D35E .12, #F08A24 .45, #D7263D .75, #6E0B2E 1;
+  --ramp-drop: #DCE6D2 0, #A8C97A .3, #4F8C3C .65, #1D4724 1;
+  --delta-low: #2D6CDF; --delta-mid: #9696A0; --delta-high: #D22846;   /* Change lens: lower, same, higher than healthy */
+  /* blood origin lens (both themes): the streams in the vessels, their legend, and the matching traces */
+  --origin-smv: #E69929; --origin-imv: #179E8C; --origin-spleen: #7D5CDB; --origin-artery: #D63347; --origin-systemic: #708FBF;
+  /* blood on the GPU (both themes): dye bolus, stream inks on dark and pale lumens, reversed flow, chevrons */
+  --blood-dye: #C7F533; --blood-ink-light: #FFFFFF; --blood-ink-dark: #121426; --blood-reversed: #FF8C29; --blood-chevron: #14141A;
+  /* lens neutrals and glows (both themes): the grey of a vessel a lens does not colour, and the brief glow
+     on a change (warmer: pressure rose; cooler: it fell); the organs' volume shading */
+  --lens-neutral: rgb(150, 152, 162); --glow-up: #E8633A; --glow-down: #3A8DE8; --og-vol-shade: #2A1410;
+  /* charts: the liver's band behind its stations, a missed prediction; the printed handout (black on white) */
+  --chart-liver-band: rgba(176, 96, 84, .09); --chart-miss: rgba(210, 69, 47, .14);
+  --print-ink: #111; --print-ink-2: #3d3d3d; --print-ink-3: #6b6b6b; --print-rule: #cfcfcf; --print-paper: #fff;
+  --bleed-spray: rgb(150, 14, 34);   /* an active bleed's spray on the figure (WebGL) */
+  --debug-line: #7dd3fc;   /* the ?debug overlay's frame-time graph */
   /* chart series (validated categorical order, light) */
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
   --grid: #E6E4DD;
   /* pressure-over-time traces: the plate's own vessel hues (portal magenta, wedged orchid,
      hepatic blue), then quieter inks for the rest */
-  --tr-pv: #B01E62; --tr-wedge: #A52DA9; --tr-hv: #2A78D6; --tr-ra: #5B6270; --tr-ivc: #1F9BB0; --tr-var: #E0632E; --tr-sv: #7D5CDB; --tr-smv: #E69929; --tr-imv: #179E8C;
+  --tr-pv: #B01E62; --tr-wedge: #A52DA9; --tr-hv: #2A78D6; --tr-ra: #5B6270; --tr-ivc: #1F9BB0; --tr-var: #E0632E; --tr-sv: var(--origin-spleen); --tr-smv: var(--origin-smv); --tr-imv: var(--origin-imv);
   --axis: #C6C2B8;
 
   /* elevation, shape, type, motion */
   /* elevation: two shadows (menus and floating cards; dialogs and sheets). Cards on the paper
      ground use a hairline, not a shadow (--shadow-1). */
-  --shadow-menu: 0 6px 20px rgba(20, 22, 30, .1), 0 1px 3px rgba(20, 22, 30, .06);
-  --shadow-dialog: 0 18px 48px rgba(20, 22, 30, .16), 0 4px 12px rgba(20, 22, 30, .08);
+  --shadow-menu: 0 6px 20px rgb(var(--night-rgb) / .1), 0 1px 3px rgb(var(--night-rgb) / .06);
+  --shadow-dialog: 0 18px 48px rgb(var(--night-rgb) / .16), 0 4px 12px rgb(var(--night-rgb) / .08);
   --shadow-1: 0 0 0 1px var(--hairline);
   --shadow-2: var(--shadow-menu);
   --shadow-3: var(--shadow-dialog);
@@ -131,6 +151,50 @@
   --red-wale: #D0192E; --balloon: #F2E3A6; --balloon-line: #B69A2C; --bile-duct: #7C8040; --laser: #FF2B3A;
   /* instruments drawn as their machines are, dark in both themes */
   --scope-bg: #05070D; --mon-bg: #07090C; --mon-grid: #1C2128; --mon-line: #2A3038; --mon-text: #9AA4B2; --mon-alarm: #FF7A85;
+  /* endoscopy and FibroScan screens (both themes): balloon glare, blood pool and jet, the scope's rim, the live dot */
+  --scope-balloon-hi: rgba(255, 250, 225, .55); --scope-balloon-lo: rgba(235, 215, 160, .35); --scope-blood-pool: rgba(95, 0, 12, .95); --scope-blood-pool-edge: #780014;
+  --scope-blood-jet: rgba(165, 8, 28, .85); --scope-rim: #0c0d10; --fibroscan-live: rgb(80, 210, 130);
+  /* endoscopy (WebGL, both themes): mucosa pale to deep, Z-line, surface vessels, varices small to large, crest highlight,
+     red wale marks, band halo and band, the scope light near and far, glint, the dark lumen */
+  --endo-mucosa: rgb(226, 150, 132); --endo-mucosa-deep: rgb(150, 52, 50); --endo-zline: rgb(200, 70, 60); --endo-vessels: rgb(184, 84, 92);
+  --endo-varix-small: rgb(214, 178, 176); --endo-varix: rgb(80, 90, 172); --endo-crest: rgb(30, 26, 18); --endo-red-wale: rgb(158, 26, 42);
+  --endo-band-halo: rgb(200, 78, 96); --endo-band: rgb(26, 16, 20); --endo-light-near: rgb(255, 247, 237); --endo-light-far: rgb(255, 179, 153);
+  --endo-glint: rgb(255, 250, 242); --endo-lumen: rgb(11, 3, 3);
+  /* colour Doppler (both themes): velocity map toward and away, variance map laminar to turbulent, the spectrum's bright end */
+  --dop-toward: rgb(224, 90, 48); --dop-away: rgb(58, 75, 168); --dop-var-toward: rgb(240, 138, 40); --dop-var-toward-turb: rgb(255, 232, 48);
+  --dop-var-away: rgb(107, 88, 168); --dop-var-away-turb: rgb(46, 154, 92); --dop-bright: rgb(236, 240, 250);
+  --mon-bright: #E8EDF4; --mon-free: #5CA4F2; --mon-wedge: #DA7EDD; --mon-ok: #4FD18B; --mon-caution: #F2B84B;   /* (free and wedge: the dark theme's --tr-hv and --tr-wedge) */
+  /* pure inks: shadows, glass edges and sheens take these with an alpha (rgb(var(--black-rgb) / .2)) */
+  --white: #FFFFFF; --black: #000000; --white-rgb: 255 255 255; --black-rgb: 0 0 0; --night-rgb: 20 22 30;
+  --scrim-panel: rgba(8, 12, 22, .32); --scrim-menu: rgba(10, 12, 20, .32);
+  --shadow-btn-primary: 0 1px 2px rgba(20, 30, 80, .18); --shadow-cath-label: 0 8px 24px rgba(16, 20, 30, .22);
+  /* lobule and sinusoid figures: septa, nodules, acinar zones (1 oxygen-rich to 3), and the cells' labels */
+  --lv-sep: #FFF4E6; --lv-nod: #C9955C;
+  --zone-1: rgb(186, 66, 48); --zone-2: rgb(150, 100, 32); --zone-3: rgb(96, 72, 182);
+  --sv-lumen-hidden: #A0939C; --sv-fenestra: #56688A; --sv-disse: #4F7440; --sv-hsc: #93603F; --sv-kupffer: #5E4690; --sv-hepatocyte: #A0625A;
+  --albumin: #E39A1E; --albumin-line: rgba(120, 64, 0, .5); --pz-albumin: #E3A33B; --pz-hepatocyte: #C58B5C;
+  --dye-icon: #7fae16;
+  /* guided tour: portal and systemic sides */
+  --tour-portal: #B8326F; --tour-sys: #3F7FCB;
+  /* timeline time-lapse, and a wrong answer in the exam review */
+  --lapse: #d9890b; --lapse-ink: #8a5200; --exam-no: #d9534f;
+  /* catheter (drawn the same in both themes), FibroScan probe, Doppler mode chips */
+  --cath-body: #F4F6FA; --cath-tip: #1B2230; --cath-balloon: rgba(226, 233, 244, .78); --cath-shadow: rgba(10, 14, 22, .55);
+  --fibroscan: #f0924a; --dop-chip-away: #3f78d8; --dop-chip-toward: #d8413a;
+  /* lobule art (canvas): tract, congestion, nutmeg, acinar zone fills, cells, lymph, albumin beads, collagen */
+  --lz-shade: #603A5C; --lz-lumen-hidden: #A0939C; --collagen: rgb(237, 222, 186); --lz-congestion: #8C283C; --lz-nutmeg: #80162C;
+  --lz-zone-1: #E86854; --lz-zone-2: #D6A05C; --lz-zone-3: #7C62CE; --lz-zone-line: rgba(60, 40, 60, .28);
+  --lz-nodule-ink: rgba(110, 60, 84, .22); --lz-nodule-shadow: rgba(110, 50, 50, .3); --lz-plate-line: rgba(80, 50, 50, .14);
+  --lz-hsc-body: #96603E; --lz-hsc-nucleus: #603628; --lz-casing: rgba(30, 24, 40, .45); --lz-bile-duct: #7A7D3C; --lz-select: rgba(59, 108, 246, .45);
+  --lz-duct-cell: #A3A55F; --lz-duct-edge: rgba(66, 68, 28, .5); --lz-duct-nucleus: #5A5D2A; --lz-duct-lumen: #6B6E36;
+  --lz-streak-shadow: rgba(60, 30, 50, .35); --lz-lymph: rgba(150, 186, 140, .42); --lz-albumin: rgb(194, 82, 0); --lz-albumin-ring: rgba(255, 255, 255, .95);
+  --lz-collagen: #966828; --lz-rbc: rgba(150, 18, 40, .8);
+  /* sinusoid art (WebGL): cells, lymph by protein (low, mid, high), albumin */
+  --sv-gl-nucleus: #844664; --sv-gl-basement: #967646; --sv-gl-bile: #7A803D; --sv-gl-endothelium: #B8B0CC;
+  --sv-gl-endo-nucleus: #8072A0; --sv-gl-hsc-quiet: #E0B896; --sv-gl-hsc-active: #BE805E;
+  --sv-gl-hsc-nucleus: #925A42; --sv-gl-kupffer: #B296D6; --sv-gl-kupffer-nucleus: #6C509C;
+  --sv-gl-kupffer-edge: #60468E; --sv-gl-rbc: #CC4A50; --sv-gl-albumin: #E39A1E; --sv-gl-albumin-edge: #8C4C00;
+  --sv-gl-lymph-lo: #EBF0E0; --sv-gl-lymph-mid: #E0EBD1; --sv-gl-lymph-hi: #D1E3BD; --sv-gl-shade: #2A2430;
   --hit: 36px; /* minimum pointer target; 44px on touch */
   --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-num: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -172,9 +236,21 @@
     --artery: #E4606C; --casing-rgb: 214 222 246; --casing-a: .34; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --ascites: #EADB9C; --ascites-a: .24; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9); --doppler: #3EE0A5;
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --grid: #1F2840; --axis: #34405E;
-    --tr-pv: #F0649E; --tr-wedge: #DA7EDD; --tr-hv: #5CA4F2; --tr-ra: #A9B2C7; --tr-ivc: #4CC2D6; --tr-var: #F28A56; --tr-sv: #7D5CDB; --tr-smv: #E69929; --tr-imv: #179E8C;
+    --tr-pv: #F0649E; --tr-wedge: #DA7EDD; --tr-hv: #5CA4F2; --tr-ra: #A9B2C7; --tr-ivc: #4CC2D6; --tr-var: #F28A56; --tr-sv: var(--origin-spleen); --tr-smv: var(--origin-smv); --tr-imv: var(--origin-imv);
     --shadow-1: 0 0 0 1px var(--hairline); --shadow-2: var(--shadow-menu); --shadow-3: var(--shadow-dialog);
     --shadow-rgb: 0 0 0; --shadow-a: .38; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a)); --tube-shade: .3; --tube-sheen: .38; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #141B2E; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #A0ABBE; --stent-marker: #BAC2D0; --stent-alpha: .65; --stent-glint: .3; --stent-rail-w: 1.15; --stent-strut-w: .8;
+    --lv-sep: #E8C4AE; --lv-nod: #6E4428;
+    --zone-1: rgb(246, 140, 120); --zone-2: rgb(232, 186, 112); --zone-3: rgb(170, 150, 246);
+    --sv-lumen-hidden: #58607A; --sv-fenestra: #B8C6E2; --sv-disse: #B5D3A3; --sv-hsc: #D9B092; --sv-kupffer: #D6C6F2; --sv-hepatocyte: #E3B2A9;
+    --tour-portal: #E06AA2; --tour-sys: #79AEEF; --lapse-ink: #f2b45a;
+    --collagen: rgb(199, 186, 153); --lz-zone-line: rgba(255, 255, 255, .3); --lz-nodule-ink: rgba(30, 14, 28, .22); --lz-nodule-shadow: rgba(0, 0, 0, .5); --lz-plate-line: rgba(255, 255, 255, .1);
+    --lz-duct-cell: #8E9150; --lz-duct-edge: rgba(36, 38, 16, .55); --lz-duct-nucleus: #3E4120; --lz-duct-lumen: #2C2F16;
+    --lz-lymph: rgba(214, 236, 204, .42); --lz-albumin: rgb(255, 196, 40); --lz-albumin-ring: rgba(20, 14, 4, .9); --lz-collagen: #E8C48C; --lz-rbc: rgba(255, 120, 140, .9);
+    --sv-gl-nucleus: #281222; --sv-gl-basement: #CCBC8E; --sv-gl-bile: #969C50; --sv-gl-endothelium: #7A749C;
+    --sv-gl-endo-nucleus: #544A78; --sv-gl-hsc-quiet: #B08666; --sv-gl-hsc-active: #A0664A;
+    --sv-gl-hsc-nucleus: #60382A; --sv-gl-kupffer: #846AB0; --sv-gl-kupffer-nucleus: #4A3674;
+    --sv-gl-kupffer-edge: #3A2A60; --sv-gl-rbc: #B03E48; --sv-gl-albumin: #F2B64A; --sv-gl-albumin-edge: #6E3A00;
+    --sv-gl-lymph-lo: #B8C2B0; --sv-gl-lymph-mid: #B2C4A8; --sv-gl-lymph-hi: #A3BF94;
     color-scheme: dark;
   }
 }
@@ -207,9 +283,21 @@
   --artery: #E4606C; --casing-rgb: 214 222 246; --casing-a: .34; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --ascites: #EADB9C; --ascites-a: .24; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9); --doppler: #3EE0A5;
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
   --grid: #1F2840; --axis: #34405E;
-  --tr-pv: #F0649E; --tr-wedge: #DA7EDD; --tr-hv: #5CA4F2; --tr-ra: #A9B2C7; --tr-ivc: #4CC2D6; --tr-var: #F28A56; --tr-sv: #7D5CDB; --tr-smv: #E69929; --tr-imv: #179E8C;
+  --tr-pv: #F0649E; --tr-wedge: #DA7EDD; --tr-hv: #5CA4F2; --tr-ra: #A9B2C7; --tr-ivc: #4CC2D6; --tr-var: #F28A56; --tr-sv: var(--origin-spleen); --tr-smv: var(--origin-smv); --tr-imv: var(--origin-imv);
   --shadow-1: 0 0 0 1px var(--hairline); --shadow-2: var(--shadow-menu); --shadow-3: var(--shadow-dialog);
   --shadow-rgb: 0 0 0; --shadow-a: .38; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a)); --tube-shade: .3; --tube-sheen: .38; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #141B2E; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #A0ABBE; --stent-marker: #BAC2D0; --stent-alpha: .65; --stent-glint: .3; --stent-rail-w: 1.15; --stent-strut-w: .8;
+  --lv-sep: #E8C4AE; --lv-nod: #6E4428;
+  --zone-1: rgb(246, 140, 120); --zone-2: rgb(232, 186, 112); --zone-3: rgb(170, 150, 246);
+  --sv-lumen-hidden: #58607A; --sv-fenestra: #B8C6E2; --sv-disse: #B5D3A3; --sv-hsc: #D9B092; --sv-kupffer: #D6C6F2; --sv-hepatocyte: #E3B2A9;
+  --tour-portal: #E06AA2; --tour-sys: #79AEEF; --lapse-ink: #f2b45a;
+  --collagen: rgb(199, 186, 153); --lz-zone-line: rgba(255, 255, 255, .3); --lz-nodule-ink: rgba(30, 14, 28, .22); --lz-nodule-shadow: rgba(0, 0, 0, .5); --lz-plate-line: rgba(255, 255, 255, .1);
+  --lz-duct-cell: #8E9150; --lz-duct-edge: rgba(36, 38, 16, .55); --lz-duct-nucleus: #3E4120; --lz-duct-lumen: #2C2F16;
+  --lz-lymph: rgba(214, 236, 204, .42); --lz-albumin: rgb(255, 196, 40); --lz-albumin-ring: rgba(20, 14, 4, .9); --lz-collagen: #E8C48C; --lz-rbc: rgba(255, 120, 140, .9);
+  --sv-gl-nucleus: #281222; --sv-gl-basement: #CCBC8E; --sv-gl-bile: #969C50; --sv-gl-endothelium: #7A749C;
+  --sv-gl-endo-nucleus: #544A78; --sv-gl-hsc-quiet: #B08666; --sv-gl-hsc-active: #A0664A;
+  --sv-gl-hsc-nucleus: #60382A; --sv-gl-kupffer: #846AB0; --sv-gl-kupffer-nucleus: #4A3674;
+  --sv-gl-kupffer-edge: #3A2A60; --sv-gl-rbc: #B03E48; --sv-gl-albumin: #F2B64A; --sv-gl-albumin-edge: #6E3A00;
+  --sv-gl-lymph-lo: #B8C2B0; --sv-gl-lymph-mid: #B2C4A8; --sv-gl-lymph-hi: #A3BF94;
   color-scheme: dark;
 }
 

@@ -8,9 +8,9 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, fitCanvas, clamp, icon, toast } from './util.js?v=045e641b44';
-import { FONT } from './charts.js?v=90bf149cc1';
-import { pressureColor } from './colormap.js?v=7616551729';
+import { h, fmt, fitCanvas, clamp, icon, toast, cssVar } from './util.js?v=259b580d3f';
+import { FONT } from './charts.js?v=b0e4d37446';
+import { pressureColor } from './colormap.js?v=f638e78199';
 import { store, logAction } from './store.js?v=7fb7280c05';
 
 let stageRef = null;
@@ -33,8 +33,8 @@ const STEPS = [
   ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal below 5 mmHg; 10 or more is clinically significant portal hypertension.', 'HVPG'],
 ];
 // The tracing is a monitor, dark in both themes (the Over time chart's dark trace colours).
-const C = { bg: '#07090C', grid: '#1C2128', line: '#2A3038', text: '#9AA4B2', bright: '#E8EDF4',
-  free: '#5CA4F2', wedge: '#DA7EDD', ok: '#4FD18B', caution: '#F2B84B', danger: '#FF7A85' };
+const C = Object.defineProperties({}, Object.fromEntries(Object.entries({ bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
+  free: '--mon-free', wedge: '--mon-wedge', ok: '--mon-ok', caution: '--mon-caution', danger: '--mon-alarm' }).map(([k, n]) => [k, { get: () => cssVar(n) }])));
 const sevOf = (v) => (v >= 10 ? 'danger' : v >= 5 ? 'caution' : 'ok');
 const sevWord = (v) => (v >= 10 ? 'Clinically significant portal hypertension (CSPH)' : v >= 5 ? 'Subclinical' : 'Normal');
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);

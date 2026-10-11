@@ -327,6 +327,27 @@ export function cssVar(name) {
   if (v === undefined) { v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); varCache.set(name, v); }
   return v;
 }
+// A colour token as [r, g, b] in 0–255 (tokens are #rgb, #rrggbb, rgb() or rgba(); the alpha is dropped).
+export function parseRGB(c) {
+  c = (c || '').trim();
+  if (c[0] === '#') { const x = c.length < 6 ? [...c.slice(1, 4)].map((d) => d + d).join('') : c.slice(1, 7); return [0, 2, 4].map((k) => parseInt(x.slice(k, k + 2), 16)); }
+  const n = c.match(/[\d.]+/g) || [];
+  return [+n[0] || 0, +n[1] || 0, +n[2] || 0];
+}
+export const cssRGB = (name) => parseRGB(cssVar(name));
+export const cssRGB01 = (name) => cssRGB(name).map((v) => v / 255);
+/** A colour token with an alpha, for a canvas: cssAlpha('--white', .5) → 'rgba(255,255,255,0.5)' (colour-exempt). */
+export const cssAlpha = (name, a) => `rgba(${cssRGB(name).join(',')},${a})`;
+/** A colour ramp token ('#hex position, #hex position, …') as [[position, '#hex'], …]. */
+export const cssRamp = (name) => [...cssVar(name).matchAll(/(#[0-9a-f]{6})\s+(-?[\d.]+)/gi)].map((m) => [+m[2], m[1]]);
+// The blood's colours on the GPU (theme independent: they sit on the lumen, not on the page), in 0–1.
+// originCol follows ORIGINS (blood.js): SMV, IMV, splenic vein, hepatic artery, systemic.
+let bloodCols = null;
+export const bloodColors = () => bloodCols || (bloodCols = {
+  originCol: ['smv', 'imv', 'spleen', 'artery', 'systemic'].map((o) => cssRGB01(`--origin-${o}`)),
+  dyeCol: cssRGB01('--blood-dye'), inkLight: cssRGB01('--blood-ink-light'), inkDark: cssRGB01('--blood-ink-dark'),
+  revCol: cssRGB01('--blood-reversed'), chevInk: cssRGB01('--blood-chevron'),
+});
 
 /** Canvas sized to its box with device-pixel ratio. Returns ctx with CSS-pixel units. */
 // Each canvas's box is tracked by a ResizeObserver instead of measured on every draw (a

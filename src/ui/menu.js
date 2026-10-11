@@ -5,9 +5,9 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=7fb7280c05';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet } from './util.js?v=045e641b44';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet } from './util.js?v=259b580d3f';
 import { SNAPSHOTS } from './snapshots.js?v=6c4f07ae98';
-import { pressureColor } from './colormap.js?v=7616551729';
+import { pressureColor } from './colormap.js?v=f638e78199';
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 // Where each group's resistance sits along the pathway from the gut to the heart.

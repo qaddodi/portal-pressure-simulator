@@ -5,10 +5,10 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK } from '../engine/topology.js?v=34e377149b';
-import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=045e641b44';
-import { FONT } from './charts.js?v=90bf149cc1';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=259b580d3f';
+import { FONT } from './charts.js?v=b0e4d37446';
 import { logAction } from './store.js?v=7fb7280c05';
-import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=fe9fd40247';
+import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=35d96f51a2';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
@@ -467,20 +467,20 @@ export function createDoppler({ onProbe }) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     const dpr = cv.width / Math.max(1, w);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = cssVar('--black'); ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const padL = 12, padR = 46, padT = 26, padB = 20;
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
     if (w < 60 || hh < 60) return;
     const label = probe ? EDGES[EI[probe]].label : '';
-    ctx.font = FONT(600, 11); ctx.fillStyle = 'rgba(255,255,255,.86)'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.font = FONT(600, 11); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(label, padL, 13);
     const lw = ctx.measureText(label).width;
-    ctx.font = FONT(500, 11); ctx.fillStyle = 'rgba(255,255,255,.5)';
+    ctx.font = FONT(500, 11); ctx.fillStyle = cssAlpha('--white', .5);
     ctx.fillText(`${mode === 'spectrum' ? 'PW' : 'PW + CD'}  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, padL + lw + 12, 13);
     if (buf.length < 2) {
       tDisp = null;
-      ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.55)';
+      ctx.textAlign = 'center'; ctx.fillStyle = cssAlpha('--white', .55);
       ctx.fillText(frame?.clock === 'disease' ? 'Doppler samples at the bedside: return to the seconds clock.' : 'Acquiring…', w / 2, hh / 2);
       return;
     }
@@ -546,13 +546,13 @@ export function createDoppler({ onProbe }) {
     // the wall filter removes the noise near the baseline as well as the slow signal
     const wfPx = Math.max(1.2, 0.025 * scale) * g.rPxPerV * 1.6, by = dy + g.rBase;
     const wg = ctx.createLinearGradient(0, by - wfPx, 0, by + wfPx);
-    wg.addColorStop(0, 'rgba(0,0,0,0)'); wg.addColorStop(0.5, 'rgba(0,0,0,.9)'); wg.addColorStop(1, 'rgba(0,0,0,0)');
+    wg.addColorStop(0, cssAlpha('--black', 0)); wg.addColorStop(0.5, cssAlpha('--black', .9)); wg.addColorStop(1, cssAlpha('--black', 0));
     ctx.fillStyle = wg; ctx.fillRect(dx, Math.max(dy, by - wfPx), RW, Math.min(dy + RH, by + wfPx) - Math.max(dy, by - wfPx));
     ctx.imageSmoothingEnabled = true;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Baseline
-    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(padL, padT + baseY, W, 1);
+    ctx.fillStyle = cssAlpha('--white', .8); ctx.fillRect(padL, padT + baseY, W, 1);
     // Velocity scale on the right
     ctx.font = FONT(500, 10.5); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     // ticks: a labelled tick every 1, 2, 5, 10, 20, 50 ... cm/s (the first that gives at most five a side), a half tick between
@@ -561,10 +561,10 @@ export function createDoppler({ onProbe }) {
       const v = k * minor, y = padT + baseY - v * pxPerV;
       if (y < padT - 1 || y > padT + H + 1) continue;
       const major = k % 2 === 0;
-      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
-      if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = 'rgba(255,255,255,.78)'; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
+      ctx.fillStyle = cssAlpha('--white', .55); ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
+      if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = cssAlpha('--white', .78); ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
     }
-    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
+    ctx.fillStyle = cssAlpha('--white', .5); ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
     if (waves && meta().kind === 'hepatic') {
       // The hepatic vein's waves named at their peaks (a presenter slide asks for it): the a-wave reversal on the
       // atrial side of the baseline, then the S, v and D forward waves of the same beat. One beat is named at a time.
@@ -590,13 +590,13 @@ export function createDoppler({ onProbe }) {
           if (x < padL + 2 || x > padL + W - 2) continue;
           const ty = clamp(y + (up ? -5 : 5), padT + (up ? 14 : 0), padT + H - (up ? 0 : 14));
           ctx.textBaseline = up ? 'bottom' : 'top';
-          ctx.lineWidth = 4; ctx.strokeStyle = `rgba(0,0,0,${0.9 * A})`; ctx.strokeText(name, x, ty);
-          ctx.fillStyle = `rgba(255,255,255,${A})`; ctx.fillText(name, x, ty);
+          ctx.lineWidth = 4; ctx.strokeStyle = cssAlpha('--black', 0.9 * A); ctx.strokeText(name, x, ty);
+          ctx.fillStyle = cssAlpha('--white', A); ctx.fillText(name, x, ty);
         }
       }
     } else { wl = null; }
     // One tick a second along the bottom, scrolling with the trace
-    ctx.fillStyle = 'rgba(255,255,255,.4)';
+    ctx.fillStyle = cssAlpha('--white', .4);
     for (let sec = Math.ceil(tNow - sweepSeconds); sec <= tNow; sec++) {
       const x = (RW - 1 - (cNow - Math.floor(sec * g.cps))) / dpr;
       ctx.fillRect(Math.round(padL + x), padT + H + 5, 1, 4);

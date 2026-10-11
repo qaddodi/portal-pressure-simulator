@@ -14,16 +14,16 @@
 // P high contrast, Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
 import { store, replaceParams } from './store.js?v=7fb7280c05';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './util.js?v=045e641b44';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './util.js?v=259b580d3f';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { download } from './records.js?v=50fb9dd463';
-import { SITES } from './ladder.js?v=18ecf24045';
-import { sinusoidSupported } from './sinusoid-view.js?v=d0f1a6d8cf';
+import { SITES } from './ladder.js?v=953abc032b';
+import { sinusoidSupported } from './sinusoid-view.js?v=c29067c667';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=d207edb4a7';
-import { createHvpgMonitor } from './hvpg-proc.js?v=091a1be176';
-import { createTools } from './presenter-tools.js?v=ff538a0a5e';
-import { openHandout } from './handout.js?v=36b3b67c06';
+import { createHvpgMonitor } from './hvpg-proc.js?v=d4a0529887';
+import { createTools } from './presenter-tools.js?v=75ec28de3c';
+import { openHandout } from './handout.js?v=d7a44766c8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
 
@@ -796,11 +796,11 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // ── The HVPG catheter (stage.setCatheter, as Measure › HVPG draws it), choreographed slide by slide: in along
   // the jugular route with the camera following, the tip close up, the balloon up and the still column, the
   // readings; each step eases on from wherever the last one left it, and it slides out with its slides.
-  const CC = { free: '#5CA4F2', wedge: '#DA7EDD', bad: '#FF7A85' };   // the procedure's own colours
+  const CC = { free: 'var(--mon-free)', wedge: 'var(--mon-wedge)', bad: 'var(--mon-alarm)' };   // the procedure's own colours
   const cath = { on: false, raf: 0, t0: 0, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null };
   // The still column is shaded in the catheter's wedge colour (the WHVP callout's), so it reads as the catheter's
   // column of still blood, not as one more pressure on the map.
-  const wedgeInk = () => getComputedStyle(document.documentElement).getPropertyValue('--tr-wedge').trim() || '#A52DA9';
+  const wedgeInk = () => getComputedStyle(document.documentElement).getPropertyValue('--tr-wedge').trim();
   function cathTrack(k, to, ms, delay = 0) { cath.tr[k] = { from: cath.v[k], to, t0: performance.now() + delay, ms: reduce.matches ? 0 : ms }; }
   function cathLabels() {
     const f = cath.fp, v = cath.v;

@@ -2,13 +2,13 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { pressureColor } from './colormap.js?v=7616551729';
-import { verbEnabled } from './actions.js?v=7d1c8084ec';
-import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=045e641b44';
+import { pressureColor } from './colormap.js?v=f638e78199';
+import { verbEnabled } from './actions.js?v=92a380cda1';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=259b580d3f';
 import { simTime, isPaused } from './clock.js?v=c643f5f6f2';
-import { createEndoGL } from './endo-gl.js?v=b10afb7c95';
-import { renderEndo } from './endo-render.js?v=41cd7f6fa2';
-import { FONT } from './charts.js?v=90bf149cc1';
+import { createEndoGL } from './endo-gl.js?v=bc192761c8';
+import { renderEndo } from './endo-render.js?v=32b9625aa8';
+import { FONT } from './charts.js?v=b0e4d37446';
 import { store, updateParams, varicesPresent } from './store.js?v=7fb7280c05';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -138,23 +138,23 @@ export function createEndoscopy({ onAction }) {
     ctx.drawImage(img, cx - R, cy - R, 2 * R, 2 * R);
     if (f.params?.balloonEso) {
       const g = ctx.createRadialGradient(cx - R * 0.2, cy - R * 0.2, R * 0.1, cx, cy, R * 0.85);
-      g.addColorStop(0, 'rgba(255, 250, 225, .55)'); g.addColorStop(1, 'rgba(235, 215, 160, .35)');
+      g.addColorStop(0, cssVar('--scope-balloon-hi')); g.addColorStop(1, cssVar('--scope-balloon-lo'));
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 0.82, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.lineWidth = 2; ctx.stroke();
     }
     if (f.bleed?.active && f.bleed.site === 'VAR') {
       // Active bleeding: a jet from the ruptured column and blood pooling dependently.
       bleedT = (bleedT + 1) % 1000;
       const jx = cx + R * 0.28, jy = cy + R * 0.05;
       const pool = ctx.createRadialGradient(cx, cy + R * 0.8, R * 0.1, cx, cy + R * 0.8, R * 0.75);
-      pool.addColorStop(0, 'rgba(95, 0, 12, .95)'); pool.addColorStop(1, 'rgba(120, 0, 20, 0)');
+      pool.addColorStop(0, cssVar('--scope-blood-pool')); pool.addColorStop(1, cssAlpha('--scope-blood-pool-edge', 0));
       ctx.fillStyle = pool; ctx.fillRect(cx - R, cy, 2 * R, R);
       const jr = rnd(77), sway = 0.1 * Math.sin(bleedT * 0.02);
-      ctx.fillStyle = 'rgba(165, 8, 28, .85)';
+      ctx.fillStyle = cssVar('--scope-blood-jet');
       for (let i = 0; i < 70; i++) { const u = jr(), a = -1.9 + sway + (jr() - 0.5) * 0.5; ctx.beginPath(); ctx.arc(jx + Math.cos(a) * u * R * 0.5, jy + Math.sin(a) * u * R * 0.5 + u * u * R * 0.4, 1.2 + 2.2 * (1 - u), 0, Math.PI * 2); ctx.fill(); }
     }
     ctx.restore();
-    ctx.strokeStyle = '#0c0d10'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = cssVar('--scope-rim'); ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
   }
   return { id: 'endoscopy', label: 'Endoscopy', el, update, setView() {} };
 }
@@ -219,11 +219,11 @@ export function createVarixWall() {
     ctx.fillStyle = pressureColor(f.P[NI.VAR]); ctx.beginPath(); ctx.arc(cx, vy, rr, 0, 7); ctx.fill();
     ctx.strokeStyle = rim; ctx.lineWidth = clamp(v.w * R / 20, 1, 10); ctx.stroke();
     // The radius, drawn across the varix.
-    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.25; ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = cssAlpha('--white', 0.85); ctx.lineWidth = 1.25; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(cx, vy); ctx.lineTo(cx + rr, vy); ctx.stroke(); ctx.setLineDash([]);
     const fs = clamp(R / 11, 10, 14);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    if (rr > 14) { ctx.fillStyle = '#fff'; ctx.font = FONT(600, fs); ctx.fillText('r', cx + rr / 2, vy + fs * 0.7); }
+    if (rr > 14) { ctx.fillStyle = cssVar('--white'); ctx.font = FONT(600, fs); ctx.fillText('r', cx + rr / 2, vy + fs * 0.7); }
     // Laplace's other two terms on the picture: the tension T along the wall (two arrows pulling apart round the top,
     // heavier as the stress rises) and the wall thickness w across the rim (a bracket, in the faded label ink).
     const lw = clamp(v.w * R / 20, 1, 10), ro = rr + lw / 2 + Math.max(5, R / 30), ink = cssVar('--text-3');

@@ -3,7 +3,7 @@
 // first sentence is fixed; the rest is read from the live model.
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=34e377149b';
-import { fmt, clamp } from './util.js?v=045e641b44';
+import { fmt, clamp } from './util.js?v=259b580d3f';
 import { LABEL_VESSEL } from './anatomy.js?v=d467b97383';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

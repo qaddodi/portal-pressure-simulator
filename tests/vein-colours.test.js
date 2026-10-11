@@ -1,24 +1,22 @@
 // One colour per gut vein across the app: the trace/slide/pill tokens (--tr-smv, --tr-imv, --tr-sv) are the
-// Blood origin lens's own colours (main.js ORIGIN_CSS, stage.js originCol).
+// Blood origin lens's own tokens (--origin-*), which the lens legend (main.js) and the GPU streams (util.js bloodColors) read.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const hex = (c) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase();
 
-test('SMV, IMV and splenic vein tokens match the Blood origin lens', () => {
-  const css = [...read('src/ui/main.js').match(/const ORIGIN_CSS = \[(.*)\];/)[1].matchAll(/rgb\((\d+), (\d+), (\d+)\)/g)].map((m) => hex([+m[1], +m[2], +m[3]]));
-  const want = { smv: css[0], imv: css[1], sv: css[2] };
+test('SMV, IMV and splenic vein tokens are the Blood origin lens tokens', () => {
   const tokens = read('styles/tokens.css');
-  for (const k of Object.keys(want)) {
-    const found = [...tokens.matchAll(new RegExp(`--tr-${k}: (#[0-9A-Fa-f]{6})`, 'g'))].map((m) => m[1].toUpperCase());
+  for (const [k, o] of [['smv', 'smv'], ['imv', 'imv'], ['sv', 'spleen']]) {
+    const found = [...tokens.matchAll(new RegExp(`--tr-${k}: ([^;]+);`, 'g'))].map((m) => m[1]);
     assert.ok(found.length >= 3, `--tr-${k} is set in the light, dark and auto-dark themes`);
-    for (const f of found) assert.equal(f, want[k], `--tr-${k}`);
+    for (const f of found) assert.equal(f, `var(--origin-${o})`, `--tr-${k}`);
+    assert.match(tokens, new RegExp(`--origin-${o}: #[0-9A-F]{6};`, 'i'));
   }
-  // The shader's own origin colours agree with the lens legend.
-  const gl = [...read('src/ui/stage.js').match(/originCol: \[(.*)\],/)[1].matchAll(/\[([\d., ]+)\]/g)].slice(0, 3).map((m) => hex(m[1].split(',').map((v) => +v * 255)));
-  assert.deepEqual(gl, [want.smv, want.imv, want.sv]);
+  assert.match(read('src/ui/main.js'), /const ORIGIN_CSS = \['smv', 'imv', 'spleen', 'artery', 'systemic'\]\.map\(\(o\) => `var\(--origin-\$\{o\}\)`\)/);
+  assert.match(read('src/ui/util.js'), /originCol: \['smv', 'imv', 'spleen', 'artery', 'systemic'\]\.map\(\(o\) => cssRGB01\(`--origin-\$\{o\}`\)\)/);
+  for (const f of ['src/ui/stage.js', 'src/ui/lobule-zoom.js']) assert.ok(!/originCol: \[\[/.test(read(f)), `${f}: no copy of the origin colours`);
 });
 
 test('wedge (sinusoid) colour is orchid: its own hue, between the splenic violet and the portal-pressure pink, with no old purple or lime left', () => {

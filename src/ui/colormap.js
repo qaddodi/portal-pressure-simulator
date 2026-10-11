@@ -1,8 +1,7 @@
 // Perceptually uniform pressure colormap interpolated in OKLab (blueprint §5.3).
+// Every ramp's stops are colour tokens (--ramp-* in styles/tokens.css); the tables are built on first use.
 
-const STOPS = [
-  [0, '#DCEBF7'], [5, '#7CC4E4'], [10, '#6A7FD8'], [12, '#8E4FC4'], [20, '#C0307A'], [30, '#6E0B3A'],
-];
+import { cssRamp, cssRGB } from './util.js?v=259b580d3f';
 // The scale shows absolute mean venous pressure at a vessel. Its ticks are plain numbers: no
 // value on it is a clinical threshold (HVPG and other gradients are separate measurements).
 export const PRESSURE_TICKS = [0, 10, 20, 30];
@@ -27,22 +26,26 @@ function oklab2rgb([L, a, b]) {
   return [r, g, bb].map((c) => Math.round(Math.min(1, Math.max(0, delin(c))) * 255));
 }
 
-const LAB = STOPS.map(([p, h]) => [p, rgb2oklab(hex2rgb(h))]);
 const LUT_N = 256, LUT_MAX = 35;
-const LUT = [];
-for (let i = 0; i < LUT_N; i++) {
-  const p = (i / (LUT_N - 1)) * LUT_MAX;
-  let k = 0;
-  while (k < LAB.length - 2 && p > LAB[k + 1][0]) k++;
-  const [p0, c0] = LAB[k], [p1, c1] = LAB[k + 1];
-  const t = Math.min(1, Math.max(0, (p - p0) / (p1 - p0)));
-  const [r, g, b] = oklab2rgb(c0.map((v, j) => v + (c1[j] - v) * t));
-  LUT.push(`rgb(${r},${g},${b})`);
+let LUT = null;
+function pressureLut() {
+  const LAB = cssRamp('--ramp-pressure').map(([p, h]) => [p, rgb2oklab(hex2rgb(h))]);
+  LUT = [];
+  for (let i = 0; i < LUT_N; i++) {
+    const p = (i / (LUT_N - 1)) * LUT_MAX;
+    let k = 0;
+    while (k < LAB.length - 2 && p > LAB[k + 1][0]) k++;
+    const [p0, c0] = LAB[k], [p1, c1] = LAB[k + 1];
+    const t = Math.min(1, Math.max(0, (p - p0) / (p1 - p0)));
+    const [r, g, b] = oklab2rgb(c0.map((v, j) => v + (c1[j] - v) * t));
+    LUT.push(`rgb(${r},${g},${b})`);
+  }
+  return LUT;
 }
 
 export function pressureColor(p) {
   const i = Math.round((Math.min(LUT_MAX, Math.max(0, p)) / LUT_MAX) * (LUT_N - 1));
-  return LUT[i];
+  return (LUT || pressureLut())[i];
 }
 
 export function gradientCss(dir = 'to top', max = LUT_MAX) {
@@ -52,9 +55,10 @@ export function gradientCss(dir = 'to top', max = LUT_MAX) {
 }
 
 // Diverging (change vs baseline): blue ← grey → red
+let DELTA = null;
 export function deltaColor(d) {
   const t = Math.max(-1, Math.min(1, d / 12));
-  const a = [45, 108, 223], z = [150, 150, 160], b = [210, 40, 70];
+  const [a, z, b] = DELTA || (DELTA = ['--delta-low', '--delta-mid', '--delta-high'].map(cssRGB));
   const c = t < 0 ? a.map((v, i) => z[i] + (v - z[i]) * -t) : b.map((v, i) => z[i] + (v - z[i]) * t);
   return `rgb(${c.map(Math.round).join(',')})`;
 }
@@ -62,19 +66,23 @@ export function deltaColor(d) {
 
 // ── Data layers (city-builder style views of the same network) ──────────────
 // Each is a sequential scale interpolated in OKLab, like the pressure map.
-function makeScale(stops) {
-  const lab = stops.map(([t, h]) => [t, rgb2oklab(hex2rgb(h))]);
-  const lut = [];
-  for (let i = 0; i < 128; i++) {
-    const u = i / 127;
-    let k = 0;
-    while (k < lab.length - 2 && u > lab[k + 1][0]) k++;
-    const [t0, c0] = lab[k], [t1, c1] = lab[k + 1];
-    const f = Math.min(1, Math.max(0, (u - t0) / (t1 - t0)));
-    const [r, g, b] = oklab2rgb(c0.map((v, j) => v + (c1[j] - v) * f));
-    lut.push(`rgb(${r},${g},${b})`);
-  }
-  const at = (u) => lut[Math.round(Math.min(1, Math.max(0, u)) * 127)];
+function makeScale(token) {
+  let lut = null;
+  const build = () => {
+    const lab = cssRamp(token).map(([t, h]) => [t, rgb2oklab(hex2rgb(h))]);
+    lut = [];
+    for (let i = 0; i < 128; i++) {
+      const u = i / 127;
+      let k = 0;
+      while (k < lab.length - 2 && u > lab[k + 1][0]) k++;
+      const [t0, c0] = lab[k], [t1, c1] = lab[k + 1];
+      const f = Math.min(1, Math.max(0, (u - t0) / (t1 - t0)));
+      const [r, g, b] = oklab2rgb(c0.map((v, j) => v + (c1[j] - v) * f));
+      lut.push(`rgb(${r},${g},${b})`);
+    }
+    return lut;
+  };
+  const at = (u) => (lut || build())[Math.round(Math.min(1, Math.max(0, u)) * 127)];
   at.css = (dir = 'to right') => `linear-gradient(${dir}, ${Array.from({ length: 11 }, (_, i) => `${at(i / 10)} ${i * 10}%`).join(', ')})`;
   return at;
 }
@@ -82,7 +90,7 @@ function makeScale(stops) {
 // Flow volume, L/min on a log scale from 0.02 to 6: soft sage (a trickle) to deep blue (the
 // cavae). The low end stays dark enough to read against the light plate.
 export const FLOW_MIN = 0.02, FLOW_MAX = 6;
-const flowScale = makeScale([[0, '#9CC7B5'], [0.25, '#72BFA4'], [0.5, '#3EAA98'], [0.75, '#1E6F8C'], [1, '#1B366A']]);
+const flowScale = makeScale('--ramp-flow');
 export const flowPos = (lpm) => Math.log10(Math.max(FLOW_MIN, lpm) / FLOW_MIN) / Math.log10(FLOW_MAX / FLOW_MIN);
 export const flowColor = (lpm) => flowScale(flowPos(lpm));
 export const flowCss = (dir) => flowScale.css(dir);
@@ -90,20 +98,20 @@ export const flowCss = (dir) => flowScale.css(dir);
 // Mean velocity, cm/s on a square-root scale to 60: one hue, light amber (slow) to deep brown
 // (fast), so it reads without colour vision and never uses red for "slow". Stasis is named on the label.
 export const VEL_MAX = 60;
-const velScale = makeScale([[0, '#EBCB7E'], [0.35, '#D9923A'], [0.7, '#A3511F'], [1, '#5A220E']]);
+const velScale = makeScale('--ramp-velocity');
 export const velPos = (v) => Math.sqrt(Math.min(VEL_MAX, Math.abs(v)) / VEL_MAX);
 export const velocityColor = (v) => velScale(velPos(v));
 export const velocityCss = (dir) => velScale.css(dir);
 
 // Congestion heat: pressure above the reference, 0 to 15 mmHg. Neutral grey when none.
 export const HEAT_MAX = 15;
-const heatScale = makeScale([[0, '#B4B8C2'], [0.12, '#F4D35E'], [0.45, '#F08A24'], [0.75, '#D7263D'], [1, '#6E0B2E']]);
+const heatScale = makeScale('--ramp-heat');
 export const heatColor = (d) => heatScale(Math.max(0, d) / HEAT_MAX);
 export const heatCss = (dir) => heatScale.css(dir);
 
 // Pressure drop across a vessel, 0 to 12+ mmHg: its own green ramp, so switching from Pressure
 // visibly changes the figure (pale = no resistance, deep green = where the resistance lives).
 export const DROP_MAX = 12;
-const dropScale = makeScale([[0, '#DCE6D2'], [0.3, '#A8C97A'], [0.65, '#4F8C3C'], [1, '#1D4724']]);
+const dropScale = makeScale('--ramp-drop');
 export const dropColor = (dp) => dropScale(Math.abs(dp) / DROP_MAX);
 export const dropCss = (dir) => dropScale.css(dir);

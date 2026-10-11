@@ -3,15 +3,15 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=34e377149b';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=d467b97383';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=f638e78199';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7fb7280c05';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=045e641b44';
-import { createLobuleZoom } from './lobule-zoom.js?v=0b424837d2';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors } from './util.js?v=259b580d3f';
+import { createLobuleZoom } from './lobule-zoom.js?v=7afdcf18c4';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=7bf909808a';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=3860b0d6cb';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=7ee26675d4';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -493,7 +493,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Everything is gradients and clips (no blur filters), so it costs nothing per frame.
   const TONES = ['liver', 'stomach', 'eso', 'spleen', 'panc', 'kidney', 'gb', 'gut', 'heart', 'ra'];
   defs.insertAdjacentHTML('beforeend', TONES.map((t) => `<linearGradient id="og-${t}" x1=".15" y1="0" x2=".85" y2="1"><stop offset="0" style="stop-color:var(--og-${t}-1)"/><stop offset="1" style="stop-color:var(--og-${t}-2)"/></linearGradient>`).join('')
-    + '<radialGradient id="ogVol" cx=".34" cy=".26" r=".92"><stop offset="0" style="stop-color:#fff;stop-opacity:.22"/><stop offset=".5" style="stop-color:#fff;stop-opacity:0"/><stop offset=".8" style="stop-color:#2a1410;stop-opacity:0"/><stop offset="1" style="stop-color:#2a1410;stop-opacity:.1"/></radialGradient>');
+    + '<radialGradient id="ogVol" cx=".34" cy=".26" r=".92"><stop offset="0" style="stop-color:var(--light-ink);stop-opacity:.22"/><stop offset=".5" style="stop-color:var(--light-ink);stop-opacity:0"/><stop offset=".8" style="stop-color:var(--og-vol-shade);stop-opacity:0"/><stop offset="1" style="stop-color:var(--og-vol-shade);stop-opacity:.1"/></radialGradient>');
   const organEls = {}, organG = {};
   const detailFor = (o) => {
     const list = ORGAN_DETAIL[o.id];
@@ -853,7 +853,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let tipFade = null;
     if (TIP_FADE[e.id] && !isArt) {
       const tg = s('linearGradient', { id: `tg-${e.id}`, gradientUnits: 'userSpaceOnUse' });
-      const s0 = s('stop', { offset: '0', 'stop-color': '#fff', 'stop-opacity': '0' }), s1 = s('stop', { offset: '1', 'stop-color': '#fff' });
+      const s0 = s('stop', { offset: '0', 'stop-color': '#fff', 'stop-opacity': '0' }), s1 = s('stop', { offset: '1', 'stop-color': '#fff' });   // colour-exempt: a mask
       tg.append(s0, s1);
       const tm = s('mask', { id: `tm-${e.id}`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: VIEW.w, height: VIEW.h });
       tm.append(s('rect', { x: 0, y: 0, width: VIEW.w, height: VIEW.h, fill: `url(#tg-${e.id})` }));
@@ -1973,7 +1973,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (mode === 'drop') { c1 = c2 = dropColor(P1 - P2); }
       else if (mode === 'direction') { const rev = isReversed(e, f); c1 = c2 = rev ? 'var(--flow-reversed)' : 'var(--flow-normal)'; }
       else if (mode === 'flow') { c1 = c2 = flowColor(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06); }
-      else if (mode === 'velocity') { c1 = c2 = e.kind === 'liver' ? 'rgb(150,152,162)' : velocityColor(edgeVel(f, k)); }
+      else if (mode === 'velocity') { c1 = c2 = e.kind === 'liver' ? 'var(--lens-neutral)' : velocityColor(edgeVel(f, k)); }
       else if (mode === 'heat') { c1 = heatColor(ref ? qP(P1 - ref[NI[e.from]]) : 0); c2 = heatColor(ref ? qP(P2 - ref[NI[e.to]]) : 0); }
       else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }
       else { c1 = deltaColor(ref ? qP(P1 - ref[NI[e.from]]) : 0); c2 = deltaColor(ref ? qP(P2 - ref[NI[e.to]]) : 0); }
@@ -2167,10 +2167,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!x.join) {
         const id = x.e.id;
         const m = s('mask', { id: `jm-${id}`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: VIEW.w, height: VIEW.h });
-        m.append(s('rect', { x: 0, y: 0, width: VIEW.w, height: VIEW.h, fill: '#fff' }));
+        m.append(s('rect', { x: 0, y: 0, width: VIEW.w, height: VIEW.h, fill: '#fff' }));   // colour-exempt: a mask
         x.join = [0, 1].map((i) => {
           const gr = s('linearGradient', { id: `jg-${id}-${i}`, gradientUnits: 'userSpaceOnUse' });
-          gr.append(s('stop', { offset: '0', 'stop-color': '#fff' }), s('stop', { offset: '1', 'stop-color': '#000' }));
+          gr.append(s('stop', { offset: '0', 'stop-color': '#fff' }), s('stop', { offset: '1', 'stop-color': '#000' }));   // colour-exempt: a mask
           const box = s('path', { fill: `url(#jg-${id}-${i})` });
           defs.append(gr); m.append(box);
           return { gr, box };
@@ -2237,7 +2237,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const v = m ? cs.getPropertyValue(m[1]).trim() : c;
     let out = rgbCache.get(v);
     if (out) return out;
-    colorCtx.fillStyle = '#000'; colorCtx.fillStyle = v || '#000';
+    colorCtx.fillStyle = '#000'; colorCtx.fillStyle = v || '#000';   // colour-exempt: the parser's reset
     const f = colorCtx.fillStyle;
     if (f[0] === '#') out = [1, 3, 5].map((i) => parseInt(f.slice(i, i + 2), 16) / 255);
     else { const k = f.match(/[\d.]+/g).map(Number); out = [k[0] / 255, k[1] / 255, k[2] / 255]; }
@@ -2410,7 +2410,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const mc = c.getContext('2d');
       mc.setTransform(k, 0, 0, k, 0, 0);
       mc.lineCap = 'round'; mc.lineJoin = 'round';
-      mc.fillStyle = mc.strokeStyle = '#000';
+      mc.fillStyle = mc.strokeStyle = '#000';   // colour-exempt: a mask
       const solid = new Path2D();
       for (const { p, w } of getOrganCovers()) { if (w) { mc.lineWidth = w; mc.stroke(p); } else solid.addPath(p); }
       mc.fill(solid);
@@ -2488,7 +2488,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       let c0, c1;
       if (x.isArt) c0 = c1 = artery;
       else {
-        const [a, b] = (x.col || ['#888', '#888']).map((c) => toRGB(c, cs));
+        const [a, b] = (x.col || ['var(--lens-neutral)', 'var(--lens-neutral)']).map((c) => toRGB(c, cs));
         if (kind === 'f' || kind === 'c') {
           if (obj.col) [c0, c1] = obj.col.map((c) => toRGB(c, cs));
           else {
@@ -2497,7 +2497,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             const at = (q) => clamp(((q[0] - A[0]) * dx + (q[1] - A[1]) * dy) / L2, 0, 1);
             c0 = mix3(a, b, at(it.pts[0])); c1 = mix3(a, b, at(it.pts[it.pts.length - 1]));
           }
-        } else { c0 = a; c1 = ra ? toRGB((ra.col || ['#888', '#888'])[1], cs) : b; }
+        } else { c0 = a; c1 = ra ? toRGB((ra.col || ['var(--lens-neutral)', 'var(--lens-neutral)'])[1], cs) : b; }
         // Coloring the blood by origin: the lumen steps back to a quiet grey so the parcels' colors read.
         if (originMode) c0 = c1 = ORIGIN_LUMEN;
       }
@@ -2876,7 +2876,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (Math.abs(d) >= 2) glows.push([x, d]);
     }
     glows.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-    if (!reduceMotion.matches) setGlowSrc('delta', glows.slice(0, 16).map(([x, d]) => ({ id: x.e.id, col: d > 0 ? '#E8633A' : '#3A8DE8', amt: 1.35, wide: 1.1, dur: 420 })));
+    if (!reduceMotion.matches) setGlowSrc('delta', glows.slice(0, 16).map(([x, d]) => ({ id: x.e.id, col: d > 0 ? 'var(--glow-up)' : 'var(--glow-down)', amt: 1.35, wide: 1.1, dur: 420 })));
     gHalo.replaceChildren(...cand.slice(0, 3).map(([id, d]) => {
       const [x, y] = nodePos(id, t);
       return s('g', { class: 'halo ' + (d > 0 ? 'up' : 'down'), transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` },
@@ -3645,7 +3645,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (gpu && col > 0.001) {
       const a = tipD - rc * 4.2, reach = a + (r.total - a) * col, soft = Rf * 2.6;   // (a long fade where it meets moving blood)
       const hv = (d) => 1 - (d - r.hv0) / (r.hvEnd - r.hv0), br = (d) => 1 - (d - r.hvEnd) / (r.total - r.hvEnd);
-      tint = { col: st.columnColor || '#a33', soft, RHV_IVC: [hv(Math.min(reach, r.hvEnd)), hv(a)] };
+      tint = { col: st.columnColor || 'var(--tr-wedge)', soft, RHV_IVC: [hv(Math.min(reach, r.hvEnd)), hv(a)] };
       if (reach >= r.hvEnd) tint.RHV_IVC[0] = -1;   // runs on into the branch: no edge at the join
       if (reach > r.hvEnd) tint.POST_R_RHV = [br(reach), 2];
     }
@@ -4230,7 +4230,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // A microvascular bed has no single velocity; a station whose only vessels are closed
     // collaterals carries no flow at all (not stasis in an open vessel).
-    if (!tubes) return { runs: [{ ...unit, t: bed ? 'microcirculation' : 'collaterals closed', gap: 0 }], color: 'rgb(150,152,162)' };
+    if (!tubes) return { runs: [{ ...unit, t: bed ? 'microcirculation' : 'collaterals closed', gap: 0 }], color: 'var(--lens-neutral)' };
     const runs = [{ ...big, t: fmt(best, 0) }, { ...unit, t: 'cm/s' }];
     if (best < 5) runs.push({ t: 'stasis', size: 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
     return { runs, color: velocityColor(best) };
@@ -4965,14 +4965,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     bolus.inject(EI[e], id && EDGES[EI[id]] ? 0.15 : 0, { hold });
     if (!store.get().running) store.set({ running: true });
   }
-  // Colors for the blood (theme independent: they sit on the lumen, not on the page).
-  const BLOOD_COLORS = {
-    // SMV (amber), IMV (teal), splenic vein (violet), hepatic artery (crimson), systemic (slate blue): main.js keys them.
-    originCol: [[0.9, 0.6, 0.16], [0.09, 0.62, 0.55], [0.49, 0.36, 0.86], [0.84, 0.2, 0.28], [0.44, 0.56, 0.75]],
-    dyeCol: [0.78, 0.96, 0.2], inkLight: [1, 1, 1], inkDark: [0.07, 0.08, 0.15],
-    revCol: [1, 0.55, 0.16],
-    chevInk: [0.08, 0.08, 0.1],   // flow chevrons (orange, revCol, where reversed)   // reversed flow: the moving blood glows orange (as --flow-reversed)
-  };
+
   // Active variceal bleeding: a small spray at the rupture site and blood pooling in the stomach.
   function bleedSpray(moving) {
     if (!F?.bleed?.active || morph >= 0.5) return [];
@@ -4993,7 +4986,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function bloodLook() {
     const st = store.get(), b = st.blood || {};
-    return { on: bloodOn(), chev: chevOn() && !cath.st, look: b.look, origin: originOn(), clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), ...BLOOD_COLORS };
+    return { on: bloodOn(), chev: chevOn() && !cath.st, look: b.look, origin: originOn(), clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), ...bloodColors() };
   }
 
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null;

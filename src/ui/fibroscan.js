@@ -4,19 +4,18 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, fitCanvas, clamp } from './util.js?v=045e641b44';
-import { FONT } from './charts.js?v=90bf149cc1';
+import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=259b580d3f';
+import { FONT } from './charts.js?v=b0e4d37446';
 import { simTime, isPaused } from './clock.js?v=c643f5f6f2';
 import { store } from './store.js?v=7fb7280c05';
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
-const ORANGE = '#f0924a';
 // Colours come from the app's theme tokens (light or dark), re-read about once a second.
 let theme = null, themeAt = 0;
 function colors(now) {
   if (!theme || now - themeAt > 1000) {
-    const cs = getComputedStyle(document.documentElement), g = (n, d) => cs.getPropertyValue(n).trim() || d;
-    theme = { panel: g('--surface-2', '#1B2438'), edge: g('--border', '#2a3550'), tick: g('--text-3', '#8F99B3'), text: g('--text-2', '#A9B2C7') };
+    const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
+    theme = { panel: g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan') };
     themeAt = now;
   }
   return theme;
@@ -108,7 +107,7 @@ export function createFibroScan() {
     ctx.textAlign = 'left'; ctx.fillStyle = th.tick; ctx.font = FONT(600, 10);
     ctx.fillText('LIVER STIFFNESS · MEDIAN', pad, 24);
     const big = Math.round(clamp(Math.min(w * 0.13, hh * 0.13), 30, 52));
-    ctx.fillStyle = ORANGE; ctx.font = FONT(600, big);
+    ctx.fillStyle = th.orange; ctx.font = FONT(600, big);
     const txt = shown.toFixed(1); ctx.fillText(txt, pad, 28 + big);
     const tw = ctx.measureText(txt).width;
     ctx.fillStyle = th.tick; ctx.font = FONT(500, 14); ctx.fillText('kPa', pad + tw + 6, 28 + big);
@@ -116,7 +115,7 @@ export function createFibroScan() {
     ctx.textAlign = 'right'; ctx.font = FONT(600, 10); ctx.fillStyle = th.tick;
     ctx.fillText(narrow ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model', w - pad, 24);
     const pulse = 0.55 + 0.45 * Math.sin(t * 3), lw = ctx.measureText(narrow ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model').width;
-    ctx.fillStyle = `rgba(80,210,130,${pulse})`; ctx.beginPath(); ctx.arc(w - pad - lw - 9, 21, 3, 0, 7); ctx.fill();
+    ctx.fillStyle = cssAlpha('--fibroscan-live', pulse); ctx.beginPath(); ctx.arc(w - pad - lw - 9, 21, 3, 0, 7); ctx.fill();
     // Map
     const top = 56 + big, bot = hh - 36, ph = bot - top, ax = pad + 22, ex = ax + 6, ew = w - pad - ex; // bottom room keeps the tick row inside the canvas on a phone
     if (ph < 50 || ew < 60) return;
@@ -128,11 +127,11 @@ export function createFibroScan() {
     ctx.save(); rrect(ctx, ex, top, ew, ph, 8); ctx.clip();
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(off, 0, 0, N, N, ex, top, ew, ph);
     ema = ema * 0.9 + (performance.now() - t0p) * 0.1; if (ema > 14 && cap > 130) { cap -= 20; ema = 0; }
-    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
+    ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
     for (const d of [35, 75]) { const y = top + ((d - 30) / 60) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
     ctx.setLineDash([]);
     const x0 = ex + (WAVE_T0 / 80) * ew, x1 = x0 + clamp((40 / c) / 80, 0, 1) * ew;
-    ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + (5 / 60) * ph); ctx.lineTo(x1, top + (45 / 60) * ph); ctx.stroke();
+    ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + (5 / 60) * ph); ctx.lineTo(x1, top + (45 / 60) * ph); ctx.stroke();
     ctx.restore();
     rrect(ctx, ex, top, ew, ph, 8); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
     // Axes

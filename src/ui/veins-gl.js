@@ -27,6 +27,7 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=6c39f43ddf';
+import { cssRGB } from './util.js?v=259b580d3f';
 
 export const N_SAMPLES = 64;
 export const FLOW_TEXELS = 4;          // per-vessel blood: see stage.js (syncBlood)
@@ -619,7 +620,8 @@ void main() {
   vec3 d = world * vec3(org + corner * cell, 1.0);
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
 }`;
-const COMP_FS = `#version 300 es
+// A function: the bleed's colour token (--bleed-spray) is written in when the shader is built.
+const COMP_FS = () => `#version 300 es
 precision highp float;
 precision highp int;
 precision highp usampler2D;
@@ -951,7 +953,7 @@ void main() {
     vec2 d = (w - bleedE[i].xy) / max(bleedE[i].zw, vec2(1e-3));
     float r = length(d), aa = pxW / max(min(bleedE[i].z, bleedE[i].w), 1e-3);
     float a = (1.0 - smoothstep(1.0 - aa, 1.0 + aa, r)) * bleedA[i];
-    o = over(vec4(vec3(150.0, 14.0, 34.0) / 255.0 * a, a), o);
+    o = over(vec4(vec3(${cssRGB('--bleed-spray').map((v) => v.toFixed(1)).join(', ')}) / 255.0 * a, a), o);
   }
   outColor = o;
 }`;
@@ -1107,7 +1109,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   try { prog = compile(gl, VS, FS); } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
   const { p, u } = prog;
   let comp, compCell;
-  try { comp = compile(gl, COMP_VS, COMP_FS); compCell = compile(gl, COMP_CELL_VS, COMP_FS); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); return null; }
+  try { comp = compile(gl, COMP_VS, COMP_FS()); compCell = compile(gl, COMP_CELL_VS, COMP_FS()); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); return null; }
   const plates = [null, null];   // [whole plate, sharp view] : { tex, rect }
   let cathP = null;
   try { cathP = compile(gl, CATH_VS, CATH_FS); } catch (e) { console.warn('Veins renderer: catheter shader failed.', e); }

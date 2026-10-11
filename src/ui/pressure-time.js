@@ -6,8 +6,8 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=7fb7280c05';
-import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=045e641b44';
-import { FONT } from './charts.js?v=90bf149cc1';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=259b580d3f';
+import { FONT } from './charts.js?v=b0e4d37446';
 
 // hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
@@ -429,7 +429,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const ch = 12 + rowH * (crossRows.length + 1);
       let bx = cx + 14; if (bx + cw > L + plotW) bx = cx - 14 - cw;
       const by = clamp(lanes[0].top, 4, hh - ch - 4);
-      ctx.fillStyle = surface; ctx.shadowColor = 'rgba(0,0,0,.14)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
+      ctx.fillStyle = surface; ctx.shadowColor = cssAlpha('--black', 0.14); ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, cw, ch, 10) : ctx.rect(bx, by, cw, ch); ctx.fill();
       ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
       ctx.strokeStyle = grid; ctx.stroke();

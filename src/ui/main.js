@@ -3,29 +3,29 @@
 
 import { startHost, host } from './host.js?v=c256a9c041';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7fb7280c05';
-import { createStage } from './stage.js?v=250b71bc5b';
+import { createStage } from './stage.js?v=ceef07a547';
 import { createCreditPlacer } from './credit.js?v=56151b02ba';
-import { sinusoidSupported } from './sinusoid-view.js?v=d0f1a6d8cf';
-import { createInspector } from './inspector.js?v=82d234fd07';
-import { createDock, CUTOFFS } from './dock.js?v=ea66af52b0';
-import { setHvpgStage } from './hvpg-proc.js?v=091a1be176';
-import { createWhy } from './why.js?v=44f38b9c23';
-import { createTimeline, LAPSES } from './timeline.js?v=687fa984ea';
-import { createLearn } from './learn.js?v=a05c708f70';
-import { createCases, CASES } from './cases.js?v=a2e44a01dc';
-import { isBlind } from './learning-kit.js?v=7561f366a7';
-import { createCompare } from './compare.js?v=5d72adbf36';
-import { createCard } from './card.js?v=321f23eb69';
-import { createChart, computeFindings } from './chart.js?v=4eae7700d2';
-import { createMenu, ROLES } from './menu.js?v=d5ffc5efe3';
+import { sinusoidSupported } from './sinusoid-view.js?v=c29067c667';
+import { createInspector } from './inspector.js?v=8e9df677db';
+import { createDock, CUTOFFS } from './dock.js?v=af35191a05';
+import { setHvpgStage } from './hvpg-proc.js?v=d4a0529887';
+import { createWhy } from './why.js?v=0cbe54fc83';
+import { createTimeline, LAPSES } from './timeline.js?v=9a415be63a';
+import { createLearn } from './learn.js?v=fee746e1a6';
+import { createCases, CASES } from './cases.js?v=7873a26700';
+import { isBlind } from './learning-kit.js?v=ccfe92342e';
+import { createCompare } from './compare.js?v=19980ad91d';
+import { createCard } from './card.js?v=9cfcb32282';
+import { createChart, computeFindings } from './chart.js?v=7dd8096c5a';
+import { createMenu, ROLES } from './menu.js?v=ccb805ae76';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
-import { caption } from './a11y.js?v=cda3a1d184';
-import { startLMS } from './lms.js?v=639b684be0';
+import { caption } from './a11y.js?v=da3671002e';
+import { startLMS } from './lms.js?v=56138f1d5f';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=7d1c8084ec';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=92a380cda1';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=f638e78199';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=045e641b44';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=259b580d3f';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const app = $('#app');
@@ -35,17 +35,17 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=1e437ef997';
 import { initTopbarMotion } from './topbar-motion.js?v=a941da3e97';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=b2eabea2e1';
 
 // Color lenses: [title, what it shows, legend swatch].
 // SMV, IMV, splenic vein, hepatic artery, systemic: as stage.js BLOOD_COLORS.
-const ORIGIN_CSS = ['rgb(230, 153, 41)', 'rgb(23, 158, 140)', 'rgb(125, 92, 219)', 'rgb(214, 51, 71)', 'rgb(112, 143, 191)'];
+const ORIGIN_CSS = ['smv', 'imv', 'spleen', 'artery', 'systemic'].map((o) => `var(--origin-${o})`);   // the order of ORIGINS (blood.js)
 const LENSES = {
   pressure: ['Pressure', 'Venous pressure in each vessel', () => gradientCss('to right', 30)],
-  delta: ['Change', 'Higher or lower than healthy', () => 'linear-gradient(to right, #2D6CDF, #9696A0, #D22846)'],
+  delta: ['Change', 'Higher or lower than healthy', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))'],
   heat: ['Congestion', 'Where pressure has backed up', () => heatCss('to right')],
   drop: ['Pressure drop', 'Where the resistance lives', () => dropCss('to right')],
   flow: ['Flow volume', 'How much blood; width = flow', () => flowCss('to right')],
@@ -141,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=87418c1aee'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=17b7197de9'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -149,7 +149,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=7d95391936'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=9c8a67bc58'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -604,7 +604,7 @@ function renderLegend() {
     el.setAttribute('aria-label', 'Legend: violet portal veins, blue systemic veins. Pressures are unmeasured in this case: investigate with the tools.');
   } else {
     el.replaceChildren(h('div', { class: 'lg-title' }, `Change from ${ref}`, h('small', {}, 'mmHg')), cap('Change', 'mmHg'),
-      scale('linear-gradient(to right, #2D6CDF, #9696A0, #D22846)', [[0, '−12'], [50, '0'], [100, '+12']], [50]));
+      scale('linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', [[0, '−12'], [50, '0'], [100, '+12']], [50]));
     el.setAttribute('aria-label', `Legend: change in pressure from ${ref}, blue lower, red higher, up to 12 millimeters of mercury`);
   }
   $('#colorModeLabel').textContent = m === 'neutral' ? 'Anatomy' : m === 'delta' && st().compareSnap ? 'Change since then' : COLOR_MODES[m];
@@ -965,7 +965,7 @@ function applyTheme(t, clear) {
 function syncStatusBar() {
   const el = document.getElementById('stageWrap');
   const c = el && getComputedStyle(el).backgroundColor;
-  if (!c || c === 'rgba(0, 0, 0, 0)') return;
+  if (!c || c === 'rgba(0, 0, 0, 0)') return;   // colour-exempt: the computed value of transparent
   let m = document.querySelector('meta[name="theme-color"]:not([media])');
   if (!m) {
     document.querySelectorAll('meta[name="theme-color"]').forEach((x) => x.remove());
@@ -1531,4 +1531,4 @@ function openPrivacy() {
 function firstRun() {
   try { localStorage.setItem('pps.seen', '1'); } catch { /* storage unavailable */ }
 }
-main().catch((err) => { console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: '#fff', color: '#900', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });
+main().catch((err) => { console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });

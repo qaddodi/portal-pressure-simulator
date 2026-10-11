@@ -19,8 +19,8 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=045e641b44';
-import { pressureColor } from './colormap.js?v=7616551729';
+import { h, fmt, clamp, lerp, bloodColors } from './util.js?v=259b580d3f';
+import { pressureColor } from './colormap.js?v=f638e78199';
 import { isPaused } from './clock.js?v=c643f5f6f2';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=00371527ba';
@@ -210,42 +210,41 @@ export function createSinusoidView({ host }) {
   function rgb(c) {
     let o = rgbMemo.get(c);
     if (o) return o;
-    rgbCv.fillStyle = '#000'; rgbCv.fillStyle = c;
+    rgbCv.fillStyle = '#000'; rgbCv.fillStyle = c;   // colour-exempt: the parser's reset
     const f = rgbCv.fillStyle;
     o = (f[0] === '#' ? [1, 3, 5].map((i) => parseInt(f.slice(i, i + 2), 16)) : f.match(/[\d.]+/g).slice(0, 3).map(Number)).map((x) => x / 255);
     rgbMemo.set(c, o);
     return o;
   }
   const mixv = (a, b, t) => a.map((x, i) => lerp(x, b[i], t));
-  const v3 = (r, g, b) => [r / 255, g / 255, b / 255];
   function palette(dark, cs) {
-    const v = (n, d) => cs.getPropertyValue(n).trim() || d;
-    const bg = rgb(v('--stage-bg', v('--bg', dark ? '#0E1422' : '#FBFAF7')));
+    const v = (n, d) => cs.getPropertyValue(n).trim() || d, t = (n) => rgb(v(n));
+    const bg = rgb(v('--stage-bg', v('--bg')));
     // Pressure only: this view has no other lens.
     const m = model;
-    const lumen = rgb(m.hide ? (dark ? '#58607A' : '#A0939C') : pressureColor(m.P2));
+    const lumen = rgb(m.hide ? v('--sv-lumen-hidden') : pressureColor(m.P2));
     // Lymph: clear and faintly green, deeper with more protein (as the lobule's lymphatics).
-    const p = S.prot ?? 1, lo = dark ? [0.72, 0.76, 0.69] : [0.92, 0.94, 0.88], mid = dark ? [0.7, 0.77, 0.66] : [0.88, 0.92, 0.82], hi = dark ? [0.64, 0.75, 0.58] : [0.82, 0.89, 0.74];
+    const p = S.prot ?? 1, lo = t('--sv-gl-lymph-lo'), mid = t('--sv-gl-lymph-mid'), hi = t('--sv-gl-lymph-hi');
     const ly = p < 0.45 ? mixv(lo, mid, p / 0.45) : mixv(mid, hi, (p - 0.45) / 0.55);
-    const gap = rgb(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E'));
-    let cell = rgb(v('--og-liver-1', dark ? '#85514F' : '#E9C3B6'));
+    const gap = rgb(v('--og-liver-2'));
+    let cell = rgb(v('--og-liver-1'));
     if (dark) cell = mixv(gap, cell, 0.5);
     // The hepatocytes keep the lobule's colours; on a light page the clefts between them are drawn deeper, so each cell reads.
     const under = mixv(bg, gap, dark ? 0.55 : 0.5), cleft = dark ? under : mixv(bg, gap, 0.8);
     return {
-      cBg: bg, cShade: dark ? bg : mixv(bg, v3(42, 36, 48), 0.9), cLumen: lumen, cLymph: dark ? mixv(bg, ly, 0.34) : ly,
+      cBg: bg, cShade: dark ? bg : mixv(bg, t('--sv-gl-shade'), 0.9), cLumen: lumen, cLymph: dark ? mixv(bg, ly, 0.34) : ly,
       cCell: mixv(under, cell, dark ? 0.85 : 0.94), cUnder: cleft,
-      cNuc: dark ? v3(40, 18, 34) : v3(132, 70, 100),
-      cCol: dark ? v3(199, 186, 153) : v3(237, 222, 186), cBm: dark ? v3(204, 188, 142) : v3(150, 118, 70), aBm: dark ? 0.6 : 0.8,
-      cBile: dark ? v3(150, 156, 80) : v3(122, 128, 61),
-      cEndo: dark ? v3(122, 116, 156) : v3(184, 176, 204), cEndoN: dark ? v3(84, 74, 120) : v3(128, 114, 160),
-      cHscQ: dark ? v3(176, 134, 102) : v3(224, 184, 150), cHscA: dark ? v3(160, 102, 74) : v3(190, 128, 94), cHscN: dark ? v3(96, 56, 42) : v3(146, 90, 66),
-      cKup: dark ? v3(132, 106, 176) : v3(178, 150, 214), cKupN: dark ? v3(74, 54, 116) : v3(108, 80, 156), cKupE: dark ? v3(58, 42, 96) : v3(96, 70, 142),
-      cRbc: dark ? v3(176, 62, 72) : v3(204, 74, 80),
+      cNuc: t('--sv-gl-nucleus'),
+      cCol: t('--collagen'), cBm: t('--sv-gl-basement'), aBm: dark ? 0.6 : 0.8,
+      cBile: t('--sv-gl-bile'),
+      cEndo: t('--sv-gl-endothelium'), cEndoN: t('--sv-gl-endo-nucleus'),
+      cHscQ: t('--sv-gl-hsc-quiet'), cHscA: t('--sv-gl-hsc-active'), cHscN: t('--sv-gl-hsc-nucleus'),
+      cKup: t('--sv-gl-kupffer'), cKupN: t('--sv-gl-kupffer-nucleus'), cKupE: t('--sv-gl-kupffer-edge'),
+      cRbc: t('--sv-gl-rbc'),
       // The end arrows are inked as their labels: the text's colour inside the labels' halo.
-      cEndF: rgb(v('--text', dark ? '#E9EDF6' : '#1F2128')), cEndE: rgb(v('--label-halo', dark ? '#0B1120' : '#FBFAF7')),
-      cChev: [0.08, 0.08, 0.1], cRev: [1, 0.55, 0.16],   // (the app's chevron inks, as stage.js's chevInk: dark, orange where reversed)
-      cAlb: dark ? v3(242, 182, 74) : v3(227, 154, 30), cAlbE: dark ? v3(110, 58, 0) : v3(140, 76, 0),
+      cEndF: rgb(v('--text')), cEndE: rgb(v('--label-halo')),
+      cChev: bloodColors().chevInk, cRev: bloodColors().revCol,   // (the app's chevron inks: dark, orange where reversed)
+      cAlb: t('--sv-gl-albumin'), cAlbE: t('--sv-gl-albumin-edge'),
       uShim: dark ? 0.3 : 0.5, uStreak: dark ? 0.3 : 0.85, uDark: dark ? 1 : 0,
     };
   }
