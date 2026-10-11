@@ -5040,3 +5040,28 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-tool .ab-lab { flex-wrap: wrap; row-gap: 0; min-width: 0; }
 .pzt-r { min-width: 0; hyphens: auto; overflow-wrap: break-word; }
 .pz.stack .pzt-r { font-size: clamp(11px, 9cqi, 15px); }
+
+/* Tests card: the scope and Doppler readings as compact tiles, in the presenter data card's style (small
+   uppercase name, big number with a muted unit, a status dot). Two across on a phone, more on a wider card. */
+.instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read { grid-template-columns: repeat(auto-fill, minmax(min(calc(50% - 4px), 140px), 1fr)); gap: 8px; container-type: inline-size; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read > div,
+.instrument-workspace .dop-stats > div:not([hidden]) { grid-column: auto; display: flex; flex-direction: column; justify-content: space-between; align-items: stretch; gap: 6px; min-width: 0; min-height: 76px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 2px solid transparent; transition: border-color .3s var(--ease), background-color .3s var(--ease); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read dt,
+.instrument-workspace .dop-stats dt { font: 600 11px/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); overflow-wrap: anywhere; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-g dt.sr-only + dd { margin-top: auto; }
+.instrument-workspace .endo-num, .instrument-workspace .dop-stats dd { font: 600 24px/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); white-space: nowrap; }
+.instrument-workspace .endo-num { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .3em; white-space: normal; }
+.instrument-workspace .endo-chip dt { white-space: normal; }
+.instrument-workspace .endo-num small { white-space: nowrap; font: 500 12px var(--font-ui); letter-spacing: 0; color: var(--text-3); }
+.instrument-workspace .endo-grade { gap: 2px 8px; font-size: var(--fs-14); }
+.instrument-workspace .endo-grade b { font-size: 24px; font-weight: 600; letter-spacing: -.02em; }
+.instrument-workspace .endo-stress-v { font-size: var(--fs-14); }
+.instrument-workspace .endo-bar { margin-top: 0; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-chip-v { margin-left: 0 !important; display: inline-flex; align-items: center; gap: .45em; text-align: left; font-size: var(--fs-14); }
+.instrument-workspace .endo-chip-v::before { content: ''; width: .6em; height: .6em; border-radius: 50%; flex: none; background: var(--ok); transition: background-color .3s var(--ease); }
+.instrument-workspace .endo-chip[data-on="true"] .endo-chip-v::before { background: var(--accent); }
+.instrument-workspace .endo-chip:first-of-type[data-on="true"] .endo-chip-v::before { background: var(--danger); }
+.instrument-workspace .dop-stats, .instrument-workspace.float-ui .dop-stats { margin-top: 8px; grid-template-columns: repeat(auto-fill, minmax(min(calc(50% - 4px), 120px), 1fr)); gap: 8px; border-top: 0; padding-top: 0; }
+.instrument-workspace .dop-stats dd { font-size: 18px; white-space: normal; }
+/* Two narrow tiles (the readings beside the view on a phone): the numbers step down rather than leave the box. */
+@container (max-width: 260px) { .instrument-workspace .endo-num, .instrument-workspace .endo-grade b { font-size: 18px; } .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read > div { padding: 8px 10px; } }
