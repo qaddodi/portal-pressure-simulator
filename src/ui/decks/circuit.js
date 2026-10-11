@@ -57,7 +57,7 @@ export const CIRCUIT = withPoints({
     {
       id: 'both', ...MEAL, view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
       kicker: K, site: 'sin', title: 'Flow and resistance together',
-      line: 'The same meal now raises HVPG several times more: the rise in flow crosses a higher resistance.',
+      line: 'The same meal now raises HVPG about twice as much: the rise in flow crosses a higher resistance.',
       notes: 'In cirrhosis the splanchnic arterioles dilate for good (nitric oxide, glucagon, bacterial products), so the inflow stays high: the hyperdynamic circulation. A raised resistance and a raised inflow multiply. The postprandial rise in HVPG is one reason meals and large transfusions raise the risk of a variceal bleed.',
       ask: ['What keeps portal inflow high in advanced cirrhosis?', 'Splanchnic arteriolar dilatation, the hyperdynamic circulation.'],
     },
