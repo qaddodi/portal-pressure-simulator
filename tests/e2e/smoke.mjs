@@ -324,17 +324,19 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // Every way into or out of the lobule is one continuous zoom: the camera's magnification (the plate's zoom plus the dive's)
   // moves steadily from the first frame to the last, in one direction, with no stop at an intermediate framing (the liver, the fit).
   // The presenter's slides are walked with the arrow keys, from the slide before a crossing to the one after it, and back.
-  const CROSSINGS = [   // [deck, slide to start on (0-based), key, whether the key goes into the lobule]
+  const CROSSINGS = [   // [deck, slide to start on (0-based), key, whether the key goes into the lobule, whether it is the sinusoid view that is gone to or left]
     ['circulation', 3, 'ArrowRight', true], ['circulation', 4, 'ArrowLeft', false], ['circulation', 7, 'ArrowRight', false],   // ladder → lobule and back; central vein → the next view
     ['lobule', 0, 'ArrowRight', true],   // the outline's fit → the whole lobule
     ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false],   // a fit, then a liver close-up, before it
     ['sites', 7, 'ArrowLeft', true],   // backwards into it
+    ['ascites', 0, 'ArrowRight', true, true], ['ascites', 4, 'ArrowRight', true, true], ['tap', 7, 'ArrowRight', true, true],   // anatomy straight to the sinusoid view, through the lobule without stopping in it
+    ['ascites', 5, 'ArrowRight', false, true, true], ['ascites', 8, 'ArrowRight', false, true, true],   // and the sinusoid view straight back out to the anatomy (a new patient: the words, and so the space the camera frames into, are settled after the rise)
     ['hvpg', 6, 'ArrowRight', false], ['outflow', 5, 'ArrowRight', true],   // out to a region, with a new patient; in from a region
   ];
-  for (const [deck, from, key, into] of CROSSINGS) {
-    await check(device, `lobule zoom is continuous: ${deck} slide ${from + 1} ${key === 'ArrowLeft' ? 'back ' : ''}${into ? 'into' : 'out of'} the lobule`, async (page) => {
+  for (const [deck, from, key, into, sin, newPatient] of CROSSINGS) {
+    await check(device, `lobule zoom is continuous: ${deck} slide ${from + 1} ${key === 'ArrowLeft' ? 'back ' : ''}${into ? 'into' : 'out of'} the ${sin ? 'sinusoid view' : 'lobule'}`, async (page) => {
       await open(page, '?preset=healthy');
-      const n = from + 1, way = into ? 'into the lobule' : 'out of the lobule';
+      const n = from + 1, way = (into ? 'into' : 'out of') + (sin ? ' the sinusoid view' : ' the lobule');
       await page.evaluate(([d, i]) => window.pps.presenter.start(d, i), [deck, from]);
       await page.waitForFunction((n) => (document.querySelector('.pzb-n, .pz-count')?.textContent || '').trim().startsWith(n + ' /') && !document.querySelector('.pz-cover'), n, { timeout: 60000 });
       const quiet = async (open) => {   // the figure holds still (a software renderer draws a frame a second or two apart)
@@ -347,6 +349,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (open !== undefined && (await page.evaluate(() => window.pps.stage.lobuleOpen())) !== open) throw new Error(`${deck} slide ${n}: the lobule is ${open ? 'not open' : 'still open'} once the view settled`);
       };
       await quiet();
+      if (sin && !into && !(await page.evaluate(() => window.pps.store.get().sinusoid))) throw new Error(`${deck} slide ${n}: expected to start in the sinusoid view`);
       if ((await page.evaluate(() => window.pps.stage.lobuleOpen())) === into) throw new Error(`${deck} slide ${n}: expected to start ${into ? 'outside' : 'inside'} the lobule`);
       await page.evaluate(() => {
         const rec = window.__zoomTrace = { go: true, s: [] };
@@ -362,8 +365,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       // One move: the dive (or rise) itself, with no glide of the camera before or after it beyond a small settling (a new patient changes the space the words leave, after the rise has begun).
       const moves = await page.evaluate(() => window.pps.stage.cameraMoves());
       const big = moves.filter((m) => m.kind === 'glide' && (m.zoom > 0.2 || m.pan > 100));
-      if (big.length) throw new Error(`${deck} slide ${n} ${way}: the camera also glided ${big.map((m) => `${m.zoom.toFixed(2)} in zoom, ${Math.round(m.pan)} across`).join('; ')} (${moves.map((m) => m.kind).join(', ')})`);
-      if (moves.filter((m) => m.kind !== 'glide').length !== 1) throw new Error(`${deck} slide ${n} ${way}: ${moves.filter((m) => m.kind !== 'glide').length} dives or rises, not one`);
+      if (big.length && !newPatient) throw new Error(`${deck} slide ${n} ${way}: the camera also glided ${big.map((m) => `${m.zoom.toFixed(2)} in zoom, ${Math.round(m.pan)} across`).join('; ')} (${moves.map((m) => m.kind + (m.zoom !== undefined ? ` ${m.zoom.toFixed(2)}/${Math.round(m.pan)}@${Math.round(m.t - moves[0].t)}` : '')).join(', ')})`);
+      if (sin && moves.filter((m) => m.kind === (into ? 'chain-in' : 'chain-out')).length !== 1) throw new Error(`${deck} slide ${n} ${way}: not one zoom through the lobule (${moves.map((m) => m.kind).join(', ')})`);
+      if (sin && into && !(await page.evaluate(() => window.pps.store.get().sinusoid && window.pps.stage.sinusoidOpen()))) throw new Error(`${deck} slide ${n}: the sinusoid view is not open at the end`);
+      if (moves.filter((m) => m.kind === 'dive' || m.kind === 'rise').length !== 1) throw new Error(`${deck} slide ${n} ${way}: ${moves.filter((m) => m.kind === 'dive' || m.kind === 'rise').length} dives or rises, not one`);
       // The zoom's own span: from its first move to its last (the words fade before it starts and the labels after it ends).
       if (process.env.ZOOM_TRACE) console.log(`${deck} ${n} ${key}`, s.map(([t, z]) => `${Math.round(t - s[0][0])}:${z.toFixed(3)}`).join(' '));
       const z0 = s[0]?.[1], zEnd = s[s.length - 1]?.[1];

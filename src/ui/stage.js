@@ -1339,6 +1339,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let diveAt = null, diveLand = null, diveT = 0, diveOut = false;
   const DIVE_MS = 1600, RISE_MS = 1000;
   let diveZ = 0;   // the dive's zoom so far (log scale), kept for cameraZoom
+  // Anatomy to the sinusoid (and back) as one zoom, with no rest in the lobule: the dive is eased in only and hands its speed on, at the joint,
+  // to the sinusoid's zoom (lobule-zoom.js sinChain), which eases out only; out, the other way round.
+  let chainIn = false, chainOut = false, chainFired = false, chainAt = 0, zShift = 0;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
   const RH = 11;   // a lobule's size on screen (px) as the liver's surface gives way to the field
   const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
@@ -1380,7 +1383,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (lobuleOn) lz.warm();
       const lt = LC + Math.log(Math.max(RH * 2, diveLand.r) / RH);
       // Eased in and out (smootherstep); the anatomy's part takes the first two fifths of the way.
-      const u = clamp(t / 0.84, 0, 1), p = u * u * u * (u * (u * 6 - 15) + 10), P = 0.4;
+      const TJ = chainIn ? 0.88 : chainOut ? 1 : 0.84, u = clamp(t / TJ, 0, 1), P = 0.4;
+      const p = chainIn || chainOut ? u * u * (2 - u) : u * u * u * (u * (u * 6 - 15) + 10);
+      if (chainIn && !chainFired || chainOut) lz.setSinChain({ speed: (lt - LC) / (1 - P) / (TJ * (diveOut ? RISE_MS : DIVE_MS)) }, true);
       const z = p < P ? LC * p / P : LC + (lt - LC) * (p - P) / (1 - P);
       diveZ = z;
       setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)));
@@ -1402,16 +1407,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     lobU = easeInOut(clamp((t - 0.48) / 0.4, 0, 1));
     syncSemantic();
+    // The joint: the lobule has landed under the dive, and the sinusoid's zoom takes over at the speed the dive has.
+    if (chainIn && !chainFired && t >= 0.88) { chainFired = true; store.set({ sinusoid: true }); }
   }
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
     scrubS = 0; cancelAnimationFrame(scrubAnim); diveOut = !on;
-    if (on) { riseBox = null; riseUsed = false; }
+    if (on) { riseBox = null; riseUsed = false; chainOut = false; chainFired = false; } else chainIn = false;
     if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
     lobuleOn = on;
     logMove({ t: performance.now(), kind: on ? 'dive' : 'rise' });
     cancelAnimationFrame(lobAnim);
     if (on && diveT === 0) {
+      if (chainIn && performance.now() - chainAt > 4000) chainIn = false;   // (asked for long ago and never begun)
       const w = diveTarget();
       if (w) {
         refreshCTM();
@@ -1429,6 +1437,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // listeners run: drop it first, or the fit is measured without them and lands too close, cutting off the ascites.
         if (!store.get().lobule) document.getElementById('app')?.classList.remove('sin-focus');
         cancelAnimationFrame(vtAnim); vtGliding = false;
+        refreshCTM(); const zOld = Math.log(CTM.sc);
         const d = defaultVT(false); vt = { ...d }; homeAt = d; applyVT(); CTM = null; refreshCTM();
         // The plate stopped updating under the lobule, so it still holds the old zoom's culling and detail: bring it up to date for the fit now, not when the zoom lands.
         if (F && !inUpdate) { catchUp = true; try { update(F); } finally { catchUp = false; } }
@@ -1436,6 +1445,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const rv = riseVT();
         riseUsed = !!rv && !sameView(rv, d);
         if (riseUsed) { vt = { ...rv }; applyVT(); CTM = null; refreshCTM(); if (F && !inUpdate) { catchUp = true; try { update(F); } finally { catchUp = false; } } }
+        zShift = zOld - Math.log(CTM.sc);
         const w = diveTarget(); if (w) { const [x, y] = worldToLocal(w[0], w[1]); diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)]; }
         diveOrig = null; drawOnce = forceDraw = true;   // the vessel canvas is frozen for the zoom: redraw it now at the fit, not the old camera
         if (F) updateLabels(F);   // the labels are laid out for the final framing now, so they come in where they will stay
@@ -1451,6 +1461,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (on) setTimeout(() => { if (lobuleOn && lz.isOpen()) platePoke(); }, 600);   // the anatomy's raster, held back during the dive, catches up under the lobule
       else if (!on) {
         setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null;
+        zShift = 0;
+        if (chainOut) { chainOut = false; lz.setSinChain(null, false); }
         // Out of the lobule the anatomy always ends on its full fit, not where the dive began (often the liver close-up).
         // (Already taken to its fit when the way out began; measuring it again here read the floating pieces mid-change and sent the view down, then back.)
         if (riseUsed) riseUsed = false;   // (the rise already landed on the slide's own framing)
@@ -5879,8 +5891,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     /** Fit with a chosen glide (the presenter's slower, calmer moves). */
     /** The camera's whole magnification (log scale: the plate's zoom plus the dive's), or null while the lobule fills the view. For the tests: a dive in or out must move it steadily, never stopping part way. */
+    sinBusy: () => !!lz?.sinBusy(),
     cameraMoves: (clear) => (clear ? camMoves.splice(0) : [...camMoves]),
-    cameraZoom: () => (lobuleOn && diveT >= 1 ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ)),
+    cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !chainOut && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
     /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
     riseTo,
     fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
@@ -5894,7 +5907,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** Where the presenter's next lobule framing will be, so a dive lands on it in one move (see lobule-zoom aim). */
     lobuleAim: (part, opts) => lz?.aim(part, opts),
     /** The dive into the lobule (or back out) has finished: the view is wholly the lobule, or wholly the anatomy. */
-    lobuleSettled: () => (lobuleOn ? diveT >= 1 : diveT <= 0),
+    lobuleSettled: () => !chainOut && !(lz?.sinBusy()) && (lobuleOn ? diveT >= 1 : diveT <= 0),
+    /** From the anatomy straight to the sinusoid view: one zoom through the lobule, which it does not stop in. In the lobule already, just the sinusoid. */
+    diveToSinusoid() {
+      if (lobuleOn || diveT > 0 || morphTarget !== 0 || reduceMotion.matches) { store.set({ lobule: true, sinusoid: true }); return; }
+      chainIn = true; chainFired = false; chainAt = performance.now(); logMove({ t: chainAt, kind: 'chain-in' });
+      store.set({ lobule: true });
+    },
+    /** From the sinusoid view straight out to the anatomy: the sinusoid closes and the rise follows it with no rest in the lobule. */
+    exitSinusoid() {
+      if (!store.get().sinusoid || !lz?.sinusoidOpen()) { store.set({ sinusoid: false, lobule: false }); return; }
+      const lc = lz.current(), lt = LC + Math.log(Math.max(RH * 2, lc.r) / RH);
+      chainOut = true; logMove({ t: performance.now(), kind: 'chain-out' });
+      lz.setSinChain({ speed: (lt - LC) / 0.6 / RISE_MS }, true);
+      lz.onSinClosed(() => store.set({ lobule: false }));
+      store.set({ sinusoid: false });
+    },
+    /** True once the sinusoid view is wholly in. */
+    sinusoidOpen: () => !!lz?.sinusoidOpen(),
     /** On-screen scale, px per world unit (for the tests: turning the circuit keeps it). */
     zoomLevel: () => { refreshCTM(); return CTM.sc; },
     focusEdge(id) { E[id]?.hit.focus(); },

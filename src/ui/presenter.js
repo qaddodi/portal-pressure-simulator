@@ -745,11 +745,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // (next: the slide being moved to, if it frames the plate, so the way out of the lobule lands on that framing
   // in one zoom rather than stopping at the fit first.)
   async function toAnatomy(next) {
-    if (store.get().sinusoid) { store.set({ sinusoid: false }); await wait(reduce.matches ? 300 : 1000); }
-    if (store.get().lobule) {
-      if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);   // (box: a function, asked for when the rise begins)
-      store.set({ lobule: false }); await until(() => stage.lobuleSettled(), 2600); await wait(80);
-    }
+    const st = store.get();
+    if (!st.lobule && !st.sinusoid) return;
+    if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);   // (box: a function, asked for when the rise begins)
+    // Out of the sinusoid and the lobule as one zoom (the sinusoid closes and the rise follows it at once), or out of the lobule alone.
+    if (st.sinusoid) stage.exitSinusoid(); else store.set({ lobule: false });
+    await until(() => stage.lobuleSettled(), 6000); await wait(80);
   }
   // Glide the camera to a slide's framing; resolves when it has landed (cut(): a newer slide was asked for).
   async function camera(cam, s, cut) {
@@ -762,13 +763,15 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       // The station this slide frames: the dive lands on it in one move, and (mid-dive) no other station's labels show.
       const part = cam === 'sinusoid' ? 'sinusoid' : cam.split(':')[1] || 'fit', zoom = s.zoom ?? 2.3;
       if (!store.get().lobule) {
-        // Straight from wherever the camera is into the lobule: one continuous zoom, no stop at the liver on the way.
+        // Straight from wherever the camera is into the lobule: one continuous zoom, no stop at the liver on the way. For the
+        // sinusoid it is the same zoom, carried on through the lobule without resting in it.
+        const toSin = cam === 'sinusoid' && sinusoidSupported();
         stage.lobuleAim(part, { zoom });
-        store.set({ lobule: true });
+        if (toSin) stage.diveToSinusoid(); else store.set({ lobule: true });
         // (A first dive also loads the lobule, which a slow tablet can take several seconds over.)
-        await until(() => cut() || (stage.lobuleSettled() && stage.lobuleOpen()), 9000);
+        await until(() => cut() || (stage.lobuleSettled() && stage.lobuleOpen() && (!toSin || !store.get().sinusoid || stage.sinusoidOpen())), 12000);
         if (cut()) return;
-        await wait(120);
+        if (!toSin) await wait(120);
       } else {
         if (!stage.lobuleOpen()) stage.lobuleAim(part, { zoom });
         await until(() => cut() || stage.lobuleOpen(), 9000);
@@ -1041,7 +1044,6 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const inAnatomy = !ct && cam && !LOBULE_CAM.test(cam) && (s.view || 'anatomic') === 'anatomic';
     if ((ct || (cam && !LOBULE_CAM.test(cam))) && (store.get().lobule || store.get().sinusoid)) {
       if (!inAnatomy || si !== shownState || liveOff) { await toAnatomy(inAnatomy ? riseFor(cam, s) : null); if (cut()) return; }
-      else if (store.get().sinusoid) { store.set({ sinusoid: false }); await wait(reduce.matches ? 300 : 1000); if (cut()) return; }
     }
     // (A patient still being computed off screen: after a short wait the arc shows.)
     const lateT = states[si] ? 0 : setTimeout(() => loading(true), 260);

@@ -2102,6 +2102,10 @@ export function createLobuleZoom({ host }) {
   // covers it. Zooming out (the zoom buttons, a pinch, the wheel), its back button or Escape reverse it.
   const sv = createSinusoidView({ host });
   let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false;
+  // A zoom that runs on through the lobule without stopping in it (stage.js: anatomy to sinusoid, or back): the stage hands over
+  // the speed (log scale per ms) its own zoom has at the joint, and this zoom's ease then starts (or ends) at that speed instead of at rest.
+  let sinChain = null, chromeHold = false, sinClosedCb = null, sinZ = 0;   // (sinZ: the sinusoid zoom's log scale so far, for the tests)
+  const chainEase = (s, a) => a * s + (3 - 2 * a) * s * s + (a - 2) * s * s * s;   // 0 to 1, a slope at 0 and none at 1
   const easeIO = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
   // Which sinusoid, and where on it: the one whose card is open, else the one carrying the label.
   function sinusoidPick() {
@@ -2163,6 +2167,7 @@ export function createLobuleZoom({ host }) {
     const u = sinU, rm = reduce.matches;
     let D = sinDive;
     if (!D || u <= 0) {
+      sinZ = 0;
       el.style.transform = ''; el.style.transformOrigin = ''; el.style.visibility = ''; el.classList.remove('lz-sin');
       sv.place({ opacity: 0 });
       return;
@@ -2171,7 +2176,8 @@ export function createLobuleZoom({ host }) {
     // zoom starts (and the credit line slides down), so the frame they free settles early in the zoom, which then
     // lands on it, with no second move after it. (On the way out it is kept, so the lobule is reached as it was.)
     if (D && sinTo === 1 && u > 0 && u < 1 && !rm) D = sinDive = diveGeometry();
-    const g = rm ? 1 : easeIO(u);
+    const g = rm ? 1 : sinChain ? chainEase(u, clamp(sinChain.speed * (sinTo === 1 ? 1150 : 950) / Math.max(0.2, Math.log(D.Z)), 0.2, 3)) : easeIO(u);
+    sinZ = Math.log(D.Z) * g;
     // The lobule: turned and grown about the zoom's fixed point.
     el.style.transformOrigin = rm ? '' : `${D.q[0].toFixed(2)}px ${D.q[1].toFixed(2)}px`;
     el.style.transform = rm ? '' : `rotate(${(D.rot * g).toFixed(5)}rad) scale(${(D.Z ** g).toFixed(5)})`;
@@ -2184,10 +2190,14 @@ export function createLobuleZoom({ host }) {
       isOpen: u >= 1 && fade > 0.98,
     });
   }
+  function applyChrome() {
+    const ch = clamp((fade - 0.55) / 0.45, 0, 1);
+    el.style.setProperty('--lz-chrome', chromeHold ? '0' : (ch * ch * (3 - 2 * ch)).toFixed(3));
+  }
   function resetSinusoid() { cancelAnimationFrame(sinRaf); sinU = 0; sinTo = 0; sinDive = null; placeSinusoid(); }
   function diveSinusoid(on) {
     if (quietSin) { sinTo = 0; cancelAnimationFrame(sinRaf); return; }   // the lobule view is closing: the sinusoid fades out with it
-    if (on && (!geo || fade < 0.98 || !model || !sv.available)) { queueMicrotask(() => { if (store.get().sinusoid && !sinTo) store.set({ sinusoid: false }); }); return; }
+    if (on && (!geo || fade < 0.98 || !model || !sv.available)) { sinChain = null; if (chromeHold) { chromeHold = false; applyChrome(); } queueMicrotask(() => { if (store.get().sinusoid && !sinTo) store.set({ sinusoid: false }); }); return; }
     const to = on ? 1 : 0;
     if (to === sinTo && sinU === to) return;
     sinTo = to;
@@ -2205,7 +2215,11 @@ export function createLobuleZoom({ host }) {
       const t = ms > 0 ? clamp((now - t0) / ms, 0, 1) : 1;
       sinU = lerp(from, to, t); placeSinusoid();
       if (t < 1) sinRaf = requestAnimationFrame(step);
-      else if (!on) { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = requestAnimationFrame(loop); if (refitLater) refit(); }
+      else {
+        sinChain = null;
+        if (on) { if (chromeHold) { chromeHold = false; applyChrome(); } }
+        else { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = requestAnimationFrame(loop); if (refitLater) refit(); const cb = sinClosedCb; sinClosedCb = null; cb?.(); }
+      }
     };
     sinRaf = requestAnimationFrame(step);
   }
@@ -2221,8 +2235,7 @@ export function createLobuleZoom({ host }) {
       fade = clamp(u, 0, 1);
       el.style.opacity = fade.toFixed(3);
       // The tissue first, then its labels and card (and on the way out, those go first).
-      const ch = clamp((fade - 0.55) / 0.45, 0, 1);
-      el.style.setProperty('--lz-chrome', (ch * ch * (3 - 2 * ch)).toFixed(3));
+      applyChrome();
       el.classList.toggle('on', fade > 0.98);
       el.setAttribute('aria-hidden', String(fade < 0.98));
       // Entering: the lobule is framed.
@@ -2251,6 +2264,13 @@ export function createLobuleZoom({ host }) {
       return { x, y, r: geo.R * V.k };
     },
     setDive: paintField,
+    /** The zoom into or out of the sinusoid carries on at this speed (see sinChain); hold: the lobule's own labels and card stay away meanwhile. */
+    setSinChain(info, hold = false) { sinChain = info; if (hold !== chromeHold) { chromeHold = hold; applyChrome(); } },
+    /** Called once when the sinusoid view has finished closing to the lobule. */
+    onSinClosed(fn) { sinClosedCb = fn; },
+    sinBusy: () => sinTo === 1 ? sinU < 1 : sinU > 0,
+    sinusoidOpen: () => sv.isOpen(),
+    sinZoom: () => sinZ,
     onZoomOut(fn) { outHandler = fn; },
     prewarm, warm, preparePieces, prepareRun,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
