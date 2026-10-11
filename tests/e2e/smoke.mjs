@@ -556,6 +556,22 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
+  // A phone's data card stays short: its tiles read as one wrapping line (name, value, rating, the change said short), nothing
+  // spilling out of a tile. The FibroScan slide's two tiles sit side by side, one line each.
+  if (device === 'phone') await check(device, 'presenter: a phone keeps the data card short', async (page) => {
+    await open(page);
+    await page.evaluate(() => window.pps.presenter.start('stiffness', 2));
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover')
+      && document.querySelector('.pz-data:not(.pz-hide) .pzt-d')?.textContent.includes('from'), null, { timeout: 60000 });
+    await page.waitForTimeout(800);
+    const r = await page.evaluate(() => {
+      const d = document.querySelector('.pz-data:not(.pz-hide)'), tiles = [...d.querySelectorAll('.pz-tile')];
+      const spill = tiles.flatMap((t) => { const b = t.getBoundingClientRect(); return [...t.children].filter((c) => { const cb = c.getBoundingClientRect(); return cb.width && (cb.right > b.right + 1 || cb.bottom > b.bottom + 1); }).map((c) => c.className); });
+      return { h: d.getBoundingClientRect().height, tile: Math.max(...tiles.map((t) => t.getBoundingClientRect().height)), n: tiles.length, spill };
+    });
+    if (r.n !== 2 || r.h > 72 || r.tile > 32 || r.spill.length) throw new Error(`FibroScan card ${Math.round(r.h)}px tall (cap 72), tallest of ${r.n} tiles ${Math.round(r.tile)}px (cap 32)${r.spill.length ? ', spilling: ' + r.spill.join() : ''}`);
+  });
+
   await check(device, 'presenter: summary table returns after back then forward', async (page) => {
     await open(page, '?home=present');
     await page.waitForSelector('.umenu .um-row[data-k="d:lobule"]');

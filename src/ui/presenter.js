@@ -413,9 +413,11 @@ function bigTiles() {
   function build(ks, withRef) {
     parts = ks.map((k) => {
       const T = TILE[k] || { t: k, s: '', u: '' };
-      const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' }), d = h('span', { class: 'pzt-d' });
+      const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' });
+      // The change in parts, so a phone can say it short ("▲ 7.5 from 5.0": the word and unit fold away there).
+      const dp = [h('span'), h('span', { class: 'pzt-dw' }), h('span'), h('span', { class: 'pzt-du' }), h('span')], d = h('span', { class: 'pzt-d' }, dp);
       const tile = h('div', { class: 'pz-tile' }, h('span', { class: 'pzt-k' }, T.t), h('span', { class: 'pzt-vu' }, v, u), r, withRef ? d : null);
-      return { k, T, tile, v, u, r, d };
+      return { k, T, tile, v, u, r, d, dp };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
     el.dataset.n = String(parts.length);
@@ -430,7 +432,8 @@ function bigTiles() {
       const x = p.T.x ?? 1, dg = p.T.d ?? 1, dd = (f[p.k] - r0) * x, same = Math.abs(dd) < 0.5 * 10 ** -dg;
       // "Up 9 points from 82%", "Down 2.1 mmHg from 17.7": the change, then where it started (never read as "up to").
       const pct = p.T.u === '%', by = pct ? (Math.abs(dd) === 1 ? ' point' : ' points') : p.T.u ? ' ' + p.T.u : '';
-      p.d.textContent = same ? 'No change' : `${dd < 0 ? '▼ Down' : '▲ Up'} ${fmt(Math.abs(dd), dg)}${by} from ${fmt(r0 * x, dg)}${pct ? '%' : ''}`;
+      const t = same ? ['No change', '', '', '', ''] : [dd < 0 ? '▼ ' : '▲ ', dd < 0 ? 'Down ' : 'Up ', fmt(Math.abs(dd), dg), by, ` from ${fmt(r0 * x, dg)}${pct ? '%' : ''}`];
+      p.dp.forEach((e, i) => { if (e.textContent !== t[i]) e.textContent = t[i]; });
       const calm = cls === 'ok' && rated(p.k, { ...f, [p.k]: r0 })[0] === 'ok';   // (a change within normal is neither)
       p.d.dataset.way = same || calm || !p.T.better ? '' : Math.sign(dd) === p.T.better ? 'good' : 'bad';
     }));

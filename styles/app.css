@@ -4740,6 +4740,17 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-data.under > * { flex: none; }
 .pzt-r { min-width: 0; hyphens: auto; overflow-wrap: break-word; }
 .pz.stack .pzt-r { font-size: clamp(11px, 9cqi, 15px); }
+/* Phone: every data card's tiles kept short, read as one line that wraps where the tile runs out: the name, the value and its unit,
+   the rating, the change said short ("▲ 7.5 from 5.0": its word and unit fold away, the unit is beside the value). */
+.pz.stack .pz-data { gap: 5px; padding-top: 8px; padding-inline: 10px; }
+.pz.stack .pz-data .pz-tiles { gap: 6px; }
+.pz.stack .pz-data .pz-tiles .pz-tile { flex-direction: row; flex-wrap: wrap; align-items: baseline; align-content: center; gap: 0 6px; padding: 4px 9px 5px; border-radius: 11px; }
+.pz.stack .pz-data .pz-tiles .pzt-k { flex: 0 1 auto; font-size: 10px; letter-spacing: .05em; }
+.pz.stack .pz-data .pz-tiles .pzt-vu { flex: none; }
+.pz.stack .pz-data .pz-tiles .pzt-v { font-size: 19px; line-height: 1.15; }
+.pz.stack .pz-data .pz-tiles .pzt-vu small { font-size: 11px; }
+.pz.stack .pz-data .pz-tiles .pzt-r, .pz.stack .pz-data .pz-tiles .pzt-d { flex: 0 1 auto; font-size: 11px; line-height: 1.3; white-space: nowrap; }
+.pz.stack .pzt-dw, .pz.stack .pzt-du { display: none; }
 
 /* Tests card: the scope and Doppler readings as compact tiles, in the presenter data card's style (small
    uppercase name, big number with a muted unit, a status dot). Two across on a phone, more on a wider card. */
