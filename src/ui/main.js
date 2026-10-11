@@ -139,7 +139,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=6605121ab6'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=09d989b407'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

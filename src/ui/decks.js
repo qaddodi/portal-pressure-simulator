@@ -66,6 +66,12 @@ import { ENDOSCOPY } from './decks/endoscopy.js?v=95aa3aef7f';
 import { PREHEPATIC } from './decks/prehepatic.js?v=c8af5f351e';
 import { RIGHT_HEART } from './decks/right-heart.js?v=2221556b33';
 import { BLEED } from './decks/variceal-bleed.js?v=646e098b15';
+import { TWO_INFLOWS } from './decks/two-inflows.js?v=ca6d2b9f97';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=a6f4a04491';
+import { SPLEEN } from './decks/spleen.js?v=0fae95d2f0';
+import { NCPH } from './decks/ncph.js?v=5ac9cc8937';
+import { OUTFLOW } from './decks/outflow.js?v=78275c3514';
+import { RECOMPENSATION } from './decks/recompensation.js?v=4e4810067b';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -108,13 +114,14 @@ export const DECKS = [CIRCULATION, SITES, HVPG, ASCITES, VARICES, TREATMENT];
 DECKS.push(STIFFNESS, ONE_YEAR, TAP, CIRCUIT, LOBULE, SHUNTS);
 DECKS.push(DOPPLER, ENDOSCOPY);
 DECKS.push(PREHEPATIC, RIGHT_HEART, BLEED);
+DECKS.push(TWO_INFLOWS, PVT_CIRRHOSIS, SPLEEN, NCPH, OUTFLOW, RECOMPENSATION);
 
 // The unified menu lists the presentations by topic, in teaching order, under a short title (32 characters or fewer).
 export const TOPICS = [
-  ['foundations', 'Foundations', [['circulation', 'The portal circulation'], ['circuit', 'Pressure, flow and resistance']]],
-  ['causes', 'Causes', [['sites', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH'], ['right-heart', 'The right heart and the liver'], ['lobule', 'Inside the lobule']]],
+  ['foundations', 'Foundations', [['circulation', 'The portal circulation'], ['circuit', 'Pressure, flow and resistance'], ['two-inflows', 'The liver\'s two inflows']]],
+  ['causes', 'Causes', [['sites', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH'], ['ncph', 'Non-cirrhotic PH'], ['right-heart', 'The right heart and the liver'], ['outflow', 'When the liver cannot drain'], ['lobule', 'Inside the lobule']]],
   ['measuring', 'Measuring', [['hvpg', 'HVPG and PPG'], ['doppler', 'Doppler of the portal system'], ['endoscopy', 'Endoscopy and the varix'], ['stiffness', 'Stiffness, spleen and platelets'], ['one-year', 'One patient, one year']]],
-  ['complications', 'Complications', [['varices', 'Collaterals and varices'], ['variceal-bleed', 'Acute variceal bleeding'], ['ascites', 'Where ascites comes from'], ['tap', 'The tap and the albumin']]],
+  ['complications', 'Complications', [['varices', 'Collaterals and varices'], ['variceal-bleed', 'Acute variceal bleeding'], ['ascites', 'Where ascites comes from'], ['tap', 'The tap and the albumin'], ['spleen', 'The spleen: size and treatment'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis'], ['recompensation', 'Decompensation and recovery']]],
   ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure'], ['shunts', 'Shunts, made and spontaneous']]],
 ];
 for (const [topic, , list] of TOPICS) for (const [id, short] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short }); }
