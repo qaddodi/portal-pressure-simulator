@@ -5,12 +5,12 @@ import { store, hiddenNow } from './store.js?v=7fb7280c05';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=259b580d3f';
 import { lobuleFlows } from './lobule-model.js?v=46829a87f8';
-import { createProfile } from './charts.js?v=b0e4d37446';
-import { createPressureTime } from './pressure-time.js?v=27c980dccb';
-import { createFibroScan } from './fibroscan.js?v=a5d0d63dfb';
-import { createHvpgProcedure } from './hvpg-proc.js?v=d4a0529887';
-import { createDoppler } from './doppler.js?v=08cd961f3c';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=c7c7e99606';
+import { createProfile } from './charts.js?v=de5de84682';
+import { createPressureTime } from './pressure-time.js?v=350b0e65e5';
+import { createFibroScan } from './fibroscan.js?v=f23c4ef6d5';
+import { createHvpgProcedure } from './hvpg-proc.js?v=7dbeca9bfc';
+import { createDoppler } from './doppler.js?v=ab9ce9e248';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=9f54d1e9e0';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
 const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };

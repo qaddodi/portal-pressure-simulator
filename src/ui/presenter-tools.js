@@ -21,11 +21,11 @@
 import { store } from './store.js?v=7fb7280c05';
 import { h, fmt, clamp } from './util.js?v=259b580d3f';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { createDoppler } from './doppler.js?v=08cd961f3c';
-import { createFibroScan } from './fibroscan.js?v=a5d0d63dfb';
-import { createPressureTime } from './pressure-time.js?v=27c980dccb';
+import { createDoppler } from './doppler.js?v=ab9ce9e248';
+import { createFibroScan } from './fibroscan.js?v=f23c4ef6d5';
+import { createPressureTime } from './pressure-time.js?v=350b0e65e5';
 import { createFlowTime } from './flow-time.js?v=b18da85756';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=c7c7e99606';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=9f54d1e9e0';
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava',

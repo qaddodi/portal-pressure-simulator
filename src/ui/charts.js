@@ -4,7 +4,7 @@ import { NODES } from '../engine/topology.js?v=34e377149b';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=d467b97383';
 import { pressureColor } from './colormap.js?v=f638e78199';
 import { store, hiddenNow } from './store.js?v=7fb7280c05';
-import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=259b580d3f';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=259b580d3f';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const ARTERIAL = new Set(['AO', 'HA']);
@@ -345,7 +345,7 @@ export function createProfile() {
       smoothPath(ctx, stations.map((n, i) => [n, i]).filter(([n]) => predict.values.get(n) != null && !ARTERIAL.has(n)).map(([n, i]) => [x(i), y(predict.values.get(n))]));
       ctx.stroke(); ctx.setLineDash([]);
       if (predict.reveal) {
-        ctx.fillStyle = cssVar('--chart-miss');
+        ctx.fillStyle = cssAlpha('--danger', 0.14);
         stations.forEach((n, i) => { const v = predict.values.get(n); if (v == null) return; ctx.fillRect(x(i) - 6, Math.min(y(v), y(now[i])), 12, Math.abs(y(v) - y(now[i]))); });
       }
     } else lp.style.display = 'none';
