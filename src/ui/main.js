@@ -2,27 +2,27 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=c256a9c041';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=9858da589a';
-import { createStage } from './stage.js?v=4ce9c83bb7';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7fb7280c05';
+import { createStage } from './stage.js?v=dd2aff2684';
 import { createCreditPlacer } from './credit.js?v=f078009065';
-import { sinusoidSupported } from './sinusoid-view.js?v=1f252707d9';
-import { createInspector } from './inspector.js?v=4dd2fb68b1';
-import { createDock, CUTOFFS } from './dock.js?v=6f8e4d5973';
-import { setHvpgStage } from './hvpg-proc.js?v=649e6bbf50';
+import { sinusoidSupported } from './sinusoid-view.js?v=d0f1a6d8cf';
+import { createInspector } from './inspector.js?v=82d234fd07';
+import { createDock, CUTOFFS } from './dock.js?v=95dd1d6972';
+import { setHvpgStage } from './hvpg-proc.js?v=e6446dd751';
 import { createWhy } from './why.js?v=44f38b9c23';
-import { createTimeline, LAPSES } from './timeline.js?v=784d292b22';
-import { createLearn } from './learn.js?v=44215471cc';
-import { createCases, CASES } from './cases.js?v=7f7fffe8bd';
-import { isBlind } from './learning-kit.js?v=6d450ed1de';
-import { createCompare } from './compare.js?v=232ef8e809';
-import { createCard } from './card.js?v=376a07fd26';
-import { createChart, computeFindings } from './chart.js?v=75af4976e7';
-import { createMenu, ROLES } from './menu.js?v=5b4b4efe84';
+import { createTimeline, LAPSES } from './timeline.js?v=687fa984ea';
+import { createLearn } from './learn.js?v=a05c708f70';
+import { createCases, CASES } from './cases.js?v=a2e44a01dc';
+import { isBlind } from './learning-kit.js?v=7561f366a7';
+import { createCompare } from './compare.js?v=5d72adbf36';
+import { createCard } from './card.js?v=321f23eb69';
+import { createChart, computeFindings } from './chart.js?v=3ca77ffcc8';
+import { createMenu, ROLES } from './menu.js?v=d5ffc5efe3';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
-import { caption } from './a11y.js?v=294de40bc0';
-import { startLMS } from './lms.js?v=ba7a6a79a8';
+import { caption } from './a11y.js?v=cda3a1d184';
+import { startLMS } from './lms.js?v=639b684be0';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=d578c83926';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=7d1c8084ec';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=045e641b44';
@@ -140,7 +140,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=7c22bed1d2'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=1630b56e79'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -148,7 +148,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=d3d593af7a'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=7d95391936'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -646,6 +646,7 @@ function openBlood(anchor) {
     h('div', { class: 'menu-title' }, 'Moving blood'),
     toggle(flowOn, 'streaks', 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
     toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Arrowheads moving with the flow; orange where it runs backwards', (on) => setBlood({ chevrons: on })),
+    toggle(!!b.keyChevrons, 'chevrons', 'Key chevrons only', 'Only on the portal inflow, liver, hepatic veins and open collaterals', (on) => setBlood({ keyChevrons: on })),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Show on the figure'),
     // A student's figure keeps to names (stage.js, the quiet rule), so the switch would do nothing there.

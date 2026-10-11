@@ -29,7 +29,7 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=6c39f43ddf';
 
 export const N_SAMPLES = 64;
-export const FLOW_TEXELS = 3;          // per-vessel blood: see stage.js (syncBlood)
+export const FLOW_TEXELS = 4;          // per-vessel blood: see stage.js (syncBlood)
 const SLOT_W = SLOT;
 export const TUBE_TEXELS = 12;         // texels of per-vessel attributes (see the layout below)
 export const MAX_TIERS = 20;
@@ -852,7 +852,7 @@ vec2 chevAt(int id, float s, float y) {
   // Toward either end a head fades out (and the next vessel's fade in), never cut by a join.
   float e = min(sc, len - sc);
   if (e < 0.6 * L) return vec2(0.0);
-  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * keep * smoothstep(0.6 * L, 0.6 * L + max(2.0 * L, 0.3 * Pc), e) * smoothstep(1.3 * pxW, 2.4 * pxW, R);
+  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * texelFetch(flow, ivec2(3, id), 0).x * keep * smoothstep(0.6 * L, 0.6 * L + max(2.0 * L, 0.3 * Pc), e) * smoothstep(1.3 * pxW, 2.4 * pxW, R);
   // Where the lumen is narrower than the head, the head fades out instead of squeezing to fit.
   fade *= smoothstep(0.85 * hw, 1.15 * hw, Rl);
   return chevHead(u, ay, hw, pxW) * fade;

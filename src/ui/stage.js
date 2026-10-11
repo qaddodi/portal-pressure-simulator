@@ -4,14 +4,14 @@
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=34e377149b';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=d467b97383';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
-import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=9858da589a';
+import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7fb7280c05';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=045e641b44';
-import { createLobuleZoom } from './lobule-zoom.js?v=9ecd4d0309';
+import { createLobuleZoom } from './lobule-zoom.js?v=540444bba2';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=7bf909808a';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=44433fccbd';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=3860b0d6cb';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -4819,6 +4819,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   //      second, stasis (0–1)
   //   1: free at the from end, free at the to end (parcels fade there), strength, reversed (0–1, eased)
   //   2: fraction of its blood from the SMV, the IMV, the splenic vein and the hepatic artery (rest: systemic)
+  //   3: chevron visibility (0–1, eased: Key chevrons only fades the rest)
   const flowData = new Float32Array(GL_ROWS * FLOW_TEXELS * 4);
   const dyeData = new Float32Array(GL_ROWS * DYE_BINS), dyeRow = new Float32Array(DYE_BINS);
   const streams = EDGES.map((e, k) => ({ seed: k + 1 }));
@@ -4830,6 +4831,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const flowSeen = () => !store.get().imaging || !!store.get().found?.has('flow');
   const bloodOn = () => !!F && flowSeen() && store.get().layers.flow !== false;
   const chevOn = () => !!F && flowSeen() && !!store.get().blood?.chevrons;
+  // Key chevrons only (Blood menu; always while presenting): chevrons keep to the portal story (the portal
+  // inflow, the liver's beds, the hepatic veins, any open collateral or shunt) and to a lit vessel; the rest fade.
+  const KEY_IDS = new Set(['V_INT', 'V_COL', 'V_IMV', 'V_SPL', 'V_STO', 'SMV_CONF', 'SV_CONF', 'LGV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_L', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC']);
+  const KEY = EDGES.map((e) => KEY_IDS.has(e.id) || e.kind === 'liver' || e.kind === 'collateral' || e.kind === 'shunt');
+  const keyOnly = () => !!store.get().presenting || !!store.get().blood?.keyChevrons;
   // The Blood origin lens colors each lumen by where its blood comes from (streams side by side).
   const originOn = () => !!F && layerMode() === 'origin';
   // Mean velocity (cm/s) for a flow (mL/s): flow over lumen area; the liver beds are not one tube.
@@ -4871,6 +4877,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const sm = advanceStream(streams[k], velOf(k, Qf[k]), velOf(k, F.Q[k]), moving ? dt : 0, { phasic: !!b.phasic, speed, large: LARGE[k] });
       const rt = isReversed(EDGES[k], RF) ? 1 : 0;
       sm.rev = sm.rev == null ? rt : sm.rev + (rt - sm.rev) * ease;
+      const ct = !keyOnly() || KEY[k] || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
+      sm.chevK = sm.chevK == null ? ct : sm.chevK + (ct - sm.chevK) * ease;
     }
     if (!veins) return;
     const on = bloodOn() || chevOn() || originOn();
@@ -4882,6 +4890,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       flowData[o] = sm.D; flowData[o + 1] = sm.vd; flowData[o + 2] = KAPPA * Math.abs(q); flowData[o + 3] = sm.stasis;
       flowData[o + 4] = f0 ? 1 : 0; flowData[o + 5] = f1 ? 1 : 0; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
       if (origins) for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[k * ORIGIN_N + c];
+      flowData[o + 12] = sm.chevK ?? 1;
     };
     if (on) for (const x of Object.values(E)) {
       if (!x.vis || x.isArt || x.reveal || x.g.classList.contains('coll-ghost')) continue;

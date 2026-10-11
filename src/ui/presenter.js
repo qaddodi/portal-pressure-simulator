@@ -13,16 +13,16 @@
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen, Q quiz,
 // P high contrast, Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=9858da589a';
+import { store, replaceParams } from './store.js?v=7fb7280c05';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './util.js?v=045e641b44';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
-import { sinusoidSupported } from './sinusoid-view.js?v=1f252707d9';
+import { sinusoidSupported } from './sinusoid-view.js?v=d0f1a6d8cf';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=2cdb464c81';
-import { createHvpgMonitor } from './hvpg-proc.js?v=649e6bbf50';
-import { createTools } from './presenter-tools.js?v=b822b8efd9';
+import { createHvpgMonitor } from './hvpg-proc.js?v=e6446dd751';
+import { createTools } from './presenter-tools.js?v=3b66d6fec4';
 import { openHandout } from './handout.js?v=959b8efa01';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
