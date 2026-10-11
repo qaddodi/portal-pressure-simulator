@@ -71,6 +71,22 @@ jobs:
           path: browser-shots/
           if-no-files-found: ignore
 
+  # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
+  webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: WebKit for Playwright
+        run: timeout 300 npx playwright install --with-deps webkit
+      - name: Presenter words keep one size (iPhone, WebKit)
+        run: npm run smoke:webkit
+
   # The look (organ tones and light, vessels, lobule) against tests/visual, one device per runner;
   # on a failure the current pictures and diffs are kept as an artifact.
   visual:

@@ -1356,11 +1356,21 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     clearTimeout(dock.fit); dock.fit = setTimeout(() => ui && onResize(), 60);
   }
   // The cards never scroll: when a card's contents are taller or wider than the card, their zoom (--pz-fit) drops until they fit.
-  // (An entry shift still running on a child is not counted, so a card is judged by where its contents come to rest.)
+  // The height is summed from the children's own boxes (a slide-up does not change a box's height), never read from
+  // scrollHeight: WebKit keeps an entry shift's overflow there after the shift has eased away, so the words fitted
+  // once at their size and then, on the next layout, shrank. (So a card is judged by where its contents come to rest.)
   function overflowOf(el) {
-    let ty = 0;
-    for (const c of el.children) { const cs = getComputedStyle(c); ty = Math.max(ty, new DOMMatrix(cs.transform).m42 * (parseFloat(cs.zoom) || 1)); }
-    return { v: el.scrollHeight - el.clientHeight - ty, h: el.scrollWidth - el.clientWidth };
+    const cs = getComputedStyle(el), z = el.offsetHeight ? el.getBoundingClientRect().height / el.offsetHeight : 1;
+    let used = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0), n = 0;
+    for (const c of el.children) {
+      const s = getComputedStyle(c);
+      if (s.display === 'none' || s.position === 'absolute' || s.position === 'fixed') continue;
+      const cz = parseFloat(s.zoom) || 1;
+      used += c.getBoundingClientRect().height / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + Math.max(0, c.scrollHeight - c.clientHeight)) * cz;
+      n++;
+    }
+    used += (parseFloat(cs.rowGap) || 0) * Math.max(0, n - 1);
+    return { v: used - el.clientHeight, h: el.scrollWidth - el.clientWidth };
   }
   function fitCards(...els) {
     for (const el of els) {

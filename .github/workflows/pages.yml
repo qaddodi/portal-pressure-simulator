@@ -68,6 +68,25 @@ jobs:
           path: workspace-shots/
           if-no-files-found: ignore
 
+  # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
+  webkit:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: webkit-${{ github.ref }}
+      cancel-in-progress: true
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: WebKit for Playwright
+        run: timeout 300 npx playwright install --with-deps webkit
+      - name: Presenter words keep one size (iPhone, WebKit)
+        run: npm run smoke:webkit
+
   # The look against tests/visual on every preview push, so a drift shows up now, not at merge
   # time. A drift is a warning here (the diffs are kept as an artifact) and blocks only in ci.yml.
   # When the change to the look is intended, run the "Visual references" workflow on the branch,
