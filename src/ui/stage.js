@@ -2782,7 +2782,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (Math.abs(d) >= 2) glows.push([x, d]);
     }
     glows.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-    if (!reduceMotion.matches) setGlowSrc('delta', glows.slice(0, 16).map(([x, d]) => ({ id: x.e.id, col: d > 0 ? '#E8633A' : '#3A8DE8', amt: 1.2, dur: 420 })));
+    if (!reduceMotion.matches) setGlowSrc('delta', glows.slice(0, 16).map(([x, d]) => ({ id: x.e.id, col: d > 0 ? '#E8633A' : '#3A8DE8', amt: 1.35, wide: 1.1, dur: 420 })));
     gHalo.replaceChildren(...cand.slice(0, 3).map(([id, d]) => {
       const [x, y] = nodePos(id, t);
       return s('g', { class: 'halo ' + (d > 0 ? 'up' : 'down'), transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` },
@@ -5045,7 +5045,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const on = id && store.get().tool === 'select' && !shunt ? id : null;
     if (on === vh.id) return;
     vh.id = on;
-    setGlowSrc('hover', on ? vhEdges(on).map((id) => ({ id, col: null, amt: 1.1, dur: 280 })) : []);
+    setGlowSrc('hover', on ? vhEdges(on).map((id) => ({ id, col: null, amt: 1.35, wide: 1.1, dur: 280 })) : []);
     if (!vh.raf) { vh.t = performance.now(); vh.raf = requestAnimationFrame(vhStep); }
   }
   function vhStep(now) {
