@@ -104,6 +104,8 @@ export function createSinusoidView({ host }) {
 
   // The view is left only by the view switch (Lobule): the wheel and a pinch do nothing here.
   el.addEventListener('wheel', (ev) => ev.preventDefault(), { passive: false });
+  // A caption's entrance, once played, is let go: kept (fill both), it and its caption stay in the page's animation list for good.
+  labels.addEventListener('animationend', (ev) => { if (ev.animationName === 'sv-fade-in') for (const a of ev.target.getAnimations()) if (a.animationName === 'sv-fade-in') a.cancel(); });
 
   // ── State ──
   let go = 1;   // 1 while the simulation runs, eased to 0 when paused: the flow, lymph, particles and proteins slow to a stop and resume without a jump
@@ -551,7 +553,7 @@ export function createSinusoidView({ host }) {
   }
 
   // ── The frame ──
-  let lastKey = '', descKey = '';
+  let lastKey = '', descKey = '', gpuKey = '';
   function draw(dt, run = true, paint = true) {
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
@@ -595,7 +597,11 @@ export function createSinusoidView({ host }) {
         u.uFocus = smooth(0.82, 1, g);   // (the page shows around it only once it has landed, not as a band while it is small)
       } else { u.uRev = [1, -1e5, 1e5, 1e5]; u.uAll = 1; u.uDet = [1, 1e5]; u.uFocus = 1; }
       spriteDt = Math.max(0, dt) * go;
-      gpu.draw(u, pts, sprites());
+      const n = sprites();
+      // Paused and settled (nothing eases, no zoom): the same picture as last frame, so the two full-screen passes are skipped.
+      const gk = go === 0 && !dive ? canvas.width + 'x' + canvas.height + '|' + n + '|' + JSON.stringify(u) : '';
+      if (!gk || gk !== gpuKey) gpu.draw(u, pts, n);
+      gpuKey = gk;
     }
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
     if (dk !== descKey) { descKey = dk; canvas.setAttribute('aria-label', describe()); }
@@ -638,6 +644,8 @@ export function createSinusoidView({ host }) {
       open = isOpen;
       el.classList.toggle('on', isOpen);
       el.setAttribute('aria-hidden', String(!isOpen));
+      // Closed: the drawing buffer is given back (it is sized again on the way in).
+      if (opacity <= 0 && was > 0) { canvas.width = 0; canvas.height = 0; gpuKey = ''; }
       if (opacity > 0 && was <= 0) {
         last = 0; lastKey = ''; VW.k = 0; movers.length = 0; spawnAcc = 0; bounceAcc = 0;
         if (model) {
