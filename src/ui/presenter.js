@@ -208,12 +208,6 @@ function rich(t, s = {}, fp = null) {
   out.push(t.slice(at));
   return out;
 }
-// The five stations' colours with their names, once on a ladder or catheter slide (D1): the figure's labels and
-// the ladder's points take the same colours.
-// Short names keep the legend on one line; the full name is the tooltip. The WHVP/FHVP tags drop in narrow panes (CSS).
-const STATIONS = [['pv', 'PV', '', 'Portal vein'], ['wedge', 'Sinusoids', 'WHVP', 'Sinusoids (wedged hepatic venous pressure, WHVP)'], ['hv', 'HV', 'FHVP', 'Hepatic vein (free hepatic venous pressure, FHVP)'], ['ivc', 'IVC', '', 'Inferior vena cava'], ['ra', 'RA', '', 'Right atrium']];
-const stationKey = () => h('div', { class: 'pz-stk', role: 'list', 'aria-label': 'Station colours' },
-  STATIONS.map(([t, w, tag, full]) => h('span', { role: 'listitem', title: full, 'aria-label': full, style: `--c:var(--tr-${t})` }, h('i'), w, tag ? h('span', { class: 'st-tag' }, ` · ${tag}`) : null)));
 // The still column inside the lobule (D5), for a wedge slide with column: true: the balloon stops the hepatic vein,
 // and the column behind it (in the wedge colour) fills back through the central vein and the sinusoids to the
 // first moving blood. Here it stops at a block in the portal tract (schistosomiasis), so the wedge never sees it.
@@ -1195,7 +1189,6 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
         : [kick(s.site, s.kicker, s.sec), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
-          s.data === 'ladder' || s.cath ? stationKey() : null,
           s.monitor ? monitorFor(s, i) : null,
           s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
