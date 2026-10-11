@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **Import a deck file in Present.** Menu › Present › Your scripts › *Import* opens a dialog: choose a deck `.js`
+  (written like the built-in decks in `src/ui/decks/`) or a `.json` deck or script, or paste its contents. A deck keeps
+  every feature (tiles, tools, term pills, equations, visuals, time-lapses) and is stored on that device like a script.
+  The `.js` is read as data and never run (`src/ui/deck-source.js`, a small interpreter for the subset the decks use;
+  `mi mo mn sub frac` are built in); `import`, `new`, globals and functions with a `{ }` body are refused with the line
+  number. Section 13 of `docs/deck-authoring-guide.md` lists what it accepts. Tests: `tests/deck-source.test.js`.
+
+- **Every deck in its own file.** The six decks that were written inside `src/ui/decks.js` (circulation, sites, hvpg,
+  ascites, varices, treatment) moved to `src/ui/decks/<id>.js` like the other eleven; `decks.js` now only lists them,
+  with the topics, regions and the outline slide. The decks themselves are unchanged.
+
+- **Presenter data card: no overlap beside a tool.** With a tool (the abdomen) and several tiles, the tiles were forced
+  onto one row and their names and ratings ran over each other. They now keep about 9.5em each and wrap to a second row;
+  on a phone the rating wraps inside its tile; the tool's tap chips put the name over the number when narrow; and a
+  portrait-tablet card scrolls instead of clipping its bottom.
+
 - **Explore for instructors.** Explore has a *Present* button and a *Case library* for instructors only. The library
   lists the eight cases cut from the course; the course's own four sit below it. Presenter keeps two tours,
   *Sites of portal hypertension* and *Acute variceal bleeding*; the other two are cut. The last card of every unit has
