@@ -205,9 +205,10 @@ function rich(t, s = {}, fp = null) {
 }
 // The five stations' colours with their names, once on a ladder or catheter slide (D1): the figure's labels and
 // the ladder's points take the same colours.
-const STATIONS = [['pv', 'Portal vein'], ['wedge', 'Sinusoids · WHVP'], ['hv', 'Hepatic vein · FHVP'], ['ivc', 'IVC'], ['ra', 'Right atrium']];
+// Short names keep the legend on one line; the full name is the tooltip. The WHVP/FHVP tags drop in narrow panes (CSS).
+const STATIONS = [['pv', 'PV', '', 'Portal vein'], ['wedge', 'Sinusoids', 'WHVP', 'Sinusoids (wedged hepatic venous pressure, WHVP)'], ['hv', 'HV', 'FHVP', 'Hepatic vein (free hepatic venous pressure, FHVP)'], ['ivc', 'IVC', '', 'Inferior vena cava'], ['ra', 'RA', '', 'Right atrium']];
 const stationKey = () => h('div', { class: 'pz-stk', role: 'list', 'aria-label': 'Station colours' },
-  STATIONS.map(([t, w]) => h('span', { role: 'listitem', style: `--c:var(--tr-${t})` }, h('i'), w)));
+  STATIONS.map(([t, w, tag, full]) => h('span', { role: 'listitem', title: full, 'aria-label': full, style: `--c:var(--tr-${t})` }, h('i'), w, tag ? h('span', { class: 'st-tag' }, ` · ${tag}`) : null)));
 // The still column inside the lobule (D5), for a wedge slide with column: true: the balloon stops the hepatic vein,
 // and the column behind it (in the wedge colour) fills back through the central venule and the sinusoids to the
 // first moving blood. Here it stops at a block in the portal tract (schistosomiasis), so the wedge never sees it.
