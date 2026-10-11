@@ -47,10 +47,11 @@ const CHROME = '#topbar, #vdock, #zoomPill, .stage-clock, .pz-bar, .pz-count';
 // grid, so a label that jitters by a pixel as its number changes does not read as a move.
 const GRID = 8;
 function labelRects(wr, wrap) {
-  const out = [];
+  const out = [], seen = new Map();   // the shared ancestors' own opacity, read once per pass
+  const own = (el) => { let v = seen.get(el); if (v === undefined) { const s = getComputedStyle(el); v = s.display === 'none' || s.visibility === 'hidden' ? 0 : +s.opacity; seen.set(el, v); } return v; };
   for (const g of document.querySelectorAll('#labels .lb:not(.lb-off)')) {
     let o = 1;
-    for (let el = g; el && el !== wrap && o > 0.01; el = el.parentElement) { const s = getComputedStyle(el); if (s.display === 'none' || s.visibility === 'hidden') { o = 0; break; } o *= +s.opacity; }
+    for (let el = g; el && el !== wrap && o > 0.01; el = el.parentElement) o *= own(el);
     if (o <= 0.01) continue;
     let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
     for (const q of g.querySelectorAll('text, .lb-bg')) {

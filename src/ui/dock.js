@@ -12,6 +12,9 @@ import { createHvpgProcedure } from './hvpg-proc.js?v=091a1be176';
 import { createDoppler } from './doppler.js?v=027e5ac5be';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=c3367e7cac';
 
+// A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
+const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
+
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
 // circulation. Each readout's status (dot, bar color and word) comes from a clinical cut-off,
@@ -246,18 +249,19 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
-        if (x.val.textContent !== '?') x.val.textContent = '?';
+        setText(x.val, '?');
         s = 'Not measured';
         sev = 'none';
         x.hist.length = 0;
       } else {
         const txt = fmt(v, t.d);
-        if (x.val.textContent !== txt) x.val.textContent = txt;
+        setText(x.val, txt);
         const a = lz ? [f, st0] : [m];
         s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(v, ...a);
         sev = t.st(v, ...a);
         const w = pos(t, v), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
-        x.fill.style.left = Math.min(w, o) + '%'; x.fill.style.width = Math.abs(w - o) + '%';
+        const fl = Math.min(w, o) + '%', fw = Math.abs(w - o) + '%';
+        if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.left = fl; x.fill.style.width = fw; }
       }
       el.classList.toggle('hidden-val', v == null);
       const trend = v == null || measured ? '' : trendOf(x, v, now);
@@ -288,7 +292,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     for (const x of vitEls) {
       const hid = hidden?.has(x.v.hideKey);
       const txt = hid ? '?' : fmt(x.v.v(m), x.v.d);
-      if (x.val.textContent !== txt) x.val.textContent = txt;
+      setText(x.val, txt);
       x.el.classList.toggle('bad', !hid && x.v.bad(m));
     }
   }
