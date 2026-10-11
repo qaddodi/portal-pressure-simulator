@@ -41,7 +41,10 @@ jobs:
   # a runner is too small to run several browsers at once.
   browser-checks:
     runs-on: ubuntu-latest
-    # Covers the install (capped at 4 minutes below) plus the checks (2 to 4 minutes).
+    concurrency:
+      group: browser-checks-${{ github.ref }}-${{ matrix.device }}-${{ matrix.shard }}
+      cancel-in-progress: false
+    # Covers the install (capped at 4 minutes below) plus the checks (up to about 9 minutes).
     timeout-minutes: 15
     strategy:
       fail-fast: false
