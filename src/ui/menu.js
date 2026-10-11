@@ -185,17 +185,15 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const st = store.get(), cur = st.mode === 'cases' ? null : st.presetId;
     const groups = {};
     for (const p of st.presetList || []) (groups[p.group] ||= []).push(p);
-    const patients = h('section', { class: 'um-col', 'data-col': 'patients', 'aria-labelledby': 'umPatients' },
-      h('header', { class: 'um-h' }, svgIcon('scenario', 'um-hi'), h('b', { id: 'umPatients' }, 'Patients'), h('small', {}, `${(st.presetList || []).length} patients`)),
+    const patients = h('section', { class: 'um-col', 'data-col': 'patients' },
       Object.entries(groups).map(([g, ps]) => h('div', { class: 'um-g' },
         h('div', { class: 'um-gl', id: 'umg-' + g }, h('b', {}, g), h('span', {}, GROUP_WHERE[g] || '')),
         h('ul', { 'aria-labelledby': 'umg-' + g }, ps.map((p) => patientRow(p, cur))))));
     let present;
-    if (!lib) present = h('section', { class: 'um-col', 'data-col': 'present' }, h('header', { class: 'um-h' }, svgIcon('projector', 'um-hi'), h('b', {}, 'Present')), h('p', { class: 'um-note' }, 'Loading…'));
+    if (!lib) present = h('section', { class: 'um-col', 'data-col': 'present' }, h('p', { class: 'um-note' }, 'Loading…'));
     else {
       const mine = lib.mine;
-      present = h('section', { class: 'um-col', 'data-col': 'present', 'aria-labelledby': 'umPresent' },
-        h('header', { class: 'um-h' }, svgIcon('projector', 'um-hi'), h('b', { id: 'umPresent' }, 'Present'), h('small', {}, `${lib.decks.length} presentations`)),
+      present = h('section', { class: 'um-col', 'data-col': 'present' },
         lib.topics.map(([k, name, list]) => h('div', { class: 'um-g' },
           h('div', { class: 'um-gl', id: 'umt-' + k }, h('b', {}, name)),
           h('ul', { 'aria-labelledby': 'umt-' + k }, list.map(([id]) => lib.decks.find((d) => d.id === id)).filter(Boolean).map((d) => deckRow(d, lib)))),

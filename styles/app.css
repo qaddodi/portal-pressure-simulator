@@ -1856,6 +1856,9 @@ button.finding:hover { background: var(--surface-2); }
 .pz-panel .pz-ph { display: flex; flex-direction: column; gap: clamp(6px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
 .pz-panel .pz-h { font-size: clamp(28px, calc(4.6 * var(--pzh) / var(--vz)), 56px); }
 .pz-panel .pz-line { max-width: 70ch; }
+/* The deck's own title, large above the opening slide's running head; it fades in with the slide. */
+.pz-panel .pz-deck { margin: 0 0 clamp(2px, calc(.6 * var(--pzh) / var(--vz)), 10px); font: 600 clamp(36px, calc(7.4 * var(--pzh) / var(--vz)), 92px)/1.04 var(--font-display); letter-spacing: -.02em; text-wrap: balance; color: var(--text); animation: pz-in .6s var(--ease) both; }
+.pz.stack .pz-panel .pz-deck { font-size: clamp(28px, calc(5.4 * var(--pzh) / var(--vz)), 36px); text-wrap: wrap; }
 .pz-grid-key { grid-column: 1 / -1; margin: 0; font: 500 clamp(12px, calc(1.5 * var(--pzh) / var(--vz, 1)), 15px) var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .pz-grid-key i { display: inline-block; width: 22px; margin-right: 8px; vertical-align: middle; border-top: 2px dashed var(--text-3); }
 .pz-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, calc(2 * var(--pzh) / var(--vz)), 26px); }
@@ -3216,15 +3219,11 @@ button.finding:hover { background: var(--surface-2); }
 .um-col { flex: 1 1 auto; }
 .um-col.um-in { animation: umTabIn .18s var(--ease); }
 @keyframes umTabIn { from { opacity: 0; transform: translateY(4px); } }
-.um-h { display: none; }
 .um-empty .um-other { display: inline-flex; margin-top: 6px; color: var(--accent-ink); }
 .um-empty .um-other[hidden] { display: none; }
 .umenu:has(.um-empty:not([hidden])) .um-cols { flex: 0 0 auto; }
 .umenu:has(.um-empty:not([hidden])) .um-empty { flex: 1 1 auto; }
 .um-col { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 8px 10px; }
-.um-h { position: sticky; top: -4px; z-index: 1; display: flex; align-items: center; gap: 8px; margin: 0 -8px; padding: 10px 16px 6px; background: var(--surface); }
-.um-h b { font-size: var(--fs-14); font-weight: 600; }
-.um-h small { margin-left: auto; font-size: var(--fs-12); color: var(--text-3); }
 .um-hi { width: var(--ic-s); height: var(--ic-s); color: var(--text-2); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .um-g { margin-top: 4px; }
 .um-gl { display: flex; align-items: baseline; gap: 6px; padding: 6px 8px 2px; font-size: var(--fs-12); color: var(--text-3); }
@@ -3298,7 +3297,6 @@ button.finding:hover { background: var(--surface-2); }
 .umenu.sheet .um-x { display: inline-flex; }
 .umenu.sheet .um-cols { display: block; overflow-y: auto; overscroll-behavior: contain; }
 .umenu.sheet .um-col { overflow: visible; padding: 0 8px 8px; }
-.umenu.sheet .um-h { top: 0; padding-top: 12px; }
 .umenu.sheet .um-esc { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .umenu, .umenu.sheet, .um-scrim, .um-pv-in { animation: none; }
