@@ -992,6 +992,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // through its fade back in, so the eye sees one motion, not a fade and then a move.
     // (The words come first: they set the space the camera frames into.)
     wordsIn(s, q, st, to, swap);
+    // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
+    if (!s.visual && !q) app.dataset.lit = slideTargets(s).lit.join(' ');
     if (s.visual === 'table') fillTable(s, cut);
     const lead = swap && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? camera(cam, s, cut) : null;
     if (lead) await wait(150);
