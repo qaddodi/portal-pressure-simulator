@@ -22,7 +22,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          id=$(gh run list -R "$GITHUB_REPOSITORY" -w deck-sweep.yml -s completed -L 1 --json databaseId -q '.[0].databaseId')
+          id=$(gh run list -R "$GITHUB_REPOSITORY" -w deck-sweep.yml -s success -L 1 --json databaseId -q '.[0].databaseId')
           echo "Sweep run $id"
           gh run download "$id" -R "$GITHUB_REPOSITORY" -D results
       - name: Summary
