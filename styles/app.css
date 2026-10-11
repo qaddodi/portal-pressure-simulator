@@ -5086,6 +5086,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-grip { position: absolute; border-radius: 3px; background: color-mix(in srgb, var(--text) 32%, transparent); pointer-events: none; display: none; }
 @media (pointer: coarse) {
   .pz-grip { display: block; left: 50%; bottom: 6px; width: 38px; height: 4px; translate: -50% 0; }
+  /* The handle gets its own strip under the content (4px bar + 6px edge gap + 6px clear), so it never sits on the tiles. */
+  .pz.stack .pz-data { padding-bottom: 16px; }
   .pz:not(.stack) .pz-grip { left: 7px; bottom: auto; top: 50%; width: 4px; height: 38px; translate: 0 -50%; }
   .pz:not(.stack) .pz-data.under .pz-grip { left: auto; right: 7px; }
 }
