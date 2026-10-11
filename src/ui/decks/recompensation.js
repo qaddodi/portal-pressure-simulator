@@ -17,7 +17,7 @@ export const RECOMPENSATION = {
     {
       id: 'csph', tick: 'CSPH', preset: 'csph', cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'],
       kicker: 'Compensated', site: 'sin', title: 'Compensated, with CSPH',
-      line: 'Alcohol-related cirrhosis with an HVPG of {hvpg}, above {>=10 mmHg}: no ascites or bleeding yet, but the stage at which they become likely.',
+      line: 'Alcohol-related cirrhosis with an HVPG of {hvpg}, 10 mmHg or more: no ascites or bleeding yet, but from here they become possible, and more so as the gradient climbs.',
       notes: 'Clinically significant portal hypertension marks the patients at risk of decompensation. Baveno VII advises treating the cause and starting a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. This patient keeps drinking and takes no treatment, so the disease runs its course.',
       ask: ['What does Baveno VII advise for compensated cirrhosis with CSPH?', 'Treat the cause, and start a non-selective beta-blocker, preferably carvedilol, to prevent decompensation.'],
     },
@@ -32,7 +32,7 @@ export const RECOMPENSATION = {
       id: 'diuretics', tick: 'Diuretics', params: { diuretics: true }, days: 30, lapse: { seconds: 6 }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc'], key: ['asc'],
       kicker: 'Decompensation', site: 'sin', title: 'Salt restriction and diuretics',
       line: 'Spironolactone with furosemide and a moderate salt restriction bring the ascites down to {asc} in a month.',
-      notes: 'A moderate sodium restriction, about 2 g of sodium a day, with spironolactone and furosemide treats grade 2 ascites; the doses rise stepwise to at most 400 mg of spironolactone and 160 mg of furosemide. Weight loss should stay under about 0.5 kg a day without leg edema. Watch the sodium, the potassium and the creatinine.',
+      notes: 'A moderate sodium restriction, about 2 g of sodium (5 g of salt) a day, with spironolactone and furosemide treats grade 2 ascites; the doses rise stepwise to at most 400 mg of spironolactone and 160 mg of furosemide. Weight loss should stay under about 0.5 kg a day without leg edema. Watch the sodium, the potassium and the creatinine.',
       ask: ['What are the maximum daily doses of spironolactone and furosemide?', '400 mg of spironolactone and 160 mg of furosemide.'],
     },
     {
@@ -40,7 +40,7 @@ export const RECOMPENSATION = {
       compare: [{ label: 'No beta-blocker', params: { drugs: OFF } }, { label: 'Carvedilol', own: true, params: { drugs: { carvedilol: true } } }],
       kicker: 'Decompensation', site: 'sin', title: 'Carvedilol, with an eye on the blood pressure',
       line: 'Carvedilol lowers the HVPG to {hvpg}. With ascites, lower the dose or stop it if the blood pressure stays low or the kidneys fail.',
-      notes: 'A non-selective beta-blocker prevents variceal bleeding and further decompensation in patients with ascites, but the margin narrows as the disease advances. Baveno VII advises reducing the dose or stopping it when the systolic pressure stays below 90 mmHg (or the mean below 65 mmHg) or acute kidney injury develops, and restarting it when these resolve.',
+      notes: 'With ascites, a beta-blocker is given for varices: high-risk ones, or after a bleed. Whether it prevents other decompensation is still open, and the margin narrows as the disease advances. Baveno VII advises reducing the dose or stopping it when the systolic pressure stays below 90 mmHg (or the mean below 65 mmHg) or acute kidney injury develops, and restarting it when these resolve.',
       ask: ['When is the beta-blocker reduced or stopped in a patient with ascites?', 'When the blood pressure stays low (systolic below 90 mmHg) or acute kidney injury develops.'],
     },
     {
@@ -54,7 +54,7 @@ export const RECOMPENSATION = {
       id: 'recomp', tick: 'Off diuretics', params: { diuretics: false }, days: 60, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'],
       kicker: 'Recompensation', site: 'sin', title: 'Recompensation',
       line: 'Off diuretics the ascites stays away and the albumin holds. If that lasts 12 months, the patient has recompensated.',
-      causesHead: 'Baveno VII criteria', causes: ['Cause removed or cured', 'No ascites or encephalopathy off treatment', 'No variceal bleed for 12 months', 'Lasting better liver tests'],
+      causesHead: 'Baveno VII criteria', causes: ['Cause removed or cured', 'No ascites, encephalopathy or variceal bleed for 12 months, off treatment', 'Lasting better liver tests'],
       notes: 'Baveno VII asks for all of: the cause removed, suppressed or cured; no ascites off diuretics, no encephalopathy off lactulose or rifaximin and no variceal bleed for 12 months; and a lasting improvement in albumin, INR and bilirubin. Recompensation means the disease behaves as compensated again; it is not a cure. The patient still has cirrhosis, still needs surveillance for liver cancer and, while CSPH persists, the beta-blocker. If the cause returns, decompensation can follow.',
       ask: ['After recompensation, does liver cancer surveillance stop?', 'No: the cirrhosis remains, so surveillance continues.'],
     },

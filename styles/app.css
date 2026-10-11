@@ -1914,6 +1914,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-line { margin: 0; font: 400 clamp(17px, calc(2.55vh / var(--vz)), 31px)/1.38 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
 /* Body emphasis: key terms in the heading colour, values in a quiet pill with even figures. */
 .pz-line b { font-weight: 600; color: var(--text); }
+.pz-caveat { margin: .5em 0 0; font: 400 clamp(11px, calc(1.45vh / var(--vz)), 16px)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
 .pz-val { display: inline-block; padding: .02em .42em .06em; border-radius: var(--r-pill); background: color-mix(in srgb, var(--text) 7%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
 /* Every pill (value or term) is one box: the same size, line height and padding, so they match in height; a little room either side, and a taller line where a line holds one so pills on adjacent lines never touch. */
 .pz-val, .pz-term { display: inline-block; box-sizing: border-box; padding: .1em .5em; margin-inline: .14em; font-size: .92em; line-height: 1.2; vertical-align: baseline; }

@@ -7,7 +7,7 @@ export const SHUNTS = {
   id: 'shunts', level: 'advanced', title: 'Shunts: made and spontaneous', minutes: 10,
   objectives: [
     'Explain why a shunt lowers the portal pressure and what it costs the liver',
-    'Recognise gastrorenal and splenorenal shunts and their links to fundal varices and encephalopathy',
+    'Recognize gastrorenal and splenorenal shunts and their links to fundal varices and encephalopathy',
     'Describe TIPS, why it is kept narrow, and how a blocked stent shows',
     'Predict what closing a shunt (BRTO) does to the portal pressure',
   ],
@@ -25,8 +25,8 @@ export const SHUNTS = {
       id: 'grs', preset: 'gastric-varix', cam: 'fundus', mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['gv', 'ppg'],
       kicker: 'Spontaneous', site: 'sin', title: 'Gastrorenal shunt',
       line: 'Fundal varices drain through the gastrorenal shunt to the left renal vein.',
-      notes: 'Isolated fundal varices (IGV1) and those continuous with the esophageal varices along the greater curve toward the fundus (GOV2) are fed by the short and posterior gastric veins, and most drain through a gastrorenal shunt, often via the left inferior phrenic vein, into the left renal vein. Because the shunt decompresses them, fundal varices bleed at a lower HVPG than esophageal varices, and bleed more heavily. The shunt is the route used to close them from below (BRTO), later in this talk. Endoscopy in this app stays in the esophagus; fundal varices are read from the tile.',
-      ask: ['Where does a gastrorenal shunt drain?', 'Into the left renal vein.'],
+      notes: 'Isolated fundal varices (IGV1) and those continuous with the esophageal varices along the greater curve toward the fundus (GOV2) are fed by the short and posterior gastric veins, and most drain through a gastrorenal shunt, often via the left inferior phrenic vein, into the left renal vein. Fundal varices bleed at a lower gradient than esophageal ones, and more heavily, perhaps because they are wider and their wall tension higher, or because the shunt lowers the pressure. The shunt is the route used to close them from below (BRTO), later in this talk. Endoscopy in this app stays in the esophagus; fundal varices are read from the tile.',
+      ask: ['Why do fundal varices bleed at a lower gradient than esophageal ones?', 'Probably because they are wider, so their wall tension is higher at the same pressure; a gastrorenal shunt can also lower the gradient.'],
     },
     {
       id: 'srs', preset: 'cirr-decomp', params: { spontaneous: { C6: true } }, days: 30, cam: 'splenic', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' },
@@ -40,7 +40,7 @@ export const SHUNTS = {
       id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' },
       tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: 'own',
       kicker: 'Made', site: 'sin', title: 'TIPS',
-      line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The PPG falls to {ppg}, below {<12 mmHg}.',
+      line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The PPG falls to {ppg}, below 12 mmHg.',
       notes: 'The stent runs through the liver from the right hepatic vein to the right portal vein, so portal blood has a low-resistance path back to the heart. The PPG is measured before and after; for bleeding the aim is below 12 mmHg, or a fall of half. On Doppler the stent carries steady flow toward the heart along its whole length; a clear fall or rise in velocity from the last scan suggests narrowing. The tiles compare with the same patient before the stent.',
       ask: ['What does Doppler show in a working TIPS?', 'Steady flow toward the heart along the whole stent, at a velocity close to the last scan.'],
     },
@@ -48,7 +48,7 @@ export const SHUNTS = {
       id: 'wide', params: { tips: { d: 12 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Stent at 12 mm', kind: 'treat' }, data: 'tiles', tiles: ['ppg', 'liver'],
       kicker: 'Made', site: 'sin', title: 'A 12 mm stent takes too much',
       line: 'A wider stent lowers the gradient further and takes more blood from the liver: more encephalopathy, and a risk of liver failure.',
-      notes: 'The same patient with the stent opened to 12 mm. The gradient falls further, but the liver loses more of its portal blood. Encephalopathy after TIPS is commoner with wider stents, older age and earlier encephalopathy; liver failure is the feared complication when reserve is poor. Many centers place an 8 mm stent, or a stent that is under-dilated and can be widened later if the gradient stays high. Persistent encephalopathy can be treated by narrowing the stent.',
+      notes: 'The same patient with the stent opened to 12 mm. The gradient falls further, but the liver loses more of its portal blood. Encephalopathy after TIPS is commoner with wider stents, older age and earlier encephalopathy; liver failure is the feared complication when reserve is poor. Many centers place an 8 mm stent, or a stent that is under-dilated and can be widened later if the gradient stays high. Persistent encephalopathy can be treated by narrowing the stent. Under-dilated standard stent grafts tend to widen partly toward their full size over about six months; controlled-expansion grafts are designed to hold the set width.',
       ask: ['Why are TIPS stents often left under-dilated?', 'To lower the gradient enough while keeping portal flow to the liver and the risk of encephalopathy down.'],
     },
     {

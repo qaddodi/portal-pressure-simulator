@@ -19,10 +19,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=c6a8f1cabe';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=0ad25dacce';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=eb09390bdd';
 import { createHvpgMonitor } from './hvpg-proc.js?v=4b408e144c';
 import { createTools } from './presenter-tools.js?v=2b61fa94ab';
-import { openHandout } from './handout.js?v=f324011f48';
+import { openHandout } from './handout.js?v=a81dde6e1b';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
 const KEY = 'pps.scripts';
@@ -1135,7 +1135,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void panel.offsetWidth; }
       panel.classList.toggle('fill', s.visual === 'ladders');
       panel.dataset.visual = s.visual;
-      panel.replaceChildren(h('div', { class: 'pz-ph' }, kick(null, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null),
+      panel.replaceChildren(h('div', { class: 'pz-ph' }, kick(null, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null),
         VISUALS[s.visual](s));
       panel.classList.remove('pz-leave');
       ui.veil.classList.add('on');
@@ -1144,7 +1144,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       text.hidden = false;
       text.replaceChildren(...(q
         ? [kick(null, 'Quiz'), h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
-        : [kick(s.site, s.kicker, s.sec), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null,
+        : [kick(s.site, s.kicker, s.sec), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.data === 'ladder' || s.cath ? stationKey() : null,
