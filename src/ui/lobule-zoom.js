@@ -22,13 +22,13 @@
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { store } from './store.js?v=5edd069b32';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=e0a6918f70';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=58cca12828';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=045e641b44';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
-import { NODES, EDGES } from '../engine/topology.js?v=706a39d50b';
+import { NODES, EDGES } from '../engine/topology.js?v=34e377149b';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=20395274c8';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=de74e96d8e';
+import { createSinusoidView } from './sinusoid-view.js?v=38b983f75c';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -784,7 +784,7 @@ export function createLobuleZoom({ host }) {
   function panel() {
     const m = model;
     tissue.setAttribute('aria-label', m.hide ? 'Liver lobule. Pressures not measured.'
-      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central venule ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`);
+      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`);
     // Station cards on the figure.
     // Labels as in the anatomy: the station, its pressure, and the change from healthy once it reaches
     // 5 mmHg; while comparing, every change from the pinned moment (shown at 1, dropped below 0.7).
@@ -798,7 +798,7 @@ export function createLobuleZoom({ host }) {
     };
     setLab('triad', 'Portal venule', 'Portal venule', ...mv('triad', m.P1, m.R[0]));
     setLab('sin', 'Sinusoids', 'Sinusoids', ...mv('sin', m.P2, m.R[1]));
-    setLab('cv', 'Central venule', 'Central venule', ...mv('cv', m.P3, m.R[2]));
+    setLab('cv', 'Central vein', 'Central vein', ...mv('cv', m.P3, m.R[2]));
     // Lymph (Lymph layer on): the whole liver's rate and its protein; the change from healthy is on its card.
     if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
     else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), `mL/min · Protein ${Math.round(m.lyProt * 100)}%`, '', null);
@@ -904,8 +904,8 @@ export function createLobuleZoom({ host }) {
     pickAnchors(fr0);
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
     const { R, cx, cy } = g;
-    // Direct labels for the portal venule and sinusoids. Only the central venule
-    // needs a leader; its endpoint is the label's centre, behind the text halo.
+    // The sinusoids are named directly; the portal venule, central vein and lymph have a leader to what they name,
+    // ending at the label's centre, behind the text halo.
     // Score nearby placements together so zooming, panning and narrow screens do not stack labels.
     const fr = fr0, placed = [];
     const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l))
@@ -960,13 +960,16 @@ export function createLobuleZoom({ host }) {
         for (const n of [0, -1, 1, -2, 2, -3, 3]) if (dx || n) candidates.push([preferred[0] + dx, preferred[1] + n * step]);
       // Snug against each label already placed (just above or below it), so a tight gap between two is found.
       for (const o of placed) candidates.push([preferred[0], o.b + hh / 2 + hm], [preferred[0], o.t - hh / 2 - hm]);
-      const own = marks.filter((m) => m.k !== k);
+      const own = marks.filter((m) => m.k !== k), leads = k !== 'sin';
       let best = null;
       for (const [px, py] of candidates) {
         const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad);
         const y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
         const box = { l: x - w / 2 - hm, r: x + w / 2 + hm, t: y - hh / 2 - hm, b: y + hh / 2 + hm };
+        // A label with a leader keeps a visible stretch of it: it never sits right over the vessel it names.
+        const lead = leads && Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2));
         const cost = placed.reduce((sum, other) => sum + overlap(box, other) * 100, 0)
+          + (leads ? Math.max(0, 16 - lead) * 40 : 0)
           + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0)
           + own.reduce((sum, m) => sum + overlap(box, m) * 40, 0)
           + Math.hypot(x - preferred[0], y - preferred[1]);
@@ -975,9 +978,9 @@ export function createLobuleZoom({ host }) {
       const { x, y, box } = best;
       placed.push(box);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
-      L.el.classList.toggle('direct', k !== 'cv' && k !== 'lymph');
+      L.el.classList.toggle('direct', k === 'sin');
       L.el.classList.remove('left');
-      const leaderOn = k === 'cv' || k === 'lymph';
+      const leaderOn = leads;
       L.line.style.display = L.dotEl.style.display = leaderOn ? '' : 'none';
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]);
       L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);

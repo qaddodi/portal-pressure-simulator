@@ -48,12 +48,12 @@ export const SITES = {
       ask: ['Why does the wedged pressure track the portal pressure in cirrhosis?', 'The resistance lies in the sinusoids the wedge reads, so the wedged pressure rises with the portal pressure.'],
     },
     {
-      id: 'postsin', terms: { 'central veins': 'lobule:central' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central venules' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the obstruction?',
+      id: 'postsin', terms: { 'central veins': 'lobule:central' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central veins' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the obstruction?',
       kicker: 'Intrahepatic · postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome',
       line: 'Damaged endothelium obstructs the sinusoids and small central veins, upstream of the catheter tip, so the wedged pressure and HVPG rise.',
       causes: ['Conditioning for stem cell transplant', 'Oxaliplatin', 'Pyrrolizidine alkaloids (bush teas)'],
       notes: 'Formerly veno-occlusive disease. Toxic injury sheds sinusoidal endothelial cells, which obstruct the sinusoids and the terminal hepatic venules. It presents within weeks of myeloablative conditioning with tender hepatomegaly, weight gain, ascites and jaundice. An HVPG above 10 mmHg, measured with a transjugular biopsy, strongly supports the diagnosis. The model shows an earlier stage, with an HVPG of about 9 mmHg: raised, but under 10.',
-      ask: ['Why does HVPG rise here but not in schistosomiasis?', 'Here the block is in the sinusoids and central venules the wedge reads; in schistosomiasis it is in the portal tracts, upstream of them.'],
+      ask: ['Why does HVPG rise here but not in schistosomiasis?', 'Here the block is in the sinusoids and central veins the wedge reads; in schistosomiasis it is in the portal tracts, upstream of them.'],
     },
     {
       id: 'post', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Blocked hepatic veins' },

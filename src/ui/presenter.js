@@ -17,12 +17,12 @@ import { store, replaceParams } from './store.js?v=5edd069b32';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './util.js?v=045e641b44';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
-import { sinusoidSupported } from './sinusoid-view.js?v=de74e96d8e';
-import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=1d73bdef8b';
-import { createHvpgMonitor } from './hvpg-proc.js?v=ba33a59e09';
-import { createTools } from './presenter-tools.js?v=89c7ed5904';
-import { openHandout } from './handout.js?v=d93ab577d5';
+import { sinusoidSupported } from './sinusoid-view.js?v=38b983f75c';
+import { NODES } from '../engine/topology.js?v=34e377149b';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=a1f8be0b88';
+import { createHvpgMonitor } from './hvpg-proc.js?v=b744bb28bb';
+import { createTools } from './presenter-tools.js?v=2d60053920';
+import { openHandout } from './handout.js?v=65fbbee1a0';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
 const KEY = 'pps.scripts';
@@ -210,11 +210,11 @@ const STATIONS = [['pv', 'PV', '', 'Portal vein'], ['wedge', 'Sinusoids', 'WHVP'
 const stationKey = () => h('div', { class: 'pz-stk', role: 'list', 'aria-label': 'Station colours' },
   STATIONS.map(([t, w, tag, full]) => h('span', { role: 'listitem', title: full, 'aria-label': full, style: `--c:var(--tr-${t})` }, h('i'), w, tag ? h('span', { class: 'st-tag' }, ` · ${tag}`) : null)));
 // The still column inside the lobule (D5), for a wedge slide with column: true: the balloon stops the hepatic vein,
-// and the column behind it (in the wedge colour) fills back through the central venule and the sinusoids to the
+// and the column behind it (in the wedge colour) fills back through the central vein and the sinusoids to the
 // first moving blood. Here it stops at a block in the portal tract (schistosomiasis), so the wedge never sees it.
 function wedgeColumn() {
   const S = 'http://www.w3.org/2000/svg', el = (t, a = {}, txt) => { const e = document.createElementNS(S, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); if (txt) e.textContent = txt; return e; };
-  const svg = el('svg', { class: 'pz-col', viewBox: '0 0 360 98', role: 'img', 'aria-label': 'The still column fills from the balloon back through the central venule and the sinusoids, and stops at the block in the portal tract.' });
+  const svg = el('svg', { class: 'pz-col', viewBox: '0 0 360 98', role: 'img', 'aria-label': 'The still column fills from the balloon back through the central vein and the sinusoids, and stops at the block in the portal tract.' });
   svg.append(
     el('rect', { class: 'c-pv', x: 4, y: 36, width: 76, height: 18, rx: 9 }),
     el('rect', { class: 'c-sin', x: 92, y: 38, width: 146, height: 14 }),
@@ -223,7 +223,7 @@ function wedgeColumn() {
     el('ellipse', { class: 'c-bal', cx: 330, cy: 45, rx: 13, ry: 13 }),
     el('path', { class: 'c-blk', d: 'M78 33 L94 57 M94 33 L78 57' }),
     el('text', { class: 'c-top', x: 211, y: 24, 'text-anchor': 'middle' }, 'Still column: reads the sinusoids'),
-    ...[[40, 'Portal vein'], [165, 'Sinusoids'], [262, 'Central venule'], [330, 'Balloon']].map(([x, t]) => el('text', { x, y: 76, 'text-anchor': 'middle' }, t)),
+    ...[[40, 'Portal vein'], [165, 'Sinusoids'], [262, 'Central vein'], [330, 'Balloon']].map(([x, t]) => el('text', { x, y: 76, 'text-anchor': 'middle' }, t)),
     el('text', { class: 'c-blkt', x: 86, y: 92, 'text-anchor': 'middle' }, 'Block in the portal tract'));
   requestAnimationFrame(() => requestAnimationFrame(() => svg.classList.add('in')));
   return svg;
@@ -623,7 +623,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=bafb12d22a', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=3c9d8585fb', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -635,7 +635,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=c394f5eab9');
+      const { createCore } = await import('../worker-core.js?v=489cacd07d');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

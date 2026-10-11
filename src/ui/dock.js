@@ -2,15 +2,15 @@
 // Instruments card (blueprint §9.1, §9.2).
 
 import { store, hiddenNow } from './store.js?v=5edd069b32';
-import { EDGES } from '../engine/topology.js?v=706a39d50b';
+import { EDGES } from '../engine/topology.js?v=34e377149b';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=045e641b44';
-import { lobuleFlows } from './lobule-model.js?v=e0a6918f70';
-import { createProfile } from './charts.js?v=17c82c589c';
-import { createPressureTime } from './pressure-time.js?v=a37b68e463';
-import { createFibroScan } from './fibroscan.js?v=b4b6e62ca6';
-import { createHvpgProcedure } from './hvpg-proc.js?v=ba33a59e09';
-import { createDoppler } from './doppler.js?v=66f1972443';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=831d9047a4';
+import { lobuleFlows } from './lobule-model.js?v=58cca12828';
+import { createProfile } from './charts.js?v=cbba3e4cb4';
+import { createPressureTime } from './pressure-time.js?v=1b4e39887f';
+import { createFibroScan } from './fibroscan.js?v=844b49c4e3';
+import { createHvpgProcedure } from './hvpg-proc.js?v=b744bb28bb';
+import { createDoppler } from './doppler.js?v=af20f70c54';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=e5b8b45fad';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic

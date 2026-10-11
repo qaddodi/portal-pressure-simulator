@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=045e641b44';
 import { pressureColor } from './colormap.js?v=7616551729';
 import { isPaused } from './clock.js?v=d82cfa024b';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=77f7c03378';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=4130ba5b4b';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -139,7 +139,7 @@ export function createSinusoidView({ host }) {
       // The stellate cell sits at a junction between two hepatocytes on the upper side, a little before the middle.
       let xs = cellEdge(0, SEED.plateUp);
       for (let j = -3; j <= 2; j++) { const b = cellEdge(j, SEED.plateUp); if (Math.abs(b + 10) < Math.abs(xs + 10)) xs = b; }
-      geo = { W, H, ang, vert, tall, x0: -X, x1: X, xs, xk: vert ? 12 : 22, pores };   // (the Kupffer cell nearer the middle on a portrait screen, clear of the central venule's name)
+      geo = { W, H, ang, vert, tall, x0: -X, x1: X, xs, xk: vert ? 12 : 22, pores };   // (the Kupffer cell nearer the middle on a portrait screen, clear of the central vein's name)
     }
     // Where it is drawn: centred in the free space, the plates filling its short side. When that space
     // changes (the dock grows, a card opens) the view glides there (stepView), it does not jump.
@@ -513,7 +513,7 @@ export function createSinusoidView({ host }) {
   }
   function layoutEnds() {
     const g = geo, f = VW.f;
-    // The ends: the portal venule the blood comes from and the central venule it goes to, with their pressures (as the lobule labels them).
+    // The ends: the portal venule the blood comes from and the central vein it goes to, with their pressures (as the lobule labels them).
     // The legend: at the top left, under the top bar.
     const lx = f.l + 2, ly = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 12;
     // (On a top-down sinusoid it stays in the plate on the left, clear of the vessel and the portal venule's name.)
@@ -522,13 +522,13 @@ export function createSinusoidView({ host }) {
     legend.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
     LEG.x = lx; LEG.y = ly; LEG.w = legend.offsetWidth; LEG.h = legend.offsetHeight;
     const m = model, val = (P) => (m.hide ? '?' : `${fmt(P, 1)}~mmHg`);
-    for (const [key, name, value, u] of [['in', 'Portal venule', val(m.P1), 0], ['out', 'Central venule', val(m.P3), 1]]) {
+    for (const [key, name, value, u] of [['in', 'Portal venule', val(m.P1), 0], ['out', 'Central vein', val(m.P3), 1]]) {
       // (The Sinusoid's own caption, class and all: same capitals, size, ink, halo and reading.)
       const T = caption(key, 'sv-region sv-region-sin sv-end', name, value);
       const w = T.el.offsetWidth, hh = T.el.offsetHeight;
       let x, y;
       // Its arrow (drawn by the shader), outside the label, points toward the vessel off the view: the portal venule's
-      // above it on a top-down sinusoid (left of it on a wide one), pointing up (left); the central venule's below it
+      // above it on a top-down sinusoid (left of it on a wide one), pointing up (left); the central vein's below it
       // (right of it), pointing down (right).
       const A = 22 + 10;   // (the arrow and its gaps, px)
       if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - A : f.t + A; }

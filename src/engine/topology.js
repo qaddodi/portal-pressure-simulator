@@ -35,8 +35,8 @@ export const NODES = [
 
   ['SIN_R', 'Sinusoids, right lobe (inlet)', 7.0, 6, 'none', 'liver'],
   ['SIN_L', 'Sinusoids, left lobe (inlet)', 7.0, 4, 'none', 'liver'],
-  ['CV_R', 'Central venules, right lobe', 4.8, 2, 'none', 'liver'],
-  ['CV_L', 'Central venules, left lobe', 4.8, 1.5, 'none', 'liver'],
+  ['CV_R', 'Central veins, right lobe', 4.8, 2, 'none', 'liver'],
+  ['CV_L', 'Central veins, left lobe', 4.8, 1.5, 'none', 'liver'],
   ['W_R', 'Wedge compartment (RHV)', 4.9, 0.3, 'none', 'wedge'],
   ['W_M', 'Wedge compartment (MHV)', 4.9, 0.3, 'none', 'wedge'],
   ['W_L', 'Wedge compartment (LHV)', 4.9, 0.3, 'none', 'wedge'],
@@ -111,7 +111,7 @@ export const EDGES = [
   { id: 'POST_L_MHV', from: 'CV_L', to: 'MHV', Q: 3.0, kind: 'liver', lobe: 'L', zone: 'post', d: 4, label: 'Central veins → MHV (left)' },
   { id: 'CAUD', from: 'CV_R', to: 'IVCS', Q: 0.8, kind: 'vein', d: 3, label: 'Caudate lobe veins' },
 
-  // Wedge compartments (§7.2): stagnant column to sinusoid inlet, leak to central venules, outflow to HV
+  // Wedge compartments (§7.2): stagnant column to sinusoid inlet, leak to central veins, outflow to HV
   { id: 'WC_R', from: 'SIN_R', to: 'W_R', G: 0.02, kind: 'wedge', role: 'col', w: 'R' },
   { id: 'WL_R', from: 'CV_R', to: 'W_R', G: 0.005, kind: 'wedge', role: 'leak', w: 'R' },
   { id: 'WO_R', from: 'W_R', to: 'RHV', G: 0.05, kind: 'wedge', role: 'out', w: 'R' },

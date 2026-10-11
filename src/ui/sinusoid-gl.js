@@ -406,10 +406,10 @@ void main() {
   vec3 c = cBg;
   if (a < hw) {
     c = lumen(x, y, hw, 0, true);
-    // The arrows at the ends, beside their labels: the blood coming in from the portal venule and going out to the central venule.
+    // The arrows at the ends, beside their labels: the blood coming in from the portal venule and going out to the central vein.
     for (int i = 0; i < 2; i++) {
       float s = uEnd.z;
-      // Each points toward its vessel, off the view: the portal venule's back upstream, the central venule's on downstream.
+      // Each points toward its vessel, off the view: the portal venule's back upstream, the central vein's on downstream.
       vec2 q = vec2((x - (i == 0 ? uEnd.x : uEnd.y)) * uDir * (i == 0 ? -1.0 : 1.0), y);
       // A thick, laid-down arrow: a short
       // broad shaft and a wide head, softly rounded, in the labels' ink faded into the blood, as a journal figure marks flow.

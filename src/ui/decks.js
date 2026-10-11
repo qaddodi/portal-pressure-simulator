@@ -50,14 +50,14 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=a4e4ccf9b5';
-import { SITES } from './decks/sites.js?v=08eac19128';
+import { SITES } from './decks/sites.js?v=99764025c1';
 import { HVPG } from './decks/hvpg.js?v=5dc6e4727a';
 import { ASCITES } from './decks/ascites.js?v=abd2ae57e4';
 import { VARICES } from './decks/varices.js?v=1ad248e26a';
 import { TREATMENT } from './decks/treatment.js?v=67bb210d9f';
 import { STIFFNESS } from './decks/stiffness.js?v=35e2f96b71';
 import { ONE_YEAR } from './decks/one-year.js?v=37492fcfd2';
-import { LOBULE } from './decks/lobule.js?v=0180de95c3';
+import { LOBULE } from './decks/lobule.js?v=e7977e803e';
 import { SHUNTS } from './decks/shunts.js?v=a0cc164807';
 import { TAP } from './decks/tap.js?v=fd0e03bbb4';
 import { CIRCUIT } from './decks/circuit.js?v=05ee0b6b76';
