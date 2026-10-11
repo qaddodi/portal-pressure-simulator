@@ -737,9 +737,14 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   const loading = (on) => ui?.load.classList.toggle('on', on);
   async function figureOut() { loading(true); view.classList.add('pz-out'); await wait(fadeMs()); }
   function figureIn() { view.classList.remove('pz-out'); loading(false); }
-  async function toAnatomy() {
+  // (next: the slide being moved to, if it frames the plate, so the way out of the lobule lands on that framing
+  // in one zoom rather than stopping at the fit first.)
+  async function toAnatomy(next) {
     if (store.get().sinusoid) { store.set({ sinusoid: false }); await wait(reduce.matches ? 300 : 1000); }
-    if (store.get().lobule) { store.set({ lobule: false }); await until(() => stage.lobuleSettled(), 2600); await wait(80); }
+    if (store.get().lobule) {
+      if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);   // (box: a function, asked for when the rise begins)
+      store.set({ lobule: false }); await until(() => stage.lobuleSettled(), 2600); await wait(80);
+    }
   }
   // Glide the camera to a slide's framing; resolves when it has landed (cut(): a newer slide was asked for).
   async function camera(cam, s, cut) {
@@ -752,10 +757,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       // The station this slide frames: the dive lands on it in one move, and (mid-dive) no other station's labels show.
       const part = cam === 'sinusoid' ? 'sinusoid' : cam.split(':')[1] || 'fit', zoom = s.zoom ?? 2.3;
       if (!store.get().lobule) {
-        // Whole figure → the liver → into it: the dive starts from the liver, filling the screen.
-        stage.frameBox(REGIONS.liver, ms ? 1100 : 0, 2.4);
-        await wait(ms ? 1150 : 0);
-        if (cut()) return;
+        // Straight from wherever the camera is into the lobule: one continuous zoom, no stop at the liver on the way.
         stage.lobuleAim(part, { zoom });
         store.set({ lobule: true });
         // (A first dive also loads the lobule, which a slow tablet can take several seconds over.)
@@ -773,9 +775,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       if (stage.lobuleFocus(part, { zoom, ms })) await wait(ms);
       return;
     }
-    await toAnatomy();
-    if (cut()) return;
     const v = s.view || 'anatomic';
+    await toAnatomy(v === 'anatomic' ? riseFor(cam, s) : null);
+    if (cut()) return;
     if (store.get().view !== v) { store.set({ view: v }); await wait(700); }
     // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move.)
     const gl = ms || 300;
@@ -783,6 +785,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     else stage.frameBox(camBox(cam, s), gl, s.kMax || 3.2, !!s.clear);
     await wait(gl);
   }
+  // Where the way out of the lobule should land for a slide: its framing, asked for when the rise begins (null: the fit).
+  const riseFor = (cam, s) => (cam === 'fit' ? null : { box: () => camBox(cam, s), kMax: s.kMax || 3.2, clear: !!s.clear });
   // A slide's framing: its region of the plate, grown to take in all of what the slide points at (its outlined
   // organs as drawn now, an enlarged spleen whole), with a little room for the outline's glow.
   function camBox(cam, s) {
@@ -1026,8 +1030,14 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     slideLayers(s);
     // The catheter leaves with its slides (with a new patient, the figure's fade takes it).
     if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0); if (cut()) return; }
-    // Out of the lobule while the old patient is still there, so the rise reads as leaving the liver.
-    if ((ct || (cam && !LOBULE_CAM.test(cam))) && (store.get().lobule || store.get().sinusoid)) { await toAnatomy(); if (cut()) return; }
+    // Out of the lobule while the old patient is still there, so the rise reads as leaving the liver. (With the same patient it waits
+    // for the new slide's words, which set the space the camera frames into, so the rise is one zoom straight to the slide's framing:
+    // see camera.)
+    const inAnatomy = !ct && cam && !LOBULE_CAM.test(cam) && (s.view || 'anatomic') === 'anatomic';
+    if ((ct || (cam && !LOBULE_CAM.test(cam))) && (store.get().lobule || store.get().sinusoid)) {
+      if (!inAnatomy || si !== shownState || liveOff) { await toAnatomy(inAnatomy ? riseFor(cam, s) : null); if (cut()) return; }
+      else if (store.get().sinusoid) { store.set({ sinusoid: false }); await wait(reduce.matches ? 300 : 1000); if (cut()) return; }
+    }
     // (A patient still being computed off screen: after a short wait the arc shows.)
     const lateT = states[si] ? 0 : setTimeout(() => loading(true), 260);
     const st = await stateReady(si);

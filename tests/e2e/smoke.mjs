@@ -42,7 +42,7 @@ async function runCheck(device, name, fn, tries = RETRIES) {
   page.setDefaultTimeout(60000);
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); if (/DBG/.test(m.text())) console.log(m.text()); });
   const t0 = Date.now();
   try {
     await fn(page);
@@ -305,6 +305,67 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const back = await steady();
     if (back !== home) throw new Error(`the anatomy came back at ${back}, not at its framing ${home}`);
   });
+
+  // Every way into or out of the lobule is one continuous zoom: the camera's magnification (the plate's zoom plus the dive's)
+  // moves steadily from the first frame to the last, in one direction, with no stop at an intermediate framing (the liver, the fit).
+  // The presenter's slides are walked with the arrow keys, from the slide before a crossing to the one after it, and back.
+  const CROSSINGS = [   // [deck, slide to start on (0-based), key, whether the key goes into the lobule]
+    ['circulation', 3, 'ArrowRight', true], ['circulation', 4, 'ArrowLeft', false], ['circulation', 7, 'ArrowRight', false],   // ladder → lobule and back; central vein → the next view
+    ['lobule', 0, 'ArrowRight', true],   // the outline's fit → the whole lobule
+    ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false],   // a fit, then a liver close-up, before it
+    ['sites', 7, 'ArrowLeft', true],   // backwards into it
+    ['hvpg', 6, 'ArrowRight', false], ['outflow', 5, 'ArrowRight', true],   // out to a region, with a new patient; in from a region
+  ];
+  for (const [deck, from, key, into] of CROSSINGS) {
+    await check(device, `lobule zoom is continuous: ${deck} slide ${from + 1} ${key === 'ArrowLeft' ? 'back ' : ''}${into ? 'into' : 'out of'} the lobule`, async (page) => {
+      await open(page, '?preset=healthy');
+      const n = from + 1, way = into ? 'into the lobule' : 'out of the lobule';
+      await page.evaluate(([d, i]) => window.pps.presenter.start(d, i), [deck, from]);
+      await page.waitForFunction((n) => (document.querySelector('.pzb-n, .pz-count')?.textContent || '').trim().startsWith(n + ' /') && !document.querySelector('.pz-cover'), n, { timeout: 60000 });
+      const quiet = async (open) => {   // the figure holds still (a software renderer draws a frame a second or two apart)
+        let last = '', same = 0;
+        for (let i = 0; i < 120 && same < 6; i++) {
+          await page.waitForTimeout(400);
+          const k = await page.evaluate(() => `${window.pps.stage.lobuleOpen()}|${window.pps.stage.lobuleSettled()}|${window.pps.stage.cameraKey()}|${document.querySelector('.pz-load.on') ? 'load' : ''}`);
+          same = k === last ? same + 1 : 0; last = k;
+        }
+        if (open !== undefined && (await page.evaluate(() => window.pps.stage.lobuleOpen())) !== open) throw new Error(`${deck} slide ${n}: the lobule is ${open ? 'not open' : 'still open'} once the view settled`);
+      };
+      await quiet();
+      if ((await page.evaluate(() => window.pps.stage.lobuleOpen())) === into) throw new Error(`${deck} slide ${n}: expected to start ${into ? 'outside' : 'inside'} the lobule`);
+      await page.evaluate(() => {
+        const rec = window.__zoomTrace = { go: true, s: [] };
+        const tick = () => { if (!rec.go) return; const z = window.pps.stage.cameraZoom(); if (z !== null) rec.s.push([performance.now(), z]); requestAnimationFrame(tick); };
+        requestAnimationFrame(tick);
+      });
+      await page.evaluate(() => window.pps.stage.cameraMoves(true));
+      const label = await page.evaluate(() => document.querySelector('.pzb-n, .pz-count')?.textContent.trim());
+      await page.keyboard.press(key);
+      await page.waitForFunction((l) => (document.querySelector('.pzb-n, .pz-count')?.textContent.trim() || '') !== l, label);
+      await quiet(into);
+      const s = await page.evaluate(() => { window.__zoomTrace.go = false; return window.__zoomTrace.s; });
+      // One move: the dive (or rise) itself, with no glide of the camera before or after it beyond a small settling (a new patient changes the space the words leave, after the rise has begun).
+      const moves = await page.evaluate(() => window.pps.stage.cameraMoves());
+      const big = moves.filter((m) => m.kind === 'glide' && (m.zoom > 0.2 || m.pan > 100));
+      if (big.length) throw new Error(`${deck} slide ${n} ${way}: the camera also glided ${big.map((m) => `${m.zoom.toFixed(2)} in zoom, ${Math.round(m.pan)} across`).join('; ')} (${moves.map((m) => m.kind).join(', ')})`);
+      if (moves.filter((m) => m.kind !== 'glide').length !== 1) throw new Error(`${deck} slide ${n} ${way}: ${moves.filter((m) => m.kind !== 'glide').length} dives or rises, not one`);
+      // The zoom's own span: from its first move to its last (the words fade before it starts and the labels after it ends).
+      if (process.env.ZOOM_TRACE) console.log(`${deck} ${n} ${key}`, s.map(([t, z]) => `${Math.round(t - s[0][0])}:${z.toFixed(3)}`).join(' '));
+      const z0 = s[0]?.[1], zEnd = s[s.length - 1]?.[1];
+      // (A loaded software renderer may draw too few frames to follow the zoom: the check of the moves above is then the one that counts.)
+      if (s.length < 10 || Math.abs(zEnd - z0) < 0.3) return;
+      const dir = Math.sign(zEnd - z0), eps = 0.02;   // (a step under 2% of the scale over 150 ms or more is a stop)
+      let a = 0, b = s.length - 1;
+      while (a < b && Math.abs(s[a + 1][1] - s[0][1]) < 0.02 * Math.abs(zEnd - z0)) a++;
+      // (The last few percent may settle slowly, as the framing takes the slide's words into account; a stop before that is a stop.)
+      while (b > a && Math.abs(s[b - 1][1] - zEnd) < 0.05 * Math.abs(zEnd - z0)) b--;
+      for (let i = a + 1; i <= b; i++) {
+        const dz = (s[i][1] - s[i - 1][1]) * dir, dt = s[i][0] - s[i - 1][0];
+        if (dz < -0.004) throw new Error(`${deck} slide ${n} ${way}: the zoom turned back (${(-dz).toFixed(3)} log units at ${Math.round(s[i][0] - s[a][0])} ms)`);
+        if (dz < eps && dt > 150) throw new Error(`${deck} slide ${n} ${way}: the zoom stopped part way for ${Math.round(dt)} ms, at ${Math.round(100 * (s[i][1] - z0) / (zEnd - z0))}% of its way`);
+      }
+    });
+  }
 
   await check(device, 'circuit turns upright and back', async (page) => {
     await open(page, '?preset=csph');

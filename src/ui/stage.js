@@ -1338,6 +1338,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The anatomy's own framing is never touched. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
   let diveAt = null, diveLand = null, diveT = 0, diveOut = false;
   const DIVE_MS = 1600, RISE_MS = 1000;
+  let diveZ = 0;   // the dive's zoom so far (log scale), kept for cameraZoom
   const RH = 11;   // a lobule's size on screen (px) as the liver's surface gives way to the field
   const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
@@ -1381,6 +1382,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Eased in and out (smootherstep); the anatomy's part takes the first two fifths of the way.
       const u = clamp(t / 0.84, 0, 1), p = u * u * u * (u * (u * 6 - 15) + 10), P = 0.4;
       const z = p < P ? LC * p / P : LC + (lt - LC) * (p - P) / (1 - P);
+      diveZ = z;
       setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)));
       // The anatomy's labels leave as the zoom starts.
       const lab = wrap.querySelector('#labels');
@@ -1404,8 +1406,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
     scrubS = 0; cancelAnimationFrame(scrubAnim); diveOut = !on;
+    if (on) { riseBox = null; riseUsed = false; }
     if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
     lobuleOn = on;
+    logMove({ t: performance.now(), kind: on ? 'dive' : 'rise' });
     cancelAnimationFrame(lobAnim);
     if (on && diveT === 0) {
       const w = diveTarget();
@@ -1428,6 +1432,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const d = defaultVT(false); vt = { ...d }; homeAt = d; applyVT(); CTM = null; refreshCTM();
         // The plate stopped updating under the lobule, so it still holds the old zoom's culling and detail: bring it up to date for the fit now, not when the zoom lands.
         if (F && !inUpdate) { catchUp = true; try { update(F); } finally { catchUp = false; } }
+        // The next slide's own framing, if it asked for one: the rise lands there, not at the fit.
+        const rv = riseVT();
+        riseUsed = !!rv && !sameView(rv, d);
+        if (riseUsed) { vt = { ...rv }; applyVT(); CTM = null; refreshCTM(); if (F && !inUpdate) { catchUp = true; try { update(F); } finally { catchUp = false; } } }
         const w = diveTarget(); if (w) { const [x, y] = worldToLocal(w[0], w[1]); diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)]; }
         diveOrig = null; drawOnce = forceDraw = true;   // the vessel canvas is frozen for the zoom: redraw it now at the fit, not the old camera
         if (F) updateLabels(F);   // the labels are laid out for the final framing now, so they come in where they will stay
@@ -1445,7 +1453,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null;
         // Out of the lobule the anatomy always ends on its full fit, not where the dive began (often the liver close-up).
         // (Already taken to its fit when the way out began; measuring it again here read the floating pieces mid-change and sent the view down, then back.)
-        if (morphTarget === 0) { if (liverBox() && sameView(vt, homeAt || vt)) homeAt = { ...vt }; else { const d = defaultVT(false); homeAt = d; if (!sameView(vt, d)) animateVT(d, 450); } }
+        if (riseUsed) riseUsed = false;   // (the rise already landed on the slide's own framing)
+        else if (morphTarget === 0) { if (liverBox() && sameView(vt, homeAt || vt)) homeAt = { ...vt }; else { const d = defaultVT(false); homeAt = d; if (!sameView(vt, d)) animateVT(d, 450); } }
       }
     };
     step(t0);
@@ -1470,6 +1479,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.classList.toggle('in-lobule', u > 0.98);
   }
   let vtAnim = 0, vtGliding = false;
+  const camMoves = [], logMove = (m) => { camMoves.push(m); if (camMoves.length > 60) camMoves.shift(); };   // every glide of the camera (and dive), kept for the tests: a way into or out of the lobule is a single move
   let vtTarget = null;   // where the last animated move was headed
   // A presenter's camera move: the labels ease out as it starts, are not laid out while it runs, and ease
   // back in at their new places once it settles (they never slide across the figure).
@@ -1484,6 +1494,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cancelAnimationFrame(vtAnim);
     vtTarget = to;
     const from = { ...vt }, t0 = performance.now();
+    if (!sameView(from, to)) logMove({ t: t0, kind: 'glide', zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
     if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
     if (ms <= 0) { vtGliding = false; vt = to; applyVT(); CTM = null; camSettle(); return; }
     vtGliding = true;
@@ -1512,16 +1523,31 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The presenter's camera: glide so a box of the plate (world units) fills the space the floating
   // pieces leave, as Fit does for the whole plate, zoomed in no further than kMax.
   // (clear: the box goes entirely into the band the cards leave, however thin: it may zoom out past the usual floor for it.)
-  function frameBox([x0, y0, x1, y1], ms = 1300, kMax = 4, clear = false) {
-    if (morphTarget !== 0) return;
+  // The camera that frames a box of the plate (world units) in the space the floating pieces leave.
+  function boxVT([x0, y0, x1, y1], kMax = 4, clear = false) {
     const r = { width: svg.clientWidth, height: svg.clientHeight };
-    if (!r.width || !r.height) return;
+    if (!r.width || !r.height) return null;
     const ins = safeInsets(clear), s0 = Math.min(r.width / VB_ANAT[2], r.height / VB_ANAT[3]);
     const pad = clear ? 12 : 0, fw = Math.max(40, r.width - ins.l - ins.r - 2 * pad), fh = Math.max(40, r.height - ins.t - ins.b - 2 * pad);   // (clear: a margin for the vessels' glow)
     const k = clamp(Math.min(fw / s0 / (x1 - x0), fh / s0 / (y1 - y0)), clear ? 0.3 : 0.6, kMax);
     const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + (ins.l - ins.r) / 2 / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + (ins.t - ins.b) / 2 / s0;
-    const to = { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
-    if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms);
+    return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
+  }
+  function frameBox(box, ms = 1300, kMax = 4, clear = false) {
+    if (morphTarget !== 0) return;
+    const to = boxVT(box, kMax, clear);
+    if (to && !sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms);
+  }
+  // Where the way out of the lobule lands when the next slide frames somewhere other than the fit: the rise itself
+  // zooms straight to that framing, so there is no stop at the fit on the way. The box is asked for when the rise
+  // begins (the plate is brought up to date first, so it is measured as it will be). It expires if the lobule was not open to rise from.
+  let riseBox = null, riseExp = 0, riseUsed = false;
+  function riseTo(box, kMax, clear) { riseBox = box ? { box, kMax, clear } : null; riseExp = performance.now() + 4000; }
+  function riseVT() {
+    const r = riseBox; riseBox = null;
+    if (!r || performance.now() > riseExp) return null;
+    const box = typeof r.box === 'function' ? r.box() : r.box;
+    return box ? boxVT(box, r.kMax, r.clear) : null;
   }
   function vtFor(wx, wy, k) { const [cx, cy] = vbCenter(); return { k, x: cx - wx * k, y: cy - wy * k }; }
   function zoomLiver() {
@@ -5808,6 +5834,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return b;
     },
     /** Fit with a chosen glide (the presenter's slower, calmer moves). */
+    /** The camera's whole magnification (log scale: the plate's zoom plus the dive's), or null while the lobule fills the view. For the tests: a dive in or out must move it steadily, never stopping part way. */
+    cameraMoves: (clear) => (clear ? camMoves.splice(0) : [...camMoves]),
+    cameraZoom: () => (lobuleOn && diveT >= 1 ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ)),
+    /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
+    riseTo,
     fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
     cameraState: () => ({ ...(vtGliding && vtTarget ? vtTarget : vt) }),
