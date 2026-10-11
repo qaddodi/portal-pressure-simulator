@@ -305,19 +305,20 @@ function bigLadder() {
   const S = { W: 360, ny: 27, hvpg: 52, ppg: 68, H: 76 }, XS = (i) => 28 + 70 * i;
   // (The line is the ladder's own: one straight run in its portal-to-systemic gradient, the readings sitting on it.)
   const conns = [0, 1, 2, 3].map((i) => ({ txt: sv('text', { class: 'pzs-d', x: (XS(i) + XS(i + 1)) / 2, y: S.ny - 11, 'text-anchor': 'middle' }) }));
-  const sline = sv('line', { class: 'pzs-c', x1: XS(0), x2: XS(4), y1: S.ny, y2: S.ny, stroke: `url(#${gid}s)` });
+  // (The line stops a clear gap short of each reading, so no outline is needed: the gap is the room for two digits, the same at every station so it never jumps.)
+  const GAP = 13, sline = sv('path', { class: 'pzs-c', stroke: `url(#${gid}s)`, d: [0, 1, 2, 3].map((i) => `M${XS(i) + GAP} ${S.ny}H${XS(i + 1) - GAP}`).join('') });
   const sgrad = sv('linearGradient', { id: gid + 's', gradientUnits: 'userSpaceOnUse', x1: XS(0), x2: XS(4), y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }));
   const spts = RUNGS.map(([, a], i) => {
     const v = sv('text', { class: 'pzs-v', x: XS(i), y: S.ny + 5.5, 'text-anchor': 'middle' });
     return { g: sv('g', { class: 'pzs-pt' }, v), v, k: sv('text', { class: 'pzs-k', x: XS(i), y: 9, 'text-anchor': 'middle' }, a) };
   });
-  const sbr = (name, row, i0, i1, right) => {
+  const sbr = (name, row, i0, i1) => {
     const x0 = XS(i0), x1 = XS(i1), t = ['bn', 'bv'].map((c) => sv('tspan', { class: 'pzs-' + c }));
-    const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br', d: `M${x0} ${row - 3}V${row + 3}M${x1} ${row - 3}V${row + 3}M${x0} ${row}H${x1}` });
-    const lbl = sv('text', { class: 'pzs-bl', x: right ? x1 + 9 : (x0 + x1) / 2, y: row + 4, 'text-anchor': right ? 'start' : 'middle' }, t);
-    return { name, x0, x1, row, lead, t, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, lbl) };
+    const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br' });
+    const lbl = sv('text', { class: 'pzs-bl', x: (x0 + x1) / 2, y: row + 3.5, 'text-anchor': 'middle' }, t);
+    return { name, x0, x1, row, lead, t, bar, lbl, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, lbl) };
   };
-  const hvS = sbr('HVPG', S.hvpg, 1, 2, true), ppS = sbr('PPG', S.ppg, 0, 3, false);
+  const hvS = sbr('HVPG', S.hvpg, 1, 2), ppS = sbr('PPG', S.ppg, 0, 3);
   const strip = sv('svg', { class: 'pz-strip', viewBox: `0 0 ${S.W} ${S.H}`, role: 'img' },
     sv('defs', {}, sgrad), sline, conns.map((c) => c.txt), spts.map((p) => [p.g, p.k]),
     sv('text', { class: 'pzs-u', x: S.W - 2, y: S.ny + 5.5, 'text-anchor': 'end' }, 'mmHg'), hvS.g, ppS.g);
@@ -382,6 +383,9 @@ function bigLadder() {
       b.lead.setAttribute('d', `M${b.x0} ${b.row - 5}V${S.ny + 10}M${b.x1} ${b.row - 5}V${S.ny + 10}`);
       b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate || 'ok';
       b.t[0].textContent = b.name; b.t[1].textContent = ' ' + fmt(v, 1) + (say ? '' : rate === 'hi' ? ' ↑↑' : rate === 'mid' ? ' ↑' : '');
+      // The bracket's line leaves a gap round its label (measured; a hidden strip measures nothing, so it keeps the last gap).
+      const half = (b.lbl.getComputedTextLength?.() || 0) / 2 + 4, mid = (b.x0 + b.x1) / 2, r = b.row;
+      if (half > 4) b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (mid - half > b.x0 ? `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}` : ''));
     };
     putS(hvS, f.whvp, f.fhvp, f.hvpg, 'hvpg'); putS(ppS, f.pv, f.ivc, f.ppg, 'ppg');
     const say = 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '

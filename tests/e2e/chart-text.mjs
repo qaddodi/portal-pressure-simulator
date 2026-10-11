@@ -91,10 +91,38 @@ export async function checkCharts(browser, url, log = console.log) {
   return bad;
 }
 
+// The phone's pressure strip (the data card's one-line ladder): each HVPG and PPG label sits inside its own bracket, at a
+// healthy and a raised case, on both phones, light and dark. In the page: what runs outside (empty when it fits).
+export function stripOverflow() {
+  const out = [], strip = document.querySelector('.pz-strip');
+  if (!strip || !strip.getBoundingClientRect().width) return ['no pressure strip on the slide'];
+  for (const g of strip.querySelectorAll('.pzl-bg')) {
+    if (+g.getAttribute('opacity') < 0.5) continue;
+    const lab = g.querySelector('.pzs-bl').getBoundingClientRect(), bar = g.querySelector('.pzl-br').getBoundingClientRect(), t = g.querySelector('.pzs-bl').textContent.trim();
+    if (lab.left < bar.left - 0.5 || lab.right > bar.right + 0.5) out.push(`"${t}" runs outside its bracket (${Math.round(lab.left)}-${Math.round(lab.right)} in ${Math.round(bar.left)}-${Math.round(bar.right)})`);
+  }
+  return out;
+}
+export async function checkStrip(browser, url, log = console.log) {
+  const bad = [];
+  for (const size of SIZES.slice(0, 2)) for (const scheme of ['light', 'dark']) for (const [q, what] of [['script=sites&slide=3', 'healthy'], ['script=circulation&slide=10', 'raised'], ['script=sites&slide=6', 'HVPG over 10']]) {
+    const { name, ...opts } = size;
+    const ctx = await browser.newContext({ ...opts, colorScheme: scheme, serviceWorkers: 'block' });
+    const page = await ctx.newPage();
+    await page.goto(`${url}?${q}`);
+    await page.waitForFunction(() => document.querySelector('.pz-strip .pzs-v')?.textContent, null, { timeout: 45000 });
+    await settle(page); await page.waitForTimeout(2600);
+    const c = await page.evaluate(stripOverflow);
+    if (c.length) bad.push(`pressure strip, ${what}, at ${name} ${scheme}: ${c.join('; ')}`); else log(`ok   ${name.padEnd(14)} ${scheme.padEnd(5)} pressure strip, ${what}`);
+    await ctx.close();
+  }
+  return bad;
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const server = await serve(new URL('../..', import.meta.url).pathname);
   const browser = await chromium.launch();
-  const bad = await checkCharts(browser, server.url);
+  const bad = [...await checkCharts(browser, server.url), ...await checkStrip(browser, server.url)];
   for (const b of bad) console.log('FAIL ' + b);
   await browser.close(); server.close?.();
   process.exit(bad.length ? 1 : 0);
