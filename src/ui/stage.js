@@ -3135,7 +3135,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lvGT = held(lvGT, clamp((cvUp - 4) / 10, 0, 1), 0.03);
     const cT = Math.min(1, p.cirrhosis), gT = lvGT;
     const now = performance.now();
-    if (lvC === null || reduceMotion.matches) { lvC = cT; lvG = gT; lvT = tT; }
+    if (lvC === null || reduceMotion.matches || !figureShown) { lvC = cT; lvG = gT; lvT = tT; }   // under the loading screen nothing is seen easing
     else {
       const e = -Math.expm1(-Math.min(0.1, (now - lvAt) / 1000) / 0.4);
       lvC += (cT - lvC) * e; lvG += (gT - lvG) * e; lvT += (tT - lvT) * e;
