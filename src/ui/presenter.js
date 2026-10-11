@@ -386,9 +386,11 @@ function bigLadder() {
       b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate || 'ok';
       const num = ' ' + fmt(v, 1);
       b.t[0].textContent = b.name; b.t[1].textContent = num;
-      // The bracket's line leaves a gap round its label (an estimate of its width, so a hidden strip needs no measuring and nothing jumps).
-      const half = (b.name.length * 6.4 + num.length * 5.2) / 2 + 3, mid = (b.x0 + b.x1) / 2, r = b.row;
-      b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (mid - half > b.x0 ? `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}` : ''));
+      // The line stays clear of the label (an estimate of its width, so a hidden strip needs no measuring and nothing jumps): inline with
+      // a gap of 7 each side when the bracket has room for that, otherwise the label sits just above an unbroken line.
+      const half = (b.name.length * 6.8 + num.length * 5.6) / 2 + 7, mid = (b.x0 + b.x1) / 2, r = b.row, above = b.x1 - b.x0 - 2 * half < 14;
+      b.lbl.setAttribute('y', above ? r - 4.5 : r + 3.5);
+      b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (above ? `M${b.x0} ${r}H${b.x1}` : `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}`));
     };
     putS(hvS, f.whvp, f.fhvp, f.hvpg, 'hvpg'); putS(ppS, f.pv, f.ivc, f.ppg, 'ppg');
     const say = 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '

@@ -110,9 +110,10 @@ export function stripOverflow() {
         if (px > lab.left - 2 && px < lab.right + 2 && yb > lab.top && ya < lab.bottom) out.push(`"${t}" touches a dotted drop line at x ${Math.round(px)}`);
       }
     }
+    // The bracket's line keeps a gap of at least 4 px to the text: along it (a line that runs up to the label) or, with the label above an unbroken line, 1 px between the two.
     for (const [, a, r, b] of (g.querySelector('.pzl-br').getAttribute('d') || '').matchAll(/M([\d.]+) ([\d.]+)H([\d.]+)/g)) {
       const l = sx(Math.min(+a, +b)), rr = sx(Math.max(+a, +b)), ry = sy(+r);
-      if (rr > lab.left && l < lab.right && ry > lab.top && ry < lab.bottom) out.push(`"${t}" sits on its bracket line`);
+      if (rr > lab.left - 4 && l < lab.right + 4 && ry > lab.top - 1 && ry < lab.bottom + 1) out.push(`"${t}" is within 4 px of its bracket line`);
     }
   }
   return out;

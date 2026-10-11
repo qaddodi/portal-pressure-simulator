@@ -1768,7 +1768,8 @@ button.finding { cursor: pointer; }
 .pzl-drop text { fill: var(--danger); font: 600 17px var(--font-ui); }
 .pzl-bg { --c: var(--ok); transition: opacity .4s var(--ease); }
 .pzl-bg[data-rate="mid"] { --c: var(--caution); } .pzl-bg[data-rate="hi"] { --c: var(--danger); }
-.pzl-br { fill: none; stroke: var(--c); stroke-width: 2.4; stroke-linecap: round; transition: stroke .4s var(--ease); }
+.pzl-br { fill: none; stroke: var(--c); stroke-width: 1.9; stroke-linecap: round; transition: stroke .4s var(--ease); }
+.pz-strip .pzl-br { stroke-width: 1.5; }
 .pzl-lead { fill: none; stroke: var(--c); stroke-width: 1.6; stroke-dasharray: 1 5; stroke-linecap: round; opacity: .6; transition: stroke .4s var(--ease); }
 .pzl-pill { fill: var(--surface); stroke: var(--c); stroke-width: 1.6; stroke-opacity: .55; transition: stroke .4s var(--ease); }
 .pzl-bk { fill: var(--c); font: 700 15px var(--font-ui); letter-spacing: .06em; transition: fill .4s var(--ease); }
@@ -2109,7 +2110,7 @@ button.finding { cursor: pointer; }
 .pzs-pt.key .pzs-v { fill: var(--accent); }
 .pzs-k { fill: var(--text-2); font: 700 11px var(--font-ui); letter-spacing: .02em; }
 .pzs-u { fill: var(--text-3); font: 500 11px var(--font-ui); }
-.pzs-bl { fill: var(--text); font: 600 10px var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.pzs-bl { fill: var(--text); font: 600 11px var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
 .pzs-bn, .pzs-bv { fill: var(--c); font-weight: 700; transition: fill .4s var(--ease); }
 .pz.stack .pz-data:not(.tiles-only):not(.tool-only) .pz-lg { display: none; }
 .pz.stack .pz-data:not(.tiles-only):not(.tool-only):not(.has-tool) .pz-tiles[data-compact="1"] { display: none; }
