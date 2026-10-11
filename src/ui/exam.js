@@ -5,7 +5,7 @@
 
 import { h, openModal, closeModal } from './util.js?v=045e641b44';
 import { optionList } from './learning-kit.js?v=6d450ed1de';
-import { UNITS, FINAL, course } from './course.js?v=cdb2743adc';
+import { UNITS, FINAL, course } from './course.js?v=66ddb16f72';
 import { addRecord, learnerName, setLearnerName, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { BANK } from './exam-bank.js?v=8e5d34c933';
 

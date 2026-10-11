@@ -4,7 +4,7 @@
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=34e377149b';
 import { fmt, clamp } from './util.js?v=045e641b44';
-import { LABEL_VESSEL } from './anatomy.js?v=42d782eda4';
+import { LABEL_VESSEL } from './anatomy.js?v=d467b97383';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

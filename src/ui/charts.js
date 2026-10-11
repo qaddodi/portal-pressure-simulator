@@ -1,7 +1,7 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=42d782eda4';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=d467b97383';
 import { pressureColor } from './colormap.js?v=7616551729';
 import { store, hiddenNow } from './store.js?v=9858da589a';
 import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=045e641b44';
@@ -309,7 +309,7 @@ export function createProfile() {
     pillMoving = mPill;
     items.forEach((it, k) => {
       if (!it) return;
-      const { d, a, b, col, txt, num, tw1, tw, x0, x1 } = it;
+      const { a, b, col, txt, num, tw1, tw, x0, x1 } = it;
       const yy = pos[2 * k], lx = pos[2 * k + 1], ly = yy;
       ctx.save();
       // Faint leaders from the bracket ends to the two station dots, broken around any value label.

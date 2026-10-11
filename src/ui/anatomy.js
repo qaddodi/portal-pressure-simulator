@@ -486,31 +486,13 @@ export const LIVER_SPLIT_X = 640;
 // Circuit view: the liver is a module. Collapsed, its internal stations and the resistance of
 // each compartment are summarized in one header; it expands on selection, on a click on the
 // header, or when zoomed in far enough to read it.
-export const LIVER_MODULE = { x0: 650, y0: 212, x1: 934, y1: 424 };
 export const LIVER_INNER = new Set(['HA', 'RPV', 'LPV', 'SIN_R', 'SIN_L', 'CV_R', 'CV_L']);
 export const LIVER_EDGES = new Set(['A_HEP', 'A_HR', 'A_HL', 'AP_R', 'AP_L', 'PRE_R', 'PRE_L', 'SIN_RR', 'SIN_LL', 'SIN_RL', 'POST_R_RHV', 'POST_R_MHV', 'POST_L_LHV', 'POST_L_MHV', 'CAUD']);
-// The main series route (gut → portal vein → liver → hepatic veins → heart): the circuit's spine.
-export const MAIN_ROUTE = new Set(['V_INT', 'SMV_CONF', 'V_SPL', 'SV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'SIN_RR', 'SIN_LL', 'POST_R_RHV', 'POST_L_LHV', 'RHV_IVC', 'LHV_IVC', 'IVCS_RA']);
 // Collateral and shunt lanes in the circuit, captioned where they run (edge → caption).
 export const LANE_CAPTIONS = {
   C1b: 'Esophageal route → azygos', C2: 'Short gastric', C3: 'Paraumbilical', C4: 'Rectal', C5: 'Gastrorenal shunt', C6: 'Splenorenal shunt',
   C7: 'Retroperitoneal', C8: 'Periportal', C9: 'Caval → azygos', TIPS: 'TIPS', DIPS: 'DIPS', S_PC: 'Portocaval shunt', S_DSR: 'Distal splenorenal shunt', S_MC: 'Mesocaval shunt',
   EPI_SVC: 'Epigastric → SVC',
-};
-
-// Event anchors
-export const ANCHORS = {
-  PERITONEUM: [720, 860], VAR: [797, 232], GV: [876, 302], TIPS: [522, 310], DIPS: [598, 366], SPL: [1040, 362], RA: [620, 112],
-  AO: [700, 556], CAUD: [592, 332],
-};
-
-// Which physical "vessel" an edge belongs to (for stent pairing & labels).
-export const EDGE_VESSEL = {
-  PV_TRUNK: 'PV', CONF: 'PV', PVH_R: 'RPV', PRE_R: 'RPV', PVH_L: 'LPV', PRE_L: 'LPV',
-  SV_CONF: 'SV', V_SPL: 'SV', SMV_CONF: 'SMV', V_INT: 'SMV',
-  RHV_IVC: 'RHV', POST_R_RHV: 'RHV', MHV_IVC: 'MHV', POST_R_MHV: 'MHV', POST_L_MHV: 'MHV', LHV_IVC: 'LHV', POST_L_LHV: 'LHV',
-  IVC_IS: 'IVC', IVCS_RA: 'IVC', ILI_IVC: 'IVC', RRV_IVC: 'IVC',
-  LRV_IVC: 'LRV', V_KID_L: 'LRV',
 };
 
 // The pressure-profile chart follows one path, gut → liver → heart, with plain station names;

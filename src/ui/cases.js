@@ -10,19 +10,19 @@
 // that must be placed first), `auto` (opens by itself) and `show(c)` (conditional steps).
 
 import { store, updateParams, replaceParams } from './store.js?v=9858da589a';
-import { host } from './host.js?v=3f0780c735';
+import { host } from './host.js?v=c256a9c041';
 import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=045e641b44';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { veinBlocked } from './measure-model.js?v=96862e2586';
-import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=78c53e6b35';
+import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=4d92706d0e';
 import { EXPLAIN } from './cases/explain.js?v=81bcd9a17a';
-import { bpOf, tension, abdomen, esoText, spleenCm, ascitesText } from './cases/kit.js?v=4db57f825c';
+import { bpOf, tension, abdomen, esoText, spleenCm, ascitesText } from './cases/kit.js?v=be90db496b';
 import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=6d450ed1de';
-import { course, setUnitSurface, unitBar } from './course.js?v=cdb2743adc';
-import { CASE_UNITS } from './cases/units.js?v=bde5f54566';
+import { course, setUnitSurface, unitBar } from './course.js?v=66ddb16f72';
+import { CASE_UNITS } from './cases/units.js?v=cead89ea1e';
 import { activeInterventions } from './inspector.js?v=4dd2fb68b1';
-import { captureFrame } from './timeline.js?v=48ae0c40bf';
+import { captureFrame } from './timeline.js?v=784d292b22';
 import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=18ecf24045';
 import { SNAPSHOTS } from './snapshots.js?v=6c4f07ae98';
 

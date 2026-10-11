@@ -21,8 +21,8 @@ import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=c6a8f1cabe';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=aa23a0da45';
-import { createHvpgMonitor } from './hvpg-proc.js?v=4b408e144c';
-import { createTools } from './presenter-tools.js?v=0238a6b3e4';
+import { createHvpgMonitor } from './hvpg-proc.js?v=649e6bbf50';
+import { createTools } from './presenter-tools.js?v=2b28a2f887';
 import { openHandout } from './handout.js?v=580e8380fc';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
@@ -633,7 +633,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=2e5284e6a3', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=cf2cc58624', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -645,7 +645,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=4d9170fe70');
+      const { createCore } = await import('../worker-core.js?v=49f666a803');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
