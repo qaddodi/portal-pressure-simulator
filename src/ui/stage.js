@@ -6,11 +6,11 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=5edd069b32';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=045e641b44';
-import { createLobuleZoom } from './lobule-zoom.js?v=0967158cab';
+import { createLobuleZoom } from './lobule-zoom.js?v=b8cf42cd51';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=3e3c7f77c1';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=43bf7d9307';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -936,7 +936,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // light takes the colour of the last in GLOW_RANK. Each eases in and out on its own, so a change cross-fades.
   const GLOW_RANK = ['hover', 'flash', 'delta', 'dop', 'slide', 'focus'];
   const glow = { src: new Map(), lit: new Map(), raf: 0, t: 0 };
-  /** list: [{ id, col (a CSS colour, or null), amt (strength, 1 by default), at (ms to wait before easing in) }] */
+  /** list: [{ id, col (a CSS colour, or null), amt (strength, 1 by default), wide (band width ×, ≤ 1.3), at (ms to wait before easing in) }] */
   function setGlowSrc(src, list) {
     glow.src.set(src, new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, g])));
     const want = new Map();
@@ -953,7 +953,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!l) { l = { v: 0, to: 0, col: g.col, from: null, cu: 1, end: null }; glow.lit.set(id, l); }
       if (!l.to) l.start = now + (g.at || 0);
       if (l.col !== g.col) { l.from = l.v > 0 && l.col && l.rgb ? l.rgb : null; l.cu = l.from ? 0 : 1; l.col = g.col; }
-      l.to = 1; l.amt = g.amt ?? 1; l.dur = (g.dur || 450) / 1000;
+      l.to = 1; l.amt = g.amt ?? 1; l.wide = g.wide || 1; l.dur = (g.dur || 450) / 1000;
       l.endT = [endOf(E[id].e.from), endOf(E[id].e.to)];
       if (!l.end || l.v <= 0) l.end = [...l.endT];
     }
@@ -982,7 +982,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (id && !E[id]) id = null;
     if (id === dop.id) return;
     dop.id = id;
-    setGlowSrc('dop', id ? [{ id, col: 'var(--doppler)', amt: 1.2, dur: 360 }] : []);
+    setGlowSrc('dop', id ? [{ id, col: 'var(--doppler)', amt: 1.8, wide: 1.25, dur: 360 }] : []);
   }
   // A presenter slide's glows (glow: [...] and its terms' vessels), each in its station's colour.
   const toneCol = (tone) => (tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
@@ -2456,7 +2456,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const l = glow.lit.get(id), v = l ? easeInOut(Math.max(0, l.v)) * l.amt : 0;
         if (v > 0) {
           if (l.col) { const c = toRGB(l.col, cs); l.rgb = l.from && l.cu < 1 ? mix3(l.from, c, easeInOut(l.cu)) : c; }
-          tubeData.set([...(l.col ? l.rgb : [0, 0, 0]), v, l.end[0], l.end[1], l.col ? 0 : 1, 0], o + 40);
+          tubeData.set([...(l.col ? l.rgb : [0, 0, 0]), v, l.end[0], l.end[1], l.col ? 0 : 1, l.wide], o + 40);
         } else tubeData.fill(0, o + 40, o + 48);
       }
     }
