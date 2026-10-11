@@ -7,6 +7,9 @@ html, body { height: 100%; }
    owns that strip (its own color runs up behind the clock), and the document never scrolls, so
    nothing slides up under the status bar. */
 :root { --safe-top: env(safe-area-inset-top, 0px); --vz: var(--ui-zoom, 1); /* viewport units under interface zoom */ }
+/* The presenter sizes its type by the screen height; an upright tablet is tall and narrow, so there it follows the width (as tall as a landscape screen of that width), or the words outgrow their column. A phone (< 700 px) keeps its own stack layout. */
+:root { --pzh: 1vh; }
+@media (orientation: portrait) and (min-width: 700px) { :root { --pzh: min(1vh, .75vw); } }
 html { overflow: hidden; overscroll-behavior: none; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
@@ -1688,33 +1691,33 @@ button.finding:hover { background: var(--surface-2); }
 @media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } .pz-data.pz-data { background: var(--surface-2); } .pz-data .pz-tile:not(.key), .pz-data.has-tool .pz-tile.key, .pz-data .pz-tool .endo-read > div { background: var(--surface); } }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
 .pz.stack .pz-safe { right: 0; top: auto; bottom: 0; width: auto; }
-.pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8vh / var(--vz)), 110px); bottom: clamp(20px, calc(8vh / var(--vz)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); max-height: calc(100% - 2 * clamp(20px, calc(8vh / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3vh / var(--vz)), 30px); transition: opacity .22s var(--ease), transform .22s var(--ease), filter .4s var(--ease); }
+.pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px); bottom: clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); max-height: calc(100% - 2 * clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3 * var(--pzh) / var(--vz)), 30px); transition: opacity .22s var(--ease), transform .22s var(--ease), filter .4s var(--ease); }
 .pz-text.pz-leave, .pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
 .pz-text.pz-enter > * { animation: pz-in .5s var(--ease) both; animation-delay: calc(min(var(--i, 0), 3) * 45ms + 60ms); }
 /* The data card comes in with the words (same pace, same start), never ahead of them. */
 .pz-data:not(.pz-hide) { transition-duration: .5s; transition-delay: .12s; }
 .pz-text > .pz-leave { opacity: 0; transform: translateY(-6px); transition: opacity .22s var(--ease), transform .22s var(--ease); }
 .pz-text.pz-enter > .pz-mon.pz-stay { animation: none; }
-.pz-kick { display: flex; align-items: center; gap: .55em; font: 600 clamp(13px, calc(1.75vh / var(--vz)), 21px)/1.2 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--site, var(--text-3)); }
+.pz-kick { display: flex; align-items: center; gap: .55em; font: 600 clamp(13px, calc(1.75 * var(--pzh) / var(--vz)), 21px)/1.2 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--site, var(--text-3)); }
 .pz-kick[data-site="none"] { color: var(--text-3); }
 .pz-kick i { width: .62em; height: .62em; border-radius: 50%; background: currentColor; flex: none; }
 .pz-sec { color: var(--text-3); font-weight: 500; white-space: nowrap; }
-.pz-h { margin: 0; font: 600 clamp(32px, calc(5.8vh / var(--vz)), 70px)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
+.pz-h { margin: 0; font: 600 clamp(32px, calc(5.8 * var(--pzh) / var(--vz)), 70px)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
 /* A short neutral rule closes the title off from the body. */
 .pz-text .pz-h::after, .pz-ph .pz-h::after { content: ""; display: block; width: 2.2rem; height: 2px; margin-top: .3em; border-radius: 1px; background: color-mix(in srgb, var(--text) 22%, transparent); }
 .pz.stack .pz-h::after { margin-top: .22em; width: 1.6rem; }
-.pz-line { margin: 0; font: 400 clamp(17px, calc(2.55vh / var(--vz)), 31px)/1.38 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
+.pz-line { margin: 0; font: 400 clamp(17px, calc(2.55 * var(--pzh) / var(--vz)), 31px)/1.38 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
 /* Body emphasis: key terms in the heading colour, values in a quiet pill with even figures. */
 .pz-line b { font-weight: 600; color: var(--text); }
-.pz-caveat { margin: .5em 0 0; font: 400 clamp(11px, calc(1.45vh / var(--vz)), 16px)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
+.pz-caveat { margin: .5em 0 0; font: 400 clamp(11px, calc(1.45 * var(--pzh) / var(--vz)), 16px)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
 .pz-val { display: inline-block; padding: .02em .42em .06em; border-radius: var(--r-pill); background: color-mix(in srgb, var(--text) 7%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
 /* Every pill (value or term) is one box: the same size, line height and padding, so they match in height; a little room either side, and a taller line where a line holds one so pills on adjacent lines never touch. */
 .pz-val, .pz-term { display: inline-block; box-sizing: border-box; padding: .1em .5em; margin-inline: .14em; font-size: .92em; line-height: 1.2; vertical-align: baseline; }
 .pz-line:has(.pz-val, .pz-term) { line-height: 1.68; }
 .pz-eq { margin: 0; color: var(--text); }
-.pz-eq math { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", math; font-size: clamp(22px, calc(3.4vh / var(--vz)), 42px); math-style: normal; }
+.pz-eq math { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", math; font-size: clamp(22px, calc(3.4 * var(--pzh) / var(--vz)), 42px); math-style: normal; }
 .pz-eq .eq-wedge { color: var(--tr-wedge); } .pz-eq .eq-hv { color: var(--tr-hv); } .pz-eq .eq-pv { color: var(--tr-pv); } .pz-eq .eq-ivc { color: var(--tr-ivc); } .pz-eq .eq-var { color: var(--tr-var); }
-.pz-eqk { margin: 4px 0 0; font: 400 clamp(13px, calc(1.8vh / var(--vz)), 20px)/1.4 var(--font-ui); color: var(--text-3); }
+.pz-eqk { margin: 4px 0 0; font: 400 clamp(13px, calc(1.8 * var(--pzh) / var(--vz)), 20px)/1.4 var(--font-ui); color: var(--text-3); }
 .pz-hint { color: var(--text-3); font-style: italic; }
 .pz-nw { white-space: nowrap; }
 .app.pz-hi .pz-val { background: color-mix(in srgb, var(--text) 12%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 55%, transparent); }
@@ -1724,12 +1727,12 @@ button.finding:hover { background: var(--surface-2); }
 /* A cut-off ({>=10 mmHg}): an outline, no fill. Filled is this patient, outlined is the rule. */
 .pz-val.cut { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent); color: var(--text-2); }
 .app.pz-hi .pz-val.tone, .app.pz-hi .pz-term { box-shadow: inset 0 0 0 1.5px var(--tone); }
-.pz-sub { display: block; margin-bottom: .55em; font: 600 clamp(12px, calc(1.4vh / var(--vz)), 17px)/1.2 var(--font-ui); letter-spacing: .09em; text-transform: uppercase; color: var(--text-3); }
+.pz-sub { display: block; margin-bottom: .55em; font: 600 clamp(12px, calc(1.4 * var(--pzh) / var(--vz)), 17px)/1.2 var(--font-ui); letter-spacing: .09em; text-transform: uppercase; color: var(--text-3); }
 .pz-causes ul { display: flex; flex-wrap: wrap; gap: .5em; margin: 0; padding: 0; list-style: none; }
-.pz-causes li { padding: .32em .78em; border-radius: var(--r-pill); background: color-mix(in srgb, var(--site, var(--accent)) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--site, var(--accent)) 24%, transparent); font: 500 clamp(14px, calc(1.95vh / var(--vz)), 23px)/1.25 var(--font-ui); color: var(--text); }
+.pz-causes li { padding: .32em .78em; border-radius: var(--r-pill); background: color-mix(in srgb, var(--site, var(--accent)) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--site, var(--accent)) 24%, transparent); font: 500 clamp(14px, calc(1.95 * var(--pzh) / var(--vz)), 23px)/1.25 var(--font-ui); color: var(--text); }
 .pz-text:has(.pz-kick[data-site]) .pz-causes li { --site: inherit; }
 /* The six levels, portal vein to heart. */
-.pz-rail { position: relative; padding-top: 1.6em; font-size: clamp(12px, calc(1.6vh / var(--vz)), 19px); }
+.pz-rail { position: relative; padding-top: 1.6em; font-size: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 19px); }
 .pz-rail-liver { position: absolute; top: .25em; left: calc(100% / 6 + 3px); width: calc(100% / 2 - 6px); height: .95em; border: 2px solid var(--border-strong); border-bottom: 0; border-radius: .55em .55em 0 0; }
 .pz-rail-liver span { position: absolute; left: 50%; top: -.8em; translate: -50% 0; padding: 0 .5em; background: var(--stage-bg); font: 600 .78em/1.3 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
 .pz-rail ol { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; margin: 0; padding: 0; list-style: none; }
@@ -1741,9 +1744,9 @@ button.finding:hover { background: var(--surface-2); }
 .pz-rail.all .n, .pz-rail li.on .n { color: var(--text); font-weight: 600; }
 .pz-rail .p { font-size: .8em; line-height: 1.2; color: var(--text-3); }
 /* The data card: the pressure ladder and its tiles. */
-.pz-data { position: absolute; right: clamp(16px, calc(2.6vw / var(--vz)), 60px); top: clamp(20px, calc(8vh / var(--vz)), 110px); width: clamp(300px, calc(25vw / var(--vz)), 500px); max-height: calc(100% - 2 * clamp(20px, calc(8vh / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(8px, calc(1.6vh / var(--vz)), 20px); padding: clamp(14px, calc(2.1vh / var(--vz)), 28px); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--border); border-radius: clamp(16px, calc(2.2vh / var(--vz)), 28px); box-shadow: var(--shadow-3); transition: opacity .32s var(--ease), transform .32s var(--ease); }
+.pz-data { position: absolute; right: clamp(16px, calc(2.6vw / var(--vz)), 60px); top: clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px); width: clamp(300px, calc(25vw / var(--vz)), 500px); max-height: calc(100% - 2 * clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(8px, calc(1.6 * var(--pzh) / var(--vz)), 20px); padding: clamp(14px, calc(2.1 * var(--pzh) / var(--vz)), 28px); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--border); border-radius: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); box-shadow: var(--shadow-3); transition: opacity .32s var(--ease), transform .32s var(--ease); }
 .pz-data.pz-hide { opacity: 0; transform: translateX(18px); }
-.pz-dh { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; text-align: center; gap: 4px 12px; font: 600 clamp(11px, calc(1.35vh / var(--vz)), 16px)/1.25 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); }
+.pz-dh { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; text-align: center; gap: 4px 12px; font: 600 clamp(11px, calc(1.35 * var(--pzh) / var(--vz)), 16px)/1.25 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); }
 .pz-lg { display: inline-flex; align-items: center; gap: .45em; letter-spacing: 0; text-transform: none; font-weight: 500; }
 .pz-lg i.now { width: 1.4em; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--tour-portal), var(--tour-sys)); }
 .pz-lg i.base { width: 1.4em; border-top: 2px dashed var(--text-3); margin-left: .5em; }
@@ -1765,15 +1768,15 @@ button.finding:hover { background: var(--surface-2); }
 .pzl-lead { fill: none; stroke: var(--c); stroke-width: 1.6; stroke-dasharray: 1 5; stroke-linecap: round; opacity: .6; transition: stroke .4s var(--ease); }
 .pzl-pill { fill: var(--surface); stroke: var(--c); stroke-width: 1.6; stroke-opacity: .55; transition: stroke .4s var(--ease); }
 .pzl-bk { fill: var(--c); font: 700 15px var(--font-ui); letter-spacing: .06em; transition: fill .4s var(--ease); }
-.pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2vh / var(--vz)), 14px); }
-.pz-tile { display: flex; flex-direction: column; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5vh / var(--vz)), 18px) clamp(12px, calc(1.6vh / var(--vz)), 20px); border-radius: clamp(12px, calc(1.6vh / var(--vz)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease); }
+.pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
+.pz-tile { display: flex; flex-direction: column; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh) / var(--vz)), 18px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease); }
 .pz-tile.key { border-color: var(--accent); background: var(--accent-soft); }
-.pzt-k { font: 600 clamp(12px, calc(1.5vh / var(--vz)), 18px)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); overflow-wrap: anywhere; }
+.pzt-k { font: 600 clamp(12px, calc(1.5 * var(--pzh) / var(--vz)), 18px)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); overflow-wrap: anywhere; }
 /* The number shrinks with its tile (30cqi) and the unit drops under it rather than leave the box. */
 .pzt-vu { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .3em; min-width: 0; }
-.pzt-v { font: 600 min(clamp(28px, calc(4.7vh / var(--vz)), 58px), 30cqi)/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); transition: color .4s var(--ease); }
-.pzt-vu small { font: 500 clamp(12px, calc(1.5vh / var(--vz)), 18px) var(--font-ui); color: var(--text-3); white-space: nowrap; }
-.pzt-r { display: inline-flex; align-items: center; gap: .45em; font: 600 clamp(12px, calc(1.55vh / var(--vz)), 19px)/1.2 var(--font-ui); color: var(--text-2); }
+.pzt-v { font: 600 min(clamp(28px, calc(4.7 * var(--pzh) / var(--vz)), 58px), 30cqi)/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); transition: color .4s var(--ease); }
+.pzt-vu small { font: 500 clamp(12px, calc(1.5 * var(--pzh) / var(--vz)), 18px) var(--font-ui); color: var(--text-3); white-space: nowrap; }
+.pzt-r { display: inline-flex; align-items: center; gap: .45em; font: 600 clamp(12px, calc(1.55 * var(--pzh) / var(--vz)), 19px)/1.2 var(--font-ui); color: var(--text-2); }
 .pzt-r::before { content: ''; width: .6em; height: .6em; border-radius: 50%; background: var(--text-3); flex: none; transition: background-color .4s var(--ease); }
 .pz-tile[data-rate="hi"] .pzt-v, .pz-tile[data-rate="hi"] .pzt-r { color: var(--danger); }
 .pz-tile[data-rate="hi"] .pzt-r::before { background: var(--danger); }
@@ -1787,24 +1790,24 @@ button.finding:hover { background: var(--surface-2); }
 .pz-data.tiles-only .pz-ladder, .pz-data.tiles-only .pz-lg { display: none; }
 .pz-data.tiles-only .pz-tiles { grid-template-columns: minmax(0, 1fr); }
 .pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.pz-data.tiles-only .pzt-v { font-size: min(clamp(32px, calc(5.6vh / var(--vz)), 68px), 30cqi); }
+.pz-data.tiles-only .pzt-v { font-size: min(clamp(32px, calc(5.6 * var(--pzh) / var(--vz)), 68px), 30cqi); }
 /* Under the words (beside a sinusoid): the left column, the tiles two by two. */
 .pz-data.under { left: clamp(20px, calc(3.4vw / var(--vz)), 76px); right: auto; width: clamp(300px, calc(29vw / var(--vz)), 600px); }
 .pz-data.under.pz-hide { transform: translateY(14px); }
 .pz-data.under.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.pz-data.under.tiles-only .pzt-v { font-size: min(clamp(30px, calc(5vh / var(--vz)), 60px), 30cqi); }
+.pz-data.under.tiles-only .pzt-v { font-size: min(clamp(30px, calc(5 * var(--pzh) / var(--vz)), 60px), 30cqi); }
 /* Tiles alone, beside the words: the card is as wide as its tiles need (never wider than its old width). The tiles
    drop their size container, which would make them measure as zero wide; the number keeps a width for four characters
    so a changing number does not nudge the card. Two tiles go side by side when the screen is wide. */
 .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) { width: fit-content; max-width: clamp(300px, calc(25vw / var(--vz)), 500px); }
 .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) .pz-tile { container-type: normal; }
-.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) .pzt-v { font-size: clamp(32px, calc(5.6vh / var(--vz)), 68px); min-width: 3.6ch; }
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) .pzt-v { font-size: clamp(32px, calc(5.6 * var(--pzh) / var(--vz)), 68px); min-width: 3.6ch; }
 @media (orientation: portrait) { .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) { max-width: min(62vw, 520px); } }
 @media (min-width: 1100px) {
   .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool):has(.pz-tiles[data-n="2"]) { max-width: min(46vw, 640px); }
   .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) .pz-tiles[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-.pzt-d { font: 600 clamp(12px, calc(1.5vh / var(--vz)), 18px)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
+.pzt-d { font: 600 clamp(12px, calc(1.5 * var(--pzh) / var(--vz)), 18px)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
 .pzt-d[data-way="good"] { color: color-mix(in srgb, var(--ok) 85%, var(--text)); }
 .pzt-d[data-way="bad"] { color: var(--danger); }
 .pz-col { display: block; width: min(100%, 460px); height: auto; overflow: visible; font: 600 11px var(--font-ui); }
@@ -1819,20 +1822,20 @@ button.finding:hover { background: var(--surface-2); }
 .pz-col .c-blkt { fill: var(--danger); opacity: 0; transition: opacity .5s var(--ease) 1.8s; }
 .pz-col.in .c-fill { transform: none; } .pz-col.in :is(.c-top, .c-blk, .c-blkt) { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .pz-col * { transition: none !important; } }
-.pz-stk { display: flex; flex-wrap: wrap; gap: .35em 1em; font: 600 clamp(12px, calc(1.5vh / var(--vz)), 17px)/1.2 var(--font-ui); color: var(--text-2); }
+.pz-stk { display: flex; flex-wrap: wrap; gap: .35em 1em; font: 600 clamp(12px, calc(1.5 * var(--pzh) / var(--vz)), 17px)/1.2 var(--font-ui); color: var(--text-2); }
 .pz-stk { container-type: inline-size; flex-wrap: nowrap; overflow: hidden; }
 .pz-stk > span { display: inline-flex; align-items: center; gap: .4em; white-space: nowrap; }
 .pz-stk .st-tag { color: var(--text-3); font-weight: 500; margin-left: -.4em; }
 @container (max-width: 480px) { .pz-stk .st-tag { display: none; } }   /* (the WHVP and FHVP tags need about 465 px on one line) */
 @container (max-width: 340px) { .pz-stk > span { font-size: 13px; } }   /* (an iPad held upright: five stations still fit on one line) */
 .pz-stk i { width: .75em; height: .75em; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 25%, transparent); }
-.pz-lapse { display: flex; align-items: center; gap: .8em; font: 600 clamp(15px, calc(2.1vh / var(--vz)), 25px)/1.2 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-2); }
+.pz-lapse { display: flex; align-items: center; gap: .8em; font: 600 clamp(15px, calc(2.1 * var(--pzh) / var(--vz)), 25px)/1.2 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-2); }
 .pzl-bar { position: relative; flex: 1; max-width: 12em; height: .5em; border-radius: .25em; background: var(--hairline); overflow: hidden; }
 .pzl-bar i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--k, 0)); background: linear-gradient(90deg, var(--tour-portal), var(--tour-sys)); border-radius: inherit; transition: transform .2s linear; }
 .pz-lapse.done { color: var(--text); }
 /* A compare slide's treatments: a segmented switch on the live model (the pressed one eases to the accent). */
 .pz-ab { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; width: fit-content; max-width: 100%; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; }
-.pz-abb { appearance: none; border: 0; border-radius: 999px; padding: .5em 1.05em; min-height: 40px; font: 600 clamp(14px, calc(1.9vh / var(--vz)), 22px)/1.1 var(--font-ui); color: var(--text-2); background: transparent; cursor: pointer; transition: background-color .3s var(--ease), color .3s var(--ease), box-shadow .3s var(--ease); }
+.pz-abb { appearance: none; border: 0; border-radius: 999px; padding: .5em 1.05em; min-height: 40px; font: 600 clamp(14px, calc(1.9 * var(--pzh) / var(--vz)), 22px)/1.1 var(--font-ui); color: var(--text-2); background: transparent; cursor: pointer; transition: background-color .3s var(--ease), color .3s var(--ease), box-shadow .3s var(--ease); }
 .pz-abb:hover { color: var(--text); background: var(--hairline); }
 .pz-abb[aria-pressed="true"] { color: var(--on-accent); background: var(--accent); box-shadow: var(--shadow-1); }
 .pz-abb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -1849,17 +1852,17 @@ button.finding:hover { background: var(--surface-2); }
 }
 .pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity .5s var(--ease); }
 .pz-veil.on { opacity: 1; }
-.pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); max-height: calc(100% - 2 * clamp(16px, calc(4vh / var(--vz)), 56px)); overflow: clip; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4vh / var(--vz)), 32px); padding: clamp(18px, calc(3.4vh / var(--vz)), 44px) clamp(20px, calc(3vw / var(--vz)), 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6vh / var(--vz)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: pz-in .55s var(--ease) both; transition: opacity .22s var(--ease), transform .22s var(--ease); }
-.pz-panel .pz-ph { display: flex; flex-direction: column; gap: clamp(6px, calc(1.2vh / var(--vz)), 14px); }
-.pz-panel .pz-h { font-size: clamp(28px, calc(4.6vh / var(--vz)), 56px); }
+.pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); max-height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh) / var(--vz)), 56px)); overflow: clip; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4 * var(--pzh) / var(--vz)), 32px); padding: clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px) clamp(20px, calc(3vw / var(--vz)), 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6 * var(--pzh) / var(--vz)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: pz-in .55s var(--ease) both; transition: opacity .22s var(--ease), transform .22s var(--ease); }
+.pz-panel .pz-ph { display: flex; flex-direction: column; gap: clamp(6px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
+.pz-panel .pz-h { font-size: clamp(28px, calc(4.6 * var(--pzh) / var(--vz)), 56px); }
 .pz-panel .pz-line { max-width: 70ch; }
-.pz-grid-key { grid-column: 1 / -1; margin: 0; font: 500 clamp(12px, calc(1.5vh / var(--vz, 1)), 15px) var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.pz-grid-key { grid-column: 1 / -1; margin: 0; font: 500 clamp(12px, calc(1.5 * var(--pzh) / var(--vz, 1)), 15px) var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .pz-grid-key i { display: inline-block; width: 22px; margin-right: 8px; vertical-align: middle; border-top: 2px dashed var(--text-3); }
-.pz-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, calc(2vh / var(--vz)), 26px); }
-.pz-cell { display: flex; flex-direction: column; gap: clamp(4px, calc(.8vh / var(--vz)), 10px); padding: clamp(10px, calc(1.6vh / var(--vz)), 20px) clamp(12px, calc(1.6vh / var(--vz)), 20px) clamp(6px, calc(1vh / var(--vz)), 12px); border-radius: clamp(12px, calc(1.8vh / var(--vz)), 20px); background: var(--surface-2); min-width: 0; }
-.pz-cell .pz-kick { font-size: clamp(11px, calc(1.35vh / var(--vz)), 16px); }
+.pz-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, calc(2 * var(--pzh) / var(--vz)), 26px); }
+.pz-cell { display: flex; flex-direction: column; gap: clamp(4px, calc(.8 * var(--pzh) / var(--vz)), 10px); padding: clamp(10px, calc(1.6 * var(--pzh) / var(--vz)), 20px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px) clamp(6px, calc(1 * var(--pzh) / var(--vz)), 12px); border-radius: clamp(12px, calc(1.8 * var(--pzh) / var(--vz)), 20px); background: var(--surface-2); min-width: 0; }
+.pz-cell .pz-kick { font-size: clamp(11px, calc(1.35 * var(--pzh) / var(--vz)), 16px); }
 .pz-cell-k { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 8px; }
-.pz-cell-k > span { font: 500 clamp(12px, calc(1.5vh / var(--vz)), 18px) var(--font-ui); color: var(--text-3); white-space: nowrap; }
+.pz-cell-k > span { font: 500 clamp(12px, calc(1.5 * var(--pzh) / var(--vz)), 18px) var(--font-ui); color: var(--text-3); white-space: nowrap; }
 .pz-cell-k b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .pz-cell-k b[data-rate="hi"] { color: var(--danger); }
 .pz-cell-k b[data-rate="mid"] { color: var(--caution); }
@@ -1868,20 +1871,20 @@ button.finding:hover { background: var(--surface-2); }
 .pz-cell.q:not(.shown) :is(.pz-kick, .pz-cell-t) { filter: blur(7px); opacity: .45; user-select: none; }
 .pz-cell.q:not(.shown):hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
 .pz-cell.q:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.pz-cell-t { font: 600 clamp(16px, calc(2.2vh / var(--vz)), 27px)/1.15 var(--font-display); color: var(--text); }
+.pz-cell-t { font: 600 clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 27px)/1.15 var(--font-display); color: var(--text); }
 /* The six ladders fill the panel: two rows share its height and each chart shrinks to its cell. */
-.pz-panel.fill { height: calc(100% - 2 * clamp(16px, calc(4vh / var(--vz)), 56px)); }
+.pz-panel.fill { height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh) / var(--vz)), 56px)); }
 .pz-panel.fill .pz-grid { flex: 1; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
 .pz-panel.fill .pz-cell { min-height: 0; }
 .pz-panel.fill .pz-cell .pz-ladder { flex: 1 1 0; min-height: 0; }
-.pz-table { overflow: auto; border: 1px solid var(--border); border-radius: clamp(12px, calc(1.8vh / var(--vz)), 20px); }
-.pz-table table { width: 100%; border-collapse: collapse; font: 500 clamp(15px, calc(2.2vh / var(--vz)), 27px)/1.25 var(--font-ui); }
+.pz-table { overflow: auto; border: 1px solid var(--border); border-radius: clamp(12px, calc(1.8 * var(--pzh) / var(--vz)), 20px); }
+.pz-table table { width: 100%; border-collapse: collapse; font: 500 clamp(15px, calc(2.2 * var(--pzh) / var(--vz)), 27px)/1.25 var(--font-ui); }
 .pz-table th, .pz-table td { padding: .55em .75em; text-align: left; vertical-align: middle; }
-.pz-table thead th { background: var(--surface-2); font: 600 clamp(11px, calc(1.35vh / var(--vz)), 16px)/1.2 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
+.pz-table thead th { background: var(--surface-2); font: 600 clamp(11px, calc(1.35 * var(--pzh) / var(--vz)), 16px)/1.2 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
 .pz-table .num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pz-table tbody tr { border-top: 1px solid var(--border); cursor: pointer; transition: background-color .2s var(--ease); }
 .pz-table tbody tr:hover { background: var(--accent-soft); }
-.pz-table tbody th .pz-kick { font-size: clamp(10px, calc(1.25vh / var(--vz)), 15px); }
+.pz-table tbody th .pz-kick { font-size: clamp(10px, calc(1.25 * var(--pzh) / var(--vz)), 15px); }
 .pz-table .tn { display: block; margin-top: .15em; font: 600 1em/1.2 var(--font-display); color: var(--text); }
 .pz-table td[data-rate="hi"] { color: var(--danger); font-weight: 600; }
 .pz-table td[data-rate="mid"] { color: var(--caution); font-weight: 600; }
@@ -1893,7 +1896,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-table .pz-foot { position: sticky; left: 0; bottom: 0; padding: .7em 1em .8em; border-top: 1px solid var(--border); background: var(--surface); }
 /* (A long table's rows sit closer, so its legend fits under it; the legend stays pinned at the bottom if it still would not.) */
 .pz-table:has(tbody tr:nth-child(7)) tbody :is(th, td) { padding-block: .36em; }
-.pz-foot { margin: 0; font: 500 clamp(12px, calc(1.45vh / var(--vz)), 17px)/1.4 var(--font-ui); color: var(--text-3); }
+.pz-foot { margin: 0; font: 500 clamp(12px, calc(1.45 * var(--pzh) / var(--vz)), 17px)/1.4 var(--font-ui); color: var(--text-3); }
 /* Counter, progress, controls, notes, black screen. */
 .pz-table td.note { font-size: .8em; color: var(--text-2); }
 .pz-table td.blank { color: var(--text-3); }
@@ -1959,7 +1962,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-table tr[data-arrived] td { animation: pz-fade .5s var(--ease) both; }
 /* The visuals: a scale with thresholds, SAAG × protein, the two capillary walls. */
 .pz-visual { min-height: 0; display: flex; justify-content: center; }
-.pz-scale, .pz-walls { display: block; width: 100%; height: auto; max-height: calc(56vh / var(--vz)); overflow: visible; }
+.pz-scale, .pz-walls { display: block; width: 100%; height: auto; max-height: calc(56 * var(--pzh) / var(--vz)); overflow: visible; }
 .pzs-zone[data-rate="ok"] { fill: color-mix(in srgb, var(--ok) 26%, transparent); }
 .pzs-zone[data-rate="mid"] { fill: color-mix(in srgb, var(--caution) 30%, transparent); }
 .pzs-zone[data-rate="hi"] { fill: color-mix(in srgb, var(--danger) 22%, transparent); }
@@ -1980,7 +1983,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-scale.in .pzs-pin text { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .pzs-pin, .pzs-pin text { transition-duration: .3s; transition-delay: 0s; } }
 .pz-quadwrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(16px, calc(3vw / var(--vz)), 52px); align-items: center; }
-.pz-quad { display: block; width: 100%; height: auto; max-height: calc(58vh / var(--vz)); }
+.pz-quad { display: block; width: 100%; height: auto; max-height: calc(58 * var(--pzh) / var(--vz)); }
 .pzq-q rect { fill: var(--surface-2); }
 .pzq-q[data-portal="y"] rect { fill: color-mix(in srgb, var(--tour-portal) 9%, var(--surface)); }
 .pzq-n { font: 700 42px var(--font-display); fill: var(--text-3); }
@@ -1992,12 +1995,12 @@ button.finding:hover { background: var(--surface-2); }
 .pzq-pt { animation: pz-in .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 180ms + 300ms); }
 .pzq-pt circle { fill: var(--site); stroke: var(--surface); stroke-width: 5; }
 .pzq-pt text { font: 700 29px var(--font-ui); fill: var(--text); }
-.pz-quads { display: flex; flex-direction: column; gap: clamp(8px, calc(1.6vh / var(--vz)), 20px); margin: 0; padding: 0; list-style: none; }
-.pz-quads li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .8em; row-gap: .2em; align-items: baseline; padding: .65em .9em; border-radius: clamp(12px, calc(1.6vh / var(--vz)), 18px); background: var(--surface-2); }
+.pz-quads { display: flex; flex-direction: column; gap: clamp(8px, calc(1.6 * var(--pzh) / var(--vz)), 20px); margin: 0; padding: 0; list-style: none; }
+.pz-quads li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .8em; row-gap: .2em; align-items: baseline; padding: .65em .9em; border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); background: var(--surface-2); }
 .pz-quads li[data-portal="y"] { background: color-mix(in srgb, var(--tour-portal) 9%, var(--surface)); }
-.pz-quads .qn { grid-row: span 2; font: 700 clamp(22px, calc(3.6vh / var(--vz)), 42px)/1 var(--font-display); color: var(--text-3); }
-.pz-quads .qt { font: 600 clamp(15px, calc(2.15vh / var(--vz)), 26px)/1.2 var(--font-ui); color: var(--text); }
-.pz-quads .qc { font: 400 clamp(13px, calc(1.85vh / var(--vz)), 22px)/1.3 var(--font-ui); color: var(--text-2); }
+.pz-quads .qn { grid-row: span 2; font: 700 clamp(22px, calc(3.6 * var(--pzh) / var(--vz)), 42px)/1 var(--font-display); color: var(--text-3); }
+.pz-quads .qt { font: 600 clamp(15px, calc(2.15 * var(--pzh) / var(--vz)), 26px)/1.2 var(--font-ui); color: var(--text); }
+.pz-quads .qc { font: 400 clamp(13px, calc(1.85 * var(--pzh) / var(--vz)), 22px)/1.3 var(--font-ui); color: var(--text-2); }
 .pzw-t { font: 600 40px var(--font-display); fill: var(--text); }
 .pzw-s { font: 500 26px var(--font-ui); fill: var(--text-2); }
 .pzw-l { font: 600 21px var(--font-ui); letter-spacing: .05em; text-transform: uppercase; fill: var(--text-3); }
@@ -2018,7 +2021,7 @@ button.finding:hover { background: var(--surface-2); }
 @keyframes pzw-drift { from { transform: translateX(-30px); } to { transform: translateX(30px); } }
 @keyframes pzw-pulse { 0%, 100% { opacity: .45; } 50% { opacity: .95; } }
 @keyframes pzw-rise { 0% { transform: translateY(40px); opacity: 0; } 25%, 75% { opacity: 1; } 100% { transform: translateY(-44px); opacity: 0; } }
-.pz-count { position: absolute; right: clamp(16px, calc(2.2vw / var(--vz)), 44px); bottom: 14px; font: 600 clamp(12px, calc(1.5vh / var(--vz)), 17px) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
+.pz-count { position: absolute; right: clamp(16px, calc(2.2vw / var(--vz)), 44px); bottom: 14px; font: 600 clamp(12px, calc(1.5 * var(--pzh) / var(--vz)), 17px) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
 .pz-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--hairline); }
 .pz-prog i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: var(--accent); transition: width .5s var(--ease); }
 .pz-bar { --pz-glass-edge: color-mix(in srgb, #fff 45%, transparent); --pz-glass-drop: rgb(0 0 0 / .14); position: absolute; left: 50%; bottom: 22px; translate: -50% 0; display: flex; align-items: center; gap: 4px; padding: 5px; max-width: calc(100% - 24px); overflow-x: auto; background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-card); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; transition: opacity .3s var(--ease), transform .3s var(--ease), background-color .3s var(--ease), border-color .3s var(--ease); }
@@ -2056,8 +2059,8 @@ button.finding:hover { background: var(--surface-2); }
 /* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: 12px; }
-.pz.stack .pz-h { font-size: clamp(24px, calc(3.4vh / var(--vz)), 40px); }
-.pz.stack .pz-line { font-size: clamp(14px, calc(1.9vh / var(--vz)), 20px); }
+.pz.stack .pz-h { font-size: clamp(24px, calc(3.4 * var(--pzh) / var(--vz)), 40px); }
+.pz.stack .pz-line { font-size: clamp(14px, calc(1.9 * var(--pzh) / var(--vz)), 20px); }
 /* (A phone's lines run the card's full width: balancing and pretty-wrapping shorten lines well before the edge, so the words wrap plainly, first-fit.) */
 .pz.stack .pz-h, .pz.stack .pz-line { text-wrap: wrap; }
 .pz.stack .pz-eq math { font-size: 21px; }
@@ -2070,7 +2073,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-data.has-tool:not(.tool-only) .pz-fold { display: inline-flex; align-items: center; min-height: 28px; margin: -6px -4px -6px auto; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--accent); font: inherit; letter-spacing: .05em; cursor: pointer; }
 .pz.stack .pz-data.has-tool:not(.tool-only) .pz-tool { max-height: 60vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
 .pz.stack .pz-data.has-tool:not(.tool-only):not(.tool-open) .pz-tool { max-height: 0; opacity: 0; margin-bottom: -6px; }
-.pz.stack .pz-ladder { max-height: calc(21vh / var(--vz)); }
+.pz.stack .pz-ladder { max-height: calc(21 * var(--pzh) / var(--vz)); }
 .pz.stack .pz-tile { padding: 6px 10px; }
 .pz.stack .pzt-v { font-size: min(24px, 30cqi); }
 /* (Centred in the figure above the Back/Next bar: top and bottom set, its own height, auto margins.) */
@@ -2118,7 +2121,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-ab::-webkit-scrollbar { display: none; }
 .pz.stack .pz-abb { flex: none; }
 /* A title that would run past two lines in the side pane steps down a size. */
-.pz:not(.stack) .pz-text .pz-h.long { font-size: calc(clamp(32px, calc(5.8vh / var(--vz)), 70px) * .84); }
+.pz:not(.stack) .pz-text .pz-h.long { font-size: calc(clamp(32px, calc(5.8 * var(--pzh) / var(--vz)), 70px) * .84); }
 .pz.stack .pz-count { display: none; }
 /* A slide's instrument (tool) in the data card: the instrument as the app draws it, without its controls. */
 .pz-data.has-tool { width: clamp(340px, 32vw, 620px); }
@@ -2127,21 +2130,21 @@ button.finding:hover { background: var(--surface-2); }
 /* Beside a tool the card is narrow: a tile keeps room for its name and rating (about 9 em), and the tiles wrap to a second row rather than squeeze. */
 .pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5em), 1fr)); }
 .pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.pz:not(.stack):not(.port) .pz-data.has-tool.tiles-only:not(.tool-only) .pzt-v { font-size: min(clamp(28px, calc(4.6vh / var(--vz)), 56px), 30cqi); }
+.pz:not(.stack):not(.port) .pz-data.has-tool.tiles-only:not(.tool-only) .pzt-v { font-size: min(clamp(28px, calc(4.6 * var(--pzh) / var(--vz)), 56px), 30cqi); }
 .pz-tool:not([data-kind]) { display: none; }
-.pz-ghost { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2em .6em; margin-top: 6px; font: 600 clamp(12px, calc(1.45vh / var(--vz)), 16px)/1.2 var(--font-ui); color: var(--text-3); opacity: 0; max-height: 0; overflow: hidden; transition: opacity .5s var(--ease), max-height .5s var(--ease); }
+.pz-ghost { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2em .6em; margin-top: 6px; font: 600 clamp(12px, calc(1.45 * var(--pzh) / var(--vz)), 16px)/1.2 var(--font-ui); color: var(--text-3); opacity: 0; max-height: 0; overflow: hidden; transition: opacity .5s var(--ease), max-height .5s var(--ease); }
 .pz-ghost.on { opacity: 1; max-height: 3em; }
 .pz-ghost span { letter-spacing: .06em; text-transform: uppercase; font-size: .85em; }
 .pz-ghost b { color: var(--text-2); opacity: .7; font-variant-numeric: tabular-nums; }
 .pz-data.tool-only .pz-tiles, .pz-data.tool-only .pz-ladder, .pz-data.tool-only .pz-lg { display: none; }
 .pz-tool .ab-main { display: block; }
 .pz-tool .ab-main > .ab-report + .ab-report, .pz-tool .ab-tap > .ab-row:last-child { display: none; }
-.pz-tool .ab-belly { width: clamp(68px, 10vh, 120px); height: clamp(68px, 10vh, 120px); }
-.pz-tool .ab-sum .hv-num b { font-size: clamp(28px, 4.4vh, 48px); }
+.pz-tool .ab-belly { width: clamp(68px, calc(10 * var(--pzh)), 120px); height: clamp(68px, calc(10 * var(--pzh)), 120px); }
+.pz-tool .ab-sum .hv-num b { font-size: clamp(28px, calc(4.4 * var(--pzh)), 48px); }
 .pz-tool { position: relative; flex: none; }
 /* The varix wall: the cross-section beside its stress meter and the r, w and ΔP of Laplace's law (the equation is the slide's). */
 .pz-tool[data-kind="wall"] .pz-inst { display: flex; flex-direction: row; align-items: center; gap: 14px; }
-.pz-tool[data-kind="wall"] .endo-stage { flex: none; width: min(46%, 30vh); min-height: 0; }
+.pz-tool[data-kind="wall"] .endo-stage { flex: none; width: min(46%, calc(30 * var(--pzh))); min-height: 0; }
 .pz-tool[data-kind="wall"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; }
 .pz-tool[data-kind="wall"] .chart-side { flex: 1; min-width: 0; }
 .pz-tool[data-kind="wall"] .endo-read { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
@@ -2151,13 +2154,13 @@ button.finding:hover { background: var(--surface-2); }
 /* One block style beside a tool: the scope's readings and the key tile are all tiles of the data card (fill set above), laid out
    two across with the grade on its own row, so no row is half empty. A reading's emphasis is its value colour, never a different box. */
 .pz-data.has-tool .pz-tile.key { border-color: transparent; }
-.pz-tool .endo-read { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(6px, calc(1vh / var(--vz)), 10px); }
-.pz-tool .endo-read > div { display: flex; flex-direction: column; justify-content: space-between; gap: .2em; min-width: 0; padding: clamp(8px, calc(1.1vh / var(--vz)), 12px) clamp(10px, calc(1.4vh / var(--vz)), 16px); border-radius: clamp(12px, calc(1.6vh / var(--vz)), 18px); border: 2px solid transparent; }
-.pz-tool .endo-read dt { font: 600 clamp(11px, calc(1.4vh / var(--vz)), 16px)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); white-space: normal; overflow-wrap: anywhere; }
-.pz-tool .endo-num, .pz-tool .endo-chip-v, .pz-tool .endo-grade, .pz-tool .endo-grade span, .pz-tool .endo-grade b { font: 600 clamp(17px, calc(2.4vh / var(--vz)), 26px)/1.1 var(--font-ui); letter-spacing: -.02em; }
+.pz-tool .endo-read { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(6px, calc(1 * var(--pzh) / var(--vz)), 10px); }
+.pz-tool .endo-read > div { display: flex; flex-direction: column; justify-content: space-between; gap: .2em; min-width: 0; padding: clamp(8px, calc(1.1 * var(--pzh) / var(--vz)), 12px) clamp(10px, calc(1.4 * var(--pzh) / var(--vz)), 16px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); border: 2px solid transparent; }
+.pz-tool .endo-read dt { font: 600 clamp(11px, calc(1.4 * var(--pzh) / var(--vz)), 16px)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); white-space: normal; overflow-wrap: anywhere; }
+.pz-tool .endo-num, .pz-tool .endo-chip-v, .pz-tool .endo-grade, .pz-tool .endo-grade span, .pz-tool .endo-grade b { font: 600 clamp(17px, calc(2.4 * var(--pzh) / var(--vz)), 26px)/1.1 var(--font-ui); letter-spacing: -.02em; }
 .pz-tool .endo-num { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .3em; }
 .pz-tool .endo-chip-v { margin: 0 !important; text-align: left; }
-.pz-tool .endo-chip-v[data-long] { font-size: clamp(14px, calc(1.8vh / var(--vz)), 19px); letter-spacing: 0; }
+.pz-tool .endo-chip-v[data-long] { font-size: clamp(14px, calc(1.8 * var(--pzh) / var(--vz)), 19px); letter-spacing: 0; }
 .pz-tool .endo-chip-v::before { content: ''; display: inline-block; width: .5em; height: .5em; margin-right: .45em; border-radius: 50%; background: var(--text-3); vertical-align: .08em; transition: background-color .3s var(--ease); }
 .pz-tool .endo-chip[data-on="true"] .endo-chip-v::before { background: var(--accent); }
 .pz-tool .endo-chip.endo-red[data-on="true"] .endo-chip-v::before { background: var(--danger); }
@@ -2172,7 +2175,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-tool .dop-report > :not(.dop-stats) { grid-column: 1; }
 .pz-tool .dop-stats { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 0 0 0 16px; border-top: 0; border-left: 1px solid var(--hairline); }
 .pz-tool .dop-note { grid-column: 1 / -1 !important; margin: 6px 0 0; font-size: var(--fs-14); color: var(--text-2); }
-.pz-tool .dop-vel b { font-size: clamp(28px, 4.4vh, 48px); }
+.pz-tool .dop-vel b { font-size: clamp(28px, calc(4.4 * var(--pzh)), 48px); }
 .pz-tool .pz-inst { display: flex; flex-direction: column; gap: 10px; padding: 0; overflow: visible; }
 .pz-tool .pz-inst > *, .pz-tool .hv-main, .pz-tool .chart-box { flex: none; }
 .pz-tool select,
@@ -2187,14 +2190,14 @@ button.finding:hover { background: var(--surface-2); }
 .pz-tool .ab-note,
 .pz-tool .ab-controls { display: none; }
 .pz-tool .dop-head:empty, .pz-tool .dop-head:not(:has(> :not(select):not(.dop-btns))) { display: none; }
-.pz-tool[data-kind="doppler"] .dop-box { height: clamp(150px, 24vh, 300px); }
-.pz-tool[data-kind="fibroscan"] .fibroscan-box { height: clamp(220px, 38vh, 440px); }
+.pz-tool[data-kind="doppler"] .dop-box { height: clamp(150px, calc(24 * var(--pzh)), 300px); }
+.pz-tool[data-kind="fibroscan"] .fibroscan-box { height: clamp(220px, calc(38 * var(--pzh)), 440px); }
 /* The scope's view sits in .endo-stage, a size container in the Tests card; here the stage takes the view's own height. */
 .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { container-type: normal; min-height: 0; }
-.pz-tool[data-kind="scope"] .endo-stage { width: min(100%, 30vh, 20vw); margin: 0 auto; }
+.pz-tool[data-kind="scope"] .endo-stage { width: min(100%, calc(30 * var(--pzh)), 20vw); margin: 0 auto; }
 .pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; margin: 0; }
 .pz-tool[data-kind="scope"] .chart-side { width: 100%; max-width: none; }
-.pz-tool[data-kind="beats"] .pt-box { height: clamp(180px, 30vh, 360px); }
+.pz-tool[data-kind="beats"] .pt-box { height: clamp(180px, calc(30 * var(--pzh)), 360px); }
 /* Quiz: the reading stays covered until the answer (a soft veil, never a pop). */
 .pz-tool::after { content: ""; position: absolute; pointer-events: none; opacity: 0; transition: opacity .32s var(--ease); background: var(--surface); border-radius: 10px; }
 .pz-tool.ask[data-kind="fibroscan"]::after { opacity: 1; left: 8px; top: 30px; width: 46%; height: 64px; }
@@ -2203,7 +2206,7 @@ button.finding:hover { background: var(--surface-2); }
 /* The talk so far: pressures at each slide, HVPG in its own lane. */
 .pz-talk { display: grid; }
 .pz-mon { flex: none; margin-top: 14px; }
-.pz-mon .hvpg-box { height: clamp(150px, 24vh, 280px); }
+.pz-mon .hvpg-box { height: clamp(150px, calc(24 * var(--pzh)), 280px); }
 .pz.stack .pz-mon { margin-top: 8px; }
 .pz.stack .pz-text:has(.pz-mon) { max-height: 50%; }
 .pz.stack .pz-mon .hvpg-box { height: 136px; }
@@ -2300,7 +2303,7 @@ button.finding:hover { background: var(--surface-2); }
 /* The opening slide: the talk's outline beside its objectives. */
 /* The opening slide: the talk's plan as a numbered run of sections, its objectives on a tinted card beside it
    (under it on a narrow screen). One type size for both lists; the numbers and ticks in the accent colour. */
-.pz-outline { --pzo-fs: clamp(16px, calc(2.15vh / var(--vz)), 26px); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: start; gap: clamp(18px, calc(3.2vh / var(--vz)), 44px) clamp(24px, 3.6vw, 60px); }
+.pz-outline { --pzo-fs: clamp(16px, calc(2.15 * var(--pzh) / var(--vz)), 26px); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: start; gap: clamp(18px, calc(3.2 * var(--pzh) / var(--vz)), 44px) clamp(24px, 3.6vw, 60px); }
 .pz-outline section { min-width: 0; display: flex; flex-direction: column; }
 .pz-outline h2.pz-sub { display: flex; align-items: center; gap: .8em; margin: 0 0 .7em; }
 .pz-outline h2.pz-sub::after { content: ""; flex: 1; height: 1px; background: var(--border); }
@@ -2309,7 +2312,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-outline ol li { counter-increment: pzo; display: grid; grid-template-columns: 2.1em minmax(0, 1fr); align-items: baseline; padding: .5em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
 .pz-outline ol li:first-child { border-top: 0; padding-top: .1em; }
 .pz-outline ol li::before { content: counter(pzo, decimal-leading-zero); font: 600 .74em/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: .04em; color: var(--accent); }
-.pzo-obj { padding: clamp(14px, calc(2.2vh / var(--vz)), 26px) clamp(16px, calc(2.2vh / var(--vz)), 28px); border-radius: clamp(14px, calc(1.8vh / var(--vz)), 22px); background: color-mix(in srgb, var(--accent) 6%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent); }
+.pzo-obj { padding: clamp(14px, calc(2.2 * var(--pzh) / var(--vz)), 26px) clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); border-radius: clamp(14px, calc(1.8 * var(--pzh) / var(--vz)), 22px); background: color-mix(in srgb, var(--accent) 6%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent); }
 .pzo-obj h2.pz-sub::after { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .pz-outline ul { gap: .75em; }
 .pz-outline ul li { position: relative; padding-left: 1.7em; }
@@ -4496,7 +4499,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab-drain, .ab-chip { min-height: 36px; padding: 0 10px; }
 
 /* The Presenter's reflowing scale (scaleKey): zone names over a band, cut-offs under it, numbered dots, a key. */
-.pz-sk { --sk: clamp(13px, calc(2.2vh / var(--vz)), 26px); font: 500 var(--sk)/1.3 var(--font-ui); color: var(--text); padding: .4em 0 0; }
+.pz-sk { --sk: clamp(13px, calc(2.2 * var(--pzh) / var(--vz)), 26px); font: 500 var(--sk)/1.3 var(--font-ui); color: var(--text); padding: .4em 0 0; }
 .pzk-names, .pzk-bar, .pzk-axis { position: relative; margin: 0 1.2em; }
 .pzk-names { height: 1.6em; }
 .pzk-names span { position: absolute; bottom: .3em; text-align: center; font-weight: 600; font-size: .78em; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }

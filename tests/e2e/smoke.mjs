@@ -385,6 +385,25 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-instruments`);
   });
 
+  if (device === 'desktop') await check(device, 'presenter on an upright iPad: type at landscape scale, words clear of the data card', async (page) => {
+    await page.setViewportSize({ width: 820, height: 1180 });
+    await open(page);
+    await page.evaluate(() => window.pps.presenter.start('circulation', 1));
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+    await page.waitForTimeout(1200);
+    const m = await page.evaluate(() => {
+      const r = (s) => document.querySelector(s)?.getBoundingClientRect();
+      const fs = (s) => parseFloat(getComputedStyle(document.querySelector(s)).fontSize);
+      const t = r('.pz-text'), d = r('.pz-data');
+      const wide = [...document.querySelectorAll('.pz-text *')].filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflow !== 'visible').length;
+      return { h: fs('.pz-h'), line: fs('.pz-line'), wide, overlap: !!(t && d && d.width && t.right > d.left && t.left < d.right && t.bottom > d.top && t.top < d.bottom) };
+    });
+    // (Sized by the height, an upright iPad's 1180 px set the title at 57 px in a 300 px column.)
+    if (m.h > 40 || m.line > 22) throw new Error(`upright iPad presenter type too large: title ${m.h}px, body ${m.line}px`);
+    if (m.overlap) throw new Error('upright iPad presenter: the words overlap the data card');
+    if (m.wide) throw new Error(`upright iPad presenter: ${m.wide} element(s) of the words overflow sideways`);
+  });
+
   await check(device, 'presenter: summary table returns after back then forward', async (page) => {
     await open(page, '?home=present');
     await page.waitForSelector('.umenu .um-row[data-k="d:lobule"]');
