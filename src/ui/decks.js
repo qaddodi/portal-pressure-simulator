@@ -50,8 +50,8 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=60bd622aab';
-import { SITES } from './decks/sites.js?v=99764025c1';
+import { CIRCULATION } from './decks/circulation.js?v=2a4933aaca';
+import { SITES } from './decks/sites.js?v=e6725267ed';
 import { HVPG } from './decks/hvpg.js?v=5dc6e4727a';
 import { ASCITES } from './decks/ascites.js?v=ab387e4e41';
 import { VARICES } from './decks/varices.js?v=1ad248e26a';
@@ -61,17 +61,17 @@ import { ONE_YEAR } from './decks/one-year.js?v=7373f5f35c';
 import { LOBULE } from './decks/lobule.js?v=0e9af59367';
 import { SHUNTS } from './decks/shunts.js?v=435d87fb98';
 import { TAP } from './decks/tap.js?v=84efd8f032';
-import { CIRCUIT } from './decks/circuit.js?v=d140523a4a';
+import { CIRCUIT } from './decks/circuit.js?v=344ea65d37';
 import { DOPPLER } from './decks/doppler.js?v=0f053780b5';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=5a44434020';
-import { PREHEPATIC } from './decks/prehepatic.js?v=c8af5f351e';
-import { RIGHT_HEART } from './decks/right-heart.js?v=09ac17a32c';
+import { PREHEPATIC } from './decks/prehepatic.js?v=101414c6b1';
+import { RIGHT_HEART } from './decks/right-heart.js?v=b0ba83da2b';
 import { BLEED } from './decks/variceal-bleed.js?v=646e098b15';
-import { TWO_INFLOWS } from './decks/two-inflows.js?v=a2c790d359';
+import { TWO_INFLOWS } from './decks/two-inflows.js?v=d1119d3dc0';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=0bf275169b';
 import { SPLEEN } from './decks/spleen.js?v=27c04fe86b';
-import { NCPH } from './decks/ncph.js?v=414fbe7dcc';
-import { OUTFLOW } from './decks/outflow.js?v=48f3dfd001';
+import { NCPH } from './decks/ncph.js?v=54614e31b6';
+import { OUTFLOW } from './decks/outflow.js?v=e0346f762c';
 import { RECOMPENSATION } from './decks/recompensation.js?v=da04e8e011';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
@@ -120,7 +120,7 @@ DECKS.push(TWO_INFLOWS, PVT_CIRRHOSIS, SPLEEN, NCPH, OUTFLOW, RECOMPENSATION);
 // The unified menu lists the presentations by topic, in teaching order, under a short title (32 characters or fewer).
 export const TOPICS = [
   ['foundations', 'Foundations', [['circulation', 'The portal circulation'], ['circuit', 'Pressure, flow and resistance'], ['two-inflows', 'The liver\'s two inflows']]],
-  ['causes', 'Causes', [['sites', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH'], ['ncph', 'Non-cirrhotic PH'], ['right-heart', 'The right heart and the liver'], ['outflow', 'When the liver cannot drain'], ['lobule', 'Inside the lobule']]],
+  ['causes', 'Causes', [['sites', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH'], ['ncph', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver'], ['outflow', 'When the liver cannot drain'], ['lobule', 'Inside the lobule']]],
   ['measuring', 'Measuring', [['hvpg', 'HVPG and PPG'], ['doppler', 'Doppler of the portal system'], ['endoscopy', 'Endoscopy and the varix'], ['stiffness', 'Stiffness, spleen and platelets'], ['one-year', 'One patient, one year']]],
   ['complications', 'Complications', [['varices', 'Collaterals and varices'], ['variceal-bleed', 'Acute variceal bleeding'], ['ascites', 'Where ascites comes from'], ['tap', 'The tap and the albumin'], ['spleen', 'The spleen: size and treatment'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis'], ['recompensation', 'Decompensation and recovery']]],
   ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure'], ['shunts', 'Shunts, made and spontaneous']]],
