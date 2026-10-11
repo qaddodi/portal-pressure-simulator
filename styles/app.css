@@ -2266,6 +2266,8 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-kick { font-size: 12px; }
 .pz.stack .pz-h { font-size: clamp(24px, calc(3.4vh / var(--vz)), 40px); }
 .pz.stack .pz-line { font-size: clamp(14px, calc(1.9vh / var(--vz)), 20px); }
+/* (A phone's lines run the card's full width: balancing and pretty-wrapping shorten lines well before the edge, so the words wrap plainly, first-fit.) */
+.pz.stack .pz-h, .pz.stack .pz-line { text-wrap: wrap; }
 .pz.stack .pz-eq math { font-size: 21px; }
 .pz.stack .pz-eqk { font-size: 12px; }
 .pz.stack .pz-causes, .pz.stack .pz-rail { display: none; }
