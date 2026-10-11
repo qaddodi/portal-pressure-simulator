@@ -3847,7 +3847,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Overlays (stenosis, thrombus, stents, varices, balloons, catheter…)
   // The overlays (clamps, clots, stents, varices, caput medusae, balloons, catheter) are rebuilt
   // only when something they draw has visibly changed: the key holds every input, rounded.
-  let overlayKey = '';
+  let overlayKey = '', thrombiKey = '';
   // A quantized value that only moves once the input has clearly left its step (so a varix whose
   // diameter pulses across a rounding boundary is not rebuilt on every beat).
   const held = {};
@@ -3856,7 +3856,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const m = f.metrics;
     const lesions = [...Object.keys(p.stenosis), ...Object.keys(p.thrombus), ...Object.keys(p.occluded), 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...Object.keys(p.customShunts || {}), 'C3'];
     return JSON.stringify([t.toFixed(3), isImaging(), findingHidden('clot'), p.stenosis, p.thrombus, p.occluded, p.splenicRx | 0, p.tips, p.dips, p.customShunts, p.balloonEso, p.balloonGas,
-      lesions.map((id) => (E[id] ? [E[id].vis, E[id].width, !!E[id].reveal] : 0)),
+      // A vessel's width eases with its pressure for a long while after a change; held in steps,
+      // so a clot or stent is not rebuilt several times a second for sub-pixel drift.
+      lesions.map((id) => (E[id] ? [E[id].vis, hold(`w${id}`, E[id].width, 0.25), !!E[id].reveal] : 0)),
       // Varix geometry follows the grade, not the pulse: red wales appear above 70 % of the
       // rupture threshold, in coarse steps.
       hold('vd', m.varix.d, 0.5), hold('vr', m.varix.r, 0.5), m.varix.ratio > 0.7 ? hold('vt', m.varix.ratio, 0.2) : 0, Math.round(f.bands || 0),
@@ -3873,8 +3875,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     overlayKey = key;
     const anat = t < 0.5;
     // stenosis clamps & thrombi
-    ov.clamps.innerHTML = ''; ov.thrombi.innerHTML = ''; ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
+    ov.clamps.innerHTML = ''; ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
     const hideDx = store.get().found ? findingHidden('clot') : isImaging();
+    // Clots keep their own key: growing varices (the disease clock) rebuild the rest, not them.
+    const tk = JSON.stringify([t.toFixed(3), hideDx, p.thrombus, Object.keys(p.thrombus).map((id) => (E[id] ? [E[id].vis, held[`w${id}`]] : 0))]);
+    const clots = tk !== thrombiKey;
+    if (clots) { thrombiKey = tk; ov.thrombi.innerHTML = ''; }
     for (const [id, v] of Object.entries(p.stenosis)) {
       if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
       const [x, y, dx, dy] = pointAt(geo[id].cur, stenosisAt[id] ?? 0.5);
@@ -3890,7 +3896,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Thrombus: a dark clot inside the lumen, its length and bulk following the occlusion, with
     // laminations (lines of Zahn) and, below full occlusion, the channel blood still finds.
-    for (const [id, v] of Object.entries(p.thrombus)) {
+    for (const [id, v] of Object.entries(clots ? p.thrombus : {})) {
       if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
       const g = geo[id], lit = g.lit, x = E[id];
       const u0 = 0.5 - 0.1 - 0.22 * v, u1 = 0.5 + 0.1 + 0.22 * v;
