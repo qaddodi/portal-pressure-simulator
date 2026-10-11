@@ -247,6 +247,28 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-instruments`);
   });
 
+  await check(device, 'presenter: summary table returns after back then forward', async (page) => {
+    await open(page, '?home=present');
+    await page.waitForSelector('.umenu .um-row[data-k="d:lobule"]');
+    await page.fill('.um-q', 'lobule');
+    await page.press('.um-q', 'Enter');
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting'));
+    const at = (n) => page.waitForFunction((n) => /^(\d+) \/ \1$/.test(document.querySelector('.pzb-n, .pz-count')?.textContent.trim() || '') === n, n);
+    const table = () => page.waitForSelector('.pz-panel .pz-table', { state: 'visible' });
+    await page.keyboard.press('End');
+    await table();
+    // Back one and forward again, several times and also before the move has finished: the table always draws again.
+    for (const fast of [false, true, false]) {
+      await page.keyboard.press('ArrowLeft');
+      if (!fast) await page.waitForFunction(() => !document.querySelector('.pz-panel .pz-table'));
+      await page.keyboard.press('ArrowRight');
+      await at(true);
+      await table();
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'));
+  });
+
   await check(device, 'lesson and case deep links', async (page) => {
     await open(page, '?lesson=portal-flow');
     await page.waitForFunction(() => (document.querySelector('#coach')?.textContent.length > 20) || (document.querySelector('#panelLesson')?.textContent.length > 20));

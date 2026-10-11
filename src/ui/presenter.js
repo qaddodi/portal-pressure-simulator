@@ -967,6 +967,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   async function transition(to, rev) {
     const g = gen, s = slides[to], cut = () => !deck || want !== to || wantRev !== rev || gen !== g;
+    // The slide on screen is leaving, so a move cut short never counts as showing it: going back and forward again to that
+    // slide (summary table included) draws it afresh instead of leaving the half-changed screen.
+    shown = null;
     const q = asking(s, rev), cam = s.visual ? s.cam || null : q ? 'fit' : s.cam || 'fit';
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     const lap = !!s.lapse && to > 0 && !q, ct = !q && !s.visual ? s.cath || null : null;
