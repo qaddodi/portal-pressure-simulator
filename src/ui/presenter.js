@@ -20,10 +20,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=953abc032b';
 import { sinusoidSupported } from './sinusoid-view.js?v=c29067c667';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=48e4ec0b60';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=a560242d9f';
 import { createHvpgMonitor } from './hvpg-proc.js?v=7dbeca9bfc';
 import { createTools } from './presenter-tools.js?v=50680c22e6';
-import { openHandout } from './handout.js?v=a3c80e68c4';
+import { openHandout } from './handout.js?v=5003678c85';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
 
@@ -775,7 +775,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move.)
     const gl = ms || 300;
     if (cam === 'fit' || v === 'circuit') stage.fitSlow(gl);
-    else stage.frameBox(camBox(cam, s), gl, s.kMax || 3.2);
+    else stage.frameBox(camBox(cam, s), gl, s.kMax || 3.2, !!s.clear);
     await wait(gl);
   }
   // A slide's framing: its region of the plate, grown to take in all of what the slide points at (its outlined
@@ -1435,7 +1435,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     }
   }
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
-  let fitRO = null, fitRaf = 0;
+  let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0;
   const fitWatch = () => {
     fitRO ||= new ResizeObserver(() => {
       cancelAnimationFrame(fitRaf);
@@ -1443,6 +1443,13 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     });
     fitRO.disconnect();
     for (const el of [ui.text, ui.data, ui.panel]) for (const c of el.children) fitRO.observe(c);
+    // A slide that keeps its figure clear of the cards frames it again as the cards settle to their size (a chart arriving, a line wrapping).
+    const again = () => { if (!ui) return; if (!shown) { clearT = setTimeout(again, 150); return; }   // (a slide still coming in: once it is in)
+      if (slides[shown.i]?.clear) reframe(400); };
+    const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
+    clearRO ||= new ResizeObserver(soon);
+    clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text);
+    ui.data.ontransitionend = ui.text.ontransitionend = soon;   // (a card slides into place: its edge is where it ends, not where it was measured)
   };
   function layout() {
     if (!ui) return;
@@ -1485,13 +1492,15 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     dispatchEvent(new Event('pps:occ'));
   }
   const onFonts = () => { if (ui) layout(); };
+  function reframe(ms) {
+    const s = slides[shown.i], cam = s.visual ? s.cam : asking(s, shown.rev) ? 'fit' : s.cam || 'fit';
+    if (cath.on && cath.cam) stage.cathFocus(cath.cam, ms, { both: true });
+    else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) { if (cam === 'fit') stage.fitSlow(ms); else stage.frameBox(camBox(cam, s), ms, s.kMax || 3.2, !!s.clear); }
+  }
   const onResize = () => {
     if (!ui) return;
     layout(); setLabels();
-    if (!shown) return;
-    const s = slides[shown.i], cam = s.visual ? s.cam : asking(s, shown.rev) ? 'fit' : s.cam || 'fit';
-    if (cath.on && cath.cam) stage.cathFocus(cath.cam, 400, { both: true });
-    else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) { if (cam === 'fit') stage.fitSlow(400); else stage.frameBox(camBox(cam, s), 400, s.kMax || 3.2); }
+    if (shown) reframe(400);
   };
   // Projector-size labels on the figure, for the screen it is on (2 at 1080 lines).
   function setLabels() {
@@ -1887,7 +1896,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     waiters = [];
     removeEventListener('resize', onResize);
     document.fonts?.removeEventListener('loadingdone', onFonts);
-    fitRO?.disconnect(); cancelAnimationFrame(fitRaf);
+    fitRO?.disconnect(); clearRO?.disconnect(); clearTimeout(clearT); cancelAnimationFrame(fitRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
     clearTimeout(idleT); clearTimeout(dock.fit); cancelAnimationFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;

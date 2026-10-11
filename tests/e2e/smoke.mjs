@@ -435,6 +435,50 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (m.wide) throw new Error(`upright iPad presenter: ${m.wide} element(s) of the words overflow sideways`);
   });
 
+  // Circulation slide 9 ("After a meal"): the coronary and splenic veins, their glow and the figure's labels sit in the band the data card
+  // (top) and the words (bottom sheet) leave, and out of the bottom-right corner (where the figure's own control pill sits).
+  if (device === 'phone') await check(device, 'presenter on a phone: Circulation slide 9 frames the coronary and splenic veins clear of the data card, the words and the corner', async (page) => {
+    const GLOW = 8, CORNER = [72, 56];   // px of glow around a vein; the corner pill's room (width, height)
+    for (const [w, h] of [[390, 844], [375, 667]]) {
+      await page.setViewportSize({ width: w, height: h });
+      await open(page);
+      await page.evaluate(() => window.pps.presenter.start('circulation', 8));
+      await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+      let r = null, prev = null, still = 0;
+      for (let t = 0; t < 50 && !(r?.ok && still >= 4); t++) {
+        await page.waitForTimeout(300);
+        r = await page.evaluate(([glow, corner]) => {
+          const st = window.pps.stage, svg = document.querySelector('#stage'), cam = st.cameraState(), m = svg.getScreenCTM();
+          const rect = (e) => e.getBoundingClientRect(), data = document.querySelector('.pz-data'), sheet = document.querySelector('.pz-safe');
+          if (!data || !sheet || data.hidden || !rect(data).height) return { ok: false, why: 'the slide is not in yet', key: '' };
+          const top = rect(data).bottom, bottom = rect(sheet).top, W = innerWidth;
+          const px = (x, y) => { const p = svg.createSVGPoint(); p.x = cam.k * x + cam.x; p.y = cam.k * y + cam.y; const q = p.matrixTransform(m); return [q.x, q.y]; };
+          const veins = { 'coronary vein': ['LGV_CONF', 'V_STO'], 'splenic vein': ['SV_CONF', 'V_SPL'] };
+          const bad = [], boxes = [];
+          for (const [name, ids] of Object.entries(veins)) {
+            const b = st.focusBox({ edges: ids });
+            if (!b) { bad.push(`${name} is not drawn`); continue; }
+            const [x0, y0] = px(b[0], b[1]), [x1, y1] = px(b[2], b[3]);
+            boxes.push([name, x0 - glow, y0 - glow, x1 + glow, y1 + glow]);
+          }
+          for (const l of document.querySelectorAll('.lb-blocks g.lb')) {
+            const q = rect(l);
+            if (q.width && q.height && +getComputedStyle(l).opacity > 0.05) boxes.push([`the "${l.textContent.trim().slice(0, 18)}" label`, q.left, q.top, q.right, q.bottom]);
+          }
+          for (const [name, x0, y0, x1, y1] of boxes) {
+            if (y0 < top - 0.5) bad.push(`${name} reaches ${Math.round(top - y0)} px under the data card`);
+            if (y1 > bottom + 0.5) bad.push(`${name} reaches ${Math.round(y1 - bottom)} px under the words`);
+            if (x0 < -0.5 || x1 > W + 0.5) bad.push(`${name} runs off the side of the screen`);
+            if (!name.includes('label') && x1 > W - corner[0] && y1 > bottom - corner[1]) bad.push(`${name} sits in the bottom-right corner`);
+          }
+          return { ok: !bad.length, why: bad.join('; '), key: st.cameraKey() + '|' + Math.round(top) + '|' + Math.round(bottom) };
+        }, [GLOW, CORNER]);
+        still = r.key && r.key === prev ? still + 1 : 0; prev = r.key;
+      }
+      if (!r?.ok) throw new Error(`Circulation slide 9 at ${w}x${h}: ${r?.why || 'never settled'}`);
+    }
+  });
+
   await check(device, 'presenter: the controls never glide between slides, and keep their size and spacing, first and last included', async (page) => {
     // Each slide of two decks, at each size (the desktop run also tries an upright iPad). The bar's size and the spacing of its
     // controls are the same on every slide (Next turning into Finish moved them once). A bar centred at the bottom keeps one

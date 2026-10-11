@@ -1153,7 +1153,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return sp;
   }
-  function safeInsets() {
+  // (exact: the cards' real edges, with no softening: a slide that must keep its vessels clear of them, even where they leave a thin band.)
+  function safeInsets(exact = false) {
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
     const ins = { t: 0, b: 0, l: 0, r: 0, W, H }, cards = [];
     if (!W || !H) return ins;
@@ -1186,7 +1187,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (While presenting, the slide's words and data card both stay clear even on a tablet: the figure frames into the
     // column between them rather than going under them; only a strip too thin to frame anything gives way.)
     if (W - ins.l - ins.r < (store.get().presenting ? 200 : Math.min(W * 0.5, 360))) ins.l = ins.r = 0;
-    if (H - ins.t - ins.b < H * 0.35) { const k = (H * 0.65) / (ins.t + ins.b); ins.t *= k; ins.b *= k; }
+    if (!exact && H - ins.t - ins.b < H * 0.35) { const k = (H * 0.65) / (ins.t + ins.b); ins.t *= k; ins.b *= k; }
     return ins;
   }
   // A framing computed for the whole stage, moved and scaled into the free space.
@@ -1510,13 +1511,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The presenter's camera: glide so a box of the plate (world units) fills the space the floating
   // pieces leave, as Fit does for the whole plate, zoomed in no further than kMax.
-  function frameBox([x0, y0, x1, y1], ms = 1300, kMax = 4) {
+  // (clear: the box goes entirely into the band the cards leave, however thin: it may zoom out past the usual floor for it.)
+  function frameBox([x0, y0, x1, y1], ms = 1300, kMax = 4, clear = false) {
     if (morphTarget !== 0) return;
     const r = { width: svg.clientWidth, height: svg.clientHeight };
     if (!r.width || !r.height) return;
-    const ins = safeInsets(), s0 = Math.min(r.width / VB_ANAT[2], r.height / VB_ANAT[3]);
-    const fw = Math.max(40, r.width - ins.l - ins.r), fh = Math.max(40, r.height - ins.t - ins.b);
-    const k = clamp(Math.min(fw / s0 / (x1 - x0), fh / s0 / (y1 - y0)), 0.6, kMax);
+    const ins = safeInsets(clear), s0 = Math.min(r.width / VB_ANAT[2], r.height / VB_ANAT[3]);
+    const pad = clear ? 12 : 0, fw = Math.max(40, r.width - ins.l - ins.r - 2 * pad), fh = Math.max(40, r.height - ins.t - ins.b - 2 * pad);   // (clear: a margin for the vessels' glow)
+    const k = clamp(Math.min(fw / s0 / (x1 - x0), fh / s0 / (y1 - y0)), clear ? 0.3 : 0.6, kMax);
     const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + (ins.l - ins.r) / 2 / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + (ins.t - ins.b) / 2 / s0;
     const to = { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
     if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms);

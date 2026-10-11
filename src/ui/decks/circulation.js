@@ -57,7 +57,7 @@ export const CIRCULATION = {
       ask: ['Where does blood go after the central vein?', 'Into the hepatic veins, the IVC and the right atrium.'],
     },
     {
-      id: 'flow', days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'portal', labels: ['SMV', 'CONF'], glow: ['smv', 'sv', { id: 'imv', soft: true }, { id: 'lgv', soft: true }], tool: { kind: 'flowtime' },
+      id: 'flow', days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'portal', clear: true, labels: ['SMV', 'CONF'], glow: ['smv', 'sv', { id: 'imv', soft: true }, { id: 'lgv', soft: true }], tool: { kind: 'flowtime' },
       kicker: 'Hemodynamics', title: 'After a meal flow rises, but the pressure barely moves',
       eq: ['<mrow><mi mathvariant="normal">Δ</mi><mi>P</mi></mrow>' + mo('=') + mi('Q') + mo('×') + mi('R'), 'ΔP pressure drop across the liver · Q portal flow · R hepatic resistance'],
       line: 'Pressure equals flow times resistance. Normal sinusoids have so little resistance that nearly doubling the flow adds almost no pressure.',
