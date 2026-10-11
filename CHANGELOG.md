@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Corner credit on a phone held sideways.** In Present the credit sat on the words' glass pane at the lower left. The pane now
+  counts as a card: the credit moves along the figure's edge to the first free spot beside it, and sets itself on two
+  lines when only a narrow strip of figure is left between the pane and a data card. The credit check now also runs at
+  844×390 and 932×430. Tests: `tests/credit.test.js`, `tests/e2e/smoke.mjs`.
+
 - **Import a deck file in Present.** Menu › Present › Your scripts › *Import* opens a dialog: choose a deck `.js`
   (written like the built-in decks in `src/ui/decks/`) or a `.json` deck or script, or paste its contents. A deck keeps
   every feature (tiles, tools, term pills, equations, visuals, time-lapses) and is stored on that device like a script.

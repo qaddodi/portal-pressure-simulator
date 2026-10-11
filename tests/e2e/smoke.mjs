@@ -732,12 +732,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // The corner credit never sits on or touches a card, a sheet, a bar or a slide's panels, in every mode and on every
   // slide of a deck; it may fade out only when no figure is left (src/ui/credit.js).
   await check(device, 'corner credit never touches a card', async (page) => {
-    const sizes = device === 'desktop' ? [[1440, 900], [820, 1180]] : [[390, 844]];
+    // (A phone held sideways too: the words' glass pane (.pz-shade) is a card like the others.)
+    const sizes = device === 'desktop' ? [[1440, 900], [820, 1180]] : [[390, 844], [844, 390], [932, 430]];
     const creditHits = () => page.evaluate(() => {
       const c = document.querySelector('.stage-credit'), r = c.getBoundingClientRect();
       if (+getComputedStyle(c).opacity < 0.5) return [];
       const out = [];
-      for (const el of document.querySelectorAll('.stage-blocker:not([hidden]), .menu, .pz-text, .pz-data, .pz-panel, .pz-bar')) {
+      if (r.left < 0 || r.top < 0 || r.right > innerWidth + 0.5 || r.bottom > innerHeight + 0.5) out.push('the screen edge');
+      for (const el of document.querySelectorAll('.stage-blocker:not([hidden]), .menu, .pz-text, .pz-data, .pz-panel, .pz-bar, .pz-shade')) {
         const st = getComputedStyle(el), q = el.getBoundingClientRect();
         if (st.display === 'none' || st.visibility === 'hidden' || +st.opacity < 0.05 || !q.width) continue;
         if (q.left < r.right + 4 && q.right > r.left - 4 && q.top < r.bottom + 4 && q.bottom > r.top - 4) out.push(el.id || el.className.split(' ')[0]);
