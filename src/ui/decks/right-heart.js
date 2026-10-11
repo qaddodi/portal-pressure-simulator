@@ -42,14 +42,14 @@ export const RIGHT_HEART = {
     {
       id: 'constrict', preset: 'constrictive', cam: 'heart', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['ra', 'lsm'], key: ['ra'],
       kicker: 'Constrictive pericarditis', site: 'cardiac', title: 'Constriction congests the liver with a normal-sized heart',
-      line: 'The heart cannot fill, and the [right atrial pressure](ra) rises to {ra}. The liver congests and ascites forms, often before the legs swell.',
+      line: 'The heart cannot fill, and the [right atrial pressure](ra) rises to {ra}. Ascites often forms before the legs swell.',
       notes: 'Constriction follows tuberculosis, cardiac surgery, radiotherapy or viral pericarditis. It is often first seen as ascites or a stiff liver and mistaken for cirrhosis. The neck veins are high and rise on inspiration (Kussmaul sign); there may be a pericardial knock. On Doppler the hepatic vein reversal grows in expiration. Echocardiography, CT or MRI of the pericardium and right heart catheterization make the diagnosis; pericardiectomy treats it.',
       ask: ['Ascites with a high SAAG and high protein, a JVP that rises on inspiration and a normal ejection fraction. What is the likely cause, and how do you confirm it?', 'Constrictive pericarditis: a thick pericardium on CT or MRI.'],
     },
     {
       id: 'web', preset: 'ivc-web', cam: 'hepatic', labels: ['RHV'], sites: ['web', 'ra'], mark: { edges: ['IVCS_RA'], label: 'Web in the IVC' }, tool: { kind: 'doppler', vessel: 'IVCS_RA' }, data: 'tiles', tiles: ['ivc', 'ra'], key: ['ivc'],
       kicker: 'The IVC', site: 'post', title: 'An IVC web congests the liver while the atrium stays normal',
-      line: 'A membrane in the IVC above the hepatic veins blocks the outflow: below it the pressure is {ivc}, while the right atrium is normal at {ra}.',
+      line: 'A membrane in the IVC above the hepatic veins blocks outflow. Below it the pressure is {ivc}, and the right atrium is {ra}.',
       notes: 'Membranous obstruction of the IVC is a form of Budd–Chiari syndrome, common in South and East Asia and southern Africa. The liver congests as in heart failure, but the jugular venous pressure is normal and the echocardiogram is too. Doppler shows fast or turbulent flow at the web and slow or reversed flow below it. The PPG, read against the IVC below the web, looks normal; the portal vein against the right atrium shows the full gradient. Angioplasty, with or without a stent, treats it.',
       ask: ['Congested liver, ascites, normal JVP and a normal echocardiogram. Where is the block?', 'Between the liver and the heart: the hepatic veins or the IVC.'],
     },

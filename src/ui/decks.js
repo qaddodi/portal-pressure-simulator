@@ -53,29 +53,29 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=e09382ffdb';
-import { SITES } from './decks/sites.js?v=16efd83aa2';
-import { HVPG } from './decks/hvpg.js?v=3a7638201e';
-import { ASCITES } from './decks/ascites.js?v=62cbccaee0';
-import { VARICES } from './decks/varices.js?v=08014d7f6e';
-import { TREATMENT } from './decks/treatment.js?v=1ab33c03bf';
-import { STIFFNESS } from './decks/stiffness.js?v=97cc322ba7';
-import { ONE_YEAR } from './decks/one-year.js?v=346a30f0cc';
-import { LOBULE } from './decks/lobule.js?v=886bfb3904';
-import { SHUNTS } from './decks/shunts.js?v=092993c13b';
-import { TAP } from './decks/tap.js?v=de0baba07b';
-import { CIRCUIT } from './decks/circuit.js?v=6938c00832';
-import { DOPPLER } from './decks/doppler.js?v=37f65ef856';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=2d8835e29a';
-import { PREHEPATIC } from './decks/prehepatic.js?v=ae308efebe';
-import { RIGHT_HEART } from './decks/right-heart.js?v=ed25b681bb';
-import { BLEED } from './decks/variceal-bleed.js?v=ae4749072b';
-import { TWO_INFLOWS } from './decks/two-inflows.js?v=28c31d613e';
-import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=99ee35a841';
-import { SPLEEN } from './decks/spleen.js?v=575c074e82';
-import { NCPH } from './decks/ncph.js?v=7cdbe9a433';
-import { OUTFLOW } from './decks/outflow.js?v=97c6ce3446';
-import { RECOMPENSATION } from './decks/recompensation.js?v=184cadc26a';
+import { CIRCULATION } from './decks/circulation.js?v=393775adb1';
+import { SITES } from './decks/sites.js?v=b40802a31d';
+import { HVPG } from './decks/hvpg.js?v=b61d87524d';
+import { ASCITES } from './decks/ascites.js?v=c693f9ae84';
+import { VARICES } from './decks/varices.js?v=b2aa70f78a';
+import { TREATMENT } from './decks/treatment.js?v=2835e90310';
+import { STIFFNESS } from './decks/stiffness.js?v=559db93be0';
+import { ONE_YEAR } from './decks/one-year.js?v=71c67e65ca';
+import { LOBULE } from './decks/lobule.js?v=14ba594142';
+import { SHUNTS } from './decks/shunts.js?v=c867794f65';
+import { TAP } from './decks/tap.js?v=f7a5695d72';
+import { CIRCUIT } from './decks/circuit.js?v=d9ceabd0fe';
+import { DOPPLER } from './decks/doppler.js?v=ad89820ca5';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=6ee6cee43c';
+import { PREHEPATIC } from './decks/prehepatic.js?v=fb84364dfe';
+import { RIGHT_HEART } from './decks/right-heart.js?v=b7ffb5c7c6';
+import { BLEED } from './decks/variceal-bleed.js?v=d3aedae7e3';
+import { TWO_INFLOWS } from './decks/two-inflows.js?v=2a19a5fc63';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=5d714e6c5f';
+import { SPLEEN } from './decks/spleen.js?v=e28f76d43e';
+import { NCPH } from './decks/ncph.js?v=130a263894';
+import { OUTFLOW } from './decks/outflow.js?v=aa768a524b';
+import { RECOMPENSATION } from './decks/recompensation.js?v=0d5b3fb564';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

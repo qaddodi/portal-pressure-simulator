@@ -70,7 +70,7 @@ export const RECOMPENSATION = {
       of: [{ id: 'csph', kicker: 'Compensated', title: 'CSPH' }, { id: 'ascites', kicker: 'Decompensated', title: 'First ascites' }, { id: 'diuretics', kicker: 'Decompensated', title: 'Diuretics' },
         { id: 'carv', kicker: 'Decompensated', title: 'Carvedilol' }, { id: 'cure', kicker: 'Recompensation', title: 'Cause removed' }, { id: 'recomp', kicker: 'Recompensation', title: 'Off diuretics' }],
       kicker: 'Summary', title: 'Two years, from decompensation to recompensation',
-      line: 'The patient decompensated as the HVPG rose and recompensated after stopping alcohol. Carvedilol and liver cancer surveillance continue.',
+      line: 'Removing the cause lowered the portal pressure more than any drug. Carvedilol continues while CSPH persists, and so does liver cancer surveillance.',
       notes: 'The first decompensation is a turning point, but not always a one-way one. Treat the ascites and the portal pressure, and above all the cause: a patient who stops drinking or is cured of a virus can recompensate. Keep the beta-blocker while CSPH lasts, and keep watching for liver cancer.',
       ask: ['Name the three conditions Baveno VII sets for recompensation.', 'The cause removed, suppressed or cured; no ascites, encephalopathy or variceal bleeding off treatment; and lasting better liver tests.'],
     },

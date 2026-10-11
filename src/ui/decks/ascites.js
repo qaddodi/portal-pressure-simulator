@@ -69,7 +69,7 @@ export const ASCITES = {
     {
       id: 'bc', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Blocked hepatic veins' }, data: 'tiles', tiles: ['tp', 'saag', 'sin'], key: ['tp'],
       kicker: 'Protein-rich ascites', site: 'post', title: 'High protein in Budd–Chiari syndrome',
-      line: 'Blocked hepatic veins congest a liver that is not yet scarred. Its sinusoids are open, so the fluid is protein-rich too.',
+      line: 'Blocked hepatic veins congest a liver that is not yet scarred. Its sinusoids are still open, so the SAAG is high and protein is 2.5 g/dL or more.',
       notes: 'Hepatic venous outflow block gives the same high-SAAG, high-protein ascites as heart failure, but with a normal jugular venous pressure. Over months the congested liver can scar and capillarize, and the protein falls toward the cirrhotic range. Ascites with abdominal pain and a large liver, in a patient with a myeloproliferative neoplasm or in pregnancy, calls for a Doppler of the hepatic veins.',
       ask: ['High-SAAG, high-protein ascites and a normal jugular venous pressure. Where do you look?', 'At the hepatic veins and the IVC, for Budd–Chiari syndrome (Doppler ultrasound).'],
     },

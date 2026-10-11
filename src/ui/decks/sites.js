@@ -18,7 +18,7 @@ export const SITES = {
     {
       id: 'healthy', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg'],
       kicker: 'Reference', title: 'In a healthy liver each pressure drop is small',
-      line: 'Each station, from the [portal vein](pv) through the [sinusoids](sin) and [hepatic vein](fhvp) to the [right atrium](ra), sits only a few mmHg below the one before; the HVPG is {hvpg}.',
+      line: 'The wedge reads sinusoidal pressure and the free reading reads the hepatic vein (HVPG = WHVP − FHVP). Normal is 1 to 5 mmHg, and this patient\'s is {hvpg}. From the [portal vein](pv) to the [right atrium](ra), each station is a few mmHg lower than the one before.',
       notes: 'The wedged hepatic venous pressure (WHVP) is taken with a balloon catheter wedged in a hepatic vein: with the flow stopped, the still column of blood reads the sinusoidal pressure. The free hepatic venous pressure (FHVP) is taken with the balloon down. HVPG = WHVP − FHVP. Normal is 1 to 5 mmHg; above 5 is portal hypertension; from 10, clinically significant portal hypertension, varices and decompensation become possible, and the risk rises with the gradient; from about 12 the risk of variceal bleeding rises. The portal pressure gradient (PPG) is the portal vein minus the IVC, measured directly.',
       ask: ['What does the wedged pressure measure?', 'The sinusoidal pressure: with the vein occluded, the still column of blood reads the pressure upstream.'],
     },
@@ -83,7 +83,7 @@ export const SITES = {
     {
       id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'ra', 'hvpg', 'ppg'], asc: true, of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, ...SIX],
       kicker: 'Summary', title: 'HVPG rises only with sinusoidal and postsinusoidal blocks',
-      line: 'Portal pressure is high at every site. HVPG rises only when the block lies between the wedge and the free hepatic vein.',
+      line: 'Portal pressure is high at every site. For the other levels, read the PPG, the free hepatic pressure and the right atrium.',
       notes: 'Portal pressure is high at every level. HVPG is raised only when the block lies between the wedge and the free hepatic vein (sinusoidal, postsinusoidal). A SAAG of 1.1 or more confirms portal hypertension as the cause of ascites; the ascites protein then separates cirrhosis (low, under 2.5 g/dL) from hepatic vein and heart disease (high). Pre-hepatic and presinusoidal disease rarely cause ascites, because the sinusoids, where ascites starts, are at normal pressure. The model gives sinusoidal obstruction syndrome a protein-rich ascites; reports in patients vary.',
       ask: ['A patient has ascites with a SAAG of 1.6 and a protein of 4 g/dL before any diuretic. Which levels fit best?', 'Post-hepatic or cardiac (Budd–Chiari, heart failure); sinusoidal obstruction syndrome too.'],
     },

@@ -15,7 +15,7 @@ export const OUTFLOW = {
     {
       id: 'bcs', preset: 'budd-chiari', cam: 'hepatic', mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clots' }, tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'],
       kicker: 'Hepatic veins', site: 'post', title: 'In Budd–Chiari syndrome the hepatic veins clot',
-      line: 'The [hepatic veins](hv) are clotted: the liver swells, the portal pressure climbs to {pv} and ascites fills the belly.',
+      line: 'A block anywhere from the small [hepatic veins](hv) to where the IVC enters the right atrium traps blood in the liver. The liver swells, portal pressure rises to {pv} and ascites forms.',
       causesHead: 'Look for', causes: ['Myeloproliferative neoplasm', 'Thrombophilia', 'Pregnancy or the pill'],
       notes: 'Budd–Chiari syndrome is a block to hepatic venous outflow anywhere from the small hepatic veins to the entry of the IVC into the right atrium, without heart disease. It presents with abdominal pain, a large tender liver and ascites, suddenly or over months. Most patients have at least one prothrombotic condition, often more than one: a myeloproliferative neoplasm (the commonest), antiphospholipid syndrome, inherited thrombophilia, paroxysmal nocturnal hemoglobinuria, pregnancy or the contraceptive pill; and JAK2 is tested even when the blood count is normal.',
       ask: ['A young woman has a tender liver and sudden ascites. Her blood count is normal. Which test still looks for the commonest cause?', 'JAK2 V617F, then CALR if it is negative: a myeloproliferative neoplasm is the commonest cause even with a normal count.'],
@@ -30,7 +30,7 @@ export const OUTFLOW = {
     {
       id: 'nowedge', cam: 'hepatic', tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'ladder', key: ['ppg'], tiles: ['hvpg', 'ppg'], brackets: { hvpg: 'misleads', ppg: 'works' },
       kicker: 'Hepatic veins', site: 'post', title: 'No hepatic vein to wedge',
-      line: 'Doppler finds no flow in the hepatic veins, and a catheter cannot enter them to wedge; the portal pressure is {pv}.',
+      line: 'Doppler shows absent or reversed hepatic vein flow, intrahepatic collaterals and a large caudate lobe. At venography the veins cannot be entered, or they show a spider-web pattern, so the HVPG cannot be measured. Portal pressure is {pv}.',
       notes: 'Doppler ultrasound is the first test: absent or reversed flow in the hepatic veins, intrahepatic collaterals and a large caudate lobe. CT or MR shows the extent and the state of the IVC. At venography the hepatic veins either cannot be entered or show a spider-web pattern of collaterals, so the HVPG cannot be measured in the usual way.',
       ask: ['What is the first imaging test for suspected Budd–Chiari syndrome?', 'Doppler ultrasound of the hepatic veins and the IVC: it is quick, at the bedside, and shows absent or reversed flow.'],
     },

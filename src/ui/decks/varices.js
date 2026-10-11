@@ -12,7 +12,7 @@ export const VARICES = {
     {
       id: 'collat', preset: 'csph', cam: 'fit', glow: [{ id: 'lgv', soft: true }], data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'],
       kicker: 'Collaterals', site: 'sin', title: 'Collaterals open where portal and systemic veins meet',
-      line: 'Where portal and systemic veins meet, small connecting veins open and swell, carrying portal blood around the liver.',
+      line: 'They form at the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, and as splenorenal and gastrorenal shunts. Some are existing channels that reopen, and some are new vessels.',
       notes: 'Portosystemic collaterals open where the portal and systemic venous beds meet: at the gastroesophageal junction (left gastric and short gastric veins to the azygos), the umbilicus (paraumbilical veins), the rectum (superior to middle and inferior rectal veins), the retroperitoneum (veins of Retzius), and through splenorenal and gastrorenal shunts. They form by reopening existing channels and by new vessel growth, driven by the portal-to-systemic gradient. Even large ones do not relieve portal hypertension: splanchnic inflow rises to fill them.',
       ask: ['Name four places where portosystemic collaterals form.', 'The gastroesophageal junction, the umbilicus, the rectum, the retroperitoneum (and splenorenal and gastrorenal shunts).'],
     },
@@ -27,7 +27,7 @@ export const VARICES = {
     {
       id: 'eso', cam: 'varices', labels: ['LGV', 'VAR', 'AZY'], terms: ['lgv', 'azy'], mark: { edges: ['C1a', 'C1b'], label: 'Esophageal varices', kind: 'note' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
       kicker: 'Varices', site: 'sin', title: 'Esophageal varices drain to the azygos vein',
-      line: 'The left gastric vein carries portal blood up to the lower esophagus. The submucosal veins of the lower esophagus swell and drain to the azygos.',
+      line: 'The left gastric (coronary) and short gastric veins carry portal blood into the wall of the lower esophagus. The palisade veins seen at endoscopy and the submucosal veins beneath them both enlarge. Varices under 5 mm are small, and over 5 mm are large.',
       notes: 'Gastroesophageal varices are the collaterals that matter most, because they bleed. Blood runs from the left gastric (coronary) and short gastric veins through veins in the wall of the lower esophagus to the azygos system. Both layers enlarge: the palisade veins in the lamina propria, which the scope sees, and the submucosal veins beneath them. At endoscopy small varices are under 5 mm and large ones over 5 mm; red wale marks are thin spots in the wall. About half of patients have varices when cirrhosis is diagnosed.',
       ask: ['Into which systemic vein do esophageal varices drain?', 'The azygos vein.'],
     },
@@ -42,21 +42,21 @@ export const VARICES = {
     {
       id: 'fundal', preset: 'gastric-varix', cam: 'fundus', labels: ['GV', 'LRV'], terms: { 'Gastric veins': 'gv', 'left renal vein': 'lrv' }, mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['gv', 'varix'], key: ['gv'],
       kicker: 'Gastric varices', site: 'sin', title: 'Fundal varices and the gastrorenal shunt',
-      line: 'Gastric veins swell in the fundus of the stomach and drain into the left renal vein through a gastrorenal shunt.',
+      line: 'Fundal varices bleed less often than esophageal varices, but they bleed more heavily. Treatment is cyanoacrylate glue, BRTO or TIPS.',
       notes: 'Isolated fundal varices (IGV1) and those running from the esophagus along the greater curve (GOV2) usually drain through a spontaneous gastrorenal shunt to the left renal vein. They bleed less often than esophageal varices, but more heavily. They are treated with cyanoacrylate glue at endoscopy, by blocking the shunt from below (balloon-occluded retrograde transvenous obliteration, BRTO), or with TIPS. A large shunt also steals portal blood from the liver and raises the risk of encephalopathy.',
       ask: ['Which vein does BRTO enter, and why from there?', 'The left renal vein: the gastrorenal shunt drains into it, so a balloon there blocks the shunt from below.'],
     },
     {
       id: 'svt', preset: 'svt', cam: 'splenic', labels: ['SV', 'CONF', 'GV'], terms: ['sv', 'pv', 'spleen', 'gv'], mark: { edges: ['SV_CONF'], label: 'Clot' }, data: 'tiles', tiles: ['pv', 'gv', 'spleen'], key: ['pv', 'gv'],
       kicker: 'Left-sided portal hypertension', site: 'pre', title: 'Splenic vein thrombosis and gastric varices',
-      line: 'A splenic vein clot raises pressure only on the left side. The portal vein stays normal while the spleen enlarges and gastric varices form.',
+      line: 'The usual causes are pancreatitis and pancreatic cancer, because the pancreas lies against the splenic vein. Splenectomy or splenic artery embolization removes the inflow and cures it.',
       notes: 'Sinistral (left-sided) portal hypertension. Splenic blood goes around the clot through the short gastric and gastroepiploic veins, giving isolated gastric varices with a normal portal pressure and a normal liver; esophageal varices are uncommon. Pancreatitis and pancreatic cancer are the usual causes. Removing the inflow cures it: splenectomy, or splenic artery embolization.',
       ask: ['Gastric varices, a large spleen and normal liver tests after pancreatitis. Diagnosis and cure?', 'Splenic vein thrombosis; splenectomy, or splenic artery embolization.'],
     },
     {
       id: 'umbilical', preset: 'cirr-decomp', cam: 'wall', labels: ['LPV'], terms: ['lpv'], mark: { edges: ['C3'], label: 'Paraumbilical vein', kind: 'note' }, data: 'tiles', tiles: ['shunt', 'liver'],
       kicker: 'Other collaterals', site: 'sin', title: 'The paraumbilical vein reopens',
-      line: 'The paraumbilical vein reopens from the left portal vein to the veins of the abdominal wall. Dilated wall veins can radiate from the navel: the caput medusae.',
+      line: 'It runs in the falciform ligament from the left portal vein to the abdominal wall. Dilated veins radiating from the navel are called caput medusae, and you may hear a venous hum over them.',
       notes: 'The paraumbilical veins run in the falciform ligament from the left portal vein to the abdominal wall. When they enlarge, blood flows away from the liver through them; dilated veins radiating from the umbilicus form a caput medusae, and a venous hum may be heard over them (Cruveilhier–Baumgarten). The flow runs away from the umbilicus, unlike the upward flow of IVC obstruction. These collaterals rarely bleed, but a large one steals portal blood from the liver.',
       ask: ['How do the abdominal wall veins tell portal hypertension from IVC obstruction?', 'In portal hypertension the flow radiates away from the umbilicus; in IVC obstruction it runs upward below it.'],
     },

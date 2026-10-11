@@ -50,7 +50,7 @@ export const SPLEEN = {
     {
       id: 'later', days: 180, lapse: { seconds: 6 }, cam: 'splenic', terms: ['spleen'], data: 'tiles', tiles: ['plt', 'spleen'], key: ['plt'], delta: 'grown',
       kicker: 'Treating the spleen', site: 'sin', title: 'Platelets rise as the spleen shrinks',
-      line: 'Six months on, the spleen has shrunk to {spleen} and the platelets have risen to {plt}.',
+      line: 'With less functioning splenic pulp, fewer platelets are sequestered. Six months on, platelets are {plt} and the spleen is {spleen}. The count can fall again if the remaining spleen regrows.',
       notes: 'With less working pulp, fewer platelets are pooled and the count rises over the following weeks. The rise can fade as the remaining spleen grows back. Embolization is used for severe thrombocytopenia or hypersplenism in centers with experience.',
       ask: ['Why do platelets rise after splenic embolization?', 'Less splenic pulp is left to pool them.'],
     },

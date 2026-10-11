@@ -31,14 +31,14 @@ export const NCPH = {
     {
       id: 'wedge', cath: 'result', data: 'ladder', key: ['pv', 'whvp', 'hvpg'], tiles: ['hvpg', 'ppg'], brackets: { hvpg: 'misleads', ppg: 'works' },
       kicker: 'Where the block sits', site: 'presin', title: 'The wedge reads normal sinusoids',
-      line: 'The balloon reads the sinusoids, beyond the block: the HVPG is {hvpg}. Only a direct portal reading shows the gradient, a PPG of {ppg}.',
+      line: 'The block lies before the sinusoids, so the HVPG is {hvpg}. Only a direct portal reading shows the gradient, a PPG of {ppg}.',
       notes: 'In a presinusoidal block the HVPG is normal or only mildly raised and underestimates the portal pressure, often by a wide margin. A normal HVPG in a patient with varices or a large spleen points to a presinusoidal or pre-hepatic cause. The portal pressure itself can be measured directly, through the liver at TIPS or with an endoscopic ultrasound needle.',
       ask: ['Varices and a 17 cm spleen; Doppler shows an open portal vein. At the transjugular study the HVPG is 3 mmHg. What do you do before the catheter comes out?', 'Take a transjugular liver biopsy: clear portal hypertension with a normal HVPG points to a presinusoidal cause such as porto-sinusoidal vascular disorder.'],
     },
     {
       id: 'stiff', cam: 'liver', terms: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm'], key: ['lsm'],
       kicker: 'Where the block sits', site: 'presin', title: 'Stiffness stays low despite high portal pressure',
-      line: 'The liver is not scarred, so its stiffness stays low at {lsm}, under 10 kPa, despite clear portal hypertension.',
+      line: 'Stiffness reflects scar and congestion, not portal pressure, so it stays at {lsm}, under 10 kPa. Varices with a soft liver mean you should look for a non-cirrhotic cause.',
       notes: 'Liver stiffness rises with scar and with congestion in the liver, so it stays normal or only slightly raised in presinusoidal and pre-hepatic disease. Stiffness below 10 kPa with clear signs of portal hypertension should prompt a search for a non-cirrhotic cause. Spleen stiffness, where it is measured, is high, because it follows the portal pressure. The stiffness and platelet rules that spare a scope do not apply in porto-sinusoidal vascular disorder: screen with endoscopy at diagnosis.',
       ask: ['Stiffness 6 kPa with large varices. Does that rule out portal hypertension?', 'No: it argues against cirrhosis. Portal hypertension with a normal stiffness points to a non-cirrhotic cause.'],
     },
@@ -61,7 +61,7 @@ export const NCPH = {
     {
       id: 'band', action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],
       kicker: 'Treatment', site: 'presin', title: 'Banding closes the varices',
-      line: 'Bands close the varices to {varix}; sessions repeat every two to four weeks until they are gone.',
+      line: 'Banding is repeated every two to four weeks until the varices are gone. Here they are down to {varix}. The beta-blocker continues. Because liver function is good, survival after a bleed is much better than in cirrhosis.',
       notes: 'After a bleed, banding is repeated until the varices are eradicated and is combined with the beta-blocker. Because the liver works well, survival after a bleed is far better than in cirrhosis. A TIPS or a surgical shunt is kept for bleeding that recurs despite this.',
       ask: ['After a bleed, how often are the bands repeated, and until when?', 'Every two to four weeks until the varices are gone, with the beta-blocker, because banding treats the varix, not the pressure.'],
     },

@@ -46,7 +46,7 @@ export const TAP = {
     {
       id: 'back', days: 14, cam: 'fit', tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: true,
       kicker: 'Two weeks later', site: 'sin', title: 'Ascites returns in two weeks',
-      line: 'Without diuretics or a lower portal pressure, the fluid reforms within weeks: {asc} now.',
+      line: 'Sinusoidal pressure and renal sodium retention have not changed, so lymph keeps leaking from the liver. Without diuretics, the abdomen holds {asc} again.',
       notes: 'The sinusoidal pressure and the kidneys\' sodium retention are unchanged, so lymph keeps weeping from the liver. Here she has had no diuretics at all.',
       ask: ['The fluid is back two weeks after the tap. Is this refractory ascites?', 'No: she has had no diuretics. Refractory means it returns within four weeks despite the highest diuretic doses and salt restriction, or diuretics cannot be taken.'],
     },
@@ -67,7 +67,7 @@ export const TAP = {
     {
       id: 'heart', preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['saag', 'tp'], key: ['tp'],
       kicker: 'Protein-rich fluid', site: 'cardiac', title: 'High-protein ascites: check the heart',
-      line: 'SAAG {saag}, 1.1 g/dL or more, with protein {tp}, 2.5 g/dL or more: the sinusoid wall is still open. Think of the heart or the hepatic veins.',
+      line: 'SAAG {saag}, 1.1 g/dL or more, with protein {tp}, 2.5 g/dL or more. Protein this high means the sinusoid wall is still open, not capillarized.',
       notes: 'Congestion without scarring gives a high-SAAG, high-protein fluid: heart failure, constrictive pericarditis, early Budd–Chiari syndrome. A raised jugular venous pressure and a high BNP point to the heart; a normal one to the hepatic veins (Doppler). Here the treatment is the heart, not TIPS. The ascites talk covers the four patterns of SAAG and protein.',
       ask: ['SAAG 1.5 g/dL and protein 4 g/dL. What do you examine next?', 'The heart: the jugular venous pressure, BNP and an echocardiogram.'],
     },

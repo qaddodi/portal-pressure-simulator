@@ -24,7 +24,7 @@ export const TWO_INFLOWS = {
     {
       id: 'meet', cam: 'lobule:triad', terms: { 'portal venule': 'lobule:triad', 'hepatic arteriole': 'lobule:arteriole', sinusoids: 'lobule:sinusoid' },
       kicker: 'Two inflows', title: 'Portal and arterial blood mix in the sinusoids',
-      line: 'In each portal tract a portal venule and a hepatic arteriole empty into the same sinusoids, so the two bloods mix before they reach the liver cells.',
+      line: 'In each portal tract a portal venule and a hepatic arteriole empty into the same sinusoids. Liver cells get oxygen-rich arterial blood and nutrient-rich portal blood together.',
       notes: 'The portal tract holds a portal venule, a hepatic arteriole and a bile ductule. Arteriolar blood enters the sinusoids near the tract, in zone 1, and mixes with portal blood; part of it first feeds the capillary plexus around the bile ducts. The bile ducts have no portal supply, so they depend on the artery alone.',
       ask: ['Where do portal and arterial blood meet?', 'In the sinusoids, which both enter at the portal tracts.'],
     },
@@ -39,7 +39,7 @@ export const TWO_INFLOWS = {
       id: 'switch', cam: 'portal', tool: HA('dual'), data: 'tiles', tiles: ['liver'], key: ['liver'], delta: 'dual',
       compare: [{ label: 'Buffer on', own: true, params: { habrStrength: 1 } }, { label: 'Buffer off', params: { habrStrength: 0 } }],
       kicker: 'The buffer', site: 'pre', title: 'Without the buffer the liver loses far more blood',
-      line: 'Without the buffer, the same clot would leave the liver with far less blood. Switch between the two and watch the hepatic artery.',
+      line: 'The liver adjusts its arterial inflow to portal flow, but it cannot adjust portal flow. With the buffer switched off, which cannot happen in a patient, liver blood flow falls to about a third of normal.',
       notes: 'No patient can switch the buffer off, but the model can: liver blood flow falls to about a third of normal. The control runs one way only. The liver adjusts its arterial inflow to the portal flow, but it cannot control the portal flow, which is set by the arterioles of the gut and the spleen.',
       ask: ['Why does the same clot leave the liver far less blood with the buffer off?', 'The artery can no longer dilate, so nothing replaces the portal share, about three quarters of the flow.'],
     },
@@ -60,7 +60,7 @@ export const TWO_INFLOWS = {
     {
       id: 'tips', params: { tips: { on: true } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'TIPS', kind: 'treat' }, tool: HA('cirr'), data: 'tiles', tiles: ['liver', 'shunt'], key: ['liver'], delta: 'cirr',
       kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'After TIPS, most liver inflow is arterial',
-      line: 'The stent draws portal blood past the sinusoids, even from the portal branches inside the liver, so most of the liver\'s inflow is now arterial, and total flow falls to {liver} of normal.',
+      line: 'Flow in the intrahepatic portal branches turns toward the stent, and hepatic artery velocity rises as the buffer response dilates the artery. Total liver blood flow falls to {liver} of normal.',
       notes: 'After a TIPS, flow in the intrahepatic portal branches usually turns toward the stent, and the hepatic artery velocity rises as the buffer responds. A liver with little reserve may not cope: a rising bilirubin and encephalopathy are the warning signs, and the reason TIPS is avoided in very advanced liver failure.',
       ask: ['Which way does blood run in the intrahepatic portal branches after a TIPS?', 'Usually toward the stent, away from the liver tissue, because the stent is the path of least resistance.'],
     },

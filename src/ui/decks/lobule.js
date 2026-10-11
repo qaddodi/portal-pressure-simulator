@@ -21,7 +21,7 @@ export const LOBULE = {
     {
       id: 'zones', cam: 'lobule', layers: ['zones'],
       kicker: 'The lobule', title: 'Zone 3 gets the least oxygen',
-      line: 'Oxygen and nutrients fall from the portal tract to the central vein. Zone 3, around the central vein, gets the least.',
+      line: 'Blood loses oxygen as it crosses the lobule, so zone 3 cells are closest to hypoxia. They are injured first by low flow, by congestion and by toxins activated there, such as acetaminophen.',
       notes: 'The zones belong to Rappaport\'s acinus, the unit pathology texts use. In the acinus, zone 1 lies next to the portal tract and zone 3 around the central vein. Blood gives up oxygen as it runs, so zone 3 cells work closest to hypoxia; they also hold most of the cytochrome P450 enzymes. Zone 3 is the first injured by low flow (ischemic hepatitis), by congestion and by toxins activated there, such as paracetamol. Zone 1 is hit first by toxins that arrive directly, and is where periportal disease begins.',
       ask: ['Why is zone 3 the vulnerable zone?', 'It is last on the path, so it gets the least oxygen, and it is where many drugs are activated.'],
     },
@@ -56,7 +56,7 @@ export const LOBULE = {
     {
       id: 'wedge', preset: 'schisto', cath: 'wedge', data: 'ladder', key: ['hvpg'], column: true,
       kicker: 'Measuring', site: 'presin', title: 'The wedge reads the sinusoids',
-      line: 'The still column under the balloon reads sinusoidal pressure. A block upstream of the sinusoids does not show up.',
+      line: 'In cirrhosis sinusoidal pressure is close to portal pressure, so the wedge is a good stand-in. In this patient portal vein pressure is high but the sinusoids are not, so the wedge and the HVPG stay normal.',
       notes: 'Wedging the catheter, or inflating its balloon, stops the flow in that hepatic vein. The column of blood behind it then equals the pressure where it next meets moving blood: the sinusoids. In cirrhosis the sinusoids are at about portal pressure, so the wedged pressure stands in for it. In schistosomiasis, shown here, the portal vein is high but the sinusoids are not, so the wedged pressure, and the HVPG, are normal. Only a direct portal pressure or the PPG shows a presinusoidal block.',
       ask: ['Which diseases does the wedge miss?', 'Pre-hepatic and presinusoidal blocks, such as portal vein thrombosis and schistosomiasis.'],
     },
