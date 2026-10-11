@@ -1459,29 +1459,52 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
 
   // ── Chrome: counter, progress, controls ──
   // On a phone the controls sit on the kicker line of the words (or of a full card), at its right end; the kicker keeps clear
-  // of them and shortens with an ellipsis. With no words on screen they rest at the bottom right. The bar never glides: once the
-  // new card has settled, a bar whose spot changed fades out, snaps to it while invisible and fades back in (like the corner credit).
+  // of them and shortens with an ellipsis. With no words on screen they rest at the bottom right. The bar never glides: as soon
+  // as a new card is in, a bar whose spot changes fades out, snaps there while invisible and fades back in (like the corner credit).
+  // The spot is where the kicker will rest once the card's entry animation ends (see restRect), so it is right on the first
+  // try on every slide (the old wait for the card to settle could lag a slide behind and leave the bar over the card's text).
   // Its size is the same on every slide (Next and Finish share a slot, the count has a fixed width), so the kicker never reflows.
-  let barT = 0, barH = 0, barRO = null, barKey = null;
-  function placeBar(settled = false) {
+  let barH = 0, barT = 0, barRO = null, barKey = null, barTo = null;
+  // Where an element will rest once the entry or exit animations on it and its ancestors (a slide in or out) have ended: its box
+  // now, less the shift those animations give it at this moment. Also how long until the last of them ends.
+  function restRect(el) {
+    let dx = 0, dy = 0, left = 0;
+    for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+      const run = n.getAnimations().filter((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime));
+      if (!run.length) continue;
+      for (const a of run) left = Math.max(left, a.effect.getComputedTiming().endTime - (a.currentTime || 0));
+      const t = getComputedStyle(n).transform;
+      if (!t || t === 'none') continue;
+      const m = new DOMMatrixReadOnly(t), z = n.offsetHeight ? n.getBoundingClientRect().height / n.offsetHeight : 1;   // (in screen px: through any zoom)
+      dx += m.e * z; dy += m.f * z;
+    }
+    const r = el.getBoundingClientRect();
+    return { top: r.top - dy, right: r.right - dx, height: r.height, width: r.width, left };
+  }
+  function placeBar() {
     if (!ui) return;
-    const b = ui.bar, kick = phone() && [ui.panel, ui.text].find((el) => !el.hidden && !el.classList.contains('pz-hide'))?.querySelector('.pz-kick');
-    if (!barRO && window.ResizeObserver) { barRO = new ResizeObserver(() => placeBar(false)); barRO.observe(ui.text); barRO.observe(ui.panel); }
-    if (!settled) { clearTimeout(barT); barT = setTimeout(() => placeBar(true), 520); }   // (measured on screen, so once the words have settled from their entry and any fit-to-size scaling)
+    const b = ui.bar, kick = phone() && [ui.panel, ui.text].find((el) => !el.hidden && !el.classList.contains('pz-hide') && !el.classList.contains('pz-leave'))?.querySelector('.pz-kick');
+    if (!barRO && window.ResizeObserver) { barRO = new ResizeObserver(() => placeBar()); barRO.observe(ui.text); barRO.observe(ui.panel); }
+    if (!kick && phone() && [ui.panel, ui.text].some((el) => !el.hidden && el.classList.contains('pz-leave'))) return;   // (between slides: the old words leaving, the new not in yet)
     let top = '', right = '';
     if (kick) {
-      const wr = ui.root.getBoundingClientRect(), k = wr.width / (ui.root.clientWidth || wr.width) || 1, kr = kick.getBoundingClientRect();
+      const wr = restRect(ui.root), k = wr.width / (ui.root.clientWidth || wr.width) || 1, kr = restRect(kick);
+      clearTimeout(barT);
+      if (kr.left > 0) barT = setTimeout(placeBar, kr.left + 40);   // (and once more when they have ended, to be exact)
       top = `${Math.round((kr.top + kr.height / 2 - wr.top) / k - b.offsetHeight / 2)}px`;
       right = `${Math.max(4, Math.round((wr.right - kr.right) / k) - 6)}px`;
       app.style.setProperty('--pz-bar-w', `${b.offsetWidth}px`);
     }
     const key = `${top}|${right}`;
-    if (key === barKey || (barKey !== null && !settled)) return;
-    const apply = () => { b.style.top = top; b.style.right = right; };
-    clearTimeout(barH);
+    barTo = [top, right];
+    if (key === barKey) return;
+    const apply = () => { [b.style.top, b.style.right] = barTo; };
     if (barKey === null) { apply(); barKey = key; return; }
     barKey = key;
+    if (b.classList.contains('hop')) return;   // (already out: it snaps to the newest spot)
+    if (reduce.matches) { apply(); return; }
     b.classList.add('hop');
+    clearTimeout(barH);
     barH = setTimeout(() => { apply(); b.classList.remove('hop'); }, 220);
   }
   let askAt = [-1, 0];   // (the slide whose question is open, and how far: 0 shut, 1 the question, 2 with its answer)
@@ -1821,7 +1844,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
     clearTimeout(idleT); clearTimeout(dock.fit); cancelAnimationFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;
-    barRO?.disconnect(); barRO = null; clearTimeout(barT); clearTimeout(barH); barKey = null; ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
+    barRO?.disconnect(); barRO = null; clearTimeout(barH); clearTimeout(barT); barKey = null; barTo = null; ui?.bar.classList.remove('hop'); ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.setProjection(false);

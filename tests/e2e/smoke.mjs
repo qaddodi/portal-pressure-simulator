@@ -13,7 +13,7 @@
 // image ships one).
 
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
 
 const dir = process.argv[2] || '.';
@@ -64,6 +64,37 @@ const shot = (page, name) => (shots ? page.screenshot({ path: `${shots}/${name}.
 const open = async (page, q = '') => {
   await page.goto(server.url + q);
   await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 45000 });
+};
+
+// A presenter's controls against the slide's card: 'ok', or what is wrong (null while the slide is still coming in). The controls'
+// icons and count may not cover the card's words or table, and a phone's sit on the card's kicker line.
+const barFit = (page) => page.evaluate(() => {
+  const bar = document.querySelector('.pz-bar');
+  if (bar.classList.contains('hop')) return null;
+  const host = [...document.querySelectorAll('.pz-panel, .pz-text')].find((el) => !el.hidden && !el.classList.contains('pz-hide') && !el.classList.contains('pz-leave') && el.childElementCount);
+  // (Still coming in: the card or one of its blocks is in its entry; a live part deep inside, such as a time-lapse's bar, does not count.)
+  if (!host || [host, ...host.children].some((el) => el.getAnimations().some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime)))) return null;
+  const marks = [...bar.querySelectorAll('svg, .pzb-n, .pzb-go')].map((el) => { if (!el.matches('.pzb-n')) return el.getBoundingClientRect(); const g = document.createRange(); g.selectNodeContents(el); return g.getBoundingClientRect(); }).filter((r) => r.width && r.height);   // (the count's words, not its 44 px tap box)
+  const hit = [...host.querySelectorAll('.pz-dtitle, .pz-h, .pz-line, .pz-caveat, .pz-eq, table, li, .pz-abb')].find((el) => {
+    const r = el.getBoundingClientRect();
+    return r.width && r.height && marks.some((m) => m.left < r.right - 1 && m.right > r.left + 1 && m.top < r.bottom - 1 && m.bottom > r.top + 1);
+  });
+  if (hit) return `the controls cover the card's ${hit.className || hit.tagName.toLowerCase()} ("${hit.textContent.trim().slice(0, 40)}")`;
+  const kick = host.querySelector('.pz-kick'), b = bar.getBoundingClientRect();
+  if (bar.classList.contains('phone') && kick) {
+    const k = kick.getBoundingClientRect(), off = (b.top + b.height / 2) - (k.top + k.height / 2);
+    if (Math.abs(off) > 3) return `the controls are ${Math.round(off)} px off the kicker line`;
+  }
+  return 'ok';
+});
+// Every deck's id (the presenter's library), for the per-deck checks below.
+const DECK_IDS = [...readFileSync(new URL('../../src/ui/decks.js', import.meta.url), 'utf8').matchAll(/\['([a-z0-9-]+)', '(?:[^'\\]|\\.)*'\]/g)].map((m) => m[1]);
+if (DECK_IDS.length < 15) throw new Error(`only ${DECK_IDS.length} deck ids read from decks.js`);
+// Waits for the slide to settle (up to 10 s) and returns the last reading.
+const barSettle = async (page) => {
+  let r = null;
+  for (let t = 0; t < 40 && r !== 'ok'; t++) { r = await barFit(page); if (r !== 'ok') await page.waitForTimeout(250); }
+  return r;
 };
 
 for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVICE || d === process.env.SMOKE_DEVICE)) {
@@ -409,11 +440,20 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // controls are the same on every slide (Next turning into Finish moved them once). A bar centred at the bottom keeps one
     // spot. A phone's bar follows the card's kicker line: it may change spot, but only by fading out, snapping and fading in,
     // so every frame in which it shows is at the slide's old spot or its new one, never between.
+    // Once each slide is in, the controls' icons and count may not cover any of the card's words or its table, and a phone's
+    // sit on the kicker line. (A phone's bar once stayed where the slide before had it, over the summary card's table.)
+    // Three decks are walked from the start (endoscopy: its data card sits at the top); one more only over its last slides, the summary card among them.
     const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
-    for (const size of sizes) for (const deck of ['circulation', 'lobule']) {
+    const runs = [['circulation', 0], ['lobule', 0], ['endoscopy', 0], ['hvpg', -2]];
+    for (const size of sizes) for (const [deck, from] of runs) {
       if (size) await page.setViewportSize(size);
       await open(page);
-      await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
+      await page.evaluate(([id, at]) => window.pps.presenter.start(id, at), [deck, from]);
+      if (from < 0) {   // (the deck's length is known once it runs: go to its last slides)
+        await page.waitForFunction(() => /\d+ \/ \d+/.test(document.querySelector('.pzb-n')?.textContent || ''), null, { timeout: 60000 });
+        const n = await page.evaluate(() => +document.querySelector('.pzb-n').textContent.split('/')[1]);
+        await page.evaluate(([id, at]) => window.pps.presenter.start(id, at), [deck, n + from]);
+      }
       await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
       const phone = device === 'phone';
       const where = `${deck} at ${size ? 'upright iPad' : device}`;
@@ -421,9 +461,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         const bar = document.querySelector('.pz-bar'), b = bar.getBoundingClientRect(), q = (el) => { const r = el.getBoundingClientRect(); return [r.left - b.left, r.top - b.top, r.width, r.height].map((v) => Math.round(v * 10) / 10); };
         return { n: document.querySelector('.pzb-n')?.textContent.trim(), at: [b.left, b.top], boxes: [[0, 0, b.width, b.height], ...[...bar.children].filter((c) => !c.classList.contains('pzb-q')).map(q)] };
       });
+      const fits = async (n) => { if ((await barSettle(page)) !== 'ok') throw new Error(`${where}, slide ${n}: ${await barFit(page) || 'the slide never settled'}`); };
       let ref = null, slides = 0;
       await page.waitForTimeout(1000);
       for (let guard = 0; guard < 80; guard++) {
+        await fits((await read()).n);
         const cur = await read();
         if (!ref) ref = cur;
         else {
@@ -442,9 +484,29 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         const glide = seen.find((p) => p[2] > 0.05 && !near(p, from) && !near(p, to));
         if (glide) throw new Error(`${where}: the bar glided on the way to slide ${a + 1}: it showed at ${Math.round(glide[0])},${Math.round(glide[1])} between ${from.slice(0, 2).map(Math.round)} and ${to.slice(0, 2).map(Math.round)}`);
       }
-      if (slides < 5) throw new Error(`${where}: only ${slides} slide(s) walked`);
+      if (slides < (from < 0 ? -from : 5)) throw new Error(`${where}: only ${slides} slide(s) walked`);
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'));
+    }
+  });
+
+  // Every slide of every deck on a phone (390x844): the controls sit on the card's kicker line and cover none of its words.
+  // (Slides with a live data card at the top once kept them at the slide before's spot, over the figure or the card.)
+  if (device === 'phone') for (const deck of DECK_IDS) await check(device, `presenter: on every slide of ${deck} the controls sit on the kicker line`, async (page) => {
+    await open(page);
+    await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+    for (let guard = 0; guard < 80; guard++) {
+      const n = await page.evaluate(() => document.querySelector('.pzb-n')?.textContent.trim());
+      if ((await barSettle(page)) !== 'ok') throw new Error(`${deck}, slide ${n}: ${await barFit(page) || 'the slide never settled'}`);
+      const [a, b] = n.split('/').map((x) => +x);
+      if (a === b) break;
+      // (On a time-lapse, Next first runs it to its end: press again until the slide changes.)
+      for (let k = 0; k < 4; k++) {
+        await page.keyboard.press('ArrowRight');
+        if (await page.waitForFunction((was) => document.querySelector('.pzb-n')?.textContent.trim() !== was, n, { timeout: 15000 }).then(() => true, () => false)) break;
+      }
+      await page.waitForTimeout(300);
     }
   });
 
