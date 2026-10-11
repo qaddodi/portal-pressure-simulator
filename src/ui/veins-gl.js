@@ -65,7 +65,7 @@ void main() {
 //   1: color at the end (rgb), alpha
 //   2: tier, z (draw order within a tier), flags, congestion glow alpha
 //   3: fade: linear from (x, y) to (x, y), or radial: center (x, y), radius
-//   4: fade: offset, alpha at the start, alpha at the end (radial: at 45 %), mode (0 none, 1 linear, 2 radial)
+//   4: fade: offset, alpha at the start, alpha at the end (radial: at 45 %), mode (0 none, 1 linear, 2 radial, 3 linear with a dip: faintest at the offset, solid at the end)
 //   5: drawn part along the vessel (0–1): from, to; arc length (world); stream flags (F_UP, F_DN, F_REV)
 //   6: congestion glow color (rgb), streak course length (world)
 //   7: flow streaks: phase at the upstream end, spacing (world), direction (±1, from → to), strength (0 off)
@@ -231,7 +231,12 @@ void main() {
     shcol[s] = t2.w > 0.0 ? T(sid[s], 6).rgb : vec3(0.0);
     sedge[s] = (int(t2.z + 0.5) & ${F_EDGE}) != 0 ? T(sid[s], 6).rgb : vec3(0.0);
     float a = t1.w;
-    if (t4.w > 1.5) {
+    if (t4.w > 2.5) {
+      // A dip: from its start alpha down to its faintest at the offset, and back up to solid at the end.
+      vec2 dd = t3.zw - t3.xy;
+      float v = clamp(dot(p - t3.xy, dd) / max(dot(dd, dd), 1e-6), 0.0, 1.0);
+      a *= v < t4.x ? mix(t4.y, t4.z, smoothstep(0.0, t4.x, v)) : mix(t4.z, 1.0, smoothstep(t4.x, 1.0, v));
+    } else if (t4.w > 1.5) {
       float v = length(p - t3.xy) / max(t3.z, 1e-3);
       a *= v < 0.45 ? mix(t4.y, t4.z, v / 0.45) : mix(t4.z, 0.0, clamp((v - 0.45) / 0.55, 0.0, 1.0));
     } else if (t4.w > 0.5) {

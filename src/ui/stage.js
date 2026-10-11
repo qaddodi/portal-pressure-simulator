@@ -2,16 +2,16 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=34e377149b';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=1de144f162';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=9ba554dd14';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=9858da589a';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=045e641b44';
-import { createLobuleZoom } from './lobule-zoom.js?v=922f5a6c8f';
+import { createLobuleZoom } from './lobule-zoom.js?v=873f7f677b';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=7bf909808a';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b96611a7c7';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=44433fccbd';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -137,6 +137,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Veins that fade into the vessel they sink into: a linear mask [x1, y1, x2, y2, offset], from
   // solid at the offset to 30 % at the end (the caudate vein into the IVC, C5 into the renal vein).
   const FADE_IN = { RHV_IVC: [604, 226, 616, 204, 0, 0], MHV_IVC: [604, 246, 615, 228, 0, 0], LHV_IVC: [638, 220, 624, 211, 0, 0], LRV_IVC: [642, 625, 624, 625, 0, 0], RRV_IVC: [602, 660, 615, 673, 0, 0], CAUD: [566, 326, 620, 350, 0.45], C5: [852, 520, 862, 618, 0.6] };
+  // The sinusoids lie inside the liver: faded along their course, most in the middle of the lobe, clearing as
+  // they gather into the central and hepatic veins. Linear from the portal end to the venous end, [offset of
+  // the faintest point, alpha at the start, there, mode 3] (the end is solid).
+  const SIN_FADE = {};
+  for (const id of SIN_EDGES) {
+    const e = ALL_EDGES.find((q) => q.id === id), a = NODE_POS[e.from][0], b = NODE_POS[e.to][0];
+    SIN_FADE[id] = [a[0], a[1], b[0], b[1], 0.5, 0.8, 0.36, 3];
+  }
   for (const [id, fd] of Object.entries(FEEDERS)) {
     // A generated fan is a tortuous network (drawn like the variceal plexus); listed paths meander.
     const list = [...(fd.fan ? fanFeeders(fd.fan).map((x) => ({ ...x, fan: true, when: fd.fan.when, out: !!fd.fan.out })) : []), ...(fd.paths || []).map((d, i) => ({ d, k: 1, when: fd.when, src: fd.from?.[i] }))];
@@ -239,8 +247,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Lateral offset of `off` units at mid-course, easing to zero at both ends (or, with `u0`, at
   // `u0` along the vessel and the far end: the strands leave a single trunk there).
-  function braid(pts, off, u0 = 0) {
+  // With a stretch `span` [from, to] the strand leaves and rejoins the vessel there, its bow a little uneven (`ph`).
+  function braid(pts, off, u0 = 0, span = null, ph = 0) {
     if (Math.abs(off) < 0.3) return pts;
+    if (span) {
+      const [ua, ub] = span;
+      return pts.map((p, i) => {
+        const v = (i / (pts.length - 1) - ua) / (ub - ua);
+        if (v <= 0 || v >= 1) return p;
+        const a = pts[i - 1], b = pts[i + 1];
+        let nx = -(b[1] - a[1]), ny = b[0] - a[0];
+        const n = Math.hypot(nx, ny) || 1; nx /= n; ny /= n;
+        const o = off * Math.sin(Math.PI * v) ** 1.4 * (1 + 0.2 * Math.sin(3 * Math.PI * v + ph));
+        return [p[0] + nx * o, p[1] + ny * o];
+      });
+    }
     return pts.map((p, i) => {
       if (i === 0 || i === pts.length - 1) return p;
       const a = pts[i - 1], b = pts[i + 1];
@@ -765,7 +786,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lumenP = isArt ? null : s('path', { class: 'v-lumenP', fill: `url(#gr-${e.id})` });
     const hit = s('path', { class: 'v-hit', tabindex: 0, role: 'button', 'aria-label': e.label || e.id, 'data-id': e.id });
     // Extra channels of a braided collateral (cavernoma): plain strokes under the main tube.
-    const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k]) => ({ off, ph, k, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
+    const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k, ua, ub]) => ({ off, ph, k, span: ua != null ? [ua, ub] : null, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
     const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk, fan, when, src, out }, i) => ({ cur, fk, fan, when, src, out, len: arcLen(cur), ph: i * 0.37, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
     // A feeder that leaves a named vein is colored from that vein's pressure to the vessel's.
     if (feeders) feeders.forEach((fd, i) => {
@@ -812,6 +833,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const heat = isArt ? null : s('path', { class: 'v-heat' });
     if (heat) gHeat.append(heat);
     if (FADE_IN[e.id]) for (const el of [shadow, wall, lumen, shade, sheen, wallP, lumenP]) el?.setAttribute('mask', `url(#cm-${e.id})`);
+    if (SIN_FADE[e.id]) {
+      // The SVG's own copy of the sinusoids' fade (the GPU draws it from SIN_FADE).
+      const [x1, y1, x2, y2, o, a0, am] = SIN_FADE[e.id];
+      defs.insertAdjacentHTML('beforeend', `<linearGradient id="sg-${e.id}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="#fff" stop-opacity="${a0}"/><stop offset="${o}" stop-color="#fff" stop-opacity="${am}"/><stop offset="1" stop-color="#fff"/></linearGradient><mask id="sm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#sg-${e.id})"/></mask>`);
+      for (const el of [shadow, wall, lumen, shade, sheen, ...(strands || []).flatMap((sd) => [sd.wall, sd.lumen])]) el?.setAttribute('mask', `url(#sm-${e.id})`);
+    }
     // Veins that run on out of the plate toward the pelvis (the rectal veins and their anorectal
     // varices, the inferior epigastric) fade out downward instead of ending: [y where the fade
     // starts, y where it is gone]. Only the anatomy is that low; the circuit is unaffected.
@@ -1668,7 +1695,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Strands fan out from the shared ends (or from where the trunk breaks up) and fold back
       // onto the lane in the circuit.
       if (x.strands) for (const sd of x.strands) {
-        let sp = wiggle(braid(base, sd.off * (1 - t), u0), (0.8 * g.wig + 3) * (1 - t), sd.ph);
+        let sp = sd.span ? braid(base, sd.off * (1 - t), 0, sd.span, sd.ph) : wiggle(braid(base, sd.off * (1 - t), u0), (0.8 * g.wig + 3) * (1 - t), sd.ph);
         if (u0) sp = blendFrom(pts, sp, u0);
         sd.u0 = u0;
         const d = polyD(sp);
@@ -1871,9 +1898,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.wMode = mode;
       // The hit stroke is never thinner than the drawn tube (the IVC is wide, behind the liver) and never under ~10 px on screen.
       { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id), hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((CTM && CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; x.hit.style.strokeWidth = hw; } }
-      // The liver's own small vessels (portal venules, sinusoids, central veins) are the liver to the pointer in the anatomy:
-      // no hover, no tap on them; it falls through to the organ.
-      cls(x, 'no-hit', LIVER_EDGES.has(e.id) && t < 0.5);
+      // The liver's own small vessels (portal venules, central veins) are the liver to the pointer in the anatomy:
+      // no hover, no tap on them; it falls through to the organ. The sinusoids are a vessel of their own.
+      cls(x, 'no-hit', LIVER_EDGES.has(e.id) && !SIN_EDGES.has(e.id) && t < 0.5);
       if (x.isArt) { setA(x.wall, 'stroke-width', w.toFixed(1)); continue; }
       x.pmid = (P1 + P2) / 2;
       const baseD = IVC_EDGES.has(e.id) ? E.IVC_IS.e.d : e.d || (e.dMax ? dMinOf(e) : 3);   // one wall thickness along the whole cava
@@ -2472,6 +2499,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       } else if (x.tipFade) { const L = x.tipFade.line; fade = [L[0], L[1], L[2], L[3], 0, x.tipFade.joined ? 1 : T0, 1, 1]; }
       else if (kind === 'v' && IVC_JOIN[id]) { if (!ivcOn) fade = [...IVC_JOIN[id]]; }
       else if (FADE_DOWN_Y[id] && !(ivcOn && IVC_EDGES.has(id))) { const [y0, y1] = FADE_DOWN_Y[id]; fade = [0, y0, 0, y1, 0, 1, 0, 1]; }
+      else if (SIN_FADE[id] && (kind === 'v' || kind === 's')) fade = [...SIN_FADE[id]];
       else if (FADE_IN[id] && kind === 'v') { const [x1, y1, x2, y2, of, to = 0.3] = FADE_IN[id]; fade = [x1, y1, x2, y2, of, 1, to, 1]; }
       // The fades are drawn in the anatomy's coordinates: they let go as the circuit takes over.
       // (The tip fade already does: it is cleared in the circuit.)
@@ -2493,9 +2521,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (tb) tint = tint ? [Math.min(tint[0] < 0 ? 0 : tint[0], m(tb[0], f, 1 - f)), Math.max(tint[1], m(tb[1], f, 1 - f))] : [m(tb[0], f, 1 - f), m(tb[1], f, 1 - f)];
       }
       if (tint) tubeData.set([...toRGB(cathTint.col, cs), 1, tint[0], tint[1], cathTint.soft, 0], o + 32);
-      const hov = kind === 'v' && Math.max(vh.amt.get(id) || 0, ra ? vh.amt.get(ra.e.id) || 0 : 0);
+      const hov = (kind === 'v' || kind === 's') && Math.max(vh.amt.get(id) || 0, ra ? vh.amt.get(ra.e.id) || 0 : 0);
       if (hov) tubeData[o + 39] = easeInOut(hov);
-      if (kind === 'v') {
+      if (kind === 'v' || kind === 's') {
         const la = glow.lit.get(id), lb = ra && glow.lit.get(ra.e.id), l = la || lb, lend = la && lb ? [la.end[0], lb.end[1]] : l?.end;
         const v = l ? easeInOut(Math.max(0, l.v)) * l.amt : 0;
         if (v > 0) {
@@ -4234,7 +4262,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function labelAnchor(id, t) {
     const eid = LABEL_VESSEL[id], x = eid && E[eid];
     if (x && x.vis && !x.g.classList.contains('coll-ghost') && geo[eid]?.cur?.length > 1) {
-      const [wx, wy, tx, ty] = arcMid(geo[eid].cur);
+      // The sinusoids' callout hangs from their venous half, clear of the mesh's widest bulge.
+      const cur = geo[eid].cur, [wx, wy, tx, ty] = arcMid(SIN_EDGES.has(eid) ? cur.slice(Math.round(cur.length / 2)) : cur);
       const [ax, ay] = worldToLocal(wx, wy), [bx, by] = worldToLocal(wx + tx, wy + ty);
       const n = Math.hypot(bx - ax, by - ay) || 1;
       return { ax, ay, mid: true, tan: [(bx - ax) / n, (by - ay) / n], w: x.width || 4 };

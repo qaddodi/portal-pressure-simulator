@@ -63,8 +63,8 @@ export const NODE_POS = {
   LPV: [[688, 378], [680, 387]],
   VAR: [[789, 66], [620, 128]],
   GV: [[876, 302], [240, 121]],
-  SIN_R: [[420, 345], [800, 303]],
-  SIN_L: [[750, 300], [800, 387]],
+  SIN_R: [[462.1, 380.1], [800, 303]],
+  SIN_L: [[719, 339], [800, 387]],
   CV_R: [[446, 296], [900, 303]],
   CV_L: [[738, 262], [900, 387]],
   W_R: [[470, 262], [960, 290]],
@@ -105,10 +105,12 @@ export const EDGE_PATH = {
   PV_TRUNK: 'M700 556 C 675 522 638 478 602 442',
   PVH_R: 'M602 442 C 568 428 535 414 505 398',
   PVH_L: 'M602 442 C 632 418 660 398 688 378',
-  PRE_R: 'M505 398 C 478 392 446 374 420 345',
-  PRE_L: 'M688 378 C 708 352 730 326 750 300',
-  SIN_RR: 'M420 345 C 414 328 424 308 446 296',
-  SIN_LL: 'M750 300 C 754 286 750 272 738 262',
+  // The portal venules enter the lobe and break up into the sinusoids about halfway along their old
+  // course: the sinusoids run on round the lobe's margin and gather into the central veins (see STRANDS).
+  PRE_R: 'M505 398 C 491.5 395 476.8 389 462.1 380.1',
+  PRE_L: 'M688 378 C 698 365 708.5 352 719 339',
+  SIN_RR: 'M462.1 380.1 C 447.5 371.3 433 359.5 420 345 C 414 328 424 308 446 296',
+  SIN_LL: 'M719 339 C 729.5 326 740 313 750 300 C 754 286 750 272 738 262',
   SIN_RL: 'M420 345 C 520 382 664 362 750 300',
   POST_R_RHV: 'M446 296 C 466 280 484 262 500 246',
   POST_R_MHV: 'M446 296 C 480 298 516 292 548 282',
@@ -193,7 +195,15 @@ export const STRANDS = {
   C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],
   // The retroperitoneal veins split into four thin, wavy channels that rejoin the cava.
   C7: [[-12, 1.2, 0.42], [-6, 3.6, 0.48], [6, 5.0, 0.48], [12, 2.3, 0.4]],
+  // The sinusoids: a mesh of fine channels that leave the portal venule's end and gather back into the
+  // central vein, each over its own stretch [from, to] (0–1 along the vessel), so they peel off and
+  // rejoin at different points and read as a network, not a braid.
+  SIN_RR: [[-15, 0.4, 0.4, 0.04, 0.97], [-7, 2.1, 0.46, 0.18, 0.88], [7, 3.7, 0.46, 0.06, 0.8], [14, 5.0, 0.38, 0.22, 0.97], [-22, 1.3, 0.32, 0.3, 0.75]],
+  SIN_LL: [[-13, 0.9, 0.4, 0.04, 0.97], [-6, 2.6, 0.46, 0.2, 0.86], [6, 4.2, 0.46, 0.06, 0.8], [13, 5.4, 0.38, 0.24, 0.97]],
 };
+// The drawn sinusoids. Inside the liver they are drawn faded, clearing as they gather into the hepatic
+// veins; unlike the liver's other small vessels they take hover, focus and taps in the anatomy.
+export const SIN_EDGES = new Set(['SIN_RR', 'SIN_LL']);
 // Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
 export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68, C7: 0.2 };
 

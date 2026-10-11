@@ -19,10 +19,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=f48a130c4b';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=f01c6a7cc5';
-import { createHvpgMonitor } from './hvpg-proc.js?v=e3c93a9bb1';
-import { createTools } from './presenter-tools.js?v=38ce0b9f31';
-import { openHandout } from './handout.js?v=59e49816d3';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=54c001ea8f';
+import { createHvpgMonitor } from './hvpg-proc.js?v=9340c8f035';
+import { createTools } from './presenter-tools.js?v=fc93918d9c';
+import { openHandout } from './handout.js?v=356f3c6cbf';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
 const KEY = 'pps.scripts';
@@ -73,7 +73,7 @@ const TARGETS = {
   pv: { node: 'CONF', edges: ['PV_TRUNK'], tone: 'pv', words: 'portal vein' },
   sv: { node: 'SV', edges: ['SV_CONF', 'V_SPL'], tone: 'sv', words: 'splenic vein|splenic' },
   smv: { node: 'SMV', edges: ['SMV_CONF', 'V_INT'], tone: 'smv', words: 'superior mesenteric veins?|superior mesenteric' },
-  sin: { node: 'SIN_R', organ: 'liver', tone: 'wedge', words: 'sinusoids?|sinusoidal pressure' },
+  sin: { node: 'SIN_R', edges: ['SIN_RR', 'SIN_LL'], tone: 'wedge', words: 'sinusoids?|sinusoidal pressure' },
   whvp: { node: 'SIN_R', organ: 'liver', tone: 'wedge', words: 'WHVP|wedged pressure' },
   fhvp: { node: 'RHV', edges: ['RHV_IVC'], tone: 'hv', words: 'FHVP|free pressure' },
   hv: { node: 'RHV', edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], tone: 'hv', words: 'hepatic veins?' },

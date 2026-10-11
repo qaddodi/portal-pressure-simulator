@@ -52,7 +52,7 @@ export const TREATMENT = {
       ask: ['Why combine banding with a beta-blocker after a bleed?', 'Banding removes the varices, not the high pressure that makes new ones; the beta-blocker lowers it.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'ladder', key: ['pv', 'ppg'], tiles: ['ppg', 'varix'], delta: 'target',
+      id: 'tips', params: { tips: { on: true } }, cam: 'liver', terms: { sinusoids: 'sin' }, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'ladder', key: ['pv', 'ppg'], tiles: ['ppg', 'varix'], delta: 'target',
       kicker: 'Shunt', site: 'sin', title: 'TIPS',
       line: 'A covered stent from a hepatic vein to the portal vein. Portal blood bypasses the sinusoids, and the PPG falls to {ppg}, below the {<12 mmHg} target.',
       notes: 'Transjugular intrahepatic portosystemic shunt: from the jugular vein, a needle is passed from the right hepatic vein through the liver into the right portal vein, and the tract is lined with a covered stent, usually 8 mm wide. The portal pressure gradient is measured before and after; for bleeding the aim is below 12 mmHg. Indications: pre-emptive TIPS in high-risk variceal bleeding, rescue when bleeding cannot be controlled, recurrent bleeding, and recurrent or refractory ascites.',

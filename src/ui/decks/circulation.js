@@ -15,7 +15,7 @@ export const CIRCULATION = {
       ask: ['Which veins form the portal vein?', 'The superior mesenteric vein and the splenic vein, behind the neck of the pancreas.'],
     },
     {
-      id: 'series', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], terms: { sinusoids: 'sin', heart: 'heart' }, glow: ['smv'],
+      id: 'series', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], terms: { sinusoids: 'sin', heart: 'heart' }, glow: ['smv', 'sin'],
       kicker: 'The portal circulation', title: 'Two capillary beds in series',
       line: 'Gut blood crosses the capillaries of the intestine, then the sinusoids of the liver, before it returns to the heart.',
       notes: 'A portal system is a set of veins running between two capillary beds. The first bed is in the gut and spleen, the second is the hepatic sinusoids. Because the beds are in series, anything that raises resistance in the liver, or beyond it, raises the pressure in every vein upstream: the portal vein, the splenic vein and the veins of the gut.',

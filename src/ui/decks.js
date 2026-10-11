@@ -50,12 +50,12 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=d73bbbba40';
+import { CIRCULATION } from './decks/circulation.js?v=60bd622aab';
 import { SITES } from './decks/sites.js?v=99764025c1';
 import { HVPG } from './decks/hvpg.js?v=5dc6e4727a';
 import { ASCITES } from './decks/ascites.js?v=ab387e4e41';
 import { VARICES } from './decks/varices.js?v=1ad248e26a';
-import { TREATMENT } from './decks/treatment.js?v=67bb210d9f';
+import { TREATMENT } from './decks/treatment.js?v=b41068a34b';
 import { STIFFNESS } from './decks/stiffness.js?v=482ab70b54';
 import { ONE_YEAR } from './decks/one-year.js?v=7373f5f35c';
 import { LOBULE } from './decks/lobule.js?v=0e9af59367';
@@ -65,7 +65,7 @@ import { CIRCUIT } from './decks/circuit.js?v=d140523a4a';
 import { DOPPLER } from './decks/doppler.js?v=0f053780b5';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=5a44434020';
 import { PREHEPATIC } from './decks/prehepatic.js?v=c8af5f351e';
-import { RIGHT_HEART } from './decks/right-heart.js?v=2221556b33';
+import { RIGHT_HEART } from './decks/right-heart.js?v=09ac17a32c';
 import { BLEED } from './decks/variceal-bleed.js?v=646e098b15';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=a2c790d359';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=0bf275169b';
