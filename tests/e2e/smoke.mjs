@@ -124,6 +124,37 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(rows[rows.length - 1].text < 0.5)) throw new Error('the label did not fade with the camera');
   });
 
+  await check(device, 'presenter lobule: a label and its pill fade as one when the slide changes (out and in)', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
+    await page.evaluate(() => { const a = document.querySelector('#app'); a.classList.add('presenting'); a.dataset.lit = 'lobule:sinusoid'; });
+    await page.waitForFunction(() => [...document.querySelectorAll('.lz-lab')].some((e) => e.dataset.target === 'lobule:sinusoid' && !e.hidden && e.offsetParent), null, { timeout: 30000 });
+    // Time is stepped by hand (a software renderer would otherwise sample too few frames).
+    const rows = await page.evaluate(() => {
+      const lab = [...document.querySelectorAll('.lz-lab')].find((e) => e.dataset.target === 'lobule:sinusoid' && !e.hidden && e.offsetParent);
+      const read = () => ({ pill: +getComputedStyle(lab, '::before').opacity, text: +getComputedStyle(lab.firstElementChild).opacity });
+      const done = () => document.getAnimations().forEach((a) => { try { a.finish(); } catch { /* (already done) */ } });
+      const stepped = (change) => {
+        done();
+        const out = [read()];
+        change();
+        getComputedStyle(lab).opacity; getComputedStyle(lab, '::before').opacity;
+        const anims = document.getAnimations().filter((a) => ['--pill-o', '--lab-o', '--lit-o'].includes(a.transitionProperty) || a.animationName === 'pill-in');
+        anims.forEach((a) => a.pause());
+        for (const t of [30, 90, 150, 220, 300, 400]) { anims.forEach((a) => { a.currentTime = t; }); out.push(read()); }
+        return out;
+      };
+      const app = document.querySelector('#app');
+      const away = stepped(() => { app.dataset.lit = 'lobule:central'; });   // the next slide is about something else
+      const back = stepped(() => { app.dataset.lit = 'lobule:sinusoid'; });  // and the slide before it comes back
+      return { away, back };
+    });
+    for (const [name, r] of Object.entries(rows)) for (const x of r) if (Math.abs(x.pill - x.text) > 0.02) throw new Error(`the pill and its text fade apart going ${name} (${JSON.stringify(r)})`);
+    if (!(rows.away[rows.away.length - 1].text < 0.05)) throw new Error('the label did not fade away with the slide');
+    if (!(rows.back[rows.back.length - 1].pill > 0.95)) throw new Error('the pill did not come back with its label');
+  });
+
   await check(device, 'leaving the lobule frames the next view, not the dive', async (page) => {
     await open(page, '?preset=cirr-decomp');
     const T = () => page.evaluate(() => (document.querySelector('#world').getAttribute('transform') || '').replace(/-?\d+\.\d+/g, (n) => (+n).toFixed(1)));
