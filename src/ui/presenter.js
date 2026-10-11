@@ -20,10 +20,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=d0f1a6d8cf';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=b360ba9371';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=1f4963308f';
 import { createHvpgMonitor } from './hvpg-proc.js?v=0ac0f5eb5d';
 import { createTools } from './presenter-tools.js?v=3b66d6fec4';
-import { openHandout } from './handout.js?v=afd5fefc22';
+import { openHandout } from './handout.js?v=dfb00daaa3';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
 
@@ -147,6 +147,7 @@ export function slideTargets(s, line = s.line || '') {
     if (t.organ) organs.set(t.organ, t.tone);
     if (t.res) res.set(t.res, t.tone);
   }
+  for (const k of s.tint || []) { const t = TARGETS[k]; if (t?.node) terms[t.node] = t.tone; }   // (a label the line does not name, in its colour all the same)
   // glowSeq (ms): the glow field lights in its order, one step apart (pressure passing back from the heart, D6).
   const at = new Map();
   (s.glow || []).forEach((g, i) => {

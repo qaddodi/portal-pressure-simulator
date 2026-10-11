@@ -12,6 +12,7 @@
 //                            'lobule', 'lobule:triad' | 'lobule:sinusoid' | 'lobule:central' (zoom: × the lobule's
 //                            framing), or 'sinusoid'
 //   labels                   the stations named on the anatomy (none when absent)
+//   tint                     ['imv']: TARGETS keys whose station label takes its colour though the line never names it
 //   layers                   ['zones']: the lobule's zone bands on (a lobule slide shows none otherwise)
 //   mark                     { edges, label }: a ring and a callout on the figure (hidden until a quiz is answered)
 //   eq                       [MathML, legend?]: an equation under the title (see mi, mo, sub and frac)
@@ -51,7 +52,7 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=cce184a42e';
+import { CIRCULATION } from './decks/circulation.js?v=a2740d6192';
 import { SITES } from './decks/sites.js?v=e6725267ed';
 import { HVPG } from './decks/hvpg.js?v=eebb300362';
 import { ASCITES } from './decks/ascites.js?v=ede88fe5b0';

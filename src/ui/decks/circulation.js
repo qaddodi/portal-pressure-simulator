@@ -8,7 +8,7 @@ export const CIRCULATION = {
   objectives: ['Trace portal blood from the gut and spleen through the lobule to the heart', 'Name the two capillary beds in series and explain why the sinusoid wall lets protein through', 'Give normal pressures from the portal vein to the right atrium', 'Define portal hypertension and CSPH by the HVPG'],
   slides: [
     {
-      id: 'inflow', preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], terms: ['sv', 'smv', 'pv'], glow: [{ id: 'imv', soft: true }, { id: 'lgv', soft: true }], data: 'tiles', tiles: ['pvFlow', 'pv'],
+      id: 'inflow', preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF', 'IMV'], tint: ['imv'], terms: ['sv', 'smv', 'pv'], glow: [{ id: 'imv', soft: true }, { id: 'lgv', soft: true }], data: 'tiles', tiles: ['pvFlow', 'pv'],
       kicker: 'The portal circulation', title: 'Portal blood comes from the gut and spleen',
       line: 'The splenic and superior mesenteric veins join behind the pancreas to form the portal vein. It brings the liver about three quarters of its blood.',
       notes: 'Portal blood drains the gut from the lower esophagus to the upper rectum, and the spleen, pancreas and gallbladder. It carries absorbed nutrients, toxins and bacterial products to the liver first. The inferior mesenteric vein most often joins the splenic vein. Portal flow is about 1 to 1.2 L a minute, three quarters of the liver\'s blood; the hepatic artery brings the rest, and about half of the liver\'s oxygen.',
