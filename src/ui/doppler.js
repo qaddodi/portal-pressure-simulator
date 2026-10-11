@@ -111,22 +111,62 @@ export function createDoppler({ onProbe }) {
   // ── Samples ───────────────────────────────────────
   let buf = [];
   let probe = null, frame = null;
+  // Time lapse (the disease clock) has no bedside samples: the model jumps a day at a time. The
+  // trace keeps scrolling at bedside speed by replaying the last recorded beats (the template),
+  // scaled so their mean eases to the vessel's current mean velocity. Synthetic times run on from
+  // the record; once bedside time resumes, its samples are shifted (tOff) to follow on.
+  let tOff = 0, tpl = null, synth = null;
   sync();
+  function startSynth() {
+    const tEnd = buf[buf.length - 1][0];
+    let i = buf.length - 1; while (i > 0 && buf[i - 1][0] >= tEnd - 3) i--;
+    const pts = buf.slice(i);
+    const L = pts[pts.length - 1][0] - pts[0][0];
+    if (pts.length < 8 || L < 1) return null;
+    const mean = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    tpl = { t0: pts[0][0], L, pts, mean };
+    return { t: tEnd, wall: performance.now(), mean, target: mean };
+  }
+  function tplAt(t) {
+    const { t0, L, pts } = tpl;
+    const x = t0 + (((t - t0) % L) + L) % L;
+    let lo = 0, hi = pts.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (pts[m][0] <= x) lo = m; else hi = m; }
+    const [ta, va] = pts[lo], [tb, vb] = pts[hi];
+    const v = tb > ta ? va + (vb - va) * clamp((x - ta) / (tb - ta), 0, 1) : va;
+    // Cross-fade the last 0.25 s of the loop into its start, so the seam does not step.
+    const w = (x - (t0 + L - 0.25)) / 0.25;
+    return w > 0 ? v * (1 - w) + pts[0][1] * w : v;
+  }
+  function runSynth() {
+    const now = performance.now();
+    const dt = Math.min(0.25, (now - synth.wall) / 1000);
+    synth.wall = now;
+    const m0 = tpl.mean;
+    const ratio = Math.abs(m0) > 2;
+    for (let k = 0, n = Math.ceil(dt / 0.02); k < n; k++) {
+      synth.t += dt / n;
+      synth.mean += (synth.target - synth.mean) * Math.min(1, (dt / n) * 3);
+      const v = tplAt(synth.t);
+      buf.push([synth.t, ratio ? v * synth.mean / m0 : v - m0 + synth.mean]);
+    }
+  }
   function ingest(f) {
     frame = f;
-    if (f.probe !== probe) { buf = []; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
-    // Time lapse (the disease clock) has no bedside samples: drop the old trace at once, so the
-    // unavailable state shows on entry rather than only after the vessel changes.
-    const paused = f.clock === 'disease';
-    if (paused && buf.length) { buf = []; tDisp = null; }
-    if (el.classList.contains('dop-paused') !== paused) {
-      el.classList.toggle('dop-paused', paused);
-      box.classList.remove('dop-fade'); void box.offsetWidth; box.classList.add('dop-fade');
-    }
+    if (f.probe !== probe) { buf = []; tOff = 0; synth = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
     const s = f.samples;
-    if (!s || paused || !s.t.length) return;
-    if (buf.length && s.t[0] < buf[buf.length - 1][0] - 1e-9) buf = [];
-    for (let i = 0; i < s.t.length; i++) if (!buf.length || s.t[i] > buf[buf.length - 1][0]) buf.push([s.t[i], s.vel[i]]);
+    if (f.clock === 'disease') {
+      if (!synth && buf.length) synth = startSynth();
+      if (!synth) return;
+      if (s?.vel?.length) synth.target = s.vel[s.vel.length - 1];
+      if (f.running) runSynth();
+    } else {
+      if (synth && s?.t.length) { tOff = synth.t + 0.02 - s.t[0]; synth = null; }
+      if (!s || !s.t.length) return;
+      if (buf.length && s.t[0] + tOff < buf[buf.length - 1][0] - 1e-9) { buf = []; tOff = 0; }
+      for (let i = 0; i < s.t.length; i++) { const t = s.t[i] + tOff; if (!buf.length || t > buf[buf.length - 1][0]) buf.push([t, s.vel[i]]); }
+    }
+    if (!buf.length) return;
     const tNow = buf[buf.length - 1][0];
     let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
     if (cut) buf.splice(0, cut);
@@ -292,7 +332,7 @@ export function createDoppler({ onProbe }) {
   const LN10_10 = 10 / Math.LN10;
   const GAIN = 1.1;                 // display gain on the grey map
   const PAD = 96;                   // the noise texture is this much larger than the display
-  const live = () => !!frame?.running && frame.clock !== 'disease';
+  const live = () => !!frame?.running;
   const expo = () => -Math.log(1 - Math.random() * 0.999999);
   const mk = (w, h) => typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
 

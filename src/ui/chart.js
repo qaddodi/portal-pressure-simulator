@@ -11,7 +11,7 @@
 import { store, updateParams, hiddenNow } from './store.js?v=9858da589a';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=045e641b44';
 import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
-import { TILES, VITALS, readoutValue } from './dock.js?v=660f6b21cf';
+import { TILES, VITALS, readoutValue } from './dock.js?v=c4dcce848c';
 import { activeInterventions } from './inspector.js?v=4dd2fb68b1';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=01827ecbf4';
 
