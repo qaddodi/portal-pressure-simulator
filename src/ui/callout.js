@@ -49,6 +49,12 @@ export function glassCallout(el, { pointer = true } = {}) {
     glass.style.cssText = `left:${-BORDER}px;top:${-BORDER - up}px;width:${+w.toFixed(2)}px;height:${+(h + (dir === 'none' ? 0 : PTR)).toFixed(2)}px;clip-path:path('${d}')`;
     path.setAttribute('d', d);
   };
-  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const b = es[es.length - 1].borderBoxSize?.[0]; if (b) size = [b.inlineSize, b.blockSize]; update(); }).observe(el);
+  // A live observation keeps the observer and the card alive: it ends with dispose(), or when the card leaves the page.
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {
+    if (!el.isConnected) { ro.disconnect(); return; }
+    const b = es[es.length - 1].borderBoxSize?.[0]; if (b) size = [b.inlineSize, b.blockSize]; update();
+  }) : null;
+  ro?.observe(el);
+  update.dispose = () => ro?.disconnect();
   return update;
 }
