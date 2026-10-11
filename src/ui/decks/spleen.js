@@ -35,9 +35,9 @@ export const SPLEEN = {
     },
     {
       id: 'screen', cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm', 'plt'],
-      kicker: 'The platelets', site: 'sin', title: 'Platelets and stiffness decide the endoscopy',
-      line: 'Stiffness below {<20 kPa} with platelets above 150 makes varices that need treatment unlikely. This patient has {lsm} and {plt}, so the scope is needed.',
-      notes: 'These are the Baveno criteria for sparing a screening endoscopy in compensated advanced chronic liver disease; patients who meet them repeat the stiffness and the platelet count every year. This patient meets neither, so varices are looked for.',
+      kicker: 'The platelets', site: 'sin', title: 'Platelets and stiffness: who needs the scope',
+      line: 'Stiffness below {<20 kPa} with platelets above 150 spares the screening endoscopy. This patient has {lsm} and {plt}: CSPH is likely, so carvedilol starts and no scope is needed.',
+      notes: 'These are the Baveno criteria for sparing a screening endoscopy in compensated advanced chronic liver disease; patients who meet them repeat the stiffness and the platelet count every year. This patient meets neither: a stiffness this high with platelets this low means clinically significant portal hypertension (the model\'s HVPG is above 10 mmHg). A patient with CSPH who can take a non-selective beta-blocker starts carvedilol and needs no screening endoscopy; only those who cannot take one, or in whom CSPH is uncertain (the gray zone), are scoped.',
       ask: ['Stiffness 14 kPa and platelets 190. Does this patient need a screening endoscopy?', 'No: below 20 kPa with platelets above 150, repeat both tests in a year.'],
     },
     {
