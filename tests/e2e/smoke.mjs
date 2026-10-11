@@ -6,6 +6,7 @@
 //   SHOTS=dir node tests/e2e/smoke.mjs  also save screenshots
 //   SMOKE_WORKERS=1                    checks at a time (default 4; use 1 on a small CI runner)
 //   SMOKE_DEVICE=phone SMOKE_SHARD=1/2 one device, and one share of its checks (CI runs shards in parallel)
+//   SMOKE_ALL_DECKS=1                  walk every slide of every deck on a phone (default: a few)
 //   SMOKE_RETRIES=0                    no second try (default 1: a check that failed only by timing
 //                                       out on a slow runner gets one more try; any other failure counts)
 //
@@ -490,9 +491,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
-  // Every slide of every deck on a phone (390x844): the controls sit on the card's kicker line and cover none of its words.
+  // Every slide of a deck on a phone (390x844): the controls sit on the card's kicker line and cover none of its words.
   // (Slides with a live data card at the top once kept them at the slide before's spot, over the figure or the card.)
-  if (device === 'phone') for (const deck of DECK_IDS) await check(device, `presenter: on every slide of ${deck} the controls sit on the kicker line`, async (page) => {
+  // (Every deck with SMOKE_ALL_DECKS=1, about a minute each on CI; otherwise those with a summary card or a data card at the top.)
+  if (device === 'phone') for (const deck of process.env.SMOKE_ALL_DECKS ? DECK_IDS : ['endoscopy', 'doppler']) await check(device, `presenter: on every slide of ${deck} the controls sit on the kicker line`, async (page) => {
     await open(page);
     await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
