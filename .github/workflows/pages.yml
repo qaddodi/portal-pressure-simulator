@@ -39,7 +39,7 @@ jobs:
 
   # The browser checks run alongside the deploy, not before it: a failure marks the run red
   # (so it is seen) but the preview is already published for testing on devices.
-  # Split over eleven runners (desktop in three shares, phone in eight), one check at a time per runner:
+  # Split over fourteen runners (desktop in four shares, phone in ten), filled by measured time, one check at a time per runner:
   # a runner is too small to run several browsers at once.
   browser-checks:
     if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
@@ -52,19 +52,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Desktop in three shares; phone in eight, since it also walks every slide of all decks.
+        # Desktop in four shares; phone in ten, since it also walks every slide of all decks.
         include:
-          - { device: desktop, shard: '1/3' }
-          - { device: desktop, shard: '2/3' }
-          - { device: desktop, shard: '3/3' }
-          - { device: phone, shard: '1/8' }
-          - { device: phone, shard: '2/8' }
-          - { device: phone, shard: '3/8' }
-          - { device: phone, shard: '4/8' }
-          - { device: phone, shard: '5/8' }
-          - { device: phone, shard: '6/8' }
-          - { device: phone, shard: '7/8' }
-          - { device: phone, shard: '8/8' }
+          - { device: desktop, shard: '1/4' }
+          - { device: desktop, shard: '2/4' }
+          - { device: desktop, shard: '3/4' }
+          - { device: desktop, shard: '4/4' }
+          - { device: phone, shard: '1/10' }
+          - { device: phone, shard: '2/10' }
+          - { device: phone, shard: '3/10' }
+          - { device: phone, shard: '4/10' }
+          - { device: phone, shard: '5/10' }
+          - { device: phone, shard: '6/10' }
+          - { device: phone, shard: '7/10' }
+          - { device: phone, shard: '8/10' }
+          - { device: phone, shard: '9/10' }
+          - { device: phone, shard: '10/10' }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
