@@ -1471,6 +1471,35 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction((q) => document.querySelector(q).textContent.includes('Measuring'), sel, { timeout: 10000 }).catch((e) => { throw new Error('a tap on Measure HVPG did not start it', { cause: e }); });
   });
 
+  await check(device, 'HVPG procedure: each reading\'s shadow fades with its body, and no reading outlives its step', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.evaluate(() => { window.pps.dock.show('hvpg'); window.pps.dock.setState('open'); });
+    const sel = '[data-pane="hvpg"] .hvpg-bar .btn';
+    await page.waitForSelector(sel, { state: 'visible' });
+    await page.$eval(sel, (b) => b.click());
+    // Every frame of the run: a label's shadow alpha (0.22 at full) tracks its children's opacity; once the
+    // summary has gone (the camera heading home), no reading stays on screen.
+    const bad = await page.evaluate(() => new Promise((res) => {
+      const out = [], t0 = performance.now(); let sumSeen = 0, sumGone = 0;
+      const tick = () => {
+        const now = performance.now() - t0;
+        const sum = document.querySelector('.cath-sum');
+        if (sum) sumSeen = now; else if (sumSeen && !sumGone) sumGone = now;
+        for (const l of document.querySelectorAll('.cath-label:not(.ghost):not(.res)')) {
+          const sh = getComputedStyle(l).boxShadow; if (sh === 'none') continue;
+          const m = sh.match(/rgba?\(([^)]+)\)/); const a = m ? +(m[1].split(',')[3] ?? 1) / 0.22 : 1;
+          const o = +getComputedStyle(l.firstElementChild).opacity;
+          if (Math.abs(a - o) > 0.2 && out.length < 5) out.push(`${l.className} shadow ${a.toFixed(2)} vs body ${o.toFixed(2)} at ${now | 0} ms`);
+        }
+        if (sumGone && now > sumGone + 100 && document.querySelector('.cath-labels .cath-label')) { out.push(`a reading is still on screen ${(now - sumGone) | 0} ms after the summary went`); return res(out); }
+        if (now > 26000) { if (!sumSeen) out.push('the HVPG summary never appeared'); return res(out); }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }));
+    if (bad.length) throw new Error(bad.join('; '));
+  });
+
   await check(device, 'pressure over time and Doppler', async (page) => {
     await open(page, '?preset=cirr-decomp');
     // The heartbeat always runs, so the trace is beat to beat before any instrument opens, and it

@@ -3775,18 +3775,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function cathLabels() {
     const st = cath.st, at = cath.at;
-    if (!st || !at) { cath.labels.replaceChildren(); cath.made?.clear(); return; }
+    if (!st || !at) { cath.labels.replaceChildren(); cath.made?.clear(); cath.leaving?.clear(); return; }
     // Each label keeps its element while its key is shown (numbers update in place). A new key fades in
     // (opacity and a small rise, eased); one that goes fades out before it is removed.
     const made = cath.made || (cath.made = new Map());
     const want = new Map((st.labels || []).map((l) => [l.key, l]));
     // When the summary arrives, the two readings travel from where they were into it (their old pills go at once).
+    const leaving = cath.leaving || (cath.leaving = new Map());
     const travel = want.has('s') && !made.has('s') && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     const from = {};
     for (const [k, el] of made) if (!want.has(k)) {
       made.delete(k);
       if (travel && (k === 'f' || k === 'w')) { from[k === 'f' ? 'tip' : 'ahead'] = el.getBoundingClientRect(); el.remove(); continue; }
-      el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500);
+      // It fades out where it is on the figure (following the camera, never stuck on the screen), then goes.
+      el.classList.add('cath-pre', 'cath-out'); leaving.set(el, el._l);
+      setTimeout(() => { el.remove(); leaving.delete(el); }, 450);
     }
     const pill = (l, cls = '') => {
       const el = document.createElement('div');
@@ -3817,13 +3820,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (made.has(k)) continue;
       const el = build(l); el.classList.add(l.at === 'sum' && travel ? 'cath-travel' : 'cath-pre'); cath.labels.append(el); made.set(k, el);
       if (l.at === 'sum' && travel) el._from = from;
+      el._l = l;
       void el.offsetWidth; el.classList.remove('cath-pre');   // the transition runs from the hidden state
     }
     const W = wrap.clientWidth, H = wrap.clientHeight;
     // The readings stay in the space the cards leave (a phone's Measure card sits over the bottom).
     const sp = cardSpace(), lim = H - sp.b;
-    want.forEach((l, k) => {
-      const el = made.get(k);
+    for (const [k, l] of want) made.get(k)._l = l;
+    const live = [...[...want].map(([k, l]) => [made.get(k), l]), ...leaving];
+    live.forEach(([el, l]) => {
+      if (!l) return;
       if (l.at !== 'sum') {
         fill(el, l);
         const p = el.dataset.at === 'ahead' ? at.ahead : at.tip;
@@ -3879,6 +3885,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const b = r.getBoundingClientRect();
           r.style.transition = 'none'; r.style.transform = `translate(${(a.left - b.left).toFixed(1)}px, ${(a.top - b.top).toFixed(1)}px)`;
           void r.offsetWidth; r.style.transition = 'transform .6s var(--ease)'; r.style.transform = '';
+          setTimeout(() => { r.style.transition = ''; }, 650);   // then back to the stylesheet's (the shadow's fade-out)
         });
         el._from = null; requestAnimationFrame(() => el.classList.remove('cath-travel'));
       }

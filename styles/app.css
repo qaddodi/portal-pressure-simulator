@@ -2662,7 +2662,7 @@ button.finding:hover { background: var(--surface-2); }
   --c: var(--text); --rg: color-mix(in srgb, var(--c) 70%, transparent); --lo: 1;
   color: var(--text); font: 500 12px var(--font-ui);
   box-shadow: var(--shadow-cath-label);
-  translate: -50% calc(-100% - 18px); transition: top .4s var(--ease); }
+  translate: -50% calc(-100% - 18px); transition: top .4s var(--ease), box-shadow .4s var(--ease); }
 /* The body is frosted glass like the panels (the data card's tint and blur), drawn by callout.js as one shape: the card and
    its pointer (down to the tip, or up to the wedged vein, for the reading ahead of it) with its 2 px outline.
    The fades run on the label's children, not the label: a faded ancestor would stop the glass seeing the figure behind it. */
@@ -2746,16 +2746,20 @@ button.finding:hover { background: var(--surface-2); }
 .cath-leads .wedge { stroke: var(--tr-wedge); } .cath-leads .lead-dot.wedge { fill: var(--tr-wedge); stroke: var(--surface); }
 .cath-sum-box { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; transition: top .4s var(--ease); }
 .cath-sum-col { display: flex; flex-direction: column; gap: 10px; }
-.cath-label.in-sum { position: relative; translate: none; transition: none; }
+.cath-label.in-sum { position: relative; translate: none; transition: box-shadow .4s var(--ease); }
 .cath-label.in-sum > * { transition: opacity .4s var(--ease); }
 .cath-brace { flex: none; overflow: visible; }
 .cath-brace path { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* The shadow fades with the body (the label's own shadow is not under the children's fade). */
+.cath-label.cath-pre, .cath-sum.cath-pre .cath-label, .cath-sum.cath-travel .cath-label.in-sum.calc { box-shadow: var(--shadow-cath-label-off); }
+/* Going: everything fades at once and quickly, no staggered delays. */
+.cath-out .cath-label, .cath-label.cath-out, .cath-out .cath-label > *, .cath-label.cath-out > *, .cath-out .cath-brace, .cath-out .cath-leads { transition-duration: .35s !important; transition-delay: 0s !important; }
 /* A reading fades in when it appears and out when it goes (opacity and a few pixels of rise only). */
 .cath-label.cath-pre { --lo: 0; }
 .cath-sum.cath-pre .cath-label { --lo: 0; } .cath-sum.cath-pre .cath-brace, .cath-sum.cath-pre .cath-leads { opacity: 0; transition-delay: 0s; }
 /* The summary after the readings travel in: the bracket and leaders follow, then the HVPG fades and rises in. */
 .cath-sum .cath-brace, .cath-sum .cath-leads { transition: opacity .35s var(--ease) .65s; }
-.cath-sum .cath-label.in-sum.calc { transition: translate .45s var(--ease) .75s; } .cath-sum .cath-label.in-sum.calc > * { transition: opacity .45s var(--ease) .75s; }
+.cath-sum .cath-label.in-sum.calc { transition: translate .45s var(--ease) .75s, box-shadow .45s var(--ease) .75s; } .cath-sum .cath-label.in-sum.calc > * { transition: opacity .45s var(--ease) .75s; }
 .cath-sum.cath-travel .cath-brace, .cath-sum.cath-travel .cath-leads { opacity: 0; transition: none; }
 .cath-sum.cath-travel .cath-label.in-sum.calc { --lo: 0; transition: none; } .cath-sum.cath-travel .cath-label.in-sum.calc > * { transition: none; }
 .cath-sum.cath-travel .cath-label.in-sum.calc { translate: 0 6px; }
