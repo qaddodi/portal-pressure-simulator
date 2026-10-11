@@ -37,7 +37,7 @@ export const ONE_YEAR = {
       id: 'd180', days: 90, ramp: ramp(0.54, 0.58), cam: 'varices', tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'd0',
       kicker: 'Day 180', site: 'sin', title: 'Endoscopy',
       line: 'Small varices in the lower esophagus. They form at an HVPG of 10 mmHg or more.',
-      notes: 'Small varices are under 5 mm and flatten with air. Without red wale signs and in compensated cirrhosis they bleed rarely, but they show that the gradient is past 10 mmHg. A patient already on a non-selective beta-blocker for CSPH does not need a screening endoscopy. Without one, small varices are rechecked in one to two years, sooner if the disease is active.',
+      notes: 'Small varices are under 5 mm and flatten with air. Without red wale signs and in compensated cirrhosis they bleed rarely, but they show that the gradient is past 10 mmHg. Varices mean CSPH, so by Baveno VII carvedilol would start now; this talk holds it back until the last slide only to show the untreated rise. A patient on a non-selective beta-blocker for CSPH needs no screening endoscopy; one who cannot take it has small varices rechecked in one to two years, sooner if the disease is active.',
       ask: ['What do small varices tell you about the HVPG?', 'It is at least 10 mmHg: varices do not form below that.'],
     },
     {
@@ -58,7 +58,7 @@ export const ONE_YEAR = {
       id: 'belly', cam: 'fit', glow: ['spleen'], tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['asc', 'spleen'], key: ['asc'],
       kicker: 'Day 365', site: 'sin', title: 'Ultrasound of the abdomen',
       line: 'A thin rim of fluid, seen on ultrasound only: grade 1 ascites. The spleen has grown to {spleen}.',
-      notes: 'Grade 1 ascites is found only on ultrasound; grade 2 is visible as a symmetric distension; grade 3 is tense. A first episode of clinically evident ascites marks decompensation, and every new ascites is tapped. Salt restriction to about 5 g a day starts here.',
+      notes: 'Grade 1 ascites is found only on ultrasound and needs no treatment of its own; grade 2 is visible as a symmetric distension; grade 3 is tense. A first episode of clinically evident (grade 2 or 3) ascites marks decompensation: it is tapped, and salt restriction to about 5 g a day and diuretics start.',
       ask: ['How is grade 1 ascites detected?', 'On ultrasound only; it cannot be found by examination.'],
     },
     {

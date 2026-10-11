@@ -25,7 +25,7 @@ export const SHUNTS = {
       id: 'grs', preset: 'gastric-varix', cam: 'fundus', mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['gv', 'ppg'],
       kicker: 'Spontaneous', site: 'sin', title: 'Gastrorenal shunt',
       line: 'Fundal varices drain through the gastrorenal shunt to the left renal vein.',
-      notes: 'Isolated fundal varices (IGV1) and those continuous with the esophageal varices along the lesser curve (GOV2) are fed by the short and posterior gastric veins, and most drain through a gastrorenal shunt, often via the left inferior phrenic vein, into the left renal vein. Because the shunt decompresses them, fundal varices bleed at a lower HVPG than esophageal varices, and bleed more heavily. The shunt is the route used to close them from below (BRTO), later in this talk. Endoscopy in this app stays in the esophagus; fundal varices are read from the tile.',
+      notes: 'Isolated fundal varices (IGV1) and those continuous with the esophageal varices along the greater curve toward the fundus (GOV2) are fed by the short and posterior gastric veins, and most drain through a gastrorenal shunt, often via the left inferior phrenic vein, into the left renal vein. Because the shunt decompresses them, fundal varices bleed at a lower HVPG than esophageal varices, and bleed more heavily. The shunt is the route used to close them from below (BRTO), later in this talk. Endoscopy in this app stays in the esophagus; fundal varices are read from the tile.',
       ask: ['Where does a gastrorenal shunt drain?', 'Into the left renal vein.'],
     },
     {

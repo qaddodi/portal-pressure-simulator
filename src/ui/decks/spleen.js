@@ -63,7 +63,7 @@ export const SPLEEN = {
     },
     {
       id: 'summary', visual: 'table', cols: ['spleen', 'plt', 'pv', 'hvpg'], asc: false, rowHead: 'Patient',
-      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'grown', kicker: 'Cirrhosis', title: 'One year on' }, { id: 'later', kicker: 'Embolization', title: 'Six months on' }, { id: 'splenectomy', kicker: 'Surgery', title: 'Splenectomy' }],
+      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'grown', kicker: 'Cirrhosis', title: 'Two years on' }, { id: 'later', kicker: 'Embolization', title: 'Six months on' }, { id: 'splenectomy', kicker: 'Surgery', title: 'Splenectomy' }],
       kicker: 'Summary', title: 'The spleen compared',
       line: 'Embolization and splenectomy raise the platelets; neither does much to the portal pressure.',
       notes: 'The spleen grows and pools platelets as the portal pressure rises, so platelets and spleen size are cheap clues to portal hypertension. Treating the spleen treats the platelet count; the portal pressure is treated at its source, the liver, or with drugs and shunts.',

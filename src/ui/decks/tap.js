@@ -46,7 +46,7 @@ export const TAP = {
       id: 'back', days: 14, cam: 'fit', tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: true,
       kicker: 'Two weeks later', site: 'sin', title: 'Ascites returns in two weeks',
       line: 'The tap removes the fluid, not its cause. Without diuretics or a lower portal pressure, it reforms within weeks: {asc} now.',
-      notes: 'The sinusoidal pressure and the kidneys\' sodium retention are unchanged, so lymph keeps weeping from the liver. Patients who need a tap more often than every two to three weeks despite diuretics, or who cannot take them, have refractory ascites.',
+      notes: 'The sinusoidal pressure and the kidneys\' sodium retention are unchanged, so lymph keeps weeping from the liver. Ascites that comes back within four weeks of a tap despite the highest diuretic doses and a salt restriction, or that needs diuretics the patient cannot take, is refractory.',
       ask: ['What defines refractory ascites?', 'Ascites that cannot be cleared or returns early despite maximum diuretics and salt restriction, or diuretics that cannot be taken.'],
     },
     {

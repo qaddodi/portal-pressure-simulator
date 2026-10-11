@@ -12,7 +12,7 @@ export const ASCITES = {
       id: 'start', terms: { 'space of Disse': 'sinusoid:disse', lymphatics: 'sinusoid:lymph' }, preset: 'csph', cam: 'sinusoid', data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
       kicker: 'Ascites', site: 'sin', title: 'Ascites starts in the sinusoids',
       line: 'Sinusoidal pressure drives plasma into the space of Disse. Hepatic lymphatics drain it until their capacity is exceeded.',
-      notes: 'Ascites in portal hypertension is mostly lymph. Sinusoidal pressure drives plasma through the open sinusoid wall into the space of Disse, and the hepatic lymphatics return it to the blood through the thoracic duct. Hepatic lymph flow can rise many-fold; once it outruns the lymphatics, lymph weeps from the surface of the liver into the peritoneum. This patient has clinically significant portal hypertension, and the lymphatics still keep up. Ascites seldom forms below an HVPG of about 12 mmHg.',
+      notes: 'Ascites in portal hypertension is mostly lymph. Sinusoidal pressure drives plasma through the open sinusoid wall into the space of Disse, and the hepatic lymphatics return it to the blood through the thoracic duct. Hepatic lymph flow can rise many-fold; once it outruns the lymphatics, lymph weeps from the surface of the liver into the peritoneum. This patient has clinically significant portal hypertension, and the lymphatics still keep up. Ascites seldom forms below an HVPG of 10 mmHg, the CSPH threshold.',
       ask: ['What carries the sinusoids\' filtrate away before ascites forms?', 'The hepatic lymphatics, to the thoracic duct.'],
     },
     {

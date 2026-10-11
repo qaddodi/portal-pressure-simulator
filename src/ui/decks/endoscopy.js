@@ -30,7 +30,7 @@ export const ENDOSCOPY = {
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'Varices six months on',
       line: 'Once the HVPG reaches {>=10 mmHg}, blue columns rise in the lower esophagus. Small varices are under {<5 mm}.',
-      notes: 'Varices form once the HVPG reaches 10 mmHg or more, the threshold of clinically significant portal hypertension, and grow by about a tenth a year in patients who have them. They start in the lower esophagus, where the palisade veins lie superficial in the lamina propria. Small varices are under 5 mm and flatten with air; large ones are over 5 mm and do not.',
+      notes: 'Varices form once the HVPG reaches 10 mmHg or more, the threshold of clinically significant portal hypertension, and small varices become large in about one patient in ten each year. They start in the lower esophagus, where the palisade veins lie superficial in the lamina propria. Small varices are under 5 mm and flatten with air; large ones are over 5 mm and do not.',
       ask: ['At what HVPG do varices form?', 'About 10 mmHg.'],
     },
     {
@@ -63,7 +63,7 @@ export const ENDOSCOPY = {
       data: 'tiles', tiles: ['pv', 'hvpg', 'map'], key: ['pv'], delta: true,
       kicker: 'Variceal bleeding', site: 'sin', title: 'Over-transfusion',
       line: 'Replacing all of the lost volume brings the portal pressure back up to {pv}, and with it the risk of a new bleed. Transfuse to a hemoglobin of 7 to 8 g/dL.',
-      notes: 'A restrictive transfusion strategy, a threshold of 7 g/dL and a target of 7 to 9, lowered rebleeding and death compared with a liberal one in the trial by Villanueva and colleagues. Over-transfusion raises the portal pressure back to where it was before the bleed. Patients with heart disease or ongoing massive bleeding are the exceptions.',
+      notes: 'A restrictive transfusion strategy (a threshold of 7 g/dL, with a target of 7 to 9 in the trial by Villanueva and colleagues) lowered rebleeding and death compared with a liberal one; Baveno VII sets the target at 7 to 8. Over-transfusion raises the portal pressure back to where it was before the bleed. Patients with heart disease or ongoing massive bleeding are the exceptions.',
       ask: ['What hemoglobin is the target in variceal bleeding?', '7 to 8 g/dL (restrictive transfusion).'],
     },
     {
@@ -79,7 +79,7 @@ export const ENDOSCOPY = {
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'Band ligation',
       line: 'The ligated columns thrombose and shrink. With that outflow closed, the HVPG rises slightly.',
-      notes: 'Banding is repeated every 2 to 4 weeks until the varices are gone, then the esophagus is checked at 6 months and yearly. It treats the varix, not the pressure: new varices form unless the pressure is lowered too, so a non-selective beta-blocker is added for secondary prophylaxis. Post-banding ulcers can bleed a week or two later. In patients at high risk (Child–Pugh C under 14 points, or B over 7 with active bleeding at endoscopy), a pre-emptive TIPS within 72 hours improves survival.',
+      notes: 'Banding is repeated every 2 to 4 weeks until the varices are gone, then the esophagus is checked 3 to 6 months later and every 6 to 12 months after that. It treats the varix, not the pressure: new varices form unless the pressure is lowered too, so a non-selective beta-blocker is added for secondary prophylaxis. Post-banding ulcers can bleed a week or two later. In patients at high risk (Child–Pugh C under 14 points, or B over 7 with active bleeding at endoscopy), a pre-emptive TIPS within 72 hours improves survival.',
       ask: ['Why combine banding with a beta-blocker after a bleed?', 'Banding removes the varices, not the high pressure that makes new ones; the beta-blocker lowers it.'],
     },
     {
