@@ -126,12 +126,16 @@ void main() {
   // ── Nearest point of each vessel in this cell ──
   int n = 0;
   int sid[MAXS];
-  float sd[MAXS], sh[MAXS], sr[MAXS], su[MAXS], sx[MAXS];
+  float sd[MAXS], sh[MAXS], sr[MAXS], su[MAXS], sx[MAXS], sv[MAXS];
   vec2 sg[MAXS];
   int cur = -1;
   // bx: signed distance across the nearest segment's line (the lumen's across coordinate, also
   // past the vessel's ends); bu: how far along (0–1), running on past either end.
   float bd = 1e9, bs = 1e9, br = 0.0, bu = 0.0, bx = 0.0;
+  // aU / aW: how far along, smooth off the wall: each nearby segment's course carried on straight past its ends,
+  // weighted softly by how near it is. (The nearest segment's own is constant across the fan off a bend's
+  // outside, and the glow's fade along the vessel, read from it, drew stripes there.)
+  float aM = 1e9, aW = 0.0, aU = 0.0;
   vec2 bg = vec2(0.0);
   vec4 clip = vec4(0.0, 1.0, 1.0, 0.0);
   bool dotted = false;
@@ -148,9 +152,9 @@ void main() {
           for (int s = 1; s < MAXS; s++) if (sd[s] > sd[slot]) slot = s;
           if (bd >= sd[slot]) slot = -1;
         } else n++;
-        if (slot >= 0) { sid[slot] = cur; sd[slot] = bd; sh[slot] = bs; sr[slot] = br; su[slot] = bu; sg[slot] = bg; sx[slot] = bx; }
+        if (slot >= 0) { sid[slot] = cur; sd[slot] = bd; sh[slot] = bs; sr[slot] = br; su[slot] = bu; sg[slot] = bg; sx[slot] = bx; sv[slot] = aW > 0.0 ? aU / aW : bu; }
       }
-      cur = id; bd = 1e9; bs = 1e9;
+      cur = id; bd = 1e9; bs = 1e9; aM = 1e9; aW = 0.0; aU = 0.0;
       if (id >= 0) { clip = T(id, 5); dotted = (int(T(id, 2).z + 0.5) & ${F_DOTTED}) != 0; }
     }
     if (k == cnt) break;
@@ -175,6 +179,11 @@ void main() {
       d = length(vec2(dist, along)) - r;
     }
     if (d < bd) { bd = d; bg = dist > 1e-5 ? q / dist : vec2(0.0); br = r; bu = (i + mix(t0, t1, he)) / LAST; bx = (ba.x * (p - a).y - ba.y * (p - a).x) * inversesqrt(L2); }
+    if (d < aM + 12.0) {
+      float uv = (i + mix(t0, t1, clamp(hr, -2.0, 3.0))) / LAST;
+      if (d < aM) { float k = exp((d - aM) / 1.5); aW = aW * k + 1.0; aU = aU * k + uv; aM = d; }
+      else { float w = exp((aM - d) / 1.5); aW += w; aU += w * uv; }
+    }
     float hs = clamp(dot(ps - a, ba) / L2, 0.0, 1.0);
     bs = min(bs, length(ps - a - ba * hs) - mix(rr.x, rr.y, mix(t0, t1, hs)));
   }
@@ -252,7 +261,7 @@ void main() {
     if (gc.a <= 0.0) continue;
     vec4 ge = T(sid[s], 11);
     float e = sd[s] - swall[s], Lh = max(T(sid[s], 5).z, 1.0);
-    float ends = (ge.x > 0.0 ? smoothstep(0.0, ge.x, su[s] * Lh) : 1.0) * (ge.y > 0.0 ? smoothstep(0.0, ge.y, (1.0 - su[s]) * Lh) : 1.0);
+    float ends = (ge.x > 0.0 ? smoothstep(0.0, ge.x, sv[s] * Lh) : 1.0) * (ge.y > 0.0 ? smoothstep(0.0, ge.y, (1.0 - sv[s]) * Lh) : 1.0);
     float fall = 1.0 - smoothstep(0.0, 12.0 * clamp(ge.w, 1.0, 1.3), e);
     float gv = min(0.9, 0.6 * gc.a) * sa[s] * smoothstep(-0.6, 0.6, e) * fall * ends;
     if (gv > glow.a) glow = vec4((ge.z > 0.5 ? scol[s] : gc.rgb) * gv, gv);

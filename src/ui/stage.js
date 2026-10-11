@@ -6,11 +6,11 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=5edd069b32';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=045e641b44';
-import { createLobuleZoom } from './lobule-zoom.js?v=06cd6e33ae';
+import { createLobuleZoom } from './lobule-zoom.js?v=f69691faa0';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=93f4961678';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=d96e3c7398';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -942,13 +942,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const want = new Map();
     for (const k of GLOW_RANK) for (const [id, g] of glow.src.get(k) || []) want.set(id, g);
     // Which ends fade: an end that meets another vessel glowing in the same colour runs on into it; one that meets
-    // another colour fades over a few units, so the two meet softly; a free end fades over a fifth of the vessel.
+    // another colour fades over a few units, so the two meet softly; a free end fades over a third of the vessel.
     const nodes = new Map();
     for (const [id, g] of want) for (const n of [E[id].e.from, E[id].e.to]) { if (!nodes.has(n)) nodes.set(n, []); nodes.get(n).push(g.col ?? ''); }
     const now = performance.now();
     for (const [id, g] of want) {
       const len = Math.max(1, geo[id]?.len || 60), key = g.col ?? '';
-      const endOf = (n) => { const t = nodes.get(n); return t.length < 2 ? 0.22 * len : t.every((v) => v === key) ? 0 : Math.min(0.3 * len, 16); };
+      const endOf = (n) => { const t = nodes.get(n); return t.length < 2 ? 0.35 * len : t.every((v) => v === key) ? 0 : Math.min(0.3 * len, 16); };
       let l = glow.lit.get(id);
       if (!l) { l = { v: 0, to: 0, col: g.col, from: null, cu: 1, end: null }; glow.lit.set(id, l); }
       if (!l.to) l.start = now + (g.at || 0);
