@@ -2761,16 +2761,22 @@ button.finding:hover { background: var(--surface-2); }
 .cath-labels { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 .cath-labels[hidden] { display: none; }
 .cath-label { position: absolute; left: 0; top: 0; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border-radius: 14px; white-space: nowrap;
-  --c: var(--text); background: var(--surface); color: var(--text); font: 500 12px var(--font-ui);
-  box-shadow: 0 8px 24px rgba(16, 20, 30, .22), 0 0 0 2px color-mix(in srgb, var(--c) 70%, transparent);
+  --c: var(--text); --rg: color-mix(in srgb, var(--c) 70%, var(--surface)); --px: 50%;
+  background: var(--surface); border: 2px solid var(--rg); color: var(--text); font: 500 12px var(--font-ui);
+  box-shadow: 0 8px 24px rgba(16, 20, 30, .22);
   translate: -50% calc(-100% - 18px); transition: opacity .4s var(--ease), top .4s var(--ease); }
-/* A pointer down to the tip (or up to the wedged vein, for the reading ahead of it). */
-.cath-label::after { content: ''; position: absolute; left: calc(50% + clamp(-40%, var(--ax, 0px), 40%)); bottom: -8px; width: 14px; height: 14px; translate: -50% 0; rotate: 45deg;
-  background: var(--surface); box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--c) 70%, transparent); z-index: -1; }
+/* A pointer down to the tip (or up to the wedged vein, for the reading ahead of it). Card and pointer are one outline:
+   the ring colour is opaque (so overlaps never darken), ::after is the pointer in the ring colour and ::before the
+   same shape 2 px smaller in the card's fill, reaching 2 px into the card so it also opens the border where the two join. */
+.cath-label::before, .cath-label::after { content: ''; position: absolute; left: clamp(28px, calc(50% + clamp(-40%, var(--ax, 0px), 40%)), calc(100% - 28px)); translate: -50% 0; pointer-events: none; }
+.cath-label::after { z-index: -2; width: 26px; height: 13px; bottom: -13px; background: var(--rg); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.cath-label::before { z-index: -1; width: 20.34px; height: 12.17px; bottom: -10.17px; background: var(--surface); clip-path: polygon(0 0, 100% 0, 100% 2px, 50% 100%, 0 2px); }
 .cath-label[data-at="ahead"] { translate: -50% 18px; }
 .cath-label[data-at="ahead"].above { translate: -50% calc(-100% - 18px); }
-.cath-label[data-at="ahead"].above::after { bottom: -8px; top: auto; box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--c) 70%, transparent); }
-.cath-label[data-at="ahead"]::after { bottom: auto; top: -8px; box-shadow: -2px -2px 0 0 color-mix(in srgb, var(--c) 70%, transparent); }
+.cath-label[data-at="ahead"]::after { bottom: auto; top: -13px; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.cath-label[data-at="ahead"]::before { bottom: auto; top: -10.17px; clip-path: polygon(50% 0, 100% calc(100% - 2px), 100% 100%, 0 100%, 0 calc(100% - 2px)); }
+.cath-label[data-at="ahead"].above::after { top: auto; bottom: -13px; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.cath-label[data-at="ahead"].above::before { top: auto; bottom: -10.17px; clip-path: polygon(0 0, 100% 0, 100% 2px, 50% 100%, 0 2px); }
 .cath-label small { color: var(--c); font-weight: 700; font-size: 12px; letter-spacing: .06em; }
 .cath-label b { font-size: 26px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c); }
 .cath-label b + span { color: var(--text-3); font-size: 12px; font-weight: 600; margin-top: -2px; }
@@ -2809,14 +2815,14 @@ button.finding:hover { background: var(--surface-2); }
 .cath-label.site.split em { font-style: normal; font-size: 14px; font-weight: 700; color: var(--tr-pv); } .cath-label.site.split em + em { color: var(--text-2); }
 .cath-label.site.split b + span { display: none; }
 /* A resistor's reading is a faded figure label, not a callout: its name and the ratio on one line, no box. */
-.cath-label.site.res, .app.presenting .cath-label.site.res { --c: var(--text-2); flex-direction: row; align-items: baseline; gap: 5px; padding: 0; background: none; box-shadow: none;
+.cath-label.site.res, .app.presenting .cath-label.site.res { --c: var(--text-2); flex-direction: row; align-items: baseline; gap: 5px; padding: 0; background: none; border: 0; box-shadow: none;
   translate: -50% calc(-100% - 12px); text-shadow: 0 0 3px var(--stage-bg), 0 0 6px var(--stage-bg), 0 0 10px var(--stage-bg); }
 .app .cath-label.site.res.coll { translate: -50% calc(-200% - 18px); }
 .app .cath-label.site.res.gut { translate: -50% calc(-300% - 24px); }
 /* Under an upright circuit (a phone) the two readings share one line, without the unit, so both clear the data card. */
 .app .cath-label.site.res.low { translate: calc(-100% - 10px) 10px; } .app .cath-label.site.res.coll.low { translate: 10px 10px; } .app .cath-label.site.res.gut.low { translate: -50% calc(100% + 18px); }
 .app .cath-label.site.res.low b + span { display: none; }
-.cath-label.site.res::after { display: none; }
+.cath-label.site.res::before, .cath-label.site.res::after { display: none; }
 .cath-label.site.res small, .app.presenting .cath-label.site.res small { color: var(--text-3); font-size: calc(12px * var(--sk, 1)); letter-spacing: .02em; font-weight: 600; }
 .cath-label.site.res b, .app.presenting .cath-label.site.res b { color: var(--text); font-size: calc(16px * var(--sk, 1)); }
 .cath-label.site.res b + span, .app.presenting .cath-label.site.res b + span { color: var(--text-3); font-size: calc(11px * var(--sk, 1)); margin: 0; }
@@ -2845,7 +2851,7 @@ button.finding:hover { background: var(--surface-2); }
 .cath-sum-box { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; transition: top .4s var(--ease); }
 .cath-sum-col { display: flex; flex-direction: column; gap: 10px; }
 .cath-label.in-sum { position: relative; translate: none; transition: none; }
-.cath-label.in-sum::after { display: none; }
+.cath-label.in-sum::before, .cath-label.in-sum::after { display: none; }
 .cath-brace { flex: none; overflow: visible; }
 .cath-brace path { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 /* A reading fades in when it appears and out when it goes (opacity and a few pixels of rise only). */
