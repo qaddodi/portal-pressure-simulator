@@ -76,7 +76,8 @@ uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uF
 uniform vec3 cBg, cShade, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cKup, cKupN, cKupE, cRbc, cChev, cRev, cEndF, cEndE;
 uniform float aBm;
 uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
-uniform vec2 uLab;               // the lumen's own name: x and half length (µm), kept clear of the arrowheads
+uniform float uRamp;             // the arrowheads' fades, at least this long (µm): half a second of the blood's travel, up to 12 µm
+uniform vec3 uLab;               // the lumen's own name: x and half length (µm), kept clear of the arrowheads; how much it shows (0 to 1)
 
 const float ENDO = ${UM.endo.toFixed(2)}, DISSE = ${UM.disse.toFixed(2)}, HEP = ${UM.hep.toFixed(1)}, LUM0 = ${UM.lum.toFixed(1)};
 const float SLOT = ${SLOT.toFixed(2)}, CELL = ${CELL.toFixed(1)};
@@ -196,16 +197,18 @@ vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
   if (chev) {
     // The flow's arrowheads, the app's own (chevHead, as every vessel draws them): a slim filled head with a notched
     // back, dark (orange where the flow runs backwards) with a faint light rim, one fixed shape, moving with the blood.
-    // Sized as they show on the anatomy's veins; none by the ends' labels, and none over the Kupffer cell.
+    // Sized as they show on the anatomy's veins; none by the ends' arrows or the lumen's name.
     float cw = min(0.5 * uLum, 0.42 * uEnd.z), L = 1.6 * cw, Pc = 24.0;
     float xc = mod(x - uFlow + 0.5 * Pc, Pc) - 0.5 * Pc, xh = x - xc;
     vec2 ch = chevHead(xc * uDir, abs(y), cw, uPx);
-    // (Long, soft fades: a head moving past one dims over a good stretch of its path, it never blinks out. Each end's
-    // name lies beyond its arrow, toward its venule.)
-    float s = uEnd.z, fe = smoothstep(4.0 * s, 6.5 * s, abs(xh - uEnd.x)) * smoothstep(4.0 * s, 6.5 * s, abs(xh - uEnd.y));
+    // (Long, soft fades, at least half a second of the head's travel: a head moving past one dims over a good stretch of
+    // its path, it never blinks out. Each end's name lies beyond its arrow, toward its venule. The Kupffer cell is drawn
+    // over the stream, so a head simply passes under it.)
+    float s = uEnd.z, re = max(2.5 * s, uRamp);
+    float fe = smoothstep(4.0 * s, 4.0 * s + re, abs(xh - uEnd.x)) * smoothstep(4.0 * s, 4.0 * s + re, abs(xh - uEnd.y));
     float fade = uEnd.w > 0.0 ? fe : 1.0;
-    fade *= smoothstep(uLab.y + 0.3 * L, uLab.y + 3.0 * L, abs(xh - uLab.x));
-    fade *= smoothstep(7.0, 11.0, abs(xh - uXk));
+    // (Only as much as the name shows: a name the slide hides leaves the heads steady, and one fading in clears them as it comes.)
+    fade *= mix(1.0, smoothstep(uLab.y + 0.3 * L, uLab.y + 0.3 * L + max(2.7 * L, uRamp), abs(xh - uLab.x)), uLab.z);
     c = mix(c, vec3(1.0), ch.y * 0.75 * fade);
     c = mix(c, uDir < 0.0 ? cRev : cChev, ch.x * fade);
   }

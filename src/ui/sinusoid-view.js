@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=045e641b44';
 import { pressureColor } from './colormap.js?v=7616551729';
 import { isPaused } from './clock.js?v=29189790e2';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=4130ba5b4b';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=00371527ba';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -439,6 +439,8 @@ export function createSinusoidView({ host }) {
   const kupName = () => region('kup', 'Kupffer\ncell', '', geo.xk - 0.3, halfW(geo.xk) - 3.3 * clamp(halfW(geo.xk) / 5.2, 0.6, 1), { along: true });
   const BAND = [0, 0];   // a portrait screen's band for the other names, between the ends' (px down the screen)
   const LAB = [0, 0];   // the lumen's name: x and half length (µm), for the shader to keep the arrowheads clear of it
+  // How much the lumen's name shows now (its own fades: a presenter slide that is not about it, the labels leaving).
+  const labShown = () => { const e = regions.sin?.el; return e && !e.hidden && e.firstElementChild ? +getComputedStyle(e.firstElementChild).opacity || 0 : 0; };
   const END = [0, 0, 1];   // the end arrows: portal x, central x, size (µm)
   const ENDBOX = [null, null];
   const LEG = { x: 0, y: 0, w: 0, h: 0 };   // the legend's box (px)   // the ends' names on a wide screen (px), for the captions to keep clear of
@@ -580,7 +582,7 @@ export function createSinusoidView({ host }) {
       Object.assign(u, {
         uLum: UM.lum * S.lum, uPinch: S.pinch, uXs: geo.xs, uXk: geo.xk, uKy: halfW(geo.xk), uHscA: wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8,
         uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uLyF: clamp(0.32 * S.filt ** 1.5, 0.06, 1.75), uDir: Math.sign(S.v || 1),
-        uEnd: [END[0], END[1], END[2], 0.95], uLab: [LAB[0], LAB[1]],
+        uEnd: [END[0], END[1], END[2], 0.95], uLab: [LAB[0], LAB[1], labShown()], uRamp: Math.min(12, Math.abs(S.v * 24) * 0.5),
       });
       // The zoom from the lobule: one camera move. The lobule (magnified by the compositor) carries it most of the way;
       // the view, already drawn where the lobule's own sinusoid is, comes in over all of it at once as the zoom lands
