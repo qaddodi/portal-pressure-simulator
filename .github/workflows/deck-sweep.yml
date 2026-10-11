@@ -1,9 +1,13 @@
 name: Deck layout sweep
 
-# Manual only: plays every slide of every presenter deck at phone, iPad and desktop size and reports
+# On request only: plays every slide of every presenter deck at phone, iPad and desktop size and reports
 # layout findings in each job's log (tests/e2e/deck-sweep.mjs). It never deploys and never blocks a merge.
+# Run it from the Actions tab on main, or on a branch by pushing a commit whose message contains [deck-sweep]
+# (a dispatch works only for workflows on the default branch).
 on:
   workflow_dispatch:
+  push:
+    branches: ['claude/*']
 
 permissions:
   contents: read
@@ -11,6 +15,7 @@ permissions:
 jobs:
   sweep:
     name: ${{ matrix.deck }} (${{ matrix.size }})
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deck-sweep]')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
