@@ -3381,6 +3381,10 @@ button.finding:hover { background: var(--surface-2); }
 }
 .instrument-workspace.side[data-state="peek"] { bottom: auto; height: auto; }
 .instrument-workspace.float-ui:not(.side)[data-state="peek"] { height: auto; }
+/* A card sized to its content (Ascites, set by the dock): its height eases to the value, and eases back. */
+.instrument-workspace.float-ui.fit { height: var(--fit-h); transition: height .3s var(--ease); }
+.instrument-workspace.float-ui.fit.dragging, .instrument-workspace.float-ui.fit.resizing { transition: none; }
+@media (prefers-reduced-motion: reduce) { .instrument-workspace.float-ui.fit { transition: none; } }
 .instrument-workspace.resizing { transition: none; user-select: none; -webkit-user-select: none; }
 .instrument-workspace.side .workspace-divider { position: absolute; left: -7px; top: 0; bottom: 0; width: 14px; height: auto; z-index: 3; cursor: ew-resize; background: transparent; }
 .instrument-workspace.side .workspace-divider span { width: 4px; height: 44px; border-radius: 2px; opacity: 0; transition: opacity .15s; }
@@ -4571,15 +4575,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   /* FibroScan: the live map always gets its box (an older sheet rule made this view a block, collapsing it) */
   .instrument-workspace.float-ui .dock-pane > .instrument-view[data-pane="fibroscan"] { display: flex; flex-direction: column; }
   .instrument-workspace.float-ui .instrument-view[data-pane="fibroscan"] > .chart-box { flex: 1 1 0; height: auto; min-height: 200px; }
-  /* Ascites: its rows spread to use the card's height, the treatment block settling at the bottom */
-  .instrument-workspace.float-ui .dock-pane:has(> .ab) { padding-top: 6px; padding-bottom: 8px; }
-  .instrument-workspace.float-ui .dock-pane > .instrument-view.ab { flex: 1 1 auto; min-height: 100%; }
-  .instrument-workspace.float-ui .instrument-view.ab .ab-main { flex: 1 1 auto; align-content: space-between; }
-  .instrument-workspace.float-ui .instrument-view.ab :is(.ab-main, .ab-report) { row-gap: clamp(4px, calc((100cqh - 300px) / 5), 18px); }
-  .instrument-workspace.float-ui .instrument-view.ab .ab-tap { gap: clamp(4px, calc((100cqh - 300px) / 6), 14px); }
   .instrument-workspace.float-ui .instrument-view[data-pane="fibroscan"] > .ctl-sub { margin: 0; flex: none; }
-  .ab-step-val { min-width: 52px; }
-  .ab-chip, .ab-drain { padding: 0 8px; gap: 4px; font-size: 13px; }
 }
 /* Ascites: the drain row's controls share the card's width instead of running past its edge. */
 .ab-rx { grid-template-columns: auto minmax(0, auto) minmax(0, 1fr); }
@@ -4605,31 +4601,47 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-view[data-pane="fibroscan"] > .ctl-sub, .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { display: none; }
 }
 @container (max-height: 520px) { .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { display: none; } }
-/* Ascites with some room (a phone's sheet at its middle height on most phones): fuller controls. */
-@container (min-height: 360px) {
-  .instrument-workspace.float-ui .ab-sum .hv-num { font-size: 30px; }
-  .instrument-workspace.float-ui .ab-belly { width: 40px; height: 40px; }
-  .instrument-workspace.float-ui .ab-lab { padding: 6px; }
-  .instrument-workspace.float-ui .ab-step-btn { width: 34px; height: 34px; }
-  .instrument-workspace.float-ui .ab-diu { min-height: 48px; }
-  .instrument-workspace.float-ui :is(.ab-drain, .ab-chip) { min-height: 40px; }
-  .instrument-workspace.float-ui .ab-rx { gap: 8px; padding: 8px 10px; }
+/* Ascites in the Tests card: three groups at their natural height, one column (two beside each other where the card is wide).
+   The readout (volume, grade, belly, abdominal pressure), the tap (three results, serum albumin), then the treatment, with
+   one gap between rows and a hairline between groups. Every tile (the three results, both steppers, the albumin and
+   diuretics toggles) is one box: same height, radius, hairline and fill; "on" is an accent tint, and Drain, the only action,
+   is the same box filled with the accent. The card itself is sized to this content by the dock (dock.js, fitHeight). */
+.dock-pane:has(> .instrument-view.ab) { padding-top: 10px; padding-bottom: 10px; container-type: inline-size; }
+.instrument-view.ab, .instrument-workspace.float-ui .dock-pane > .instrument-view.ab { --ab-gap: 9px; --ab-h: 40px; flex: none; min-height: 0; }
+.instrument-view.ab :is(.ab-main, .ab-report) { flex: none; gap: var(--ab-gap); align-content: start; align-items: start; }
+.instrument-view.ab .ab-report { align-self: stretch; }
+.instrument-view.ab .ab-head { padding: 0; margin: 0; border: 0; }
+.instrument-view.ab .ab-sum .hv-num { font-size: 30px; }
+.instrument-view.ab .ab-belly { width: 40px; height: 40px; }
+.instrument-view.ab .ab-iap { gap: 6px; }
+.instrument-view.ab .ab-iap-bar { height: 8px; }
+.instrument-view.ab :is(.ab-tap, .ab-rx) { gap: 8px; padding: var(--ab-gap) 0 0; border: 0; border-top: 1px solid var(--hairline); border-radius: 0; background: none; }
+.instrument-view.ab .ab-labs { gap: 8px; }
+.instrument-view.ab .ab-row { min-height: var(--ab-h); }
+.instrument-view.ab .ab-rx-row, .instrument-view.ab .ab-drain-row { display: contents; }
+.instrument-view.ab :is(.ab-lab, .ab-step, .ab-chip, .ab-diu, .ab-drain) { box-sizing: border-box; min-height: var(--ab-h); border-radius: var(--r-control); border: 1px solid var(--hairline); background: var(--surface-2); color: var(--text); box-shadow: none; }
+.instrument-view.ab .ab-lab { display: flex; align-items: baseline; justify-content: center; gap: 6px; padding: 0 6px; align-items: center; }
+.instrument-view.ab .ab-lab b, .instrument-view.ab .ab-lab.ab-key b { font-size: var(--fs-16, 16px); }
+.instrument-view.ab .ab-lab.ab-key, .instrument-view.ab :is(.ab-chip, .ab-diu)[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--surface-2)); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.instrument-view.ab .ab-step { display: inline-flex; align-items: stretch; padding: 0; overflow: hidden; }
+.instrument-view.ab .ab-step-btn { width: 36px; height: auto; min-height: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: 20px; outline-offset: -3px; }
+.instrument-view.ab .ab-step-val { align-self: center; min-width: 56px; padding: 0 4px; }
+.instrument-view.ab .ab-diu { padding: 0 12px; gap: 12px; }
+.instrument-view.ab .ab-diu[aria-pressed="true"] .ab-diu-txt small { color: var(--text-3); opacity: 1; }
+.instrument-view.ab .ab-diu[aria-pressed="true"] .ab-diu-ratio { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent-ink, var(--accent)); }
+.instrument-view.ab .ab-chip, .instrument-view.ab .ab-drain { padding: 0 10px; gap: 6px; font-size: 13px; }
+.instrument-view.ab .ab-drain { justify-content: center; font-weight: 600; background: var(--accent); border-color: transparent; color: var(--on-accent); }
+.instrument-view.ab .ab-drain:disabled { opacity: .45; }
+.instrument-view.ab .ab-rx > .hv-k { display: none; }
+@media (min-width: 768px) {
+  .dock-pane:has(> .instrument-view.ab) { padding-top: 14px; padding-bottom: 14px; }
+  .instrument-view.ab, .instrument-workspace.float-ui .dock-pane > .instrument-view.ab { --ab-gap: 16px; --ab-h: 44px; }
+  .instrument-view.ab .ab-chip, .instrument-view.ab .ab-drain { font-size: var(--fs-14); padding: 0 14px; }
 }
-/* Ascites in a tall card: the same rows, with fuller controls and room between them. */
-@container (min-height: 540px) {
-  .instrument-workspace.float-ui .ab-main, .instrument-workspace.float-ui .ab-report { gap: 10px; }
-  .instrument-workspace.float-ui .ab-tap { gap: 8px; }
-  .instrument-workspace.float-ui .ab-sum .hv-num { font-size: 32px; }
-  .instrument-workspace.float-ui .ab-belly { width: 44px; height: 44px; }
-  .instrument-workspace.float-ui .ab-iap-bar { height: 8px; }
-  .instrument-workspace.float-ui .ab-lab { padding: 8px 6px; }
-  .instrument-workspace.float-ui .ab-step-btn { width: 36px; height: 36px; }
-  .instrument-workspace.float-ui .instrument-view.ab .ab-main { align-content: start; }
-  .instrument-workspace.float-ui .instrument-view.ab :is(.ab-main, .ab-report) { row-gap: 22px; }
-  .instrument-workspace.float-ui .instrument-view.ab .ab-tap { gap: 14px; }
-  .instrument-workspace.float-ui .ab-diu { min-height: 52px; }
-  .instrument-workspace.float-ui .ab-drain, .instrument-workspace.float-ui .ab-chip { min-height: 44px; }
-  .instrument-workspace.float-ui .ab-rx { gap: 8px; padding: 10px; }
+@container (min-width: 620px) {
+  /* Side by side: the treatment column is set off by a hairline on its left, not above. */
+  .instrument-view.ab .ab-report + .ab-report { align-self: stretch; border-left: 1px solid var(--hairline); padding-left: var(--ab-gap); }
+  .instrument-view.ab .ab-report + .ab-report .ab-rx { border-top: 0; padding-top: 0; }
 }
 
 /* Scope's readings: the grade leads with its status, wall stress is a meter toward the tear point, size and

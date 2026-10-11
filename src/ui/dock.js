@@ -449,7 +449,31 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);
       divider.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
     }
+    fitHeight();
   }
+  // Ascites has no picture to stretch, so its card is only as tall as its rows: the height eases to fit, and eases back
+  // for any other tab. A sheet the learner has resized keeps their height; a lesson's sheet keeps its own.
+  let fitTimer = 0;
+  function fitHeight() {
+    const ab = open.length === 1 && open[0] === 'abdomen' && state === 'open' ? workspace.querySelector('.instrument-view.ab') : null;
+    const lessonSheet = app.dataset.mode === 'learn' && !isSide() && matchMedia('(max-width: 767px)').matches;
+    const fits = !!ab && ab.offsetHeight > 0 && !lessonSheet && (isSide() || heightRatio == null);
+    const on = workspace.classList.contains('fit');
+    if (!fits && !on) return;
+    clearTimeout(fitTimer);
+    const cs = getComputedStyle(workspace);
+    const full = isSide() ? workspace.offsetParent.clientHeight - parseFloat(cs.top) - parseFloat(cs.bottom) : parseFloat(workspace.style.getPropertyValue('--instrument-h')) || workspace.offsetHeight;
+    if (!on) { workspace.style.setProperty('--fit-h', `${workspace.offsetHeight}px`); workspace.classList.add('fit'); void workspace.offsetHeight; }
+    if (!fits) {
+      workspace.style.setProperty('--fit-h', `${Math.round(full)}px`);
+      fitTimer = setTimeout(() => workspace.classList.remove('fit'), 400);
+      return;
+    }
+    const pane = ab.parentElement, pcs = getComputedStyle(pane);
+    const need = workspace.offsetHeight - body.clientHeight + parseFloat(pcs.paddingTop) + parseFloat(pcs.paddingBottom) + ab.offsetHeight;
+    workspace.style.setProperty('--fit-h', `${Math.round(Math.min(full, Math.max(140, Math.ceil(need))))}px`);
+  }
+  new ResizeObserver(() => fitHeight()).observe(byId.abdomen.el.firstElementChild);
   function setState(next) {
     state = next;
     workspace.dataset.state = state;
@@ -485,6 +509,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       tabEls[id].b.dataset.slot = on && open.length > 1 && !isPair() ? String(at + 1) : '';
     }
     remember();
+    fitHeight();
     queueRefresh();
     onLayout?.();
   }
