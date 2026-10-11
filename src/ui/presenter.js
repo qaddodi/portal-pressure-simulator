@@ -302,8 +302,8 @@ function bigLadder() {
   };
   const hv = span('HVPG', SPAN_Y.hvpg, 1, 2), pp = span('PPG', SPAN_Y.ppg, 0, 3);
   // The phone's strip, two short rows: the station names over the five readings as plain numbers, on the ladder's own
-  // line, straight and thick, with the fall written above each stretch (the largest named by colour, a fall over 4 in red). Under them the HVPG and PPG as thin brackets with their reading and, when raised, an arrow
-  // in the rating's colour, so a phone needs no tiles.
+  // line, straight and thick, with the fall written above each stretch (the largest named by colour, a fall over 4 in red). Under them the HVPG and PPG as thin brackets with their reading
+  // in the rating's colour (numbers only, no arrows), so a phone needs no tiles.
   const S = { W: 360, ny: 27, hvpg: 52, ppg: 68, H: 76 }, XS = (i) => 28 + 70 * i;
   // (The line is the ladder's own: one straight run in its portal-to-systemic gradient, the readings sitting on it.)
   const conns = [0, 1, 2, 3].map((i) => ({ txt: sv('text', { class: 'pzs-d', x: (XS(i) + XS(i + 1)) / 2, y: S.ny - 11, 'text-anchor': 'middle' }) }));
@@ -315,7 +315,7 @@ function bigLadder() {
     return { g: sv('g', { class: 'pzs-pt' }, v), v, k: sv('text', { class: 'pzs-k', x: XS(i), y: 9, 'text-anchor': 'middle' }, a) };
   });
   const sbr = (name, row, i0, i1) => {
-    const x0 = XS(i0), x1 = XS(i1), t = ['bn', 'bv', 'ba'].map((c) => sv('tspan', { class: 'pzs-' + c }));
+    const x0 = XS(i0), x1 = XS(i1), t = ['bn', 'bv'].map((c) => sv('tspan', { class: 'pzs-' + c }));
     const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br' });
     const lbl = sv('text', { class: 'pzs-bl', x: (x0 + x1) / 2, y: row + 3.5, 'text-anchor': 'middle' }, t);
     return { name, x0, x1, row, lead, t, bar, lbl, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, lbl) };
@@ -384,10 +384,10 @@ function bigLadder() {
       if (!ok) return;
       b.lead.setAttribute('d', `M${b.x0} ${b.row - 5}V${S.ny + 10}M${b.x1} ${b.row - 5}V${S.ny + 10}`);
       b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate || 'ok';
-      const arrows = say ? '' : rate === 'hi' ? ' ↑↑' : rate === 'mid' ? ' ↑' : '', num = ' ' + fmt(v, 1);
-      b.t[0].textContent = b.name; b.t[1].textContent = num; b.t[2].textContent = arrows;
+      const num = ' ' + fmt(v, 1);
+      b.t[0].textContent = b.name; b.t[1].textContent = num;
       // The bracket's line leaves a gap round its label (an estimate of its width, so a hidden strip needs no measuring and nothing jumps).
-      const half = (b.name.length * 6.2 + num.length * 5 + (arrows.length ? arrows.length * 4.5 : 0)) / 2 + 3, mid = (b.x0 + b.x1) / 2, r = b.row;
+      const half = (b.name.length * 6.4 + num.length * 5.2) / 2 + 3, mid = (b.x0 + b.x1) / 2, r = b.row;
       b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (mid - half > b.x0 ? `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}` : ''));
     };
     putS(hvS, f.whvp, f.fhvp, f.hvpg, 'hvpg'); putS(ppS, f.pv, f.ivc, f.ppg, 'ppg');

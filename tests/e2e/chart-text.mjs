@@ -100,6 +100,20 @@ export function stripOverflow() {
     if (+g.getAttribute('opacity') < 0.5) continue;
     const lab = g.querySelector('.pzs-bl').getBoundingClientRect(), bar = g.querySelector('.pzl-br').getBoundingClientRect(), t = g.querySelector('.pzs-bl').textContent.trim();
     if (lab.left < bar.left - 0.5 || lab.right > bar.right + 0.5) out.push(`"${t}" runs outside its bracket (${Math.round(lab.left)}-${Math.round(lab.right)} in ${Math.round(bar.left)}-${Math.round(bar.right)})`);
+    // Numbers only (no rating arrows), centred in the bracket, and clear of every dotted drop line and of the bracket's own line.
+    if (/[↑↓]/.test(t)) out.push(`"${t}" carries an arrow`);
+    if (Math.abs((lab.left + lab.right) / 2 - (bar.left + bar.right) / 2) > 1.5) out.push(`"${t}" is not centred in its bracket`);
+    const m = strip.getScreenCTM(), sx = (u) => m.a * u + m.e, sy = (u) => m.d * u + m.f;
+    for (const lead of strip.querySelectorAll('.pzl-bg[opacity="1"] .pzl-lead')) {
+      for (const [, x, y0, y1] of (lead.getAttribute('d') || '').matchAll(/M([\d.]+) ([\d.]+)V([\d.]+)/g)) {
+        const px = sx(+x), ya = Math.min(sy(+y0), sy(+y1)), yb = Math.max(sy(+y0), sy(+y1));
+        if (px > lab.left - 2 && px < lab.right + 2 && yb > lab.top && ya < lab.bottom) out.push(`"${t}" touches a dotted drop line at x ${Math.round(px)}`);
+      }
+    }
+    for (const [, a, r, b] of (g.querySelector('.pzl-br').getAttribute('d') || '').matchAll(/M([\d.]+) ([\d.]+)H([\d.]+)/g)) {
+      const l = sx(Math.min(+a, +b)), rr = sx(Math.max(+a, +b)), ry = sy(+r);
+      if (rr > lab.left && l < lab.right && ry > lab.top && ry < lab.bottom) out.push(`"${t}" sits on its bracket line`);
+    }
   }
   return out;
 }
