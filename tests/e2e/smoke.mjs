@@ -80,6 +80,24 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-anatomy`);
   });
 
+  await check(device, 'sinusoid view: a rebuilt caption does not fade in again (no flashing at rest)', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
+    await page.evaluate(() => window.pps.store.set({ sinusoid: true }));
+    await page.waitForFunction(() => document.querySelector('.sv.on') && document.querySelectorAll('.sv-region').length > 3, null, { timeout: 45000 });
+    // Once the captions' own entrance has run, no caption may start another fade, however often its text is rebuilt.
+    const fading = () => page.evaluate(() => [...document.querySelectorAll('.sv-region')].flatMap((r) => r.getAnimations({ subtree: true })).filter((a) => a.animationName === 'sv-fade-in' && a.playState === 'running').length);
+    for (let i = 0; i < 80 && (await fading()); i++) await page.waitForTimeout(300);
+    const restarted = await page.evaluate(() => new Promise((res) => {
+      let bad = 0; const regions = [...document.querySelectorAll('.sv-region')];
+      const mo = new MutationObserver(() => { queueMicrotask(() => { bad += regions.flatMap((r) => r.getAnimations({ subtree: true })).filter((a) => a.animationName === 'sv-fade-in' && a.playState === 'running').length; }); });
+      regions.forEach((r) => mo.observe(r, { childList: true }));
+      setTimeout(() => { mo.disconnect(); res(bad); }, 4000);
+    }));
+    if (restarted) throw new Error(`a rebuilt sinusoid caption faded in again (${restarted}): the captions flash`);
+  });
+
   await check(device, 'leaving the lobule frames the next view, not the dive', async (page) => {
     await open(page, '?preset=cirr-decomp');
     const T = () => page.evaluate(() => (document.querySelector('#world').getAttribute('transform') || '').replace(/-?\d+\.\d+/g, (n) => (+n).toFixed(1)));
