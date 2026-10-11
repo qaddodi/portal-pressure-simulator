@@ -10,7 +10,7 @@ import { createPressureTime } from './pressure-time.js?v=b6b3aae48b';
 import { createFibroScan } from './fibroscan.js?v=0e979fa0d9';
 import { createHvpgProcedure } from './hvpg-proc.js?v=456e67ed78';
 import { createDoppler } from './doppler.js?v=d4daf2cb9a';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=fba9660a48';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=aee884a7c3';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
 const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
