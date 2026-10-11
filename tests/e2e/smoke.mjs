@@ -536,7 +536,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   // Every slide of a deck on a phone (390x844): the controls sit on the card's kicker line and cover none of its words.
   // (Slides with a live data card at the top once kept them at the slide before's spot, over the figure or the card.)
-  // (Every deck, about a minute each on CI: CI splits the phone checks over twelve runners so each stays well under its limit.)
+  // (Every deck, about a minute each on CI: CI splits the phone checks over eight runners so each stays well under its limit.)
   if (device === 'phone') for (const deck of DECK_IDS) await check(device, `presenter: on every slide of ${deck} the controls sit on the kicker line`, async (page) => {
     await open(page);
     await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);

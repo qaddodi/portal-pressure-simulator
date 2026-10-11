@@ -4,8 +4,10 @@ name: Pages (live site + preview)
 #   /          the tip of main (the live site)
 #   /preview/  the branch that triggered the run (a claude/** branch), or main again after a merge
 # Every run rebuilds both from scratch, so the newest run always wins: the deploy job shares one
-# concurrency group across branches. Only the deploy is superseded: the checks have no concurrency
-# group, so every pushed commit's lint, unit, browser and visual checks run to the end and report.
+# concurrency group across branches. Lint and unit run for every push and gate the deploy. A browser,
+# visual or WebKit check that has started is never cancelled: it runs to the end and reports. While
+# one runs, only the newest waiting commit queues behind it (GitHub drops older waiting ones), so the
+# checks follow the branch tip at a steady pace and never take every runner from the deploy.
 
 on:
   push:
@@ -35,7 +37,7 @@ jobs:
 
   # The browser checks run alongside the deploy, not before it: a failure marks the run red
   # (so it is seen) but the preview is already published for testing on devices.
-  # Split over sixteen runners (desktop in four shares, phone in twelve), one check at a time per runner:
+  # Split over eleven runners (desktop in three shares, phone in eight), one check at a time per runner:
   # a runner is too small to run several browsers at once.
   browser-checks:
     runs-on: ubuntu-latest
@@ -44,24 +46,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Desktop in four shares; phone in twelve, since it also walks every slide of all decks.
+        # Desktop in three shares; phone in eight, since it also walks every slide of all decks.
         include:
-          - { device: desktop, shard: '1/4' }
-          - { device: desktop, shard: '2/4' }
-          - { device: desktop, shard: '3/4' }
-          - { device: desktop, shard: '4/4' }
-          - { device: phone, shard: '1/12' }
-          - { device: phone, shard: '2/12' }
-          - { device: phone, shard: '3/12' }
-          - { device: phone, shard: '4/12' }
-          - { device: phone, shard: '5/12' }
-          - { device: phone, shard: '6/12' }
-          - { device: phone, shard: '7/12' }
-          - { device: phone, shard: '8/12' }
-          - { device: phone, shard: '9/12' }
-          - { device: phone, shard: '10/12' }
-          - { device: phone, shard: '11/12' }
-          - { device: phone, shard: '12/12' }
+          - { device: desktop, shard: '1/3' }
+          - { device: desktop, shard: '2/3' }
+          - { device: desktop, shard: '3/3' }
+          - { device: phone, shard: '1/8' }
+          - { device: phone, shard: '2/8' }
+          - { device: phone, shard: '3/8' }
+          - { device: phone, shard: '4/8' }
+          - { device: phone, shard: '5/8' }
+          - { device: phone, shard: '6/8' }
+          - { device: phone, shard: '7/8' }
+          - { device: phone, shard: '8/8' }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
@@ -84,6 +81,9 @@ jobs:
   # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
   webkit:
     runs-on: ubuntu-latest
+    concurrency:
+      group: webkit-${{ github.ref }}
+      cancel-in-progress: false
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -104,6 +104,9 @@ jobs:
   visual:
     name: visual (${{ matrix.device }})
     runs-on: ubuntu-latest
+    concurrency:
+      group: visual-${{ github.ref }}-${{ matrix.device }}
+      cancel-in-progress: false
     timeout-minutes: 15
     strategy:
       fail-fast: false
