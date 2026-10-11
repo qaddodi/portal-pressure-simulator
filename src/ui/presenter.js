@@ -20,10 +20,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=953abc032b';
 import { sinusoidSupported } from './sinusoid-view.js?v=c29067c667';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=e766399363';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=cd39ea5edf';
 import { createHvpgMonitor } from './hvpg-proc.js?v=7dbeca9bfc';
 import { createTools } from './presenter-tools.js?v=50680c22e6';
-import { openHandout } from './handout.js?v=42bc8ae808';
+import { openHandout } from './handout.js?v=caa93ced9f';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
 
@@ -513,6 +513,7 @@ function scaleKey(sc, rows) {
   const cuts = [0, ...sc.marks.map(([v]) => v), max];
   const zones = cuts.slice(0, -1).map((a, i) => ({ a, b: cuts[i + 1], c: ['ok', 'mid', 'hi', 'top'][Math.min(i, 3)], t: i ? sc.marks[i - 1][2] || sc.marks[i - 1][1] : sc.low }));   // (a mark's third item: its short name, for the band)
   const span = (z) => `left:${P(z.a)};width:calc(${P(z.b)} - ${P(z.a)})`;
+  const cols = `grid-template-columns:${zones.map((z) => `minmax(0, ${z.b - z.a}fr)`).join(' ')}`;
   const pins = rows.filter((r) => r.f).sort((a, b) => a.f[sc.key] - b.f[sc.key]);
   // (each patient takes the colour of the zone it sits in)
   const rate = (r) => (zones.find((z) => r.f[sc.key] < z.b) || zones[zones.length - 1]).c;
@@ -520,14 +521,15 @@ function scaleKey(sc, rows) {
   const SUBNAME = { hvpg: 'HVPG', plt: 'Platelets', ppg: 'PPG' };
   const sub = (f) => [sc.sub || []].flat().filter((k) => f[k] != null).map((k) => `${SUBNAME[k] || TILE[k]?.t || k} ${fmt(f[k], dig(k))}${TILE[k]?.u ? ` ${TILE[k].u}` : ''}`);
   const box = h('div', { class: 'pz-visual pz-sk', role: 'img', 'aria-label': pins.map((r) => `${r.name} ${fmt(r.f[sc.key], 1)} ${u}`).join(', ') },
-    h('div', { class: 'pzk-names', 'aria-hidden': 'true' }, zones.map((z) => h('span', { 'data-rate': z.c, style: span(z) }, z.t))),
+    // (the names and the rules sit in columns as wide as their zones, so a long one wraps inside its zone, never into the next)
+    h('div', { class: 'pzk-names', 'aria-hidden': 'true', style: cols }, zones.map((z) => h('span', { 'data-rate': z.c }, z.t))),
     h('div', { class: 'pzk-bar', 'aria-hidden': 'true' },
       zones.map((z) => h('i', { 'data-rate': z.c, style: span(z) })),
       sc.marks.map(([v]) => h('b', { style: `left:${P(v)}` })),
       pins.map((r, i) => h('span', { class: 'pzk-dot', 'data-rate': rate(r), style: `--x:${P(r.f[sc.key])};--i:${i}` }, String(i + 1)))),
     h('div', { class: 'pzk-axis', 'aria-hidden': 'true' }, [0, ...sc.marks.map(([v]) => v)].map((v) => h('span', { style: `left:${P(v)}` }, String(v))), h('span', { class: 'end' }, `${max}+ ${u}`)),
     // (rules: each zone's rule in words, under its stretch of the axis)
-    sc.rules ? h('div', { class: 'pzk-rules' }, zones.map((z, i) => h('span', { 'data-rate': z.c, style: span(z) }, sc.rules[i] || ''))) : null,
+    sc.rules ? h('div', { class: 'pzk-rules', style: cols }, zones.map((z, i) => h('span', { 'data-rate': z.c }, sc.rules[i] || ''))) : null,
     h('ol', { class: 'pzk-key' }, pins.map((r, i) => h('li', { 'data-rate': rate(r), style: `--i:${i}` },
       h('span', { class: 'pzk-n' }, String(i + 1)),
       h('span', { class: 'pzk-v' }, fmt(r.f[sc.key], dig(sc.key)), h('small', {}, ` ${u}`)),

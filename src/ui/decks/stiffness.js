@@ -35,8 +35,8 @@ export const STIFFNESS = {
       ask: ['Why scan fasting?', 'A meal raises portal inflow and the stiffness reading for up to two to three hours.'],
     },
     {
-      id: 'rule', visual: 'scale', scale: { key: 'lsm', max: 40, low: 'No CSPH if platelets\n150 or more', marks: [[15, 'Gray zone'], [25, 'CSPH ruled in']], sub: ['hvpg', 'plt'],
-        rules: ['15 kPa or less with platelets 150 or more: no CSPH', 'In the gray zone, low platelets point to CSPH', '25 kPa or more: CSPH'] },
+      id: 'rule', visual: 'scale', scale: { key: 'lsm', max: 40, low: 'Ruled out', marks: [[15, 'Gray zone'], [25, 'Ruled in']], sub: ['hvpg', 'plt'],
+        rules: ['If platelets are 150 or more', 'Low platelets point to CSPH', 'Whatever the platelets'] },
       // (Baveno VII's rules are for compensated disease, so every patient here is compensated, without ascites.)
       of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'fibrosis', name: 'Compensated, no CSPH' }, { preset: 'csph', name: 'Compensated, CSPH by HVPG' }, { preset: 'csph', params: { cirrhosis: 0.75 }, name: 'Compensated, CSPH' }],
       kicker: 'Baveno VII', title: 'Stiffness and platelets rule CSPH in or out',

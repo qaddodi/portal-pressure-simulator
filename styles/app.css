@@ -4396,8 +4396,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* The Presenter's reflowing scale (scaleKey): zone names over a band, cut-offs under it, numbered dots, a key. */
 .pz-sk { --sk: clamp(13px, calc(2.2 * var(--pzh) / var(--vz)), 26px); font: 500 var(--sk)/1.3 var(--font-ui); color: var(--text); padding: .4em 0 0; }
 .pzk-names, .pzk-bar, .pzk-axis { position: relative; margin: 0 1.2em; }
-.pzk-names { height: 1.6em; }
-.pzk-names span { position: absolute; bottom: .3em; text-align: center; font-weight: 600; font-size: .78em; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.pzk-names { display: grid; align-items: end; min-height: 1.6em; padding-bottom: .3em; box-sizing: border-box; }
+.pzk-names span { padding: 0 .2em; text-align: center; font-weight: 600; font-size: .78em; line-height: 1.15; letter-spacing: .08em; text-transform: uppercase; }
 .pzk-names [data-rate="ok"] { color: var(--ok); } .pzk-names [data-rate="mid"] { color: var(--caution); } .pzk-names [data-rate="hi"], .pzk-names [data-rate="top"] { color: var(--danger); }
 .pzk-bar { height: 1.5em; }
 .pzk-bar i { position: absolute; top: .25em; bottom: .25em; }
@@ -4417,8 +4417,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pzk-axis { height: 1.7em; margin-top: .2em; font-weight: 700; font-variant-numeric: tabular-nums; }
 .pzk-axis span { position: absolute; top: 0; transform: translateX(-50%); }
 .pzk-axis .end { right: 0; transform: none; font-weight: 500; color: var(--text-3); }
-.pzk-rules { position: relative; margin: .1em 1.2em 0; height: 2.6em; }
-.pzk-rules span { position: absolute; top: 0; padding: 0 .4em; box-sizing: border-box; text-align: center; font-size: .78em; line-height: 1.3; color: var(--text-2); }
+.pzk-rules { display: grid; align-items: start; margin: .1em 1.2em 0; }
+.pzk-rules span { padding: 0 .4em; text-align: center; font-size: .78em; line-height: 1.3; color: var(--text-2); }
 .pzk-bar b { z-index: 0; } .pzk-dot { z-index: 1; }
 .pzk-key { list-style: none; margin: .9em 0 0; padding: .9em 0 0; border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .9em 1.2em; }
 .pzk-key li { display: grid; grid-template-columns: auto 1fr; column-gap: .55em; align-items: baseline; align-content: start; opacity: 0; transition: opacity .5s var(--ease) calc(var(--i, 0) * 160ms + 400ms); }
@@ -4432,7 +4432,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-visual.pz-sk { display: block; width: 100%; max-width: 1100px; margin: 0 auto; }
 .pz-ph .pz-eq { margin: .35em 0 .5em; }
 @media (max-width: 900px) { .pzk-key { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 520px) { .pz-sk { --sk: 14px; } .pzk-names span { letter-spacing: .04em; } .pzk-names, .pzk-bar, .pzk-axis { margin: 0 .9em; } }
+@media (max-width: 520px) { .pz-sk { --sk: 14px; } .pzk-names span { letter-spacing: .04em; } .pzk-names, .pzk-bar, .pzk-axis { margin: 0 .9em; } .pzk-rules { margin: .1em .9em 0; } .pzk-rules span { padding: 0 .2em; } }
 /* Tests in a narrow card (a phone's sheet, the side card on an iPad or a laptop): every tab fills the card's
    height and its picture takes what is left, so it all fits without scrolling; on a raised phone sheet or a
    tall card the picture grows and the notes under it come back. */
