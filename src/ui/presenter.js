@@ -20,10 +20,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=d0f1a6d8cf';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=7ca4c286b9';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=54f191d748';
 import { createHvpgMonitor } from './hvpg-proc.js?v=0ac0f5eb5d';
 import { createTools } from './presenter-tools.js?v=ff538a0a5e';
-import { openHandout } from './handout.js?v=49b4221947';
+import { openHandout } from './handout.js?v=dad9c91e33';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
 
@@ -1161,6 +1161,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       data.classList.toggle('under', under(s));
       data.classList.toggle('has-tool', !!s.tool);
       data.classList.toggle('tool-only', !!s.tool && !s.data);
+      data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
       data.dataset.tool = ui.tools.sig(s.tool);
       ui.dhT.textContent = cardTitle(s);
       ui.dhL.hidden = !lad;

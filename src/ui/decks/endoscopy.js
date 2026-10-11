@@ -18,7 +18,7 @@ export const ENDOSCOPY = {
   summary: 'One patient seen through the scope: screening, growing and large varices, wall tension, a bleed, transfusion, octreotide and band ligation.',
   slides: [
     {
-      id: 'screen', preset: 'cirr-comp', cam: 'varices', labels: ['VAR', 'AZY'], tool: { kind: 'scope' },
+      id: 'screen', preset: 'cirr-comp', cam: 'gej', labels: ['VAR', 'LGV'], tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
       kicker: 'Endoscopy', site: 'sin', title: 'Not every patient needs a screening scope',
       line: 'A scope is needed only when no beta-blocker is given and stiffness and platelets do not spare it. In compensated cirrhosis the esophagus is often still normal.',
@@ -26,7 +26,7 @@ export const ENDOSCOPY = {
       ask: ['Which compensated patients can skip a screening endoscopy?', 'Those taking carvedilol for CSPH, and those with liver stiffness under 20 kPa and platelets over 150 (Baveno VII).'],
     },
     {
-      id: 'grow', days: 180, ramp: { cirrhosis: [0.4, 0.6] }, lapse: { seconds: 10 }, cam: 'varices', labels: ['VAR'], tool: { kind: 'scope' },
+      id: 'grow', days: 180, ramp: { cirrhosis: [0.4, 0.6] }, lapse: { seconds: 10 }, cam: 'gej', labels: ['VAR', 'LGV'], tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'Small varices appear six months on',
       line: 'The HVPG has risen to {hvpg}, above the 10 mmHg of CSPH, where varices grow more likely. Blue columns have risen in the lower esophagus; small varices are under 5 mm.',
@@ -34,7 +34,7 @@ export const ENDOSCOPY = {
       ask: ['Below what HVPG are new varices uncommon?', '10 mmHg.'],
     },
     {
-      id: 'large', preset: 'cirr-decomp', cam: 'varices', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Large varices', kind: 'note' }, tool: { kind: 'scope' },
+      id: 'large', preset: 'cirr-decomp', cam: 'gej', labels: ['VAR', 'LGV'], mark: { edges: ['C1a'], label: 'Large varices', kind: 'note' }, tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
       kicker: 'Endoscopy', site: 'sin', title: 'Size and red signs predict the first bleed',
       line: 'Varices over 5 mm bulge into the lumen and do not flatten with air; this one is {varix}. Red wale marks show where the wall has thinned.',
@@ -42,7 +42,7 @@ export const ENDOSCOPY = {
       ask: ['Name two endoscopic findings that predict a first bleed.', 'Size over 5 mm and red signs (red wale marks or cherry-red spots).'],
     },
     {
-      id: 'tension', cam: [690, -10, 890, 170], kMax: 4.5, labels: ['VAR'], tool: { kind: 'wall' },
+      id: 'tension', cam: [745, 170, 875, 335], kMax: 4.5, labels: ['VAR'], tool: { kind: 'wall', open: true },
       data: 'tiles', tiles: ['varix', 'pv'], key: ['varix'],
       kicker: 'Why varices burst', site: 'sin', title: 'Large, thin-walled varices are the ones that bleed',
       eq: [mi('T') + mo('=') + frac('<mi mathvariant="normal">Δ</mi><mi>P</mi>' + mo('·') + mi('r'), mi('w')), 'T wall tension · ΔP pressure in the varix minus the lumen · r radius · w wall thickness'],
@@ -51,7 +51,7 @@ export const ENDOSCOPY = {
       ask: ['Using Laplace\'s law, name two ways to lower the tension in a varix wall.', 'Lower the pressure in it, or its radius.'],
     },
     {
-      id: 'bleed', params: {}, action: [{ kind: 'hemorrhage', mL: 1000 }], cam: 'varices', labels: ['VAR'],
+      id: 'bleed', params: {}, action: [{ kind: 'hemorrhage', mL: 1000 }], cam: 'feeder', labels: ['VAR', 'CONF'],
       data: 'tiles', tiles: ['map', 'pv', 'hvpg'], key: ['map', 'pv'], delta: true,
       kicker: 'Variceal bleeding', site: 'sin', title: 'A bleed lowers the portal pressure for a while',
       line: 'A liter is lost. The blood pressure falls to {map}, and the portal pressure to {pv} with the volume.',
@@ -59,15 +59,15 @@ export const ENDOSCOPY = {
       ask: ['Why does portal pressure fall during a bleed?', 'Less blood volume means less splanchnic inflow and lower venous pressures.'],
     },
     {
-      id: 'oct', params: { drugs: { octreotide: true } }, cam: 'portal', labels: ['SMV', 'CONF'], tool: { kind: 'scope' },
-      data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: true,
+      id: 'oct', params: { drugs: { octreotide: true } }, cam: 'portal', labels: ['SMV', 'CONF'],
+      data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'], delta: true,
       kicker: 'Variceal bleeding', site: 'sin', title: 'Octreotide starts before the scope',
       line: 'Start octreotide as soon as a variceal bleed is suspected. It reduces splanchnic inflow and lowers portal pressure before endoscopy.',
       notes: 'Octreotide, a somatostatin analogue, is given as a 50 µg bolus, then 50 µg an hour for 2 to 5 days. It blocks the gut\'s vasodilating peptides and the rise in portal flow after a meal or a transfusion. With banding it controls most acute bleeds. Outside the US, terlipressin or somatostatin are used instead; terlipressin has the clearest survival benefit against placebo. Ceftriaxone 1 g a day is given with it, because infection triggers bleeding and rebleeding. Erythromycin 250 mg IV, 30 to 120 minutes before the scope unless the QT is long, clears the stomach, and endoscopy follows within 12 hours.',
       ask: ['In the US, which vasoactive drug is started when a variceal bleed is suspected?', 'Octreotide, from the first suspicion and for 2 to 5 days.'],
     },
     {
-      id: 'transfuse', params: {}, action: UNITS, cam: 'varices', labels: ['VAR'],
+      id: 'transfuse', params: {}, action: UNITS, cam: 'feeder', labels: ['VAR', 'CONF'],
       data: 'tiles', tiles: ['pv', 'hvpg', 'map'], key: ['pv'], delta: true,
       kicker: 'Variceal bleeding', site: 'sin', title: 'Over-transfusion raises the portal pressure again',
       line: 'Replacing all of the lost volume brings the portal pressure back up to {pv}, and with it the risk of a new bleed. Transfuse to a hemoglobin of 7 to 8 g/dL.',
@@ -75,7 +75,7 @@ export const ENDOSCOPY = {
       ask: ['What hemoglobin is the target in variceal bleeding?', '7 to 8 g/dL (restrictive transfusion).'],
     },
     {
-      id: 'band', params: { drugs: { octreotide: false } }, action: BANDS, cam: 'varices', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' },
+      id: 'band', params: { drugs: { octreotide: false } }, action: BANDS, cam: 'gej', labels: ['VAR', 'LGV'], mark: { edges: ['C1a'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'After banding, the pressure is unchanged',
       line: 'The ligated columns thrombose and shrink. With that outflow closed, the HVPG may rise slightly.',

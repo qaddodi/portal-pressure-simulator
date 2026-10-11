@@ -29,6 +29,7 @@
 //                            vessel }, { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
 //                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section); title? names the card; waves: true
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
+//                            (on a phone it folds away behind a Show button; open: true keeps it open there and folds the tiles instead)
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
@@ -65,7 +66,7 @@ import { SHUNTS } from './decks/shunts.js?v=092993c13b';
 import { TAP } from './decks/tap.js?v=de0baba07b';
 import { CIRCUIT } from './decks/circuit.js?v=6938c00832';
 import { DOPPLER } from './decks/doppler.js?v=37f65ef856';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=b3721fe1fe';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=2d8835e29a';
 import { PREHEPATIC } from './decks/prehepatic.js?v=ae308efebe';
 import { RIGHT_HEART } from './decks/right-heart.js?v=ed25b681bb';
 import { BLEED } from './decks/variceal-bleed.js?v=ae4749072b';
@@ -84,6 +85,8 @@ export const REGIONS = {
   hepatic: [410, 40, 800, 340],     // hepatic veins, IVC, right atrium
   heart: [440, -20, 800, 300],
   varices: [540, -20, 980, 360],
+  gej: [710, 120, 920, 480],        // lower esophagus, the gastroesophageal junction and the coronary vein feeding it
+  feeder: [620, 110, 930, 600],     // the varices down the coronary vein to the portal confluence
   spleen: [840, 240, 1120, 580],
   rectum: [560, 600, 1020, 960],    // inferior mesenteric to the rectal and iliac veins
   wall: [380, 330, 760, 880],       // paraumbilical vein and the abdominal wall
