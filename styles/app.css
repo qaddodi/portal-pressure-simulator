@@ -1700,6 +1700,8 @@ button.finding:hover { background: var(--surface-2); }
 .pz-text.pz-enter > .pz-mon.pz-stay { animation: none; }
 .pz-kick { display: flex; align-items: center; gap: .55em; font: 600 clamp(13px, calc(1.75 * var(--pzh) / var(--vz)), 21px)/1.2 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--site, var(--text-3)); }
 .pz-kick[data-site="none"] { color: var(--text-3); }
+.pz-kick.pz-row { display: none; }
+.pz.stack :is(.pz-text, .pz-panel) .pz-kick.pz-row { display: flex; }
 .pz-kick i { width: .62em; height: .62em; border-radius: 50%; background: currentColor; flex: none; }
 .pz-sec { color: var(--text-3); font-weight: 500; white-space: nowrap; }
 .pz-h { margin: 0; font: 600 clamp(32px, calc(5.8 * var(--pzh) / var(--vz)), 70px)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }

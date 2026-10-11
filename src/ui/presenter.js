@@ -1125,7 +1125,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (!ui) return;
     const { text, panel, data } = ui;
     text.classList.remove('pz-leave');   // (the panel's own is let go once its new content is in, so it never fades back in with the old)
-    const kick = (site, words, sec) => h('div', { class: 'pz-kick', 'data-site': site || 'none' }, h('i'), sec ? h('span', { class: 'pz-sec' }, `${sec[0]} of ${sec[1]} ·`) : null, h('span', { class: 'pz-kw' }, words));
+    // (No kicker words above the title: an empty row that only a phone shows, as the line its controls sit on; see placeBar.)
+    const kick = (site) => h('div', { class: 'pz-kick pz-row', 'data-site': site || 'none' });
     if (s.visual) {
       text.hidden = true; text.replaceChildren();
       // A panel that was not there fades in (never pops): unhidden while still faded, then let go.
