@@ -52,18 +52,18 @@
 
 import { CIRCULATION } from './decks/circulation.js?v=2a4933aaca';
 import { SITES } from './decks/sites.js?v=e6725267ed';
-import { HVPG } from './decks/hvpg.js?v=5dc6e4727a';
+import { HVPG } from './decks/hvpg.js?v=eebb300362';
 import { ASCITES } from './decks/ascites.js?v=ab387e4e41';
-import { VARICES } from './decks/varices.js?v=1ad248e26a';
+import { VARICES } from './decks/varices.js?v=b59826fd9d';
 import { TREATMENT } from './decks/treatment.js?v=b41068a34b';
-import { STIFFNESS } from './decks/stiffness.js?v=482ab70b54';
-import { ONE_YEAR } from './decks/one-year.js?v=7373f5f35c';
-import { LOBULE } from './decks/lobule.js?v=0e9af59367';
+import { STIFFNESS } from './decks/stiffness.js?v=5af1f9f4cd';
+import { ONE_YEAR } from './decks/one-year.js?v=ec5a8eef62';
+import { LOBULE } from './decks/lobule.js?v=b2d5bb00f4';
 import { SHUNTS } from './decks/shunts.js?v=435d87fb98';
 import { TAP } from './decks/tap.js?v=84efd8f032';
 import { CIRCUIT } from './decks/circuit.js?v=344ea65d37';
-import { DOPPLER } from './decks/doppler.js?v=0f053780b5';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=5a44434020';
+import { DOPPLER } from './decks/doppler.js?v=ae469f884a';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=02a9360021';
 import { PREHEPATIC } from './decks/prehepatic.js?v=101414c6b1';
 import { RIGHT_HEART } from './decks/right-heart.js?v=b0ba83da2b';
 import { BLEED } from './decks/variceal-bleed.js?v=646e098b15';
@@ -121,8 +121,8 @@ DECKS.push(TWO_INFLOWS, PVT_CIRRHOSIS, SPLEEN, NCPH, OUTFLOW, RECOMPENSATION);
 export const TOPICS = [
   ['foundations', 'Foundations', [['circulation', 'The portal circulation'], ['circuit', 'Pressure, flow and resistance'], ['two-inflows', 'The liver\'s two inflows']]],
   ['causes', 'Causes', [['sites', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH'], ['ncph', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver'], ['outflow', 'When the liver cannot drain'], ['lobule', 'Inside the lobule']]],
-  ['measuring', 'Measuring', [['hvpg', 'HVPG and PPG'], ['doppler', 'Doppler of the portal system'], ['endoscopy', 'Endoscopy and the varix'], ['stiffness', 'Stiffness, spleen and platelets'], ['one-year', 'One patient, one year']]],
-  ['complications', 'Complications', [['varices', 'Collaterals and varices'], ['variceal-bleed', 'Acute variceal bleeding'], ['ascites', 'Where ascites comes from'], ['tap', 'The tap and the albumin'], ['spleen', 'The spleen: size and treatment'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis'], ['recompensation', 'Decompensation and recovery']]],
+  ['measuring', 'Measuring', [['hvpg', 'HVPG and PPG'], ['doppler', 'Doppler of the portal system'], ['stiffness', 'Stiffness, spleen and platelets'], ['one-year', 'One patient, one year']]],
+  ['complications', 'Complications', [['varices', 'Collaterals and varices'], ['endoscopy', 'Endoscopy and the varix'], ['variceal-bleed', 'Acute variceal bleeding'], ['ascites', 'Where ascites comes from'], ['tap', 'The tap and the albumin'], ['spleen', 'The spleen: size and treatment'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis'], ['recompensation', 'Decompensation and recovery']]],
   ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure'], ['shunts', 'Shunts, made and spontaneous']]],
 ];
 for (const [topic, , list] of TOPICS) for (const [id, short] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short }); }
