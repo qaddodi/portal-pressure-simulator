@@ -429,15 +429,34 @@ void main() {
         if ((conn & (1 << s)) == 0 || (int(sflag[s] + 0.5) & ${F_DOTTED}) != 0) continue;
         float L2 = max(T(sid[s], 5).z, 1.0), ext = max(0.0, max(-su[s], su[s] - 1.0)) * L2;
         float wv = exp(-max(sd[s] - sd[ow], 0.0) / tb) * (s == ow ? 1.0 : pres[s]) * (1.0 - smoothstep(0.0, 1.1 * sr[s] + 1.5, ext)) + 1e-4;
+        for (int t = 0; t < MAXS; t++) if ((conn & (1 << t)) != 0 && t != s) wv *= 1.0 - tin[t];   // inside the trunk, its stream
         if (wv > w1) { w2 = w1; o2 = o1; w1 = wv; o1 = s; }
         else if (wv > w2) { w2 = wv; o2 = s; }
       }
       if (o1 < 0) { o1 = ow; o2 = -1; }
-      int id = sid[o1];
-      gId = uint(id + 1); gS = su[o1] * T(id, 5).z; gY = clamp(sx[o1] / max(sr[o1], 1e-3), -1.0, 1.0); gW = lumA;
-      gId2 = 0u; gB = 0.0;
-      if (o2 >= 0 && w2 > 0.01 * w1) {
-        gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = w2 / (w1 + w2);
+      // Where a copy of a lower tier's vessel (a trunk under the veins that end on it) leads, it adds to
+      // the lumen that tier already showed and keeps its stream: the blood and chevrons run on at full
+      // strength across the join instead of fading to what the copy alone covers or switching streams
+      // where the copy fades out.
+      bool lower = stier[o1] != tt && gId > 0u;
+      if (lower) {
+        bool same = false;
+        for (int s = 0; s < MAXS; s++) if ((conn & (1 << s)) != 0 && uint(sid[s] + 1) == gId) same = true;
+        lower = same;
+      }
+      if (lower) {
+        gW = min(1.0, lumA + gW * (1.0 - c.a * gf));
+        // Toward a vein of this tier, its stream joins in as it does from the vein's side.
+        if (o2 >= 0 && stier[o2] == tt && w2 > 0.01 * w1) {
+          gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = w2 / (w1 + w2);
+        }
+      } else {
+        int id = sid[o1];
+        gId = uint(id + 1); gS = su[o1] * T(id, 5).z; gY = clamp(sx[o1] / max(sr[o1], 1e-3), -1.0, 1.0); gW = lumA;
+        gId2 = 0u; gB = 0.0;
+        if (o2 >= 0 && w2 > 0.01 * w1) {
+          gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = w2 / (w1 + w2);
+        }
       }
     } else gW *= 1.0 - c.a * gf;
     if (grp == 0) { c *= 1.0 - occl; accB = over(c, accB); }
