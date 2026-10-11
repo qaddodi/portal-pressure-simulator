@@ -31,7 +31,7 @@ import { SLOT, DYE_BINS } from './blood.js?v=6c39f43ddf';
 export const N_SAMPLES = 64;
 export const FLOW_TEXELS = 3;          // per-vessel blood: see stage.js (syncBlood)
 const SLOT_W = SLOT;
-export const TUBE_TEXELS = 10;         // texels of per-vessel attributes (see the layout below)
+export const TUBE_TEXELS = 12;         // texels of per-vessel attributes (see the layout below)
 export const MAX_TIERS = 20;
 const S_OFF = 96;                      // arc length is stored offset by this, so it can run on past a vessel's start
 export const ORIGIN_GREY = 0.62;       // the lumen's color while the blood is colored by origin
@@ -70,7 +70,9 @@ void main() {
 //   6: congestion glow color (rgb), streak course length (world)
 //   7: flow streaks: phase at the upstream end, spacing (world), direction (±1, from → to), strength (0 off)
 //   8: a stretch recolored (the HVPG's wedged vein): color (rgb), amount (0 none)
-//   9: that stretch along the vessel (0–1): from, to; its soft edge (world); hover glow (0–1)
+//   9: that stretch along the vessel (0–1): from, to; its soft edge (world); hover (0–1: the lumen a little brighter)
+//  10: glow (a hovered, focused or highlighted vessel): color (rgb), amount (0 none)
+//  11: the glow's fade at the start, at the end (world; 0: runs on into the next glowing vessel); 1: its own color
 const FS = `#version 300 es
 precision highp float;
 precision highp int;
@@ -241,13 +243,18 @@ void main() {
     float gv = 0.58 * (1.0 - smoothstep(hw - 12.0, hw + 12.0, x)) * sheat[s] * sa[s];
     if (gv > glow.a) glow = vec4(shcol[s] * gv, gv);
   }
-  // ── Hover: a soft halo in the vessel's own colour, just outside its wall (under the network) ──
+  // ── Glow: one thin soft band hugging a lit vessel's wall on both sides (under the network), fading to nothing
+  // at a free end. Every highlight (hover, a slide's or step's vessels, the Doppler's) is this band, in its colour.
   for (int s = 0; s < MAXS; s++) {
-    if (s >= n || shov[s] <= 0.0) continue;
-    float e = sd[s] - swall[s];
-    float Lh = max(T(sid[s], 5).z, 1.0), ends = min(su[s], 1.0 - su[s]) * Lh;   // tapers off toward both ends, never a blunt cap
-    float gv = 0.8 * shov[s] * sa[s] * smoothstep(-0.5, 1.0, e) * (1.0 - smoothstep(1.0, 13.0, e)) * smoothstep(-6.0, 14.0, ends);
-    if (gv > glow.a) glow = vec4(scol[s] * gv, gv);
+    if (s >= n) continue;
+    vec4 gc = T(sid[s], 10);
+    if (gc.a <= 0.0) continue;
+    vec4 ge = T(sid[s], 11);
+    float e = sd[s] - swall[s], Lh = max(T(sid[s], 5).z, 1.0);
+    float ends = (ge.x > 0.0 ? smoothstep(0.0, ge.x, su[s] * Lh) : 1.0) * (ge.y > 0.0 ? smoothstep(0.0, ge.y, (1.0 - su[s]) * Lh) : 1.0);
+    float fall = 1.0 - smoothstep(0.0, 6.5, e);
+    float gv = 0.45 * gc.a * sa[s] * smoothstep(-0.6, 0.6, e) * fall * fall * ends;
+    if (gv > glow.a) glow = vec4((ge.z > 0.5 ? scol[s] : gc.rgb) * gv, gv);
   }
 
   // ── Hand-off at a join across tiers ──

@@ -228,10 +228,6 @@ svg { flex: none; }
 .lb-mod-act { fill: var(--accent-ink); }
 .lb-lane { fill: var(--text-3); font-style: italic; }
 
-.focus-ring { fill: var(--accent); stroke: none; pointer-events: none; animation: pz-fade .6s var(--ease) both; }
-.focus-ring.flat { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; }
-.focus-halo { opacity: .2; }
-.focus-core { opacity: .3; }
 .focus-out { pointer-events: none; animation: focusOut .45s var(--ease) both; }
 @keyframes focusOut { to { opacity: 0; } }
 
@@ -1658,8 +1654,6 @@ button.finding:hover { background: var(--surface-2); }
 .dock-body.split { overflow-y: auto; }
 .dock-body.split .dock-pane { position: relative; inset: auto; overflow: visible; }
 .dock-body.split .dock-pane + .dock-pane { border-top: 1px solid var(--hairline); }
-.flash-ring { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; animation: flashRing 1.6s var(--ease) forwards; pointer-events: none; }
-@keyframes flashRing { 0% { stroke-opacity: 0; } 15% { stroke-opacity: .5; } 100% { stroke-opacity: 0; } }
 .app-menu { width: 280px; }
 
 /* The readout strip is for when the chart isn't beside the figure. */
@@ -1850,14 +1844,9 @@ button.finding:hover { background: var(--surface-2); }
 .app.presenting .big-overlay, .app.presenting .projector-exit, .app.presenting #stageCenter { display: none; }
 .app.presenting #stageView { z-index: 0; transition: opacity .6s var(--ease); }   /* its own layer, so the slide's shade can lie over it and under the credit */
 .app.presenting #stageView.pz-out { opacity: .22; transition-duration: .42s; }
-.app.presenting .focus-ring { fill: var(--danger); }
-.app.presenting .focus-ring.flat { fill: none; stroke: var(--danger); }
 .app.presenting #labels .lb.focus .lb-bg { fill: var(--danger); }
 .app.presenting #labels .leader.focus { stroke: var(--danger); }
-/* Marks by kind (a slide's marks: [{ kind }]): block is the danger red above, treat the accent, note plain ink. */
-.app.presenting .focus-ring.k-treat { fill: var(--accent); } .app.presenting .focus-ring.flat.k-treat { fill: none; stroke: var(--accent); }
-/* A note is a pointer only: its vessel glows in its station's colour (the slide's glow), not a grey ribbon. */
-.app.presenting .focus-ring.k-note { display: none; }
+/* Marks by kind (a slide's marks: [{ kind }]): block is the danger red above, treat the accent, note plain ink (their vessels glow in stage.js). */
 .app.presenting #labels .lb.focus.k-treat .lb-bg { fill: var(--accent); } .app.presenting #labels .leader.focus.k-treat { stroke: var(--accent); }
 .app.presenting #labels .lb.focus.k-note .lb-bg { fill: var(--surface); stroke: var(--text-2); stroke-width: 1; } .app.presenting #labels .lb.focus.k-note text { fill: var(--text); }
 .app.presenting #labels .leader.focus.k-note { stroke: var(--text-2); }
@@ -3710,15 +3699,6 @@ button.finding:hover { background: var(--surface-2); }
 .text-size button:disabled { opacity: .35; cursor: default; }
 
 /* The Doppler's vessel on the figure: a steady green glow and a thin green edge. */
-.dop-mark { pointer-events: none; opacity: 0; transition: opacity .36s var(--ease); }
-.dop-mark.on { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .dop-mark { transition: none; } }
-.dop-glow { fill: none; stroke: var(--doppler); stroke-opacity: .7; stroke-linecap: butt; stroke-linejoin: round; }
-.dop-edge { fill: none; stroke: var(--doppler); stroke-opacity: .95; stroke-linecap: butt; stroke-linejoin: round; }
-.pg-mark { pointer-events: none; opacity: 0; transition: opacity .5s var(--ease); }
-.pg-mark.on { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .pg-mark { transition: none; } }
-.pg-glow { fill: var(--pg); fill-opacity: .85; stroke: none; }
 .instrument-workspace .dock-title.dop-on .dt-l::before { content: ''; display: inline-block; width: 8px; height: 8px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--doppler); box-shadow: 0 0 0 3px color-mix(in srgb, var(--doppler) 22%, transparent); vertical-align: middle; }
 
 /* ── Polish pass: play bar, phone chrome, card leader, sheets, sliders ── */
@@ -3780,11 +3760,6 @@ input[type="range"] { touch-action: none; }
 }
 
 /* After a change: the vessels whose pressure moved glow briefly behind their tubes (warm up, cool down). */
-.delta-glow { fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; opacity: 0; filter: blur(4px); animation: deltaGlow 1.7s var(--ease) forwards; }
-.delta-glow.up { stroke: color-mix(in srgb, #E8633A 70%, transparent); }
-.delta-glow.down { stroke: color-mix(in srgb, #3A8DE8 70%, transparent); }
-@keyframes deltaGlow { 0% { opacity: 0; } 25% { opacity: .6; } 60% { opacity: .45; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .delta-glow { display: none; } }
 
 /* ── Timeline and readouts, readable at a glance ──────────────────
    The timeline names its latest event beside the clock and keeps every change and event behind

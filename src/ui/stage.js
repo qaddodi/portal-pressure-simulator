@@ -6,11 +6,11 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=5edd069b32';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=045e641b44';
-import { createLobuleZoom } from './lobule-zoom.js?v=3b5eab51c6';
+import { createLobuleZoom } from './lobule-zoom.js?v=343fa58d77';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=20395274c8';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=3e3c7f77c1';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -363,8 +363,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <pattern id="texRugae" width="40" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(-38)"><path class="tex" d="M0 6c7-4 13 4 20 0s13-4 20 0"/></pattern>
     <pattern id="texLobules" width="14" height="12" patternUnits="userSpaceOnUse"><path class="tex" d="M1 6a6 5 0 0 1 12 0M-6 12a6 5 0 0 1 12 0M8 12a6 5 0 0 1 12 0"/></pattern>
     <pattern id="texMuscle" width="30" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(24)"><path class="tex" d="M0 5c8-3 22 3 30 0"/></pattern>
-    <filter id="focusHalo" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
-    <filter id="focusCore" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
     <filter id="heatBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
     <pattern id="mapGrid" width="20" height="20" patternUnits="userSpaceOnUse"><circle class="map-dot" cx="10" cy="10" r=".9"/></pattern>`;
   svg.append(defs);
@@ -930,156 +928,67 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     balloons: s('g'), bands: s('g'),
   };
   Object.values(ov).forEach((g) => gOver.append(g));
-  // The Doppler's vessel: a steady green glow and a thin green edge around it while the Doppler
-  // instrument is open. The vessel's middle is masked out, so its pressure colour shows through
-  // (the GPU draws the vessels under this layer).
-  function makeMark(key, cls, { band: bandW = 60, glow: glowW = 18, edge: edgeW = 5, blur: blurSd = 5 } = {}) {
-    const g = s('g', { class: `${cls}-mark`, 'aria-hidden': 'true' });
-    const BIG = { x: -4000, y: -4000, width: 12000, height: 12000 };
-    // The mask: a wide band along the vessel that fades in from each end (open ends, no caps), with
-    // the vessel itself cut out so its pressure colour shows through.
-    const fade = s('linearGradient', { id: `${key}-fade`, gradientUnits: 'userSpaceOnUse' });
-    for (const [o, a] of [[0, 0], [0.18, 1], [0.82, 1], [1, 0]]) fade.append(s('stop', { offset: o, 'stop-color': '#fff', 'stop-opacity': a }));
-    const band = s('path', { fill: 'none', stroke: `url(#${key}-fade)`, 'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
-    const knock = s('path', { fill: 'none', stroke: '#000', 'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
-    const mask = s('mask', { id: `${key}-knock`, maskUnits: 'userSpaceOnUse', ...BIG });
-    mask.append(band, knock);
-    // The blur works in user space: a straight vessel's own box has no height, which would clip it.
-    const blur = s('filter', { id: `${key}-blur`, filterUnits: 'userSpaceOnUse', ...BIG });
-    blur.append(s('feGaussianBlur', { stdDeviation: blurSd }));
-    const defs = s('defs');
-    defs.append(fade, mask, blur);
-    const glow = s('path', { class: `${cls}-glow`, filter: `url(#${key}-blur)` });
-    const glowG = s('g', { mask: `url(#${key}-knock)` });
-    const edge = s('path', { class: `${cls}-edge` });
-    glowG.append(glow, edge);
-    g.append(defs, glowG);
-    g.style.display = 'none';
-    gOver.prepend(g);
-    return {
-      id: null, g,
-      paint(d, w) {
-        for (const el of [band, knock, glow, edge]) el.setAttribute('d', d);
-        const n = d.match(/-?\d*\.?\d+(?:e-?\d+)?/g);
-        if (n && n.length >= 4) {
-          fade.setAttribute('x1', n[0]); fade.setAttribute('y1', n[1]);
-          fade.setAttribute('x2', n[n.length - 2]); fade.setAttribute('y2', n[n.length - 1]);
-        }
-        band.setAttribute('stroke-width', (w + bandW).toFixed(1));
-        knock.setAttribute('stroke-width', (w + 0.5).toFixed(1));
-        edge.setAttribute('stroke-width', (w + edgeW).toFixed(1));
-        glow.setAttribute('stroke-width', (w + glowW).toFixed(1));
-      },
-    };
+  // ── Vessel glow: one engine for every highlight ──
+  // Hover, a slide's glows, a step's focus, the Doppler's vessel and a change in pressure all light a vessel the same
+  // way: a thin soft band hugging its live wall on both sides, fading to nothing at a free end, drawn by the GPU with
+  // the vessels (veins-gl.js, tube rows 10 and 11). It follows every move and pulse for free: no blur, no mask, no
+  // outline to rebuild. Each source asks for vessels in a colour (null: the vessel's own); a vessel several sources
+  // light takes the colour of the last in GLOW_RANK. Each eases in and out on its own, so a change cross-fades.
+  const GLOW_RANK = ['hover', 'flash', 'delta', 'dop', 'slide', 'focus'];
+  const glow = { src: new Map(), lit: new Map(), raf: 0, t: 0 };
+  /** list: [{ id, col (a CSS colour, or null), amt (strength, 1 by default), at (ms to wait before easing in) }] */
+  function setGlowSrc(src, list) {
+    glow.src.set(src, new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, g])));
+    const want = new Map();
+    for (const k of GLOW_RANK) for (const [id, g] of glow.src.get(k) || []) want.set(id, g);
+    // Which ends fade: an end that meets another vessel glowing in the same colour runs on into it; one that meets
+    // another colour fades over a few units, so the two meet softly; a free end fades over a fifth of the vessel.
+    const nodes = new Map();
+    for (const [id, g] of want) for (const n of [E[id].e.from, E[id].e.to]) { if (!nodes.has(n)) nodes.set(n, []); nodes.get(n).push(g.col ?? ''); }
+    const now = performance.now();
+    for (const [id, g] of want) {
+      const len = Math.max(1, geo[id]?.len || 60), key = g.col ?? '';
+      const endOf = (n) => { const t = nodes.get(n); return t.length < 2 ? 0.22 * len : t.every((v) => v === key) ? 0 : Math.min(0.3 * len, 16); };
+      let l = glow.lit.get(id);
+      if (!l) { l = { v: 0, to: 0, col: g.col, from: null, cu: 1, end: null }; glow.lit.set(id, l); }
+      if (!l.to) l.start = now + (g.at || 0);
+      if (l.col !== g.col) { l.from = l.v > 0 && l.col && l.rgb ? l.rgb : null; l.cu = l.from ? 0 : 1; l.col = g.col; }
+      l.to = 1; l.amt = g.amt ?? 1; l.dur = (g.dur || 450) / 1000;
+      l.endT = [endOf(E[id].e.from), endOf(E[id].e.to)];
+      if (!l.end || l.v <= 0) l.end = [...l.endT];
+    }
+    for (const [id, l] of glow.lit) if (!want.has(id)) l.to = 0;
+    if (!glow.raf) { glow.t = now; glow.raf = requestAnimationFrame(glowStep); }
   }
-  const dop = makeMark('dop', 'dop');
-  // The glow eases in and out (opacity, .dop-mark in app.css); it is hidden only once faded out.
+  function glowStep(now) {
+    const dt = Math.min(0.1, (now - glow.t) / 1000); glow.t = now;
+    let moving = false;
+    for (const [id, l] of glow.lit) {
+      if (l.to && now < l.start) { moving = true; continue; }
+      const k = reduceMotion.matches ? 1 : dt / l.dur;
+      l.v = l.to > l.v ? Math.min(1, l.v + k) : Math.max(0, l.v - k);
+      l.cu = Math.min(1, l.cu + k);
+      for (const i of [0, 1]) { const d = l.endT[i] - l.end[i]; l.end[i] = Math.abs(d) < 0.5 ? l.endT[i] : l.end[i] + d * Math.min(1, k * 2); }
+      if (l.v <= 0 && !l.to) glow.lit.delete(id);
+      else if (l.v !== l.to || l.cu < 1 || l.end[0] !== l.endT[0] || l.end[1] !== l.endT[1]) moving = true;
+    }
+    syncVeins(easeInOut(morph));
+    glow.raf = moving ? requestAnimationFrame(glowStep) : 0;
+  }
+  // The Doppler's vessel glows in the Doppler's green while its instrument is open.
+  const dop = { id: null, want: null, pin: null };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
     if (id === dop.id) return;
     dop.id = id;
-    clearTimeout(dop.t);
-    if (id) {
-      const x = E[id], d = x.wall.getAttribute('d'); if (d) dop.paint(d, x.dopW || 8);
-      dop.g.style.display = '';
-      requestAnimationFrame(() => dop.id === id && dop.g.classList.add('on'));
-    } else {
-      dop.g.classList.remove('on');
-      dop.t = setTimeout(() => { if (!dop.id) dop.g.style.display = 'none'; }, 400);
-    }
+    setGlowSrc('dop', id ? [{ id, col: 'var(--doppler)', amt: 1.2, dur: 360 }] : []);
   }
-  // A presenter slide's glows (glow: [...] and its terms' vessels): the Doppler's mark, one per vessel, in the
-  // station's own colour (--pg). Each eases in and out on its own, so a change of slide cross-fades.
-  const pg = new Map();   // edge id → mark
-  // Built from the course and caliber the GPU actually draws (its smoothed course where vessels run on into each
-  // other, and its tapering radius plus wall), so it hugs the live wall on both sides: a soft band just outside the
-  // wall, the vessel itself cut out so its own colour shows through. It fades to nothing only at the ends of a
-  // glowing run: where the next glowing vessel carries on (SMV into the portal vein), the band runs on unbroken.
-  let pgN = 0;
-  // Cheap to keep up: the band and its cut-out are only rebuilt when the vessel has moved or changed caliber by more
-  // than a hair (the band is soft and the cut sits inside the wall, so a lag that small never shows), so a still or
-  // gently pulsing vessel does not re-blur every frame. The cut-out is a mask (black lumens on white), so where
-  // vessels overlap at a junction their lumens simply add up (a clip with holes would flip back in the overlap and
-  // leave rings and dots); its region is only the glow's own box, never the whole screen.
-  function makeGlow(id) {
-    const key = `pg${++pgN}`, g = s('g', { class: 'pg-mark', 'aria-hidden': 'true' });
-    const mask = s('mask', { id: `${key}-k`, maskUnits: 'userSpaceOnUse' });
-    const all = s('rect', { fill: '#fff' }), cut = s('path', { fill: '#000' });
-    mask.append(all, cut);
-    const blur = s('filter', { id: `${key}-b`, x: '-20%', y: '-20%', width: '140%', height: '140%' });
-    blur.append(s('feGaussianBlur', { stdDeviation: 1.8 }));
-    const defs = s('defs'); defs.append(mask, blur);
-    // The mask goes on a wrapper, so it cuts the blurred band (on the path itself it would apply before the blur).
-    const glow = s('path', { class: 'pg-glow', filter: `url(#${key}-b)` }), held = s('g', { mask: `url(#${key}-k)` });
-    held.append(glow); g.append(defs, held); g.style.display = 'none'; gOver.prepend(g);
-    let lastPts = null, lastKey = '', lit = null;
-    const moved = (pts) => {
-      if (!lastPts || lastPts.length !== pts.length) return true;
-      for (let i = 0; i < pts.length; i++) if (Math.abs(pts[i][0] - lastPts[i][0]) > 0.35 || Math.abs(pts[i][1] - lastPts[i][1]) > 0.35) return true;
-      return false;
-    };
-    // Where a glowing vessel meets others (its own run, or a branch at the same junction), those vessels are cut
-    // out too, so the band never lies across a neighbour's lumen.
-    const cutOf = (o) => {
-      const p = o.glPts || geo[o.e.id]?.cur, rOf = o.rOf || (() => (o.dopW || o.width || 8) / 2);
-      return p?.length > 1 ? tubeOutline(p, litNormals(p), (u) => Math.max(0.5, rOf(u) - 0.4)) : '';
-    };
-    let lastNb = [];
-    // ends: per end, 'fade' (a free end: the band tapers to nothing over a fifth of the vessel), 'join' (the same
-    // colour runs on into the next vessel: no taper) or 'blend' (another colour carries on: the band thins and
-    // fades over the last few units, so the two colours meet softly at the junction, no hard cap or overlap).
-    const m = { id, g, ends: ['fade', 'fade'], nb: [], paint() {
-      const q = geo[id], x = E[id];
-      if (!q?.cur || q.cur.length < 2 || !x) return;
-      // The course the GPU draws this vessel along (smoothed at run-on joins), else the live one.
-      const pts = x.glPts || q.cur;
-      const rOf = x.rOf || (() => (x.dopW || x.width || 8) / 2), wall = x.wallPx || 1;
-      const nb = m.nb.filter((o) => o.vis), nbPts = nb.map((o) => o.glPts);
-      const k = `${x.shadeKey}|${wall}|${m.ends}|` + nb.map((o) => o.e.id + o.shadeKey).join();
-      if (k === lastKey && nbPts.every((p, i) => p === lastNb[i]) && (pts === lastPts || !moved(pts))) return;
-      lastPts = pts; lastKey = k; lastNb = nbPts; lit = litNormals(pts);
-      const len = Math.max(1, arcLen(pts)), BL = Math.min(0.3, 16 / len);
-      const end = (mode, v) => (mode === 'join' ? 1 : mode === 'blend' ? smooth01(v / BL) : smooth01(v / 0.22));
-      const taper = (u) => end(m.ends[0], u) * end(m.ends[1], 1 - u);
-      glow.setAttribute('d', tubeOutline(pts, lit, (u) => (rOf(u) + wall + 4) * taper(u) + 0.01));
-      cut.setAttribute('d', tubeOutline(pts, lit, (u) => Math.max(0.5, rOf(u) - 0.4)) + nb.map(cutOf).join(''));
-      // The mask covers the band and its blur, nothing more.
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (const [px, py] of pts) { x0 = Math.min(x0, px); y0 = Math.min(y0, py); x1 = Math.max(x1, px); y1 = Math.max(y1, py); }
-      const pad = rOf(0.5) + wall + 20, box = { x: x0 - pad, y: y0 - pad, width: x1 - x0 + 2 * pad, height: y1 - y0 + 2 * pad };
-      for (const el of [mask, all]) for (const [a, v] of Object.entries(box)) el.setAttribute(a, v.toFixed(1));
-    } };
-    return m;
-  }
-  function setGlow(list) {
-    const want = new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, { tone: g.tone || 'accent', at: g.at }]));
-    for (const [id, m] of pg) if (!want.has(id) && m.on) {
-      m.on = false; m.g.style.transitionDelay = ''; m.g.classList.remove('on');
-      clearTimeout(m.t); m.t = setTimeout(() => { if (!m.on) { m.g.remove(); pg.delete(id); } }, 450);
-    }
-    // Which ends fade: an end that meets another glowing vessel runs on into it instead.
-    const nodes = new Map();
-    for (const [id, { tone }] of want) for (const n of [E[id].e.from, E[id].e.to]) { if (!nodes.has(n)) nodes.set(n, []); nodes.get(n).push(tone); }
-    for (const [id, { tone }] of want) {
-      let m = pg.get(id);
-      if (!m) { m = makeGlow(id); pg.set(id, m); }
-      const { from, to } = E[id].e;
-      const mode = (n) => { const t = nodes.get(n); return t.length < 2 ? 'fade' : t.every((v) => v === tone) ? 'join' : 'blend'; };
-      m.ends = [mode(from), mode(to)];
-      m.nb = Object.values(E).filter((o) => o.e.id !== id && !o.isArt && [o.e.from, o.e.to].some((n) => n === from || n === to));
-      clearTimeout(m.t); m.on = true;
-      m.g.style.setProperty('--pg', tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
-      const x = E[id]; m.paint();
-      m.g.style.display = x.vis ? '' : 'none';
-      // (A glow in a sequence waits its turn: at, ms. It goes without waiting.)
-      m.g.style.transitionDelay = m.g.classList.contains('on') ? '' : `${want.get(id).at || 0}ms`;
-      requestAnimationFrame(() => m.on && m.g.classList.add('on'));
-    }
-  }
-  // The hovered vessel glows softly in its own colour, drawn on the GPU along its live course and
-  // width (the rest of the network stays as it is). Each vessel's glow eases in and out on its own,
-  // so moving from one vessel to the next cross-fades.
+  // A presenter slide's glows (glow: [...] and its terms' vessels), each in its station's colour.
+  const toneCol = (tone) => (tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
+  function setGlow(list) { setGlowSrc('slide', (list || []).map((g) => ({ id: g.id, col: toneCol(g.tone || 'accent'), at: g.at, dur: 500 }))); }
+  // The hovered vessel glows softly in its own colour (and its lumen brightens a little, vh: tube row 9).
+  // Each vessel's brightening eases in and out on its own, so moving from one vessel to the next cross-fades.
   const vh = { id: null, amt: new Map(), raf: 0, t: 0 };
 
   // ── View transform (pan / zoom) ───────────────────
@@ -1760,12 +1669,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       g.len = arcLen(pts);
       const d = t === 1 ? g.dC : polyD(pts);
       x.halo.setAttribute('d', d); x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.hit.setAttribute('d', d);
-      if (dop.id === x.e.id) dop.paint(d, x.dopW || 8);
       x.shadow.setAttribute('d', d);
       if (x.heat) x.heat.setAttribute('d', d);
       if (x.lumen) x.lumen.setAttribute('d', d);
       g.lit = litNormals(pts);
-      pg.get(x.e.id)?.paint();
       x.shadeKey = '';
       const a = pts[0], b = pts[pts.length - 1];
       x.grad.setAttribute('x1', a[0]); x.grad.setAttribute('y1', a[1]);
@@ -2030,8 +1937,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       cls(x, 'is-sel', selOn);
       if (selOn) setA(x.sel, 'stroke-width', (w + 12).toFixed(1));
       x.dopW = w;
-      if (dop.id === e.id) { const d = x.wall.getAttribute('d'); if (d) dop.paint(d, w); dop.g.style.display = x.vis ? '' : 'none'; }
-      { const m = pg.get(e.id); if (m) { m.paint(); m.g.style.display = x.vis ? '' : 'none'; } }
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
@@ -2547,10 +2452,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (tint) tubeData.set([...toRGB(cathTint.col, cs), 1, tint[0], tint[1], cathTint.soft, 0], o + 32);
       const hov = kind === 'v' && vh.amt.get(id);
       if (hov) tubeData[o + 39] = easeInOut(hov);
+      if (kind === 'v') {
+        const l = glow.lit.get(id), v = l ? easeInOut(Math.max(0, l.v)) * l.amt : 0;
+        if (v > 0) {
+          if (l.col) { const c = toRGB(l.col, cs); l.rgb = l.from && l.cu < 1 ? mix3(l.from, c, easeInOut(l.cu)) : c; }
+          tubeData.set([...(l.col ? l.rgb : [0, 0, 0]), v, l.end[0], l.end[1], l.col ? 0 : 1, 0], o + 40);
+        } else tubeData.fill(0, o + 40, o + 48);
+      }
     }
     veins.setTubes(tubeData);
     vLook = {
-      shOff: [1.4, 2.8], light: LIGHT, reach: heat ? 40 : vh.amt.size ? 16 : 11, heat, organs: 1 - T0,
+      shOff: [1.4, 2.8], light: LIGHT, reach: heat ? 40 : 11, heat, organs: 1 - T0,
       casing: [...cssTriplet(cs, '--casing-rgb'), cssNum(cs, '--casing-a', 0.56)],
       shadow: [...cssTriplet(cs, '--shadow-rgb'), cssNum(cs, '--shadow-a', 0.15)],
       sheen: [...toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42)],
@@ -2814,9 +2726,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // without a sweep across the whole figure.
   const gHalo = s('g', { id: 'halos', 'aria-hidden': 'true' });
   gOver.after(gHalo);
-  const gGlow = s('g', { id: 'deltaGlow', 'aria-hidden': 'true' });
-  gFocus.after(gGlow);
-  let haloBase = null, haloTimer = 0;
+  let haloBase = null, haloTimer = 0, deltaT = 0;
   // Opening or resuming the app restores parameters and the model settles; that is not a change to explain.
   let resumedAt = 0;
   document.addEventListener('visibilitychange', () => { resumedAt = performance.now(); });
@@ -2835,7 +2745,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (haloBase) clearTimeout(haloBase.timer);
     haloBase = null;
     clearTimeout(haloTimer);
-    gHalo.replaceChildren(); gGlow.replaceChildren();
+    gHalo.replaceChildren(); setGlowSrc('delta', []);
   }
   store.on('presetId', dropHalos);
   store.on('view', dropHalos);
@@ -2861,13 +2771,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (Math.abs(d) >= 2) glows.push([x, d]);
     }
     glows.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-    gGlow.replaceChildren(...glows.slice(0, 16).map(([x, d]) => s('path', { class: 'delta-glow ' + (d > 0 ? 'up' : 'down'), d: x.wall.getAttribute('d'), 'stroke-width': ((x.width || 6) + 14).toFixed(1) })));
+    if (!reduceMotion.matches) setGlowSrc('delta', glows.slice(0, 16).map(([x, d]) => ({ id: x.e.id, col: d > 0 ? '#E8633A' : '#3A8DE8', amt: 0.8, dur: 420 })));
     gHalo.replaceChildren(...cand.slice(0, 3).map(([id, d]) => {
       const [x, y] = nodePos(id, t);
       return s('g', { class: 'halo ' + (d > 0 ? 'up' : 'down'), transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` },
         s('circle', { r: 16 }), s('text', { y: -24, 'text-anchor': 'middle' }, `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(Math.abs(d) < 10 ? 1 : 0)}`));
     }));
-    haloTimer = setTimeout(() => { gHalo.replaceChildren(); gGlow.replaceChildren(); }, 1700);
+    haloTimer = setTimeout(() => gHalo.replaceChildren(), 1700);
+    clearTimeout(deltaT); deltaT = setTimeout(() => setGlowSrc('delta', []), 1000);
   }
 
   // The organ outlines (selected, hovered) are drawn on the GPU with the figure, so a drag, pinch
@@ -3053,32 +2964,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   // Where a lesson step or case asks the learner to act.
+  let focusKey = '';
   function updateFocus() {
     const foc = store.get().focus;
-    // A presenter slide can hold several marks, each of a kind (block, treat, note: its colour, .focus-ring.k-*).
+    // A presenter slide can hold several marks, each of a kind (block, treat, note), each in its colour.
     const kindOf = new Map();
     for (const m of foc ? foc.marks || [foc] : []) for (const id of m.edges || []) if (!kindOf.has(id)) kindOf.set(id, m.kind || '');
     const ids = [...kindOf.keys()].filter((id) => E[id]?.vis);
-    const key = ids.map((id) => id + kindOf.get(id)).join(',') + '|' + ids.map((id) => E[id].width.toFixed(0)).join(',') + '|' + lastMorph;
-    if (gFocus._k === key) return;
-    gFocus._k = key;
-    // A soft feathered glow along the vessel: two blurred ribbons (a wide halo and a closer core) that
-    // taper to nothing at both ends, so there is no blunt cap. Eases in; the old glow fades out.
-    const taper = (u) => smooth01(u / 0.12) * smooth01((1 - u) / 0.12);
-    const glow = ids.map((id) => {
-      const g = geo[id], w = E[id].width / 2, k = kindOf.get(id) ? ` k-${kindOf.get(id)}` : '';
-      const ribbon = (c, r, blur, cls = c + k) => g?.cur?.length > 1 && g.lit
-        ? s('path', { class: cls, d: tubeOutline(g.cur, g.lit, (u) => (w + r) * taper(u) + 0.01), filter: `url(#${blur})` })
-        : s('path', { class: cls + ' flat', d: E[id].wall.getAttribute('d'), 'stroke-width': ((w + r) * 2).toFixed(1) });
-      return [ribbon('focus-ring focus-halo', 13, 'focusHalo'), ribbon('focus-ring focus-core', 5, 'focusCore')];
-    }).flat();
-    if (gFocus.childNodes.length) {
-      const old = s('g', { class: 'focus-out' });
-      old.append(...gFocus.childNodes);
-      gFocus.after(old);
-      setTimeout(() => old.remove(), 500);
-    }
-    gFocus.replaceChildren(...glow);
+    const presenting = !!store.get().presenting;
+    const key = ids.map((id) => id + kindOf.get(id)).join(',') + '|' + presenting;
+    if (focusKey === key) return;
+    focusKey = key;
+    // The glow (setGlowSrc): the accent; on a slide a block is the danger red, a treatment the accent, and a note
+    // only a pointer (its vessel glows in its station's colour, the slide's glow).
+    const col = (k) => (!presenting || k === 'treat' ? 'var(--accent)' : k === 'note' ? null : 'var(--danger)');
+    setGlowSrc('focus', ids.filter((id) => col(kindOf.get(id))).map((id) => ({ id, col: col(kindOf.get(id)), dur: 600 })));
   }
 
   function isReversed(e, f) {
@@ -5083,6 +4983,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const on = id && store.get().tool === 'select' && !shunt ? id : null;
     if (on === vh.id) return;
     vh.id = on;
+    setGlowSrc('hover', on ? vhEdges(on).map((id) => ({ id, col: null, amt: 0.8, dur: 280 })) : []);
     if (!vh.raf) { vh.t = performance.now(); vh.raf = requestAnimationFrame(vhStep); }
   }
   function vhStep(now) {
@@ -5745,10 +5646,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt, showFound,
     /** Briefly glow the given vessels (where a readout is measured). */
     flash(ids) {
-      const g = s('g', { class: 'flash' });
-      for (const id of ids) if (E[id]?.vis) g.append(s('path', { class: 'flash-ring', d: E[id].wall.getAttribute('d'), 'stroke-width': (E[id].width + 18).toFixed(1) }));
-      gFocus.after(g);
-      setTimeout(() => g.remove(), 1700);
+      setGlowSrc('flash', ids.filter((id) => E[id]?.vis).map((id) => ({ id, col: 'var(--accent)', dur: 380 })));
+      clearTimeout(glow.flashT); glow.flashT = setTimeout(() => setGlowSrc('flash', []), 1000);
     },
     edgeMid: (id) => (geo[id] ? pointAt(geo[id].cur, 0.5) : null),
     /** The drawn network's box on screen (px, in the figure), for placing cards beside it. */
