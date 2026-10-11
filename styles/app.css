@@ -2127,9 +2127,9 @@ button.finding:hover { background: var(--surface-2); }
 .pz-table th.num { text-align: center; }
 .pz-table td.rel[data-rate] { color: var(--text); }
 @media (max-width: 520px) { .pz-table th, .pz-table td { padding: .5em .35em; } .pz-table tbody th { padding-left: .7em; } .pz-table thead th { letter-spacing: .02em; } .pz-table tbody th .pz-kick { letter-spacing: .02em; } }
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .pz-table th, .pz-table td { padding: .5em .5em; }
-  /* A phone fits the table to its width, one compact line per row: the name (its site as a dot), the value columns,
+  /* A phone (and an upright tablet) fits the table to its width, one compact line per row: the name (its site as a dot), the value columns,
      then ascites as a narrow last column; a note goes on a small line under. The column heads stay in view.
      --nc: the number of value columns; --asc-w: the ascites column (0 when there is none). */
   .pz-table { overflow: clip; border-radius: 12px; }   /* (clip, not hidden: the heads still stick to the card) */
@@ -2295,12 +2295,20 @@ button.finding:hover { background: var(--surface-2); }
 @media (max-width: 359px) { .pz.stack .pz-bar .pzb-go:not(.pzb-next) { padding: 0; width: 44px; } .pz.stack .pz-bar .pzb-go:not(.pzb-next) .pzb-l { display: none; } }
 .pz.stack .pz-bar .pzb-n { flex: 1; text-align: center; }
 .pz.stack .pz-quadwrap { grid-template-columns: minmax(0, 1fr); }
-/* A tall tablet keeps the table's columns but tightens it to fit its width: smaller type, ascites on two lines. */
-@media (min-width: 768px) {
-  .pz.stack .pz-table table { font-size: clamp(14px, 2.3vw, 22px); }
-  .pz.stack .pz-table th, .pz.stack .pz-table td { padding: .5em .4em; }
-  .pz.stack .pz-table td.asc { white-space: normal; }
-  .pz.stack .pz-table td.asc .ap { white-space: nowrap; }   /* (it breaks between SAAG and protein, never inside one) */
+/* An upright tablet uses the phone's compact table (one line per row, no sideways scroll), drawn larger. */
+@media (min-width: 768px) and (max-width: 1100px) and (orientation: portrait) {
+  .pz-table table { font-size: 18px; }
+  .pz-table tr { grid-template-columns: minmax(10rem, 1.8fr) repeat(var(--nc, 7), minmax(0, 1fr)) var(--asc-w, 0px); }
+  .pz-table thead th, .pz-table thead th.num { font-size: 11px; letter-spacing: .02em; }
+  .pz-table thead th:first-child { padding-left: 14px; }
+  .pz-table tbody th[scope="row"] { gap: 8px; padding-left: 14px; }
+  .pz-table tbody th .pz-kick i { width: 9px; height: 9px; }
+  .pz-table .tn { font-size: 16px; }
+  .pz-table .vs { font-size: 12px; }
+  .pz-table td.num { font-size: 19px; }
+  .pz-table td.asc { font-size: 13px; }
+  .pz-table td.note { padding-left: 31px; font-size: 14px; }
+  .pz-table .pz-foot { position: static; }   /* (nothing scrolls here; stuck to the screen's bottom it would sit over the rows) */
 }
 .pz.stack .pz-visual { flex: none; }   /* (a phone scrolls the card rather than squeeze the chart over its words) */
 .pz.stack .pz-data.tiles-only .pzt-v { font-size: min(26px, 30cqi); }

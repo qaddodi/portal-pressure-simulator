@@ -49,7 +49,7 @@ export const BLEED = {
       id: 'blood', action: [UNIT, SALINE], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: true,
       kicker: 'Volume', site: 'sin', title: 'Transfuse to a hemoglobin of 7 to 8',
       line: 'In shock, fluid and a first unit go in before the hemoglobin has fallen, and the blood pressure comes back to {map}. After that, transfuse only below 7 g/dL, to a target of 7 to 8.',
-      notes: 'A restrictive transfusion strategy (a threshold of 7 g/dL, a target of 7 to 8) lowered rebleeding and death compared with transfusing to 9 g/dL; it applies once the patient is stable, and the trial excluded massive bleeding. In cirrhosis saline adds sodium, so a balanced crystalloid, given with care, is a common choice. Patients with heart disease or ongoing massive bleeding may need more. Fresh frozen plasma and platelet transfusion to correct the INR or the count are not advised; they add volume without proven benefit.',
+      notes: 'A restrictive transfusion strategy (a threshold of 7 g/dL, a target of 7 to 8) lowered rebleeding and death compared with a liberal one (transfusing below 9 g/dL, to a target of 9 to 11); it applies once the patient is stable, and the trial excluded massive bleeding. In cirrhosis saline adds sodium, so a balanced crystalloid, given with care, is a common choice. Patients with heart disease or ongoing massive bleeding may need more. Fresh frozen plasma and platelet transfusion to correct the INR or the count are not advised; they add volume without proven benefit.',
       ask: ['What hemoglobin target is used in variceal bleeding?', '7 to 8 g/dL, transfusing below 7.'],
     },
     {

@@ -41,7 +41,7 @@ export const SHUNTS = {
       tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: 'own',
       kicker: 'Made', site: 'sin', title: 'TIPS',
       line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The PPG falls to {ppg}, below 12 mmHg.',
-      notes: 'The stent runs through the liver from the right hepatic vein to the right portal vein, so portal blood has a low-resistance path back to the heart. The PPG is measured before and after; for bleeding the aim is below 12 mmHg, or a fall of half. On Doppler the stent carries steady flow toward the heart along its whole length; a clear fall or rise in velocity from the last scan suggests narrowing. The tiles compare with the same patient before the stent.',
+      notes: 'The stent runs through the liver from the right hepatic vein to the right portal vein, so portal blood has a low-resistance path back to the heart. The PPG is measured before and after; for bleeding the aim is below 12 mmHg. On Doppler the stent carries steady flow toward the heart along its whole length; a clear fall or rise in velocity from the last scan suggests narrowing. The tiles compare with the same patient before the stent.',
       ask: ['What does Doppler show in a working TIPS?', 'Steady flow toward the heart along the whole stent, at a velocity close to the last scan.'],
     },
     {

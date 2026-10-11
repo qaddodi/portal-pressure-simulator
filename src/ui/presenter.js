@@ -20,10 +20,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=c6a8f1cabe';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=c0ed7d22e5';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=aa23a0da45';
 import { createHvpgMonitor } from './hvpg-proc.js?v=4b408e144c';
 import { createTools } from './presenter-tools.js?v=0238a6b3e4';
-import { openHandout } from './handout.js?v=1efd6eee7f';
+import { openHandout } from './handout.js?v=580e8380fc';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
 const KEY = 'pps.scripts';
@@ -893,7 +893,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
 
   // ── A time-lapse on the live model: its days run on the disease clock (ramped as the off-screen chain ran them),
   // the counter and the numbers follow, then the slide's computed state takes over (the same, to the decimal).
-  let lapseOn = false, lapseLeft = 0;   // (lapseLeft: days still to run; 0 once Next has sped it up)
+  let lapseOn = false, lapseLeft = 0, lastAt = -1;   // (lapseLeft: days still to run; 0 once Next has sped it up; lastAt: the slide last shown)
   // A compare slide's buttons switch the live model's params (liveOff: it no longer shows the slide's computed state).
   let liveOff = false, abGen = 0, abFast = false;
   const merge = (a, b) => { for (const [k, v] of Object.entries(b)) a[k] = v && typeof v === 'object' && !Array.isArray(v) ? merge({ ...(a[k] || {}) }, v) : v; return a; };
@@ -1012,7 +1012,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     shown = null;
     const q = asking(s, rev), cam = s.visual ? s.cam || null : q ? 'fit' : s.cam || 'fit';
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
-    const lap = !!s.lapse && to > 0 && !q, ct = !q && !s.visual ? s.cath || null : null;
+    // Coming back to it from a later slide shows its end at once: it plays only going forward.
+    const back = to < lastAt, lap = !!s.lapse && to > 0 && !q && !back, ct = !q && !s.visual ? s.cath || null : null;
     // In the liver, with a new framing or new lit labels: all labels out first (see hush).
     const inLiver = store.get().lobule || store.get().sinusoid;
     const litNext = !s.visual && !q ? slideTargets(s).lit.join(' ') : '';
@@ -1086,8 +1087,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     lastCam = cam;
     await unhush(cut);
     if (cut()) return;
-    shown = { i: to, rev, gen: g };
+    shown = { i: to, rev, gen: g }; lastAt = to;
     paintChrome();
+    if (s.lapse && to > 0 && !q && back) paintLapse(s, s.days, s.days, true);
     if (booting) await coverDown();
     if (lap) await playLapse(s, to, cut);
   }
@@ -1807,6 +1809,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const before = deck ? saved : await capture();
     await up;
     if (deck) stop(false);
+    lastAt = -1;
     saved = before;
     if (saved && !saved.cards) saved.cards = stashCards?.();
     deck = d; slides = d.mine ? d.slides : withOverview(d).slides; shown = null; shownState = -1; quiz = false; black = false;

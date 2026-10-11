@@ -30,9 +30,9 @@ export const STIFFNESS = {
     {
       id: 'meal', days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: true,
       kicker: 'Where stiffness misleads', site: 'sin', title: 'Stiffness rises after a meal',
-      line: 'A meal raises portal inflow, and the stiffness with it, for about two hours. Scan fasting.',
+      line: 'A meal raises portal inflow, and the stiffness with it, for up to two to three hours. Scan fasting.',
       notes: 'After eating, the gut arterioles dilate, portal inflow rises and the liver swells with blood; stiffness can rise by a fifth or more for up to two to three hours. Scan after at least two hours of fasting. The model shows the same patient fasting and after a meal: the HVPG rises by about a millimeter of mercury, the stiffness by about 2 kPa.',
-      ask: ['Why scan fasting?', 'A meal raises portal inflow and the stiffness reading for up to about two hours.'],
+      ask: ['Why scan fasting?', 'A meal raises portal inflow and the stiffness reading for up to two to three hours.'],
     },
     {
       id: 'rule', visual: 'scale', scale: { key: 'lsm', max: 40, low: 'No CSPH if platelets\n150 or more', marks: [[15, 'Gray zone'], [25, 'CSPH ruled in']], sub: ['hvpg', 'plt'],
@@ -48,7 +48,7 @@ export const STIFFNESS = {
       id: 'spleen', preset: 'csph', cam: 'spleen', glow: ['spleen'], data: 'tiles', tiles: ['spleen', 'plt', 'hvpg'], key: ['plt'], delta: 'fibrosis',
       kicker: 'The spleen and the platelets', site: 'sin', title: 'The spleen holds back platelets',
       line: 'Portal congestion enlarges the spleen to {spleen}, and a large spleen pools platelets: {plt}. A falling count is often the first sign in the blood test.',
-      notes: 'Splenic congestion and hyperplasia enlarge the spleen; a normal spleen already holds about a third of the platelets and an enlarged one up to about 90%, and a lower thrombopoietin from the liver adds to the fall. Spleen length over 13 cm and platelets below 150 support portal hypertension. Spleen stiffness, where available, tracks the portal pressure more closely than liver stiffness, including in presinusoidal disease. The tiles compare with the compensated patient of "Fibrosis stiffens the liver".',
+      notes: 'Splenic congestion and hyperplasia enlarge the spleen; a normal spleen already holds about a third of the platelets and an enlarged one up to about 90%, and a lower thrombopoietin from the liver adds to the fall. Spleen length over about 12 to 13 cm and platelets below 150 support portal hypertension. Spleen stiffness, where available, tracks the portal pressure more closely than liver stiffness, including in presinusoidal disease. The tiles compare with the compensated patient of "Fibrosis stiffens the liver".',
       ask: ['Give two reasons the platelet count falls in portal hypertension.', 'Splenic pooling in a large congested spleen, and less thrombopoietin from the liver.'],
     },
     {
