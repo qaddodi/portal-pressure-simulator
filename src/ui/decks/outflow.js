@@ -72,7 +72,7 @@ export const OUTFLOW = {
     },
     {
       id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'hvpg', 'ppg', 'asc'], asc: false, rowHead: 'Patient',
-      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'bcs', kicker: 'Hepatic veins', title: 'Hepatic vein clots' }, { id: 'open', kicker: 'Hepatic veins', title: 'One vein stented' },
+      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'bcs', kicker: 'Hepatic veins', title: 'Hepatic vein clots', blank: ['whvp', 'fhvp', 'hvpg'] }, { id: 'open', kicker: 'Hepatic veins', title: 'One vein stented' },
         { id: 'dips', kicker: 'Hepatic veins', title: 'Shunt to the IVC' }, { id: 'sos', kicker: 'Central veins', title: 'Sinusoidal obstruction' }, { id: 'recover', kicker: 'Central veins', title: 'Recovered' }],
       kicker: 'Summary', title: 'Clotted hepatic veins cannot be wedged; blocked central veins can',
       line: 'Clotted hepatic veins cannot be wedged; blocked central veins raise the HVPG. Both settle once the outflow is open.',

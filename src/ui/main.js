@@ -11,7 +11,7 @@ import { createDock, CUTOFFS } from './dock.js?v=d04cbd2d19';
 import { setHvpgStage } from './hvpg-proc.js?v=649e6bbf50';
 import { createWhy } from './why.js?v=44f38b9c23';
 import { createTimeline, LAPSES } from './timeline.js?v=784d292b22';
-import { createLearn } from './learn.js?v=1c0228e9e0';
+import { createLearn } from './learn.js?v=44215471cc';
 import { createCases, CASES } from './cases.js?v=7f7fffe8bd';
 import { isBlind } from './learning-kit.js?v=6d450ed1de';
 import { createCompare } from './compare.js?v=232ef8e809';
@@ -20,7 +20,7 @@ import { createChart, computeFindings } from './chart.js?v=98bc1f3c60';
 import { createMenu, ROLES } from './menu.js?v=5b4b4efe84';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=294de40bc0';
-import { startLMS } from './lms.js?v=ccd87a4d06';
+import { startLMS } from './lms.js?v=ba7a6a79a8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=d578c83926';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
@@ -140,7 +140,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=0cb157d143'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d4821bc9fd'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

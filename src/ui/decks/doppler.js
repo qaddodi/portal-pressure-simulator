@@ -98,8 +98,8 @@ export const DOPPLER = {
     {
       // The Doppler's own findings: portal flow against the healthy row, and what the trace shows.
       id: 'summary', visual: 'table', cols: ['pvFlow'], asc: false, vs: 'first', note: ['Portal vein', 'Hepatic veins or stent'], rowHead: 'Patient',
-      of: [{ id: 'probe', kicker: 'Reference', title: 'Healthy', note: ['Portal: toward the liver, steady', 'Hepatic veins: S and D waves'], ref: true }, { id: 'slow', title: 'Cirrhosis', note: ['Portal: toward the liver, slow', ''] },
-        { id: 'reverse', title: 'Advanced cirrhosis', note: ['Portal: away from the liver', ''] }, { id: 'clot', title: 'Portal vein thrombosis', note: ['Portal: no signal', ''] },
+      of: [{ id: 'probe', kicker: 'Reference', title: 'Healthy', note: ['Portal: toward the liver, steady', 'Hepatic veins: triphasic'], ref: true }, { id: 'slow', title: 'Cirrhosis', note: ['Portal: toward the liver, slow', 'Hepatic veins: often flattened'] },
+        { id: 'reverse', title: 'Advanced cirrhosis', note: ['Portal: away from the liver', 'Hepatic veins: often flattened'] }, { id: 'clot', title: 'Portal vein thrombosis', note: ['Portal: no signal', 'Hepatic veins: normal'] },
         { id: 'bc', title: 'Budd–Chiari', note: ['Portal: toward the liver', 'Hepatic veins: no signal'] }, { id: 'rhf', title: 'Right heart failure', note: ['Portal: pulsatile', 'Hepatic veins: flow driven back'] }, { id: 'tips', title: 'TIPS', note: ['Portal: toward the stent', 'Stent: fast flow'] }],
       kicker: 'Summary', title: 'Doppler compared',
       line: 'Direction, speed and pulse of the portal trace tell the level of the block before any catheter.',

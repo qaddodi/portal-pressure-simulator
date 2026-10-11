@@ -1923,6 +1923,9 @@ button.finding:hover { background: var(--surface-2); }
 .pz-table .pz-foot .pz-arr.two svg { width: 1.19em; }
 .pz-table td.asc .pz-arr svg { height: .95em; width: .71em; }
 .pz-table th.num { text-align: center; }
+.pz-table thead th[tabindex] { cursor: help; }
+.pz-cutl:not(:empty) { display: block; margin-top: .3em; color: var(--text-2); }
+.pz-cutl b { font-weight: 600; }
 .pz-table td.rel[data-rate] { color: var(--text); }
 @media (max-width: 520px) { .pz-table th, .pz-table td { padding: .5em .35em; } .pz-table tbody th { padding-left: .7em; } .pz-table thead th { letter-spacing: .02em; } .pz-table tbody th .pz-kick { letter-spacing: .02em; } }
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {

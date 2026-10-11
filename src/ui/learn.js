@@ -426,7 +426,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   // A step's numbers, kept for a later side-by-side comparison of treatments.
   const recordNow = (st) => { const m = store.get().frame?.metrics; if (st.record && m) recs[st.record] = { ppg: m.ppg, liver: m.hepaticFlow, ra: m.ra, varix: m.varix.ratio, map: m.map }; };
   const CMP_ROWS = [['Gradient (PPG), mmHg', 'ppg', (v) => fmt(v, 1), 'Lower is the aim'], ['Blood to the liver, L/min', 'liver', (v) => fmt(v, 2), 'Less risks encephalopathy'],
-    ['Right atrium, mmHg', 'ra', (v) => fmt(v, 1), 'Higher loads the heart'], ['Varix wall tension', 'varix', (v) => (v < 0.6 ? 'Low' : v < 1 ? 'Moderate' : 'High'), ''], ['Blood pressure, mmHg', 'map', (v) => fmt(v, 0), '']];
+    ['Right atrium, mmHg', 'ra', (v) => fmt(v, 1), 'Higher loads the heart'], ['Varix wall stress', 'varix', (v) => (v < 0.4 ? 'Low' : v < 0.7 ? 'Moderate' : 'High'), 'Of the stress that ruptures it'], ['Mean arterial pressure, mmHg', 'map', (v) => fmt(v, 0), '']];
   function compareTable(cols) {
     const have = cols.filter(([, k]) => recs[k]);
     if (have.length < 2) return h('p', { class: 'ctl-sub' }, 'Treat the patient both ways first (the steps before this one) to fill in the comparison.');

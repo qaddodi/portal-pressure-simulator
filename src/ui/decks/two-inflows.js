@@ -72,7 +72,7 @@ export const TWO_INFLOWS = {
       ask: ['The portal vein Doppler signal lies below the baseline on a standard display. What does that mean?', 'Hepatofugal flow: blood leaves the liver by the portal vein, a sign of very advanced portal hypertension.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['pvFlow', 'liver', 'shunt'], asc: false, rowHead: 'Patient',
+      id: 'summary', visual: 'table', cols: ['pvFlow', 'liver', 'shunt'], asc: false, vs: 'first', rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'clot', kicker: 'Portal vein', title: 'Portal vein clot' }, { id: 'artery', kicker: 'Artery', title: 'Hepatic artery clot' },
         { id: 'cirr', kicker: 'Cirrhosis', title: 'Decompensated' }, { id: 'tips', kicker: 'Cirrhosis', title: 'After TIPS' }, { id: 'fugal', kicker: 'Cirrhosis', title: 'Hepatofugal flow' }],
       kicker: 'Summary', title: 'The artery buffers the portal vein, not the reverse',
