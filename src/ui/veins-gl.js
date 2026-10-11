@@ -250,6 +250,31 @@ void main() {
     if (gv > glow.a) glow = vec4(scol[s] * gv, gv);
   }
 
+  // ── Hand-off at a join across tiers ──
+  // A vessel that ends on one in a lower tier draws a copy of that one near the junction (see
+  // below), so the join is one filleted shape. The copy is drawn as the lower vessel shows in its
+  // own tier (behind the organs: as faded as they leave it), and the lower tier draws that vessel
+  // only for what the copy leaves, so the merged shape is filled once: no brighter, doubled patch
+  // where the two overlap (the hepatic veins on the cava).
+  float keep[MAXS];
+  for (int s = 0; s < MAXS; s++) keep[s] = 1.0;
+  for (int j = 0; j < MAXJ; j++) {
+    if (j >= jn || jf[j] <= 0.0) continue;
+    for (int t = 0; t < MAXS; t++) {
+      if (t >= n || (jm[j] & (1 << t)) == 0) continue;
+      int ti = int(stier[t] + 0.5);
+      if (tierGroup[ti] == 2) continue;
+      for (int s = 0; s < MAXS; s++) {
+        if (s >= n || (jm[j] & (1 << s)) == 0 || stier[s] >= stier[t]) continue;
+        int lt = int(stier[s] + 0.5);
+        if (tierGroup[lt] == 2) continue;
+        float shown = tierAlpha[lt] * (tierGroup[lt] == 0 ? 1.0 - occl : 1.0);
+        float aC = sa[s] * jf[j] * sa[t] * min(tierAlpha[ti], shown), aO = sa[s] * shown;
+        if (aO > 1e-4) keep[s] = min(keep[s], clamp((1.0 - aC / aO) / max(1.0 - aC, 1e-4), 0.0, 1.0));
+      }
+    }
+  }
+
   // ── Tiers, back to front ──
   vec4 accB = vec4(0.0), accN = vec4(0.0), accT = vec4(0.0);
   float last = -1.0;
@@ -267,11 +292,12 @@ void main() {
     // share a junction with one of them, faded out with distance from that junction.
     float pres[MAXS];
     int mem = 0;
-    for (int s = 0; s < MAXS; s++) { pres[s] = 0.0; if (s < n && stier[s] == tt) { mem |= 1 << s; pres[s] = 1.0; } }
-    // A copy is drawn as translucent as the vessel it copies (relative to this tier), and no
+    for (int s = 0; s < MAXS; s++) { pres[s] = 0.0; if (s < n && stier[s] == tt) { mem |= 1 << s; pres[s] = keep[s]; } }
+    // A copy is drawn as translucent as the vessel it copies shows in its own tier, and no
     // more solid than this tier's own vessels are at the junction (one that fades into it).
+    int base = mem;
     if (grp != 2) for (int j = 0; j < MAXJ; j++) {
-      int own = jm[j] & mem;
+      int own = jm[j] & base;
       if (j >= jn || own == 0 || jf[j] <= 0.0) continue;
       float up = 0.0;
       for (int s = 0; s < MAXS; s++) if ((own & (1 << s)) != 0) up = max(up, sa[s]);
@@ -280,7 +306,8 @@ void main() {
         int lt = int(stier[s] + 0.5);
         if (tierGroup[lt] == 2) continue;
         mem |= 1 << s;
-        pres[s] = max(pres[s], jf[j] * up * min(1.0, tierAlpha[lt] / max(tierAlpha[ti], 1e-3)));
+        float shown = tierAlpha[lt] * (tierGroup[lt] == 0 ? 1.0 - occl : 1.0);
+        pres[s] = max(pres[s], jf[j] * up * min(1.0, shown / max(tierAlpha[ti], 1e-3)));
       }
     }
     // The tier's shape: plain union, filleted between vessels that share a junction.
@@ -311,6 +338,19 @@ void main() {
       ow = s; conn = 0; kc = 0.0;
       for (int j = 0; j < MAXJ; j++) if (j < jn && jk[j] > 0.0 && (jm[j] & (1 << ow)) != 0) { conn |= jm[j]; kc = max(kc, jk[j]); }
     }
+    // Inside the lumen of a copied trunk (a vein behind the organs that this tier's veins end on:
+    // the cava under the hepatic veins), the trunk owns the pixel: a vein's end does not show
+    // through it as a second, brighter stub, so the join reads as one shape.
+    float tin[MAXS];
+    for (int s = 0; s < MAXS; s++) {
+      tin[s] = 0.0;
+      if ((mem & (1 << s)) == 0 || stier[s] == tt || grp != 1 || tierGroup[int(stier[s] + 0.5)] != 0) continue;
+      tin[s] = clamp(-sd[s] / max(0.35 * sr[s], px), 0.0, 1.0) * step(1e-3, pres[s]);
+      if (tin[s] > 0.5 && stier[ow] == tt) {
+        ow = s; conn = 0; kc = 0.0;
+        for (int j = 0; j < MAXJ; j++) if (j < jn && jk[j] > 0.0 && (jm[j] & (1 << ow)) != 0) { conn |= jm[j]; kc = max(kc, jk[j]); }
+      }
+    }
     conn = (conn | (1 << ow)) & mem;
     // Attributes blended across the join by the same distances (soft weights), so color,
     // caliber and shading run on through the fillet.
@@ -322,6 +362,8 @@ void main() {
     for (int s = 0; s < MAXS; s++) {
       if ((conn & (1 << s)) == 0) continue;
       float w = s == ow && kc <= 0.0 ? 1.0 : exp(-(sd[s] - m) / tau);
+      for (int t = 0; t < MAXS; t++) if ((conn & (1 << t)) != 0 && t != s) w *= 1.0 - tin[t];
+      w = max(w, tin[s]);
       W += w; R += w * sr[s]; wall += w * swall[s]; alpha += w * sa[s] * pres[s]; col += w * scol[s]; g += w * sg[s];
     }
     R /= W; wall /= W; alpha /= W; col /= W;
