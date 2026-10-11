@@ -1499,6 +1499,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     placeBar();
     dispatchEvent(new Event('pps:occ'));
   }
+  const onFonts = () => { if (ui) layout(); };
   const onResize = () => {
     if (!ui) return;
     layout(); setLabels();
@@ -1793,6 +1794,11 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     cover.classList.add('on');
     return wait(reduce.matches ? 0 : 300);
   }
+  // The slides' fonts, every subset they draw from (Latin, Latin Extended, Greek for μ or Δ), are loaded under the start's cover:
+  // a subset is otherwise fetched on its first use, and its words show in a stand-in font first, then swap and change size.
+  const fontsIn = () => (document.fonts?.load
+    ? Promise.race([Promise.all(['400 16px Inter', '600 16px Inter', '600 32px "Source Serif 4"'].map((f) => document.fonts.load(f, 'Aāαἀ').catch(() => {}))), wait(1500)])
+    : null);
   async function coverDown(now = false) {
     if (!now) {
       // Under the cover: the figure has refitted to the projector layout (its framing holds still) and the slide's
@@ -1824,7 +1830,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (!d?.slides?.length) { toast('That presentation could not be found.'); return; }
     // The start is one composed reveal: a calm cover fades over the screen, the projector layout, the first patient and
     // the first slide are all set up under it, and the cover fades away once nothing behind it is still moving.
-    const up = coverUp();
+    const up = Promise.all([coverUp(), fontsIn()]);
     // Starting another deck while one runs keeps the state from before the first.
     const before = deck ? saved : await capture();
     await up;
@@ -1849,6 +1855,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     setLabels();
     prepare();
     addEventListener('resize', onResize);
+    document.fonts?.addEventListener('loadingdone', onFonts);   // (a font arriving late changes the words' size: the cards are fitted again)
     go(Math.min(want0, slides.length - 1));
     wake();
   }
@@ -1860,6 +1867,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);
+    document.fonts?.removeEventListener('loadingdone', onFonts);
     fitRO?.disconnect(); cancelAnimationFrame(fitRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
