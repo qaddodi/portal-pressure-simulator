@@ -524,7 +524,7 @@ export function createDoppler({ onProbe }) {
     ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
     if (waves && meta().kind === 'hepatic') {
       // The hepatic vein's waves named at their peaks (a presenter slide asks for it): the a-wave reversal on the
-      // atrial side of the baseline, then the S and D forward waves of the same beat, small and faded.
+      // atrial side of the baseline, then the S, v and D forward waves of the same beat, small and faded.
       ctx.font = FONT(600, 11); ctx.textAlign = 'center';
       const at = (t, v) => [padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr, padT + baseY - v * k * pxPerV];
       for (const [t, v, name] of hvWaves(tNow - sweepSeconds, tNow, sgn)) {
@@ -547,7 +547,7 @@ export function createDoppler({ onProbe }) {
 
   // The dock asks for a redraw with each model frame (~10 a second); the picture itself runs on
   // animation frames while the model is live and the dock keeps asking, and stops when it doesn't.
-  // ── Hepatic vein waves: a, S and D in each whole beat on screen ──
+  // ── Hepatic vein waves: a, S, v and D in each whole beat on screen ──
   // Beats are cut at the a-waves (the reversals, toward the probe's atrial side); between two, the two deepest
   // forward troughs are S (first) and D, with the a-wave that opens the beat. Read from a lightly smoothed trace; nothing is named when the pattern
   // is not triphasic (no clear reversal, or a single forward wave).
@@ -572,7 +572,10 @@ export function createDoppler({ onProbe }) {
       for (const i of lows) { const d = dips.at(-1); if (d && p[i][0] - p[d][0] < 0.12) { if (y[i] < y[d]) dips[dips.length - 1] = i; } else dips.push(i); }
       if (dips.length < 2) continue;
       const two = [...dips].sort((m, n) => y[m] - y[n]).slice(0, 2).sort((m, n) => m - n);
-      return [[p[aI[b]][0], y[aI[b]], 'a'], [p[two[0]][0], y[two[0]], 'S'], [p[two[1]][0], y[two[1]], 'D']];
+      // v: the turn toward the baseline between S and D (the highest point between their troughs).
+      let v = two[0] + 1;
+      for (let i = two[0] + 1; i < two[1]; i++) if (y[i] > y[v]) v = i;
+      return [[p[aI[b]][0], y[aI[b]], 'a'], [p[two[0]][0], y[two[0]], 'S'], [p[v][0], y[v], 'v'], [p[two[1]][0], y[two[1]], 'D']];
     }
     return [];
   }
@@ -591,7 +594,7 @@ export function createDoppler({ onProbe }) {
   }
   function update(f) { ingest(f); redraw(); }
   function clear() { buf = []; redraw(); }
-  /** Name the hepatic vein's a, S and D waves on the trace (the Presenter's waveform slides). */
+  /** Name the hepatic vein's a, S, v and D waves on the trace (the Presenter's waveform slides). */
   function setWaves(on) { if (waves !== !!on) { waves = !!on; ringKey = null; redraw(); } }
   return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves };
 }

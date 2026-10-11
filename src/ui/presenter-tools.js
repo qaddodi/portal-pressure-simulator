@@ -2,7 +2,7 @@
 // the data card, beside the figure, reading the live model while the slide is up.
 //
 //   tool: { kind: 'doppler', vessel: 'PV_TRUNK' }   spectral Doppler in one vessel (doppler.js PROBES ids); waves: true names
-//                                                   a hepatic vein's a, S and D waves on the trace
+//                                                   a hepatic vein's a, S, v and D waves on the trace
 //   tool: { kind: 'scope' }                         the esophagus at this slide's varix state (endoscopy)
 //   tool: { kind: 'fibroscan' }                     liver stiffness, kPa (metrics.lsm)
 //   tool: { kind: 'trace', range: 'talk' | 'beats' }
@@ -19,7 +19,7 @@
 import { store } from './store.js?v=9858da589a';
 import { h, fmt, clamp } from './util.js?v=045e641b44';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { createDoppler } from './doppler.js?v=f3384c66d3';
+import { createDoppler } from './doppler.js?v=f4bccd047e';
 import { createFibroScan } from './fibroscan.js?v=d6da99fa63';
 import { createPressureTime } from './pressure-time.js?v=996d96acc8';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=3df486cd8c';
