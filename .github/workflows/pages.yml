@@ -4,8 +4,8 @@ name: Pages (live site + preview)
 #   /          the tip of main (the live site)
 #   /preview/  the branch that triggered the run (a claude/** branch), or main again after a merge
 # Every run rebuilds both from scratch, so the newest run always wins: the deploy job shares one
-# concurrency group across branches. The browser checks are grouped per branch, so a push from
-# another agent no longer cancels them part way through.
+# concurrency group across branches. Only the deploy is superseded: the checks have no concurrency
+# group, so every pushed commit's lint, unit, browser and visual checks run to the end and report.
 
 on:
   push:
@@ -35,20 +35,25 @@ jobs:
 
   # The browser checks run alongside the deploy, not before it: a failure marks the run red
   # (so it is seen) but the preview is already published for testing on devices.
-  # Split over four runners (a device and half its checks each), one check at a time per runner:
+  # Split over eight runners (desktop in two shares, phone in six), one check at a time per runner:
   # a runner is too small to run several browsers at once.
   browser-checks:
     runs-on: ubuntu-latest
-    concurrency:
-      group: browser-checks-${{ github.ref }}-${{ matrix.device }}-${{ matrix.shard }}
-      cancel-in-progress: true
     # Covers the install (capped at 4 minutes below) plus the checks (2 to 4 minutes).
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        device: [desktop, phone]
-        shard: ['1/2', '2/2']
+        # Desktop in two shares; phone in six, since it also walks every slide of all decks.
+        include:
+          - { device: desktop, shard: '1/2' }
+          - { device: desktop, shard: '2/2' }
+          - { device: phone, shard: '1/6' }
+          - { device: phone, shard: '2/6' }
+          - { device: phone, shard: '3/6' }
+          - { device: phone, shard: '4/6' }
+          - { device: phone, shard: '5/6' }
+          - { device: phone, shard: '6/6' }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
@@ -71,9 +76,6 @@ jobs:
   # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
   webkit:
     runs-on: ubuntu-latest
-    concurrency:
-      group: webkit-${{ github.ref }}
-      cancel-in-progress: true
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -94,9 +96,6 @@ jobs:
   visual:
     name: visual (${{ matrix.device }})
     runs-on: ubuntu-latest
-    concurrency:
-      group: visual-${{ github.ref }}-${{ matrix.device }}
-      cancel-in-progress: true
     timeout-minutes: 15
     strategy:
       fail-fast: false

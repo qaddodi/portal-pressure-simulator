@@ -35,7 +35,7 @@ jobs:
         run: npm run build
 
   # The build-free site (what Pages serves) and the production build (the SCORM package), each on
-  # a desktop and a phone, in two shares: eight runners, one check at a time on each (a runner is
+  # a desktop and a phone, desktop in two shares and phone in six: sixteen runners, one check at a time on each (a runner is
   # too small to run several browsers at once). A check that only timed out gets one more try.
   browser-checks:
     name: browser-checks (${{ matrix.site }}, ${{ matrix.device }} ${{ matrix.shard }})
@@ -44,9 +44,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        site: [source, build]
-        device: [desktop, phone]
-        shard: ['1/2', '2/2']
+        # Desktop in two shares; phone in six, since it also walks every slide of all decks.
+        include:
+          - { site: source, device: desktop, shard: '1/2' }
+          - { site: source, device: desktop, shard: '2/2' }
+          - { site: source, device: phone, shard: '1/6' }
+          - { site: source, device: phone, shard: '2/6' }
+          - { site: source, device: phone, shard: '3/6' }
+          - { site: source, device: phone, shard: '4/6' }
+          - { site: source, device: phone, shard: '5/6' }
+          - { site: source, device: phone, shard: '6/6' }
+          - { site: build, device: desktop, shard: '1/2' }
+          - { site: build, device: desktop, shard: '2/2' }
+          - { site: build, device: phone, shard: '1/6' }
+          - { site: build, device: phone, shard: '2/6' }
+          - { site: build, device: phone, shard: '3/6' }
+          - { site: build, device: phone, shard: '4/6' }
+          - { site: build, device: phone, shard: '5/6' }
+          - { site: build, device: phone, shard: '6/6' }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
