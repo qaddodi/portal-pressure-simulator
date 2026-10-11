@@ -135,6 +135,9 @@ svg { flex: none; }
 .stage-view #stage { cursor: grab; }
 .stage-view > :is(#stage, #stageOver, #labels, canvas) { transition: opacity .25s ease; }
 .stage-view.unframed > :is(#stage, #stageOver, #labels, canvas) { opacity: 0; }
+/* A presenter's camera move: the labels ease out as it starts and back in once it settles (stage.js camSettle). */
+.stage-view.cam-move > #labels, .stage-view.cam-move .lb-glass { opacity: 0; }
+.stage-view .lb-glass { transition: opacity .25s ease; }
 .stage-view.panning #stage { cursor: grabbing; }
 
 .chip-btn {
@@ -1751,6 +1754,9 @@ button.finding:hover { background: var(--surface-2); }
 .lz-field { z-index: var(--z-figure); pointer-events: none; opacity: 0; }
 .lz :is(.lz-labels, .lz-leaders) { opacity: var(--lz-chrome, 1); }
 .lz-leaders .leader { stroke: color-mix(in srgb, var(--text) 55%, transparent); }   /* (the lobule's labels are called out on busy art: a firmer line than the anatomy's) */
+/* The presenter's camera gliding in the lobule: its labels ease out, and back in at their new places (lobule-zoom.js focusOn). */
+.lz.lz-cam :is(.lz-labels, .lz-leaders) { opacity: 0; transition: opacity .2s var(--ease); }
+.lz.lz-cam-in :is(.lz-labels, .lz-leaders) { transition: opacity .35s var(--ease); }
 .lz-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .lz-labels { position: absolute; inset: 0; pointer-events: none; }
 .lz-labels.lz-ease .lz-lab { transition: left .4s var(--ease), top .4s var(--ease), box-shadow .5s var(--ease), background-color .5s var(--ease); }

@@ -6,7 +6,7 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=5edd069b32';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=045e641b44';
-import { createLobuleZoom } from './lobule-zoom.js?v=73763f1757';
+import { createLobuleZoom } from './lobule-zoom.js?v=e031bffc6d';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
@@ -1436,13 +1436,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   let vtAnim = 0, vtGliding = false;
   let vtTarget = null;   // where the last animated move was headed
+  // A presenter's camera move: the labels ease out as it starts, are not laid out while it runs, and ease
+  // back in at their new places once it settles (they never slide across the figure).
+  let camMove = false;
+  function camSettle() {
+    if (!camMove) return;
+    camMove = false;
+    if (F) updateLabels(F);
+    requestAnimationFrame(() => { if (!camMove) wrap.classList.remove('cam-move'); });
+  }
   function animateVT(to, ms = 700) {
     cancelAnimationFrame(vtAnim);
     vtTarget = to;
     const from = { ...vt }, t0 = performance.now();
     if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
-    if (ms <= 0) { vtGliding = false; vt = to; applyVT(); CTM = null; return; }
+    if (ms <= 0) { vtGliding = false; vt = to; applyVT(); CTM = null; camSettle(); return; }
     vtGliding = true;
+    if (store.get().presenting && !sameView(from, to)) { camMove = true; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, ms + 80); } else camSettle();
     const step = (now) => {
       const u = easeInOut(clamp((now - t0) / ms, 0, 1));
       vt = lerpVT(from, to, u);
@@ -1451,7 +1461,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (cath.st) { refreshCTM(); cathLabels(); if (drawVeins()) drawnView = viewVersion; }
       if (sites.list) { refreshCTM(); sitesPaint(); }
       if (scan.on) scanPaint();
-      if (u < 1) vtAnim = requestAnimationFrame(step); else vtGliding = false;
+      if (u < 1) vtAnim = requestAnimationFrame(step); else { vtGliding = false; camSettle(); }
     };
     vtAnim = requestAnimationFrame(step);
   }
@@ -3903,7 +3913,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (w == null) { measure.font = `${weight} ${size}px ${FONT}`; w = measure.measureText(t.replace(/\d/g, '0')).width + track * size * t.length; widths.set(k, w); }
     return w;
   }
-  document.fonts?.ready?.then(() => { widths.clear(); if (F) updateLabels(F); });
+  document.fonts?.ready?.then(() => { widths.clear(); labelFonts++; if (F) updateLabels(F); });
 
   // Label text size: the reader's choice (Menu › Text size), and a larger baseline in the circuit,
   // whose labels are the map's only text. Every run's size and spacing is scaled by labelK.
@@ -4148,10 +4158,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else if (pr) lines.push(pr);
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
-    return { key: 'n:' + id, node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: !!pr && mode !== 'atlas', label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
+    return { key: 'n:' + id, src: ['node', id, mode, compact], node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: !!pr && mode !== 'atlas', label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
       swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
 
+  // A TIPS or DIPS shunt's callout: the velocity through it (cm/s), as Doppler reads it.
+  function velItem(sid, f) {
+    const it = nodeItem('RPV', f, 'inline', stageBox().width < 700);
+    const vel = Math.abs(edgeVel(f, EI[sid])) * dopplerK(EDGES[EI[sid]]);   // read as Doppler reads it
+    it.lines = [[{ ...it.lines[0][0], t: sid }, { t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4 }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }]];
+    it.key = `n:${sid}`; it.src = ['vel', sid]; it.node = undefined; it.sel = false; it.swatch = null;
+    it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+    it.label = `${sid}: ${fmt(vel, 0)} centimeters per second`;
+    return it;
+  }
   const LADDER_TAG = { SIN_R: 'WHVP', RHV: 'FHVP' };
   const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, MHV: 5, LHV: 5, RPV: 5, LPV: 5, SIN_L: 5, IMV: 4, LGV: 4, W_R: 12, W_M: 12, W_L: 12 };
   // Stations labelled only when zoomed in enough to give them room, in this order (see updateLabels).
@@ -4231,19 +4251,69 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return out;
   }
   const SOLVE_ZOOM = 0.05, SOLVE_TURN = 0.03;   // re-solve after a 5 % zoom change or ~2 degrees of turn
+  // A vessel's width as the labels see it: it moves only once the vessel has changed by 2 px, so a width
+  // easing or hovering at a rounding edge does not lay the labels out again on every model update.
+  const sigW = new Map();
+  function sigWidth(x) {
+    const w = x.width || 0, s = sigW.get(x.e.id);
+    if (s != null && Math.abs(w - s) < 2) return s;
+    sigW.set(x.e.id, Math.round(w));
+    return Math.round(w);
+  }
   function labelSig(f) {
     const st = store.get(), t = easeInOut(morph);
-    const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${Math.round(x.width || 0)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
+    const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, JSON.stringify((f.viewParams || st.params).stenosis),
       isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges].join('|');
   }
-  function updateLabels(f) {
+  // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
+  // signature (geometry, widths, selection, layers, levels...), the morph and turn, the floating panels,
+  // fonts, theme and the presenter's insets. Otherwise the last layout stands, and only the live values
+  // are refreshed in place (see refreshValues); a value whose text changes shape lays the labels out again.
+  let labelKey = null, labelFonts = 0, labelShown = [];
+  const stats = { layouts: 0, skips: 0, values: 0, ms: 0 };
+  function updateLabels(f, force = false) {
+    // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short.
+    if (camMove) { if (!vtGliding) camSettle(); return; }
+    const t0 = performance.now();
     refreshCTM();
-    const sc = CTM.sc, th = Math.atan2(CTM.b, CTM.a), sig = labelSig(f);
-    const solve = !solvedFor || solvedFor.sig !== sig || Math.abs(Math.log(sc / solvedFor.sc)) > SOLVE_ZOOM || Math.abs(th - solvedFor.th) > SOLVE_TURN;
-    if (solve || layoutLabels(f, false) === false) { layoutLabels(f, true); solvedFor = { sig, sc, th }; }
+    const st = store.get(), sig = labelSig(f), b = stageBox();
+    const key = [[CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join(), b.width, b.height, morph, rotU, labelFonts, document.documentElement.dataset.theme,
+      pzInset('--pz-l'), pzInset('--pz-t'), st.role, st.mode, !!st.compareSnap, st.compareView, JSON.stringify(blockerBoxes), sig].join('|');
+    if (!force && key === labelKey && refreshValues(f)) { stats.skips++; stats.ms += performance.now() - t0; }
+    else {
+      const sc = CTM.sc, th = Math.atan2(CTM.b, CTM.a);
+      const solve = !solvedFor || solvedFor.sig !== sig || Math.abs(Math.log(sc / solvedFor.sc)) > SOLVE_ZOOM || Math.abs(th - solvedFor.th) > SOLVE_TURN;
+      if (solve || layoutLabels(f, false) === false) { layoutLabels(f, true); solvedFor = { sig, sc, th }; }
+      labelKey = key; stats.layouts++; stats.ms += performance.now() - t0;
+    }
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
+  }
+  // The live values of the labels showing, rebuilt and written into their text in place. False when one
+  // changed shape (a width, a run, a change badge): the caller then lays the labels out again.
+  function refreshValues(f) {
+    const next = [];
+    for (const it of labelShown) {
+      const [kind, id, mode, compact] = it.src;
+      const n = kind === 'vel' ? velItem(id, f) : nodeItem(id, f, mode, compact);
+      if (it.short) shortenItem(n);
+      if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;
+      for (let i = 0; i < n.lines.length; i++) {
+        const a = n.lines[i], o = it.lines[i];
+        if (a.length !== o.length || a.some((r, j) => r.cls !== o[j].cls || r.size !== o[j].size)) return false;
+      }
+      next.push(n);
+    }
+    let changed = false;
+    labelShown.forEach((it, i) => {
+      const n = next[i];
+      if (n.label === it.label && n.lines.every((l, j) => l.every((r, k) => r.t === it.lines[j][k].t))) return;
+      it.lines = n.lines; it.label = n.label; changed = true;
+      renderBlock(it);
+    });
+    if (changed) stats.values++;
+    return true;
   }
   // Figure point under a local (stage) pixel.
   function localToWorld(x, y) {
@@ -4431,20 +4501,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const sid of ['TIPS', 'DIPS']) {
         if (E[sid]?.vis && EI[sid] >= 0) {
           const { ax, ay, mid, w: vw } = labelAnchor(sid, t);
-          {
-            const it = nodeItem('RPV', f, atlas ? 'atlas' : 'inline', compact);
-            const vel = Math.abs(edgeVel(f, EI[sid])) * dopplerK(EDGES[EI[sid]]);   // read as Doppler reads it
-            const unit = { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
-            it.lines[0][0].t = sid;
-            it.lines.length = 1; it.lines[0].length = 1;
-            const vr = [{ t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: atlas ? 0 : 4 }, { ...unit, t: 'cm/s' }];
-            if (atlas) it.lines.push(vr); else it.lines[0].push(...vr);
-            it.key = `n:${sid}`; it.node = undefined; it.sel = false; it.swatch = null;
-            it.w = Math.max(...it.lines.map(lineW)) + (atlas ? 7 : 0); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0);
-            it.label = `${sid}: ${fmt(vel, 0)} centimeters per second`;
-            it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = 9; it.side = 'R';
-            items.push(it);
-          }
+          const it = velItem(sid, f);
+          it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = 9; it.side = 'R';
+          items.push(it);
         }
       }
       // Zoomed in, the other stations in view get their pressure too (hepatic veins, portal branches,
@@ -4669,6 +4728,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!circuit || it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
     }
     for (const it of out) renderBlock(it);
+    labelShown = out.filter((it) => it.src && !it.hide);
     for (const [, b] of pool) if (b.seen !== frameNo) b.g.style.display = 'none';
     glass.hidden = !out.some((it) => it.key === 'liver' && !it.hide);
     if (gLeaders._last !== leaders) { gLeaders.innerHTML = leaders; gLeaders._last = leaders; }
@@ -5549,7 +5609,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (target === 0) homeAt = d;   // back to the anatomy: always its home framing
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
     },
-    relayout() { refreshCTM(); if (F) updateLabels(F); },
+    relayout() { refreshCTM(); if (F) updateLabels(F, true); },
+    // How often the labels were laid out, skipped or only had their values refreshed, and the time spent (for perf checks).
+    labelStats: () => ({ ...stats }),
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
     labelScale: () => labelScale,

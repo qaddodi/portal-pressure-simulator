@@ -338,17 +338,26 @@ export function createLobuleZoom({ host }) {
   }
   // A short glide between framings (the buttons, Fit, a card opening).
   let glide = 0;
-  function glideTo(to, ms = 260) {
+  // A presenter's glide (focusOn): the labels ease out, are not laid out on the way, and ease back in where it lands.
+  let camMove = false, camInT = 0, camUntil = 0;
+  function camSettle() {
+    if (!camMove) return;
+    camMove = false; layoutKey = '';
+    if (fade > 0 && geo) layoutLabels();
+    requestAnimationFrame(() => { if (camMove) return; el.classList.remove('lz-cam'); el.classList.add('lz-cam-in'); clearTimeout(camInT); camInT = setTimeout(() => el.classList.remove('lz-cam-in'), 400); });
+  }
+  function glideTo(to, ms = 260, cam = false) {
     stopInertia();
     cancelAnimationFrame(glide);
     const from = { ...V }, t0 = performance.now();
-    if (reduce.matches || !fade) { Object.assign(V, to); viewChanged(); return; }
+    if (reduce.matches || !fade) { Object.assign(V, to); viewChanged(); camSettle(); return; }
+    if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; el.classList.remove('lz-cam-in'); el.classList.add('lz-cam'); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();
     const step = (now) => {
       const u = clamp((now - t0) / ms, 0, 1), e = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
       const k = from.k * Math.pow(to.k / from.k, e), a = (k - from.k) / ((to.k - from.k) || 1);
       V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? e : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? e : a);
       viewChanged();
-      if (u < 1) glide = requestAnimationFrame(step);
+      if (u < 1) glide = requestAnimationFrame(step); else camSettle();
     };
     glide = requestAnimationFrame(step);
   }
@@ -898,6 +907,8 @@ export function createLobuleZoom({ host }) {
     callRing.setAttribute('cx', a[0]); callRing.setAttribute('cy', a[1]); callRing.setAttribute('r', rr);
   }
   function layoutLabels() {
+    // Laid out where the presenter's glide lands (see camSettle), or once its time is up if the hand cut it short.
+    if (camMove) { if (performance.now() >= camUntil) camSettle(); return; }
     const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${call ? call.at + call.label : ''}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
     if (key === layoutKey) return;
     layoutKey = key;
@@ -2162,14 +2173,14 @@ export function createLobuleZoom({ host }) {
     focusOn(part, { zoom = 2, ms = 1400 } = {}) {
       if (!geo || sinTo) return;
       const F0 = fitV(); kFit = F0.k;
-      if (!part || part === 'fit') { atFit = true; glideTo(F0, ms); return; }
+      if (!part || part === 'fit') { atFit = true; glideTo(F0, ms, true); return; }
       const g = geo, tri = g.lobules[0].corners[3];
       const w = part === 'triad' ? [lerp(tri[0], g.cx, 0.12), lerp(tri[1], g.cy, 0.12)] : part === 'central' ? [g.cx, g.cy] : [lerp(tri[0], g.cx, 0.5), lerp(tri[1], g.cy, 0.5)];
       const f = freeRect(), mx = (f.l + f.r) / 2, my = (f.t + f.b) / 2, k = clamp(kFit * zoom, kFit, kFit * KMAX);
       const saved = { ...V };
       Object.assign(V, { k, x: mx - w[0] * k, y: my - w[1] * k }); clampV();
       const to = { ...V }; Object.assign(V, saved);
-      atFit = false; glideTo(to, ms);
+      atFit = false; glideTo(to, ms, true);
     },
     viewKey: () => `${V.k.toFixed(3)},${V.x.toFixed(1)},${V.y.toFixed(1)}|${geoKey}`,
     isOpen: () => fade > 0.98,
