@@ -465,6 +465,14 @@ void main() {
   }
   vec4 o = over(accT, over(accN * netAlpha, over(glow, accB)));
   if (o.a < 0.002) discard;
+  // Dither by up to a level (triangular noise, fixed per pixel) before the 8-bit layer: the colour and
+  // alpha of a soft gradient (the glow's falloff) would round at different places and draw thin stripes.
+  uvec2 fc = uvec2(gl_FragCoord.xy);
+  uint hd = fc.x * 0x8da6b343u ^ fc.y * 0xd8163841u;
+  hd ^= hd >> 15; hd *= 0x2c1b3c6du; hd ^= hd >> 12; hd *= 0x297a2d39u; hd ^= hd >> 15;
+  float dn = (float(hd & 0xffffu) + float(hd >> 16)) / 65535.0 - 1.0;
+  o.a = clamp(o.a + dn / 255.0, 0.0, 1.0);
+  o.rgb = min(max(o.rgb + dn / 255.0, 0.0), vec3(o.a));
   outColor = o;
   bool fl = gId > 0u && gW > 0.01;
   outFlow = fl
