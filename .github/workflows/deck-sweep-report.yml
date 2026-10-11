@@ -1,0 +1,29 @@
+name: Deck layout sweep report
+
+# Gathers the last deck layout sweep's results into one log (scripts/deck-sweep-summary.mjs).
+# Runs from the Actions tab on main, or on a branch by pushing a commit whose message contains [deck-sweep-report].
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/*']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  report:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deck-sweep-report]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the last sweep's results
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=$(gh run list -R "$GITHUB_REPOSITORY" -w deck-sweep.yml -s completed -L 1 --json databaseId -q '.[0].databaseId')
+          echo "Sweep run $id"
+          gh run download "$id" -R "$GITHUB_REPOSITORY" -D results
+      - name: Summary
+        run: node scripts/deck-sweep-summary.mjs results
