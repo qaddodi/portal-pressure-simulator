@@ -20,10 +20,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=d0f1a6d8cf';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=1f4963308f';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=efa08379cb';
 import { createHvpgMonitor } from './hvpg-proc.js?v=0ac0f5eb5d';
 import { createTools } from './presenter-tools.js?v=3b66d6fec4';
-import { openHandout } from './handout.js?v=dfb00daaa3';
+import { openHandout } from './handout.js?v=2d63428d3f';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
 

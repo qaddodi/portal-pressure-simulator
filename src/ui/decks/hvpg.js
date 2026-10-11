@@ -48,7 +48,7 @@ export const HVPG = {
       ask: ['At what HVPG can varices bleed?', '12 mmHg or more.'],
     },
     {
-      id: 'presin', preset: 'schisto', cam: 'lobule:triad', data: 'ladder', key: ['pv', 'whvp', 'hvpg'], brackets: { hvpg: 'misleads', ppg: 'works' }, tiles: ['hvpg', 'ppg'],
+      id: 'presin', preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Block is here, before the sinusoids' }, data: 'ladder', key: ['pv', 'whvp', 'hvpg'], brackets: { hvpg: 'misleads', ppg: 'works' }, tiles: ['hvpg', 'ppg'],
       kicker: 'Where HVPG misleads', site: 'presin', title: 'Normal HVPG, high portal pressure',
       line: 'In schistosomiasis the block is in the portal tracts, upstream of the sinusoids. HVPG is {hvpg} while the portal pressure is {pv}.',
       notes: 'The wedged catheter reads only what lies downstream of a block. In presinusoidal disease (schistosomiasis, porto-sinusoidal vascular disorder, early primary biliary cholangitis) the sinusoids are near normal, so the WHVP and the HVPG are normal or only mildly raised and underestimate the portal pressure. A normal HVPG in a patient with varices or a large spleen points to a presinusoidal or pre-hepatic cause.',

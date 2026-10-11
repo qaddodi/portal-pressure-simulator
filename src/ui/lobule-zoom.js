@@ -914,7 +914,7 @@ export function createLobuleZoom({ host }) {
     if (!on) return;
     const w = callEl.offsetWidth || 120, hh = callEl.offsetHeight || 28, pad = 10;
     const ov = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
-    const rr = Math.max(10, (geo.rcv0 || 6) * 1.1 * V.k), spot = { l: a[0] - rr - 6, r: a[0] + rr + 6, t: a[1] - rr - 6, b: a[1] + rr + 6 };
+    const rr = Math.max(10, (call.at === 'triad' ? (geo.rt || 6) * 1.6 : (geo.rcv0 || 6) * 1.1) * V.k), spot = { l: a[0] - rr - 6, r: a[0] + rr + 6, t: a[1] - rr - 6, b: a[1] + rr + 6 };
     let best = null;
     for (const r of [70, 100, 140]) for (let i = 0; i < 12; i++) {
       const t = (i / 12) * Math.PI * 2 - Math.PI / 2;
@@ -1712,6 +1712,7 @@ export function createLobuleZoom({ host }) {
     { const l = lobules[0], bq = rgb01(bg); c.fillStyle = css(rgb01(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E')).map((x, i) => lerp(bq[i], x, 0.55)), 1); c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * 1.015, py = l.y + (y - l.y) * 1.015; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); c.fill(); }
     const gap = rgb01(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E')), cell = rgb01(v('--og-liver-1', dark ? '#85514F' : '#E9C3B6'));
     const COL = dark ? [0.78, 0.73, 0.6] : [0.93, 0.87, 0.73];
+    const PRE = dark ? [0.86, 0.78, 0.6] : [0.78, 0.64, 0.44];   // periportal scar: deeper than COL to read on the tissue
     const col = (a) => css(COL, a);
     const hexPath = (l, k = 1) => { c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * k, py = l.y + (y - l.y) * k; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); };
     // The lobule's own plates: hepatocytes in radial cords, one cell thick.
@@ -1818,12 +1819,14 @@ export function createLobuleZoom({ host }) {
     for (const [x, y] of lobules[0].corners) {
       const kk = Math.round(x) + ',' + Math.round(y);
       if (seen.has(kk)) continue; seen.add(kk);
-      const near = Math.hypot(x - cx, y - cy) < R * 1.05, rt = G.rt * (0.8 + 0.45 * scarGrowth(m.fibPre));
+      const gp = scarGrowth(m.fibPre), near = Math.hypot(x - cx, y - cy) < R * 1.05, rt = G.rt * (0.8 + 0.9 * gp);
       c.globalAlpha = near ? 1 : 0.5;
-      // Collagen expands asymmetrically around all three structures, continuous with the septa.
+      // Collagen expands asymmetrically around all three structures, continuous with the septa; in presinusoidal
+      // disease a denser, deeper-toned periportal collar (pipestem) rings the tract, clear of the lime sinusoids.
       if (m.fibPre > 0.03) {
-        fibrousTract(c, x, y, rt, Math.atan2(y - cy, x - cx), COL, scarGrowth(m.fibPre),
+        fibrousTract(c, x, y, rt, Math.atan2(y - cy, x - cx), PRE, gp,
           900 + lobules[0].corners.findIndex((p) => p[0] === x && p[1] === y) * 71);
+        fibrousCuff(c, x, y, rt * 0.62, rt * 1.08, PRE, gp);
       }
       if (!near) {   // the neighbours' triads, drawn flat
         c.fillStyle = css(rgb01(ink('pv')), 0.55); c.beginPath(); c.ellipse(x, y, G.rt * 0.42, G.rt * 0.32, 0.4, 0, TAU); c.fill();
