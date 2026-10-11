@@ -19,10 +19,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=38b983f75c';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=a98b92ef11';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=c17e1910fc';
 import { createHvpgMonitor } from './hvpg-proc.js?v=b744bb28bb';
 import { createTools } from './presenter-tools.js?v=81c1adb23a';
-import { openHandout } from './handout.js?v=40740b77fc';
+import { openHandout } from './handout.js?v=50eb58badb';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
 const KEY = 'pps.scripts';
