@@ -1279,6 +1279,33 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }
     }
   });
+  // Scale and tick labels: the numbers under the lens pill's colour scale (and the other tick rows) never overlap, in any view,
+  // lens or width; a scale too narrow for its numbers drops the ones between its ends first (styles: .lg-scale container queries).
+  await check(device, 'tick labels clear of each other in every view', async (page) => {
+    const sizes = device === 'desktop' ? [[1440, 900], [1024, 768], [768, 1024]] : [[390, 844], [360, 740], [320, 640], [844, 390]];
+    const clash = () => page.evaluate(() => {
+      const out = [];
+      for (const g of document.querySelectorAll('.lg-scale, .pzk-axis, .dop-ticks')) {
+        const gr = g.getBoundingClientRect();
+        if (!gr.width || !gr.height) continue;
+        const rs = [...g.children].filter((c) => c.textContent.trim() && getComputedStyle(c).display !== 'none').map((c) => { const r = document.createRange(); r.selectNodeContents(c); const b = r.getBoundingClientRect(); return { t: c.textContent.trim(), l: b.left, r: b.right }; }).filter((x) => x.r > x.l).sort((a, b) => a.l - b.l);
+        for (let i = 1; i < rs.length; i++) if (rs[i].l < rs[i - 1].r + 1) out.push(`"${rs[i - 1].t}" and "${rs[i].t}" overlap in a ${Math.round(gr.width)} px scale`);
+      }
+      return out;
+    });
+    await open(page, '?preset=cirr-decomp');
+    for (const [w, hgt] of sizes) {
+      await page.setViewportSize({ width: w, height: hgt });
+      const steps = [['anatomic', 'pressure'], ['anatomic', 'flow'], ['circuit', 'pressure'], ['lobule', 'pressure'], ['sinusoid', 'pressure']];
+      for (const [view, lens] of steps) {
+        await page.evaluate(([v, l]) => { window.pps.store.set({ colorMode: l }); const b = document.querySelector(`#viewSeg [data-view="${v}"]`); if (b && !b.hidden) b.click(); }, [view, lens]);
+        await page.waitForTimeout(1300);
+        const bad = await clash();
+        if (bad.length) throw new Error(`${w}×${hgt} ${view} (${lens}): ${bad.join('; ')}`);
+      }
+      await page.evaluate(() => document.querySelector('#viewSeg [data-view="anatomic"]')?.click());
+    }
+  });
   // The FibroScan probe's callout (its live kPa beside the waves): wherever the probe shows on the figure, in Explore with the FibroScan
   // card open and on every FibroScan slide, the callout shows too, inside the stage, and sits on no other label, the probe or its caption,
   // a site callout, a card, a bar or the credit (stage.js scanItem and layoutLabels place it before the other labels).

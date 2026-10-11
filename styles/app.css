@@ -3545,6 +3545,11 @@ button.finding { cursor: pointer; }
 /* Legend: the end numbers stay inside the scale instead of being cut off. */
 .lg-num.start { transform: none; }
 .lg-num.end { transform: translateX(-100%); }
+/* Tick labels never overlap, whatever width a rule gives the scale: the labels between the two ends go first (below 80 px,
+   where four numbers no longer clear each other), then all of them (below 48 px); the ticks stay. */
+.lg-scale { container-type: inline-size; }
+@container (max-width: 79px) { .lg-num:not(.start):not(.end) { display: none; } }
+@container (max-width: 47px) { .lg-num { display: none; } }
 
 /* Readouts: short names where the tiles are narrow. */
 .metric .k .k-s { display: none; }
@@ -3752,9 +3757,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
   .topbar .lg-dots span { gap: 3px; }
   .topbar .lg-dots i { flex: none; width: 7px; height: 7px; border-radius: 50%; }
   .topbar[data-fit] #viewSeg button { padding: 6px 5px; }
-  .topbar[data-fit] .lg-scale { width: 40px; }
-  .topbar .lg-cap { display: none; }
-  .top-right .ib, .top-right .pal-btn { width: 34px; min-width: 34px; }
   .topbar .lens-btn { padding: 0 3px; }
 }
 @media (max-width: 380px) { .topbar #viewSeg button { padding: 6px 3px; } }
