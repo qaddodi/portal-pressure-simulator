@@ -3,24 +3,24 @@
 
 import { startHost, host } from './host.js?v=fc5582e003';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7fb7280c05';
-import { createStage } from './stage.js?v=6b2ce1be1f';
-import { createCreditPlacer } from './credit.js?v=75a93423a6';
-import { sinusoidSupported } from './sinusoid-view.js?v=59762ccfcf';
-import { createInspector } from './inspector.js?v=5417607a72';
-import { createDock, CUTOFFS } from './dock.js?v=59f7fb6e22';
-import { setHvpgStage } from './hvpg-proc.js?v=456e67ed78';
+import { createStage } from './stage.js?v=42c8bd0eb1';
+import { createCreditPlacer } from './credit.js?v=067d31b04e';
+import { sinusoidSupported } from './sinusoid-view.js?v=e5b85c1e83';
+import { createInspector } from './inspector.js?v=bced1ac9ba';
+import { createDock, CUTOFFS } from './dock.js?v=b92201d1d0';
+import { setHvpgStage } from './hvpg-proc.js?v=926224aa99';
 import { createWhy } from './why.js?v=be0d8de6eb';
-import { createTimeline, LAPSES } from './timeline.js?v=268580a917';
-import { createLearn } from './learn.js?v=50d0ec1d91';
-import { createCases, CASES } from './cases.js?v=1e20b125ca';
+import { createTimeline, LAPSES } from './timeline.js?v=c9e2160dce';
+import { createLearn } from './learn.js?v=db82df88ab';
+import { createCases, CASES } from './cases.js?v=bcebbaa043';
 import { isBlind } from './learning-kit.js?v=e08298baac';
-import { createCompare } from './compare.js?v=ef51d2f932';
-import { createCard } from './card.js?v=facfdc3af2';
-import { createChart, computeFindings } from './chart.js?v=7f46e76b3b';
-import { createMenu, ROLES } from './menu.js?v=b5ce459939';
+import { createCompare } from './compare.js?v=2007c66157';
+import { createCard } from './card.js?v=68df78025b';
+import { createChart, computeFindings } from './chart.js?v=88e2668280';
+import { createMenu, ROLES } from './menu.js?v=7b540b5274';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=901065003b';
-import { startLMS } from './lms.js?v=9521e72efa';
+import { startLMS } from './lms.js?v=69518459c7';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=d63a2233cc';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=c17dfefa88';
@@ -36,9 +36,11 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=de141fbb03';
-import { initTopbarMotion } from './topbar-motion.js?v=a941da3e97';
+import { initTopbarMotion } from './topbar-motion.js?v=4ed83871e2';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=b2eabea2e1';
+import { frameFor, perf as framePerf } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
 // SMV, IMV, splenic vein, hepatic artery, systemic: as stage.js BLOOD_COLORS.
@@ -140,7 +142,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=4bbbeb29fa'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=9599f35a61'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -220,7 +222,7 @@ async function main() {
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, card, timeline, menu: mainMenu, palette, startLesson, startCase, presenter };
+  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, card, timeline, menu: mainMenu, palette, startLesson, startCase, presenter, get perf() { return framePerf(); } };
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare();
@@ -346,7 +348,7 @@ function narrate(f, now = performance.now(), force = false) {
     if (!el.hidden && !el.classList.contains('quiet')) { el.classList.add('quiet'); clearTimeout(narrT); narrT = setTimeout(() => { el.hidden = true; }, 260); }
   } else {
     clearTimeout(narrT);
-    if (el.hidden) { el.classList.add('quiet'); el.hidden = false; force = true; requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('quiet'))); }
+    if (el.hidden) { el.classList.add('quiet'); el.hidden = false; force = true; nextFrame(() => nextFrame(() => el.classList.remove('quiet'))); }
     else el.classList.remove('quiet');
   }
   if (!on || quiet || (!force && !f?.events?.length && !f?.params && now - lastNarr < 500) || !f) return;
@@ -948,7 +950,7 @@ function uiZoomControl() {
     reset.setAttribute('aria-pressed', String(i === UI_ZOOM_STEPS.indexOf(1)));
   };
   // The sheet stays open and re-anchors to the zoomed gear button.
-  const apply = (z) => { setUiZoom(z); paint(); requestAnimationFrame(repositionPopover); };
+  const apply = (z) => { setUiZoom(z); paint(); nextFrame(repositionPopover); };
   smaller.addEventListener('click', () => apply(UI_ZOOM_STEPS[Math.max(0, at() - 1)]));
   larger.addEventListener('click', () => apply(UI_ZOOM_STEPS[Math.min(UI_ZOOM_STEPS.length - 1, at() + 1)]));
   reset.addEventListener('click', () => apply(1));
@@ -1043,7 +1045,7 @@ function panelShown() { return !app.classList.contains('instrument-focus') && ap
 let refitT = 0;
 function refitStage() {
   clearTimeout(refitT);
-  requestAnimationFrame(() => stage?.refit());
+  nextFrame(() => stage?.refit());
   refitT = setTimeout(() => stage?.refit(), 380);
 }
 function syncPanelToggle() {
@@ -1078,7 +1080,7 @@ function setPanelTab(tab) {
   if (!instr && was) dockSheet?.closed();
   if (was !== instr) {
     refitStage();
-    const f = store.get().frame; if (f && instr) requestAnimationFrame(() => dock.update(f, true));
+    const f = store.get().frame; if (f && instr) nextFrame(() => dock.update(f, true));
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
   }
 }
@@ -1150,7 +1152,7 @@ function wireFloating() {
   };
   const pubVals = {};
   let pubSig = '';
-  const soon = () => { if (!pubRaf) pubRaf = requestAnimationFrame(publish); };
+  const soon = () => { if (!pubRaf) pubRaf = nextFrame(publish); };
   const ro = new ResizeObserver(soon);
   for (const id of ['#topbar', '#vdock', '#dock', '#panel', '#treatCard', '.tb-id', '.top-right', '.topbar .sb-right', '#viewSeg']) ro.observe($(id));
   new MutationObserver(soon).observe(app, { attributes: true, attributeFilter: ['class'] });
@@ -1244,7 +1246,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     el.style.setProperty('--sheet-size', need < SIZES[1] * app.clientHeight ? `${Math.ceil(need)}px` : `${Math.round(SIZES[size] * 100)}%`);
   };
   // A new tab refits the sheet to its content (the height eases).
-  if (fit) el.addEventListener('click', (e) => { if (size === 1 && e.target.closest('[role="tab"]')) requestAnimationFrame(apply); });
+  if (fit) el.addEventListener('click', (e) => { if (size === 1 && e.target.closest('[role="tab"]')) nextFrame(apply); });
   apply();
   handle.addEventListener('click', () => { if (!isPhone() || !active()) return; size = (size + 1) % SIZES.length; apply(); });
   let start = null, swallow = false;
@@ -1340,7 +1342,7 @@ function openTreat() {
   treatSheet?.open();
   $('#btnTreat').setAttribute('aria-expanded', 'true');
   refitStage();
-  requestAnimationFrame(() => stage.relayout());
+  nextFrame(() => stage.relayout());
 }
 // Presenter puts every card, sheet and menu away (each fades out) and hands back a function that reopens them on exit.
 function stashCards() {
@@ -1357,7 +1359,7 @@ function closeTreat() {
   treatSheet?.closed();
   $('#btnTreat').setAttribute('aria-expanded', 'false');
   refitStage();
-  requestAnimationFrame(() => stage.relayout());
+  nextFrame(() => stage.relayout());
 }
 
 // ── Modes ───────────────────────────────────────────
@@ -1511,7 +1513,7 @@ function openHelp(section) {
   scrollToSection(section);
 }
 // Help and About open at a named section (Keyboard shortcuts, References).
-function scrollToSection(section) { if (section) requestAnimationFrame(() => $(`#modal [data-sec="${section}"]`)?.scrollIntoView({ block: 'start' })); }
+function scrollToSection(section) { if (section) nextFrame(() => $(`#modal [data-sec="${section}"]`)?.scrollIntoView({ block: 'start' })); }
 const pmid = (id) => h('a', { href: `https://pubmed.ncbi.nlm.nih.gov/${id}/`, target: '_blank', rel: 'noopener' }, `PMID ${id}`);
 function openAbout(section) {
   openModal('About the model', h('div', {},

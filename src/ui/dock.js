@@ -5,12 +5,14 @@ import { store, hiddenNow } from './store.js?v=7fb7280c05';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=0cca243d2a';
 import { lobuleFlows } from './lobule-model.js?v=4b6aa4841d';
-import { createProfile } from './charts.js?v=b9fe53b914';
-import { createPressureTime } from './pressure-time.js?v=b6b3aae48b';
-import { createFibroScan } from './fibroscan.js?v=0e979fa0d9';
-import { createHvpgProcedure } from './hvpg-proc.js?v=456e67ed78';
-import { createDoppler } from './doppler.js?v=d4daf2cb9a';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=aee884a7c3';
+import { createProfile } from './charts.js?v=49026dd40b';
+import { createPressureTime } from './pressure-time.js?v=05ec6348c3';
+import { createFibroScan } from './fibroscan.js?v=cfed92d01b';
+import { createHvpgProcedure } from './hvpg-proc.js?v=926224aa99';
+import { createDoppler } from './doppler.js?v=83a2431450';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=e29ae87738';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
 const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
@@ -408,7 +410,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function setEndoSub(v) {
     endoSub = v; endoPane.dataset.sub = v;
     for (const b of endoSwitch.children) b.setAttribute('aria-pressed', String(b.dataset.view === v));
-    if (frame) requestAnimationFrame(() => (v === 'wall' ? wall : endoscopy).update(frame));
+    if (frame) nextFrame(() => (v === 'wall' ? wall : endoscopy).update(frame));
   }
   endoPane.prepend(endoSwitch); endoPane.append(wall.el); endoPane.dataset.sub = endoSub;
   const comparison = h('div', { class: 'workspace-comparison', hidden: true });
@@ -431,7 +433,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   function queueRefresh() {
     if (resizeFrame) return;
-    resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; refresh(); });
+    resizeFrame = nextFrame(() => { resizeFrame = 0; refresh(); });
   }
   const css = (k) => parseFloat(getComputedStyle(app).getPropertyValue(k)) || 0;
   function updateSize() {

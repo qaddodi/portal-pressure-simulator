@@ -6,8 +6,8 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=c17dfefa88';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7fb7280c05';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors } from './util.js?v=0cca243d2a';
-import { createLobuleZoom } from './lobule-zoom.js?v=8e252395ce';
-import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
+import { createLobuleZoom } from './lobule-zoom.js?v=18b409192b';
+import { runFlick, FLICK } from './flick.js?v=9c07aaa402';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
@@ -15,6 +15,8 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=2f568f909c';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
+import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
 // Shorter circuit zone titles, tried in turn when the full one is wider than its zone.
@@ -942,7 +944,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!l.end || l.v <= 0) l.end = [...l.endT];
     }
     for (const [id, l] of glow.lit) if (!want.has(id)) l.to = 0;
-    if (!glow.raf) { glow.t = now; glow.raf = requestAnimationFrame(glowStep); }
+    if (!glow.raf) { glow.t = now; glow.raf = nextFrame(glowStep); }
   }
   function glowStep(now) {
     const dt = Math.min(0.1, (now - glow.t) / 1000); glow.t = now;
@@ -957,7 +959,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (l.v !== l.to || l.cu < 1 || l.end[0] !== l.endT[0] || l.end[1] !== l.endT[1]) moving = true;
     }
     glowSync = true;
-    glow.raf = moving ? requestAnimationFrame(glowStep) : 0;
+    glow.raf = moving ? nextFrame(glowStep) : 0;
   }
   // The Doppler's vessel glows in the Doppler's green while its instrument is open.
   const dop = { id: null, want: null, pin: null };
@@ -1013,7 +1015,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     CTM = null; viewVersion++;
     // (After the new camera is set: the resize redraws the picture at once, in it.)
     if (zr !== zoomRes) { zoomRes = zr; if (resizeReady) resizeCanvas(); }
-    if (!viewRaf) viewRaf = requestAnimationFrame(syncView);
+    if (!viewRaf) viewRaf = nextFrame(syncView);
   };
   function syncView() {
     viewRaf = 0;
@@ -1236,7 +1238,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try { localStorage.setItem('pps.circuitRot', String(on)); } catch { /* storage unavailable */ }
     if (on === rotTarget) return;
     // Mid-glide (Fit, a zoom button), the turn starts from where the glide was going.
-    if (vtGliding) { cancelAnimationFrame(vtAnim); vtGliding = false; vt = { ...vtTarget }; applyVT(); CTM = null; }
+    if (vtGliding) { cancelFrame(vtAnim); vtGliding = false; vt = { ...vtTarget }; applyVT(); CTM = null; }
     const whole = morphTarget !== 1 || vt.k <= 1.001 || sameView(vt, insetVT({ k: 1, x: 0, y: 0 }, circVB()));
     rotHold = null;
     if (!whole) {
@@ -1246,7 +1248,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       rotHold = { w: clientToWorld(sx, sy), sx, sy, sc: CTM.sc };
     }
     rotTarget = on;
-    cancelAnimationFrame(vtAnim);
+    cancelFrame(vtAnim);
     if (whole) vt = morphTarget === 1 ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : { k: 1, x: 0, y: 0 };
     if (morphTarget !== 1 || reduceMotion.matches) { rotU = on; setViewBox(easeInOut(morph)); if (rotHold) { holdView(rotHold); rotHold = null; } }
   }
@@ -1313,7 +1315,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (k <= 1.0001) {
       // The transform goes first and the layer hint a frame later: dropping both at once can leave the
       // browser showing the last zoomed picture while clicks already land on the unzoomed figure.
-      if (diveOrig) { const els = diveOrig.map(([el]) => el); for (const el of els) { el.style.transform = 'none'; el.style.transformOrigin = ''; } requestAnimationFrame(() => { if (!diveOrig) for (const el of els) { el.style.willChange = ''; el.style.transform = ''; } }); }
+      if (diveOrig) { const els = diveOrig.map(([el]) => el); for (const el of els) { el.style.transform = 'none'; el.style.transformOrigin = ''; } nextFrame(() => { if (!diveOrig) for (const el of els) { el.style.willChange = ''; el.style.transform = ''; } }); }
       // The stage's measured box (and so the drawing transform) may have been taken while the dive's zoom
       // was on, which would keep the canvas drawn zoomed in after it ends: measure again.
       if (diveOrig) { box = null; CTM = null; }
@@ -1367,12 +1369,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
-    scrubS = 0; cancelAnimationFrame(scrubAnim); diveOut = !on;
+    scrubS = 0; cancelFrame(scrubAnim); diveOut = !on;
     if (on) { riseBox = null; riseUsed = false; chainOut = false; chainFired = false; } else chainIn = false;
     if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
     lobuleOn = on;
     logMove({ t: performance.now(), kind: on ? 'dive' : 'rise' });
-    cancelAnimationFrame(lobAnim);
+    cancelFrame(lobAnim);
     if (on && diveT === 0) {
       if (chainIn && performance.now() - chainAt > 4000) chainIn = false;   // (asked for long ago and never begun)
       const w = diveTarget();
@@ -1391,7 +1393,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // Leaving from the sinusoid, its focus class (main.js) still hides the dock and bars until the store's other
         // listeners run: drop it first, or the fit is measured without them and lands too close, cutting off the ascites.
         if (!store.get().lobule) document.getElementById('app')?.classList.remove('sin-focus');
-        cancelAnimationFrame(vtAnim); vtGliding = false;
+        cancelFrame(vtAnim); vtGliding = false;
         refreshCTM(); const zOld = Math.log(CTM.sc);
         const d = defaultVT(false); vt = { ...d }; homeAt = d; applyVT(); CTM = null; refreshCTM();
         // The plate stopped updating under the lobule, so it still holds the old zoom's culling and detail: bring it up to date for the fit now, not when the zoom lands.
@@ -1412,7 +1414,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       diveT = from + (to - from) * e;
       // A frame that throws must not leave the anatomy stuck mid-zoom: the glide always goes on to its end.
       try { diveFrame(diveT); } catch (err) { if (e < 1) console.error(err); }
-      if (e < 1) lobAnim = requestAnimationFrame(step);
+      if (e < 1) lobAnim = nextFrame(step);
       else if (on) setTimeout(() => { if (lobuleOn && lz.isOpen()) platePoke(); }, 600);   // the anatomy's raster, held back during the dive, catches up under the lobule
       else if (!on) {
         setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null;
@@ -1427,7 +1429,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     step(t0);
     // Backstop: if the frames stop (a throttled or dropped frame loop), land on the end state anyway.
     clearTimeout(lobEnd);
-    lobEnd = setTimeout(() => { if (lobuleOn === on && diveT !== to) { cancelAnimationFrame(lobAnim); step(t0 + ms * 2 + 1); } }, ms * Math.abs(to - from) + 250);
+    lobEnd = setTimeout(() => { if (lobuleOn === on && diveT !== to) { cancelFrame(lobAnim); step(t0 + ms * 2 + 1); } }, ms * Math.abs(to - from) + 250);
   }
   let lobEnd = 0;
   function liverBox() {
@@ -1438,7 +1440,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncSemantic() {
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
-    if ((lobuleOn || scrubS > 0) && morphTarget !== 0) { scrubS = 0; lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
+    if ((lobuleOn || scrubS > 0) && morphTarget !== 0) { scrubS = 0; lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);
@@ -1455,10 +1457,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!camMove) return;
     camMove = false;
     if (F) updateLabels(F);
-    requestAnimationFrame(() => { if (!camMove) wrap.classList.remove('cam-move'); });
+    nextFrame(() => { if (!camMove) wrap.classList.remove('cam-move'); });
   }
   function animateVT(to, ms = 700) {
-    cancelAnimationFrame(vtAnim);
+    cancelFrame(vtAnim);
     vtTarget = to;
     const from = { ...vt }, t0 = performance.now();
     if (!sameView(from, to)) logMove({ t: t0, kind: 'glide', zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
@@ -1477,9 +1479,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (cath.st) { refreshCTM(); cathLabels(); if (drawVeins()) drawnView = viewVersion; }
       if (sites.list) { refreshCTM(); sitesPaint(); }
       if (scan.on) scanPaint();
-      if (u < 1) vtAnim = requestAnimationFrame(step); else { vtGliding = false; camSettle(); }
+      if (u < 1) vtAnim = nextFrame(step); else { vtGliding = false; camSettle(); }
     };
-    vtAnim = requestAnimationFrame(step);
+    vtAnim = nextFrame(step);
   }
   // Interpolate the zoom geometrically so the approach feels even at every scale.
   function lerpVT(from, to, u) {
@@ -1560,7 +1562,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)];
     diveLand = lz.landing();
     lz.prewarm(diveLand.r);
-    cancelAnimationFrame(vtAnim); vtGliding = false;
+    cancelFrame(vtAnim); vtGliding = false;
     if (store.get().selection && store.get().selection.type !== 'lobule') store.set({ selection: null });
   }
   function scrubBy(factor) {
@@ -1583,15 +1585,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // A button step: the same scrub, spread over a short glide.
   function scrubGlide(factor) {
-    cancelAnimationFrame(scrubAnim);
+    cancelFrame(scrubAnim);
     const t0 = performance.now(), ms = 320; let done = 0;
     const step = (now) => {
       const u = easeInOut(clamp((now - t0) / ms, 0, 1));
       const f = Math.pow(factor, u - done); done = u;
       scrubBy(f);
-      if (u < 1 && (scrubS > 0 || canScrub(f))) scrubAnim = requestAnimationFrame(step);
+      if (u < 1 && (scrubS > 0 || canScrub(f))) scrubAnim = nextFrame(step);
     };
-    scrubAnim = requestAnimationFrame(step);
+    scrubAnim = nextFrame(step);
   }
   store.on('lobule', (on) => { if (!quietLobule) (on ? openLobule() : closeLobule()); });
   const zoomLobule = () => store.set({ lobule: true });
@@ -1782,13 +1784,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.classList.remove('unframed');
     if (figureShown) return;
     figureShown = true;
-    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => { window.ppsFigureReady = true; dispatchEvent(new Event('pps:figure-ready')); }, 260)));
+    nextFrame(() => nextFrame(() => setTimeout(() => { window.ppsFigureReady = true; dispatchEvent(new Event('pps:figure-ready')); }, 260)));
   };
   setTimeout(showFigure, 4000);   // never left hidden
   function firstFrame() {
     if (firstFit || !F || !(morphTarget === 1 || patientReady)) return;
     firstFit = true;
-    requestAnimationFrame(() => {
+    nextFrame(() => {
       if (morphTarget === 0 && !userMoved) { vt = homeAt = vtTarget = defaultVT(false); applyVT(); CTM = null; }
       showFigure();
     });
@@ -3408,7 +3410,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let g = resMade.get(k);
     const want = sites.list?.includes(k) && ratio != null;
     if (!want) { if (g) { resMade.delete(k); g.style.opacity = 0; setTimeout(() => g.remove(), 600); } return; }
-    if (!g) { g = s('g', { class: 'res-one' }); g.style.opacity = 0; resG.append(g); resMade.set(k, g); requestAnimationFrame(() => requestAnimationFrame(() => { g.style.opacity = 1; })); }
+    if (!g) { g = s('g', { class: 'res-one' }); g.style.opacity = 0; resG.append(g); resMade.set(k, g); nextFrame(() => nextFrame(() => { g.style.opacity = 1; })); }
     const segs = d.res === 'liver' ? [[[812, 303], [888, 303]], [[812, 387], [888, 387]]] : (() => {
       const q = d.res === 'gut' ? geo.A_SMA?.cur && pointAt(geo.A_SMA.cur, 0.5) : geo.C1b && pointAt(geo.C1b.cur, 0.5);
       return q ? [[[q[0] - q[2] * 34, q[1] - q[3] * 34], [q[0] + q[2] * 34, q[1] + q[3] * 34]]] : [];
@@ -3509,7 +3511,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // A short packet: the crest, with a faint ripple ahead and behind.
       [...el.children].forEach((pth, j) => pth.setAttribute('d', scanArc(Math.max(1, r + (j - 1) * gap))));
     });
-    scan.raf = requestAnimationFrame(scanTick);
+    scan.raf = nextFrame(scanTick);
   }
   // The top left of the right lobe (the patient's right is the figure's left): the tip sits on its edge, aimed 45° down toward the portal vein.
   // Anchored to the liver, not the view: it pans off screen with the liver (and hides once the tip is out of view). Null when no probe shows.
@@ -3532,7 +3534,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       sites.el.append(el); scan.el = el;
       void el.offsetWidth; el.classList.remove('cath-pre');
       if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = scan.nextTap = Infinity; }
-      if (!scan.raf) { scan.last = 0; scan.raf = requestAnimationFrame(scanTick); }
+      if (!scan.raf) { scan.last = 0; scan.raf = nextFrame(scanTick); }
     }
     const tip = scanTipLocal(), wr = wrap.getBoundingClientRect();
     if (!tip) { scan.el.classList.add('off'); return; }
@@ -3551,7 +3553,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     pool.get('scan')?.g.classList.add('lb-off'); gScan.classList.add('off');
     setTimeout(() => { if (scan.on) return; scan.leaving = false; const b = pool.get('scan'); if (b) b.g.style.display = 'none'; }, 700);
     const el = scan.el; scan.el = null; scan.fronts = []; scan.v = 0; scan.next = 0; scan.nextTap = 0;
-    if (scan.raf) { cancelAnimationFrame(scan.raf); scan.raf = 0; }
+    if (scan.raf) { cancelFrame(scan.raf); scan.raf = 0; }
     if (el) { el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); }, 500); }
   }
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
@@ -3861,7 +3863,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           void r.offsetWidth; r.style.transition = 'transform .6s var(--ease)'; r.style.transform = '';
           setTimeout(() => { r.style.transition = ''; }, 650);   // then back to the stylesheet's (the shadow's fade-out)
         });
-        el._from = null; requestAnimationFrame(() => el.classList.remove('cath-travel'));
+        el._from = null; nextFrame(() => el.classList.remove('cath-travel'));
       }
     });
   }
@@ -5094,27 +5096,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function animate(now) {
     // High-refresh screens need not redraw the blood at their refresh rate. Elapsed time is kept
     // intact so speeds and transitions stay correct.
-    if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; lastRaf = 0; requestAnimationFrame(animate); return; }
+    if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; lastRaf = 0; nextFrame(animate); return; }
     governQuality(now);
     if (pendingRes) { dynRes = pendingRes; pendingRes = 0; resizeCanvas(); }
     // The dive magnifies the figure as it stands (a compositor scale): nothing under it is redrawn until it lands.
-    if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw) { lastT = flowGate = now; requestAnimationFrame(animate); return; }
+    if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw) { lastT = flowGate = now; nextFrame(animate); return; }
     const interval = 1000 / QUALITY[quality].fps;
     // A pan or zoom redraws at once (the picture must stay under the pointer); only the model's
     // own motion is paced.
     const viewMoved = viewVersion !== drawnView;
-    if (!viewMoved && !forceDraw && now - flowGate < interval) { requestAnimationFrame(animate); return; }
+    if (!viewMoved && !forceDraw && now - flowGate < interval) { nextFrame(animate); return; }
     flowGate = now - ((now - flowGate) % interval);
     const dt = Math.min(0.1, (now - lastT) / 1000);
     lastT = now;
     // Fully inside the lobule, the plate is covered (a pending redraw waits for the frame it can show in).
-    if (lz?.isOpen() || lz?.covers()) { requestAnimationFrame(animate); return; }
+    if (lz?.isOpen() || lz?.covers()) { nextFrame(animate); return; }
     forceDraw = false; drawOnce = false;
     const st = store.get();
     const still = (!st.running || reduceMotion.matches) && !bolus.active;
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !glowSync && !olDirty && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
+    if (still && !veinsDirty && !glowSync && !olDirty && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { nextFrame(animate); return; }
     stepPlateEase(dt);
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
@@ -5136,9 +5138,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     drawnView = viewVersion;
     governRes(now, viewMoved || st.running);
     lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM;
-    requestAnimationFrame(animate);
+    nextFrame(animate);
   }
-  requestAnimationFrame(animate);
+  nextFrame(animate);
 
   // Opaque organ shapes (anatomy), as canvas paths; built once, band widths read from the CSS.
   let organCovers = null;
@@ -5221,7 +5223,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (on === vh.id) return;
     vh.id = on;
     setGlowSrc('hover', on ? vhEdges(on).map((id) => ({ id, col: null, amt: 1.35, wide: 1.1, dur: 280 })) : []);
-    if (!vh.raf) { vh.t = performance.now(); vh.raf = requestAnimationFrame(vhStep); }
+    if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
   }
   function vhStep(now) {
     const dt = Math.min(0.1, (now - vh.t) / 1000); vh.t = now;
@@ -5234,7 +5236,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (nv !== to) moving = true;
     }
     glowSync = true;
-    vh.raf = moving ? requestAnimationFrame(vhStep) : 0;
+    vh.raf = moving ? nextFrame(vhStep) : 0;
   }
 
   // Organ and site hover: a soft version of the selection outline, never kept once the pointer is away.
@@ -5295,7 +5297,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (ev.pointerType === 'touch') return;   // a finger has no hover (a long press peeks instead)
     if (drag?.type === 'pan' && drag.moved && !drag.peeked) { if (hoverId) setHover(null); hoverEv = null; return; }
     hoverEv = ev;
-    if (!hoverRaf) hoverRaf = requestAnimationFrame(() => { hoverRaf = 0; const e = hoverEv; hoverEv = null; if (e) hoverAt(e); });
+    if (!hoverRaf) hoverRaf = nextFrame(() => { hoverRaf = 0; const e = hoverEv; hoverEv = null; if (e) hoverAt(e); });
   });
   function hoverAt(ev) {
     const id = edgeFromEvent(ev);
@@ -5451,7 +5453,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
     panFit = null;
     userMoved = true;
-    cancelAnimationFrame(vtAnim); vtGliding = false; stopGlide(); clearTimeout(settleT);
+    cancelFrame(vtAnim); vtGliding = false; stopGlide(); clearTimeout(settleT);
     try { svg.setPointerCapture(ev.pointerId); } catch { /* pointer already gone */ }
     clearPress();
     if (pointers.size >= 2) {
@@ -5775,7 +5777,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       boxes.push([x0, y - 40 + dy, x0 + pw, y - 40 + dy + ph]);
       if (el._dy !== dy) { el._dy = dy; el.lastChild.style.marginTop = `${dy}px`; }
     }
-    foundRaf = requestAnimationFrame(placeFound);
+    foundRaf = nextFrame(placeFound);
   }
   /** Mark findings: [{ at: organ id | vessel id | [x, y], text, by }]. */
   function showFound(list) {

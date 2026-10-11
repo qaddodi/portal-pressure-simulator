@@ -12,6 +12,8 @@ import { createRoute, ladder } from './ladder.js?v=7b629187ab';
 import { CASES } from './cases/index.js?v=4d92706d0e';
 import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=268d8cc010';
 import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=e08298baac';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('learn');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -610,7 +612,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     const fp = SNAPSHOTS[st.patient]?.fp;
     if (fp) state.ladder = ladder(fp, { base: SNAPSHOTS.healthy.fp, reveal: true });
     blindOff(); render();
-    requestAnimationFrame(() => {   // only the card scrolls, never the page under it
+    nextFrame(() => {   // only the card scrolls, never the page under it
       const fb = cardEl?.querySelector('.feedback'), box = cardEl?.closest('.coach, .panel-page, #panelChart') || cardEl?.parentElement;
       if (fb && box) box.scrollTo({ top: Math.max(0, fb.offsetTop - 12), behavior: 'smooth' });
     });
@@ -667,7 +669,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
       canNext = state.answered != null;   // not q-active: the vignette stays in view with its question
       body.push(h('p', { class: 'stem-v' }, md(st.stem)), h('p', { class: 'q' }, st.q));
       body.push(optionList({ options: st.options, picked: state.answered, answer: st.answer, reveal: state.answered != null, locked: state.answered != null, notes: st.explain,
-        onPick: (i) => { state.answered = i; blindOff(); render(); requestAnimationFrame(() => cardEl?.querySelector('.opt.sel, .opt.wrong')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); } }));
+        onPick: (i) => { state.answered = i; blindOff(); render(); nextFrame(() => cardEl?.querySelector('.opt.sel, .opt.wrong')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); } }));
       if (state.answered != null) body.push(h('div', { class: 'feedback ' + (state.answered === st.answer ? 'right' : 'wrong'), role: 'status' }, h('b', {}, state.answered === st.answer ? 'Correct. ' : `Not quite: the answer is ${'ABCDE'[st.answer]}. `), st.explain?.[st.answer] || ''));
     }
     if (st.type === 'predict' && !st.mode) {
@@ -760,7 +762,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     const bottom = sheet && (asPhone.matches || !!lesson.unit);
     coach.dataset.safe = bottom ? 'bottom' : 'top';
     // The figure gives up (or takes back) the sheet's height.
-    requestAnimationFrame(() => { stage?.relayout(); liftOver(bottom ? card : null); if (sheet) dispatchEvent(new Event('resize')); });
+    nextFrame(() => { stage?.relayout(); liftOver(bottom ? card : null); if (sheet) dispatchEvent(new Event('resize')); });
   }
 
   store.on('mode', (m) => { if (m !== 'learn' && lesson) stop(); render(); });

@@ -18,14 +18,16 @@ import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './ut
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=7b629187ab';
-import { sinusoidSupported } from './sinusoid-view.js?v=59762ccfcf';
+import { sinusoidSupported } from './sinusoid-view.js?v=e5b85c1e83';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=ed6d5f65dc';
-import { createHvpgMonitor } from './hvpg-proc.js?v=456e67ed78';
-import { createTools } from './presenter-tools.js?v=20a0f5a9e6';
+import { createHvpgMonitor } from './hvpg-proc.js?v=926224aa99';
+import { createTools } from './presenter-tools.js?v=9780ef6835';
 import { openHandout } from './handout.js?v=d01a4524e1';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
+import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -224,7 +226,7 @@ function wedgeColumn() {
     el('text', { class: 'c-top', x: 211, y: 24, 'text-anchor': 'middle' }, 'Still column: reads the sinusoids'),
     ...[[40, 'Portal vein'], [165, 'Sinusoids'], [262, 'Central vein'], [330, 'Balloon']].map(([x, t]) => el('text', { x, y: 76, 'text-anchor': 'middle' }, t)),
     el('text', { class: 'c-blkt', x: 86, y: 92, 'text-anchor': 'middle' }, 'Block in the portal tract'));
-  requestAnimationFrame(() => requestAnimationFrame(() => svg.classList.add('in')));
+  nextFrame(() => nextFrame(() => svg.classList.add('in')));
   return svg;
 }
 const tileVal = (k, v) => (v == null ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k]?.d ?? 1));
@@ -241,16 +243,16 @@ function liveFp(fr) {
 function tweener(draw) {
   let cur = null, raf = 0;
   return (to, ms = 950) => {
-    cancelAnimationFrame(raf);
+    cancelFrame(raf);
     if (!cur || reduce.matches || ms === 0) { cur = { ...to }; draw(cur); return; }
     const from = { ...cur }, t0 = performance.now();
     const step = (now) => {
       const u = ease(clamp((now - t0) / ms, 0, 1));
       for (const k of Object.keys(to)) cur[k] = from[k] == null || to[k] == null ? to[k] : from[k] + (to[k] - from[k]) * u;
       draw(cur);
-      if (u < 1) raf = requestAnimationFrame(step);
+      if (u < 1) raf = nextFrame(step);
     };
-    raf = requestAnimationFrame(step);
+    raf = nextFrame(step);
   };
 }
 
@@ -510,7 +512,7 @@ function scaleVisual(sc, rows) {
     }));
   // (A timer too: a tablet can hold back its first frames while the card lays out, and the pins must never wait at zero.)
   const go = () => svg.classList.add('in');
-  requestAnimationFrame(() => requestAnimationFrame(go)); setTimeout(go, 120);
+  nextFrame(() => nextFrame(go)); setTimeout(go, 120);
   return h('div', { class: 'pz-visual' }, svg);
 }
 
@@ -544,7 +546,7 @@ function scaleKey(sc, rows) {
       h('span', { class: 'pzk-name' }, r.name),
       sub(r.f).map((t) => h('span', { class: 'pzk-sub' }, t))))));
   const go = () => box.classList.add('in');
-  requestAnimationFrame(() => requestAnimationFrame(go)); setTimeout(go, 120);
+  nextFrame(() => nextFrame(go)); setTimeout(go, 120);
   return box;
 }
 
@@ -733,7 +735,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   async function drawn(st) {
     const n0 = frames;
     await until(() => frames > n0 && Math.abs((store.get().frame?.metrics?.pv ?? -99) - st.fp.pv) < 0.6, 900);
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => nextFrame(() => nextFrame(r)));
   }
 
   // ── The figure's moves ──
@@ -839,10 +841,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     stage.setCatheter({ u: v.u, balloon: v.balloon, column: v.column, columnColor: wedgeInk(), ring: cath.ring,
       pulse: 0.5 + 0.5 * Math.sin((now - cath.t0) / 170), clock: now - cath.t0, opacity: v.opacity, labels: cathLabels(), ostium: cath.ostium, probe });
     if (cath.follow) stage.cathFollow();
-    cath.raf = requestAnimationFrame(cathFrame);
+    cath.raf = nextFrame(cathFrame);
   }
   function cathStop() {
-    cancelAnimationFrame(cath.raf);
+    cancelFrame(cath.raf);
     if (cath.on) { stage.setCatheter(null); stage.cathForget(); }
     Object.assign(cath, { on: false, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null });
   }
@@ -1174,7 +1176,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // Already up (the slide before measured too): it stays, and glides to its new place under the new words.
     const stay = mon.el.parentNode === ui.text && !ui.text.hidden, y0 = stay ? mon.el.getBoundingClientRect().top : 0;
     mon.el.classList.toggle('pz-stay', stay);
-    requestAnimationFrame(() => {
+    nextFrame(() => {
       if (stay && !reduce.matches) {
         const dy = y0 - mon.el.getBoundingClientRect().top;
         if (Math.abs(dy) > 1) mon.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 450, easing: 'cubic-bezier(.2,.7,.2,1)' });
@@ -1404,7 +1406,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     ui.data.classList.toggle('docked', dock.to === 1);
   };
   function dockTo(to, ms = 380) {
-    cancelAnimationFrame(dock.raf);
+    cancelFrame(dock.raf);
     dock.to = to;
     if (reduce.matches) ms = 0;
     const from = dock.lvl, t0 = performance.now();
@@ -1412,9 +1414,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       const u = ms ? clamp((now - t0) / ms, 0, 1) : 1;
       dock.lvl = from + (to - from) * ease(u);
       dockPaint();
-      if (u < 1) dock.raf = requestAnimationFrame(step);
+      if (u < 1) dock.raf = nextFrame(step);
     };
-    dock.raf = requestAnimationFrame(step);
+    dock.raf = nextFrame(step);
     layout();   // (the figure frames itself for where the card is going)
     clearTimeout(dock.fit); dock.fit = setTimeout(() => ui && onResize(), 60);
   }
@@ -1463,8 +1465,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0;
   const fitWatch = () => {
     fitRO ||= new ResizeObserver(() => {
-      cancelAnimationFrame(fitRaf);
-      fitRaf = requestAnimationFrame(() => { if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (({ v, h }) => v > 1 || h > 1)(overflowOf(el)))) layout(); });
+      cancelFrame(fitRaf);
+      fitRaf = nextFrame(() => { if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (({ v, h }) => v > 1 || h > 1)(overflowOf(el)))) layout(); });
     });
     fitRO.disconnect();
     for (const el of [ui.text, ui.data, ui.panel]) for (const c of el.children) fitRO.observe(c);
@@ -1643,7 +1645,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     clearTimeout(widthT);
     const had = ui.text.classList.contains('pz-leave');
     ui.text.classList.add('pz-leave');
-    widthT = setTimeout(() => { apply(); requestAnimationFrame(() => { if (!had) ui?.text.classList.remove('pz-leave'); }); }, 240);
+    widthT = setTimeout(() => { apply(); nextFrame(() => { if (!had) ui?.text.classList.remove('pz-leave'); }); }, 240);
   }
   function toggleBlack(on = !black) { black = on; ui?.black.classList.toggle('on', black); }
   function fullscreen() { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); }
@@ -1761,7 +1763,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       const along = vert ? dy : dx, across = vert ? dx : dy, comp = vert ? g.vec[1] : g.vec[0];
       if (!g.on) {
         if (Math.abs(along) < 8 || Math.abs(across) > Math.abs(along) * 1.2) return;   // (not yet, or a cross-wise move: leave it)
-        g.on = true; dock.drag = true; cancelAnimationFrame(dock.raf);
+        g.on = true; dock.drag = true; cancelFrame(dock.raf);
       }
       if (e.cancelable) e.preventDefault();
       g.dl = along / g.k / comp;
@@ -1839,7 +1841,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       for (let i = 0; i < 40 && same < 5; i++) { await wait(60); const c = T(); same = c === a ? same + 1 : 0; a = c; }
       const runs = ui ? [...ui.root.getAnimations({ subtree: true }), ...ui.shade.getAnimations()].filter((x) => x.effect?.getComputedTiming().iterations !== Infinity) : [];
       await Promise.race([Promise.all(runs.map((x) => x.finished.catch(() => {}))), wait(1200)]);
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await new Promise((r) => nextFrame(() => nextFrame(r)));
     }
     clearTimeout(coverT); booting = false;
     const c = cover; cover = null;
@@ -1899,10 +1901,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     waiters = [];
     removeEventListener('resize', onResize);
     document.fonts?.removeEventListener('loadingdone', onFonts);
-    fitRO?.disconnect(); clearRO?.disconnect(); clearTimeout(clearT); cancelAnimationFrame(fitRaf);
+    fitRO?.disconnect(); clearRO?.disconnect(); clearTimeout(clearT); cancelFrame(fitRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
-    clearTimeout(idleT); clearTimeout(dock.fit); cancelAnimationFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;
+    clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;
     pillW = 0; ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);

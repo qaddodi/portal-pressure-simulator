@@ -6,9 +6,11 @@
 
 import { EDGES, dopplerK } from '../engine/topology.js?v=34e377149b';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=0cca243d2a';
-import { FONT } from './charts.js?v=b9fe53b914';
+import { FONT } from './charts.js?v=49026dd40b';
 import { logAction } from './store.js?v=7fb7280c05';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=645db9e3fe';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
@@ -647,13 +649,13 @@ export function createDoppler({ onProbe }) {
     raf = 0;
     if (!frame || !cv.isConnected || !cv.offsetParent) return;
     draw(now);
-    if ((live() && now - askedAt < 400) || labBusy) raf = requestAnimationFrame(loop);
+    if ((live() && now - askedAt < 400) || labBusy) raf = nextFrame(loop);
   }
   function redraw() {
     if (!frame) return;
     updateReport();
     askedAt = performance.now();
-    if (!raf) raf = requestAnimationFrame(loop);
+    if (!raf) raf = nextFrame(loop);
   }
   function update(f) { ingest(f); redraw(); }
   function clear() { buf = []; wl = null; redraw(); }

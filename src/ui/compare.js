@@ -5,7 +5,7 @@
 
 import { store } from './store.js?v=7fb7280c05';
 import { h, fmt, svgIcon } from './util.js?v=0cca243d2a';
-import { activeInterventions } from './inspector.js?v=5417607a72';
+import { activeInterventions } from './inspector.js?v=bced1ac9ba';
 
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (portal vein − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],

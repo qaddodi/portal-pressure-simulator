@@ -5,6 +5,8 @@ import { PROFILE_PATHS, SHORT } from './anatomy.js?v=d467b97383';
 import { pressureColor } from './colormap.js?v=c17dfefa88';
 import { store, hiddenNow } from './store.js?v=7fb7280c05';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop, GLIDE_MS } from './util.js?v=0cca243d2a';
+import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const ARTERIAL = new Set(['AO', 'HA']);
@@ -77,12 +79,12 @@ export function createProfile() {
     const moving = mP || mA;
     F = { ...Fraw, P: shown };
     draw();
-    cancelAnimationFrame(easeRaf);
+    cancelFrame(easeRaf);
     // Model frames arrive about ten times a second; the glide runs between them, 30 frames a second however fast the
     // screen refreshes (the pressures never quite settle while the model runs, so this glide never stops).
     const at = performance.now();
-    const next = (t) => { if (t - at < GLIDE_MS) { easeRaf = requestAnimationFrame(next); return; } if (cv.isConnected && cv.offsetParent) ease(); };
-    if (moving || pillMoving) easeRaf = requestAnimationFrame(next);
+    const next = (t) => { if (t - at < GLIDE_MS) { easeRaf = nextFrame(next); return; } if (cv.isConnected && cv.offsetParent) ease(); };
+    if (moving || pillMoving) easeRaf = nextFrame(next);
   }
   let predict = null; // { on, values: Map(station → P), done }
   let dragging = false;
@@ -336,7 +338,7 @@ export function createProfile() {
       ctx.fillStyle = col === c.muted ? c.text : col; ctx.font = FONT(700, 12.5); ctx.fillText(num, lx + 6 + tw1, ly + 0.5);
       ctx.restore();
     });
-    if (pillMoving) { cancelAnimationFrame(easeRaf); easeRaf = requestAnimationFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); }); }
+    if (pillMoving) { cancelFrame(easeRaf); easeRaf = nextFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); }); }
     ctx.textBaseline = 'alphabetic';
     el.querySelector('#profileOffscale').textContent = hasArt ? 'Arterial pressure is drawn above the break (//) at its true value.' : '';
     // prediction

@@ -14,7 +14,9 @@
 import { store, replaceParams, onParamChange } from './store.js?v=7fb7280c05';
 import { host } from './host.js?v=fc5582e003';
 import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=0cca243d2a';
-import { activeInterventions } from './inspector.js?v=5417607a72';
+import { activeInterventions } from './inspector.js?v=bced1ac9ba';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('timeline');
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
@@ -186,9 +188,9 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     const tick = (now) => {
       const u = clamp((now - t0) / 900, 0, 1);
       if (days !== 'event') timeLong.textContent = timeShort.textContent = `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
-      if (u < 1) requestAnimationFrame(tick); else track.classList.remove('ff');
+      if (u < 1) nextFrame(tick); else track.classList.remove('ff');
     };
-    requestAnimationFrame(tick);
+    nextFrame(tick);
     const e = push({ kind: 'jump', label: days === 'event' ? 'Ran until the next event' : `+${long}` });
     setTimeout(() => snapInto(e), 120);
   }

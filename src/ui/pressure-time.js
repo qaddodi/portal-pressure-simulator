@@ -7,7 +7,9 @@
 
 import { store, hiddenNow } from './store.js?v=7fb7280c05';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=0cca243d2a';
-import { FONT } from './charts.js?v=b9fe53b914';
+import { FONT } from './charts.js?v=49026dd40b';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('pressure-time');
 
 // hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
@@ -215,10 +217,10 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const live = () => frame?.running && range !== 'days' && cv.offsetParent && !document.hidden;
   function tickLoop() {
     if (!live()) { ticking = false; return; }
-    requestAnimationFrame(tickLoop);
+    nextFrame(tickLoop);
     draw();
   }
-  function wake() { if (!ticking && live()) { ticking = true; requestAnimationFrame(tickLoop); } }
+  function wake() { if (!ticking && live()) { ticking = true; nextFrame(tickLoop); } }
 
   function draw() {
     const { ctx, w, h: hh } = fitCanvas(cv);

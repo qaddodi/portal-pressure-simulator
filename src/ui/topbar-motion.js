@@ -7,6 +7,8 @@
 // frame). Positions are read from offsetLeft/offsetTop, which ignore transforms, so a measure taken while
 // a glide is still playing is the true layout and an interrupted glide continues from where it was.
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('topbar-motion');
 
 const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > *, .top-right, .top-right > *';
 // Pills that grow reveal their new width from the old one instead of snapping wide.
@@ -141,6 +143,6 @@ export function initTopbarMotion() {
   ro.observe(bar);
   for (const el of bar.querySelectorAll(ITEMS)) ro.observe(el);
 
-  const start = () => requestAnimationFrame(() => requestAnimationFrame(resnap));
+  const start = () => nextFrame(() => nextFrame(resnap));
   (document.fonts?.ready || Promise.resolve()).then(start, start);
 }

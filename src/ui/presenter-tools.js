@@ -21,11 +21,13 @@
 import { store } from './store.js?v=7fb7280c05';
 import { h, fmt, clamp } from './util.js?v=0cca243d2a';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { createDoppler } from './doppler.js?v=d4daf2cb9a';
-import { createFibroScan } from './fibroscan.js?v=0e979fa0d9';
-import { createPressureTime } from './pressure-time.js?v=b6b3aae48b';
-import { createFlowTime } from './flow-time.js?v=b18da85756';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=aee884a7c3';
+import { createDoppler } from './doppler.js?v=83a2431450';
+import { createFibroScan } from './fibroscan.js?v=cfed92d01b';
+import { createPressureTime } from './pressure-time.js?v=05ec6348c3';
+import { createFlowTime } from './flow-time.js?v=a86039df56';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=e29ae87738';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava',
@@ -86,7 +88,7 @@ export function createTools({ host, stage }) {
       box.classList.toggle('ask', quiz && READS.has(t.kind));
       if (k === 'talk') inst.set(chain);
       else if (k === 'flowtime') inst.set(trail, reveal);
-      else { const f = store.get().frame; if (f) requestAnimationFrame(() => cur === inst && inst.update(f)); }
+      else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update(f)); }
     },
     /** The flow-time chart drawn up to k (0 to 1) of its time-lapse, with its series (trail) once it is computed. */
     progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); },
@@ -154,7 +156,7 @@ function talkTrace() {
     const old = [...el.children];
     svg.classList.add('in');
     el.append(svg);
-    requestAnimationFrame(() => requestAnimationFrame(() => svg.classList.remove('in')));
+    nextFrame(() => nextFrame(() => svg.classList.remove('in')));
     setTimeout(() => old.forEach((o) => o.remove()), 480);
   }
   return { el, set, update() {}, clear() {} };

@@ -21,10 +21,12 @@ import { bpOf, tension, abdomen, esoText, spleenCm, ascitesText } from './cases/
 import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=e08298baac';
 import { course, setUnitSurface, unitBar } from './course.js?v=268d8cc010';
 import { CASE_UNITS } from './cases/units.js?v=cead89ea1e';
-import { activeInterventions } from './inspector.js?v=5417607a72';
-import { captureFrame } from './timeline.js?v=268580a917';
+import { activeInterventions } from './inspector.js?v=bced1ac9ba';
+import { captureFrame } from './timeline.js?v=c9e2160dce';
 import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=7b629187ab';
 import { SNAPSHOTS } from './snapshots.js?v=6c4f07ae98';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('cases');
 
 export { CASES };
 
@@ -654,7 +656,7 @@ export function createCases({ root, api, coach, onUnitEnd }) {
   // sheet shows the story, the exam and the results, never the model's knobs.
   let unitKeysOff = null, unitCard = null, unitMin = false;
   const asWide = matchMedia('(max-width: 1279px)');
-  asWide.addEventListener('change', () => { if (ctx?.unit) requestAnimationFrame(renderUnit); });
+  asWide.addEventListener('change', () => { if (ctx?.unit) nextFrame(renderUnit); });
   const liftOver = (card) => {
     const wrap = document.getElementById('stageView')?.getBoundingClientRect(), q = card?.getBoundingClientRect();
     const px = card && wrap && q.height ? `${Math.round(wrap.bottom - q.top + 8)}px` : '';
@@ -716,7 +718,7 @@ export function createCases({ root, api, coach, onUnitEnd }) {
     U.picks[st.sid] = i; ctx.answers[st.sid] = i; ctx.grades[st.sid] = i === st.answer;
     log.push({ id: `Decision: ${st.title}`, t: ctx.t, key: `unit:${U.u.id}:${st.sid}`, correct: i === st.answer });
     U.playing = true; renderUnit();
-    requestAnimationFrame(() => unitCard?.querySelector('.opt.wrong, .opt.right')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    nextFrame(() => unitCard?.querySelector('.opt.wrong, .opt.right')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
     try { U.cons[st.sid] = (await st.play?.(c, i)) || null; } catch (e) { console.error(e); }
     U.playing = false; renderUnit();
   }
@@ -818,7 +820,7 @@ export function createCases({ root, api, coach, onUnitEnd }) {
     coach.replaceChildren(card); unitCard = card;
     coach.dataset.safe = 'bottom';
     if (same) coach.scrollTop = top;
-    requestAnimationFrame(() => { liftOver(card); dispatchEvent(new Event('resize')); });
+    nextFrame(() => { liftOver(card); dispatchEvent(new Event('resize')); });
   }
 
   return {

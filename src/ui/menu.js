@@ -8,6 +8,8 @@ import { store } from './store.js?v=7fb7280c05';
 import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=0cca243d2a';
 import { SNAPSHOTS } from './snapshots.js?v=6c4f07ae98';
 import { pressureColor } from './colormap.js?v=c17dfefa88';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('menu');
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 // Where each group's resistance sits along the pathway from the gut to the heart.
@@ -176,7 +178,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (was) return;
     const box = h('div', { class: 'um-inline' }, h('div', {}, make()));
     li.append(box); btn.setAttribute('aria-expanded', 'true');
-    requestAnimationFrame(() => requestAnimationFrame(() => box.classList.add('on')));
+    nextFrame(() => nextFrame(() => box.classList.add('on')));
   }
   const $$rows = () => (el ? [...el.querySelectorAll('.um-row')] : []);
 
@@ -335,7 +337,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         if (section === 'scripts') el.querySelector('.um-g.scripts')?.scrollIntoView({ block: 'start', behavior: reduce.matches ? 'auto' : 'smooth' });
         else el.querySelector(`.um-col[data-col="${tab}"] .um-row[aria-current="true"]`)?.scrollIntoView({ block: 'nearest' });
       };
-      requestAnimationFrame(scrollTo);
+      nextFrame(scrollTo);
     },
     close,
     toggle(section) { if (open) close(); else this.open(section); },

@@ -3,6 +3,8 @@
 // position [x, y] (the view's bounds); `apply(x, y)` shows a position; `done()` runs once it has settled.
 // Like a scroll view: the glide decays slowly, but carried past the edge it is braked hard (the velocity halves
 // each frame), the overshoot shows only as a short tanh stretch, and it returns to the edge within a few frames.
+import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('flick');
 export const FLICK = { decay: 0.9955, brake: 0.5, overshoot: 0.78, band: 36, minSpeed: 0.25, stop: 0.03 };
 
 export function runFlick({ x, y, vx, vy, hard, apply, done }) {
@@ -18,9 +20,9 @@ export function runFlick({ x, y, vx, vy, hard, apply, done }) {
     if (ox) { vx *= Math.pow(FLICK.brake, f16); ox *= Math.pow(FLICK.overshoot, f16); rx = cx + ox; }
     if (oy) { vy *= Math.pow(FLICK.brake, f16); oy *= Math.pow(FLICK.overshoot, f16); ry = cy + oy; }
     apply(cx + (ox ? L * Math.tanh(ox / L) : 0), cy + (oy ? L * Math.tanh(oy / L) : 0));
-    if (Math.hypot(vx, vy) > FLICK.stop || Math.abs(ox) > 0.5 || Math.abs(oy) > 0.5) raf = requestAnimationFrame(step);
+    if (Math.hypot(vx, vy) > FLICK.stop || Math.abs(ox) > 0.5 || Math.abs(oy) > 0.5) raf = nextFrame(step);
     else { apply(cx, cy); done?.(); }
   };
-  raf = requestAnimationFrame(step);
-  return () => { cancelAnimationFrame(raf); raf = 0; };
+  raf = nextFrame(step);
+  return () => { cancelFrame(raf); raf = 0; };
 }

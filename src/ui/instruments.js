@@ -8,8 +8,10 @@ import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=0c
 import { simTime, isPaused } from './clock.js?v=c643f5f6f2';
 import { createEndoGL } from './endo-gl.js?v=54190751fe';
 import { renderEndo } from './endo-render.js?v=14e38d504c';
-import { FONT } from './charts.js?v=b9fe53b914';
+import { FONT } from './charts.js?v=49026dd40b';
 import { store, updateParams, varicesPresent } from './store.js?v=7fb7280c05';
+import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('instruments');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
@@ -114,7 +116,7 @@ export function createEndoscopy({ onAction }) {
     // The band snaps on and the banded vein starts deflating at once, in about half a second.
     for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 500, 0) || busy;
     for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, 1, 0) || busy;
-    if (busy && !raf && !isPaused()) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
+    if (busy && !raf && !isPaused()) raf = nextFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
     if (gl) {
@@ -156,7 +158,7 @@ export function createEndoscopy({ onAction }) {
     ctx.restore();
     ctx.strokeStyle = cssVar('--scope-rim'); ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
   }
-  return { id: 'endoscopy', label: 'Endoscopy', el, update, setView() {}, dispose() { offRun(); cancelAnimationFrame(raf); raf = 0; gl?.dispose(); last = null; } };
+  return { id: 'endoscopy', label: 'Endoscopy', el, update, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); last = null; } };
 }
 
 // ── Varix wall cross-section (L3) ───────────────────

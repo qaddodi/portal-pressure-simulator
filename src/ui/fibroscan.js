@@ -5,9 +5,11 @@
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
 import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=0cca243d2a';
-import { FONT } from './charts.js?v=b9fe53b914';
+import { FONT } from './charts.js?v=49026dd40b';
 import { simTime, isPaused } from './clock.js?v=c643f5f6f2';
 import { store } from './store.js?v=7fb7280c05';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
 // Colours come from the app's theme tokens (light or dark), re-read about once a second.
@@ -149,12 +151,12 @@ export function createFibroScan() {
     if (!cv.isConnected || cv.offsetParent === null || document.hidden) { running = false; return; }
     paint(now);
     if (REDUCED || isPaused()) { running = false; return; }   // paused: hold this frame; resume restarts the loop
-    requestAnimationFrame(loop);
+    nextFrame(loop);
   }
   function update(f) {
     model = f.metrics.lsm;
-    if (!running && cv.offsetParent !== null) { running = true; requestAnimationFrame(loop); }
+    if (!running && cv.offsetParent !== null) { running = true; nextFrame(loop); }
   }
-  const offRun = store.on('running', (on) => { if (on && !running && cv.offsetParent !== null) { running = true; requestAnimationFrame(loop); } });
+  const offRun = store.on('running', (on) => { if (on && !running && cv.offsetParent !== null) { running = true; nextFrame(loop); } });
   return { id: 'fibroscan', label: 'FibroScan', el, update, dispose: offRun };
 }

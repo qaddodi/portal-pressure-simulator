@@ -4,6 +4,8 @@ import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=34e377149b';
 import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
 import { store, updateParams, isLocked, hiddenNow } from './store.js?v=7fb7280c05';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=0cca243d2a';
+import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('inspector');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -96,13 +98,13 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     input.addEventListener('keydown', () => { fresh = true; });
     // The thumb and its number follow the pointer at once; the model gets the newest value once per frame.
     let pend = null, raf = 0;
-    const flush = () => { cancelAnimationFrame(raf); raf = 0; const p = pend; pend = null; if (p) updateParams((pp) => { set(pp, p.v); return pp; }, { history: p.history, label }); };
+    const flush = () => { cancelFrame(raf); raf = 0; const p = pend; pend = null; if (p) updateParams((pp) => { set(pp, p.v); return pp; }, { history: p.history, label }); };
     input.addEventListener('input', () => {
       const v = parseFloat(input.value);
       paint(v);
       if (!pend) pend = { history: fresh }; pend.v = v;
       fresh = false;
-      if (!raf) raf = requestAnimationFrame(flush);
+      if (!raf) raf = nextFrame(flush);
     });
     input.addEventListener('change', flush);
     reset.addEventListener('click', () => {

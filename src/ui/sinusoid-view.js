@@ -24,6 +24,8 @@ import { pressureColor } from './colormap.js?v=c17dfefa88';
 import { isPaused } from './clock.js?v=c643f5f6f2';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=00371527ba';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -623,13 +625,13 @@ export function createSinusoidView({ host }) {
     // (While the zoom runs, place() has already drawn this frame in step with the lobule.)
     draw(dt, !reduce.matches, !drewNow);   // (the wall's traffic eases to a stop while the clock is paused, and picks up again on resume)
     drewNow = false;
-    raf = requestAnimationFrame(loop);
+    raf = nextFrame(loop);
   }
 
   return {
     el,
     /** The lobule's model (lobuleState), each time it changes. */
-    setModel(m) { model = m; if (shown > 0 && !raf) raf = requestAnimationFrame(loop); },
+    setModel(m) { model = m; if (shown > 0 && !raf) raf = nextFrame(loop); },
     /**
      * Placement during the zoom from the lobule (lobule-zoom.js): opacity; the zoom's state, if it is
      * running (`dive`: g, its eased progress; p, the lobule's sinusoid point on screen at rest; q, the zoom's
@@ -657,7 +659,7 @@ export function createSinusoidView({ host }) {
       }
       // Drawn now, in step with the lobule's transform this frame (not a frame later).
       if (opacity > 0 && model) { draw(0, false); drewNow = true; }
-      if (opacity > 0 && !raf && model) raf = requestAnimationFrame(loop);
+      if (opacity > 0 && !raf && model) raf = nextFrame(loop);
     },
     /** Where the sinusoid's centre is drawn at rest (stage px), its direction (radians) and the lumen's width there (px). */
     frame() {

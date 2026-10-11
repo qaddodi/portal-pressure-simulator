@@ -5,6 +5,8 @@
 // spread over the rise, then the state it reaches held to the end. The values are the model's own: the off-screen chain
 // keeps the portal pressure and flow on each day of the time-lapse (worker-core's trail), read here once a minute
 // (straight between days). The lines draw from left to right as the time-lapse plays, easing after its clock.
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
 const fmt = (v, d) => v.toFixed(d), clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -117,7 +119,7 @@ export function createFlowTime() {
     shown += (goal - shown) * (matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 0.16);
     if (Math.abs(goal - shown) < 0.05) shown = goal;
     paint(shown);
-    if (shown !== goal) raf = requestAnimationFrame(tick);
+    if (shown !== goal) raf = nextFrame(tick);
   }
   // k: how far along the time-lapse (0 to 1): its minutes on the rise; once it has ended, the held state to the end.
   const minuteOf = (k) => (k >= 1 ? MINUTES.end : MINUTES.rise * clamp(k, 0, 1));
@@ -133,14 +135,14 @@ export function createFlowTime() {
         parts = ser ? build() : null;
         if (parts) {
           parts.svg.classList.add('in'); el.append(parts.svg);
-          requestAnimationFrame(() => requestAnimationFrame(() => parts?.svg.classList.remove('in')));
+          nextFrame(() => nextFrame(() => parts?.svg.classList.remove('in')));
         }
         setTimeout(() => old.forEach((o) => o.remove()), 480);
         shown = goal = minuteOf(k); paint(shown);
         return;
       }
       goal = minuteOf(k);
-      if (!raf) raf = requestAnimationFrame(tick);
+      if (!raf) raf = nextFrame(tick);
     },
     update() {}, clear() {},
   };

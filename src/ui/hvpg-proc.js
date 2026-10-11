@@ -9,9 +9,11 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, fitCanvas, clamp, icon, toast, cssVar } from './util.js?v=0cca243d2a';
-import { FONT } from './charts.js?v=b9fe53b914';
+import { FONT } from './charts.js?v=49026dd40b';
 import { pressureColor } from './colormap.js?v=c17dfefa88';
 import { store, logAction } from './store.js?v=7fb7280c05';
+import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
 /** main.js hands over the figure once it exists. */
@@ -89,15 +91,15 @@ export function createHvpgProcedure() {
   }
   function stopFigure() { stageRef?.setCatheter(null); if (cam && cam !== 'home') stageRef?.cathFocus('home'); cam = ''; }
   const tEnd = () => (blocked ? TB.end : T.end);
-  function reset() { cancelAnimationFrame(raf); raf = 0; if (t0 != null && t < tEnd()) { stopFigure(); } t0 = null; t = 0; result = null; snap = null; sig = ''; blocked = false; paintSide(); draw(); }
+  function reset() { cancelFrame(raf); raf = 0; if (t0 != null && t < tEnd()) { stopFigure(); } t0 = null; t = 0; result = null; snap = null; sig = ''; blocked = false; paintSide(); draw(); }
   function loop() {
-    cancelAnimationFrame(raf);
+    cancelFrame(raf);
     const step = () => {
       t = performance.now() - t0;
       if (!result && !blocked && t >= T.result) finish();
       figure();
       paintSide(); draw();
-      if (t < tEnd()) raf = requestAnimationFrame(step);
+      if (t < tEnd()) raf = nextFrame(step);
       // A lesson waits for the whole procedure (the catheter back out) before it moves on.
       else { raf = 0; stageRef?.setCatheter(null); logAction('hvpg', blocked ? 'aborted' : 'measured'); }
     };
@@ -226,7 +228,7 @@ export function createHvpgMonitor() {
   function step(now) {
     t = Math.min(t1, t + (now - last)); last = now;
     draw();
-    raf = t < t1 && el.isConnected ? requestAnimationFrame(step) : 0;
+    raf = t < t1 && el.isConnected ? nextFrame(step) : 0;
   }
   function set(m, f = null) {
     const span = SPAN[m];
@@ -236,9 +238,9 @@ export function createHvpgMonitor() {
     if (!(fwd && t >= SPAN[mode][0] && t <= span[0])) t = span[0];
     mode = m; t1 = span[1];
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) t = t1;
-    cancelAnimationFrame(raf);
+    cancelFrame(raf);
     // (Once the card is laid out: the canvas sizes itself to it.)
-    requestAnimationFrame((now) => { last = now; step(now); });
+    nextFrame((now) => { last = now; step(now); });
   }
   // (A new size redraws it; the animation loop paints while it runs.)
   new ResizeObserver(() => { if (!raf && mode) draw(); }).observe(cv);

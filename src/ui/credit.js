@@ -1,6 +1,8 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
 // It keeps its corner while that corner stays free and never glides: any move fades it out in place, jumps it
 // unseen and fades it back in, once the cards have settled; with no figure left anywhere it stays faded out.
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('credit');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);
 // a top corner drops below whatever covers it.
@@ -164,7 +166,7 @@ export function createCreditPlacer(credit) {
     clearTimeout(moveT);
     moveT = setTimeout(() => { moving = false; place(c, p, tight); soon(); }, 260);
   }
-  function soon() { if (!raf) raf = requestAnimationFrame(check); }
+  function soon() { if (!raf) raf = nextFrame(check); }
   addEventListener('resize', soon);
   addEventListener('pps:occ', soon);
   // Readout bars ease on every value and never cover the figure: their transitions are not a reason to look again.

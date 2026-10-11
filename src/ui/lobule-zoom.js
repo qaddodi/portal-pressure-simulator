@@ -19,7 +19,7 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
+import { runFlick, FLICK } from './flick.js?v=9c07aaa402';
 import { store } from './store.js?v=7fb7280c05';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=4b6aa4841d';
@@ -28,7 +28,9 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=34e377149b';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=2f568f909c';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=59762ccfcf';
+import { createSinusoidView } from './sinusoid-view.js?v=e5b85c1e83';
+import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -224,7 +226,7 @@ export function createLobuleZoom({ host }) {
     zonesOn = !!l.zones; lymphOn = !!l.lymph;
     tissueKey = ''; layoutKey = ''; attrKey = '';
     if (F) update(F);
-    requestAnimationFrame(refit);
+    nextFrame(refit);
   };
   store.on('lobuleLayers', () => syncLayers());
   // A presenter slide's pointer at the lesion (D4): { at: 'triad' | 'sin' | 'cv', label, kind: block | treat | note }.
@@ -286,7 +288,7 @@ export function createLobuleZoom({ host }) {
     if (!geo) return;
     if (!rawK) rawK = kFit;
     rawK = Math.max(kFit * 0.5, rawK * f);   // as the anatomy: the unresisted scale stops at half the framing
-    stopInertia(); cancelAnimationFrame(glide); rubber = true; atFit = false;
+    stopInertia(); cancelFrame(glide); rubber = true; atFit = false;
     const F0 = fitV();
     if (rawK >= kFit) { rawK = 0; rubber = false; Object.assign(V, F0); atFit = true; viewChanged(); return; }
     // The stretch shrinks about the middle of the free space, not the fingers: the lobule stays where its framing puts it, so zooming
@@ -340,11 +342,11 @@ export function createLobuleZoom({ host }) {
     if (!camMove || camHeld) return;
     camMove = false; layoutKey = '';
     if (fade > 0 && geo) layoutLabels();
-    requestAnimationFrame(() => { if (camMove) return; el.classList.remove('lz-cam'); el.classList.add('lz-cam-in'); clearTimeout(camInT); camInT = setTimeout(() => el.classList.remove('lz-cam-in'), 400); });
+    nextFrame(() => { if (camMove) return; el.classList.remove('lz-cam'); el.classList.add('lz-cam-in'); clearTimeout(camInT); camInT = setTimeout(() => el.classList.remove('lz-cam-in'), 400); });
   }
   function glideTo(to, ms = 260, cam = false) {
     stopInertia();
-    cancelAnimationFrame(glide);
+    cancelFrame(glide);
     const from = { ...V }, t0 = performance.now();
     if (reduce.matches || !fade) { Object.assign(V, to); viewChanged(); camSettle(); return; }
     if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; el.classList.remove('lz-cam-in'); el.classList.add('lz-cam'); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();
@@ -353,9 +355,9 @@ export function createLobuleZoom({ host }) {
       const k = from.k * Math.pow(to.k / from.k, e), a = (k - from.k) / ((to.k - from.k) || 1);
       V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? e : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? e : a);
       viewChanged();
-      if (u < 1) glide = requestAnimationFrame(step); else camSettle();
+      if (u < 1) glide = nextFrame(step); else camSettle();
     };
-    glide = requestAnimationFrame(step);
+    glide = nextFrame(step);
   }
   let outHandler = null;
   function zoomBy(factor) {
@@ -375,10 +377,10 @@ export function createLobuleZoom({ host }) {
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   // A new text size: the labels glide to their new places instead of jumping.
   let easeT = 0;
-  addEventListener('pps:labelscale', () => { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(() => labels.classList.remove('lz-ease'), 450); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
+  addEventListener('pps:labelscale', () => { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(() => labels.classList.remove('lz-ease'), 450); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
   const PACE_MS = GLIDE_MS;
   let pacedVer = -1, viewVer = 0;   // viewVer: a pan, zoom, resize or label change, drawn without waiting
-  const viewChanged = () => { drawVersion++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
+  const viewChanged = () => { drawVersion++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
   function resetView() {
@@ -408,7 +410,7 @@ export function createLobuleZoom({ host }) {
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     stopInertia();
-    cancelAnimationFrame(glide);   // a button's glide never fights the hand
+    cancelFrame(glide);   // a button's glide never fights the hand
     const u = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? el.clientHeight : 1, dx = ev.deltaX * u, dy = ev.deltaY * u, now = performance.now();
     if (now - wheelAt > 250 || Math.sign(dy) !== wheelDir) wheelOutOK = V.k <= kFit * 1.001;
     wheelDir = Math.sign(dy);   // only a gesture that begins at the framing may carry on out to the anatomy
@@ -446,7 +448,7 @@ export function createLobuleZoom({ host }) {
     stopInertia();
     if (ev.isPrimary) touches.clear();
     touches.set(ev.pointerId, local(ev));
-    cancelAnimationFrame(glide);
+    cancelFrame(glide);
     // Captured, so a drag keeps going over the labels, the card or past the edge.
     try { el.setPointerCapture(ev.pointerId); } catch { /* gone */ }
     if (touches.size === 2) {
@@ -474,7 +476,7 @@ export function createLobuleZoom({ host }) {
         if (V.k > kFit * 1.001) { V.x += p[0] - drag.p[0]; V.y += p[1] - drag.p[1]; clampV(); viewChanged(); el.classList.add('lz-drag'); }
         else if (geo) {   // at its framing there is nowhere to go: the lobule follows the hand on a rubber band and springs back on release
           const F0 = fitV(), o = drag.o || (drag.o = [0, 0]), Lx = 0.4 * (el.clientWidth || 800), Ly = 0.4 * (el.clientHeight || 600);   // near-free travel, easing toward 40% of the view
-          cancelAnimationFrame(glide); rubber = true; o[0] += p[0] - drag.p[0]; o[1] += p[1] - drag.p[1];
+          cancelFrame(glide); rubber = true; o[0] += p[0] - drag.p[0]; o[1] += p[1] - drag.p[1];
           V.x = F0.x + Lx * Math.tanh(o[0] / Lx); V.y = F0.y + Ly * Math.tanh(o[1] / Ly); atFit = false; viewChanged(); el.classList.add('lz-drag');
         }
         drag.p = p;
@@ -540,9 +542,9 @@ export function createLobuleZoom({ host }) {
     selFor = sl; selIdsC = idsFor(sl);
     return selIdsC;
   }
-  store.on('selection', () => { attrKey = ''; tissueKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
+  store.on('selection', () => { attrKey = ''; tissueKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
   // Pinning a moment puts the Then / Now / Change switch over the top: the lobule frames itself below it.
-  store.on('compareSnap', () => requestAnimationFrame(() => { if (geo && fade > 0) { layoutKey = ''; refit(); } }));
+  store.on('compareSnap', () => nextFrame(() => { if (geo && fade > 0) { layoutKey = ''; refit(); } }));
 
   // ── State ──
   let F = null, fade = 0, raf = 0, last = 0, lastPaint = 0;
@@ -795,13 +797,13 @@ export function createLobuleZoom({ host }) {
     // ladder, labels and colors glide rather than jump, every display frame between model frames.
     const eased = easeP.step(f.Pf || f.P);
     model = lobuleState({ ...f, P: eased.v }, st);
-    cancelAnimationFrame(easeRaf);
-    if (eased.moving) easeRaf = requestAnimationFrame(glideP);
+    cancelFrame(easeRaf);
+    if (eased.moving) easeRaf = nextFrame(glideP);
     const hs = getComputedStyle(host), cv = (n, d) => hs.getPropertyValue(n).trim() || d;
     model.inks = { normal: cv('--flow-normal'), reversed: cv('--flow-reversed'), portal: cv('--vein-portal'), systemic: cv('--vein-systemic') };
     if (originOn() && originsF !== f) { origins = originFractions(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P); originsF = f; }
     panel();
-    if (!raf) raf = requestAnimationFrame(loop);
+    if (!raf) raf = nextFrame(loop);
   }
   const originOn = () => !store.get().imaging && store.get().colorMode === 'origin';
   // Between model frames only the pressures move: re-ease them and redraw the panel, nothing else.
@@ -809,7 +811,7 @@ export function createLobuleZoom({ host }) {
   function glideP(now) {
     if (!F || fade <= 0 || !model) return;
     // Paced like the flow (30 a second): the model's pressures never quite settle while it runs, so this glide never stops.
-    if (now - glideAt < PACE_MS) { easeRaf = requestAnimationFrame(glideP); return; }
+    if (now - glideAt < PACE_MS) { easeRaf = nextFrame(glideP); return; }
     glideAt = now;
     const eased = easeP.step(F.Pf || F.P);
     const inks = model.inks;
@@ -817,7 +819,7 @@ export function createLobuleZoom({ host }) {
     model = lobuleState({ ...F, P: eased.v }, store.get());
     model.inks = inks;
     panel();
-    if (eased.moving) easeRaf = requestAnimationFrame(glideP);
+    if (eased.moving) easeRaf = nextFrame(glideP);
   }
 
   function panel() {
@@ -1145,11 +1147,11 @@ export function createLobuleZoom({ host }) {
     raf = 0;
     if (fade <= 0 || !model) return;
     const soft = !!gl?.software;
-    if (soft && now - lastPaint < 110) { raf = requestAnimationFrame(loop); return; }
+    if (soft && now - lastPaint < 110) { raf = nextFrame(loop); return; }
     // The flow alone is paced to 30 frames a second, like the anatomy's blood (not the screen's 60 or 120): it looks the
     // same and halves the work or more, which kept a laptop busy and warm. A pan, zoom or any other change draws at once.
     const paced = !soft && viewVer === pacedVer;
-    if (paced && now - lastPaint < PACE_MS) { raf = requestAnimationFrame(loop); return; }
+    if (paced && now - lastPaint < PACE_MS) { raf = nextFrame(loop); return; }
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; lastPaint = now;
     const st = store.get(), moving = st.running && !reduce.matches;
     if (moving) clock = (clock + dt) % 10000;
@@ -1168,7 +1170,7 @@ export function createLobuleZoom({ host }) {
       }
     }
     prevDrew = drew; pacedVer = viewVer;
-    raf = requestAnimationFrame(loop);
+    raf = nextFrame(loop);
   }
   // The flow marks (shimmer and chevrons) fade out as the dive starts and back in once the lobule has landed, over about
   // 0.3 s each way. Ordinary panning and zooming inside the lobule view leave them alone.
@@ -2235,9 +2237,9 @@ export function createLobuleZoom({ host }) {
     const ch = clamp((fade - 0.55) / 0.45, 0, 1);
     el.style.setProperty('--lz-chrome', chromeHold ? '0' : (ch * ch * (3 - 2 * ch)).toFixed(3));
   }
-  function resetSinusoid() { cancelAnimationFrame(sinRaf); sinU = 0; sinTo = 0; sinDive = null; placeSinusoid(); }
+  function resetSinusoid() { cancelFrame(sinRaf); sinU = 0; sinTo = 0; sinDive = null; placeSinusoid(); }
   function diveSinusoid(on) {
-    if (quietSin) { sinTo = 0; cancelAnimationFrame(sinRaf); return; }   // the lobule view is closing: the sinusoid fades out with it
+    if (quietSin) { sinTo = 0; cancelFrame(sinRaf); return; }   // the lobule view is closing: the sinusoid fades out with it
     if (on && (!geo || fade < 0.98 || !model || !sv.available)) { sinChain = null; if (chromeHold) { chromeHold = false; applyChrome(); } queueMicrotask(() => { if (store.get().sinusoid && !sinTo) store.set({ sinusoid: false }); }); return; }
     const to = on ? 1 : 0;
     if (to === sinTo && sinU === to) return;
@@ -2249,20 +2251,20 @@ export function createLobuleZoom({ host }) {
     if (sl && (on ? sl.type === 'lobule' : sl.type === 'sinusoid')) store.set({ selection: null });
     // On the way out the lobule is drawn once in its present state, so it does not change when it lands.
     if (!on) { diveDrawn = false; drawVersion++; tissueKey = ''; layoutKey = ''; }
-    if (!raf && fade > 0) raf = requestAnimationFrame(loop);
+    if (!raf && fade > 0) raf = nextFrame(loop);
     const from = sinU, ms = (reduce.matches ? 280 : on ? 1150 : 950) * Math.abs(to - from), t0 = performance.now();
-    cancelAnimationFrame(sinRaf);
+    cancelFrame(sinRaf);
     const step = (now) => {
       const t = ms > 0 ? clamp((now - t0) / ms, 0, 1) : 1;
       sinU = lerp(from, to, t); placeSinusoid();
-      if (t < 1) sinRaf = requestAnimationFrame(step);
+      if (t < 1) sinRaf = nextFrame(step);
       else {
         sinChain = null;
         if (on) { if (chromeHold) { chromeHold = false; applyChrome(); } }
-        else { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = requestAnimationFrame(loop); if (refitLater) refit(); const cb = sinClosedCb; sinClosedCb = null; cb?.(); }
+        else { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); if (refitLater) refit(); const cb = sinClosedCb; sinClosedCb = null; cb?.(); }
       }
     };
-    sinRaf = requestAnimationFrame(step);
+    sinRaf = nextFrame(step);
   }
   store.on('sinusoid', (on) => diveSinusoid(!!on));
   store.on('lobule', (on) => { if (!on && store.get().sinusoid) { quietSin = true; store.set({ sinusoid: false }); quietSin = false; } });
@@ -2283,7 +2285,7 @@ export function createLobuleZoom({ host }) {
       if (fade > 0 && was === 0) { resetView(); if (F) update(F); }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { stopInertia(); if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
-      if (fade === 0) { cancelAnimationFrame(raf); raf = 0; last = 0; if (was > 0) release(); }
+      if (fade === 0) { cancelFrame(raf); raf = 0; last = 0; if (was > 0) release(); }
       // Out of the lobule: a presenter's aim is spent (the next way in frames the whole lobule).
       if (fade === 0 && was > 0) { aimed = null; camHeld = false; if (camMove) { camMove = false; el.classList.remove('lz-cam'); } }
       // Leaving the lobule view from inside a sinusoid: the sinusoid fades out with it.
