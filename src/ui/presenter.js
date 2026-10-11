@@ -313,7 +313,7 @@ function bigLadder() {
     return { g: sv('g', { class: 'pzs-pt' }, v), v, k: sv('text', { class: 'pzs-k', x: XS(i), y: 9, 'text-anchor': 'middle' }, a) };
   });
   const sbr = (name, row, i0, i1) => {
-    const x0 = XS(i0), x1 = XS(i1), t = ['bn', 'bv'].map((c) => sv('tspan', { class: 'pzs-' + c }));
+    const x0 = XS(i0), x1 = XS(i1), t = ['bn', 'bv', 'ba'].map((c) => sv('tspan', { class: 'pzs-' + c }));
     const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br' });
     const lbl = sv('text', { class: 'pzs-bl', x: (x0 + x1) / 2, y: row + 3.5, 'text-anchor': 'middle' }, t);
     return { name, x0, x1, row, lead, t, bar, lbl, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, lbl) };
@@ -382,10 +382,11 @@ function bigLadder() {
       if (!ok) return;
       b.lead.setAttribute('d', `M${b.x0} ${b.row - 5}V${S.ny + 10}M${b.x1} ${b.row - 5}V${S.ny + 10}`);
       b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate || 'ok';
-      b.t[0].textContent = b.name; b.t[1].textContent = ' ' + fmt(v, 1) + (say ? '' : rate === 'hi' ? ' ↑↑' : rate === 'mid' ? ' ↑' : '');
-      // The bracket's line leaves a gap round its label (measured; a hidden strip measures nothing, so it keeps the last gap).
-      const half = (b.lbl.getComputedTextLength?.() || 0) / 2 + 4, mid = (b.x0 + b.x1) / 2, r = b.row;
-      if (half > 4) b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (mid - half > b.x0 ? `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}` : ''));
+      const arrows = say ? '' : rate === 'hi' ? ' ↑↑' : rate === 'mid' ? ' ↑' : '', num = ' ' + fmt(v, 1);
+      b.t[0].textContent = b.name; b.t[1].textContent = num; b.t[2].textContent = arrows;
+      // The bracket's line leaves a gap round its label (an estimate of its width, so a hidden strip needs no measuring and nothing jumps).
+      const half = (b.name.length * 6.2 + num.length * 5 + (arrows.length ? arrows.length * 4.5 : 0)) / 2 + 3, mid = (b.x0 + b.x1) / 2, r = b.row;
+      b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (mid - half > b.x0 ? `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}` : ''));
     };
     putS(hvS, f.whvp, f.fhvp, f.hvpg, 'hvpg'); putS(ppS, f.pv, f.ivc, f.ppg, 'ppg');
     const say = 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '

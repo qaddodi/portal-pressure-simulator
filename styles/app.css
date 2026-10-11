@@ -2088,8 +2088,9 @@ button.finding:hover { background: var(--surface-2); }
 .pzs-pt.key .pzs-v { fill: var(--accent); }
 .pzs-k { fill: var(--text-2); font: 700 11px var(--font-ui); letter-spacing: .02em; }
 .pzs-u { fill: var(--text-3); font: 500 10px var(--font-ui); }
-.pzs-bl { fill: var(--text); font: 600 10px var(--font-ui); font-variant-numeric: tabular-nums; }
-.pzs-bn, .pzs-bv { fill: var(--c); font-weight: 700; transition: fill .4s var(--ease); }
+.pzs-bl { fill: var(--text); font: 600 9px var(--font-ui); font-variant-numeric: tabular-nums; }
+.pzs-ba { font-size: 7.5px; }
+.pzs-bn, .pzs-bv, .pzs-ba { fill: var(--c); font-weight: 700; transition: fill .4s var(--ease); }
 .pz.stack .pz-data:not(.tiles-only):not(.tool-only) .pz-lg { display: none; }
 .pz.stack .pz-data:not(.tiles-only):not(.tool-only):not(.has-tool) .pz-tiles[data-compact="1"] { display: none; }
 .pz.stack .pz-tile { padding: 6px 10px; }
