@@ -280,14 +280,19 @@ export function createCore(post) {
         if (st.params) { e.setParams(deepMerge(e.params, st.params)); e.settle(); }
         for (const a of [st.action || []].flat()) applyAction(e, a);
         const ramp = st.ramp ? Object.entries(st.ramp) : null, fine = !!(ramp || st.fine);
+        // trail: the portal pressure and flow on each day of the time-lapse, [day, pv, pvFlow] (the presenter's flow-time chart).
+        const at = (d, m) => [d, m.pv, m.pvFlowMean], trail = st.trail && st.days ? [at(0, computeMetrics(e))] : null;
         for (let done = 0; done < (st.days || 0);) {
           const n = fine ? 1 : Math.min(30, st.days - done);
           if (ramp) e.setParams(deepMerge(e.params, rampAt(ramp, done + 1, st.days)));
           yield* e.advanceDaySteps(n, { noRupture: true, silent: true });
           done += n;
+          if (trail && done < st.days) trail.push(at(done, computeMetrics(e)));
         }
         if (st.preset || st.params || st.action || st.days) e.settle();
-        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(e), e) });
+        const m = computeMetrics(e);
+        if (trail) trail.push(at(st.days, m));
+        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail });
         yield;
       }
       post({ type: 'sequence', reqId });

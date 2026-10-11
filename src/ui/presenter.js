@@ -19,10 +19,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=c6a8f1cabe';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=eb09390bdd';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=2168ddc74a';
 import { createHvpgMonitor } from './hvpg-proc.js?v=4b408e144c';
-import { createTools } from './presenter-tools.js?v=b0bb1a9802';
-import { openHandout } from './handout.js?v=a81dde6e1b';
+import { createTools } from './presenter-tools.js?v=1ec444b98b';
+import { openHandout } from './handout.js?v=4b9fef7fc7';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
 const KEY = 'pps.scripts';
@@ -632,7 +632,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=396063849c', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=2e5284e6a3', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -644,7 +644,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=4b697472e7');
+      const { createCore } = await import('../worker-core.js?v=4d9170fe70');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -700,7 +700,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const hit = key && cache.get(key);
     if (hit) { states = hit.states; waiters = []; return; }
     const mine = []; states = mine; waiters = [];
-    const c = getCalc(), steps = [...slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse } : {})), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days }))];
+    const c = getCalc(), steps = [...slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' } : {})), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days }))];
     const presetAt = []; let pid = store.get().presetId;
     slides.forEach((s, i) => { if (s.preset) pid = s.preset; presetAt[i] = pid; });
     extra.forEach((o, k) => { presetAt[slides.length + k] = o.preset; });
@@ -709,7 +709,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       const first = slides[0]?.preset ? null : (await host.request('snapshot')).snap;
       if (!base) c.request('presetMetrics', { ids: ['healthy'] }).then((m) => { base = m.result?.healthy || null; if (deck === deckNow) ui?.ladder.setBase(base); });
       await c.sequence(steps, first, (m) => {
-        const st = { snap: m.snap, params: m.params, fp: m.fp, presetId: presetAt[m.i] };
+        const st = { snap: m.snap, params: m.params, fp: m.fp, trail: m.trail, presetId: presetAt[m.i] };
         mine[m.i] = st;
         if (states !== mine) return;   // a newer presentation has started
         for (const w of waiters.filter((x) => x.i === m.i)) w.res(st);
@@ -936,6 +936,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (!end || cut()) return;
     const days = s.days, d0 = store.get().frame?.day ?? 0, ref = refOf(s, to);
     lapseOn = true; lapseLeft = days;
+    ui?.tools.progress(0, end.trail);
     host.send({ type: 'lapse', days, speed: days / (s.lapse.seconds || 8), ramp: s.ramp || null });
     paintChrome();
     while (lapseOn && !cut()) {
@@ -944,6 +945,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       const fr = store.get().frame, d = clamp((fr?.day ?? d0) - d0, 0, days);
       if (lapseLeft) lapseLeft = days - d;
       paintLapse(s, d, days);
+      ui?.tools.progress(d / days);
       if (fr?.metrics) dataTo(s, liveFp(fr), ref, fast ? 120 : 280);
       if (d >= days && fr?.clock === 'hemo') break;
     }
@@ -951,6 +953,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     lapseOn = false; paintChrome();
     applyState(end); shownState = stateOf[to];
     paintLapse(s, days, days, true);
+    ui?.tools.progress(1);
     dataTo(s, end.fp, ref, 700);
   }
 
@@ -1204,7 +1207,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       data.dataset.tool = ui.tools.sig(s.tool);
       ui.dhT.textContent = cardTitle(s);
       ui.dhL.hidden = !lad;
-      if (s.tool) ui.tools.show(s.tool, { quiz: q, stateKey: stateOf[i], chain: chainTo(i) }); else ui.tools.hide();
+      // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
+      if (s.tool) ui.tools.show(s.tool, { quiz: q, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: s.lapse && i > 0 && !q ? 0 : 1, ends: s.lapse ? [s.lapse.from || 'Start', s.lapse.to || 'End'] : undefined }); else ui.tools.hide();
       if (s.tool) ui.tools.ghost(q ? null : toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
       const ms = fresh ? 0 : undefined;

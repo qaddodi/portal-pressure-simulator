@@ -57,7 +57,7 @@ export const CIRCULATION = {
       ask: ['Where does blood go after the central vein?', 'Into the hepatic veins, the IVC and the right atrium.'],
     },
     {
-      id: 'flow', days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'portal', labels: ['SMV', 'CONF'], glow: ['smv', 'sv'], data: 'ladder', key: ['pv'], tiles: ['pvFlow', 'ppg'], delta: true,
+      id: 'flow', days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'portal', labels: ['SMV', 'CONF'], glow: ['smv', 'sv'], tool: { kind: 'flowtime' },
       kicker: 'Hemodynamics', title: 'After a meal flow rises, but the pressure barely moves',
       eq: ['<mrow><mi mathvariant="normal">Δ</mi><mi>P</mi></mrow>' + mo('=') + mi('Q') + mo('×') + mi('R'), 'ΔP pressure drop across the liver · Q portal flow · R hepatic resistance'],
       line: 'After a meal portal flow can nearly double, yet a healthy liver offers so little resistance that the portal pressure barely moves.',
