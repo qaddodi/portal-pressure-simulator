@@ -1115,7 +1115,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
       const q = el.getBoundingClientRect();
       if (!q.width || !q.height) continue;
-      const y0 = (el.classList.contains('mini') && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top, y1 = q.bottom - wr.top;
+      const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top, y1 = q.bottom - wr.top;
       if (y1 <= 0 || y0 >= H) continue;
       const edge = el.dataset.safe;
       if (edge === 'top') sp.t = Math.max(sp.t, y1);
@@ -1134,7 +1134,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!q.width || !q.height) continue;
       // The vitals dock folded to one line on a phone (main.js) still counts at its full height, so the
       // framing does not jump each time it folds and opens.
-      const y0 = (el.classList.contains('mini') && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top;
+      const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top;
       const x0 = q.left - wr.left, x1 = q.right - wr.left, y1 = q.bottom - wr.top;
       if (x1 <= 0 || y1 <= 0 || x0 >= W || y0 >= H) continue;
       let edge = el.dataset.safe;

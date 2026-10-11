@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=137ea55eb7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=9858da589a';
-import { createStage } from './stage.js?v=77831f1cfc';
+import { createStage } from './stage.js?v=c6fca074d1';
 import { createCreditPlacer } from './credit.js?v=b3a9118903';
 import { sinusoidSupported } from './sinusoid-view.js?v=f48a130c4b';
 import { createInspector } from './inspector.js?v=4dd2fb68b1';
@@ -1027,6 +1027,7 @@ function wireFloating() {
   let pubRaf = 0;
   const publish = () => {
     pubRaf = 0;
+    if ($('#vdock').dataset.folding === '1') return;   // the dock is gliding to a height already published
     const gap = isPhone() ? 8 : 12;
     // The dock's height, plus on an iPhone the home indicator's strip under it (the rules that use it add
     // the gap themselves), so nothing above it is placed behind it.
@@ -1095,12 +1096,49 @@ function wireFloating() {
   // clock, HVPG) and the top bar's second row (view, colour legend) slides away, while the figure moves and
   // for three seconds after. A tap anywhere, or an event on the timeline, brings them back at once.
   let focusT = 0;
-  const unfocus = () => { clearTimeout(focusT); if (!app.classList.contains('figure-focus')) return; app.classList.remove('figure-focus'); $('#vdock').classList.remove('mini'); };
+  const unfocus = () => { clearTimeout(focusT); if (!app.classList.contains('figure-focus')) return; app.classList.remove('figure-focus'); foldDock(false); };
   const figureFocus = (ms) => {
     clearTimeout(focusT);
     if (!isPhone() || $('#strip').classList.contains('all') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    app.classList.add('figure-focus'); $('#vdock').classList.add('mini');
+    app.classList.add('figure-focus'); foldDock(true);
     if (ms) focusT = setTimeout(unfocus, ms);
+  };
+  // The dock folds to one line and opens again as an ease, never a jump: its old content fades out, the box
+  // glides to the new height (bottom edge fixed) while the new content fades in. The framing and the cards read
+  // the settled height straight away (published before the glide, which then skips its own per-frame updates).
+  const vdockEl = $('#vdock');
+  let foldTok = 0, foldAnims = [], foldGoal = false;
+  const foldDone = (tok) => { if (tok !== foldTok) return; foldAnims = []; vdockEl.style.overflow = ''; delete vdockEl.dataset.folding; soon(); };
+  const foldDock = async (on) => {
+    if (on === foldGoal) return;
+    foldGoal = on;
+    const kids = [...vdockEl.children], tok = ++foldTok;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || !vdockEl.animate;
+    const h0 = vdockEl.getBoundingClientRect().height;
+    const from = kids.map((k) => +getComputedStyle(k).opacity);
+    foldAnims.forEach((a) => a.cancel());
+    foldAnims = [];
+    if (reduced || !h0) { vdockEl.classList.toggle('mini', on); foldDone(tok); return; }
+    if (vdockEl.classList.contains('mini') === on) {   // changed its mind before the old content was gone: fade it back
+      foldAnims = kids.map((k, i) => k.animate([{ opacity: from[i] }, { opacity: 1 }], { duration: 140, easing: 'ease-out' }));
+      Promise.all(foldAnims.map((a) => a.finished.catch(() => {}))).then(() => foldDone(tok));
+      return;
+    }
+    vdockEl.style.overflow = 'hidden'; vdockEl.dataset.folding = '1';
+    const out = kids.map((k, i) => k.animate([{ opacity: from[i] }, { opacity: 0 }], { duration: Math.round(110 * from[i]) || 1, easing: 'ease-in', fill: 'forwards' }));
+    foldAnims = out;
+    await Promise.all(out.map((a) => a.finished.catch(() => {})));
+    if (tok !== foldTok) return;
+    out.forEach((a) => a.cancel());
+    vdockEl.classList.toggle('mini', on);
+    const h1 = vdockEl.getBoundingClientRect().height;
+    delete vdockEl.dataset.folding; publish(); vdockEl.dataset.folding = '1';
+    const ease = 'cubic-bezier(.2, .8, .2, 1)';
+    foldAnims = [
+      vdockEl.animate([{ height: `${h0}px` }, { height: `${h1}px` }], { duration: 340, easing: ease }),
+      ...kids.map((k) => k.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, delay: 80, easing: 'ease-out', fill: 'backwards' })),
+    ];
+    Promise.all(foldAnims.map((a) => a.finished.catch(() => {}))).then(() => foldDone(tok));
   };
   // Only the figure itself: a swipe on a card (or one from the phone's edge) leaves the rest alone.
   view.addEventListener('pointerdown', (e) => { down = systemEdge(e) || e.target.closest?.('.stage-blocker, .zoom-pill, button, input, select') ? null : [e.clientX, e.clientY]; moved = false; });
