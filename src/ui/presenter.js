@@ -11,10 +11,11 @@
 //
 // Keys (clickers send the same): → Page Down Space Enter next (during a time-lapse the first runs it to its end),
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen, Q quiz,
-// P high contrast, Esc. On a touch screen a sideways swipe over the figure goes on or back.
+// P high contrast, Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
 import { store, replaceParams } from './store.js?v=9858da589a';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './util.js?v=045e641b44';
+import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=c6a8f1cabe';
@@ -1625,13 +1626,15 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     e.preventDefault(); e.stopImmediatePropagation();
   }
 
-  // ── Swipe: a sideways swipe over the figure (one finger, mostly horizontal, over 60 px) goes on or back; pans
-  // and pinches that are not mostly sideways stay with the figure, and nothing on a card counts. ──
+  // ── Swipe: a quick, mostly sideways one-finger move anywhere on the slide (figure, words, bar) goes on (left) or back
+  // (right). Left alone: sliders, the slide list, sideways-scrolling boxes, and the card where it docks sideways (its
+  // drag, handle included, is its own); pans and pinches that are not mostly sideways stay with the figure. ──
   // (Touch events, not pointer events: the browser keeps its pans on the stage while presenting, which cancels pointers.)
   let sw = null;
   wrap.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
-    sw = deck && e.touches.length === 1 && !e.target.closest?.('.stage-blocker') ? { x: t.clientX, y: t.clientY, t: performance.now() } : null;
+    sw = deck && e.touches.length === 1 && !ownsSideways(e.target, { stop: wrap, cardSideways: ui && !ui.data.hidden && !phone() })
+      ? { x: t.clientX, y: t.clientY, t: performance.now() } : null;
   }, { passive: true, capture: true });
   wrap.addEventListener('touchmove', (e) => {
     if (e.touches.length > 1) sw = null;
@@ -1640,8 +1643,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   wrap.addEventListener('touchend', (e) => {
     const g = sw, t = e.changedTouches[0]; sw = null;
     if (!g || !deck || !t || e.touches.length) return;
-    const dx = t.clientX - g.x, dy = t.clientY - g.y;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > 1.6 * Math.abs(dy) && performance.now() - g.t < 700) { if (dx < 0) next(); else prev(); }
+    const d = swipeDir(t.clientX - g.x, t.clientY - g.y, performance.now() - g.t);
+    if (d > 0) next(); else if (d < 0) prev();
   }, { passive: true, capture: true });
 
   // ── Hands off: while presenting, the figure only points (hover glow); taps, drags, pans and zooms that would
