@@ -3,7 +3,7 @@
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 const frac = (n, d) => `<mfrac><mrow>${n}</mrow><mrow>${d}</mrow></mfrac>`;
-const BANDS = [{ kind: 'band' }, { kind: 'band' }, { kind: 'band' }];
+const BANDS = [{ kind: 'band' }, { kind: 'band' }, { kind: 'band' }, { kind: 'band' }];
 // (params: {} makes the sequence settle the patient after the action, so the pressures show the new volume.)
 const UNITS = [{ kind: 'infuse', fluid: 'prbc' }, { kind: 'infuse', fluid: 'prbc' }, { kind: 'infuse', fluid: 'prbc' }, { kind: 'infuse', fluid: 'prbc' }];
 
