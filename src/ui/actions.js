@@ -5,9 +5,9 @@
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=34e377149b';
 import { store, updateParams, hiddenNow } from './store.js?v=7fb7280c05';
-import { fmt, fmtFlow, clamp, toast } from './util.js?v=259b580d3f';
-import { aboutVessel, aboutOrgan } from './about.js?v=fed08741a3';
-import { lobuleState } from './lobule-model.js?v=46829a87f8';
+import { fmt, fmtFlow, clamp, toast } from './util.js?v=99ed58b0f2';
+import { aboutVessel, aboutOrgan } from './about.js?v=4ae71b433c';
+import { lobuleState } from './lobule-model.js?v=78276222fb';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=d467b97383';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

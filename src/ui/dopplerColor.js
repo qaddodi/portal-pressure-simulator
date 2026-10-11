@@ -10,7 +10,7 @@
 //   s  velocity variance from 0 (laminar) to 1 (turbulent)
 // and returns [r, g, b, a] (a of 0: black, nothing to draw). The Spectrum mode has no colour.
 
-import { cssRGB } from './util.js?v=259b580d3f';
+import { cssRGB } from './util.js?v=99ed58b0f2';
 
 export const THETA = 60;                               // beam-to-flow angle in degrees (the spectral header's θ)
 export const COS_THETA = Math.cos(THETA * Math.PI / 180);

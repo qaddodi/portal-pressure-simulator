@@ -22,13 +22,13 @@
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { store } from './store.js?v=7fb7280c05';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=46829a87f8';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=259b580d3f';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=f638e78199';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=78276222fb';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01, GLIDE_MS } from './util.js?v=99ed58b0f2';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=240482e58e';
 import { NODES, EDGES } from '../engine/topology.js?v=34e377149b';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=7ee26675d4';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=f570e2c962';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=c29067c667';
+import { createSinusoidView } from './sinusoid-view.js?v=733af01097';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -375,8 +375,10 @@ export function createLobuleZoom({ host }) {
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   // A new text size: the labels glide to their new places instead of jumping.
   let easeT = 0;
-  addEventListener('pps:labelscale', () => { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(() => labels.classList.remove('lz-ease'), 450); drawVersion++; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
-  const viewChanged = () => { drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
+  addEventListener('pps:labelscale', () => { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(() => labels.classList.remove('lz-ease'), 450); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
+  const PACE_MS = GLIDE_MS;
+  let pacedVer = -1, viewVer = 0;   // viewVer: a pan, zoom, resize or label change, drawn without waiting
+  const viewChanged = () => { drawVersion++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
   function resetView() {
@@ -792,8 +794,12 @@ export function createLobuleZoom({ host }) {
   }
   const originOn = () => !store.get().imaging && store.get().colorMode === 'origin';
   // Between model frames only the pressures move: re-ease them and redraw the panel, nothing else.
-  function glideP() {
+  let glideAt = 0;
+  function glideP(now) {
     if (!F || fade <= 0 || !model) return;
+    // Paced like the flow (30 a second): the model's pressures never quite settle while it runs, so this glide never stops.
+    if (now - glideAt < PACE_MS) { easeRaf = requestAnimationFrame(glideP); return; }
+    glideAt = now;
     const eased = easeP.step(F.Pf || F.P);
     const inks = model.inks;
     drawVersion++;
@@ -1122,6 +1128,10 @@ export function createLobuleZoom({ host }) {
     if (fade <= 0 || !model) return;
     const soft = !!gl?.software;
     if (soft && now - lastPaint < 110) { raf = requestAnimationFrame(loop); return; }
+    // The flow alone is paced to 30 frames a second, like the anatomy's blood (not the screen's 60 or 120): it looks the
+    // same and halves the work or more, which kept a laptop busy and warm. A pan, zoom or any other change draws at once.
+    const paced = !soft && viewVer === pacedVer;
+    if (paced && now - lastPaint < PACE_MS) { raf = requestAnimationFrame(loop); return; }
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; lastPaint = now;
     const st = store.get(), moving = st.running && !reduce.matches;
     if (moving) clock = (clock + dt) % 10000;
@@ -1133,13 +1143,13 @@ export function createLobuleZoom({ host }) {
     if (drew && prevDrew && !soft && dt < 0.1) {
       // Hysteresis: a sustained trend of about a second before the scale moves, and then not more than once a second.
       gapAvg += (dt * 1000 - gapAvg) * 0.1;
-      slowMs = gapAvg > 21 ? slowMs + dt * 1000 : 0; fastMs = gapAvg < 14.5 ? fastMs + dt * 1000 : 0;
+      slowMs = gapAvg > (paced ? 41 : 21) ? slowMs + dt * 1000 : 0; fastMs = gapAvg < (paced ? 34.5 : 14.5) ? fastMs + dt * 1000 : 0;
       if (now - resCheck > 1000) {
         if (slowMs > 1000 && lzRes > 0.6) { lzRes = Math.max(0.6, lzRes - 0.1); resCheck = now; slowMs = 0; idleDrawn = ''; }
         else if (fastMs > 2500 && lzRes < 1) { lzRes = Math.min(1, lzRes + 0.1); resCheck = now; fastMs = 0; idleDrawn = ''; }
       }
     }
-    prevDrew = drew;
+    prevDrew = drew; pacedVer = viewVer;
     raf = requestAnimationFrame(loop);
   }
   // The flow marks (shimmer and chevrons) fade out as the dive starts and back in once the lobule has landed, over about

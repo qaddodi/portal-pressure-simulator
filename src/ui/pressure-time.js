@@ -6,8 +6,8 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=7fb7280c05';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=259b580d3f';
-import { FONT } from './charts.js?v=de5de84682';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=99ed58b0f2';
+import { FONT } from './charts.js?v=7cf95e60eb';
 
 // hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).

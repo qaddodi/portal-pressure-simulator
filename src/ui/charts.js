@@ -2,9 +2,9 @@
 
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=d467b97383';
-import { pressureColor } from './colormap.js?v=f638e78199';
+import { pressureColor } from './colormap.js?v=240482e58e';
 import { store, hiddenNow } from './store.js?v=7fb7280c05';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=259b580d3f';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop, GLIDE_MS } from './util.js?v=99ed58b0f2';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const ARTERIAL = new Set(['AO', 'HA']);
@@ -78,8 +78,11 @@ export function createProfile() {
     F = { ...Fraw, P: shown };
     draw();
     cancelAnimationFrame(easeRaf);
-    // Model frames arrive about ten times a second; the glide runs every display frame between them.
-    if (moving || pillMoving) easeRaf = requestAnimationFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); });
+    // Model frames arrive about ten times a second; the glide runs between them, 30 frames a second however fast the
+    // screen refreshes (the pressures never quite settle while the model runs, so this glide never stops).
+    const at = performance.now();
+    const next = (t) => { if (t - at < GLIDE_MS) { easeRaf = requestAnimationFrame(next); return; } if (cv.isConnected && cv.offsetParent) ease(); };
+    if (moving || pillMoving) easeRaf = requestAnimationFrame(next);
   }
   let predict = null; // { on, values: Map(station → P), done }
   let dragging = false;

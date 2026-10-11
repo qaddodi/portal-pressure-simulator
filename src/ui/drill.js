@@ -4,9 +4,9 @@
 // eases in with the answer. The debrief lists confident mistakes first. Values are the model's
 // own (SNAPSHOTS, regenerated from the engine); only the imaging words are authored.
 
-import { h, fmt, icon } from './util.js?v=259b580d3f';
+import { h, fmt, icon } from './util.js?v=99ed58b0f2';
 import { SNAPSHOTS } from './snapshots.js?v=6c4f07ae98';
-import { createRoute, ladder, tiles, siteName } from './ladder.js?v=953abc032b';
+import { createRoute, ladder, tiles, siteName } from './ladder.js?v=6a0d4913ff';
 import { addRecord } from './records.js?v=50fb9dd463';
 
 export const ROUNDS = 10, MAX_TESTS = 3;

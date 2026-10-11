@@ -4,8 +4,8 @@
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
 import { store } from './store.js?v=7fb7280c05';
-import { h, fmt, svgIcon } from './util.js?v=259b580d3f';
-import { activeInterventions } from './inspector.js?v=8e9df677db';
+import { h, fmt, svgIcon } from './util.js?v=99ed58b0f2';
+import { activeInterventions } from './inspector.js?v=90abef084d';
 
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (portal vein − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],

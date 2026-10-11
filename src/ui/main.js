@@ -3,29 +3,29 @@
 
 import { startHost, host } from './host.js?v=c256a9c041';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7fb7280c05';
-import { createStage } from './stage.js?v=8033cb9e98';
+import { createStage } from './stage.js?v=5525799b9b';
 import { createCreditPlacer } from './credit.js?v=56151b02ba';
-import { sinusoidSupported } from './sinusoid-view.js?v=c29067c667';
-import { createInspector } from './inspector.js?v=8e9df677db';
-import { createDock, CUTOFFS } from './dock.js?v=f6bd035f57';
-import { setHvpgStage } from './hvpg-proc.js?v=7dbeca9bfc';
-import { createWhy } from './why.js?v=0cbe54fc83';
-import { createTimeline, LAPSES } from './timeline.js?v=9a415be63a';
-import { createLearn } from './learn.js?v=fee746e1a6';
-import { createCases, CASES } from './cases.js?v=7873a26700';
-import { isBlind } from './learning-kit.js?v=ccfe92342e';
-import { createCompare } from './compare.js?v=19980ad91d';
-import { createCard } from './card.js?v=9cfcb32282';
-import { createChart, computeFindings } from './chart.js?v=76e9a542d3';
-import { createMenu, ROLES } from './menu.js?v=ccb805ae76';
+import { sinusoidSupported } from './sinusoid-view.js?v=733af01097';
+import { createInspector } from './inspector.js?v=90abef084d';
+import { createDock, CUTOFFS } from './dock.js?v=a7dbd32090';
+import { setHvpgStage } from './hvpg-proc.js?v=ea7aee7cc4';
+import { createWhy } from './why.js?v=d8dbde6e9c';
+import { createTimeline, LAPSES } from './timeline.js?v=e02f426962';
+import { createLearn } from './learn.js?v=43abcc6c1a';
+import { createCases, CASES } from './cases.js?v=88fdb3b058';
+import { isBlind } from './learning-kit.js?v=333c37f678';
+import { createCompare } from './compare.js?v=7c65626d58';
+import { createCard } from './card.js?v=3580632203';
+import { createChart, computeFindings } from './chart.js?v=e403f8ba14';
+import { createMenu, ROLES } from './menu.js?v=4ba4b905c0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
-import { caption } from './a11y.js?v=da3671002e';
-import { startLMS } from './lms.js?v=56138f1d5f';
+import { caption } from './a11y.js?v=ef29b7ea22';
+import { startLMS } from './lms.js?v=10557462f4';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=92a380cda1';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=f638e78199';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=182f1ae2d8';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=240482e58e';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=259b580d3f';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=99ed58b0f2';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const app = $('#app');
@@ -35,7 +35,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=1e437ef997';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=ab256c54bb';
 import { initTopbarMotion } from './topbar-motion.js?v=a941da3e97';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=b2eabea2e1';
@@ -141,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=9ca987f362'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=41188f11ec'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -149,7 +149,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=9c8a67bc58'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=247c96fb11'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),

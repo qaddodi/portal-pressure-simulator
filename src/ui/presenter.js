@@ -14,15 +14,15 @@
 // P high contrast, Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
 import { store, replaceParams } from './store.js?v=7fb7280c05';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './util.js?v=259b580d3f';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './util.js?v=99ed58b0f2';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { download } from './records.js?v=50fb9dd463';
-import { SITES } from './ladder.js?v=953abc032b';
-import { sinusoidSupported } from './sinusoid-view.js?v=c29067c667';
+import { SITES } from './ladder.js?v=6a0d4913ff';
+import { sinusoidSupported } from './sinusoid-view.js?v=733af01097';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=cd39ea5edf';
-import { createHvpgMonitor } from './hvpg-proc.js?v=7dbeca9bfc';
-import { createTools } from './presenter-tools.js?v=baa87dac7c';
+import { createHvpgMonitor } from './hvpg-proc.js?v=ea7aee7cc4';
+import { createTools } from './presenter-tools.js?v=d89764fede';
 import { openHandout } from './handout.js?v=caa93ced9f';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';

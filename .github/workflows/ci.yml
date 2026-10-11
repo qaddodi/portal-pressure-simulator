@@ -118,6 +118,16 @@ jobs:
       - name: Presenter words keep one size (iPhone, WebKit)
         run: npm run smoke:webkit
 
+  # Left alone for two minutes, the anatomy and the lobule do not pile up memory, page nodes or listeners.
+  idle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Nothing piles up while a view is left alone
+        run: npm run smoke:idle
+
   # The look (organ tones and light, vessels, lobule) against tests/visual, one device per runner;
   # on a failure the current pictures and diffs are kept as an artifact.
   visual:
