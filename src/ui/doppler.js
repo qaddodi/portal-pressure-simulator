@@ -190,9 +190,9 @@ export function createDoppler({ onProbe }) {
       pattern = `Resistive index ${fmt(ri, 2)}`;
       note = 'The hepatic artery buffers falling portal inflow by dilating (the hepatic arterial buffer response).';
     } else if (p.kind === 'tips') {
-      dir = a < 2 ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = a < 2 || r.mean < 0 ? 'critical' : a < 50 || a > 250 ? 'caution' : 'ok';
-      pattern = a < 2 ? 'Occluded' : a < 50 ? 'Low velocity' : a > 250 ? 'High velocity' : 'Patent';
-      note = a < 2 ? 'No flow in the stent: occluded.' : 'Shunt velocities under about 50 or over 250 cm/s suggest stenosis.';
+      dir = a < 2 ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = a < 2 || r.mean < 0 ? 'critical' : a < 90 || a > 190 ? 'caution' : 'ok';
+      pattern = a < 2 ? 'Occluded' : a < 90 ? 'Low velocity' : a > 190 ? 'High velocity' : 'Patent';
+      note = a < 2 ? 'No flow in the stent: occluded.' : 'Stent velocities under 90 or over 190 cm/s, or a change of more than 50 cm/s from the baseline scan, suggest stenosis.';
     } else if (p.kind === 'ivc') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
       pattern = r.vminMean < -1 ? 'Phasic, with reversal' : pi > 0.3 ? 'Phasic' : 'Continuous';
@@ -252,7 +252,7 @@ export function createDoppler({ onProbe }) {
     setStat(statEls.Peak.dd, num(pk), 'cm/s');
     setStat(statEls.Trough.dd, num(tr), 'cm/s');
     setStat(statEls.Pulsatility.dd, fmt(it.pi, 2));
-    // Congestion index (portal vein): cross-sectional area / mean velocity, normal < 0.07 cm·s
+    // Congestion index (portal vein): cross-sectional area / mean velocity, about 0.07 cm·s in health, over 0.1 suggests portal hypertension
     const isPV = probe === 'PV_TRUNK';
     statEls.CI.wrap.hidden = !isPV;
     if (isPV && frame) {

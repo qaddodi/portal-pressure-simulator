@@ -43,7 +43,7 @@ export const DOPPLER = {
       data: 'tiles', tiles: ['hvpg', 'pv'], key: ['hvpg'],
       kicker: 'Cirrhosis', site: 'sin', title: 'Cirrhosis slows the portal vein',
       line: 'Resistance in the sinusoids slows portal flow. A mean velocity under {<15 cm/s} is abnormal.',
-      notes: 'As intrahepatic resistance rises, portal velocity falls and the vein widens (a main portal vein over 13 mm is a soft sign). The congestion index, cross-sectional area over mean velocity, rises above 0.07 cm × s. These signs are specific but insensitive: a normal Doppler does not exclude clinically significant portal hypertension. Splenomegaly, collaterals and reversed flow in the paraumbilical vein add to the picture.',
+      notes: 'As intrahepatic resistance rises, portal velocity falls and the vein widens (a main portal vein over 13 mm is a soft sign). The congestion index, cross-sectional area over mean velocity, is about 0.07 cm × s in health; above 0.1 suggests portal hypertension. These signs are specific but insensitive: a normal Doppler does not exclude clinically significant portal hypertension. Splenomegaly, collaterals and reversed flow in the paraumbilical vein add to the picture.',
       ask: ['What portal vein velocity is abnormal?', 'A mean velocity under 15 cm/s.'],
     },
     {
@@ -90,9 +90,9 @@ export const DOPPLER = {
       id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true } }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS' },
       data: 'tiles', tiles: ['ppg'], key: ['ppg'],
       kicker: 'After TIPS', site: 'sin', title: 'TIPS: fast flow in the stent',
-      line: 'Brisk flow through the stent means it is open; under about {<50 cm/s} or over {>250 cm/s} suggests narrowing.',
-      notes: 'Doppler is the surveillance test after TIPS: a baseline study in the first days, then when symptoms return. Velocities along the stent are typically 90 to 190 cm/s. A low velocity, a large change from the baseline study, or new hepatopetal flow in the intrahepatic portal branches suggest stenosis. Covered stents narrow far less often than the old bare stents. After TIPS the portal vein velocity rises and the intrahepatic portal branches often reverse toward the stent, which is expected.',
-      ask: ['What Doppler finding suggests a TIPS is narrowing?', 'A stent velocity under about 50 cm/s, or a large change from the baseline study.'],
+      line: 'Brisk flow through the stent means it is open; under {<90 cm/s} or over {>190 cm/s} suggests narrowing.',
+      notes: 'Doppler is the surveillance test after TIPS: a baseline study in the first days, then when symptoms return. Velocities along the stent are typically 90 to 190 cm/s. A velocity under 90 or over 190 cm/s, a change of more than 50 cm/s from the baseline study, or new hepatopetal flow in the intrahepatic portal branches suggest stenosis. These cut-offs come from bare stents; covered stents narrow far less often, so the change from the baseline study counts for more. After TIPS the portal vein velocity rises and the intrahepatic portal branches often reverse toward the stent, which is expected.',
+      ask: ['What Doppler finding suggests a TIPS is narrowing?', 'A stent velocity under 90 or over 190 cm/s, or a change of more than 50 cm/s from the baseline study.'],
     },
     {
       // The Doppler's own findings: portal flow against the healthy row, and what the trace shows.
