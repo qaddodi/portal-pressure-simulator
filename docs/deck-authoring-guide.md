@@ -579,7 +579,11 @@ export const CLOT_DEMO = {
 
 ## 13. Importing in the app (what the in-app import accepts)
 
-**A full deck file (sections 2 to 11) cannot be imported in the app.** Menu › Present › "Your scripts" › **Import** reads a `.json` file (a file picker only; there is no paste box), and a shared link `…/#script=<encoded>` adds the same kind of script to the recipient's library. Both accept a **script**, which is a different, smaller format, stored in the browser (`pps.scripts`) on that device only.
+**A full deck file (sections 2 to 11) can be imported in the app.** Menu › Present › "Your scripts" › **Import** opens a dialog: choose a file (`.js` deck, or `.json` deck or script) or paste its contents, then "Add to your scripts". The deck keeps every feature (term pills, live values, marks, tools, visuals, time-lapses) and is stored in the browser (`pps.scripts`) on that device only.
+
+The `.js` is **read as data, never run** (`src/ui/deck-source.js`). It accepts what the built-in decks use: `const` declarations, `export const` / `export default`, objects, arrays, strings and template literals, numbers, spreads, `+ - * / %`, comparisons, `&& || ??`, `? :`, arrow functions with an expression body (`(x) => …`, `(d) => ({ … })`), and the array methods `map filter flatMap concat slice join includes some every find`. `mi mo mn sub frac` are built in, so a deck may use them without defining them. Refused, with the line number: `import`, `function` declarations, block-bodied arrows, `new`, `this`, globals (`window`, `document`, `Math`, …), methods other than those listed, and `__proto__ / constructor / prototype`. The deck is the exported object with a `slides` array (else the last such `const`); it needs a `title`, and each slide a `title`. Import adds a copy each time; "Export" writes it back as JSON, which imports again.
+
+The older **script** format (below) is still accepted, and a shared link `…/#script=<encoded>` adds a script or an imported deck to the recipient's library.
 
 Script file (`*.pps-script.json`):
 
@@ -604,4 +608,4 @@ Script file (`*.pps-script.json`):
 * Every imported slide shows the pressure ladder (`data: 'ladder'`) beside the figure, and the camera is `'fit'` on the circuit view.
 * Import adds a copy each time with a new id (`my-…`) and never overwrites; "Export" in the same menu writes this format. The deck's Outline slide is added automatically, as for built-in decks.
 
-**Therefore:** to give another person or AI-written deck the full features (term pills, live values, marks, tools, visuals, time-lapses), it must be added as a code deck (section 12). Use the script format only for quick, ladder-only slides. **Gap:** there is no importer for the full deck format; adding one would need an app change.
+**Therefore:** paste or choose a deck `.js` to present it in full without changing the app; add it as a code deck (section 12) only to make it built in for everyone.
