@@ -566,7 +566,7 @@ export function createLobuleZoom({ host }) {
   function ensureGL() {
     if (glTried) return gl;
     glTried = true;
-    gl = createVeinsGL(glCv, { tubes: MAXT, force: true });
+    gl = document.documentElement.hasAttribute('data-lite') ? null : createVeinsGL(glCv, { tubes: MAXT, force: true });   // lite graphics: flat vessels
     el.dataset.vessels = gl ? 'webgl2' : 'flat';
     if (!gl) { glCv.remove(); return null; }
     glCv.addEventListener('webglcontextrestored', () => { glTried = false; gl = null; binKey = ''; radKey = []; radAll = ''; attrKey = ''; ensureGL(); if (F) update(F); });

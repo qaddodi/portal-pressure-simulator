@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=c256a9c041';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7fb7280c05';
-import { createStage } from './stage.js?v=45c3435b05';
+import { createStage } from './stage.js?v=85ac080203';
 import { createCreditPlacer } from './credit.js?v=f078009065';
 import { sinusoidSupported } from './sinusoid-view.js?v=d0f1a6d8cf';
 import { createInspector } from './inspector.js?v=82d234fd07';
@@ -105,6 +105,7 @@ async function main() {
   store.set({ presetList: presets });
 
   why = createWhy($('#whyPop'));
+  document.documentElement.toggleAttribute('data-lite', liteOn());
   stage = createStage({
     wrap: view,
     onSelect: (sel, opts) => { select(sel); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
@@ -301,6 +302,7 @@ function onFrame(f) {
   dock?.ingest(f);   // every frame's samples, even one that is not painted
   const now = performance.now();
   if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
+  if (liteMemo && !f.params && !f.events?.length && now - lastPaint < 400) return;   // lite graphics: a few repaints a second
   lastPaint = now;
   store.set({ frame: f, running: f.running, clock: f.clock, ...(f.clock === 'hemo' && store.get().lapse ? { lapse: 0, speed: f.speed } : {}) });
   stage.update(viewFrame(f));
@@ -834,6 +836,10 @@ function openSettings(anchor) {
       (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); }); return sel; })(),
       h('div', { class: 'menu-title' }, t('menu.access')),
       menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
+      menuToggle(liteOn(), 'activity', 'Lite graphics', 'For slow computers without graphics hardware: the blood stops moving, everything else works. Reloads the page', (on) => {
+        try { localStorage.setItem('pps.lite', on ? '1' : '0'); } catch { /* storage unavailable */ }
+        setTimeout(() => location.reload(), 250);
+      }),
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
         document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
@@ -975,6 +981,24 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => sync
 // (again once the figure's background has finished its .5 s fade)
 new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'] });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
+// Lite graphics: for computers that draw on the CPU (no usable GPU, e.g. a hospital virtual desktop),
+// where the moving blood cost most of the page's time. The figure keeps its SVG vessels without moving
+// blood (stage.js), and the figure and panels repaint a few times a second. Automatic unless set in Settings;
+// ?lite=1 or ?lite=0 forces it. Automated browsers (tests) stay on the full path unless asked.
+function gpuOK() {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2', { failIfMajorPerformanceCaveat: true });
+    if (!gl) return false;
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return true;
+  } catch { return false; }
+}
+let liteMemo;
+function liteOn() {
+  if (liteMemo !== undefined) return liteMemo;
+  const q = new URLSearchParams(location.search).get('lite'), pref = q ?? readLS('pps.lite');
+  return (liteMemo = pref === '1' || pref === '0' ? pref === '1' : !navigator.webdriver && !gpuOK());
+}
 // ── Patient chart, Treat card and instrument workspace ─
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened
 // from Findings, by a lesson or a case, or by a vessel's Details. It starts closed: the figure

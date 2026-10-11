@@ -6,7 +6,7 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7fb7280c05';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=045e641b44';
-import { createLobuleZoom } from './lobule-zoom.js?v=e02f27a179';
+import { createLobuleZoom } from './lobule-zoom.js?v=54733e1ce6';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=7bf909808a';
@@ -441,7 +441,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const vCanvas = document.createElement('canvas');
   vCanvas.id = 'veins'; vCanvas.setAttribute('aria-hidden', 'true');
   svg.after(vCanvas);
-  veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
+  // Lite graphics (main.js) keeps the SVG tubes: a software renderer copied every WebGL frame back to the CPU.
+  veins = document.documentElement.hasAttribute('data-lite') ? null : createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
   if (veins) {
     svgOver = s('svg', { id: 'stageOver', 'aria-hidden': 'true', viewBox: `0 0 ${VIEW.w} ${VIEW.h}`, preserveAspectRatio: 'xMidYMid meet' });
     worldOver = s('g');
@@ -451,7 +452,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.classList.add('veins-gl');
   } else {
     // No WebGL2 at all (very old browsers): a short notice; the SVG tubes still show the figure.
-    console.warn('WebGL2 is not available: the figure is drawn without moving blood.');
+    if (!document.documentElement.hasAttribute('data-lite')) console.warn('WebGL2 is not available: the figure is drawn without moving blood.');
   }
   wrap.dataset.veins = veins ? 'webgl2' : 'none';
   gBack.append(gBackS, gBackC, gBackL, gBackH);
@@ -1603,10 +1604,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // back up once there is headroom. The level a device settles on is remembered.
   // The last step is only for a software renderer (WebGL drawn on the CPU), where it starts: there
   // every frame costs CPU the rest of the page needs.
-  const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }];
-  const SOFTWARE = !!veins?.software;
-  const Q_MAX = SOFTWARE ? 3 : 2;
-  let quality = SOFTWARE ? 3 : (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })();
+  // Lite graphics (main.js) has a step of its own: with no GPU each repaint of the SVG vessels costs a
+  // few hundred ms on the CPU, so the figure moves a few times a second and the page stays responsive.
+  const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }, { fps: 3, res: 0.5 }];
+  const LITE = document.documentElement.hasAttribute('data-lite');
+  const SOFTWARE = !!veins?.software || LITE;
+  const Q_MAX = LITE ? 4 : SOFTWARE ? 3 : 2;
+  let quality = LITE ? 4 : SOFTWARE ? 3 : (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })();
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
     vBinKey = ''; glOrgans = false; plateKey = '';
@@ -1786,7 +1790,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const prepIdle = window.requestIdleCallback ? (fn) => requestIdleCallback(fn, { timeout: 250 }) : (fn) => setTimeout(fn, 300);
   function prepLobule() {
     const now = performance.now();
-    if (prepBusy || !lz || !figureShown || now - prepAt < 1000) return;
+    if (LITE || prepBusy || !lz || !figureShown || now - prepAt < 1000) return;   // lite graphics: the lobule is drawn when opened, not ahead
     prepAt = now;
     const calm = () => morphTarget === 0 && morph < 0.02 && !lobuleOn && diveT === 0 && !vtGliding;
     if (!calm() || figureHidden()) return;
