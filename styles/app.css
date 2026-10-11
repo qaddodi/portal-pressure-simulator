@@ -2337,6 +2337,7 @@ button.finding:hover { background: var(--surface-2); }
 .ptk-grid text, .ptk-mark text { font: 500 15px var(--font-ui); fill: var(--text-3); font-variant-numeric: tabular-nums; }
 .ptk-ax { font: 600 13px var(--font-ui); letter-spacing: .06em; text-transform: uppercase; fill: var(--text-3); }
 .ptk-mark line { stroke: var(--border); stroke-dasharray: 2 6; }
+.ptk-mark text.ptk-ev { font: 600 16px var(--font-ui); fill: var(--text-2); }
 .ptk-mark.now text { fill: var(--text); font-weight: 700; }
 .ptk-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
 .ptk-line.hv { stroke: var(--text-2); stroke-width: 2.5; }

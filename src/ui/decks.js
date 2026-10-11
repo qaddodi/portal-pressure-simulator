@@ -31,6 +31,7 @@
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
+//   tick                     a few words for what happened at this slide's time point, under its line on a talk trace (else its title)
 //   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them) play on the
 //                            live figure as a time-lapse, from the slide before's state (from/to: words for the
 //                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
@@ -56,7 +57,7 @@ import { ASCITES } from './decks/ascites.js?v=ab387e4e41';
 import { VARICES } from './decks/varices.js?v=1ad248e26a';
 import { TREATMENT } from './decks/treatment.js?v=67bb210d9f';
 import { STIFFNESS } from './decks/stiffness.js?v=482ab70b54';
-import { ONE_YEAR } from './decks/one-year.js?v=9d0a7b27e3';
+import { ONE_YEAR } from './decks/one-year.js?v=7373f5f35c';
 import { LOBULE } from './decks/lobule.js?v=0e9af59367';
 import { SHUNTS } from './decks/shunts.js?v=435d87fb98';
 import { TAP } from './decks/tap.js?v=84efd8f032';
@@ -67,11 +68,11 @@ import { PREHEPATIC } from './decks/prehepatic.js?v=c8af5f351e';
 import { RIGHT_HEART } from './decks/right-heart.js?v=2221556b33';
 import { BLEED } from './decks/variceal-bleed.js?v=646e098b15';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=a2c790d359';
-import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=366bbfe01e';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=0bf275169b';
 import { SPLEEN } from './decks/spleen.js?v=27c04fe86b';
 import { NCPH } from './decks/ncph.js?v=414fbe7dcc';
 import { OUTFLOW } from './decks/outflow.js?v=48f3dfd001';
-import { RECOMPENSATION } from './decks/recompensation.js?v=eaaa0e0233';
+import { RECOMPENSATION } from './decks/recompensation.js?v=3482efd33a';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

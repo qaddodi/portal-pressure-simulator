@@ -13,7 +13,7 @@ export const ONE_YEAR = {
   summary: 'One patient with compensated cirrhosis followed for a year, seen in turn through the catheter, FibroScan, endoscopy, Doppler and the abdomen. Ends with carvedilol and the year on one chart.',
   slides: [
     {
-      id: 'd0', preset: 'cirr-comp', params: { cirrhosis: 0.5 }, cam: 'fit', data: 'tiles', tiles: ['hvpg', 'lsm', 'plt'],
+      id: 'd0', tick: 'Diagnosis', preset: 'cirr-comp', params: { cirrhosis: 0.5 }, cam: 'fit', data: 'tiles', tiles: ['hvpg', 'lsm', 'plt'],
       kicker: 'Day 0', site: 'sin', title: 'Compensated cirrhosis',
       line: 'The patient has no symptoms; cirrhosis was found on a scan. Over the next year we look at the same patient through each test in turn.',
       notes: 'One patient, one disease clock: each slide moves the same patient forward and shows one instrument. Fibrosis advances steadily in the model over the year; nothing else is changed until carvedilol at the end. At the start the stiffness and platelets sit in the gray zone, and the catheter decides.',
@@ -27,21 +27,21 @@ export const ONE_YEAR = {
       ask: ['HVPG 9 mmHg. Is this CSPH?', 'No: portal hypertension, but CSPH starts at 10 mmHg.'],
     },
     {
-      id: 'd90', days: 90, ramp: ramp(0.5, 0.54), cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'd0',
+      id: 'd90', tick: 'FibroScan', days: 90, ramp: ramp(0.5, 0.54), cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'd0',
       kicker: 'Day 90', site: 'sin', title: 'FibroScan',
       line: 'Stiffness is {lsm} with platelets of {plt}, below 150. In this part of the gray zone, the pair makes CSPH likely without a catheter.',
       notes: 'Baveno VII gray zone: 20 to 25 kPa with platelets below 150, or 15 to 20 kPa with platelets below 110, carries a risk of CSPH of 60% or more. The model agrees: the HVPG has just passed 10 mmHg. Stiffness and platelets are cheap and repeatable, which is why they are used to follow patients between endoscopies.',
       ask: ['Stiffness 21 kPa and platelets 115. How likely is CSPH?', 'Likely: 60% or more by the Baveno VII gray-zone rule.'],
     },
     {
-      id: 'd180', days: 90, ramp: ramp(0.54, 0.58), cam: 'varices', tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'd0',
+      id: 'd180', tick: 'Endoscopy', days: 90, ramp: ramp(0.54, 0.58), cam: 'varices', tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'd0',
       kicker: 'Day 180', site: 'sin', title: 'Endoscopy',
       line: 'Small varices in the lower esophagus. They form at an HVPG of 10 mmHg or more.',
       notes: 'Small varices are under 5 mm and flatten with air. Without red wale signs and in compensated cirrhosis they bleed rarely, but they show that the gradient is past 10 mmHg. Varices mean CSPH, so by Baveno VII carvedilol would start now; this talk holds it back until the last slide only to show the untreated rise. A patient on a non-selective beta-blocker for CSPH needs no screening endoscopy; one who cannot take it has small varices rechecked in one to two years, sooner if the disease is active.',
       ask: ['What do small varices tell you about the HVPG?', 'It is at least 10 mmHg: varices do not form below that.'],
     },
     {
-      id: 'd365', days: 185, ramp: ramp(0.58, 0.66), cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'], delta: 'd0',
+      id: 'd365', tick: 'Catheter, Doppler', days: 185, ramp: ramp(0.58, 0.66), cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'], delta: 'd0',
       kicker: 'Day 365', site: 'sin', title: 'The catheter at one year',
       line: 'The HVPG is {hvpg}, up from 9 a year ago. At 12 or more, varices can bleed.',
       notes: 'A year on, the gradient has risen by 4 mmHg. Above 12 mmHg varices can bleed, and the risk of ascites and other decompensation rises with each mmHg. Repeat catheter studies are not routine; in practice the stiffness, the platelets and the scope track this rise.',
@@ -62,7 +62,7 @@ export const ONE_YEAR = {
       ask: ['How is grade 1 ascites detected?', 'On ultrasound only; it cannot be found by examination.'],
     },
     {
-      id: 'carv', params: { drugs: { carvedilol: true } }, cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'], delta: true,
+      id: 'carv', tick: 'Carvedilol', params: { drugs: { carvedilol: true } }, cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'], delta: true,
       kicker: 'Day 365', site: 'sin', title: 'Carvedilol now',
       line: 'A non-selective beta-blocker before the first bleed or decompensation. Carvedilol lowers the gradient by about a fifth.',
       notes: 'Baveno VII: in compensated cirrhosis with CSPH, a non-selective beta-blocker, preferably carvedilol (6.25 mg, then 12.5 mg a day), to prevent decompensation, as in the PREDESCI trial. It replaces screening endoscopy for most patients who take it. A fall in HVPG of 10% or more on drugs predicts benefit in compensated patients. Watch the blood pressure.',

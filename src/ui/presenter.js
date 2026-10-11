@@ -19,10 +19,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=f48a130c4b';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=e4fa7c2ba0';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=32afcf3588';
 import { createHvpgMonitor } from './hvpg-proc.js?v=e3c93a9bb1';
-import { createTools } from './presenter-tools.js?v=c36ef105ec';
-import { openHandout } from './handout.js?v=c975badb02';
+import { createTools } from './presenter-tools.js?v=ba04fa33e0';
+import { openHandout } from './handout.js?v=0732289ab9';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
 const KEY = 'pps.scripts';
@@ -1088,7 +1088,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   const cardTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'This patient, from the model'));
   // The talk so far, for a pressure trace: every state up to slide i, once each.
-  const chainTo = (i) => [...new Set(stateOf.slice(0, i + 1))].map((k) => ({ n: k + 1, title: slides[k].title, fp: states[k]?.fp }));
+  // Each carries its time point (the deck's days so far) and what happened there (the first tick among its slides, else its title).
+  const whenOf = (k) => {
+    const d = slides.slice(0, k + 1).reduce((a, s) => a + (s.days || 0), 0);
+    return d && d % 365 === 0 ? `Year ${d / 365}` : d <= 200 ? `Day ${d}` : `Month ${Math.round(d / 30.4)}`;
+  };
+  const chainTo = (i) => [...new Set(stateOf.slice(0, i + 1))].map((k) => ({ n: k + 1, title: slides[k].title, tick: slides.find((x, j) => stateOf[j] === k && x.tick)?.tick || slides[k].title, when: whenOf(k), fp: states[k]?.fp }));
   // The catheter's pressure monitor, made once and kept, so its trace carries on from slide to slide.
   let mon = null;
   function monitorFor(s, i) {

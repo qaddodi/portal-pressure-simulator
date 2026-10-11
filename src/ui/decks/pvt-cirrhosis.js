@@ -15,7 +15,7 @@ export const PVT_CIRRHOSIS = {
   summary: 'A partial clot in a cirrhotic portal vein: what it does to the portal pressure and the varices, why the HVPG misses it, and how months of anticoagulation reopen the vein.',
   slides: [
     {
-      id: 'base', preset: 'csph', cam: 'portal', terms: ['pv'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
+      id: 'base', tick: 'Before the clot', preset: 'csph', cam: 'portal', terms: ['pv'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
       kicker: 'The clot', site: 'sin', title: 'Slow flow toward a stiff liver',
       line: 'Cirrhosis with CSPH: blood moves slowly up the portal vein toward a stiff liver, at a pressure of {pv}.',
       causesHead: 'Risk of a clot', causes: ['Slow portal flow', 'More advanced liver disease', 'A high INR does not protect', 'Recent abdominal surgery'],
@@ -23,7 +23,7 @@ export const PVT_CIRRHOSIS = {
       ask: ['Does a high INR protect a patient with cirrhosis from portal vein thrombosis?', 'No: the anticoagulant proteins fall too, so clotting is rebalanced.'],
     },
     {
-      id: 'clot', params: { thrombus: { PV_TRUNK: 0.6 } }, cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], label: 'Partial clot' },
+      id: 'clot', tick: 'Partial clot', params: { thrombus: { PV_TRUNK: 0.6 } }, cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], label: 'Partial clot' },
       tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'base' }, data: 'tiles', tiles: ['pv', 'varix'], key: ['pv'],
       kicker: 'The clot', site: 'pre', title: 'A partial clot in the portal vein',
       line: 'The clot fills more than half of the portal vein. Blood speeds through the channel that is left, and the pressure behind it rises to {pv}.',
@@ -46,14 +46,14 @@ export const PVT_CIRRHOSIS = {
       ask: ['Should anticoagulation wait for the endoscopy?', 'No: give variceal prophylaxis, but do not let the endoscopy delay anticoagulation.'],
     },
     {
-      id: 'band', action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],
+      id: 'band', tick: 'Banding', action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],
       kicker: 'Before anticoagulation', site: 'sin', title: 'Bands, then the anticoagulant',
       line: 'Banding shrinks the varices to {varix}. With prophylaxis in place, anticoagulation starts.',
       notes: 'A non-selective beta-blocker or band ligation are both acceptable prophylaxis for large varices; carvedilol also lowers the portal pressure. For the anticoagulant, low molecular weight heparin or a vitamin K antagonist can be used, and a direct oral anticoagulant in Child–Pugh A and with caution in B.',
       ask: ['Name two acceptable forms of variceal prophylaxis before anticoagulation.', 'A non-selective beta-blocker or band ligation.'],
     },
     {
-      id: 'anticoag', params: { anticoag: true }, days: 180, lapse: { seconds: 8 }, cam: 'portal', terms: ['pv'],
+      id: 'anticoag', tick: 'Anticoagulation', params: { anticoag: true }, days: 180, lapse: { seconds: 8 }, cam: 'portal', terms: ['pv'],
       tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'clot' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['pv'], delta: 'clot',
       kicker: 'Anticoagulation', site: 'sin', title: 'Months of anticoagulation reopen the vein',
       line: 'Over six months the clot shrinks and clears. The portal vein flows freely again, and its pressure falls back to {pv}.',
