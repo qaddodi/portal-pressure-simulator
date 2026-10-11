@@ -163,7 +163,9 @@ export function createDoppler({ onProbe }) {
     } else {
       if (synth && s?.t.length) { tOff = synth.t + 0.02 - s.t[0]; synth = null; }
       if (!s || !s.t.length) return;
-      if (buf.length && s.t[0] + tOff < buf[buf.length - 1][0] - 1e-9) { buf = []; wl = null; tOff = 0; }
+      // Model time stepped back (a state loaded, as at the end of a presenter time-lapse): carry
+      // the trace on from where it is instead of starting over.
+      if (buf.length && s.t[0] + tOff < buf[buf.length - 1][0] - 1e-9) tOff = buf[buf.length - 1][0] + 0.02 - s.t[0];
       for (let i = 0; i < s.t.length; i++) { const t = s.t[i] + tOff; if (!buf.length || t > buf[buf.length - 1][0]) buf.push([t, s.vel[i]]); }
     }
     if (!buf.length) return;
