@@ -20,10 +20,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=d0f1a6d8cf';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=2cdb464c81';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=b360ba9371';
 import { createHvpgMonitor } from './hvpg-proc.js?v=e6446dd751';
 import { createTools } from './presenter-tools.js?v=3b66d6fec4';
-import { openHandout } from './handout.js?v=959b8efa01';
+import { openHandout } from './handout.js?v=afd5fefc22';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
 
@@ -72,6 +72,7 @@ const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const TARGETS = {
   pv: { node: 'CONF', edges: ['PV_TRUNK'], tone: 'pv', words: 'portal vein' },
   sv: { node: 'SV', edges: ['SV_CONF', 'V_SPL'], tone: 'sv', words: 'splenic vein|splenic' },
+  imv: { node: 'IMV', edges: ['V_IMV'], tone: 'imv', words: 'inferior mesenteric veins?|inferior mesenteric' },
   smv: { node: 'SMV', edges: ['SMV_CONF', 'V_INT'], tone: 'smv', words: 'superior mesenteric veins?|superior mesenteric' },
   sin: { node: 'SIN_R', edges: ['SIN_RR', 'SIN_LL'], tone: 'wedge', words: 'sinusoids?|sinusoidal pressure' },
   whvp: { node: 'SIN_R', organ: 'liver', tone: 'wedge', words: 'WHVP|wedged pressure' },
@@ -740,7 +741,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // organs as drawn now, an enlarged spleen whole), with a little room for the outline's glow.
   function camBox(cam, s) {
     const r = Array.isArray(cam) ? cam : REGIONS[cam] || REGIONS.route;
-    const tg = slideTargets(s), f = stage.focusBox({ organs: tg.organs.map((o) => o.id) });
+    // (A slide with softly lit supporting veins frames every vessel it lights, so none runs off the edge.)
+    const tg = slideTargets(s), f = stage.focusBox({ organs: tg.organs.map((o) => o.id), edges: tg.glow.some((g) => g.soft) ? tg.glow.map((g) => g.id) : [] });
     if (!f) return r;
     const m = 0.08 * Math.max(f[2] - f[0], f[3] - f[1]);
     return [Math.min(r[0], f[0] - m), Math.min(r[1], f[1] - m), Math.max(r[2], f[2] + m), Math.max(r[3], f[3] + m)];

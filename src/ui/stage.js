@@ -971,14 +971,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     glow.src.set(src, new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, g])));
     const want = new Map();
     for (const k of GLOW_RANK) for (const [id, g] of glow.src.get(k) || []) want.set(id, g);
-    // Which ends fade: an end that meets another vessel glowing in the same colour runs on into it; one that meets
+    // Which ends fade: an end that meets another vessel glowing in the same colour runs on into it (even where a third colour also joins, as the IMV joins the splenic vein); one that meets
     // another colour fades over a few units, so the two meet softly; a free end fades over a third of the vessel.
     const nodes = new Map();
     for (const [id, g] of want) for (const n of [E[id].e.from, E[id].e.to]) { if (!nodes.has(n)) nodes.set(n, []); nodes.get(n).push(g.col ?? ''); }
     const now = performance.now();
     for (const [id, g] of want) {
       const len = Math.max(1, geo[id]?.len || 60), key = g.col ?? '';
-      const endOf = (n) => { const t = nodes.get(n); return t.length < 2 ? 0.35 * len : t.every((v) => v === key) ? 0 : Math.min(0.3 * len, 16); };
+      const endOf = (n) => { const t = nodes.get(n); return t.length < 2 ? 0.35 * len : t.filter((v) => v === key).length > 1 ? 0 : Math.min(0.3 * len, 16); };
       let l = glow.lit.get(id);
       if (!l) { l = { v: 0, to: 0, col: g.col, from: null, cu: 1, end: null }; glow.lit.set(id, l); }
       if (!l.to) l.start = now + (g.at || 0);
@@ -5773,7 +5773,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
       };
       for (const id of organs) if (organEls[id]?.getAttribute('d')) add(organEls[id], organG[id]?.transform.baseVal.consolidate()?.matrix);
-      for (const id of edges) if (E[id]?.vis) add(E[id].wall);
+      // (A vessel's wall is hidden while the GPU draws the vessels, so its drawn centreline gives the box.)
+      for (const id of edges) {
+        const P = geo[id]?.cur;
+        if (P?.length) for (const [x, y] of P) b = b ? [Math.min(b[0], x), Math.min(b[1], y), Math.max(b[2], x), Math.max(b[3], y)] : [x, y, x, y];
+        else if (E[id]?.vis) add(E[id].wall);
+      }
       return b;
     },
     /** Fit with a chosen glide (the presenter's slower, calmer moves). */
