@@ -1212,7 +1212,6 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('div', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), h('ul', {}, s.causes.map((c) => h('li', {}, c)))) : null]));
-      clearPill(text);
       const ttl = text.querySelector('.pz-h');
       if (ttl && !phone()) { const lh = parseFloat(getComputedStyle(ttl).lineHeight) || ttl.offsetHeight; if (ttl.offsetHeight > lh * 2.4) ttl.classList.add('long'); }
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
@@ -1578,20 +1577,30 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const r = el.getBoundingClientRect();
     return { top: r.top - dy, right: r.right - dx, height: r.height, width: r.width, left };
   }
-  // The pill's width, for the words' last line to keep clear of (--pz-pill-w).
+  // The pill's width, for the words' last line to keep clear of (--pz-pill-w); then the words keep clear of it (clearPill).
   function placeBar() {
-    if (!ui || !phone() || !ui.bar.offsetWidth || ui.bar.offsetWidth === pillW) return;
-    pillW = ui.bar.offsetWidth;
-    app.style.setProperty('--pz-pill-w', `${pillW}px`);
+    if (!ui) return;
+    if (phone() && ui.bar.offsetWidth && ui.bar.offsetWidth !== pillW) { pillW = ui.bar.offsetWidth; app.style.setProperty('--pz-pill-w', `${pillW}px`); }
+    clearPill();
   }
-  // The words' last block keeps clear of a phone's pill: a line of words (or the station key) ends with a gap the pill's width
-  // (on its own line if the last line is too long for it), and a box (buttons, a monitor, a diagram) ends just above the pill. Only a phone shows either.
-  function clearPill(text) {
-    const last = [...text.children].at(-1);
-    if (!last) return;
-    const end = last.matches('.pz-causes') ? last.querySelector('li:last-child') : last;
-    if (end?.matches('p, h1, li, .pz-stk')) end.append(h('span', { class: 'pz-pillgap', 'aria-hidden': 'true' }));
-    else last.classList.add('pz-pillclr');
+  // The words' last shown block keeps clear of a phone's pill: a line of words (or the station key) ends with a gap the pill's
+  // width and as tall as the pill reaches into the words (--pz-reach, measured), on its own line if the last line is too long
+  // for it; so the pill only ever meets that last line. A box (buttons, a monitor, a diagram) ends just above the pill instead.
+  // Run on every layout (fonts fitted, the screen turned): only a phone shows either.
+  function clearPill() {
+    const text = ui.text, gap = text.querySelector('.pz-pillgap'), was = text.querySelector('.pz-pillclr');
+    let end = null, box = null;
+    if (phone() && !text.hidden) {
+      const shown = (c) => c.getBoundingClientRect().height > 0, last = [...text.children].filter(shown).at(-1);   // (an svg has no offsetHeight)
+      const tail = last?.matches('.pz-causes') ? [...last.querySelectorAll('li')].filter(shown).at(-1) : last;
+      if (tail?.matches('p, h1, li, .pz-stk')) end = tail; else box = last || null;
+      const wr = restRect(ui.root), k = wr.width / (ui.root.clientWidth || wr.width) || 1, reach = restRect(text).top + text.offsetHeight * k - ui.bar.getBoundingClientRect().top;
+      text.style.setProperty('--pz-reach', `${Math.max(0, Math.ceil(reach / k) + 3)}px`);
+    }
+    if (gap && gap.parentElement !== end) gap.remove();
+    if (end && !end.querySelector(':scope > .pz-pillgap')) end.append(h('span', { class: 'pz-pillgap', 'aria-hidden': 'true' }));
+    if (was && was !== box) was.classList.remove('pz-pillclr');
+    box?.classList.add('pz-pillclr');
   }
   let askAt = [-1, 0];   // (the slide whose question is open, and how far: 0 shut, 1 the question, 2 with its answer)
   function paintChrome() {

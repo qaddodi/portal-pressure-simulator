@@ -2126,8 +2126,8 @@ button.finding { cursor: pointer; }
 /* (A phone's controls: a small frosted pill fixed at the lower right, like the timeline's folded pill. Its foot is 4 px up and it is
    44 px tall; the words end that much less a line above the bottom, so only their last line meets it (see clearPill). */
 .pz-pillgap { display: none; }
-.pz.stack .pz-pillgap { display: inline-block; width: calc(var(--pz-pill-w, 160px) + 4px); height: min(32px, var(--pz-lh)); vertical-align: bottom; }   /* (as tall as the pill reaches into the words, so its line is the only one it meets) */
-.pz.stack .pz-pillclr { margin-bottom: calc(min(32px, var(--pz-lh)) + 4px); }   /* (a box keeps its full width and ends just above the pill) */
+.pz.stack .pz-pillgap { display: inline-block; width: calc((var(--pz-pill-w, 160px) + 4px) / var(--pz-fit, 1)); height: calc(var(--pz-reach, 32px) / var(--pz-fit, 1)); vertical-align: bottom; }   /* (as tall as the pill reaches into the words, so its line is the only one it meets) */
+.pz.stack .pz-pillclr { margin-bottom: calc(var(--pz-reach, 32px) / var(--pz-fit, 1)); }   /* (in the card's own px: its contents are zoomed by --pz-fit) */   /* (a box keeps its full width and ends just above the pill) */
 .pz.stack .pz-stk:has(> .pz-pillgap) { flex-wrap: wrap; overflow: visible; }
 .pz.stack .pz-bar.idle { opacity: 1; pointer-events: auto; transform: none; }
 .pz.stack .pz-bar .ib { width: 44px; min-width: 0; height: 44px; }
