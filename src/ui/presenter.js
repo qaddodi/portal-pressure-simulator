@@ -1493,8 +1493,19 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // ── Hands off: while presenting, the figure only points (hover glow); taps, drags, pans and zooms that would
   // move it off the slide's script are swallowed. The swipe above uses touch events, so it still works. ──
   const offFig = (e) => deck && e.target.closest?.('#stageView') && !e.target.closest('#overlay');
-  for (const t of ['pointerdown', 'mousedown', 'click', 'dblclick', 'wheel', 'gesturestart'])
-    wrap.addEventListener(t, (e) => { if (offFig(e)) { if (e.cancelable) e.preventDefault(); e.stopImmediatePropagation(); } }, { capture: true, passive: false });
+  // The figure is read-only here: no hover highlight or glow, no vessel popup, no pick, no actions menu, no text selection.
+  // (Gated at the input layer, so the figure's own handlers never run. Pointer leaves are left alone, so a hover that was
+  // lit as the deck started still clears. The bar's wake-on-move listens on the window, so a move over the figure wakes it here.)
+  for (const t of ['pointerdown', 'mousedown', 'mouseup', 'pointerup', 'click', 'dblclick', 'wheel', 'gesturestart',
+    'pointermove', 'pointerover', 'pointerout', 'mousemove', 'mouseover', 'mouseout', 'contextmenu', 'selectstart', 'dragstart'])
+    wrap.addEventListener(t, (e) => {
+      if (!offFig(e)) return;
+      if (t === 'pointermove') wake();
+      if (e.cancelable) e.preventDefault();
+      e.stopImmediatePropagation();
+    }, { capture: true, passive: false });
+  // Keyboard focus never lands on a vessel (its focus ring is a highlight too).
+  wrap.addEventListener('focusin', (e) => { if (deck && offFig(e) && e.target.closest('#stage')) e.target.blur?.(); }, true);
 
   // ── Keys ──
   function onKey(e) {
@@ -1609,6 +1620,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (st0.view !== 'anatomic' && !st0.lobule) store.set({ view: 'anatomic' });
     projectorOn();
     app.classList.add('presenting');
+    document.getElementById('stage')?.dispatchEvent(new PointerEvent('pointerleave'));   // a hover lit as the deck starts clears
+    getSelection()?.removeAllRanges?.();
     app.classList.toggle('pz-hi', hiCon);
     ui = build();
     if (base) ui.ladder.setBase(base);
