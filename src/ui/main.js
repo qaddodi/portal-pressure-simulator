@@ -1137,8 +1137,8 @@ function wireFloating() {
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, down = null, moved = false;
   const busy = (ms) => { app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
-  // On a phone the same gestures also give the figure more room: the vitals dock folds to one line (play,
-  // clock, HVPG) and the top bar's second row (view, colour legend) slides away, while the figure moves and
+  // On a phone the same gestures also give the figure more room: the vitals dock folds to a small pill in the
+  // lower-left corner (play and clock; the zoom buttons take the lower right) and the top bar's second row (view, colour legend) slides away, while the figure moves and
   // for three seconds after. A tap anywhere, or an event on the timeline, brings them back at once.
   let focusT = 0;
   const unfocus = () => { clearTimeout(focusT); if (!app.classList.contains('figure-focus')) return; app.classList.remove('figure-focus'); foldDock(false); };
@@ -1159,7 +1159,7 @@ function wireFloating() {
     foldGoal = on;
     const kids = [...vdockEl.children], tok = ++foldTok;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || !vdockEl.animate;
-    const h0 = vdockEl.getBoundingClientRect().height;
+    const r0 = vdockEl.getBoundingClientRect(), h0 = r0.height, w0 = r0.width;
     const from = kids.map((k) => +getComputedStyle(k).opacity);
     foldAnims.forEach((a) => a.cancel());
     foldAnims = [];
@@ -1176,11 +1176,11 @@ function wireFloating() {
     if (tok !== foldTok) return;
     out.forEach((a) => a.cancel());
     vdockEl.classList.toggle('mini', on);
-    const h1 = vdockEl.getBoundingClientRect().height;
+    const r1 = vdockEl.getBoundingClientRect(), h1 = r1.height, w1 = r1.width;
     delete vdockEl.dataset.folding; publish(); vdockEl.dataset.folding = '1';
     const ease = 'cubic-bezier(.2, .8, .2, 1)';
     foldAnims = [
-      vdockEl.animate([{ height: `${h0}px` }, { height: `${h1}px` }], { duration: 340, easing: ease }),
+      vdockEl.animate([{ height: `${h0}px`, width: `${w0}px` }, { height: `${h1}px`, width: `${w1}px` }], { duration: 340, easing: ease }),
       ...kids.map((k) => k.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, delay: 80, easing: 'ease-out', fill: 'backwards' })),
     ];
     Promise.all(foldAnims.map((a) => a.finished.catch(() => {}))).then(() => foldDone(tok));
@@ -1191,7 +1191,7 @@ function wireFloating() {
   addEventListener('pointerup', () => { if (down) { down = null; if (app.classList.contains('stage-busy')) busy(600); if (moved) figureFocus(3000); else unfocus(); } });
   addEventListener('pointercancel', () => { if (down) { down = null; busy(300); if (moved) figureFocus(3000); } });
   view.addEventListener('wheel', () => { busy(800); figureFocus(3000); }, { passive: true });
-  $('#vdock').addEventListener('pointerdown', unfocus);
+  $('#vdock').addEventListener('pointerdown', (e) => { if (!(vdockEl.classList.contains('mini') && e.target.closest('.play'))) unfocus(); });   // (play and pause work from the folded pill without opening it)
   $('#topbar').addEventListener('pointerdown', unfocus);
   addEventListener('pps:event', unfocus);
 }
