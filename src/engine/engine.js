@@ -6,7 +6,7 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=2ab3fe1eb2';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=b2eabea2e1';
 import { detectEvents } from './events.js?v=a6e16e86ec';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };

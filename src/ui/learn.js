@@ -1,17 +1,17 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js?v=5edd069b32';
-import { host } from './host.js?v=0bd4e7637f';
+import { store, updateParams } from './store.js?v=9858da589a';
+import { host } from './host.js?v=137ea55eb7';
 import { h, fmt, toast, svgIcon } from './util.js?v=045e641b44';
 import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { addRecord } from './records.js?v=50fb9dd463';
-import { runSequence } from './sequence.js?v=a2dcfa4747';
+import { runSequence } from './sequence.js?v=d01c8929ba';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { SNAPSHOTS } from './snapshots.js?v=d3e900d9e9';
+import { SNAPSHOTS } from './snapshots.js?v=6c4f07ae98';
 import { createRoute, ladder } from './ladder.js?v=18ecf24045';
 import { CASES } from './cases/index.js?v=78c53e6b35';
-import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=0339234e33';
-import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=d80de1677e';
+import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=cdb2743adc';
+import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=6d450ed1de';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 

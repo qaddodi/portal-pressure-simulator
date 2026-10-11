@@ -4,9 +4,9 @@
 // same content as a bottom sheet. Hovering a row (or focusing it with the arrow keys) previews it beside
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
-import { store } from './store.js?v=5edd069b32';
+import { store } from './store.js?v=9858da589a';
 import { h, icon, svgIcon, uiScale, clamp, swipeSheet } from './util.js?v=045e641b44';
-import { SNAPSHOTS } from './snapshots.js?v=d3e900d9e9';
+import { SNAPSHOTS } from './snapshots.js?v=6c4f07ae98';
 import { pressureColor } from './colormap.js?v=7616551729';
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };

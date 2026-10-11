@@ -20,7 +20,7 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
-import { store } from './store.js?v=5edd069b32';
+import { store } from './store.js?v=9858da589a';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=58cca12828';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=045e641b44';
@@ -28,7 +28,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=34e377149b';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=b96611a7c7';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=38b983f75c';
+import { createSinusoidView } from './sinusoid-view.js?v=f48a130c4b';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
