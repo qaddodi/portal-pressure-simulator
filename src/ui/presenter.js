@@ -1838,39 +1838,36 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     el.addEventListener('touchcancel', () => { if (g?.on) dockTo(dock.to, 300); reset(); }, { passive: true });
   }
 
-  // A phone's foldable card also opens and closes by its handle: a drag that starts on the card's lower edge pulls the folded
-  // part open (down) or pushes it shut (up), following the finger, and eases the rest of the way on release. It claims the
-  // touch before the card's dock drag, so a drag anywhere else still docks the card and the figure pans as before.
+  // A phone's foldable card also opens and closes by a swipe anywhere on it: down pulls the folded part open, up pushes it
+  // shut, following the finger, and it eases the rest of the way on release. A swipe the fold can't take (up on a shut card)
+  // is left to the card's dock drag; sideways moves are left alone, so slide swipes and the figure pan work as before.
   function foldTouch(el, btn, setFold, part) {
     let g = null;
-    const EDGE = 30;
     el.addEventListener('touchstart', (e) => {
       g = null;
-      if (e.touches.length !== 1 || !btn.offsetWidth) return;
-      const t = e.touches[0], b = el.getBoundingClientRect();
-      if (t.clientY < b.bottom - EDGE || btn.contains(e.target)) return;
-      const p = part(), open = el.classList.contains('tool-open');
-      const lead = el.classList.contains('tool-lead');   // (there the tiles fold: shut while the tool is open)
-      const shown = open !== lead;   // (the part is showing now)
-      const full = Math.min(p.scrollHeight, innerHeight * 0.4);
-      g = { y: t.clientY, p, open, shown, full, on: false, pts: [] };
-      e.stopImmediatePropagation();
+      if (e.touches.length !== 1 || !btn.offsetWidth || dock.lvl > 0 || btn.contains(e.target)) return;
+      const t = e.touches[0], p = part(), open = el.classList.contains('tool-open');
+      const shown = open !== el.classList.contains('tool-lead');   // (tool-lead: there the tiles fold, shut while the tool is open)
+      g = { x: t.clientX, y: t.clientY, p, open, shown, full: Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };
     }, { passive: true });
     el.addEventListener('touchmove', (e) => {
       if (!g) return;
+      const t = e.touches[0], dy = t.clientY - g.y, dx = t.clientX - g.x;
+      if (!g.on) {
+        if (Math.abs(dy) < 8) return;
+        if (Math.abs(dx) > Math.abs(dy) || (dy > 0) === g.shown) { g = null; return; }   // (sideways, or nothing to fold that way)
+        g.on = true; g.p.style.transition = 'none';
+      }
       e.stopImmediatePropagation();
-      const dy = e.touches[0].clientY - g.y;
-      if (!g.on) { if (Math.abs(dy) < 6) return; g.on = true; g.p.style.transition = 'none'; }
       if (e.cancelable) e.preventDefault();
       const u = clamp((g.shown ? g.full : 0) + dy, 0, g.full) / (g.full || 1);
       g.u = u; g.pts.push([performance.now(), dy]);
       g.p.style.maxHeight = `${(u * g.full).toFixed(1)}px`; g.p.style.opacity = u.toFixed(3);
     }, { passive: false });
     const end = (e) => {
-      if (!g) return;
-      e.stopImmediatePropagation();
       const gg = g; g = null;
-      if (!gg.on) return;
+      if (!gg?.on) return;
+      e.stopImmediatePropagation();
       const last = gg.pts.at(-1), from = gg.pts.find((q) => last[0] - q[0] <= 100) || last;
       const v = last[0] > from[0] ? (last[1] - from[1]) / (last[0] - from[0]) : 0;
       const show = Math.abs(v) > 0.4 ? v > 0 : gg.u > 0.5;

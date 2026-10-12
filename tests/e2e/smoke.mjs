@@ -917,7 +917,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(800);
     const drag = (dy) => page.evaluate(async (dy) => {
       const d = [...document.querySelectorAll('.pz-data')].find((x) => x.querySelector('.pz-fold')?.offsetWidth), b = d.getBoundingClientRect();
-      const x = b.left + b.width / 2, y0 = b.bottom - 8;
+      const x = b.left + b.width / 2, y0 = dy > 0 ? b.top + b.height / 2 : b.bottom - 20;   // (anywhere on the card)
       const fire = (type, y) => { const t = new Touch({ identifier: 1, target: d, clientX: x, clientY: y });
         d.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true })); };
       fire('touchstart', y0);
