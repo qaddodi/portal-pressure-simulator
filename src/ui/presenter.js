@@ -1374,7 +1374,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       if (keep && el === ui.text) { for (const c of el.children) if (c !== mon.el) c.classList.add('pz-leave'); }
       else el.classList.add('pz-leave');
     }
-    await wait(reduce.matches ? 0 : move || gone ? 340 : 220);
+    await wait(reduce.matches ? 0 : 340);   // (the words leave at the data card's pace)
   }
   // A slide's tiles can say how far each number moved: from the slide before (delta: true) or a named one. A slide that
   // changes the same patient (a drug, an action, days) counts from the slide before unless it says delta: false.

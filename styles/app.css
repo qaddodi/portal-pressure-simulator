@@ -1705,15 +1705,18 @@ button.finding { cursor: pointer; }
 @media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } .pz-data.pz-data { background: var(--surface-2); } .pz-data .pz-tile:not(.key), .pz-data.has-tool .pz-tile.key, .pz-data .pz-tool .endo-read > div { background: var(--surface); } }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
 .pz.stack .pz-safe { right: 0; top: auto; bottom: 0; width: auto; }
-.pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px); bottom: clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); max-height: calc(100% - 2 * clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3 * var(--pzh) / var(--vz)), 30px); transition: opacity .22s var(--ease), transform .22s var(--ease), filter .4s var(--ease); }
-.pz-text.pz-leave, .pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
+.pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px); bottom: clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); max-height: calc(100% - 2 * clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3 * var(--pzh) / var(--vz)), 30px); transition: opacity .32s var(--ease), transform .32s var(--ease), filter .4s var(--ease); }
+.pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
+/* The teaching card leaves and arrives like the data card: a fade with a short slide toward its own edge, same timing. */
+.pz-text.pz-leave { opacity: 0; transform: translateX(-18px); }
+@keyframes pz-in-x { from { opacity: 0; transform: translateX(-18px); } }
 /* New cards built and fitted unseen; their entrance plays once they are at their final size. */
 .pz.pz-prep .pz-text > * { animation-play-state: paused !important; }
 /* The teaching card comes in as one piece, like the data card: same pace, same start, no line-by-line stagger. */
-.pz-text.pz-enter > * { animation: pz-in .5s var(--ease) both; animation-delay: .12s; }
+.pz-text.pz-enter > * { animation: pz-in-x .5s var(--ease) both; animation-delay: .12s; }
 /* The data card comes in with the words (same pace, same start), never ahead of them. */
 .pz-data:not(.pz-hide) { transition-duration: .5s; transition-delay: .12s; }
-.pz-text > .pz-leave { opacity: 0; transform: translateY(-6px); transition: opacity .22s var(--ease), transform .22s var(--ease); }
+.pz-text > .pz-leave { opacity: 0; transform: translateX(-18px); transition: opacity .32s var(--ease), transform .32s var(--ease); }
 .pz-text.pz-enter > .pz-mon.pz-stay { animation: none; }
 /* Slide text: the six roles (tokens.css --t-*) at a slide's size: on a wide screen they follow the screen's height
    (a laptop at 900 px: caption 15.6 · label 18.2 · body 20.8 · value 28.6 · big 41.6 · title 57.2); a phone's stacked
