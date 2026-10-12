@@ -1203,6 +1203,56 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (bad.length) throw new Error(bad.slice(0, 4).join(' | '));
   });
 
+  // A laptop, desktop or tablet on its side lays the words along the bottom on a glass band (Mohammad: like the phone), the data
+  // card at the right above the bar. On every deck (its wordiest slide and its first with a data card), at a laptop, a 720-line
+  // projector and a sideways iPad: the words sit low and wide, and the words, data card, controls, count, corner credit and
+  // the figure's labels never overlap.
+  if (device === 'desktop') await check(device, 'presenter: words along the bottom on wide screens, clear of the data card, credit and labels', async (page) => {
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    const len = (x) => (x.title || '').length + JSON.stringify([x.line, x.lines, x.causes, x.caveat] ).length;
+    const picks = DECKS.flatMap((d) => {
+      const sl = withOverview(d).slides.map((x, i) => [x, i]).filter(([x]) => !x.visual);
+      const wordy = sl.reduce((a, b) => (len(b[0]) > len(a[0]) ? b : a), sl[0]), data = sl.find(([x]) => x.data);
+      return [...new Set([wordy?.[1], data?.[1]].filter((i) => i != null))].map((i) => [d.id, i]);
+    });
+    // (A few decks at the other sizes: each slide's patient takes seconds to load on a runner.)
+    const few = picks.filter(([d]) => ['circulation', 'hvpg', 'ascites', 'doppler'].includes(d));
+    const bad = [];
+    for (const [size, list] of [[{ width: 1440, height: 900 }, picks], [{ width: 1280, height: 720 }, few], [{ width: 1180, height: 820 }, few]]) {
+      await page.setViewportSize(size);
+      for (const [deck, i] of list) {
+        if (deck === list[0][0] && i === list[0][1] && size.width === 1440) await open(page, `?script=${deck}&slide=${i + 1}`);
+        else await page.evaluate(([id, n]) => window.pps.presenter.start(id, n), [deck, i]);
+        await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !document.querySelector('.pz-cover, .pz-load.on') && document.querySelector('.pz-text:not([hidden]) .pz-h'), i + 1, { timeout: 60000 })
+          .catch((e) => { throw new Error(`${deck} ${i + 1} at ${size.width}x${size.height} never showed its words`, { cause: e }); });
+        await page.waitForTimeout(1600);
+        // (Only what stays wrong across two looks 1.5 s apart: a camera still gliding or a label easing in does not count.)
+        const look = () => page.evaluate(() => {
+          const W = innerWidth, H = innerHeight, o = [];
+          const vis = (el) => { if (!el || el.hidden || el.classList.contains('pz-hide')) return null; const st = getComputedStyle(el); if (st.display === 'none' || st.visibility === 'hidden' || +st.opacity < 0.5) return null; const r = el.getBoundingClientRect(); return r.width && r.height ? r : null; };
+          const ov = (a, b, g = 0) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > -g && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > -g;
+          if (!document.querySelector('.pz.low')) return ['the words are not laid along the bottom'];
+          const t = vis(document.querySelector('.pz-text'));
+          if (!t) return ['no words'];
+          if (t.top < H * 0.4) o.push(`the words start ${Math.round(t.top)} px down, above the lower part`);
+          if (t.width < W * 0.45) o.push(`the words are ${Math.round(t.width)} px wide`);
+          if (t.bottom > H - 10) o.push('the words reach the bottom edge');
+          const boxes = { words: t, data: vis(document.querySelector('.pz-data')), bar: vis(document.querySelector('.pz-bar')), count: vis(document.querySelector('.pz-count')) };
+          const ks = Object.keys(boxes).filter((k) => boxes[k]);
+          for (let a = 0; a < ks.length; a++) for (let b = a + 1; b < ks.length; b++) if (ov(boxes[ks[a]], boxes[ks[b]])) o.push(`the ${ks[a]} overlap the ${ks[b]}`);
+          const c = vis(document.querySelector('.stage-credit'));
+          if (c) { for (const k of ks) if (ov(c, boxes[k], 4)) o.push(`the credit touches the ${k}`); const sh = document.querySelector('.pz-shade').getBoundingClientRect(); if (c.bottom > sh.top - 2) o.push('the credit is on the words\' glass'); }
+          for (const lb of document.querySelectorAll('#labels .lb, .cath-label')) { const q = vis(lb); if (q) for (const k of ['words', 'data']) if (boxes[k] && ov(q, boxes[k])) o.push(`the label "${lb.textContent.trim().slice(0, 20)}" is under the ${k}`); }
+          return o;
+        });
+        const first = await look(); await page.waitForTimeout(1500);
+        const out = (await look()).filter((x) => first.includes(x));
+        for (const x of out) bad.push(`${deck} ${i + 1} at ${size.width}x${size.height}: ${x}`);
+      }
+    }
+    if (bad.length) throw new Error(`${bad.length} problem(s): ` + bad.slice(0, 5).join(' | '));
+  });
+
   // Figure labels and slide cards keep to the six-role type scale at every text size step, never under 11 px, units never
   // above their readings, on a phone, an upright iPad and a desktop (tests/e2e/type-scale.mjs). Run once, from the desktop run.
   if (device === 'desktop') await check(device, 'type scale: figure and slide text on the six roles at every text size', async () => {

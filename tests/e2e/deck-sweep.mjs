@@ -19,6 +19,7 @@ mkdirSync('deck-sweep', { recursive: true });
 const SIZES = {
   desktop: { viewport: { width: 1440, height: 900 } },
   ipad: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  ipadland: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   sideways: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
 };
@@ -42,6 +43,9 @@ const snap = (page) => page.evaluate(() => {
   for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) if (ov(boxes[keys[i]], boxes[keys[j]])) issues.push(`${keys[i]} overlaps ${keys[j]}`);
   const c = document.querySelector('.stage-credit');
   if (c && +getComputedStyle(c).opacity >= 0.5) { const r = c.getBoundingClientRect(); for (const el of document.querySelectorAll('.pz-text, .pz-data, .pz-panel, .pz-bar')) { const q = vis(el); if (q && q.left < r.right + 4 && q.right > r.left - 4 && q.top < r.bottom + 4 && q.bottom > r.top - 4) issues.push(`credit touches ${el.className.split(' ')[0]}`); } }
+  // A label on the figure (a vessel or organ name, a reading) under the words or the data card.
+  for (const lb of document.querySelectorAll('#labels .lb, .cath-label')) { const st = getComputedStyle(lb); if (st.display === 'none' || st.visibility === 'hidden' || +st.opacity < 0.5) continue; const q = lb.getBoundingClientRect(); if (!q.width) continue;
+    for (const k of ['.pz-text', '.pz-data']) { const b = boxes[k]; if (b && ov(b, q)) { issues.push(`label "${lb.textContent.trim().slice(0, 20)}" under ${k}`); break; } } }
   // A summary table: each cell's visible contents sit inside its column heading, and no two cells overlap.
   const tb = document.querySelector('.pz-table');
   if (tb && !tb.querySelector('td.pend')) {

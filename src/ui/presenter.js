@@ -1561,6 +1561,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // ── Layout: what the slide's words and data cover, so the figure frames itself in the rest ──
   // Only a phone stacks the words over the figure; a tablet (either way up) keeps the words at the left and the data card at the right.
   const phone = () => innerWidth < 700;
+  // A laptop, desktop or tablet held sideways lays the words along the bottom, as a phone does, so the figure keeps the
+  // full width; the data card stays at the right, above the Back/Next bar. (A phone on its side keeps the words at the left:
+  // its 390 px of height cannot spare a band.)
+  const low = () => !phone() && innerWidth > innerHeight && innerHeight > 500;
   // ── The data card slides out of view and back ──
   // Drag or swipe it away (up on a phone, to the right on a tablet; to the left when it sits under the words) and a sliver
   // stays at the edge: a tap or a drag on the sliver brings it back. It follows the finger, eases to rest, and stays put from
@@ -1570,7 +1574,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   const dockVec = () => {
     const d = ui.data;
     if (phone()) return [0, GRIP - (d.offsetTop + d.offsetHeight)];
-    if (d.classList.contains('under')) return [GRIP - (d.offsetLeft + d.offsetWidth), 0];
+    if (d.classList.contains('under') && !low()) return [GRIP - (d.offsetLeft + d.offsetWidth), 0];
     return [wrap.clientWidth - GRIP - d.offsetLeft, 0];
   };
   const dockPaint = () => {
@@ -1675,10 +1679,13 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (!ui) return;
     // Under interface zoom the page is scaled by k: rects are screen px, inline sizes are the page's own (screen / k).
     // The --pz-* insets stay in screen px, the figure's own units (the stage view undoes the zoom).
-    const p = phone(), wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = wr.width / (wrap.clientWidth || wr.width) || 1;
+    const p = phone(), lo = low(), wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = wr.width / (wrap.clientWidth || wr.width) || 1;
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
+    ui.root.classList.toggle('low', lo); ui.shade.classList.toggle('low', lo);
     const off = (el) => el.hidden || el.classList.contains('pz-hide');
-    const below = !p && ui.data.classList.contains('under');
+    const below = !p && !lo && ui.data.classList.contains('under');
+    // (Along the bottom, the words stop short of the data card's column, where the bar and count sit below the card.)
+    ui.text.classList.toggle('beside', lo);
     if (off(ui.data) || below) delete ui.data.dataset.safe; else ui.data.dataset.safe = p ? 'top' : 'right';
     const r = (el) => (off(el) ? null : el.getBoundingClientRect());
     fitCards(ui.text);
@@ -1694,19 +1701,19 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
     // (On a phone the words sit at the bottom, over the Back/Next bar, and the data card at the top: B is the height
     // from the words' top edge down to the bottom of the figure.)
-    const L = t ? t.right - wr.left : 0, T = t ? t.bottom - wr.top : 0, B = t ? H - ui.text.offsetTop * k : 0;
-    ui.shade.style.width = !p && t ? `${(L + 36) / k}px` : '';
-    ui.shade.style.height = p && t ? `${(B + 26) / k}px` : '';
+    const L = t ? t.right - wr.left : 0, T = t ? t.bottom - wr.top : 0, B = t ? H - ui.text.offsetTop * k : 0, bot = p || lo;
+    ui.shade.style.width = !bot && t ? `${(L + 36) / k}px` : '';
+    ui.shade.style.height = bot && t ? `${(B + 26) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
-    ui.safe.dataset.safe = p ? 'bottom' : 'left';
-    ui.safe.style.width = p ? '' : `${(L + 48) / k}px`;
-    ui.safe.style.height = p ? `${(B + 34) / k}px` : '';
+    ui.safe.dataset.safe = bot ? 'bottom' : 'left';
+    ui.safe.style.width = bot ? '' : `${(L + 48) / k}px`;
+    ui.safe.style.height = bot ? `${(B + 34) / k}px` : '';
     const set = (k, v) => app.style.setProperty(k, `${Math.max(0, Math.round(v))}px`);
-    set('--pz-l', !p && t ? L + 48 : 0);
+    set('--pz-l', !bot && t ? L + 48 : 0);
     set('--pz-r', !p && d ? W - (d.left - wr.left + (dock.to - dock.lvl) * dv[0] * k) + 8 : 0);   // (d.left is where the card is now; it is on its way to dock.to)
     set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
-    set('--pz-b', p && t ? B + 34 : 0);
+    set('--pz-b', bot && t ? B + 34 : 0);
     if (!dock.drag) dockPaint();
     placeBar();
     dispatchEvent(new Event('pps:occ'));
@@ -2288,7 +2295,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
 
   return { start, stop, library, readLink, presentCase, active: () => !!deck,
     // What Settings shows while presenting.
-    settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }),
+    settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() || low() }),
     // For the browser checks: the time-lapse slides, and the card's tiles as the slide shown should read them at its start and end.
     probe: () => {
       const txt = (k, f) => (rateOf(k, f)[0] == null && (k === 'saag' || k === 'tp') ? '—' : tileVal(k, f[k]));   // (as bigTiles shows it)
