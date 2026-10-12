@@ -3498,6 +3498,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     scan.v = scan.v ? scan.v + (target - scan.v) * (1 - Math.exp(-dt / 0.6)) : target;   // ease to a new kPa
     const lsm = F?.metrics?.lsm;
     if (Number.isFinite(lsm)) scan.k = scan.k == null || reduceMotion.matches ? lsm : scan.k + (lsm - scan.k) * (1 - Math.exp(-dt / 0.6));   // the callout's number eases too
+    const sv = scan.el.querySelector('.sp-val'), txt = scan.cover || scan.k == null ? '--' : scan.k >= 100 ? String(Math.round(scan.k)) : scan.k.toFixed(1);   // a quiz holds the number back
+    if (sv.textContent !== txt) sv.textContent = txt;
     if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; }
     if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; scan.el.classList.remove('tap'); void scan.el.offsetWidth; scan.el.classList.add('tap'); }   // the probe itself shakes once a second; the waves keep their own rhythm
     const span = clamp(scan.v * 2.5, 70, SCAN_SPAN);   // slow fronts fade sooner, so a healthy liver shows a few calm arcs, not a crowd
@@ -3529,8 +3531,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         + '<stop offset="0" stop-color="var(--scan)" stop-opacity=".22"/><stop offset="1" stop-color="var(--scan)" stop-opacity="0"/></radialGradient></defs>'
         + '<path class="sp-beam" d="M66 48 L197.6 -23.9 A150 150 0 0 1 197.6 119.9 Z"/><g class="sp-waves">'
         + '<g><path class="sp-rip"/><path class="sp-front"/><path class="sp-rip"/></g>'.repeat(SCAN_N) + '</g>'
-        + '<path class="sp-cable" d="M2 48 C10 48 14 48 20 48"/><g class="sp-head"><rect class="sp-body" x="18" y="36" width="40" height="24" rx="10"/>'
-        + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/></g></svg>';   // (constant markup)
+        + '<path class="sp-cable" d="M-26 48 C-18 48 -14 48 -8 48"/><g class="sp-head"><rect class="sp-body" x="-10" y="35" width="68" height="26" rx="11"/>'
+        + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/><rect class="sp-screen" x="-3" y="39.5" width="54" height="17" rx="4"/>'
+        + '<text class="sp-read" x="24" y="52.3" text-anchor="middle"><tspan class="sp-val">5.0</tspan><tspan class="sp-unit" dx="2">kPa</tspan></text></g></svg>';   // (constant markup; the screen on the body shows the live stiffness)
       sites.el.append(el); scan.el = el;
       void el.offsetWidth; el.classList.remove('cath-pre');
       if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = scan.nextTap = Infinity; }
@@ -4620,19 +4623,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
     if (!circuit) {
       // ── Anatomy ──
-      // The FibroScan probe is screen furniture on the liver: no label sits on it, and its callout takes a spot beside the
-      // waves (off the beam, clear of vessels and of any card) before the others are placed. A quiz holds the number back with the card's.
-      const tip = !scan.cover ? scanTipLocal() : null;
-      if (tip) {
-        const { tx, y } = tip;
-        placed.push({ x0: tx - 48, y0: y - 48, x1: tx + 12, y1: y + 12 });   // the probe
-        buildLines();
-        const it = scanItem(), base = placed.length;
-        it.ax = tx + 44; it.ay = y + 44;   // on the beam's axis, about 60 px from the tip
-        placed.push(...blockers);
-        placeMulti(it, ['NE', 'SW', 'E', 'S', 'N', 'W'], [{ gap: 44, leader: true, clear: true }, { gap: 58, leader: true, clear: true }, { gap: 72, leader: true, clear: true }, { gap: 44, leader: true }, { gap: 60, leader: true }]);
-        placed.splice(base, blockers.length);
-      }
+      // The FibroScan probe is screen furniture on the liver: no label sits on it or on the reading shown on its body.
+      const tip = scanTipLocal();
+      if (tip) placed.push({ x0: tip.tx - 74, y0: tip.y - 74, x1: tip.tx + 12, y1: tip.y + 12 });   // the probe and the reading on its body
       const lvl = st.labelLevel || 'key', zoomed = zoomedIn();
       // A presenter slide names exactly the stations it talks about (store.presentLabels).
       const pres = st.presenting && Array.isArray(st.presentLabels) ? st.presentLabels : null;

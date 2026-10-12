@@ -2702,6 +2702,9 @@ button.finding { cursor: pointer; }
 .scan-probe svg { width: 220px; height: 96px; overflow: visible; transform: rotate(45deg); transform-origin: 66px 48px; }   /* probe and beam turned 45° about the tip, pointing down-right */
 .scan-probe .sp-body { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.6; }
 .scan-probe .sp-tip { fill: var(--text-2); }
+.scan-probe .sp-screen { fill: var(--fibroscan); }   /* the probe's own display: the live stiffness, along its 45° axis */
+.scan-probe .sp-read { font: 700 12px Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-variant-numeric: tabular-nums; fill: color-mix(in srgb, var(--fibroscan) 12%, black); }
+.scan-probe .sp-unit { font-size: 11px; font-weight: 600; fill: color-mix(in srgb, var(--fibroscan) 30%, black); }
 .scan-probe .sp-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
 .scan-probe .sp-beam { fill: url(#sp-beam); filter: blur(5px); }
 .scan-probe .sp-waves > g { opacity: 0; }

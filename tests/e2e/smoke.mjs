@@ -1339,7 +1339,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // The FibroScan probe's callout (its live kPa beside the waves): wherever the probe shows on the figure, in Explore with the FibroScan
   // card open and on every FibroScan slide, the callout shows too, inside the stage, and sits on no other label, the probe or its caption,
   // a site callout, a card, a bar or the credit (stage.js scanItem and layoutLabels place it before the other labels).
-  await check(device, 'FibroScan callout beside the waves, clear of everything', async (page) => {
+  await check(device, 'FibroScan reading on the probe body, clear of labels and the credit', async (page) => {
     const sizes = device === 'desktop' ? [[1440, 900], [820, 1180]] : [[390, 844]];
     const inspect = () => page.evaluate(() => {
       const probe = document.querySelector('.scan-probe:not(.off):not(.cath-pre)');
@@ -1351,17 +1351,21 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (covered) return { probe: false, tool };   // the slide's own card sits over the probe: nothing to name
       const R = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
       const vis = (e) => { const st = getComputedStyle(e); return st.display !== 'none' && st.visibility !== 'hidden' && +st.opacity > 0.05; };
-      const g = document.querySelector('#labels .lb[data-key="scan"]');
-      if (!g || !vis(g) || g.classList.contains('lb-off')) return { probe: true, tool, shown: false };
-      const pill = R(g.querySelector('.lb-bg')), bad = [], others = [];
+      const g = probe.querySelector('.sp-read');
+      if (!g || !vis(probe)) return { probe: true, tool, shown: false };
+      const pill = R(probe.querySelector('.sp-screen')), bad = [], others = [];
       const hit = (a, b) => a.l < b.r - 0.5 && a.r > b.l + 0.5 && a.t < b.b - 0.5 && a.b > b.t + 0.5;
-      others.push(['probe', R(probe.querySelector('.sp-head'))]);
-      for (const e of document.querySelectorAll('#labels .lb:not(.lb-off):not([data-key="scan"])')) if (vis(e)) for (const t of e.querySelectorAll('text')) { const r = R(t); if (r.r - r.l > 1) others.push([`label ${e.dataset.key}`, r]); }
-      for (const e of document.querySelectorAll('.cath-label.site, .stage-blocker:not([hidden]), .pz-text, .pz-data, .pz-panel, .pz-bar, #dock, #panel, #treatCard:not([hidden]), .action-card:not([hidden]), .stage-credit')) if (vis(e)) { const r = R(e); if (r.r - r.l > 2) others.push([e.id || e.className.split(' ')[0], r]); }
+      const head = R(probe.querySelector('.sp-body'));
+      if (pill.l < head.l - 1 || pill.r > head.r + 1 || pill.t < head.t - 1 || pill.b > head.b + 1) bad.push('reading off the probe body');
+      const m = probe.querySelector('.scan-probe svg') && getComputedStyle(probe.querySelector('svg')).transform;
+      if (!/matrix\(0\.70\d+, 0\.70\d+/.test(m)) bad.push(`probe not at 45° (${m})`);
+      if (parseFloat(getComputedStyle(probe.querySelector('.sp-unit')).fontSize) < 11) bad.push('reading smaller than 11 px');
+      for (const e of document.querySelectorAll('#labels .lb:not(.lb-off)')) if (vis(e)) for (const t of e.querySelectorAll('text')) { const r = R(t); if (r.r - r.l > 1) others.push([`label ${e.dataset.key}`, r]); }
+      for (const e of document.querySelectorAll('.cath-label.site, .stage-credit')) if (vis(e)) { const r = R(e); if (r.r - r.l > 2) others.push([e.id || e.className.split(' ')[0], r]); }
       for (const [n, r] of others) if (hit(pill, r)) bad.push(n);
-      if (pill.l < wr.left || pill.r > wr.right || pill.t < wr.top || pill.b > wr.bottom) bad.push('off the stage');
-      if (probe.textContent.trim()) bad.push(`probe text "${probe.textContent.trim()}"`);   // the probe carries no caption: the orange number is the only callout
-      if (!/\d/.test(g.textContent) || !/kPa/.test(g.textContent)) bad.push(`text "${g.textContent}"`);
+      if (document.querySelector('#labels .lb[data-key="scan"]:not(.lb-off)')) bad.push('the old kPa pill still shows');
+      const txt = g.textContent;
+      if (!/(\d|--)/.test(txt) || !/kPa/.test(txt)) bad.push(`text "${txt}"`);
       return { probe: true, tool, shown: true, bad };
     });
     // The callout fades in with the probe, and a slide's camera glides first: it counts only if it is still wrong a few seconds later.
@@ -1375,7 +1379,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (!r.probe || (r.shown && !r.bad.length)) return r.probe;
       }
       if (!needTool && !r.tool) return false;
-      throw new Error(`${what}: ${r.shown ? `callout touches ${r.bad.join(', ')}` : needTool && !r.tool ? 'the FibroScan card never showed' : 'the probe shows but its callout does not'}`);
+      throw new Error(`${what}: ${r.shown ? `callout touches ${r.bad.join(', ')}` : needTool && !r.tool ? 'the FibroScan card never showed' : 'the probe shows but its reading does not'}`);
     };
     for (const [w, hgt] of sizes) {
       await page.setViewportSize({ width: w, height: hgt });
@@ -1383,7 +1387,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page, '?preset=cirr-comp');
       await page.click('#tabInstruments'); await page.waitForSelector('#dockBody .dock-pane.active');
       await page.evaluate(() => window.pps.dock.show('fibroscan', { reveal: true }));
-      if (!(await settle(`${at} explore`, false))) throw new Error(`${at} explore: no probe on the figure`);
+      if (!(await settle(`${at} explore`, false))) throw new Error(`${at} explore: no probe on the figure ${JSON.stringify(await inspect())}`);
       await open(page, '?script=stiffness');
       await page.waitForSelector('.pz-h'); await page.waitForTimeout(2000);
       let withProbe = 0;
