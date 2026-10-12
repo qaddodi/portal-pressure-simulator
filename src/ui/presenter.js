@@ -1238,7 +1238,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const said = lap ? await stateReady(stateOf[to]) : st;
     if (!said || cut()) return;
     // (Its card starts from the state the time-lapse plays from, and climbs with it.)
+    // The new cards are built unseen (pz-prep) and fitted at their final size before they fade in, so they never grow on screen
+    // and the camera frames once, into the space they really leave (see settle).
+    ui?.root.classList.add('pz-prep');
     wordsIn(s, q, said, to, swap, lap, st);
+    await settle();
+    if (cut()) return;
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual && !q) app.dataset.lit = slideTargets(s).lit.join(' ');
     if (s.visual === 'table') fillTable(s, cut);
@@ -1284,6 +1289,17 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (lap) await playLapse(s, to, cut);
   }
 
+  // The fonts in and two frames for the cards' charts and refits to run, then one last fit; then the cards show (eased in).
+  async function settle() {
+    if (!ui) return;
+    try { await settleRun(); } finally { if (ui) { ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
+  }
+  async function settleRun() {
+    await Promise.race([document.fonts?.ready, wait(400)]);
+    await new Promise((r) => nextFrame(() => nextFrame(r)));
+    if (!ui) return;
+    layout();
+  }
   // A slide's lobule layers (layers: ['zones', 'lymph'] turns those on); otherwise zones off and lymph as the viewer had it.
   function slideLayers(s) {
     if (!layersBefore) return;
@@ -1372,7 +1388,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       panel.dataset.visual = s.visual;
       panel.replaceChildren(h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null),
         VISUALS[s.visual](s));
-      panel.classList.remove('pz-leave');
+      if (!ui.root.classList.contains('pz-prep')) panel.classList.remove('pz-leave');   // (else once fitted: settle)
       ui.veil.classList.add('on');
     } else {
       panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); ui.veil.classList.remove('on');
@@ -1410,7 +1426,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       if (lad) ui.ladder.set(now.fp, { key: q ? [] : s.key || [], ms, brackets: q ? null : s.brackets });
       if (s.data) ui.tiles.set(now.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms, now.params?.tips?.on);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
-      data.classList.remove('pz-hide');
+      if (!ui.root.classList.contains('pz-prep')) data.classList.remove('pz-hide');   // (else once fitted: settle)
+      else data.dataset.prep = '1';
     } else if (!data.hidden) {
       data.classList.add('pz-hide');
       setTimeout(() => { if (data.classList.contains('pz-hide')) { data.hidden = true; ui?.tools.hide(); } }, reduce.matches ? 0 : 320);
