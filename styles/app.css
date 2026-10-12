@@ -1042,7 +1042,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   #btnLayers #colorModeLabel { display: none; }
   #btnInspector { position: relative; width: 36px; height: 36px; padding: 0; justify-content: center; }
   /* The count sits on the icon's corner, so a two-digit count stays inside the 36 px button and never reaches the Treat button. */
-  #btnInspector .fb-n { position: absolute; top: 1px; right: 0; min-width: 18px; height: 18px; padding: 0 4px; font-size: 11px; line-height: 1; box-shadow: 0 0 0 2px var(--glass); }
+  #btnInspector .fb-n { position: absolute; top: 1px; right: 0; min-width: 18px; height: 18px; padding: 0 4px; font-size: var(--fs-12); line-height: 1; box-shadow: 0 0 0 2px var(--glass); }
   #btnInspector .fb-l { display: none; }
   .legend .lg-title { display: none; }
   .lg-scale { width: 88px; }

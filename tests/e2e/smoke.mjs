@@ -17,6 +17,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
 import { checkCharts, checkStrip, checkStripSlides } from './chart-text.mjs';
 import { checkTypeScale } from './type-scale.mjs';
+import { TEXT_MIN, TEXT_MAX } from '../../src/ui/type-scale.js';
 
 const dir = process.argv[2] || '.';
 const shots = process.env.SHOTS;
@@ -398,12 +399,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // (Polled: a slide's pills fade in after its camera settles.)
     const pills = async (where) => { for (let i = 0; i < 40; i++) { const r = await pills0(where); if (r) return r; await page.waitForTimeout(250); } return [`${where}: no pill shown`]; };
     const bad = [];
-    for (const k of ['0.5', '2']) {
+    for (const k of [String(TEXT_MIN), String(TEXT_MAX)]) {
       await open(page, '?preset=cirr-decomp');
       await page.evaluate((k) => { localStorage.setItem('pps.labelScale', k); localStorage.setItem('pps.labelScaleV', '2'); }, k);
       await open(page, '?preset=cirr-decomp');
       // Explore: the lobule, then the sinusoid (at the smallest size; the largest only for the lesion pill below).
-      if (k === '0.5') {
+      if (k === String(TEXT_MIN)) {
       await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
       await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 45000 });
       await page.waitForTimeout(1200);
@@ -415,8 +416,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.evaluate(() => window.pps.store.set({ sinusoid: false }));
       }
       // Presenter: the HVPG deck's presinusoidal slide (its lesion pill), then the lobule deck's sinusoid slide.
-      for (const [deck, i, sin] of [['hvpg', 6, false], ...(k === '0.5' ? [['lobule', 4, true]] : [])]) {
+      for (const [deck, i, sin] of [['hvpg', 6, false], ...(k === String(TEXT_MIN) ? [['lobule', 4, true]] : [])]) {
         await page.evaluate(([deck, i]) => window.pps.presenter.start(deck, i), [deck, i]);
+        // (Each stage waits on its own: the start's cover alone can take 15 s here, and a CI runner's shared GPU is far slower.)
+        for (const ready of [() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'),
+          () => !document.querySelector('#app').className.includes('pz-hush'),
+          (sin) => sin || (window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled()),
+          (sin) => (sin ? !!document.querySelector('.sv.on') : !!document.querySelector('.lz-call.on'))]) await page.waitForFunction(ready, sin, { timeout: 60000 });
         await page.waitForFunction((sin) => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover') && !document.querySelector('#app').className.includes('pz-hush')
           && (sin ? !!document.querySelector('.sv.on') : window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled() && !!document.querySelector('.lz-call.on')), sin, { timeout: 60000 });
         await page.waitForTimeout(1500);
