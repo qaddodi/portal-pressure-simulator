@@ -2140,7 +2140,7 @@ const MEASURED = {
   'type scale: figure and slide text on the six roles at every text size': 880000,   // (a desktop CI runner took 14.6 minutes over it)
   'presenter: chart text never overlaps or crosses a line, at every size': 600000,   // (a desktop CI runner took 11.5 minutes over it)
   'presenter: every choice button on every slide fits on screen, at phones, sideways and iPad': 420000,   // (five sizes over eleven slides, about 7 minutes on a CI runner)
-  'presenter: the controls never glide between slides, and keep their size and spacing, first and last included': 500000,   // (a phone CI runner took 10 minutes)
+  'presenter: the controls never glide between slides, and keep their size and spacing, first and last included': 780000,   // (a phone CI runner took 10 minutes, a desktop one 12.7)
 };
 const expected = (name) => MEASURED[name] ?? (/^presenter: on every slide of /.test(name) ? 180000 : 45000);
 const [shard, shards] = (process.env.SMOKE_SHARD || '1/1').split('/').map(Number);
