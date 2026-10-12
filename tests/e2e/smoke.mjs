@@ -893,6 +893,21 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           let g = null;
           for (let w = 0; w < 10; w++) { await page.waitForTimeout(300); g = await cardGap(page); if (!g) break; }
           if (g && (want === 'false' || g.includes('shrunk'))) throw new Error(`${deck}, slide ${n}, after ${want === 'true' ? 'Show' : 'Show then Hide'}: ${g}`);
+          // (Opened, no two stacked sections of the card touch: the readout, a bar, the lab tiles and the card's own tiles keep a gap.)
+          const tight = want === 'true' && await page.evaluate(() => {
+            const card = document.querySelector('.pz-data:not(.pz-hide):not([hidden])');
+            const shown = (e) => { const st = getComputedStyle(e), r = e.getBoundingClientRect(); return st.display !== 'none' && st.visibility !== 'hidden' && !/absolute|fixed/.test(st.position) && !e.matches('.pz-grip') && r.height > 1 && r.width > 1; };
+            for (const box of [card, ...card.querySelectorAll('.pz-tool .ab-read, .pz-tool .pz-inst, .pz-tool .dop-main, .pz-tool .hv-main')]) {
+              const kids = [...box.children].filter(shown).map((e) => [e, e.getBoundingClientRect()]);
+              for (const [a, ra] of kids) for (const [b, rb] of kids) {
+                if (a === b || rb.top < ra.bottom - 1 || ra.right <= rb.left || rb.right <= ra.left) continue;
+                if (kids.some(([c, rc]) => c !== a && c !== b && rc.top >= ra.bottom - 1 && rc.bottom <= rb.top + 1)) continue;   // (not neighbours)
+                if (rb.top - ra.bottom < 4) return `${a.className.split(' ')[0]} sits ${Math.round(rb.top - ra.bottom)} px from ${b.className.split(' ')[0]}`;
+              }
+            }
+            return null;
+          });
+          if (tight) throw new Error(`${deck}, slide ${n}, opened card: ${tight}`);
         }
       }
       const [a, b] = n.split('/').map((x) => +x);

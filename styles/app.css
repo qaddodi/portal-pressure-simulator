@@ -1749,7 +1749,7 @@ button.finding { cursor: pointer; }
 .pz-rail.all .n, .pz-rail li.on .n { color: var(--text); font-weight: 600; }
 .pz-rail .p { font-size: .8em; line-height: 1.2; color: var(--text-3); }
 /* The data card: the pressure ladder and its tiles. */
-.pz-data { position: absolute; right: clamp(16px, calc(2.6vw / var(--vz)), 60px); top: clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px); width: clamp(300px, calc(25vw / var(--vz)), 500px); max-height: calc(100% - 2 * clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(8px, calc(1.6 * var(--pzh) / var(--vz)), 20px); padding: clamp(14px, calc(2.1 * var(--pzh) / var(--vz)), 28px); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--border); border-radius: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); box-shadow: var(--shadow-3); transition: opacity .32s var(--ease), transform .32s var(--ease); }
+.pz-data { position: absolute; right: clamp(16px, calc(2.6vw / var(--vz)), 60px); top: clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px); width: clamp(300px, calc(25vw / var(--vz)), 500px); max-height: calc(100% - 2 * clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px)); --pz-gap: clamp(8px, calc(1.6 * var(--pzh) / var(--vz)), 20px); display: flex; flex-direction: column; gap: var(--pz-gap); padding: clamp(14px, calc(2.1 * var(--pzh) / var(--vz)), 28px); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--border); border-radius: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); box-shadow: var(--shadow-3); transition: opacity .32s var(--ease), transform .32s var(--ease); }
 .pz-data.pz-hide { opacity: 0; transform: translateX(18px); }
 .pz-dh { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; text-align: center; gap: 4px 12px; font: 600 clamp(11px, calc(1.35 * var(--pzh) / var(--vz)), 16px)/1.25 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); }
 .pz-lg { display: inline-flex; align-items: center; gap: .45em; letter-spacing: 0; text-transform: none; font-weight: 500; }
@@ -2081,7 +2081,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-eq math { font-size: 21px; }
 .pz.stack .pz-eqk { font-size: 12px; }
 .pz.stack .pz-causes, .pz.stack .pz-rail { display: none; }
-.pz.stack .pz-data { left: 8px; right: 8px; top: 8px; bottom: auto; width: auto; max-height: 42%; gap: 6px; padding: 10px 12px; border-radius: 18px; }
+.pz.stack .pz-data { left: 8px; right: 8px; top: 8px; bottom: auto; width: auto; max-height: 42%; --pz-gap: 6px; gap: var(--pz-gap); padding: 10px 12px; border-radius: 18px; }
 .pz.stack .pz-data.pz-hide { transform: translateY(-18px); }
 .pz.stack .pz-dh { font-size: 11px; }
 .pz-fold { display: none; }
@@ -2181,6 +2181,8 @@ button.finding { cursor: pointer; }
 .pz-ghost b { color: var(--text-2); opacity: .7; font-variant-numeric: tabular-nums; }
 .pz-data.tool-only .pz-tiles, .pz-data.tool-only .pz-ladder, .pz-data.tool-only .pz-strip, .pz-data.tool-only .pz-lg { display: none; }
 .pz-tool .ab-main { display: block; }
+/* The card's own section gap between the readout, the pressure bar and the lab tiles, the same as above the tiles below. */
+.pz-tool .ab-read { gap: var(--pz-gap, 10px); }
 .pz-tool .ab-belly { width: clamp(68px, calc(10 * var(--pzh)), 120px); height: clamp(68px, calc(10 * var(--pzh)), 120px); }
 .pz-tool .ab-big > b { font-size: clamp(28px, calc(4.4 * var(--pzh)), 48px); }
 .pz-tool { position: relative; flex: none; }
@@ -4573,7 +4575,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @media (min-width: 768px) { .dock-pane:has(> .instrument-view.ab) { --ab-g: 16px; --ab-rg: 12px; --ab-row: 44px; --ab-big: 30px; --ab-sb-w: 44px; --ab-sb-h: 36px; padding-top: 16px; padding-bottom: 12px; } }
 .instrument-view.ab, .instrument-workspace.float-ui .dock-pane > .instrument-view.ab { display: block; flex: none; min-height: 0; }
 .ab-main { display: grid; grid-template-columns: minmax(0, 1fr); }
-.ab-read { display: grid; gap: var(--ab-rg); align-content: start; min-width: 0; }
+.ab-read { display: grid; gap: var(--ab-rg, 10px); align-content: start; min-width: 0; }
 .ab-ctl { display: grid; gap: 2px; align-content: start; min-width: 0; margin-top: var(--ab-g); padding-top: calc(var(--ab-g) - 5px); border-top: 1px solid var(--hairline); }
 @container (min-width: 620px) {
   .instrument-workspace:not(.side) .ab-main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
