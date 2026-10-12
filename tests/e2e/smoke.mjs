@@ -1421,11 +1421,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     });
     // The callout fades in with the probe, and a slide's camera glides first: it counts only if it is still wrong a few seconds later.
     // A slide that carries the FibroScan card (data-kind) shows the probe; one without it may still be fading the last one out.
-    const settle = async (what, needTool) => {
+    const settle = async (what, needTool, needProbe) => {   // needProbe: Explore must show the probe, so a first look while it is still fading in or the sheet is opening is not the answer
       let r = null;
       for (let i = 0; i < 48; i++) {
         await page.waitForTimeout(500); r = await inspect();
         if (needTool && !r.tool) continue;
+        if (needProbe && !r.probe && i < 30) continue;
         if (!r.probe && needTool) { if (i > 30) return false; continue; }   // covered by the slide's own card, or off the stage: nothing to name
         if (!r.probe || (r.shown && !r.bad.length)) return r.probe;
       }
@@ -1438,7 +1439,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page, '?preset=cirr-comp');
       await page.click('#tabInstruments'); await page.waitForSelector('#dockBody .dock-pane.active');
       await page.evaluate(() => window.pps.dock.show('fibroscan', { reveal: true }));
-      if (!(await settle(`${at} explore`, false))) throw new Error(`${at} explore: no probe on the figure ${JSON.stringify(await inspect())}`);
+      if (!(await settle(`${at} explore`, false, true))) throw new Error(`${at} explore: no probe on the figure ${JSON.stringify(await inspect())}`);
       await open(page, '?script=stiffness');
       await page.waitForSelector('.pz-h'); await page.waitForTimeout(2000);
       let withProbe = 0;
