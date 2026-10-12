@@ -86,8 +86,7 @@ export function ladder(f, { base = null, key = [], known = null, reveal = false 
   let d = '';
   pts.forEach(([px, py], i) => { if (has(i)) d += (i && has(i - 1) ? 'L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1); });
   const band = drop >= 0 ? s('g', { class: 'tl-drop' },
-    s('rect', { x: pts[drop][0] + 10, y: y(30) - 4, width: 46, height: y(0) - y(30) + 4, rx: 8 }),
-    s('text', { x: (pts[drop][0] + pts[drop + 1][0]) / 2, y: y(30) - 9, 'text-anchor': 'middle' }, `Δ ${fmt(Math.round(f[RUNGS[drop][0]]) - Math.round(f[RUNGS[drop + 1][0]]), 0)} mmHg`)) : null;
+    s('rect', { x: pts[drop][0] + 10, y: y(30) - 4, width: 46, height: y(0) - y(30) + 4, rx: 8 })) : null;
   // The gradients as spans under the axis, as on the app's pressure chart: HVPG (wedged to free hepatic vein) and PPG
   // (portal vein to the IVC) run along their stations, each named in a pill, coloured
   // by the cut-offs (amber 5 / red 10 and 6 / 12), with faint leaders up to the stations. PPG needs f.ppg (not in old snapshots).

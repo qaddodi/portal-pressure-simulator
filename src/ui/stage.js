@@ -4575,7 +4575,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function nodeItem(id, f, mode, compact) {
     const st = store.get();
     const meta = ATLAS_LABELS[id];
-    const P = (f.Pf || f.P)[NI[id]];
+    let P = (f.Pf || f.P)[NI[id]];
+    // On a slide, a station the tiles and words also read shows their reading: the measured one (the wedge, not the
+    // sinusoid node), and once it has settled, the slide's settled value itself, so the callouts, tiles and words agree.
+    const mk = st.presenting && LADDER_KEY[id], live = mk && f.metrics?.[mk], fp = mk && st.presentFp?.[mk];
+    if (Number.isFinite(live)) P = Number.isFinite(fp) && Math.abs(live - fp) < 0.6 ? fp : live;
     let name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
     // On a presenter's ladder and catheter slides, the stations the ladder names carry its name too (one vocabulary).
     if (st.presenting && st.presentNames && LADDER_TAG[id]) name += ` · ${LADDER_TAG[id]}`;
@@ -4616,6 +4620,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       label: `FibroScan stiffness ${txt} kPa`, pri: 20 };
   }
   const LADDER_TAG = { SIN_R: 'WHVP', RHV: 'FHVP' };
+  const LADDER_KEY = { CONF: 'pv', SIN_R: 'whvp', RHV: 'fhvp', IVCS: 'ivc', RA: 'ra' };
   const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, MHV: 5, LHV: 5, RPV: 5, LPV: 5, SIN_L: 5, IMV: 4, LGV: 4, W_R: 12, W_M: 12, W_L: 12 };
   // Stations labelled only when zoomed in enough to give them room, in this order (see updateLabels).
   const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV'];

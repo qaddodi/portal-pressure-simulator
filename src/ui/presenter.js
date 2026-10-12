@@ -17,7 +17,7 @@ import { store, replaceParams } from './store.js?v=7fb7280c05';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=b1761ad19c';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { download } from './records.js?v=50fb9dd463';
-import { SITES } from './ladder.js?v=b3c04e5031';
+import { SITES } from './ladder.js?v=762bcbdd62';
 import { sinusoidSupported } from './sinusoid-view.js?v=5033bbc95f';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=c4c5646ee7';
@@ -339,7 +339,7 @@ function bigLadder() {
   // The geometry follows the lettering (lay, from the slide's type scale): the margins, rows and station spacing grow with
   // the text, the station names and the falls take two rows when one is too tight, and the box grows taller, never wider.
   const W = 500;
-  let H = 362, x0 = 56, step = 97, yTop = 54, c = 17, l = 25, ph = 26, dropShort = false, dropY = [26, 26], nameY = [354, 354], gx = 44, tx = 34;
+  let H = 362, x0 = 56, step = 97, yTop = 54, c = 17, l = 25, ph = 26, nameY = [354, 354], gx = 44, tx = 34;
   let PH = 198;
   const X = (i) => x0 + i * step;
   // The axis fits the data: the smallest of 12, 20, 30, 40 or 50 mmHg that clears the highest station (the healthy line
@@ -354,25 +354,24 @@ function bigLadder() {
   const base = sv('path', { class: 'pzl-base' });
   const line = sv('path', { class: 'pzl-line', stroke: `url(#${gid})` });
   const bands = [0, 1, 2, 3].map(() => {
-    const r = sv('rect', { rx: 12 }), t = sv('text', { 'text-anchor': 'middle' });   // (placed in lay; y and height follow the axis, in draw)
-    return { g: sv('g', { class: 'pzl-drop', opacity: 0 }, r, t), t, r };
+    const r = sv('rect', { rx: 12 });   // (placed in lay; y and height follow the axis, in draw; the band carries no label)
+    return { g: sv('g', { class: 'pzl-drop', opacity: 0 }, r), r };
   });
   const pts = RUNGS.map(([, a]) => {
     const c = sv('circle', { r: 8.5 }), v = sv('text', { class: 'pzl-v', 'text-anchor': 'middle' }), k = sv('text', { class: 'pzl-k', 'text-anchor': 'middle' }, a);
     return { g: sv('g', { class: 'pzl-pt' }, c, v, k), c, v, k };
   });
   // A gradient span: a bar with end caps from one station's column to another's, dotted leaders up to the two
-  // station points, and a pill in the middle with its name (the numbers are in the tiles below).
+  // station points, and its name and reading written in the line's gap, as on the phone's strip.
   const span = (name, i0, i1) => {
     const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br' });
-    const pill = sv('rect', { class: 'pzl-pill' }), txt = sv('text', { class: 'pzl-bk', 'text-anchor': 'middle' }, name);
-    return { name, i0, i1, row: 0, lead, bar, pill, txt, label: name, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, pill, txt) };
+    const txt = sv('text', { class: 'pzl-bk', 'text-anchor': 'middle' }, name);
+    return { name, i0, i1, row: 0, lead, bar, txt, label: name, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, txt) };
   };
   const placeSpan = (b) => {
     b.x0 = X(b.i0); b.x1 = X(b.i1); b.mid = (b.x0 + b.x1) / 2;
-    const w = est(b.label, c, 0.64) + 1.6 * c, r = b.row;
-    b.bar.setAttribute('d', `M${b.x0} ${r - 5}V${r + 5}M${b.x1} ${r - 5}V${r + 5}M${b.x0} ${r}H${b.x1}`);
-    for (const [k, v] of Object.entries({ x: b.mid - w / 2, y: r - ph / 2, width: w, height: ph, rx: ph / 2 })) b.pill.setAttribute(k, v.toFixed(1));
+    const w = Math.min(b.x1 - b.x0 - 8, est(b.label, c, 0.64) + 0.9 * c), r = b.row;
+    b.bar.setAttribute('d', `M${b.x0} ${r - 5}V${r + 5}M${b.x1} ${r - 5}V${r + 5}M${b.x0} ${r}H${(b.mid - w / 2).toFixed(1)}M${(b.mid + w / 2).toFixed(1)} ${r}H${b.x1}`);
     b.txt.setAttribute('x', b.mid); b.txt.setAttribute('y', (r + 0.35 * c).toFixed(1)); fsOf(b.txt, c);
   };
   const hv = span('HVPG', 1, 2), pp = span('PPG', 0, 3);
@@ -380,7 +379,7 @@ function bigLadder() {
   // line, straight and thick, with the fall written above each stretch (the largest named by colour, a fall over 4 in red). Under them the HVPG and PPG as thin brackets with their reading
   // in the rating's colour (numbers only, no arrows), so a phone needs no tiles. Its rows follow its lettering too (layS).
   const S = { W: 360, ky: 9, dy: 16, ny: 27, vy: 32.5, hvpg: 52, ppg: 68, H: 76, c: 11, d: 12, v: 15, gap: 13 }, XS = (i) => 28 + 70 * i;
-  const conns = [0, 1, 2, 3].map((i) => ({ txt: sv('text', { class: 'pzs-d', x: (XS(i) + XS(i + 1)) / 2, 'text-anchor': 'middle' }) }));
+  const conns = [0, 1, 2, 3].map(() => ({ band: sv('rect', { class: 'pzs-drop', rx: 6, opacity: 0 }) }));
   // (The line stops a clear gap short of each reading, so no outline is needed: the gap is measured from the digits' own edge, so it is the same beside one digit or two, and it eases when a reading gains or loses a digit.)
   const sline = sv('path', { class: 'pzs-c', stroke: `url(#${gid}s)` });
   const sgrad = sv('linearGradient', { id: gid + 's', gradientUnits: 'userSpaceOnUse', x1: XS(0), x2: XS(4), y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }));
@@ -397,7 +396,7 @@ function bigLadder() {
   const hvS = sbr('HVPG', 1, 2), ppS = sbr('PPG', 0, 3);
   const unit = sv('text', { class: 'pzs-u', 'text-anchor': 'end' }, 'mmHg');
   const strip = sv('svg', { class: 'pz-strip', viewBox: `0 0 ${S.W} ${S.H}`, role: 'img' },
-    sv('defs', {}, sgrad), sline, conns.map((c) => c.txt), spts.map((p) => [p.g, p.k]), unit, hvS.g, ppS.g);
+    sv('defs', {}, sgrad), conns.map((c) => c.band), sline, spts.map((p) => [p.g, p.k]), unit, hvS.g, ppS.g);
   // A bracket's label: inline with a gap each side when the bracket has room for it, otherwise just above an unbroken line
   // (its width an estimate, so a hidden strip needs no measuring and nothing jumps).
   const lay = (b) => {
@@ -410,13 +409,11 @@ function bigLadder() {
     // (A reading takes the largest role whose two digits still leave the line its gap on each side between stations 70 apart:
     // in a narrow card at a large text size the value role would run the readings into each other.)
     const fit = [fs.val, fs.body, fs.lab, fs.cap].filter((x) => x > 0), v0 = fit.find((x) => est('20', x, 0.62) + 2 * 5 + 10 <= 70) ?? Math.min(...fit);
-    const c = S.c = fs.cap, d = S.d = fs.lab, v = S.v = v0;
-    // The falls share the names' row while they clear them, otherwise they take a row of their own.
-    // The names take two rows when neighbours would touch.
-    const nameW = Math.max(...RUNGS.map(([, a]) => est(a, c, 0.7))), two = nameW > 70 - 6, nameHalf = nameW / 2, apart = !two && nameHalf + est('−13', d) / 2 + 3 < 35;
+    const c = S.c = fs.cap, v = S.v = v0;
+    // The names take two rows when neighbours would touch. (No falls are written: a big one is shaded instead.)
+    const nameW = Math.max(...RUNGS.map(([, a]) => est(a, c, 0.7))), two = nameW > 70 - 6;
     S.ky = 0.8 * c + 1; S.ky2 = two ? S.ky + 1.15 * c : S.ky;
-    S.dy = apart ? S.ky + 0.6 * d : S.ky2 + 0.3 * c + 0.95 * d;
-    S.ny = Math.max(S.dy + 0.3 * d + 0.5 * v + 2, S.ky2 + 0.3 * c + 0.55 * v + 3); S.vy = S.ny + 0.36 * v;
+    S.ny = S.ky2 + 0.3 * c + 0.55 * v + 3; S.vy = S.ny + 0.36 * v;
     numW.clear(); lineKey = '';
     // The unit sits after the last reading when it fits there, else at the end of the HVPG row (under the last stations).
     const inline = XS(4) + est('20', v, 0.62) / 2 + 8 + est('mmHg', c, 0.68) <= S.W - 1;
@@ -426,7 +423,7 @@ function bigLadder() {
     if (bare) S.H = S.ny + 0.5 * v + 4;
     unit.style.display = bare && !inline ? 'none' : '';
     strip.setAttribute('viewBox', `0 0 ${S.W} ${S.H.toFixed(1)}`);
-    conns.forEach((cn) => { cn.txt.setAttribute('y', S.dy.toFixed(1)); fsOf(cn.txt, d); });
+    conns.forEach((cn) => { const y0 = S.ky2 + 0.35 * c; cn.band.setAttribute('y', y0.toFixed(1)); cn.band.setAttribute('height', (S.ny + 0.5 * v - y0).toFixed(1)); });
     spts.forEach((p, i) => { p.v.setAttribute('y', S.vy.toFixed(1)); fsOf(p.v, v); p.k.setAttribute('y', (i % 2 ? S.ky2 : S.ky).toFixed(1)); fsOf(p.k, c); });
     unit.setAttribute('x', S.W - 2); unit.setAttribute('y', (inline ? S.vy : S.hvpg + 0.33 * c).toFixed(1)); fsOf(unit, c);
     hvS.row = S.hvpg; ppS.row = S.ppg;
@@ -455,6 +452,8 @@ function bigLadder() {
     const step = () => {
       let moving = false;
       goal.forEach((g, i) => { const d = g - halves[i]; if (!halves[i] || Math.abs(d) < 0.05) halves[i] = g; else { halves[i] += d * 0.3; moving = true; } });
+      // (The big fall's band spans its stretch of line, between the two readings, from the falls' row down past the line.)
+      conns.forEach((cn, i) => { const x = XS(i) + halves[i] + 2; cn.band.setAttribute('x', x.toFixed(1)); cn.band.setAttribute('width', Math.max(4, XS(i + 1) - halves[i + 1] - 2 - x).toFixed(1)); });
       sline.setAttribute('d', [0, 1, 2, 3].map((i) => `M${(XS(i) + halves[i] + LINE_PAD).toFixed(2)} ${S.ny}H${(XS(i + 1) - halves[i + 1] - LINE_PAD).toFixed(2)}`).join(''));
       lineRaf = moving ? requestAnimationFrame(step) : 0;
     };
@@ -480,11 +479,8 @@ function bigLadder() {
     const xr = W - Math.max(56, Math.max(est('WHVP', c, 0.66) / 2, est('20', l) / 2) + 8);
     step = (xr - x0) / 4;
     const nameRows = Math.max(...RUNGS.map(([, a]) => est(a, c, 0.66))) > step - 0.4 * c ? 2 : 1;
-    dropShort = est('Δ 13 mmHg', c) > step - 0.4 * c;
-    const dropRows = dropShort && est('Δ 13', c) > step - 0.4 * c ? 2 : 1;
-    dropY = [6 + 0.9 * c, 6 + 0.9 * c + (dropRows > 1 ? 1.15 * c : 0)];
-    // (The readings sit above their points, under the falls' row, so a high station never runs into a fall.)
-    yTop = dropY[1] + 0.3 * c + 0.8 * l + 12.5 + 0.22 * l;
+    // (The readings sit above their points, at the top of the plot.)
+    yTop = 6 + 0.8 * l + 12.5 + 0.22 * l;
     // (A ladder in a cell of fixed height, the site ladders, gives its plot whatever height the lettering leaves.)
     const rows = (ph / 2 + 13) + (ph + 12) + (ph / 2 + 10 + 0.75 * c) + 0.25 * c + 6;
     const cell = box && el.closest('.pz-panel.fill .pz-cell');
@@ -499,10 +495,7 @@ function bigLadder() {
     H = nameY[1] + 0.25 * c + 6;
     el.setAttribute('viewBox', `0 0 ${W} ${H.toFixed(1)}`);
     for (const g of grid) { g.line.setAttribute('x1', gx.toFixed(1)); g.line.setAttribute('x2', W - 10); g.txt.setAttribute('x', tx.toFixed(1)); fsOf(g.txt, c); }
-    bands.forEach((b, i) => {
-      b.r.setAttribute('x', (X(i) + 16).toFixed(1)); b.r.setAttribute('width', Math.max(4, step - 32).toFixed(1));
-      b.t.setAttribute('x', (X(i) + step / 2).toFixed(1)); b.t.setAttribute('y', dropY[i % 2].toFixed(1)); fsOf(b.t, c);
-    });
+    bands.forEach((b, i) => { b.r.setAttribute('x', (X(i) + 16).toFixed(1)); b.r.setAttribute('width', Math.max(4, step - 32).toFixed(1)); });
     pts.forEach((p, i) => {
       p.c.setAttribute('cx', X(i).toFixed(1)); p.v.setAttribute('x', X(i).toFixed(1)); fsOf(p.v, l);
       p.k.setAttribute('x', X(i).toFixed(1)); p.k.setAttribute('y', nameY[i % 2].toFixed(1)); fsOf(p.k, c);
@@ -524,20 +517,16 @@ function bigLadder() {
     line.setAttribute('d', y.map((yy, i) => `${i ? 'L' : 'M'}${X(i)} ${yy.toFixed(1)}`).join(' '));
     pts.forEach((p, i) => { p.c.setAttribute('cy', y[i].toFixed(1)); p.v.setAttribute('y', (y[i] - 12.5 - 0.22 * l).toFixed(1)); p.v.textContent = fmt(f[RUNGS[i][0]], 0); });
     // The strip: readings in the nodes, the fall on each connector (from the rounded readings, so it adds up).
-    const raw = conns.map((_, i) => Math.max(0, f[RUNGS[i][0]] - f[RUNGS[i + 1][0]])), most = Math.max(...raw);
+    const raw = conns.map((_, i) => Math.max(0, f[RUNGS[i][0]] - f[RUNGS[i + 1][0]]));
     spts.forEach((p, i) => { p.v.textContent = fmt(f[RUNGS[i][0]], 0); });
     placeLine();
     conns.forEach((c, i) => {
-      const n = Math.round(f[RUNGS[i][0]]) - Math.round(f[RUNGS[i + 1][0]]), big = most >= 2 && raw[i] === most;
-      c.txt.textContent = n > 0 ? `−${n}` : n < 0 ? `+${-n}` : '0';
-      c.txt.classList.toggle('big', big); c.txt.classList.toggle('fall', n > 4);
+      // A big fall is shaded, as on the ladder; no fall is written as a number.
+      c.band.setAttribute('opacity', clamp((raw[i] - 4) / 3, 0, 1).toFixed(3));
     });
     bands.forEach((b, i) => {
       const d = f[RUNGS[i][0]] - f[RUNGS[i + 1][0]];
       b.g.setAttribute('opacity', clamp((d - 4) / 3, 0, 1).toFixed(3));
-      // (From the rounded readings shown at the two stations, so the fall always adds up: 20 to 7 reads Δ 13.)
-      const n = fmt(Math.max(0, Math.round(f[RUNGS[i][0]]) - Math.round(f[RUNGS[i + 1][0]])), 0);
-      b.t.textContent = dropShort ? `Δ ${n}` : `Δ ${n} mmHg`;
     });
     // Each span fades out when a level is not measurable (Budd-Chiari has no wedge). Its leaders end on the points.
     // Each pill is coloured by its own number against its own cut-offs; a slide's verdict (brackets: { hvpg: 'misleads' })
@@ -546,7 +535,7 @@ function bigLadder() {
       const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v);
       b.g.setAttribute('opacity', ok ? 1 : 0);
       if (!ok) return;
-      b.lead.setAttribute('d', `M${b.x0} ${b.row - ph / 2 + 4}V${(Y(hi) + 12).toFixed(1)}M${b.x1} ${b.row - ph / 2 + 4}V${(Y(lo) + 12).toFixed(1)}`);
+      b.lead.setAttribute('d', `M${b.x0} ${b.row - 6}V${(Y(hi) + 12).toFixed(1)}M${b.x1} ${b.row - 6}V${(Y(lo) + 12).toFixed(1)}`);
       const say = verdict[b.name.toLowerCase()];
       b.g.dataset.rate = rate;
       b.g.classList.toggle('says', !!say);
@@ -1237,7 +1226,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const litNext = !s.visual && !q ? slideTargets(s).lit.join(' ') : '';
     if (inLiver && !booting && (hushed || cam !== lastCam || litNext !== (app.dataset.lit || '') || s.visual || q || ct)) hush();
     // Words out, and the marks: they belong to the slide that is leaving.
-    store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
@@ -1311,7 +1300,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       // (A site the label stands in for lends it its station colour, so the label is the slide's highlight.)
       if (tg) for (const k of s.sites || []) if (SITE_NODE[k] && [...(s.labels || []), ...tg.labels].includes(SITE_NODE[k])) tg.terms[SITE_NODE[k]] ||= TARGETS[k]?.tone || VAL_TONE[k];
       store.set({ presentLabels: q ? [] : [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg?.terms || null,
-        presentNames: !q && (s.data === 'ladder' || !!s.cath),
+        presentNames: !q && (s.data === 'ladder' || !!s.cath), presentFp: st?.fp || null,
         focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: q || !s.callout ? null : { kind: 'block', ...s.callout } });
       if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
       app.dataset.lit = tg?.lit.join(' ') || '';
@@ -1758,7 +1747,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (off(ui.data) || below) delete ui.data.dataset.safe; else ui.data.dataset.safe = p ? 'top' : 'right';
     const r = (el) => (off(el) ? null : restBox(el));
     fitCards(ui.text);
-    const t = r(ui.text);
+    let t = r(ui.text);
     // (Under the words: in the left column, clear of the bottom.)
     if (below && t) { const y = t.bottom - wr.top + 28; ui.data.style.top = `${Math.round(y / k)}px`; ui.data.style.maxHeight = `${Math.round((H - y - 24) / k)}px`; }
     else { ui.data.style.top = ''; ui.data.style.maxHeight = ''; }
@@ -1766,6 +1755,14 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     fitWatch();
     const dv = ui.data.hidden ? [0, 0] : dockVec();
     const d = below ? null : r(ui.data);
+    // The words' card is only as tall as the words. With a data card beside it, its top is level with that card's top
+    // and the words start one padding below it; without one, the words stay centred and the card wraps them.
+    const pad = cardOn && t ? t.left - wr.left - ui.shade.offsetLeft * k : 0, lvl = cardOn && t && d ? d.top - wr.top + pad : null;
+    const ts = ui.text.style, was = ts.top;
+    ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
+    if (lvl != null) ts.marginBlock = '0';
+    ts.maxHeight = lvl != null ? `${((H - lvl - pad - 16) / k).toFixed(1)}px` : '';
+    if (ts.top !== was && t) t = r(ui.text);
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
     // (On a phone the words sit at the bottom, over the Back/Next bar, and the data card at the top: B is the height
@@ -1774,7 +1771,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // (The words' card: as far past the words on the right as its left edge is before them.)
     const sl = ui.shade.offsetLeft * k, card = cardOn && t ? L + (t.left - wr.left - sl) - sl : 0;
     ui.shade.style.width = !p && t ? `${(card || L + 36) / k}px` : '';
-    ui.shade.style.height = p && t ? `${(B + 26) / k}px` : '';
+    ui.shade.style.height = p && t ? `${(B + 26) / k}px` : cardOn && t ? `${(t.height + 2 * pad) / k}px` : '';
+    ui.shade.style.top = !p && cardOn && t ? `${(t.top - wr.top - pad) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'bottom' : 'left';
@@ -2239,7 +2237,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     removeEventListener('resize', onResize);
     document.fonts?.removeEventListener('loadingdone', onFonts);
     fitRO?.disconnect(); clearRO?.disconnect(); clearTimeout(clearT); cancelFrame(fitRaf);
-    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
+    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;
     pillW = 0; ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
