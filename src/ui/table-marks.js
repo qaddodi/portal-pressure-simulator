@@ -17,7 +17,7 @@ export const RATE = {
   varix: vSize, gv: vSize,
   spleen: (v) => (v > 16 ? ['hi', 'Large'] : v > 13 ? ['mid', 'Enlarged'] : ['ok', 'Normal']),
   plt: (v) => (v < 100 ? ['hi', 'Low'] : v < 150 ? ['mid', 'Low'] : ['ok', 'Normal']),
-  pvFlow: (v) => (v < 0 ? ['hi', 'Reversed'] : [null, 'Forward']),
+  pvFlow: (v) => (v < 0 ? ['hi', 'Hepatofugal'] : [null, 'Hepatopetal']),
   liver: (v) => (v <= 55 ? ['hi', 'Low'] : v <= 75 ? ['mid', 'Reduced'] : ['ok', 'Normal']),
   shunt: (v) => (v >= 0.3 ? ['hi', 'Large'] : v >= 0.1 ? ['mid', 'Moderate'] : ['ok', 'Small']),
   map: (v) => (v < 65 ? ['hi', 'Low'] : ['ok', 'Normal']),
