@@ -282,6 +282,8 @@ export function createCore(post) {
         const ramp = st.ramp ? Object.entries(st.ramp) : null, fine = !!(ramp || st.fine);
         // trail: the portal pressure and flow on each day of the time-lapse, [day, pv, pvFlow] (the presenter's flow-time chart).
         const at = (d, m) => [d, m.pv, m.pvFlowMean], trail = st.trail && st.days ? [at(0, computeMetrics(e))] : null;
+        // start: a time-lapse with its own params plays from here (params set and settled, no day run yet), not from the slide before.
+        const start = st.fine && st.days && st.params ? { snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(e), e) } : null;
         for (let done = 0; done < (st.days || 0);) {
           const n = fine ? 1 : Math.min(30, st.days - done);
           if (ramp) e.setParams(deepMerge(e.params, rampAt(ramp, done + 1, st.days)));
@@ -292,7 +294,7 @@ export function createCore(post) {
         if (st.preset || st.params || st.action || st.days) e.settle();
         const m = computeMetrics(e);
         if (trail) trail.push(at(st.days, m));
-        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail });
+        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start });
         yield;
       }
       post({ type: 'sequence', reqId });

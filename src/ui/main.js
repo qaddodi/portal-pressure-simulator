@@ -1,7 +1,7 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=fc5582e003';
+import { startHost, host } from './host.js?v=b6856c74e0';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7fb7280c05';
 import { createStage } from './stage.js?v=4cf6d31730';
 import { createCreditPlacer } from './credit.js?v=9d144887e1';
@@ -9,10 +9,10 @@ import { sinusoidSupported } from './sinusoid-view.js?v=c23bc8164a';
 import { createInspector } from './inspector.js?v=bced1ac9ba';
 import { createDock, CUTOFFS } from './dock.js?v=fa819ca63d';
 import { setHvpgStage } from './hvpg-proc.js?v=4e3d791f8d';
-import { createWhy } from './why.js?v=be0d8de6eb';
-import { createTimeline, LAPSES } from './timeline.js?v=c9e2160dce';
-import { createLearn } from './learn.js?v=db82df88ab';
-import { createCases, CASES } from './cases.js?v=bcebbaa043';
+import { createWhy } from './why.js?v=7f0aeb349f';
+import { createTimeline, LAPSES } from './timeline.js?v=2850da79aa';
+import { createLearn } from './learn.js?v=01c49b549c';
+import { createCases, CASES } from './cases.js?v=f16cdbb74f';
 import { isBlind } from './learning-kit.js?v=e08298baac';
 import { createCompare } from './compare.js?v=2007c66157';
 import { createCard } from './card.js?v=338e9aee06';
@@ -20,7 +20,7 @@ import { createChart, computeFindings } from './chart.js?v=8f848c13c3';
 import { createMenu, ROLES } from './menu.js?v=7b540b5274';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=901065003b';
-import { startLMS } from './lms.js?v=69518459c7';
+import { startLMS } from './lms.js?v=cdbb18f226';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=2819170343';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=c17dfefa88';
@@ -83,6 +83,7 @@ const presenter = {
   readLink: () => (/#script=/.test(location.hash) ? presenterL.get().then((p) => p.readLink()) : false),
   active: () => !!presenterL.now()?.active(),
   settings: () => presenterL.now()?.settings() ?? null,
+  probe: () => presenterL.now()?.probe() ?? null,
 };
 
 async function main() {
@@ -142,7 +143,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=4680df17a1'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=577bb8cfa1'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

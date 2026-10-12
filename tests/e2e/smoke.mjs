@@ -885,6 +885,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (gap) throw new Error(`${deck}, slide ${n}: ${gap}`);
       const sv = await svCovered(page);
       if (sv) throw new Error(`${deck}, slide ${n}: ${sv}`);
+      const dl = badDelta(await cardTiles(page));
+      if (dl) throw new Error(`${deck}, slide ${n}: ${dl}`);
       // (A folding tool: Show then Hide must leave the card's contents at full size, as on arrival.)
       const fold = page.locator('.pz-data:not(.pz-hide):not([hidden]) .pz-fold');
       if (await fold.isVisible().catch(() => false)) {
@@ -920,6 +922,68 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (await page.waitForFunction((was) => document.querySelector('.pzb-n')?.textContent.trim() !== was, n, { timeout: 15000 }).then(() => true, () => false)) break;
       }
       await page.waitForTimeout(300);
+    }
+  });
+
+  // The data card's tiles as shown: each value, and its change line read back as numbers (value, sign × change, from).
+  // (In the page, so a recorder can sample them without a round trip.)
+  const TILES_JS = `() => {
+    const num = (t) => parseFloat(String(t).replace('−', '-').replace(/[^0-9.+-]/g, ''));
+    return [...document.querySelectorAll('.pz-data:not(.pz-hide):not([hidden]) .pz-tile')].map((t) => {
+      const v = t.querySelector('.pzt-v')?.textContent.trim(), d = t.querySelector('.pzt-d')?.textContent.trim() || '';
+      const m = d.match(/^([▲▼])\\s*(?:Up |Down )?([0-9.]+).*from ([−0-9.-]+)/);
+      return { k: t.querySelector('.pzt-k')?.textContent.trim(), v, d, val: num(v), dd: m ? (m[1] === '▼' ? -1 : 1) * num(m[2]) : d.startsWith('No change') ? 0 : null, from: m ? num(m[3]) : null };
+    });
+  }`;
+  const cardTiles = (page) => page.evaluate(`(${TILES_JS})()`);
+  // "▲ X from Y" must add up: the value shown is Y plus the change, to the last digit shown.
+  const badDelta = (tiles) => tiles.filter((t) => t.dd != null && t.from != null && Math.abs(t.val - t.from - t.dd) > 1e-6).map((t) => `${t.k} ${t.v} reads "${t.d}"`).join('; ');
+
+  // A time-lapse slide's card shows the state the time-lapse plays from on its first frames (not its end, nor the slide before),
+  // climbs from there with no snap back, ends on the slide's state, and every change line adds up.
+  if (device === 'desktop') for (const deck of DECK_IDS) await check(device, `presenter: ${deck}'s time-lapse cards start from the model's start state and climb without a snap`, async (page) => {
+    await open(page);
+    await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+    const laps = (await page.evaluate(() => window.pps.presenter.probe())).lapses;
+    for (const at of laps) {
+      await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, at - 1]);
+      // (The slide before may be a time-lapse too: it plays to its end first.)
+      await page.waitForFunction((i) => window.pps.presenter.probe()?.i === i && !window.pps.presenter.probe().playing, at - 1, { timeout: 240000, polling: 500 });
+      await page.waitForTimeout(1500);
+      // A recorder in the page: every 50 ms, once the slide's number is up, the card's tiles and the slide shown.
+      await page.evaluate(([at, js]) => {
+        const read = (0, eval)(js), rec = window.__lapRec = [];
+        window.__lapT = setInterval(() => {
+          if (!document.querySelector('.pzb-n')?.textContent.trim().startsWith(`${at + 1} `)) return;
+          const p = window.pps.presenter.probe();
+          rec.push({ t: Math.round(performance.now()), i: p.i, playing: p.playing, start: p.start, end: p.end, n: p.keys.length, tiles: read(), done: !!document.querySelector('.pz-lapse.done') });
+        }, 50);
+      }, [at, TILES_JS]);
+      await page.keyboard.press('ArrowRight');
+      await page.waitForFunction((at) => window.__lapRec.some((r) => r.i === at && r.done && !r.playing), at, { timeout: 240000, polling: 500 })
+        .catch(async () => { throw new Error(`${deck} slide ${at + 1}: the time-lapse never ended (last: ${JSON.stringify(await page.evaluate(() => [window.__lapRec.length, window.__lapRec.at(-1), document.querySelector('.pzb-n')?.textContent]))})`); });
+      await page.waitForTimeout(1500);
+      const rec = await page.evaluate(() => { clearInterval(window.__lapT); return window.__lapRec; });
+      const p = rec.findLast((r) => r.start && r.end), at1 = `${deck} slide ${at + 1}`;
+      if (!p) throw new Error(`${at1}: the slide never counted as shown (${rec.length} samples, ${JSON.stringify(rec.slice(-2))})`);
+      // Every sample with the full card: the values as the model has them at the start, then a climb with no jump.
+      const full = rec.filter((r) => r.tiles.length === p.n);
+      if (!full.length) throw new Error(`${at1}: the card never showed`);
+      for (const r of full) { const bad = badDelta(r.tiles); if (bad) throw new Error(`${at1}: ${bad}`); }
+      const first = full[0].tiles, off = first.filter((x, j) => x.v !== p.start[j]);
+      if (off.length) throw new Error(`${at1} opens on ${off.map((x) => `${x.k} ${x.v}`).join(', ')}, but the model starts at ${p.start.join(', ')}`);
+      // No snap or reset: sample to sample, no tile moves back away from where the time-lapse ends by more than a small wobble
+      // (two last digits and 15% of its whole change). (Not a speed limit: a slow machine samples sparsely.)
+      const num = (v) => parseFloat(v.replace('−', '-')), s0 = p.start.map(num), s1 = p.end.map(num);
+      for (let n = 1; n < full.length; n++) full[n].tiles.forEach((x, j) => {
+        const unit = 2 * 10 ** -((p.end[j].split('.')[1] || '').length) + 0.15 * Math.abs(s1[j] - s0[j] || 0), was = full[n - 1].tiles[j];
+        if (Math.abs(x.val - s1[j]) > Math.abs(was.val - s1[j]) + unit) throw new Error(`${at1}: ${x.k} goes back from ${was.v} to ${x.v} (start ${p.start[j]}, end ${p.end[j]})`);
+      });
+      // (Once the numbers have eased onto the slide's state, up to 15 s on a slow machine.)
+      await page.waitForFunction(([js, end]) => (0, eval)(js)().every((x, j) => x.v === end[j]), [TILES_JS, p.end], { timeout: 15000, polling: 500 }).catch(() => {});
+      const last = await cardTiles(page), endOff = last.filter((x, j) => x.v !== p.end[j]);
+      if (endOff.length) throw new Error(`${at1} ends on ${endOff.map((x) => `${x.k} ${x.v}`).join(', ')}, model ${p.end.join(', ')}`);
     }
   });
 

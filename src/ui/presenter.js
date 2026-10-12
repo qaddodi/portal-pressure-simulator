@@ -457,7 +457,8 @@ function bigTiles() {
       p.tile.dataset.rate = cls || 'none';
       const r0 = f['ref_' + p.k];
       if (r0 == null || f[p.k] == null) return;
-      const x = p.T.x ?? 1, dg = p.T.d ?? 1, dd = (f[p.k] - r0) * x, same = Math.abs(dd) < 0.5 * 10 ** -dg;
+      // (The change is taken between the two numbers as shown, so it always equals the value minus the "from".)
+      const x = p.T.x ?? 1, dg = p.T.d ?? 1, rd = (v) => +(v * x).toFixed(dg), dd = rd(f[p.k]) - rd(r0), same = Math.abs(dd) < 0.5 * 10 ** -dg;
       // "Up 9 points from 82%", "Down 2.1 mmHg from 17.7": the change, then where it started (never read as "up to").
       const pct = p.T.u === '%', by = pct ? (Math.abs(dd) === 1 ? ' point' : ' points') : p.T.u ? ' ' + p.T.u : '';
       const t = same ? ['No change', '', '', '', ''] : [dd < 0 ? '▼ ' : '▲ ', dd < 0 ? 'Down ' : 'Up ', fmt(Math.abs(dd), dg), by, ` from ${fmt(r0 * x, dg)}${pct ? '%' : ''}`];
@@ -656,7 +657,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=16c63d6730', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=845de9abb6', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -668,7 +669,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=c0ea950974');
+      const { createCore } = await import('../worker-core.js?v=45f27db41f');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -734,6 +735,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       if (!base) c.request('presetMetrics', { ids: ['healthy'] }).then((m) => { base = m.result?.healthy || null; if (deck === deckNow) ui?.ladder.setBase(base); });
       await c.sequence(steps, first, (m) => {
         const st = { snap: m.snap, params: m.params, fp: m.fp, trail: m.trail, presetId: presetAt[m.i] };
+        if (m.start) st.start = { ...m.start, presetId: presetAt[m.i] };
         mine[m.i] = st;
         if (states !== mine) return;   // a newer presentation has started
         for (const w of waiters.filter((x) => x.i === m.i)) w.res(st);
@@ -1069,18 +1071,20 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       if (!inAnatomy || si !== shownState || liveOff) { await toAnatomy(inAnatomy ? riseFor(cam, s) : null); if (cut()) return; }
     }
     // (A patient still being computed off screen: after a short wait the arc shows.)
-    const lateT = states[si] ? 0 : setTimeout(() => loading(true), 260);
-    const st = await stateReady(si);
+    const lateT = states[si] && (!lap || states[stateOf[to]]) ? 0 : setTimeout(() => loading(true), 260);
+    // (A time-lapse with its own params plays from them set and settled: the chain's start state, not the slide before's.)
+    const own = lap ? (await stateReady(stateOf[to]))?.start || null : null;
+    const st = own || await stateReady(si);
     clearTimeout(lateT);
     if (!st || cut()) return;
     // A visual waits for every patient it compares (some are computed after the slides).
     // (A table shows at once, its rows' cells "…" until each patient is in.)
     if (s.visual && s.visual !== 'table') { await Promise.all(rowIdx(s).map(stateReady)); if (cut()) return; }
     // A new patient, or the same one changed: the figure fades out, the state changes unseen, it fades back in.
-    const swap = si !== shownState || liveOff;
+    const swap = si !== shownState || liveOff || !!own;
     if (swap) {
       if (shownState >= 0 && !view.classList.contains('pz-out')) await figureOut();
-      applyState(st); shownState = si; liveOff = false;
+      applyState(st); shownState = own ? -1 : si; liveOff = false;
       await drawn(st);
       if (!deck) return;
     }
@@ -1090,7 +1094,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // A time-lapse's words tell where it ends ("six months on, the HVPG is {hvpg}"), so their values are the end state's.
     const said = lap ? await stateReady(stateOf[to]) : st;
     if (!said || cut()) return;
-    wordsIn(s, q, said, to, swap, lap);
+    // (Its card starts from the state the time-lapse plays from, and climbs with it.)
+    wordsIn(s, q, said, to, swap, lap, st);
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual && !q) app.dataset.lit = slideTargets(s).lit.join(' ');
     if (s.visual === 'table') fillTable(s, cut);
@@ -1212,7 +1217,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     });
     return mon.el;
   }
-  function wordsIn(s, q, st, i, fresh = false, lap = false) {
+  function wordsIn(s, q, st, i, fresh = false, lap = false, now = st) {
     if (!ui) return;
     const { text, panel, data } = ui;
     text.classList.remove('pz-leave');   // (the panel's own is let go once its new content is in, so it never fades back in with the old)
@@ -1259,8 +1264,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       if (s.tool) ui.tools.ghost(q ? null : toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
       const ms = fresh ? 0 : undefined;
-      if (lad) ui.ladder.set(st.fp, { key: q ? [] : s.key || [], ms, brackets: q ? null : s.brackets });
-      if (s.data) ui.tiles.set(st.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms, st.params?.tips?.on);
+      if (lad) ui.ladder.set(now.fp, { key: q ? [] : s.key || [], ms, brackets: q ? null : s.brackets });
+      if (s.data) ui.tiles.set(now.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms, now.params?.tips?.on);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
       data.classList.remove('pz-hide');
     } else if (!data.hidden) {
@@ -2140,5 +2145,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
 
   return { start, stop, library, readLink, presentCase, active: () => !!deck,
     // What Settings shows while presenting.
-    settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }) };
+    settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }),
+    // For the browser checks: the time-lapse slides, and the card's tiles as the slide shown should read them at its start and end.
+    probe: () => {
+      const txt = (k, f) => (rateOf(k, f)[0] == null && (k === 'saag' || k === 'tp') ? '—' : tileVal(k, f[k]));   // (as bigTiles shows it)
+      const i = shown?.i ?? -1, s = slides[i], ks = s ? tileKeys(s) : [], end = s && states[stateOf[i]], start = s?.lapse && i > 0 ? end?.start || states[stateOf[i - 1]] : end;
+      return { i, lapses: slides.flatMap((x, j) => (x.lapse && j > 0 && x.data ? [j] : [])), playing: lapseOn, keys: ks,
+        start: start ? ks.map((k) => txt(k, start.fp)) : null, end: end ? ks.map((k) => txt(k, end.fp)) : null };
+    } };
 }
