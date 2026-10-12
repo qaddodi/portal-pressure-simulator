@@ -4860,6 +4860,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .dop .dop-vel b, .pz-tool .dop-vel b { font-size: clamp(40px, 7vh, 60px); }
 .dop .dop-vel small { font-size: var(--fs-14); }
 .dop .dop-pattern { margin: 0; font-size: var(--fs-14); color: var(--text-2); white-space: nowrap; }
+/* A presenter's data card (iPad, desktop): the report is two narrow columns, so the hero direction and mean scale with the
+   card instead of the screen height, and never run into the readings beside them (the phone's stacked card has its own sizes). */
+.pz:not(.stack) .pz-tool .dop-report { container-type: inline-size; }
+.pz:not(.stack) .pz-tool .dop .dop-dir { font-size: clamp(17px, 6.8cqi, 32px); }
+.pz:not(.stack) .pz-tool .dop .dop-vel b { font-size: clamp(28px, 13cqi, 60px); }
+.pz:not(.stack) .pz-tool .dop .dop-velrow { flex-wrap: wrap; }
 .dop-range { margin: 10px 8px 14px; }
 .dop-range[hidden] { display: none; }
 .dop-track { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); }

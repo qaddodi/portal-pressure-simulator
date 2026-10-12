@@ -573,6 +573,36 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (m.wide) throw new Error(`upright iPad presenter: ${m.wide} element(s) of the words overflow sideways`);
   });
 
+  // Text that runs into other text, in what the selector names (each text box once, boxes of one element never compared).
+  const textClash = (page, sel) => page.evaluate((sel) => {
+    const root = document.querySelector(sel); if (!root || !root.getClientRects().length) return ['none shown: ' + sel];
+    const tr = [], w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), out = [];
+    for (let x; (x = w.nextNode());) { if (!x.textContent.trim() || x.parentElement.closest('.sr-only, [hidden]')) continue; const g = document.createRange(); g.selectNodeContents(x); for (const q of g.getClientRects()) if (q.width) tr.push([q, x.textContent.trim().slice(0, 16), x.parentElement]); }
+    for (let i = 0; i < tr.length; i++) for (let j = i + 1; j < tr.length; j++) { const [a, ta, ea] = tr[i], [c, tc, ec] = tr[j]; if (ea !== ec && Math.min(a.right, c.right) - Math.max(a.left, c.left) > 1 && Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top) > 3) out.push(`"${ta}" runs into "${tc}"`); }
+    return out;
+  }, sel);
+  // The Doppler data card's report is two narrow columns on an upright iPad: its 32 px direction word once ran into the readings beside it.
+  if (device === 'desktop') await check(device, 'presenter on an upright iPad: the Doppler data card\'s words never run into each other', async (page) => {
+    await page.setViewportSize({ width: 820, height: 1180 });
+    for (const n of [2, 10]) {   // (toward the liver; no signal)
+      await open(page, `?script=doppler&slide=${n}`);
+      await page.waitForFunction(() => document.querySelector('.pz-data .dop-report')?.getClientRects().length && document.querySelector('.pz-data .dop-vel b')?.textContent.trim(), null, { timeout: 60000 });
+      await page.waitForTimeout(1500);
+      const bad = await textClash(page, '.pz-data .dop-report');
+      if (bad.length) throw new Error(`Doppler slide ${n}: ${bad.slice(0, 3).join('; ')}`);
+    }
+  });
+  // A phone's top bar keeps the lens scale 40 px wide: its numbers never run into each other (0, 10, 20 and 30 once did).
+  if (device === 'phone') await check(device, 'phone top bar: the lens scale numbers never run into each other', async (page) => {
+    for (const width of [390, 375]) {
+      await page.setViewportSize({ width, height: 844 });
+      await open(page, '?preset=cirr-decomp');
+      await page.waitForTimeout(800);
+      const bad = await textClash(page, '.lg-scale');
+      if (bad.length) throw new Error(`${width} px: ${bad.slice(0, 3).join('; ')}`);
+    }
+  });
+
   // Circulation slide 9 ("After a meal"): the coronary and splenic veins, their glow and the figure's labels sit in the band the data card
   // (top) and the words (bottom sheet) leave, and clear of the controls' pill (read from the pill itself).
   if (device === 'phone') await check(device, 'presenter on a phone: Circulation slide 9 frames the coronary and splenic veins clear of the data card, the words and the pill', async (page) => {
