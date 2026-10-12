@@ -2091,6 +2091,10 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data.has-tool.tool-lead:not(.tool-only):not(.tool-open) .pz-tool { max-height: 60vh; opacity: 1; margin-bottom: 0; }
 .pz.stack .pz-data.tool-lead .pz-tiles { max-height: 40vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
 .pz.stack .pz-data.tool-lead:not(.tool-open) .pz-tiles { max-height: 0; opacity: 0; margin-top: -6px; }
+@media (orientation: landscape) and (max-height: 500px) {   /* (a phone on its side: an opened instrument beside the tiles, not above them, so the short card holds both) */
+  .pz.stack .pz-data.has-tool.tool-open:not(.tool-only):not(.tool-lead) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; column-gap: 12px; }
+  .pz.stack .pz-data.has-tool.tool-open:not(.tool-only):not(.tool-lead) > :not(.pz-tool, .pz-tiles) { grid-column: 1 / -1; }
+}
 .pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
 .pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .endo-stage { flex: none; width: 42%; min-height: 0; }
 .pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; }

@@ -1667,6 +1667,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // once at their size and then, on the next layout, shrank. (So a card is judged by where its contents come to rest.)
   function overflowOf(el) {
     const cs = getComputedStyle(el), z = el.offsetHeight ? el.getBoundingClientRect().height / el.offsetHeight : 1;
+    if (cs.display === 'grid') {   // (parts side by side, a phone on its side: the lowest part's foot against the card's)
+      const r = el.getBoundingClientRect(), foot = Math.max(...[...el.children].map((c) => c.getBoundingClientRect().bottom));
+      return { v: (foot - r.bottom) / z + (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0), h: el.scrollWidth - el.clientWidth };
+    }
     let used = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0), n = 0;
     for (const c of el.children) {
       const s = getComputedStyle(c);
