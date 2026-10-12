@@ -7,10 +7,10 @@ import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=0cca243d2a';
 import { lobuleFlows } from './lobule-model.js?v=4b6aa4841d';
 import { createProfile } from './charts.js?v=49026dd40b';
 import { createPressureTime } from './pressure-time.js?v=05ec6348c3';
-import { createFibroScan } from './fibroscan.js?v=cfed92d01b';
+import { createFibroScan } from './fibroscan.js?v=3282fbb2cf';
 import { createHvpgProcedure } from './hvpg-proc.js?v=926224aa99';
 import { createDoppler } from './doppler.js?v=83a2431450';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=e29ae87738';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=5a2a222da9';
 import { frameFor } from './frame.js?v=49a46c570b';
 const nextFrame = frameFor('dock');
 

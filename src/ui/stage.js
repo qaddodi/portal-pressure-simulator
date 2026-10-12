@@ -5,8 +5,9 @@ import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOcclud
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=d467b97383';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=c17dfefa88';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7fb7280c05';
+import { fibroReading } from './clock.js?v=af42a9670d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors } from './util.js?v=0cca243d2a';
-import { createLobuleZoom } from './lobule-zoom.js?v=e30b8a5b4b';
+import { createLobuleZoom } from './lobule-zoom.js?v=8c652b30e2';
 import { runFlick, FLICK } from './flick.js?v=9c07aaa402';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -3498,8 +3499,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     scan.v = scan.v ? scan.v + (target - scan.v) * (1 - Math.exp(-dt / 0.6)) : target;   // ease to a new kPa
     const lsm = F?.metrics?.lsm;
     if (Number.isFinite(lsm)) scan.k = scan.k == null || reduceMotion.matches ? lsm : scan.k + (lsm - scan.k) * (1 - Math.exp(-dt / 0.6));   // the callout's number eases too
-    const sv = scan.el.querySelector('.sp-val'), txt = scan.cover || scan.k == null ? '--' : scan.k >= 100 ? String(Math.round(scan.k)) : scan.k.toFixed(1);   // a quiz holds the number back
-    if (sv.textContent !== txt) sv.textContent = txt;
+    scanShow();
     if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; }
     if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; scan.el.classList.remove('tap'); void scan.el.offsetWidth; scan.el.classList.add('tap'); }   // the probe itself shakes once a second; the waves keep their own rhythm
     const span = clamp(scan.v * 2.5, 70, SCAN_SPAN);   // slow fronts fade sooner, so a healthy liver shows a few calm arcs, not a crowd
@@ -3523,6 +3523,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const r = lv.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
     return { tx: r.left - wr.left + r.width * 0.13, y: r.top - wr.top + r.height * 0.09 };
   }
+  // The probe's reading is the FibroScan card's own number (fibroscan.js writes it in its frame, with its rounding) while a card
+  // is on screen; without one it falls back to the model's eased value. A quiz holds it back.
+  function scanShow(cardTxt) {
+    if (!scan.el) return;
+    const card = fibroReading.cv, live = card?.isConnected && card.offsetParent !== null && fibroReading.txt != null;
+    const k = scan.k, txt = scan.cover ? '--' : cardTxt ?? (live ? fibroReading.txt : k == null ? '--' : k.toFixed(1));
+    const sv = scan.el.querySelector('.sp-val');
+    if (sv.textContent !== txt) sv.textContent = txt;
+  }
+  fibroReading.show = scanShow;
   function scanPaint() {
     if (!scan.el) {
       const el = document.createElement('div');

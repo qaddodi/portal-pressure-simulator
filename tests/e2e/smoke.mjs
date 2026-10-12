@@ -1507,6 +1507,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       for (const [n, r] of others) if (hit(pill, r)) bad.push(n);
       if (document.querySelector('#labels .lb[data-key="scan"]:not(.lb-off)')) bad.push('the old kPa pill still shows');
       const txt = g.textContent;
+      const card = [...document.querySelectorAll('canvas[data-reading]')].find((c) => c.offsetParent !== null && c.getBoundingClientRect().width > 0);
+      const val = probe.querySelector('.sp-val').textContent;
+      if (card && val !== '--' && card.dataset.reading !== val) bad.push(`probe reads ${val}, card reads ${card.dataset.reading}`);   // same number, same rounding (read in one frame)
       if (!/(\d|--)/.test(txt) || !/kPa/.test(txt)) bad.push(`text "${txt}"`);
       return { probe: true, tool, shown: true, bad };
     });

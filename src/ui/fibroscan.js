@@ -6,7 +6,7 @@
 
 import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=0cca243d2a';
 import { FONT } from './charts.js?v=49026dd40b';
-import { simTime, isPaused } from './clock.js?v=c643f5f6f2';
+import { simTime, isPaused, fibroReading } from './clock.js?v=af42a9670d';
 import { store } from './store.js?v=7fb7280c05';
 import { frameFor } from './frame.js?v=49a46c570b';
 const nextFrame = frameFor('fibroscan');
@@ -111,7 +111,8 @@ export function createFibroScan() {
     ctx.fillText('LIVER STIFFNESS · MEDIAN', pad, 24);
     const big = Math.round(side ? clamp(hh * 0.24, 26, 40) : clamp(Math.min(w * 0.13, hh * 0.13), 30, 52));
     ctx.fillStyle = th.orange; ctx.font = FONT(600, big);
-    const txt = shown.toFixed(1); ctx.fillText(txt, pad, 28 + big);
+    const txt = shown.toFixed(1); if (cv.dataset.reading !== txt) cv.dataset.reading = txt;
+    fibroReading.txt = txt; fibroReading.cv = cv; fibroReading.show?.(txt); ctx.fillText(txt, pad, 28 + big);
     const tw = ctx.measureText(txt).width;
     ctx.fillStyle = th.tick; ctx.font = FONT(500, 14); ctx.fillText('kPa', pad + tw + 6, 28 + big);
     // Live badge and caption
