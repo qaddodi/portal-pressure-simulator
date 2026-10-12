@@ -20,11 +20,12 @@ export const fitIssues = () => {
     if (text && Math.min(dr.right, text.right) - Math.max(dr.left, text.left) > 4 && Math.min(dr.bottom, text.bottom) - Math.max(dr.top, text.top) > 4) out.push('numbers card over the slide words');
     if (text && dr.height < 60 && !data.classList.contains('tool-only')) out.push(`numbers card squeezed to ${Math.round(dr.height)} px`);
   }
-  // Nothing drawn under the preview badge (a slim tab at the top centre, 13 px tall, added only to /preview/).
+  // No slide words, card or legend chip under the preview badge (a slim tab at the top centre, 13 px tall, added only to
+  // /preview/). (An organ's name the camera leaves at the screen's edge is the figure, not a chip; it is not judged.)
   const seen = (e) => { for (let a = e; a; a = a.parentElement) { const cs = getComputedStyle(a); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return false; } return true; };
   const cx = innerWidth / 2, w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n; (n = w.nextNode());) {
-    if (!n.textContent.trim() || n.parentElement.closest('.sr-only')) continue;
+    if (!n.textContent.trim() || n.parentElement.closest('.sr-only') || !n.parentElement.closest('.pz, [class*="legend"]')) continue;
     const g = document.createRange(); g.selectNodeContents(n);
     const q = [...g.getClientRects()].find((r) => r.width && r.top < 13 && r.bottom > 1 && r.right > cx - 60 && r.left < cx + 60);
     if (q && seen(n.parentElement)) { out.push(`"${n.textContent.trim().slice(0, 20)}" under the preview badge`); break; }

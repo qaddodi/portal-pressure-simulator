@@ -66,7 +66,11 @@ const sv = (tag, attrs = {}, ...kids) => {
   return el;
 };
 // The plot: flow's band at the top, pressure's below it, the minutes under both.
-const W = 420, L = 40, R = W - 52, T = 80, B = 276, H = 306, FB = [T, 176], PB = [204, B];
+// (On a phone the bands are shorter, the letters the same: the card leaves the figure a band between it and the words.)
+const W = 420, L = 40, R = W - 52, T = 80, narrow = typeof matchMedia === 'function' ? matchMedia('(max-width: 699px)') : { matches: false };
+let B, H, FB, PB;
+const setGeo = () => { [FB, PB, B] = narrow.matches ? [[T, 150], [166, 214], 214] : [[T, 176], [204, 276], 276]; H = B + 30; };
+setGeo();
 const linesOf = (keys) => keys.map((key, j) => { const [name, unit, d, c] = LINE[key];
   return j ? ['flow', 'fScale', FB, c, name, unit, d] : ['pv', 'pScale', PB, c, name, unit, d]; });
 const dec = (sc) => (sc.ticks.some((v) => Math.abs(v * 10 - Math.round(v * 10)) > 1e-6) ? 2 : sc.ticks.some((v) => v % 1) ? 1 : 0);
@@ -85,9 +89,11 @@ export function createFlowTime() {
       dot: sv('circle', { class: 'pft-dot', r: 6.5, style: `fill: var(${c})` }),
       val: sv('text', { class: 'pft-v', style: `fill: var(${c})` }) }));
     // The fasting values at the start: flow's under its line, pressure's over its line (the gap between the bands).
+    // (Short bands on a phone: when the two would meet, pressure's goes under its line too.)
+    const y0 = Object.fromEntries(lines.map((l) => [l.k, l.Y(ser[l.k][0])])), meet = Math.abs((y0.flow + 20) - (y0.pv - 10)) < 18;
     const start = lines.map((l) => { const v = ser[l.k][0], y = l.Y(v);
       return [sv('circle', { class: 'pft-start', cx: X(ax().from), cy: y, r: 4.5, style: `stroke: var(${LINES.find((x) => x[0] === l.k)[3]})` }),
-        sv('text', { class: 'pft-v0', x: X(ax().from) + 2, y: l.k === 'flow' ? y + 20 : y - 10, style: `fill: var(${LINES.find((x) => x[0] === l.k)[3]})` }, `${fmt(v, l.d)} ${l.unit}`)]; });
+        sv('text', { class: 'pft-v0', x: X(ax().from) + 2, y: l.k === 'flow' || meet ? y + 20 : y - 10, style: `fill: var(${LINES.find((x) => x[0] === l.k)[3]})` }, `${fmt(v, l.d)} ${l.unit}`)]; });
     const [lp, lf] = lines;
     // Each band's gridlines, its numbers on its own side in its own colour.
     // (Five or more lines: every other one numbered, so the numbers never crowd.)
@@ -126,6 +132,9 @@ export function createFlowTime() {
       l.val.classList.toggle('off', m - ax().from < 0.36 * (ax().end - ax().from));   // (near the start the first value is already there)
       return v;
     });
+    // (Two heads close together, the bands short on a phone: the lower band's value goes under its head, clear of the other.)
+    const [a, b] = parts.lines.map((l) => +l.val.getAttribute('y'));
+    if (Math.abs(a - b) < 22) { const lo = parts.lines[a > b ? 0 : 1]; lo.val.setAttribute('y', (+lo.dot.getAttribute('cy') + 26).toFixed(1)); }
     parts.svg.setAttribute('aria-label', `${LINES[0][4]} and ${LINES[1][4].toLowerCase()} ${clock === 'days' ? `over ${ax().end} days` : 'around a meal'}: `
       + LINES.map(([k, , , , name, unit, d], j) => `${name.toLowerCase()} ${fmt(ser[k][0], d)} to ${fmt(heads[j], d)} ${unit}`).join(', '));
     parts.svg.dataset.points = String(ser.min.filter((x) => x < m).length + 1);   // (the points drawn so far, of data-of: the browser checks read them)
@@ -148,9 +157,9 @@ export function createFlowTime() {
      *  the one drawn). A new trail fades in over the old chart. */
     set(trail, k = 1, spec) {
       if (spec) { clock = spec.clock || 'meal'; keys = spec.lines || MEAL_LINES; el.classList.toggle('days', clock === 'days'); }
-      const s2 = trail === undefined ? sig : trail ? JSON.stringify([clock, keys, trail[0], trail.at(-1)]) : '';
+      const s2 = trail === undefined ? sig : trail ? JSON.stringify([clock, keys, narrow.matches, trail[0], trail.at(-1)]) : '';
       if (s2 !== sig) {
-        sig = s2; LINES = linesOf(keys); ser = flowTimeSeries(trail, clock, keys);
+        sig = s2; setGeo(); LINES = linesOf(keys); ser = flowTimeSeries(trail, clock, keys);
         const old = [...el.children];
         parts = ser ? build() : null;
         if (parts) {

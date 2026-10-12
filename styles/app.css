@@ -2269,6 +2269,13 @@ button.finding { cursor: pointer; }
 .pz:not(.stack) .pz-data.has-tool:has(.pz-tool[data-kind="flowtime"] .pz-flowtime:not(.days)) { width: clamp(340px, 44vw, 480px); }   /* (wide enough for its words on an iPad held upright; a disease time-lapse's short names keep the card's own width) */
 .pz-flowtime svg { grid-area: 1 / 1; width: 100%; height: auto; overflow: visible; transition: opacity .42s var(--ease); }
 @media (max-height: 760px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }   /* (a short phone: a slimmer chart leaves the figure a band between it and the words) */
+/* A short phone with the after-meal chart alone in the card: the chart folds behind Show (the words leave no room for it and the
+   veins both), as an instrument above tiles does on every phone. */
+@media (max-height: 760px) {
+  .pz.stack .pz-data.tool-only:has(.pz-tool[data-kind="flowtime"]) .pz-tool { max-height: 60vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
+  .pz.stack .pz-data.tool-only:has(.pz-tool[data-kind="flowtime"]):not(.tool-open) .pz-tool { max-height: 0; opacity: 0; margin-bottom: -6px; }
+  .pz.stack .pz-data.tool-only:has(.pz-tool[data-kind="flowtime"]) .pz-fold { display: inline-flex; align-items: center; min-height: 20px; margin: 0 -2px 0 auto; padding: 0 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--accent); font: inherit; letter-spacing: .05em; cursor: pointer; }
+}
 .pz-flowtime svg.in { opacity: 0; }
 .pft-key line { stroke-width: 4; stroke-linecap: round; }
 .pft-key text:not(.ptk-ax) { font: 700 17px var(--font-ui); }
