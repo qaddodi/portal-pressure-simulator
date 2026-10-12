@@ -977,7 +977,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const v = s.view || 'anatomic';
     // (The rise lands where the box fits the space the cards leave, measured as it begins: the new slide's cards are let come in
     // first, or they would settle a little larger after it and the camera would glide again to the fit they leave.)
-    if ((store.get().lobule || store.get().sinusoid) && ms > 0) await until(() => cut() || !cardsEntering(), 1200);
+    if ((store.get().lobule || store.get().sinusoid) && ms > 0) {
+      await until(() => cut() || !cardsEntering(), 1200);
+      // (And their size has stopped moving: a chart or a wrapped line that lands during the rise would change the fit it was aimed at.)
+      let sig = cardSig(), since = performance.now();
+      await until(() => { const n = cardSig(); if (n !== sig) { sig = n; since = performance.now(); } return cut() || performance.now() - since > 300; }, 3000);
+    }
     if (cut()) return;
     await toAnatomy(v === 'anatomic' ? riseFor(cam, s) : null);
     if (cut()) return;

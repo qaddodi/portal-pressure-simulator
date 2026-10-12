@@ -48,13 +48,14 @@ export async function chartTypeSlides() {
   return out;
 }
 
-export async function checkChartText(browser, url, log = console.log) {
+// (With a deck and a step, only that deck's slides at that text size: smoke runs one check for each, as the whole sweep is some 78 minutes.)
+export async function checkChartText(browser, url, log = console.log, { deck = null, step: only = null } = {}) {
   const bad = [];
   const sizes = SIZES.filter((s) => !process.env.CHART_SIZES || process.env.CHART_SIZES.split(',').includes(s.name));
-  const slides = (await chartTypeSlides()).filter((s) => !process.env.CHART_DECKS || process.env.CHART_DECKS.split(',').includes(s.deck));
-  // (The sizes run side by side; each slide opens from its own link.)
-  await Promise.all(sizes.map(async ({ name, ...opts }) => {
-    for (const step of [1, 2]) {
+  const slides = (await chartTypeSlides()).filter((s) => !process.env.CHART_DECKS || process.env.CHART_DECKS.split(',').includes(s.deck)).filter((s) => !deck || s.deck === deck);
+  // (The sizes run one after another, each slide opening from its own link: five browsers drawing the lobule at once starved each other on a two-core runner, and slides 'never opened'.)
+  for (const { name, ...opts } of sizes) {
+    for (const step of only ? [only] : [1, 2]) {
       const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block', reducedMotion: 'reduce' });
       await ctx.addInitScript((s) => { try { localStorage.setItem('pps.labelScale', String(s)); localStorage.setItem('pps.labelScaleV', '2'); } catch { /* */ } }, step);
       const page = await ctx.newPage(), errs = [];
@@ -73,7 +74,7 @@ export async function checkChartText(browser, url, log = console.log) {
       await ctx.close();
     }
     log(`chart type ${name}: ${slides.length} chart slides checked at 100 and 200 %`);
-  }));
+  }
   return bad;
 }
 

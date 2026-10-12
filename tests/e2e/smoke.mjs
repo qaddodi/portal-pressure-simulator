@@ -19,7 +19,7 @@ import { checkCharts, checkStrip, checkStripSlides, stripSlides, checkStripGaps 
 import { checkPhoneFit } from './phone-fit.mjs';
 import { checkTypeScale } from './type-scale.mjs';
 import { TEXT_MIN, TEXT_MAX } from '../../src/ui/type-scale.js';
-import { checkChartText } from './chart-type.mjs';
+import { checkChartText, chartTypeSlides } from './chart-type.mjs';
 
 const dir = process.argv[2] || '.';
 const shots = process.env.SHOTS;
@@ -170,6 +170,7 @@ const svCovered = async (page) => {
 };
 
 // Every deck's id (the presenter's library), for the per-deck checks below.
+const CHART_SLIDES = new Map();   // (chart-type check name -> its slides, for weighing the shares)
 const STRIP_SLIDES = new Map();   // (check name -> its weight in slides, for weighing the shares)
 const DECK_IDS = [...readFileSync(new URL('../../src/ui/decks.js', import.meta.url), 'utf8').matchAll(/\['([a-z0-9-]+)', '(?:[^'\\]|\\.)*'\]/g)].map((m) => m[1]);
 if (DECK_IDS.length < 15) throw new Error(`only ${DECK_IDS.length} deck ids read from decks.js`);
@@ -1393,10 +1394,19 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   // Drawn slide charts letter from the same scale as drawn: never under 11 px, growing with the text size, no word over
   // another or out of its card, on every chart slide at three phones, an iPad and a desktop (tests/e2e/chart-type.mjs).
-  if (device === 'desktop') await check(device, 'chart type: drawn slide charts on the type scale at 100 and 200 %', async () => {
-    const bad = await checkChartText(browser, server.url, () => {});
-    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
-  });
+  // (One check for each deck and text size: the whole sweep is 35 slides at five sizes and two text sizes, some 78 minutes in one piece.)
+  if (device === 'desktop') {
+    const perDeck = new Map();
+    for (const s of await chartTypeSlides()) perDeck.set(s.deck, (perDeck.get(s.deck) || 0) + 1);
+    for (const [deck, count] of perDeck) for (const step of [1, 2]) {
+      const name = `chart type: ${deck}'s drawn slide charts on the type scale at ${step * 100} %`;
+      CHART_SLIDES.set(name, count);
+      await check(device, name, async () => {
+        const bad = await checkChartText(browser, server.url, () => {}, { deck, step });
+        if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+      });
+    }
+  }
 
   await check(device, 'presenter: summary table cells stay under their headings', async (page) => {
     // Each cell's contents sit inside its column heading's width, and no two cells overlap, at each size (the desktop run
@@ -2426,7 +2436,7 @@ const MEASURED = {
   'presenter: every choice button on every slide fits on screen, at phones, sideways and iPad': 420000,   // (five sizes over eleven slides, about 7 minutes on a CI runner)
   'presenter: the controls never glide between slides, and keep their size and spacing, first and last included': 780000,   // (a phone CI runner took 10 minutes, a desktop one 12.7)
 };
-const expected = (name) => MEASURED[name] ?? (STRIP_SLIDES.has(name) ? STRIP_SLIDES.get(name) * 2 * 42000 : null) ?? (/^presenter: on every slide of /.test(name) ? 180000 : 45000);
+const expected = (name) => MEASURED[name] ?? (STRIP_SLIDES.has(name) ? STRIP_SLIDES.get(name) * 2 * 42000 : null) ?? (CHART_SLIDES.has(name) ? CHART_SLIDES.get(name) * 125000 : null) ?? (/^presenter: on every slide of /.test(name) ? 180000 : 45000);
 const [shard, shards] = (process.env.SMOKE_SHARD || '1/1').split('/').map(Number);
 const load = Array(shards).fill(0);
 const owner = new Map();

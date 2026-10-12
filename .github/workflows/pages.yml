@@ -39,7 +39,7 @@ jobs:
 
   # The browser checks run alongside the deploy, not before it: a failure marks the run red
   # (so it is seen) but the preview is already published for testing on devices.
-  # Split over thirty-two runners (desktop in sixteen shares, phone in sixteen), filled by measured time, one check at a time per runner:
+  # Split over thirty-six runners (desktop in twenty shares, phone in sixteen), filled by measured time, one check at a time per runner:
   # a runner is too small to run several browsers at once.
   browser-checks:
     if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
@@ -53,24 +53,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Desktop in sixteen shares (the longest single checks take 11 to 15 minutes on a runner, so a share must not hold more than one plus a little); phone in sixteen, since it also walks every slide of all decks.
+        # Desktop in twenty shares (the longest single checks take 11 to 15 minutes on a runner, so a share must not hold more than one plus a little); phone in sixteen, since it also walks every slide of all decks.
         include:
-          - { device: desktop, shard: '1/16' }
-          - { device: desktop, shard: '2/16' }
-          - { device: desktop, shard: '3/16' }
-          - { device: desktop, shard: '4/16' }
-          - { device: desktop, shard: '5/16' }
-          - { device: desktop, shard: '6/16' }
-          - { device: desktop, shard: '7/16' }
-          - { device: desktop, shard: '8/16' }
-          - { device: desktop, shard: '9/16' }
-          - { device: desktop, shard: '10/16' }
-          - { device: desktop, shard: '11/16' }
-          - { device: desktop, shard: '12/16' }
-          - { device: desktop, shard: '13/16' }
-          - { device: desktop, shard: '14/16' }
-          - { device: desktop, shard: '15/16' }
-          - { device: desktop, shard: '16/16' }
+          - { device: desktop, shard: '1/20' }
+          - { device: desktop, shard: '2/20' }
+          - { device: desktop, shard: '3/20' }
+          - { device: desktop, shard: '4/20' }
+          - { device: desktop, shard: '5/20' }
+          - { device: desktop, shard: '6/20' }
+          - { device: desktop, shard: '7/20' }
+          - { device: desktop, shard: '8/20' }
+          - { device: desktop, shard: '9/20' }
+          - { device: desktop, shard: '10/20' }
+          - { device: desktop, shard: '11/20' }
+          - { device: desktop, shard: '12/20' }
+          - { device: desktop, shard: '13/20' }
+          - { device: desktop, shard: '14/20' }
+          - { device: desktop, shard: '15/20' }
+          - { device: desktop, shard: '16/20' }
+          - { device: desktop, shard: '17/20' }
+          - { device: desktop, shard: '18/20' }
+          - { device: desktop, shard: '19/20' }
+          - { device: desktop, shard: '20/20' }
           - { device: phone, shard: '1/16' }
           - { device: phone, shard: '2/16' }
           - { device: phone, shard: '3/16' }
