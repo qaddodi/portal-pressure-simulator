@@ -1828,18 +1828,22 @@ button.finding { cursor: pointer; }
 /* Under the words (beside a sinusoid): the left column, the tiles two by two. */
 .pz-data.under { left: clamp(20px, calc(3.4vw / var(--vz)), 76px); right: auto; width: clamp(300px, calc(29vw / var(--vz)), 600px); }
 .pz-data.under.pz-hide { transform: translateY(14px); }
-.pz-data.under.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pz-data.under.tiles-only .pz-tiles, .pz-data.col.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* On a laptop or tablet the data card can stack under the words' card (presenter.js layout sets its left, top and width):
+   it follows the words' card as that grows or shrinks, at the same pace. */
+.pz-data.col { right: auto; }
+.pz-data.col:not(.pz-hide) { transition-property: opacity, transform, top, width; transition-duration: .5s, .5s, .45s, .45s; transition-delay: .12s, .12s, 0s, 0s; }
 .pz-data.under.tiles-only .pzt-v { font-size: var(--s-big); }
 /* Tiles alone, beside the words: the card is as wide as its tiles need (never wider than its old width). The tiles
    drop their size container, which would make them measure as zero wide; the number keeps a width for four characters
    so a changing number does not nudge the card. Two tiles go side by side when the screen is wide. */
-.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) { width: fit-content; max-width: clamp(300px, calc(25vw / var(--vz)), 500px); }
-.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) .pz-tile { container-type: normal; }
-.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) .pzt-v { font-size: var(--s-title); min-width: 3.6ch; }
-@media (orientation: portrait) { .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) { max-width: min(62vw, 520px); } }
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) { width: fit-content; max-width: clamp(300px, calc(25vw / var(--vz)), 500px); }
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pz-tile { container-type: normal; }
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v { font-size: var(--s-title); min-width: 3.6ch; }
+@media (orientation: portrait) { .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) { max-width: min(62vw, 520px); } }
 @media (min-width: 1100px) {
-  .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool):has(.pz-tiles[data-n="2"]) { max-width: min(46vw, 640px); }
-  .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) .pz-tiles[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool):has(.pz-tiles[data-n="2"]) { max-width: min(46vw, 640px); }
+  .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pz-tiles[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .pzt-d { font: 600 var(--s-cap)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
 .pzt-d[data-way="good"] { color: color-mix(in srgb, var(--ok) 85%, var(--text)); }
@@ -4858,7 +4862,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 
 /* A data card squeezed by long words (an imported deck's long title, a tool and several tiles) shrinks to fit (presenter.js
    fitCards), the tool's tap chips put the name over the number when narrow, and a tile's rating wraps inside the tile. */
-.pz-data.under > * { flex: none; }
+.pz-data.under > *, .pz-data.col > * { flex: none; }
 .pzt-r { min-width: 0; hyphens: auto; overflow-wrap: break-word; }
 .pz.stack .pzt-r { font-size: var(--s-cap); }
 /* Phone: every data card's tiles kept short and laid out alike: the name on top, then the value and its unit with the
@@ -4960,7 +4964,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .pz.stack .pz-data { padding-bottom: 10px; }
   .pz.stack .pz-grip { bottom: 3px; height: 3px; width: 34px; }
   .pz:not(.stack) .pz-grip { left: 7px; bottom: auto; top: 50%; width: 4px; height: 38px; translate: 0 -50%; }
-  .pz:not(.stack) .pz-data.under .pz-grip { left: auto; right: 7px; }
+  .pz:not(.stack) .pz-data.under .pz-grip, .pz:not(.stack) .pz-data.col .pz-grip { left: auto; right: 7px; }
 }
 
 /* A phone held sideways (844x390, 667x375): laid out like a narrow iPad. One bar row, the Tests card docked

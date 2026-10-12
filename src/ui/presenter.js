@@ -1364,7 +1364,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
         || (!lad && next.data && tileKeys(next).join() !== (ui.tiles.el.dataset.keys || '')));
     // A different patient: the card leaves with the words and stays gone until the new patient has settled, so its numbers never travel from one patient to the other.
     const gone = newPatient && !data.hidden && !data.classList.contains('pz-hide');
-    if (move || gone) data.classList.add('pz-hide');
+    if (move || gone) { data.classList.add('pz-hide'); delete data.dataset.colswap; }
     // Leaving a visual for the figure: the veil lifts with the panel, not after it.
     if (!next?.visual) ui.veil.classList.remove('on');
     if (!move && !gone && out.every((el) => el.hidden || !el.childElementCount)) return;
@@ -1473,7 +1473,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       delete data.dataset.gone;
     } else if (!data.hidden) {
       data.dataset.gone = '';
-      data.classList.add('pz-hide');
+      data.classList.add('pz-hide'); delete data.dataset.colswap;
       setTimeout(() => { if (data.classList.contains('pz-hide')) { data.hidden = true; ui?.tools.hide(); } }, reduce.matches ? 0 : 320);
     }
     layout();
@@ -1637,7 +1637,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   const dockVec = () => {
     const d = ui.data;
     if (phone()) return [0, GRIP - (d.offsetTop + d.offsetHeight)];
-    if (d.classList.contains('under')) return [GRIP - (d.offsetLeft + d.offsetWidth), 0];
+    if (d.classList.contains('under') || d.classList.contains('col')) return [GRIP - (d.offsetLeft + d.offsetWidth), 0];
     return [wrap.clientWidth - GRIP - d.offsetLeft, 0];
   };
   const dockPaint = () => {
@@ -1747,26 +1747,49 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const cardOn = TEXT_CARD && !p && !(W > H && H <= 500);   // (a phone held sideways keeps its panel too)
     ui.root.classList.toggle('pz-card', cardOn); ui.shade.classList.toggle('pz-card', cardOn);
     const off = (el) => el.hidden || (el === ui.data ? 'gone' in el.dataset : el.classList.contains('pz-hide'));   // (a card only easing out and back in for the next slide still counts, where it rests: the camera frames once)
-    const below = !p && ui.data.classList.contains('under');
-    if (off(ui.data) || below) delete ui.data.dataset.safe; else ui.data.dataset.safe = p ? 'top' : 'right';
     const r = (el) => (off(el) ? null : restBox(el));
     fitCards(ui.text);
     let t = r(ui.text);
-    // (Under the words: in the left column, clear of the bottom.)
-    if (below && t) { const y = t.bottom - wr.top + 28; ui.data.style.top = `${Math.round(y / k)}px`; ui.data.style.maxHeight = `${Math.round((H - y - 24) / k)}px`; }
-    else {
-      ui.data.style.top = ''; ui.data.style.maxHeight = '';
-      // (A phone: the card above the words ends 8 px short of them, however much it holds: an opened instrument had grown over the words.)
-      if (p && t) { const cs = getComputedStyle(ui.data), room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 8); if (room > 0) ui.data.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
+    const sl = ui.shade.offsetLeft * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style, was = ts.top;
+    // On a laptop or tablet the data card stacks under the words' card, at its width, a gap below it, when both fit above the
+    // controls; otherwise (long words, a tall chart) it sits at the top right. A card in view that changes place fades out,
+    // moves while unseen and fades back in.
+    let below = false, top0 = 0, gap = 0, cw = 0, foot = H;
+    if (cardOn && t && !off(dd)) {
+      ts.top = ''; top0 = parseFloat(getComputedStyle(ui.text).top) * k;   // (the cards' top: the data card's at the right)
+      gap = Math.max(sl, 28); cw = t.right - wr.left + pad - sl;
+      const q = ui.bar.hidden || !ui.bar.offsetWidth ? null : ui.bar.getBoundingClientRect();
+      foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl;
+      below = top0 + t.height + 2 * pad + gap + colHeight(cw / k) * k <= foot + (dd.classList.contains('col') ? 8 : 0);   // (a little slack once there: a number ticking never flips it)
     }
+    const isCol = dd.classList.contains('col');
+    if (below !== isCol) {
+      if (colT) below = isCol;   // (a move under way: the card moves once it has faded out)
+      else if (!dd.hidden && !reduce.matches && +getComputedStyle(dd).opacity > 0.05) {
+        below = isCol;
+        if (!dd.classList.contains('pz-hide')) {
+          dd.classList.add('pz-hide'); dd.dataset.colswap = '';
+          colT = setTimeout(() => { colT = 0; if (!ui) return; const mine = 'colswap' in ui.data.dataset; delete ui.data.dataset.colswap; layout(); if (mine) ui.data.classList.remove('pz-hide'); }, 340);
+        }
+      }
+    }
+    if (below !== isCol) { dd.style.transition = 'none'; dd.classList.toggle('col', below); }
+    if (off(dd) || below) delete dd.dataset.safe; else dd.dataset.safe = p ? 'top' : 'right';
+    const y = top0 + t?.height + 2 * pad + gap;
+    dd.style.left = below ? `${(sl / k).toFixed(1)}px` : '';
+    dd.style.width = below ? `${(cw / k).toFixed(1)}px` : '';
+    dd.style.top = below ? `${(y / k).toFixed(1)}px` : '';
+    dd.style.maxHeight = below ? `${((foot - y) / k).toFixed(1)}px` : '';
+    // (A phone: the card above the words ends 8 px short of them, however much it holds: an opened instrument had grown over the words.)
+    if (p && t) { const cs = getComputedStyle(dd), room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 8); if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
+    if (below !== isCol) { void dd.offsetWidth; dd.style.transition = ''; }
     fitCards(ui.data, ui.panel);
     fitWatch();
     const dv = ui.data.hidden ? [0, 0] : dockVec();
     const d = below ? null : r(ui.data);
-    // The words' card is only as tall as the words. With a data card beside it, its top is level with that card's top
-    // and the words start one padding below it; without one, the words stay centred and the card wraps them.
-    const pad = cardOn && t ? t.left - wr.left - ui.shade.offsetLeft * k : 0, lvl = cardOn && t && d ? d.top - wr.top + pad : null;
-    const ts = ui.text.style, was = ts.top;
+    // The words' card is only as tall as the words. With a data card beside or under it, its top is level with the data
+    // card's place at the top right and the words start one padding below it; without one, the words stay centred and the card wraps them.
+    const lvl = cardOn && t && (d || below) ? (below ? top0 : d.top - wr.top) + pad : null;
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
     if (lvl != null) ts.marginBlock = '0';
     ts.maxHeight = lvl != null ? `${((H - lvl - pad - 16) / k).toFixed(1)}px` : '';
@@ -1775,9 +1798,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
     // (On a phone the words sit at the bottom, over the Back/Next bar, and the data card at the top: B is the height
     // from the words' top edge down to the bottom of the figure.)
-    const L = t ? Math.max(t.right, below && !off(ui.data) ? ui.data.getBoundingClientRect().right : 0) - wr.left : 0, T = t ? t.bottom - wr.top : 0, B = t ? H - ui.text.offsetTop * k : 0;
+    const L = t ? t.right - wr.left : 0, T = t ? t.bottom - wr.top : 0, B = t ? H - ui.text.offsetTop * k : 0;
     // (The words' card: as far past the words on the right as its left edge is before them.)
-    const sl = ui.shade.offsetLeft * k, card = cardOn && t ? L + (t.left - wr.left - sl) - sl : 0;
+    const card = cardOn && t ? L + pad - sl : 0;
     ui.shade.style.width = !p && t ? `${(card || L + 36) / k}px` : '';
     ui.shade.style.height = p && t ? `${(B + 26) / k}px` : cardOn && t ? `${(t.height + 2 * pad) / k}px` : '';
     ui.shade.style.top = !p && cardOn && t ? `${(t.top - wr.top - pad) / k}px` : '';
@@ -1798,13 +1821,21 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
   // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
-  let frameL = 0;
+  let frameL = 0, colT = 0;
+  // The data card's height at width w (page px) under the words: as it would stand there, at full size (unfitted).
+  function colHeight(w) {
+    const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit')];
+    d.classList.add('col'); ds.width = `${w}px`; ds.maxHeight = 'none'; ds.removeProperty('--pz-fit');
+    const hh = d.offsetHeight;
+    d.className = sv[0]; ds.width = sv[1]; ds.maxHeight = sv[2]; if (sv[3]) ds.setProperty('--pz-fit', sv[3]);
+    return hh;
+  }
   function freeRects() {
     if (!ui || phone()) return null;
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = W / (wrap.clientWidth || W) || 1, G = 12;
     const obs = [], d = ui.data;
     let dk = null, pill = null;
-    if (!d.hidden && !('gone' in d.dataset) && !d.classList.contains('under')) {
+    if (!d.hidden && !('gone' in d.dataset) && !d.classList.contains('under') && !d.classList.contains('col')) {
       const x = d.offsetLeft + dock.to * dockVec()[0];
       obs.push(dk = { l: x * k, t: d.offsetTop * k, r: (x + d.offsetWidth) * k, b: (d.offsetTop + d.offsetHeight) * k });
     }

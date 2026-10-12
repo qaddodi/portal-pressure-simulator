@@ -1,5 +1,7 @@
 // Presenter words' card check: on a laptop or tablet the words' card is only as tall as its words (padding equal above and
-// below them), the data card at the top right (not under the words), its top level with the data card's when one is beside it, and clear of the controls' pill.
+// below them), its top level with the data card's place at the top right, and clear of the controls' pill. The data card either
+// stacks under the words' card (same left edge and width, a gap at least the cards' margin from the screen's edge, above the
+// controls) or, when the pair would not fit, sits at the top right; the two never overlap. Lists the slides in each place.
 //
 //   DECKS=doppler DEVS=mac,ipad node tests/e2e/text-card.mjs
 import { chromium } from 'playwright';
@@ -16,7 +18,8 @@ const SIZES = {
 };
 const devs = (process.env.DEVS || 'mac,desktop,ipad,ipadL').split(',');
 const server = await serve(ROOT);
-let fails = 0, seen = 0;
+let fails = 0, seen = 0, stacked = 0;
+const fallback = {};
 const settle = (page) => page.waitForFunction(() => !document.querySelector('.pz-load.on') && !document.getAnimations().some((a) => a.playState === 'running' && isFinite(a.effect?.getTiming().iterations)), null, { timeout: 8000, polling: 150 }).catch(() => {});
 for (const dev of devs) {
   const browser = await chromium.launch();
@@ -35,20 +38,36 @@ for (const dev of devs) {
         if (Math.abs((t.top - s.top) - cp) > 1.5 || Math.abs((s.bottom - t.bottom) - cp) > 1.5) err.push(`not fitted: pad ${Math.round(t.top - s.top)}/${Math.round(s.bottom - t.bottom)} vs ${Math.round(cp)}`);
         if (tx.scrollHeight - tx.clientHeight > 1 && s.bottom < (bar?.getBoundingClientRect().top ?? innerHeight) - 40 && s.bottom < innerHeight - 140) err.push('words scroll with room to grow');
         const dv = da && !da.hidden && !('gone' in da.dataset) && !da.classList.contains('under') && !da.classList.contains('docked') && getComputedStyle(da).opacity !== '0';
-        // The data card sits at the top right, never under or against the words' card (only a phone stacks them).
+        let where = null;
         if (da && !da.hidden && !('gone' in da.dataset) && !da.classList.contains('docked') && getComputedStyle(da).opacity !== '0') {
-          const d = da.getBoundingClientRect();
-          if (da.classList.contains('under') || d.left < s.right + 8) err.push(`data card under the words (left ${Math.round(d.left)} vs words right ${Math.round(s.right)})`);
+          const d = da.getBoundingClientRect(), m = s.left - document.querySelector('.pz').getBoundingClientRect().left, q = bar && !bar.hidden && bar.offsetWidth ? bar.getBoundingClientRect() : null;
+          if (d.left < s.right && d.right > s.left && d.top < s.bottom && d.bottom > s.top) err.push('data card overlaps the words');
+          if (da.classList.contains('col')) {
+            where = 'stacked';
+            if (Math.abs(d.left - s.left) > 1.5 || Math.abs(d.right - s.right) > 1.5) err.push(`stacked card not in the words' column (${Math.round(d.left)}-${Math.round(d.right)} vs ${Math.round(s.left)}-${Math.round(s.right)})`);
+            if (d.top - s.bottom < Math.max(m, 28) - 1) err.push(`gap ${Math.round(d.top - s.bottom)} under ${Math.round(Math.max(m, 28))}`);
+            if (q && q.left < d.right && q.right > d.left && d.bottom > q.top - 1) err.push('stacked card runs into the controls');
+            if (d.bottom > innerHeight - m + 1) err.push('stacked card past the bottom');
+            if (+getComputedStyle(da).getPropertyValue('--pz-fit') && +getComputedStyle(da).getPropertyValue('--pz-fit') < 0.97) err.push('stacked card shrunk to fit');
+          } else {
+            where = 'right';
+            if (d.left < s.right + 8) err.push(`data card neither stacked nor at the right (left ${Math.round(d.left)} vs words right ${Math.round(s.right)})`);
+            if (d.top > s.top + 1.5) err.push('right card not at the top');
+          }
         }
-        const top = dv ? da.offsetTop : null;   // (no data card: the words stay centred, the card wraps them)
+        const top = dv && !da.classList.contains('col') ? da.offsetTop : null;   // (no data card: the words stay centred, the card wraps them)
         if (top != null && Math.abs(s.top - document.querySelector('.pz').getBoundingClientRect().top - top) > 1) err.push(`top ${Math.round(s.top)} vs data ${Math.round(top)}`);
         const q = bar && !bar.hidden ? bar.getBoundingClientRect() : null;
         if (q && q.width && q.left < s.right && q.right > s.left && s.bottom > q.top + 1) err.push('runs under the controls');
-        return err;
+        return { err, where };
       });
       let res = await check();
-      if (res?.length) { await page.waitForTimeout(2500); await settle(page); res = await check(); }   // (a slow machine: a slide or chart may still be landing)
-      if (res) { seen++; if (res.length) { fails++; console.log(`FAIL ${dev} ${deck} ${i}/${n} ${res.join('; ')}`); } }
+      if (res?.err.length) { await page.waitForTimeout(2500); await settle(page); res = await check(); }   // (a slow machine: a slide or chart may still be landing)
+      if (res) {
+        seen++;
+        if (res.err.length) { fails++; console.log(`FAIL ${dev} ${deck} ${i}/${n} ${res.err.join('; ')}`); }
+        if (res.where === 'right') (fallback[dev] ||= []).push(`${deck} ${i}`); else if (res.where) stacked++;
+      }
       if (i < n) await page.keyboard.press('ArrowRight');
     }
     await ctx.close();
@@ -56,5 +75,7 @@ for (const dev of devs) {
   await browser.close();
 }
 server.close?.();
+console.log(`data card stacked on ${stacked} slide(s); at the top right (pair too tall):`);
+for (const [dev, l] of Object.entries(fallback)) console.log(`  ${dev}: ${l.join(', ')}`);
 console.log(fails ? `${fails} of ${seen} slide(s) with a mis-fitted words' card` : `words' card fitted on all ${seen} slides`);
 process.exit(fails ? 1 : 0);
