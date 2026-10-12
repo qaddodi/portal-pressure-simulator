@@ -131,10 +131,15 @@ export function stripTextSize() {
   return [...new Set(out)];
 }
 // Every slide that has the strip (the ladder data card), at both phones: text at least 11 px, labels in their brackets and clear of the lines.
-export async function checkStripSlides(browser, url, log = console.log) {
+// (With a deck id, only that deck's slides: smoke runs one check per deck, as the whole sweep takes 45 minutes.)
+export async function stripSlides(deck) {
   const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
   const slides = [];
-  for (const d of DECKS) withOverview(d).slides.forEach((sl, i) => { if (sl.data === 'ladder') slides.push({ deck: d.id, n: i + 1 }); });
+  for (const d of DECKS) if (!deck || d.id === deck) withOverview(d).slides.forEach((sl, i) => { if (sl.data === 'ladder') slides.push({ deck: d.id, n: i + 1 }); });
+  return slides;
+}
+export async function checkStripSlides(browser, url, log = console.log, deck = null) {
+  const slides = await stripSlides(deck);
   const bad = [];
   for (const size of SIZES.slice(0, 2)) {
     const { name, ...opts } = size;

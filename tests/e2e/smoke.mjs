@@ -15,7 +15,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
-import { checkCharts, checkStrip, checkStripSlides } from './chart-text.mjs';
+import { checkCharts, checkStrip, checkStripSlides, stripSlides } from './chart-text.mjs';
 import { checkTypeScale } from './type-scale.mjs';
 import { TEXT_MIN, TEXT_MAX } from '../../src/ui/type-scale.js';
 import { checkChartText } from './chart-type.mjs';
@@ -169,6 +169,7 @@ const svCovered = async (page) => {
 };
 
 // Every deck's id (the presenter's library), for the per-deck checks below.
+const STRIP_SLIDES = new Map();   // (check name -> its ladder slides, for weighing the shares)
 const DECK_IDS = [...readFileSync(new URL('../../src/ui/decks.js', import.meta.url), 'utf8').matchAll(/\['([a-z0-9-]+)', '(?:[^'\\]|\\.)*'\]/g)].map((m) => m[1]);
 if (DECK_IDS.length < 15) throw new Error(`only ${DECK_IDS.length} deck ids read from decks.js`);
 // Waits for the slide to settle (up to 10 s) and returns the last reading.
@@ -1167,10 +1168,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
 
   // The phone pressure strip on every slide that has it: all its text at least 11 px as drawn, labels centred in their brackets, clear of every line.
-  if (device === 'desktop') await check(device, 'presenter: the pressure strip keeps 11 px text and clear labels on every slide, at both phones', async () => {
-    const bad = await checkStripSlides(browser, server.url, () => {});
-    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
-  });
+  // (One check per deck: the whole sweep is 64 page loads and took 45 minutes in one piece, longer than a runner's limit.)
+  if (device === 'desktop') for (const deck of new Set((await stripSlides()).map((s) => s.deck))) {
+    const name = `presenter: ${deck}'s pressure strip keeps 11 px text and clear labels on every slide, at both phones`;
+    STRIP_SLIDES.set(name, (await stripSlides(deck)).length);
+    await check(device, name, async () => {
+      const bad = await checkStripSlides(browser, server.url, () => {}, deck);
+      if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+    });
+  }
 
   // Every choice in a slide's row of treatment buttons stays in view, whole, with no sideways scrolling, at 11 px or more
   // (a phone once cut Terlipressin off the right edge), at three phone widths, a phone on its side and an upright iPad.
@@ -2241,7 +2247,7 @@ const MEASURED = {
   'presenter: every choice button on every slide fits on screen, at phones, sideways and iPad': 420000,   // (five sizes over eleven slides, about 7 minutes on a CI runner)
   'presenter: the controls never glide between slides, and keep their size and spacing, first and last included': 780000,   // (a phone CI runner took 10 minutes, a desktop one 12.7)
 };
-const expected = (name) => MEASURED[name] ?? (/^presenter: on every slide of /.test(name) ? 180000 : 45000);
+const expected = (name) => MEASURED[name] ?? (STRIP_SLIDES.has(name) ? STRIP_SLIDES.get(name) * 2 * 42000 : null) ?? (/^presenter: on every slide of /.test(name) ? 180000 : 45000);
 const [shard, shards] = (process.env.SMOKE_SHARD || '1/1').split('/').map(Number);
 const load = Array(shards).fill(0);
 const owner = new Map();
