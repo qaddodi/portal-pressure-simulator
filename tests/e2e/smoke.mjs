@@ -1244,6 +1244,53 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
+  await check(device, 'lobule: the sinusoid reading and its lesion pointer point at the middle of a sinusoid', async (page) => {
+    // Each of the presenter's lobule framings (the whole lobule, a portal tract, the sinusoids, the central vein; every
+    // lobule slide uses one of these) and Explore's lobule: where the sinusoid's reading or the "Block: sinusoids" pointer
+    // is shown, the spot they name lies half way between the portal tract and the central vein (not at either end), and
+    // the reading, the pointer and the corner credit keep clear of each other.
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    const slides = [['lobule', 'lobule:fit'], ['sites', 'lobule:triad'], ['sites', 'lobule:sinusoid'], ['sites', 'lobule:central']]
+      .map(([deck, cam]) => [deck, withOverview(DECKS.find((d) => d.id === deck)).slides.findIndex((x) => x.cam === cam)]);
+    if (slides.some(([, i]) => i < 0)) throw new Error('a lobule framing is missing from its deck');
+    const bad = [];
+    const look = async (where) => {
+      // Settled: the labels hold still across two looks a moment apart.
+      const pos = () => page.evaluate(() => [...document.querySelectorAll('.lz-lab, .lz-call')].map((e) => e.style.left + e.style.top + e.style.transform).join());
+      for (let prev = '', i = 0; i < 8; i++) { await page.waitForTimeout(400); const now = await pos(); if (now === prev) break; prev = now; }
+      bad.push(...await page.evaluate((where) => {
+        const out = [], a = window.pps.stage.lobuleSinAnchor();
+        const shown = (e) => !!e && !e.hidden && !!e.offsetParent && +getComputedStyle(e).opacity > 0.5;
+        const lab = [...document.querySelectorAll('.lz.on .lz-lab')].find((e) => e.dataset.target === 'lobule:sinusoid');
+        const call = document.querySelector('.lz.on .lz-call.on'), sinCall = shown(call) && /sinusoid/i.test(call.textContent);
+        if (!a || !(shown(lab) || sinCall)) return out;
+        if (a.f < 0.3 || a.f > 0.7) out.push(`${where}: the sinusoid ${sinCall ? 'pointer' : 'reading'} names a spot ${Math.round(a.f * 100)}% of the way out from the central vein (want 30 to 70%)`);
+        const box = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+        const hit = (p, q) => Math.min(p.r, q.r) - Math.max(p.l, q.l) > 1 && Math.min(p.b, q.b) - Math.max(p.t, q.t) > 1;
+        const credit = document.querySelector('.stage-credit'), parts = [];
+        if (shown(lab)) parts.push(['reading', box(lab)]);
+        if (shown(call)) parts.push(['pointer', box(call)]);
+        if (credit && +getComputedStyle(credit).opacity > 0.5) parts.push(['credit', box(credit)]);
+        for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) if (hit(parts[i][1], parts[j][1])) out.push(`${where}: the sinusoid ${parts[i][0]} overlaps the ${parts[j][0]}`);
+        return out;
+      }, where));
+    };
+    await open(page);
+    for (const [deck, i] of slides) {
+      await page.evaluate(([deck, i]) => window.pps.presenter.start(deck, i), [deck, i]);
+      await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover') && !document.querySelector('#app').className.includes('pz-hush')
+        && window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 60000 });
+      await look(`${deck} slide ${i + 1}`);
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'), null, { timeout: 30000 });
+    }
+    await open(page, '?preset=cirr-decomp');
+    await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 45000 });
+    await look('explore lobule');
+    if (bad.length) throw new Error(bad.slice(0, 6).join(' | '));
+  });
+
   await check(device, 'presenter: lobule labels never touch, leaders never cross', async (page) => {
     // The slides that name several lobule structures at once, at each size: no two labels, pills included, come within
     // a few pixels of each other; no leader runs under another label or crosses another leader. The desktop run also
@@ -2128,6 +2175,7 @@ const MEASURED = {
   'pan and pinch: marks and labels stay locked to the figure': 150000,
   'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text': 90000,   // (one device pixel per pixel on a phone: about 65 s here)
   'presenter: lobule labels never touch, leaders never cross': 140000,
+  'lobule: the sinusoid reading and its lesion pointer point at the middle of a sinusoid': 150000,
   'liver lobule: GPU vessels, pressure drops, caption, cards, zones': 160000,
   'corner credit never touches a card': 130000,
   'pressure over time and Doppler': 76000,
