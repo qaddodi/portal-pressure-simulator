@@ -20,10 +20,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=7b629187ab';
 import { sinusoidSupported } from './sinusoid-view.js?v=c23bc8164a';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=47b04f3eec';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=d1daff429f';
 import { createHvpgMonitor } from './hvpg-proc.js?v=4e3d791f8d';
 import { createTools } from './presenter-tools.js?v=0ec4147540';
-import { openHandout } from './handout.js?v=2b88642244';
+import { openHandout } from './handout.js?v=951108fbf2';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=bf239e7484';
 import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
@@ -789,7 +789,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=f17f62a1c0', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=8c3c3229b7', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -801,7 +801,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=426cb38674');
+      const { createCore } = await import('../worker-core.js?v=cb76c88e20');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

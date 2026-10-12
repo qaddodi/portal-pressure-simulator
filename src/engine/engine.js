@@ -620,7 +620,9 @@ export class Engine {
     // Varix size is not slow state: it follows the portosystemic gradient as it changes (see varixTarget).
     if (this.bands > 0) this.bands = Math.max(0, this.bands - 0.02 * days); // bands slough; columns can recur
     // Spleen
-    const spTarget = clamp(11 + 0.5 * Math.max(0, P[this.ni.SPL] - 12), 9, 22);
+    // Venous back-pressure from the right heart (raised IVC) congests the spleen far less than a portal block:
+    // congestive hepatopathy rarely causes splenomegaly or more than mild thrombocytopenia.
+    const spTarget = clamp(11 + 0.5 * Math.max(0, P[this.ni.SPL] - 12 - 0.6 * Math.max(0, P[this.ni.IVCS] - 5)), 9, 22);
     s.spleen += (spTarget - s.spleen) * Math.min(1, days / 45);
     // Chronic splanchnic vasodilation & plasma expansion (hyperdynamic circulation)
     const ppg = P[this.ni.CONF] - P[this.ni.IVCS];
