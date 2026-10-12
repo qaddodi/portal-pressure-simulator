@@ -25,7 +25,7 @@ import { createHvpgMonitor } from './hvpg-proc.js?v=926224aa99';
 import { createTools } from './presenter-tools.js?v=8902503ee0';
 import { openHandout } from './handout.js?v=fa5f92a479';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=05179b2d88';
+import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=c95953a436';
 import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
 const nextFrame = frameFor('presenter');
 
@@ -434,7 +434,7 @@ function bigTiles() {
   let sig = '', parts = [], draw = null, goal = false;
   // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "Raised" under a line that
   // says the target is reached.
-  const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? (f.ppg < 12 ? ['ok', 'Below 12: target met'] : ['hi', '12 or more: target not met']) : rateOf(k, f));
+  const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? (f.ppg < 12 ? ['ok', 'Target met'] : ['hi', 'Above target']) : rateOf(k, f));
   function build(ks, withRef) {
     parts = ks.map((k) => {
       const T = TILE[k] || { t: k, s: '', u: '' };

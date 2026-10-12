@@ -950,7 +950,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       return { h: R('').height, hit: a.bottom > b.top && a.right > b.left };
     });
     if (d.h > 300 || d.hit) throw new Error(`Doppler card ${Math.round(d.h)}px tall (cap 300)${d.hit ? ', the direction runs into the stats' : ''}`);
-    // The DIPS slide's long ascites rating ("Grade 1, ultrasound only") stays inside its tile, clear of the other tiles' words.
+    // The DIPS slide's ascites rating ("Grade 1") stays inside its tile, clear of the other tiles' words.
     await page.evaluate(() => window.pps.presenter.start('outflow', 5));
     await page.waitForFunction(() => /Grade/.test(document.querySelector('.pz-data:not(.pz-hide) .pz-tiles')?.textContent || ''), null, { timeout: 60000 });
     await page.waitForTimeout(800);
@@ -989,10 +989,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         same((p) => p.v && p.k && p.v.t - p.k.t > 0 ? 1 : 0, 'value below name');
         const rl = P.map((p) => p.r?.l), rr = P.map((p) => p.r?.r), spread = (v) => Math.max(...v) - Math.min(...v);
         if (P.every((p) => p.r) && spread(rl) > 3 && spread(rr) > 3) out.push('rating placed differently');
-        // A rating never clipped, spilling from its tile or broken inside a word ("Nor-mal").
+        // A rating never clipped, spilling from its tile or broken onto a second line (every rating is a word or two).
         for (const t of tiles) { const e = t.querySelector('.pzt-r'), c = e.getBoundingClientRect(), b = t.getBoundingClientRect(); if (!c.width) continue;
-          const one = !/\s/.test(e.textContent.trim()), lh = parseFloat(getComputedStyle(e).lineHeight) || 15;
-          if (c.right > b.right + 1 || c.left < b.left - 1 || e.scrollWidth > e.clientWidth + 1 || (one && c.height > lh * 1.5)) out.push(`rating "${e.textContent}" clipped or broken`); }
+          const lh = parseFloat(getComputedStyle(e).lineHeight) || 15;
+          if (c.right > b.right + 1 || c.left < b.left - 1 || e.scrollWidth > e.clientWidth + 1 || c.height > lh * 1.5) out.push(`rating "${e.textContent}" clipped or broken`); }
         return out;
       });
       if (r.length) bad.push(`${d.id} slide ${sl[1]}${W ? ' at ' + W : ''}: ${r.join('; ')}`);
