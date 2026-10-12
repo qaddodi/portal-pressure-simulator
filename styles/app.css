@@ -1689,6 +1689,10 @@ button.finding { cursor: pointer; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pz-shade.pz-card:not(.stack) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.pz-card:not(.stack) { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade.pz-card:not(.stack) { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+/* A card never changes shape in view: its size snaps while it is gone, and it leaves and arrives like the data card. */
+.pz-shade.pz-card:not(.stack) { transition: opacity .32s var(--ease), transform .32s var(--ease), filter .4s var(--ease); }
+.pz-shade.pz-card:not(.stack):not(.pz-leave) { transition-duration: .5s, .5s, .4s; transition-delay: .12s, .12s, 0s; }
+.pz-shade.pz-card.pz-leave:not(.stack) { opacity: 0 !important; transform: translateX(-18px); transition-delay: 0s; }
 .pz.pz-card:not(.stack) .pz-text, .pz.pz-card:not(.stack) .pz-data.under { left: calc(var(--pz-cm) + var(--pz-cp)); }
 /* The data card is the same glass: see-through tint, the same blur, crisp edge with a hairline highlight, soft shadow. */
 .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
@@ -1836,7 +1840,7 @@ button.finding { cursor: pointer; }
 /* On a laptop or tablet the data card can stack under the words' card (presenter.js layout sets its left, top and width):
    it follows the words' card as that grows or shrinks, at the same pace. */
 .pz-data.col { right: auto; }
-.pz-data.col:not(.pz-hide) { transition-property: opacity, transform, top, width; transition-duration: .5s, .5s, .45s, .45s; transition-delay: .12s, .12s, 0s, 0s; }
+.pz-data.col:not(.pz-hide) { transition-property: opacity, transform, top; transition-duration: .5s, .5s, .45s; transition-delay: .12s, .12s, 0s; }
 .pz-data.under.tiles-only .pzt-v { font-size: var(--s-big); }
 /* Tiles alone, beside the words: the card is as wide as its tiles need (never wider than its old width). The tiles
    drop their size container, which would make them measure as zero wide; the number keeps a width for four characters

@@ -2201,6 +2201,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const jump = h('nav', { class: 'pz-jump stage-blocker', hidden: true, 'aria-label': 'Slides' });
     const root = h('div', { class: 'pz' }, safe, veil, load, text, data, panel, prog, bar, jump, blackEl);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
+    // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
+    new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     return { root, shade, safe, load, text, data, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
