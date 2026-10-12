@@ -2568,8 +2568,8 @@ button.finding { cursor: pointer; }
 .organ .org-line { fill: none; stroke: var(--o3); stroke-width: 1.15; stroke-opacity: .8; stroke-linejoin: round; }
 .org-detail path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 /* The caudate lobe and its veins (stage.js caud): only on a slide about them, eased in and out; never in the circuit. */
-.caud { opacity: 0; pointer-events: none; transition: opacity .7s ease, transform 1.6s ease; }
-.caud.on { opacity: 1; }
+.caud { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .7s ease, transform 1.6s ease, visibility 0s .7s; }   /* (hidden once faded: not drawn when off) */
+.caud.on { opacity: 1; visibility: visible; transition-delay: 0s; }
 .caud-veins { transition: opacity .7s ease; }
 .caud.lobe-only .caud-veins { opacity: 0; }
 #stageOver.circuit .caud { opacity: 0; }

@@ -809,6 +809,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       return;
     }
     const v = s.view || 'anatomic';
+    // (The rise lands where the box fits the space the cards leave, measured as it begins: the new slide's cards are let come in
+    // first, or they would settle a little larger after it and the camera would glide again to the fit they leave.)
+    if ((store.get().lobule || store.get().sinusoid) && ms > 0) await until(() => cut() || !cardsEntering(), 1200);
+    if (cut()) return;
     await toAnatomy(v === 'anatomic' ? riseFor(cam, s) : null);
     if (cut()) return;
     if (store.get().view !== v) { store.set({ view: v }); await wait(700); }
@@ -818,6 +822,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     else stage.frameBox(camBox(cam, s), gl, s.kMax || 3.2, !!s.clear);
     await wait(gl);
   }
+  const cardsEntering = () => [ui?.text, ui?.panel, ui?.data].some((el) => el && !el.hidden && el.getAnimations({ subtree: true }).some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime)));
   // Where the way out of the lobule should land for a slide: its framing, asked for when the rise begins (null: the fit).
   const riseFor = (cam, s) => (cam === 'fit' ? null : { box: () => camBox(cam, s), kMax: s.kMax || 3.2, clear: !!s.clear });
   // A slide's framing: its region of the plate, grown to take in all of what the slide points at (its outlined
@@ -1039,6 +1044,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     clearTimeout(hushInT); hushInT = setTimeout(() => app.classList.remove('pz-hush-in'), HUSH_IN + 50);
   }
   async function transition(to, rev) {
+    stage.holdHome(true);
+    try { await transitionRun(to, rev); } finally { stage.holdHome(false); }
+  }
+  async function transitionRun(to, rev) {
     const g = gen, s = slides[to], cut = () => !deck || want !== to || wantRev !== rev || gen !== g;
     // The slide on screen is leaving, so a move cut short never counts as showing it: going back and forward again to that
     // slide (summary table included) draws it afresh instead of leaving the half-changed screen.

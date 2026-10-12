@@ -47,8 +47,9 @@ jobs:
     concurrency:
       group: browser-checks-${{ github.ref }}-${{ matrix.device }}-${{ matrix.shard }}
       cancel-in-progress: false
-    # Covers the install (capped at 4 minutes below) plus the checks (up to about 9 minutes).
-    timeout-minutes: 15
+    # Covers the install (capped at 4 minutes below) plus the checks (SMOKE_PLAN=1 npm run smoke prints each share's expected
+    # minutes: 12 to 15 now, and a slow runner takes longer; at 15 minutes the shares were cut off mid-check and the run went red).
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:

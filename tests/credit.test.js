@@ -105,3 +105,9 @@ test('credit keeps clear of the figure\'s own labels, and a label does not make 
   const s = freeSpots(fig, [label], W, H);
   assert.ok(s.bl && clear(s.bl, [label]));
 });
+
+test('credit keeps clear of the FibroScan probe body (it is looked for, not only named as chrome)', () => {
+  const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  const obstacles = src.match(/const OBSTACLES = '([^']*)'/)[1];
+  assert.ok(obstacles.includes('.scan-probe:not(.off) .sp-body'));
+});

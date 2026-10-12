@@ -1875,6 +1875,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     prepIdle(run);
   }
   let catchUp = false, wAt = 0, widthEasing = false;
+  // A presenter's slide change holds the fit still while it runs: the words leaving or arriving change the space the camera
+  // frames into, and a fit that followed them would glide the figure before the slide's own move (a dive, a rise) starts.
+  let homeHeld = 0;
+  function holdHome(on) { homeHeld = Math.max(0, homeHeld + (on ? 1 : -1)); }
   function update(f) {
     inUpdate = true;
     try { updateInner(f); } finally { inUpdate = false; }
@@ -1885,7 +1889,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     prepLobule();
     const now = performance.now();
     // (Not while a move away from home is under way: its first frames still sit at home.)
-    if (homeAt && morphTarget === 0 && !lobuleOn && diveT === 0 && now - homeCheck > 500 && sameView(vt, homeAt) && (!vtTarget || sameView(vtTarget, homeAt))) {
+    if (homeAt && !homeHeld && morphTarget === 0 && !lobuleOn && diveT === 0 && now - homeCheck > 500 && sameView(vt, homeAt) && (!vtTarget || sameView(vtTarget, homeAt))) {
       homeCheck = now;
       const d = defaultVT(false);
       if (!sameView(d, homeAt)) { homeAt = d; animateVT(d, 400); }
@@ -6150,7 +6154,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     glMatrix: () => (veins && !veins.lost && wrap.classList.contains('gl-on') ? glM : null),
     cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !chainOut && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
     /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
-    riseTo,
+    riseTo, holdHome,
     fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
     cameraState: () => ({ ...(vtGliding && vtTarget ? vtTarget : vt) }),
