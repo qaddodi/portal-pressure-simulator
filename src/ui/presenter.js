@@ -728,7 +728,11 @@ function quadrantVisual(rows) {
     T = Math.max(24, 0.75 * t + 6);   // (room above for the top tick)
     const ax = 2 + a;   // (the rotated name's baseline: its letters rise to the left of it)
     L = ax + 0.3 * a + 8 + est('2.5', t) + 14;
-    B = T + Math.max(524, est('Ascites protein, g/dL', a) + 24);
+    // (The rotated axis name never stretches the plot to fit long words: in a height-capped box that shrinks the whole chart,
+    // which grows the lettering again and never settles. A name too long for the plot drops to its short form.)
+    const yName = est('Ascites protein, g/dL', a) + 24 <= 524 ? 'Ascites protein, g/dL' : 'Protein, g/dL';
+    if (axY.textContent !== yName) axY.textContent = yName;
+    B = T + Math.max(524, est(yName, a) + 24);
     const H = B + 20 + t + 12 + 0.75 * a + 0.3 * a + 6;
     svg.setAttribute('viewBox', `0 0 ${W} ${H.toFixed(1)}`);
     const xs = X(1.1), ys = Y(2.5), box = [[L, T, xs, ys], [xs, T, R, ys], [L, ys, xs, B], [xs, ys, R, B]];

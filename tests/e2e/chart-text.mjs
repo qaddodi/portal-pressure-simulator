@@ -325,7 +325,7 @@ export async function checkLadderBrackets(browser, url, log = console.log, sizes
   const decks = DECKS.filter((d) => !process.env.DECKS || process.env.DECKS.split(',').includes(d.id)), bad = [];
   for (const { name, ...opts } of sizes) for (const z of zooms) {
     const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
-    await ctx.addInitScript((z) => { try { localStorage.setItem('pps.uiZoom', String(z)); } catch { /* private mode */ } }, z);
+    await ctx.addInitScript((z) => { try { localStorage.setItem('pps.labelScale', String(z)); localStorage.setItem('pps.labelScaleV', '2'); } catch { /* private mode */ } }, z);
     const page = await ctx.newPage();
     for (const d of decks) {
       const n = withOverview(d).slides.length;
