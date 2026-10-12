@@ -1795,17 +1795,25 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (!ui || phone()) return null;
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = W / (wrap.clientWidth || W) || 1, G = 12;
     const obs = [], d = ui.data;
+    let dk = null, pill = null;
     if (!d.hidden && !('gone' in d.dataset) && !d.classList.contains('under')) {
       const x = d.offsetLeft + dock.to * dockVec()[0];
-      obs.push({ l: x * k, t: d.offsetTop * k, r: (x + d.offsetWidth) * k, b: (d.offsetTop + d.offsetHeight) * k });
+      obs.push(dk = { l: x * k, t: d.offsetTop * k, r: (x + d.offsetWidth) * k, b: (d.offsetTop + d.offsetHeight) * k });
     }
-    if (!ui.bar.hidden && ui.bar.offsetWidth) { const q = ui.bar.getBoundingClientRect(); obs.push({ l: q.left - wr.left, t: q.top - wr.top, r: q.right - wr.left, b: q.bottom - wr.top }); }
+    if (!ui.bar.hidden && ui.bar.offsetWidth) { const q = ui.bar.getBoundingClientRect(); obs.push(pill = { l: q.left - wr.left, t: q.top - wr.top, r: q.right - wr.left, b: q.bottom - wr.top }); }
     // Each obstacle splits a rectangle it overlaps into the open parts left, right, above and below it.
     const split = (q, o) => (o.r <= q.l || o.l >= q.r || o.b <= q.t || o.t >= q.b ? [q]
       : [{ ...q, r: o.l - G }, { ...q, l: o.r + G }, { ...q, b: o.t - G }, { ...q, t: o.b + G }].filter((x) => x.r - x.l > 0 && x.b - x.t > 0));
+    // First choice: the space between the words' card and the data card, full height (clear of the controls), so a subject
+    // sits centred between the cards rather than in the strip under a short corner card.
+    const ok = (q) => q.r - q.l >= 200 && q.b - q.t >= 150;
+    let mid = [{ l: frameL, t: 0, r: dk ? dk.l - G : W, b: H }];
+    if (pill) mid = mid.flatMap((q) => split(q, pill));
+    // (Marked pref: the camera uses the rest only for a box too big for these at its widest zoom.)
+    mid = mid.filter(ok).map((q) => ({ ...q, pref: true }));
     let out = [{ l: frameL, t: 0, r: W, b: H }];
     for (const o of obs) out = out.flatMap((q) => split(q, o));
-    return out.filter((q) => q.r - q.l >= 200 && q.b - q.t >= 150);
+    return [...mid, ...out.filter(ok)];
   }
   stage.setFreeArea(freeRects);
   const onFonts = () => { if (ui) layout(); };

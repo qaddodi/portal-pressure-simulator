@@ -1569,6 +1569,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const s0 = Math.min(r.width / VB_ANAT[2], r.height / VB_ANAT[3]), pad = clear ? 12 : 0;   // (clear: a margin for the vessels' glow)
     const fitK = (q) => Math.min(Math.max(40, q.r - q.l - 2 * pad) / s0 / (x1 - x0), Math.max(40, q.b - q.t - 2 * pad) / s0 / (y1 - y0));
     let rects = store.get().presenting && freeArea ? freeArea() : null;
+    { const pref = rects?.filter((q) => q.pref && fitK(q) >= (clear ? 0.3 : 0.6)); if (pref?.length) rects = pref; }   // (between the cards, when the box fits there)
     if (!rects?.length) { const ins = safeInsets(clear); rects = [{ l: ins.l, t: ins.t, r: r.width - ins.r, b: r.height - ins.b }]; }
     // (A clearly larger fit wins; within 4% the larger rectangle does, so a near tie never flips the framing about.)
     const score = (q) => Math.min(fitK(q), kMax);
