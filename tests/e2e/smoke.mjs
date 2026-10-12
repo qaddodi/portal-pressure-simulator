@@ -189,7 +189,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-anatomy`);
   });
 
-  // A pan or a pinch moves every mark on the figure with it. The vessel marks (bands, clamps, clots, stents, plugs,
+  // A pan or a pinch moves every mark on the figure with it. The vessel marks (bands, the TIPS stent, clamps, clots, plugs,
   // balloons) are drawn by the GPU with the vessels, never by an SVG layer that a browser may composite a frame apart
   // from them; and after every step of a drag and of a pinch the GPU's picture, the bands and the labels' anchor dots
   // all sit where the figure's own transform puts them. At phone, iPad and desktop sizes.
@@ -200,6 +200,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page, '?preset=cirr-decomp');
       await page.evaluate(() => { window.pps.host.send({ type: 'action', action: { kind: 'band' } }); window.pps.host.send({ type: 'action', action: { kind: 'band' } }); });
       await page.waitForFunction(() => document.querySelectorAll('.band-ring[data-gl]').length >= 2, null, { timeout: 30000 });
+      await page.evaluate(() => window.pps.updateParams({ tips: { on: true, d: 8 } }));
+      await page.waitForFunction(() => document.querySelectorAll('.stent-rail[data-gl]').length > 0, null, { timeout: 30000 });
       await page.waitForTimeout(900);
       const frames = (n = 2) => page.evaluate((n) => new Promise((r) => { const f = () => (n-- ? requestAnimationFrame(f) : r()); f(); }), n);
       await frames(3);
@@ -210,7 +212,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         const M = [ax - ox, ay - oy, bx - ox, by - oy, ox, oy];
         const c = (e) => { const r = e.getBoundingClientRect(); return [r.left + r.width / 2 - wr.left, r.top + r.height / 2 - wr.top]; };
         const svgMarks = [...document.querySelectorAll('#overlays > g:not(.res-zz) :is(path, circle, ellipse, rect)')].filter((e) => !e.closest('[class*="cath"]') && !e.hasAttribute('data-gl') && getComputedStyle(e).visibility !== 'hidden' && e.getBoundingClientRect().width > 0).map((e) => e.getAttribute('class') || e.tagName);
-        return { M, gl: st.glMatrix(), bands: [...document.querySelectorAll('.band-ring')].map(c), dots: [...document.querySelectorAll('#labels .leader-dot:not(.scan)')].map(c), svgMarks };
+        return { M, gl: st.glMatrix(), bands: [...document.querySelectorAll('.band-ring, .stent-mark')].map(c), dots: [...document.querySelectorAll('#labels .leader-dot:not(.scan)')].map(c), svgMarks };
       });
       const fail = [];
       const near = (p, q, tol) => Math.hypot(p[0] - q[0], p[1] - q[1]) <= tol;
@@ -223,7 +225,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (b.svgMarks.length) fail.push(`${what}: drawn by SVG, not with the vessels: ${b.svgMarks.join(', ')}`);
         if (!b.gl) fail.push(`${what}: the figure is not drawn on the GPU`);
         else if (b.gl.some((v, i) => Math.abs(v - b.M[i]) > (i > 3 ? 0.6 : 0.002 * Math.abs(b.M[0])))) fail.push(`${what}: vessels drawn at [${b.gl.map((v) => v.toFixed(2))}], figure at [${b.M.map((v) => v.toFixed(2))}]`);
-        b.bands.forEach((p, i) => { const q = apply(a.M, b.M, a.bands[i]); if (!near(p, q, 0.8)) fail.push(`${what}: band ${i} at ${p.map((v) => v.toFixed(1))}, its vessel at ${q.map((v) => v.toFixed(1))}`); });
+        b.bands.forEach((p, i) => { const q = apply(a.M, b.M, a.bands[i]); if (!near(p, q, 0.8)) fail.push(`${what}: mark ${i} (band or stent end) at ${p.map((v) => v.toFixed(1))}, its vessel at ${q.map((v) => v.toFixed(1))}`); });
         // A label may be placed or dropped as the view changes; every anchor dot that stays must ride with the figure.
         const moved = a.dots.map((p) => apply(a.M, b.M, p));
         const kept = b.dots.filter((p) => moved.some((q) => near(p, q, 0.8))).length;
