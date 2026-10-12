@@ -1942,6 +1942,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           await page.evaluate((v) => window.pps.store.set({ view: v }), view);
           await page.waitForTimeout(1200);
           const bad = await overlaps();
+          // The sinusoids' callout hangs from the middle of their bed (half way along the drawn vessel), in both views.
+          bad.push(...await page.evaluate(() => ['SIN_R', 'SIN_L'].flatMap((id) => {
+            const a = window.pps.stage.labelAnchorOf(id), eid = { SIN_R: 'SIN_RR', SIN_L: 'SIN_LL' }[id];
+            const p = document.querySelector(`.vg[data-id="${eid}"] .v-hit[role="button"]`);
+            if (!a?.mid || !p) return [];
+            const m = p.getPointAtLength(p.getTotalLength() / 2), c = p.getScreenCTM();
+            const d = Math.hypot(c.a * m.x + c.c * m.y + c.e - a.x, c.b * m.x + c.d * m.y + c.f - a.y), len = p.getTotalLength() * Math.hypot(c.a, c.b);
+            return d > Math.max(6, len * 0.08) ? [`${id} anchor ${Math.round(d)}px from the bed's middle`] : [];
+          })));
         if (bad.length) throw new Error(`${w}×${hgt} ${id} ${view}: ${bad.join('; ')}`);
         }
         await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));

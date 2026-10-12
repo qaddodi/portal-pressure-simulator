@@ -4616,8 +4616,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function labelAnchor(id, t) {
     const eid = LABEL_VESSEL[id], x = eid && E[eid];
     if (x && x.vis && !x.g.classList.contains('coll-ghost') && geo[eid]?.cur?.length > 1) {
-      // The sinusoids' callout hangs from their venous half, clear of the mesh's widest bulge.
-      const cur = geo[eid].cur, [wx, wy, tx, ty] = arcMid(SIN_EDGES.has(eid) ? cur.slice(Math.round(cur.length / 2)) : cur);
+      // The middle of the vessel along its course (the sinusoids too: the middle of their bed, not their venous half).
+      const [wx, wy, tx, ty] = arcMid(geo[eid].cur);
       const [ax, ay] = worldToLocal(wx, wy), [bx, by] = worldToLocal(wx + tx, wy + ty);
       const n = Math.hypot(bx - ax, by - ay) || 1;
       return { ax, ay, mid: true, tan: [(bx - ax) / n, (by - ay) / n], w: x.width || 4 };
@@ -6174,6 +6174,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
     /** Where the sinusoid's reading and lesion pointer meet their sinusoid (see lobule-zoom sinAnchor). */
     lobuleSinAnchor: () => lz?.sinAnchor() ?? null,
+    /** Where a station's callout attaches, in client px (for the checks). */
+    labelAnchorOf: (id) => { const a = labelAnchor(id, easeInOut(morph)), r = wrap.getBoundingClientRect(); return { x: a.ax + r.left, y: a.ay + r.top, mid: a.mid }; },
     /** The presenter's camera in the lobule: the whole lobule ('fit'), a portal tract ('triad'), the sinusoids ('sinusoid') or the central vein ('central'). */
     lobuleFocus: (part, opts) => !!lz?.focusOn(part, opts),
     /** Where the presenter's next lobule framing will be, so a dive lands on it in one move (see lobule-zoom aim). */
