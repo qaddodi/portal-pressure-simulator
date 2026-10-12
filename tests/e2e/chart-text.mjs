@@ -146,6 +146,30 @@ export function stripGaps() {
   if (hi - lo > 1) bad.push(`gaps differ by ${(hi - lo).toFixed(2)} px (${gaps.map((g) => g.toFixed(1)).join(', ')}) beside ${nums.map((n) => n.t).join(' ')}`);
   return { bad, gaps, digits: [...new Set(nums.map((n) => n.t.length))] };
 }
+// HVPG and PPG as shown add up with the readings as shown: WHVP − FHVP and PV − IVC, from the ladder's own numbers, in
+// every place the gradient is drawn (the phone strip's brackets, the data card's tiles, a bracket pill that names a reading).
+// In the page: what does not add up (empty when everything does).
+export function gradientsAdd() {
+  const out = [], vis = (e) => { for (let n = e; n && n !== document.body; n = n.parentElement) { const c = getComputedStyle(n); if (c.display === 'none' || c.visibility === 'hidden') return false; } return true; };
+  const num = (t) => (/\d/.test(t || '') ? parseFloat(t.replace('−', '-').match(/-?\d+(\.\d+)?/)[0]) : NaN);
+  const live = [...document.querySelectorAll('.pz-data > .pz-ladder .pzl-v, .pz-data > .pz-strip .pzs-v')];
+  const R = [...document.querySelectorAll('.pz-data > .pz-strip .pzs-v')].map((e) => num(e.textContent));
+  if (live.length && R.length === 5 && R.every(Number.isFinite)) {
+    const want = { HVPG: R[1] - R[2], PPG: R[0] - R[3] };
+    for (const b of document.querySelectorAll('.pz-data > .pz-strip .pzl-bg')) {
+      if (+b.getAttribute('opacity') < 0.5) continue;
+      const name = b.querySelector('.pzs-bn')?.textContent.trim(), v = num(b.querySelector('.pzs-bv')?.textContent);
+      if (v !== want[name]) out.push(`strip ${name} reads ${v}, the readings give ${want[name]}`);
+    }
+    for (const t of document.querySelectorAll('.pz-data .pz-tile')) {
+      const k = t.querySelector('.pzt-k')?.textContent.trim();
+      if (!want[k] && want[k] !== 0 || !vis(t)) continue;
+      const v = num(t.querySelector('.pzt-v')?.textContent);
+      if (v !== want[k]) out.push(`${k} tile reads ${v}, the readings give ${want[k]}`);
+    }
+  }
+  return out;
+}
 export async function checkStripGaps(browser, url, log = console.log) {
   const bad = [];
   const all = [['circulation', 10], ['sites', 3], ['sites', 6]];   // (raised, healthy and HVPG over 10: one- and two-digit readings in one strip)
@@ -160,6 +184,8 @@ export async function checkStripGaps(browser, url, log = console.log) {
       await page.goto(`${url}?script=${deck}&slide=${n}`);
       await page.waitForFunction(() => document.querySelector('.pz-strip .pzs-v')?.textContent, null, { timeout: 45000 });
       await settle(page); await page.waitForTimeout(1800);
+      const sums = await page.evaluate(gradientsAdd);
+      if (sums.length) bad.push(`${deck} slide ${n} at ${name}: ${sums.join('; ')}`);
       const r = await page.evaluate(stripGaps);
       if (!r) { log(`--   ${name.padEnd(14)} ${deck} slide ${n}: strip not shown at this size`); continue; }
       r.digits.forEach((d) => digits.add(d));
@@ -189,7 +215,7 @@ export async function checkStripSlides(browser, url, log = console.log, deck = n
       await page.goto(`${url}?script=${s.deck}&slide=${s.n}`);
       await page.waitForFunction(() => document.querySelector('.pz-strip .pzs-v')?.textContent, null, { timeout: 45000 });
       await settle(page); await page.waitForTimeout(1800);
-      const c = [...await page.evaluate(stripTextSize), ...await page.evaluate(stripOverflow), ...(await page.evaluate(stripGaps))?.bad || []];
+      const c = [...await page.evaluate(stripTextSize), ...await page.evaluate(stripOverflow), ...(await page.evaluate(stripGaps))?.bad || [], ...await page.evaluate(gradientsAdd)];
       if (c.length) bad.push(`${s.deck} slide ${s.n} at ${name}: ${c.slice(0, 3).join('; ')}`); else log(`ok   ${name.padEnd(14)} ${s.deck} slide ${s.n} pressure strip`);
     }
     await ctx.close();

@@ -4,9 +4,10 @@
 // eases in with the answer. The debrief lists confident mistakes first. Values are the model's
 // own (SNAPSHOTS, regenerated from the engine); only the imaging words are authored.
 
+import { wholeGap } from '../engine/gap.js?v=cb85a013c3';
 import { h, fmt, icon } from './util.js?v=0cca243d2a';
 import { SNAPSHOTS } from './snapshots.js?v=c8cbaabb1f';
-import { createRoute, ladder, tiles, siteName } from './ladder.js?v=7b629187ab';
+import { createRoute, ladder, tiles, siteName } from './ladder.js?v=f4e3daf335';
 import { addRecord } from './records.js?v=50fb9dd463';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('drill');
@@ -60,7 +61,7 @@ const WHY = {
 
 // The tests: what each reveals and which ladder rungs it measures.
 export const TESTS = [
-  ['hvpg', 'HVPG study', (f) => `WHVP ${fmt(f.whvp, 0)}, FHVP ${fmt(f.fhvp, 0)} mmHg: HVPG ${fmt(f.hvpg, 1)} mmHg.`],
+  ['hvpg', 'HVPG study', (f) => `WHVP ${fmt(f.whvp, 0)}, FHVP ${fmt(f.fhvp, 0)} mmHg: HVPG ${fmt(wholeGap(f.whvp, f.fhvp, f.hvpg), 0)} mmHg.`],
   ['tap', 'Ascitic tap', (f) => (f.asc < 200 ? 'Too little ascites to tap.' : `SAAG ${fmt(f.saag, 1)} g/dL, total protein ${fmt(f.tp, 1)} g/dL.`)],
   ['doppler', 'Doppler ultrasound', (f, p) => p.doppler],
   ['lsm', 'Liver stiffness', (f) => `${fmt(f.lsm, 1)} kPa (normal about 5).`],

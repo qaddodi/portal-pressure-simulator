@@ -21,11 +21,12 @@ import { SITES } from './ladder.js?v=7b629187ab';
 import { sinusoidSupported } from './sinusoid-view.js?v=e28d08de42';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=c4c5646ee7';
+import { wholeGap } from '../engine/gap.js';
 import { createHvpgMonitor } from './hvpg-proc.js?v=1d06a1fb69';
 import { createTools } from './presenter-tools.js?v=4185cc09d4';
 import { openHandout } from './handout.js?v=9e5da7e200';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=bf239e7484';
+import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=f72547db7f';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('presenter');
 
@@ -265,7 +266,7 @@ const tileVal = (k, v) => (v == null ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 function liveFp(fr) {
   const m = fr.metrics, a = m.ascites, P = fr.Pf || fr.P;
-  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg, asc: a.volume, saag: a.saag, tp: a.totalProtein,
+  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: wholeGap(m.whvp, m.fhvp, m.hvpg), ra: m.ra, ivc: m.ivc, ppg: wholeGap(m.pv, m.ivc, m.ppg), asc: a.volume, saag: a.saag, tp: a.totalProtein,
     sin: P?.[NI.SIN_R], int: P?.[NI.INT], varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
     pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm, pvVel: m.pvVelMean, hb: m.blood?.hb };
 }
@@ -548,7 +549,7 @@ function bigLadder() {
       const say = verdict[b.name.toLowerCase()];
       b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate;
       b.g.classList.toggle('says', !!say);
-      const label = say ? `${b.name} ${fmt(v, 1)}` : b.name;
+      const label = say ? `${b.name} ${fmt(v, 0)}` : b.name;
       if (b.txt.textContent !== label) { b.txt.textContent = b.label = label; placeSpan(b); }
     };
     put(hv, f.whvp, f.fhvp, f.hvpg, rateOf('hvpg', f)[0] || 'ok');
@@ -560,13 +561,13 @@ function bigLadder() {
       if (!ok) return;
       b.lead.setAttribute('d', `M${b.x0} ${b.row - 5}V${S.ny + 0.5 * S.v + 2}M${b.x1} ${b.row - 5}V${S.ny + 0.5 * S.v + 2}`);
       b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate || 'ok';
-      const num = ' ' + fmt(v, 1);
+      const num = ' ' + fmt(v, 0);
       b.t[0].textContent = b.name; b.t[1].textContent = num;
       b.len = est(b.name, S.c, 0.64) + est(num, S.c, 0.52); lay(b);
     };
     putS(hvS, f.whvp, f.fhvp, f.hvpg, 'hvpg'); putS(ppS, f.pv, f.ivc, f.ppg, 'ppg');
     const say = 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '
-      + `HVPG ${fmt(f.hvpg, 1)}, PPG ${fmt(f.ppg, 1)} mmHg.`;
+      + `HVPG ${fmt(f.hvpg, 0)}, PPG ${fmt(f.ppg, 0)} mmHg.`;
     el.setAttribute('aria-label', say); strip.setAttribute('aria-label', say);
   });
   layL({ cap: 17, lab: 25 }); layS({ cap: 11, lab: 12, val: 15 });
@@ -1014,10 +1015,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const f = cath.fp, v = cath.v;
     if (!f) return [];
     const sev = f.hvpg >= 10 ? 'danger' : f.hvpg >= 5 ? 'caution' : 'ok';
-    const free = { key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(f.fhvp, 1), unit: 'mmHg', cls: 'free' };
-    const wedge = { key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(f.fhvp + (f.whvp - f.fhvp) * v.column, 1), unit: 'mmHg', cls: 'wedge' };
+    const free = { key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(f.fhvp, 0), unit: 'mmHg', cls: 'free' };
+    const wedge = { key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(f.fhvp + (f.whvp - f.fhvp) * v.column, 0), unit: 'mmHg', cls: 'wedge' };
     const L = { f: free, w: wedge,
-      sum: { key: 's', at: 'sum', rows: [{ ...wedge, text: fmt(f.whvp, 1) }, free], calc: { kicker: 'HVPG', text: fmt(f.hvpg, 1), unit: 'mmHg', cls: 'result ' + sev } },
+      sum: { key: 's', at: 'sum', rows: [{ ...wedge, text: fmt(f.whvp, 0) }, free], calc: { kicker: 'HVPG', text: fmt(f.hvpg, 0), unit: 'mmHg', cls: 'result ' + sev } },
       occ: { key: 'p', at: 'tip', kicker: 'Hepatic vein', text: 'Occluded', unit: '', cls: 'wedge' },
       abort: { key: 'a', at: 'tip', kicker: 'Unable to cannulate', text: 'No reading', unit: '', cls: 'result danger' } };
     return cath.show.map((k) => L[k]);
@@ -1502,7 +1503,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       // In quiz mode each ladder's site is hidden until a tap (D7): the room names the site from the ladder's shape.
       const cell = h('div', quiz ? { class: 'pz-cell q', role: 'button', tabindex: '0', 'aria-label': 'Show the site of this ladder', onclick: () => reveal(cell), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reveal(cell); } } } : { class: 'pz-cell' },
         h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')),
-          h('span', {}, 'HVPG ', h('b', { 'data-rate': rateOf('hvpg', r.f)[0] }, fmt(r.f.hvpg, 1)))),
+          h('span', {}, 'HVPG ', h('b', { 'data-rate': rateOf('hvpg', r.f)[0] }, fmt(r.f.hvpg, 0)))),
         h('div', { class: 'pz-cell-t' }, r.title), L.el, L.strip);
       grid.append(cell);
     }
