@@ -118,6 +118,39 @@ export function stripOverflow() {
   }
   return out;
 }
+// Every word on the strip is at least 11 px as drawn (its svg is scaled to the card, so the size is the style's times the scale). In the page.
+export function stripTextSize() {
+  const strip = document.querySelector('.pz-strip'), out = [];
+  if (!strip || !strip.getBoundingClientRect().width) return ['no pressure strip on the slide'];
+  const k = strip.getScreenCTM().a;
+  for (const sel of ['.pzs-bl', '.pzs-v', '.pzs-d', '.pzs-k', '.pzs-u']) for (const e of strip.querySelectorAll(sel)) {
+    if (!e.textContent.trim()) continue;
+    const px = parseFloat(getComputedStyle(e).fontSize) * k;
+    if (px < 10.95) out.push(`${sel} "${e.textContent.trim()}" is ${px.toFixed(1)} px`);
+  }
+  return [...new Set(out)];
+}
+// Every slide that has the strip (the ladder data card), at both phones: text at least 11 px, labels in their brackets and clear of the lines.
+export async function checkStripSlides(browser, url, log = console.log) {
+  const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+  const slides = [];
+  for (const d of DECKS) withOverview(d).slides.forEach((sl, i) => { if (sl.data === 'ladder') slides.push({ deck: d.id, n: i + 1 }); });
+  const bad = [];
+  for (const size of SIZES.slice(0, 2)) {
+    const { name, ...opts } = size;
+    const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
+    const page = await ctx.newPage();
+    for (const s of slides) {
+      await page.goto(`${url}?script=${s.deck}&slide=${s.n}`);
+      await page.waitForFunction(() => document.querySelector('.pz-strip .pzs-v')?.textContent, null, { timeout: 45000 });
+      await settle(page); await page.waitForTimeout(1800);
+      const c = [...await page.evaluate(stripTextSize), ...await page.evaluate(stripOverflow)];
+      if (c.length) bad.push(`${s.deck} slide ${s.n} at ${name}: ${c.slice(0, 3).join('; ')}`); else log(`ok   ${name.padEnd(14)} ${s.deck} slide ${s.n} pressure strip`);
+    }
+    await ctx.close();
+  }
+  return bad;
+}
 export async function checkStrip(browser, url, log = console.log) {
   const bad = [];
   for (const size of SIZES.slice(0, 2)) for (const scheme of ['light', 'dark']) for (const [q, what] of [['script=sites&slide=3', 'healthy'], ['script=circulation&slide=10', 'raised'], ['script=sites&slide=6', 'HVPG over 10']]) {
@@ -137,7 +170,7 @@ export async function checkStrip(browser, url, log = console.log) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const server = await serve(new URL('../..', import.meta.url).pathname);
   const browser = await chromium.launch();
-  const bad = [...await checkCharts(browser, server.url), ...await checkStrip(browser, server.url)];
+  const bad = [...await checkCharts(browser, server.url), ...await checkStrip(browser, server.url), ...await checkStripSlides(browser, server.url)];
   for (const b of bad) console.log('FAIL ' + b);
   await browser.close(); server.close?.();
   process.exit(bad.length ? 1 : 0);

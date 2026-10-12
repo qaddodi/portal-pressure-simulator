@@ -326,6 +326,24 @@ function bigLadder() {
   const strip = sv('svg', { class: 'pz-strip', viewBox: `0 0 ${S.W} ${S.H}`, role: 'img' },
     sv('defs', {}, sgrad), sline, conns.map((c) => c.txt), spts.map((p) => [p.g, p.k]),
     sv('text', { class: 'pzs-u', x: S.W - 2, y: S.ny + 5.5, 'text-anchor': 'end' }, 'mmHg'), hvS.g, ppS.g);
+  // The strip is an svg scaled to its card, so its 11 px text would render smaller on a narrow card: the text sizes carry --stk
+  // (1 over the scale, never under 1), so every word on it is at least 11 px as drawn. The brackets' gaps follow that size.
+  let sk = 1;
+  const lay = (b) => {
+    if (!b.len) return;
+    // The line stays clear of the label (an estimate of its width, so a hidden strip needs no measuring and nothing jumps): inline with
+    // a gap of 7 each side when the bracket has room for that, otherwise the label sits just above an unbroken line.
+    const half = b.len * sk / 2 + 7, mid = (b.x0 + b.x1) / 2, r = b.row, above = b.x1 - b.x0 - 2 * half < 14;
+    b.lbl.setAttribute('y', above ? r - 4.5 : r + 3.5);
+    b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (above ? `M${b.x0} ${r}H${b.x1}` : `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}`));
+  };
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => {
+    const w = strip.getBoundingClientRect().width;
+    if (!w) return;
+    const k = Math.max(1, S.W / w);
+    if (Math.abs(k - sk) < 0.002) return;
+    sk = k; strip.style.setProperty('--stk', k.toFixed(3)); lay(hvS); lay(ppS);
+  }).observe(strip);
   const grid = TICKS.map((v) => {
     const line = sv('line', { x1: 44, x2: W - 10 }), txt = sv('text', { x: 34, 'text-anchor': 'end' }, String(v));
     return { v, line, txt, g: sv('g', { class: 'pzl-grid' }, line, txt) };
@@ -388,11 +406,7 @@ function bigLadder() {
       b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate || 'ok';
       const num = ' ' + fmt(v, 1);
       b.t[0].textContent = b.name; b.t[1].textContent = num;
-      // The line stays clear of the label (an estimate of its width, so a hidden strip needs no measuring and nothing jumps): inline with
-      // a gap of 7 each side when the bracket has room for that, otherwise the label sits just above an unbroken line.
-      const half = (b.name.length * 6.8 + num.length * 5.6) / 2 + 7, mid = (b.x0 + b.x1) / 2, r = b.row, above = b.x1 - b.x0 - 2 * half < 14;
-      b.lbl.setAttribute('y', above ? r - 4.5 : r + 3.5);
-      b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (above ? `M${b.x0} ${r}H${b.x1}` : `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}`));
+      b.len = b.name.length * 6.8 + num.length * 5.6; lay(b);
     };
     putS(hvS, f.whvp, f.fhvp, f.hvpg, 'hvpg'); putS(ppS, f.pv, f.ivc, f.ppg, 'ppg');
     const say = 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '

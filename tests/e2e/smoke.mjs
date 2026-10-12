@@ -15,7 +15,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
-import { checkCharts, checkStrip } from './chart-text.mjs';
+import { checkCharts, checkStrip, checkStripSlides } from './chart-text.mjs';
 
 const dir = process.argv[2] || '.';
 const shots = process.env.SHOTS;
@@ -902,6 +902,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // pieces of text touch and no text crosses a rule line (tests/e2e/chart-text.mjs). Run once, from the desktop run.
   if (device === 'desktop') await check(device, 'presenter: chart text never overlaps or crosses a line, at every size', async () => {
     const bad = [...await checkCharts(browser, server.url, () => {}), ...await checkStrip(browser, server.url, () => {})];
+    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+  });
+
+  // The phone pressure strip on every slide that has it: all its text at least 11 px as drawn, labels centred in their brackets, clear of every line.
+  if (device === 'desktop') await check(device, 'presenter: the pressure strip keeps 11 px text and clear labels on every slide, at both phones', async () => {
+    const bad = await checkStripSlides(browser, server.url, () => {});
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });
 
