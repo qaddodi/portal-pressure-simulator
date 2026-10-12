@@ -168,6 +168,18 @@ export function gradientsAdd() {
       if (v !== want[k]) out.push(`${k} tile reads ${v}, the readings give ${want[k]}`);
     }
   }
+  // The big ladders' bracket pills (the data card's and each site ladder's) name the gradient and write its whole number,
+  // equal to the difference of that ladder's own readings.
+  for (const L of document.querySelectorAll('.pz-ladder')) {
+    const r = [...L.querySelectorAll('.pzl-v')].map((e) => num(e.textContent));
+    for (const b of L.querySelectorAll('.pzl-bg')) {
+      if (+b.getAttribute('opacity') < 0.5 || !vis(L)) continue;
+      const t = b.querySelector('.pzl-bk')?.textContent.trim() || '', m = /^(HVPG|PPG) (−?\d+)$/.exec(t);
+      if (!m) { out.push(`a bracket pill reads "${t}", with no whole number`); continue; }
+      const want = m[1] === 'HVPG' ? r[1] - r[2] : r[0] - r[3];
+      if (r.length === 5 && num(m[2]) !== want) out.push(`pill "${t}" is not the difference of the readings (${want})`);
+    }
+  }
   return out;
 }
 export async function checkStripGaps(browser, url, log = console.log) {

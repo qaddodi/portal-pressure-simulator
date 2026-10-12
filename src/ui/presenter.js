@@ -549,7 +549,7 @@ function bigLadder() {
       const say = verdict[b.name.toLowerCase()];
       b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate;
       b.g.classList.toggle('says', !!say);
-      const label = say ? `${b.name} ${fmt(v, 0)}` : b.name;
+      const label = `${b.name} ${fmt(v, 0)}`;
       if (b.txt.textContent !== label) { b.txt.textContent = b.label = label; placeSpan(b); }
     };
     put(hv, f.whvp, f.fhvp, f.hvpg, rateOf('hvpg', f)[0] || 'ok');
