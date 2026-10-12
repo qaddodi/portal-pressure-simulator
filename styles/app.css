@@ -4925,3 +4925,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .topbar .lg-cap { display: none; }
   .top-right .ib, .top-right .pal-btn { width: 34px; min-width: 34px; }
 }
+/* Every Tests picture fits its pane: the pane (absolutely placed, so its size is known) is a size container and no
+   chart box grows taller than the room inside it, at any card height (an iPad sheet dragged low, a short side card). */
+.instrument-workspace .dock-pane { container-type: size; container-name: tpane; }
+@container tpane (min-height: 1px) {
+  .instrument-workspace .chart-box { max-height: calc(100cqh - 32px) !important; }
+}
+@container tpane (max-height: 260px) {
+  .instrument-workspace .chart-box { min-height: min(100px, calc(100cqh - 32px)) !important; }
+}

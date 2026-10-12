@@ -1328,6 +1328,33 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }
     }
   });
+  // Every Tests picture fits its pane on an iPad, upright and sideways, at the card's default and a low dragged height:
+  // no chart box taller than the pane, and no block of the pane drawn over another.
+  if (device === 'desktop') await check(device, 'Tests pictures fit their pane on an iPad', async (page) => {
+    for (const [w, hgt] of [[820, 1180], [1180, 820]]) for (const hr of [null, 0.25]) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await open(page);
+      await page.evaluate((v) => { if (v == null) localStorage.removeItem('pps.instruments'); else localStorage.setItem('pps.instruments', JSON.stringify({ open: ['profile'], h: v })); }, hr);
+      await open(page);
+      for (const id of ['profile', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan']) {
+        await page.evaluate((i) => window.pps.dock.show(i, { reveal: true }), id);
+        await page.waitForTimeout(800);
+        const bad = await page.evaluate(() => {
+          const pane = document.querySelector('#dock .dock-pane.active'), pr = pane.getBoundingClientRect(), out = [];
+          const els = [...pane.querySelectorAll('.instrument-view > *, .chart-box')].filter((e) => e.offsetHeight > 0);
+          for (const e of els) { const q = e.getBoundingClientRect(); if (e.matches('.chart-box') && q.height > pr.height + 2) out.push(`chart ${Math.round(q.height)} px in a ${Math.round(pr.height)} px pane`); }
+          for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
+            if (els[i].contains(els[j]) || els[j].contains(els[i])) continue;
+            const a = els[i].getBoundingClientRect(), c = els[j].getBoundingClientRect();
+            if (c.top < a.bottom - 2 && c.bottom > a.top + 2 && c.left < a.right - 2 && c.right > a.left + 2) out.push(`${els[i].className.split(' ')[0]} under ${els[j].className.split(' ')[0]}`);
+          }
+          return out;
+        });
+        if (bad.length) throw new Error(`${w}×${hgt}${hr ? ' low card' : ''} ${id}: ${bad.join('; ')}`);
+      }
+    }
+    await page.evaluate(() => localStorage.removeItem('pps.instruments'));
+  });
   // The figure's labels never sit on each other: at the home framing, for every patient, on a phone, an iPad
   // held upright and a laptop, in the anatomy and the circuit (stage.js layoutLabels, its last overlap pass).
   await check(device, 'figure labels never overlap', async (page) => {

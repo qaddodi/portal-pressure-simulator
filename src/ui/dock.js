@@ -477,7 +477,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const view = id ? fitView(id) : null;
     const lessonSheet = app.dataset.mode === 'learn' && !isSide() && matchMedia('(max-width: 767px)').matches;
     // On a phone HVPG and FibroScan fill the sheet by design; only Ascites fits there.
-    let fits = !!view && !lessonSheet && (isSide() || heightRatio == null) && (id === 'abdomen' || matchMedia('(min-width: 768px)').matches);
+    let fits = !!view && !lessonSheet && !sidewaysMQ.matches && (isSide() || heightRatio == null) && (id === 'abdomen' || matchMedia('(min-width: 768px)').matches);
     if (view) view.classList.toggle('nat', fits);   // nat: the view at its natural height, to measure it
     fits = fits && view.offsetHeight > 0;
     const on = workspace.classList.contains('fit');
