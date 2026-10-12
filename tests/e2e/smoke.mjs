@@ -1208,7 +1208,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   if (device === 'desktop') await check(device, 'presenter: slide words, callouts and tiles agree', async (page) => {
     const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
     const K = ['pv', 'ra', 'whvp', 'fhvp', 'ivc', 'hvpg', 'ppg'];
-    const slides = DECKS.flatMap((d) => withOverview(d).slides.map((s, i) => [d.id, i, s]).filter(([, , s]) => K.some((k) => (s.line || '').includes(`{${k}}`)) || s.data === 'ladder' || (s.tiles || []).some((k) => k === 'hvpg' || k === 'ppg')))
+    const slides = DECKS.flatMap((d) => withOverview(d).slides.map((s, i) => [d.id, i, s]).filter(([, , s]) => K.some((k) => (s.line || '').includes(`{${k}}`)) || s.data === 'ladder' || (s.tiles || []).some((k) => k === 'hvpg' || k === 'ppg' || k === 'sin')))
       .filter(([d]) => !process.env.DECKS || process.env.DECKS.split(',').includes(d));
     await open(page);
     const bad = [];
@@ -1217,9 +1217,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover, .pz-load.on'), null, { timeout: 30000 }).catch(() => {});
       await page.waitForTimeout(3500);   // (the readings ease in over about two seconds)
       const keys = [...(s.line || '').matchAll(/\{([^}]+)\}/g)].map((m) => m[1]).filter((k) => !/^[<>≥≤]/.test(k));
-      const r = await page.evaluate((keys) => {
+      const read = () => page.evaluate((keys) => {
         const num = (t) => { const m = /(-?\d+(?:\.\d+)?)/.exec(t || ''); return m ? +m[1] : null; };
-        const v = {};
+        const v = {}, out0 = [];
         for (const n of document.querySelectorAll('.lb-name')) {
           const t = n.parentElement.textContent, x = num(t.slice(n.textContent.length));
           if (x == null) continue;
@@ -1228,16 +1228,23 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         }
         for (const t of document.querySelectorAll('.pz-data:not(.pz-hide) .pz-tile')) {
           if (!t.offsetWidth) continue;
-          const k = { HVPG: 'hvpg', PPG: 'ppg' }[t.querySelector('.pzt-k')?.textContent.trim()], x = num(t.querySelector('.pzt-vu')?.textContent);
+          const k = { HVPG: 'hvpg', PPG: 'ppg', Sinusoids: 'sinT' }[t.querySelector('.pzt-k')?.textContent.trim()], x = num(t.querySelector('.pzt-vu')?.textContent);
           if (k && x != null) v[k] = x;
         }
-        const out = [], gap = (a, b) => Math.round((a - b) * 10) / 10;
+        // The lobule's and the zoomed sinusoid's labels read as the Sinusoids tile.
+        for (const zl of document.querySelectorAll('.lz-lab[data-target="lobule:sinusoid"], .sv-region-sin')) {
+          if (!zl.checkVisibility({ opacityProperty: true, visibilityProperty: true }) || v.sinT == null) continue;
+          const x = num(zl.textContent.replace(/^\D+/, '')); if (x != null && Math.abs(x - v.sinT) > 0.05) out0.push(`Sinusoids tile ${v.sinT} but figure ${x}`);
+        }
+        const out = [...out0], gap = (a, b) => Math.round((a - b) * 10) / 10;
         if (v.hvpg != null && v.whvp != null && v.fhvp != null && Math.abs(gap(v.whvp, v.fhvp) - v.hvpg) > 0.05) out.push(`HVPG ${v.hvpg} but WHVP ${v.whvp} − FHVP ${v.fhvp}`);
         if (v.ppg != null && v.pv != null && v.ivc != null && Math.abs(gap(v.pv, v.ivc) - v.ppg) > 0.05) out.push(`PPG ${v.ppg} but portal vein ${v.pv} − IVC ${v.ivc}`);
         const pills = [...document.querySelectorAll('.pz-line .pz-val:not(.cut)')].map((e) => num(e.textContent));
         keys.forEach((k, j) => { if (v[k] != null && pills[j] != null && Math.abs(pills[j] - v[k]) > 0.05) out.push(`words say ${k} ${pills[j]}, figure ${v[k]}`); });
         return out;
       }, keys);
+      let r = await read();
+      if (r.length) { await page.waitForTimeout(2500); r = await read(); }   // (a slow machine: a long glide may still be landing)
       if (r.length) bad.push(`${d} slide ${i + 1}: ${r.join('; ')}`);
     }
     if (bad.length) throw new Error(bad.join('\n'));

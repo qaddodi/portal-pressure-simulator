@@ -1,5 +1,5 @@
 // Presenter words' card check: on a laptop or tablet the words' card is only as tall as its words (padding equal above and
-// below them), its top level with the data card's when one is beside it, and clear of the controls' pill.
+// below them), the data card at the top right (not under the words), its top level with the data card's when one is beside it, and clear of the controls' pill.
 //
 //   DECKS=doppler DEVS=mac,ipad node tests/e2e/text-card.mjs
 import { chromium } from 'playwright';
@@ -35,6 +35,11 @@ for (const dev of devs) {
         if (Math.abs((t.top - s.top) - cp) > 1.5 || Math.abs((s.bottom - t.bottom) - cp) > 1.5) err.push(`not fitted: pad ${Math.round(t.top - s.top)}/${Math.round(s.bottom - t.bottom)} vs ${Math.round(cp)}`);
         if (tx.scrollHeight - tx.clientHeight > 1 && s.bottom < (bar?.getBoundingClientRect().top ?? innerHeight) - 40 && s.bottom < innerHeight - 140) err.push('words scroll with room to grow');
         const dv = da && !da.hidden && !('gone' in da.dataset) && !da.classList.contains('under') && !da.classList.contains('docked') && getComputedStyle(da).opacity !== '0';
+        // The data card sits at the top right, never under or against the words' card (only a phone stacks them).
+        if (da && !da.hidden && !('gone' in da.dataset) && !da.classList.contains('docked') && getComputedStyle(da).opacity !== '0') {
+          const d = da.getBoundingClientRect();
+          if (da.classList.contains('under') || d.left < s.right + 8) err.push(`data card under the words (left ${Math.round(d.left)} vs words right ${Math.round(s.right)})`);
+        }
         const top = dv ? da.offsetTop : null;   // (no data card: the words stay centred, the card wraps them)
         if (top != null && Math.abs(s.top - document.querySelector('.pz').getBoundingClientRect().top - top) > 1) err.push(`top ${Math.round(s.top)} vs data ${Math.round(top)}`);
         const q = bar && !bar.hidden ? bar.getBoundingClientRect() : null;

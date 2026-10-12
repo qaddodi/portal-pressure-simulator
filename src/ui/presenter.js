@@ -1345,11 +1345,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
 
   // ── The slide's words, data and visual ──
-  // Tiles beside a sinusoid sit under the words, so the vessel has the width of the screen.
-  // (Not on a phone on its side: under the words they had no room and were cut off; they sit on the right as on other slides.)
+  // On a phone, tiles beside a sinusoid sit under the words, so the vessel has the width of the screen.
+  // (Not on a phone on its side, nor on a tablet or computer: there they sit at the top right as on other slides,
+  // and the camera centres the vessel between the two cards.)
   const shortSide = matchMedia('(orientation: landscape) and (max-height: 500px)');
   const sinTiles = (s) => s.data === 'tiles' && !s.visual && /^sinusoid/.test(s.cam || '');
-  const under = (s) => sinTiles(s) && !shortSide.matches;
+  const under = (s) => sinTiles(s) && !shortSide.matches && phone();
   async function wordsOut(next, newPatient = false) {
     if (!ui) return;
     const out = [ui.text, ui.panel], data = ui.data;
@@ -1834,7 +1835,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   const onResize = () => {
     if (!ui) return;
-    if (ui.data.hasAttribute('data-sin-tiles')) ui.data.classList.toggle('under', !shortSide.matches);   // (turned on or off its side)
+    if (ui.data.hasAttribute('data-sin-tiles')) ui.data.classList.toggle('under', !shortSide.matches && phone());   // (turned on or off its side)
     layout(); setLabels();
     if (shown) reframe(400);
   };

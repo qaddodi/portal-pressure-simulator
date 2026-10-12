@@ -232,6 +232,7 @@ export function createLobuleZoom({ host }) {
   // A presenter slide's pointer at the lesion (D4): { at: 'triad' | 'sin' | 'cv', label, kind: block | treat | note }.
   const callEl = h('div', { class: 'lz-call', 'aria-hidden': 'true' }), callLine = s('line', { class: 'lz-call-l' }), callRing = s('circle', { class: 'lz-call-r' });
   let call = null;
+  store.on('presentFp', () => { if (model) panel(); });   // (a slide's settled values arrive: the sinusoid label reads as its tile)
   store.on('lobuleCallout', () => {
     const c = store.get().lobuleCallout || null;
     if (JSON.stringify(c) === JSON.stringify(call)) return;
@@ -824,6 +825,8 @@ export function createLobuleZoom({ host }) {
 
   function panel() {
     const m = model;
+    // On a slide, once settled the sinusoids read the slide's own value, as its tile does (lobule and sinusoid labels agree with it).
+    { const st = store.get(), fs = st.presenting && st.presentFp?.sin; if (Number.isFinite(fs) && Math.abs(m.P2 - fs) < 0.6) m.P2 = fs; }
     tissue.setAttribute('aria-label', m.hide ? 'Liver lobule. Pressures not measured.'
       : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`);
     // Station cards on the figure.
