@@ -137,7 +137,8 @@ const cardGap = (page) => page.evaluate(() => {
   if (!parts.length) return null;
   const top = Math.min(...parts.map((c) => c.getBoundingClientRect().top)) - b.top - d.clientTop;
   const bottom = b.bottom - d.clientTop - Math.max(...parts.map((c) => c.getBoundingClientRect().bottom));
-  const fit = parseFloat(d.style.getPropertyValue('--pz-fit')) || 1;
+  // (The words' own zoom: an opened phone instrument may give way, the header and tiles never.)
+  const fit = Math.min(...[...d.children].filter((c) => !c.classList.contains('pz-tool') || !(d.classList.contains('tool-open') || d.classList.contains('tool-only'))).map((c) => parseFloat(getComputedStyle(c).zoom) || 1));
   if (top > 12 || bottom > 12) return `the data card has ${Math.round(top)} px empty above and ${Math.round(bottom)} px below its contents (cap 12)`;
   if (fit < 1) return `the data card's contents are shrunk to ${Math.round(fit * 100)} %`;
   return null;
@@ -801,10 +802,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const fold = page.locator('.pz-data:not(.pz-hide):not([hidden]) .pz-fold');
       if (await fold.isVisible().catch(() => false)) {
         for (const want of ['true', 'false']) {
-          await fold.click();
+          await page.evaluate(() => document.querySelector('.pz-data:not(.pz-hide):not([hidden]) .pz-fold').click());
           await page.waitForFunction((w) => document.querySelector('.pz-data .pz-fold')?.getAttribute('aria-expanded') === w, want);
-          await page.waitForTimeout(700);
-          const g = await cardGap(page);
+          // (The fold eases, then the card is fitted again: give it until it settles, up to 3 s.)
+          let g = null;
+          for (let w = 0; w < 10; w++) { await page.waitForTimeout(300); g = await cardGap(page); if (!g) break; }
           if (g && (want === 'false' || g.includes('shrunk'))) throw new Error(`${deck}, slide ${n}, after ${want === 'true' ? 'Show' : 'Show then Hide'}: ${g}`);
         }
       }
@@ -904,6 +906,32 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (r.length) bad.push(`${d.id} slide ${sl[1]}: ${r.join('; ')}`);
     }
     if (bad.length) throw new Error(bad.join('\n'));
+  });
+
+  // A phone's data card opens and shuts by dragging its lower edge (as well as Show/Hide), its parts at full size after each.
+  if (device === 'phone') await check(device, 'presenter: a phone drags the data card open and shut', async (page) => {
+    await open(page);
+    await page.evaluate(() => window.pps.presenter.start('stiffness', 3));
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover')
+      && [...document.querySelectorAll('.pz-fold')].some((f) => f.offsetWidth), null, { timeout: 60000 });
+    await page.waitForTimeout(800);
+    const drag = (dy) => page.evaluate(async (dy) => {
+      const d = [...document.querySelectorAll('.pz-data')].find((x) => x.querySelector('.pz-fold')?.offsetWidth), b = d.getBoundingClientRect();
+      const x = b.left + b.width / 2, y0 = b.bottom - 8;
+      const fire = (type, y) => { const t = new Touch({ identifier: 1, target: d, clientX: x, clientY: y });
+        d.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true })); };
+      fire('touchstart', y0);
+      for (let i = 1; i <= 10; i++) { fire('touchmove', y0 + dy * i / 10); await new Promise((r) => setTimeout(r, 30)); }
+      await new Promise((r) => setTimeout(r, 150));   // (a slow release: decided by how far it got)
+      fire('touchend', y0 + dy);
+    }, dy);
+    const state = () => page.evaluate(() => document.querySelector('.pz-data .pz-fold[aria-expanded]') && [...document.querySelectorAll('.pz-fold')].find((f) => f.offsetWidth).getAttribute('aria-expanded'));
+    await drag(260); await page.waitForTimeout(900);
+    if (await state() !== 'true') throw new Error('dragging the card edge down did not open it');
+    let gap = await cardGap(page); if (gap) throw new Error(`after dragging open: ${gap}`);
+    await drag(-400); await page.waitForTimeout(900);
+    if (await state() !== 'false') throw new Error('dragging the card edge up did not shut it');
+    gap = await cardGap(page); if (gap) throw new Error(`after dragging shut: ${gap}`);
   });
 
   await check(device, 'presenter: summary table returns after back then forward', async (page) => {

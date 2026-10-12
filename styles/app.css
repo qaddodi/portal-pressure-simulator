@@ -2338,6 +2338,10 @@ button.finding { cursor: pointer; }
 .app.presenting .stage-view { touch-action: pan-x pan-y; }
 .pz-text, .pz-data, .pz-panel { overflow: clip; overscroll-behavior: none; }
 .pz-text > *, .pz-data > *, .pz-panel > * { zoom: var(--pz-fit, 1); }
+/* A phone's opened (or only) instrument is the one part that gives way when it is taller than the card: the header and tiles stay full size. */
+.pz.stack .pz-data:is(.tool-open, .tool-only) > :not(.pz-tool) { zoom: 1; }
+/* A slide whose card is the instrument alone gets more of the phone's height, so the instrument stays near full size. */
+.pz.stack .pz-data.tool-only { max-height: 64%; }
 .pz.stack .pz-text, .pz.stack .pz-data { pointer-events: auto; }
 @media (prefers-reduced-motion: reduce) {
   .pz *, .pz, .app.presenting #stageView { animation: none !important; transition: none !important; }
@@ -4828,6 +4832,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack .pz-data .pz-tiles .pzt-r, .pz.stack .pz-data .pz-tiles .pzt-d { flex: 0 1 auto; font-size: 11px; line-height: 1.3; white-space: nowrap; }
 .pz.stack .pz-data .pz-tiles .pzt-r { white-space: normal; max-width: 100%; }   /* (a long rating, "Grade 1, ultrasound only", wraps inside its tile rather than running into the next) */
 .pz.stack .pzt-dw, .pz.stack .pzt-du { display: none; }
+/* A long rating ("Below 12: target met") wraps inside its tile rather than spill out of it, which shrank the whole card. */
+.pz.stack .pz-data .pz-tiles .pzt-r { white-space: normal; min-width: 0; }
 
 /* Tests card: the scope and Doppler readings as compact tiles, in the presenter data card's style (small
    uppercase name, big number with a muted unit, a status dot). Two across on a phone, more on a wider card. */
