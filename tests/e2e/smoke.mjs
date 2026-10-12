@@ -136,6 +136,27 @@ const cardGap = (page) => page.evaluate(() => {
   return null;
 });
 
+// The sinusoid view's names that still show over a card (a slide's words, data or summary panel, an open card): none may.
+// Polled for up to 3 s, so a name still easing out as a card arrives is not counted. null when clear, else what is wrong.
+const svCovered = async (page) => {
+  let r = null;
+  for (let t = 0; t < 12; t++) {
+    r = await page.evaluate(() => {
+      const cards = [...document.querySelectorAll('.stage-blocker:not([hidden])')].map((c) => [c, c.getBoundingClientRect()]).filter(([c, q]) => q.width && getComputedStyle(c).visibility !== 'hidden' && +getComputedStyle(c).opacity > 0.5);
+      const bad = [];
+      for (const e of document.querySelectorAll('.sv.on .sv-region')) {
+        const k = e.firstElementChild, b = e.getBoundingClientRect();
+        if (e.hidden || !k || !b.width || +getComputedStyle(k).opacity < 0.05) continue;
+        for (const [c, q] of cards) if (b.left < q.right - 1 && q.left < b.right - 1 && b.top < q.bottom - 1 && q.top < b.bottom - 1) bad.push(`"${e.textContent.replace(/\s+/g, ' ').trim().slice(0, 24)}" under ${c.className.split(' ')[0]}`);
+      }
+      return bad.length ? 'sinusoid names over a card: ' + bad.join(', ') : null;
+    });
+    if (!r) return null;
+    await page.waitForTimeout(250);
+  }
+  return r;
+};
+
 // Every deck's id (the presenter's library), for the per-deck checks below.
 const DECK_IDS = [...readFileSync(new URL('../../src/ui/decks.js', import.meta.url), 'utf8').matchAll(/\['([a-z0-9-]+)', '(?:[^'\\]|\\.)*'\]/g)].map((m) => m[1]);
 if (DECK_IDS.length < 15) throw new Error(`only ${DECK_IDS.length} deck ids read from decks.js`);
@@ -714,6 +735,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if ((await barSettle(page)) !== 'ok') throw new Error(`${deck}, slide ${n}: ${await barFit(page) || 'the slide never settled'}`);
       const gap = await cardGap(page);
       if (gap) throw new Error(`${deck}, slide ${n}: ${gap}`);
+      const sv = await svCovered(page);
+      if (sv) throw new Error(`${deck}, slide ${n}: ${sv}`);
       // (A folding tool: Show then Hide must leave the card's contents at full size, as on arrival.)
       const fold = page.locator('.pz-data:not(.pz-hide):not([hidden]) .pz-fold');
       if (await fold.isVisible().catch(() => false)) {
@@ -728,6 +751,27 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const [a, b] = n.split('/').map((x) => +x);
       if (a === b) break;
       // (On a time-lapse, Next first runs it to its end: press again until the slide changes.)
+      for (let k = 0; k < 4; k++) {
+        await page.keyboard.press('ArrowRight');
+        if (await page.waitForFunction((was) => document.querySelector('.pzb-n')?.textContent.trim() !== was, n, { timeout: 15000 }).then(() => true, () => false)) break;
+      }
+      await page.waitForTimeout(300);
+    }
+  });
+
+  // An upright iPad (820x1180): on every slide of the decks that open the sinusoid view, its names keep off the cards.
+  if (device === 'desktop') for (const deck of ['ascites', 'tap', 'lobule']) await check(device, `presenter: on every slide of ${deck} at 820x1180 the sinusoid's names keep off the cards`, async (page) => {
+    await page.setViewportSize({ width: 820, height: 1180 });
+    await open(page);
+    await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+    for (let guard = 0; guard < 80; guard++) {
+      const n = await page.evaluate(() => document.querySelector('.pzb-n')?.textContent.trim());
+      await barSettle(page); await page.waitForTimeout(1200);
+      const sv = await svCovered(page);
+      if (sv) throw new Error(`${deck}, slide ${n}: ${sv}`);
+      const [a, b] = n.split('/').map((x) => +x);
+      if (a === b) break;
       for (let k = 0; k < 4; k++) {
         await page.keyboard.press('ArrowRight');
         if (await page.waitForFunction((was) => document.querySelector('.pzb-n')?.textContent.trim() !== was, n, { timeout: 15000 }).then(() => true, () => false)) break;

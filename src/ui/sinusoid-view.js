@@ -449,6 +449,18 @@ export function createSinusoidView({ host }) {
   const LEG = { x: 0, y: 0, w: 0, h: 0 };   // the legend's box (px)   // the ends' names on a wide screen (px), for the captions to keep clear of
   // Large text (or a narrow view): names that still overlap after the layout step apart, up or down the screen first,
   // then sideways, and ease there; a name's leader moves with it. The ends' names, the legend and the lumen's keep their places.
+  // The cards over the stage, in stage px (what the lobule's labels keep off, too).
+  function blockers() {
+    const hr = host.getBoundingClientRect(), out = [];
+    for (const c of document.querySelectorAll('.stage-blocker:not([hidden])')) {
+      const r = c.getBoundingClientRect();
+      if (r.width && r.height && getComputedStyle(c).visibility !== 'hidden') out.push({ l: r.left - hr.left, r: r.right - hr.left, t: r.top - hr.top, b: r.bottom - hr.top });
+    }
+    return out;
+  }
+  // (Read four times a second, not every frame: a card that comes or goes is followed within a moment, eased.)
+  let bkAt = 0, bk = '';
+  const blockKey = () => { const now = performance.now(); if (now - bkAt < 250) return bk; bkAt = now; let k = ''; for (const c of document.querySelectorAll('.stage-blocker:not([hidden])')) { const r = c.getBoundingClientRect(); if (r.width) k += `${r.left | 0},${r.top | 0},${r.right | 0},${r.bottom | 0};`; } return (bk = k); };
   function declutter() {
     // (From the boxes the layout recorded, not the screen: the view may be mid-zoom, scaled by the compositor.)
     const W = geo.W, H = geo.H, lk = labelK();
@@ -458,6 +470,11 @@ export function createSinusoidView({ host }) {
     const hit = (a, b) => a.l < b.r + gx && b.l < a.r + gx && a.t < b.b + gy && b.t < a.b + gy;
     const placed = [];
     if (LEG.w) placed.push({ l: LEG.x, r: LEG.x + LEG.w, t: LEG.y, b: LEG.y + LEG.h });
+    // The cards over the figure (a presenter slide's words, data and summary panel, an open card): a name keeps off them,
+    // and one that cannot fades out rather than sit under a card.
+    const cards = blockers();
+    placed.push(...cards);
+    const under = (c) => cards.some((p) => c.l < p.r && p.l < c.r && c.t < p.b && p.t < c.b);
     // The ends' names and the lumen's are fixed; the rest give way in turn.
     for (const k of ['in', 'out', 'sin', 'fen', 'lymph', 'disse', 'hsc', 'hep', 'kup']) {
       const R = regions[k];
@@ -492,6 +509,12 @@ export function createSinusoidView({ host }) {
         off = found || least?.v || off;
       }
       R.off = off;
+      const covered = under(at(off[0], off[1], off[2]));
+      if (covered !== !!R.covered) {
+        R.covered = covered;
+        if (covered) R.el.style.setProperty('--lit-o', '0'); else R.el.style.removeProperty('--lit-o');   // (eased: --lit-o has its transition)
+        if (lead[k]) lead[k].style.visibility = covered ? 'hidden' : '';
+      }
       R.el.style.translate = off[0] || off[1] ? `${off[0].toFixed(1)}px ${off[1].toFixed(1)}px` : '';
       R.el.style.scale = off[2] !== 1 ? String(off[2]) : '';
       placed.push(at(off[0], off[1], off[2]));
@@ -571,7 +594,7 @@ export function createSinusoidView({ host }) {
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
     // the shader draws are in place from the first frame and nothing moves when the names fade in.
-    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches, labelK()].join('|');
+    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches, labelK(), blockKey()].join('|');
     if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); declutter(); }
     fenTick();
     if (gpu) {
