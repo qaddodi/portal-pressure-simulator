@@ -3,7 +3,7 @@
 // unit is never larger than its reading. Explore's four views at every text size step on a phone, at 100 % and 200 %
 // on an upright iPad and a desktop; the first slides of eight decks at 100 % (and one at 150 %) at each size, a phone on
 // its side included. A phone's slide words (its bottom panel, the title panel) are 1.7 times the roles' size upright, 1.3 times on its side (its summary table keeps their own size).
-// The four drawn slide charts (scale, ladders, SAAG map, walls) draw their own lettering and are left out.
+// The drawn slide charts (ladders, strip, SAAG map, walls, still column) are checked by tests/e2e/chart-type.mjs.
 // Run alone: node tests/e2e/type-scale.mjs; also run by smoke.mjs (desktop run).
 import { chromium } from 'playwright';
 import { serve } from '../../scripts/serve.mjs';

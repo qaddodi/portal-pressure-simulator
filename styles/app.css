@@ -1991,26 +1991,6 @@ button.finding { cursor: pointer; }
 .pz-table tr[data-arrived] td { animation: pz-fade .5s var(--ease) both; }
 /* The visuals: a scale with thresholds, SAAG × protein, the two capillary walls. */
 .pz-visual { min-height: 0; display: flex; justify-content: center; }
-.pz-scale, .pz-walls { display: block; width: 100%; height: auto; max-height: calc(56 * var(--pzh) / var(--vz)); overflow: visible; }
-.pzs-zone[data-rate="ok"] { fill: color-mix(in srgb, var(--ok) 26%, transparent); }
-.pzs-zone[data-rate="mid"] { fill: color-mix(in srgb, var(--caution) 30%, transparent); }
-.pzs-zone[data-rate="hi"] { fill: color-mix(in srgb, var(--danger) 22%, transparent); }
-.pzs-zone[data-rate="top"] { fill: color-mix(in srgb, var(--danger) 40%, transparent); }
-.pzs-mark line { stroke: var(--text-2); stroke-width: 3; }
-.pzs-mv { font: 700 34px var(--font-ui); fill: var(--text); }
-.pzs-mw { font: 500 27px var(--font-ui); fill: var(--text-2); }
-.pzs-unit { font: 500 25px var(--font-ui); fill: var(--text-3); }
-.pzs-pin { color: var(--text-2); transform: translateX(0); transition: transform 1.4s var(--ease) calc(var(--i, 0) * 160ms + 250ms); }
-.pz-scale.in .pzs-pin { transform: translateX(var(--x)); }
-.pzs-pin[data-rate="ok"] { color: var(--ok); } .pzs-pin[data-rate="mid"] { color: var(--caution); } .pzs-pin[data-rate="hi"] { color: var(--danger); }
-.pzs-pin circle { fill: var(--surface); stroke: currentColor; stroke-width: 7; }
-.pzs-pin line { stroke: currentColor; stroke-width: 3; }
-.pzs-pv { font: 700 40px var(--font-ui); fill: currentColor; font-variant-numeric: tabular-nums; }
-.pzs-pn { font: 600 28px var(--font-ui); fill: var(--text); }
-/* The pin's number and name fade in as it nears its value, so names never pile up at zero while the pins set off. */
-.pzs-pin text { opacity: 0; transition: opacity .5s var(--ease) calc(var(--i, 0) * 160ms + 1250ms); }
-.pz-scale.in .pzs-pin text { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .pzs-pin, .pzs-pin text { transition-duration: .3s; transition-delay: 0s; } }
 .pz-quadwrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(16px, calc(3vw / var(--vz)), 52px); align-items: center; }
 .pz-quad { display: block; width: 100%; height: auto; max-height: calc(58 * var(--pzh) / var(--vz)); }
 .pzq-q rect { fill: var(--surface-2); }
@@ -2030,11 +2010,15 @@ button.finding { cursor: pointer; }
 .pz-quads .qn { grid-row: span 2; font: 700 var(--s-val)/1 var(--font-display); color: var(--text-3); }
 .pz-quads .qt { font: 600 var(--s-lab)/1.2 var(--font-ui); color: var(--text); }
 .pz-quads .qc { font: 400 var(--s-cap)/1.3 var(--font-ui); color: var(--text-2); }
-.pzw-t { font: 600 40px var(--font-display); fill: var(--text); }
-.pzw-s { font: 500 26px var(--font-ui); fill: var(--text-2); }
-.pzw-l { font: 600 21px var(--font-ui); letter-spacing: .05em; text-transform: uppercase; fill: var(--text-3); }
-.pzw-c { font: 600 28px var(--font-ui); fill: var(--text); }
-.pzw-c2 { font: 400 26px var(--font-ui); fill: var(--text-2); }
+.pz-walls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(16px, calc(3vw / var(--vz)), 52px); align-items: start; }
+.pz.stack .pz-walls { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.pzw-panel { display: flex; flex-direction: column; gap: .2em; min-width: 0; }
+.pzw-art { display: block; width: 100%; height: auto; margin: .35em 0; overflow: visible; }
+.pzw-t { font: 600 var(--s-val)/1.15 var(--font-display); color: var(--text); }
+.pzw-s { font: 500 var(--s-body)/1.3 var(--font-ui); color: var(--text-2); }
+.pzw-l { font: 600 var(--s-cap) var(--font-ui); fill: var(--text-3); }
+.pzw-c { margin: 0; font: 600 var(--s-body)/1.3 var(--font-ui); color: var(--text); }
+.pzw-c2 { margin: 0; font: 400 var(--s-body)/1.3 var(--font-ui); color: var(--text-2); }
 .pzw-lumen { fill: color-mix(in srgb, var(--tour-portal) 26%, var(--surface)); }
 .pzw-wall { fill: color-mix(in srgb, var(--tour-portal) 62%, var(--text)); }
 .pzw-bm { fill: var(--text); opacity: .75; }
@@ -2120,14 +2104,14 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data > .pz-strip { display: block; }
 .pz.stack .pz-data.tiles-only > .pz-strip, .pz.stack .pz-data.tool-only > .pz-strip { display: none; }
 .pzs-c { stroke-width: 6; stroke-linecap: round; }
-.pzs-d { fill: var(--text-3); font: 600 calc(12px * var(--stk, 1)) var(--font-ui); font-variant-numeric: tabular-nums; transition: fill .4s var(--ease); }
+.pzs-d { fill: var(--text-3); font: 600 12px var(--font-ui); font-variant-numeric: tabular-nums; transition: fill .4s var(--ease); }
 .pzs-d.big { fill: var(--accent); font-weight: 700; }
 .pzs-d.fall { fill: var(--danger); }
-.pzs-v { fill: var(--text); font: 700 calc(15px * var(--stk, 1)) var(--font-ui); font-variant-numeric: tabular-nums; transition: fill .4s var(--ease); }
+.pzs-v { fill: var(--text); font: 700 15px var(--font-ui); font-variant-numeric: tabular-nums; transition: fill .4s var(--ease); }
 .pzs-pt.key .pzs-v { fill: var(--accent); }
-.pzs-k { fill: var(--text-2); font: 700 calc(11px * var(--stk, 1)) var(--font-ui); letter-spacing: .02em; }
-.pzs-u { fill: var(--text-3); font: 500 calc(11px * var(--stk, 1)) var(--font-ui); }
-.pzs-bl { fill: var(--text); font: 600 calc(11px * var(--stk, 1)) var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
+.pzs-k { fill: var(--text-2); font: 700 11px var(--font-ui); letter-spacing: .02em; }
+.pzs-u { fill: var(--text-3); font: 500 11px var(--font-ui); }
+.pzs-bl { fill: var(--text); font: 600 11px var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
 .pzs-bn, .pzs-bv { fill: var(--c); font-weight: 700; transition: fill .4s var(--ease); }
 .pz.stack .pz-data:not(.tiles-only):not(.tool-only) .pz-lg { display: none; }
 .pz.stack .pz-data:not(.tiles-only):not(.tool-only):not(.has-tool) .pz-tiles[data-compact="1"] { display: none; }
@@ -2139,6 +2123,11 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-panel.fill { height: fit-content; }
 .pz.stack .pz-panel.fill .pz-grid { flex: none; }   /* (the six ladders keep their height; the card scrolls instead of the charts spilling out of their cells) */
 .pz.stack .pz-panel.fill .pz-cell .pz-ladder { flex: none; }
+/* A phone's site ladders, or a cell too short for a plot at a large text size, read as strips, one cell to a row. */
+.pz.stack .pz-grid:has(.pz-cell) { grid-template-columns: minmax(0, 1fr); }
+.pz-cell > .pz-strip { display: none; }
+:is(.pz.stack .pz-cell, .pz-cell.strip) > .pz-strip { display: block; }
+:is(.pz.stack .pz-cell, .pz-cell.strip) > .pz-ladder { display: none; }
 .pz.stack .pz-bar { left: auto; right: 10px; top: auto; bottom: calc(4px + env(safe-area-inset-bottom, 0px)); translate: none; max-width: none; height: 44px; gap: 0; padding: 0 2px; overflow: visible; background: var(--glass); border: 0; border-radius: var(--r-sheet); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); transition: opacity .2s var(--ease); }
 /* (A phone's controls: a small frosted pill fixed at the lower right, like the timeline's folded pill. Its foot is 4 px up and it is
    44 px tall; the words end that much less a line above the bottom, so only their last line meets it (see clearPill). */
@@ -2154,6 +2143,7 @@ button.finding { cursor: pointer; }
 @media (max-width: 359px) { .pz.stack .pz-kick .pz-sec { display: none; } }
 .pz.stack .pz-kick .pz-kw { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pz.stack .pz-quadwrap { grid-template-columns: minmax(0, 1fr); }
+.pz.stack .pz-quad { max-height: none; }   /* (a phone's plot takes the height its lettering needs; the card scrolls) */
 /* An upright tablet uses the phone's compact table (one line per row, no sideways scroll), drawn larger. */
 @media (min-width: 768px) and (max-width: 1100px) and (orientation: portrait) {
   .pz-table table { font-size: var(--s-body); }

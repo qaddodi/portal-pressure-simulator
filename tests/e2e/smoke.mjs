@@ -18,6 +18,7 @@ import { serve } from '../../scripts/serve.mjs';
 import { checkCharts, checkStrip, checkStripSlides } from './chart-text.mjs';
 import { checkTypeScale } from './type-scale.mjs';
 import { TEXT_MIN, TEXT_MAX } from '../../src/ui/type-scale.js';
+import { checkChartText } from './chart-type.mjs';
 
 const dir = process.argv[2] || '.';
 const shots = process.env.SHOTS;
@@ -1192,6 +1193,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // above their readings, on a phone, an upright iPad and a desktop (tests/e2e/type-scale.mjs). Run once, from the desktop run.
   if (device === 'desktop') await check(device, 'type scale: figure and slide text on the six roles at every text size', async () => {
     const bad = await checkTypeScale(browser, server.url, () => {});
+    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+  });
+
+  // Drawn slide charts letter from the same scale as drawn: never under 11 px, growing with the text size, no word over
+  // another or out of its card, on every chart slide at three phones, an iPad and a desktop (tests/e2e/chart-type.mjs).
+  if (device === 'desktop') await check(device, 'chart type: drawn slide charts on the type scale at 100 and 200 %', async () => {
+    const bad = await checkChartText(browser, server.url, () => {});
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });
 
