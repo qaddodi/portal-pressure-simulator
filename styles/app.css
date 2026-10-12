@@ -1711,10 +1711,10 @@ button.finding { cursor: pointer; }
   --s-big: calc(clamp(28px, calc(4.622 * var(--pzh) / var(--vz)), 56px) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(clamp(32px, calc(6.356 * var(--pzh) / var(--vz)), 77px) * var(--ts, 1) * var(--pk, 1)); }
 .pz.stack, .pz.stack .pz-text, .pz.stack .pz-panel { --s-cap: calc(var(--t-cap) * var(--ts, 1) * var(--pk, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1) * var(--pk, 1)); --s-body: calc(var(--t-body) * var(--ts, 1) * var(--pk, 1));
   --s-val: calc(var(--t-val) * var(--ts, 1) * var(--pk, 1)); --s-big: calc(var(--t-big) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(var(--t-title) * var(--ts, 1) * var(--pk, 1)); }
-/* A phone: the slide's words (its text card and title panel) twice the roles' size at 100 % upright; the data card keeps
-   the roles' size, as its tiles and instruments would not fit (Mohammad: easier to read in hand); on its side 1.3 times,
-   as twice does not fit 390 px of height (the words ran out of their card). */
-.pz.stack .pz-text, .pz.stack .pz-panel { --pk: 2; }
+/* A phone: the slide's words (its bottom panel, and the title panel) 1.7 times the roles' size upright, which reads about
+   twice as large as before (the panel used to zoom its words down to fit 40 % of the screen; it may now take 62 %); the data
+   card keeps the roles' size. On its side 1.3 times, as more does not fit 390 px of height. */
+.pz.stack .pz-text, .pz.stack .pz-panel { --pk: 1.7; }
 @media (orientation: landscape) and (max-height: 500px) { .pz-text, .pz-panel { --pk: 1.3; } }
 /* (Except the summary table: its five to seven columns only fit a phone at the roles' own size.) */
 .pz.stack .pz-table { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); }
@@ -2086,7 +2086,7 @@ button.finding { cursor: pointer; }
 /* A phone, or a screen taller than wide: the words on top, the data below, the figure between. */
 /* (On a phone the words sit at the bottom over the Back/Next bar, on a glass pane rising from the bottom edge; the data card is at the top.) */
 .pz-shade.stack { width: auto !important; right: 0; top: auto; bottom: 0; height: 0; box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 -1px 0 var(--pz-glass-line), 0 -10px 24px -6px var(--pz-glass-drop), 0 -2px 5px -1px var(--pz-glass-drop); }
-.pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh) / var(--vz)), 20px)); left: 14px; right: 14px; top: auto; bottom: calc(max(16px, 48px - var(--pz-lh)) + env(safe-area-inset-bottom, 0px)); margin-block: 0; width: auto; max-height: 40%; gap: 6px; }
+.pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh) / var(--vz)), 20px)); left: 14px; right: 14px; top: auto; bottom: calc(max(16px, 48px - var(--pz-lh)) + env(safe-area-inset-bottom, 0px)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }   /* (twice-size words: room for most slides without zooming them down) */
 /* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: var(--s-lab); }

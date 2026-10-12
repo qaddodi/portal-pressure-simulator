@@ -2,7 +2,7 @@
 // roles (styles/tokens.css --t-*, slide cards --s-*) times the text size setting, never under 11 px, and a pill's
 // unit is never larger than its reading. Explore's four views at every text size step on a phone, at 100 % and 200 %
 // on an upright iPad and a desktop; the first slides of eight decks at 100 % (and one at 150 %) at each size, a phone on
-// its side included. A phone's slide words (text card, title panel) are twice the roles' size upright, 1.3 times on its side (its summary table keeps their own size).
+// its side included. A phone's slide words (its bottom panel, the title panel) are 1.7 times the roles' size upright, 1.3 times on its side (its summary table keeps their own size).
 // The four drawn slide charts (scale, ladders, SAAG map, walls) draw their own lettering and are left out.
 // Run alone: node tests/e2e/type-scale.mjs; also run by smoke.mjs (desktop run).
 import { chromium } from 'playwright';
@@ -73,10 +73,10 @@ export async function checkTypeScale(browser, url, log = console.log) {
       await at(step, `?script=${deck}`);
       await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'), null, { timeout: 60000 });
       for (let i = 1; i <= 4; i++) { await settle(page); await look(`${deck} slide ${i} at ${step * 100}%`); await page.keyboard.press('ArrowRight'); }
-      // A phone sets the slide's words at twice the roles' size upright, 1.3 times on its side (the summary table keeps their own size).
+      // A phone sets the slide's words at 1.7 times the roles' size upright, 1.3 times on its side (the summary table keeps their own size).
       if (name.startsWith('phone') && deck === 'circulation') {
         const k = await page.evaluate(() => +getComputedStyle(document.querySelector('.pz-text')).getPropertyValue('--pk'));
-        const want = name === 'phone' ? 2 : 1.3;   // (on its side, 1.3: twice would not fit 390 px of height)
+        const want = name === 'phone' ? 1.7 : 1.3;   // (on its side, 1.3: twice would not fit 390 px of height)
         if (k !== want) bad.push(`${name} slides: slide text ${k}× the roles, not ${want}×`);
       }
     }
