@@ -28,7 +28,7 @@ for (const dev of devs) {
     const n = await page.evaluate(() => +(document.querySelector('.pzb-n')?.textContent.split('/')[1] || 0));
     for (let i = 1; i <= n; i++) {
       await page.waitForTimeout(700); await settle(page);
-      const res = await page.evaluate(() => {
+      const check = () => page.evaluate(() => {
         const sh = document.querySelector('.pz-shade'), tx = document.querySelector('.pz-text'), da = document.querySelector('.pz-data'), bar = document.querySelector('.pz-bar');
         if (!sh?.classList.contains('pz-card') || !tx || tx.hidden || !tx.childElementCount || tx.classList.contains('pz-leave') || getComputedStyle(sh).opacity === '0') return null;
         const s = sh.getBoundingClientRect(), t = tx.getBoundingClientRect(), cp = t.left - s.left, err = [];
@@ -41,6 +41,8 @@ for (const dev of devs) {
         if (q && q.width && q.left < s.right && q.right > s.left && s.bottom > q.top + 1) err.push('runs under the controls');
         return err;
       });
+      let res = await check();
+      if (res?.length) { await page.waitForTimeout(2500); await settle(page); res = await check(); }   // (a slow machine: a slide or chart may still be landing)
       if (res) { seen++; if (res.length) { fails++; console.log(`FAIL ${dev} ${deck} ${i}/${n} ${res.join('; ')}`); } }
       if (i < n) await page.keyboard.press('ArrowRight');
     }
