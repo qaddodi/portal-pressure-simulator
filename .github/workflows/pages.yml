@@ -96,11 +96,12 @@ jobs:
           SMOKE_WORKERS: 1
         run: npm run smoke
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
           name: workspace-browser-checks-${{ matrix.device }}-${{ strategy.job-index }}
           path: workspace-shots/
           if-no-files-found: ignore
+          retention-days: 2
 
   # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
   webkit:
@@ -159,6 +160,7 @@ jobs:
           name: visual-diff-${{ matrix.device }}
           path: test-results/visual
           if-no-files-found: ignore
+          retention-days: 2
 
   # Only main and the one integration branch publish. Other claude/** branches are still checked,
   # but their pushes no longer replace /preview/.
@@ -206,5 +208,6 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
+          retention-days: 1
       - id: deployment
         uses: actions/deploy-pages@v4

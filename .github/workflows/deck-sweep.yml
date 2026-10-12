@@ -38,3 +38,4 @@ jobs:
           name: deck-sweep-${{ matrix.deck }}-${{ matrix.size }}
           path: deck-sweep/
           if-no-files-found: ignore
+          retention-days: 7

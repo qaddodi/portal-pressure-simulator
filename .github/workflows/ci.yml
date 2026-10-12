@@ -125,6 +125,7 @@ jobs:
           name: browser-checks-${{ matrix.site }}-${{ matrix.device }}-${{ strategy.job-index }}
           path: browser-shots/
           if-no-files-found: ignore
+          retention-days: 2
 
   # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
   webkit:
@@ -174,3 +175,4 @@ jobs:
         with:
           name: visual-diff-${{ matrix.device }}
           path: test-results/visual
+          retention-days: 2
