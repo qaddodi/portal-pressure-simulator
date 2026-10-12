@@ -18,7 +18,7 @@ import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './ut
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=7b629187ab';
-import { sinusoidSupported } from './sinusoid-view.js?v=0ec2c1d9dc';
+import { sinusoidSupported } from './sinusoid-view.js?v=e28d08de42';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=d1daff429f';
 import { createHvpgMonitor } from './hvpg-proc.js?v=1d06a1fb69';

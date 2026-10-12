@@ -13,7 +13,7 @@
 // image ships one).
 
 import { chromium } from 'playwright';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
 import { checkCharts, checkStrip, checkStripSlides, stripSlides } from './chart-text.mjs';
 import { checkTypeScale } from './type-scale.mjs';
@@ -1036,6 +1036,63 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (await page.waitForFunction((was) => document.querySelector('.pzb-n')?.textContent.trim() !== was, n, { timeout: 15000 }).then(() => true, () => false)) break;
       }
       await page.waitForTimeout(300);
+    }
+  });
+
+  // Presenter, every slide of every deck that opens the sinusoid view (phone, iPad and desktop sizes): an end arrow (toward the portal
+  // venule, toward the central vein) shows only with its name and fades with it; where the name shows, so does the arrow.
+  // DOM state, not pixels: the view exposes each arrow's strength (canvas data-end-arrows) and the names' own opacity is read here.
+  // (Each deck's sinusoid slides, from its source: the slide's cam. A software renderer takes up to a minute to open the view.)
+  const SV_DECKS = new Map();
+  for (const f of readdirSync(new URL('../../src/ui/decks/', import.meta.url))) {
+    if (!f.endsWith('.js') || !/cam: ['"]sinusoid/.test(readFileSync(new URL(`../../src/ui/decks/${f}`, import.meta.url), 'utf8'))) continue;
+    const mod = await import(`../../src/ui/decks/${f}`), d = Object.values(mod).find((v) => Array.isArray(v?.slides));
+    if (d) SV_DECKS.set(d.id, { at: d.slides.map((x, i) => (x.cam === 'sinusoid' && !x.visual ? i : -1)).filter((i) => i >= 0), n: d.slides.length });
+  }
+  if (!SV_DECKS.size) throw new Error('no deck opens the sinusoid view: the end-arrow check has nothing to walk');
+  const endArrows = () => {
+    const c = document.querySelector('.sv.on .sv-canvas');
+    if (!c || !c.dataset.endArrows) return null;
+    const a = c.dataset.endArrows.split(' ').map(Number), names = [...document.querySelectorAll('.sv.on .sv-end')];
+    if (names.length !== 2) return `${names.length} end names`;
+    const bad = names.map((e, i) => {
+      const k = e.firstElementChild, shown = e.hidden || !k ? 0 : Math.min(1, (+getComputedStyle(e).opacity || 0) * (+getComputedStyle(k).opacity || 0) / 0.78);
+      return Math.abs(shown - a[i]) > 0.08 ? `${i ? 'central vein' : 'portal venule'} arrow ${a[i]} but its name shows ${shown.toFixed(2)}` : null;
+    }).filter(Boolean);
+    return bad.length ? bad.join('; ') : 'ok';
+  };
+  for (const [deck, { at: sinAt, n: count }] of SV_DECKS) await check(device, `presenter: on every sinusoid slide of ${deck} no direction arrow shows without its name`, async (page) => {
+    const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }, { width: 1180, height: 820 }] : [null];
+    for (const size of sizes) {
+      if (size) await page.setViewportSize(size);
+      await open(page);
+      await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
+      await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+      let seen = 0;
+      for (let guard = 0; guard < 80; guard++) {
+        const n = await page.evaluate(() => document.querySelector('.pzb-n')?.textContent.trim());
+        const [a, b] = n.split('/').map((x) => +x);
+        await barSettle(page);
+        // (A slide that opens the sinusoid view is waited for until it shows; any other slide is checked only if the view happens to be up.)
+        const must = sinAt.some((i) => i + 1 + (b - count) === a);
+        let r = null;
+        for (let t = 0; t < (must ? 240 : 14); t++) {   // (the names and their arrows ease together; the view itself can be slow to open)
+          r = await page.evaluate(endArrows);
+          if (r === 'ok' || (r === null && !must)) break;
+          await page.waitForTimeout(250);
+        }
+        if (r === 'ok') seen++;
+        else if (must) throw new Error(`${deck}, slide ${n}${size ? ` at ${size.width}x${size.height}` : ''}: the sinusoid view never showed its end arrows (${r})`);
+        else if (r) throw new Error(`${deck}, slide ${n}${size ? ` at ${size.width}x${size.height}` : ''}: ${r}`);
+        if (a === b) break;
+        for (let k = 0; k < 4; k++) {
+          await page.keyboard.press('ArrowRight');
+          if (await page.waitForFunction((was) => document.querySelector('.pzb-n')?.textContent.trim() !== was, n, { timeout: 15000 }).then(() => true, () => false)) break;
+        }
+      }
+      if (!seen) throw new Error(`${deck}: no slide showed the sinusoid view`);
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'));
     }
   });
 

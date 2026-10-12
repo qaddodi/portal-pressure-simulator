@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp, bloodColors } from './util.js?v=0cca243d2a';
 import { pressureColor } from './colormap.js?v=c17dfefa88';
 import { isPaused } from './clock.js?v=af42a9670d';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=00371527ba';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8eea50315b';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('sinusoid-view');
 
@@ -444,6 +444,14 @@ export function createSinusoidView({ host }) {
   const LAB = [0, 0];   // the lumen's name: x and half length (µm), for the shader to keep the arrowheads clear of it
   // How much the lumen's name shows now (its own fades: a presenter slide that is not about it, the labels leaving).
   const labShown = () => { const e = regions.sin?.el; return e && !e.hidden && e.firstElementChild ? +getComputedStyle(e.firstElementChild).opacity || 0 : 0; };
+  // How much an end's name shows now (0 to 1): its pill's own fades (a presenter slide that is not about it, the names leaving).
+  // In the presenter an end's arrow follows it, so no direction arrow shows without its name (Explore keeps both as they are).
+  const endShown = (key) => {
+    const e = regions[key]?.el;
+    if (!document.getElementById('app')?.classList.contains('presenting')) return 1;
+    if (!e || e.hidden || !e.firstElementChild) return 0;
+    return Math.min(1, (+getComputedStyle(e).opacity || 0) * (+getComputedStyle(e.firstElementChild).opacity || 0) / 0.78);
+  };
   const END = [0, 0, 1];   // the end arrows: portal x, central x, size (µm)
   const ENDBOX = [null, null];
   const LEG = { x: 0, y: 0, w: 0, h: 0 };   // the legend's box (px)   // the ends' names on a wide screen (px), for the captions to keep clear of
@@ -599,6 +607,9 @@ export function createSinusoidView({ host }) {
     fenTick();
     if (gpu) {
       const u = palette(dark, getComputedStyle(host));
+      const endA = [endShown('in'), endShown('out')];
+      const ek = endA.map((v) => v.toFixed(2)).join(' ');
+      if (canvas.dataset.endArrows !== ek) canvas.dataset.endArrows = ek;   // (for the browser checks: how much each end arrow shows)
       // Device px ↔ local µm.
       const { C, k, ca, sa } = CAM, K = k * dpr;
       u.uI0 = [ca / K, sa / K, -(C[0] * ca + C[1] * sa) / k];
@@ -608,7 +619,7 @@ export function createSinusoidView({ host }) {
       Object.assign(u, {
         uLum: UM.lum * S.lum, uPinch: S.pinch, uXs: geo.xs, uXk: geo.xk, uKy: halfW(geo.xk), uHscA: wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8,
         uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uLyF: clamp(0.32 * S.filt ** 1.5, 0.06, 1.75), uDir: Math.sign(S.v || 1),
-        uEnd: [END[0], END[1], END[2], 0.95], uLab: [LAB[0], LAB[1], labShown()], uRamp: Math.min(12, Math.abs(S.v * 24) * 0.5),
+        uEnd: [END[0], END[1], END[2], 0.95], uEndA: endA, uLab: [LAB[0], LAB[1], labShown()], uRamp: Math.min(12, Math.abs(S.v * 24) * 0.5),
       });
       // The zoom from the lobule: one camera move. The lobule (magnified by the compositor) carries it most of the way;
       // the view, already drawn where the lobule's own sinusoid is, comes in over all of it at once as the zoom lands
