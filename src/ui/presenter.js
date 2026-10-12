@@ -370,9 +370,15 @@ function bigLadder() {
   };
   const placeSpan = (b) => {
     b.x0 = X(b.i0); b.x1 = X(b.i1); b.mid = (b.x0 + b.x1) / 2;
-    const w = Math.min(b.x1 - b.x0 - 8, est(b.label, c, 0.64) + 0.9 * c), r = b.row;
-    b.bar.setAttribute('d', `M${b.x0} ${r - 5}V${r + 5}M${b.x1} ${r - 5}V${r + 5}M${b.x0} ${r}H${(b.mid - w / 2).toFixed(1)}M${(b.mid + w / 2).toFixed(1)} ${r}H${b.x1}`);
-    b.txt.setAttribute('x', b.mid); b.txt.setAttribute('y', (r + 0.35 * c).toFixed(1)); fsOf(b.txt, c);
+    // The label sits in the line's gap when the line keeps at least 10 a side; otherwise the line runs unbroken
+    // across the span (raised a little) and the label is centred just under it, so it never sits on a drop line.
+    const w = est(b.label, c, 0.64) + 0.9 * c, r = b.row, inl = b.x1 - b.x0 - w >= 20;
+    b.by = inl ? r : r - 0.5 * c;
+    const by = b.by.toFixed(1);
+    b.bar.setAttribute('d', `M${b.x0} ${(b.by - 5).toFixed(1)}V${(b.by + 5).toFixed(1)}M${b.x1} ${(b.by - 5).toFixed(1)}V${(b.by + 5).toFixed(1)}M${b.x0} ${by}`
+      + (inl ? `H${(b.mid - w / 2).toFixed(1)}M${(b.mid + w / 2).toFixed(1)} ${by}H${b.x1}` : `H${b.x1}`));
+    b.txt.setAttribute('x', b.mid); b.txt.setAttribute('y', (inl ? r + 0.35 * c : r + 0.72 * c).toFixed(1)); fsOf(b.txt, c);
+    b.g.classList.toggle('below', !inl);
   };
   const hv = span('HVPG', 1, 2), pp = span('PPG', 0, 3);
   // The phone's strip, two short rows: the station names over the five readings as plain numbers, on the ladder's own
@@ -535,7 +541,7 @@ function bigLadder() {
       const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v);
       b.g.setAttribute('opacity', ok ? 1 : 0);
       if (!ok) return;
-      b.lead.setAttribute('d', `M${b.x0} ${b.row - 6}V${(Y(hi) + 12).toFixed(1)}M${b.x1} ${b.row - 6}V${(Y(lo) + 12).toFixed(1)}`);
+      b.lead.setAttribute('d', `M${b.x0} ${(b.by ?? b.row) - 6}V${(Y(hi) + 12).toFixed(1)}M${b.x1} ${(b.by ?? b.row) - 6}V${(Y(lo) + 12).toFixed(1)}`);
       const say = verdict[b.name.toLowerCase()];
       b.g.dataset.rate = rate;
       b.g.classList.toggle('says', !!say);

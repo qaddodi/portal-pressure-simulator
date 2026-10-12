@@ -15,7 +15,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
-import { checkCharts, checkStrip, checkStripSlides, stripSlides, checkStripGaps } from './chart-text.mjs';
+import { checkCharts, checkLadderBrackets, LADDER_SIZES, checkStrip, checkStripSlides, stripSlides, checkStripGaps } from './chart-text.mjs';
 import { checkPhoneFit } from './phone-fit.mjs';
 import { checkTypeScale } from './type-scale.mjs';
 import { TEXT_MIN, TEXT_MAX } from '../../src/ui/type-scale.js';
@@ -1330,6 +1330,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // pieces of text touch and no text crosses a rule line (tests/e2e/chart-text.mjs). Run once, from the desktop run.
   if (device === 'desktop') await check(device, 'presenter: chart text never overlaps or crosses a line, at every size', async () => {
     const bad = [...await checkCharts(browser, server.url, () => {}), ...await checkStrip(browser, server.url, () => {})];
+    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+  });
+
+  // The Mac and iPad ladder card's HVPG and PPG brackets on every slide: a real line between the ticks, the label clear
+  // of every drop line, reading, name and other bracket (Mac 1280x800 and upright iPad at 100% and 200% text here; run
+  // checkLadderBrackets alone for every size).
+  if (device === 'desktop') await check(device, 'presenter: ladder HVPG/PPG brackets draw a line and their labels clash with nothing', async () => {
+    const bad = await checkLadderBrackets(browser, server.url, () => {}, [LADDER_SIZES[0], LADDER_SIZES[2]]);
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });
 
