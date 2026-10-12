@@ -286,6 +286,59 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(rows.back[rows.back.length - 1].pill > 0.95)) throw new Error('the pill did not come back with its label');
   });
 
+  await check(device, 'lobule and sinusoid pills: the reading is never smaller than its name or unit, all text 11 px or more, the lesion pill on screen (smallest and largest label sizes)', async (page) => {
+    // Every shown pill on the lobule or the sinusoid: any text under 11 px, or a part set larger than the pill's reading (its <b>).
+    const pills0 = (where) => page.evaluate((where) => {
+      const bad = [], W = innerWidth, H = innerHeight;
+      const shown = (e) => { const st = getComputedStyle(e); if (st.display === 'none' || st.visibility === 'hidden' || !e.getBoundingClientRect().width) return false; for (let p = e; p && p.nodeType === 1; p = p.parentElement) if (+getComputedStyle(p).opacity < 0.05) return false; return true; };
+      let n = 0;
+      for (const p of document.querySelectorAll(':is(.lz, .sv) :is(.lz-lab, .lz-zone, .sv-region)')) {
+        if (p.hidden || !shown(p)) continue;
+        const parts = [], w = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+        for (let t; (t = w.nextNode());) if (t.textContent.trim() && shown(t.parentElement)) parts.push([t.parentElement, t.textContent.trim(), parseFloat(getComputedStyle(t.parentElement).fontSize)]);
+        if (!parts.length) continue; n++;
+        const say = parts.map(([, t, f]) => `${t} ${f.toFixed(1)}`).join(' | ');
+        if (parts.some(([, , f]) => f < 10.95)) bad.push(`${where}: text under 11 px in "${say}"`);
+        const v = parts.find(([e]) => e.tagName === 'B');
+        if (v && parts.some(([e, , f]) => e !== v[0] && f > v[2] + 0.1)) bad.push(`${where}: a part larger than the reading in "${say}"`);
+      }
+      const c = document.querySelector('.lz-call.on');
+      if (c && shown(c)) { const r = c.getBoundingClientRect(); if (r.left < 0 || r.top < 0 || r.right > W || r.bottom > H) bad.push(`${where}: lesion pill off screen (${Math.round(r.left)}..${Math.round(r.right)} of ${W})`); }
+      return n ? bad : null;
+    }, where);
+    // (Polled: a slide's pills fade in after its camera settles.)
+    const pills = async (where) => { for (let i = 0; i < 40; i++) { const r = await pills0(where); if (r) return r; await page.waitForTimeout(250); } return [`${where}: no pill shown`]; };
+    const bad = [];
+    for (const k of ['0.5', '2']) {
+      await open(page, '?preset=cirr-decomp');
+      await page.evaluate((k) => { localStorage.setItem('pps.labelScale', k); localStorage.setItem('pps.labelScaleV', '2'); }, k);
+      await open(page, '?preset=cirr-decomp');
+      // Explore: the lobule, then the sinusoid (at the smallest size; the largest only for the lesion pill below).
+      if (k === '0.5') {
+      await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
+      await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 45000 });
+      await page.waitForTimeout(1200);
+      bad.push(...await pills(`explore lobule, size ${k}`));
+      await page.evaluate(() => window.pps.store.set({ sinusoid: true }));
+      await page.waitForFunction(() => document.querySelector('.sv.on') && document.querySelectorAll('.sv-region').length > 3, null, { timeout: 45000 });
+      await page.waitForTimeout(1500);
+      bad.push(...await pills(`explore sinusoid, size ${k}`));
+      await page.evaluate(() => window.pps.store.set({ sinusoid: false }));
+      }
+      // Presenter: the HVPG deck's presinusoidal slide (its lesion pill), then the lobule deck's sinusoid slide.
+      for (const [deck, i, sin] of [['hvpg', 6, false], ...(k === '0.5' ? [['lobule', 4, true]] : [])]) {
+        await page.evaluate(([deck, i]) => window.pps.presenter.start(deck, i), [deck, i]);
+        await page.waitForFunction((sin) => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover') && !document.querySelector('#app').className.includes('pz-hush')
+          && (sin ? !!document.querySelector('.sv.on') : window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled() && !!document.querySelector('.lz-call.on')), sin, { timeout: 60000 });
+        await page.waitForTimeout(1500);
+        bad.push(...await pills(`presenter ${deck} slide ${i + 1}, size ${k}`));
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'), null, { timeout: 30000 });
+      }
+    }
+    if (bad.length) throw new Error(bad.join('; '));
+  });
+
   await check(device, 'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text', async (page) => {
     // The portal circulation deck (after its outline), one patient: the whole lobule, the portal tract, the sinusoid wall, the central vein.
     await open(page, '?preset=healthy');

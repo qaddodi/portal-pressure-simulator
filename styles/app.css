@@ -1508,14 +1508,14 @@ button.finding { cursor: pointer; }
   --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
   -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 .sv-region .v { letter-spacing: 0; text-transform: none; font-weight: 500; font-size: max(11px, calc(10px * var(--label-k, 1))); color: var(--text-2); }
-.sv-region .v b { font-weight: 700; font-size: calc(12px * var(--label-k, 1)); color: var(--text); margin-right: 1px; }
+.sv-region .v b { font-weight: 700; font-size: max(13px, calc(12px * var(--label-k, 1))); color: var(--text); margin-right: 1px; }
 /* The fenestrae named as the cells are (small tinted capitals, the lining's slate), their state a quiet value beneath. */
 .sv-region-fen { font-size: max(11px, calc(9px * var(--label-k, 1))); color: var(--sv-fenestra); gap: 2px; }
 .sv-region-fen > span:first-child { opacity: calc(.9 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
 .sv-region-fen .v { font-size: max(11px, calc(9.5px * var(--label-k, 1))); font-weight: 500; color: var(--text-2); opacity: calc(.9 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
 .sv-region-fen .v { font-variant-numeric: tabular-nums; }
 .sv-region-fen .v b { font-size: max(11px, calc(10px * var(--label-k, 1))); font-weight: 600; color: var(--text-2); margin-right: 2px; transition: opacity .26s var(--ease); }
-.sv-region-sin { color: var(--text); font-size: calc(11.5px * var(--label-k, 1)); }
+.sv-region-sin { color: var(--text); font-size: max(11px, calc(11.5px * var(--label-k, 1))); }
 .sv-region-disse, .sv-region-lymph { color: var(--sv-disse); }
 .sv-region > span:first-child { white-space: pre-line; }
 /* As a journal figure (NEJM) sets its secondary names: the ends' venules are the Sinusoid's caption a size smaller and a
@@ -1566,7 +1566,7 @@ button.finding { cursor: pointer; }
 .lz-labels.lz-ease .lz-lab { transition: left .4s var(--ease), top .4s var(--ease), box-shadow .5s var(--ease), background-color .5s var(--ease), --lit-o .5s var(--ease); }
 @media (prefers-reduced-motion: reduce) { .lz-labels.lz-ease .lz-lab { transition: none; } }
 /* Station cards: the anatomy's label style, as buttons that open the station's card */
-.lz-call { position: absolute; padding: 4px 10px 5px; border-radius: 999px; font: 600 14px/1.2 var(--font-ui); white-space: nowrap; color: var(--on-status); background: var(--danger); box-shadow: var(--shadow-1); pointer-events: none; opacity: 0; transform: scale(.94); transition: opacity .5s var(--ease), transform .5s var(--ease); }
+.lz-call { position: absolute; padding: 4px 10px 5px; border-radius: 999px; font: 600 14px/1.2 var(--font-ui); width: max-content; text-wrap: balance; color: var(--on-status); background: var(--danger); box-shadow: var(--shadow-1); pointer-events: none; opacity: 0; transform: scale(.94); transition: opacity .5s var(--ease), transform .5s var(--ease); }
 .lz-call.on { opacity: 1; transform: none; }
 .lz-call-l, .lz-call-r { opacity: 0; transition: opacity .5s var(--ease); stroke: var(--danger); stroke-width: 2; fill: none; }
 .lz-call-l.on, .lz-call-r.on { opacity: 1; }
@@ -1839,13 +1839,13 @@ button.finding { cursor: pointer; }
 .pz-abb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Projector-size catheter readings. */
 .app.presenting .cath-label { padding: calc(7px * min(var(--label-k, 1), 1.7)) calc(16px * min(var(--label-k, 1), 1.7)) calc(8px * min(var(--label-k, 1), 1.7)); border-radius: calc(14px * min(var(--label-k, 1), 1.7)); }
-.app.presenting .cath-label small, .app.presenting .cath-label b + span { font-size: calc(12px * min(var(--label-k, 1), 1.7)); }
-.app.presenting .cath-label b { font-size: calc(26px * min(var(--label-k, 1), 1.7)); }
+.app.presenting .cath-label small, .app.presenting .cath-label b + span { font-size: max(11px, calc(12px * min(var(--label-k, 1), 1.7))); }
+.app.presenting .cath-label b { font-size: max(24px, calc(26px * min(var(--label-k, 1), 1.7))); }
 .app.presenting .cath-label.site { --sk: min(var(--label-k, 1), 1.7); padding: calc(5px * var(--sk)) calc(12px * var(--sk)) calc(6px * var(--sk)); border-radius: calc(12px * var(--sk)); }
-.app.presenting .cath-label.site b { font-size: calc(20px * var(--sk)); }
+.app.presenting .cath-label.site b { font-size: max(18px, calc(20px * var(--sk))); }
 @media (max-width: 600px) {
   .app.presenting .cath-label.site { padding: calc(3px * var(--sk)) calc(9px * var(--sk)); border-radius: calc(10px * var(--sk)); }
-  .app.presenting .cath-label.site b { font-size: calc(14px * var(--sk)); }
+  .app.presenting .cath-label.site b { font-size: max(14.5px, calc(14px * var(--sk))); }
   .app.presenting .cath-label.site small, .app.presenting .cath-label.site b + span { font-size: max(11px, calc(10.5px * var(--sk))); }
 }
 .pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity .5s var(--ease); }
@@ -2735,9 +2735,9 @@ button.finding { cursor: pointer; }
 .app .cath-label.site.res.low { translate: calc(-100% - 10px) 10px; } .app .cath-label.site.res.coll.low { translate: 10px 10px; } .app .cath-label.site.res.gut.low { translate: -50% calc(100% + 18px); }
 .app .cath-label.site.res.low b + span { display: none; }
 
-.cath-label.site.res small, .app.presenting .cath-label.site.res small { color: var(--text-3); font-size: calc(12px * var(--sk, 1)); letter-spacing: .02em; font-weight: 600; }
-.cath-label.site.res b, .app.presenting .cath-label.site.res b { color: var(--text); font-size: calc(16px * var(--sk, 1)); }
-.cath-label.site.res b + span, .app.presenting .cath-label.site.res b + span { color: var(--text-3); font-size: calc(11px * var(--sk, 1)); margin: 0; }
+.cath-label.site.res small, .app.presenting .cath-label.site.res small { color: var(--text-3); font-size: max(11px, calc(12px * var(--sk, 1))); letter-spacing: .02em; font-weight: 600; }
+.cath-label.site.res b, .app.presenting .cath-label.site.res b { color: var(--text); font-size: max(14.5px, calc(16px * var(--sk, 1))); }
+.cath-label.site.res b + span, .app.presenting .cath-label.site.res b + span { color: var(--text-3); font-size: max(11px, calc(11px * var(--sk, 1))); margin: 0; }
 .cath-label.site.res b + span:empty { display: none; }
 /* The circuit's resistors: a zigzag over the vessel, heavier as its resistance rises (eased, never a jump). */
 .res-one { transition: opacity .6s var(--ease); }
@@ -3472,8 +3472,9 @@ button.finding { cursor: pointer; }
 /* The anatomy's halo: a smooth outline around each letter (a stroke painted under the fill), so the labels read over the tissue. */
 .lz-lab .n, .lz-lab .v { --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
   -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
-.lz-lab .n { font-size: calc(11.5px * var(--label-k, 1)); font-weight: 500; color: var(--text-2); }
-.lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(14px * var(--label-k, 1)); }
+/* Floors keep the pill's order at small label sizes: the reading never drops below its unit or name (all 11 px or more). */
+.lz-lab .n { font-size: max(11px, calc(11.5px * var(--label-k, 1))); font-weight: 500; color: var(--text-2); }
+.lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: max(13.5px, calc(14px * var(--label-k, 1))); }
 .lz-lab.left .v { justify-content: flex-end; }
 .lz-lab .v b { font-weight: 650; color: var(--text); }
 .lz-lab small { font-size: max(11px, calc(10px * var(--label-k, 1))); color: var(--text-3); }

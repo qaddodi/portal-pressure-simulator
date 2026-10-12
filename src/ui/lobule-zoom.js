@@ -940,6 +940,9 @@ export function createLobuleZoom({ host }) {
     const a = call && toScreen(anchorOf(call.at)), on = !!a && a[0] > fr.l && a[0] < fr.r && a[1] > fr.t && a[1] < fr.b;
     for (const e of [callEl, callLine, callRing]) e.classList.toggle('on', on);
     if (!on) return;
+    // Never wider than the free space: a long line wraps instead of running off the screen.
+    const fit = `${Math.max(120, Math.round(fr.r - fr.l - 20))}px`;
+    if (callEl.style.maxWidth !== fit) callEl.style.maxWidth = fit;
     const w = callEl.offsetWidth || 120, hh = callEl.offsetHeight || 28, pad = 10;
     const ov = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
     const rr = Math.max(10, (call.at === 'triad' ? (geo.rt || 6) * 1.6 : (geo.rcv0 || 6) * 1.1) * V.k), spot = { l: a[0] - rr - 6, r: a[0] + rr + 6, t: a[1] - rr - 6, b: a[1] + rr + 6 };
