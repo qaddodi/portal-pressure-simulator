@@ -324,7 +324,8 @@ const est = (t, px, w = 0.6) => String(t).length * px * w;   // (a run's width: 
 function fitChart(svg, lay) {
   const c = { svg, lay, fs: null };
   fitted.add(c);
-  if (typeof ResizeObserver !== 'undefined') { c.ro = new ResizeObserver(() => fitNow(c)); c.ro.observe(svg); }
+  // (On the next frame, not inside the observer: the new layout changes the chart's own height.)
+  if (typeof ResizeObserver !== 'undefined') { c.ro = new ResizeObserver(() => { cancelAnimationFrame(c.raf); c.raf = requestAnimationFrame(() => fitNow(c)); }); c.ro.observe(svg); }
   return c;
 }
 if (typeof addEventListener !== 'undefined') addEventListener('pps:labelscale', () => requestAnimationFrame(() => fitted.forEach(fitNow)));
@@ -418,6 +419,10 @@ function bigLadder() {
     // The unit sits after the last reading when it fits there, else at the end of the HVPG row (under the last stations).
     const inline = XS(4) + est('20', v, 0.62) / 2 + 8 + est('mmHg', c, 0.68) <= S.W - 1;
     S.hvpg = S.ny + 0.5 * v + 6 + 1.05 * c; S.ppg = S.hvpg + 1.45 * c; S.H = S.ppg + 0.6 * c + 3;
+    // (A phone's site-ladder cell hides the brackets, its kicker carries the HVPG: the strip ends under its readings.)
+    const bare = !!strip.closest('.pz.stack .pz-cell');
+    if (bare) S.H = S.ny + 0.5 * v + 4;
+    unit.style.display = bare && !inline ? 'none' : '';
     strip.setAttribute('viewBox', `0 0 ${S.W} ${S.H.toFixed(1)}`);
     sline.setAttribute('d', [0, 1, 2, 3].map((i) => `M${XS(i) + S.gap} ${S.ny}H${XS(i + 1) - S.gap}`).join(''));
     conns.forEach((cn) => { cn.txt.setAttribute('y', S.dy.toFixed(1)); fsOf(cn.txt, d); });
@@ -1460,7 +1465,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   const reveal = (c) => { c.classList.add('shown'); c.removeAttribute('role'); c.removeAttribute('tabindex'); c.removeAttribute('aria-label'); };
   function laddersGrid(s) {
-    const grid = h('div', { class: 'pz-grid' });
+    // (At a large text size a phone's strips take a row each: five readings no longer fit half its width.)
+    const big = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) >= 1.3;
+    const grid = h('div', { class: 'pz-grid' + (big ? ' big' : '') });
     for (const r of rowsOf(s)) {
       if (!r.f) continue;
       const L = bigLadder(); L.setBase(base); L.set(r.f, {});

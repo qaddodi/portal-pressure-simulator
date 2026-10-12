@@ -2121,11 +2121,12 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-panel.fill { height: fit-content; }
 .pz.stack .pz-panel.fill .pz-grid { flex: none; }   /* (the six ladders keep their height; the card scrolls instead of the charts spilling out of their cells) */
 .pz.stack .pz-panel.fill .pz-cell .pz-ladder { flex: none; }
-/* A phone's site ladders, or a cell too short for a plot at a large text size, read as strips, one cell to a row. */
-.pz.stack .pz-grid:has(.pz-cell) { grid-template-columns: minmax(0, 1fr); }
+/* A phone's site ladders, or a cell too short for a plot at a large text size, read as strips (two to a row on a phone). */
 .pz-cell > .pz-strip { display: none; }
 :is(.pz.stack .pz-cell, .pz-cell.strip) > .pz-strip { display: block; }
 :is(.pz.stack .pz-cell, .pz-cell.strip) > .pz-ladder { display: none; }
+.pz.stack .pz-cell > .pz-strip .pzl-bg { display: none; }   /* (a cell's kicker carries its HVPG) */
+.pz.stack .pz-grid.big { grid-template-columns: minmax(0, 1fr); }
 .pz.stack .pz-bar { left: auto; right: 10px; top: auto; bottom: calc(4px + env(safe-area-inset-bottom, 0px)); translate: none; max-width: none; height: 44px; gap: 0; padding: 0 2px; overflow: visible; background: var(--glass); border: 0; border-radius: var(--r-sheet); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); transition: opacity .2s var(--ease); }
 /* (A phone's controls: a small frosted pill fixed at the lower right, like the timeline's folded pill. Its foot is 4 px up and it is
    44 px tall; the words end that much less a line above the bottom, so only their last line meets it (see clearPill). */
