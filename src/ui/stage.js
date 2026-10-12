@@ -1560,13 +1560,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // pieces leave, as Fit does for the whole plate, zoomed in no further than kMax.
   // (clear: the box goes entirely into the band the cards leave, however thin: it may zoom out past the usual floor for it.)
   // The camera that frames a box of the plate (world units) in the space the floating pieces leave.
+  // While presenting, the presenter names the free area (freeArea: the open rectangles the words, the data card where it
+  // comes to rest and the controls leave), and the box is centred in whichever of them shows it largest.
+  let freeArea = null, lastFree = null;
   function boxVT([x0, y0, x1, y1], kMax = 4, clear = false) {
     const r = { width: svg.clientWidth, height: svg.clientHeight };
     if (!r.width || !r.height) return null;
-    const ins = safeInsets(clear), s0 = Math.min(r.width / VB_ANAT[2], r.height / VB_ANAT[3]);
-    const pad = clear ? 12 : 0, fw = Math.max(40, r.width - ins.l - ins.r - 2 * pad), fh = Math.max(40, r.height - ins.t - ins.b - 2 * pad);   // (clear: a margin for the vessels' glow)
-    const k = clamp(Math.min(fw / s0 / (x1 - x0), fh / s0 / (y1 - y0)), clear ? 0.3 : 0.6, kMax);
-    const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + (ins.l - ins.r) / 2 / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + (ins.t - ins.b) / 2 / s0;
+    const s0 = Math.min(r.width / VB_ANAT[2], r.height / VB_ANAT[3]), pad = clear ? 12 : 0;   // (clear: a margin for the vessels' glow)
+    const fitK = (q) => Math.min(Math.max(40, q.r - q.l - 2 * pad) / s0 / (x1 - x0), Math.max(40, q.b - q.t - 2 * pad) / s0 / (y1 - y0));
+    let rects = store.get().presenting && freeArea ? freeArea() : null;
+    if (!rects?.length) { const ins = safeInsets(clear); rects = [{ l: ins.l, t: ins.t, r: r.width - ins.r, b: r.height - ins.b }]; }
+    // (A clearly larger fit wins; within 4% the larger rectangle does, so a near tie never flips the framing about.)
+    const score = (q) => Math.min(fitK(q), kMax);
+    const area = (q) => (q.r - q.l) * (q.b - q.t);
+    const f = rects.reduce((a, q) => (score(q) > score(a) * 1.04 || (score(q) >= score(a) / 1.04 && area(q) > area(a)) ? q : a));
+    lastFree = { ...f, box: [x0, y0, x1, y1] };
+    const k = clamp(fitK(f), clear ? 0.3 : 0.6, kMax);
+    const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + ((f.l + f.r) / 2 - r.width / 2) / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + ((f.t + f.b) / 2 - r.height / 2) / s0;
     return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
   }
   function frameBox(box, ms = 1300, kMax = 4, clear = false) {
@@ -6150,6 +6160,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCircuitRotated,
     circuitRotated: () => rotTarget === 1,
     zoomToBox, frameBox,
+    /** While presenting: a function returning the free rectangles (wrap px, {l, t, r, b}) the camera frames a box into. */
+    setFreeArea(fn) { freeArea = fn; },
+    /** The free rectangle the last framed box was centred in (for the tests). */
+    lastFree: () => lastFree,
     /** The plate box (world units) around organs and vessels as drawn now (an enlarged spleen at its size), or null. */
     focusBox({ organs = [], edges = [] } = {}) {
       let b = null;

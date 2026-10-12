@@ -14,7 +14,10 @@ export const fitIssues = () => {
   if (dr) for (const c of data.querySelectorAll('h1,p,li,span,td,th,button,b,small,output')) { const q = c.getBoundingClientRect(); if (!q.width || getComputedStyle(c).visibility === 'hidden' || hidden(c, data)) continue; if (q.right > dr.right + 2 || q.left < dr.left - 2 || q.bottom > dr.bottom + 2 || q.top < dr.top - 2) { out.push(`reading "${c.textContent.trim().slice(0, 30)}" outside its card`); break; } }
   // The numbers card sits in the figure, whole on screen and clear of the words (sideways it had been pushed under them and cut off).
   // (Judged also while the card is held back: a card with no room under the words had waited off screen, never shown.)
-  const db = data && !data.hidden && !('gone' in data.dataset) && data.getBoundingClientRect(), held = data?.classList.contains('pz-hide') ? 16 : 1;
+  const held = data?.classList.contains('pz-hide') ? 16 : 1;
+  // (a held card is judged where it will show: without the small slide its hiding adds, 18 px up on a phone)
+  const rest = (el) => { const t = el.style.transform, tr = el.style.transition; el.style.transition = 'none'; el.style.transform = 'none'; const r = el.getBoundingClientRect(); el.style.transform = t; el.style.transition = tr; return r; };
+  const db = data && !data.hidden && !('gone' in data.dataset) && (held > 1 ? rest(data) : data.getBoundingClientRect());
   if (db && db.width && (db.left < -1 || db.top < -1 || db.right > innerWidth + 1 || db.bottom > innerHeight + held)) out.push(`numbers card off screen (${Math.round(db.left)},${Math.round(db.top)},${Math.round(db.right)},${Math.round(db.bottom)})`);
   if (dr && !data.classList.contains('pz-hide')) {
     if (text && Math.min(dr.right, text.right) - Math.max(dr.left, text.left) > 4 && Math.min(dr.bottom, text.bottom) - Math.max(dr.top, text.top) > 4) out.push('numbers card over the slide words');

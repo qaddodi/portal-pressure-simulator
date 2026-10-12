@@ -1681,6 +1681,15 @@ button.finding { cursor: pointer; }
 /* (Without a backdrop blur the words keep a plain backdrop of the page colour.) */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade { background: color-mix(in srgb, var(--stage-bg) 94%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade { background: color-mix(in srgb, var(--stage-bg) 94%, transparent); } }
+/* The words' card (presenter.js TEXT_CARD): on a laptop or tablet the glass is a floating card like the data card, the same
+   margin from the screen's edge as the data card, and the words sit inside it. */
+:root { --pz-cm: clamp(16px, calc(2.6vw / var(--vz)), 60px); --pz-cp: clamp(20px, calc(2.4vw / var(--vz)), 44px); }
+.pz-shade.pz-card:not(.stack) { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); left: var(--pz-cm); top: var(--pz-cm); bottom: var(--pz-cm); background: color-mix(in srgb, var(--surface) 58%, transparent); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
+:root[data-theme="dark"] .pz-shade.pz-card:not(.stack) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pz-shade.pz-card:not(.stack) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.pz-card:not(.stack) { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@media (prefers-reduced-transparency: reduce) { .pz-shade.pz-card:not(.stack) { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+.pz.pz-card:not(.stack) .pz-text, .pz.pz-card:not(.stack) .pz-data.under { left: calc(var(--pz-cm) + var(--pz-cp)); }
 /* The data card is the same glass: see-through tint, the same blur, crisp edge with a hairline highlight, soft shadow. */
 .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 /* The blocks stand out from the glass: a fill a shade toward the text colour (darker in light, lighter in dark) and a hairline edge. */
@@ -2091,6 +2100,10 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data.has-tool.tool-lead:not(.tool-only):not(.tool-open) .pz-tool { max-height: 60vh; opacity: 1; margin-bottom: 0; }
 .pz.stack .pz-data.tool-lead .pz-tiles { max-height: 40vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
 .pz.stack .pz-data.tool-lead:not(.tool-open) .pz-tiles { max-height: 0; opacity: 0; margin-top: -6px; }
+@media (orientation: landscape) and (max-height: 500px) {   /* (a phone on its side: an opened instrument beside the tiles, not above them, so the short card holds both) */
+  .pz.stack .pz-data.has-tool.tool-open:not(.tool-only):not(.tool-lead) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; column-gap: 12px; }
+  .pz.stack .pz-data.has-tool.tool-open:not(.tool-only):not(.tool-lead) > :not(.pz-tool, .pz-tiles) { grid-column: 1 / -1; }
+}
 .pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
 .pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .endo-stage { flex: none; width: 42%; min-height: 0; }
 .pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; }
@@ -2127,6 +2140,10 @@ button.finding { cursor: pointer; }
 :is(.pz.stack .pz-cell, .pz-cell.strip) > .pz-ladder { display: none; }
 .pz.stack .pz-cell > .pz-strip .pzl-bg { display: none; }   /* (a cell's kicker carries its HVPG) */
 .pz.stack .pz-grid.big { grid-template-columns: minmax(0, 1fr); }
+/* (A cell that turned strip at a large text size: the rows take the strips' own height instead of the card's, and on a
+   narrower screen two to a row, so no reading, fall or bracket runs out of its cell or into its neighbour.) */
+.pz-panel.fill .pz-grid:has(> .pz-cell.strip) { flex: none; grid-template-rows: none; }
+@media (max-width: 1100px) { .pz-grid:has(> .pz-cell.strip) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pz.stack .pz-bar { left: auto; right: 10px; top: auto; bottom: calc(4px + env(safe-area-inset-bottom, 0px)); translate: none; max-width: none; height: 44px; gap: 0; padding: 0 2px; overflow: visible; background: var(--glass); border: 0; border-radius: var(--r-sheet); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); transition: opacity .2s var(--ease); }
 /* (A phone's controls: a small frosted pill fixed at the lower right, like the timeline's folded pill. Its foot is 4 px up and it is
    44 px tall; the words end that much less a line above the bottom, so only their last line meets it (see clearPill). */
@@ -2386,7 +2403,7 @@ button.finding { cursor: pointer; }
 .pz-outline section { min-width: 0; display: flex; flex-direction: column; }
 .pz-outline h2.pz-sub { display: flex; align-items: center; gap: .8em; margin: 0 0 .7em; }
 .pz-outline h2.pz-sub::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-.pz-outline :is(ol, ul) { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; font: 400 var(--pzo-fs)/1.35 var(--font-ui); color: var(--text); }
+.pz-outline :is(ol, ul) { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; font: 400 var(--pzo-fs)/1.35 var(--font-display); color: var(--text); }
 .pz-outline ol { counter-reset: pzo; }
 .pz-outline ol li { counter-increment: pzo; display: grid; grid-template-columns: 2.1em minmax(0, 1fr); align-items: baseline; padding: .5em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
 .pz-outline ol li:first-child { border-top: 0; padding-top: .1em; }

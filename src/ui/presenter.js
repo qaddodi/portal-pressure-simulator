@@ -407,7 +407,10 @@ function bigLadder() {
     b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (above ? `M${b.x0} ${r}H${b.x1}` : `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}`));
   };
   const layS = (fs) => {
-    const c = S.c = fs.cap, d = S.d = fs.lab, v = S.v = fs.val;
+    // (A reading takes the largest role whose two digits still leave the line its gap on each side between stations 70 apart:
+    // in a narrow card at a large text size the value role would run the readings into each other.)
+    const fit = [fs.val, fs.body, fs.lab, fs.cap].filter((x) => x > 0), v0 = fit.find((x) => est('20', x, 0.62) + 2 * 5 + 10 <= 70) ?? Math.min(...fit);
+    const c = S.c = fs.cap, d = S.d = fs.lab, v = S.v = v0;
     // The falls share the names' row while they clear them, otherwise they take a row of their own.
     // The names take two rows when neighbours would touch.
     const nameW = Math.max(...RUNGS.map(([, a]) => est(a, c, 0.7))), two = nameW > 70 - 6, nameHalf = nameW / 2, apart = !two && nameHalf + est('−13', d) / 2 + 3 < 35;
@@ -1630,6 +1633,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // stays at the edge: a tap or a drag on the sliver brings it back. It follows the finger, eases to rest, and stays put from
   // slide to slide until brought back. (Driven from script, frame by frame: the card is frosted glass.)
   const GRIP = 34;
+  // On a laptop or tablet the words sit on a floating card like the data card (false: the full-height glass panel at the left edge).
+  // (A phone, upright or sideways, keeps its words' panel either way.)
+  const TEXT_CARD = true;
   const dock = { lvl: 0, to: 0, raf: 0 };
   const dockVec = () => {
     const d = ui.data;
@@ -1664,6 +1670,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // once at their size and then, on the next layout, shrank. (So a card is judged by where its contents come to rest.)
   function overflowOf(el) {
     const cs = getComputedStyle(el), z = el.offsetHeight ? el.getBoundingClientRect().height / el.offsetHeight : 1;
+    if (cs.display === 'grid') {   // (parts side by side, a phone on its side: the lowest part's foot against the card's)
+      const r = el.getBoundingClientRect(), foot = Math.max(...[...el.children].map((c) => c.getBoundingClientRect().bottom));
+      return { v: (foot - r.bottom) / z + (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0), h: el.scrollWidth - el.clientWidth };
+    }
     let used = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0), n = 0;
     for (const c of el.children) {
       const s = getComputedStyle(c);
@@ -1728,7 +1738,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     for (const el of [ui.text, ui.data, ui.panel]) for (const c of el.children) fitRO.observe(c);
     // A slide that keeps its figure clear of the cards frames it again as the cards settle to their size (a chart arriving, a line wrapping).
     const again = () => { if (!ui) return; if (!shown) { clearT = setTimeout(again, 150); return; }   // (a slide still coming in: once it is in)
-      if (slides[shown.i]?.clear && cardSig() !== framedSig) reframe(400); };   // (only when the cards really changed: the camera framed them once)
+      if (cardSig() !== framedSig) reframe(400); };   // (only when the cards really changed: the camera framed them once; any slide, so a card that grew never covers its box)
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
     // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
     clearRO ||= new ResizeObserver(() => { cancelFrame(paneRaf); paneRaf = nextFrame(() => ui && layout()); soon(); });
@@ -1741,6 +1751,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // The --pz-* insets stay in screen px, the figure's own units (the stage view undoes the zoom).
     const p = phone(), wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = wr.width / (wrap.clientWidth || wr.width) || 1;
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
+    const cardOn = TEXT_CARD && !p && !(W > H && H <= 500);   // (a phone held sideways keeps its panel too)
+    ui.root.classList.toggle('pz-card', cardOn); ui.shade.classList.toggle('pz-card', cardOn);
     const off = (el) => el.hidden || (el === ui.data ? 'gone' in el.dataset : el.classList.contains('pz-hide'));   // (a card only easing out and back in for the next slide still counts, where it rests: the camera frames once)
     const below = !p && ui.data.classList.contains('under');
     if (off(ui.data) || below) delete ui.data.dataset.safe; else ui.data.dataset.safe = p ? 'top' : 'right';
@@ -1758,23 +1770,46 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
     // (On a phone the words sit at the bottom, over the Back/Next bar, and the data card at the top: B is the height
     // from the words' top edge down to the bottom of the figure.)
-    const L = t ? t.right - wr.left : 0, T = t ? t.bottom - wr.top : 0, B = t ? H - ui.text.offsetTop * k : 0;
-    ui.shade.style.width = !p && t ? `${(L + 36) / k}px` : '';
+    const L = t ? Math.max(t.right, below && !off(ui.data) ? ui.data.getBoundingClientRect().right : 0) - wr.left : 0, T = t ? t.bottom - wr.top : 0, B = t ? H - ui.text.offsetTop * k : 0;
+    // (The words' card: as far past the words on the right as its left edge is before them.)
+    const sl = ui.shade.offsetLeft * k, card = cardOn && t ? L + (t.left - wr.left - sl) - sl : 0;
+    ui.shade.style.width = !p && t ? `${(card || L + 36) / k}px` : '';
     ui.shade.style.height = p && t ? `${(B + 26) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'bottom' : 'left';
-    ui.safe.style.width = p ? '' : `${(L + 48) / k}px`;
+    frameL = !p && t ? (card ? sl + card + 24 : L + 48) : 0;
+    ui.safe.style.width = p ? '' : `${frameL / k}px`;
     ui.safe.style.height = p ? `${(B + 34) / k}px` : '';
     const set = (k, v) => app.style.setProperty(k, `${Math.max(0, Math.round(v))}px`);
-    set('--pz-l', !p && t ? L + 48 : 0);
-    set('--pz-r', !p && d ? W - (d.left - wr.left + (dock.to - dock.lvl) * dv[0] * k) + 8 : 0);   // (d.left is where the card is now; it is on its way to dock.to)
+    set('--pz-l', frameL);
+    set('--pz-r', !p && d ? W - (ui.data.offsetLeft + dock.to * dv[0]) * k + 8 : 0);   // (where the card comes to rest: past its entry shift, at its dock)
     set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
     set('--pz-b', p && t ? B + 34 : 0);
     if (!dock.drag) dockPaint();
     placeBar();
     dispatchEvent(new Event('pps:occ'));
   }
+  // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
+  // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
+  let frameL = 0;
+  function freeRects() {
+    if (!ui || phone()) return null;
+    const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = W / (wrap.clientWidth || W) || 1, G = 12;
+    const obs = [], d = ui.data;
+    if (!d.hidden && !('gone' in d.dataset) && !d.classList.contains('under')) {
+      const x = d.offsetLeft + dock.to * dockVec()[0];
+      obs.push({ l: x * k, t: d.offsetTop * k, r: (x + d.offsetWidth) * k, b: (d.offsetTop + d.offsetHeight) * k });
+    }
+    if (!ui.bar.hidden && ui.bar.offsetWidth) { const q = ui.bar.getBoundingClientRect(); obs.push({ l: q.left - wr.left, t: q.top - wr.top, r: q.right - wr.left, b: q.bottom - wr.top }); }
+    // Each obstacle splits a rectangle it overlaps into the open parts left, right, above and below it.
+    const split = (q, o) => (o.r <= q.l || o.l >= q.r || o.b <= q.t || o.t >= q.b ? [q]
+      : [{ ...q, r: o.l - G }, { ...q, l: o.r + G }, { ...q, b: o.t - G }, { ...q, t: o.b + G }].filter((x) => x.r - x.l > 0 && x.b - x.t > 0));
+    let out = [{ l: frameL, t: 0, r: W, b: H }];
+    for (const o of obs) out = out.flatMap((q) => split(q, o));
+    return out.filter((q) => q.r - q.l >= 200 && q.b - q.t >= 150);
+  }
+  stage.setFreeArea(freeRects);
   const onFonts = () => { if (ui) layout(); };
   // Where the cards stand, rounded: the camera framed this space last; the same space needs no second glide.
   let framedSig = '';
