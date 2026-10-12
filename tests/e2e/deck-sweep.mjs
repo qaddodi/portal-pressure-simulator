@@ -73,8 +73,19 @@ const snap = (page) => page.evaluate(() => {
   const m = window.pps.store.get().frame?.metrics || {};
   const size = Object.fromEntries(['.pz-text', '.pz-data'].map((k) => [k, boxes[k] ? `${Math.round(boxes[k].width)}x${Math.round(boxes[k].height)}` : '']));
   const cam = window.__cam || 0; window.__cam = 0;
-  return { size, cam, count, text: txt('.pz-text'), data: txt('.pz-data'), panel: txt('.pz-panel'), terms, issues, m: { pv: m.pv?.toFixed(1), hvpg: m.hvpg?.toFixed(1), ppg: m.ppg?.toFixed(1) } };
+  const path = window.__path.splice(0);
+  return { size, cam, path, count, text: txt('.pz-text'), data: txt('.pz-data'), panel: txt('.pz-panel'), terms, issues, m: { pv: m.pv?.toFixed(1), hvpg: m.hvpg?.toFixed(1), ppg: m.ppg?.toFixed(1) } };
 });
+// A camera that moves into a slide goes once, straight: no zoom or pan that turns back on itself (a round trip, or a move
+// away and back to where it started). Zoom in log steps; pan in plate units at the camera's zoom (what the eye sees move).
+const wander = (p) => {
+  if (p.length < 3) return null;
+  let lz = 0, lp = 0;
+  for (let j = 1; j < p.length; j++) { lz += Math.abs(Math.log(p[j][0] / p[j - 1][0])); lp += Math.hypot(p[j][1] - p[j - 1][1], p[j][2] - p[j - 1][2]); }
+  const a = p[0], b = p.at(-1), dz = Math.abs(Math.log(b[0] / a[0])), dp = Math.hypot(b[1] - a[1], b[2] - a[2]);
+  if (lz - dz > 0.02 || (lp - dp > 6 && lp > dp * 1.15)) return `went back on itself: zoom ${lz.toFixed(3)} for a net ${dz.toFixed(3)}, pan ${lp.toFixed(0)} for a net ${dp.toFixed(0)}`;
+  return null;
+};
 const norm = (t) => (t || '').replace(/[\u00ad\u200b-\u200d\u2060]/g, '').replace(/\s+/g, ' ').trim();
 const shows = (page, title) => page.waitForFunction((t) => [...document.querySelectorAll('.pz-text h1, .pz-panel h1')].some((h) => h.textContent.replace(/[\u00ad\u200b-\u200d\u2060]/g, '').replace(/\s+/g, ' ').trim() === t && getComputedStyle(h.closest('section')).opacity > 0.9), norm(title), { timeout: 25000 }).then(() => true, () => false);
 const at = (page, k) => page.waitForFunction((k) => (document.querySelector('.pzb-n')?.textContent.trim() || '').startsWith(k + ' /'), k, { timeout: 15000 }).catch(() => {});
@@ -89,6 +100,8 @@ async function run(deck, dev) {
   await page.goto(server.url + '?script=' + deck);
   await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'), null, { timeout: 60000 });
   // Every camera move asked of the stage, counted (read and reset by snap).
+  // The camera, sampled every frame outside the lobule (read and reset by snap): the path it took into each slide.
+  await page.evaluate(() => { window.__path = []; const st = window.pps.stage, f = () => { const g = window.pps.store.get(); if (!g.lobule && !g.sinusoid && st.cameraZoom() == null) { const c = st.cameraState(), l = window.__path.at(-1); if (!l || l[0] !== c.k || l[1] !== c.x || l[2] !== c.y) window.__path.push([c.k, c.x, c.y]); } requestAnimationFrame(f); }; f(); });
   await page.evaluate(() => { const st = window.pps.stage; for (const k of ['frameBox', 'fitSlow']) { const f = st[k]; st[k] = (...a) => { window.__cam = (window.__cam || 0) + 1; return f.apply(st, a); }; } });
   const fwd = [], back = [];
   let n = 99;
@@ -98,6 +111,7 @@ async function run(deck, dev) {
     // Once in, a slide's cards keep their size and the camera moved at most once for it (no second glide as the cards settle).
     for (const k of ['.pz-text', '.pz-data']) if (s0.size[k] && s.size[k] && s0.size[k] !== s.size[k]) s.issues.push(`${k} changed size after it showed (${s0.size[k]} -> ${s.size[k]})`);
     if (s0.cam + s.cam > 1) s.issues.push(`camera framed ${s0.cam + s.cam} times for one slide`);
+    { const w = wander([...s0.path, ...s.path]); if (w && i > 0) s.issues.push(`CAMERA ${w}`); }
     fwd.push(s);
     const m = s.count?.match(/(\d+) \/ (\d+)/); if (m) n = +m[2];
     if (i < n - 1) { await page.keyboard.press('ArrowRight'); await at(page, i + 2); }
@@ -109,12 +123,12 @@ async function run(deck, dev) {
 }
 const jobs = [];
 for (const d of decks) for (const dev of (process.env.DEVS || 'desktop,ipad,phone').split(',')) jobs.push([d, dev]);
-let failed = 0;
+let failed = 0, camBad = 0;
 const report = (deck, dev, r) => {
   const lines = [];
   r.errors.forEach((e) => lines.push(`console: ${e.slice(0, 200)}`));
   r.fwd.forEach((s, i) => {
-    s.issues.forEach((x) => lines.push(`slide ${i + 1}: ${x}`));
+    s.issues.forEach((x) => { lines.push(`slide ${i + 1}: ${x}`); if (x.startsWith('CAMERA')) camBad++; });
     const b = r.back[i];
     if (b && (b.text !== s.text || b.panel !== s.panel)) lines.push(`slide ${i + 1}: words differ going back | F: ${(s.text + s.panel).slice(0, 160)} | B: ${(b.text + b.panel).slice(0, 160)}`);
   });
@@ -131,4 +145,5 @@ for (const [d, dev] of jobs) {
   report(d, dev, r);
 }
 server.close?.();
-process.exit(failed ? 1 : 0);
+// (A camera that goes back on itself fails the job; the layout findings are for reading.)
+process.exit(failed || camBad ? 1 : 0);
