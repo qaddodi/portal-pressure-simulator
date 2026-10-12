@@ -1345,12 +1345,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
 
   // ── The slide's words, data and visual ──
-  // On a phone, tiles beside a sinusoid sit under the words, so the vessel has the width of the screen.
-  // (Not on a phone on its side, nor on a tablet or computer: there they sit at the top right as on other slides,
-  // and the camera centres the vessel between the two cards.)
+  // On a laptop or tablet both cards sit in the left column, the data card under the words, and the figure has the
+  // rest of the screen. On a phone only the tiles beside a sinusoid sit under the words (the vessel has the width of the screen).
+  // (Not on a phone on its side: under the words they had no room and were cut off; they sit on the right as on other slides.)
   const shortSide = matchMedia('(orientation: landscape) and (max-height: 500px)');
   const sinTiles = (s) => s.data === 'tiles' && !s.visual && /^sinusoid/.test(s.cam || '');
-  const under = (s) => sinTiles(s) && !shortSide.matches && phone();
+  const under = (s) => !!(s.data || s.tool) && !shortSide.matches && (phone() ? sinTiles(s) : true);
   async function wordsOut(next, newPatient = false) {
     if (!ui) return;
     const out = [ui.text, ui.panel], data = ui.data;
@@ -1452,7 +1452,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (hasCard(s)) {
       const lad = s.data === 'ladder';
       data.classList.toggle('tiles-only', !lad);
-      data.classList.toggle('under', under(s));
+      data.classList.remove('nofit'); data.classList.toggle('under', under(s));
       data.toggleAttribute('data-sin-tiles', sinTiles(s));
       data.classList.toggle('has-tool', !!s.tool);
       data.classList.toggle('tool-only', !!s.tool && !s.data);
@@ -1753,12 +1753,27 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const below = !p && ui.data.classList.contains('under');
     if (off(ui.data) || below) delete ui.data.dataset.safe; else ui.data.dataset.safe = p ? 'top' : 'right';
     const r = (el) => (off(el) ? null : restBox(el));
+    // (With the data card under them, the words keep to about half the column, so both cards fit.)
+    const pair = below && cardOn && !off(ui.data);
+    if (pair) ui.text.style.maxHeight = `${Math.round(H * 0.48 / k)}px`;
     fitCards(ui.text);
     let t = r(ui.text);
     // (Under the words: in the left column, clear of the bottom.)
-    if (below && t) { const y = t.bottom - wr.top + 28; ui.data.style.top = `${Math.round(y / k)}px`; ui.data.style.maxHeight = `${Math.round((H - y - 24) / k)}px`; }
-    else { ui.data.style.top = ''; ui.data.style.maxHeight = ''; }
+    if (below && t) {
+      // (Below the words' glass with a clear gap, and clear of the controls' pill.)
+      const cp = cardOn ? t.left - wr.left - ui.shade.offsetLeft * k : 0, y = t.bottom - wr.top + cp + (cardOn ? Math.max(20, ui.shade.offsetLeft * k) : 28);   // (a clear gap: the cards' margin from the screen's edge)
+      const q = ui.bar && !ui.bar.hidden ? ui.bar.getBoundingClientRect() : null, foot = q && q.width ? Math.min(H, q.top - wr.top - 16) : H - 24;
+      // (As wide as the words' glass card, on its left edge.)
+      const sl0 = ui.shade.offsetLeft * k; ui.data.style.width = pair ? `${((t.right + t.left - 2 * (wr.left + sl0)) / k).toFixed(1)}px` : '';
+      ui.data.style.top = `${Math.round(y / k)}px`; ui.data.style.maxHeight = `${Math.round(Math.max(80, foot - y) / k)}px`;
+    }
+    else { ui.data.style.top = ''; ui.data.style.maxHeight = ''; ui.data.style.width = ''; }
     fitCards(ui.data, ui.panel);
+    // (If the two would not fit the column without shrinking the numbers, the data card keeps the top right for this slide.)
+    if (pair && +(ui.data.style.getPropertyValue('--pz-fit') || 1) < 0.95) {
+      ui.data.classList.add('nofit'); ui.data.classList.remove('under'); ui.text.style.maxHeight = '';
+      ui.data.style.top = ui.data.style.maxHeight = ui.data.style.width = ''; fitDone.delete(ui.data); fitDone.delete(ui.text); layout(); return;
+    }
     fitWatch();
     const dv = ui.data.hidden ? [0, 0] : dockVec();
     const d = below ? null : r(ui.data);
@@ -1768,13 +1783,13 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const ts = ui.text.style, was = ts.top;
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
     if (lvl != null) ts.marginBlock = '0';
-    ts.maxHeight = lvl != null ? `${((H - lvl - pad - 16) / k).toFixed(1)}px` : '';
+    if (!pair) ts.maxHeight = lvl != null ? `${((H - lvl - pad - 16) / k).toFixed(1)}px` : '';
     if (ts.top !== was && t) t = r(ui.text);
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
     // (On a phone the words sit at the bottom, over the Back/Next bar, and the data card at the top: B is the height
     // from the words' top edge down to the bottom of the figure.)
-    const L = t ? Math.max(t.right, below && !off(ui.data) ? ui.data.getBoundingClientRect().right : 0) - wr.left : 0, T = t ? t.bottom - wr.top : 0, B = t ? H - ui.text.offsetTop * k : 0;
+    const L = t ? Math.max(t.right, below && !cardOn && !off(ui.data) ? ui.data.getBoundingClientRect().right : 0) - wr.left : 0, T = t ? t.bottom - wr.top : 0, B = t ? H - ui.text.offsetTop * k : 0;
     // (The words' card: as far past the words on the right as its left edge is before them.)
     const sl = ui.shade.offsetLeft * k, card = cardOn && t ? L + (t.left - wr.left - sl) - sl : 0;
     ui.shade.style.width = !p && t ? `${(card || L + 36) / k}px` : '';
@@ -1835,7 +1850,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   const onResize = () => {
     if (!ui) return;
-    if (ui.data.hasAttribute('data-sin-tiles')) ui.data.classList.toggle('under', !shortSide.matches && phone());   // (turned on or off its side)
+    if (phone() || !ui.data.classList.contains('nofit')) ui.data.classList.toggle('under', !shortSide.matches && (phone() ? ui.data.hasAttribute('data-sin-tiles') : true));   // (turned on or off its side)
     layout(); setLabels();
     if (shown) reframe(400);
   };

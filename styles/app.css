@@ -1689,7 +1689,9 @@ button.finding { cursor: pointer; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pz-shade.pz-card:not(.stack) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.pz-card:not(.stack) { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade.pz-card:not(.stack) { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
-.pz.pz-card:not(.stack) .pz-text, .pz.pz-card:not(.stack) .pz-data.under { left: calc(var(--pz-cm) + var(--pz-cp)); }
+.pz.pz-card:not(.stack) .pz-text { left: calc(var(--pz-cm) + var(--pz-cp)); }
+/* (The data card under the words: the words' glass card's left edge and width.) */
+.pz.pz-card:not(.stack) .pz-data.under { left: var(--pz-cm); }   /* (its width: the words' card's, set in layout) */
 /* The data card is the same glass: see-through tint, the same blur, crisp edge with a hairline highlight, soft shadow. */
 .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 /* The blocks stand out from the glass: a fill a shade toward the text colour (darker in light, lighter in dark) and a hairline edge. */
@@ -2077,7 +2079,7 @@ button.finding { cursor: pointer; }
 .pz-shade.stack { width: auto !important; right: 0; top: auto; bottom: 0; height: 0; box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 -1px 0 var(--pz-glass-line), 0 -10px 24px -6px var(--pz-glass-drop), 0 -2px 5px -1px var(--pz-glass-drop); }
 .pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh) / var(--vz)), 20px)); left: 14px; right: 14px; top: auto; bottom: calc(max(16px, 48px - var(--pz-lh)) + env(safe-area-inset-bottom, 0px)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }   /* (twice-size words: room for most slides without zooming them down) */
 /* (With a data card under the words, the pair keeps to the top so the card has room.) */
-.pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
+.pz:not(.stack):has(.pz-data.under:not([data-gone])) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: var(--s-lab); }
 .pz.stack .pz-h { font-size: var(--s-val); }
 .pz.stack .pz-line { font-size: var(--s-lab); }
