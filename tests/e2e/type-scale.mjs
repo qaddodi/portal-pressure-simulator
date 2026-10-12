@@ -49,6 +49,11 @@ export function offScale(roles) {
       if (u && u !== v && shown(v) && shown(u) && parseFloat(getComputedStyle(u).fontSize) > parseFloat(getComputedStyle(v).fontSize) + 0.1) out.push(`unit larger than its reading in ${g.className.baseVal ?? g.className} "${v.textContent.trim()}"`);
     }
   }
+  // The outline slide's items and objectives are set in the title's serif face.
+  const title = document.querySelector('.pz-h, .pz-dtitle');
+  for (const li of document.querySelectorAll('.pz-outline li')) {
+    if (title && shown(li) && getComputedStyle(li).fontFamily !== getComputedStyle(title).fontFamily) out.push(`outline item "${li.textContent.trim().slice(0, 16)}" not in the title's font`);
+  }
   return [...new Set(out)];
 }
 

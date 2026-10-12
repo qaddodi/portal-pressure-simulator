@@ -2403,7 +2403,7 @@ button.finding { cursor: pointer; }
 .pz-outline section { min-width: 0; display: flex; flex-direction: column; }
 .pz-outline h2.pz-sub { display: flex; align-items: center; gap: .8em; margin: 0 0 .7em; }
 .pz-outline h2.pz-sub::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-.pz-outline :is(ol, ul) { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; font: 400 var(--pzo-fs)/1.35 var(--font-ui); color: var(--text); }
+.pz-outline :is(ol, ul) { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; font: 400 var(--pzo-fs)/1.35 var(--font-display); color: var(--text); }
 .pz-outline ol { counter-reset: pzo; }
 .pz-outline ol li { counter-increment: pzo; display: grid; grid-template-columns: 2.1em minmax(0, 1fr); align-items: baseline; padding: .5em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
 .pz-outline ol li:first-child { border-top: 0; padding-top: .1em; }
