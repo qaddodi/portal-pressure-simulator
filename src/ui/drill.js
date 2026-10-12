@@ -6,7 +6,7 @@
 
 import { h, fmt, icon } from './util.js?v=b1761ad19c';
 import { SNAPSHOTS } from './snapshots.js?v=c8cbaabb1f';
-import { createRoute, ladder, tiles, siteName } from './ladder.js?v=8a11f1864d';
+import { createRoute, ladder, tiles, siteName } from './ladder.js?v=b3c04e5031';
 import { addRecord } from './records.js?v=50fb9dd463';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('drill');

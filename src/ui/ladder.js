@@ -19,7 +19,7 @@
 // rate(k, f) (the clinical cut-offs). Styles live in app.css under "Pressure ladder".
 
 import { h, fmt } from './util.js?v=b1761ad19c';
-import { wholeGap } from '../engine/gap.js?v=cb85a013c3';
+import { wholeGap } from '../engine/gap.js?v=3a5947c552';
 
 // (A stored or live fingerprint, with HVPG and PPG as the difference of the whole-mmHg readings drawn beside them.)
 const shown = (f) => ({ ...f, hvpg: wholeGap(f.whvp, f.fhvp, f.hvpg), ppg: wholeGap(f.pv, f.ivc ?? f.ra, f.ppg) });

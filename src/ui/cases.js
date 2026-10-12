@@ -10,7 +10,7 @@
 // that must be placed first), `auto` (opens by itself) and `show(c)` (conditional steps).
 
 import { store, updateParams, replaceParams } from './store.js?v=7fb7280c05';
-import { host } from './host.js?v=6d82d66fb4';
+import { host } from './host.js?v=e46f50c36e';
 import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=b1761ad19c';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
@@ -22,8 +22,8 @@ import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=675
 import { course, setUnitSurface, unitBar } from './course.js?v=34271f4fde';
 import { CASE_UNITS } from './cases/units.js?v=cead89ea1e';
 import { activeInterventions } from './inspector.js?v=58d14bee0e';
-import { captureFrame } from './timeline.js?v=dedc6fb004';
-import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=8a11f1864d';
+import { captureFrame } from './timeline.js?v=cb2b52793d';
+import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=b3c04e5031';
 import { SNAPSHOTS } from './snapshots.js?v=c8cbaabb1f';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('cases');

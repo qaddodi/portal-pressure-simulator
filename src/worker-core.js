@@ -3,6 +3,7 @@
 
 import { Engine } from './engine/engine.js?v=c5b849e284';
 import { computeMetrics } from './engine/metrics.js?v=72819396bb';
+import { tenthGap } from './engine/gap.js?v=3a5947c552';
 import { detectEvents } from './engine/events.js?v=a6e16e86ec';
 import { explain } from './engine/explain.js?v=fcd3ca252d';
 import { defaultParams, deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=b2eabea2e1';
@@ -22,7 +23,7 @@ function liverRes(e) {
 }
 const fingerprint = (m, e) => {
   const P = e ? e.Pf || e.P : null, a = m.ascites;
-  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg,
+  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg),
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
     sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
     pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, pvVel: m.pvVelMean, map: m.map, hr: m.hr, hb: m.blood.hb, rih: e ? liverRes(e) : null };

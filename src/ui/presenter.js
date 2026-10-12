@@ -17,11 +17,11 @@ import { store, replaceParams } from './store.js?v=7fb7280c05';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=b1761ad19c';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { download } from './records.js?v=50fb9dd463';
-import { SITES } from './ladder.js?v=8a11f1864d';
+import { SITES } from './ladder.js?v=b3c04e5031';
 import { sinusoidSupported } from './sinusoid-view.js?v=5033bbc95f';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=c4c5646ee7';
-import { wholeGap } from '../engine/gap.js?v=cb85a013c3';
+import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=b87658d79c';
 import { createTools } from './presenter-tools.js?v=eca38d6044';
 import { openHandout } from './handout.js?v=9e5da7e200';
@@ -264,7 +264,7 @@ const tileVal = (k, v) => (v == null ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 function liveFp(fr) {
   const m = fr.metrics, a = m.ascites, P = fr.Pf || fr.P;
-  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg, asc: a.volume, saag: a.saag, tp: a.totalProtein,
+  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg), asc: a.volume, saag: a.saag, tp: a.totalProtein,
     sin: P?.[NI.SIN_R], int: P?.[NI.INT], varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
     pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm, pvVel: m.pvVelMean, hb: m.blood?.hb };
 }
@@ -821,7 +821,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=1da70c165f', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=d885abc219', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -833,7 +833,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=0dca4739ac');
+      const { createCore } = await import('../worker-core.js?v=19fa98e79f');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
