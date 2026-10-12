@@ -382,7 +382,7 @@ function bigLadder() {
   // in the rating's colour (numbers only, no arrows), so a phone needs no tiles. Its rows follow its lettering too (layS).
   const S = { W: 360, ky: 9, dy: 16, ny: 27, vy: 32.5, hvpg: 52, ppg: 68, H: 76, c: 11, d: 12, v: 15, gap: 13 }, XS = (i) => 28 + 70 * i;
   const conns = [0, 1, 2, 3].map((i) => ({ txt: sv('text', { class: 'pzs-d', x: (XS(i) + XS(i + 1)) / 2, 'text-anchor': 'middle' }) }));
-  // (The line stops a clear gap short of each reading, so no outline is needed: the gap is the room for two digits, the same at every station so it never jumps.)
+  // (The line stops a clear gap short of each reading, so no outline is needed: the gap is measured from the digits' own edge, so it is the same beside one digit or two, and it eases when a reading gains or loses a digit.)
   const sline = sv('path', { class: 'pzs-c', stroke: `url(#${gid}s)` });
   const sgrad = sv('linearGradient', { id: gid + 's', gradientUnits: 'userSpaceOnUse', x1: XS(0), x2: XS(4), y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }));
   const spts = RUNGS.map(([, a], i) => {
@@ -415,7 +415,7 @@ function bigLadder() {
     S.ky = 0.8 * c + 1; S.ky2 = two ? S.ky + 1.15 * c : S.ky;
     S.dy = apart ? S.ky + 0.6 * d : S.ky2 + 0.3 * c + 0.95 * d;
     S.ny = Math.max(S.dy + 0.3 * d + 0.5 * v + 2, S.ky2 + 0.3 * c + 0.55 * v + 3); S.vy = S.ny + 0.36 * v;
-    S.gap = est('20', v) / 2 + 5;
+    numW.clear(); lineKey = '';
     // The unit sits after the last reading when it fits there, else at the end of the HVPG row (under the last stations).
     const inline = XS(4) + est('20', v, 0.62) / 2 + 8 + est('mmHg', c, 0.68) <= S.W - 1;
     S.hvpg = S.ny + 0.5 * v + 6 + 1.05 * c; S.ppg = S.hvpg + 1.45 * c; S.H = S.ppg + 0.6 * c + 3;
@@ -424,14 +424,41 @@ function bigLadder() {
     if (bare) S.H = S.ny + 0.5 * v + 4;
     unit.style.display = bare && !inline ? 'none' : '';
     strip.setAttribute('viewBox', `0 0 ${S.W} ${S.H.toFixed(1)}`);
-    sline.setAttribute('d', [0, 1, 2, 3].map((i) => `M${XS(i) + S.gap} ${S.ny}H${XS(i + 1) - S.gap}`).join(''));
     conns.forEach((cn) => { cn.txt.setAttribute('y', S.dy.toFixed(1)); fsOf(cn.txt, d); });
     spts.forEach((p, i) => { p.v.setAttribute('y', S.vy.toFixed(1)); fsOf(p.v, v); p.k.setAttribute('y', (i % 2 ? S.ky2 : S.ky).toFixed(1)); fsOf(p.k, c); });
     unit.setAttribute('x', S.W - 2); unit.setAttribute('y', (inline ? S.vy : S.hvpg + 0.33 * c).toFixed(1)); fsOf(unit, c);
     hvS.row = S.hvpg; ppS.row = S.ppg;
     for (const b of [hvS, ppS]) fsOf(b.lbl, c);
-    draw.again();
+    draw.again(); placeLine();
   };
+  // The connecting line between readings: each end stops LINE_PAD short of the digits' own edge. A reading's width is
+  // measured once per digit count (tabular figures, so any number of that length is as wide), or estimated while the strip is hidden.
+  const LINE_PAD = 5, numW = new Map(), halves = [0, 0, 0, 0, 0];
+  let lineKey = '', lineRaf = 0;
+  const halfOf = (p) => {
+    const t = p.v.textContent, n = t.length;
+    if (!n) return 0;
+    if (!numW.has(n)) {
+      let w = 0;
+      try { w = p.v.getComputedTextLength(); } catch { /* not rendered */ }
+      if (!(w > 0)) return est(t, S.v, 0.62) / 2;
+      numW.set(n, w);
+    }
+    return numW.get(n) / 2;
+  };
+  const placeLine = () => {
+    const goal = spts.map(halfOf), key = goal.join() + '|' + S.ny;
+    if (key === lineKey) return;
+    lineKey = key;
+    const step = () => {
+      let moving = false;
+      goal.forEach((g, i) => { const d = g - halves[i]; if (!halves[i] || Math.abs(d) < 0.05) halves[i] = g; else { halves[i] += d * 0.3; moving = true; } });
+      sline.setAttribute('d', [0, 1, 2, 3].map((i) => `M${(XS(i) + halves[i] + LINE_PAD).toFixed(2)} ${S.ny}H${(XS(i + 1) - halves[i + 1] - LINE_PAD).toFixed(2)}`).join(''));
+      lineRaf = moving ? requestAnimationFrame(step) : 0;
+    };
+    cancelAnimationFrame(lineRaf); step();
+  };
+  document.fonts?.ready.then(() => { numW.clear(); lineKey = ''; placeLine(); });
   fitChart(strip, layS);
   const grid = TICKS.map((v) => {
     const line = sv('line', {}), txt = sv('text', { 'text-anchor': 'end' }, String(v));
@@ -497,6 +524,7 @@ function bigLadder() {
     // The strip: readings in the nodes, the fall on each connector (from the rounded readings, so it adds up).
     const raw = conns.map((_, i) => Math.max(0, f[RUNGS[i][0]] - f[RUNGS[i + 1][0]])), most = Math.max(...raw);
     spts.forEach((p, i) => { p.v.textContent = fmt(f[RUNGS[i][0]], 0); });
+    placeLine();
     conns.forEach((c, i) => {
       const n = Math.round(f[RUNGS[i][0]]) - Math.round(f[RUNGS[i + 1][0]]), big = most >= 2 && raw[i] === most;
       c.txt.textContent = n > 0 ? `−${n}` : n < 0 ? `+${-n}` : '0';

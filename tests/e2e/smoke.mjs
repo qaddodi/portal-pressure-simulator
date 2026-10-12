@@ -15,7 +15,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
-import { checkCharts, checkStrip, checkStripSlides, stripSlides } from './chart-text.mjs';
+import { checkCharts, checkStrip, checkStripSlides, stripSlides, checkStripGaps } from './chart-text.mjs';
 import { checkTypeScale } from './type-scale.mjs';
 import { TEXT_MIN, TEXT_MAX } from '../../src/ui/type-scale.js';
 import { checkChartText } from './chart-type.mjs';
@@ -1274,6 +1274,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
     });
   }
+
+  // The strip's bar stops the same distance from every reading, one digit or two (within 1 px), at phones, an upright iPad and a desktop.
+  if (device === 'desktop') await check(device, 'presenter: the pressure strip leaves equal gaps beside one- and two-digit readings, at every size', async () => {
+    const bad = await checkStripGaps(browser, server.url, () => {});
+    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+  });
 
   // Every choice in a slide's row of treatment buttons stays in view, whole, with no sideways scrolling, at 11 px or more
   // (a phone once cut Terlipressin off the right edge), at three phone widths, a phone on its side and an upright iPad.

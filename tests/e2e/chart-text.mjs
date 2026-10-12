@@ -130,6 +130,46 @@ export function stripTextSize() {
   }
   return [...new Set(out)];
 }
+// The strip's connecting line stops the same distance short of every reading, whether it has one digit or two: the gap
+// between each number's edge and the bar on its left and on its right, in px as drawn, all within 1 px of each other.
+// In the page: what is uneven (empty when it is even); the first item is [gaps, digit counts] for the coverage check.
+export function stripGaps() {
+  const strip = document.querySelector('.pz-strip');
+  if (!strip || !strip.getBoundingClientRect().width) return null;
+  const m = strip.getScreenCTM(), sx = (u) => m.a * u + m.e;
+  const segs = [...(strip.querySelector('.pzs-c')?.getAttribute('d') || '').matchAll(/M([\d.-]+) [\d.-]+H([\d.-]+)/g)].map(([, a, b]) => [sx(+a), sx(+b)]);
+  const nums = [...strip.querySelectorAll('.pzs-v')].map((e) => ({ t: e.textContent.trim(), r: e.getBoundingClientRect() }));
+  if (segs.length !== 4 || nums.length !== 5 || nums.some((n) => !n.t)) return { bad: ['the strip is not drawn with five readings and four bars'], gaps: [], digits: [] };
+  const gaps = [];
+  segs.forEach(([a, b], i) => { gaps.push(a - nums[i].r.right, nums[i + 1].r.left - b); });
+  const lo = Math.min(...gaps), hi = Math.max(...gaps), bad = [];
+  if (hi - lo > 1) bad.push(`gaps differ by ${(hi - lo).toFixed(2)} px (${gaps.map((g) => g.toFixed(1)).join(', ')}) beside ${nums.map((n) => n.t).join(' ')}`);
+  return { bad, gaps, digits: [...new Set(nums.map((n) => n.t.length))] };
+}
+export async function checkStripGaps(browser, url, log = console.log) {
+  const bad = [];
+  const all = [['circulation', 10], ['sites', 3], ['sites', 6]];   // (raised, healthy and HVPG over 10: one- and two-digit readings in one strip)
+  for (const size of SIZES) {
+    const { name, ...opts } = size;
+    const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
+    const page = await ctx.newPage();
+    const digits = new Set();
+    // (An iPad or desktop shows the big ladder, with no joined bars: one slide proves the strip is not drawn there.)
+    const wide = opts.viewport.width >= 800, slides = wide ? all.slice(0, 1) : all;
+    for (const [deck, n] of slides) {
+      await page.goto(`${url}?script=${deck}&slide=${n}`);
+      await page.waitForFunction(() => document.querySelector('.pz-strip .pzs-v')?.textContent, null, { timeout: 45000 });
+      await settle(page); await page.waitForTimeout(1800);
+      const r = await page.evaluate(stripGaps);
+      if (!r) { log(`--   ${name.padEnd(14)} ${deck} slide ${n}: strip not shown at this size`); continue; }
+      r.digits.forEach((d) => digits.add(d));
+      if (r.bad.length) bad.push(`${deck} slide ${n} at ${name}: ${r.bad.join('; ')}`); else log(`ok   ${name.padEnd(14)} ${deck} slide ${n} strip gaps ${r.gaps.map((g) => g.toFixed(1)).join(' ')}`);
+    }
+    if (!wide && digits.size < 2) bad.push(`strip gaps at ${name}: no strip had both one- and two-digit readings`);
+    await ctx.close();
+  }
+  return bad;
+}
 // Every slide that has the strip (the ladder data card), at both phones: text at least 11 px, labels in their brackets and clear of the lines.
 // (With a deck id, only that deck's slides: smoke runs one check per deck, as the whole sweep takes 45 minutes.)
 export async function stripSlides(deck) {
@@ -149,7 +189,7 @@ export async function checkStripSlides(browser, url, log = console.log, deck = n
       await page.goto(`${url}?script=${s.deck}&slide=${s.n}`);
       await page.waitForFunction(() => document.querySelector('.pz-strip .pzs-v')?.textContent, null, { timeout: 45000 });
       await settle(page); await page.waitForTimeout(1800);
-      const c = [...await page.evaluate(stripTextSize), ...await page.evaluate(stripOverflow)];
+      const c = [...await page.evaluate(stripTextSize), ...await page.evaluate(stripOverflow), ...(await page.evaluate(stripGaps))?.bad || []];
       if (c.length) bad.push(`${s.deck} slide ${s.n} at ${name}: ${c.slice(0, 3).join('; ')}`); else log(`ok   ${name.padEnd(14)} ${s.deck} slide ${s.n} pressure strip`);
     }
     await ctx.close();
@@ -175,7 +215,7 @@ export async function checkStrip(browser, url, log = console.log) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const server = await serve(new URL('../..', import.meta.url).pathname);
   const browser = await chromium.launch();
-  const bad = [...await checkCharts(browser, server.url), ...await checkStrip(browser, server.url), ...await checkStripSlides(browser, server.url)];
+  const bad = [...await checkCharts(browser, server.url), ...await checkStrip(browser, server.url), ...await checkStripSlides(browser, server.url), ...await checkStripGaps(browser, server.url)];
   for (const b of bad) console.log('FAIL ' + b);
   await browser.close(); server.close?.();
   process.exit(bad.length ? 1 : 0);
