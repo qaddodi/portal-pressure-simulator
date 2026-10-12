@@ -1058,6 +1058,33 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
+  // Tiles under a slide's chart (desktop and iPad, text at 100 %): a tile's name never breaks inside a word, no tile text sticks
+  // out of its tile, a change line ("▲ 7.9 from 16.9") takes at most two lines, and the card fits the screen. Three, four
+  // and two tiles under the day-by-day, Doppler and bleed charts, at three laptop sizes (a 16-inch Mac first) and an iPad both ways.
+  if (device === 'desktop') for (const size of [{ width: 1728, height: 1000 }, { width: 1440, height: 900 }, { width: 1280, height: 800 }, { width: 820, height: 1180 }, { width: 1180, height: 820 }]) await check(device, `presenter: tiles under a chart keep their words whole and their change lines short at ${size.width}x${size.height}`, async (page) => {
+    await page.setViewportSize(size);
+    await open(page);
+    for (const [deck, at] of [['ascites', 3], ['varices', 2], ['shunts', 4], ['variceal-bleed', 2]]) {
+      await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, at]);
+      await page.waitForFunction((i) => window.pps.presenter.probe()?.i === i && !document.querySelector('.pz-cover') && document.querySelector('.pz-data.has-tool:not(.pz-hide) .pzt-d'), at, { timeout: 60000 });
+      await page.waitForFunction(() => !window.pps.presenter.probe().playing, null, { timeout: 120000, polling: 500 });
+      await page.waitForTimeout(1200);
+      const bad = await page.evaluate(() => {
+        const out = [], card = document.querySelector('.pz-data.has-tool:not(.pz-hide)'), c = card.getBoundingClientRect();
+        const rows = (g) => new Set([...g.getClientRects()].filter((q) => q.width > 0.5).map((q) => Math.round(q.top))).size;
+        for (const k of card.querySelectorAll('.pzt-k')) for (const t of k.childNodes) if (t.nodeType === 3) for (const m of t.textContent.matchAll(/\S+/g)) {
+          const g = document.createRange(); g.setStart(t, m.index); g.setEnd(t, m.index + m[0].length);
+          if (rows(g) > 1) out.push(`"${m[0]}" breaks inside the word`);
+        }
+        for (const e of card.querySelectorAll('.pzt-k, .pzt-vu, .pzt-r, .pzt-d')) if (e.scrollWidth > e.clientWidth + 1) out.push(`"${e.textContent}" sticks out of its tile`);
+        for (const d of card.querySelectorAll('.pzt-d')) { const g = document.createRange(); g.selectNodeContents(d); if (rows(g) > 2) out.push(`change "${d.textContent}" takes ${rows(g)} lines`); }
+        if (c.top < 0 || c.bottom > innerHeight) out.push(`card runs off the screen (${Math.round(c.top)} to ${Math.round(c.bottom)} of ${innerHeight})`);
+        return out;
+      });
+      if (bad.length) throw new Error(`${deck} slide ${at + 1} at ${size.width}x${size.height}: ${bad.join('; ')}`);
+    }
+  });
+
   // An upright iPad (820x1180): on every slide of the decks that open the sinusoid view, its names keep off the cards.
   if (device === 'desktop') for (const deck of ['ascites', 'tap', 'lobule']) await check(device, `presenter: on every slide of ${deck} at 820x1180 the sinusoid's names keep off the cards`, async (page) => {
     await page.setViewportSize({ width: 820, height: 1180 });

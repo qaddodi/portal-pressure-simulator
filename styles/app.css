@@ -2174,7 +2174,17 @@ button.finding { cursor: pointer; }
 /* Beside a tool the card is narrow: a tile keeps room for its name and rating (about 9 em), and the tiles wrap to a second row rather than squeeze. */
 .pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5em), 1fr)); }
 .pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.pz:not(.stack):not(.port) .pz-data.has-tool.tiles-only:not(.tool-only) .pzt-v { font-size: var(--s-big); }
+.pz:not(.stack):not(.port) .pz-data.has-tool.tiles-only:not(.tool-only) .pzt-v { font-size: var(--s-val); }
+/* Tiles under a chart (desktop and iPad): a tile is as narrow as its longest name word (about 8.6 caption sizes), so a name
+   never breaks mid-word; three tiles stay in one row (the card widens a little for them); the reading is the small value
+   size, and the change says only "▲ 7.9 from 16.9" (as on a phone), so it takes one or two lines. */
+.pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--s-cap) * 8.6)), 1fr)); }
+.pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pz:not(.stack) .pz-data.has-tool:not(.tool-only):has(.pz-tiles[data-n="3"]) { width: max(clamp(320px, 27vw, 540px), calc(var(--s-cap) * 9 * 3 + 2 * clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px) + 2 * clamp(14px, calc(2.1 * var(--pzh) / var(--vz)), 28px) + 4px)); }
+.pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pz-tile { gap: .15em; padding: clamp(8px, calc(1.1 * var(--pzh) / var(--vz)), 14px) clamp(9px, calc(1.1 * var(--pzh) / var(--vz)), 14px); }
+.pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pzt-k { letter-spacing: .04em; overflow-wrap: normal; }
+.pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pzt-v { font-size: var(--s-val); }
+.pz:not(.stack) .pz-data.has-tool:not(.tool-only) :is(.pzt-dw, .pzt-du) { display: none; }
 .pz-tool:not([data-kind]) { display: none; }
 .pz-ghost { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2em .6em; margin-top: 6px; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-3); opacity: 0; max-height: 0; overflow: hidden; transition: opacity .5s var(--ease), max-height .5s var(--ease); }
 .pz-ghost.on { opacity: 1; max-height: 3em; }
