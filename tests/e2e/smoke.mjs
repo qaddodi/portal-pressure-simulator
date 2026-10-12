@@ -964,14 +964,17 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
 
   // Every deck's number tiles share one layout at each size: in a card, each tile's name, value and rating sit at the same place
-  // within the tile (the rating's left or right edge), and every tile with a unit shows it (the fullest tile slide of each deck with a full card).
+  // within the tile (the rating's left or right edge), and every tile with a unit shows it (each deck's first card of two, three and four tiles).
   await check(device, 'presenter: data card tiles are laid out alike', async (page) => {
     const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
     await open(page);
     const bad = [];
-    for (const d of DECKS.filter((x) => /^(ncph|one-year|prehepatic|spleen|outflow|treatment)$/.test(x.id))) {   // (the decks with the fullest cards)
-      const sl = withOverview(d).slides.map((x, i) => [x, i]).filter(([x]) => x.data === 'tiles' && x.tiles?.length >= 2).sort((a, b) => b[0].tiles.length - a[0].tiles.length)[0];
-      if (!sl) continue;
+    // Five cards each of two, three and four tiles (each from a different deck where it can), a phone at its narrowest, 375 wide.
+    // (Every deck's cards at 375 and 390 passed once by hand; that sweep takes about 15 minutes, too long to run on every push.)
+    const firsts = DECKS.flatMap((d) => [2, 3, 4].map((n) => [d, withOverview(d).slides.map((x, i) => [x, i]).find(([x]) => x.data === 'tiles' && x.tiles?.length === n)]).filter(([, x]) => x));
+    const slides = [2, 3, 4].flatMap((n) => firsts.filter(([, x]) => x[0].tiles.length === n).slice(0, 5));
+    for (const W of device === 'phone' ? [375] : [0]) for (const [d, sl] of slides) {
+      if (W) await page.setViewportSize({ width: W, height: 844 });
       await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [d.id, sl[1]]);
       const ok = await page.waitForFunction((n) => [...document.querySelectorAll('.pz-data:not(.pz-hide) .pz-tile')].filter((t) => t.offsetWidth).length >= Math.min(n, 2) && !document.querySelector('.pz-cover'), sl[0].tiles.length, { timeout: 6000 }).then(() => true, () => false);
       if (!ok) continue;   // (a slide whose tiles fold away at this size, behind its tool)
@@ -986,9 +989,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         same((p) => p.v && p.k && p.v.t - p.k.t > 0 ? 1 : 0, 'value below name');
         const rl = P.map((p) => p.r?.l), rr = P.map((p) => p.r?.r), spread = (v) => Math.max(...v) - Math.min(...v);
         if (P.every((p) => p.r) && spread(rl) > 3 && spread(rr) > 3) out.push('rating placed differently');
+        // A rating never clipped, spilling from its tile or broken inside a word ("Nor-mal").
+        for (const t of tiles) { const e = t.querySelector('.pzt-r'), c = e.getBoundingClientRect(), b = t.getBoundingClientRect(); if (!c.width) continue;
+          const one = !/\s/.test(e.textContent.trim()), lh = parseFloat(getComputedStyle(e).lineHeight) || 15;
+          if (c.right > b.right + 1 || c.left < b.left - 1 || e.scrollWidth > e.clientWidth + 1 || (one && c.height > lh * 1.5)) out.push(`rating "${e.textContent}" clipped or broken`); }
         return out;
       });
-      if (r.length) bad.push(`${d.id} slide ${sl[1]}: ${r.join('; ')}`);
+      if (r.length) bad.push(`${d.id} slide ${sl[1]}${W ? ' at ' + W : ''}: ${r.join('; ')}`);
     }
     if (bad.length) throw new Error(bad.join('\n'));
   });

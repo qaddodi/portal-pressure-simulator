@@ -4824,7 +4824,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack .pz-data.has-tool:not(.tool-only) .pz-fold { min-height: 20px; margin: 0 -2px 0 auto; padding: 0 9px; }   /* (no negative margin: a pill spilling from the header would read as overflow and shrink the card) */
 .pz.stack .pz-data .pz-tiles { gap: 6px; }
 .pz.stack .pz-data .pz-tiles .pz-tile { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 0 6px; padding: 4px 9px 5px; border-radius: 11px; }
-.pz.stack .pz-data .pz-tiles .pzt-k, .pz.stack .pz-data .pz-tiles .pzt-d { grid-column: 1 / -1; }
+.pz.stack .pz-data .pz-tiles .pzt-k { grid-area: 1 / 1 / 2 / -1; }
+.pz.stack .pz-data .pz-tiles .pzt-d { grid-area: 3 / 1 / 4 / -1; }
+.pz.stack .pz-data .pz-tiles .pzt-vu { grid-area: 2 / 1; }
+.pz.stack .pz-data .pz-tiles .pzt-r { grid-area: 2 / 2; }
 .pz.stack .pz-data .pz-tiles .pzt-k { font-size: 11px; letter-spacing: .05em; }
 .pz.stack .pz-data .pz-tiles .pzt-vu { flex-wrap: nowrap; }
 .pz.stack .pz-data .pz-tiles .pzt-r { justify-self: end; text-align: end; }
@@ -4832,6 +4835,14 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack .pz-data .pz-tiles .pzt-vu small { font-size: 12px; }
 .pz.stack .pz-data .pz-tiles .pzt-r, .pz.stack .pz-data .pz-tiles .pzt-d { flex: 0 1 auto; font-size: 11px; line-height: 1.3; white-space: nowrap; }
 .pz.stack .pz-data .pz-tiles .pzt-r { white-space: normal; max-width: 100%; }   /* (a long rating, "Grade 1, ultrasound only", wraps inside its tile rather than running into the next) */
+.pz.stack .pz-data .pz-tiles .pzt-r { hyphens: manual; overflow-wrap: normal; }   /* (a rating never breaks inside a word: "Nor-mal") */
+/* A narrow tile (three or four across) has no room for the rating beside the value: every tile of the card then puts it on its own
+   row under the value, left-aligned, with the change said short at that row's right end. */
+@container (max-width: 130px) {
+  .pz.stack .pz-data .pz-tiles .pzt-k, .pz.stack .pz-data .pz-tiles .pzt-vu { grid-column: 1 / -1; }
+  .pz.stack .pz-data .pz-tiles .pzt-r { grid-area: 3 / 1 / 4 / -1; justify-self: start; text-align: start; }
+  .pz.stack .pz-data .pz-tiles .pzt-d { grid-area: 4 / 1 / 5 / -1; }
+}
 .pz.stack .pzt-dw, .pz.stack .pzt-du { display: none; }
 /* A long rating ("Below 12: target met") wraps inside its tile rather than spill out of it, which shrank the whole card. */
 .pz.stack .pz-data .pz-tiles .pzt-r { white-space: normal; min-width: 0; }
