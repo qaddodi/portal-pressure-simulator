@@ -42,7 +42,7 @@ export async function checkPhoneFit(browser, url, deck, slides, log = () => {}) 
     const page = await ctx.newPage();
     await page.goto(`${url}?script=${deck}`);
     await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'), null, { timeout: 60000 });
-    for (let i = 0; i < slides; i++) {
+    for (let i = 0, again = 1; i < slides; i++) try {
       // (the presenter moved on to each slide, not reloaded: a load per slide outran a CI runner)
       if (i) await page.evaluate(([id, k]) => window.pps.presenter.start(id, k), [deck, i]);
       await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !document.querySelector('.pz-load.on'), i + 1, { timeout: 30000 });
@@ -50,6 +50,10 @@ export async function checkPhoneFit(browser, url, deck, slides, log = () => {}) 
       if (await page.evaluate(() => { const b = document.querySelector('.pz-data:not(.pz-hide):not(.tool-open) .pz-fold'); if (b && b.offsetWidth) { b.click(); return true; } return false; })) await page.waitForTimeout(700);
       const c = await page.evaluate(fitIssues);
       if (c.length) bad.push(`${deck} slide ${i + 1} at ${size.width}x${size.height}: ${c.join('; ')}`); else log(`ok ${size.width}x${size.height} ${deck} ${i + 1}`);
+    } catch (e) {
+      // (a page that reloaded mid-slide, as a runner's page now and then does: once more from a fresh load, then it counts)
+      if (!again-- || !/context was destroyed|navigation/.test(e.message)) throw e;
+      await page.goto(`${url}?script=${deck}&slide=${i + 1}`); i--;
     }
     await ctx.close();
   }

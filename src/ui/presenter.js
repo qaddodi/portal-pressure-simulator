@@ -1622,8 +1622,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   };
 
   // ── Layout: what the slide's words and data cover, so the figure frames itself in the rest ──
-  // Only a phone stacks the words over the figure; a tablet (either way up) keeps the words at the left and the data card at the right.
-  const phone = () => innerWidth < 700;
+  // Only an upright phone stacks the words over the figure; a tablet (either way up) and any phone on its side keep the words
+  // at the left and the data card at the right (a small phone on its side had no height for the two stacked).
+  const phone = () => innerWidth < 700 && innerHeight >= 500;
   // ── The data card slides out of view and back ──
   // Drag or swipe it away (up on a phone, to the right on a tablet; to the left when it sits under the words) and a sliver
   // stays at the edge: a tap or a drag on the sliver brings it back. It follows the finger, eases to rest, and stays put from
@@ -1666,10 +1667,6 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // once at their size and then, on the next layout, shrank. (So a card is judged by where its contents come to rest.)
   function overflowOf(el) {
     const cs = getComputedStyle(el), z = el.offsetHeight ? el.getBoundingClientRect().height / el.offsetHeight : 1;
-    if (cs.display === 'grid') {   // (parts side by side, a phone on its side: the lowest part's foot against the card's)
-      const r = el.getBoundingClientRect(), foot = Math.max(...[...el.children].map((c) => c.getBoundingClientRect().bottom));
-      return { v: (foot - r.bottom) / z + (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0), h: el.scrollWidth - el.clientWidth };
-    }
     let used = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0), n = 0;
     for (const c of el.children) {
       const s = getComputedStyle(c);
@@ -1757,7 +1754,11 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     let t = r(ui.text);
     // (Under the words: in the left column, clear of the bottom.)
     if (below && t) { const y = t.bottom - wr.top + 28; ui.data.style.top = `${Math.round(y / k)}px`; ui.data.style.maxHeight = `${Math.round((H - y - 24) / k)}px`; }
-    else { ui.data.style.top = ''; ui.data.style.maxHeight = ''; }
+    else {
+      ui.data.style.top = ''; ui.data.style.maxHeight = '';
+      // (A phone: the card above the words ends 8 px short of them, however much it holds: an opened instrument had grown over the words.)
+      if (p && t) { const cs = getComputedStyle(ui.data), room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 8); if (room > 0) ui.data.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
+    }
     fitCards(ui.data, ui.panel);
     fitWatch();
     const dv = ui.data.hidden ? [0, 0] : dockVec();
