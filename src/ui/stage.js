@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=34e377149b';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CIRC_HIDDEN, CAUDATE_LOBE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=dc42714177';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=6e4d654280';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=c17dfefa88';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7fb7280c05';
 import { fibroReading } from './clock.js?v=af42a9670d';
@@ -141,7 +141,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const STRAIGHT_COLL = new Set(['C9']);
   // Veins that fade into the vessel they sink into: a linear mask [x1, y1, x2, y2, offset], from
   // solid at the offset to 30 % at the end (the caudate vein into the IVC, C5 into the renal vein).
-  const FADE_IN = { RHV_IVC: [604, 226, 616, 204, 0, 0], MHV_IVC: [604, 246, 615, 228, 0, 0], LHV_IVC: [638, 220, 624, 211, 0, 0], LRV_IVC: [642, 625, 624, 625, 0, 0], RRV_IVC: [602, 660, 615, 673, 0, 0], CAUD: [609, 369, 619, 358, 0, 0], C5: [852, 520, 862, 618, 0.6] };
+  const FADE_IN = { RHV_IVC: [604, 226, 616, 204, 0, 0], MHV_IVC: [604, 246, 615, 228, 0, 0], LHV_IVC: [638, 220, 624, 211, 0, 0], LRV_IVC: [642, 625, 624, 625, 0, 0], RRV_IVC: [602, 660, 615, 673, 0, 0], CAUD: [566, 326, 620, 350, 0.45], C5: [852, 520, 862, 618, 0.6] };
   // The sinusoids lie inside the liver: faded along their course, most in the middle of the lobe, clearing as
   // they gather into the central and hepatic veins. Linear from the portal end to the venous end, [offset of
   // the faintest point, alpha at the start, there, mode 3] (the end is solid).
@@ -577,18 +577,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const liverClip = defs.querySelector('#clip-liver path');
   if (liverClip) liverPaths.push(liverClip);
   liverPaths.push(lv.sep);
-  // The caudate lobe (CAUDATE_LOBE): the dome of its own surface and a fissure line, part of the liver's plate, so it
-  // reads as normal anatomy. A presenter slide outlines it as an organ of its own (pinOrgans: 'caudate'). It grows
-  // about its side on the IVC as its veins become the liver's outflow (morphLiver's `cd`).
-  const cdForm = s('path', { d: CAUDATE_LOBE.d, class: 'lv-caud-form', fill: 'url(#ogVol)', 'clip-path': 'url(#clip-liver)' });
-  const cdLine = s('path', { d: CAUDATE_LOBE.d, class: 'lv-caud-line', 'clip-path': 'url(#clip-liver)' });
-  for (const el of [cdForm, cdLine]) organG.liver.insertBefore(el, shadeAt);
-  organEls.caudate = cdLine; organG.caudate = organG.liver;
-  const caudPath = (cd) => {
-    const [ax, ay] = CAUDATE_LOBE.anchor, [gx, gy] = CAUDATE_LOBE.grow;
-    let i = 0;
-    return CAUDATE_LOBE.d.replace(/-?\d+(?:\.\d+)?/g, (v) => { const y = i++ % 2, o = y ? ay : ax; return (o + (Number(v) - o) * (1 + (y ? gy : gx) * cd)).toFixed(1); });
-  };
   let baseLiver = null, liverKey = '';
   const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };
   function sampleLiver() {
@@ -670,12 +658,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (let j = 0; j < 6; j++) d += `Q${p[j][0].toFixed(1)} ${p[j][1].toFixed(1)} ${m(j)}`;
     return d + 'Z';
   }
-  function morphLiver(cirr, cong, fine, caud = 0) {
+  function morphLiver(cirr, cong, fine) {
     const q = fine ? 200 : 40;
-    const c = Math.round(clamp(cirr, 0, 1) * q) / q, g = Math.round(clamp(cong, 0, 1) * q) / q, cd = Math.round(clamp(caud, 0, 1) * q) / q;
-    const key = c + ',' + g + ',' + cd;
+    const c = Math.round(clamp(cirr, 0, 1) * q) / q, g = Math.round(clamp(cong, 0, 1) * q) / q;
+    const key = c + ',' + g;
     if (key === liverKey) return;
-    if (!liverKey || cd !== +liverKey.split(',')[2]) { const d = caudPath(cd); cdForm.setAttribute('d', d); cdLine.setAttribute('d', d); }
     if (!baseLiver) { try { baseLiver = sampleLiver(); } catch { return; } if (!baseLiver.pts.length) { baseLiver = null; return; } }
     liverKey = key;
     const { pts, nm, nod, spots } = baseLiver;
@@ -716,7 +703,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lv.nut.style.opacity = lv.nutNet.style.opacity = smooth01(g / 0.5).toFixed(3);
   }
   // The liver's state eases toward the model's (a new patient or a slider never makes it jump).
-  let lvC = null, lvG = 0, lvT = 0, lvGT = null, lvTT = null, lvAt = 0, lvMoving = false, lvCT = null, lvGTo = null, lvStillAt = 0, lvK = 0, lvKT = null, lvKTo = null;
+  let lvC = null, lvG = 0, lvT = 0, lvGT = null, lvTT = null, lvAt = 0, lvMoving = false, lvCT = null, lvGTo = null, lvStillAt = 0, caudK = null;
   // Abdominal wall (anterior): a soft skin tint that appears only with caput medusae, under its veins.
   const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
@@ -925,6 +912,55 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     balloons: s('g'), bands: s('g'),
   };
   Object.values(ov).forEach((g) => gOver.append(g));
+  // The caudate lobe and its veins (CAUDATE): shown only while a slide is about them (pinOrgans 'caudate'), eased in
+  // and out (.caud.on), under the stents and other overlays. Each vein is a tapered tube (a wall, its lumen colored
+  // from its pressures like the vessels, a sheen) that fades into the IVC's wall instead of ending on it.
+  const caud = (() => {
+    const [ax, ay] = CAUDATE.anchor, W = CAUDATE.wall;
+    const g = s('g', { class: 'caud', style: `transform-origin:${ax}px ${ay}px` });
+    let defsHtml = '<radialGradient id="caudDome"><stop offset="0" class="caud-d0"/><stop offset=".55" class="caud-d1"/><stop offset="1" class="caud-d2"/></radialGradient>'
+      + `<linearGradient id="caudFade" gradientUnits="userSpaceOnUse" x1="${W - 1}" y1="0" x2="${W + 4}" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
+      + `<mask id="caudMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#caudFade)"/></mask>`;
+    const lobe = s('g', { class: 'caud-lobe' });
+    for (const [cx, cy, rx, ry, a] of CAUDATE.lobe) {
+      const at = { cx, cy, rx, ry, transform: `rotate(${a} ${cx} ${cy})` };
+      lobe.append(s('ellipse', { ...at, fill: 'url(#caudDome)' }));
+    }
+    const veinsG = s('g', { mask: 'url(#caudMask)', class: 'caud-veins' });
+    CAUDATE.veins.forEach(([d, w], i) => {
+      const n = d.match(/-?\d+(?:\.\d+)?/g).map(Number), P0 = [n[0], n[1]], C = [n[2], n[3]], P1 = [n[4] + 3, n[5] - 1.5];   // (on into the wall, where it fades)
+      const at = (t) => [0, 1].map((j) => (1 - t) ** 2 * P0[j] + 2 * (1 - t) * t * C[j] + t * t * P1[j]);
+      // The outline of a tube that widens from a rounded start inside the lobe and flares a little into the cava.
+      const h0 = (pad) => (w / 2) * 0.45 + pad;
+      const tube = (pad) => {
+        const L = [], R = [];
+        for (let k = 0; k <= 20; k++) {
+          const t = k / 20, p = at(t), q = at(Math.min(1, t + 0.01)), r = at(Math.max(0, t - 0.01));
+          let nx = -(q[1] - r[1]), ny = q[0] - r[0]; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+          const h = (w / 2) * (0.45 + 0.55 * Math.min(1, t / 0.75)) * (1 + 0.25 * Math.max(0, (t - 0.75) / 0.25) ** 2) + pad;
+          L.push([p[0] + nx * h, p[1] + ny * h]); R.push([p[0] - nx * h, p[1] - ny * h]);
+        }
+        return 'M' + [...L, ...R.reverse()].map((v) => v[0].toFixed(2) + ' ' + v[1].toFixed(2)).join(' L') + ' Z';
+      };
+      veinsG.append(s('path', { d: tube(0.45), class: 'caud-wall' }), s('circle', { cx: P0[0], cy: P0[1], r: h0(0.45), class: 'caud-wall' }),
+        s('path', { d: tube(0), class: 'caud-lumen' }), s('circle', { cx: P0[0], cy: P0[1], r: h0(0), class: 'caud-lumen' }),
+        s('path', { d: `M${at(0.35).join(' ')} Q ${C.join(' ')} ${P1.join(' ')}`, class: 'caud-sheen', 'stroke-width': (w * 0.22).toFixed(2) }));
+    });
+    g.insertAdjacentHTML('afterbegin', `<defs>${defsHtml}</defs>`);
+    const lumens = [...veinsG.querySelectorAll('.caud-lumen')];
+    g.append(lobe, veinsG);
+    gOver.prepend(g);
+    let cols = '', grow = '';
+    return {
+      show(on, veins) { g.classList.toggle('on', !!on); if (on) g.classList.toggle('lobe-only', !veins); },
+      // Colored from the pressure they drain at (the IVC's: the lobe keeps its outflow); sized by its share of it.
+      sync(c, kq) {
+        if (c !== cols) { cols = c; for (const el of lumens) el.setAttribute('fill', c); }
+        const [gx, gy] = CAUDATE.grow, v = `scale(${(1 + gx * kq).toFixed(3)}, ${(1 + gy * kq).toFixed(3)})`;
+        if (v !== grow) { grow = v; g.style.transform = v; }
+      },
+    };
+  })();
   // ── Vessel glow: one engine for every highlight ──
   // Hover, a slide's glows, a step's focus, the Doppler's vessel and a change in pressure all light a vessel the same
   // way: a thin soft band hugging its live wall on both sides, fading to nothing at a free end, drawn by the GPU with
@@ -1660,7 +1696,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function edgeVisible(x, f) {
     const e = x.e, p = f.viewParams || store.get().params;
     if (ANAT_HIDDEN.has(e.id) && morph < 0.5) return false;
-    if (CIRC_HIDDEN.has(e.id) && morph >= 0.5) return false;
     if (NEEDS_C3.has(e.id)) return !findingHidden('coll') && recruitFrac('C3', f) > 0.15;
     if (e.kind === 'collateral') {
       if (!edgePresent(e, p)) return false;
@@ -2941,6 +2976,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter slide's organs, outlined and held (several at once): eased in and out like the hover outline.
   // Each in its station's colour ([{ id, tone }], --tr-<tone>).
   function pinOrgans(list) {
+    const ids = (list || []).map((o) => o.id || o);
+    caud.show(ids.includes('caudate') || ids.includes('caudate-lobe'), ids.includes('caudate'));
     const want = new Map((list || []).map((o) => (typeof o === 'string' ? [o, null] : [o.id, o.tone])).filter(([id]) => organEls[id]));
     const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(${tone.startsWith('--') ? tone : `--tr-${tone}`})`, cs)].slice(0, 3) : null);
     for (const o of olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;
@@ -3350,18 +3387,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const hp = store.get().healthy?.P;
     const cvUp = hp ? Math.max(PA[NI.CV_R] - hp[NI.CV_R], PA[NI.CV_L] - hp[NI.CV_L]) : 0;
     lvGT = held(lvGT, clamp((cvUp - 4) / 10, 0, 1), 0.03);
-    // The caudate lobe grows as its veins carry the liver's outflow: from twice their normal flow, fully at four times.
-    const hq = store.get().healthy?.Q?.[EI.CAUD], fq = f.Qf || f.Q;
-    lvKT = held(lvKT, hq ? clamp((Math.abs(fq[EI.CAUD] / hq) - 2) / 2, 0, 1) : 0, 0.05);
-    const cT = Math.min(1, p.cirrhosis), gT = lvGT, kT = lvKT;
+    const cT = Math.min(1, p.cirrhosis), gT = lvGT;
     const now = performance.now();
-    if (lvC === null || reduceMotion.matches || !figureShown) { lvC = cT; lvG = gT; lvT = tT; lvK = kT; }   // under the loading screen nothing is seen easing
+    if (lvC === null || reduceMotion.matches || !figureShown) { lvC = cT; lvG = gT; lvT = tT; }   // under the loading screen nothing is seen easing
     else {
       const e = -Math.expm1(-Math.min(0.1, (now - lvAt) / 1000) / 0.4);
-      lvC += (cT - lvC) * e; lvG += (gT - lvG) * e; lvT += (tT - lvT) * e; lvK += (kT - lvK) * e;
+      lvC += (cT - lvC) * e; lvG += (gT - lvG) * e; lvT += (tT - lvT) * e;
       if (Math.abs(cT - lvC) < 0.004) lvC = cT;
       if (Math.abs(gT - lvG) < 0.004) lvG = gT;
-      if (Math.abs(kT - lvK) < 0.004) lvK = kT;
       if (Math.abs(tT - lvT) < 0.004) lvT = tT;
     }
     lvAt = now;
@@ -3370,23 +3403,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // over, the tint flickered between mid-fade values).
     liverTint.style.opacity = (lvT * k).toFixed(3);
     if (lvT !== tT) widthEasing = true;
-    const moving = lvC !== cT || lvG !== gT || lvK !== kT;
+    const moving = lvC !== cT || lvG !== gT;
     // While it eases, the live drawing shows (a raster would move in steps); the plate is
     // rasterized again once it settles.
     // A large change, or one still under way (a time-lapse), shows the live drawing. A small step
     // (the running model's congestion drifting a notch) eases under the plate and is rasterized once
     // it settles: swapping to the live drawing and back every few seconds would flash the organs.
-    const retarget = lvMoving && (cT !== lvCT || gT !== lvGTo || kT !== lvKTo);
-    lvCT = cT; lvGTo = gT; lvKTo = kT;
-    if (moving && (retarget || Math.max(Math.abs(cT - lvC), Math.abs(gT - lvG), Math.abs(kT - lvK)) > 0.08) && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
+    const retarget = lvMoving && (cT !== lvCT || gT !== lvGTo);
+    lvCT = cT; lvGTo = gT;
+    if (moving && (retarget || Math.max(Math.abs(cT - lvC), Math.abs(gT - lvG)) > 0.08) && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
     if (lvMoving && !moving) lvStillAt = performance.now();
     lvMoving = moving;
     if (moving) widthEasing = true;
-    morphLiver(lvC, lvG, moving, lvK);
+    morphLiver(lvC, lvG, moving);
     for (const el of [lv.nut, lv.nutNet, lv.gloss]) el.style.visibility = imaging ? 'hidden' : '';
     // A cirrhotic liver shrinks a little; a congested one swells.
     const shrink = 1 - 0.035 * lvC + 0.035 * lvG;
     organG.liver.setAttribute('transform', `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`);
+    {
+      // The caudate lobe grows as its veins carry the liver's outflow: from twice their normal flow, fully at four times.
+      const hq = store.get().healthy?.Q?.[EI.CAUD], PA2 = f.Pf || f.P;
+      caudK = held(caudK, hq ? clamp((Math.abs((f.Qf || f.Q)[EI.CAUD] / hq) - 2) / 2, 0, 1) : 0, 0.05);
+      caud.sync(pressureColor(qP(PA2[NI.IVCS] + 0.5)), caudK);
+    }
     const c3 = recruitFrac('C3', f);
     abdWall.setAttribute('opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
     const sc = f.slow.spleen / 11;

@@ -20,10 +20,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=7b629187ab';
 import { sinusoidSupported } from './sinusoid-view.js?v=c23bc8164a';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=1655f4d0b2';
-import { createHvpgMonitor } from './hvpg-proc.js?v=ccae6083ff';
-import { createTools } from './presenter-tools.js?v=1b2a2eb3bd';
-import { openHandout } from './handout.js?v=9a6693e0eb';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=47b04f3eec';
+import { createHvpgMonitor } from './hvpg-proc.js?v=4e3d791f8d';
+import { createTools } from './presenter-tools.js?v=0ec4147540';
+import { openHandout } from './handout.js?v=2b88642244';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=bf239e7484';
 import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
@@ -94,7 +94,9 @@ const TARGETS = {
   lrv: { node: 'LRV', edges: ['LRV_IVC', 'V_KID_L'], tone: 'ivc', words: 'left renal vein' },
   spleen: { organ: 'spleen', tone: 'sv', words: 'spleen' },
   liver: { organ: 'liver', tone: 'wedge', words: 'liver' },
+  // The caudate lobe with its veins draining into the IVC; caudateLobe: the lobe alone (a DIPS runs through it).
   caudate: { organ: 'caudate', tone: 'hv', words: 'caudate lobe' },
+  caudateLobe: { organ: 'caudate-lobe', tone: 'hv', words: 'caudate lobe' },
   heart: { organ: 'heart', tone: 'ra', words: 'heart' },
   // Inside the liver (lit: the lobule's and the sinusoid's own labels take the colour and a soft glow, .app[data-lit]).
   'lobule:triad': { lit: true, tone: 'pv', words: 'portal tracts?|portal triads?|portal venules?' },
@@ -116,7 +118,7 @@ const TARGETS = {
 const toneVar = (t) => (t === 'accent' ? 'var(--accent)' : t.startsWith('--') ? `var(${t})` : `var(--tr-${t})`);
 // Node ids name their target too ([portal vein](CONF) is [portal vein](pv)).
 for (const [k, t] of Object.entries(TARGETS)) if (t.node && !TARGETS[t.node]) TARGETS[t.node] = TARGETS[k];
-const ORGANS = new Set(['liver', 'caudate', 'spleen', 'heart', 'heart-ra']);
+const ORGANS = new Set(['liver', 'caudate', 'caudate-lobe', 'spleen', 'heart', 'heart-ra']);
 // A vessel's station colour, for a glow written by hand (glow: ['PV_TRUNK']).
 const EDGE_TONE = {};
 for (const t of Object.values(TARGETS)) for (const e of t.edges || []) EDGE_TONE[e] ||= t.tone;

@@ -2,11 +2,11 @@
 
 ## Unreleased
 
-- **Caudate lobe.** The anatomy now draws the caudate lobe beside the IVC, below the hepatic vein confluence and above
-  the portal bifurcation, quietly, as part of the liver (a fissure line and its own dome), with its short veins draining
-  straight into the IVC (they carry the model's caudate flow and are left out of the circuit). In Budd–Chiari the lobe
-  eases larger as its veins take over the outflow. The "caudate lobe still drains" and DIPS slides outline it and name
-  it in their lines; the DIPS tract runs through it. Test: `tests/caudate.test.js`.
+- **Caudate lobe.** Shown only on the slides about it, eased in and out: on "The caudate lobe still drains" a soft
+  dome of the liver's own tone (no outline) beside the IVC with three fine, tapered caudate veins that merge into the
+  IVC's wall below the hepatic veins, colored from the pressure they drain at; on the DIPS slide the lobe alone, with
+  the tract running through it. In Budd–Chiari it is larger as its veins take over the outflow. Nothing changes in
+  Explore or on other slides. Test: `tests/caudate.test.js`.
 
 - **Corner credit on a phone held sideways.** In Present the credit sat on the words' glass pane at the lower left. The pane now
   counts as a card: the credit moves along the figure's edge to the first free spot beside it, and sets itself on two
