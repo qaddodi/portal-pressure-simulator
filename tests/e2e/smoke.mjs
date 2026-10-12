@@ -863,6 +863,17 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       return { h: R('').height, hit: a.bottom > b.top && a.right > b.left };
     });
     if (d.h > 300 || d.hit) throw new Error(`Doppler card ${Math.round(d.h)}px tall (cap 300)${d.hit ? ', the direction runs into the stats' : ''}`);
+    // The DIPS slide's long ascites rating ("Grade 1, ultrasound only") stays inside its tile, clear of the other tiles' words.
+    await page.evaluate(() => window.pps.presenter.start('outflow', 5));
+    await page.waitForFunction(() => /Grade/.test(document.querySelector('.pz-data:not(.pz-hide) .pz-tiles')?.textContent || ''), null, { timeout: 60000 });
+    await page.waitForTimeout(800);
+    const hits = await page.evaluate(() => {
+      const kids = [...document.querySelectorAll('.pz-data:not(.pz-hide) .pz-tile')].flatMap((t) => { const b = t.getBoundingClientRect(); return [...t.children].map((c) => ({ c, r: c.getBoundingClientRect(), b })).filter((x) => x.r.width && x.c.textContent.trim()); });
+      const bad = kids.filter((x) => x.r.right > x.b.right + 1 || x.r.bottom > x.b.bottom + 1).map((x) => `"${x.c.textContent}" spills`);
+      for (let i = 0; i < kids.length; i++) for (let j = i + 1; j < kids.length; j++) { const p = kids[i].r, q = kids[j].r; if (Math.min(p.right, q.right) - Math.max(p.left, q.left) > 1 && Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top) > 1) bad.push(`"${kids[i].c.textContent}" hits "${kids[j].c.textContent}"`); }
+      return bad;
+    });
+    if (hits.length) throw new Error(`DIPS slide tiles: ${hits.join('; ')}`);
   });
 
   await check(device, 'presenter: summary table returns after back then forward', async (page) => {

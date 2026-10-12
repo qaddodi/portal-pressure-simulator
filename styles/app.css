@@ -4825,6 +4825,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack .pz-data .pz-tiles .pzt-v { font-size: 22px; line-height: 1.1; }
 .pz.stack .pz-data .pz-tiles .pzt-vu small { font-size: 12px; }
 .pz.stack .pz-data .pz-tiles .pzt-r, .pz.stack .pz-data .pz-tiles .pzt-d { flex: 0 1 auto; font-size: 11px; line-height: 1.3; white-space: nowrap; }
+.pz.stack .pz-data .pz-tiles .pzt-r { white-space: normal; }   /* (a long rating, "Grade 1, ultrasound only", wraps inside its tile rather than running into the next) */
 .pz.stack .pzt-dw, .pz.stack .pzt-du { display: none; }
 
 /* Tests card: the scope and Doppler readings as compact tiles, in the presenter data card's style (small
