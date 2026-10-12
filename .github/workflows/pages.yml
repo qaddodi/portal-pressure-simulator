@@ -4,10 +4,12 @@ name: Pages (live site + preview)
 #   /          the tip of main (the live site)
 #   /preview/  the branch that triggered the run (a claude/** branch), or main again after a merge
 # Every run rebuilds both from scratch, so the newest run always wins: the deploy job shares one
-# concurrency group across branches. Lint and unit run for every push and gate the deploy. A browser,
-# visual or WebKit check that has started is never cancelled: it runs to the end and reports. While
-# one runs, only the newest waiting commit queues behind it (GitHub drops older waiting ones), so the
-# checks follow the branch tip at a steady pace and never take every runner from the deploy.
+# concurrency group across branches. Lint and unit run for every push and gate the deploy.
+# On the integration branch a newer push cancels the older run's lint, browser, visual and WebKit
+# checks at once, so the newest push gets the runners and deploys fast (owner's rule). A preview
+# deploy that is already publishing is never cancelled: the newest waiting one queues behind it and
+# older waiting ones are dropped, so a burst of pushes always ends with the newest commit deployed.
+# On main nothing changes: started checks run to the end and a main deploy replaces a running one.
 # Browser, visual and WebKit checks run only for main and the integration branch (other claude/**
 # branches get lint and unit here, and everything in ci.yml on a pull request), so runners stay free.
 
@@ -26,6 +28,9 @@ jobs:
   # the browser tests.
   validate:
     runs-on: ubuntu-latest
+    concurrency:
+      group: validate-${{ github.ref_name == 'claude/settings-topbar-icon-flvft1' && github.ref || github.run_id }}
+      cancel-in-progress: ${{ github.ref_name == 'claude/settings-topbar-icon-flvft1' }}
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       group: browser-checks-${{ github.ref }}-${{ matrix.device }}-${{ matrix.shard }}
-      cancel-in-progress: false
+      cancel-in-progress: ${{ github.ref_name == 'claude/settings-topbar-icon-flvft1' }}
     # Covers the install (capped at 4 minutes below) plus the checks (SMOKE_PLAN=1 npm run smoke prints each share's expected
     # minutes: 12 to 15 now, and a slow runner takes longer; at 15 minutes the shares were cut off mid-check and the run went red).
     timeout-minutes: 25
@@ -117,7 +122,7 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       group: webkit-${{ github.ref }}
-      cancel-in-progress: false
+      cancel-in-progress: ${{ github.ref_name == 'claude/settings-topbar-icon-flvft1' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -141,7 +146,7 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       group: visual-${{ github.ref }}-${{ matrix.device }}
-      cancel-in-progress: false
+      cancel-in-progress: ${{ github.ref_name == 'claude/settings-topbar-icon-flvft1' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -178,7 +183,7 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       group: pages
-      cancel-in-progress: true
+      cancel-in-progress: ${{ github.ref_name == 'main' }}
     timeout-minutes: 10
     environment:
       name: github-pages
