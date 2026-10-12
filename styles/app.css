@@ -4813,18 +4813,20 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-data.under > * { flex: none; }
 .pzt-r { min-width: 0; hyphens: auto; overflow-wrap: break-word; }
 .pz.stack .pzt-r { font-size: clamp(11px, 9cqi, 15px); }
-/* Phone: every data card's tiles kept short, read as one line that wraps where the tile runs out: the name, the value and its unit,
-   the rating, the change said short ("▲ 7.5 from 5.0": its word and unit fold away, the unit is beside the value). */
-.pz.stack .pz-data { gap: 6px; padding-top: 8px; padding-inline: 10px; }
+/* Phone: every data card's tiles kept short and laid out alike: the name on top, then the value and its unit with the
+   rating at the right end of that row, then the change said short ("▲ 7.5 from 5.0": its word and unit fold away, the unit is beside the value). */
+.pz.stack .pz-data { gap: 6px; padding-top: 10px; padding-inline: 10px; }
 .pz.stack .pz-data.has-tool:not(.tool-only) .pz-fold { min-height: 20px; margin: 0 -2px 0 auto; padding: 0 9px; }   /* (no negative margin: a pill spilling from the header would read as overflow and shrink the card) */
 .pz.stack .pz-data .pz-tiles { gap: 6px; }
-.pz.stack .pz-data .pz-tiles .pz-tile { flex-direction: row; flex-wrap: wrap; align-items: baseline; align-content: center; gap: 0 6px; padding: 4px 9px 5px; border-radius: 11px; }
-.pz.stack .pz-data .pz-tiles .pzt-k { flex: 0 1 auto; font-size: 11px; letter-spacing: .05em; }
-.pz.stack .pz-data .pz-tiles .pzt-vu { flex: none; }
+.pz.stack .pz-data .pz-tiles .pz-tile { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 0 6px; padding: 4px 9px 5px; border-radius: 11px; }
+.pz.stack .pz-data .pz-tiles .pzt-k, .pz.stack .pz-data .pz-tiles .pzt-d { grid-column: 1 / -1; }
+.pz.stack .pz-data .pz-tiles .pzt-k { font-size: 11px; letter-spacing: .05em; }
+.pz.stack .pz-data .pz-tiles .pzt-vu { flex-wrap: nowrap; }
+.pz.stack .pz-data .pz-tiles .pzt-r { justify-self: end; text-align: end; }
 .pz.stack .pz-data .pz-tiles .pzt-v { font-size: 22px; line-height: 1.1; }
 .pz.stack .pz-data .pz-tiles .pzt-vu small { font-size: 12px; }
 .pz.stack .pz-data .pz-tiles .pzt-r, .pz.stack .pz-data .pz-tiles .pzt-d { flex: 0 1 auto; font-size: 11px; line-height: 1.3; white-space: nowrap; }
-.pz.stack .pz-data .pz-tiles .pzt-r { white-space: normal; }   /* (a long rating, "Grade 1, ultrasound only", wraps inside its tile rather than running into the next) */
+.pz.stack .pz-data .pz-tiles .pzt-r { white-space: normal; max-width: 100%; }   /* (a long rating, "Grade 1, ultrasound only", wraps inside its tile rather than running into the next) */
 .pz.stack .pzt-dw, .pz.stack .pzt-du { display: none; }
 
 /* Tests card: the scope and Doppler readings as compact tiles, in the presenter data card's style (small

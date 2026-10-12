@@ -840,8 +840,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
-  // A phone's data card stays short: its tiles read as one wrapping line (name, value, rating, the change said short), nothing
-  // spilling out of a tile. The FibroScan slide's two tiles sit side by side, one line each.
+  // A phone's data card stays short and its tiles alike: the name on top, the value and unit below it with the rating at that
+  // row's right end, then the change said short; nothing spilling out of a tile. The FibroScan slide's two tiles sit side by side.
   if (device === 'phone') await check(device, 'presenter: a phone keeps the data card short', async (page) => {
     await open(page);
     await page.evaluate(() => window.pps.presenter.start('stiffness', 2));
@@ -853,7 +853,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const spill = tiles.flatMap((t) => { const b = t.getBoundingClientRect(); return [...t.children].filter((c) => { const cb = c.getBoundingClientRect(); return cb.width && (cb.right > b.right + 1 || cb.bottom > b.bottom + 1); }).map((c) => c.className); });
       return { h: d.getBoundingClientRect().height, tile: Math.max(...tiles.map((t) => t.getBoundingClientRect().height)), n: tiles.length, spill };
     });
-    if (r.n !== 2 || r.h > 72 || r.tile > 32 || r.spill.length) throw new Error(`FibroScan card ${Math.round(r.h)}px tall (cap 72), tallest of ${r.n} tiles ${Math.round(r.tile)}px (cap 32)${r.spill.length ? ', spilling: ' + r.spill.join() : ''}`);
+    if (r.n !== 2 || r.h > 116 || r.tile > 68 || r.spill.length) throw new Error(`FibroScan card ${Math.round(r.h)}px tall (cap 116), tallest of ${r.n} tiles ${Math.round(r.tile)}px (cap 68)${r.spill.length ? ', spilling: ' + r.spill.join() : ''}`);
     // The Doppler card: its report in three short rows, the direction clear of the stats.
     await page.evaluate(() => window.pps.presenter.start('doppler', 1));
     await page.waitForFunction(() => document.querySelector('.pz-data:not(.pz-hide) .pz-tool[data-kind="doppler"] .dop-dir')?.textContent.length > 2, null, { timeout: 60000 });
@@ -874,6 +874,36 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       return bad;
     });
     if (hits.length) throw new Error(`DIPS slide tiles: ${hits.join('; ')}`);
+  });
+
+  // Every deck's number tiles share one layout at each size: in a card, each tile's name, value and rating sit at the same place
+  // within the tile (the rating's left or right edge), and every tile with a unit shows it (the fullest tile slide of each deck with a full card).
+  await check(device, 'presenter: data card tiles are laid out alike', async (page) => {
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    await open(page);
+    const bad = [];
+    for (const d of DECKS.filter((x) => /^(ncph|one-year|prehepatic|spleen|outflow|treatment)$/.test(x.id))) {   // (the decks with the fullest cards)
+      const sl = withOverview(d).slides.map((x, i) => [x, i]).filter(([x]) => x.data === 'tiles' && x.tiles?.length >= 2).sort((a, b) => b[0].tiles.length - a[0].tiles.length)[0];
+      if (!sl) continue;
+      await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [d.id, sl[1]]);
+      const ok = await page.waitForFunction((n) => [...document.querySelectorAll('.pz-data:not(.pz-hide) .pz-tile')].filter((t) => t.offsetWidth).length >= Math.min(n, 2) && !document.querySelector('.pz-cover'), sl[0].tiles.length, { timeout: 6000 }).then(() => true, () => false);
+      if (!ok) continue;   // (a slide whose tiles fold away at this size, behind its tool)
+      await page.waitForTimeout(700);
+      const r = await page.evaluate(() => {
+        const out = [], tiles = [...document.querySelectorAll('.pz-data:not(.pz-hide) .pz-tile')].filter((t) => t.offsetWidth);
+        const at = (t, q) => { const e = t.querySelector(q), b = t.getBoundingClientRect(), c = e?.getBoundingClientRect(); return c?.width ? { t: c.top - b.top, l: c.left - b.left, r: b.right - c.right } : null; };
+        const P = tiles.map((t) => ({ k: at(t, '.pzt-k'), v: at(t, '.pzt-v'), r: at(t, '.pzt-r'), u: t.querySelector('.pzt-vu small'), name: t.querySelector('.pzt-k')?.textContent }));
+        for (const p of P) if (p.u?.hidden && !/—/.test(p.u.parentElement.textContent)) out.push(`${p.name} has no unit`);
+        const same = (f, why) => { const v = P.map(f).filter((x) => x != null); if (v.length > 1 && Math.max(...v) - Math.min(...v) > 3) out.push(why + ' ' + v.map(Math.round).join('/')); };
+        same((p) => p.k?.t, 'name top'); same((p) => p.k?.l, 'name left'); same((p) => p.v?.l, 'value left');
+        same((p) => p.v && p.k && p.v.t - p.k.t > 0 ? 1 : 0, 'value below name');
+        const rl = P.map((p) => p.r?.l), rr = P.map((p) => p.r?.r), spread = (v) => Math.max(...v) - Math.min(...v);
+        if (P.every((p) => p.r) && spread(rl) > 3 && spread(rr) > 3) out.push('rating placed differently');
+        return out;
+      });
+      if (r.length) bad.push(`${d.id} slide ${sl[1]}: ${r.join('; ')}`);
+    }
+    if (bad.length) throw new Error(bad.join('\n'));
   });
 
   await check(device, 'presenter: summary table returns after back then forward', async (page) => {

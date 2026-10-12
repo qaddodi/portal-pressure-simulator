@@ -44,7 +44,7 @@ export const TILE = {
   varix: { t: 'Esophageal varix', s: 'Diameter', u: 'mm', better: -1 },
   gv: { t: 'Gastric varix', s: 'Fundal, diameter', u: 'mm', better: -1 },
   spleen: { t: 'Spleen', s: 'Length', u: 'cm', better: -1 },
-  plt: { t: 'Platelets', s: '× 10⁹ per litre', u: '', d: 0, better: 1 },
+  plt: { t: 'Platelets', s: '× 10⁹ per litre', u: '×10⁹/L', d: 0, better: 1 },
   pvFlow: { t: 'Portal vein flow', s: 'Mean', u: 'L/min' },
   liver: { t: 'Liver blood flow', s: 'Through the sinusoids, of normal', u: '%', d: 0, better: 1 },
   shunt: { t: 'Shunted', s: 'Portal blood bypassing the liver', u: '%', x: 100, d: 0, better: -1 },

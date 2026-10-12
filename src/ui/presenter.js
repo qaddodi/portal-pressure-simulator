@@ -25,7 +25,7 @@ import { createHvpgMonitor } from './hvpg-proc.js?v=926224aa99';
 import { createTools } from './presenter-tools.js?v=8902503ee0';
 import { openHandout } from './handout.js?v=fa5f92a479';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
+import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=05179b2d88';
 import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
 const nextFrame = frameFor('presenter');
 
