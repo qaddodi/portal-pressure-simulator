@@ -1,7 +1,8 @@
 // Type scale check: every piece of text on the figure (labels and pills) and on a presenter slide card is one of six
 // roles (styles/tokens.css --t-*, slide cards --s-*) times the text size setting, never under 11 px, and a pill's
 // unit is never larger than its reading. Explore's four views at every text size step on a phone, at 100 % and 200 %
-// on an upright iPad and a desktop; the first slides of eight decks at 100 % (and one at 150 %) at each size.
+// on an upright iPad and a desktop; the first slides of eight decks at 100 % (and one at 150 %) at each size, a phone on
+// its side included. A phone's slide words (text card, title panel) are twice the roles' size upright, 1.3 times on its side (its summary table keeps their own size).
 // The four drawn slide charts (scale, ladders, SAAG map, walls) draw their own lettering and are left out.
 // Run alone: node tests/e2e/type-scale.mjs; also run by smoke.mjs (desktop run).
 import { chromium } from 'playwright';
@@ -11,6 +12,7 @@ import { TEXT_STEPS } from '../../src/ui/type-scale.js';
 export const SIZES = [
   { name: 'phone', viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   { name: 'iPad', viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  { name: 'phone sideways', viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   { name: 'desktop', viewport: { width: 1440, height: 900 } },
 ];
 const DECKS = ['circulation', 'lobule', 'hvpg', 'sites', 'ascites', 'doppler', 'endoscopy', 'variceal-bleed'];
@@ -24,7 +26,7 @@ export function offScale(roles) {
   const areas = [];
   const fig = document.querySelector('#stageView');
   if (fig) areas.push({ root: fig, name: 'figure', skip: '.pz, .float-ui, .stage-credit, .tool-card, .zoom-pill, .coach, .vdock, .sb-banner', sizes: (el) => { const host = el.closest('.sv, .lz-host') || fig; return roles.map((r) => probe(host, `calc(var(--t-${r}) * var(--label-scale, 1) * ${el.closest('.lz-zone') ? 'var(--zk, 1)' : 1})`)); } });
-  for (const pz of document.querySelectorAll('.pz')) areas.push({ root: pz, name: 'slide', skip: 'svg, .pz-bar, .pz-tool, .pzj, .pz-deck, .pz-outline svg', sizes: () => roles.map((r) => probe(pz, `var(--s-${r})`)) });
+  for (const pz of document.querySelectorAll('.pz')) areas.push({ root: pz, name: 'slide', skip: 'svg, .pz-bar, .pz-tool, .pzj, .pz-deck, .pz-outline svg', sizes: (el) => roles.map((r) => probe(el.closest('.pz-table, .pz-text, .pz-panel') || pz, `var(--s-${r})`)) });
   for (const a of areas) {
     const w = document.createTreeWalker(a.root, NodeFilter.SHOW_TEXT);
     const cache = new Map();
@@ -32,7 +34,7 @@ export function offScale(roles) {
       const el = n.parentElement;
       if (!n.textContent.trim() || !el || el.closest(a.skip) || (a.name === 'figure' && el.closest('.pz')) || !shown(el)) continue;
       const fs = parseFloat(getComputedStyle(el).fontSize);
-      const key = el.closest('.sv, .lz-host, .lz-zone') || a.root;
+      const key = el.closest('.sv, .lz-host, .lz-zone, .pz-table, .pz-text, .pz-panel') || a.root;
       if (!cache.has(key)) cache.set(key, a.sizes(el));
       const ok = cache.get(key);
       const what = `${a.name} ${el.tagName.toLowerCase()}.${[...el.classList].join('.')} "${n.textContent.trim().slice(0, 16)}" ${fs.toFixed(1)}px`;
@@ -55,7 +57,7 @@ export async function checkTypeScale(browser, url, log = console.log) {
   const bad = [];
   for (const size of SIZES.filter((s) => !process.env.TS_SIZES || process.env.TS_SIZES.split(',').includes(s.name))) {
     const { name, ...opts } = size;
-    const steps = name === 'phone' ? TEXT_STEPS : [1, 2];
+    const steps = name === 'phone' ? TEXT_STEPS : name === 'phone sideways' ? [1] : [1, 2];
     const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block', reducedMotion: 'reduce' });
     const page = await ctx.newPage();
     const at = async (step, path) => { await page.addInitScript((s) => { try { localStorage.setItem('pps.labelScale', String(s)); localStorage.setItem('pps.labelScaleV', '2'); } catch { /* */ } }, step); await page.goto(url + path); await page.waitForTimeout(3000); };
@@ -71,6 +73,12 @@ export async function checkTypeScale(browser, url, log = console.log) {
       await at(step, `?script=${deck}`);
       await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'), null, { timeout: 60000 });
       for (let i = 1; i <= 4; i++) { await settle(page); await look(`${deck} slide ${i} at ${step * 100}%`); await page.keyboard.press('ArrowRight'); }
+      // A phone sets the slide's words at twice the roles' size upright, 1.3 times on its side (the summary table keeps their own size).
+      if (name.startsWith('phone') && deck === 'circulation') {
+        const k = await page.evaluate(() => +getComputedStyle(document.querySelector('.pz-text')).getPropertyValue('--pk'));
+        const want = name === 'phone' ? 2 : 1.3;   // (on its side, 1.3: twice would not fit 390 px of height)
+        if (k !== want) bad.push(`${name} slides: slide text ${k}× the roles, not ${want}×`);
+      }
     }
     // The pressure-scale slides (their HTML scale on a phone and the key under it).
     for (const [deck, n] of [['hvpg', 6], ['stiffness', 5]]) { await at(1, `?script=${deck}&slide=${n}`); await settle(page); await look(`${deck} slide ${n} at 100%`); }

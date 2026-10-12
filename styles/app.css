@@ -1706,11 +1706,20 @@ button.finding { cursor: pointer; }
 /* Slide text: the six roles (tokens.css --t-*) at a slide's size: on a wide screen they follow the screen's height
    (a laptop at 900 px: caption 15.6 · label 18.2 · body 20.8 · value 28.6 · big 41.6 · title 57.2); a phone's stacked
    slide uses the roles as they are. Both times the text size setting (--ts). */
-.pz { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1));
-  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1));
-  --s-big: calc(clamp(28px, calc(4.622 * var(--pzh) / var(--vz)), 56px) * var(--ts, 1)); --s-title: calc(clamp(32px, calc(6.356 * var(--pzh) / var(--vz)), 77px) * var(--ts, 1)); }
-.pz.stack { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1));
-  --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
+.pz, .pz-text, .pz-panel { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1) * var(--pk, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1) * var(--pk, 1));
+  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1) * var(--pk, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1) * var(--pk, 1));
+  --s-big: calc(clamp(28px, calc(4.622 * var(--pzh) / var(--vz)), 56px) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(clamp(32px, calc(6.356 * var(--pzh) / var(--vz)), 77px) * var(--ts, 1) * var(--pk, 1)); }
+.pz.stack, .pz.stack .pz-text, .pz.stack .pz-panel { --s-cap: calc(var(--t-cap) * var(--ts, 1) * var(--pk, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1) * var(--pk, 1)); --s-body: calc(var(--t-body) * var(--ts, 1) * var(--pk, 1));
+  --s-val: calc(var(--t-val) * var(--ts, 1) * var(--pk, 1)); --s-big: calc(var(--t-big) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(var(--t-title) * var(--ts, 1) * var(--pk, 1)); }
+/* A phone: the slide's words (its text card and title panel) twice the roles' size at 100 % upright; the data card keeps
+   the roles' size, as its tiles and instruments would not fit (Mohammad: easier to read in hand); on its side 1.3 times,
+   as twice does not fit 390 px of height (the words ran out of their card). */
+.pz.stack .pz-text, .pz.stack .pz-panel { --pk: 2; }
+@media (orientation: landscape) and (max-height: 500px) { .pz-text, .pz-panel { --pk: 1.3; } }
+/* (Except the summary table: its five to seven columns only fit a phone at the roles' own size.) */
+.pz.stack .pz-table { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); }
+@media (orientation: landscape) and (max-height: 500px) { .pz .pz-table { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1));
+  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1)); } }
 .pz-kick { display: flex; align-items: center; gap: .55em; font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--site, var(--text-3)); }
 .pz-kick[data-site="none"] { color: var(--text-3); }
 .pz-kick i { width: .62em; height: .62em; border-radius: 50%; background: currentColor; flex: none; }

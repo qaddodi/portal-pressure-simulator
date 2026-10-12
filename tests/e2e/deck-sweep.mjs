@@ -20,6 +20,7 @@ const SIZES = {
   desktop: { viewport: { width: 1440, height: 900 } },
   ipad: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+  sideways: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
 };
 const settle = (page) => page.waitForFunction(() => {
   if (document.querySelector('.pz-load.on')) return false;
