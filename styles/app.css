@@ -1851,11 +1851,10 @@ button.finding { cursor: pointer; }
 .app.presenting .cath-label small, .app.presenting .cath-label b + span { font-size: calc(var(--t-lab) * min(var(--label-scale, 1), 1.7)); }
 .app.presenting .cath-label b { font-size: calc(var(--t-big) * min(var(--label-scale, 1), 1.7)); }
 .app.presenting .cath-label.site { --sk: min(var(--label-k, 1), 1.7); padding: calc(5px * var(--sk)) calc(12px * var(--sk)) calc(6px * var(--sk)); border-radius: calc(12px * var(--sk)); }
-.app.presenting .cath-label.site b { font-size: max(18px, calc(20px * var(--sk))); }
+.app.presenting .cath-label.site b { font-size: calc(var(--t-val) * min(var(--label-scale, 1), 1.7)); }
 @media (max-width: 600px) {
   .app.presenting .cath-label.site { padding: calc(3px * var(--sk)) calc(9px * var(--sk)); border-radius: calc(10px * var(--sk)); }
-  .app.presenting .cath-label.site b { font-size: max(14.5px, calc(14px * var(--sk))); }
-  .app.presenting .cath-label.site small, .app.presenting .cath-label.site b + span { font-size: max(11px, calc(10.5px * var(--sk))); }
+  .app.presenting .cath-label.site small, .app.presenting .cath-label.site b + span { font-size: calc(var(--t-cap) * min(var(--label-scale, 1), 1.7)); }
 }
 .pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity .5s var(--ease); }
 .pz-veil.on { opacity: 1; }
@@ -2369,7 +2368,7 @@ button.finding { cursor: pointer; }
 /* The opening slide: the talk's outline beside its objectives. */
 /* The opening slide: the talk's plan as a numbered run of sections, its objectives on a tinted card beside it
    (under it on a narrow screen). One type size for both lists; the numbers and ticks in the accent colour. */
-.pz-outline { --pzo-fs: clamp(16px, calc(2.15 * var(--pzh) / var(--vz)), 26px); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: start; gap: clamp(18px, calc(3.2 * var(--pzh) / var(--vz)), 44px) clamp(24px, 3.6vw, 60px); }
+.pz-outline { --pzo-fs: var(--s-body); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: start; gap: clamp(18px, calc(3.2 * var(--pzh) / var(--vz)), 44px) clamp(24px, 3.6vw, 60px); }
 .pz-outline section { min-width: 0; display: flex; flex-direction: column; }
 .pz-outline h2.pz-sub { display: flex; align-items: center; gap: .8em; margin: 0 0 .7em; }
 .pz-outline h2.pz-sub::after { content: ""; flex: 1; height: 1px; background: var(--border); }
@@ -2383,7 +2382,7 @@ button.finding { cursor: pointer; }
 .pz-outline ul { gap: .75em; }
 .pz-outline ul li { position: relative; padding-left: 1.7em; }
 .pz-outline ul li::before { content: ""; position: absolute; left: .3em; top: .28em; width: .32em; height: .6em; border: solid var(--accent); border-width: 0 .14em .14em 0; transform: rotate(45deg); }
-.pz.stack .pz-outline { --pzo-fs: 16px; gap: 14px; }
+.pz.stack .pz-outline { --pzo-fs: var(--s-body); gap: 14px; }
 .pz.stack .pzo-obj { padding: 12px 14px; border-radius: 14px; }
 .pz-panel[data-visual="outline"] { width: min(1180px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); }
 .app.pz-hi .pzl-lead { opacity: .85; }
@@ -2758,9 +2757,9 @@ button.finding { cursor: pointer; }
 .app .cath-label.site.res.low { translate: calc(-100% - 10px) 10px; } .app .cath-label.site.res.coll.low { translate: 10px 10px; } .app .cath-label.site.res.gut.low { translate: -50% calc(100% + 18px); }
 .app .cath-label.site.res.low b + span { display: none; }
 
-.cath-label.site.res small, .app.presenting .cath-label.site.res small { color: var(--text-3); font-size: max(11px, calc(12px * var(--sk, 1))); letter-spacing: .02em; font-weight: 600; }
-.cath-label.site.res b, .app.presenting .cath-label.site.res b { color: var(--text); font-size: max(14.5px, calc(16px * var(--sk, 1))); }
-.cath-label.site.res b + span, .app.presenting .cath-label.site.res b + span { color: var(--text-3); font-size: max(11px, calc(11px * var(--sk, 1))); margin: 0; }
+.cath-label.site.res small, .app.presenting .cath-label.site.res small { color: var(--text-3); font-size: calc(var(--t-cap) * var(--label-scale, 1)); letter-spacing: .02em; font-weight: 600; }
+.cath-label.site.res b, .app.presenting .cath-label.site.res b { color: var(--text); font-size: calc(var(--t-val) * var(--label-scale, 1)); }
+.cath-label.site.res b + span, .app.presenting .cath-label.site.res b + span { color: var(--text-3); font-size: calc(var(--t-cap) * var(--label-scale, 1)); margin: 0; }
 .cath-label.site.res b + span:empty { display: none; }
 /* The circuit's resistors: a zigzag over the vessel, heavier as its resistance rises (eased, never a jump). */
 .res-one { transition: opacity .6s var(--ease); }
@@ -4491,10 +4490,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @media (prefers-reduced-motion: reduce) { .home { animation: none; } }
 
 /* The Presenter's reflowing scale (scaleKey): zone names over a band, cut-offs under it, numbered dots, a key. */
-.pz-sk { --sk: clamp(13px, calc(2.2 * var(--pzh) / var(--vz)), 26px); font: 500 var(--sk)/1.3 var(--font-ui); color: var(--text); padding: .4em 0 0; }
+.pz-sk { --sk: var(--s-body); font: 500 var(--sk)/1.3 var(--font-ui); color: var(--text); padding: .4em 0 0; }
 .pzk-names, .pzk-bar, .pzk-axis { position: relative; margin: 0 1.2em; }
 .pzk-names { display: grid; align-items: end; min-height: 1.6em; padding-bottom: .3em; box-sizing: border-box; }
-.pzk-names span { padding: 0 .2em; text-align: center; font-weight: 600; font-size: .78em; line-height: 1.15; letter-spacing: .08em; text-transform: uppercase; }
+.pzk-names span { padding: 0 .2em; text-align: center; font-weight: 600; font-size: var(--s-cap); line-height: 1.15; letter-spacing: .08em; text-transform: uppercase; }
 .pzk-names [data-rate="ok"] { color: var(--ok); } .pzk-names [data-rate="mid"] { color: var(--caution); } .pzk-names [data-rate="hi"], .pzk-names [data-rate="top"] { color: var(--danger); }
 .pzk-bar { height: 1.5em; }
 .pzk-bar i { position: absolute; top: .25em; bottom: .25em; }
@@ -4515,16 +4514,16 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pzk-axis span { position: absolute; top: 0; transform: translateX(-50%); }
 .pzk-axis .end { right: 0; transform: none; font-weight: 500; color: var(--text-3); }
 .pzk-rules { display: grid; align-items: start; margin: .1em 1.2em 0; }
-.pzk-rules span { padding: 0 .4em; text-align: center; font-size: .78em; line-height: 1.3; color: var(--text-2); }
+.pzk-rules span { padding: 0 .4em; text-align: center; font-size: var(--s-cap); line-height: 1.3; color: var(--text-2); }
 .pzk-bar b { z-index: 0; } .pzk-dot { z-index: 1; }
 .pzk-key { list-style: none; margin: .9em 0 0; padding: .9em 0 0; border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .9em 1.2em; }
 .pzk-key li { display: grid; grid-template-columns: auto 1fr; column-gap: .55em; align-items: baseline; align-content: start; opacity: 0; transition: opacity .5s var(--ease) calc(var(--i, 0) * 160ms + 400ms); }
 .pz-sk.in .pzk-key li { opacity: 1; }
-.pzk-n { grid-row: span 4; align-self: start; display: grid; place-items: center; width: 1.5em; height: 1.5em; border-radius: 50%; border: .12em solid currentColor; font: 700 .72em/1 var(--font-ui); color: var(--text-2); margin-top: .35em; }
-.pzk-v { font: 700 1.5em/1.1 var(--font-ui); font-variant-numeric: tabular-nums; }
-.pzk-v small { font-size: .5em; font-weight: 500; color: var(--text-3); }
+.pzk-n { grid-row: span 4; align-self: start; display: grid; place-items: center; width: 1.5em; height: 1.5em; border-radius: 50%; border: .12em solid currentColor; font: 700 var(--s-cap)/1 var(--font-ui); color: var(--text-2); margin-top: .35em; }
+.pzk-v { font: 700 var(--s-val)/1.1 var(--font-ui); font-variant-numeric: tabular-nums; }
+.pzk-v small { font-size: var(--s-cap); font-weight: 500; color: var(--text-3); }
 .pzk-name { font-weight: 600; }
-.pzk-sub { font-size: .82em; color: var(--text-3); }
+.pzk-sub { font-size: var(--s-cap); color: var(--text-3); }
 @media (prefers-reduced-motion: reduce) { .pzk-dot, .pzk-key li { transition: none; } }
 .pz-visual.pz-sk { display: block; width: 100%; max-width: 1100px; margin: 0 auto; }
 .pz-ph .pz-eq { margin: .35em 0 .5em; }

@@ -72,6 +72,8 @@ export async function checkTypeScale(browser, url, log = console.log) {
       await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'), null, { timeout: 60000 });
       for (let i = 1; i <= 4; i++) { await settle(page); await look(`${deck} slide ${i} at ${step * 100}%`); await page.keyboard.press('ArrowRight'); }
     }
+    // The pressure-scale slides (their HTML scale on a phone and the key under it).
+    for (const [deck, n] of [['hvpg', 6], ['stiffness', 5]]) { await at(1, `?script=${deck}&slide=${n}`); await settle(page); await look(`${deck} slide ${n} at 100%`); }
     log(`type scale ${name}: ${bad.length} finding(s) so far`);
     await ctx.close();
   }
