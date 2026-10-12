@@ -138,7 +138,7 @@ function talkTrace() {
     // The line names at the right end, top to bottom, at least 17 px apart.
     const ends = pts.length ? LINES.map(([k, a, c]) => [a, c, Y(pts[last].fp[k])]).sort((p, q) => p[2] - q[2]) : [];
     ends.forEach((e, k) => { if (k) e[2] = Math.max(e[2], ends[k - 1][2] + 17); });
-    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Pressures over the talk so far: ' + pts.map((p) => `${p.when || `slide ${p.n}`}${p.tick ? `, ${p.tick}` : ''}, PV ${fmt(p.fp.pv, 0)}, HVPG ${fmt(p.fp.hvpg, 0)}`).join('; ') },
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Pressures over the talk so far: ' + pts.map((p) => `${p.when || `slide ${p.n}`}${p.tick ? `, ${p.tick}` : ''}, PV ${fmt(p.fp.pv, 0)}, HVPG ${fmt(p.fp.hvpg, 1)}`).join('; ') },
       // Pressure lanes: gridlines every 10 mmHg.
       Array.from({ length: pMax / 10 + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: L, x2: R, y1: Y(k * 10), y2: Y(k * 10) }), sv('text', { x: L - 8, y: Y(k * 10) + 4, 'text-anchor': 'end' }, String(k * 10)))),
       sv('text', { class: 'ptk-ax', x: L, y: T - 20 }, 'Pressure, mmHg'),
@@ -154,7 +154,7 @@ function talkTrace() {
       ends.map(([a, c, y]) => sv('text', { class: 'ptk-lbl', x: R + 8, y: y + 5, style: `fill: var(${c})` }, a)),
       sv('path', { class: 'ptk-line hv', d: path((p) => Y2(p.fp.hvpg)) }),
       pts.map((p, i) => sv('circle', { class: 'ptk-pt', 'data-rate': sev(p.fp.hvpg), cx: X(i), cy: Y2(p.fp.hvpg), r: i === last ? 7 : 4.5 })),
-      pts.length ? sv('text', { class: 'ptk-v', 'data-rate': sev(pts[last].fp.hvpg), x: R + 8, y: Y2(pts[last].fp.hvpg) + 6 }, fmt(pts[last].fp.hvpg, 0)) : null);
+      pts.length ? sv('text', { class: 'ptk-v', 'data-rate': sev(pts[last].fp.hvpg), x: R + 8, y: Y2(pts[last].fp.hvpg) + 6 }, fmt(pts[last].fp.hvpg, 1)) : null);
     // The new chart fades in over the old one, which then goes (never a jump).
     const old = [...el.children];
     svg.classList.add('in');

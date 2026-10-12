@@ -164,8 +164,10 @@ export function gradientsAdd() {
     for (const t of document.querySelectorAll('.pz-data .pz-tile')) {
       const k = t.querySelector('.pzt-k')?.textContent.trim();
       if (!want[k] && want[k] !== 0 || !vis(t)) continue;
-      const v = num(t.querySelector('.pzt-v')?.textContent);
-      if (v !== want[k]) out.push(`${k} tile reads ${v}, the readings give ${want[k]}`);
+      // (Tiles keep the model's one decimal; only the ladder's own numbers are whole.)
+      const txt = t.querySelector('.pzt-v')?.textContent || '', v = num(txt);
+      if (!/\d\.\d/.test(txt)) out.push(`${k} tile reads "${txt.trim()}", not one decimal`);
+      else if (Math.abs(v - want[k]) > 1.05) out.push(`${k} tile reads ${v}, far from the readings' ${want[k]}`);
     }
   }
   // The big ladders' bracket pills (the data card's and each site ladder's) name the gradient and write its whole number,
@@ -178,8 +180,21 @@ export function gradientsAdd() {
       if (!m) { out.push(`a bracket pill reads "${t}", with no whole number`); continue; }
       const want = m[1] === 'HVPG' ? r[1] - r[2] : r[0] - r[3];
       if (r.length === 5 && num(m[2]) !== want) out.push(`pill "${t}" is not the difference of the readings (${want})`);
+      // Its colour is its own number against its own cut-offs (HVPG amber 5, red 10; PPG amber 6, red 12), whatever the slide says of it.
+      const g = num(m[2]), [am, rd] = m[1] === 'HVPG' ? [5, 10] : [6, 12], rate = g >= rd ? 'hi' : g >= am ? 'mid' : 'ok';
+      if (b.dataset.rate !== rate) out.push(`pill "${t}" is coloured ${b.dataset.rate}, its value is ${rate}`);
     }
   }
+  // The catheter callouts (WHVP, FHVP and the HVPG sum) read one decimal, and the HVPG is their difference.
+  const cv = {};
+  for (const c of document.querySelectorAll('.cath-label')) {
+    const k = c.querySelector('small')?.textContent.trim(), t = c.querySelector('b')?.textContent.trim() || '';
+    if (!/^(WHVP|FHVP|HVPG)$/.test(k || '') || !vis(c) || !/\d/.test(t)) continue;
+    if (!/^\d+\.\d$/.test(t)) out.push(`callout ${k} reads "${t}", not one decimal`);
+    if (c.closest('.cath-sum')) cv[k] = num(t);
+  }
+  if (cv.HVPG != null && cv.WHVP != null && cv.FHVP != null && Math.abs(cv.WHVP - cv.FHVP - cv.HVPG) > 0.11)
+    out.push(`callout HVPG ${cv.HVPG} is not WHVP ${cv.WHVP} − FHVP ${cv.FHVP}`);
   return out;
 }
 export async function checkStripGaps(browser, url, log = console.log) {

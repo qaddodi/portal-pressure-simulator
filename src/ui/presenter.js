@@ -17,16 +17,16 @@ import { store, replaceParams } from './store.js?v=7fb7280c05';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=b1761ad19c';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { download } from './records.js?v=50fb9dd463';
-import { SITES } from './ladder.js?v=bd044f4955';
+import { SITES } from './ladder.js?v=8a11f1864d';
 import { sinusoidSupported } from './sinusoid-view.js?v=5033bbc95f';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=c4c5646ee7';
 import { wholeGap } from '../engine/gap.js?v=cb85a013c3';
 import { createHvpgMonitor } from './hvpg-proc.js?v=b87658d79c';
-import { createTools } from './presenter-tools.js?v=b4d4a46071';
+import { createTools } from './presenter-tools.js?v=eca38d6044';
 import { openHandout } from './handout.js?v=9e5da7e200';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=f72547db7f';
+import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=bf239e7484';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('presenter');
 
@@ -168,13 +168,11 @@ export function slideTargets(s, line = s.line || '') {
   });
   return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0, soft: soft.has(id) || undefined })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
 }
-// A live value pill ({pv}): the model's reading for this slide, rounded as its card shows it (the ladder's
-// stations in whole mmHg on a ladder slide).
-const LADDER_KEYS = new Set(RUNGS.map(([k]) => k));
+// A live value pill ({pv}): the model's reading for this slide, to its usual decimal.
 function liveVal(k, s, fp) {
   const T = TILE[k], v = fp?.[k];
   if (v == null || !Number.isFinite(v)) return '…';
-  const d = s.data === 'ladder' && LADDER_KEYS.has(k) ? 0 : T.d ?? 1;
+  const d = T.d ?? 1;
   return `${fmt(v * (T.x || 1), d)}${T.u ? ` ${T.u}` : ''}`;
 }
 // A line, typeset (see above). Also: {pv} a live value, {>=10 mmHg} a cut-off (outlined), and a term that points
@@ -266,7 +264,7 @@ const tileVal = (k, v) => (v == null ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 function liveFp(fr) {
   const m = fr.metrics, a = m.ascites, P = fr.Pf || fr.P;
-  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: wholeGap(m.whvp, m.fhvp, m.hvpg), ra: m.ra, ivc: m.ivc, ppg: wholeGap(m.pv, m.ivc, m.ppg), asc: a.volume, saag: a.saag, tp: a.totalProtein,
+  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg, asc: a.volume, saag: a.saag, tp: a.totalProtein,
     sin: P?.[NI.SIN_R], int: P?.[NI.INT], varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
     pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm, pvVel: m.pvVelMean, hb: m.blood?.hb };
 }
@@ -539,35 +537,37 @@ function bigLadder() {
       b.t.textContent = dropShort ? `Δ ${n}` : `Δ ${n} mmHg`;
     });
     // Each span fades out when a level is not measurable (Budd-Chiari has no wedge). Its leaders end on the points.
-    // A slide's verdict on a gradient (brackets: { hvpg: 'misleads', ppg: 'works' }) colours its bracket red or green
-    // and writes its number in the pill.
+    // Each pill is coloured by its own number against its own cut-offs; a slide's verdict (brackets: { hvpg: 'misleads' })
+    // only marks it.
     const put = (b, hi, lo, v, rate) => {
       const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v);
       b.g.setAttribute('opacity', ok ? 1 : 0);
       if (!ok) return;
       b.lead.setAttribute('d', `M${b.x0} ${b.row - ph / 2 + 4}V${(Y(hi) + 12).toFixed(1)}M${b.x1} ${b.row - ph / 2 + 4}V${(Y(lo) + 12).toFixed(1)}`);
       const say = verdict[b.name.toLowerCase()];
-      b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate;
+      b.g.dataset.rate = rate;
       b.g.classList.toggle('says', !!say);
       const label = `${b.name} ${fmt(v, 0)}`;
       if (b.txt.textContent !== label) { b.txt.textContent = b.label = label; placeSpan(b); }
     };
-    put(hv, f.whvp, f.fhvp, f.hvpg, rateOf('hvpg', f)[0] || 'ok');
-    put(pp, f.pv, f.ivc, f.ppg, rateOf('ppg', f)[0] || 'ok');
-    // The strip's brackets: name, reading and its rating (a slide's verdict colours the bracket and takes the rating's place).
+    // The card reads in whole mmHg, so each gradient is the difference of the whole readings, coloured by its own value.
+    const gH = wholeGap(f.whvp, f.fhvp, f.hvpg), gP = wholeGap(f.pv, f.ivc, f.ppg);
+    put(hv, f.whvp, f.fhvp, gH, rateOf('hvpg', { hvpg: gH })[0] || 'ok');
+    put(pp, f.pv, f.ivc, gP, rateOf('ppg', { ppg: gP })[0] || 'ok');
+    // The strip's brackets: name, reading and its rating (coloured by its own number; a slide's verdict only marks it).
     const putS = (b, hi, lo, v, k) => {
-      const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v), say = verdict[b.name.toLowerCase()], [rate] = rateOf(k, f);
+      const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v), [rate] = rateOf(k, { [k]: v });
       b.g.setAttribute('opacity', ok ? 1 : 0);
       if (!ok) return;
       b.lead.setAttribute('d', `M${b.x0} ${b.row - 5}V${S.ny + 0.5 * S.v + 2}M${b.x1} ${b.row - 5}V${S.ny + 0.5 * S.v + 2}`);
-      b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate || 'ok';
+      b.g.dataset.rate = rate || 'ok';
       const num = ' ' + fmt(v, 0);
       b.t[0].textContent = b.name; b.t[1].textContent = num;
       b.len = est(b.name, S.c, 0.64) + est(num, S.c, 0.52); lay(b);
     };
-    putS(hvS, f.whvp, f.fhvp, f.hvpg, 'hvpg'); putS(ppS, f.pv, f.ivc, f.ppg, 'ppg');
+    putS(hvS, f.whvp, f.fhvp, gH, 'hvpg'); putS(ppS, f.pv, f.ivc, gP, 'ppg');
     const say = 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '
-      + `HVPG ${fmt(f.hvpg, 0)}, PPG ${fmt(f.ppg, 0)} mmHg.`;
+      + `HVPG ${fmt(gH, 0)}, PPG ${fmt(gP, 0)} mmHg.`;
     el.setAttribute('aria-label', say); strip.setAttribute('aria-label', say);
   });
   layL({ cap: 17, lab: 25 }); layS({ cap: 11, lab: 12, val: 15 });
@@ -654,9 +654,7 @@ function rail(mode) {
  *  sc: { key, max, low, marks: [[value, words, short]] }; rows: [{ name, f, site }]. */
 // A visual's own patient ({ preset } with its params and days, if any), as one key.
 const xKey = (o) => o.preset + (o.params || o.days ? JSON.stringify([o.params, o.days]) : '');
-// Pressures read in whole mmHg on every visual; the rest keep their decimal.
-const WHOLE = new Set(['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg', 'sin', 'map']);
-const dig = (k) => (WHOLE.has(k) ? 0 : TILE[k]?.d ?? 1);
+const dig = (k) => TILE[k]?.d ?? 1;
 function scaleVisual(sc, rows) {
   return scaleKey(sc, rows);
 }
@@ -823,7 +821,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=e01d76f5ea', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=1da70c165f', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -835,7 +833,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=34c6a5ca8d');
+      const { createCore } = await import('../worker-core.js?v=0dca4739ac');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1020,10 +1018,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const f = cath.fp, v = cath.v;
     if (!f) return [];
     const sev = f.hvpg >= 10 ? 'danger' : f.hvpg >= 5 ? 'caution' : 'ok';
-    const free = { key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(f.fhvp, 0), unit: 'mmHg', cls: 'free' };
-    const wedge = { key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(f.fhvp + (f.whvp - f.fhvp) * v.column, 0), unit: 'mmHg', cls: 'wedge' };
+    const free = { key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(f.fhvp, 1), unit: 'mmHg', cls: 'free' };
+    const wedge = { key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(f.fhvp + (f.whvp - f.fhvp) * v.column, 1), unit: 'mmHg', cls: 'wedge' };
     const L = { f: free, w: wedge,
-      sum: { key: 's', at: 'sum', rows: [{ ...wedge, text: fmt(f.whvp, 0) }, free], calc: { kicker: 'HVPG', text: fmt(f.hvpg, 0), unit: 'mmHg', cls: 'result ' + sev } },
+      sum: { key: 's', at: 'sum', rows: [{ ...wedge, text: fmt(f.whvp, 1) }, free], calc: { kicker: 'HVPG', text: fmt(f.hvpg, 1), unit: 'mmHg', cls: 'result ' + sev } },
       occ: { key: 'p', at: 'tip', kicker: 'Hepatic vein', text: 'Occluded', unit: '', cls: 'wedge' },
       abort: { key: 'a', at: 'tip', kicker: 'Unable to cannulate', text: 'No reading', unit: '', cls: 'result danger' } };
     return cath.show.map((k) => L[k]);
@@ -1514,7 +1512,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       // In quiz mode each ladder's site is hidden until a tap (D7): the room names the site from the ladder's shape.
       const cell = h('div', quiz ? { class: 'pz-cell q', role: 'button', tabindex: '0', 'aria-label': 'Show the site of this ladder', onclick: () => reveal(cell), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reveal(cell); } } } : { class: 'pz-cell' },
         h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')),
-          h('span', {}, 'HVPG ', h('b', { 'data-rate': rateOf('hvpg', r.f)[0] }, fmt(r.f.hvpg, 0)))),
+          h('span', {}, 'HVPG ', h('b', { 'data-rate': rateOf('hvpg', r.f)[0] }, fmt(r.f.hvpg, 1)))),
         h('div', { class: 'pz-cell-t' }, r.title), L.el, L.strip);
       grid.append(cell);
     }

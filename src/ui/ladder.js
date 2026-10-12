@@ -118,13 +118,12 @@ export function ladder(f, { base = null, key = [], known = null, reveal = false 
 
 /** HVPG, SAAG and ascites protein, each rated. Tiles not in `known` read "?". */
 export function tiles(f, { key = [], known = null } = {}) {
-  f = shown(f);
   return h('div', { class: 'tour-tiles' }, TILES.map(([k, label, unit, sub]) => {
     const unk = known && !known.includes(k);
     const [cls, word] = unk ? [null, 'Not measured'] : rate(k, f), none = unk || (cls == null && k !== 'hvpg');
     return h('div', { class: 'tour-tile' + (key.includes(k) ? ' key' : ''), 'data-rate': cls || 'none' },
       h('span', { class: 'tt-k' }, label, key.includes(k) ? h('i', { class: 'tt-key' }, 'Key') : null),
-      h('span', { class: 'tt-v' }, unk ? '?' : none ? '—' : fmt(f[k], k === 'hvpg' ? 0 : 1), none ? null : h('small', {}, unit)),
+      h('span', { class: 'tt-v' }, unk ? '?' : none ? '—' : fmt(f[k], 1), none ? null : h('small', {}, unit)),
       h('span', { class: 'tt-r' }, word),
       h('span', { class: 'tt-s' }, sub));
   }));
