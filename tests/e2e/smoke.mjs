@@ -1203,6 +1203,35 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (bad.length) throw new Error(bad.slice(0, 4).join(' | '));
   });
 
+  // A laptop, a sideways and an upright iPad show the phone's pill at the lower right (Mohammad): back, count, next, settings,
+  // exit, always shown; no separate count, Quiz or ask-the-room button; clear of the words, the data card, a full card and the credit.
+  if (device === 'desktop') await check(device, 'presenter: the controls are a lower-right pill on wide screens', async (page) => {
+    const bad = [];
+    for (const size of [{ width: 1440, height: 900 }, { width: 1180, height: 820 }, { width: 820, height: 1180 }]) {
+      await page.setViewportSize(size);
+      for (const [deck, n] of [['circulation', 3], ['hvpg', 10], ['circulation', 11]]) {
+        if (size.width === 1440 && n === 3) await open(page, `?script=${deck}&slide=${n}`);
+        else await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, n - 1]);
+        await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !document.querySelector('.pz-cover, .pz-load.on'), n, { timeout: 60000 });
+        await page.waitForTimeout(3500);   // (longer than the old bar's idle fade)
+        const out = await page.evaluate(() => {
+          const o = [], bar = document.querySelector('.pz-bar'), b = bar.getBoundingClientRect();
+          const vis = (el) => { if (!el || el.hidden || el.classList.contains('pz-hide')) return null; const st = getComputedStyle(el); if (st.display === 'none' || +st.opacity < 0.5) return null; const r = el.getBoundingClientRect(); return r.width ? r : null; };
+          if (+getComputedStyle(bar).opacity < 0.9) o.push('the pill hides');
+          if (innerWidth - b.right > 50 || innerHeight - b.bottom > 20 || b.left < innerWidth / 2) o.push(`the pill is not at the lower right (${Math.round(b.left)},${Math.round(b.top)})`);
+          const kids = [...bar.children].map((c) => c.getAttribute('aria-label') || c.textContent.trim());
+          if (kids.length !== 5 || !/^Slide \d+ of/.test(kids[1]) || kids[3] !== 'Settings') o.push(`the pill holds ${kids.join(', ')}`);
+          if (document.querySelector('.pz-count')) o.push('a second count shows');
+          for (const s of ['.pz-text', '.pz-data', '.pz-panel', '.stage-credit']) { const q = vis(document.querySelector(s)), g = s === '.stage-credit' ? 4 : 0;
+            if (q && Math.min(q.right, b.right) - Math.max(q.left, b.left) > -g && Math.min(q.bottom, b.bottom) - Math.max(q.top, b.top) > -g) o.push(`the pill touches ${s}`); }
+          return o;
+        });
+        for (const x of out) bad.push(`${deck} ${n} at ${size.width}x${size.height}: ${x}`);
+      }
+    }
+    if (bad.length) throw new Error(bad.slice(0, 4).join(' | '));
+  });
+
   // Figure labels and slide cards keep to the six-role type scale at every text size step, never under 11 px, units never
   // above their readings, on a phone, an upright iPad and a desktop (tests/e2e/type-scale.mjs). Run once, from the desktop run.
   if (device === 'desktop') await check(device, 'type scale: figure and slide text on the six roles at every text size', async () => {

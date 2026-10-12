@@ -43,7 +43,7 @@ export function pickCorner(spots, cur) {
 
 // What the credit keeps clear of. Chrome (the bars, the zoom pill, the figure's labels) is avoided but does not make the screen "busy".
 const OBSTACLES = '.stage-blocker:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .pz-shade';   // (the FibroScan probe's body carries its reading; it counts as chrome below)
-const CHROME = '#topbar, #vdock, #zoomPill, .stage-clock, .pz-bar, .pz-count, .scan-probe:not(.off) .sp-body';   // (the FibroScan probe: its body carries the reading)
+const CHROME = '#topbar, #vdock, #zoomPill, .stage-clock, .pz-bar, .scan-probe:not(.off) .sp-body';   // (the FibroScan probe: its body carries the reading)
 
 // The figure's own labels (station values, organ captions): each one's text and pill, padded and snapped outward to a small
 // grid, so a label that jitters by a pixel as its number changes does not read as a move.

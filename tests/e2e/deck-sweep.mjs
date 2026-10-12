@@ -30,7 +30,7 @@ const snap = (page) => page.evaluate(() => {
   const vis = (el) => { if (!el || el.hidden) return null; const st = getComputedStyle(el); if (st.display === 'none' || st.visibility === 'hidden' || +st.opacity < 0.5) return null; const r = el.getBoundingClientRect(); return r.width ? r : null; };
   const W = innerWidth, H = innerHeight, issues = [];
   const boxes = {};
-  for (const s of ['.pz-text', '.pz-data', '.pz-panel', '.pz-bar', '.pz-count']) { const el = document.querySelector(s); const r = vis(el); if (!r) continue; boxes[s] = r;
+  for (const s of ['.pz-text', '.pz-data', '.pz-panel', '.pz-bar']) { const el = document.querySelector(s); const r = vis(el); if (!r) continue; boxes[s] = r;
     if (r.left < -1 || r.top < -1 || r.right > W + 1 || r.bottom > H + 1) issues.push(`${s} off-screen ${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.right)},${Math.round(r.bottom)}`);
     // clipped content
     for (const c of [el, ...el.querySelectorAll('*')]) { if (c.closest('.sr-only')) continue; const cs = getComputedStyle(c); if (/(hidden|auto|scroll)/.test(cs.overflowY + cs.overflowX) && (c.scrollHeight > c.clientHeight + 2 || c.scrollWidth > c.clientWidth + 2) && c.clientHeight > 0) issues.push(`${s} ${c.className || c.tagName} clips/scrolls ${c.scrollWidth}x${c.scrollHeight} in ${c.clientWidth}x${c.clientHeight}`); }

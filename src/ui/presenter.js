@@ -10,7 +10,7 @@
 // new values.
 //
 // Keys (clickers send the same): → Page Down Space Enter next (during a time-lapse the first runs it to its end),
-// ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen, Q quiz,
+// ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen,
 // P high contrast, Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
 import { store, replaceParams } from './store.js?v=7fb7280c05';
@@ -1751,7 +1751,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   addEventListener('pps:labelscale', () => { if (deck && ui && !labelling) setLabels(); });
 
   // ── Chrome: counter, progress, controls ──
-  // On a phone the controls are a small frosted pill (count, settings, exit) fixed at the screen's lower right, on the words'
+  // The controls are a small frosted pill (a phone: count, settings, exit; a wide screen adds back and next) at the screen's lower right, on the words'
   // glass; it never moves. Only the words' last line keeps clear of it (see clearPill); slides change by swiping.
   let pillW = 0;
   // Where an element will rest once the entry or exit animations on it and its ancestors (a slide in or out) have ended: its box
@@ -1795,16 +1795,14 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (was && was !== box) was.classList.remove('pz-pillclr');
     box?.classList.add('pz-pillclr');
   }
-  let askAt = [-1, 0];   // (the slide whose question is open, and how far: 0 shut, 1 the question, 2 with its answer)
   function paintChrome() {
     if (!ui) return;
     const n = slides.length, i = want;
-    ui.count.textContent = `${i + 1} / ${n}`;
     ui.prog.style.setProperty('--p', String((i + 1) / n));
     const ph = phone(), skip = lapseOn && lapseLeft > 0, last = i === n - 1 && !asking(slides[i], wantRev) && !skip;
     // The count opens the slide list (G).
     const countBtn = h('button', { class: 'pzb-n', 'aria-label': `Slide ${i + 1} of ${n}: list the slides`, title: 'Slide list (G)', 'aria-expanded': String(!ui.jump.hidden), onclick: () => toggleJump() }, `${i + 1} / ${n}`);
-    ui.bar.classList.toggle('phone', ph);
+    ui.bar.classList.toggle('phone', ph); ui.bar.classList.toggle('pill', !ph);
     if (ph) {
       // A phone's pill: the count (it opens the slide list), settings, exit. Slides change by swiping.
       ui.bar.classList.remove('idle');
@@ -1813,22 +1811,15 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       placeBar();
       return;
     }
-    // The slide's question for the room, for the presenter: a faint "?" beside the count shows it, a second tap the answer.
-    const ask = slides[i]?.ask;
-    if (askAt[0] !== i) askAt = [i, 0];
-    // (The "?" keeps its place on every slide, hidden when the slide has no question, so the bar never changes width.)
-    const askBtn = ask?.[0] ? h('button', { class: 'ib pzb-ask', 'aria-label': 'Ask the room', title: 'Ask the room: the question, then the answer', 'aria-expanded': String(askAt[1] > 0),
-      onclick: () => { askAt = [i, (askAt[1] + 1) % 3]; paintChrome(); } }, '?') : h('span', { class: 'ib pzb-ask off', 'aria-hidden': 'true' });
-    const askPop = ask?.[0] && askAt[1] ? h('div', { class: 'pzb-q', role: 'status' }, h('b', {}, ask[0]), askAt[1] > 1 && ask[1] ? h('span', {}, ask[1]) : null) : null;
+    // A wide screen's pill, as on a phone at the lower right (Mohammad): back, the count (it opens the slide list), next,
+    // settings, exit. (No quiz or ask-the-room buttons: he asks the room by voice; full screen is in Settings and on F.)
     ui.bar.replaceChildren(
       h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0, onclick: prev }, icon('chev-left')),
-      countBtn, askBtn, askPop,
+      countBtn,
       h('button', { class: `ib pzb-next${skip ? ' skipping' : ''}`, 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', title: skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)', disabled: last, onclick: next }, icon('chev-right')),
-      h('span', { class: 'pzb-sep' }),
-      deck.slides.some((s) => s.quiz) ? h('button', { class: 'btn sm', 'aria-pressed': String(quiz), title: 'Quiz the room: ask first, reveal on the next click (Q)', onclick: toggleQuiz }, 'Quiz') : null,
-      document.fullscreenEnabled ? h('button', { class: 'ib', 'aria-label': 'Full screen', title: 'Full screen (F)', onclick: fullscreen }, icon('fullscreen')) : null,
       gear(),
       h('button', { class: 'ib', 'aria-label': 'Stop presenting', title: 'Stop (Esc)', onclick: stop }, icon('close')));
+    placeBar();
   }
   // Settings while presenting (appearance, text size, interface zoom, full screen): the app's own sheet, opened from the bar.
   const gear = () => (openSettings ? h('button', { class: 'ib', 'aria-label': 'Settings', 'aria-haspopup': 'dialog', title: 'Settings', onclick: (e) => openSettings(e.currentTarget) }, svgIcon('gear')) : null);
@@ -1837,13 +1828,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (!ui) return;
     ui.bar.classList.remove('idle');
     clearTimeout(idleT);
-    if (phone()) return;   // (a phone's controls never hide)
-    idleT = setTimeout(() => { if (ui && !ui.bar.matches(':hover, :focus-within')) ui.bar.classList.add('idle'); else wake(); }, 2600);
-  }
-  function toggleQuiz() {
-    quiz = !quiz;
-    toast(quiz ? 'Quiz: each level opens as a question; the next click reveals it.' : 'Quiz off.');
-    gen++; shown = null; go(want, false);
+    // (The pill never hides, on a phone or a wide screen, as it is small and out of the way.)
   }
   function setContrast(on = !hiCon) {
     hiCon = !!on;
@@ -1956,7 +1941,6 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     else if (k === 'End') go(slides.length - 1);
     else if (lk === 'b' || k === '.' || lk === 'w') toggleBlack();
     else if (lk === 'f') fullscreen();
-    else if (lk === 'q') toggleQuiz();
     else if (lk === 'g') toggleJump(true);
     else if (lk === 'p') toggleProj();
     else if (lk === 'n' || lk === 's' || lk === 'l') { /* the app's own N, S and L (such as the lens) stay off while presenting */ }
@@ -2069,7 +2053,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // A part that has finished folding or unfolding: fit the card again from full size (a fit taken mid-fold kept the tiles small).
     data.addEventListener('transitionend', (e) => { if (e.propertyName === 'max-height' && e.target.parentElement === data) { fitDone.delete(data); onResize(); } });
     const veil = h('div', { class: 'pz-veil' }), panel = h('section', { class: 'pz-panel stage-blocker', hidden: true, 'aria-live': 'polite' });
-    const count = h('div', { class: 'pz-count stage-blocker', 'aria-hidden': 'true' }), prog = h('div', { class: 'pz-prog', 'aria-hidden': 'true' }, h('i'));
+    const prog = h('div', { class: 'pz-prog', 'aria-hidden': 'true' }, h('i'));
     const bar = h('div', { class: 'pz-bar stage-blocker', role: 'toolbar', 'aria-label': 'Presenter' });
     bar.addEventListener('focusin', wake);
     const blackEl = h('div', { class: 'pz-black', 'aria-hidden': 'true', onclick: () => toggleBlack(false) });
@@ -2079,10 +2063,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const safe = h('div', { class: 'pz-safe', 'aria-hidden': 'true', hidden: true });
     const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));
     const jump = h('nav', { class: 'pz-jump stage-blocker', hidden: true, 'aria-label': 'Slides' });
-    const root = h('div', { class: 'pz' }, safe, veil, load, text, data, panel, count, prog, bar, jump, blackEl);
+    const root = h('div', { class: 'pz' }, safe, veil, load, text, data, panel, prog, bar, jump, blackEl);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     wrap.append(root);
-    return { root, shade, safe, load, text, data, dhT, dhL, ladder, tiles, tools, veil, panel, count, prog, bar, black: blackEl, jump };
+    return { root, shade, safe, load, text, data, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0;
