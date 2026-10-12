@@ -4846,8 +4846,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .pz.stack .pz-data .pz-tiles .pzt-d { grid-area: 4 / 1 / 5 / -1; }
 }
 .pz.stack .pzt-dw, .pz.stack .pzt-du { display: none; }
-/* A long rating ("Below 12: target met") wraps inside its tile rather than spill out of it, which shrank the whole card. */
-.pz.stack .pz-data .pz-tiles .pzt-r { white-space: normal; min-width: 0; }
 
 /* Tests card: the scope and Doppler readings as compact tiles, in the presenter data card's style (small
    uppercase name, big number with a muted unit, a status dot). Two across on a phone, more on a wider card. */
