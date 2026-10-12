@@ -1709,7 +1709,8 @@ button.finding { cursor: pointer; }
 .pz-text.pz-leave, .pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
 /* New cards built and fitted unseen; their entrance plays once they are at their final size. */
 .pz.pz-prep .pz-text > * { animation-play-state: paused !important; }
-.pz-text.pz-enter > * { animation: pz-in .5s var(--ease) both; animation-delay: calc(min(var(--i, 0), 3) * 45ms + 60ms); }
+/* The teaching card comes in as one piece, like the data card: same pace, same start, no line-by-line stagger. */
+.pz-text.pz-enter > * { animation: pz-in .5s var(--ease) both; animation-delay: .12s; }
 /* The data card comes in with the words (same pace, same start), never ahead of them. */
 .pz-data:not(.pz-hide) { transition-duration: .5s; transition-delay: .12s; }
 .pz-text > .pz-leave { opacity: 0; transform: translateY(-6px); transition: opacity .22s var(--ease), transform .22s var(--ease); }
