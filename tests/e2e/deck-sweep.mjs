@@ -23,7 +23,11 @@ const SIZES = {
   ipadwide: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   ipad: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+  phone375: { viewport: { width: 375, height: 667 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  phone430: { viewport: { width: 430, height: 932 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   sideways: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+  sideways375: { viewport: { width: 667, height: 375 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  sideways430: { viewport: { width: 932, height: 430 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
 };
 const settle = (page) => page.waitForFunction(() => {
   if (document.querySelector('.pz-load.on')) return false;
@@ -32,17 +36,21 @@ const settle = (page) => page.waitForFunction(() => {
 const snap = (page) => page.evaluate(() => {
   const vis = (el) => { if (!el || el.hidden) return null; const st = getComputedStyle(el); if (st.display === 'none' || st.visibility === 'hidden' || +st.opacity < 0.5) return null; const r = el.getBoundingClientRect(); return r.width ? r : null; };
   const W = innerWidth, H = innerHeight, issues = [];
+  // (content its card hides, such as a folded instrument, is not judged: under a see-through ancestor, or wholly outside one that clips)
+  const hiddenIn = (c, card) => { const q = c.getBoundingClientRect(); for (let a = c.parentElement; a && a !== card; a = a.parentElement) { const cs = getComputedStyle(a); if (+cs.opacity < 0.05) return true; if (/(hidden|clip|auto|scroll)/.test(cs.overflowX + cs.overflowY)) { const r = a.getBoundingClientRect(); if (q.top >= r.bottom - 1 || q.bottom <= r.top + 1 || q.left >= r.right - 1 || q.right <= r.left + 1) return true; } } return false; };
   const boxes = {};
   for (const s of ['.pz-text', '.pz-data', '.pz-panel', '.pz-bar']) { const el = document.querySelector(s); const r = vis(el); if (!r) continue; boxes[s] = r;
     if (r.left < -1 || r.top < -1 || r.right > W + 1 || r.bottom > H + 1) issues.push(`${s} off-screen ${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.right)},${Math.round(r.bottom)}`);
     // clipped content
     for (const c of [el, ...el.querySelectorAll('*')]) { if (c.closest('.sr-only')) continue; const cs = getComputedStyle(c); if (/(hidden|auto|scroll)/.test(cs.overflowY + cs.overflowX) && (c.scrollHeight > c.clientHeight + 2 || c.scrollWidth > c.clientWidth + 2) && c.clientHeight > 0) issues.push(`${s} ${c.className || c.tagName} clips/scrolls ${c.scrollWidth}x${c.scrollHeight} in ${c.clientWidth}x${c.clientHeight}`); }
     // text sticking out of the card
-    for (const c of el.querySelectorAll('h1,p,li,span,td,th,button')) { const q = c.getBoundingClientRect(); if (!q.width || getComputedStyle(c).visibility === 'hidden') continue; if (q.right > r.right + 2 || q.left < r.left - 2 || q.bottom > r.bottom + 2) { issues.push(`${s} ${c.tagName}.${c.className} "${c.textContent.trim().slice(0, 30)}" outside card`); break; } }
+    for (const c of el.querySelectorAll('h1,p,li,span,td,th,button')) { const q = c.getBoundingClientRect(); if (!q.width || getComputedStyle(c).visibility === 'hidden' || hiddenIn(c, el)) continue; if (q.right > r.right + 2 || q.left < r.left - 2 || q.bottom > r.bottom + 2) { issues.push(`${s} ${c.tagName}.${c.className} "${c.textContent.trim().slice(0, 30)}" outside card`); break; } }
   }
   const ov = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2;
   const keys = Object.keys(boxes).filter((k) => k !== '.pz-panel');
-  for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) if (ov(boxes[keys[i]], boxes[keys[j]])) issues.push(`${keys[i]} overlaps ${keys[j]}`);
+  const inked = (el) => { const rs = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n; (n = w.nextNode());) if (n.textContent.trim() && !n.parentElement.closest('.sr-only, [aria-hidden="true"]')) { const g = document.createRange(); g.selectNodeContents(n); rs.push(...g.getClientRects()); } for (const e of el.querySelectorAll('svg, button, img, canvas')) rs.push(e.getBoundingClientRect()); return rs.filter((q) => q.width && q.height); };
+  // (the words against the pill are judged by what is drawn: the last line runs beside the pill by design)
+  for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) if (ov(boxes[keys[i]], boxes[keys[j]]) && !([keys[i], keys[j]].includes('.pz-bar') && [keys[i], keys[j]].includes('.pz-text') && !inked(document.querySelector('.pz-text')).some((q) => ov(q, boxes['.pz-bar'])))) issues.push(`${keys[i]} overlaps ${keys[j]}`);
   // A callout on the figure (a reading, its summary, a site pill, an organ or vessel label) never sits under a card,
   // the slide's panel or its controls.
   for (const el of document.querySelectorAll('.cath-label:not(.in-sum):not(.cath-pre):not(.cath-out), .cath-sum-box, svg .lb')) {

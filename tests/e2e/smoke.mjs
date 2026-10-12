@@ -16,6 +16,7 @@ import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
 import { checkCharts, checkStrip, checkStripSlides, stripSlides, checkStripGaps } from './chart-text.mjs';
+import { checkPhoneFit } from './phone-fit.mjs';
 import { checkTypeScale } from './type-scale.mjs';
 import { TEXT_MIN, TEXT_MAX } from '../../src/ui/type-scale.js';
 import { checkChartText } from './chart-type.mjs';
@@ -169,7 +170,7 @@ const svCovered = async (page) => {
 };
 
 // Every deck's id (the presenter's library), for the per-deck checks below.
-const STRIP_SLIDES = new Map();   // (check name -> its ladder slides, for weighing the shares)
+const STRIP_SLIDES = new Map();   // (check name -> its weight in slides, for weighing the shares)
 const DECK_IDS = [...readFileSync(new URL('../../src/ui/decks.js', import.meta.url), 'utf8').matchAll(/\['([a-z0-9-]+)', '(?:[^'\\]|\\.)*'\]/g)].map((m) => m[1]);
 if (DECK_IDS.length < 15) throw new Error(`only ${DECK_IDS.length} deck ids read from decks.js`);
 // Waits for the slide to settle (up to 10 s) and returns the last reading.
@@ -1307,6 +1308,20 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const bad = await checkStripGaps(browser, server.url, () => {});
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });
+
+  // Every slide of every deck at three phone widths, upright and sideways: the words clear of the controls pill, and every
+  // reading in the numbers card (a folded instrument opened) inside the card. One check per deck, weighed by its slides.
+  if (device === 'desktop') {
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    for (const d of DECKS) {
+      const n = withOverview(d).slides.length, name = `presenter: ${d.id}'s slides keep their words off the controls pill and readings inside their card, at phones`;
+      STRIP_SLIDES.set(name, n * 0.3);   // (about 25 s a slide over its six sizes)
+      await check(device, name, async () => {
+        const bad = await checkPhoneFit(browser, server.url, d.id, n);
+        if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+      });
+    }
+  }
 
   // Every choice in a slide's row of treatment buttons stays in view, whole, with no sideways scrolling, at 11 px or more
   // (a phone once cut Terlipressin off the right edge), at three phone widths, a phone on its side and an upright iPad.

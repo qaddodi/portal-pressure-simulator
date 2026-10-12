@@ -1,6 +1,6 @@
 name: Deck layout sweep
 
-# On request only: plays every slide of every presenter deck at phone, iPad (both ways) and three desktop sizes and reports
+# On request only: plays every slide of every presenter deck at phones (375, 390 and 430 wide, upright and sideways), iPad (both ways) and three desktop sizes and reports
 # layout findings in each job's log (tests/e2e/deck-sweep.mjs). It never deploys and never blocks a merge.
 # Run it from the Actions tab on main, or on a branch by pushing a commit whose message contains [deck-sweep]
 # (a dispatch works only for workflows on the default branch).
@@ -23,7 +23,7 @@ jobs:
       matrix:
         deck: [circulation, sites, hvpg, ascites, varices, treatment, stiffness, one-year, tap, circuit, lobule, shunts,
                doppler, endoscopy, prehepatic, right-heart, variceal-bleed, two-inflows, pvt-cirrhosis, spleen, ncph, outflow, recompensation]
-        size: [desktop, laptop, wide, ipadwide, ipad, phone]
+        size: [desktop, laptop, wide, ipadwide, ipad, phone, phone375, phone430, sideways, sideways375, sideways430]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
