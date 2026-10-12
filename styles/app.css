@@ -2057,8 +2057,8 @@ button.finding { cursor: pointer; }
 .app.pz-hi .pz-bar .pzb-go { color: var(--text); }
 .app.pz-hi .pz-bar .pzb-go.pzb-next { background: color-mix(in srgb, var(--accent) 22%, transparent); border-color: var(--accent); color: var(--text); }
 .app.pz-hi .pz-bar .ib { color: var(--text); }
-.pz-bar.pill { left: auto; right: clamp(16px, calc(2.2vw / var(--vz)), 44px); bottom: 14px; translate: none; max-width: none; height: 44px; gap: 0; padding: 0 2px; overflow: visible; border-radius: var(--r-sheet); }   /* (a wide screen: the phone's pill at the lower right, with back and next) */
-.pz-bar.pill .ib { width: 40px; height: 40px; }
+.pz-bar.pzb-pill { left: auto; right: clamp(16px, calc(2.2vw / var(--vz)), 44px); bottom: 14px; translate: none; max-width: none; height: 44px; gap: 0; padding: 0 2px; overflow: visible; border-radius: var(--r-sheet); }   /* (a wide screen: the phone's pill at the lower right, with back and next) */
+.pz-bar.pzb-pill .ib { width: 40px; height: 40px; }
 .pz-bar.idle { opacity: 0; pointer-events: none; transform: translateY(8px); }
 .pz-bar .pzb-n { min-width: 5.4em; text-align: center; padding: 0 4px; font: 600 var(--fs-14) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-2); white-space: nowrap; }
 .pz-bar .pzb-slot { display: inline-flex; align-items: center; justify-content: center; flex: none; }

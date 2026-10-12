@@ -1358,6 +1358,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const kids = [...bar.children].map((c) => c.getAttribute('aria-label') || c.textContent.trim());
           if (kids.length !== 5 || !/^Slide \d+ of/.test(kids[1]) || kids[3] !== 'Settings') o.push(`the pill holds ${kids.join(', ')}`);
           if (document.querySelector('.pz-count')) o.push('a second count shows');
+          if (!['none', 'normal'].includes(getComputedStyle(bar, '::before').content) || [...bar.children][0].getBoundingClientRect().left - b.left > 4) o.push('a mark shows before the back button');   // (the app's status-pill dot once did)
           for (const s of ['.pz-text', '.pz-data', '.pz-panel', '.stage-credit']) { const q = vis(document.querySelector(s)), g = s === '.stage-credit' ? 4 : 0;
             if (q && Math.min(q.right, b.right) - Math.max(q.left, b.left) > -g && Math.min(q.bottom, b.bottom) - Math.max(q.top, b.top) > -g) o.push(`the pill touches ${s}`); }
           return o;

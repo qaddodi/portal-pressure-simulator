@@ -1844,7 +1844,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const ph = phone(), skip = lapseOn && lapseLeft > 0, last = i === n - 1 && !asking(slides[i], wantRev) && !skip;
     // The count opens the slide list (G).
     const countBtn = h('button', { class: 'pzb-n', 'aria-label': `Slide ${i + 1} of ${n}: list the slides`, title: 'Slide list (G)', 'aria-expanded': String(!ui.jump.hidden), onclick: () => toggleJump() }, `${i + 1} / ${n}`);
-    ui.bar.classList.toggle('phone', ph); ui.bar.classList.toggle('pill', !ph);
+    ui.bar.classList.toggle('phone', ph); ui.bar.classList.toggle('pzb-pill', !ph);
     if (ph) {
       // A phone's pill: the count (it opens the slide list), settings, exit. Slides change by swiping.
       ui.bar.classList.remove('idle');
