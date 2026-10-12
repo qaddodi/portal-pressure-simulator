@@ -59,7 +59,9 @@ const snap = (page) => page.evaluate(() => {
   const terms = [...document.querySelectorAll('.pz-term')].map((t) => `${t.textContent}→${t.dataset.target}`);
   const count = document.querySelector('.pzb-n, .pz-count')?.textContent.trim();
   const m = window.pps.store.get().frame?.metrics || {};
-  return { count, text: txt('.pz-text'), data: txt('.pz-data'), panel: txt('.pz-panel'), terms, issues, m: { pv: m.pv?.toFixed(1), hvpg: m.hvpg?.toFixed(1), ppg: m.ppg?.toFixed(1) } };
+  const size = Object.fromEntries(['.pz-text', '.pz-data'].map((k) => [k, boxes[k] ? `${Math.round(boxes[k].width)}x${Math.round(boxes[k].height)}` : '']));
+  const cam = window.__cam || 0; window.__cam = 0;
+  return { size, cam, count, text: txt('.pz-text'), data: txt('.pz-data'), panel: txt('.pz-panel'), terms, issues, m: { pv: m.pv?.toFixed(1), hvpg: m.hvpg?.toFixed(1), ppg: m.ppg?.toFixed(1) } };
 });
 const norm = (t) => (t || '').replace(/[\u00ad\u200b-\u200d\u2060]/g, '').replace(/\s+/g, ' ').trim();
 const shows = (page, title) => page.waitForFunction((t) => [...document.querySelectorAll('.pz-text h1, .pz-panel h1')].some((h) => h.textContent.replace(/[\u00ad\u200b-\u200d\u2060]/g, '').replace(/\s+/g, ' ').trim() === t && getComputedStyle(h.closest('section')).opacity > 0.9), norm(title), { timeout: 25000 }).then(() => true, () => false);
@@ -74,11 +76,16 @@ async function run(deck, dev) {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto(server.url + '?script=' + deck);
   await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'), null, { timeout: 60000 });
+  // Every camera move asked of the stage, counted (read and reset by snap).
+  await page.evaluate(() => { const st = window.pps.stage; for (const k of ['frameBox', 'fitSlow']) { const f = st[k]; st[k] = (...a) => { window.__cam = (window.__cam || 0) + 1; return f.apply(st, a); }; } });
   const fwd = [], back = [];
   let n = 99;
   for (let i = 0; i < n; i++) {
     const okT = await shows(page, TITLES[deck][i]); await settle(page); await page.waitForTimeout(700); await page.waitForFunction(() => { const t = document.querySelector('.pzl-t'); return !t || !t.offsetParent || !/Day |→/.test(t.textContent); }, null, { timeout: 30000 }).catch(() => {}); await page.waitForTimeout(300);
     const s0 = await snap(page); await page.waitForTimeout(1500); const s = await snap(page); s.issues = s.issues.filter((x) => s0.issues.includes(x)); if (!okT) s.issues.push('title not shown: ' + TITLES[deck][i]);
+    // Once in, a slide's cards keep their size and the camera moved at most once for it (no second glide as the cards settle).
+    for (const k of ['.pz-text', '.pz-data']) if (s0.size[k] && s.size[k] && s0.size[k] !== s.size[k]) s.issues.push(`${k} changed size after it showed (${s0.size[k]} -> ${s.size[k]})`);
+    if (s0.cam + s.cam > 1) s.issues.push(`camera framed ${s0.cam + s.cam} times for one slide`);
     fwd.push(s);
     const m = s.count?.match(/(\d+) \/ (\d+)/); if (m) n = +m[2];
     if (i < n - 1) { await page.keyboard.press('ArrowRight'); await at(page, i + 2); }

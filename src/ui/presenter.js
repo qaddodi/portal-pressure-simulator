@@ -1284,7 +1284,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     { const named = new Set(store.get().presentLabels || []);
       const ss = !s.visual && !q ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])].filter((k) => !named.has(SITE_NODE[k])) : [];
       if (ss.length) stage.setSites(ss, st.fp); }
-    lastCam = cam;
+    lastCam = cam; framedSig = cardSig();
     await unhush(cut);
     if (cut()) return;
     shown = { i: to, rev, gen: g }; lastAt = to;
@@ -1688,7 +1688,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     for (const el of [ui.text, ui.data, ui.panel]) for (const c of el.children) fitRO.observe(c);
     // A slide that keeps its figure clear of the cards frames it again as the cards settle to their size (a chart arriving, a line wrapping).
     const again = () => { if (!ui) return; if (!shown) { clearT = setTimeout(again, 150); return; }   // (a slide still coming in: once it is in)
-      if (slides[shown.i]?.clear) reframe(400); };
+      if (slides[shown.i]?.clear && cardSig() !== framedSig) reframe(400); };   // (only when the cards really changed: the camera framed them once)
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
     // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
     clearRO ||= new ResizeObserver(() => { cancelFrame(paneRaf); paneRaf = nextFrame(() => ui && layout()); soon(); });
@@ -1736,7 +1736,11 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     dispatchEvent(new Event('pps:occ'));
   }
   const onFonts = () => { if (ui) layout(); };
+  // Where the cards stand, rounded: the camera framed this space last; the same space needs no second glide.
+  let framedSig = '';
+  const cardSig = () => (ui ? [ui.text, ui.data].map((el) => (el.hidden ? '-' : ((r) => [r.left, r.top, r.width, r.height].map((v) => Math.round(v / 4)).join())(el.getBoundingClientRect()))).join('|') : '');
   function reframe(ms) {
+    framedSig = cardSig();
     const s = slides[shown.i], cam = s.visual ? s.cam : asking(s, shown.rev) ? 'fit' : s.cam || 'fit';
     if (cath.on && cath.cam) stage.cathFocus(cath.cam, ms, { both: true });
     else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) { if (cam === 'fit') stage.fitSlow(ms); else stage.frameBox(camBox(cam, s), ms, s.kMax || 3.2, !!s.clear); }
