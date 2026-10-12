@@ -11,6 +11,7 @@ import { createLobuleZoom } from './lobule-zoom.js?v=c78a8b54d8';
 import { runFlick, FLICK } from './flick.js?v=9c07aaa402';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
+import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=9d3f9164af';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
@@ -4309,7 +4310,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Label text size: the reader's choice (Menu › Text size), and a larger baseline in the circuit,
   // whose labels are the map's only text. Every run's size and spacing is scaled by labelK.
   const CIRCUIT_LABEL_K = 1.22;
-  const LABEL_MIN = 0.5, LABEL_MAX = 2;
+  const LABEL_MIN = TEXT_MIN, LABEL_MAX = TEXT_MAX;   // (a size saved below 100 % reads as 100 %)
   // Where a map direction lands on the screen once the circuit is turned a quarter turn counter-clockwise.
   const TURN_DIR = { N: 'W', W: 'S', S: 'E', E: 'N', NE: 'NW', NW: 'SW', SW: 'SE', SE: 'NE', C: 'C' };
   // A desktop (a wide screen and a mouse) is read from farther away: its 100 % is half as large again as a phone's or tablet's.
@@ -4328,7 +4329,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     } catch { return 1; }
   })();
   // Every label on a figure (the lobule's too) reads the same scale.
-  document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale));
+  document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale));
   let labelK = labelScale * deskK();
   // Projection ramp: presenting sets the atlas labels at projector sizes (at 2: values 28 px, names 23 px),
   // readable from the back of a room. The presenter passes a scale for the screen it is on.
@@ -4336,10 +4337,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Projecting, the projector's size times the viewer's own text size from Settings.)
   const labelBase = () => (projecting ? (typeof projecting === 'number' ? projecting : 2) * labelScale : labelScale * deskK());
   // (A window dragged between a desktop's width and a narrow one: the labels follow; a presentation sets its own.)
-  deskMQ.addEventListener?.('change', () => { if (projecting) return; document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); dispatchEvent(new Event('pps:labelscale')); });
+  deskMQ.addEventListener?.('change', () => { if (projecting) return; document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale)); dispatchEvent(new Event('pps:labelscale')); });
   // A line is a list of runs { t, size, weight, cls, track }. Returns [width, height].
-  const LINE_H = (line) => Math.max(...line.map((r) => r.size)) * labelK * 1.24;
-  const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size * labelK, r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
+  // A run's size on screen: its role (reading, name, caption) at this screen's size, times the text size setting;
+  // a presentation raises it to the projector's size (never below Explore's).
+  const fontPx = (size) => rolePx(roleOf(size)) * labelScale * (projecting ? Math.max(1, Math.min(typeof projecting === 'number' ? projecting : 2, 2.2) / 1.5) : 1);
+  const LINE_H = (line) => Math.max(...line.map((r) => fontPx(r.size))) * 1.24;
+  const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, fontPx(r.size), r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
 
   const pool = new Map(); // key → { g, sig, … }
   function blockEl(key, cls, interactiveNode, onClick) {
@@ -4367,7 +4371,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', `var(--tr-${tone})`); }
     // Text and pressure colors change far more often than label structure.
     // Retain the text nodes (and keyboard focus) across numeric updates.
-    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK]);
+    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14)]);
     if (sig !== b.sig) {
       b.sig = sig;
       const kids = [];
@@ -4383,7 +4387,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const t = s('text', { x: it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : tx, y: y + lh * 0.78, 'text-anchor': it.align === 'end' ? 'end' : it.align === 'middle' ? 'middle' : 'start' });
         b.textLines.push(t);
         line.forEach((r, i) => {
-          const sp = s('tspan', { class: r.cls || '', 'font-size': +(r.size * labelK).toFixed(2), 'font-weight': r.weight || 500 });
+          const sp = s('tspan', { class: r.cls || '', 'font-size': +fontPx(r.size).toFixed(2), 'font-weight': r.weight || 500 });
           if (i) sp.setAttribute('dx', +((r.gap ?? 3) * labelK).toFixed(2));
           if (r.track) sp.setAttribute('letter-spacing', `${r.track}em`);
           sp.textContent = r.t;
@@ -6080,7 +6084,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setLabelScale(v) {
       labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
       try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch { /* storage unavailable */ }
-      if (!projecting) document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale));
+      if (!projecting) document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale));
       dispatchEvent(new Event('pps:labelscale'));
       if (F) updateLabels(F);
     },

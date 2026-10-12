@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **One type scale for the figure and slides.** Figure labels and slide cards now use six text roles (caption, label,
+  body, value, big value, title) instead of about 18 loose sizes. Each grows smoothly with the screen (phone 11/12/14/16/20/28 px
+  up to laptop 12/14/16/22/32/44; slide cards on a wide screen follow its height). A pill keeps name, reading and unit in
+  proportion, so a unit is never larger than its number. Text size now runs 100–200 % (100 % is the design size; a size saved
+  below it reads as 100 %), so nothing drops under 11 px. The map's labels no longer change size between views. The four drawn
+  slide charts (scale, ladders, SAAG map, walls) keep their own lettering for now. Tests: `tests/e2e/type-scale.mjs` (in smoke).
 - **Caudate lobe.** Shown only on the slides about it, eased in and out: on "The caudate lobe still drains" a soft
   dome of the liver's own tone (no outline) beside the IVC with three fine, tapered caudate veins that merge into the
   IVC's wall below the hepatic veins, colored from the pressure they drain at; on the DIPS slide the lobe alone, with

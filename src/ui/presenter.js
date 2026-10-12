@@ -1583,7 +1583,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   function setLabels() {
     const k = (phone() ? 1.15 : clamp(Math.min(innerHeight / 540, innerWidth / 960), 1.25, 2.4));
     stage.setProjection(k);
-    { const lv = String(Math.min(k, 2.2) * stage.labelScale()); document.documentElement.style.setProperty('--label-k', lv); document.documentElement.style.setProperty('--label-scale', lv); }
+    { const lv = String(Math.min(k, 2.2) * stage.labelScale()); document.documentElement.style.setProperty('--label-k', lv); document.documentElement.style.setProperty('--label-scale', String(Math.max(1, Math.min(k, 2.2) / 1.5) * stage.labelScale())); }   // (font roles: the projector's size over Explore's, never below it)
     labelling = true; dispatchEvent(new Event('pps:labelscale')); labelling = false;
   }
   // The viewer's own text size (Settings) scales them too: a change there while presenting is re-applied on top.

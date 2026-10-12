@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=b6856c74e0';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7fb7280c05';
-import { createStage } from './stage.js?v=4cf6d31730';
+import { createStage } from './stage.js?v=7b8350e65b';
 import { createCreditPlacer } from './credit.js?v=9d144887e1';
 import { sinusoidSupported } from './sinusoid-view.js?v=c23bc8164a';
 import { createInspector } from './inspector.js?v=bced1ac9ba';
@@ -26,6 +26,7 @@ import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './ac
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=c17dfefa88';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=0cca243d2a';
+import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const app = $('#app');
@@ -143,7 +144,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=577bb8cfa1'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=1b37b0f5ce'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -890,7 +891,7 @@ function presenterSettings() {
   return out;
 }
 // Text size: smaller and larger in even steps, and the middle shows the size and resets it.
-const TEXT_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.75, 2];
+// (100 % is the design size; the steps only go up, so no text drops under 11 px. src/ui/type-scale.js)
 function textSizeControl() {
   const at = () => TEXT_STEPS.reduce((b, v, i) => (Math.abs(v - stage.labelScale()) < Math.abs(TEXT_STEPS[b] - stage.labelScale()) ? i : b), 0);
   const smaller = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Smaller text', title: 'Smaller text' }, 'A');

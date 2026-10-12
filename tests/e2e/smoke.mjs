@@ -16,6 +16,7 @@ import { chromium } from 'playwright';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
 import { checkCharts, checkStrip, checkStripSlides } from './chart-text.mjs';
+import { checkTypeScale } from './type-scale.mjs';
 
 const dir = process.argv[2] || '.';
 const shots = process.env.SHOTS;
@@ -1174,6 +1175,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }
     }
     if (bad.length) throw new Error(bad.slice(0, 4).join(' | '));
+  });
+
+  // Figure labels and slide cards keep to the six-role type scale at every text size step, never under 11 px, units never
+  // above their readings, on a phone, an upright iPad and a desktop (tests/e2e/type-scale.mjs). Run once, from the desktop run.
+  if (device === 'desktop') await check(device, 'type scale: figure and slide text on the six roles at every text size', async () => {
+    const bad = await checkTypeScale(browser, server.url, () => {});
+    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });
 
   await check(device, 'presenter: summary table cells stay under their headings', async (page) => {
