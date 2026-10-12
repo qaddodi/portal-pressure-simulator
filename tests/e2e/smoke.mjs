@@ -1076,6 +1076,40 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });
 
+  // Every choice in a slide's row of treatment buttons stays in view, whole, with no sideways scrolling, at 11 px or more
+  // (a phone once cut Terlipressin off the right edge), at three phone widths, a phone on its side and an upright iPad.
+  if (device === 'desktop') await check(device, 'presenter: every choice button on every slide fits on screen, at phones, sideways and iPad', async (page) => {
+    const bad = [];
+    const found = [];   // (first the slides with a row of choices, then each of them at each size)
+    for (const deck of ['circuit', 'recompensation', 'treatment', 'two-inflows']) {
+      await open(page, `?script=${deck}&slide=1`);
+      const n = Number((await page.textContent('.pzb-n')).split('/')[1]);
+      for (let k = 1; k <= n; k++) {
+        if (k > 1) await open(page, `?script=${deck}&slide=${k}`);
+        await page.waitForSelector('.pzb-n');
+        if (await page.waitForSelector('.pz-abb', { state: 'attached', timeout: 4000 }).catch(() => null)) found.push([deck, k]);
+      }
+    }
+    if (!found.length) throw new Error('no slide has a row of choices');
+    for (const size of [{ width: 375, height: 667 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 844, height: 390 }, { width: 820, height: 1180 }]) {
+      await page.setViewportSize(size);
+      for (const [deck, n] of found) {
+        await open(page, `?script=${deck}&slide=${n}`);
+        await page.waitForSelector('.pz-abb', { state: 'attached' });
+        await page.waitForTimeout(900);
+        const out = await page.evaluate(() => [...document.querySelectorAll('.pz-abb')].map((b) => {
+          const r = b.getBoundingClientRect(), row = b.parentElement.getBoundingClientRect(), fs = parseFloat(getComputedStyle(b).fontSize);
+          if (r.left < -0.5 || r.right > innerWidth + 0.5 || r.left < row.left - 0.5 || r.right > row.right + 0.5) return `"${b.textContent}" is clipped`;
+          if (b.scrollWidth > b.clientWidth + 1) return `"${b.textContent}" overflows its button`;
+          if (fs < 11) return `"${b.textContent}" is ${fs}px`;
+          return null;
+        }).filter(Boolean).concat(document.querySelector('.pz-ab').scrollWidth > document.querySelector('.pz-ab').clientWidth + 1 ? ['the row scrolls sideways'] : []));
+        for (const o of out) bad.push(`${deck} ${n} at ${size.width}x${size.height}: ${o}`);
+      }
+    }
+    if (bad.length) throw new Error(bad.slice(0, 4).join(' | '));
+  });
+
   await check(device, 'presenter: summary table cells stay under their headings', async (page) => {
     // Each cell's contents sit inside its column heading's width, and no two cells overlap, at each size (the desktop run
     // also tries an upright iPad). (A phone's control padding once pushed the names into the HVPG column.)

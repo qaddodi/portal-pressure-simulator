@@ -2158,11 +2158,8 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data.tiles-only .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
 .pz.stack .pz-tiles[data-n="4"], .pz.stack .pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* (four in a row cannot hold their numbers on a phone) */
 .pz.stack .pz-lapse { font-size: 14px; }
-.pz.stack .pz-abb { font-size: 14px; min-height: 36px; padding: .45em .85em; }
-.pz.stack .pz-ab { gap: 2px; padding: 3px; }
-.pz.stack .pz-ab { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }   /* (one row that scrolls sideways, never two rows of buttons) */
-.pz.stack .pz-ab::-webkit-scrollbar { display: none; }
-.pz.stack .pz-abb { flex: none; }
+.pz.stack .pz-abb { font-size: 13px; min-height: 34px; padding: .4em .7em; flex: none; }
+.pz.stack .pz-ab { gap: 2px; padding: 3px; justify-content: center; }   /* (every choice stays in view: tight buttons, wrapping to a second row only if they still don't fit) */
 /* A title that would run past two lines in the side pane steps down a size. */
 .pz:not(.stack) .pz-text .pz-h.long { font-size: calc(clamp(32px, calc(5.8 * var(--pzh) / var(--vz)), 70px) * .84); }
 .pz.stack .pz-count { display: none; }
