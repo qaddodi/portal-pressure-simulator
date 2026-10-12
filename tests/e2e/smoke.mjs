@@ -1170,8 +1170,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     for (const size of [{ width: 375, height: 667 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 844, height: 390 }, { width: 820, height: 1180 }]) {
       await page.setViewportSize(size);
       for (const [deck, n] of found) {
-        await open(page, `?script=${deck}&slide=${n}`);
-        await page.waitForSelector('.pz-abb', { state: 'attached' });
+        // (the page is loaded once per size and the presenter moved on to each slide, not reloaded: 55 loads outran a CI runner)
+        if (deck === found[0][0] && n === found[0][1]) await open(page, `?script=${deck}&slide=${n}`);
+        else await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, n - 1]);
+        await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && document.querySelector('.pz-abb') && !document.querySelector('.pz-cover'), n, { timeout: 30000 });
         await page.waitForTimeout(900);
         const out = await page.evaluate(() => [...document.querySelectorAll('.pz-abb')].map((b) => {
           const r = b.getBoundingClientRect(), row = b.parentElement.getBoundingClientRect(), fs = parseFloat(getComputedStyle(b).fontSize);
@@ -2135,6 +2137,7 @@ const MEASURED = {
   'sinusoid view: a rebuilt caption does not fade in again (no flashing at rest)': 36000,
   'circuit view, selection card, lenses': 38000,
   'action card is a compact sheet that keeps the vessel in view': 28000,
+  'type scale: figure and slide text on the six roles at every text size': 880000,   // (a desktop CI runner took 14.6 minutes over it)
   'presenter: chart text never overlaps or crosses a line, at every size': 600000,   // (a desktop CI runner took 11.5 minutes over it)
   'presenter: every choice button on every slide fits on screen, at phones, sideways and iPad': 420000,   // (five sizes over eleven slides, about 7 minutes on a CI runner)
   'presenter: the controls never glide between slides, and keep their size and spacing, first and last included': 500000,   // (a phone CI runner took 10 minutes)
@@ -2148,7 +2151,8 @@ for (const item of [...queue].sort((a, b) => expected(b[1]) - expected(a[1]))) {
   load[k] += expected(item[1]);
   owner.set(item, k);
 }
-if (process.env.SMOKE_PLAN) { console.log(`${queue.length} checks; expected minutes per share: ${load.map((v) => Math.round(v / 6000) / 10).join(' ')}`); process.exit(0); }   // (SMOKE_PLAN=1: only print how the shares divide)
+if (process.env.SMOKE_PLAN) { console.log(`${queue.length} checks; expected minutes per share: ${load.map((v) => Math.round(v / 6000) / 10).join(' ')}`); if (process.env.SMOKE_PLAN === 'list') for (const [item, k] of owner) console.log(`${k + 1}/${shards} ${Math.round(expected(item[1]) / 6000) / 10} ${item[1]}`);
+  process.exit(0); }   // (SMOKE_PLAN=1: only print how the shares divide; =list also names the checks of each share)
 for (let i = queue.length - 1; i >= 0; i--) if (owner.get(queue[i]) !== shard - 1) queue.splice(i, 1);
 const WORKERS = Number(process.env.SMOKE_WORKERS) || 4;
 await Promise.all(Array.from({ length: WORKERS }, async () => { while (queue.length) await runCheck(...queue.shift()); }));
