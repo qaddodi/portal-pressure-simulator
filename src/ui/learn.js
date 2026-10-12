@@ -1,17 +1,19 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js?v=9858da589a';
-import { host } from './host.js?v=137ea55eb7';
-import { h, fmt, toast, svgIcon } from './util.js?v=045e641b44';
+import { store, updateParams } from './store.js?v=7fb7280c05';
+import { host } from './host.js?v=fc5582e003';
+import { h, fmt, toast, svgIcon } from './util.js?v=0cca243d2a';
 import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { addRecord } from './records.js?v=50fb9dd463';
-import { runSequence } from './sequence.js?v=d01c8929ba';
+import { runSequence } from './sequence.js?v=cf32faee6e';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
 import { SNAPSHOTS } from './snapshots.js?v=6c4f07ae98';
-import { createRoute, ladder } from './ladder.js?v=18ecf24045';
-import { CASES } from './cases/index.js?v=78c53e6b35';
-import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=cdb2743adc';
-import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=6d450ed1de';
+import { createRoute, ladder } from './ladder.js?v=7b629187ab';
+import { CASES } from './cases/index.js?v=4d92706d0e';
+import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=268d8cc010';
+import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=e08298baac';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('learn');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -426,7 +428,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   // A step's numbers, kept for a later side-by-side comparison of treatments.
   const recordNow = (st) => { const m = store.get().frame?.metrics; if (st.record && m) recs[st.record] = { ppg: m.ppg, liver: m.hepaticFlow, ra: m.ra, varix: m.varix.ratio, map: m.map }; };
   const CMP_ROWS = [['Gradient (PPG), mmHg', 'ppg', (v) => fmt(v, 1), 'Lower is the aim'], ['Blood to the liver, L/min', 'liver', (v) => fmt(v, 2), 'Less risks encephalopathy'],
-    ['Right atrium, mmHg', 'ra', (v) => fmt(v, 1), 'Higher loads the heart'], ['Varix wall tension', 'varix', (v) => (v < 0.6 ? 'Low' : v < 1 ? 'Moderate' : 'High'), ''], ['Blood pressure, mmHg', 'map', (v) => fmt(v, 0), '']];
+    ['Right atrium, mmHg', 'ra', (v) => fmt(v, 1), 'Higher loads the heart'], ['Varix wall stress', 'varix', (v) => (v < 0.4 ? 'Low' : v < 0.7 ? 'Moderate' : 'High'), 'Of the stress that ruptures it'], ['Mean arterial pressure, mmHg', 'map', (v) => fmt(v, 0), '']];
   function compareTable(cols) {
     const have = cols.filter(([, k]) => recs[k]);
     if (have.length < 2) return h('p', { class: 'ctl-sub' }, 'Treat the patient both ways first (the steps before this one) to fill in the comparison.');
@@ -610,7 +612,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     const fp = SNAPSHOTS[st.patient]?.fp;
     if (fp) state.ladder = ladder(fp, { base: SNAPSHOTS.healthy.fp, reveal: true });
     blindOff(); render();
-    requestAnimationFrame(() => {   // only the card scrolls, never the page under it
+    nextFrame(() => {   // only the card scrolls, never the page under it
       const fb = cardEl?.querySelector('.feedback'), box = cardEl?.closest('.coach, .panel-page, #panelChart') || cardEl?.parentElement;
       if (fb && box) box.scrollTo({ top: Math.max(0, fb.offsetTop - 12), behavior: 'smooth' });
     });
@@ -667,7 +669,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
       canNext = state.answered != null;   // not q-active: the vignette stays in view with its question
       body.push(h('p', { class: 'stem-v' }, md(st.stem)), h('p', { class: 'q' }, st.q));
       body.push(optionList({ options: st.options, picked: state.answered, answer: st.answer, reveal: state.answered != null, locked: state.answered != null, notes: st.explain,
-        onPick: (i) => { state.answered = i; blindOff(); render(); requestAnimationFrame(() => cardEl?.querySelector('.opt.sel, .opt.wrong')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); } }));
+        onPick: (i) => { state.answered = i; blindOff(); render(); nextFrame(() => cardEl?.querySelector('.opt.sel, .opt.wrong')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); } }));
       if (state.answered != null) body.push(h('div', { class: 'feedback ' + (state.answered === st.answer ? 'right' : 'wrong'), role: 'status' }, h('b', {}, state.answered === st.answer ? 'Correct. ' : `Not quite: the answer is ${'ABCDE'[st.answer]}. `), st.explain?.[st.answer] || ''));
     }
     if (st.type === 'predict' && !st.mode) {
@@ -760,7 +762,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     const bottom = sheet && (asPhone.matches || !!lesson.unit);
     coach.dataset.safe = bottom ? 'bottom' : 'top';
     // The figure gives up (or takes back) the sheet's height.
-    requestAnimationFrame(() => { stage?.relayout(); liftOver(bottom ? card : null); if (sheet) dispatchEvent(new Event('resize')); });
+    nextFrame(() => { stage?.relayout(); liftOver(bottom ? card : null); if (sheet) dispatchEvent(new Event('resize')); });
   }
 
   store.on('mode', (m) => { if (m !== 'learn' && lesson) stop(); render(); });

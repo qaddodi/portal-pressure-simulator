@@ -27,9 +27,10 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=6c39f43ddf';
+import { cssRGB } from './util.js?v=0cca243d2a';
 
 export const N_SAMPLES = 64;
-export const FLOW_TEXELS = 3;          // per-vessel blood: see stage.js (syncBlood)
+export const FLOW_TEXELS = 4;          // per-vessel blood: see stage.js (syncBlood)
 const SLOT_W = SLOT;
 export const TUBE_TEXELS = 12;         // texels of per-vessel attributes (see the layout below)
 export const MAX_TIERS = 20;
@@ -65,7 +66,7 @@ void main() {
 //   1: color at the end (rgb), alpha
 //   2: tier, z (draw order within a tier), flags, congestion glow alpha
 //   3: fade: linear from (x, y) to (x, y), or radial: center (x, y), radius
-//   4: fade: offset, alpha at the start, alpha at the end (radial: at 45 %), mode (0 none, 1 linear, 2 radial)
+//   4: fade: offset, alpha at the start, alpha at the end (radial: at 45 %), mode (0 none, 1 linear, 2 radial, 3 linear with a dip: faintest at the offset, solid at the end)
 //   5: drawn part along the vessel (0–1): from, to; arc length (world); stream flags (F_UP, F_DN, F_REV)
 //   6: congestion glow color (rgb), streak course length (world)
 //   7: flow streaks: phase at the upstream end, spacing (world), direction (±1, from → to), strength (0 off)
@@ -231,7 +232,12 @@ void main() {
     shcol[s] = t2.w > 0.0 ? T(sid[s], 6).rgb : vec3(0.0);
     sedge[s] = (int(t2.z + 0.5) & ${F_EDGE}) != 0 ? T(sid[s], 6).rgb : vec3(0.0);
     float a = t1.w;
-    if (t4.w > 1.5) {
+    if (t4.w > 2.5) {
+      // A dip: from its start alpha down to its faintest at the offset, and back up to solid at the end.
+      vec2 dd = t3.zw - t3.xy;
+      float v = clamp(dot(p - t3.xy, dd) / max(dot(dd, dd), 1e-6), 0.0, 1.0);
+      a *= v < t4.x ? mix(t4.y, t4.z, smoothstep(0.0, t4.x, v)) : mix(t4.z, 1.0, smoothstep(t4.x, 1.0, v));
+    } else if (t4.w > 1.5) {
       float v = length(p - t3.xy) / max(t3.z, 1e-3);
       a *= v < 0.45 ? mix(t4.y, t4.z, v / 0.45) : mix(t4.z, 0.0, clamp((v - 0.45) / 0.55, 0.0, 1.0));
     } else if (t4.w > 0.5) {
@@ -614,7 +620,8 @@ void main() {
   vec3 d = world * vec3(org + corner * cell, 1.0);
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
 }`;
-const COMP_FS = `#version 300 es
+// A function: the bleed's colour token (--bleed-spray) is written in when the shader is built.
+const COMP_FS = () => `#version 300 es
 precision highp float;
 precision highp int;
 precision highp usampler2D;
@@ -652,6 +659,8 @@ uniform vec4 bleedE[10];               // world ellipses: center, radii
 uniform float bleedA[10];
 uniform int bleedN;
 uniform float rows;
+uniform sampler2D lineL;               // the organ outlines, drawn once per change (premultiplied, device pixels)
+uniform int lineOn;
 out vec4 outColor;
 
 const float SLOT = ${SLOT_W}.0;
@@ -847,7 +856,7 @@ vec2 chevAt(int id, float s, float y) {
   // Toward either end a head fades out (and the next vessel's fade in), never cut by a join.
   float e = min(sc, len - sc);
   if (e < 0.6 * L) return vec2(0.0);
-  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * keep * smoothstep(0.6 * L, 0.6 * L + max(2.0 * L, 0.3 * Pc), e) * smoothstep(1.3 * pxW, 2.4 * pxW, R);
+  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * texelFetch(flow, ivec2(3, id), 0).x * keep * smoothstep(0.6 * L, 0.6 * L + max(2.0 * L, 0.3 * Pc), e) * smoothstep(1.3 * pxW, 2.4 * pxW, R);
   // Where the lumen is narrower than the head, the head fades out instead of squeezing to fit.
   fade *= smoothstep(0.85 * hw, 1.15 * hw, Rl);
   return chevHead(u, ay, hw, pxW) * fade;
@@ -946,8 +955,9 @@ void main() {
     vec2 d = (w - bleedE[i].xy) / max(bleedE[i].zw, vec2(1e-3));
     float r = length(d), aa = pxW / max(min(bleedE[i].z, bleedE[i].w), 1e-3);
     float a = (1.0 - smoothstep(1.0 - aa, 1.0 + aa, r)) * bleedA[i];
-    o = over(vec4(vec3(150.0, 14.0, 34.0) / 255.0 * a, a), o);
+    o = over(vec4(vec3(${cssRGB('--bleed-spray').map((v) => v.toFixed(1)).join(', ')}) / 255.0 * a, a), o);
   }
+  if (lineOn == 1) o = over(texelFetch(lineL, ip, 0), o);
   outColor = o;
 }`;
 
@@ -957,7 +967,7 @@ void main() {
 const LINE_VS = `#version 300 es
 layout(location=0) in vec2 pos;
 layout(location=1) in vec2 nrm;
-layout(location=2) in vec2 sideW;   // side (−1 or 1), half width (world units)
+layout(location=2) in vec2 sideW;   // side (−1 or 1), half width (world units); a fill's edge fringe: (0 or 1, −1)
 uniform mat3 world;
 uniform vec2 size;
 out float vD;
@@ -967,6 +977,7 @@ void main() {
   float k = max(length(n), 1e-6);
   vW = sideW.y * k;
   float e = max(vW, 0.5) + 1.0;
+  if (sideW.y < 0.0) { vW = 0.5; e = 1.0; }   // fading from the fill's edge to nothing one device pixel out
   vec2 d = (world * vec3(pos, 1.0)).xy + n / k * sideW.x * e;
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
   vD = sideW.x * e;
@@ -990,6 +1001,7 @@ function compile(gl, vs, fs) {
     gl.compileShader(sh);
     if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
     gl.attachShader(p, sh);
+    gl.deleteShader(sh);   // freed with the program
   }
   gl.linkProgram(p);
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
@@ -1102,7 +1114,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   try { prog = compile(gl, VS, FS); } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
   const { p, u } = prog;
   let comp, compCell;
-  try { comp = compile(gl, COMP_VS, COMP_FS); compCell = compile(gl, COMP_CELL_VS, COMP_FS); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); return null; }
+  try { comp = compile(gl, COMP_VS, COMP_FS()); compCell = compile(gl, COMP_CELL_VS, COMP_FS()); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); return null; }
   const plates = [null, null];   // [whole plate, sharp view] : { tex, rect }
   let cathP = null;
   try { cathP = compile(gl, CATH_VS, CATH_FS); } catch (e) { console.warn('Veins renderer: catheter shader failed.', e); }
@@ -1111,7 +1123,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindBuffer(gl.ARRAY_BUFFER, cathBuf);
   for (let i = 0; i < 3; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 2, gl.FLOAT, false, 24, i * 8); }
   gl.bindVertexArray(null);
-  let cath = null, cathWas = false;
+  let cath = null, cathWas = false, cathCap = 0;   // cathCap: bytes the catheter's buffer holds (refilled in place while it fits)
   let lineP = null;
   try { lineP = compile(gl, LINE_VS, LINE_FS); } catch (e) { console.warn('Veins renderer: outline shader failed.', e); }
   const lineBuf = gl.createBuffer(), lineVAO = gl.createVertexArray();
@@ -1119,7 +1131,31 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
   for (let i = 0; i < 3; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 2, gl.FLOAT, false, 24, i * 8); }
   gl.bindVertexArray(null);
-  let lines = null, linesWas = false;
+  let lines = null, linesWas = false, lineVer = 0, lineSig = '', lineKey = '', lineW = 0, lineH = 0;
+  // The outlines are drawn into a layer of their own when they change, and the composite lays it over the picture: the
+  // cells-only pass then keeps them, so an open organ card no longer repaints the whole picture every frame.
+  const lineTex = dataTex(gl), lineFbo = gl.createFramebuffer();
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  function renderLines(m) {
+    if (lineW !== canvas.width || lineH !== canvas.height) {
+      lineW = canvas.width; lineH = canvas.height;
+      gl.bindTexture(gl.TEXTURE_2D, lineTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, lineW, lineH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, lineFbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lineTex, 0);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, lineFbo);
+    gl.viewport(0, 0, lineW, lineH);
+    gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+    drawLines(m);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  function freeLines() {   // back to a single texel while no organ is outlined
+    if (!lineW) return;
+    lineW = lineH = 0; lineKey = '';
+    gl.bindTexture(gl.TEXTURE_2D, lineTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  }
   function drawLines(m) {
     const U = lineP.u;
     gl.useProgram(lineP.p);
@@ -1131,7 +1167,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     for (const d of lines.draws) {
       if (d.alpha <= 0) continue;
       gl.uniform4f(U.col, ...d.col, d.alpha);
-      gl.drawArrays(gl.TRIANGLE_STRIP, d.first, d.count);
+      gl.drawArrays(d.tri ? gl.TRIANGLES : gl.TRIANGLE_STRIP, d.first, d.count);
     }
     gl.bindVertexArray(null);
     gl.disable(gl.BLEND);
@@ -1215,14 +1251,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform1f(U.alpha, d.alpha);
       gl.uniform2f(U.fade, ...(d.fade || [0, 0]));
       gl.uniform1f(U.len, d.len ?? 1e9);
-      gl.drawArrays(gl.TRIANGLE_STRIP, d.first, d.count);
+      gl.drawArrays(d.tri ? gl.TRIANGLES : gl.TRIANGLE_STRIP, d.first, d.count);
     }
     gl.bindVertexArray(null);
     gl.disable(gl.BLEND);
   }
 
   let nCells = 0, lost = false, organRect = null;
-  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
+  const onLost = (e) => { e.preventDefault(); lost = true; };
+  canvas.addEventListener('webglcontextlost', onLost);
   // A software renderer (no usable GPU: the browser draws on the CPU) is told apart so the stage
   // can draw less often and at a lower resolution there.
   let software;
@@ -1357,13 +1394,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       // So does the catheter (it reaches past the vessel cells), and once after it is gone.
       if (cath || cathWas) full = true;
       cathWas = !!cath;
-      // And the organ outlines (drawn over the vessels), and once after they go.
-      if (lines || linesWas) full = true;
+      // The organ outlines (over the vessels) are a layer redrawn when they or the view change, with one whole repaint
+      // then and once after they go. Under the catheter's passes they are drawn last, as before, over it.
+      const m = baseM;
+      const layer = !!lines && !cath;
+      if (layer) {
+        const k = `${lineVer}|${m.join(',')}|${canvas.width}x${canvas.height}`;
+        if (k !== lineKey) { renderLines(m); lineKey = k; full = true; }
+      } else if (!lines) freeLines();
+      if (linesWas && !lines) full = true;
       linesWas = !!lines;
       wasBleeding = bleeding;
       const fl = look.fluid && fluidRect ? look.fluid : null;
       if (!full && !nCells && !(fl?.ripple && nFluid)) return;
-      const m = baseM, det = m[0] * m[3] - m[1] * m[2] || 1e-9;
+      const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
       // device → world: the inverse of [a c e; b d f].
       const ia = m[3] / det, ib = -m[1] / det, ic = -m[2] / det, id = m[0] / det;
       const ie = -(ia * m[4] + ic * m[5]), iff = -(ib * m[4] + id * m[5]);
@@ -1412,6 +1456,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };
       bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
       bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2'); bind(9, fluidTex, 'fluidMask');
+      bind(10, lineTex, 'lineL'); gl.uniform1i(U.lineOn, layer ? 1 : 0);
       if (full) {
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -1421,18 +1466,22 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       }
       gl.bindVertexArray(null);
       if (cath) drawCath(m);
-      if (lines) drawLines(m);
+      if (lines && !layer) drawLines(m);
     },
     /** Whether organ outlines can be drawn here (else stage.js keeps its SVG ones). */
     get canLines() { return !!lineP; },
     /**
      * Organ outlines, or null: { verts: Float32Array (x, y, normal x, y, side, half width per vertex; world units),
-     * draws: [{ first, count, col: [r, g, b], alpha }] }. Alphas may change without new verts.
+     * draws: [{ first, count, col: [r, g, b], alpha, tri (a fill: triangles, half width 1e4, side 0) }] }.
+     * Alphas may change without new verts.
      */
     setLines(spec) {
       const fresh = spec && spec.verts !== lines?.verts;
       lines = lineP && spec?.draws?.length ? spec : null;
-      if (!lines || !fresh) return;
+      if (!lines) return;
+      const sig = lines.draws.map((d) => `${d.first},${d.count},${d.alpha},${d.col},${d.tri ? 1 : 0}`).join(';');
+      if (fresh || sig !== lineSig) { lineSig = sig; lineVer++; }
+      if (!fresh) return;
       gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
       gl.bufferData(gl.ARRAY_BUFFER, lines.verts, gl.DYNAMIC_DRAW);
     },
@@ -1446,10 +1495,44 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       cath = cathP && spec?.draws?.length ? spec : null;
       if (!cath) return;
       gl.bindBuffer(gl.ARRAY_BUFFER, cathBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, cath.verts, gl.DYNAMIC_DRAW);
+      if (cath.verts.byteLength <= cathCap) gl.bufferSubData(gl.ARRAY_BUFFER, 0, cath.verts);
+      else { cathCap = cath.verts.byteLength * 2; gl.bufferData(gl.ARRAY_BUFFER, cathCap, gl.DYNAMIC_DRAW); gl.bufferSubData(gl.ARRAY_BUFFER, 0, cath.verts); }
     },
     clear() { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = 0; baseM = null; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
     snapshot() { return canvas.toDataURL('image/png'); },
+    /**
+     * Gives back the vessel framebuffer (20 bytes a pixel) and the outline layer while the picture is not shown;
+     * everything else stays, and the next draw reallocates them.
+     */
+    trim() {
+      if (lost) return;
+      for (const t of [baseTex, gTex, gTex2]) {
+        gl.bindTexture(gl.TEXTURE_2D, t);
+        if (t === baseTex) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, 1, 1, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
+      }
+      fboW = fboH = 0; baseM = null;
+      freeLines();
+    },
+    /**
+     * Frees every GPU object (textures, the vessel framebuffer, buffers, programs) and stops
+     * listening to the canvas. The instance is dead afterwards; make a new one to draw again.
+     * `lose: true` also gives the context back to the browser (WEBGL_lose_context): the canvas
+     * then cannot draw until the browser restores it, so give the next instance a new canvas.
+     */
+    dispose({ lose = false } = {}) {
+      canvas.removeEventListener('webglcontextlost', onLost);
+      if (!lost) {
+        for (const t of [entTex, radTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, lineTex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
+        for (const b of [quad, cellBuf, fluidBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
+        for (const v of [vao, fluidVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
+        for (const x of [prog, comp, compCell, cathP, lineP]) if (x) gl.deleteProgram(x.p);
+        gl.deleteFramebuffer(fbo); gl.deleteFramebuffer(lineFbo);
+        if (lose) gl.getExtension('WEBGL_lose_context')?.loseContext();
+      }
+      plates[0] = plates[1] = null; lines = cath = null; nCells = nFluid = 0; baseM = null; fboW = fboH = 0;
+      lost = true;
+    },
   };
 }

@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **Caudate lobe.** The anatomy now draws the caudate lobe beside the IVC, below the hepatic vein confluence and above
+  the portal bifurcation, quietly, as part of the liver (a fissure line and its own dome), with its short veins draining
+  straight into the IVC (they carry the model's caudate flow and are left out of the circuit). In Budd–Chiari the lobe
+  eases larger as its veins take over the outflow. The "caudate lobe still drains" and DIPS slides outline it and name
+  it in their lines; the DIPS tract runs through it. Test: `tests/caudate.test.js`.
+
+- **Corner credit on a phone held sideways.** In Present the credit sat on the words' glass pane at the lower left. The pane now
+  counts as a card: the credit moves along the figure's edge to the first free spot beside it, and sets itself on two
+  lines when only a narrow strip of figure is left between the pane and a data card. The credit check now also runs at
+  844×390 and 932×430. Tests: `tests/credit.test.js`, `tests/e2e/smoke.mjs`.
+
+- **FibroScan callout.** Wherever the FibroScan probe and its shear waves show on the figure (Explore with the FibroScan card
+  open, and every FibroScan slide), an orange pill beside the waves reads the live stiffness (for example "12.5 kPa"), with
+  a leader to the waves. It is placed by the figure's label solver before the other labels, so it keeps clear of them, the
+  probe, the cards and the credit; the probe carries no text label of its own; the number eases as the value changes, and the pill and leader fade in
+  and out with the probe. In a quiz slide it waits with the card until the answer. The schistosomiasis and congestion
+  slides' cards now list the liver stiffness too. Check: "FibroScan callout beside the waves" in `tests/e2e/smoke.mjs`.
+
 - **Import a deck file in Present.** Menu › Present › Your scripts › *Import* opens a dialog: choose a deck `.js`
   (written like the built-in decks in `src/ui/decks/`) or a `.json` deck or script, or paste its contents. A deck keeps
   every feature (tiles, tools, term pills, equations, visuals, time-lapses) and is stored on that device like a script.

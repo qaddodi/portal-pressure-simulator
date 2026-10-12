@@ -194,6 +194,8 @@ let openMenu = null;
 const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
 // sheet: on a phone the menu rises as a bottom sheet (full width, its text wraps) instead of a tall
 // popover; pass false for a menu that lays itself out.
+/** The bottom of what is visible: above the on-screen keyboard on iOS, where innerHeight does not shrink. */
+export const visibleBottom = () => { const v = window.visualViewport; return v ? Math.min(innerHeight, v.offsetTop + v.height) : innerHeight; };
 export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
   const asSheet = sheet && innerWidth < 768;
@@ -205,16 +207,20 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     const r = anchor.getBoundingClientRect(), z = uiScale(), mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
     let x = align === 'end' ? r.right - mr.width : align === 'center' ? r.left + r.width / 2 - mr.width / 2 : r.left;
     let y = place === 'above' ? r.top - mr.height - 8 : r.bottom + 8;
-    if (y + mr.height > innerHeight - 8) y = Math.max(8, r.top - mr.height - 8);
+    const vb = visibleBottom();
+    if (y + mr.height > vb - 8) y = Math.max(8, r.top - mr.height - 8);
     el.style.left = clamp(x, 8, innerWidth - mr.width - 8) / z + 'px';
-    el.style.top = clamp(y, 8, innerHeight - mr.height - 8) / z + 'px';
+    el.style.top = clamp(y, 8, vb - mr.height - 8) / z + 'px';
   };
   put();
   if (asSheet) swipeSheet(el, () => closePopover());
   const off = (e) => { if (!el.contains(e.target) && !anchor.contains(e.target)) closePopover(); };
   const esc = (e) => { if (e.key === 'Escape') closePopover(); };
+  // The keyboard opening or closing (a search field) moves the visible bottom: place the menu again.
+  const vv = window.visualViewport, onVV = () => { if (!asSheet) put(); };
   setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', esc); }, 0);
-  openMenu = { el, anchor, put, cleanup: () => { removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); onClose?.(); } };
+  vv?.addEventListener('resize', onVV);
+  openMenu = { el, anchor, put, cleanup: () => { removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); vv?.removeEventListener('resize', onVV); onClose?.(); } };
   anchor.setAttribute('aria-expanded', 'true');
   return el;
 }
@@ -327,6 +333,27 @@ export function cssVar(name) {
   if (v === undefined) { v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); varCache.set(name, v); }
   return v;
 }
+// A colour token as [r, g, b] in 0–255 (tokens are #rgb, #rrggbb, rgb() or rgba(); the alpha is dropped).
+export function parseRGB(c) {
+  c = (c || '').trim();
+  if (c[0] === '#') { const x = c.length < 6 ? [...c.slice(1, 4)].map((d) => d + d).join('') : c.slice(1, 7); return [0, 2, 4].map((k) => parseInt(x.slice(k, k + 2), 16)); }
+  const n = c.match(/[\d.]+/g) || [];
+  return [+n[0] || 0, +n[1] || 0, +n[2] || 0];
+}
+export const cssRGB = (name) => parseRGB(cssVar(name));
+export const cssRGB01 = (name) => cssRGB(name).map((v) => v / 255);
+/** A colour token with an alpha, for a canvas: cssAlpha('--white', .5) → 'rgba(255,255,255,0.5)' (colour-exempt). */
+export const cssAlpha = (name, a) => `rgba(${cssRGB(name).join(',')},${a})`;
+/** A colour ramp token ('#hex position, #hex position, …') as [[position, '#hex'], …]. */
+export const cssRamp = (name) => [...cssVar(name).matchAll(/(#[0-9a-f]{6})\s+(-?[\d.]+)/gi)].map((m) => [+m[2], m[1]]);
+// The blood's colours on the GPU (theme independent: they sit on the lumen, not on the page), in 0–1.
+// originCol follows ORIGINS (blood.js): SMV, IMV, splenic vein, hepatic artery, systemic.
+let bloodCols = null;
+export const bloodColors = () => bloodCols || (bloodCols = {
+  originCol: ['smv', 'imv', 'spleen', 'artery', 'systemic'].map((o) => cssRGB01(`--origin-${o}`)),
+  dyeCol: cssRGB01('--blood-dye'), inkLight: cssRGB01('--blood-ink-light'), inkDark: cssRGB01('--blood-ink-dark'),
+  revCol: cssRGB01('--blood-reversed'), chevInk: cssRGB01('--blood-chevron'),
+});
 
 /** Canvas sized to its box with device-pixel ratio. Returns ctx with CSS-pixel units. */
 // Each canvas's box is tracked by a ResizeObserver instead of measured on every draw (a
@@ -408,6 +435,9 @@ export function enhanceRanges(root = document) {
  * so a chart's line, dots, labels and axis glide rather than jump when the model changes. The
  * Pressure card and the lobule's pressure ladder share it. step(target) → { v, moving }.
  */
+/** Steady motion (the flow, a glide toward values that keep moving) is drawn at most 30 times a second, whatever the
+ * screen's refresh rate: a little under 33 ms, so a frame lands on the screen's next refresh, not the one after. */
+export const GLIDE_MS = 1000 / 30 - 4;
 export function createEaser(tau = 0.3) {
   let v = null, last = 0;
   return {

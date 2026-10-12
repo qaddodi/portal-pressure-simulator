@@ -1,10 +1,12 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=1de144f162';
-import { pressureColor } from './colormap.js?v=7616551729';
-import { store, hiddenNow } from './store.js?v=9858da589a';
-import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=045e641b44';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=dc42714177';
+import { pressureColor } from './colormap.js?v=c17dfefa88';
+import { store, hiddenNow } from './store.js?v=7fb7280c05';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop, GLIDE_MS } from './util.js?v=0cca243d2a';
+import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const ARTERIAL = new Set(['AO', 'HA']);
@@ -77,9 +79,12 @@ export function createProfile() {
     const moving = mP || mA;
     F = { ...Fraw, P: shown };
     draw();
-    cancelAnimationFrame(easeRaf);
-    // Model frames arrive about ten times a second; the glide runs every display frame between them.
-    if (moving || pillMoving) easeRaf = requestAnimationFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); });
+    cancelFrame(easeRaf);
+    // Model frames arrive about ten times a second; the glide runs between them, 30 frames a second however fast the
+    // screen refreshes (the pressures never quite settle while the model runs, so this glide never stops).
+    const at = performance.now();
+    const next = (t) => { if (t - at < GLIDE_MS) { easeRaf = nextFrame(next); return; } if (cv.isConnected && cv.offsetParent) ease(); };
+    if (moving || pillMoving) easeRaf = nextFrame(next);
   }
   let predict = null; // { on, values: Map(station → P), done }
   let dragging = false;
@@ -129,7 +134,7 @@ export function createProfile() {
       const i0 = stations.indexOf(lv[0]), i1 = stations.indexOf(lv[1]);
       if (i0 >= 0 && i1 >= i0) {
         const bx = x(i0) - slot / 2, bw = slot * (i1 - i0 + 1);
-        ctx.save(); ctx.fillStyle = c.liver || 'rgba(176, 96, 84, .09)'; ctx.fillRect(bx, T - 6, bw, y(0) - T + 6);
+        ctx.save(); ctx.fillStyle = cssVar('--chart-liver-band'); ctx.fillRect(bx, T - 6, bw, y(0) - T + 6);
         ctx.fillStyle = c.muted; ctx.font = FONT(600, 10.5); ctx.textAlign = 'center'; ctx.fillText('LIVER', bx + bw / 2, T + 4); ctx.restore();
       }
     }
@@ -309,7 +314,7 @@ export function createProfile() {
     pillMoving = mPill;
     items.forEach((it, k) => {
       if (!it) return;
-      const { d, a, b, col, txt, num, tw1, tw, x0, x1 } = it;
+      const { a, b, col, txt, num, tw1, tw, x0, x1 } = it;
       const yy = pos[2 * k], lx = pos[2 * k + 1], ly = yy;
       ctx.save();
       // Faint leaders from the bracket ends to the two station dots, broken around any value label.
@@ -333,7 +338,7 @@ export function createProfile() {
       ctx.fillStyle = col === c.muted ? c.text : col; ctx.font = FONT(700, 12.5); ctx.fillText(num, lx + 6 + tw1, ly + 0.5);
       ctx.restore();
     });
-    if (pillMoving) { cancelAnimationFrame(easeRaf); easeRaf = requestAnimationFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); }); }
+    if (pillMoving) { cancelFrame(easeRaf); easeRaf = nextFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); }); }
     ctx.textBaseline = 'alphabetic';
     el.querySelector('#profileOffscale').textContent = hasArt ? 'Arterial pressure is drawn above the break (//) at its true value.' : '';
     // prediction
@@ -345,7 +350,7 @@ export function createProfile() {
       smoothPath(ctx, stations.map((n, i) => [n, i]).filter(([n]) => predict.values.get(n) != null && !ARTERIAL.has(n)).map(([n, i]) => [x(i), y(predict.values.get(n))]));
       ctx.stroke(); ctx.setLineDash([]);
       if (predict.reveal) {
-        ctx.fillStyle = 'rgba(210,69,47,.14)';
+        ctx.fillStyle = cssAlpha('--danger', 0.14);
         stations.forEach((n, i) => { const v = predict.values.get(n); if (v == null) return; ctx.fillRect(x(i) - 6, Math.min(y(v), y(now[i])), 12, Math.abs(y(v) - y(now[i]))); });
       }
     } else lp.style.display = 'none';

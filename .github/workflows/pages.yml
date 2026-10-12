@@ -4,8 +4,12 @@ name: Pages (live site + preview)
 #   /          the tip of main (the live site)
 #   /preview/  the branch that triggered the run (a claude/** branch), or main again after a merge
 # Every run rebuilds both from scratch, so the newest run always wins: the deploy job shares one
-# concurrency group across branches. The browser checks are grouped per branch, so a push from
-# another agent no longer cancels them part way through.
+# concurrency group across branches. Lint and unit run for every push and gate the deploy. A browser,
+# visual or WebKit check that has started is never cancelled: it runs to the end and reports. While
+# one runs, only the newest waiting commit queues behind it (GitHub drops older waiting ones), so the
+# checks follow the branch tip at a steady pace and never take every runner from the deploy.
+# Browser, visual and WebKit checks run only for main and the integration branch (other claude/**
+# branches get lint and unit here, and everything in ci.yml on a pull request), so runners stay free.
 
 on:
   push:
@@ -35,20 +39,41 @@ jobs:
 
   # The browser checks run alongside the deploy, not before it: a failure marks the run red
   # (so it is seen) but the preview is already published for testing on devices.
-  # Split over four runners (a device and half its checks each), one check at a time per runner:
+  # Split over twenty runners (desktop in four shares, phone in sixteen), filled by measured time, one check at a time per runner:
   # a runner is too small to run several browsers at once.
   browser-checks:
+    if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
     runs-on: ubuntu-latest
     concurrency:
       group: browser-checks-${{ github.ref }}-${{ matrix.device }}-${{ matrix.shard }}
-      cancel-in-progress: true
-    # Covers the install (capped at 4 minutes below) plus the checks (2 to 4 minutes).
-    timeout-minutes: 10
+      cancel-in-progress: false
+    # Covers the install (capped at 4 minutes below) plus the checks (up to about 9 minutes).
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        device: [desktop, phone]
-        shard: ['1/2', '2/2']
+        # Desktop in four shares; phone in sixteen, since it also walks every slide of all decks.
+        include:
+          - { device: desktop, shard: '1/4' }
+          - { device: desktop, shard: '2/4' }
+          - { device: desktop, shard: '3/4' }
+          - { device: desktop, shard: '4/4' }
+          - { device: phone, shard: '1/16' }
+          - { device: phone, shard: '2/16' }
+          - { device: phone, shard: '3/16' }
+          - { device: phone, shard: '4/16' }
+          - { device: phone, shard: '5/16' }
+          - { device: phone, shard: '6/16' }
+          - { device: phone, shard: '7/16' }
+          - { device: phone, shard: '8/16' }
+          - { device: phone, shard: '9/16' }
+          - { device: phone, shard: '10/16' }
+          - { device: phone, shard: '11/16' }
+          - { device: phone, shard: '12/16' }
+          - { device: phone, shard: '13/16' }
+          - { device: phone, shard: '14/16' }
+          - { device: phone, shard: '15/16' }
+          - { device: phone, shard: '16/16' }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
@@ -68,16 +93,37 @@ jobs:
           path: workspace-shots/
           if-no-files-found: ignore
 
+  # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
+  webkit:
+    if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: webkit-${{ github.ref }}
+      cancel-in-progress: false
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: WebKit for Playwright
+        run: timeout 300 npx playwright install --with-deps webkit
+      - name: Presenter words keep one size (iPhone, WebKit)
+        run: npm run smoke:webkit
+
   # The look against tests/visual on every preview push, so a drift shows up now, not at merge
   # time. A drift is a warning here (the diffs are kept as an artifact) and blocks only in ci.yml.
   # When the change to the look is intended, run the "Visual references" workflow on the branch,
   # which redraws the drifted views on these same machines and commits them.
   visual:
     name: visual (${{ matrix.device }})
+    if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
     runs-on: ubuntu-latest
     concurrency:
       group: visual-${{ github.ref }}-${{ matrix.device }}
-      cancel-in-progress: true
+      cancel-in-progress: false
     timeout-minutes: 15
     strategy:
       fail-fast: false

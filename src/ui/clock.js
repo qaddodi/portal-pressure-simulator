@@ -3,9 +3,12 @@
 // carry on from the same value on resume, so nothing jumps. Also mirrors the pause onto <body> so CSS
 // loops can freeze (body.sim-paused).
 
-import { store } from './store.js?v=9858da589a';
+import { store } from './store.js?v=7fb7280c05';
 
 let acc = 0, lastReal = null;
+
+/** The FibroScan card's live reading (kPa, as it shows it) and when it last painted: the probe on the figure shows this same number. */
+export const fibroReading = { txt: null, cv: null, show: null };   // show(txt): the stage's probe, written in the card's own frame
 
 export function simTime(now = performance.now()) {
   if (lastReal !== null && store.get().running) acc += Math.min(Math.max(now - lastReal, 0), 200);

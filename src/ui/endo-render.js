@@ -9,6 +9,7 @@
 // of strangulated tissue with the band as a tight ring at its base. The result is drawn once per
 // state into an offscreen bitmap and cached, so it never flickers.
 
+import { cssRGB } from './util.js?v=0cca243d2a';
 const TAU = Math.PI * 2;
 const T = 1.55;          // tan(half field of view)
 const NCOL = 4;
@@ -105,7 +106,7 @@ export function renderEndo(res, p) {
   const cv = document.createElement('canvas'); cv.width = cv.height = res;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(res, res), D = img.data;
   const half = res / 2, o = {};
-  const ALB = [226, 150, 132], DEEP = [150, 52, 50];
+  const ALB = cssRGB('--endo-mucosa'), DEEP = cssRGB('--endo-mucosa-deep');
   const eth = 0.008;
   for (let py = 0; py < res; py++) {
     for (let px = 0; px < res; px++) {

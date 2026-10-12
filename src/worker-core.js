@@ -1,10 +1,10 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=c37bf85f01';
+import { Engine } from './engine/engine.js?v=aaa7653ab3';
 import { computeMetrics } from './engine/metrics.js?v=72819396bb';
 import { detectEvents } from './engine/events.js?v=a6e16e86ec';
-import { explain } from './engine/explain.js?v=c1990babc3';
+import { explain } from './engine/explain.js?v=d881c2ed21';
 import { defaultParams, deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=b2eabea2e1';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
@@ -280,14 +280,19 @@ export function createCore(post) {
         if (st.params) { e.setParams(deepMerge(e.params, st.params)); e.settle(); }
         for (const a of [st.action || []].flat()) applyAction(e, a);
         const ramp = st.ramp ? Object.entries(st.ramp) : null, fine = !!(ramp || st.fine);
+        // trail: the portal pressure and flow on each day of the time-lapse, [day, pv, pvFlow] (the presenter's flow-time chart).
+        const at = (d, m) => [d, m.pv, m.pvFlowMean], trail = st.trail && st.days ? [at(0, computeMetrics(e))] : null;
         for (let done = 0; done < (st.days || 0);) {
           const n = fine ? 1 : Math.min(30, st.days - done);
           if (ramp) e.setParams(deepMerge(e.params, rampAt(ramp, done + 1, st.days)));
           yield* e.advanceDaySteps(n, { noRupture: true, silent: true });
           done += n;
+          if (trail && done < st.days) trail.push(at(done, computeMetrics(e)));
         }
         if (st.preset || st.params || st.action || st.days) e.settle();
-        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(e), e) });
+        const m = computeMetrics(e);
+        if (trail) trail.push(at(st.days, m));
+        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail });
         yield;
       }
       post({ type: 'sequence', reqId });
@@ -324,7 +329,7 @@ export function createCore(post) {
           if (visible) { lastFrame = performance.now(); frame(); }
         }
       }
-      catch (err) { post({ type: 'error', message: String(err && err.stack || err) }); }
+      catch (err) { post({ type: 'error', reqId: msg.reqId, message: String(err && err.stack || err) }); }   // reqId: the waiting request settles
       resolve();
     }
     busy = false;

@@ -3,9 +3,11 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=9858da589a';
-import { h, icon, svgIcon, clamp, tooltipFor, infoButton } from './util.js?v=045e641b44';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=b281539357';
+import { store, updateParams } from './store.js?v=7fb7280c05';
+import { h, icon, svgIcon, clamp, infoButton } from './util.js?v=0cca243d2a';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=a1b089da9f';
+import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('card');
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
@@ -29,7 +31,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
 
   // Laying the labels out again (they steer clear of the card) is not needed more than once a frame.
   let relayoutRaf = 0;
-  const relayoutSoon = () => { if (!relayoutRaf) relayoutRaf = requestAnimationFrame(() => { relayoutRaf = 0; stage.relayout?.(); }); };
+  const relayoutSoon = () => { if (!relayoutRaf) relayoutRaf = nextFrame(() => { relayoutRaf = 0; stage.relayout?.(); }); };
   const isDocked = () => el.classList.contains('docked');
   // The phone sheet lives in the whole figure column, not in the figure itself: it reaches the bottom of the column,
   // over the play and timeline row, and stops just above the readout strip.
@@ -56,8 +58,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (pill) pill.classList.remove('no-room');
   }
   function reveal() {
-    cancelAnimationFrame(revealRaf);
-    revealRaf = requestAnimationFrame(() => {
+    cancelFrame(revealRaf);
+    revealRaf = nextFrame(() => {
       const open = model && !el.hidden && isDocked();
       // How much of the figure the sheet covers (it also covers the row below the figure).
       const covered = open ? Math.max(0, view.getBoundingClientRect().bottom - (dockHost.getBoundingClientRect().top + el.offsetTop)) : 0;
@@ -154,7 +156,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (focusedIdx >= 0) actionable[focusedIdx]?.focus();
     relayoutSoon();
     reveal();
-    requestAnimationFrame(syncMore);
+    nextFrame(syncMore);
   }
 
   // Track swipes outside the header too; release all listeners on close or selection change.
@@ -218,12 +220,17 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       let fresh = true;
       input.addEventListener('pointerdown', () => { fresh = true; });
       input.addEventListener('keydown', () => { fresh = true; });
+      // The thumb and its number follow the pointer at once; the model gets the newest value once per frame.
+      let pend = null, raf = 0;
+      const flush = () => { cancelFrame(raf); raf = 0; const p = pend; pend = null; if (p) updateParams((pp) => { v.set(pp, p.x); return pp; }, { history: p.history, label: v.hist || lab }); };
       input.addEventListener('input', () => {
         const x = parseFloat(input.value);
         paint(x);
-        updateParams((pp) => { v.set(pp, x); return pp; }, { history: fresh, label: v.hist || lab });
+        if (!pend) pend = { history: fresh }; pend.x = x;
         fresh = false;
+        if (!raf) raf = nextFrame(flush);
       });
+      input.addEventListener('change', flush);
       // On a phone a short name sits on one row with its track; a long one stacks above it.
       const row = h('div', { class: 'ac-slider' + (lab.length > 13 ? ' long' : '') + (dis ? ' locked' : ''), title: dis ? LOCK_TIP : null },
         h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lab, v.info ? infoButton(v.info) : null), val),
@@ -399,7 +406,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (d < (a.outline ? 12 : 30) || isDocked()) { leader.replaceChildren(); leader.classList.remove('on'); return; }
     lLine.setAttribute('d', `M${ex.toFixed(1)} ${ey.toFixed(1)} L${ax.toFixed(1)} ${ay.toFixed(1)}`);
     lDot.setAttribute('cx', ax.toFixed(1)); lDot.setAttribute('cy', ay.toFixed(1));
-    if (!lLine.isConnected) { leader.classList.remove('on'); leader.replaceChildren(lLine, lDot); requestAnimationFrame(() => leader.classList.add('on')); }
+    if (!lLine.isConnected) { leader.classList.remove('on'); leader.replaceChildren(lLine, lDot); nextFrame(() => leader.classList.add('on')); }
   }
 
   // The floating pieces moved (a card opened on the right, the dock grew): place the card again.

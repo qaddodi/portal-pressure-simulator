@@ -5,9 +5,11 @@
 // per day). Changes the learner makes and threshold events are marked where they happened, and
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
-import { store, hiddenNow } from './store.js?v=9858da589a';
-import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=045e641b44';
-import { FONT } from './charts.js?v=519248139b';
+import { store, hiddenNow } from './store.js?v=7fb7280c05';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=0cca243d2a';
+import { FONT } from './charts.js?v=cd472063a4';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('pressure-time');
 
 // hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
@@ -82,6 +84,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
   }
   function ingest(f) {
     frame = f; wallAt = performance.now();
+    wake();
     if (f.clock !== clock) {
       clock = f.clock;
       // The disease clock is a trend: show it as one while it runs, then return to the learner's range.
@@ -209,11 +212,15 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const rate = frame.speed || 1;
     return lastT - LAG_S * rate + Math.min((performance.now() - wallAt) / 1000, LAG_S) * rate;
   }
+  // The scroll loop runs only while the trace is on screen and moving; the next sample (ingest) wakes it.
+  let ticking = false;
+  const live = () => frame?.running && range !== 'days' && cv.offsetParent && !document.hidden;
   function tickLoop() {
-    requestAnimationFrame(tickLoop);
-    if (frame?.running && range !== 'days' && cv.offsetParent && !document.hidden) draw();
+    if (!live()) { ticking = false; return; }
+    nextFrame(tickLoop);
+    draw();
   }
-  requestAnimationFrame(tickLoop);
+  function wake() { if (!ticking && live()) { ticking = true; nextFrame(tickLoop); } }
 
   function draw() {
     const { ctx, w, h: hh } = fitCanvas(cv);
@@ -429,7 +436,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const ch = 12 + rowH * (crossRows.length + 1);
       let bx = cx + 14; if (bx + cw > L + plotW) bx = cx - 14 - cw;
       const by = clamp(lanes[0].top, 4, hh - ch - 4);
-      ctx.fillStyle = surface; ctx.shadowColor = 'rgba(0,0,0,.14)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
+      ctx.fillStyle = surface; ctx.shadowColor = cssAlpha('--black', 0.14); ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, cw, ch, 10) : ctx.rect(bx, by, cw, ch); ctx.fill();
       ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
       ctx.strokeStyle = grid; ctx.stroke();
@@ -553,10 +560,10 @@ export function createPressureTime({ marks = () => [] } = {}) {
 
   function update(f) { ingest(f); redraw(); }
   function redraw() { if (!frame) return; updateHero(); draw(); }
-  for (const k of ['hiddenReadouts', 'hvpgMeasured', 'showHvpg']) store.on(k, () => { yr.pressure = yr.hvpg = null; });
+  const offs = ['hiddenReadouts', 'hvpgMeasured', 'showHvpg'].map((k) => store.on(k, () => { yr.pressure = yr.hvpg = null; }));
   // A new patient (or the same one restarted) starts with empty traces.
   function clear() { clearHemo(); days = []; redraw(); }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear };
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, dispose() { offs.forEach((off) => off()); frame = null; } };
 }
 
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).

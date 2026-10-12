@@ -76,3 +76,32 @@ test('credit keeps its current corner while it stays free, and fades when no fig
   const none = freeSpots(fig, [{ l: 0, t: 0, r: 390, b: 700 }], W, H);
   assert.equal(pickCorner(none, 'bl'), null);
 });
+
+test('credit takes the strip of figure between two cards, on two lines, when the corners are covered (phone held sideways)', () => {
+  const land = { l: 0, t: 0, r: 844, b: 390 };
+  const obs = [{ l: 0, t: 0, r: 365, b: 390 }, { l: 522, t: 31, r: 822, b: 359 }];
+  const one = freeSpots(land, obs, 210, 17, { inset: 12 });
+  assert.equal(pickCorner(one, null), null, 'one line does not fit the strip');
+  const two = freeSpots(land, obs, 101, 34, { inset: 12 });
+  const c = pickCorner(two, null);
+  assert.ok(c && two[c].x >= 375 && two[c].x + 101 + 10 <= 522);
+  assert.ok(obs.every((o) => two[c].x + 101 + 10 <= o.l || two[c].x - 10 >= o.r || two[c].y + 34 + 10 <= o.t || two[c].y - 10 >= o.b));
+});
+
+test('credit stays off the words\' glass pane', () => {
+  const land = { l: 0, t: 0, r: 844, b: 390 }, pane = { l: 0, t: 0, r: 365, b: 390 };
+  const s = freeSpots(land, [pane], 210, 17, { inset: 12 });
+  assert.ok(s.bl.x >= 375, 'the lower-left spot moves along to the figure, clear of the pane');
+  assert.equal(pickCorner(s, 'bl'), 'bl');
+  assert.match(readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8'), /\.pz-shade'/);
+});
+
+test('credit keeps clear of the figure\'s own labels, and a label does not make the screen busy', () => {
+  const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  assert.match(src, /#labels \.lb:not\(\.lb-off\)/);
+  assert.match(src, /chrome: true/);
+  // A value label sitting on the lower-left corner (the SMV label on a phone): the credit rises above it or moves aside.
+  const label = { l: 8, t: 640, r: 200, b: 672 };
+  const s = freeSpots(fig, [label], W, H);
+  assert.ok(s.bl && clear(s.bl, [label]));
+});

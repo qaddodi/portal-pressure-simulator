@@ -1,0 +1,63 @@
+// A slide's words never contradict its own numbers: where a line puts a live HVPG or PPG next to a threshold
+// (CSPH at 10, bleeding at 12, the TIPS target of a PPG under 12), the patient the slide shows must sit on that side.
+// Each deck is computed as the presenter computes it (the worker's 'sequence'); a time-lapse's words read its end state.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readdirSync } from 'node:fs';
+import { createCore } from '../src/worker-core.js';
+
+const DIR = new URL('../src/ui/decks/', import.meta.url);
+const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
+const changes = (s) => MODEL.some((k) => s[k]);
+
+async function deckStates(d) {
+  const fps = [];
+  const core = createCore((m) => { if (m.type === 'seqStep') fps[m.i] = m.fp; });
+  const steps = d.slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse } : {}));
+  core.handle({ type: 'run', running: false });   // (no live clock left ticking once the test ends)
+  await core.handle({ type: 'sequence', steps, reqId: 1 });
+  core.dispose();
+  let last = fps[0];
+  return d.slides.map((s, i) => (last = changes(s) || i === 0 ? fps[i] : last));
+}
+
+// Slides whose claim is in a neighbouring sentence, checked by hand.
+const KNOWN = {
+  'endoscopy/grow': (f) => f.hvpg >= 10,
+  'outflow/soswedge': (f) => f.hvpg > 10,
+  'one-year/cath': (f) => f.hvpg < 10,
+  'one-year/d365': (f) => f.hvpg >= 12,
+  'varices/burst': (f) => f.hvpg >= 12,
+  'hvpg/hvpg': (f) => f.hvpg >= 10,
+  'recompensation/csph': (f) => f.hvpg >= 10,
+};
+
+// Any sentence with a live {hvpg} or {ppg} and a threshold word: below/under means under the number, past/above/
+// "or more"/CSPH means at or over it (CSPH alone means 10).
+function claims(line) {
+  const out = [];
+  for (const sen of (line || '').split(/(?<=\.)\s+/)) {
+    const key = /\{(hvpg|ppg)\}/.exec(sen)?.[1];
+    if (!key) continue;
+    const n = Number(/\b(5|6|10|12)\b(?! (?:kPa|mm\b|g\/dL))/.exec(sen.replace(/\{[^}]+\}/g, ''))?.[1]) || (/CSPH|clinically significant/i.test(sen) ? 10 : 0);
+    if (!n) continue;
+    if (/\b(below|under|still below)\b/i.test(sen)) out.push([key, '<', n, sen]);
+    else if (/\b(past|above|or more|reaches|CSPH|clinically significant)\b/i.test(sen)) out.push([key, '>=', n, sen]);
+  }
+  return out;
+}
+
+test('threshold claims in slide lines match the model state each slide shows', async () => {
+  const bad = [];
+  for (const f of readdirSync(DIR).filter((x) => x.endsWith('.js'))) {
+    const d = Object.values(await import(new URL(f, DIR))).find((v) => Array.isArray(v?.slides));
+    const fps = await deckStates(d);
+    d.slides.forEach((s, i) => {
+      const fp = fps[i], id = `${d.id}/${s.id}`;
+      if (KNOWN[id] && !KNOWN[id](fp)) bad.push(`${id}: HVPG ${fp.hvpg.toFixed(1)}, PPG ${fp.ppg.toFixed(1)}`);
+      for (const [k, op, n, sen] of claims(s.line)) if (op === '<' ? !(fp[k] < n) : !(fp[k] >= n)) bad.push(`${id}: ${k} ${fp[k].toFixed(1)} vs "${sen}"`);
+    });
+    for (const id of Object.keys(KNOWN)) if (id.startsWith(d.id + '/')) assert.ok(d.slides.some((s) => `${d.id}/${s.id}` === id), `${id} is gone`);
+  }
+  assert.deepEqual(bad, []);
+});

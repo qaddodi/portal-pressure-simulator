@@ -1,0 +1,40 @@
+name: Deck layout sweep
+
+# On request only: plays every slide of every presenter deck at phone, iPad and desktop size and reports
+# layout findings in each job's log (tests/e2e/deck-sweep.mjs). It never deploys and never blocks a merge.
+# Run it from the Actions tab on main, or on a branch by pushing a commit whose message contains [deck-sweep]
+# (a dispatch works only for workflows on the default branch).
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/*']
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    name: ${{ matrix.deck }} (${{ matrix.size }})
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deck-sweep]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        deck: [circulation, sites, hvpg, ascites, varices, treatment, stiffness, one-year, tap, circuit, lobule, shunts,
+               doppler, endoscopy, prehepatic, right-heart, variceal-bleed, two-inflows, pvt-cirrhosis, spleen, ncph, outflow, recompensation]
+        size: [desktop, ipad, phone]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Play the deck
+        env:
+          DECKS: ${{ matrix.deck }}
+          DEVS: ${{ matrix.size }}
+        run: node tests/e2e/deck-sweep.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deck-sweep-${{ matrix.deck }}-${{ matrix.size }}
+          path: deck-sweep/
+          if-no-files-found: ignore

@@ -608,7 +608,6 @@ export class Engine {
     // Collateral remodeling (§7.4): diameter relaxes toward a pressure-driven target.
     for (const k of this.collaterals) {
       const e = EDGES[k];
-      const f = this.edgeF[k], t = this.edgeT[k];
       let driver = this.routeExcess(e.route);
       if (isOccluded(p, e.id)) driver = 0;
       const dMin = dMinOf(e);

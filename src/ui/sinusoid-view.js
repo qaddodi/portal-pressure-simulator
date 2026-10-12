@@ -19,11 +19,13 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=045e641b44';
-import { pressureColor } from './colormap.js?v=7616551729';
-import { isPaused } from './clock.js?v=29189790e2';
+import { h, fmt, clamp, lerp, bloodColors } from './util.js?v=0cca243d2a';
+import { pressureColor } from './colormap.js?v=c17dfefa88';
+import { isPaused } from './clock.js?v=af42a9670d';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=4130ba5b4b';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=00371527ba';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -90,6 +92,7 @@ export function createSinusoidView({ host }) {
     let L = lead[key];
     if (!L) { L = lead[key] = document.createElementNS(NS, 'g'); for (const t of ['line', 'circle']) L.append(document.createElementNS(NS, t)); leaders.append(L); }
     L.setAttribute('class', `sv-lead sv-lead-${key}`);
+    L.setAttribute('data-target', `sinusoid:${SV_TARGET[key] || key}`);
     const [tx, ty] = toScreen(x, y), sx = R.cx + Math.sign(tx - R.cx) * (R.w / 2 + 3), sy = clamp(ty, R.cy - R.hh / 2 + 4, R.cy + R.hh / 2 - 4);
     const [ln, dot] = L.children;
     const on = Math.abs(tx - sx) > 6 && Math.sign(tx - R.cx) === Math.sign(tx - sx);   // (none when the name already sits on it)
@@ -103,6 +106,8 @@ export function createSinusoidView({ host }) {
 
   // The view is left only by the view switch (Lobule): the wheel and a pinch do nothing here.
   el.addEventListener('wheel', (ev) => ev.preventDefault(), { passive: false });
+  // A caption's entrance, once played, is let go: kept (fill both), it and its caption stay in the page's animation list for good.
+  labels.addEventListener('animationend', (ev) => { if (ev.animationName === 'sv-fade-in') for (const a of ev.target.getAnimations()) if (a.animationName === 'sv-fade-in') a.cancel(); });
 
   // ── State ──
   let go = 1;   // 1 while the simulation runs, eased to 0 when paused: the flow, lymph, particles and proteins slow to a stop and resume without a jump
@@ -209,42 +214,41 @@ export function createSinusoidView({ host }) {
   function rgb(c) {
     let o = rgbMemo.get(c);
     if (o) return o;
-    rgbCv.fillStyle = '#000'; rgbCv.fillStyle = c;
+    rgbCv.fillStyle = '#000'; rgbCv.fillStyle = c;   // colour-exempt: the parser's reset
     const f = rgbCv.fillStyle;
     o = (f[0] === '#' ? [1, 3, 5].map((i) => parseInt(f.slice(i, i + 2), 16)) : f.match(/[\d.]+/g).slice(0, 3).map(Number)).map((x) => x / 255);
     rgbMemo.set(c, o);
     return o;
   }
   const mixv = (a, b, t) => a.map((x, i) => lerp(x, b[i], t));
-  const v3 = (r, g, b) => [r / 255, g / 255, b / 255];
   function palette(dark, cs) {
-    const v = (n, d) => cs.getPropertyValue(n).trim() || d;
-    const bg = rgb(v('--stage-bg', v('--bg', dark ? '#0E1422' : '#FBFAF7')));
+    const v = (n, d) => cs.getPropertyValue(n).trim() || d, t = (n) => rgb(v(n));
+    const bg = rgb(v('--stage-bg', v('--bg')));
     // Pressure only: this view has no other lens.
     const m = model;
-    const lumen = rgb(m.hide ? (dark ? '#58607A' : '#A0939C') : pressureColor(m.P2));
+    const lumen = rgb(m.hide ? v('--sv-lumen-hidden') : pressureColor(m.P2));
     // Lymph: clear and faintly green, deeper with more protein (as the lobule's lymphatics).
-    const p = S.prot ?? 1, lo = dark ? [0.72, 0.76, 0.69] : [0.92, 0.94, 0.88], mid = dark ? [0.7, 0.77, 0.66] : [0.88, 0.92, 0.82], hi = dark ? [0.64, 0.75, 0.58] : [0.82, 0.89, 0.74];
+    const p = S.prot ?? 1, lo = t('--sv-gl-lymph-lo'), mid = t('--sv-gl-lymph-mid'), hi = t('--sv-gl-lymph-hi');
     const ly = p < 0.45 ? mixv(lo, mid, p / 0.45) : mixv(mid, hi, (p - 0.45) / 0.55);
-    const gap = rgb(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E'));
-    let cell = rgb(v('--og-liver-1', dark ? '#85514F' : '#E9C3B6'));
+    const gap = rgb(v('--og-liver-2'));
+    let cell = rgb(v('--og-liver-1'));
     if (dark) cell = mixv(gap, cell, 0.5);
     // The hepatocytes keep the lobule's colours; on a light page the clefts between them are drawn deeper, so each cell reads.
     const under = mixv(bg, gap, dark ? 0.55 : 0.5), cleft = dark ? under : mixv(bg, gap, 0.8);
     return {
-      cBg: bg, cShade: dark ? bg : mixv(bg, v3(42, 36, 48), 0.9), cLumen: lumen, cLymph: dark ? mixv(bg, ly, 0.34) : ly,
+      cBg: bg, cShade: dark ? bg : mixv(bg, t('--sv-gl-shade'), 0.9), cLumen: lumen, cLymph: dark ? mixv(bg, ly, 0.34) : ly,
       cCell: mixv(under, cell, dark ? 0.85 : 0.94), cUnder: cleft,
-      cNuc: dark ? v3(40, 18, 34) : v3(132, 70, 100),
-      cCol: dark ? v3(199, 186, 153) : v3(237, 222, 186), cBm: dark ? v3(204, 188, 142) : v3(150, 118, 70), aBm: dark ? 0.6 : 0.8,
-      cBile: dark ? v3(150, 156, 80) : v3(122, 128, 61),
-      cEndo: dark ? v3(122, 116, 156) : v3(184, 176, 204), cEndoN: dark ? v3(84, 74, 120) : v3(128, 114, 160),
-      cHscQ: dark ? v3(176, 134, 102) : v3(224, 184, 150), cHscA: dark ? v3(160, 102, 74) : v3(190, 128, 94), cHscN: dark ? v3(96, 56, 42) : v3(146, 90, 66),
-      cKup: dark ? v3(132, 106, 176) : v3(178, 150, 214), cKupN: dark ? v3(74, 54, 116) : v3(108, 80, 156), cKupE: dark ? v3(58, 42, 96) : v3(96, 70, 142),
-      cRbc: dark ? v3(176, 62, 72) : v3(204, 74, 80),
+      cNuc: t('--sv-gl-nucleus'),
+      cCol: t('--collagen'), cBm: t('--sv-gl-basement'), aBm: dark ? 0.6 : 0.8,
+      cBile: t('--sv-gl-bile'),
+      cEndo: t('--sv-gl-endothelium'), cEndoN: t('--sv-gl-endo-nucleus'),
+      cHscQ: t('--sv-gl-hsc-quiet'), cHscA: t('--sv-gl-hsc-active'), cHscN: t('--sv-gl-hsc-nucleus'),
+      cKup: t('--sv-gl-kupffer'), cKupN: t('--sv-gl-kupffer-nucleus'), cKupE: t('--sv-gl-kupffer-edge'),
+      cRbc: t('--sv-gl-rbc'),
       // The end arrows are inked as their labels: the text's colour inside the labels' halo.
-      cEndF: rgb(v('--text', dark ? '#E9EDF6' : '#1F2128')), cEndE: rgb(v('--label-halo', dark ? '#0B1120' : '#FBFAF7')),
-      cChev: [0.08, 0.08, 0.1], cRev: [1, 0.55, 0.16],   // (the app's chevron inks, as stage.js's chevInk: dark, orange where reversed)
-      cAlb: dark ? v3(242, 182, 74) : v3(227, 154, 30), cAlbE: dark ? v3(110, 58, 0) : v3(140, 76, 0),
+      cEndF: rgb(v('--text')), cEndE: rgb(v('--label-halo')),
+      cChev: bloodColors().chevInk, cRev: bloodColors().revCol,   // (the app's chevron inks: dark, orange where reversed)
+      cAlb: t('--sv-gl-albumin'), cAlbE: t('--sv-gl-albumin-edge'),
       uShim: dark ? 0.3 : 0.5, uStreak: dark ? 0.3 : 0.85, uDark: dark ? 1 : 0,
     };
   }
@@ -438,11 +442,25 @@ export function createSinusoidView({ host }) {
   const kupName = () => region('kup', 'Kupffer\ncell', '', geo.xk - 0.3, halfW(geo.xk) - 3.3 * clamp(halfW(geo.xk) / 5.2, 0.6, 1), { along: true });
   const BAND = [0, 0];   // a portrait screen's band for the other names, between the ends' (px down the screen)
   const LAB = [0, 0];   // the lumen's name: x and half length (µm), for the shader to keep the arrowheads clear of it
+  // How much the lumen's name shows now (its own fades: a presenter slide that is not about it, the labels leaving).
+  const labShown = () => { const e = regions.sin?.el; return e && !e.hidden && e.firstElementChild ? +getComputedStyle(e.firstElementChild).opacity || 0 : 0; };
   const END = [0, 0, 1];   // the end arrows: portal x, central x, size (µm)
   const ENDBOX = [null, null];
   const LEG = { x: 0, y: 0, w: 0, h: 0 };   // the legend's box (px)   // the ends' names on a wide screen (px), for the captions to keep clear of
   // Large text (or a narrow view): names that still overlap after the layout step apart, up or down the screen first,
   // then sideways, and ease there; a name's leader moves with it. The ends' names, the legend and the lumen's keep their places.
+  // The cards over the stage, in stage px (what the lobule's labels keep off, too).
+  function blockers() {
+    const hr = host.getBoundingClientRect(), out = [];
+    for (const c of document.querySelectorAll('.stage-blocker:not([hidden])')) {
+      const r = c.getBoundingClientRect();
+      if (r.width && r.height && getComputedStyle(c).visibility !== 'hidden') out.push({ l: r.left - hr.left, r: r.right - hr.left, t: r.top - hr.top, b: r.bottom - hr.top });
+    }
+    return out;
+  }
+  // (Read four times a second, not every frame: a card that comes or goes is followed within a moment, eased.)
+  let bkAt = 0, bk = '';
+  const blockKey = () => { const now = performance.now(); if (now - bkAt < 250) return bk; bkAt = now; let k = ''; for (const c of document.querySelectorAll('.stage-blocker:not([hidden])')) { const r = c.getBoundingClientRect(); if (r.width) k += `${r.left | 0},${r.top | 0},${r.right | 0},${r.bottom | 0};`; } return (bk = k); };
   function declutter() {
     // (From the boxes the layout recorded, not the screen: the view may be mid-zoom, scaled by the compositor.)
     const W = geo.W, H = geo.H, lk = labelK();
@@ -452,6 +470,11 @@ export function createSinusoidView({ host }) {
     const hit = (a, b) => a.l < b.r + gx && b.l < a.r + gx && a.t < b.b + gy && b.t < a.b + gy;
     const placed = [];
     if (LEG.w) placed.push({ l: LEG.x, r: LEG.x + LEG.w, t: LEG.y, b: LEG.y + LEG.h });
+    // The cards over the figure (a presenter slide's words, data and summary panel, an open card): a name keeps off them,
+    // and one that cannot fades out rather than sit under a card.
+    const cards = blockers();
+    placed.push(...cards);
+    const under = (c) => cards.some((p) => c.l < p.r && p.l < c.r && c.t < p.b && p.t < c.b);
     // The ends' names and the lumen's are fixed; the rest give way in turn.
     for (const k of ['in', 'out', 'sin', 'fen', 'lymph', 'disse', 'hsc', 'hep', 'kup']) {
       const R = regions[k];
@@ -486,6 +509,12 @@ export function createSinusoidView({ host }) {
         off = found || least?.v || off;
       }
       R.off = off;
+      const covered = under(at(off[0], off[1], off[2]));
+      if (covered !== !!R.covered) {
+        R.covered = covered;
+        if (covered) R.el.style.setProperty('--lit-o', '0'); else R.el.style.removeProperty('--lit-o');   // (eased: --lit-o has its transition)
+        if (lead[k]) lead[k].style.visibility = covered ? 'hidden' : '';
+      }
       R.el.style.translate = off[0] || off[1] ? `${off[0].toFixed(1)}px ${off[1].toFixed(1)}px` : '';
       R.el.style.scale = off[2] !== 1 ? String(off[2]) : '';
       placed.push(at(off[0], off[1], off[2]));
@@ -549,7 +578,7 @@ export function createSinusoidView({ host }) {
   }
 
   // ── The frame ──
-  let lastKey = '', descKey = '';
+  let lastKey = '', descKey = '', gpuKey = '';
   function draw(dt, run = true, paint = true) {
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
@@ -565,7 +594,7 @@ export function createSinusoidView({ host }) {
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
     // the shader draws are in place from the first frame and nothing moves when the names fade in.
-    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches, labelK()].join('|');
+    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches, labelK(), blockKey()].join('|');
     if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); declutter(); }
     fenTick();
     if (gpu) {
@@ -579,7 +608,7 @@ export function createSinusoidView({ host }) {
       Object.assign(u, {
         uLum: UM.lum * S.lum, uPinch: S.pinch, uXs: geo.xs, uXk: geo.xk, uKy: halfW(geo.xk), uHscA: wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8,
         uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uLyF: clamp(0.32 * S.filt ** 1.5, 0.06, 1.75), uDir: Math.sign(S.v || 1),
-        uEnd: [END[0], END[1], END[2], 0.95], uLab: [LAB[0], LAB[1]],
+        uEnd: [END[0], END[1], END[2], 0.95], uLab: [LAB[0], LAB[1], labShown()], uRamp: Math.min(12, Math.abs(S.v * 24) * 0.5),
       });
       // The zoom from the lobule: one camera move. The lobule (magnified by the compositor) carries it most of the way;
       // the view, already drawn where the lobule's own sinusoid is, comes in over all of it at once as the zoom lands
@@ -593,7 +622,11 @@ export function createSinusoidView({ host }) {
         u.uFocus = smooth(0.82, 1, g);   // (the page shows around it only once it has landed, not as a band while it is small)
       } else { u.uRev = [1, -1e5, 1e5, 1e5]; u.uAll = 1; u.uDet = [1, 1e5]; u.uFocus = 1; }
       spriteDt = Math.max(0, dt) * go;
-      gpu.draw(u, pts, sprites());
+      const n = sprites();
+      // Paused and settled (nothing eases, no zoom): the same picture as last frame, so the two full-screen passes are skipped.
+      const gk = go === 0 && !dive ? canvas.width + 'x' + canvas.height + '|' + n + '|' + JSON.stringify(u) : '';
+      if (!gk || gk !== gpuKey) gpu.draw(u, pts, n);
+      gpuKey = gk;
     }
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
     if (dk !== descKey) { descKey = dk; canvas.setAttribute('aria-label', describe()); }
@@ -615,13 +648,13 @@ export function createSinusoidView({ host }) {
     // (While the zoom runs, place() has already drawn this frame in step with the lobule.)
     draw(dt, !reduce.matches, !drewNow);   // (the wall's traffic eases to a stop while the clock is paused, and picks up again on resume)
     drewNow = false;
-    raf = requestAnimationFrame(loop);
+    raf = nextFrame(loop);
   }
 
   return {
     el,
     /** The lobule's model (lobuleState), each time it changes. */
-    setModel(m) { model = m; if (shown > 0 && !raf) raf = requestAnimationFrame(loop); },
+    setModel(m) { model = m; if (shown > 0 && !raf) raf = nextFrame(loop); },
     /**
      * Placement during the zoom from the lobule (lobule-zoom.js): opacity; the zoom's state, if it is
      * running (`dive`: g, its eased progress; p, the lobule's sinusoid point on screen at rest; q, the zoom's
@@ -636,6 +669,8 @@ export function createSinusoidView({ host }) {
       open = isOpen;
       el.classList.toggle('on', isOpen);
       el.setAttribute('aria-hidden', String(!isOpen));
+      // Closed: the drawing buffer is given back (it is sized again on the way in).
+      if (opacity <= 0 && was > 0) { canvas.width = 0; canvas.height = 0; gpuKey = ''; }
       if (opacity > 0 && was <= 0) {
         last = 0; lastKey = ''; VW.k = 0; movers.length = 0; spawnAcc = 0; bounceAcc = 0;
         if (model) {
@@ -647,7 +682,7 @@ export function createSinusoidView({ host }) {
       }
       // Drawn now, in step with the lobule's transform this frame (not a frame later).
       if (opacity > 0 && model) { draw(0, false); drewNow = true; }
-      if (opacity > 0 && !raf && model) raf = requestAnimationFrame(loop);
+      if (opacity > 0 && !raf && model) raf = nextFrame(loop);
     },
     /** Where the sinusoid's centre is drawn at rest (stage px), its direction (radians) and the lumen's width there (px). */
     frame() {

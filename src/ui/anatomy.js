@@ -23,10 +23,7 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
   'SIN_RL',
   // The stomach's own drainage into the coronary vein is modeled, not drawn: a branch across the
   // stomach body only cluttered the lesser curvature.
-  'V_STO',
-  // The caudate lobe veins are modeled but set aside in both views for now (the drawing, its
-  // tributaries and Budd–Chiari collaterals are kept below for later).
-  'CAUD']);
+  'V_STO']);
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'HA']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
@@ -38,6 +35,17 @@ export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'E
 // vein into the cava beside the left hepatic vein, so the plate shows them draining through that one.
 export const ANAT_HIDDEN = new Set(['POST_L_MHV']);
 export const ANAT_HIDDEN_NODES = new Set(['ILI']);
+// Drawn in the anatomy only: the caudate veins are short veins inside the caudate lobe; the circuit leaves them out
+// (they would need a lane of their own over the liver for a trickle of flow).
+export const CIRC_HIDDEN = new Set(['CAUD']);
+// The caudate lobe (anatomic view): the small lobe between the portal bifurcation below, the hepatic vein confluence
+// above and the IVC, whose groove its right side (the figure's) lies in. Drawn quietly, as part of the liver (a
+// fissure line and the dome of its own surface). It enlarges about `anchor` (on the IVC) by up to `grow` ([x, y]: more in height, so it keeps clear of the azygos line beside it) as its veins
+// become the liver's outflow (Budd–Chiari). The DIPS tract runs through it.
+export const CAUDATE_LOBE = {
+  d: 'M598 298 C 607 298 612 306 612 318 C 614 344 614 380 612 402 C 611 414 605 421 595 421 C 583 421 576 410 575 396 C 573 370 573 340 577 320 C 580 306 588 298 598 298 Z',
+  anchor: [612, 362], grow: [0.12, 0.2],
+};
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // The IVC, drawn faded along its whole length, as the stretch behind the liver is.
@@ -63,8 +71,8 @@ export const NODE_POS = {
   LPV: [[688, 378], [680, 387]],
   VAR: [[789, 66], [620, 128]],
   GV: [[876, 302], [240, 121]],
-  SIN_R: [[420, 345], [800, 303]],
-  SIN_L: [[750, 300], [800, 387]],
+  SIN_R: [[462.1, 380.1], [800, 303]],
+  SIN_L: [[719, 339], [800, 387]],
   CV_R: [[446, 296], [900, 303]],
   CV_L: [[738, 262], [900, 387]],
   W_R: [[470, 262], [960, 290]],
@@ -105,10 +113,12 @@ export const EDGE_PATH = {
   PV_TRUNK: 'M700 556 C 675 522 638 478 602 442',
   PVH_R: 'M602 442 C 568 428 535 414 505 398',
   PVH_L: 'M602 442 C 632 418 660 398 688 378',
-  PRE_R: 'M505 398 C 478 392 446 374 420 345',
-  PRE_L: 'M688 378 C 708 352 730 326 750 300',
-  SIN_RR: 'M420 345 C 414 328 424 308 446 296',
-  SIN_LL: 'M750 300 C 754 286 750 272 738 262',
+  // The portal venules enter the lobe and break up into the sinusoids about halfway along their old
+  // course: the sinusoids run on round the lobe's margin and gather into the central veins (see STRANDS).
+  PRE_R: 'M505 398 C 491.5 395 476.8 389 462.1 380.1',
+  PRE_L: 'M688 378 C 698 365 708.5 352 719 339',
+  SIN_RR: 'M462.1 380.1 C 420 355 410 312 446 296',
+  SIN_LL: 'M719 339 C 734 321 760 288 738 262',
   SIN_RL: 'M420 345 C 520 382 664 362 750 300',
   POST_R_RHV: 'M446 296 C 466 280 484 262 500 246',
   POST_R_MHV: 'M446 296 C 480 298 516 292 548 282',
@@ -116,9 +126,9 @@ export const EDGE_PATH = {
   POST_L_MHV: 'M738 262 C 722 252 706 242 690 232',
   POST_L_LHV: 'M738 262 C 722 252 706 242 690 232',
   // The caudate lobe drains straight into the retrohepatic IVC through its own short hepatic
-  // veins: gathered from the lobe's parenchyma (tributaries, see FEEDERS), not from the portal
-  // vein, which it does not touch.
-  CAUD: 'M566 326 C 588 328 606 338 620 350',
+  // veins, below the hepatic vein confluence: gathered from the lobe's parenchyma (tributaries,
+  // see FEEDERS), not from the portal vein, which it does not touch.
+  CAUD: 'M584 390 C 596 386 608 370 619 358',
   // The hepatic veins enter the cava's side wall at three heights, below the node where its two
   // halves meet, so that join is a clean run-on, not a knot of five ends.
   RHV_IVC: 'M500 246 C 545 240 590 232 616 206',
@@ -193,7 +203,15 @@ export const STRANDS = {
   C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],
   // The retroperitoneal veins split into four thin, wavy channels that rejoin the cava.
   C7: [[-12, 1.2, 0.42], [-6, 3.6, 0.48], [6, 5.0, 0.48], [12, 2.3, 0.4]],
+  // The sinusoids: a mesh of fine channels that leave the portal venule's end and gather back into the
+  // central vein, each over its own stretch [from, to] (0–1 along the vessel), so they peel off and
+  // rejoin at different points and read as a network, not a braid.
+  SIN_RR: [[-22, 0.4, 0.32, 0.04, 0.92], [-14, 2.1, 0.38, 0.1, 0.86], [-6.5, 3.7, 0.44, 0.18, 0.78], [7, 5.0, 0.44, 0.14, 0.82], [15, 1.3, 0.36, 0.06, 0.9]],
+  SIN_LL: [[-14, 0.9, 0.36, 0.06, 0.9], [-6.5, 2.6, 0.44, 0.16, 0.8], [6.5, 4.2, 0.44, 0.12, 0.82], [14, 5.4, 0.36, 0.04, 0.92]],
 };
+// The drawn sinusoids. Inside the liver they are drawn faded, clearing as they gather into the hepatic
+// veins; unlike the liver's other small vessels they take hover, focus and taps in the anatomy.
+export const SIN_EDGES = new Set(['SIN_RR', 'SIN_LL']);
 // Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
 export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68, C7: 0.2 };
 
@@ -234,8 +252,9 @@ export const FEEDERS = {
   // outward). Arms leave in every direction but straight down, where the inferior epigastric vein
   // already runs.
   C3: { k: 0.5, when: 'caput', tone: 'end', fan: { at: [500, 800], dir: -95, spread: 280, len: 42, n: 5, seed: 4, levels: 2, wig: 0.35, out: true, when: 'caput', fade: [1, 0.85] } },
-  CAUD: { k: 0.55, fan: { at: [566, 326], dir: 172, spread: 84, len: 46, n: 4, seed: 5, wig: 0.7 },
-    when: 'caudate', from: ['RPV', 'LPV'], paths: ['M505 398 C 522 370 540 336 566 326', 'M688 378 C 630 404 546 384 566 326'] },
+  // (The fan stays inside the caudate lobe, CAUDATE_LOBE.)
+  CAUD: { k: 0.6, fan: { at: [584, 390], dir: 140, spread: 70, len: 11, n: 3, seed: 5, wig: 0.5 },
+    when: 'caudate', from: ['RPV', 'LPV'], paths: ['M505 398 C 530 398 560 394 584 390', 'M688 378 C 650 404 610 404 584 390'] },
 };
 
 // Circuit view: a transit map. Pressure falls left → right along the main series circuit
@@ -476,31 +495,13 @@ export const LIVER_SPLIT_X = 640;
 // Circuit view: the liver is a module. Collapsed, its internal stations and the resistance of
 // each compartment are summarized in one header; it expands on selection, on a click on the
 // header, or when zoomed in far enough to read it.
-export const LIVER_MODULE = { x0: 650, y0: 212, x1: 934, y1: 424 };
 export const LIVER_INNER = new Set(['HA', 'RPV', 'LPV', 'SIN_R', 'SIN_L', 'CV_R', 'CV_L']);
 export const LIVER_EDGES = new Set(['A_HEP', 'A_HR', 'A_HL', 'AP_R', 'AP_L', 'PRE_R', 'PRE_L', 'SIN_RR', 'SIN_LL', 'SIN_RL', 'POST_R_RHV', 'POST_R_MHV', 'POST_L_LHV', 'POST_L_MHV', 'CAUD']);
-// The main series route (gut → portal vein → liver → hepatic veins → heart): the circuit's spine.
-export const MAIN_ROUTE = new Set(['V_INT', 'SMV_CONF', 'V_SPL', 'SV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'SIN_RR', 'SIN_LL', 'POST_R_RHV', 'POST_L_LHV', 'RHV_IVC', 'LHV_IVC', 'IVCS_RA']);
 // Collateral and shunt lanes in the circuit, captioned where they run (edge → caption).
 export const LANE_CAPTIONS = {
   C1b: 'Esophageal route → azygos', C2: 'Short gastric', C3: 'Paraumbilical', C4: 'Rectal', C5: 'Gastrorenal shunt', C6: 'Splenorenal shunt',
   C7: 'Retroperitoneal', C8: 'Periportal', C9: 'Caval → azygos', TIPS: 'TIPS', DIPS: 'DIPS', S_PC: 'Portocaval shunt', S_DSR: 'Distal splenorenal shunt', S_MC: 'Mesocaval shunt',
   EPI_SVC: 'Epigastric → SVC',
-};
-
-// Event anchors
-export const ANCHORS = {
-  PERITONEUM: [720, 860], VAR: [797, 232], GV: [876, 302], TIPS: [522, 310], DIPS: [598, 366], SPL: [1040, 362], RA: [620, 112],
-  AO: [700, 556], CAUD: [592, 332],
-};
-
-// Which physical "vessel" an edge belongs to (for stent pairing & labels).
-export const EDGE_VESSEL = {
-  PV_TRUNK: 'PV', CONF: 'PV', PVH_R: 'RPV', PRE_R: 'RPV', PVH_L: 'LPV', PRE_L: 'LPV',
-  SV_CONF: 'SV', V_SPL: 'SV', SMV_CONF: 'SMV', V_INT: 'SMV',
-  RHV_IVC: 'RHV', POST_R_RHV: 'RHV', MHV_IVC: 'MHV', POST_R_MHV: 'MHV', POST_L_MHV: 'MHV', LHV_IVC: 'LHV', POST_L_LHV: 'LHV',
-  IVC_IS: 'IVC', IVCS_RA: 'IVC', ILI_IVC: 'IVC', RRV_IVC: 'IVC',
-  LRV_IVC: 'LRV', V_KID_L: 'LRV',
 };
 
 // The pressure-profile chart follows one path, gut → liver → heart, with plain station names;

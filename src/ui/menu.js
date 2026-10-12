@@ -4,10 +4,12 @@
 // same content as a bottom sheet. Hovering a row (or focusing it with the arrow keys) previews it beside
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
-import { store } from './store.js?v=9858da589a';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet } from './util.js?v=045e641b44';
+import { store } from './store.js?v=7fb7280c05';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=0cca243d2a';
 import { SNAPSHOTS } from './snapshots.js?v=6c4f07ae98';
-import { pressureColor } from './colormap.js?v=7616551729';
+import { pressureColor } from './colormap.js?v=c17dfefa88';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('menu');
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 // Where each group's resistance sits along the pathway from the gut to the heart.
@@ -158,7 +160,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const z = uiScale(), pr = el.getBoundingClientRect(), rr = row.getBoundingClientRect(), w = 360 * z, ph = pv.offsetHeight * z;
     let x = pr.right + 8;
     if (x + w > innerWidth - 8) x = Math.max(8, innerWidth - w - 8);   // (no room beside the panel: over its right edge)
-    const y = clamp(rr.top - 40 * z, 8, innerHeight - ph - 8);
+    const y = clamp(rr.top - 40 * z, 8, visibleBottom() - ph - 8);
     pv.style.left = x / z + 'px'; pv.style.top = y / z + 'px';
     pv.classList.add('on');
   }
@@ -176,7 +178,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (was) return;
     const box = h('div', { class: 'um-inline' }, h('div', {}, make()));
     li.append(box); btn.setAttribute('aria-expanded', 'true');
-    requestAnimationFrame(() => requestAnimationFrame(() => box.classList.add('on')));
+    nextFrame(() => nextFrame(() => box.classList.add('on')));
   }
   const $$rows = () => (el ? [...el.querySelectorAll('.um-row')] : []);
 
@@ -185,17 +187,15 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const st = store.get(), cur = st.mode === 'cases' ? null : st.presetId;
     const groups = {};
     for (const p of st.presetList || []) (groups[p.group] ||= []).push(p);
-    const patients = h('section', { class: 'um-col', 'data-col': 'patients', 'aria-labelledby': 'umPatients' },
-      h('header', { class: 'um-h' }, svgIcon('scenario', 'um-hi'), h('b', { id: 'umPatients' }, 'Patients'), h('small', {}, `${(st.presetList || []).length} patients`)),
+    const patients = h('section', { class: 'um-col', 'data-col': 'patients' },
       Object.entries(groups).map(([g, ps]) => h('div', { class: 'um-g' },
         h('div', { class: 'um-gl', id: 'umg-' + g }, h('b', {}, g), h('span', {}, GROUP_WHERE[g] || '')),
         h('ul', { 'aria-labelledby': 'umg-' + g }, ps.map((p) => patientRow(p, cur))))));
     let present;
-    if (!lib) present = h('section', { class: 'um-col', 'data-col': 'present' }, h('header', { class: 'um-h' }, svgIcon('projector', 'um-hi'), h('b', {}, 'Present')), h('p', { class: 'um-note' }, 'Loading…'));
+    if (!lib) present = h('section', { class: 'um-col', 'data-col': 'present' }, h('p', { class: 'um-note' }, 'Loading…'));
     else {
       const mine = lib.mine;
-      present = h('section', { class: 'um-col', 'data-col': 'present', 'aria-labelledby': 'umPresent' },
-        h('header', { class: 'um-h' }, svgIcon('projector', 'um-hi'), h('b', { id: 'umPresent' }, 'Present'), h('small', {}, `${lib.decks.length} presentations`)),
+      present = h('section', { class: 'um-col', 'data-col': 'present' },
         lib.topics.map(([k, name, list]) => h('div', { class: 'um-g' },
           h('div', { class: 'um-gl', id: 'umt-' + k }, h('b', {}, name)),
           h('ul', { 'aria-labelledby': 'umt-' + k }, list.map(([id]) => lib.decks.find((d) => d.id === id)).filter(Boolean).map((d) => deckRow(d, lib)))),
@@ -337,7 +337,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         if (section === 'scripts') el.querySelector('.um-g.scripts')?.scrollIntoView({ block: 'start', behavior: reduce.matches ? 'auto' : 'smooth' });
         else el.querySelector(`.um-col[data-col="${tab}"] .um-row[aria-current="true"]`)?.scrollIntoView({ block: 'nearest' });
       };
-      requestAnimationFrame(scrollTo);
+      nextFrame(scrollTo);
     },
     close,
     toggle(section) { if (open) close(); else this.open(section); },

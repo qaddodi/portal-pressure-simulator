@@ -12,6 +12,7 @@
 //                            'lobule', 'lobule:triad' | 'lobule:sinusoid' | 'lobule:central' (zoom: × the lobule's
 //                            framing), or 'sinusoid'
 //   labels                   the stations named on the anatomy (none when absent)
+//   tint                     ['imv']: TARGETS keys whose station label takes its colour though the line never names it
 //   layers                   ['zones']: the lobule's zone bands on (a lobule slide shows none otherwise)
 //   mark                     { edges, label }: a ring and a callout on the figure (hidden until a quiz is answered)
 //   eq                       [MathML, legend?]: an equation under the title (see mi, mo, sub and frac)
@@ -28,9 +29,11 @@
 //                            vessel }, { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
 //                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section); title? names the card; waves: true
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
+//                            (on a phone it folds away behind a Show button; open: true keeps it open there and folds the tiles instead)
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
+//   tick                     a few words for what happened at this slide's time point, under its line on a talk trace (else its title)
 //   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them) play on the
 //                            live figure as a time-lapse, from the slide before's state (from/to: words for the
 //                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
@@ -42,6 +45,7 @@
 //   compare                  [{ label, params, own? }]: buttons that switch the live model between treatments in real
 //                            time (params: each option's full set of the switched keys; own: the slide's own state)
 //   quiz                     quiz mode (Q) asks this before the answer shows (the camera waits at the whole figure)
+//   caveat                   one short sentence in small print under the line, where the model differs from patients
 //   notes, ask               speaker notes, and [question, expected answer] for the room
 //
 // Deck fields: id, level, title, minutes, summary, objectives (3 to 4 short learning objectives), slides, and sections
@@ -49,29 +53,29 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=a4e4ccf9b5';
-import { SITES } from './decks/sites.js?v=99764025c1';
-import { HVPG } from './decks/hvpg.js?v=5dc6e4727a';
-import { ASCITES } from './decks/ascites.js?v=abd2ae57e4';
-import { VARICES } from './decks/varices.js?v=1ad248e26a';
-import { TREATMENT } from './decks/treatment.js?v=67bb210d9f';
-import { STIFFNESS } from './decks/stiffness.js?v=35e2f96b71';
-import { ONE_YEAR } from './decks/one-year.js?v=37492fcfd2';
-import { LOBULE } from './decks/lobule.js?v=e7977e803e';
-import { SHUNTS } from './decks/shunts.js?v=a0cc164807';
-import { TAP } from './decks/tap.js?v=fd0e03bbb4';
-import { CIRCUIT } from './decks/circuit.js?v=05ee0b6b76';
-import { DOPPLER } from './decks/doppler.js?v=0a0f53ea61';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=95aa3aef7f';
-import { PREHEPATIC } from './decks/prehepatic.js?v=c8af5f351e';
-import { RIGHT_HEART } from './decks/right-heart.js?v=2221556b33';
-import { BLEED } from './decks/variceal-bleed.js?v=646e098b15';
-import { TWO_INFLOWS } from './decks/two-inflows.js?v=ca6d2b9f97';
-import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=366bbfe01e';
-import { SPLEEN } from './decks/spleen.js?v=ce3e43ed7b';
-import { NCPH } from './decks/ncph.js?v=414fbe7dcc';
-import { OUTFLOW } from './decks/outflow.js?v=48f3dfd001';
-import { RECOMPENSATION } from './decks/recompensation.js?v=eaaa0e0233';
+import { CIRCULATION } from './decks/circulation.js?v=a0bf5a17c7';
+import { SITES } from './decks/sites.js?v=36e6abf616';
+import { HVPG } from './decks/hvpg.js?v=e4c550f298';
+import { ASCITES } from './decks/ascites.js?v=2350854694';
+import { VARICES } from './decks/varices.js?v=de0e419aa9';
+import { TREATMENT } from './decks/treatment.js?v=8b12768e70';
+import { STIFFNESS } from './decks/stiffness.js?v=d6acd10be0';
+import { ONE_YEAR } from './decks/one-year.js?v=aaf38e4baf';
+import { LOBULE } from './decks/lobule.js?v=262a31ce6b';
+import { SHUNTS } from './decks/shunts.js?v=91699f4277';
+import { TAP } from './decks/tap.js?v=57022d906f';
+import { CIRCUIT } from './decks/circuit.js?v=25877f3594';
+import { DOPPLER } from './decks/doppler.js?v=7eb07fe1b9';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=7499cfd26b';
+import { PREHEPATIC } from './decks/prehepatic.js?v=09eb3594b2';
+import { RIGHT_HEART } from './decks/right-heart.js?v=9076b88b18';
+import { BLEED } from './decks/variceal-bleed.js?v=920b99c0ca';
+import { TWO_INFLOWS } from './decks/two-inflows.js?v=2a19a5fc63';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=a01124f125';
+import { SPLEEN } from './decks/spleen.js?v=c8fca55d38';
+import { NCPH } from './decks/ncph.js?v=8794f0bf6b';
+import { OUTFLOW } from './decks/outflow.js?v=de1c115629';
+import { RECOMPENSATION } from './decks/recompensation.js?v=0d5b3fb564';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -79,8 +83,11 @@ export const REGIONS = {
   liver: [360, 170, 830, 490],
   portal: [520, 360, 930, 710],     // confluence, trunk, splenic vein, SMV
   hepatic: [410, 40, 800, 340],     // hepatic veins, IVC, right atrium
+  dips: [450, 220, 760, 480],       // the DIPS tract, portal bifurcation up through the caudate lobe to the IVC
   heart: [440, -20, 800, 300],
   varices: [540, -20, 980, 360],
+  gej: [710, 120, 920, 480],        // lower esophagus, the gastroesophageal junction and the coronary vein feeding it
+  feeder: [620, 110, 930, 600],     // the varices down the coronary vein to the portal confluence
   spleen: [840, 240, 1120, 580],
   rectum: [560, 600, 1020, 960],    // inferior mesenteric to the rectal and iliac veins
   wall: [380, 330, 760, 880],       // paraumbilical vein and the abdominal wall
@@ -118,10 +125,10 @@ DECKS.push(TWO_INFLOWS, PVT_CIRRHOSIS, SPLEEN, NCPH, OUTFLOW, RECOMPENSATION);
 
 // The unified menu lists the presentations by topic, in teaching order, under a short title (32 characters or fewer).
 export const TOPICS = [
-  ['foundations', 'Foundations', [['circulation', 'The portal circulation'], ['circuit', 'Pressure, flow and resistance'], ['two-inflows', 'The liver\'s two inflows']]],
-  ['causes', 'Causes', [['sites', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH'], ['ncph', 'Non-cirrhotic PH'], ['right-heart', 'The right heart and the liver'], ['outflow', 'When the liver cannot drain'], ['lobule', 'Inside the lobule']]],
-  ['measuring', 'Measuring', [['hvpg', 'HVPG and PPG'], ['doppler', 'Doppler of the portal system'], ['endoscopy', 'Endoscopy and the varix'], ['stiffness', 'Stiffness, spleen and platelets'], ['one-year', 'One patient, one year']]],
-  ['complications', 'Complications', [['varices', 'Collaterals and varices'], ['variceal-bleed', 'Acute variceal bleeding'], ['ascites', 'Where ascites comes from'], ['tap', 'The tap and the albumin'], ['spleen', 'The spleen: size and treatment'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis'], ['recompensation', 'Decompensation and recovery']]],
-  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure'], ['shunts', 'Shunts, made and spontaneous']]],
+  ['foundations', 'Foundations', [['circulation', 'The portal circulation'], ['circuit', 'Portal pressure as a circuit'], ['two-inflows', 'The liver\'s two inflows'], ['hvpg', 'HVPG and PPG']]],
+  ['causes', 'Causes', [['sites', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH'], ['ncph', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver'], ['outflow', 'Hepatic venous outflow block'], ['lobule', 'Inside the lobule']]],
+  ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system'], ['stiffness', 'Stiffness, spleen and platelets'], ['one-year', 'A year of compensated cirrhosis']]],
+  ['complications', 'Complications', [['varices', 'Collaterals and varices'], ['endoscopy', 'Endoscopy and the varix'], ['variceal-bleed', 'Acute variceal bleeding'], ['ascites', 'How ascites forms'], ['tap', 'Paracentesis and albumin'], ['spleen', 'The spleen: size and treatment'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis'], ['recompensation', 'Decompensation and recovery']]],
+  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure'], ['shunts', 'Spontaneous shunts and TIPS']]],
 ];
 for (const [topic, , list] of TOPICS) for (const [id, short] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short }); }

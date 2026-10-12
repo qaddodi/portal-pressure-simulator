@@ -3,3 +3,4 @@ node_modules/
 _*.mjs
 __pycache__/
 test-results/
+deck-sweep/

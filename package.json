@@ -13,6 +13,8 @@
     "preview": "node scripts/serve.mjs dist 8081",
     "smoke": "node tests/e2e/smoke.mjs",
     "smoke:dist": "node tests/e2e/smoke.mjs dist",
+    "smoke:webkit": "node tests/e2e/words-steady.mjs",
+    "smoke:idle": "node tests/e2e/idle-steady.mjs",
     "perf": "node scripts/perf.mjs",
     "perf:dive": "node scripts/perf-dive.mjs",
     "check": "npm run lint && npm test && npm run build && npm run smoke && npm run smoke:dist",

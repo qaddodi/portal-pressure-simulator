@@ -4,19 +4,20 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, fitCanvas, clamp } from './util.js?v=045e641b44';
-import { FONT } from './charts.js?v=519248139b';
-import { simTime, isPaused } from './clock.js?v=29189790e2';
-import { store } from './store.js?v=9858da589a';
+import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=0cca243d2a';
+import { FONT } from './charts.js?v=cd472063a4';
+import { simTime, isPaused, fibroReading } from './clock.js?v=af42a9670d';
+import { store } from './store.js?v=7fb7280c05';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
-const ORANGE = '#f0924a';
 // Colours come from the app's theme tokens (light or dark), re-read about once a second.
 let theme = null, themeAt = 0;
 function colors(now) {
   if (!theme || now - themeAt > 1000) {
-    const cs = getComputedStyle(document.documentElement), g = (n, d) => cs.getPropertyValue(n).trim() || d;
-    theme = { panel: g('--surface-2', '#1B2438'), edge: g('--border', '#2a3550'), tick: g('--text-3', '#8F99B3'), text: g('--text-2', '#A9B2C7') };
+    const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
+    theme = { panel: g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan') };
     themeAt = now;
   }
   return theme;
@@ -103,22 +104,24 @@ export function createFibroScan() {
     const th = colors(now);
     ctx.clearRect(0, 0, w, hh);
     rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.fillStyle = th.panel; ctx.fill(); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
-    const pad = 14, narrow = w < 380;
+    // A short, wide panel (a phone's presenter card) puts the reading beside the map rather than over it.
+    const pad = 14, narrow = w < 380, side = hh < 200 && w > hh * 2.2;
     // Readout
     ctx.textAlign = 'left'; ctx.fillStyle = th.tick; ctx.font = FONT(600, 10);
     ctx.fillText('LIVER STIFFNESS · MEDIAN', pad, 24);
-    const big = Math.round(clamp(Math.min(w * 0.13, hh * 0.13), 30, 52));
-    ctx.fillStyle = ORANGE; ctx.font = FONT(600, big);
-    const txt = shown.toFixed(1); ctx.fillText(txt, pad, 28 + big);
+    const big = Math.round(side ? clamp(hh * 0.24, 26, 40) : clamp(Math.min(w * 0.13, hh * 0.13), 30, 52));
+    ctx.fillStyle = th.orange; ctx.font = FONT(600, big);
+    const txt = shown.toFixed(1); if (cv.dataset.reading !== txt) cv.dataset.reading = txt;
+    fibroReading.txt = txt; fibroReading.cv = cv; fibroReading.show?.(txt); ctx.fillText(txt, pad, 28 + big);
     const tw = ctx.measureText(txt).width;
     ctx.fillStyle = th.tick; ctx.font = FONT(500, 14); ctx.fillText('kPa', pad + tw + 6, 28 + big);
     // Live badge and caption
     ctx.textAlign = 'right'; ctx.font = FONT(600, 10); ctx.fillStyle = th.tick;
     ctx.fillText(narrow ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model', w - pad, 24);
     const pulse = 0.55 + 0.45 * Math.sin(t * 3), lw = ctx.measureText(narrow ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model').width;
-    ctx.fillStyle = `rgba(80,210,130,${pulse})`; ctx.beginPath(); ctx.arc(w - pad - lw - 9, 21, 3, 0, 7); ctx.fill();
+    ctx.fillStyle = cssAlpha('--fibroscan-live', pulse); ctx.beginPath(); ctx.arc(w - pad - lw - 9, 21, 3, 0, 7); ctx.fill();
     // Map
-    const top = 56 + big, bot = hh - 36, ph = bot - top, ax = pad + 22, ex = ax + 6, ew = w - pad - ex; // bottom room keeps the tick row inside the canvas on a phone
+    const top = side ? 44 : 56 + big, bot = hh - (side ? 22 : 36), ph = bot - top, ax = side ? pad + Math.max(tw + 34, 96) + 22 : pad + 22, ex = ax + 6, ew = w - pad - ex; // bottom room keeps the tick row inside the canvas on a phone
     if (ph < 50 || ew < 60) return;
     // Sample the map at about half the screen pixels (smooth, never blocky); drop the cap if frames run long.
     const want = clamp(Math.round(Math.max(ew, ph) * (w / cv.clientWidth || 1) * 0.75), 140, cap);
@@ -128,11 +131,11 @@ export function createFibroScan() {
     ctx.save(); rrect(ctx, ex, top, ew, ph, 8); ctx.clip();
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(off, 0, 0, N, N, ex, top, ew, ph);
     ema = ema * 0.9 + (performance.now() - t0p) * 0.1; if (ema > 14 && cap > 130) { cap -= 20; ema = 0; }
-    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
+    ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
     for (const d of [35, 75]) { const y = top + ((d - 30) / 60) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
     ctx.setLineDash([]);
     const x0 = ex + (WAVE_T0 / 80) * ew, x1 = x0 + clamp((40 / c) / 80, 0, 1) * ew;
-    ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + (5 / 60) * ph); ctx.lineTo(x1, top + (45 / 60) * ph); ctx.stroke();
+    ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + (5 / 60) * ph); ctx.lineTo(x1, top + (45 / 60) * ph); ctx.stroke();
     ctx.restore();
     rrect(ctx, ex, top, ew, ph, 8); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
     // Axes
@@ -142,19 +145,19 @@ export function createFibroScan() {
     ctx.textAlign = 'center';
     for (let m = 0; m <= 80; m += 20) ctx.fillText(String(m), ex + (m / 80) * ew, bot + 16);
     // Units share the tick row: mm beside the depth labels, ms beside the time labels, so nothing needs extra height.
-    ctx.textAlign = 'left'; ctx.fillText('mm', pad, top - 6); ctx.fillText('ms', pad, bot + 16);
+    ctx.textAlign = 'left'; ctx.fillText('mm', ax - 22, top - 6); ctx.fillText('ms', ax - 22, bot + 16);
   }
   // Runs only while the pane is on screen; update() restarts it when the tab is shown again.
   function loop(now) {
     if (!cv.isConnected || cv.offsetParent === null || document.hidden) { running = false; return; }
     paint(now);
     if (REDUCED || isPaused()) { running = false; return; }   // paused: hold this frame; resume restarts the loop
-    requestAnimationFrame(loop);
+    nextFrame(loop);
   }
   function update(f) {
     model = f.metrics.lsm;
-    if (!running && cv.offsetParent !== null) { running = true; requestAnimationFrame(loop); }
+    if (!running && cv.offsetParent !== null) { running = true; nextFrame(loop); }
   }
-  store.on('running', (on) => { if (on && !running && cv.offsetParent !== null) { running = true; requestAnimationFrame(loop); } });
-  return { id: 'fibroscan', label: 'FibroScan', el, update };
+  const offRun = store.on('running', (on) => { if (on && !running && cv.offsetParent !== null) { running = true; nextFrame(loop); } });
+  return { id: 'fibroscan', label: 'FibroScan', el, update, dispose: offRun };
 }

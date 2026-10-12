@@ -3,9 +3,9 @@
 // and the change, readouts report "vs then", and this section of the panel names both states and
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
-import { store } from './store.js?v=9858da589a';
-import { h, fmt, svgIcon } from './util.js?v=045e641b44';
-import { activeInterventions } from './inspector.js?v=4dd2fb68b1';
+import { store } from './store.js?v=7fb7280c05';
+import { h, fmt, svgIcon } from './util.js?v=0cca243d2a';
+import { activeInterventions } from './inspector.js?v=bced1ac9ba';
 
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (portal vein − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],
@@ -42,16 +42,22 @@ export function createCompare() {
     if (!tableEl?.isConnected || !st.compareSnap) return;
     const A = st.compareSnap.metrics, B = f.metrics;
     const maxRel = Math.max(...ROWS.map(([, g]) => { const a = g(A), b = g(B); return Math.abs(b - a) / Math.max(Math.abs(a), 1); }), 1e-6);
+    const rows = ROWS.map(([lab, g, d, u]) => {
+      const a = g(A), b = g(B), dd = b - a;
+      const same = Math.abs(dd) < Math.pow(10, -d) * 0.5;
+      const rel = Math.abs(dd) / Math.max(Math.abs(a), 1);
+      return [lab, u, !same && rel / maxRel > 0.5 ? 'big' : '', fmt(a, d), fmt(b, d), 'd ' + (same ? 'same' : dd > 0 ? 'up' : 'down'), same ? '—' : `${dd > 0 ? '▲ +' : '▼ −'}${fmt(Math.abs(dd), d)}`];
+    });
+    const names = [st.compareSnap.names?.[0] || 'Then', st.compareSnap.names?.[1] || 'Now'];
+    // Frames arrive ten times a second; the table is rebuilt only when a shown number or mark changes.
+    const sig = names.join('|') + '|' + rows.map((r) => r.join('|')).join(';');
+    if (tableEl._sig === sig) return;
+    tableEl._sig = sig;
     tableEl.replaceChildren(h('table', { class: 'cmp-table' },
-      h('thead', {}, h('tr', {}, h('th', {}, 'Metric'), h('th', {}, st.compareSnap.names?.[0] || 'Then'), h('th', {}, st.compareSnap.names?.[1] || 'Now'), h('th', {}, 'Δ'))),
-      h('tbody', {}, ROWS.map(([lab, g, d, u]) => {
-        const a = g(A), b = g(B), dd = b - a;
-        const same = Math.abs(dd) < Math.pow(10, -d) * 0.5;
-        const rel = Math.abs(dd) / Math.max(Math.abs(a), 1);
-        return h('tr', { class: !same && rel / maxRel > 0.5 ? 'big' : '' },
-          h('td', {}, lab, h('span', { class: 'unit' }, u)), h('td', { class: 'a' }, fmt(a, d)), h('td', { class: 'b' }, fmt(b, d)),
-          h('td', { class: 'd ' + (same ? 'same' : dd > 0 ? 'up' : 'down') }, same ? '—' : `${dd > 0 ? '▲ +' : '▼ −'}${fmt(Math.abs(dd), d)}`));
-      }))));
+      h('thead', {}, h('tr', {}, h('th', {}, 'Metric'), h('th', {}, names[0]), h('th', {}, names[1]), h('th', {}, 'Δ'))),
+      h('tbody', {}, rows.map(([lab, u, big, a, b, dc, dt]) => h('tr', { class: big },
+        h('td', {}, lab, h('span', { class: 'unit' }, u)), h('td', { class: 'a' }, a), h('td', { class: 'b' }, b),
+        h('td', { class: dc }, dt))))));
   }
 
   store.on('params', () => {

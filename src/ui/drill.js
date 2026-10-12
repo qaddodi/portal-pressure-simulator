@@ -4,10 +4,12 @@
 // eases in with the answer. The debrief lists confident mistakes first. Values are the model's
 // own (SNAPSHOTS, regenerated from the engine); only the imaging words are authored.
 
-import { h, fmt, icon } from './util.js?v=045e641b44';
+import { h, fmt, icon } from './util.js?v=0cca243d2a';
 import { SNAPSHOTS } from './snapshots.js?v=6c4f07ae98';
-import { createRoute, ladder, tiles, siteName } from './ladder.js?v=18ecf24045';
+import { createRoute, ladder, tiles, siteName } from './ladder.js?v=7b629187ab';
 import { addRecord } from './records.js?v=50fb9dd463';
+import { frameFor } from './frame.js?v=49a46c570b';
+const nextFrame = frameFor('drill');
 
 export const ROUNDS = 10, MAX_TESTS = 3;
 export const DRILL_ID = 'where-block-drill', DRILL_TITLE = 'Where is the block?';
@@ -131,7 +133,7 @@ export function createDrill({ onExit, rounds: count = ROUNDS, exitLabel = 'Back 
         tiles(f, { key: ordered.includes('hvpg') ? ['hvpg'] : ordered.includes('tap') ? ['saag', 'tp'] : [] }),
         h('div', { class: 'dr-next' }, h('button', { class: 'btn primary', onclick: next }, i + 1 < count ? 'Next patient' : 'See how you did', icon('chev-right'))));
       after.querySelector('.dr-next .btn').focus({ preventScroll: true });
-      requestAnimationFrame(() => after.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }));
+      nextFrame(() => after.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }));
     }
 
     el.replaceChildren(headBar(), h('div', { class: 'dr-body' },
