@@ -74,7 +74,7 @@ import { TWO_INFLOWS } from './decks/two-inflows.js?v=2a19a5fc63';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=a01124f125';
 import { SPLEEN } from './decks/spleen.js?v=c8fca55d38';
 import { NCPH } from './decks/ncph.js?v=8794f0bf6b';
-import { OUTFLOW } from './decks/outflow.js?v=0bc8565bca';
+import { OUTFLOW } from './decks/outflow.js?v=de1c115629';
 import { RECOMPENSATION } from './decks/recompensation.js?v=0d5b3fb564';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).

@@ -23,10 +23,7 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
   'SIN_RL',
   // The stomach's own drainage into the coronary vein is modeled, not drawn: a branch across the
   // stomach body only cluttered the lesser curvature.
-  'V_STO',
-  // The caudate lobe veins are modeled but set aside in both views for now (the drawing, its
-  // tributaries and Budd–Chiari collaterals are kept below for later).
-  'CAUD']);
+  'V_STO']);
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'HA']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
@@ -38,6 +35,17 @@ export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'E
 // vein into the cava beside the left hepatic vein, so the plate shows them draining through that one.
 export const ANAT_HIDDEN = new Set(['POST_L_MHV']);
 export const ANAT_HIDDEN_NODES = new Set(['ILI']);
+// Drawn in the anatomy only: the caudate veins are short veins inside the caudate lobe; the circuit leaves them out
+// (they would need a lane of their own over the liver for a trickle of flow).
+export const CIRC_HIDDEN = new Set(['CAUD']);
+// The caudate lobe (anatomic view): the small lobe between the portal bifurcation below, the hepatic vein confluence
+// above and the IVC, whose groove its right side (the figure's) lies in. Drawn quietly, as part of the liver (a
+// fissure line and the dome of its own surface). It enlarges about `anchor` (on the IVC) by up to `grow` ([x, y]: more in height, so it keeps clear of the azygos line beside it) as its veins
+// become the liver's outflow (Budd–Chiari). The DIPS tract runs through it.
+export const CAUDATE_LOBE = {
+  d: 'M598 298 C 607 298 612 306 612 318 C 614 344 614 380 612 402 C 611 414 605 421 595 421 C 583 421 576 410 575 396 C 573 370 573 340 577 320 C 580 306 588 298 598 298 Z',
+  anchor: [612, 362], grow: [0.12, 0.2],
+};
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // The IVC, drawn faded along its whole length, as the stretch behind the liver is.
@@ -118,9 +126,9 @@ export const EDGE_PATH = {
   POST_L_MHV: 'M738 262 C 722 252 706 242 690 232',
   POST_L_LHV: 'M738 262 C 722 252 706 242 690 232',
   // The caudate lobe drains straight into the retrohepatic IVC through its own short hepatic
-  // veins: gathered from the lobe's parenchyma (tributaries, see FEEDERS), not from the portal
-  // vein, which it does not touch.
-  CAUD: 'M566 326 C 588 328 606 338 620 350',
+  // veins, below the hepatic vein confluence: gathered from the lobe's parenchyma (tributaries,
+  // see FEEDERS), not from the portal vein, which it does not touch.
+  CAUD: 'M584 390 C 596 386 608 370 619 358',
   // The hepatic veins enter the cava's side wall at three heights, below the node where its two
   // halves meet, so that join is a clean run-on, not a knot of five ends.
   RHV_IVC: 'M500 246 C 545 240 590 232 616 206',
@@ -244,8 +252,9 @@ export const FEEDERS = {
   // outward). Arms leave in every direction but straight down, where the inferior epigastric vein
   // already runs.
   C3: { k: 0.5, when: 'caput', tone: 'end', fan: { at: [500, 800], dir: -95, spread: 280, len: 42, n: 5, seed: 4, levels: 2, wig: 0.35, out: true, when: 'caput', fade: [1, 0.85] } },
-  CAUD: { k: 0.55, fan: { at: [566, 326], dir: 172, spread: 84, len: 46, n: 4, seed: 5, wig: 0.7 },
-    when: 'caudate', from: ['RPV', 'LPV'], paths: ['M505 398 C 522 370 540 336 566 326', 'M688 378 C 630 404 546 384 566 326'] },
+  // (The fan stays inside the caudate lobe, CAUDATE_LOBE.)
+  CAUD: { k: 0.6, fan: { at: [584, 390], dir: 140, spread: 70, len: 11, n: 3, seed: 5, wig: 0.5 },
+    when: 'caudate', from: ['RPV', 'LPV'], paths: ['M505 398 C 530 398 560 394 584 390', 'M688 378 C 650 404 610 404 584 390'] },
 };
 
 // Circuit view: a transit map. Pressure falls left → right along the main series circuit

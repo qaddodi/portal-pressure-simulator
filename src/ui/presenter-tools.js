@@ -21,11 +21,11 @@
 import { store } from './store.js?v=7fb7280c05';
 import { h, fmt, clamp } from './util.js?v=0cca243d2a';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { createDoppler } from './doppler.js?v=83a2431450';
-import { createFibroScan } from './fibroscan.js?v=3282fbb2cf';
-import { createPressureTime } from './pressure-time.js?v=05ec6348c3';
+import { createDoppler } from './doppler.js?v=c15e71bba9';
+import { createFibroScan } from './fibroscan.js?v=848adfe555';
+import { createPressureTime } from './pressure-time.js?v=71fe19d05e';
 import { createFlowTime } from './flow-time.js?v=a86039df56';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=5a2a222da9';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=b050449115';
 import { frameFor } from './frame.js?v=49a46c570b';
 const nextFrame = frameFor('presenter-tools');
 

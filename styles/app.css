@@ -2560,6 +2560,9 @@ button.finding { cursor: pointer; }
 .organ .org-line { fill: none; stroke: var(--o3); stroke-width: 1.15; stroke-opacity: .8; stroke-linejoin: round; }
 .org-detail path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .org-detail .od-fine { stroke: var(--o3); stroke-width: .9; stroke-opacity: .55; }
+/* The caudate lobe: quiet, part of the liver (a fissure line and the dome of its own surface). */
+.organ .lv-caud-form { stroke: none; opacity: .6; }
+.organ .lv-caud-line { fill: none; stroke: var(--o3); stroke-width: .9; stroke-opacity: .5; stroke-linejoin: round; }
 .org-detail .od-soft { stroke: var(--o3); stroke-width: 6; stroke-opacity: .1; }
 .org-detail .od-sheen { stroke: var(--og-light); stroke-width: 5; stroke-opacity: .75; }
 .org-detail .org-lobules { stroke: none; opacity: .5; }
