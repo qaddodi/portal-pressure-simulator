@@ -35,21 +35,29 @@ jobs:
         run: npm run build
 
   # The build-free site (what Pages serves) and the production build (the SCORM package), each on
-  # a desktop and a phone, desktop in four shares and phone in sixteen: forty runners, one check at a time on each (a runner is
+  # a desktop and a phone, desktop in twelve shares and phone in sixteen: fifty-six runners, one check at a time on each (a runner is
   # too small to run several browsers at once). A check that only timed out gets one more try.
   browser-checks:
     name: browser-checks (${{ matrix.site }}, ${{ matrix.device }} ${{ matrix.shard }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25   # (a runner under load takes up to 25 minutes over the same share; Pages has the same limit)
     strategy:
       fail-fast: false
       matrix:
-        # Desktop in four shares; phone in sixteen, since it also walks every slide of all decks.
+        # Desktop in twelve shares (the longest single checks take 11 to 15 minutes on a runner, so a share must not hold more than one plus a little); phone in sixteen, since it also walks every slide of all decks.
         include:
-          - { site: source, device: desktop, shard: '1/4' }
-          - { site: source, device: desktop, shard: '2/4' }
-          - { site: source, device: desktop, shard: '3/4' }
-          - { site: source, device: desktop, shard: '4/4' }
+          - { site: source, device: desktop, shard: '1/12' }
+          - { site: source, device: desktop, shard: '2/12' }
+          - { site: source, device: desktop, shard: '3/12' }
+          - { site: source, device: desktop, shard: '4/12' }
+          - { site: source, device: desktop, shard: '5/12' }
+          - { site: source, device: desktop, shard: '6/12' }
+          - { site: source, device: desktop, shard: '7/12' }
+          - { site: source, device: desktop, shard: '8/12' }
+          - { site: source, device: desktop, shard: '9/12' }
+          - { site: source, device: desktop, shard: '10/12' }
+          - { site: source, device: desktop, shard: '11/12' }
+          - { site: source, device: desktop, shard: '12/12' }
           - { site: source, device: phone, shard: '1/16' }
           - { site: source, device: phone, shard: '2/16' }
           - { site: source, device: phone, shard: '3/16' }
@@ -66,10 +74,18 @@ jobs:
           - { site: source, device: phone, shard: '14/16' }
           - { site: source, device: phone, shard: '15/16' }
           - { site: source, device: phone, shard: '16/16' }
-          - { site: build, device: desktop, shard: '1/4' }
-          - { site: build, device: desktop, shard: '2/4' }
-          - { site: build, device: desktop, shard: '3/4' }
-          - { site: build, device: desktop, shard: '4/4' }
+          - { site: build, device: desktop, shard: '1/12' }
+          - { site: build, device: desktop, shard: '2/12' }
+          - { site: build, device: desktop, shard: '3/12' }
+          - { site: build, device: desktop, shard: '4/12' }
+          - { site: build, device: desktop, shard: '5/12' }
+          - { site: build, device: desktop, shard: '6/12' }
+          - { site: build, device: desktop, shard: '7/12' }
+          - { site: build, device: desktop, shard: '8/12' }
+          - { site: build, device: desktop, shard: '9/12' }
+          - { site: build, device: desktop, shard: '10/12' }
+          - { site: build, device: desktop, shard: '11/12' }
+          - { site: build, device: desktop, shard: '12/12' }
           - { site: build, device: phone, shard: '1/16' }
           - { site: build, device: phone, shard: '2/16' }
           - { site: build, device: phone, shard: '3/16' }
