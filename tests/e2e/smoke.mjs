@@ -855,7 +855,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const spill = tiles.flatMap((t) => { const b = t.getBoundingClientRect(); return [...t.children].filter((c) => { const cb = c.getBoundingClientRect(); return cb.width && (cb.right > b.right + 1 || cb.bottom > b.bottom + 1); }).map((c) => c.className); });
       return { h: d.getBoundingClientRect().height, tile: Math.max(...tiles.map((t) => t.getBoundingClientRect().height)), n: tiles.length, spill };
     });
-    if (r.n !== 2 || r.h > 116 || r.tile > 68 || r.spill.length) throw new Error(`FibroScan card ${Math.round(r.h)}px tall (cap 116), tallest of ${r.n} tiles ${Math.round(r.tile)}px (cap 68)${r.spill.length ? ', spilling: ' + r.spill.join() : ''}`);
+    if (r.n !== 2 || r.h > 114 || r.tile > 66 || r.spill.length) throw new Error(`FibroScan card ${Math.round(r.h)}px tall (cap 114), tallest of ${r.n} tiles ${Math.round(r.tile)}px (cap 66)${r.spill.length ? ', spilling: ' + r.spill.join() : ''}`);
     // The Doppler card: its report in three short rows, the direction clear of the stats.
     await page.evaluate(() => window.pps.presenter.start('doppler', 1));
     await page.waitForFunction(() => document.querySelector('.pz-data:not(.pz-hide) .pz-tool[data-kind="doppler"] .dop-dir')?.textContent.length > 2, null, { timeout: 60000 });
