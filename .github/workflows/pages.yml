@@ -39,7 +39,7 @@ jobs:
 
   # The browser checks run alongside the deploy, not before it: a failure marks the run red
   # (so it is seen) but the preview is already published for testing on devices.
-  # Split over twenty runners (desktop in four shares, phone in sixteen), filled by measured time, one check at a time per runner:
+  # Split over twenty-four runners (desktop in eight shares, phone in sixteen), filled by measured time, one check at a time per runner:
   # a runner is too small to run several browsers at once.
   browser-checks:
     if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
@@ -53,12 +53,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Desktop in four shares; phone in sixteen, since it also walks every slide of all decks.
+        # Desktop in eight shares; phone in sixteen, since it also walks every slide of all decks.
         include:
-          - { device: desktop, shard: '1/4' }
-          - { device: desktop, shard: '2/4' }
-          - { device: desktop, shard: '3/4' }
-          - { device: desktop, shard: '4/4' }
+          - { device: desktop, shard: '1/8' }
+          - { device: desktop, shard: '2/8' }
+          - { device: desktop, shard: '3/8' }
+          - { device: desktop, shard: '4/8' }
+          - { device: desktop, shard: '5/8' }
+          - { device: desktop, shard: '6/8' }
+          - { device: desktop, shard: '7/8' }
+          - { device: desktop, shard: '8/8' }
           - { device: phone, shard: '1/16' }
           - { device: phone, shard: '2/16' }
           - { device: phone, shard: '3/16' }

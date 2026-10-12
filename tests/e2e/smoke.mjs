@@ -2126,6 +2126,8 @@ const MEASURED = {
   'sinusoid view: a rebuilt caption does not fade in again (no flashing at rest)': 36000,
   'circuit view, selection card, lenses': 38000,
   'action card is a compact sheet that keeps the vessel in view': 28000,
+  'presenter: chart text never overlaps or crosses a line, at every size': 600000,   // (a desktop CI runner took 11.5 minutes over it)
+  'presenter: the controls never glide between slides, and keep their size and spacing, first and last included': 500000,   // (a phone CI runner took 10 minutes)
 };
 const expected = (name) => MEASURED[name] ?? (/^presenter: on every slide of /.test(name) ? 180000 : 45000);
 const [shard, shards] = (process.env.SMOKE_SHARD || '1/1').split('/').map(Number);
