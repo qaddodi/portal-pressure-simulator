@@ -134,6 +134,16 @@
      Weights: 400 · 500 · 600. Small labels are sentence case, never spaced capitals.
      tests/e2e/smoke.mjs fails on any other size or weight in the interface. */
   --fs-12: 12px; --fs-14: 14px; --fs-16: 16px; --fs-20: 20px; --fs-28: 28px; --fs-32: 32px; --fs-48: 48px;
+  /* Figure and slide text: six roles, each growing with the screen's short side from a phone (390 px) to a
+     laptop (900 px and up). Figure labels multiply them by the text size setting (--label-scale; a presentation
+     adds its projector size), slide cards by --sk. src/ui/type-scale.js mirrors these for the SVG labels;
+     tests/e2e/type-scale.mjs fails on any figure or slide text off this scale or under 11 px. */
+  --t-cap: clamp(11px, calc(11px + (100vmin - 390px) * .00196), 12px);   /* units, ticks, organ and zone captions */
+  --t-lab: clamp(12px, calc(12px + (100vmin - 390px) * .00392), 14px);   /* names, chips, kickers */
+  --t-body: clamp(14px, calc(14px + (100vmin - 390px) * .00392), 16px);  /* slide lines, card text */
+  --t-val: clamp(16px, calc(16px + (100vmin - 390px) * .01176), 22px);   /* readings in pills, tiles' small values */
+  --t-big: clamp(20px, calc(20px + (100vmin - 390px) * .02353), 32px);   /* tile values, headline numbers */
+  --t-title: clamp(28px, calc(28px + (100vmin - 390px) * .03137), 44px); /* slide headings */
   /* icons: three sizes (16 in lists and chips, 20 on buttons and the top bar, 24 on tiles and tabs),
      and 12 for a check mark inside a dot or badge. */
   --ic-s: 16px; --ic-m: 20px; --ic-l: 24px; --ic-mark: 12px;

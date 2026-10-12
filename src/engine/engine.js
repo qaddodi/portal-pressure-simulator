@@ -620,7 +620,9 @@ export class Engine {
     // Varix size is not slow state: it follows the portosystemic gradient as it changes (see varixTarget).
     if (this.bands > 0) this.bands = Math.max(0, this.bands - 0.02 * days); // bands slough; columns can recur
     // Spleen
-    const spTarget = clamp(11 + 0.5 * Math.max(0, P[this.ni.SPL] - 12), 9, 22);
+    // Venous back-pressure from the right heart (raised IVC) congests the spleen far less than a portal block:
+    // congestive hepatopathy rarely causes splenomegaly or more than mild thrombocytopenia.
+    const spTarget = clamp(11 + 0.5 * Math.max(0, P[this.ni.SPL] - 12 - 0.6 * Math.max(0, P[this.ni.IVCS] - 5)), 9, 22);
     s.spleen += (spTarget - s.spleen) * Math.min(1, days / 45);
     // Chronic splanchnic vasodilation & plasma expansion (hyperdynamic circulation)
     const ppg = P[this.ni.CONF] - P[this.ni.IVCS];
@@ -636,7 +638,19 @@ export class Engine {
     const capT = Math.min(LYMPH.max, LYMPH.base + LYMPH.adaptFrac * Math.max(0, demand - LYMPH.base));
     s.lymphCap += (capT - s.lymphCap) * Math.min(1, LYMPH.adapt * days);
     this.ascitesProtein(st, 1440 * days);
-    s.ascites = clamp(s.ascites + st.net * 1440 * days, 0, 18000);
+    // A day's step can carry the fluid past the volume where it balances (the net turns with the volume and the belly's
+    // pressure: drained by diuretics, refilled when nearly empty), and the next step back past it, so the volume would
+    // swing every day. A step that crosses the balance is taken implicitly instead (the volume whose own net, over the
+    // day, leads back to where it started), which settles without swinging.
+    const a0 = s.ascites, iap0 = this.iap ?? 5, ia0 = iapFromAscites(a0), dt = 1440 * days;
+    const netAt = (a) => { s.ascites = a; this.iap = iap0 + iapFromAscites(a) - ia0; return this.starling().net; };
+    const a1 = clamp(a0 + st.net * dt, 0, 18000);
+    if (a1 !== a0 && netAt(a1) * st.net < 0) {
+      let lo = Math.min(a0, a1), hi = Math.max(a0, a1);
+      for (let k = 0; k < 14; k++) { const m = (lo + hi) / 2; if (m - a0 - netAt(m) * dt < 0) lo = m; else hi = m; }
+      s.ascites = (lo + hi) / 2;
+    } else s.ascites = a1;
+    this.iap = iap0;
     // Anticoagulation slowly lyses thrombus
     if (p.anticoag) {
       for (const k of Object.keys(p.thrombus)) {

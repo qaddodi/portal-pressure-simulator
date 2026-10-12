@@ -3,15 +3,15 @@
 
 import { store, hiddenNow } from './store.js?v=7fb7280c05';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=0cca243d2a';
-import { lobuleFlows } from './lobule-model.js?v=4b6aa4841d';
-import { createProfile } from './charts.js?v=cd472063a4';
-import { createPressureTime } from './pressure-time.js?v=71fe19d05e';
-import { createFibroScan } from './fibroscan.js?v=848adfe555';
-import { createHvpgProcedure } from './hvpg-proc.js?v=ccae6083ff';
-import { createDoppler } from './doppler.js?v=c15e71bba9';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b050449115';
-import { frameFor } from './frame.js?v=49a46c570b';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=b1761ad19c';
+import { lobuleFlows } from './lobule-model.js?v=ef674ee7ff';
+import { createProfile } from './charts.js?v=e073763634';
+import { createPressureTime } from './pressure-time.js?v=a1bb3a4807';
+import { createFibroScan } from './fibroscan.js?v=1b0c346f76';
+import { createHvpgProcedure } from './hvpg-proc.js?v=b87658d79c';
+import { createDoppler } from './doppler.js?v=b26ba3e4f5';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=9feb441f21';
+import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).

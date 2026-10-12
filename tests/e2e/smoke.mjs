@@ -13,9 +13,13 @@
 // image ships one).
 
 import { chromium } from 'playwright';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
-import { checkCharts, checkStrip, checkStripSlides } from './chart-text.mjs';
+import { checkCharts, checkStrip, checkStripSlides, stripSlides, checkStripGaps } from './chart-text.mjs';
+import { checkPhoneFit } from './phone-fit.mjs';
+import { checkTypeScale } from './type-scale.mjs';
+import { TEXT_MIN, TEXT_MAX } from '../../src/ui/type-scale.js';
+import { checkChartText, chartTypeSlides } from './chart-type.mjs';
 
 const dir = process.argv[2] || '.';
 const shots = process.env.SHOTS;
@@ -166,6 +170,8 @@ const svCovered = async (page) => {
 };
 
 // Every deck's id (the presenter's library), for the per-deck checks below.
+const CHART_SLIDES = new Map();   // (chart-type check name -> its slides, for weighing the shares)
+const STRIP_SLIDES = new Map();   // (check name -> its weight in slides, for weighing the shares)
 const DECK_IDS = [...readFileSync(new URL('../../src/ui/decks.js', import.meta.url), 'utf8').matchAll(/\['([a-z0-9-]+)', '(?:[^'\\]|\\.)*'\]/g)].map((m) => m[1]);
 if (DECK_IDS.length < 15) throw new Error(`only ${DECK_IDS.length} deck ids read from decks.js`);
 // Waits for the slide to settle (up to 10 s) and returns the last reading.
@@ -397,12 +403,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // (Polled: a slide's pills fade in after its camera settles.)
     const pills = async (where) => { for (let i = 0; i < 40; i++) { const r = await pills0(where); if (r) return r; await page.waitForTimeout(250); } return [`${where}: no pill shown`]; };
     const bad = [];
-    for (const k of ['0.5', '2']) {
+    for (const k of [String(TEXT_MIN), String(TEXT_MAX)]) {
       await open(page, '?preset=cirr-decomp');
       await page.evaluate((k) => { localStorage.setItem('pps.labelScale', k); localStorage.setItem('pps.labelScaleV', '2'); }, k);
       await open(page, '?preset=cirr-decomp');
       // Explore: the lobule, then the sinusoid (at the smallest size; the largest only for the lesion pill below).
-      if (k === '0.5') {
+      if (k === String(TEXT_MIN)) {
       await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
       await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 45000 });
       await page.waitForTimeout(1200);
@@ -414,8 +420,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.evaluate(() => window.pps.store.set({ sinusoid: false }));
       }
       // Presenter: the HVPG deck's presinusoidal slide (its lesion pill), then the lobule deck's sinusoid slide.
-      for (const [deck, i, sin] of [['hvpg', 6, false], ...(k === '0.5' ? [['lobule', 4, true]] : [])]) {
+      for (const [deck, i, sin] of [['hvpg', 6, false], ...(k === String(TEXT_MIN) ? [['lobule', 4, true]] : [])]) {
         await page.evaluate(([deck, i]) => window.pps.presenter.start(deck, i), [deck, i]);
+        // (Each stage waits on its own: the start's cover alone can take 15 s here, and a CI runner's shared GPU is far slower.)
+        for (const ready of [() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'),
+          () => !document.querySelector('#app').className.includes('pz-hush'),
+          (sin) => sin || (window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled()),
+          (sin) => (sin ? !!document.querySelector('.sv.on') : !!document.querySelector('.lz-call.on'))]) await page.waitForFunction(ready, sin, { timeout: 60000 });
         await page.waitForFunction((sin) => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover') && !document.querySelector('#app').className.includes('pz-hush')
           && (sin ? !!document.querySelector('.sv.on') : window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled() && !!document.querySelector('.lz-call.on')), sin, { timeout: 60000 });
         await page.waitForTimeout(1500);
@@ -429,6 +440,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   await check(device, 'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text', async (page) => {
     // The portal circulation deck (after its outline), one patient: the whole lobule, the portal tract, the sinusoid wall, the central vein.
+    // (Labels fade, not pixels: drawn at one device pixel per pixel, since a software renderer draws the lobule at a phone's three-fold
+    // scale about nine times slower, a frame every few seconds, and the slide changes then took longer than the check waits.)
+    if (device === 'phone') await (await page.context().newCDPSession(page)).send('Emulation.setDeviceMetricsOverride', { ...DEVICES.phone.viewport, deviceScaleFactor: 1, mobile: true });
     await open(page, '?preset=healthy');
     await page.evaluate(() => window.pps.presenter.start('circulation', 4));
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled() && !document.querySelector('.pz-cover'), null, { timeout: 60000 });   // (the start's cover gone)
@@ -447,8 +461,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         .filter((l) => !l.hidden && l.firstElementChild && +getComputedStyle(l, '::before').opacity > 0.5)
         .map((l) => [id(l), +getComputedStyle(l.firstElementChild).opacity / +getComputedStyle(l, '::before').opacity]));
       window.__labBefore = window.__labRatio();
-      const anc = (e) => { let o = 1; for (let x = e; x && x !== app; x = x.parentElement) { const cs = getComputedStyle(x); if (cs.visibility === 'hidden' || cs.display === 'none') return 0; o *= +cs.opacity; } return o; };
+      // (A pass reads each ancestor's style once, however many labels share it: the labels of a slide share most of theirs, and
+      // sampling every frame and every 30 ms with a style read per label per ancestor slowed the page being watched.)
+      let own = new Map();
+      const anc = (e) => { let o = 1; for (let x = e; x && x !== app; x = x.parentElement) { let v = own.get(x); if (v === undefined) { const cs = getComputedStyle(x); v = cs.visibility === 'hidden' || cs.display === 'none' ? 0 : +cs.opacity; own.set(x, v); } if (!v) return 0; o *= v; } return o; };
       const sample = () => {
+        own = new Map();
         const lit = app.dataset.lit || '';
         for (const lab of document.querySelectorAll(':is(.lz, .sv) :is(.lz-lab, .lz-zone, .sv-region)')) {
           if (lab.hidden || !lab.firstElementChild) continue;
@@ -520,18 +538,27 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   const CROSSINGS = [   // [deck, slide to start on (0-based), key, whether the key goes into the lobule, whether it is the sinusoid view that is gone to or left]
     ['circulation', 3, 'ArrowRight', true], ['circulation', 4, 'ArrowLeft', false], ['circulation', 7, 'ArrowRight', false],   // ladder → lobule and back; central vein → the next view
     ['lobule', 0, 'ArrowRight', true],   // the outline's fit → the whole lobule
-    ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false],   // a fit, then a liver close-up, before it
+    ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false, false, true],   // a fit, then a liver close-up, before it (the last one changes the patient: propranolol)
     ['sites', 7, 'ArrowLeft', true],   // backwards into it
     ['ascites', 0, 'ArrowRight', true, true], ['ascites', 4, 'ArrowRight', true, true], ['tap', 7, 'ArrowRight', true, true],   // anatomy straight to the sinusoid view, through the lobule without stopping in it
     ['ascites', 5, 'ArrowRight', false, true, true], ['ascites', 8, 'ArrowRight', false, true, true],   // and the sinusoid view straight back out to the anatomy (a new patient: the words, and so the space the camera frames into, are settled after the rise)
-    ['hvpg', 6, 'ArrowRight', false], ['outflow', 5, 'ArrowRight', true],   // out to a region, with a new patient; in from a region
+    ['hvpg', 6, 'ArrowRight', false, false, true], ['outflow', 5, 'ArrowRight', true],   // out to a region, with a new patient (schisto to chronic PVT: the words settle after the rise); in from a region
+    // In Explore (the view buttons), with no slide: anatomy to the lobule, to a station in it as a slide asks for one, and straight to
+    // the sinusoid view and back out.
+    ['explore', 'lobule', null, true], ['explore', 'triad', null, true], ['explore', 'sinusoid', null, true, true], ['explore', 'out', null, false, true],
   ];
   for (const [deck, from, key, into, sin, newPatient] of CROSSINGS) {
-    await check(device, `lobule zoom is continuous: ${deck} slide ${from + 1} ${key === 'ArrowLeft' ? 'back ' : ''}${into ? 'into' : 'out of'} the ${sin ? 'sinusoid view' : 'lobule'}`, async (page) => {
+    const explore = deck === 'explore';
+    await check(device, `lobule zoom is continuous: ${explore ? 'Explore' : `${deck} slide ${from + 1}`} ${key === 'ArrowLeft' ? 'back ' : ''}${into ? 'into' : 'out of'} the ${sin ? 'sinusoid view' : 'lobule'}${from === 'triad' ? ', at its portal tract' : ''}`, async (page) => {
       await open(page, '?preset=healthy');
-      const n = from + 1, way = (into ? 'into' : 'out of') + (sin ? ' the sinusoid view' : ' the lobule');
-      await page.evaluate(([d, i]) => window.pps.presenter.start(d, i), [deck, from]);
-      await page.waitForFunction((n) => (document.querySelector('.pzb-n, .pz-count')?.textContent || '').trim().startsWith(n + ' /') && !document.querySelector('.pz-cover'), n, { timeout: 60000 });
+      const n = explore ? from : from + 1, way = (into ? 'into' : 'out of') + (sin ? ' the sinusoid view' : ' the lobule');
+      if (!explore) {
+        await page.evaluate(([d, i]) => window.pps.presenter.start(d, i), [deck, from]);
+        await page.waitForFunction((n) => (document.querySelector('.pzb-n, .pz-count')?.textContent || '').trim().startsWith(n + ' /') && !document.querySelector('.pz-cover'), n, { timeout: 60000 });
+      } else if (from === 'out') {
+        await page.evaluate(() => window.pps.stage.diveToSinusoid());
+        await page.waitForFunction(() => window.pps.stage.sinusoidOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 60000 });
+      }
       const quiet = async (open) => {   // the figure holds still (a software renderer draws a frame a second or two apart)
         let last = '', same = 0;
         for (let i = 0; i < 120 && same < 6; i++) {
@@ -550,9 +577,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         requestAnimationFrame(tick);
       });
       await page.evaluate(() => window.pps.stage.cameraMoves(true));
-      const label = await page.evaluate(() => document.querySelector('.pzb-n, .pz-count')?.textContent.trim());
-      await page.keyboard.press(key);
-      await page.waitForFunction((l) => (document.querySelector('.pzb-n, .pz-count')?.textContent.trim() || '') !== l, label);
+      if (explore) {
+        // (A station is aimed at as the presenter aims at a slide's, before the dive.)
+        await page.evaluate((m) => { if (m === 'triad') window.pps.stage.lobuleAim('triad', { zoom: 2.3 }); if (m === 'sinusoid') window.pps.stage.diveToSinusoid(); else if (m === 'out') window.pps.stage.exitSinusoid(); else window.pps.store.set({ lobule: true }); }, from);
+      } else {
+        const label = await page.evaluate(() => document.querySelector('.pzb-n, .pz-count')?.textContent.trim());
+        await page.keyboard.press(key);
+        await page.waitForFunction((l) => (document.querySelector('.pzb-n, .pz-count')?.textContent.trim() || '') !== l, label);
+      }
       await quiet(into);
       const s = await page.evaluate(() => { window.__zoomTrace.go = false; return window.__zoomTrace.s; });
       // One move: the dive (or rise) itself, with no glide of the camera before or after it beyond a small settling (a new patient changes the space the words leave, after the rise has begun).
@@ -838,7 +870,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const where = `${deck} at ${size ? 'upright iPad' : device}`;
       const read = () => page.evaluate(() => {
         const bar = document.querySelector('.pz-bar'), b = bar.getBoundingClientRect(), q = (el) => { const r = el.getBoundingClientRect(); return [r.left - b.left, r.top - b.top, r.width, r.height].map((v) => Math.round(v * 10) / 10); };
-        return { n: document.querySelector('.pzb-n')?.textContent.trim(), at: [b.left, b.top], boxes: [[0, 0, b.width, b.height], ...[...bar.children].filter((c) => !c.classList.contains('pzb-q')).map(q)] };
+        const m = new DOMMatrix(getComputedStyle(bar).transform);   // (an idle bar fades and sinks 8 px by design: its spot is where it rests, without that nudge)
+        return { n: document.querySelector('.pzb-n')?.textContent.trim(), at: [b.left - m.m41, b.top - m.m42], boxes: [[0, 0, b.width, b.height], ...[...bar.children].filter((c) => !c.classList.contains('pzb-q')).map(q)] };
       });
       const fits = async (n) => { if ((await barSettle(page)) !== 'ok') throw new Error(`${where}, slide ${n}: ${await barFit(page) || 'the slide never settled'}`); };
       let ref = null, slides = 0;
@@ -885,6 +918,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (gap) throw new Error(`${deck}, slide ${n}: ${gap}`);
       const sv = await svCovered(page);
       if (sv) throw new Error(`${deck}, slide ${n}: ${sv}`);
+      const dl = badDelta(await cardTiles(page));
+      if (dl) throw new Error(`${deck}, slide ${n}: ${dl}`);
       // (A folding tool: Show then Hide must leave the card's contents at full size, as on arrival.)
       const fold = page.locator('.pz-data:not(.pz-hide):not([hidden]) .pz-fold');
       if (await fold.isVisible().catch(() => false)) {
@@ -923,6 +958,135 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
+  // The data card's tiles as shown: each value, and its change line read back as numbers (value, sign × change, from).
+  // (In the page, so a recorder can sample them without a round trip.)
+  const TILES_JS = `() => {
+    const num = (t) => parseFloat(String(t).replace('−', '-').replace(/[^0-9.+-]/g, ''));
+    return [...document.querySelectorAll('.pz-data:not(.pz-hide):not([hidden]) .pz-tile')].map((t) => {
+      const v = t.querySelector('.pzt-v')?.textContent.trim(), d = t.querySelector('.pzt-d')?.textContent.trim() || '';
+      const m = d.match(/^([▲▼])\\s*(?:Up |Down )?([0-9.]+).*from ([−0-9.-]+)/);
+      return { k: t.querySelector('.pzt-k')?.textContent.trim(), v, d, val: num(v), dd: m ? (m[1] === '▼' ? -1 : 1) * num(m[2]) : d.startsWith('No change') ? 0 : null, from: m ? num(m[3]) : null };
+    });
+  }`;
+  const cardTiles = (page) => page.evaluate(`(${TILES_JS})()`);
+  // "▲ X from Y" must add up: the value shown is Y plus the change, to the last digit shown.
+  const badDelta = (tiles) => tiles.filter((t) => t.dd != null && t.from != null && Math.abs(t.val - t.from - t.dd) > 1e-6).map((t) => `${t.k} ${t.v} reads "${t.d}"`).join('; ');
+
+  // A time-lapse slide's card shows the state the time-lapse plays from on its first frames (not its end, nor the slide before),
+  // climbs from there with no snap back, ends on the slide's state, and every change line adds up.
+  if (device === 'desktop') for (const deck of DECK_IDS) await check(device, `presenter: ${deck}'s time-lapse cards start from the model's start state and climb without a snap`, async (page) => {
+    await open(page);
+    await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+    const laps = (await page.evaluate(() => window.pps.presenter.probe())).lapses;
+    for (const at of laps) {
+      await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, at - 1]);
+      // (The slide before may be a time-lapse too: it plays to its end first.)
+      await page.waitForFunction((i) => window.pps.presenter.probe()?.i === i && !window.pps.presenter.probe().playing, at - 1, { timeout: 240000, polling: 500 });
+      await page.waitForTimeout(1500);
+      // A recorder in the page: every 50 ms, once the slide's number is up, the card's tiles and the slide shown.
+      await page.evaluate(([at, js]) => {
+        const read = (0, eval)(js), rec = window.__lapRec = [];
+        window.__lapT = setInterval(() => {
+          if (!document.querySelector('.pzb-n')?.textContent.trim().startsWith(`${at + 1} `)) return;
+          const p = window.pps.presenter.probe();
+          rec.push({ t: Math.round(performance.now()), i: p.i, playing: p.playing, start: p.start, end: p.end, n: p.keys.length, tiles: read(), done: !!document.querySelector('.pz-lapse.done') });
+        }, 50);
+      }, [at, TILES_JS]);
+      await page.keyboard.press('ArrowRight');
+      await page.waitForFunction((at) => window.__lapRec.some((r) => r.i === at && r.done && !r.playing), at, { timeout: 240000, polling: 500 })
+        .catch(async () => { throw new Error(`${deck} slide ${at + 1}: the time-lapse never ended (last: ${JSON.stringify(await page.evaluate(() => [window.__lapRec.length, window.__lapRec.at(-1), document.querySelector('.pzb-n')?.textContent]))})`); });
+      await page.waitForTimeout(1500);
+      const rec = await page.evaluate(() => { clearInterval(window.__lapT); return window.__lapRec; });
+      const p = rec.findLast((r) => r.start && r.end), at1 = `${deck} slide ${at + 1}`;
+      if (!p) throw new Error(`${at1}: the slide never counted as shown (${rec.length} samples, ${JSON.stringify(rec.slice(-2))})`);
+      // Every sample with the full card: the values as the model has them at the start, then a climb with no jump.
+      const full = rec.filter((r) => r.tiles.length === p.n);
+      if (!full.length) throw new Error(`${at1}: the card never showed`);
+      for (const r of full) { const bad = badDelta(r.tiles); if (bad) throw new Error(`${at1}: ${bad}`); }
+      const first = full[0].tiles, off = first.filter((x, j) => x.v !== p.start[j]);
+      if (off.length) throw new Error(`${at1} opens on ${off.map((x) => `${x.k} ${x.v}`).join(', ')}, but the model starts at ${p.start.join(', ')}`);
+      // No snap or reset: sample to sample, no tile moves back away from where the time-lapse ends by more than a small wobble
+      // (two last digits and 15% of its whole change). (Not a speed limit: a slow machine samples sparsely.)
+      const num = (v) => parseFloat(v.replace('−', '-')), s0 = p.start.map(num), s1 = p.end.map(num);
+      for (let n = 1; n < full.length; n++) full[n].tiles.forEach((x, j) => {
+        const unit = 2 * 10 ** -((p.end[j].split('.')[1] || '').length) + 0.15 * Math.abs(s1[j] - s0[j] || 0), was = full[n - 1].tiles[j];
+        if (Math.abs(x.val - s1[j]) > Math.abs(was.val - s1[j]) + unit) throw new Error(`${at1}: ${x.k} goes back from ${was.v} to ${x.v} (start ${p.start[j]}, end ${p.end[j]})`);
+      });
+      // (Once the numbers have eased onto the slide's state, up to 15 s on a slow machine.)
+      await page.waitForFunction(([js, end]) => (0, eval)(js)().every((x, j) => x.v === end[j]), [TILES_JS, p.end], { timeout: 15000, polling: 500 }).catch(() => {});
+      const last = await cardTiles(page), endOff = last.filter((x, j) => x.v !== p.end[j]);
+      if (endOff.length) throw new Error(`${at1} ends on ${endOff.map((x) => `${x.k} ${x.v}`).join(', ')}, model ${p.end.join(', ')}`);
+    }
+  });
+
+  // A time-lapse's chart in the card (flow-time.js: the meal, ascites building, varices growing) gains its points live as the
+  // slide plays, one after another, never going back, and ends with every point; on a phone, an upright iPad and a desktop.
+  for (const size of device === 'phone' ? [null] : [{ width: 820, height: 1180 }, null]) for (const deck of ['circulation', 'ascites', 'varices']) await check(device, `presenter: ${deck}'s time-lapse chart gains its points as the slide plays${size ? ` at ${size.width}x${size.height}` : ''}`, async (page) => {
+    if (size) await page.setViewportSize(size);
+    await open(page);
+    await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+    const charts = (await page.evaluate(() => window.pps.presenter.probe())).charts;
+    if (!charts.length) throw new Error(`${deck}: no time-lapse chart`);
+    for (const at of charts) {
+      await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, at - 1]);
+      await page.waitForFunction((i) => window.pps.presenter.probe()?.i === i && !window.pps.presenter.probe().playing, at - 1, { timeout: 240000, polling: 500 });
+      await page.waitForTimeout(800);
+      // A recorder in the page: every count of points the chart draws on this slide (each paint, not a sampled few).
+      await page.evaluate((at) => {
+        const rec = window.__ptRec = [];
+        window.__ptT = new MutationObserver(() => {
+          const svg = document.querySelector('.pz-data:not(.pz-hide) .pz-flowtime svg:last-child'), p = window.pps.presenter.probe();
+          if (p.i === at && svg?.dataset.points && +svg.dataset.points !== rec.at(-1)?.n) rec.push({ n: +svg.dataset.points, playing: p.playing });
+        });
+        window.__ptT.observe(document.querySelector('.pz-data'), { subtree: true, attributes: true, attributeFilter: ['data-points'] });
+      }, at);
+      await page.keyboard.press('ArrowRight');
+      await page.waitForFunction((at) => window.pps.presenter.probe().playing || window.__ptRec.length > 2, at, { timeout: 240000, polling: 200 });
+      await page.waitForFunction((at) => window.pps.presenter.probe().i === at && !window.pps.presenter.probe().playing, at, { timeout: 240000, polling: 500 });
+      // (Then the heads ease onto the last point, up to 60 s on a slow machine.)
+      await page.waitForFunction(() => { const svg = document.querySelector('.pz-data:not(.pz-hide) .pz-flowtime svg:last-child'); return svg.dataset.points === svg.dataset.of; }, null, { timeout: 60000, polling: 250 }).catch(() => {});
+      const rec = await page.evaluate(() => { window.__ptT.disconnect(); return window.__ptRec.map((r) => r.n); });
+      // (Points between the first and the last: a slow machine samples sparsely, so a few are enough; the talk trace had none.)
+      const steps = new Set(rec.filter((n) => n > rec[0])).size, back = rec.findIndex((n, j) => j && n < rec[j - 1]), full = await page.evaluate(() => {
+        const svg = document.querySelector('.pz-data:not(.pz-hide) .pz-flowtime svg:last-child');
+        return [+svg.dataset.points, svg.querySelectorAll('.ptk-line')[0].getAttribute('d').split('L').length, +svg.dataset.of];
+      });
+      const at1 = `${deck} slide ${at + 1}${size ? ` at ${size.width}x${size.height}` : ''}`;
+      if (back > 0) throw new Error(`${at1}: the chart lost points (${rec[back - 1]} to ${rec[back]})`);
+      if (steps < 5) throw new Error(`${at1}: the chart grew in only ${steps} step(s) while the slide played (${rec.slice(0, 40).join(',')})`);
+      if (full[0] !== full[2] || full[1] < 30) throw new Error(`${at1}: the chart ends with ${full[0]} of its ${full[2]} points (${full[1]} on its line)`);
+    }
+  });
+
+  // Tiles under a slide's chart (desktop and iPad, text at 100 %): a tile's name never breaks inside a word, no tile text sticks
+  // out of its tile, a change line ("▲ 7.9 from 16.9") takes at most two lines, and the card fits the screen. Three, four
+  // and two tiles under the day-by-day, Doppler and bleed charts, at three laptop sizes (a 16-inch Mac first) and an iPad both ways.
+  if (device === 'desktop') for (const size of [{ width: 1728, height: 1000 }, { width: 1440, height: 900 }, { width: 1280, height: 800 }, { width: 820, height: 1180 }, { width: 1180, height: 820 }]) await check(device, `presenter: tiles under a chart keep their words whole and their change lines short at ${size.width}x${size.height}`, async (page) => {
+    await page.setViewportSize(size);
+    await open(page);
+    for (const [deck, at] of [['ascites', 3], ['varices', 2], ['shunts', 4], ['variceal-bleed', 2]]) {
+      await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, at]);
+      await page.waitForFunction((i) => window.pps.presenter.probe()?.i === i && !document.querySelector('.pz-cover') && document.querySelector('.pz-data.has-tool:not(.pz-hide) .pzt-d'), at, { timeout: 60000 });
+      await page.waitForFunction(() => !window.pps.presenter.probe().playing, null, { timeout: 120000, polling: 500 });
+      await page.waitForTimeout(1200);
+      const bad = await page.evaluate(() => {
+        const out = [], card = document.querySelector('.pz-data.has-tool:not(.pz-hide)'), c = card.getBoundingClientRect();
+        const rows = (g) => new Set([...g.getClientRects()].filter((q) => q.width > 0.5).map((q) => Math.round(q.top))).size;
+        for (const k of card.querySelectorAll('.pzt-k')) for (const t of k.childNodes) if (t.nodeType === 3) for (const m of t.textContent.matchAll(/\S+/g)) {
+          const g = document.createRange(); g.setStart(t, m.index); g.setEnd(t, m.index + m[0].length);
+          if (rows(g) > 1) out.push(`"${m[0]}" breaks inside the word`);
+        }
+        for (const e of card.querySelectorAll('.pzt-k, .pzt-vu, .pzt-r, .pzt-d')) if (e.scrollWidth > e.clientWidth + 1) out.push(`"${e.textContent}" sticks out of its tile`);
+        for (const d of card.querySelectorAll('.pzt-d')) { const g = document.createRange(); g.selectNodeContents(d); if (rows(g) > 2) out.push(`change "${d.textContent}" takes ${rows(g)} lines`); }
+        if (c.top < 0 || c.bottom > innerHeight) out.push(`card runs off the screen (${Math.round(c.top)} to ${Math.round(c.bottom)} of ${innerHeight})`);
+        return out;
+      });
+      if (bad.length) throw new Error(`${deck} slide ${at + 1} at ${size.width}x${size.height}: ${bad.join('; ')}`);
+    }
+  });
+
   // An upright iPad (820x1180): on every slide of the decks that open the sinusoid view, its names keep off the cards.
   if (device === 'desktop') for (const deck of ['ascites', 'tap', 'lobule']) await check(device, `presenter: on every slide of ${deck} at 820x1180 the sinusoid's names keep off the cards`, async (page) => {
     await page.setViewportSize({ width: 820, height: 1180 });
@@ -941,6 +1105,63 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (await page.waitForFunction((was) => document.querySelector('.pzb-n')?.textContent.trim() !== was, n, { timeout: 15000 }).then(() => true, () => false)) break;
       }
       await page.waitForTimeout(300);
+    }
+  });
+
+  // Presenter, every slide of every deck that opens the sinusoid view (phone, iPad and desktop sizes): an end arrow (toward the portal
+  // venule, toward the central vein) shows only with its name and fades with it; where the name shows, so does the arrow.
+  // DOM state, not pixels: the view exposes each arrow's strength (canvas data-end-arrows) and the names' own opacity is read here.
+  // (Each deck's sinusoid slides, from its source: the slide's cam. A software renderer takes up to a minute to open the view.)
+  const SV_DECKS = new Map();
+  for (const f of readdirSync(new URL('../../src/ui/decks/', import.meta.url))) {
+    if (!f.endsWith('.js') || !/cam: ['"]sinusoid/.test(readFileSync(new URL(`../../src/ui/decks/${f}`, import.meta.url), 'utf8'))) continue;
+    const mod = await import(`../../src/ui/decks/${f}`), d = Object.values(mod).find((v) => Array.isArray(v?.slides));
+    if (d) SV_DECKS.set(d.id, { at: d.slides.map((x, i) => (x.cam === 'sinusoid' && !x.visual ? i : -1)).filter((i) => i >= 0), n: d.slides.length });
+  }
+  if (!SV_DECKS.size) throw new Error('no deck opens the sinusoid view: the end-arrow check has nothing to walk');
+  const endArrows = () => {
+    const c = document.querySelector('.sv.on .sv-canvas');
+    if (!c || !c.dataset.endArrows) return null;
+    const a = c.dataset.endArrows.split(' ').map(Number), names = [...document.querySelectorAll('.sv.on .sv-end')];
+    if (names.length !== 2) return `${names.length} end names`;
+    const bad = names.map((e, i) => {
+      const k = e.firstElementChild, shown = e.hidden || !k ? 0 : Math.min(1, (+getComputedStyle(e).opacity || 0) * (+getComputedStyle(k).opacity || 0) / 0.78);
+      return Math.abs(shown - a[i]) > 0.08 ? `${i ? 'central vein' : 'portal venule'} arrow ${a[i]} but its name shows ${shown.toFixed(2)}` : null;
+    }).filter(Boolean);
+    return bad.length ? bad.join('; ') : 'ok';
+  };
+  for (const [deck, { at: sinAt, n: count }] of SV_DECKS) await check(device, `presenter: on every sinusoid slide of ${deck} no direction arrow shows without its name`, async (page) => {
+    const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }, { width: 1180, height: 820 }] : [null];
+    for (const size of sizes) {
+      if (size) await page.setViewportSize(size);
+      await open(page);
+      await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
+      await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+      let seen = 0;
+      for (let guard = 0; guard < 80; guard++) {
+        const n = await page.evaluate(() => document.querySelector('.pzb-n')?.textContent.trim());
+        const [a, b] = n.split('/').map((x) => +x);
+        await barSettle(page);
+        // (A slide that opens the sinusoid view is waited for until it shows; any other slide is checked only if the view happens to be up.)
+        const must = sinAt.some((i) => i + 1 + (b - count) === a);
+        let r = null;
+        for (let t = 0; t < (must ? 240 : 14); t++) {   // (the names and their arrows ease together; the view itself can be slow to open)
+          r = await page.evaluate(endArrows);
+          if (r === 'ok' || (r === null && !must)) break;
+          await page.waitForTimeout(250);
+        }
+        if (r === 'ok') seen++;
+        else if (must) throw new Error(`${deck}, slide ${n}${size ? ` at ${size.width}x${size.height}` : ''}: the sinusoid view never showed its end arrows (${r})`);
+        else if (r) throw new Error(`${deck}, slide ${n}${size ? ` at ${size.width}x${size.height}` : ''}: ${r}`);
+        if (a === b) break;
+        for (let k = 0; k < 4; k++) {
+          await page.keyboard.press('ArrowRight');
+          if (await page.waitForFunction((was) => document.querySelector('.pzb-n')?.textContent.trim() !== was, n, { timeout: 15000 }).then(() => true, () => false)) break;
+        }
+      }
+      if (!seen) throw new Error(`${deck}: no slide showed the sinusoid view`);
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'));
     }
   });
 
@@ -1073,31 +1294,53 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
 
   // The phone pressure strip on every slide that has it: all its text at least 11 px as drawn, labels centred in their brackets, clear of every line.
-  if (device === 'desktop') await check(device, 'presenter: the pressure strip keeps 11 px text and clear labels on every slide, at both phones', async () => {
-    const bad = await checkStripSlides(browser, server.url, () => {});
+  // (One check per deck: the whole sweep is 64 page loads and took 45 minutes in one piece, longer than a runner's limit.)
+  if (device === 'desktop') for (const deck of new Set((await stripSlides()).map((s) => s.deck))) {
+    const name = `presenter: ${deck}'s pressure strip keeps 11 px text and clear labels on every slide, at both phones`;
+    STRIP_SLIDES.set(name, (await stripSlides(deck)).length);
+    await check(device, name, async () => {
+      const bad = await checkStripSlides(browser, server.url, () => {}, deck);
+      if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+    });
+  }
+
+  // The strip's bar stops the same distance from every reading, one digit or two (within 1 px), at phones, an upright iPad and a desktop.
+  if (device === 'desktop') await check(device, 'presenter: the pressure strip leaves equal gaps beside one- and two-digit readings, at every size', async () => {
+    const bad = await checkStripGaps(browser, server.url, () => {});
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });
+
+  // Every slide of every deck at three phone widths, upright and sideways: the words clear of the controls pill, and every
+  // reading in the numbers card (a folded instrument opened) inside the card. One check per deck, weighed by its slides.
+  if (device === 'desktop') {
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    for (const d of DECKS) {
+      const n = withOverview(d).slides.length, name = `presenter: ${d.id}'s slides keep their words off the controls pill and readings inside their card, at phones`;
+      STRIP_SLIDES.set(name, n * 0.3);   // (about 25 s a slide over its six sizes)
+      await check(device, name, async () => {
+        const bad = await checkPhoneFit(browser, server.url, d.id, n);
+        if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+      });
+    }
+  }
 
   // Every choice in a slide's row of treatment buttons stays in view, whole, with no sideways scrolling, at 11 px or more
   // (a phone once cut Terlipressin off the right edge), at three phone widths, a phone on its side and an upright iPad.
   if (device === 'desktop') await check(device, 'presenter: every choice button on every slide fits on screen, at phones, sideways and iPad', async (page) => {
     const bad = [];
-    const found = [];   // (first the slides with a row of choices, then each of them at each size)
-    for (const deck of ['circuit', 'recompensation', 'treatment', 'two-inflows']) {
-      await open(page, `?script=${deck}&slide=1`);
-      const n = Number((await page.textContent('.pzb-n')).split('/')[1]);
-      for (let k = 1; k <= n; k++) {
-        if (k > 1) await open(page, `?script=${deck}&slide=${k}`);
-        await page.waitForSelector('.pzb-n');
-        if (await page.waitForSelector('.pz-abb', { state: 'attached', timeout: 4000 }).catch(() => null)) found.push([deck, k]);
-      }
-    }
+    // The slides with a row of choices are read from the decks, not probed for on screen: a probe with a time limit
+    // read a slow runner's late-arriving words as "no row", and a sweep of every slide costs minutes besides.
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    const found = ['circuit', 'recompensation', 'treatment', 'two-inflows'].flatMap((deck) =>
+      withOverview(DECKS.find((d) => d.id === deck)).slides.flatMap((x, i) => (x.compare?.length ? [[deck, i + 1]] : [])));
     if (!found.length) throw new Error('no slide has a row of choices');
     for (const size of [{ width: 375, height: 667 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 844, height: 390 }, { width: 820, height: 1180 }]) {
       await page.setViewportSize(size);
       for (const [deck, n] of found) {
-        await open(page, `?script=${deck}&slide=${n}`);
-        await page.waitForSelector('.pz-abb', { state: 'attached' });
+        // (the page is loaded once per size and the presenter moved on to each slide, not reloaded: 55 loads outran a CI runner)
+        if (deck === found[0][0] && n === found[0][1]) await open(page, `?script=${deck}&slide=${n}`);
+        else await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, n - 1]);
+        await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && document.querySelector('.pz-abb') && !document.querySelector('.pz-cover'), n, { timeout: 30000 });
         await page.waitForTimeout(900);
         const out = await page.evaluate(() => [...document.querySelectorAll('.pz-abb')].map((b) => {
           const r = b.getBoundingClientRect(), row = b.parentElement.getBoundingClientRect(), fs = parseFloat(getComputedStyle(b).fontSize);
@@ -1111,6 +1354,59 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
     if (bad.length) throw new Error(bad.slice(0, 4).join(' | '));
   });
+
+  // A laptop, a sideways and an upright iPad show the phone's pill at the lower right (Mohammad): back, count, next, settings,
+  // exit, always shown; no separate count, Quiz or ask-the-room button; clear of the words, the data card, a full card and the credit.
+  if (device === 'desktop') await check(device, 'presenter: the controls are a lower-right pill on wide screens', async (page) => {
+    const bad = [];
+    for (const size of [{ width: 1440, height: 900 }, { width: 1180, height: 820 }, { width: 820, height: 1180 }]) {
+      await page.setViewportSize(size);
+      for (const [deck, n] of [['circulation', 3], ['hvpg', 10], ['circulation', 11]]) {
+        if (size.width === 1440 && n === 3) await open(page, `?script=${deck}&slide=${n}`);
+        else await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, n - 1]);
+        await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !document.querySelector('.pz-cover, .pz-load.on'), n, { timeout: 60000 });
+        await page.waitForTimeout(3500);   // (longer than the old bar's idle fade)
+        const out = await page.evaluate(() => {
+          const o = [], bar = document.querySelector('.pz-bar'), b = bar.getBoundingClientRect();
+          const vis = (el) => { if (!el || el.hidden || el.classList.contains('pz-hide')) return null; const st = getComputedStyle(el); if (st.display === 'none' || +st.opacity < 0.5) return null; const r = el.getBoundingClientRect(); return r.width ? r : null; };
+          if (+getComputedStyle(bar).opacity < 0.9) o.push('the pill hides');
+          if (innerWidth - b.right > 50 || innerHeight - b.bottom > 20 || b.left < innerWidth / 2) o.push(`the pill is not at the lower right (${Math.round(b.left)},${Math.round(b.top)})`);
+          const kids = [...bar.children].map((c) => c.getAttribute('aria-label') || c.textContent.trim());
+          if (kids.length !== 5 || !/^Slide \d+ of/.test(kids[1]) || kids[3] !== 'Settings') o.push(`the pill holds ${kids.join(', ')}`);
+          if (document.querySelector('.pz-count')) o.push('a second count shows');
+          if (!['none', 'normal'].includes(getComputedStyle(bar, '::before').content) || [...bar.children][0].getBoundingClientRect().left - b.left > 4) o.push('a mark shows before the back button');   // (the app's status-pill dot once did)
+          for (const s of ['.pz-text', '.pz-data', '.pz-panel', '.stage-credit']) { const q = vis(document.querySelector(s)), g = s === '.stage-credit' ? 4 : 0;
+            if (q && Math.min(q.right, b.right) - Math.max(q.left, b.left) > -g && Math.min(q.bottom, b.bottom) - Math.max(q.top, b.top) > -g) o.push(`the pill touches ${s}`); }
+          return o;
+        });
+        for (const x of out) bad.push(`${deck} ${n} at ${size.width}x${size.height}: ${x}`);
+      }
+    }
+    if (bad.length) throw new Error(bad.slice(0, 4).join(' | '));
+  });
+
+  // Figure labels and slide cards keep to the six-role type scale at every text size step, never under 11 px, units never
+  // above their readings, on a phone, an upright iPad and a desktop (tests/e2e/type-scale.mjs). Run once, from the desktop run.
+  if (device === 'desktop') await check(device, 'type scale: figure and slide text on the six roles at every text size', async () => {
+    const bad = await checkTypeScale(browser, server.url, () => {});
+    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+  });
+
+  // Drawn slide charts letter from the same scale as drawn: never under 11 px, growing with the text size, no word over
+  // another or out of its card, on every chart slide at three phones, an iPad and a desktop (tests/e2e/chart-type.mjs).
+  // (One check for each deck and text size: the whole sweep is 35 slides at five sizes and two text sizes, some 78 minutes in one piece.)
+  if (device === 'desktop') {
+    const perDeck = new Map();
+    for (const s of await chartTypeSlides()) perDeck.set(s.deck, (perDeck.get(s.deck) || 0) + 1);
+    for (const [deck, count] of perDeck) for (const step of [1, 2]) {
+      const name = `chart type: ${deck}'s drawn slide charts on the type scale at ${step * 100} %`;
+      CHART_SLIDES.set(name, count);
+      await check(device, name, async () => {
+        const bad = await checkChartText(browser, server.url, () => {}, { deck, step });
+        if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+      });
+    }
+  }
 
   await check(device, 'presenter: summary table cells stay under their headings', async (page) => {
     // Each cell's contents sit inside its column heading's width, and no two cells overlap, at each size (the desktop run
@@ -1159,6 +1455,53 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (bad.length) throw new Error(`${deck}${size ? ` at ${size.width}x${size.height}` : ''}: ${bad.slice(0, 4).join('; ')}`);
       }
     }
+  });
+
+  await check(device, 'lobule: the sinusoid reading and its lesion pointer point at the middle of a sinusoid', async (page) => {
+    // Each of the presenter's lobule framings (the whole lobule, a portal tract, the sinusoids, the central vein; every
+    // lobule slide uses one of these) and Explore's lobule: where the sinusoid's reading or the "Block: sinusoids" pointer
+    // is shown, the spot they name lies half way between the portal tract and the central vein (not at either end), and
+    // the reading, the pointer and the corner credit keep clear of each other.
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    const slides = [['lobule', 'lobule:fit'], ['sites', 'lobule:triad'], ['sites', 'lobule:sinusoid'], ['sites', 'lobule:central']]
+      .map(([deck, cam]) => [deck, withOverview(DECKS.find((d) => d.id === deck)).slides.findIndex((x) => x.cam === cam)]);
+    if (slides.some(([, i]) => i < 0)) throw new Error('a lobule framing is missing from its deck');
+    const bad = [];
+    const look = async (where) => {
+      // Settled: the labels hold still across two looks a moment apart.
+      const pos = () => page.evaluate(() => [...document.querySelectorAll('.lz-lab, .lz-call')].map((e) => e.style.left + e.style.top + e.style.transform).join());
+      for (let prev = '', i = 0; i < 8; i++) { await page.waitForTimeout(400); const now = await pos(); if (now === prev) break; prev = now; }
+      bad.push(...await page.evaluate((where) => {
+        const out = [], a = window.pps.stage.lobuleSinAnchor();
+        const shown = (e) => !!e && !e.hidden && !!e.offsetParent && +getComputedStyle(e).opacity > 0.5;
+        const lab = [...document.querySelectorAll('.lz.on .lz-lab')].find((e) => e.dataset.target === 'lobule:sinusoid');
+        const call = document.querySelector('.lz.on .lz-call.on'), sinCall = shown(call) && /sinusoid/i.test(call.textContent);
+        if (!a || !(shown(lab) || sinCall)) return out;
+        if (a.f < 0.3 || a.f > 0.7) out.push(`${where}: the sinusoid ${sinCall ? 'pointer' : 'reading'} names a spot ${Math.round(a.f * 100)}% of the way out from the central vein (want 30 to 70%)`);
+        const box = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+        const hit = (p, q) => Math.min(p.r, q.r) - Math.max(p.l, q.l) > 1 && Math.min(p.b, q.b) - Math.max(p.t, q.t) > 1;
+        const credit = document.querySelector('.stage-credit'), parts = [];
+        if (shown(lab)) parts.push(['reading', box(lab)]);
+        if (shown(call)) parts.push(['pointer', box(call)]);
+        if (credit && +getComputedStyle(credit).opacity > 0.5) parts.push(['credit', box(credit)]);
+        for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) if (hit(parts[i][1], parts[j][1])) out.push(`${where}: the sinusoid ${parts[i][0]} overlaps the ${parts[j][0]}`);
+        return out;
+      }, where));
+    };
+    await open(page);
+    for (const [deck, i] of slides) {
+      await page.evaluate(([deck, i]) => window.pps.presenter.start(deck, i), [deck, i]);
+      await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover') && !document.querySelector('#app').className.includes('pz-hush')
+        && window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 60000 });
+      await look(`${deck} slide ${i + 1}`);
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'), null, { timeout: 30000 });
+    }
+    await open(page, '?preset=cirr-decomp');
+    await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 45000 });
+    await look('explore lobule');
+    if (bad.length) throw new Error(bad.slice(0, 6).join(' | '));
   });
 
   await check(device, 'presenter: lobule labels never touch, leaders never cross', async (page) => {
@@ -1652,6 +1995,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           await page.evaluate((v) => window.pps.store.set({ view: v }), view);
           await page.waitForTimeout(1200);
           const bad = await overlaps();
+          // The sinusoids' callout hangs from the middle of their bed (half way along the drawn vessel), in both views.
+          bad.push(...await page.evaluate(() => ['SIN_R', 'SIN_L'].flatMap((id) => {
+            const a = window.pps.stage.labelAnchorOf(id), eid = { SIN_R: 'SIN_RR', SIN_L: 'SIN_LL' }[id];
+            const p = document.querySelector(`.vg[data-id="${eid}"] .v-hit[role="button"]`);
+            if (!a?.mid || !p) return [];
+            const m = p.getPointAtLength(p.getTotalLength() / 2), c = p.getScreenCTM();
+            const d = Math.hypot(c.a * m.x + c.c * m.y + c.e - a.x, c.b * m.x + c.d * m.y + c.f - a.y), len = p.getTotalLength() * Math.hypot(c.a, c.b);
+            return d > Math.max(6, len * 0.08) ? [`${id} anchor ${Math.round(d)}px from the bed's middle`] : [];
+          })));
         if (bad.length) throw new Error(`${w}×${hgt} ${id} ${view}: ${bad.join('; ')}`);
         }
         await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));
@@ -1955,6 +2307,30 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction((q) => document.querySelector(q).textContent.includes('Measuring'), sel, { timeout: 10000 }).catch((e) => { throw new Error('a tap on Measure HVPG did not start it', { cause: e }); });
   });
 
+  // The HVPG deck's result slide: the summary (WHVP and FHVP bracketed to the HVPG) sits in the free figure, never
+  // under the data card, the words or the slide controls (on a Mac it once went half under the pressure card).
+  if (device === 'desktop') await check(device, 'presenter: the HVPG summary callout is never under a card, at every size', async (page) => {
+    const out = [];
+    for (const [width, height] of [[1440, 900], [1280, 800], [1920, 1080], [1180, 820], [820, 1180]]) {
+      await page.setViewportSize({ width, height });
+      await open(page, '?script=hvpg&slide=5');
+      await page.waitForFunction(() => { const b = document.querySelector('.cath-sum-box .calc'); return b && +getComputedStyle(b).opacity > 0.9; }, null, { timeout: 60000 })
+        .catch((e) => { throw new Error(`${width}x${height}: the HVPG summary never showed`, { cause: e }); });
+      await page.waitForTimeout(2500);   // (the camera and the cards settle)
+      out.push(...await page.evaluate((sz) => {
+        const b = document.querySelector('.cath-sum-box').getBoundingClientRect(), bad = [];
+        for (const el of document.querySelectorAll('.stage-blocker:not([hidden])')) {
+          if (getComputedStyle(el).visibility === 'hidden' || +getComputedStyle(el).opacity < 0.5) continue;
+          const q = el.getBoundingClientRect();
+          if (q.width && Math.min(b.right, q.right) - Math.max(b.left, q.left) > 1 && Math.min(b.bottom, q.bottom) - Math.max(b.top, q.top) > 1) bad.push(`${sz}: the HVPG summary is under ${el.className.split(' ')[0]}`);
+        }
+        if (b.left < 0 || b.right > innerWidth || b.top < 0 || b.bottom > innerHeight) bad.push(`${sz}: the HVPG summary runs off screen`);
+        return bad;
+      }, `${width}x${height}`));
+    }
+    if (out.length) throw new Error(out.join('; '));
+  });
+
   await check(device, 'HVPG procedure: each reading\'s shadow fades with its body, and no reading outlives its step', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.evaluate(() => { window.pps.dock.show('hvpg'); window.pps.dock.setState('open'); });
@@ -2043,8 +2419,9 @@ if (process.env.SMOKE_MATCH) { const match = new RegExp(process.env.SMOKE_MATCH,
 // (times measured on CI runners; checks not listed count as 45 s, a deck walk as 3 min).
 const MEASURED = {
   'pan and pinch: marks and labels stay locked to the figure': 150000,
-  'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text': 125000,
+  'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text': 90000,   // (one device pixel per pixel on a phone: about 65 s here)
   'presenter: lobule labels never touch, leaders never cross': 140000,
+  'lobule: the sinusoid reading and its lesion pointer point at the middle of a sinusoid': 150000,
   'liver lobule: GPU vessels, pressure drops, caption, cards, zones': 160000,
   'corner credit never touches a card': 130000,
   'pressure over time and Doppler': 76000,
@@ -2054,8 +2431,12 @@ const MEASURED = {
   'sinusoid view: a rebuilt caption does not fade in again (no flashing at rest)': 36000,
   'circuit view, selection card, lenses': 38000,
   'action card is a compact sheet that keeps the vessel in view': 28000,
+  'type scale: figure and slide text on the six roles at every text size': 880000,   // (a desktop CI runner took 14.6 minutes over it)
+  'presenter: chart text never overlaps or crosses a line, at every size': 600000,   // (a desktop CI runner took 11.5 minutes over it)
+  'presenter: every choice button on every slide fits on screen, at phones, sideways and iPad': 420000,   // (five sizes over eleven slides, about 7 minutes on a CI runner)
+  'presenter: the controls never glide between slides, and keep their size and spacing, first and last included': 780000,   // (a phone CI runner took 10 minutes, a desktop one 12.7)
 };
-const expected = (name) => MEASURED[name] ?? (/^presenter: on every slide of /.test(name) ? 180000 : 45000);
+const expected = (name) => MEASURED[name] ?? (STRIP_SLIDES.has(name) ? STRIP_SLIDES.get(name) * 2 * 42000 : null) ?? (CHART_SLIDES.has(name) ? CHART_SLIDES.get(name) * 125000 : null) ?? (/^presenter: on every slide of /.test(name) ? 180000 : 45000);
 const [shard, shards] = (process.env.SMOKE_SHARD || '1/1').split('/').map(Number);
 const load = Array(shards).fill(0);
 const owner = new Map();
@@ -2064,6 +2445,8 @@ for (const item of [...queue].sort((a, b) => expected(b[1]) - expected(a[1]))) {
   load[k] += expected(item[1]);
   owner.set(item, k);
 }
+if (process.env.SMOKE_PLAN) { console.log(`${queue.length} checks; expected minutes per share: ${load.map((v) => Math.round(v / 6000) / 10).join(' ')}`); if (process.env.SMOKE_PLAN === 'list') for (const [item, k] of owner) console.log(`${k + 1}/${shards} ${Math.round(expected(item[1]) / 6000) / 10} ${item[1]}`);
+  process.exit(0); }   // (SMOKE_PLAN=1: only print how the shares divide; =list also names the checks of each share)
 for (let i = queue.length - 1; i >= 0; i--) if (owner.get(queue[i]) !== shard - 1) queue.splice(i, 1);
 const WORKERS = Number(process.env.SMOKE_WORKERS) || 4;
 await Promise.all(Array.from({ length: WORKERS }, async () => { while (queue.length) await runCheck(...queue.shift()); }));

@@ -76,6 +76,7 @@ uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uF
 uniform vec3 cBg, cShade, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cKup, cKupN, cKupE, cRbc, cChev, cRev, cEndF, cEndE;
 uniform float aBm;
 uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
+uniform vec2 uEndA;              // how much each end's name shows (0 to 1): its arrow fades with it
 uniform float uRamp;             // the arrowheads' fades, at least this long (µm): half a second of the blood's travel, up to 12 µm
 uniform vec3 uLab;               // the lumen's own name: x and half length (µm), kept clear of the arrowheads; how much it shows (0 to 1)
 
@@ -418,8 +419,8 @@ void main() {
       // broad shaft and a wide head, softly rounded, in the labels' ink faded into the blood, as a journal figure marks flow.
       float dA = min(sdRB(q - vec2(-0.3 * s, 0.0), vec2(0.28 * s, 0.17 * s), 0.05 * s),
                      sdTri(q, vec2(0.52 * s, 0.0), vec2(0.0, 0.46 * s), vec2(0.0, -0.46 * s)) - 0.03 * s);
-      c = mix(c, cEndE, cov(dA - 0.08 * s) * 0.3 * uEnd.w);
-      c = mix(c, cEndF, cov(dA) * 0.5 * uEnd.w);
+      c = mix(c, cEndE, cov(dA - 0.08 * s) * 0.3 * uEnd.w * (i == 0 ? uEndA.x : uEndA.y));
+      c = mix(c, cEndF, cov(dA) * 0.5 * uEnd.w * (i == 0 ? uEndA.x : uEndA.y));
     }
   }
   else if (a < wi) c = mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (a - hw) / ENDO);

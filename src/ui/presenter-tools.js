@@ -12,6 +12,9 @@
 //   tool: { kind: 'wall' }                          the varix in cross-section, Laplace's T, r and w (the scope's Wall mechanics)
 //   tool: { kind: 'flowtime' }                      portal pressure and portal flow around a meal, the slide's time-lapse on a
 //                                                   teaching clock in minutes (flow-time.js), drawn as it plays
+//   tool: { kind: 'flowtime', clock: 'days', lines: [lower, upper] }
+//                                                   the same chart over a disease time-lapse: two fingerprint keys
+//                                                   (flow-time.js LINE), one point a model day, drawn as it plays
 //
 // Optional on any kind: title (the card's heading, in place of the kind's own). A slide may carry both data and tool:
 // the tool sits above the tiles. In quiz mode a tool with a reading (Doppler, FibroScan, the scope's grade) keeps it
@@ -19,14 +22,14 @@
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
 import { store } from './store.js?v=7fb7280c05';
-import { h, fmt, clamp } from './util.js?v=0cca243d2a';
+import { h, fmt, clamp } from './util.js?v=b1761ad19c';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { createDoppler } from './doppler.js?v=c15e71bba9';
-import { createFibroScan } from './fibroscan.js?v=848adfe555';
-import { createPressureTime } from './pressure-time.js?v=71fe19d05e';
-import { createFlowTime } from './flow-time.js?v=a86039df56';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=b050449115';
-import { frameFor } from './frame.js?v=49a46c570b';
+import { createDoppler } from './doppler.js?v=b26ba3e4f5';
+import { createFibroScan } from './fibroscan.js?v=1b0c346f76';
+import { createPressureTime } from './pressure-time.js?v=a1bb3a4807';
+import { createFlowTime } from './flow-time.js?v=9327f117b5';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=9feb441f21';
+import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -87,7 +90,7 @@ export function createTools({ host, stage }) {
       box.dataset.kind = k;
       box.classList.toggle('ask', quiz && READS.has(t.kind));
       if (k === 'talk') inst.set(chain);
-      else if (k === 'flowtime') inst.set(trail, reveal);
+      else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines });
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update(f)); }
     },
     /** The flow-time chart drawn up to k (0 to 1) of its time-lapse, with its series (trail) once it is computed. */

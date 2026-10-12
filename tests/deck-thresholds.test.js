@@ -54,6 +54,11 @@ test('threshold claims in slide lines match the model state each slide shows', a
     const fps = await deckStates(d);
     d.slides.forEach((s, i) => {
       const fp = fps[i], id = `${d.id}/${s.id}`;
+      // Every slide's HVPG and PPG is the difference of the readings as shown (one decimal), so a scale card, a callout
+      // and the monitor agree: WHVP 16.4 − FHVP 4.8 is 11.6 everywhere.
+      const r1 = (v) => Math.round(v * 10) / 10;
+      for (const [g, hi, lo] of [['hvpg', 'whvp', 'fhvp'], ['ppg', 'pv', 'ivc']]) if (Number.isFinite(fp[hi]) && Number.isFinite(fp[lo]) && r1(fp[g]) !== r1(r1(fp[hi]) - r1(fp[lo])))
+        bad.push(`${id}: ${g} ${fp[g]} is not ${r1(fp[hi])} − ${r1(fp[lo])}`);
       if (KNOWN[id] && !KNOWN[id](fp)) bad.push(`${id}: HVPG ${fp.hvpg.toFixed(1)}, PPG ${fp.ppg.toFixed(1)}`);
       for (const [k, op, n, sen] of claims(s.line)) if (op === '<' ? !(fp[k] < n) : !(fp[k] >= n)) bad.push(`${id}: ${k} ${fp[k].toFixed(1)} vs "${sen}"`);
     });

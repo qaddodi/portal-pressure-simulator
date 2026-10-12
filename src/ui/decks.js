@@ -56,10 +56,10 @@
 import { CIRCULATION } from './decks/circulation.js?v=a0bf5a17c7';
 import { SITES } from './decks/sites.js?v=36e6abf616';
 import { HVPG } from './decks/hvpg.js?v=e4c550f298';
-import { ASCITES } from './decks/ascites.js?v=2350854694';
-import { VARICES } from './decks/varices.js?v=de0e419aa9';
+import { ASCITES } from './decks/ascites.js?v=4f7388ad65';
+import { VARICES } from './decks/varices.js?v=904a37fa1c';
 import { TREATMENT } from './decks/treatment.js?v=8b12768e70';
-import { STIFFNESS } from './decks/stiffness.js?v=d6acd10be0';
+import { STIFFNESS } from './decks/stiffness.js?v=da30273d27';
 import { ONE_YEAR } from './decks/one-year.js?v=aaf38e4baf';
 import { LOBULE } from './decks/lobule.js?v=262a31ce6b';
 import { SHUNTS } from './decks/shunts.js?v=91699f4277';
@@ -74,7 +74,7 @@ import { TWO_INFLOWS } from './decks/two-inflows.js?v=2a19a5fc63';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=a01124f125';
 import { SPLEEN } from './decks/spleen.js?v=c8fca55d38';
 import { NCPH } from './decks/ncph.js?v=8794f0bf6b';
-import { OUTFLOW } from './decks/outflow.js?v=de1c115629';
+import { OUTFLOW } from './decks/outflow.js?v=e0f5f66517';
 import { RECOMPENSATION } from './decks/recompensation.js?v=0d5b3fb564';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).

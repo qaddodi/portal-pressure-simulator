@@ -23,7 +23,7 @@ export const ASCITES = {
       ask: ['What does a reflection coefficient (σ) near zero mean for the sinusoid wall?', 'Protein crosses freely, so oncotic pressure cannot hold the fluid back, and any rise in pressure becomes lymph.'],
     },
     {
-      id: 'fill', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 9 }, cam: 'fit', glow: ['liver'], tool: { kind: 'trace' }, data: 'tiles', tiles: ['sin', 'asc', 'tp'], key: ['asc'], delta: true,
+      id: 'fill', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 9 }, cam: 'fit', glow: ['liver'], tool: { kind: 'flowtime', clock: 'days', lines: ['sin', 'asc'], title: 'Sinusoids and ascites over the days' }, data: 'tiles', tiles: ['sin', 'asc', 'tp'], key: ['asc'], delta: true,
       kicker: 'Ascites', site: 'sin', title: 'Ascites builds over two months',
       line: 'As fibrosis advances, sinusoidal pressure rises and lymph outruns the lymphatics. High sinusoidal pressure puts the fluid in the peritoneum, and renal sodium and water retention keep replacing it.',
       caveat: 'The model builds the fluid from pressure and albumin; it does not model the kidneys.',

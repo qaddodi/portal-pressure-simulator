@@ -2,21 +2,22 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=34e377149b';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CIRC_HIDDEN, CAUDATE_LOBE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=dc42714177';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=c17dfefa88';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=6e4d654280';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=a65dea21ce';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7fb7280c05';
 import { fibroReading } from './clock.js?v=af42a9670d';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors } from './util.js?v=0cca243d2a';
-import { createLobuleZoom } from './lobule-zoom.js?v=c78a8b54d8';
-import { runFlick, FLICK } from './flick.js?v=9c07aaa402';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=b1761ad19c';
+import { createLobuleZoom } from './lobule-zoom.js?v=3fc50e1197';
+import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
+import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=9d3f9164af';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=1a5770aa47';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b443472f3a';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
-import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -141,7 +142,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const STRAIGHT_COLL = new Set(['C9']);
   // Veins that fade into the vessel they sink into: a linear mask [x1, y1, x2, y2, offset], from
   // solid at the offset to 30 % at the end (the caudate vein into the IVC, C5 into the renal vein).
-  const FADE_IN = { RHV_IVC: [604, 226, 616, 204, 0, 0], MHV_IVC: [604, 246, 615, 228, 0, 0], LHV_IVC: [638, 220, 624, 211, 0, 0], LRV_IVC: [642, 625, 624, 625, 0, 0], RRV_IVC: [602, 660, 615, 673, 0, 0], CAUD: [609, 369, 619, 358, 0, 0], C5: [852, 520, 862, 618, 0.6] };
+  const FADE_IN = { RHV_IVC: [604, 226, 616, 204, 0, 0], MHV_IVC: [604, 246, 615, 228, 0, 0], LHV_IVC: [638, 220, 624, 211, 0, 0], LRV_IVC: [642, 625, 624, 625, 0, 0], RRV_IVC: [602, 660, 615, 673, 0, 0], CAUD: [566, 326, 620, 350, 0.45], C5: [852, 520, 862, 618, 0.6] };
   // The sinusoids lie inside the liver: faded along their course, most in the middle of the lobe, clearing as
   // they gather into the central and hepatic veins. Linear from the portal end to the venous end, [offset of
   // the faintest point, alpha at the start, there, mode 3] (the end is solid).
@@ -577,18 +578,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const liverClip = defs.querySelector('#clip-liver path');
   if (liverClip) liverPaths.push(liverClip);
   liverPaths.push(lv.sep);
-  // The caudate lobe (CAUDATE_LOBE): the dome of its own surface and a fissure line, part of the liver's plate, so it
-  // reads as normal anatomy. A presenter slide outlines it as an organ of its own (pinOrgans: 'caudate'). It grows
-  // about its side on the IVC as its veins become the liver's outflow (morphLiver's `cd`).
-  const cdForm = s('path', { d: CAUDATE_LOBE.d, class: 'lv-caud-form', fill: 'url(#ogVol)', 'clip-path': 'url(#clip-liver)' });
-  const cdLine = s('path', { d: CAUDATE_LOBE.d, class: 'lv-caud-line', 'clip-path': 'url(#clip-liver)' });
-  for (const el of [cdForm, cdLine]) organG.liver.insertBefore(el, shadeAt);
-  organEls.caudate = cdLine; organG.caudate = organG.liver;
-  const caudPath = (cd) => {
-    const [ax, ay] = CAUDATE_LOBE.anchor, [gx, gy] = CAUDATE_LOBE.grow;
-    let i = 0;
-    return CAUDATE_LOBE.d.replace(/-?\d+(?:\.\d+)?/g, (v) => { const y = i++ % 2, o = y ? ay : ax; return (o + (Number(v) - o) * (1 + (y ? gy : gx) * cd)).toFixed(1); });
-  };
   let baseLiver = null, liverKey = '';
   const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };
   function sampleLiver() {
@@ -670,12 +659,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (let j = 0; j < 6; j++) d += `Q${p[j][0].toFixed(1)} ${p[j][1].toFixed(1)} ${m(j)}`;
     return d + 'Z';
   }
-  function morphLiver(cirr, cong, fine, caud = 0) {
+  function morphLiver(cirr, cong, fine) {
     const q = fine ? 200 : 40;
-    const c = Math.round(clamp(cirr, 0, 1) * q) / q, g = Math.round(clamp(cong, 0, 1) * q) / q, cd = Math.round(clamp(caud, 0, 1) * q) / q;
-    const key = c + ',' + g + ',' + cd;
+    const c = Math.round(clamp(cirr, 0, 1) * q) / q, g = Math.round(clamp(cong, 0, 1) * q) / q;
+    const key = c + ',' + g;
     if (key === liverKey) return;
-    if (!liverKey || cd !== +liverKey.split(',')[2]) { const d = caudPath(cd); cdForm.setAttribute('d', d); cdLine.setAttribute('d', d); }
     if (!baseLiver) { try { baseLiver = sampleLiver(); } catch { return; } if (!baseLiver.pts.length) { baseLiver = null; return; } }
     liverKey = key;
     const { pts, nm, nod, spots } = baseLiver;
@@ -716,7 +704,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lv.nut.style.opacity = lv.nutNet.style.opacity = smooth01(g / 0.5).toFixed(3);
   }
   // The liver's state eases toward the model's (a new patient or a slider never makes it jump).
-  let lvC = null, lvG = 0, lvT = 0, lvGT = null, lvTT = null, lvAt = 0, lvMoving = false, lvCT = null, lvGTo = null, lvStillAt = 0, lvK = 0, lvKT = null, lvKTo = null;
+  let lvC = null, lvG = 0, lvT = 0, lvGT = null, lvTT = null, lvAt = 0, lvMoving = false, lvCT = null, lvGTo = null, lvStillAt = 0, caudK = null;
   // Abdominal wall (anterior): a soft skin tint that appears only with caput medusae, under its veins.
   const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
@@ -925,6 +913,55 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     balloons: s('g'), bands: s('g'),
   };
   Object.values(ov).forEach((g) => gOver.append(g));
+  // The caudate lobe and its veins (CAUDATE): shown only while a slide is about them (pinOrgans 'caudate'), eased in
+  // and out (.caud.on), under the stents and other overlays. Each vein is a tapered tube (a wall, its lumen colored
+  // from its pressures like the vessels, a sheen) that fades into the IVC's wall instead of ending on it.
+  const caud = (() => {
+    const [ax, ay] = CAUDATE.anchor, W = CAUDATE.wall;
+    const g = s('g', { class: 'caud', style: `transform-origin:${ax}px ${ay}px` });
+    let defsHtml = '<radialGradient id="caudDome"><stop offset="0" class="caud-d0"/><stop offset=".55" class="caud-d1"/><stop offset="1" class="caud-d2"/></radialGradient>'
+      + `<linearGradient id="caudFade" gradientUnits="userSpaceOnUse" x1="${W - 1}" y1="0" x2="${W + 4}" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
+      + `<mask id="caudMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#caudFade)"/></mask>`;
+    const lobe = s('g', { class: 'caud-lobe' });
+    for (const [cx, cy, rx, ry, a] of CAUDATE.lobe) {
+      const at = { cx, cy, rx, ry, transform: `rotate(${a} ${cx} ${cy})` };
+      lobe.append(s('ellipse', { ...at, fill: 'url(#caudDome)' }));
+    }
+    const veinsG = s('g', { mask: 'url(#caudMask)', class: 'caud-veins' });
+    CAUDATE.veins.forEach(([d, w], i) => {
+      const n = d.match(/-?\d+(?:\.\d+)?/g).map(Number), P0 = [n[0], n[1]], C = [n[2], n[3]], P1 = [n[4] + 3, n[5] - 1.5];   // (on into the wall, where it fades)
+      const at = (t) => [0, 1].map((j) => (1 - t) ** 2 * P0[j] + 2 * (1 - t) * t * C[j] + t * t * P1[j]);
+      // The outline of a tube that widens from a rounded start inside the lobe and flares a little into the cava.
+      const h0 = (pad) => (w / 2) * 0.45 + pad;
+      const tube = (pad) => {
+        const L = [], R = [];
+        for (let k = 0; k <= 20; k++) {
+          const t = k / 20, p = at(t), q = at(Math.min(1, t + 0.01)), r = at(Math.max(0, t - 0.01));
+          let nx = -(q[1] - r[1]), ny = q[0] - r[0]; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+          const h = (w / 2) * (0.45 + 0.55 * Math.min(1, t / 0.75)) * (1 + 0.25 * Math.max(0, (t - 0.75) / 0.25) ** 2) + pad;
+          L.push([p[0] + nx * h, p[1] + ny * h]); R.push([p[0] - nx * h, p[1] - ny * h]);
+        }
+        return 'M' + [...L, ...R.reverse()].map((v) => v[0].toFixed(2) + ' ' + v[1].toFixed(2)).join(' L') + ' Z';
+      };
+      veinsG.append(s('path', { d: tube(0.45), class: 'caud-wall' }), s('circle', { cx: P0[0], cy: P0[1], r: h0(0.45), class: 'caud-wall' }),
+        s('path', { d: tube(0), class: 'caud-lumen' }), s('circle', { cx: P0[0], cy: P0[1], r: h0(0), class: 'caud-lumen' }),
+        s('path', { d: `M${at(0.35).join(' ')} Q ${C.join(' ')} ${P1.join(' ')}`, class: 'caud-sheen', 'stroke-width': (w * 0.22).toFixed(2) }));
+    });
+    g.insertAdjacentHTML('afterbegin', `<defs>${defsHtml}</defs>`);
+    const lumens = [...veinsG.querySelectorAll('.caud-lumen')];
+    g.append(lobe, veinsG);
+    gOver.prepend(g);
+    let cols = '', grow = '';
+    return {
+      show(on, veins) { g.classList.toggle('on', !!on); if (on) g.classList.toggle('lobe-only', !veins); },
+      // Colored from the pressure they drain at (the IVC's: the lobe keeps its outflow); sized by its share of it.
+      sync(c, kq) {
+        if (c !== cols) { cols = c; for (const el of lumens) el.setAttribute('fill', c); }
+        const [gx, gy] = CAUDATE.grow, v = `scale(${(1 + gx * kq).toFixed(3)}, ${(1 + gy * kq).toFixed(3)})`;
+        if (v !== grow) { grow = v; g.style.transform = v; }
+      },
+    };
+  })();
   // ── Vessel glow: one engine for every highlight ──
   // Hover, a slide's glows, a step's focus, the Doppler's vessel and a change in pressure all light a vessel the same
   // way: a thin soft band hugging its live wall on both sides, fading to nothing at a free end, drawn by the GPU with
@@ -1132,8 +1169,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const el of document.querySelectorAll('[data-safe]')) {
       if (el.hidden || el.closest('[hidden]')) continue;
       if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
-      const q = el.getBoundingClientRect();
+      let q = el.getBoundingClientRect();
       if (!q.width || !q.height) continue;
+      // (data-safe-rest: a card whose own transform only eases it in or out counts where it rests, so the camera frames once.)
+      if ('safeRest' in el.dataset) q = restBox(el, q);
       // The vitals dock folded to one line on a phone (main.js) still counts at its full height, so the
       // framing does not jump each time it folds and opens.
       const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top;
@@ -1312,7 +1351,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let diveZ = 0;   // the dive's zoom so far (log scale), kept for cameraZoom
   // Anatomy to the sinusoid (and back) as one zoom, with no rest in the lobule: the dive is eased in only and hands its speed on, at the joint,
   // to the sinusoid's zoom (lobule-zoom.js sinChain), which eases out only; out, the other way round.
-  let chainIn = false, chainOut = false, chainFired = false, chainAt = 0, zShift = 0;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
+  // (diveClock: the dive's own start, span and ends, so the joint's moment is known exactly; riseAt: when the sinusoid finished
+  // closing, the moment the rise that follows it begins, rather than when its callback happens to run.)
+  let chainIn = false, chainOut = false, chainFired = false, chainAt = 0, zShift = 0, diveClock = null, riseAt = null;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
   const RH = 11;   // a lobule's size on screen (px) as the liver's surface gives way to the field
   const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
@@ -1353,11 +1394,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (lz.isShown()) diveLand = lz.current();
       else if (lobuleOn) lz.warm();
       const lt = LC + Math.log(Math.max(RH * 2, diveLand.r) / RH);
-      // Eased in and out (smootherstep); the anatomy's part takes the first two fifths of the way.
-      const TJ = chainIn ? 0.88 : chainOut ? 1 : 0.84, u = clamp(t / TJ, 0, 1), P = 0.4;
+      // Eased in and out (smootherstep), one ease over the whole log scale: the anatomy's part and the field's run on at the same
+      // speed where they meet. (Each part had its own rate, so the zoom sped up by a sixth or more, suddenly, a third of the way in.)
+      const TJ = chainIn ? 0.88 : chainOut ? 1 : 0.84, u = clamp(t / TJ, 0, 1);
       const p = chainIn || chainOut ? u * u * (2 - u) : u * u * u * (u * (u * 6 - 15) + 10);
-      if (chainIn && !chainFired || chainOut) lz.setSinChain({ speed: (lt - LC) / (1 - P) / (TJ * (diveOut ? RISE_MS : DIVE_MS)) }, true);
-      const z = p < P ? LC * p / P : LC + (lt - LC) * (p - P) / (1 - P);
+      // (at: the moment the dive reaches the joint, from its own clock: the sinusoid's zoom is timed from there, not from whenever the
+      // frame that crossed it ran, which on a phone is a frame or more later and left the zoom slowed for a moment.)
+      // (now: this frame's own moment, so the frame that crosses the joint already draws the sinusoid's first step, rather than holding
+      // the zoom still for that frame.)
+      const clockAt = (x) => (chainIn && diveClock ? diveClock[0] + (x - diveClock[2]) / (diveClock[3] - diveClock[2]) * diveClock[1] : undefined);
+      if (chainIn && !chainFired || chainOut) lz.setSinChain({ speed: lt / (TJ * (diveOut ? RISE_MS : DIVE_MS)), at: clockAt(TJ), now: clockAt(t) }, true);
+      const z = lt * p;
       diveZ = z;
       setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)));
       // The anatomy's labels leave as the zoom starts.
@@ -1422,7 +1469,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (F) updateLabels(F);   // the labels are laid out for the final framing now, so they come in where they will stay
       }
     }
-    const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0, t0 = performance.now();
+    const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0;
+    // Out from the sinusoid, the rise starts when its zoom ended, so the two run on as one.
+    const t0 = !on && riseAt !== null ? Math.min(performance.now(), riseAt) : performance.now();
+    riseAt = null; diveClock = [t0, ms * Math.abs(to - from) || 1, from, to];
     const step = (now) => {
       const e = ms ? clamp((now - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1;
       diveT = from + (to - from) * e;
@@ -1660,7 +1710,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function edgeVisible(x, f) {
     const e = x.e, p = f.viewParams || store.get().params;
     if (ANAT_HIDDEN.has(e.id) && morph < 0.5) return false;
-    if (CIRC_HIDDEN.has(e.id) && morph >= 0.5) return false;
     if (NEEDS_C3.has(e.id)) return !findingHidden('coll') && recruitFrac('C3', f) > 0.15;
     if (e.kind === 'collateral') {
       if (!edgePresent(e, p)) return false;
@@ -1839,6 +1888,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     prepIdle(run);
   }
   let catchUp = false, wAt = 0, widthEasing = false;
+  // A presenter's slide change holds the fit still while it runs: the words leaving or arriving change the space the camera
+  // frames into, and a fit that followed them would glide the figure before the slide's own move (a dive, a rise) starts.
+  let homeHeld = 0;
+  function holdHome(on) { homeHeld = Math.max(0, homeHeld + (on ? 1 : -1)); }
   function update(f) {
     inUpdate = true;
     try { updateInner(f); } finally { inUpdate = false; }
@@ -1849,7 +1902,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     prepLobule();
     const now = performance.now();
     // (Not while a move away from home is under way: its first frames still sit at home.)
-    if (homeAt && morphTarget === 0 && !lobuleOn && diveT === 0 && now - homeCheck > 500 && sameView(vt, homeAt) && (!vtTarget || sameView(vtTarget, homeAt))) {
+    if (homeAt && !homeHeld && morphTarget === 0 && !lobuleOn && diveT === 0 && now - homeCheck > 500 && sameView(vt, homeAt) && (!vtTarget || sameView(vtTarget, homeAt))) {
       homeCheck = now;
       const d = defaultVT(false);
       if (!sameView(d, homeAt)) { homeAt = d; animateVT(d, 400); }
@@ -2941,6 +2994,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter slide's organs, outlined and held (several at once): eased in and out like the hover outline.
   // Each in its station's colour ([{ id, tone }], --tr-<tone>).
   function pinOrgans(list) {
+    const ids = (list || []).map((o) => o.id || o);
+    caud.show(ids.includes('caudate') || ids.includes('caudate-lobe'), ids.includes('caudate'));
     const want = new Map((list || []).map((o) => (typeof o === 'string' ? [o, null] : [o.id, o.tone])).filter(([id]) => organEls[id]));
     const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(${tone.startsWith('--') ? tone : `--tr-${tone}`})`, cs)].slice(0, 3) : null);
     for (const o of olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;
@@ -3350,18 +3405,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const hp = store.get().healthy?.P;
     const cvUp = hp ? Math.max(PA[NI.CV_R] - hp[NI.CV_R], PA[NI.CV_L] - hp[NI.CV_L]) : 0;
     lvGT = held(lvGT, clamp((cvUp - 4) / 10, 0, 1), 0.03);
-    // The caudate lobe grows as its veins carry the liver's outflow: from twice their normal flow, fully at four times.
-    const hq = store.get().healthy?.Q?.[EI.CAUD], fq = f.Qf || f.Q;
-    lvKT = held(lvKT, hq ? clamp((Math.abs(fq[EI.CAUD] / hq) - 2) / 2, 0, 1) : 0, 0.05);
-    const cT = Math.min(1, p.cirrhosis), gT = lvGT, kT = lvKT;
+    const cT = Math.min(1, p.cirrhosis), gT = lvGT;
     const now = performance.now();
-    if (lvC === null || reduceMotion.matches || !figureShown) { lvC = cT; lvG = gT; lvT = tT; lvK = kT; }   // under the loading screen nothing is seen easing
+    if (lvC === null || reduceMotion.matches || !figureShown) { lvC = cT; lvG = gT; lvT = tT; }   // under the loading screen nothing is seen easing
     else {
       const e = -Math.expm1(-Math.min(0.1, (now - lvAt) / 1000) / 0.4);
-      lvC += (cT - lvC) * e; lvG += (gT - lvG) * e; lvT += (tT - lvT) * e; lvK += (kT - lvK) * e;
+      lvC += (cT - lvC) * e; lvG += (gT - lvG) * e; lvT += (tT - lvT) * e;
       if (Math.abs(cT - lvC) < 0.004) lvC = cT;
       if (Math.abs(gT - lvG) < 0.004) lvG = gT;
-      if (Math.abs(kT - lvK) < 0.004) lvK = kT;
       if (Math.abs(tT - lvT) < 0.004) lvT = tT;
     }
     lvAt = now;
@@ -3370,23 +3421,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // over, the tint flickered between mid-fade values).
     liverTint.style.opacity = (lvT * k).toFixed(3);
     if (lvT !== tT) widthEasing = true;
-    const moving = lvC !== cT || lvG !== gT || lvK !== kT;
+    const moving = lvC !== cT || lvG !== gT;
     // While it eases, the live drawing shows (a raster would move in steps); the plate is
     // rasterized again once it settles.
     // A large change, or one still under way (a time-lapse), shows the live drawing. A small step
     // (the running model's congestion drifting a notch) eases under the plate and is rasterized once
     // it settles: swapping to the live drawing and back every few seconds would flash the organs.
-    const retarget = lvMoving && (cT !== lvCT || gT !== lvGTo || kT !== lvKTo);
-    lvCT = cT; lvGTo = gT; lvKTo = kT;
-    if (moving && (retarget || Math.max(Math.abs(cT - lvC), Math.abs(gT - lvG), Math.abs(kT - lvK)) > 0.08) && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
+    const retarget = lvMoving && (cT !== lvCT || gT !== lvGTo);
+    lvCT = cT; lvGTo = gT;
+    if (moving && (retarget || Math.max(Math.abs(cT - lvC), Math.abs(gT - lvG)) > 0.08) && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
     if (lvMoving && !moving) lvStillAt = performance.now();
     lvMoving = moving;
     if (moving) widthEasing = true;
-    morphLiver(lvC, lvG, moving, lvK);
+    morphLiver(lvC, lvG, moving);
     for (const el of [lv.nut, lv.nutNet, lv.gloss]) el.style.visibility = imaging ? 'hidden' : '';
     // A cirrhotic liver shrinks a little; a congested one swells.
     const shrink = 1 - 0.035 * lvC + 0.035 * lvG;
     organG.liver.setAttribute('transform', `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`);
+    {
+      // The caudate lobe grows as its veins carry the liver's outflow: from twice their normal flow, fully at four times.
+      const hq = store.get().healthy?.Q?.[EI.CAUD], PA2 = f.Pf || f.P;
+      caudK = held(caudK, hq ? clamp((Math.abs((f.Qf || f.Q)[EI.CAUD] / hq) - 2) / 2, 0, 1) : 0, 0.05);
+      caud.sync(pressureColor(qP(PA2[NI.IVCS] + 0.5)), caudK);
+    }
     const c3 = recruitFrac('C3', f);
     abdWall.setAttribute('opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
     const sc = f.slow.spleen / 11;
@@ -4036,10 +4093,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const A = Object.fromEntries(['tip', 'ahead'].map((k) => [k, worldToLocal(at[k][0], at[k][1])]));
       const bw = box.offsetWidth, bh = box.offsetHeight, top = Math.max(70, sp.t + 6), gap = lim < 440 ? 40 : 64;
       const R = rows.map((r) => [r.offsetLeft, r.offsetTop, r.offsetWidth, r.offsetHeight]);   // (read before any write below)
-      // Above the readings, centred between them; below them when there is no room above.
-      let x = (A.tip[0] + A.ahead[0]) / 2 - bw / 2, y = Math.min(A.tip[1], A.ahead[1]) - bh - gap;
-      if (y < top) y = Math.max(A.tip[1], A.ahead[1]) + gap;
-      x = clamp(x, 28, Math.max(28, W - bw - 12)); y = clamp(y, top, Math.max(top, lim - bh - 12));   // (room on the left for a leader)
+      // Above the readings, centred between them; below them when there is no room above. Either way it sits in the
+      // free figure, clear of the cards, the slide's panel and its controls: when centred it would go under one, it
+      // slides sideways to the nearest clear spot (its leaders stay on the vein), above before below.
+      const cx0 = (A.tip[0] + A.ahead[0]) / 2 - bw / 2, xMin = 28, xMax = Math.max(28, W - bw - 12), yMax = Math.max(top, lim - bh - 12);
+      const yUp = Math.min(A.tip[1], A.ahead[1]) - bh - gap, yDown = clamp(Math.max(A.tip[1], A.ahead[1]) + gap, top, yMax);
+      const bl = readBlockers(), hit = (x0, y0) => bl.reduce((n, b) => n + Math.max(0, Math.min(x0 + bw, b.x1 + 4) - Math.max(x0, b.x0 - 4)) * Math.max(0, Math.min(y0 + bh, b.y1 + 4) - Math.max(y0, b.y0 - 4)), 0);
+      let best = null;
+      for (const [y0, pen] of (yUp >= top ? [[yUp, 0], [yDown, 60]] : [[yDown, 0], [clamp(yUp, top, yMax), 60]])) {
+        scan: for (let d = 0; d <= W; d += 8) for (const sx of d ? [-1, 1] : [1]) {
+          const x0 = cx0 + sx * d; if (x0 < xMin || x0 > xMax) continue;
+          const c = hit(x0, y0) * 1e3 + d + pen;
+          if (!best || c < best.c) best = { c, x: x0, y: y0 };
+          if (!hit(x0, y0)) break scan;
+        }
+      }
+      let x = best ? best.x : clamp(cx0, xMin, xMax), y = clamp(best ? best.y : yUp, top, yMax);   // (room on the left for a leader)
       box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
       // The bracket, from the middle of one reading to the middle of the other.
       const ys = R.map((q) => q[1] + q[3] / 2), path = box.querySelector('.cath-brace path');
@@ -4270,7 +4339,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Label text size: the reader's choice (Menu › Text size), and a larger baseline in the circuit,
   // whose labels are the map's only text. Every run's size and spacing is scaled by labelK.
   const CIRCUIT_LABEL_K = 1.22;
-  const LABEL_MIN = 0.5, LABEL_MAX = 2;
+  const LABEL_MIN = TEXT_MIN, LABEL_MAX = TEXT_MAX;   // (a size saved below 100 % reads as 100 %)
   // Where a map direction lands on the screen once the circuit is turned a quarter turn counter-clockwise.
   const TURN_DIR = { N: 'W', W: 'S', S: 'E', E: 'N', NE: 'NW', NW: 'SW', SW: 'SE', SE: 'NE', C: 'C' };
   // A desktop (a wide screen and a mouse) is read from farther away: its 100 % is half as large again as a phone's or tablet's.
@@ -4289,7 +4358,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     } catch { return 1; }
   })();
   // Every label on a figure (the lobule's too) reads the same scale.
-  document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale));
+  document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale));
   let labelK = labelScale * deskK();
   // Projection ramp: presenting sets the atlas labels at projector sizes (at 2: values 28 px, names 23 px),
   // readable from the back of a room. The presenter passes a scale for the screen it is on.
@@ -4297,10 +4366,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Projecting, the projector's size times the viewer's own text size from Settings.)
   const labelBase = () => (projecting ? (typeof projecting === 'number' ? projecting : 2) * labelScale : labelScale * deskK());
   // (A window dragged between a desktop's width and a narrow one: the labels follow; a presentation sets its own.)
-  deskMQ.addEventListener?.('change', () => { if (projecting) return; document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); dispatchEvent(new Event('pps:labelscale')); });
+  deskMQ.addEventListener?.('change', () => { if (projecting) return; document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale)); dispatchEvent(new Event('pps:labelscale')); });
   // A line is a list of runs { t, size, weight, cls, track }. Returns [width, height].
-  const LINE_H = (line) => Math.max(...line.map((r) => r.size)) * labelK * 1.24;
-  const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size * labelK, r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
+  // A run's size on screen: its role (reading, name, caption) at this screen's size, times the text size setting;
+  // a presentation raises it to the projector's size (never below Explore's).
+  const fontPx = (size) => rolePx(roleOf(size)) * labelScale * (projecting ? Math.max(1, Math.min(typeof projecting === 'number' ? projecting : 2, 2.2) / 1.5) : 1);
+  const LINE_H = (line) => Math.max(...line.map((r) => fontPx(r.size))) * 1.24;
+  const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, fontPx(r.size), r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
 
   const pool = new Map(); // key → { g, sig, … }
   function blockEl(key, cls, interactiveNode, onClick) {
@@ -4328,7 +4400,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', `var(--tr-${tone})`); }
     // Text and pressure colors change far more often than label structure.
     // Retain the text nodes (and keyboard focus) across numeric updates.
-    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK]);
+    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14)]);
     if (sig !== b.sig) {
       b.sig = sig;
       const kids = [];
@@ -4344,7 +4416,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const t = s('text', { x: it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : tx, y: y + lh * 0.78, 'text-anchor': it.align === 'end' ? 'end' : it.align === 'middle' ? 'middle' : 'start' });
         b.textLines.push(t);
         line.forEach((r, i) => {
-          const sp = s('tspan', { class: r.cls || '', 'font-size': +(r.size * labelK).toFixed(2), 'font-weight': r.weight || 500 });
+          const sp = s('tspan', { class: r.cls || '', 'font-size': +fontPx(r.size).toFixed(2), 'font-weight': r.weight || 500 });
           if (i) sp.setAttribute('dx', +((r.gap ?? 3) * labelK).toFixed(2));
           if (r.track) sp.setAttribute('letter-spacing', `${r.track}em`);
           sp.textContent = r.t;
@@ -4558,8 +4630,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function labelAnchor(id, t) {
     const eid = LABEL_VESSEL[id], x = eid && E[eid];
     if (x && x.vis && !x.g.classList.contains('coll-ghost') && geo[eid]?.cur?.length > 1) {
-      // The sinusoids' callout hangs from their venous half, clear of the mesh's widest bulge.
-      const cur = geo[eid].cur, [wx, wy, tx, ty] = arcMid(SIN_EDGES.has(eid) ? cur.slice(Math.round(cur.length / 2)) : cur);
+      // The middle of the vessel along its course (the sinusoids too: the middle of their bed, not their venous half).
+      const [wx, wy, tx, ty] = arcMid(geo[eid].cur);
       const [ax, ay] = worldToLocal(wx, wy), [bx, by] = worldToLocal(wx + tx, wy + ty);
       const n = Math.hypot(bx - ax, by - ay) || 1;
       return { ax, ay, mid: true, tan: [(bx - ax) / n, (by - ay) / n], w: x.width || 4 };
@@ -6041,7 +6113,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setLabelScale(v) {
       labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
       try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch { /* storage unavailable */ }
-      if (!projecting) document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale));
+      if (!projecting) document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale));
       dispatchEvent(new Event('pps:labelscale'));
       if (F) updateLabels(F);
     },
@@ -6107,13 +6179,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     glMatrix: () => (veins && !veins.lost && wrap.classList.contains('gl-on') ? glM : null),
     cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !chainOut && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
     /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
-    riseTo,
+    riseTo, holdHome,
     fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
     cameraState: () => ({ ...(vtGliding && vtTarget ? vtTarget : vt) }),
     setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; animateVT({ ...to }, ms); },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
+    /** Where the sinusoid's reading and lesion pointer meet their sinusoid (see lobule-zoom sinAnchor). */
+    lobuleSinAnchor: () => lz?.sinAnchor() ?? null,
+    /** Where a station's callout attaches, in client px (for the checks). */
+    labelAnchorOf: (id) => { const a = labelAnchor(id, easeInOut(morph)), r = wrap.getBoundingClientRect(); return { x: a.ax + r.left, y: a.ay + r.top, mid: a.mid }; },
     /** The presenter's camera in the lobule: the whole lobule ('fit'), a portal tract ('triad'), the sinusoids ('sinusoid') or the central vein ('central'). */
     lobuleFocus: (part, opts) => !!lz?.focusOn(part, opts),
     /** Where the presenter's next lobule framing will be, so a dive lands on it in one move (see lobule-zoom aim). */
@@ -6131,8 +6207,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!store.get().sinusoid || !lz?.sinusoidOpen()) { store.set({ sinusoid: false, lobule: false }); return; }
       const lc = lz.current(), lt = LC + Math.log(Math.max(RH * 2, lc.r) / RH);
       chainOut = true; logMove({ t: performance.now(), kind: 'chain-out' });
-      lz.setSinChain({ speed: (lt - LC) / 0.6 / RISE_MS }, true);
-      lz.onSinClosed(() => store.set({ lobule: false }));
+      lz.setSinChain({ speed: lt / RISE_MS }, true);
+      lz.onSinClosed((at) => { riseAt = at ?? null; store.set({ lobule: false }); });
       store.set({ sinusoid: false });
     },
     /** True once the sinusoid view is wholly in. */

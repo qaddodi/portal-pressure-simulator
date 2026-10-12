@@ -130,11 +130,109 @@ export function stripTextSize() {
   }
   return [...new Set(out)];
 }
+// The strip's connecting line stops the same distance short of every reading, whether it has one digit or two: the gap
+// between each number's edge and the bar on its left and on its right, in px as drawn, all within 1 px of each other.
+// In the page: what is uneven (empty when it is even); the first item is [gaps, digit counts] for the coverage check.
+export function stripGaps() {
+  const strip = document.querySelector('.pz-strip');
+  if (!strip || !strip.getBoundingClientRect().width) return null;
+  const m = strip.getScreenCTM(), sx = (u) => m.a * u + m.e;
+  const segs = [...(strip.querySelector('.pzs-c')?.getAttribute('d') || '').matchAll(/M([\d.-]+) [\d.-]+H([\d.-]+)/g)].map(([, a, b]) => [sx(+a), sx(+b)]);
+  const nums = [...strip.querySelectorAll('.pzs-v')].map((e) => ({ t: e.textContent.trim(), r: e.getBoundingClientRect() }));
+  if (segs.length !== 4 || nums.length !== 5 || nums.some((n) => !n.t)) return { bad: ['the strip is not drawn with five readings and four bars'], gaps: [], digits: [] };
+  const gaps = [];
+  segs.forEach(([a, b], i) => { gaps.push(a - nums[i].r.right, nums[i + 1].r.left - b); });
+  const lo = Math.min(...gaps), hi = Math.max(...gaps), bad = [];
+  if (hi - lo > 1) bad.push(`gaps differ by ${(hi - lo).toFixed(2)} px (${gaps.map((g) => g.toFixed(1)).join(', ')}) beside ${nums.map((n) => n.t).join(' ')}`);
+  return { bad, gaps, digits: [...new Set(nums.map((n) => n.t.length))] };
+}
+// HVPG and PPG as shown add up with the readings as shown: WHVP − FHVP and PV − IVC, from the ladder's own numbers, in
+// every place the gradient is drawn (the phone strip's brackets, the data card's tiles, a bracket pill that names a reading).
+// In the page: what does not add up (empty when everything does).
+export function gradientsAdd() {
+  const out = [], vis = (e) => { for (let n = e; n && n !== document.body; n = n.parentElement) { const c = getComputedStyle(n); if (c.display === 'none' || c.visibility === 'hidden') return false; } return true; };
+  const num = (t) => (/\d/.test(t || '') ? parseFloat(t.replace('−', '-').match(/-?\d+(\.\d+)?/)[0]) : NaN);
+  const live = [...document.querySelectorAll('.pz-data > .pz-ladder .pzl-v, .pz-data > .pz-strip .pzs-v')];
+  const R = [...document.querySelectorAll('.pz-data > .pz-strip .pzs-v')].map((e) => num(e.textContent));
+  if (live.length && R.length === 5 && R.every(Number.isFinite)) {
+    const want = { HVPG: R[1] - R[2], PPG: R[0] - R[3] };
+    for (const b of document.querySelectorAll('.pz-data > .pz-strip .pzl-bg')) {
+      if (+b.getAttribute('opacity') < 0.5) continue;
+      const name = b.querySelector('.pzs-bn')?.textContent.trim(), v = num(b.querySelector('.pzs-bv')?.textContent);
+      if (v !== want[name]) out.push(`strip ${name} reads ${v}, the readings give ${want[name]}`);
+    }
+    for (const t of document.querySelectorAll('.pz-data .pz-tile')) {
+      const k = t.querySelector('.pzt-k')?.textContent.trim();
+      if (!want[k] && want[k] !== 0 || !vis(t)) continue;
+      // (Tiles keep the model's one decimal; only the ladder's own numbers are whole.)
+      const txt = t.querySelector('.pzt-v')?.textContent || '', v = num(txt);
+      if (!/\d\.\d/.test(txt)) out.push(`${k} tile reads "${txt.trim()}", not one decimal`);
+      else if (Math.abs(v - want[k]) > 1.05) out.push(`${k} tile reads ${v}, far from the readings' ${want[k]}`);
+    }
+  }
+  // The big ladders' bracket pills (the data card's and each site ladder's) name the gradient and write its whole number,
+  // equal to the difference of that ladder's own readings.
+  for (const L of document.querySelectorAll('.pz-ladder')) {
+    const r = [...L.querySelectorAll('.pzl-v')].map((e) => num(e.textContent));
+    for (const b of L.querySelectorAll('.pzl-bg')) {
+      if (+b.getAttribute('opacity') < 0.5 || !vis(L)) continue;
+      const t = b.querySelector('.pzl-bk')?.textContent.trim() || '', m = /^(HVPG|PPG) (−?\d+)$/.exec(t);
+      if (!m) { out.push(`a bracket pill reads "${t}", with no whole number`); continue; }
+      const want = m[1] === 'HVPG' ? r[1] - r[2] : r[0] - r[3];
+      if (r.length === 5 && num(m[2]) !== want) out.push(`pill "${t}" is not the difference of the readings (${want})`);
+      // Its colour is its own number against its own cut-offs (HVPG amber 5, red 10; PPG amber 6, red 12), whatever the slide says of it.
+      const g = num(m[2]), [am, rd] = m[1] === 'HVPG' ? [5, 10] : [6, 12], rate = g >= rd ? 'hi' : g >= am ? 'mid' : 'ok';
+      if (b.dataset.rate !== rate) out.push(`pill "${t}" is coloured ${b.dataset.rate}, its value is ${rate}`);
+    }
+  }
+  // The catheter callouts (WHVP, FHVP and the HVPG sum) read one decimal, and the HVPG is their difference.
+  const cv = {};
+  for (const c of document.querySelectorAll('.cath-label')) {
+    const k = c.querySelector('small')?.textContent.trim(), t = c.querySelector('b')?.textContent.trim() || '';
+    if (!/^(WHVP|FHVP|HVPG)$/.test(k || '') || !vis(c) || !/\d/.test(t)) continue;
+    if (!/^\d+\.\d$/.test(t)) out.push(`callout ${k} reads "${t}", not one decimal`);
+    if (c.closest('.cath-sum')) cv[k] = num(t);
+  }
+  if (cv.HVPG != null && cv.WHVP != null && cv.FHVP != null && Math.abs(cv.WHVP - cv.FHVP - cv.HVPG) > 0.11)
+    out.push(`callout HVPG ${cv.HVPG} is not WHVP ${cv.WHVP} − FHVP ${cv.FHVP}`);
+  return out;
+}
+export async function checkStripGaps(browser, url, log = console.log) {
+  const bad = [];
+  const all = [['circulation', 10], ['sites', 3], ['sites', 6]];   // (raised, healthy and HVPG over 10: one- and two-digit readings in one strip)
+  for (const size of SIZES) {
+    const { name, ...opts } = size;
+    const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
+    const page = await ctx.newPage();
+    const digits = new Set();
+    // (An iPad or desktop shows the big ladder, with no joined bars: one slide proves the strip is not drawn there.)
+    const wide = opts.viewport.width >= 800, slides = wide ? all.slice(0, 1) : all;
+    for (const [deck, n] of slides) {
+      await page.goto(`${url}?script=${deck}&slide=${n}`);
+      await page.waitForFunction(() => document.querySelector('.pz-strip .pzs-v')?.textContent, null, { timeout: 45000 });
+      await settle(page); await page.waitForTimeout(1800);
+      const sums = await page.evaluate(gradientsAdd);
+      if (sums.length) bad.push(`${deck} slide ${n} at ${name}: ${sums.join('; ')}`);
+      const r = await page.evaluate(stripGaps);
+      if (!r) { log(`--   ${name.padEnd(14)} ${deck} slide ${n}: strip not shown at this size`); continue; }
+      r.digits.forEach((d) => digits.add(d));
+      if (r.bad.length) bad.push(`${deck} slide ${n} at ${name}: ${r.bad.join('; ')}`); else log(`ok   ${name.padEnd(14)} ${deck} slide ${n} strip gaps ${r.gaps.map((g) => g.toFixed(1)).join(' ')}`);
+    }
+    if (!wide && digits.size < 2) bad.push(`strip gaps at ${name}: no strip had both one- and two-digit readings`);
+    await ctx.close();
+  }
+  return bad;
+}
 // Every slide that has the strip (the ladder data card), at both phones: text at least 11 px, labels in their brackets and clear of the lines.
-export async function checkStripSlides(browser, url, log = console.log) {
+// (With a deck id, only that deck's slides: smoke runs one check per deck, as the whole sweep takes 45 minutes.)
+export async function stripSlides(deck) {
   const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
   const slides = [];
-  for (const d of DECKS) withOverview(d).slides.forEach((sl, i) => { if (sl.data === 'ladder') slides.push({ deck: d.id, n: i + 1 }); });
+  for (const d of DECKS) if (!deck || d.id === deck) withOverview(d).slides.forEach((sl, i) => { if (sl.data === 'ladder') slides.push({ deck: d.id, n: i + 1 }); });
+  return slides;
+}
+export async function checkStripSlides(browser, url, log = console.log, deck = null) {
+  const slides = await stripSlides(deck);
   const bad = [];
   for (const size of SIZES.slice(0, 2)) {
     const { name, ...opts } = size;
@@ -144,7 +242,7 @@ export async function checkStripSlides(browser, url, log = console.log) {
       await page.goto(`${url}?script=${s.deck}&slide=${s.n}`);
       await page.waitForFunction(() => document.querySelector('.pz-strip .pzs-v')?.textContent, null, { timeout: 45000 });
       await settle(page); await page.waitForTimeout(1800);
-      const c = [...await page.evaluate(stripTextSize), ...await page.evaluate(stripOverflow)];
+      const c = [...await page.evaluate(stripTextSize), ...await page.evaluate(stripOverflow), ...(await page.evaluate(stripGaps))?.bad || [], ...await page.evaluate(gradientsAdd)];
       if (c.length) bad.push(`${s.deck} slide ${s.n} at ${name}: ${c.slice(0, 3).join('; ')}`); else log(`ok   ${name.padEnd(14)} ${s.deck} slide ${s.n} pressure strip`);
     }
     await ctx.close();
@@ -170,7 +268,7 @@ export async function checkStrip(browser, url, log = console.log) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const server = await serve(new URL('../..', import.meta.url).pathname);
   const browser = await chromium.launch();
-  const bad = [...await checkCharts(browser, server.url), ...await checkStrip(browser, server.url), ...await checkStripSlides(browser, server.url)];
+  const bad = [...await checkCharts(browser, server.url), ...await checkStrip(browser, server.url), ...await checkStripSlides(browser, server.url), ...await checkStripGaps(browser, server.url)];
   for (const b of bad) console.log('FAIL ' + b);
   await browser.close(); server.close?.();
   process.exit(bad.length ? 1 : 0);

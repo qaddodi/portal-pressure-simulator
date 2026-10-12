@@ -77,7 +77,7 @@ export const STIFFNESS = {
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'fibrosis', kicker: 'Sinusoidal', title: 'Compensated cirrhosis' }, { id: 'spleen', kicker: 'Sinusoidal', title: 'CSPH' }, { id: 'schisto', kicker: 'Presinusoidal' }, { id: 'heart', kicker: 'Cardiac', title: 'Heart failure' }, { id: 'year', kicker: 'Sinusoidal', title: 'Cirrhosis, a year on' }],
       kicker: 'Summary', title: 'What each test reads',
       line: 'Stiffness reflects the liver tissue. Platelets and the PPG reflect pressure across the whole portal system.',
-      notes: 'Stiffness reads the tissue between the portal and hepatic veins: high in cirrhosis and in congestion, normal in presinusoidal block. The spleen and platelets follow the portal vein pressure whatever the level of the block. The HVPG misses presinusoidal and pre-hepatic disease; the PPG catches them. When the tests disagree, the disagreement points to the level of the block.',
+      notes: 'Stiffness reads the tissue between the portal and hepatic veins: high in cirrhosis and in congestion, normal in presinusoidal block. The spleen and platelets follow portal pressure whatever the level of the block; venous congestion from the heart rarely enlarges the spleen or lowers platelets more than mildly. The HVPG misses presinusoidal and pre-hepatic disease; the PPG catches them. When the tests disagree, the disagreement points to the level of the block.',
       ask: ['A high PPG with normal stiffness and a normal HVPG. Where is the block?', 'Before the sinusoids: presinusoidal or pre-hepatic.'],
     },
   ],

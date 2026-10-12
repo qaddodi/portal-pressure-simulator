@@ -49,3 +49,4 @@ jobs:
         with:
           name: visual-references
           path: tests/visual/
+          retention-days: 2

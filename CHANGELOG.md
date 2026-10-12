@@ -2,11 +2,17 @@
 
 ## Unreleased
 
-- **Caudate lobe.** The anatomy now draws the caudate lobe beside the IVC, below the hepatic vein confluence and above
-  the portal bifurcation, quietly, as part of the liver (a fissure line and its own dome), with its short veins draining
-  straight into the IVC (they carry the model's caudate flow and are left out of the circuit). In Budd–Chiari the lobe
-  eases larger as its veins take over the outflow. The "caudate lobe still drains" and DIPS slides outline it and name
-  it in their lines; the DIPS tract runs through it. Test: `tests/caudate.test.js`.
+- **One type scale for the figure and slides.** Figure labels and slide cards now use six text roles (caption, label,
+  body, value, big value, title) instead of about 18 loose sizes. Each grows smoothly with the screen (phone 11/12/14/16/20/28 px
+  up to laptop 12/14/16/22/32/44; slide cards on a wide screen follow its height). A pill keeps name, reading and unit in
+  proportion, so a unit is never larger than its number. Text size now runs 100–200 % (100 % is the design size; a size saved
+  below it reads as 100 %), so nothing drops under 11 px. The map's labels no longer change size between views. The four drawn
+  slide charts (scale, ladders, SAAG map, walls) keep their own lettering for now. Tests: `tests/e2e/type-scale.mjs` (in smoke).
+- **Caudate lobe.** Shown only on the slides about it, eased in and out: on "The caudate lobe still drains" a soft
+  dome of the liver's own tone (no outline) beside the IVC with three fine, tapered caudate veins that merge into the
+  IVC's wall below the hepatic veins, colored from the pressure they drain at; on the DIPS slide the lobe alone, with
+  the tract running through it. In Budd–Chiari it is larger as its veins take over the outflow. Nothing changes in
+  Explore or on other slides. Test: `tests/caudate.test.js`.
 
 - **Corner credit on a phone held sideways.** In Present the credit sat on the words' glass pane at the lower left. The pane now
   counts as a card: the credit moves along the figure's edge to the first free spot beside it, and sets itself on two

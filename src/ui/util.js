@@ -457,3 +457,11 @@ export function createEaser(tau = 0.3) {
 }
 /** A rounded axis top just above `max` (multiples of 5 mmHg, at least `min`). */
 export const axisTop = (max, min = 10) => Math.max(min, Math.ceil((max + 2) / 5) * 5);
+
+// An element's box without its own transform (a card's entrance offset): where it rests.
+export function restBox(el, q = el.getBoundingClientRect()) {
+  const t = getComputedStyle(el).transform;
+  if (!t || t === 'none') return q;
+  const m = new DOMMatrixReadOnly(t), z = el.offsetHeight ? q.height / el.offsetHeight : 1;
+  return new DOMRect(q.x - m.e * z, q.y - m.f * z, q.width, q.height);
+}

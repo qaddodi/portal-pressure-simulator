@@ -19,17 +19,17 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=9c07aaa402';
+import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { store } from './store.js?v=7fb7280c05';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=4b6aa4841d';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01, GLIDE_MS } from './util.js?v=0cca243d2a';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=c17dfefa88';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=ef674ee7ff';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01, GLIDE_MS } from './util.js?v=b1761ad19c';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=a65dea21ce';
 import { NODES, EDGES } from '../engine/topology.js?v=34e377149b';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=1a5770aa47';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=b443472f3a';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=c23bc8164a';
-import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+import { createSinusoidView } from './sinusoid-view.js?v=5033bbc95f';
+import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -894,7 +894,9 @@ export function createLobuleZoom({ host }) {
   // the middle of the free space (so it does not jump about).
   const named = (k) => !!document.querySelector('.app')?.dataset.lit?.split(' ').includes(`lobule:${LZ_TARGET[k]}`);
   const pick = { triad: 3, lt: null, sin: null, geo: null };
-  const sinAt = (t) => at(t.pts, 0.45);
+  // A sinusoid's reading sits half way from the portal tract to the central vein: along the middle generation's
+  // course, or at the inner end of an outer one and the outer end of an inner one when only those are in view.
+  const sinAt = (t) => at(t.pts, t.lvl === 0 ? 0.95 : t.lvl === 2 ? 0.2 : 0.45);
   const anchorOf = (key) => {
     const g = geo, C = g.lobules[0].corners;
     if (key === 'triad') return C[pick.triad];
@@ -902,6 +904,18 @@ export function createLobuleZoom({ host }) {
     if (key === 'lymph') return g.triads[pick.lt ?? pick.triad].lv.pts[0];
     if (key === 'ha' || key === 'bd') return g.triads[pick.triad][key];
     return sinAt(sinTube());
+  };
+  // How far out a point is, from the central vein (0) to the lobule's rim (1) along its ray.
+  const rimFrac = ([x, y]) => {
+    const g = geo, C = g.lobules[0].corners, dx = x - g.cx, dy = y - g.cy, d = Math.hypot(dx, dy) || 1e-9;
+    let rim = Infinity;
+    for (let i = 0; i < 6; i++) {
+      const [ax, ay] = C[i], [bx, by] = C[(i + 1) % 6], ex = bx - ax, ey = by - ay, den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-9) continue;
+      const s = ((ax - g.cx) * ey - (ay - g.cy) * ex) / den, u = ((ax - g.cx) * dy - (ay - g.cy) * dx) / den;
+      if (s > 0 && u >= -1e-6 && u <= 1 + 1e-6) rim = Math.min(rim, s * d);
+    }
+    return d / rim;
   };
   const sinTube = () => {
     const g = geo;
@@ -916,11 +930,11 @@ export function createLobuleZoom({ host }) {
     sinTube();
     const inside = (p, m) => { const [x, y] = toScreen(p); return x > fr.l + m && x < fr.r - m && y > fr.t + m && y < fr.b - m; };
     const mx = (fr.l + fr.r) / 2, my = (fr.t + fr.b) / 2, far = (p) => { const [x, y] = toScreen(p); return Math.hypot(x - mx, y - my); };
-    const best = (cands, posOf, avoid) => {
+    const best = (cands, posOf, avoid, m = 72) => {
       let b = null, bs = Infinity;
       for (const c of cands) {
         const p = posOf(c);
-        if (!inside(p, 72)) continue;
+        if (!inside(p, m)) continue;
         // Kept clear of the other labelled vessels, so the labels do not crowd each other.
         const sc = far(p) + avoid.reduce((a, q) => { const [x0, y0] = toScreen(p), [x1, y1] = toScreen(q), d = Math.hypot(x1 - x0, y1 - y0); return a + Math.max(0, 110 - d) * 3; }, 0);
         if (sc < bs) { bs = sc; b = c; }
@@ -930,7 +944,9 @@ export function createLobuleZoom({ host }) {
     // Framed to fit, the default pick stays wherever its vessel is in view (a lobule that fills a phone's width has its corners at the edge).
     const keep = atFit ? 4 : 36;
     if (!inside(C[pick.triad], keep)) { const i = best([0, 1, 2, 3, 4, 5], (i) => C[i], [[g.cx, g.cy]]); if (i != null) pick.triad = i; }
-    if (!inside(sinAt(sinTube()), keep)) { const t = best([...g.L0, ...g.L1, ...g.L2], sinAt, [[g.cx, g.cy], C[pick.triad]]); if (t) pick.sin = t.id; }
+    // The sinusoid's reading points at the middle of a sinusoid: a middle-generation one (half way from the portal tract
+    // to the central vein), the outer or inner generation only when none of those is in view.
+    if (!inside(sinAt(sinTube()), keep) || (sinTube().lvl !== 1 && best(g.L1, sinAt, [], 44))) { const av = [[g.cx, g.cy], C[pick.triad]], t = best(g.L1, sinAt, av) || best(g.L1, sinAt, av, 44) || best([...g.L0, ...g.L2], sinAt, av); if (t) pick.sin = t.id; }
   }
   const hitKind = (key) => (key === 'ha' || key === 'bd' ? { part: key, tri: pick.triad } : key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
@@ -2255,7 +2271,9 @@ export function createLobuleZoom({ host }) {
     // On the way out the lobule is drawn once in its present state, so it does not change when it lands.
     if (!on) { diveDrawn = false; drawVersion++; tissueKey = ''; layoutKey = ''; }
     if (!raf && fade > 0) raf = nextFrame(loop);
-    const from = sinU, ms = (reduce.matches ? 280 : on ? 1150 : 950) * Math.abs(to - from), t0 = performance.now();
+    const from = sinU, ms = (reduce.matches ? 280 : on ? 1150 : 950) * Math.abs(to - from);
+    // Carried on from the dive, the zoom is timed from the moment the dive reached the joint (see stage.js diveFrame).
+    const t0 = on && from === 0 && sinChain?.at != null ? Math.min(performance.now(), sinChain.at) : performance.now();
     cancelFrame(sinRaf);
     const step = (now) => {
       const t = ms > 0 ? clamp((now - t0) / ms, 0, 1) : 1;
@@ -2264,10 +2282,10 @@ export function createLobuleZoom({ host }) {
       else {
         sinChain = null;
         if (on) { if (chromeHold) { chromeHold = false; applyChrome(); } }
-        else { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); if (refitLater) refit(); const cb = sinClosedCb; sinClosedCb = null; cb?.(); }
+        else { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); if (refitLater) refit(); const cb = sinClosedCb; sinClosedCb = null; cb?.(t0 + ms); }
       }
     };
-    sinRaf = nextFrame(step);
+    if (on && from === 0 && sinChain?.now != null && sinChain.now >= t0) step(sinChain.now); else sinRaf = nextFrame(step);
   }
   store.on('sinusoid', (on) => diveSinusoid(!!on));
   store.on('lobule', (on) => { if (!on && store.get().sinusoid) { quietSin = true; store.set({ sinusoid: false }); quietSin = false; } });
@@ -2333,6 +2351,13 @@ export function createLobuleZoom({ host }) {
         e.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`;
         e.style.transform = `translate(${(tx - x).toFixed(1)}px, ${(ty - y).toFixed(1)}px) scale(${k.toFixed(4)})`;
       }
+    },
+    /** Where the sinusoid's reading and the lesion pointer meet their sinusoid (for the checks): its generation, how far
+     *  out from the central vein (0) to the lobule's rim (1) along that ray, and where on screen. */
+    sinAnchor() {
+      if (!geo) return null;
+      const t = sinTube(), p = sinAt(t), [x, y] = toScreen(p);
+      return { lvl: t.lvl, f: rimFrac(p), x, y };
     },
     /** Where a lobule selection is on screen (for the action card), as the stage's anchorFor. */
     anchorFor(sl) {

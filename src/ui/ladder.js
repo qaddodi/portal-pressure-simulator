@@ -18,7 +18,11 @@
 // Also exported: SITES (the six levels), SITE_OF_GROUP (a preset's group → its site), RUNGS and
 // rate(k, f) (the clinical cut-offs). Styles live in app.css under "Pressure ladder".
 
-import { h, fmt } from './util.js?v=0cca243d2a';
+import { h, fmt } from './util.js?v=b1761ad19c';
+import { wholeGap } from '../engine/gap.js?v=3a5947c552';
+
+// (A stored or live fingerprint, with HVPG and PPG as the difference of the whole-mmHg readings drawn beside them.)
+const shown = (f) => ({ ...f, hvpg: wholeGap(f.whvp, f.fhvp, f.hvpg), ppg: wholeGap(f.pv, f.ivc ?? f.ra, f.ppg) });
 
 // Where along the route each level sits: [id, name, place, short name for a phone].
 // The three middle levels are inside the liver.
@@ -71,6 +75,7 @@ export function biggestDrop(f, known = RUNGS.map(([k]) => k)) {
 /** The pressure ladder: five stations from the portal vein to the right atrium (IVC between), the healthy line
  *  dashed behind, the biggest drop shaded as the block. */
 export function ladder(f, { base = null, key = [], known = null, reveal = false } = {}) {
+  f = shown(f);
   const W = 320, H = 208, x = (i) => 30 + i * 65, y = (v) => 128 - Math.min(30, Math.max(0, v)) * 3.5;
   // The IVC is read with the right atrium (the echo), so it is known when the atrium is.
   const kn = known ? (known.includes('ra') ? [...known, 'ivc'] : known) : RUNGS.map(([k]) => k), has = (i) => kn.includes(RUNGS[i][0]);
@@ -98,8 +103,8 @@ export function ladder(f, { base = null, key = [], known = null, reveal = false 
   const hvpgBr = has(1) && has(2) ? span('HVPG', 150, 1, 2, f.whvp, f.fhvp, f.hvpg, f.hvpg >= 10 ? 'hi' : f.hvpg >= 5 ? 'mid' : 'ok') : null;
   const ppgBr = has(0) && has(3) ? span('PPG', 177, 0, 3, f.pv, f.ivc, f.ppg, f.ppg >= 12 ? 'hi' : f.ppg >= 6 ? 'mid' : 'ok') : null;
   const gid = 'tlGrad' + ++uid;
-  const label = 'Pressure ladder: ' + RUNGS.map(([, a], i) => `${a} ${has(i) ? fmt(pts[i][2], 1) : 'not measured'}`).join(', ') + ' mmHg'
-    + (hvpgBr ? `. HVPG ${fmt(f.hvpg, 1)}` : '') + (ppgBr ? `${hvpgBr ? ', ' : '. '}PPG ${fmt(f.ppg, 1)}` : '') + (hvpgBr || ppgBr ? ' mmHg' : '');
+  const label = 'Pressure ladder: ' + RUNGS.map(([, a], i) => `${a} ${has(i) ? fmt(pts[i][2], 0) : 'not measured'}`).join(', ') + ' mmHg'
+    + (hvpgBr ? `. HVPG ${fmt(f.hvpg, 0)}` : '') + (ppgBr ? `${hvpgBr ? ', ' : '. '}PPG ${fmt(f.ppg, 0)}` : '') + (hvpgBr || ppgBr ? ' mmHg' : '');
   return s('svg', { class: 'tl-ladder' + (reveal ? ' reveal' : ''), viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': label },
     s('defs', {}, s('linearGradient', { id: gid, x1: 0, x2: 1, y1: 0, y2: 0 }, s('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), s('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }))),
     grid, band, hvpgBr, ppgBr,

@@ -18,8 +18,16 @@ const server = await serve(ROOT);
 mkdirSync('deck-sweep', { recursive: true });
 const SIZES = {
   desktop: { viewport: { width: 1440, height: 900 } },
+  laptop: { viewport: { width: 1280, height: 800 } },
+  wide: { viewport: { width: 1920, height: 1080 } },
+  ipadwide: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   ipad: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+  phone375: { viewport: { width: 375, height: 667 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  phone430: { viewport: { width: 430, height: 932 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+  sideways: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+  sideways375: { viewport: { width: 667, height: 375 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  sideways430: { viewport: { width: 932, height: 430 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
 };
 const settle = (page) => page.waitForFunction(() => {
   if (document.querySelector('.pz-load.on')) return false;
@@ -28,17 +36,30 @@ const settle = (page) => page.waitForFunction(() => {
 const snap = (page) => page.evaluate(() => {
   const vis = (el) => { if (!el || el.hidden) return null; const st = getComputedStyle(el); if (st.display === 'none' || st.visibility === 'hidden' || +st.opacity < 0.5) return null; const r = el.getBoundingClientRect(); return r.width ? r : null; };
   const W = innerWidth, H = innerHeight, issues = [];
+  // (content its card hides, such as a folded instrument, is not judged: under a see-through ancestor, or wholly outside one that clips)
+  const hiddenIn = (c, card) => { const q = c.getBoundingClientRect(); for (let a = c.parentElement; a && a !== card; a = a.parentElement) { const cs = getComputedStyle(a); if (+cs.opacity < 0.05) return true; if (/(hidden|clip|auto|scroll)/.test(cs.overflowX + cs.overflowY)) { const r = a.getBoundingClientRect(); if (q.top >= r.bottom - 1 || q.bottom <= r.top + 1 || q.left >= r.right - 1 || q.right <= r.left + 1) return true; } } return false; };
   const boxes = {};
-  for (const s of ['.pz-text', '.pz-data', '.pz-panel', '.pz-bar', '.pz-count']) { const el = document.querySelector(s); const r = vis(el); if (!r) continue; boxes[s] = r;
+  for (const s of ['.pz-text', '.pz-data', '.pz-panel', '.pz-bar']) { const el = document.querySelector(s); const r = vis(el); if (!r) continue; boxes[s] = r;
     if (r.left < -1 || r.top < -1 || r.right > W + 1 || r.bottom > H + 1) issues.push(`${s} off-screen ${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.right)},${Math.round(r.bottom)}`);
     // clipped content
     for (const c of [el, ...el.querySelectorAll('*')]) { if (c.closest('.sr-only')) continue; const cs = getComputedStyle(c); if (/(hidden|auto|scroll)/.test(cs.overflowY + cs.overflowX) && (c.scrollHeight > c.clientHeight + 2 || c.scrollWidth > c.clientWidth + 2) && c.clientHeight > 0) issues.push(`${s} ${c.className || c.tagName} clips/scrolls ${c.scrollWidth}x${c.scrollHeight} in ${c.clientWidth}x${c.clientHeight}`); }
     // text sticking out of the card
-    for (const c of el.querySelectorAll('h1,p,li,span,td,th,button')) { const q = c.getBoundingClientRect(); if (!q.width || getComputedStyle(c).visibility === 'hidden') continue; if (q.right > r.right + 2 || q.left < r.left - 2 || q.bottom > r.bottom + 2) { issues.push(`${s} ${c.tagName}.${c.className} "${c.textContent.trim().slice(0, 30)}" outside card`); break; } }
+    for (const c of el.querySelectorAll('h1,p,li,span,td,th,button')) { const q = c.getBoundingClientRect(); if (!q.width || getComputedStyle(c).visibility === 'hidden' || hiddenIn(c, el)) continue; if (q.right > r.right + 2 || q.left < r.left - 2 || q.bottom > r.bottom + 2) { issues.push(`${s} ${c.tagName}.${c.className} "${c.textContent.trim().slice(0, 30)}" outside card`); break; } }
   }
   const ov = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2;
   const keys = Object.keys(boxes).filter((k) => k !== '.pz-panel');
-  for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) if (ov(boxes[keys[i]], boxes[keys[j]])) issues.push(`${keys[i]} overlaps ${keys[j]}`);
+  const inked = (el) => { const rs = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n; (n = w.nextNode());) if (n.textContent.trim() && !n.parentElement.closest('.sr-only, [aria-hidden="true"]')) { const g = document.createRange(); g.selectNodeContents(n); rs.push(...g.getClientRects()); } for (const e of el.querySelectorAll('svg, button, img, canvas')) rs.push(e.getBoundingClientRect()); return rs.filter((q) => q.width && q.height); };
+  // (the words against the pill are judged by what is drawn: the last line runs beside the pill by design)
+  for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) if (ov(boxes[keys[i]], boxes[keys[j]]) && !([keys[i], keys[j]].includes('.pz-bar') && [keys[i], keys[j]].includes('.pz-text') && !inked(document.querySelector('.pz-text')).some((q) => ov(q, boxes['.pz-bar'])))) issues.push(`${keys[i]} overlaps ${keys[j]}`);
+  // A callout on the figure (a reading, its summary, a site pill, an organ or vessel label) never sits under a card,
+  // the slide's panel or its controls.
+  for (const el of document.querySelectorAll('.cath-label:not(.in-sum):not(.cath-pre):not(.cath-out), .cath-sum-box, svg .lb')) {
+    if (el.checkVisibility && !el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+    if (+getComputedStyle(el).opacity < 0.5 || el.closest('.cath-out, .cath-pre')) continue;
+    const r = el.getBoundingClientRect(); if (!r.width || !r.height) continue;
+    const name = (el.querySelector('small, text')?.textContent || el.textContent).trim().slice(0, 24);
+    for (const [k, q] of Object.entries(boxes)) if (ov(r, q)) issues.push(`callout "${name}" under ${k}`);
+  }
   const c = document.querySelector('.stage-credit');
   if (c && +getComputedStyle(c).opacity >= 0.5) { const r = c.getBoundingClientRect(); for (const el of document.querySelectorAll('.pz-text, .pz-data, .pz-panel, .pz-bar')) { const q = vis(el); if (q && q.left < r.right + 4 && q.right > r.left - 4 && q.top < r.bottom + 4 && q.bottom > r.top - 4) issues.push(`credit touches ${el.className.split(' ')[0]}`); } }
   // A summary table: each cell's visible contents sit inside its column heading, and no two cells overlap.
@@ -58,8 +79,21 @@ const snap = (page) => page.evaluate(() => {
   const terms = [...document.querySelectorAll('.pz-term')].map((t) => `${t.textContent}→${t.dataset.target}`);
   const count = document.querySelector('.pzb-n, .pz-count')?.textContent.trim();
   const m = window.pps.store.get().frame?.metrics || {};
-  return { count, text: txt('.pz-text'), data: txt('.pz-data'), panel: txt('.pz-panel'), terms, issues, m: { pv: m.pv?.toFixed(1), hvpg: m.hvpg?.toFixed(1), ppg: m.ppg?.toFixed(1) } };
+  const size = Object.fromEntries(['.pz-text', '.pz-data'].map((k) => [k, boxes[k] ? `${Math.round(boxes[k].width)}x${Math.round(boxes[k].height)}` : '']));
+  const cam = window.__cam || 0; window.__cam = 0;
+  const path = window.__path.splice(0);
+  return { size, cam, path, count, text: txt('.pz-text'), data: txt('.pz-data'), panel: txt('.pz-panel'), terms, issues, m: { pv: m.pv?.toFixed(1), hvpg: m.hvpg?.toFixed(1), ppg: m.ppg?.toFixed(1) } };
 });
+// A camera that moves into a slide goes once, straight: no zoom or pan that turns back on itself (a round trip, or a move
+// away and back to where it started). Zoom in log steps; pan in plate units at the camera's zoom (what the eye sees move).
+const wander = (p) => {
+  if (p.length < 3) return null;
+  let lz = 0, lp = 0;
+  for (let j = 1; j < p.length; j++) { lz += Math.abs(Math.log(p[j][0] / p[j - 1][0])); lp += Math.hypot(p[j][1] - p[j - 1][1], p[j][2] - p[j - 1][2]); }
+  const a = p[0], b = p.at(-1), dz = Math.abs(Math.log(b[0] / a[0])), dp = Math.hypot(b[1] - a[1], b[2] - a[2]);
+  if (lz - dz > 0.02 || (lp - dp > 6 && lp > dp * 1.15)) return `went back on itself: zoom ${lz.toFixed(3)} for a net ${dz.toFixed(3)}, pan ${lp.toFixed(0)} for a net ${dp.toFixed(0)}`;
+  return null;
+};
 const norm = (t) => (t || '').replace(/[\u00ad\u200b-\u200d\u2060]/g, '').replace(/\s+/g, ' ').trim();
 const shows = (page, title) => page.waitForFunction((t) => [...document.querySelectorAll('.pz-text h1, .pz-panel h1')].some((h) => h.textContent.replace(/[\u00ad\u200b-\u200d\u2060]/g, '').replace(/\s+/g, ' ').trim() === t && getComputedStyle(h.closest('section')).opacity > 0.9), norm(title), { timeout: 25000 }).then(() => true, () => false);
 const at = (page, k) => page.waitForFunction((k) => (document.querySelector('.pzb-n')?.textContent.trim() || '').startsWith(k + ' /'), k, { timeout: 15000 }).catch(() => {});
@@ -73,11 +107,19 @@ async function run(deck, dev) {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto(server.url + '?script=' + deck);
   await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'), null, { timeout: 60000 });
+  // Every camera move asked of the stage, counted (read and reset by snap).
+  // The camera, sampled every frame outside the lobule (read and reset by snap): the path it took into each slide.
+  await page.evaluate(() => { window.__path = []; const st = window.pps.stage, f = () => { const g = window.pps.store.get(); if (!g.lobule && !g.sinusoid && st.cameraZoom() == null) { const c = st.cameraState(), l = window.__path.at(-1); if (!l || l[0] !== c.k || l[1] !== c.x || l[2] !== c.y) window.__path.push([c.k, c.x, c.y]); } requestAnimationFrame(f); }; f(); });
+  await page.evaluate(() => { const st = window.pps.stage; for (const k of ['frameBox', 'fitSlow']) { const f = st[k]; st[k] = (...a) => { window.__cam = (window.__cam || 0) + 1; return f.apply(st, a); }; } });
   const fwd = [], back = [];
   let n = 99;
   for (let i = 0; i < n; i++) {
     const okT = await shows(page, TITLES[deck][i]); await settle(page); await page.waitForTimeout(700); await page.waitForFunction(() => { const t = document.querySelector('.pzl-t'); return !t || !t.offsetParent || !/Day |→/.test(t.textContent); }, null, { timeout: 30000 }).catch(() => {}); await page.waitForTimeout(300);
     const s0 = await snap(page); await page.waitForTimeout(1500); const s = await snap(page); s.issues = s.issues.filter((x) => s0.issues.includes(x)); if (!okT) s.issues.push('title not shown: ' + TITLES[deck][i]);
+    // Once in, a slide's cards keep their size and the camera moved at most once for it (no second glide as the cards settle).
+    for (const k of ['.pz-text', '.pz-data']) if (s0.size[k] && s.size[k] && s0.size[k] !== s.size[k]) s.issues.push(`${k} changed size after it showed (${s0.size[k]} -> ${s.size[k]})`);
+    if (s0.cam + s.cam > 1) s.issues.push(`camera framed ${s0.cam + s.cam} times for one slide`);
+    { const w = wander([...s0.path, ...s.path]); if (w && i > 0) s.issues.push(`CAMERA ${w}`); }
     fwd.push(s);
     const m = s.count?.match(/(\d+) \/ (\d+)/); if (m) n = +m[2];
     if (i < n - 1) { await page.keyboard.press('ArrowRight'); await at(page, i + 2); }
@@ -89,12 +131,12 @@ async function run(deck, dev) {
 }
 const jobs = [];
 for (const d of decks) for (const dev of (process.env.DEVS || 'desktop,ipad,phone').split(',')) jobs.push([d, dev]);
-let failed = 0;
+let failed = 0, camBad = 0;
 const report = (deck, dev, r) => {
   const lines = [];
   r.errors.forEach((e) => lines.push(`console: ${e.slice(0, 200)}`));
   r.fwd.forEach((s, i) => {
-    s.issues.forEach((x) => lines.push(`slide ${i + 1}: ${x}`));
+    s.issues.forEach((x) => { lines.push(`slide ${i + 1}: ${x}`); if (x.startsWith('CAMERA')) camBad++; });
     const b = r.back[i];
     if (b && (b.text !== s.text || b.panel !== s.panel)) lines.push(`slide ${i + 1}: words differ going back | F: ${(s.text + s.panel).slice(0, 160)} | B: ${(b.text + b.panel).slice(0, 160)}`);
   });
@@ -111,4 +153,5 @@ for (const [d, dev] of jobs) {
   report(d, dev, r);
 }
 server.close?.();
-process.exit(failed ? 1 : 0);
+// (A camera that goes back on itself fails the job; the layout findings are for reading.)
+process.exit(failed || camBad ? 1 : 0);

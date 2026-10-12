@@ -4,11 +4,11 @@
 // eases in with the answer. The debrief lists confident mistakes first. Values are the model's
 // own (SNAPSHOTS, regenerated from the engine); only the imaging words are authored.
 
-import { h, fmt, icon } from './util.js?v=0cca243d2a';
-import { SNAPSHOTS } from './snapshots.js?v=6c4f07ae98';
-import { createRoute, ladder, tiles, siteName } from './ladder.js?v=7b629187ab';
+import { h, fmt, icon } from './util.js?v=b1761ad19c';
+import { SNAPSHOTS } from './snapshots.js?v=c8cbaabb1f';
+import { createRoute, ladder, tiles, siteName } from './ladder.js?v=b3c04e5031';
 import { addRecord } from './records.js?v=50fb9dd463';
-import { frameFor } from './frame.js?v=49a46c570b';
+import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('drill');
 
 export const ROUNDS = 10, MAX_TESTS = 3;

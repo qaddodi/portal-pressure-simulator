@@ -1,31 +1,32 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=fc5582e003';
+import { startHost, host } from './host.js?v=e46f50c36e';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7fb7280c05';
-import { createStage } from './stage.js?v=cb2e88a6e9';
-import { createCreditPlacer } from './credit.js?v=9d144887e1';
-import { sinusoidSupported } from './sinusoid-view.js?v=c23bc8164a';
-import { createInspector } from './inspector.js?v=bced1ac9ba';
-import { createDock, CUTOFFS } from './dock.js?v=1cb65c6cbf';
-import { setHvpgStage } from './hvpg-proc.js?v=ccae6083ff';
-import { createWhy } from './why.js?v=be0d8de6eb';
-import { createTimeline, LAPSES } from './timeline.js?v=c9e2160dce';
-import { createLearn } from './learn.js?v=db82df88ab';
-import { createCases, CASES } from './cases.js?v=bcebbaa043';
-import { isBlind } from './learning-kit.js?v=e08298baac';
-import { createCompare } from './compare.js?v=2007c66157';
-import { createCard } from './card.js?v=0c736b7f96';
-import { createChart, computeFindings } from './chart.js?v=c87dcc6c26';
-import { createMenu, ROLES } from './menu.js?v=7b540b5274';
+import { createStage } from './stage.js?v=17618801e3';
+import { createCreditPlacer } from './credit.js?v=1f3b3c2f6f';
+import { sinusoidSupported } from './sinusoid-view.js?v=5033bbc95f';
+import { createInspector } from './inspector.js?v=58d14bee0e';
+import { createDock, CUTOFFS } from './dock.js?v=a4462cda94';
+import { setHvpgStage } from './hvpg-proc.js?v=b87658d79c';
+import { createWhy } from './why.js?v=b17f49d00c';
+import { createTimeline, LAPSES } from './timeline.js?v=cb2b52793d';
+import { createLearn } from './learn.js?v=0f14528674';
+import { createCases, CASES } from './cases.js?v=ac43bdae68';
+import { isBlind } from './learning-kit.js?v=675e2287ba';
+import { createCompare } from './compare.js?v=653bb30f69';
+import { createCard } from './card.js?v=8a6fea826c';
+import { createChart, computeFindings } from './chart.js?v=d4c40aee00';
+import { createMenu, ROLES } from './menu.js?v=5607d562ad';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
-import { caption } from './a11y.js?v=901065003b';
-import { startLMS } from './lms.js?v=69518459c7';
+import { caption } from './a11y.js?v=91b41bee9d';
+import { startLMS } from './lms.js?v=b7b754c1ad';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=a1b089da9f';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=c17dfefa88';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=9266baba58';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=a65dea21ce';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=0cca243d2a';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=b1761ad19c';
+import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const app = $('#app');
@@ -35,11 +36,11 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=de141fbb03';
-import { initTopbarMotion } from './topbar-motion.js?v=4ed83871e2';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=da34a0ac69';
+import { initTopbarMotion } from './topbar-motion.js?v=40e62f18bf';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=b2eabea2e1';
-import { frameFor, perf as framePerf } from './frame.js?v=49a46c570b';
+import { frameFor, perf as framePerf } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -83,6 +84,7 @@ const presenter = {
   readLink: () => (/#script=/.test(location.hash) ? presenterL.get().then((p) => p.readLink()) : false),
   active: () => !!presenterL.now()?.active(),
   settings: () => presenterL.now()?.settings() ?? null,
+  probe: () => presenterL.now()?.probe() ?? null,
 };
 
 async function main() {
@@ -142,7 +144,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=60b6976f91'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=b3516ec621'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -150,7 +152,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=aa91dcafb5'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=81fb82b4ad'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -889,7 +891,7 @@ function presenterSettings() {
   return out;
 }
 // Text size: smaller and larger in even steps, and the middle shows the size and resets it.
-const TEXT_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.75, 2];
+// (100 % is the design size; the steps only go up, so no text drops under 11 px. src/ui/type-scale.js)
 function textSizeControl() {
   const at = () => TEXT_STEPS.reduce((b, v, i) => (Math.abs(v - stage.labelScale()) < Math.abs(TEXT_STEPS[b] - stage.labelScale()) ? i : b), 0);
   const smaller = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Smaller text', title: 'Smaller text' }, 'A');

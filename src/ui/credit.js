@@ -1,7 +1,7 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
 // It keeps its corner while that corner stays free and never glides: any move fades it out in place, jumps it
 // unseen and fades it back in, once the cards have settled; with no figure left anywhere it stays faded out.
-import { frameFor } from './frame.js?v=49a46c570b';
+import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('credit');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);
@@ -42,8 +42,8 @@ export function pickCorner(spots, cur) {
 }
 
 // What the credit keeps clear of. Chrome (the bars, the zoom pill, the figure's labels) is avoided but does not make the screen "busy".
-const OBSTACLES = '.stage-blocker:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .pz-shade';
-const CHROME = '#topbar, #vdock, #zoomPill, .stage-clock, .pz-bar, .pz-count, .scan-probe:not(.off) .sp-body';   // (the FibroScan probe: its body carries the reading)
+const OBSTACLES = '.stage-blocker:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .pz-shade';   // (the FibroScan probe's body carries its reading; it counts as chrome below)
+const CHROME = '#topbar, #vdock, #zoomPill, .stage-clock, .pz-bar, .scan-probe:not(.off) .sp-body';   // (the FibroScan probe: its body carries the reading)
 
 // The figure's own labels (station values, organ captions): each one's text and pill, padded and snapped outward to a small
 // grid, so a label that jitters by a pixel as its number changes does not read as a move.
