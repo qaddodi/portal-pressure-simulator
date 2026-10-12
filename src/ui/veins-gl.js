@@ -967,7 +967,7 @@ void main() {
 const LINE_VS = `#version 300 es
 layout(location=0) in vec2 pos;
 layout(location=1) in vec2 nrm;
-layout(location=2) in vec2 sideW;   // side (−1 or 1), half width (world units)
+layout(location=2) in vec2 sideW;   // side (−1 or 1), half width (world units); a fill's edge fringe: (0 or 1, −1)
 uniform mat3 world;
 uniform vec2 size;
 out float vD;
@@ -977,6 +977,7 @@ void main() {
   float k = max(length(n), 1e-6);
   vW = sideW.y * k;
   float e = max(vW, 0.5) + 1.0;
+  if (sideW.y < 0.0) { vW = 0.5; e = 1.0; }   // fading from the fill's edge to nothing one device pixel out
   vec2 d = (world * vec3(pos, 1.0)).xy + n / k * sideW.x * e;
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
   vD = sideW.x * e;
@@ -1166,7 +1167,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     for (const d of lines.draws) {
       if (d.alpha <= 0) continue;
       gl.uniform4f(U.col, ...d.col, d.alpha);
-      gl.drawArrays(gl.TRIANGLE_STRIP, d.first, d.count);
+      gl.drawArrays(d.tri ? gl.TRIANGLES : gl.TRIANGLE_STRIP, d.first, d.count);
     }
     gl.bindVertexArray(null);
     gl.disable(gl.BLEND);
@@ -1250,7 +1251,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform1f(U.alpha, d.alpha);
       gl.uniform2f(U.fade, ...(d.fade || [0, 0]));
       gl.uniform1f(U.len, d.len ?? 1e9);
-      gl.drawArrays(gl.TRIANGLE_STRIP, d.first, d.count);
+      gl.drawArrays(d.tri ? gl.TRIANGLES : gl.TRIANGLE_STRIP, d.first, d.count);
     }
     gl.bindVertexArray(null);
     gl.disable(gl.BLEND);
@@ -1471,13 +1472,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     get canLines() { return !!lineP; },
     /**
      * Organ outlines, or null: { verts: Float32Array (x, y, normal x, y, side, half width per vertex; world units),
-     * draws: [{ first, count, col: [r, g, b], alpha }] }. Alphas may change without new verts.
+     * draws: [{ first, count, col: [r, g, b], alpha, tri (a fill: triangles, half width 1e4, side 0) }] }.
+     * Alphas may change without new verts.
      */
     setLines(spec) {
       const fresh = spec && spec.verts !== lines?.verts;
       lines = lineP && spec?.draws?.length ? spec : null;
       if (!lines) return;
-      const sig = lines.draws.map((d) => `${d.first},${d.count},${d.alpha},${d.col}`).join(';');
+      const sig = lines.draws.map((d) => `${d.first},${d.count},${d.alpha},${d.col},${d.tri ? 1 : 0}`).join(';');
       if (fresh || sig !== lineSig) { lineSig = sig; lineVer++; }
       if (!fresh) return;
       gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);

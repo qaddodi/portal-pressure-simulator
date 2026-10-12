@@ -189,6 +189,91 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-anatomy`);
   });
 
+  // A pan or a pinch moves every mark on the figure with it. The vessel marks (bands, clamps, clots, stents, plugs,
+  // balloons) are drawn by the GPU with the vessels, never by an SVG layer that a browser may composite a frame apart
+  // from them; and after every step of a drag and of a pinch the GPU's picture, the bands and the labels' anchor dots
+  // all sit where the figure's own transform puts them. At phone, iPad and desktop sizes.
+  await check(device, 'pan and pinch: marks and labels stay locked to the figure', async (page) => {
+    const sizes = device === 'phone' ? [[390, 844]] : [[1024, 1366], [1440, 900]];
+    for (const [w, h] of sizes) {
+      await page.setViewportSize({ width: w, height: h });
+      await open(page, '?preset=cirr-decomp');
+      await page.evaluate(() => { window.pps.host.send({ type: 'action', action: { kind: 'band' } }); window.pps.host.send({ type: 'action', action: { kind: 'band' } }); });
+      await page.waitForFunction(() => document.querySelectorAll('.band-ring[data-gl]').length >= 2, null, { timeout: 30000 });
+      await page.waitForTimeout(900);
+      const frames = (n = 2) => page.evaluate((n) => new Promise((r) => { const f = () => (n-- ? requestAnimationFrame(f) : r()); f(); }), n);
+      await frames(3);
+      // Where each mark and anchor is now, and the figure's transform (world → stage px) against the GPU's.
+      const state = () => page.evaluate(() => {
+        const st = window.pps.stage, wr = document.querySelector('.stage-view').getBoundingClientRect();
+        const [ox, oy] = st.worldToLocal(0, 0), [ax, ay] = st.worldToLocal(1, 0), [bx, by] = st.worldToLocal(0, 1);
+        const M = [ax - ox, ay - oy, bx - ox, by - oy, ox, oy];
+        const c = (e) => { const r = e.getBoundingClientRect(); return [r.left + r.width / 2 - wr.left, r.top + r.height / 2 - wr.top]; };
+        const svgMarks = [...document.querySelectorAll('#overlays > g:not(.res-zz) :is(path, circle, ellipse, rect)')].filter((e) => !e.closest('[class*="cath"]') && !e.hasAttribute('data-gl') && getComputedStyle(e).visibility !== 'hidden' && e.getBoundingClientRect().width > 0).map((e) => e.getAttribute('class') || e.tagName);
+        return { M, gl: st.glMatrix(), bands: [...document.querySelectorAll('.band-ring')].map(c), dots: [...document.querySelectorAll('#labels .leader-dot:not(.scan)')].map(c), svgMarks };
+      });
+      const fail = [];
+      const near = (p, q, tol) => Math.hypot(p[0] - q[0], p[1] - q[1]) <= tol;
+      const apply = (A, B, p) => {   // B · A⁻¹ · p: where the figure's motion from A to B takes the stage point p
+        const det = A[0] * A[3] - A[1] * A[2], x = p[0] - A[4], y = p[1] - A[5];
+        const u = (A[3] * x - A[2] * y) / det, v = (-A[1] * x + A[0] * y) / det;
+        return [B[0] * u + B[2] * v + B[4], B[1] * u + B[3] * v + B[5]];
+      };
+      const compare = (a, b, what) => {
+        if (b.svgMarks.length) fail.push(`${what}: drawn by SVG, not with the vessels: ${b.svgMarks.join(', ')}`);
+        if (!b.gl) fail.push(`${what}: the figure is not drawn on the GPU`);
+        else if (b.gl.some((v, i) => Math.abs(v - b.M[i]) > (i > 3 ? 0.6 : 0.002 * Math.abs(b.M[0])))) fail.push(`${what}: vessels drawn at [${b.gl.map((v) => v.toFixed(2))}], figure at [${b.M.map((v) => v.toFixed(2))}]`);
+        b.bands.forEach((p, i) => { const q = apply(a.M, b.M, a.bands[i]); if (!near(p, q, 0.8)) fail.push(`${what}: band ${i} at ${p.map((v) => v.toFixed(1))}, its vessel at ${q.map((v) => v.toFixed(1))}`); });
+        // A label may be placed or dropped as the view changes; every anchor dot that stays must ride with the figure.
+        const moved = a.dots.map((p) => apply(a.M, b.M, p));
+        const kept = b.dots.filter((p) => moved.some((q) => near(p, q, 0.8))).length;
+        if (Math.min(a.dots.length, b.dots.length) >= 4 && kept < Math.min(a.dots.length, b.dots.length) * 0.6) fail.push(`${what}: only ${kept} of ${b.dots.length} label anchor dots moved with the figure`);
+      };
+      const box = await page.locator('.stage-view').boundingBox();
+      const cx = box.x + box.width / 2, cy = box.y + box.height * 0.45;
+      // A pinch in (short of the liver's dive into the lobule), then a drag.
+      if (device === 'phone') {
+        const cdp = await page.context().newCDPSession(page);
+        const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+        let a = await state();
+        await touch('touchStart', [[cx - 40, cy], [cx + 40, cy]]);
+        for (let i = 1; i <= 6; i++) {
+          await touch('touchMove', [[cx - 40 - i * 8, cy - i * 2], [cx + 40 + i * 8, cy + i * 2]]);
+          await frames();
+          const b = await state(); compare(a, b, `${w}x${h} pinch step ${i}`); a = b;
+        }
+        await touch('touchEnd', []);
+        await frames(3);
+        a = await state();
+        await touch('touchStart', [[cx, cy]]);
+        for (let i = 1; i <= 8; i++) {
+          await touch('touchMove', [[cx - i * 14, cy - i * 9]]);
+          await frames();
+          const b = await state(); compare(a, b, `${w}x${h} pan step ${i}`); a = b;
+        }
+        await touch('touchEnd', []);
+      } else {
+        await page.mouse.move(cx, cy);
+        let a = await state();
+        for (let i = 1; i <= 4; i++) {
+          await page.keyboard.down('Control'); await page.mouse.wheel(0, -40); await page.keyboard.up('Control');
+          await frames();
+          const b = await state(); compare(a, b, `${w}x${h} pinch step ${i}`); a = b;
+        }
+        await frames(3);
+        a = await state();
+        await page.mouse.down();
+        for (let i = 1; i <= 8; i++) {
+          await page.mouse.move(cx - i * 14, cy - i * 9);
+          await frames();
+          const b = await state(); compare(a, b, `${w}x${h} pan step ${i}`); a = b;
+        }
+        await page.mouse.up();
+      }
+      if (fail.length) throw new Error(fail.slice(0, 4).join(' | '));
+    }
+  });
+
   await check(device, 'sinusoid view: a rebuilt caption does not fade in again (no flashing at rest)', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
@@ -1899,6 +1984,7 @@ if (process.env.SMOKE_MATCH) { const match = new RegExp(process.env.SMOKE_MATCH,
 // Shards are filled by expected time, longest first, each check going to the least-loaded share
 // (times measured on CI runners; checks not listed count as 45 s, a deck walk as 3 min).
 const MEASURED = {
+  'pan and pinch: marks and labels stay locked to the figure': 150000,
   'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text': 125000,
   'presenter: lobule labels never touch, leaders never cross': 140000,
   'liver lobule: GPU vessels, pressure drops, caption, cards, zones': 160000,

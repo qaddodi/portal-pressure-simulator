@@ -7,14 +7,14 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7fb7280c05';
 import { fibroReading } from './clock.js?v=af42a9670d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors } from './util.js?v=0cca243d2a';
-import { createLobuleZoom } from './lobule-zoom.js?v=8c652b30e2';
+import { createLobuleZoom } from './lobule-zoom.js?v=c78a8b54d8';
 import { runFlick, FLICK } from './flick.js?v=9c07aaa402';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=2f568f909c';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=1a5770aa47';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
 const nextFrame = frameFor('stage');
@@ -2586,6 +2586,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!plateWas && plateOn()) drawVeins();
   }
   /** Redraws the vessel layer (and the picture) if anything in it changed; true when it did. */
+  let glM = null;   // the world → stage transform (CSS px) the vessels were last drawn in (for the tests)
   function drawVeins() {
     if (!veins || veins.lost || !vLook || !F) return false;
     if (!CTM) refreshCTM();
@@ -2595,6 +2596,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!veinsDirty && key === veinsDrawKey) return false;
     if (key !== veinsDrawKey && plateOn()) schedulePlateView();
     veinsDirty = false; veinsDrawKey = key;
+    glM = [m.a, m.b, m.c, m.d, m.e - wrapRect.left, m.f - wrapRect.top];
     veins.draw(T, vLook, bloodLook());
     return true;
   }
@@ -2940,7 +2942,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Eases each outline toward shown or gone and hands them to the GPU; true while anything is changing.
   function olStep(now) {
-    if (!glLines || (!olDirty && !olList.length)) return false;
+    if (glLines && marksKey() !== mk.key) marksBuild();
+    if (!glLines || (!olDirty && !olList.length && !mk.dirty)) return false;
     const du = Math.min(1, (now - olLast) / OL_FADE);
     olLast = now;
     let moving = false;
@@ -2968,9 +2971,185 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
     if (V) olVerts = new Float32Array(V);
-    veins.setLines(draws.length ? { verts: olVerts, draws } : null);
+    // The vessel marks first (they sit under an organ's outline, as in the SVG), then the outlines.
+    if (V || mk.dirty || !mk.all) {
+      const n = mk.verts.length, all = new Float32Array(n + (olVerts?.length || 0));
+      all.set(mk.verts); if (olVerts) all.set(olVerts, n);
+      mk.all = all; mk.dirty = false;
+    }
+    const off = mk.verts.length / 6;
+    const list = [...mk.draws, ...draws.map((d) => ({ ...d, first: d.first + off }))];
+    veins.setLines(list.length ? { verts: mk.all, draws: list } : null);
     olDirty = false;
     return moving || !!V;
+  }
+
+  // The marks on the vessels (bands, clamps, clots, stents and sutures, plugs, balloons, the spleen's marks) are drawn
+  // on the GPU with the outlines, for the same reason: an SVG overlay is composited apart from the vessel canvas, and
+  // a browser may show it a frame ahead of the vessels (Safari), so during a pan or pinch the marks slid along their
+  // vessels. Each shape (not text) is read as the SVG draws it now, styles included, into world-space strokes and
+  // fills; the SVG copy stays, hidden (data-gl), and shows again wherever the GPU cannot draw.
+  const mk = { key: '', ver: 0, verts: new Float32Array(0), draws: [], all: null, dirty: false };
+  const darkMQ = matchMedia('(prefers-color-scheme: dark)');
+  const marksKey = () => `${mk.ver}|${wrap.className}|${document.documentElement.dataset.theme}|${darkMQ.matches}`;
+  // Subpaths of an absolute M/L/H/V/C/Q/Z path as point lists (curves sampled); null for anything else.
+  function pathRings(d) {
+    const tok = d.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/g) || [];
+    const rings = [];
+    let cur = null, cmd = '', i = 0, x = 0, y = 0;
+    const num = () => Number(tok[i++]);
+    while (i < tok.length) {
+      if (/[a-zA-Z]/.test(tok[i])) cmd = tok[i++];
+      if (cmd === 'M') { x = num(); y = num(); cur = { pts: [[x, y]], closed: false }; rings.push(cur); cmd = 'L'; }
+      else if (!cur) return null;
+      else if (cmd === 'L') { x = num(); y = num(); cur.pts.push([x, y]); }
+      else if (cmd === 'H') { x = num(); cur.pts.push([x, y]); }
+      else if (cmd === 'V') { y = num(); cur.pts.push([x, y]); }
+      else if (cmd === 'C' || cmd === 'Q') {
+        const c = cmd === 'C' ? [num(), num(), num(), num(), num(), num()] : [num(), num(), num(), num()];
+        const ex = c[c.length - 2], ey = c[c.length - 1], x0 = x, y0 = y;
+        const n = Math.max(2, Math.min(24, Math.ceil(Math.hypot(ex - x0, ey - y0) / 2)));
+        for (let k = 1; k <= n; k++) {
+          const t = k / n, u = 1 - t;
+          cur.pts.push(cmd === 'C'
+            ? [u * u * u * x0 + 3 * u * u * t * c[0] + 3 * u * t * t * c[2] + t * t * t * ex, u * u * u * y0 + 3 * u * u * t * c[1] + 3 * u * t * t * c[3] + t * t * t * ey]
+            : [u * u * x0 + 2 * u * t * c[0] + t * t * ex, u * u * y0 + 2 * u * t * c[1] + t * t * ey]);
+        }
+        x = ex; y = ey;
+      } else if (cmd === 'Z' || cmd === 'z') { cur.closed = true; x = cur.pts[0][0]; y = cur.pts[0][1]; }
+      else return null;
+      if (Number.isNaN(x) || Number.isNaN(y)) return null;
+    }
+    return rings;
+  }
+  function ellipseRing(cx, cy, rx, ry) {
+    const n = Math.max(24, Math.min(96, Math.ceil(Math.PI * (rx + ry) / 1.5))), pts = [];
+    for (let k = 0; k < n; k++) { const a = (k / n) * 2 * Math.PI; pts.push([cx + rx * Math.cos(a), cy + ry * Math.sin(a)]); }
+    return { pts, closed: true };
+  }
+  function shapeRings(el) {
+    const n = (a) => Number(el.getAttribute(a)) || 0;
+    switch (el.tagName) {
+      case 'path': return pathRings(el.getAttribute('d') || '');
+      case 'circle': return [ellipseRing(n('cx'), n('cy'), n('r'), n('r'))];
+      case 'ellipse': return [ellipseRing(n('cx'), n('cy'), n('rx'), n('ry'))];
+      case 'rect': {
+        const x = n('x'), y = n('y'), w = n('width'), h = n('height'), r = Math.min(n('rx') || n('ry'), w / 2, h / 2);
+        if (!r) return [{ pts: [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], closed: true }];
+        const pts = [];
+        for (const [cx, cy, a0] of [[x + w - r, y + r, -90], [x + w - r, y + h - r, 0], [x + r, y + h - r, 90], [x + r, y + r, 180]]) {
+          for (let k = 0; k <= 8; k++) { const a = ((a0 + (k / 8) * 90) * Math.PI) / 180; pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+        }
+        return [{ pts, closed: true }];
+      }
+      default: return null;
+    }
+  }
+  function paintOf(v, a) {
+    if (!v || v === 'none' || v.startsWith('url')) return null;
+    const m = /^rgba?\(([^)]+)\)$/.exec(v);
+    if (!m) return [...toRGB(v, getComputedStyle(svg)), a];
+    const k = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+    return [k[0] / 255, k[1] / 255, k[2] / 255, a * (k.length > 3 ? k[3] : 1)];
+  }
+  // Ear clipping: the triangles of a simple polygon (counter-clockwise or not).
+  function earcut(P) {
+    const n = P.length, idx = [...Array(n).keys()], out = [];
+    let area = 0;
+    for (let i = 0; i < n; i++) { const a = P[i], b = P[(i + 1) % n]; area += a[0] * b[1] - b[0] * a[1]; }
+    const sgn = area > 0 ? 1 : -1;
+    const cross = (a, b, c) => ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) * sgn;
+    const inside = (p, a, b, c) => cross(a, b, p) >= 0 && cross(b, c, p) >= 0 && cross(c, a, p) >= 0;
+    let guard = n * n;
+    while (idx.length > 3 && guard-- > 0) {
+      let cut = false;
+      for (let i = 0; i < idx.length; i++) {
+        const ia = idx[(i + idx.length - 1) % idx.length], ib = idx[i], ic = idx[(i + 1) % idx.length];
+        const a = P[ia], b = P[ib], c = P[ic];
+        if (cross(a, b, c) <= 0) continue;
+        if (idx.some((j) => j !== ia && j !== ib && j !== ic && inside(P[j], a, b, c))) continue;
+        out.push(a, b, c); idx.splice(i, 1); cut = true; break;
+      }
+      if (!cut) break;
+    }
+    if (idx.length === 3) out.push(P[idx[0]], P[idx[1]], P[idx[2]]);
+    return { tris: out, sgn };
+  }
+  function marksBuild() {
+    mk.key = marksKey();
+    const V = [], draws = [];
+    let first = 0;
+    const push = (col, count, tri) => { if (count) { draws.push({ first, count, col: col.slice(0, 3), alpha: col[3], tri }); first += count; } };
+    // A stroke as a strip of mitred joins (as SVG, limit 4); open ends with square or round caps.
+    const stroke = (pts, closed, h, cap) => {
+      const n = pts.length;
+      if (n < 2) return 0;
+      const P = closed ? pts : pts.slice();
+      if (!closed && cap === 'square') {
+        const ext = (p, q) => { const l = Math.hypot(p[0] - q[0], p[1] - q[1]) || 1; return [p[0] + (p[0] - q[0]) / l * h, p[1] + (p[1] - q[1]) / l * h]; };
+        P[0] = ext(P[0], P[1]); P[n - 1] = ext(P[n - 1], P[n - 2]);
+      }
+      const nrm = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [-dy / l, dx / l]; };
+      let c = 0;
+      for (let i = 0; i <= (closed ? n : n - 1); i++) {
+        const k = i % n, p = P[k];
+        const prev = closed ? P[(k - 1 + n) % n] : P[Math.max(0, k - 1)], next = closed ? P[(k + 1) % n] : P[Math.min(n - 1, k + 1)];
+        const n1 = k > 0 || closed ? nrm(prev, p) : nrm(p, next), n2 = k < n - 1 || closed ? nrm(p, next) : n1;
+        let mx = n1[0] + n2[0], my = n1[1] + n2[1];
+        const ml = Math.hypot(mx, my);
+        if (ml < 1e-6) { mx = n1[0]; my = n1[1]; } else { mx /= ml; my /= ml; }
+        const sc = 1 / Math.max(0.25, mx * n1[0] + my * n1[1]);
+        V.push(p[0], p[1], mx * sc, my * sc, 1, h, p[0], p[1], mx * sc, my * sc, -1, h);
+        c += 2;
+      }
+      return c;
+    };
+    const disc = (p, r) => { const ring = ellipseRing(p[0], p[1], r, r).pts; let c = 0; for (let k = 0; k < ring.length; k++) { const a = ring[k], b = ring[(k + 1) % ring.length]; V.push(p[0], p[1], 1, 0, 0, 1e4, a[0], a[1], 1, 0, 0, 1e4, b[0], b[1], 1, 0, 0, 1e4); c += 3; } return c; };
+    for (const g of Object.values(ov)) {
+      for (const el of g.querySelectorAll('path, circle, ellipse, rect')) {
+        el.removeAttribute('data-gl');
+        let cs = getComputedStyle(el), op = 1, M = null, ok = cs.display !== 'none' && cs.strokeDasharray === 'none';
+        for (let e = el; ok && e && e !== gOver; e = e.parentNode) {
+          const c = e === el ? cs : getComputedStyle(e);
+          if (c.display === 'none' || (e !== el && (e.getAttribute('clip-path') || e.getAttribute('mask')))) ok = false;
+          op *= Number(c.opacity);
+          const t = c.transform;
+          if (t && t !== 'none') { const q = t.match(/-?[\d.]+(?:e-?\d+)?/g).map(Number); M = M ? [M[0] * q[0] + M[2] * q[1], M[1] * q[0] + M[3] * q[1], M[0] * q[2] + M[2] * q[3], M[1] * q[2] + M[3] * q[3], M[0] * q[4] + M[2] * q[5] + M[4], M[1] * q[4] + M[3] * q[5] + M[5]] : q; }
+        }
+        const rings = ok ? shapeRings(el) : null;
+        if (!rings) continue;
+        if (M) for (const r of rings) r.pts = r.pts.map(([x, y]) => [M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]]);
+        for (const r of rings) r.pts = r.pts.filter((p, i, a) => !i || Math.hypot(p[0] - a[i - 1][0], p[1] - a[i - 1][1]) > 1e-3);
+        const fill = paintOf(cs.fill, op * Number(cs.fillOpacity)), sk = paintOf(cs.stroke, op * Number(cs.strokeOpacity));
+        const sw = parseFloat(cs.strokeWidth) || 0;
+        if (fill && fill[3] > 0) for (const r of rings) {
+          if (r.pts.length < 3) continue;
+          const { tris, sgn } = earcut(r.pts);
+          for (const p of tris) V.push(p[0], p[1], 1, 0, 0, 1e4);
+          push(fill, tris.length, true);
+          // Without a stroke over it, the fill's edge is antialiased by a one-pixel fringe outside it.
+          if (!(sk && sw >= 0.6)) {
+            const n = r.pts.length;
+            let c = 0;
+            for (let i = 0; i <= n; i++) {
+              const p = r.pts[i % n], a = r.pts[(i - 1 + n) % n], b = r.pts[(i + 1) % n];
+              const ux = b[0] - a[0], uy = b[1] - a[1], l = Math.hypot(ux, uy) || 1, ox = (uy / l) * sgn, oy = (-ux / l) * sgn;
+              V.push(p[0], p[1], ox, oy, 0, -1, p[0], p[1], ox, oy, 1, -1); c += 2;
+            }
+            push(fill, c, false);
+          }
+        }
+        if (sk && sk[3] > 0 && sw > 0) {
+          const h = sw / 2, cap = cs.strokeLinecap;
+          for (const r of rings) {
+            push(sk, stroke(r.pts, r.closed, h, cap), false);
+            if (cap === 'round' && !r.closed && r.pts.length > 1) { push(sk, disc(r.pts[0], h), true); push(sk, disc(r.pts[r.pts.length - 1], h), true); }
+          }
+        }
+        el.setAttribute('data-gl', '');
+      }
+    }
+    mk.verts = new Float32Array(V); mk.draws = draws; mk.dirty = true;
   }
 
   // A selected organ keeps a quiet outline; a selected site (varices, fundus, abdomen) a ring.
@@ -4040,6 +4219,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     ov.balloons.innerHTML = '';
     if (anat && p.balloonEso) ov.balloons.append(s('rect', { x: 792, y: 190, width: 20, height: 84, rx: 10, class: 'balloon-shape' }));
     if (anat && p.balloonGas) ov.balloons.append(s('circle', { cx: SITES.fundus[0], cy: SITES.fundus[1], r: 24, class: 'balloon-shape' }));
+    mk.ver++;
   }
 
   // ── Labels: a screen-space layer (SVG) laid out every frame ──
@@ -5119,7 +5299,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const still = (!st.running || reduceMotion.matches) && !bolus.active;
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !glowSync && !olDirty && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { nextFrame(animate); return; }
+    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { nextFrame(animate); return; }
     stepPlateEase(dt);
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
@@ -5905,6 +6085,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The camera's whole magnification (log scale: the plate's zoom plus the dive's), or null while the lobule fills the view. For the tests: a dive in or out must move it steadily, never stopping part way. */
     sinBusy: () => !!lz?.sinBusy(),
     cameraMoves: (clear) => (clear ? camMoves.splice(0) : [...camMoves]),
+    /** The transform the GPU last drew the figure in, as [a, b, c, d, e, f] from world to stage px (null: not drawn on the GPU). */
+    glMatrix: () => (veins && !veins.lost && wrap.classList.contains('gl-on') ? glM : null),
     cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !chainOut && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
     /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
     riseTo,
