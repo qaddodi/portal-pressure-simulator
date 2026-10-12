@@ -657,7 +657,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=845de9abb6', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=f17f62a1c0', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -669,7 +669,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=45f27db41f');
+      const { createCore } = await import('../worker-core.js?v=426cb38674');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -985,7 +985,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       if (lapseLeft) lapseLeft = days - d;
       paintLapse(s, d, days);
       ui?.tools.progress(d / days);
-      if (fr?.metrics) dataTo(s, liveFp(fr), ref, fast ? 120 : 280);
+      // (Only once a day has run: before that the live figure is at the bedside, its numbers swinging with each beat, while
+      // the card already shows the settled start.)
+      if (fr?.metrics && d >= 1) dataTo(s, liveFp(fr), ref, fast ? 120 : 280);
       if (d >= days && fr?.clock === 'hemo') break;
     }
     if (!lapseOn || cut()) { stopLapse(); return; }
