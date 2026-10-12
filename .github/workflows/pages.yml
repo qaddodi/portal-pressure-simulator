@@ -7,9 +7,13 @@ name: Pages (live site + preview)
 # concurrency group across branches. Lint and unit run for every push and gate the deploy.
 # On the integration branch a newer push cancels the older run's lint, browser, visual and WebKit
 # checks at once, so the newest push gets the runners and deploys fast (owner's rule). A preview
-# deploy that is already publishing is never cancelled: the newest waiting one queues behind it and
-# older waiting ones are dropped, so a burst of pushes always ends with the newest commit deployed.
-# On main nothing changes: started checks run to the end and a main deploy replaces a running one.
+# deploy that is already publishing is never cancelled (main included): the newest waiting one queues
+# behind it and older waiting ones are dropped, so a burst of pushes always ends with the newest commit
+# deployed. Every deploy rebuilds / from main's current tip, so a preview deploy never publishes a stale root.
+# On main started checks run to the end.
+# The deploy needs only lint and unit, and it goes first: the browser, visual and WebKit checks wait
+# for the deploy job (they still run and report red afterwards). Before, the deploy job queued behind
+# about forty check jobs for the account's runners and a push took 40 minutes to go live.
 # Browser, visual and WebKit checks run only for main and the integration branch (other claude/**
 # branches get lint and unit here, and everything in ci.yml on a pull request), so runners stay free.
 
@@ -47,7 +51,8 @@ jobs:
   # Split over thirty-six runners (desktop in twenty shares, phone in sixteen), filled by measured time, one check at a time per runner:
   # a runner is too small to run several browsers at once.
   browser-checks:
-    if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
+    needs: [validate, deploy]
+    if: ${{ !cancelled() && needs.validate.result == 'success' && (github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1') }}
     runs-on: ubuntu-latest
     concurrency:
       group: browser-checks-${{ github.ref }}-${{ matrix.device }}-${{ matrix.shard }}
@@ -118,7 +123,8 @@ jobs:
 
   # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
   webkit:
-    if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
+    needs: [validate, deploy]
+    if: ${{ !cancelled() && needs.validate.result == 'success' && (github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1') }}
     runs-on: ubuntu-latest
     concurrency:
       group: webkit-${{ github.ref }}
@@ -142,7 +148,8 @@ jobs:
   # which redraws the drifted views on these same machines and commits them.
   visual:
     name: visual (${{ matrix.device }})
-    if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
+    needs: [validate, deploy]
+    if: ${{ !cancelled() && needs.validate.result == 'success' && (github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1') }}
     runs-on: ubuntu-latest
     concurrency:
       group: visual-${{ github.ref }}-${{ matrix.device }}
@@ -183,7 +190,8 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       group: pages
-      cancel-in-progress: ${{ github.ref_name == 'main' }}
+      # Queue, never cancel: a deploy that is publishing finishes, and only the newest waiting one runs next.
+      cancel-in-progress: false
     timeout-minutes: 10
     environment:
       name: github-pages
