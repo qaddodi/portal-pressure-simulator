@@ -1481,7 +1481,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     }
   }
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
-  let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0;
+  let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0;
   const fitWatch = () => {
     fitRO ||= new ResizeObserver(() => {
       cancelFrame(fitRaf);
@@ -1493,7 +1493,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const again = () => { if (!ui) return; if (!shown) { clearT = setTimeout(again, 150); return; }   // (a slide still coming in: once it is in)
       if (slides[shown.i]?.clear) reframe(400); };
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
-    clearRO ||= new ResizeObserver(soon);
+    // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
+    clearRO ||= new ResizeObserver(() => { cancelFrame(paneRaf); paneRaf = nextFrame(() => ui && layout()); soon(); });
     clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text);
     ui.data.ontransitionend = ui.text.ontransitionend = soon;   // (a card slides into place: its edge is where it ends, not where it was measured)
   };

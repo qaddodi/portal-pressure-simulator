@@ -119,6 +119,13 @@ const barFit = (page) => page.evaluate(() => {
     if (first && !first.matches('.pz-h, .pz-dtitle, h1')) return `the card starts with ${first.className || first.tagName.toLowerCase()}, not its title`;
     if (first && first.getBoundingClientRect().top - h.top > pad + 2) return `the card's title starts ${Math.round(first.getBoundingClientRect().top - h.top - pad)} px below its top`;
   }
+  // (A phone's words sit on a glass pane rising from the bottom: the title keeps at least the pane's side gap (14 px) below its top
+  // edge, also once a chart under the words has arrived and grown them.)
+  const shade = document.querySelector('.pz-shade.stack'), title = host.matches('.pz-text') && host.querySelector('.pz-h, .pz-dtitle');
+  if (shade && title && +getComputedStyle(shade).opacity > 0.5) {
+    const gap = title.getBoundingClientRect().top - shade.getBoundingClientRect().top;
+    if (gap < 14) return gap < -1 ? null : `the title sits ${Math.round(gap)} px below the glass pane's top edge (at least 14)`;   // (above it: the pane still growing)
+  }
   return 'ok';
 });
 // A phone's data card hugs its contents: at most 12 px of empty card above the first part or below the last, and its
