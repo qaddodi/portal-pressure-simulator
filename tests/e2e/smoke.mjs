@@ -436,6 +436,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   await check(device, 'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text', async (page) => {
     // The portal circulation deck (after its outline), one patient: the whole lobule, the portal tract, the sinusoid wall, the central vein.
+    // (Labels fade, not pixels: drawn at one device pixel per pixel, since a software renderer draws the lobule at a phone's three-fold
+    // scale about nine times slower, a frame every few seconds, and the slide changes then took longer than the check waits.)
+    if (device === 'phone') await (await page.context().newCDPSession(page)).send('Emulation.setDeviceMetricsOverride', { ...DEVICES.phone.viewport, deviceScaleFactor: 1, mobile: true });
     await open(page, '?preset=healthy');
     await page.evaluate(() => window.pps.presenter.start('circulation', 4));
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled() && !document.querySelector('.pz-cover'), null, { timeout: 60000 });   // (the start's cover gone)
@@ -454,8 +457,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         .filter((l) => !l.hidden && l.firstElementChild && +getComputedStyle(l, '::before').opacity > 0.5)
         .map((l) => [id(l), +getComputedStyle(l.firstElementChild).opacity / +getComputedStyle(l, '::before').opacity]));
       window.__labBefore = window.__labRatio();
-      const anc = (e) => { let o = 1; for (let x = e; x && x !== app; x = x.parentElement) { const cs = getComputedStyle(x); if (cs.visibility === 'hidden' || cs.display === 'none') return 0; o *= +cs.opacity; } return o; };
+      // (A pass reads each ancestor's style once, however many labels share it: the labels of a slide share most of theirs, and
+      // sampling every frame and every 30 ms with a style read per label per ancestor slowed the page being watched.)
+      let own = new Map();
+      const anc = (e) => { let o = 1; for (let x = e; x && x !== app; x = x.parentElement) { let v = own.get(x); if (v === undefined) { const cs = getComputedStyle(x); v = cs.visibility === 'hidden' || cs.display === 'none' ? 0 : +cs.opacity; own.set(x, v); } if (!v) return 0; o *= v; } return o; };
       const sample = () => {
+        own = new Map();
         const lit = app.dataset.lit || '';
         for (const lab of document.querySelectorAll(':is(.lz, .sv) :is(.lz-lab, .lz-zone, .sv-region)')) {
           if (lab.hidden || !lab.firstElementChild) continue;
@@ -527,7 +534,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   const CROSSINGS = [   // [deck, slide to start on (0-based), key, whether the key goes into the lobule, whether it is the sinusoid view that is gone to or left]
     ['circulation', 3, 'ArrowRight', true], ['circulation', 4, 'ArrowLeft', false], ['circulation', 7, 'ArrowRight', false],   // ladder → lobule and back; central vein → the next view
     ['lobule', 0, 'ArrowRight', true],   // the outline's fit → the whole lobule
-    ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false],   // a fit, then a liver close-up, before it
+    ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false, false, true],   // a fit, then a liver close-up, before it (the last one changes the patient: propranolol)
     ['sites', 7, 'ArrowLeft', true],   // backwards into it
     ['ascites', 0, 'ArrowRight', true, true], ['ascites', 4, 'ArrowRight', true, true], ['tap', 7, 'ArrowRight', true, true],   // anatomy straight to the sinusoid view, through the lobule without stopping in it
     ['ascites', 5, 'ArrowRight', false, true, true], ['ascites', 8, 'ArrowRight', false, true, true],   // and the sinusoid view straight back out to the anatomy (a new patient: the words, and so the space the camera frames into, are settled after the rise)
@@ -2122,7 +2129,7 @@ if (process.env.SMOKE_MATCH) { const match = new RegExp(process.env.SMOKE_MATCH,
 // (times measured on CI runners; checks not listed count as 45 s, a deck walk as 3 min).
 const MEASURED = {
   'pan and pinch: marks and labels stay locked to the figure': 150000,
-  'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text': 125000,
+  'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text': 90000,   // (one device pixel per pixel on a phone: about 65 s here)
   'presenter: lobule labels never touch, leaders never cross': 140000,
   'liver lobule: GPU vessels, pressure drops, caption, cards, zones': 160000,
   'corner credit never touches a card': 130000,
