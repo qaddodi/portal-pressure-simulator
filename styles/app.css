@@ -4968,6 +4968,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace .dock-pane { container-type: size; container-name: tpane; }
 @container tpane (min-height: 1px) {
   .instrument-workspace .chart-box { max-height: calc(100cqh - 32px) !important; }
+  /* A square that has to give way gives way in both directions, so it stays a square (not 242 wide and 234 tall). */
+  .instrument-workspace .chart-box.square { max-width: calc(100cqh - 32px) !important; }
 }
 @container tpane (max-height: 260px) {
   .instrument-workspace .chart-box { min-height: min(100px, calc(100cqh - 32px)) !important; }
