@@ -2069,19 +2069,6 @@ button.finding { cursor: pointer; }
 .pz-bar .pzb-sep { width: 1px; align-self: stretch; margin: 8px 3px; background: color-mix(in srgb, var(--text) 12%, transparent); }
 .pz-black { position: fixed; inset: 0; z-index: var(--z-toast); background: var(--black); opacity: 0; pointer-events: none; transition: opacity .4s var(--ease); }
 .pz-black.on { opacity: 1; pointer-events: auto; cursor: none; }
-/* A laptop, desktop or tablet on its side (presenter.js low): the words along the bottom on a glass band, as on a phone, so the
-   figure keeps the full width; the data card stays in its column at the right, above the Back/Next bar at the lower right. */
-.pz.low { --pz-dr: clamp(16px, calc(2.6vw / var(--vz)), 60px); --pz-dw: clamp(300px, calc(25vw / var(--vz)), 500px); --pz-bar-h: 72px; }
-.pz.low .pz-safe { right: 0; top: auto; bottom: 0; width: auto; }
-.pz-shade.low { width: auto !important; right: 0; top: auto; bottom: 0; height: 0; box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 -1px 0 var(--pz-glass-line), 0 -10px 28px -6px var(--pz-glass-drop), 0 -2px 6px -1px var(--pz-glass-drop); }
-.pz.low .pz-text { left: clamp(20px, calc(3.4vw / var(--vz)), 76px); right: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: auto; bottom: clamp(18px, calc(3.6 * var(--pzh) / var(--vz)), 48px); margin-block: 0; width: auto; max-height: 46%; gap: clamp(6px, calc(1.3 * var(--pzh) / var(--vz)), 18px); }
-.pz.low .pz-text.beside { right: calc(var(--pz-dr) + var(--pz-dw) + clamp(16px, calc(2vw / var(--vz)), 40px)); }
-.pz.low .pz-h { font-size: var(--s-big); }
-.pz.low .pz-h::after { margin-top: .22em; }
-.pz.low .pz-data { max-height: calc(100% - clamp(20px, calc(8 * var(--pzh) / var(--vz)), 110px) - var(--pz-bar-h) - 12px); }
-.pz.low .pz-bar { left: auto; right: var(--pz-dr); translate: none; bottom: 18px; max-width: var(--pz-dw); }
-.pz.low .pz-count { right: var(--pz-dr); transition: opacity .25s var(--ease); }
-.pz.low:has(.pz-bar:not(.idle)) .pz-count { opacity: 0; }   /* (the bar shows its own count over it) */
 /* A phone, or a screen taller than wide: the words on top, the data below, the figure between. */
 /* (On a phone the words sit at the bottom over the Back/Next bar, on a glass pane rising from the bottom edge; the data card is at the top.) */
 .pz-shade.stack { width: auto !important; right: 0; top: auto; bottom: 0; height: 0; box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 -1px 0 var(--pz-glass-line), 0 -10px 24px -6px var(--pz-glass-drop), 0 -2px 5px -1px var(--pz-glass-drop); }
