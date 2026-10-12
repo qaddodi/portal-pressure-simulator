@@ -17,7 +17,7 @@ export const VARICES = {
       ask: ['Name four places where portosystemic collaterals form.', 'The gastroesophageal junction, the umbilicus, the rectum, the retroperitoneum (and splenorenal and gastrorenal shunts).'],
     },
     {
-      id: 'lapse', days: 180, ramp: { cirrhosis: [0.6, 0.85] }, lapse: { seconds: 10 }, cam: 'fit', tool: { kind: 'trace' }, data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'], delta: true,
+      id: 'lapse', days: 180, ramp: { cirrhosis: [0.6, 0.85] }, lapse: { seconds: 10 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over the days' }, data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'], delta: true,
       kicker: 'Collaterals', site: 'sin', title: 'Varices grow as the gradient climbs',
       line: 'Over six months the HVPG climbs from about 12 to {17 mmHg}. Small varices become large, the spleen enlarges and platelets fall.',
       caveat: 'In patients this takes years: about 1 in 10 small varices become large each year.',

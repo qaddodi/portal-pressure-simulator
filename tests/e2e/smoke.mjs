@@ -1018,6 +1018,46 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
+  // A time-lapse's chart in the card (flow-time.js: the meal, ascites building, varices growing) gains its points live as the
+  // slide plays, one after another, never going back, and ends with every point; on a phone, an upright iPad and a desktop.
+  for (const size of device === 'phone' ? [null] : [{ width: 820, height: 1180 }, null]) for (const deck of ['circulation', 'ascites', 'varices']) await check(device, `presenter: ${deck}'s time-lapse chart gains its points as the slide plays${size ? ` at ${size.width}x${size.height}` : ''}`, async (page) => {
+    if (size) await page.setViewportSize(size);
+    await open(page);
+    await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+    const charts = (await page.evaluate(() => window.pps.presenter.probe())).charts;
+    if (!charts.length) throw new Error(`${deck}: no time-lapse chart`);
+    for (const at of charts) {
+      await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, at - 1]);
+      await page.waitForFunction((i) => window.pps.presenter.probe()?.i === i && !window.pps.presenter.probe().playing, at - 1, { timeout: 240000, polling: 500 });
+      await page.waitForTimeout(800);
+      // A recorder in the page: every count of points the chart draws on this slide (each paint, not a sampled few).
+      await page.evaluate((at) => {
+        const rec = window.__ptRec = [];
+        window.__ptT = new MutationObserver(() => {
+          const svg = document.querySelector('.pz-data:not(.pz-hide) .pz-flowtime svg:last-child'), p = window.pps.presenter.probe();
+          if (p.i === at && svg?.dataset.points && +svg.dataset.points !== rec.at(-1)?.n) rec.push({ n: +svg.dataset.points, playing: p.playing });
+        });
+        window.__ptT.observe(document.querySelector('.pz-data'), { subtree: true, attributes: true, attributeFilter: ['data-points'] });
+      }, at);
+      await page.keyboard.press('ArrowRight');
+      await page.waitForFunction((at) => window.pps.presenter.probe().playing || window.__ptRec.length > 2, at, { timeout: 240000, polling: 200 });
+      await page.waitForFunction((at) => window.pps.presenter.probe().i === at && !window.pps.presenter.probe().playing, at, { timeout: 240000, polling: 500 });
+      // (Then the heads ease onto the last point, up to 60 s on a slow machine.)
+      await page.waitForFunction(() => { const svg = document.querySelector('.pz-data:not(.pz-hide) .pz-flowtime svg:last-child'); return svg.dataset.points === svg.dataset.of; }, null, { timeout: 60000, polling: 250 }).catch(() => {});
+      const rec = await page.evaluate(() => { window.__ptT.disconnect(); return window.__ptRec.map((r) => r.n); });
+      // (Points between the first and the last: a slow machine samples sparsely, so a few are enough; the talk trace had none.)
+      const steps = new Set(rec.filter((n) => n > rec[0])).size, back = rec.findIndex((n, j) => j && n < rec[j - 1]), full = await page.evaluate(() => {
+        const svg = document.querySelector('.pz-data:not(.pz-hide) .pz-flowtime svg:last-child');
+        return [+svg.dataset.points, svg.querySelectorAll('.ptk-line')[0].getAttribute('d').split('L').length, +svg.dataset.of];
+      });
+      const at1 = `${deck} slide ${at + 1}${size ? ` at ${size.width}x${size.height}` : ''}`;
+      if (back > 0) throw new Error(`${at1}: the chart lost points (${rec[back - 1]} to ${rec[back]})`);
+      if (steps < 5) throw new Error(`${at1}: the chart grew in only ${steps} step(s) while the slide played (${rec.slice(0, 40).join(',')})`);
+      if (full[0] !== full[2] || full[1] < 30) throw new Error(`${at1}: the chart ends with ${full[0]} of its ${full[2]} points (${full[1]} on its line)`);
+    }
+  });
+
   // An upright iPad (820x1180): on every slide of the decks that open the sinusoid view, its names keep off the cards.
   if (device === 'desktop') for (const deck of ['ascites', 'tap', 'lobule']) await check(device, `presenter: on every slide of ${deck} at 820x1180 the sinusoid's names keep off the cards`, async (page) => {
     await page.setViewportSize({ width: 820, height: 1180 });

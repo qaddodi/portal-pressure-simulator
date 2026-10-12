@@ -2256,7 +2256,7 @@ button.finding { cursor: pointer; }
 .pz-talk svg.in { opacity: 0; }
 /* Portal pressure and flow over a time-lapse (flow-time.js): two scales, the lines drawing as it plays. */
 .pz-flowtime { display: grid; }
-.pz:not(.stack) .pz-data.has-tool:has(.pz-tool[data-kind="flowtime"]) { width: clamp(340px, 44vw, 480px); }   /* (wide enough for its words on an iPad held upright) */
+.pz:not(.stack) .pz-data.has-tool:has(.pz-tool[data-kind="flowtime"] .pz-flowtime:not(.days)) { width: clamp(340px, 44vw, 480px); }   /* (wide enough for its words on an iPad held upright; a disease time-lapse's short names keep the card's own width) */
 .pz-flowtime svg { grid-area: 1 / 1; width: 100%; height: auto; overflow: visible; transition: opacity .42s var(--ease); }
 @media (max-height: 760px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }   /* (a short phone: a slimmer chart leaves the figure a band between it and the words) */
 .pz-flowtime svg.in { opacity: 0; }

@@ -280,8 +280,10 @@ export function createCore(post) {
         if (st.params) { e.setParams(deepMerge(e.params, st.params)); e.settle(); }
         for (const a of [st.action || []].flat()) applyAction(e, a);
         const ramp = st.ramp ? Object.entries(st.ramp) : null, fine = !!(ramp || st.fine);
-        // trail: the portal pressure and flow on each day of the time-lapse, [day, pv, pvFlow] (the presenter's flow-time chart).
-        const at = (d, m) => [d, m.pv, m.pvFlowMean], trail = st.trail && st.days ? [at(0, computeMetrics(e))] : null;
+        // trail: two readings on each day of the time-lapse, [day, a, b] (the presenter's flow-time chart): the fingerprint
+        // keys st.trail names, or (true) the portal pressure and flow.
+        const tk = Array.isArray(st.trail) ? st.trail : ['pv', 'pvFlow'];
+        const at = (d, m) => { const f = fingerprint(m, e); return [d, ...tk.map((k) => f[k])]; }, trail = st.trail && st.days ? [at(0, computeMetrics(e))] : null;
         // start: a time-lapse with its own params plays from here (params set and settled, no day run yet), not from the slide before.
         const start = st.fine && st.days && st.params ? { snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(e), e) } : null;
         for (let done = 0; done < (st.days || 0);) {

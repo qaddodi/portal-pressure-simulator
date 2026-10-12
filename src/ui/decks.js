@@ -56,8 +56,8 @@
 import { CIRCULATION } from './decks/circulation.js?v=a0bf5a17c7';
 import { SITES } from './decks/sites.js?v=36e6abf616';
 import { HVPG } from './decks/hvpg.js?v=e4c550f298';
-import { ASCITES } from './decks/ascites.js?v=2350854694';
-import { VARICES } from './decks/varices.js?v=de0e419aa9';
+import { ASCITES } from './decks/ascites.js?v=4f7388ad65';
+import { VARICES } from './decks/varices.js?v=904a37fa1c';
 import { TREATMENT } from './decks/treatment.js?v=8b12768e70';
 import { STIFFNESS } from './decks/stiffness.js?v=da30273d27';
 import { ONE_YEAR } from './decks/one-year.js?v=aaf38e4baf';

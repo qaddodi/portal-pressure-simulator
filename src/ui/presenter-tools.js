@@ -12,6 +12,9 @@
 //   tool: { kind: 'wall' }                          the varix in cross-section, Laplace's T, r and w (the scope's Wall mechanics)
 //   tool: { kind: 'flowtime' }                      portal pressure and portal flow around a meal, the slide's time-lapse on a
 //                                                   teaching clock in minutes (flow-time.js), drawn as it plays
+//   tool: { kind: 'flowtime', clock: 'days', lines: [lower, upper] }
+//                                                   the same chart over a disease time-lapse: two fingerprint keys
+//                                                   (flow-time.js LINE), one point a model day, drawn as it plays
 //
 // Optional on any kind: title (the card's heading, in place of the kind's own). A slide may carry both data and tool:
 // the tool sits above the tiles. In quiz mode a tool with a reading (Doppler, FibroScan, the scope's grade) keeps it
@@ -24,7 +27,7 @@ import { EDGES } from '../engine/topology.js?v=34e377149b';
 import { createDoppler } from './doppler.js?v=8f7890d640';
 import { createFibroScan } from './fibroscan.js?v=c67db83219';
 import { createPressureTime } from './pressure-time.js?v=3262904167';
-import { createFlowTime } from './flow-time.js?v=cfb4578fd5';
+import { createFlowTime } from './flow-time.js?v=a023712368';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=4da87cf280';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('presenter-tools');
@@ -87,7 +90,7 @@ export function createTools({ host, stage }) {
       box.dataset.kind = k;
       box.classList.toggle('ask', quiz && READS.has(t.kind));
       if (k === 'talk') inst.set(chain);
-      else if (k === 'flowtime') inst.set(trail, reveal);
+      else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines });
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update(f)); }
     },
     /** The flow-time chart drawn up to k (0 to 1) of its time-lapse, with its series (trail) once it is computed. */

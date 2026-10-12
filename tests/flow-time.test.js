@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { flowTimeSeries, MINUTES } from '../src/ui/flow-time.js';
+import { flowTimeSeries, MINUTES, LINE } from '../src/ui/flow-time.js';
 import { CIRCULATION } from '../src/ui/decks/circulation.js';
 
 // The Circulation deck's meal slide, run off screen as the presenter does: its trail is the model's pressure and flow each day.
@@ -50,4 +50,35 @@ test('a flow-time series needs two finite points', () => {
   assert.equal(flowTimeSeries(null), null);
   assert.equal(flowTimeSeries([[0, 8, 1.1]]), null);
   assert.equal(flowTimeSeries([[0, 8, 1.1], [1, NaN, 1.2]]), null);
+});
+
+// Every time-lapse slide whose card carries a chart plots the lapse day by day (flow-time.js), never the talk trace's
+// one point a slide, and the disease lapses plot two of the card's own tiles.
+test('time-lapse charts plot every day of the lapse', async () => {
+  const { readdirSync } = await import('node:fs');
+  const decks = await Promise.all(readdirSync(new URL('../src/ui/decks/', import.meta.url)).map((f) => import(`../src/ui/decks/${f}`)));
+  const slides = decks.flatMap((m) => Object.values(m)).filter((d) => d?.slides).flatMap((d) => d.slides.map((s) => ({ d: d.id, s })));
+  const charted = slides.filter(({ s }) => s.lapse && s.tool && (s.tool.kind === 'flowtime' || (s.tool.kind === 'trace' && s.tool.range !== 'beats')));
+  assert.ok(charted.length >= 3);
+  for (const { d, s } of charted) {
+    assert.equal(s.tool.kind, 'flowtime', `${d} ${s.id}: a time-lapse chart`);
+    for (const k of s.tool.lines || []) assert.ok(LINE[k], `${d} ${s.id}: ${k} has a line`);
+    if (s.tool.clock === 'days') assert.ok(s.tool.lines.every((k) => (s.tiles || []).includes(k)), `${d} ${s.id}: plots its card's tiles`);
+  }
+});
+
+test('the ascites time-lapse charts sinusoids and ascites, one point a day', async () => {
+  const { ASCITES } = await import('../src/ui/decks/ascites.js');
+  const s = ASCITES.slides.find((x) => x.id === 'fill'), msgs = [], core = createCore((m) => msgs.push(m));
+  core.handle({ type: 'init' });
+  core.handle({ type: 'sequence', reqId: 1, steps: [{ preset: 'csph' }, { days: s.days, ramp: s.ramp, fine: true, trail: s.tool.lines }] });
+  for (let t = 0; !msgs.some((m) => m.type === 'sequence') && t < 3000; t++) await new Promise((r) => setTimeout(r, 20));
+  core.dispose();
+  const after = msgs.filter((m) => m.type === 'seqStep')[1], tr = after.trail;
+  assert.equal(tr.length, s.days + 1);
+  assert.ok(Math.abs(tr.at(-1)[1] - after.fp.sin) < 1e-9 && Math.abs(tr.at(-1)[2] - after.fp.asc) < 1e-9);
+  const ser = flowTimeSeries(tr, 'days', s.tool.lines);
+  assert.equal(ser.min.length, s.days + 1); assert.equal(ser.pScale.min, 0);
+  assert.ok(Math.abs(ser.flow.at(-1) - after.fp.asc / 1000) < 1e-9, 'ascites in litres');
+  assert.ok(ser.flow.at(-1) > ser.flow[0] && ser.pv.at(-1) > ser.pv[0], 'both rise');
 });
