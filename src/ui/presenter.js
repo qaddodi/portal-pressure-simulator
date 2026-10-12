@@ -1348,7 +1348,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
 
   // ── The slide's words, data and visual ──
   // Tiles beside a sinusoid sit under the words, so the vessel has the width of the screen.
-  const under = (s) => s.data === 'tiles' && !s.visual && /^sinusoid/.test(s.cam || '');
+  // (Not on a phone on its side: under the words they had no room and were cut off; they sit on the right as on other slides.)
+  const shortSide = matchMedia('(orientation: landscape) and (max-height: 500px)');
+  const sinTiles = (s) => s.data === 'tiles' && !s.visual && /^sinusoid/.test(s.cam || '');
+  const under = (s) => sinTiles(s) && !shortSide.matches;
   async function wordsOut(next, newPatient = false) {
     if (!ui) return;
     const out = [ui.text, ui.panel], data = ui.data;
@@ -1451,6 +1454,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       const lad = s.data === 'ladder';
       data.classList.toggle('tiles-only', !lad);
       data.classList.toggle('under', under(s));
+      data.toggleAttribute('data-sin-tiles', sinTiles(s));
       data.classList.toggle('has-tool', !!s.tool);
       data.classList.toggle('tool-only', !!s.tool && !s.data);
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
@@ -1783,6 +1787,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   const onResize = () => {
     if (!ui) return;
+    if (ui.data.hasAttribute('data-sin-tiles')) ui.data.classList.toggle('under', !shortSide.matches);   // (turned on or off its side)
     layout(); setLabels();
     if (shown) reframe(400);
   };

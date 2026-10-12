@@ -12,6 +12,23 @@ export const fitIssues = () => {
   const hit = text && bar && inked(document.querySelector('.pz-text')).find((q) => Math.min(q.right, bar.right) - Math.max(q.left, bar.left) > 1 && Math.min(q.bottom, bar.bottom) - Math.max(q.top, bar.top) > 1);
   if (hit) out.push(`slide words run under the controls pill (${Math.round(hit.left)},${Math.round(hit.bottom)} vs ${Math.round(bar.left)},${Math.round(bar.top)})`);
   if (dr) for (const c of data.querySelectorAll('h1,p,li,span,td,th,button,b,small,output')) { const q = c.getBoundingClientRect(); if (!q.width || getComputedStyle(c).visibility === 'hidden' || hidden(c, data)) continue; if (q.right > dr.right + 2 || q.left < dr.left - 2 || q.bottom > dr.bottom + 2 || q.top < dr.top - 2) { out.push(`reading "${c.textContent.trim().slice(0, 30)}" outside its card`); break; } }
+  // The numbers card sits in the figure, whole on screen and clear of the words (sideways it had been pushed under them and cut off).
+  // (Judged also while the card is held back: a card with no room under the words had waited off screen, never shown.)
+  const db = data && !data.hidden && !('gone' in data.dataset) && data.getBoundingClientRect(), held = data?.classList.contains('pz-hide') ? 16 : 1;
+  if (db && db.width && (db.left < -1 || db.top < -1 || db.right > innerWidth + 1 || db.bottom > innerHeight + held)) out.push(`numbers card off screen (${Math.round(db.left)},${Math.round(db.top)},${Math.round(db.right)},${Math.round(db.bottom)})`);
+  if (dr && !data.classList.contains('pz-hide')) {
+    if (text && Math.min(dr.right, text.right) - Math.max(dr.left, text.left) > 4 && Math.min(dr.bottom, text.bottom) - Math.max(dr.top, text.top) > 4) out.push('numbers card over the slide words');
+    if (text && dr.height < 60 && !data.classList.contains('tool-only')) out.push(`numbers card squeezed to ${Math.round(dr.height)} px`);
+  }
+  // Nothing drawn under the preview badge (a slim tab at the top centre, 13 px tall, added only to /preview/).
+  const seen = (e) => { for (let a = e; a; a = a.parentElement) { const cs = getComputedStyle(a); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return false; } return true; };
+  const cx = innerWidth / 2, w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n; (n = w.nextNode());) {
+    if (!n.textContent.trim() || n.parentElement.closest('.sr-only')) continue;
+    const g = document.createRange(); g.selectNodeContents(n);
+    const q = [...g.getClientRects()].find((r) => r.width && r.top < 13 && r.bottom > 1 && r.right > cx - 60 && r.left < cx + 60);
+    if (q && seen(n.parentElement)) { out.push(`"${n.textContent.trim().slice(0, 20)}" under the preview badge`); break; }
+  }
   return out;
 };
 export async function checkPhoneFit(browser, url, deck, slides, log = () => {}) {
