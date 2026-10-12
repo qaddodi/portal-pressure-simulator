@@ -117,7 +117,7 @@ jobs:
         run: npm run smoke -- ${{ matrix.site == 'build' && 'dist' || '.' }}
       # Needs a browser and the build: one of the build runners reports it.
       - name: Performance report
-        if: matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/4'
+        if: matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/12'
         run: npm run perf -- dist
       - uses: actions/upload-artifact@v4
         if: failure()
