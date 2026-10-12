@@ -407,7 +407,10 @@ function bigLadder() {
     b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (above ? `M${b.x0} ${r}H${b.x1}` : `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}`));
   };
   const layS = (fs) => {
-    const c = S.c = fs.cap, d = S.d = fs.lab, v = S.v = fs.val;
+    // (A reading takes the largest role whose two digits still leave the line its gap on each side between stations 70 apart:
+    // in a narrow card at a large text size the value role would run the readings into each other.)
+    const fit = [fs.val, fs.body, fs.lab, fs.cap].filter((x) => x > 0), v0 = fit.find((x) => est('20', x, 0.62) + 2 * 5 + 10 <= 70) ?? Math.min(...fit);
+    const c = S.c = fs.cap, d = S.d = fs.lab, v = S.v = v0;
     // The falls share the names' row while they clear them, otherwise they take a row of their own.
     // The names take two rows when neighbours would touch.
     const nameW = Math.max(...RUNGS.map(([, a]) => est(a, c, 0.7))), two = nameW > 70 - 6, nameHalf = nameW / 2, apart = !two && nameHalf + est('−13', d) / 2 + 3 < 35;

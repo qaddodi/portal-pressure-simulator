@@ -2127,6 +2127,10 @@ button.finding { cursor: pointer; }
 :is(.pz.stack .pz-cell, .pz-cell.strip) > .pz-ladder { display: none; }
 .pz.stack .pz-cell > .pz-strip .pzl-bg { display: none; }   /* (a cell's kicker carries its HVPG) */
 .pz.stack .pz-grid.big { grid-template-columns: minmax(0, 1fr); }
+/* (A cell that turned strip at a large text size: the rows take the strips' own height instead of the card's, and on a
+   narrower screen two to a row, so no reading, fall or bracket runs out of its cell or into its neighbour.) */
+.pz-panel.fill .pz-grid:has(> .pz-cell.strip) { flex: none; grid-template-rows: none; }
+@media (max-width: 1100px) { .pz-grid:has(> .pz-cell.strip) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pz.stack .pz-bar { left: auto; right: 10px; top: auto; bottom: calc(4px + env(safe-area-inset-bottom, 0px)); translate: none; max-width: none; height: 44px; gap: 0; padding: 0 2px; overflow: visible; background: var(--glass); border: 0; border-radius: var(--r-sheet); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); transition: opacity .2s var(--ease); }
 /* (A phone's controls: a small frosted pill fixed at the lower right, like the timeline's folded pill. Its foot is 4 px up and it is
    44 px tall; the words end that much less a line above the bottom, so only their last line meets it (see clearPill). */
