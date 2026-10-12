@@ -4091,10 +4091,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const A = Object.fromEntries(['tip', 'ahead'].map((k) => [k, worldToLocal(at[k][0], at[k][1])]));
       const bw = box.offsetWidth, bh = box.offsetHeight, top = Math.max(70, sp.t + 6), gap = lim < 440 ? 40 : 64;
       const R = rows.map((r) => [r.offsetLeft, r.offsetTop, r.offsetWidth, r.offsetHeight]);   // (read before any write below)
-      // Above the readings, centred between them; below them when there is no room above.
-      let x = (A.tip[0] + A.ahead[0]) / 2 - bw / 2, y = Math.min(A.tip[1], A.ahead[1]) - bh - gap;
-      if (y < top) y = Math.max(A.tip[1], A.ahead[1]) + gap;
-      x = clamp(x, 28, Math.max(28, W - bw - 12)); y = clamp(y, top, Math.max(top, lim - bh - 12));   // (room on the left for a leader)
+      // Above the readings, centred between them; below them when there is no room above. Either way it sits in the
+      // free figure, clear of the cards, the slide's panel and its controls: when centred it would go under one, it
+      // slides sideways to the nearest clear spot (its leaders stay on the vein), above before below.
+      const cx0 = (A.tip[0] + A.ahead[0]) / 2 - bw / 2, xMin = 28, xMax = Math.max(28, W - bw - 12), yMax = Math.max(top, lim - bh - 12);
+      const yUp = Math.min(A.tip[1], A.ahead[1]) - bh - gap, yDown = clamp(Math.max(A.tip[1], A.ahead[1]) + gap, top, yMax);
+      const bl = readBlockers(), hit = (x0, y0) => bl.reduce((n, b) => n + Math.max(0, Math.min(x0 + bw, b.x1 + 4) - Math.max(x0, b.x0 - 4)) * Math.max(0, Math.min(y0 + bh, b.y1 + 4) - Math.max(y0, b.y0 - 4)), 0);
+      let best = null;
+      for (const [y0, pen] of (yUp >= top ? [[yUp, 0], [yDown, 60]] : [[yDown, 0], [clamp(yUp, top, yMax), 60]])) {
+        scan: for (let d = 0; d <= W; d += 8) for (const sx of d ? [-1, 1] : [1]) {
+          const x0 = cx0 + sx * d; if (x0 < xMin || x0 > xMax) continue;
+          const c = hit(x0, y0) * 1e3 + d + pen;
+          if (!best || c < best.c) best = { c, x: x0, y: y0 };
+          if (!hit(x0, y0)) break scan;
+        }
+      }
+      let x = best ? best.x : clamp(cx0, xMin, xMax), y = clamp(best ? best.y : yUp, top, yMax);   // (room on the left for a leader)
       box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
       // The bracket, from the middle of one reading to the middle of the other.
       const ys = R.map((q) => q[1] + q[3] / 2), path = box.querySelector('.cath-brace path');

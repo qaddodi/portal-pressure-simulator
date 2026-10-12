@@ -2254,6 +2254,30 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction((q) => document.querySelector(q).textContent.includes('Measuring'), sel, { timeout: 10000 }).catch((e) => { throw new Error('a tap on Measure HVPG did not start it', { cause: e }); });
   });
 
+  // The HVPG deck's result slide: the summary (WHVP and FHVP bracketed to the HVPG) sits in the free figure, never
+  // under the data card, the words or the slide controls (on a Mac it once went half under the pressure card).
+  if (device === 'desktop') await check(device, 'presenter: the HVPG summary callout is never under a card, at every size', async (page) => {
+    const out = [];
+    for (const [width, height] of [[1440, 900], [1280, 800], [1920, 1080], [1180, 820], [820, 1180]]) {
+      await page.setViewportSize({ width, height });
+      await open(page, '?script=hvpg&slide=5');
+      await page.waitForFunction(() => { const b = document.querySelector('.cath-sum-box .calc'); return b && +getComputedStyle(b).opacity > 0.9; }, null, { timeout: 60000 })
+        .catch((e) => { throw new Error(`${width}x${height}: the HVPG summary never showed`, { cause: e }); });
+      await page.waitForTimeout(2500);   // (the camera and the cards settle)
+      out.push(...await page.evaluate((sz) => {
+        const b = document.querySelector('.cath-sum-box').getBoundingClientRect(), bad = [];
+        for (const el of document.querySelectorAll('.stage-blocker:not([hidden])')) {
+          if (getComputedStyle(el).visibility === 'hidden' || +getComputedStyle(el).opacity < 0.5) continue;
+          const q = el.getBoundingClientRect();
+          if (q.width && Math.min(b.right, q.right) - Math.max(b.left, q.left) > 1 && Math.min(b.bottom, q.bottom) - Math.max(b.top, q.top) > 1) bad.push(`${sz}: the HVPG summary is under ${el.className.split(' ')[0]}`);
+        }
+        if (b.left < 0 || b.right > innerWidth || b.top < 0 || b.bottom > innerHeight) bad.push(`${sz}: the HVPG summary runs off screen`);
+        return bad;
+      }, `${width}x${height}`));
+    }
+    if (out.length) throw new Error(out.join('; '));
+  });
+
   await check(device, 'HVPG procedure: each reading\'s shadow fades with its body, and no reading outlives its step', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.evaluate(() => { window.pps.dock.show('hvpg'); window.pps.dock.setState('open'); });

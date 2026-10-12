@@ -18,6 +18,9 @@ const server = await serve(ROOT);
 mkdirSync('deck-sweep', { recursive: true });
 const SIZES = {
   desktop: { viewport: { width: 1440, height: 900 } },
+  laptop: { viewport: { width: 1280, height: 800 } },
+  wide: { viewport: { width: 1920, height: 1080 } },
+  ipadwide: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   ipad: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   sideways: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
@@ -40,6 +43,15 @@ const snap = (page) => page.evaluate(() => {
   const ov = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2;
   const keys = Object.keys(boxes).filter((k) => k !== '.pz-panel');
   for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) if (ov(boxes[keys[i]], boxes[keys[j]])) issues.push(`${keys[i]} overlaps ${keys[j]}`);
+  // A callout on the figure (a reading, its summary, a site pill, an organ or vessel label) never sits under a card,
+  // the slide's panel or its controls.
+  for (const el of document.querySelectorAll('.cath-label:not(.in-sum):not(.cath-pre):not(.cath-out), .cath-sum-box, svg .lb')) {
+    if (el.checkVisibility && !el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+    if (+getComputedStyle(el).opacity < 0.5 || el.closest('.cath-out, .cath-pre')) continue;
+    const r = el.getBoundingClientRect(); if (!r.width || !r.height) continue;
+    const name = (el.querySelector('small, text')?.textContent || el.textContent).trim().slice(0, 24);
+    for (const [k, q] of Object.entries(boxes)) if (ov(r, q)) issues.push(`callout "${name}" under ${k}`);
+  }
   const c = document.querySelector('.stage-credit');
   if (c && +getComputedStyle(c).opacity >= 0.5) { const r = c.getBoundingClientRect(); for (const el of document.querySelectorAll('.pz-text, .pz-data, .pz-panel, .pz-bar')) { const q = vis(el); if (q && q.left < r.right + 4 && q.right > r.left - 4 && q.top < r.bottom + 4 && q.bottom > r.top - 4) issues.push(`credit touches ${el.className.split(' ')[0]}`); } }
   // A summary table: each cell's visible contents sit inside its column heading, and no two cells overlap.
