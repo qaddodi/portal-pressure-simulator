@@ -122,6 +122,8 @@ for (const t of Object.values(TARGETS)) for (const e of t.edges || []) EDGE_TONE
 // (Collaterals and spontaneous shunts take the varices' colour: one family on the figure.)
 for (const e of ['C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'S_PC', 'S_DSR', 'S_MC']) EDGE_TONE[e] ||= 'var';
 // A live value's colour ({pv}): the station it is read at; a value with no station (HVPG) is a plain pill.
+// The station label each site reading would repeat (an IVC web's lower reading is its own place, so it has none).
+export const SITE_NODE = { pv: 'CONF', ivc: 'IVCS', ra: 'RA' };
 const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc', ra: 'ra' };
 // A reading with no station of its own (a size: the spleen, the varices) takes its status colour, as its card
 // shows it, on its pill and on its organ's outline; neutral while it is normal.
@@ -1094,13 +1096,19 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
         for (const m of marks) if (m.kind === 'note') for (const e of m.edges) if (!tg.glow.some((g) => g.id === e)) tg.glow.push({ id: e, tone: EDGE_TONE[e] || 'accent' });
         marks = marks.filter((m) => !(m.kind === 'note' && m.edges.some((e) => named.has(e))));
       }
+      // (A site the label stands in for lends it its station colour, so the label is the slide's highlight.)
+      if (tg) for (const k of s.sites || []) if (SITE_NODE[k] && [...(s.labels || []), ...tg.labels].includes(SITE_NODE[k])) tg.terms[SITE_NODE[k]] ||= TARGETS[k]?.tone || VAL_TONE[k];
       store.set({ presentLabels: q ? [] : [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg?.terms || null,
         presentNames: !q && (s.data === 'ladder' || !!s.cath),
         focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: q || !s.callout ? null : { kind: 'block', ...s.callout } });
       if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
       app.dataset.lit = tg?.lit.join(' ') || '';
     }
-    { const ss = !s.visual && !q ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])] : []; if (ss.length) stage.setSites(ss, st.fp); }
+    // A site whose station label is already on the slide is not called out twice: the label carries the one reading,
+    // in its station's colour, and the pill stays only where no label stands.
+    { const named = new Set(store.get().presentLabels || []);
+      const ss = !s.visual && !q ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])].filter((k) => !named.has(SITE_NODE[k])) : [];
+      if (ss.length) stage.setSites(ss, st.fp); }
     lastCam = cam;
     await unhush(cut);
     if (cut()) return;

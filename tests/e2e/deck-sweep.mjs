@@ -48,6 +48,12 @@ const snap = (page) => page.evaluate(() => {
     const heads = [...tb.querySelectorAll('thead th')].map((th) => th.getBoundingClientRect());
     for (const tr of tb.querySelectorAll('tbody tr')) { let k = 0; const seen = []; for (const c of tr.children) { const span = +(c.getAttribute('colspan') || 1), hs = heads.slice(k, k + span).filter((h) => h.width); k += span; if (c.matches('td.note') || !hs.length) continue; const b = box(c); if (!b) continue; const n = c.textContent.trim().slice(0, 20), L = Math.min(...hs.map((h) => h.left)), R = Math.max(...hs.map((h) => h.right)); if (b.l < L - 1 || b.r > R + 1) issues.push(`table cell "${n}" outside its column`); for (const o of seen) if (b.l < o.b.r - 1 && o.b.l < b.r - 1 && b.t < o.b.b - 1 && o.b.t < b.b - 1) issues.push(`table cells "${n}" and "${o.n}" overlap`); seen.push({ b, n }); } }
   }
+  // A station called out twice: a site pill and a live label on the same vessel (one reading, on the label).
+  const SITE_NODE = { 'Portal vein': 'CONF', IVC: 'IVCS', 'Right atrium': 'RA' };
+  for (const [k, n] of Object.entries(SITE_NODE)) {
+    const pill = [...document.querySelectorAll('.cath-label.site:not(.cath-pre)')].find((e) => e.querySelector('small')?.textContent === k), lab = document.querySelector(`.lb[data-key="n:${n}"]`);
+    if (pill && lab && +getComputedStyle(pill).opacity >= 0.5 && getComputedStyle(lab).display !== 'none' && +getComputedStyle(lab).opacity >= 0.5) issues.push(`${k} pill repeats the ${n} label`);
+  }
   const txt = (s) => { const el = document.querySelector(s); return vis(el) ? el.innerText.replace(/\s+/g, ' ').trim() : ''; };
   const terms = [...document.querySelectorAll('.pz-term')].map((t) => `${t.textContent}→${t.dataset.target}`);
   const count = document.querySelector('.pzb-n, .pz-count')?.textContent.trim();
