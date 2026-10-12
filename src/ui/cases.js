@@ -11,19 +11,19 @@
 
 import { store, updateParams, replaceParams } from './store.js?v=7fb7280c05';
 import { host } from './host.js?v=14401ec356';
-import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=0cca243d2a';
+import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=b1761ad19c';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { veinBlocked } from './measure-model.js?v=96862e2586';
 import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=4d92706d0e';
 import { EXPLAIN } from './cases/explain.js?v=81bcd9a17a';
 import { bpOf, tension, abdomen, esoText, spleenCm, ascitesText } from './cases/kit.js?v=be90db496b';
-import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=e08298baac';
-import { course, setUnitSurface, unitBar } from './course.js?v=268d8cc010';
+import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=675e2287ba';
+import { course, setUnitSurface, unitBar } from './course.js?v=34271f4fde';
 import { CASE_UNITS } from './cases/units.js?v=cead89ea1e';
-import { activeInterventions } from './inspector.js?v=027738f7cc';
-import { captureFrame } from './timeline.js?v=461a98ab0b';
-import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=f4e3daf335';
+import { activeInterventions } from './inspector.js?v=58d14bee0e';
+import { captureFrame } from './timeline.js?v=0becf22d30';
+import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=bd044f4955';
 import { SNAPSHOTS } from './snapshots.js?v=c8cbaabb1f';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('cases');

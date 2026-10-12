@@ -19,8 +19,8 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp, bloodColors } from './util.js?v=0cca243d2a';
-import { pressureColor } from './colormap.js?v=c17dfefa88';
+import { h, fmt, clamp, lerp, bloodColors } from './util.js?v=b1761ad19c';
+import { pressureColor } from './colormap.js?v=a65dea21ce';
 import { isPaused } from './clock.js?v=af42a9670d';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8eea50315b';
