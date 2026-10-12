@@ -845,7 +845,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const where = `${deck} at ${size ? 'upright iPad' : device}`;
       const read = () => page.evaluate(() => {
         const bar = document.querySelector('.pz-bar'), b = bar.getBoundingClientRect(), q = (el) => { const r = el.getBoundingClientRect(); return [r.left - b.left, r.top - b.top, r.width, r.height].map((v) => Math.round(v * 10) / 10); };
-        return { n: document.querySelector('.pzb-n')?.textContent.trim(), at: [b.left, b.top], boxes: [[0, 0, b.width, b.height], ...[...bar.children].filter((c) => !c.classList.contains('pzb-q')).map(q)] };
+        const m = new DOMMatrix(getComputedStyle(bar).transform);   // (an idle bar fades and sinks 8 px by design: its spot is where it rests, without that nudge)
+        return { n: document.querySelector('.pzb-n')?.textContent.trim(), at: [b.left - m.m41, b.top - m.m42], boxes: [[0, 0, b.width, b.height], ...[...bar.children].filter((c) => !c.classList.contains('pzb-q')).map(q)] };
       });
       const fits = async (n) => { if ((await barSettle(page)) !== 'ok') throw new Error(`${where}, slide ${n}: ${await barFit(page) || 'the slide never settled'}`); };
       let ref = null, slides = 0;
