@@ -1161,16 +1161,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // (a phone once cut Terlipressin off the right edge), at three phone widths, a phone on its side and an upright iPad.
   if (device === 'desktop') await check(device, 'presenter: every choice button on every slide fits on screen, at phones, sideways and iPad', async (page) => {
     const bad = [];
-    const found = [];   // (first the slides with a row of choices, then each of them at each size)
-    for (const deck of ['circuit', 'recompensation', 'treatment', 'two-inflows']) {
-      await open(page, `?script=${deck}&slide=1`);
-      const n = Number((await page.textContent('.pzb-n')).split('/')[1]);
-      for (let k = 1; k <= n; k++) {
-        if (k > 1) await open(page, `?script=${deck}&slide=${k}`);
-        await page.waitForSelector('.pzb-n');
-        if (await page.waitForSelector('.pz-abb', { state: 'attached', timeout: 4000 }).catch(() => null)) found.push([deck, k]);
-      }
-    }
+    // The slides with a row of choices are read from the decks, not probed for on screen: a probe with a time limit
+    // read a slow runner's late-arriving words as "no row", and a sweep of every slide costs minutes besides.
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    const found = ['circuit', 'recompensation', 'treatment', 'two-inflows'].flatMap((deck) =>
+      withOverview(DECKS.find((d) => d.id === deck)).slides.flatMap((x, i) => (x.compare?.length ? [[deck, i + 1]] : [])));
     if (!found.length) throw new Error('no slide has a row of choices');
     for (const size of [{ width: 375, height: 667 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 844, height: 390 }, { width: 820, height: 1180 }]) {
       await page.setViewportSize(size);
@@ -2141,6 +2136,7 @@ const MEASURED = {
   'circuit view, selection card, lenses': 38000,
   'action card is a compact sheet that keeps the vessel in view': 28000,
   'presenter: chart text never overlaps or crosses a line, at every size': 600000,   // (a desktop CI runner took 11.5 minutes over it)
+  'presenter: every choice button on every slide fits on screen, at phones, sideways and iPad': 420000,   // (five sizes over eleven slides, about 7 minutes on a CI runner)
   'presenter: the controls never glide between slides, and keep their size and spacing, first and last included': 500000,   // (a phone CI runner took 10 minutes)
 };
 const expected = (name) => MEASURED[name] ?? (/^presenter: on every slide of /.test(name) ? 180000 : 45000);
