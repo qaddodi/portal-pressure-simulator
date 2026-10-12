@@ -11,8 +11,8 @@
 import { store, updateParams, hiddenNow } from './store.js?v=7fb7280c05';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=0cca243d2a';
 import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
-import { TILES, VITALS, readoutValue } from './dock.js?v=fa819ca63d';
-import { activeInterventions } from './inspector.js?v=bced1ac9ba';
+import { TILES, VITALS, readoutValue } from './dock.js?v=a15d8ec436';
+import { activeInterventions } from './inspector.js?v=027738f7cc';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=2819170343';
 
 // Text that changes is rewritten in its text node (setting textContent replaces the node on every paint).

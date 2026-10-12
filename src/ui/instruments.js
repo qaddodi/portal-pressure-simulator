@@ -8,9 +8,9 @@ import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=0c
 import { simTime, isPaused } from './clock.js?v=af42a9670d';
 import { createEndoGL } from './endo-gl.js?v=54190751fe';
 import { renderEndo } from './endo-render.js?v=14e38d504c';
-import { FONT } from './charts.js?v=4d25781bc5';
+import { FONT } from './charts.js?v=4045ec6ccd';
 import { store, updateParams, varicesPresent } from './store.js?v=7fb7280c05';
-import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('instruments');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

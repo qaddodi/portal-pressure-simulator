@@ -540,13 +540,22 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     ['ascites', 0, 'ArrowRight', true, true], ['ascites', 4, 'ArrowRight', true, true], ['tap', 7, 'ArrowRight', true, true],   // anatomy straight to the sinusoid view, through the lobule without stopping in it
     ['ascites', 5, 'ArrowRight', false, true, true], ['ascites', 8, 'ArrowRight', false, true, true],   // and the sinusoid view straight back out to the anatomy (a new patient: the words, and so the space the camera frames into, are settled after the rise)
     ['hvpg', 6, 'ArrowRight', false, false, true], ['outflow', 5, 'ArrowRight', true],   // out to a region, with a new patient (schisto to chronic PVT: the words settle after the rise); in from a region
+    // In Explore (the view buttons), with no slide: anatomy to the lobule, to a station in it as a slide asks for one, and straight to
+    // the sinusoid view and back out.
+    ['explore', 'lobule', null, true], ['explore', 'triad', null, true], ['explore', 'sinusoid', null, true, true], ['explore', 'out', null, false, true],
   ];
   for (const [deck, from, key, into, sin, newPatient] of CROSSINGS) {
-    await check(device, `lobule zoom is continuous: ${deck} slide ${from + 1} ${key === 'ArrowLeft' ? 'back ' : ''}${into ? 'into' : 'out of'} the ${sin ? 'sinusoid view' : 'lobule'}`, async (page) => {
+    const explore = deck === 'explore';
+    await check(device, `lobule zoom is continuous: ${explore ? 'Explore' : `${deck} slide ${from + 1}`} ${key === 'ArrowLeft' ? 'back ' : ''}${into ? 'into' : 'out of'} the ${sin ? 'sinusoid view' : 'lobule'}${from === 'triad' ? ', at its portal tract' : ''}`, async (page) => {
       await open(page, '?preset=healthy');
-      const n = from + 1, way = (into ? 'into' : 'out of') + (sin ? ' the sinusoid view' : ' the lobule');
-      await page.evaluate(([d, i]) => window.pps.presenter.start(d, i), [deck, from]);
-      await page.waitForFunction((n) => (document.querySelector('.pzb-n, .pz-count')?.textContent || '').trim().startsWith(n + ' /') && !document.querySelector('.pz-cover'), n, { timeout: 60000 });
+      const n = explore ? from : from + 1, way = (into ? 'into' : 'out of') + (sin ? ' the sinusoid view' : ' the lobule');
+      if (!explore) {
+        await page.evaluate(([d, i]) => window.pps.presenter.start(d, i), [deck, from]);
+        await page.waitForFunction((n) => (document.querySelector('.pzb-n, .pz-count')?.textContent || '').trim().startsWith(n + ' /') && !document.querySelector('.pz-cover'), n, { timeout: 60000 });
+      } else if (from === 'out') {
+        await page.evaluate(() => window.pps.stage.diveToSinusoid());
+        await page.waitForFunction(() => window.pps.stage.sinusoidOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 60000 });
+      }
       const quiet = async (open) => {   // the figure holds still (a software renderer draws a frame a second or two apart)
         let last = '', same = 0;
         for (let i = 0; i < 120 && same < 6; i++) {
@@ -565,9 +574,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         requestAnimationFrame(tick);
       });
       await page.evaluate(() => window.pps.stage.cameraMoves(true));
-      const label = await page.evaluate(() => document.querySelector('.pzb-n, .pz-count')?.textContent.trim());
-      await page.keyboard.press(key);
-      await page.waitForFunction((l) => (document.querySelector('.pzb-n, .pz-count')?.textContent.trim() || '') !== l, label);
+      if (explore) {
+        // (A station is aimed at as the presenter aims at a slide's, before the dive.)
+        await page.evaluate((m) => { if (m === 'triad') window.pps.stage.lobuleAim('triad', { zoom: 2.3 }); if (m === 'sinusoid') window.pps.stage.diveToSinusoid(); else if (m === 'out') window.pps.stage.exitSinusoid(); else window.pps.store.set({ lobule: true }); }, from);
+      } else {
+        const label = await page.evaluate(() => document.querySelector('.pzb-n, .pz-count')?.textContent.trim());
+        await page.keyboard.press(key);
+        await page.waitForFunction((l) => (document.querySelector('.pzb-n, .pz-count')?.textContent.trim() || '') !== l, label);
+      }
       await quiet(into);
       const s = await page.evaluate(() => { window.__zoomTrace.go = false; return window.__zoomTrace.s; });
       // One move: the dive (or rise) itself, with no glide of the camera before or after it beyond a small settling (a new patient changes the space the words leave, after the rise has begun).

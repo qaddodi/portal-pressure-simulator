@@ -12,7 +12,7 @@ import { createRoute, ladder } from './ladder.js?v=7b629187ab';
 import { CASES } from './cases/index.js?v=4d92706d0e';
 import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=268d8cc010';
 import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=e08298baac';
-import { frameFor } from './frame.js?v=49a46c570b';
+import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('learn');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

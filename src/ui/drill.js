@@ -8,7 +8,7 @@ import { h, fmt, icon } from './util.js?v=0cca243d2a';
 import { SNAPSHOTS } from './snapshots.js?v=c8cbaabb1f';
 import { createRoute, ladder, tiles, siteName } from './ladder.js?v=7b629187ab';
 import { addRecord } from './records.js?v=50fb9dd463';
-import { frameFor } from './frame.js?v=49a46c570b';
+import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('drill');
 
 export const ROUNDS = 10, MAX_TESTS = 3;

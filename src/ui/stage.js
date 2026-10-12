@@ -7,8 +7,8 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7fb7280c05';
 import { fibroReading } from './clock.js?v=af42a9670d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors } from './util.js?v=0cca243d2a';
-import { createLobuleZoom } from './lobule-zoom.js?v=94401221ec';
-import { runFlick, FLICK } from './flick.js?v=9c07aaa402';
+import { createLobuleZoom } from './lobule-zoom.js?v=701a3a2f3f';
+import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=9d3f9164af';
@@ -17,7 +17,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=1a5770aa47';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
-import { frameFor, cancelFrame } from './frame.js?v=49a46c570b';
+import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -1349,7 +1349,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let diveZ = 0;   // the dive's zoom so far (log scale), kept for cameraZoom
   // Anatomy to the sinusoid (and back) as one zoom, with no rest in the lobule: the dive is eased in only and hands its speed on, at the joint,
   // to the sinusoid's zoom (lobule-zoom.js sinChain), which eases out only; out, the other way round.
-  let chainIn = false, chainOut = false, chainFired = false, chainAt = 0, zShift = 0;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
+  // (diveClock: the dive's own start, span and ends, so the joint's moment is known exactly; riseAt: when the sinusoid finished
+  // closing, the moment the rise that follows it begins, rather than when its callback happens to run.)
+  let chainIn = false, chainOut = false, chainFired = false, chainAt = 0, zShift = 0, diveClock = null, riseAt = null;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
   const RH = 11;   // a lobule's size on screen (px) as the liver's surface gives way to the field
   const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
@@ -1390,11 +1392,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (lz.isShown()) diveLand = lz.current();
       else if (lobuleOn) lz.warm();
       const lt = LC + Math.log(Math.max(RH * 2, diveLand.r) / RH);
-      // Eased in and out (smootherstep); the anatomy's part takes the first two fifths of the way.
-      const TJ = chainIn ? 0.88 : chainOut ? 1 : 0.84, u = clamp(t / TJ, 0, 1), P = 0.4;
+      // Eased in and out (smootherstep), one ease over the whole log scale: the anatomy's part and the field's run on at the same
+      // speed where they meet. (Each part had its own rate, so the zoom sped up by a sixth or more, suddenly, a third of the way in.)
+      const TJ = chainIn ? 0.88 : chainOut ? 1 : 0.84, u = clamp(t / TJ, 0, 1);
       const p = chainIn || chainOut ? u * u * (2 - u) : u * u * u * (u * (u * 6 - 15) + 10);
-      if (chainIn && !chainFired || chainOut) lz.setSinChain({ speed: (lt - LC) / (1 - P) / (TJ * (diveOut ? RISE_MS : DIVE_MS)) }, true);
-      const z = p < P ? LC * p / P : LC + (lt - LC) * (p - P) / (1 - P);
+      // (at: the moment the dive reaches the joint, from its own clock: the sinusoid's zoom is timed from there, not from whenever the
+      // frame that crossed it ran, which on a phone is a frame or more later and left the zoom slowed for a moment.)
+      // (now: this frame's own moment, so the frame that crosses the joint already draws the sinusoid's first step, rather than holding
+      // the zoom still for that frame.)
+      const clockAt = (x) => (chainIn && diveClock ? diveClock[0] + (x - diveClock[2]) / (diveClock[3] - diveClock[2]) * diveClock[1] : undefined);
+      if (chainIn && !chainFired || chainOut) lz.setSinChain({ speed: lt / (TJ * (diveOut ? RISE_MS : DIVE_MS)), at: clockAt(TJ), now: clockAt(t) }, true);
+      const z = lt * p;
       diveZ = z;
       setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)));
       // The anatomy's labels leave as the zoom starts.
@@ -1459,7 +1467,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (F) updateLabels(F);   // the labels are laid out for the final framing now, so they come in where they will stay
       }
     }
-    const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0, t0 = performance.now();
+    const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0;
+    // Out from the sinusoid, the rise starts when its zoom ended, so the two run on as one.
+    const t0 = !on && riseAt !== null ? Math.min(performance.now(), riseAt) : performance.now();
+    riseAt = null; diveClock = [t0, ms * Math.abs(to - from) || 1, from, to];
     const step = (now) => {
       const e = ms ? clamp((now - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1;
       diveT = from + (to - from) * e;
@@ -6180,8 +6191,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!store.get().sinusoid || !lz?.sinusoidOpen()) { store.set({ sinusoid: false, lobule: false }); return; }
       const lc = lz.current(), lt = LC + Math.log(Math.max(RH * 2, lc.r) / RH);
       chainOut = true; logMove({ t: performance.now(), kind: 'chain-out' });
-      lz.setSinChain({ speed: (lt - LC) / 0.6 / RISE_MS }, true);
-      lz.onSinClosed(() => store.set({ lobule: false }));
+      lz.setSinChain({ speed: lt / RISE_MS }, true);
+      lz.onSinClosed((at) => { riseAt = at ?? null; store.set({ lobule: false }); });
       store.set({ sinusoid: false });
     },
     /** True once the sinusoid view is wholly in. */

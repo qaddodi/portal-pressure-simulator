@@ -8,7 +8,7 @@ import { store } from './store.js?v=7fb7280c05';
 import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=0cca243d2a';
 import { SNAPSHOTS } from './snapshots.js?v=c8cbaabb1f';
 import { pressureColor } from './colormap.js?v=c17dfefa88';
-import { frameFor } from './frame.js?v=49a46c570b';
+import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('menu');
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };

@@ -5,7 +5,7 @@
 // spread over the rise, then the state it reaches held to the end. The values are the model's own: the off-screen chain
 // keeps the portal pressure and flow on each day of the time-lapse (worker-core's trail), read here once a minute
 // (straight between days). The lines draw from left to right as the time-lapse plays, easing after its clock.
-import { frameFor } from './frame.js?v=49a46c570b';
+import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)

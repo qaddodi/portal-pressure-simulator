@@ -30,6 +30,7 @@ function flush(now) {
       try { cb(now); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others
     }
   } finally { current = null; }
+  globalThis.__frameProbe?.(now);   // (the tests read the camera here, once every frame has been drawn)
   if (now - windowAt >= 1000) {
     const span = now - windowAt;
     rates.clear();

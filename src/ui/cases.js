@@ -21,11 +21,11 @@ import { bpOf, tension, abdomen, esoText, spleenCm, ascitesText } from './cases/
 import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=e08298baac';
 import { course, setUnitSurface, unitBar } from './course.js?v=268d8cc010';
 import { CASE_UNITS } from './cases/units.js?v=cead89ea1e';
-import { activeInterventions } from './inspector.js?v=bced1ac9ba';
-import { captureFrame } from './timeline.js?v=f97edfe925';
+import { activeInterventions } from './inspector.js?v=027738f7cc';
+import { captureFrame } from './timeline.js?v=98bd7cd6f3';
 import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=7b629187ab';
 import { SNAPSHOTS } from './snapshots.js?v=c8cbaabb1f';
-import { frameFor } from './frame.js?v=49a46c570b';
+import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('cases');
 
 export { CASES };
