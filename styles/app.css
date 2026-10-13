@@ -1590,6 +1590,9 @@ button.finding { cursor: pointer; }
 .pzl-pt.key .pzl-v { fill: var(--accent); }
 .pzl-k { fill: var(--text-2); font: 700 18px var(--font-ui); }
 .pzl-drop rect { stroke: var(--danger); stroke-width: 2; stroke-opacity: .7; }
+.pzl-nb { stroke: var(--danger); stroke-width: 2; stroke-opacity: .7; transition: opacity .4s var(--ease); }
+.pzs-nb { stroke: var(--danger); stroke-width: 1.2; stroke-opacity: .7; transition: opacity .4s var(--ease); }
+.pzs-pt.blk .pzs-v { paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px; stroke-linejoin: round; }
 .pz-hb { fill: color-mix(in srgb, var(--danger) 10%, transparent); }
 .pz-hs { fill: var(--danger); fill-opacity: .55; }
 .pzl-bg { --c: var(--ok); transition: opacity .4s var(--ease); }

@@ -71,7 +71,7 @@ export const SITES = {
     },
     {
       id: 'cardiac', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
-      data: 'ladder', key: ['fhvp', 'hvpg', 'ppg'], rail: true, quiz: 'Where is the problem?',
+      data: 'ladder', block: 'ra', key: ['fhvp', 'hvpg', 'ppg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure',
       line: 'Raised [right atrial pressure](ra) passes back through the hepatic veins to the sinusoids. All stations rise together and HVPG stays normal.',
       causes: ['Tricuspid regurgitation', 'Pulmonary hypertension', 'Left heart failure', 'Constrictive pericarditis'],

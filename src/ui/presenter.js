@@ -18,11 +18,11 @@ import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } f
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=a9b9795e1b';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=fbb9ced448';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=1c73a31a36';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=18b99b671d';
 import { createTools } from './presenter-tools.js?v=8c397bfb06';
-import { openHandout } from './handout.js?v=f2d947807a';
+import { openHandout } from './handout.js?v=7a92a2d2f9';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=d151452073';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -361,6 +361,10 @@ function bigLadder() {
     const r = sv('rect', { rx: 12, fill: `url(#${gid}hb)` });   // (placed in lay; y and height follow the axis, in draw; the band carries no label)
     return { g: sv('g', { class: 'pzl-drop', opacity: 0 }, r), r };
   });
+  // A block that sits on a station itself (the right atrium in heart failure), not on a stretch of line: the same hatching in a
+  // disc behind that node. A slide asks for it with block: 'ra'; the disc follows its node, and fades in and out.
+  const nodeBlk = sv('circle', { class: 'pzl-nb', r: 13, fill: `url(#${gid}hb)`, opacity: 0 });
+  let blockAt = -1;
   const pts = RUNGS.map(([, a]) => {
     const c = sv('circle', { r: 8.5 }), v = sv('text', { class: 'pzl-v', 'text-anchor': 'middle' }), k = sv('text', { class: 'pzl-k', 'text-anchor': 'middle' }, a);
     return { g: sv('g', { class: 'pzl-pt' }, c, v, k), c, v, k };
@@ -392,6 +396,8 @@ function bigLadder() {
   const conns = [0, 1, 2, 3].map(() => ({ band: sv('rect', { class: 'pzs-drop', rx: 6, opacity: 0, fill: `url(#${gid}hs)` }) }));
   // (The line stops a clear gap short of each reading, so no outline is needed: the gap is measured from the digits' own edge, so it is the same beside one digit or two, and it eases when a reading gains or loses a digit.)
   const sline = sv('path', { class: 'pzs-c', stroke: `url(#${gid}s)` });
+  // (A block on a station itself: the hatching in a rounded patch behind that reading, as the ladder's disc.)
+  const snodeBlk = sv('rect', { class: 'pzs-nb', rx: 6, fill: `url(#${gid}hs)`, opacity: 0 });
   const sgrad = sv('linearGradient', { id: gid + 's', gradientUnits: 'userSpaceOnUse', x1: XS(0), x2: XS(4), y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }));
   const spts = RUNGS.map(([, a], i) => {
     const v = sv('text', { class: 'pzs-v', x: XS(i), 'text-anchor': 'middle' });
@@ -406,7 +412,7 @@ function bigLadder() {
   const hvS = sbr('HVPG', 1, 2), ppS = sbr('PPG', 0, 3);
   const unit = sv('text', { class: 'pzs-u', 'text-anchor': 'end' }, 'mmHg');
   const strip = sv('svg', { class: 'pz-strip', viewBox: `0 0 ${S.W} ${S.H}`, role: 'img' },
-    sv('defs', {}, sgrad, hatch(gid + 'hs', 7)), conns.map((c) => c.band), sline, spts.map((p) => [p.g, p.k]), unit, hvS.g, ppS.g);
+    sv('defs', {}, sgrad, hatch(gid + 'hs', 7)), conns.map((c) => c.band), snodeBlk, sline, spts.map((p) => [p.g, p.k]), unit, hvS.g, ppS.g);
   // A bracket's label: inline with a gap each side when the bracket has room for it, otherwise just above an unbroken line
   // (its width an estimate, so a hidden strip needs no measuring and nothing jumps).
   const lay = (b) => {
@@ -464,6 +470,12 @@ function bigLadder() {
     }
     return numW.get(n) / 2;
   };
+  const placeNodeBlk = () => {
+    if (blockAt < 0) return;
+    const hw = Math.max(halves[blockAt], 6) + 5;
+    snodeBlk.setAttribute('x', (XS(blockAt) - hw).toFixed(1)); snodeBlk.setAttribute('width', (2 * hw).toFixed(1));
+    snodeBlk.setAttribute('y', (S.vy - 0.78 * S.v - 2).toFixed(1)); snodeBlk.setAttribute('height', (1.05 * S.v + 4).toFixed(1));
+  };
   const placeLine = () => {
     const goal = spts.map(halfOf), key = goal.join() + '|' + S.ny;
     if (key === lineKey) return;
@@ -474,6 +486,7 @@ function bigLadder() {
       // (The big fall's band spans its stretch of line, between the two readings, from the falls' row down past the line.)
       conns.forEach((cn, i) => { const x = XS(i) + halves[i] + 2; cn.band.setAttribute('x', x.toFixed(1)); cn.band.setAttribute('width', Math.max(4, XS(i + 1) - halves[i + 1] - 2 - x).toFixed(1)); });
       sline.setAttribute('d', [0, 1, 2, 3].map((i) => `M${(XS(i) + halves[i] + LINE_PAD).toFixed(2)} ${S.ny}H${(XS(i + 1) - halves[i + 1] - LINE_PAD).toFixed(2)}`).join(''));
+      placeNodeBlk();
       lineRaf = moving ? requestAnimationFrame(step) : 0;
     };
     cancelAnimationFrame(lineRaf); step();
@@ -491,7 +504,7 @@ function bigLadder() {
   const el = sv('svg', { class: 'pz-ladder', viewBox: `0 0 ${W} ${H}`, role: 'img' },
     sv('defs', {}, hatch(gid + 'hb', 14), sv('linearGradient', { id: gid, x1: 0, x2: 1, y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }))),
     grid.map((r) => r.g),
-    bands.map((b) => b.g), hv.g, pp.g, base, line, pts.map((p) => p.g));
+    bands.map((b) => b.g), nodeBlk, hv.g, pp.g, base, line, pts.map((p) => p.g));
   const layL = (fs, box) => {
     c = fs.cap; l = fs.lab; ph = 1.75 * c;
     tx = est('50', c) + 4; gx = tx + 0.5 * c; x0 = gx + 12;
@@ -534,6 +547,7 @@ function bigLadder() {
     drawBase();
     const y = RUNGS.map(([k]) => Y(f[k]));
     line.setAttribute('d', y.map((yy, i) => `${i ? 'L' : 'M'}${X(i)} ${yy.toFixed(1)}`).join(' '));
+    if (blockAt >= 0) { nodeBlk.setAttribute('cx', X(blockAt).toFixed(1)); nodeBlk.setAttribute('cy', y[blockAt].toFixed(1)); }
     pts.forEach((p, i) => { p.c.setAttribute('cy', y[i].toFixed(1)); p.v.setAttribute('y', (y[i] - 12.5 - 0.22 * l).toFixed(1)); p.v.textContent = fmt(f[RUNGS[i][0]], 0); });
     // The strip: readings in the nodes, the fall on each connector (from the rounded readings, so it adds up).
     const raw = conns.map((_, i) => Math.max(0, f[RUNGS[i][0]] - f[RUNGS[i + 1][0]]));
@@ -585,8 +599,13 @@ function bigLadder() {
   return {
     el, strip,
     setBase(b) { baseVals = b; drawBase(); },
-    set(f, { key = [], ms, brackets = null } = {}) {
+    set(f, { key = [], ms, brackets = null, block = null } = {}) {
       verdict = brackets || {};
+      const at = RUNGS.findIndex(([k]) => k === block);
+      if (at >= 0) blockAt = at;
+      nodeBlk.setAttribute('opacity', at >= 0 ? 1 : 0); snodeBlk.setAttribute('opacity', at >= 0 ? 1 : 0);
+      spts.forEach((p, i) => p.g.classList.toggle('blk', i === at));
+      placeNodeBlk();
       pts.forEach((p, i) => p.g.classList.toggle('key', key.includes(RUNGS[i][0])));
       spts.forEach((p, i) => p.g.classList.toggle('key', key.includes(RUNGS[i][0])));
       const hi = Math.max(f.pv, f.whvp, f.fhvp, f.ra, f.ivc ?? f.ra, ...(baseVals ? RUNGS.map(([k]) => baseVals[k]) : []));
@@ -1188,7 +1207,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const tileKeys = (s) => s.tiles || (s.data === 'ladder' ? ['hvpg', 'ppg'] : []);
   function dataTo(s, f, ref, ms) {
     if (!ui) return;
-    if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets });
+    if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets, block: s.block });
     if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
   }
   async function playLapse(s, to, cut) {
@@ -1529,7 +1548,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (s.tool) ui.tools.ghost(q ? null : toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
       const ms = fresh ? 0 : undefined;
-      if (lad) ui.ladder.set(now.fp, { key: q ? [] : s.key || [], ms, brackets: q ? null : s.brackets });
+      if (lad) ui.ladder.set(now.fp, { key: q ? [] : s.key || [], ms, brackets: q ? null : s.brackets, block: q ? null : s.block });
       if (s.data) ui.tiles.set(now.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms, now.params?.tips?.on);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
       if (!ui.root.classList.contains('pz-prep')) data.classList.remove('pz-hide');   // (else once fitted: settle)

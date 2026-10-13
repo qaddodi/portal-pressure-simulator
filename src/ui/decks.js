@@ -24,7 +24,8 @@
 //   data                     'ladder': the pressure ladder and tiles; 'tiles': tiles only (tiles: which, key: what
 //                            to highlight, delta: true or a slide id to show each tile's change from that state; a slide that
 //                            changes the same patient (no preset) counts from the slide before unless it says delta: false;
-//                            brackets: { hvpg | ppg: 'misleads' | 'works' } colours the ladder's bracket red or green, its number in it)
+//                            brackets: { hvpg | ppg: 'misleads' | 'works' } colours the ladder's bracket red or green, its number in it;
+//                            block: a station ('pv' | 'whvp' | 'fhvp' | 'ivc' | 'ra') carrying the block itself, hatched on its node)
 //   tool                     an instrument in the data card, reading the live model (presenter-tools.js): { kind: 'doppler',
 //                            vessel }, { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
 //                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section); title? names the card; waves: true
@@ -57,8 +58,8 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=415a54c856';
-import { SITES } from './decks/sites.js?v=136596cd96';
-import { HVPG } from './decks/hvpg.js?v=613a031a7b';
+import { SITES } from './decks/sites.js?v=d4e7a25ae9';
+import { HVPG } from './decks/hvpg.js?v=93d6e8e211';
 import { ASCITES } from './decks/ascites.js?v=f73e755ce7';
 import { VARICES } from './decks/varices.js?v=534bb3ec39';
 import { TREATMENT } from './decks/treatment.js?v=e3b0eee46d';
@@ -71,7 +72,7 @@ import { CIRCUIT } from './decks/circuit.js?v=7ce4853718';
 import { DOPPLER } from './decks/doppler.js?v=f46eeefd75';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=3efa2ca625';
 import { PREHEPATIC } from './decks/prehepatic.js?v=286f4e3b5f';
-import { RIGHT_HEART } from './decks/right-heart.js?v=b04295e4ab';
+import { RIGHT_HEART } from './decks/right-heart.js?v=ece868831a';
 import { BLEED } from './decks/variceal-bleed.js?v=f9f4868ad7';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=45c85aba92';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=b385d90871';

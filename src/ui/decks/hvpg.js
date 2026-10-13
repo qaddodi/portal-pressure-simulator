@@ -68,7 +68,7 @@ export const HVPG = {
       ask: ['A patient with varices has a normal HVPG. Which reading finds the block, and where is it taken?', 'The PPG, read in the portal vein itself (at TIPS, transhepatically, or by an EUS-guided needle), upstream of the block.'],
     },
     {
-      id: 'heart', preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], data: 'ladder', key: ['fhvp', 'ra', 'hvpg'], tiles: ['hvpg', 'ppg'],
+      id: 'heart', preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], data: 'ladder', block: 'ra', key: ['fhvp', 'ra', 'hvpg'], tiles: ['hvpg', 'ppg'],
       kicker: 'Where HVPG misleads', site: 'cardiac', title: 'In heart failure every pressure is high',
       line: '[Wedged](whvp) {whvp} and [free](fhvp) {fhvp} pressures are both high, so HVPG is normal. The raised free pressure points to the heart.',
       notes: 'HVPG is a difference, so it cancels whatever the wedged and the free readings share. In right heart failure and constrictive pericarditis every station from the portal vein to the right atrium is high: the HVPG and the PPG are normal, but the absolute pressures are not. Always read the free hepatic and the right atrial pressures as well. The same pattern with a normal right atrial pressure points to a block between the hepatic veins and the heart, such as an IVC web.',
