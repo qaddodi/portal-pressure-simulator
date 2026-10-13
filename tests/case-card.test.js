@@ -27,7 +27,8 @@ test('the case card is cards glass, enters and leaves whole, never resizing', ()
   assert.doesNotMatch(rule, /scale/);
 });
 
-test('the case text is set large: well above the teaching card body, never under 28px', () => {
+test('the case text is 2.5x the teaching card body, and eases down only to fit the card before it enters', () => {
   const p = css.match(/\.pz-case-p \{[^}]*\}/)[0];
-  assert.match(p, /font: 500 max\(calc\(var\(--s-body\) \* 1\.75\), 28px\)/);
+  assert.match(p, /font: 500 calc\(var\(--s-body\) \* var\(--case-k, 2\.5\)\)/);
+  assert.match(src, /c\.scrollHeight > c\.clientHeight \+ 1; k -= 0\.1\) c\.style\.setProperty\('--case-k'[^\n]*\n\s*c\.classList\.add\('on'\)/);
 });

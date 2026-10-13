@@ -1286,7 +1286,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   async function caseRun(s, si, st, cut) {
     const c = ui.vcase, ms = reduce.matches ? 0 : 450;
     c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, h('i'), 'Case'), h('p', { class: 'pz-case-p' }, s.vignette));
-    c.hidden = false; void c.offsetWidth; c.classList.add('on');
+    c.hidden = false; void c.offsetWidth;
+    // The words run 2.5x the teaching card's; on a short or narrow screen they ease down just enough to fit the card's room (set before it enters, so nothing resizes on screen).
+    c.style.removeProperty('--case-k');
+    for (let k = 2.5; k > 1.2 && c.scrollHeight > c.clientHeight + 1; k -= 0.1) c.style.setProperty('--case-k', k.toFixed(1));
+    c.classList.add('on');
     let lifted = false;
     try {
       await wait(ms);
