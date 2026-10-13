@@ -22,6 +22,8 @@ name: Pages (live site + preview)
 # the old ones): pushes sat queued for 20-30 minutes. The browser shards now run at most 16 at a time
 # (+2 visual +1 WebKit), so a slot stays free for a newer push's lint and deploy; once that deploys,
 # its checks cancel the older run's checks through the concurrency groups below.
+# On top of that the lint job's first step cancels the older runs of the same branch (unless one is
+# publishing right now), so a new push never waits behind old checks.
 
 on:
   push:
@@ -42,7 +44,30 @@ jobs:
       group: validate-${{ github.ref }}
       cancel-in-progress: ${{ github.ref_name != 'main' }}
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
     steps:
+      # First thing, before any check can hold a runner: cancel the older runs of this branch whose
+      # deploy is not publishing right now, so their ~40 queued or running check jobs free the
+      # account's runners at once instead of only after this run's own deploy starts.
+      - name: Cancel older runs of this branch
+        if: ${{ github.ref_name != 'main' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/$GH_REPO/actions/workflows/pages.yml/runs?branch=$GITHUB_REF_NAME&per_page=30" \
+            --jq '.workflow_runs[] | select(.id < ($ENV.GITHUB_RUN_ID|tonumber) and (.status=="in_progress" or .status=="queued" or .status=="waiting")) | .id' |
+          while read -r id; do
+            publishing=$(gh api "repos/$GH_REPO/actions/runs/$id/jobs" --jq '[.jobs[] | select(.name=="deploy" and .status=="in_progress")] | length')
+            if [ "$publishing" = "0" ]; then
+              echo "Cancelling run $id"
+              gh api -X POST "repos/$GH_REPO/actions/runs/$id/cancel" || true
+            else
+              echo "Run $id is publishing, left alone"
+            fi
+          done || true
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
