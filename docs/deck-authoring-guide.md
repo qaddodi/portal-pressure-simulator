@@ -196,7 +196,7 @@ A term becomes a pill in its **station colour**; the station's figure label take
 | `fhvp` (`RHV`) | RHV | `RHV_IVC` | hv | FHVP, free pressure |
 | `hv` | RHV | `RHV_IVC`, `MHV_IVC`, `LHV_IVC` | hv | hepatic vein(s) |
 | `ivc` (`IVCS`) | IVC | `IVCS_RA`, `IVC_IS` | ivc | IVC, inferior vena cava |
-| `ra` (`RA`) | RA | right atrium outlined (`heart-ra`) | ra | right atrium |
+| `ra` (`RA`) | RA | whole heart lit by a soft glow (`heart`; `heart-ra` still names it) | ra | right atrium |
 | `varix` (`VAR`) | Esoph. varices | `C1a`, `C1b` | var | esophageal varices, varices, varix |
 | `gv` (`GV`) | Fundal varices | `C2` | var | gastric varices, fundal varices |
 | `lgv` (`LGV`) | L. gastric v. | `LGV_CONF`, `V_STO` | var | left gastric vein, coronary vein |

@@ -2981,6 +2981,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const glLines = !!veins?.canLines;
   const OL_LOOK = { sel: [2.4, 0.55], hov: [2, 0.4], pin: [2.6, 0.6] };   // as .org-sel-line and .org-hov-line: width, opacity
   const OL_FADE = 160;   // ms
+  // The heart a slide points at (the right atrium, the heart itself) is lit whole by a soft glow, not a line: layers of
+  // widening, fainter stroke ([width, opacity], world units) that add up to a halo easing out from its edge.
+  const HEART_GLOW = [[4, 0.06], [8, 0.05], [13, 0.045], [18, 0.04], [24, 0.035], [30, 0.03], [37, 0.025], [44, 0.02]];
   let olPath = null;   // sampled in <defs>: the organ itself is hidden while the GPU draws the plate
   function olRings(id) {
     const m = organG[id].transform.baseVal.consolidate()?.matrix;
@@ -3010,17 +3013,33 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // A presenter slide's organs, outlined and held (several at once): eased in and out like the hover outline.
   // Each in its station's colour ([{ id, tone }], --tr-<tone>).
+  // The right atrium's slides light the whole heart (the atrium is one chamber of it), so both ids come to 'heart'.
+  const PIN_ID = (id) => (id === 'heart-ra' ? 'heart' : id);
+  const gPinFlat = s('g', { id: 'organPin', 'aria-hidden': 'true' });   // lite graphics and no-GPU outlines: a flat tint instead of the glow
+  let pinFlat = null;
   function pinOrgans(list) {
-    const ids = (list || []).map((o) => o.id || o);
+    const items = (list || []).map((o) => (typeof o === 'string' ? { id: o } : o)).map((o) => ({ id: PIN_ID(o.id), tone: o.tone || null }));
+    const ids = items.map((o) => o.id);
     caud.show(ids.includes('caudate') || ids.includes('caudate-lobe'), ids.includes('caudate'));
-    const want = new Map((list || []).map((o) => (typeof o === 'string' ? [o, null] : [o.id, o.tone])).filter(([id]) => organEls[id]));
+    const want = new Map(items.filter((o) => organEls[o.id]).map((o) => [o.id, o.tone]));
     const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(${tone.startsWith('--') ? tone : `--tr-${tone}`})`, cs)].slice(0, 3) : null);
     for (const o of olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;
     for (const [id, tone] of want) {
       const o = olList.find((x) => x.kind === 'pin' && x.id === id);
-      if (o) { o.on = true; o.col = col(tone); } else if (organEls[id].getAttribute('d')) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(tone) });
+      if (o) { o.on = true; o.col = col(tone); } else if (organEls[id].getAttribute('d')) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(tone), glow: id === 'heart' });
     }
     olDirty = true; olLast = performance.now();
+    syncPinFlat(want.has('heart') ? want.get('heart') : undefined);
+  }
+  // Without the GPU outlines (lite graphics) the heart gets a flat tint in its station's colour, eased in and out.
+  function syncPinFlat(tone) {
+    if (glLines) return;
+    if (!gPinFlat.isConnected) gOver.after(gPinFlat);
+    if (tone === undefined) { pinFlat?.classList.remove('on'); return; }
+    if (!pinFlat) { pinFlat = s('path', { class: 'org-pin-flat', d: organEls.heart.getAttribute('d') }); const tr = organG.heart.getAttribute('transform'); if (tr) pinFlat.setAttribute('transform', tr); gPinFlat.append(pinFlat); }
+    pinFlat.style.setProperty('--pin', `var(${tone ? (tone.startsWith('--') ? tone : `--tr-${tone}`) : '--accent'})`);
+    void pinFlat.getBoundingClientRect();   // (a path just added starts from its hidden state, so the tint eases in)
+    pinFlat.classList.add('on');
   }
   // The organ was redrawn (a reshaped liver, a larger spleen): the outlines follow it.
   function olGeom() {
@@ -3042,18 +3061,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const draws = [];
     let first = 0;
     for (const o of olList) {
-      const [w, alpha] = OL_LOOK[o.kind], h = w / 2, a = alpha * (o.a * o.a * (3 - 2 * o.a));
-      for (const r of o.rings) {
-        const closed = Math.hypot(r[0][0] - r[r.length - 1][0], r[0][1] - r[r.length - 1][1]) < 0.5;
-        const pts = closed ? r.slice(0, -1) : r, n = pts.length, count = (n + (closed ? 1 : 0)) * 2;
-        if (V) for (let i = 0; i <= n - (closed ? 0 : 1); i++) {
-          const k = i % n, p = pts[k];
-          const pa = pts[closed ? (k - 1 + n) % n : Math.max(0, k - 1)], pb = pts[closed ? (k + 1) % n : Math.min(n - 1, k + 1)];
-          let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
-          V.push(p[0], p[1], -ty, tx, 1, h, p[0], p[1], -ty, tx, -1, h);
+      const ease = o.a * o.a * (3 - 2 * o.a);
+      for (const [w, alpha] of o.glow ? HEART_GLOW : [OL_LOOK[o.kind]]) {
+        const h = w / 2, a = alpha * ease;
+        for (const r of o.rings) {
+          const closed = Math.hypot(r[0][0] - r[r.length - 1][0], r[0][1] - r[r.length - 1][1]) < 0.5;
+          const pts = closed ? r.slice(0, -1) : r, n = pts.length, count = (n + (closed ? 1 : 0)) * 2;
+          if (V) for (let i = 0; i <= n - (closed ? 0 : 1); i++) {
+            const k = i % n, p = pts[k];
+            const pa = pts[closed ? (k - 1 + n) % n : Math.max(0, k - 1)], pb = pts[closed ? (k + 1) % n : Math.min(n - 1, k + 1)];
+            let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+            V.push(p[0], p[1], -ty, tx, 1, h, p[0], p[1], -ty, tx, -1, h);
+          }
+          draws.push({ first, count, col: o.col || olCol, alpha: a });
+          first += count;
         }
-        draws.push({ first, count, col: o.col || olCol, alpha: a });
-        first += count;
       }
     }
     if (V) olVerts = new Float32Array(V);
