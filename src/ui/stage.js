@@ -4331,12 +4331,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Thrombus: a lumpy clot lying against one wall of the lumen, drawn as soft stacked layers of one
     // deep red (see clotLayers) so it is darkest where thickest and fades into the vessel at its edges.
     // A hairline in a darker shade of the same red traces only its free edge in the lumen, so it reads
-    // as resting on the wall. Below full occlusion the blood still flows down the open side. Its
-    // thickness, length and lumps are smooth in the occlusion (see clot-shape.js), so an eased change
+    // as resting on the wall. Below full occlusion the vessel's own blood shows down the open side.
+    // Its thickness, length and lumps are smooth in the occlusion (see clot-shape.js), so an eased change
     // eases the clot: it thickens from the wall inwards, then lengthens.
     for (const [id, v] of Object.entries(clots ? p.thrombus : {})) {
       if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
-      const g = geo[id], lit = g.lit, W = E[id].width;
+      // W is a little inside the drawn lumen, so the clot's soft edge never spills onto the vessel wall.
+      const g = geo[id], lit = g.lit, W = E[id].width * 0.9;
       const seed = hashSeed(id), side = clotSide(seed), { u0, u1 } = clotSpan(v);
       const i0 = Math.round(u0 * (N_SAMPLES - 1)), i1 = Math.round(u1 * (N_SAMPLES - 1));
       const pts = g.cur.slice(i0, i1 + 1), ln = lit.slice(i0, i1 + 1), n = pts.length;
@@ -4346,11 +4347,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const { cls, k } of clotLayers) ov.thrombi.append(s('path', { class: cls, d: tubeOutline(mid, ln, (f) => rOf(f) * k) }));
       const edge = mid.map((q, i) => { const r = rOf(i / (n - 1)) * CLOT_EDGE; return [q[0] - ln[i][0] * side * r, q[1] - ln[i][1] * side * r]; });
       ov.thrombi.append(s('path', { class: 'thrombus-edge', d: polyD(edge) }));
-      const rc = rOf(0.5), free = W - 2 * rc;
-      if (free > 0.8) {
-        const open = pts.map((q, i) => [q[0] - ln[i][0] * side * rc, q[1] - ln[i][1] * side * rc]);
-        ov.thrombi.append(s('path', { class: 'thrombus-channel', d: polyD(open), 'stroke-width': (free * 0.5).toFixed(2) }));
-      }
     }
     for (const id of ['TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...Object.keys(p.customShunts || {})]) {
       if (!E[id].vis || E[id].reveal) continue;

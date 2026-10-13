@@ -55,9 +55,9 @@ test('the clot is soft layers of one red that fade at the edges, with a hairline
   assert.ok(CLOT_EDGE > 0.9 && CLOT_EDGE <= 1, 'the hairline hugs the outer edge');
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   for (const { cls } of clotLayers) assert.ok(/\.thrombus(-halo|-core)?\b/.test(`.${cls}`), cls);
-  for (const cls of ["'thrombus-edge'", 'thrombus-channel']) assert.ok(stage.includes(cls), cls);
-  // no cartoon marks: no pale rim, sheen or speckles
-  for (const cls of ['thrombus-rim', 'thrombus-sheen', 'thrombus-speck']) assert.ok(!stage.includes(cls), cls);
+  assert.ok(stage.includes("'thrombus-edge'"));
+  // no cartoon marks: no pale rim, sheen, speckles or pink channel stroke beside the clot
+  for (const cls of ['thrombus-rim', 'thrombus-sheen', 'thrombus-speck', 'thrombus-channel']) assert.ok(!stage.includes(cls), cls);
   // the hairline runs on the open side (away from the wall the clot rests on)
   assert.match(stage, /q\[0\] - ln\[i\]\[0\] \* side \* r/);
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
@@ -65,5 +65,5 @@ test('the clot is soft layers of one red that fade at the edges, with a hairline
   for (const { cls } of clotLayers) assert.match(css, new RegExp(`\\.${cls} \\{ fill: var\\(--thrombus\\); fill-opacity: \\.[0-9]+; \\}`), cls);
   assert.match(css, /\.thrombus-edge \{[^}]*stroke: var\(--thrombus-edge\)/);
   for (const t of ['--thrombus', '--thrombus-edge']) assert.ok(tokens.includes(`${t}:`), t);
-  assert.ok(!/--thrombus-(rim|sheen|speck)/.test(css + tokens), 'old cartoon tokens are gone');
+  assert.ok(!/--thrombus-(rim|sheen|speck|channel)/.test(css + tokens), 'old cartoon tokens are gone');
 });
