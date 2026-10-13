@@ -58,14 +58,14 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=3be7ad58ed';
-import { SITES } from './decks/sites.js?v=0944448c5f';
+import { CIRCULATION } from './decks/circulation.js?v=23e058581f';
+import { SITES } from './decks/sites.js?v=0c8c2dc07d';
 import { HVPG } from './decks/hvpg.js?v=1423d1a291';
-import { ASCITES } from './decks/ascites.js?v=efae575ade';
+import { ASCITES } from './decks/ascites.js?v=2950751436';
 import { VARICES } from './decks/varices.js?v=534bb3ec39';
 import { TREATMENT } from './decks/treatment.js?v=97b75e71d6';
 import { STIFFNESS } from './decks/stiffness.js?v=d1986ddf9a';
-import { ONE_YEAR } from './decks/one-year.js?v=66384c16fc';
+import { ONE_YEAR } from './decks/one-year.js?v=28b0e4710f';
 import { LOBULE } from './decks/lobule.js?v=d257242c88';
 import { SHUNTS } from './decks/shunts.js?v=19204e051b';
 import { TAP } from './decks/tap.js?v=5962504271';

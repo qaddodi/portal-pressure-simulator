@@ -23,7 +23,7 @@ export const SITES = {
     {
       id: 'healthy', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg'],
       kicker: 'Reference', title: 'In a healthy liver each pressure drop is small',
-      line: 'The wedged reading gives the [sinusoidal pressure](sin) and the free reading gives the [hepatic vein](fhvp) pressure, so HVPG = WHVP − FHVP. Normal is 1 to 5 mmHg, and the patient\'s HVPG is {hvpg}. From the [portal vein](pv) to the [right atrium](ra), each station sits only a few mmHg below the one before.',
+      line: 'The wedged reading gives the [sinusoidal pressure](sin) and the free reading gives the [hepatic vein](fhvp) pressure, so HVPG = WHVP − FHVP. Normal is 1 to 5 mmHg, and, in this case, the HVPG is {hvpg}. From the [portal vein](pv) to the [right atrium](ra), each station sits only a few mmHg below the one before.',
       notes: 'The wedged hepatic venous pressure (WHVP) is taken with a balloon catheter wedged in a hepatic vein: with the flow stopped, the still column of blood reads the sinusoidal pressure. The free hepatic venous pressure (FHVP) is taken with the balloon down. HVPG = WHVP − FHVP. Normal is 1 to 5 mmHg; above 5 is portal hypertension; from 10, clinically significant portal hypertension, varices and decompensation become possible, and the risk rises with the gradient; from about 12 the risk of variceal bleeding rises. The portal pressure gradient (PPG) is the portal vein minus the IVC, measured directly.',
       ask: ['What does the wedged pressure measure?', 'The sinusoidal pressure: with the vein occluded, the still column of blood reads the pressure upstream.'],
     },
