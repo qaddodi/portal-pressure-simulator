@@ -1706,7 +1706,7 @@ button.finding { cursor: pointer; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-case { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-case { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 @media (prefers-reduced-motion: reduce) { .pz-case { transform: none; } }
-.pz-case-tag { --site: var(--accent); }
+.pz-case-tag { --site: var(--accent); font-size: calc(var(--s-body) * 1.15); }
 .pz-case-p { margin: 0; font: 500 calc(var(--s-body) * var(--case-k, 2.5))/1.25 var(--font-display); letter-spacing: -.01em; color: var(--text); text-wrap: pretty; }
 .pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity .5s var(--ease); }
 .pz-veil.on { opacity: 1; }

@@ -32,3 +32,7 @@ test('the case text is 2.5x the teaching card body, and eases down only to fit t
   assert.match(p, /font: 500 calc\(var\(--s-body\) \* var\(--case-k, 2\.5\)\)/);
   assert.match(src, /c\.scrollHeight > c\.clientHeight \+ 1; k -= 0\.1\) c\.style\.setProperty\('--case-k'[^\n]*\n\s*c\.classList\.add\('on'\)/);
 });
+
+test('the Case pill is set at the teaching card body size or larger, not the small site-tag size', () => {
+  assert.match(css, /\.pz-case-tag \{[^}]*font-size: calc\(var\(--s-body\) \* 1\.15\)/);
+});
