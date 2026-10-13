@@ -1998,14 +1998,14 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-abb { font-size: var(--s-lab); min-height: 34px; padding: .4em .7em; flex: none; }
 /* A what-if slider: the same frosted pill as the treatment buttons, its name, the track between its two ends, and the value. */
 .pz-wi { display: flex; align-items: center; gap: .5em .9em; flex-wrap: wrap; padding: .45em 1.05em; width: min(100%, 34em); box-sizing: border-box; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; font: 600 var(--s-lab)/1.15 var(--font-ui); color: var(--text); }
-.pzw-l { display: flex; flex-direction: column; gap: .1em; white-space: nowrap; }
-.pzw-k { font: 600 var(--s-cap)/1 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--accent-ink, var(--accent)); }
-.pzw-t { flex: 1 1 10em; min-width: 0; display: flex; align-items: center; gap: .6em; }
-.pzw-t .range-wrap { flex: 1; min-width: 4em; }
-.pzw-e { font: 500 var(--s-cap)/1 var(--font-ui); color: var(--text-2); white-space: nowrap; }
-.pzw-v { min-width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pzi-l { display: flex; flex-direction: column; gap: .1em; white-space: nowrap; }
+.pzi-k { font: 600 var(--s-cap)/1 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--accent-ink, var(--accent)); }
+.pzi-t { flex: 1 1 10em; min-width: 0; display: flex; align-items: center; gap: .6em; }
+.pzi-t .range-wrap { flex: 1; min-width: 4em; }
+.pzi-e { font: 500 var(--s-cap)/1 var(--font-ui); color: var(--text-2); white-space: nowrap; }
+.pzi-v { min-width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pz.stack .pz-wi { width: 100%; padding: .3em .8em; gap: .3em .7em; border-radius: 18px; }
-.pz.stack .pzw-l { flex-direction: row; align-items: baseline; gap: .5em; }
+.pz.stack .pzi-l { flex-direction: row; align-items: baseline; gap: .5em; }
 /* The quick check: numbered questions; a tap opens the answer under its question (it eases open, never jumps). */
 .pz-check { margin: 0; padding: 0; list-style: none; counter-reset: pzc; display: flex; flex-direction: column; min-height: 0; overflow: auto; font: 400 var(--s-body)/1.35 var(--font-display); color: var(--text); }
 .pz.stack .pz-check { padding-bottom: 48px; }   /* (a phone: the list ends above the controls' pill, which sits in the card's lower right) */

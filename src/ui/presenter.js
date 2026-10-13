@@ -1153,7 +1153,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const w = s.whatIf, path = w.param.split('.');
     const v0 = +(path.reduce((o, k) => o?.[k], st?.params) ?? w.min);
     const patchOf = (x) => path.reduceRight((o, k) => ({ [k]: o }), x);
-    const out = h('output', { class: 'pzw-v' });
+    const out = h('output', { class: 'pzi-v' });
     const input = h('input', { type: 'range', min: w.min, max: w.max, step: w.step ?? (w.max - w.min) / 20, value: v0, 'aria-label': `What if: ${w.label}` });
     const fmtV = (x) => (w.unit ? `${fmt(x, w.step >= 1 ? 0 : 1)} ${w.unit}` : '');
     const paint = (x) => { input.style.setProperty('--pct', `${((x - w.min) / (w.max - w.min)) * 100}%`); out.textContent = fmtV(x); };
@@ -1166,8 +1166,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     input.addEventListener('pointerup', () => input.blur());
     paint(v0);
     return h('div', { class: 'pz-wi', role: 'group', 'aria-label': `What if: ${w.label}` },
-      h('span', { class: 'pzw-l' }, h('span', { class: 'pzw-k' }, 'What if'), w.label),
-      h('div', { class: 'pzw-t' }, w.ends ? h('span', { class: 'pzw-e' }, w.ends[0]) : null, h('div', { class: 'range-wrap' }, input), w.ends ? h('span', { class: 'pzw-e' }, w.ends[1]) : null),
+      h('span', { class: 'pzi-l' }, h('span', { class: 'pzi-k' }, 'What if'), w.label),
+      h('div', { class: 'pzi-t' }, w.ends ? h('span', { class: 'pzi-e' }, w.ends[0]) : null, h('div', { class: 'range-wrap' }, input), w.ends ? h('span', { class: 'pzi-e' }, w.ends[1]) : null),
       w.unit ? out : null);
   }
   function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; paintChrome(); }
