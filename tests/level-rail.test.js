@@ -21,5 +21,5 @@ test('rail names stay on one line, sized to their column, and tilt 45° when the
 
 test('the rail marks the block with the ladder hatching (diagonal red stripes), not a solid bar', () => {
   const b = css.split('\n').find((l) => l.startsWith('.pz-rail li > i b {'));
-  assert.ok(b.includes('repeating-linear-gradient(45deg') && b.includes('var(--danger)') && !b.includes('box-shadow'));
+  assert.ok(b.includes('repeating-linear-gradient(45deg') && b.includes('var(--danger)') && !b.includes('box-shadow') && b.includes('inset: 0'));
 });
