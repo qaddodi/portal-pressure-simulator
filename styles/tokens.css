@@ -313,12 +313,12 @@
 
 /* Soft light: warm, low-glare paper with frosted cards and softer ink; organ colours unchanged. */
 :root[data-theme="soft"] {
-  --bg: #F1EDE6; --stage-bg: #F1EDE6; --surface: #FAF8F4; --surface-2: #EEEAE2; --surface-3: #E3DED4;
-  --glass: rgba(250, 248, 244, .82); --frost: rgba(250, 248, 244, .34); --scrim: rgba(40, 36, 30, .3);
-  --hairline: rgba(60, 50, 40, .09); --border: #DDD6CA; --border-strong: #C6BDAE;
-  --text: #2A2824; --text-2: #55514A; --text-3: #66625A;
-  --brand-bg: #3A3630; --accent: #3E5CC4; --accent-ink: #2F4AA6; --accent-soft: rgba(62, 92, 196, .1); --accent-line: rgba(62, 92, 196, .3);
-  --stage-grid: rgba(90, 70, 40, .05);
+  --bg: #E8DFD1; --stage-bg: #E8DFD1; --surface: #F6F0E6; --surface-2: #EBE2D4; --surface-3: #DDD2C0;
+  --glass: rgba(246, 240, 230, .84); --frost: rgba(246, 240, 230, .36); --scrim: rgba(40, 32, 22, .34);
+  --hairline: rgba(70, 52, 30, .11); --border: #D4C8B4; --border-strong: #B9AA92;
+  --text: #221E18; --text-2: #4A443A; --text-3: #5E574B;
+  --brand-bg: #3A3228; --accent: #3652B8; --accent-ink: #2A4399; --accent-soft: rgba(54, 82, 184, .11); --accent-line: rgba(54, 82, 184, .32);
+  --stage-grid: rgba(100, 72, 36, .06);
   color-scheme: light;
 }
 
