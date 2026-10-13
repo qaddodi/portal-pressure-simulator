@@ -1430,7 +1430,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui) return;
     const { text, panel, data } = ui;
     text.classList.remove('pz-leave');   // (the panel's own is let go once its new content is in, so it never fades back in with the old)
-    ui.shade.classList.toggle('dop', s.tool?.kind === 'doppler');   // (a Doppler slide's teaching card takes the Doppler's green glow)
     if (s.visual) {
       text.hidden = true; text.replaceChildren();
       // A panel that was not there fades in (never pops): unhidden while still faded, then let go.
