@@ -217,7 +217,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme="light"]):not([data-theme="soft"]) {
     --bg: #0E1422; --stage-bg: #0E1422; --surface: #161E30; --surface-2: #1B2438; --surface-3: #232D44;
     --on-accent: #0B1120; --skin: #7A5E55;
     --shadow-menu: 0 6px 20px rgba(0, 0, 0, .45); --shadow-dialog: 0 24px 60px rgba(0, 0, 0, .6);
@@ -311,6 +311,17 @@
   color-scheme: dark;
 }
 
+/* Soft light: warm, low-glare paper with frosted cards and softer ink; organ colours unchanged. */
+:root[data-theme="soft"] {
+  --bg: #F1EDE6; --stage-bg: #F1EDE6; --surface: #FAF8F4; --surface-2: #EEEAE2; --surface-3: #E3DED4;
+  --glass: rgba(250, 248, 244, .82); --frost: rgba(250, 248, 244, .34); --scrim: rgba(40, 36, 30, .3);
+  --hairline: rgba(60, 50, 40, .09); --border: #DDD6CA; --border-strong: #C6BDAE;
+  --text: #2A2824; --text-2: #55514A; --text-3: #66625A;
+  --brand-bg: #3A3630; --accent: #3E5CC4; --accent-ink: #2F4AA6; --accent-soft: rgba(62, 92, 196, .1); --accent-line: rgba(62, 92, 196, .3);
+  --stage-grid: rgba(90, 70, 40, .05);
+  color-scheme: light;
+}
+
 /* Circuit view: follows the page theme. In the light theme it is a light schematic on the page
    paper; in the dark theme a darker "hemodynamic map" than the surrounding chrome. */
 .stage-wrap.cmap { --map-dot: rgba(70, 90, 160, .16); --spine: rgba(90, 110, 200, .1); }
@@ -330,7 +341,7 @@
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .stage-wrap.cmap {
+  :root:not([data-theme="light"]):not([data-theme="soft"]) .stage-wrap.cmap {
   --bg: #070B14; --stage-bg: #0A0F1C; --surface: #10172A; --surface-2: #151E34; --surface-3: #1D2842;
   --glass: rgba(14, 20, 38, .95); --frost: rgba(14, 20, 38, .42);
   --hairline: rgba(200, 215, 255, .09); --border: #222C46; --border-strong: #33405F;

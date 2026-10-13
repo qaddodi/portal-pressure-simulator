@@ -15,7 +15,7 @@ import { createCompare } from './compare.js?v=1b81b9e485';
 import { createCard } from './card.js?v=1ee035b132';
 import { createChart, computeFindings } from './chart.js?v=67739b764a';
 import { createMenu, ROLES } from './menu.js?v=3d2f8e2427';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=2b593f6af1';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';
 import { caption } from './a11y.js?v=0143d328b1';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
@@ -788,7 +788,7 @@ function openSettings(anchor) {
   popover(anchor, [
     ...(talk ? [] : [h('div', { class: 'menu-title' }, t('menu.role')), roleControl()]),
     h('div', { class: 'menu-title' }, t('menu.appearance')),
-    h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
+    h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['soft', t('menu.soft')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     fullscreenControl(),
     menuToggle(liteOn(), 'activity', 'Lite mode', 'Solid cards, flat colours and fades instead of zooms, for slower computers (reloads the app)', (on) => {
       try { localStorage.setItem('pps.lite', on ? '1' : '0'); } catch { /* storage unavailable */ }
