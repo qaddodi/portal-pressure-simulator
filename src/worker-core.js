@@ -30,6 +30,24 @@ const fingerprint = (m, e) => {
 };
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 const rampAt = (ramp, d, n) => Object.fromEntries(ramp.map(([k, [a, b]]) => [k, a + (b - a) * Math.min(1, d / n)]));
+// The presenter's eased change of patient ('morph'): the live state blended from where it is to a slide's state. Numbers ease
+// (a number only one side has, such as a new thrombus or stenosis, grows from 0); a switch flips halfway; everything else
+// (events, bands, the random state) is the slide's from the start.
+const MORPH_KEYS = ['params', 'V', 'P', 'Q', 'MAPf', 'hr', 'baro', 'habr', 'slow', 'blood', 'iap', 'day', 't'];
+function mix(a, b, k) {
+  if (typeof a === 'number' || typeof b === 'number') {
+    if ((typeof a === 'number' || a === undefined) && (typeof b === 'number' || b === undefined)) return (a ?? 0) + ((b ?? 0) - (a ?? 0)) * k;
+  } else if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length === b.length) return a.map((x, i) => mix(x, b[i], k));
+  } else if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const o = {};
+    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) o[key] = mix(a[key], b[key], k);
+    return o;
+  }
+  return k < 0.5 ? a : b;
+}
+const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });
+const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
 
 export function createCore(post) {
   let eng = new Engine();
@@ -46,6 +64,8 @@ export function createCore(post) {
   let samples = null;
   // The presenter's time-lapse on the live model: days left, and the params ramped day by day (see 'lapse').
   let lapse = null;
+  // The presenter's eased change of patient on the live model: { from, to, t0, ms } (see 'morph').
+  let morph = null;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
   const newSamples = () => ({ t: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
 
@@ -97,7 +117,12 @@ export function createCore(post) {
     const realDt = last == null ? 0 : Math.min(0.1, (now - last) / 1000);
     last = now;
     eng.beat = beat;
-    if (running) {
+    if (morph) {
+      const k = Math.min(1, (now - morph.t0) / morph.ms);
+      eng.restore(k >= 1 ? morph.to : morphAt(morph.from, morph.to, easeInOut(k)));
+      if (k >= 1) morph = null;
+      paramsDirty = true; frameDirty = true;
+    } else if (running) {
       if (clock === 'hemo') {
         const pulse = eng.params.pulsatile || beat;
         const h = pulse ? 0.004 : 0.02;
@@ -177,15 +202,17 @@ export function createCore(post) {
       start();
     },
     setParams({ params, settle }) {
+      morph = null;
       // UI-originated: not echoed back (avoids overwriting in-flight edits).
       eng.setParams(sanitizeParams(params));
       if (settle) eng.settle();
     },
     *preset({ id, days, reqId }) {
+      morph = null;
       yield* eng.loadPresetSteps(id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
       post({ type: 'presetLoaded', reqId, id, params: eng.params });
     },
-    reset() { eng = new Engine(); paramsDirty = true; },
+    reset() { morph = null; eng = new Engine(); paramsDirty = true; },
     run({ running: r, speed: s, clock: c }) {
       if (r !== undefined) running = r;
       if (s !== undefined) speed = s;
@@ -194,6 +221,7 @@ export function createCore(post) {
     // The presenter's time-lapse: days on the disease clock at speed days a second, ramp's params eased over
     // them ({ key: [from, to] }); days 0 stops one under way.
     lapse({ days, speed: s, ramp }) {
+      morph = null;
       lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null } : null;
       running = true; clock = lapse ? 'disease' : 'hemo'; speed = lapse ? s : 1; diseaseAcc = 0;
     },
@@ -201,6 +229,7 @@ export function createCore(post) {
     // restartClock: the days are the patient's past (the patient aged before the story starts), so the clock and
     // event log start fresh at day 0 afterwards.
     *advance({ days, untilEvent, restartClock }) {
+      morph = null;
       const n0 = eng.eventLog.length;
       let done = 0;
       const max = untilEvent ? 730 : days;
@@ -215,7 +244,7 @@ export function createCore(post) {
       paramsDirty = true;
     },
     settle() { eng.settle(); },
-    action({ action }) { applyAction(eng, action); paramsDirty = true; },
+    action({ action }) { morph = null; applyAction(eng, action); paramsDirty = true; },
     // Run the model forward at bedside time (so the vitals have settled before they are shown).
     *preroll({ seconds, reqId }) {
       for (let t = 0; t < seconds; t += 0.1) { eng.step(0.1); yield; }
@@ -225,7 +254,14 @@ export function createCore(post) {
     probe({ id }) { probe = id; },
     beat({ on }) { if (beat !== !!on) { beat = !!on; frameDirty = true; } },
     snapshot({ reqId }) { post({ type: 'snapshot', reqId, snap: eng.snapshot() }); },
-    restore({ snap }) { eng.restore(snap); lapse = null; paramsDirty = true; },
+    restore({ snap }) { morph = null; eng.restore(snap); lapse = null; paramsDirty = true; },
+    // The presenter's change of patient, eased over ms from the live state (wherever it is, a change under way included) to snap.
+    morph({ snap, ms }) {
+      lapse = null; clock = 'hemo'; speed = 1; diseaseAcc = 0;
+      if (!(ms > 0)) { morph = null; eng.restore(snap); paramsDirty = true; return; }
+      morph = { from: eng.snapshot(), to: snap, t0: performance.now(), ms };
+      running = true; start();
+    },
     explain({ metric, reqId }) {
       const r = explain(eng, metric);
       post({ type: 'explain', reqId, result: r });

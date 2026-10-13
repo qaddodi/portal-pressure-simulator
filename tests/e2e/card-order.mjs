@@ -5,6 +5,9 @@
 // screen through the measurement. The catheter's readings (FHVP, WHVP, HVPG) glide to a new spot,
 // never jump there in one frame. The corner credit sits the whole move out: gone from the moment the cards leave, back once (fading
 // in at its final spot, never moving while visible) after the cards are in and the camera has settled.
+// A change of patient eases on the live model after the zoom (lesions grow, pressures travel; .app.pz-morph while it runs) and
+// the data card stays out until it has settled; a newer slide asked for mid-way eases on from there: the portal pressure
+// never jumps between frames.
 // The data card leaves at the same moment as the teaching card, with the same ease and pace (never left standing, never drifting the other way). Real motion, stepping with Next through a deck, sampled every frame.
 //
 //   DECKS=doppler node tests/e2e/card-order.mjs
@@ -21,7 +24,14 @@ const page = await (await browser.newContext({ viewport: { width: 1280, height: 
 page.setDefaultTimeout(60000);
 await gotoSlide(page, server.url, deck, 0);
 await page.evaluate(() => {
-  window.__bad = []; window.__bareSeen = 0; window.__creditSeen = 0;
+  window.__bad = []; window.__bareSeen = 0; window.__creditSeen = 0; window.__morphSeen = 0;
+  let pv0 = null;
+  // Every frame the model sends (bedside time only: a time-lapse runs days per frame on purpose).
+  window.pps.store.on('frame', () => {
+    const fr = window.pps.store.get().frame, pv = fr?.metrics?.pv, lapsing = fr?.clock === 'disease' || !!document.querySelector('.pz-lapse:not(.done)');
+    if (pv0 != null && pv != null && !lapsing && Math.abs(pv - pv0) > 3) window.__bad.push(`portal pressure jumped ${pv0.toFixed(1)} → ${pv.toFixed(1)} in one frame`);
+    pv0 = pv ?? pv0;
+  });
   const app = document.getElementById('app'), cr = document.querySelector('.stage-credit');
   let heldAt = 0, last = null, wasBare = false, armed = false, cam = null;
   const world = document.getElementById('world');
@@ -36,6 +46,11 @@ await page.evaluate(() => {
       // (Checked while the camera holds still: a reading following the camera is not a jump.)
       if (p && p.vis && vis && still && Math.hypot(r.left - p.x, r.top - p.y) > 30) window.__bad.push('catheter reading jumped to a new spot');
       at.set(el, { x: r.left, y: r.top, vis });
+    }
+    if (app.classList.contains('pz-morph')) {
+      window.__morphSeen++;
+      const dc = document.querySelector('.pz-data');
+      if (dc && !dc.hidden && !dc.classList.contains('pz-hide')) window.__bad.push('data card on screen while the patient was still changing');
     }
     const held = app.classList.contains('pz-moving'), op = +getComputedStyle(cr).opacity, r = cr.getBoundingClientRect();
     if (held) { heldAt ||= performance.now(); if (performance.now() - heldAt > 400 && op > 0.02) window.__bad.push('corner credit visible during the slide change'); } else heldAt = 0;
@@ -73,9 +88,15 @@ await page.evaluate(() => {
 });
 for (let i = 1; i <= steps; i++) await gotoSlide(page, server.url, deck, i);
 await page.waitForTimeout(8000);
-const { bad, seen, credit } = await page.evaluate(() => ({ bad: [...new Set(window.__bad)], seen: window.__bareSeen, credit: window.__creditSeen }));
+// Retarget: back to the first slide, and forward again while that change of patient is still easing.
+await page.evaluate(() => window.pps.presenter.go(0));
+const mid = await page.waitForFunction(() => document.getElementById('app').classList.contains('pz-morph'), null, { timeout: 8000 }).then(() => true, () => false);
+if (mid) { await page.waitForTimeout(500); await page.evaluate((k) => window.pps.presenter.go(k), steps); }
+await page.waitForFunction(() => !window.pps.presenter.busy(), null, { timeout: 90000 });   // (a runner without a GPU draws the lobule a few frames a second)
+await page.waitForTimeout(1500);
+const { bad, seen, credit, morph } = await page.evaluate(() => ({ bad: [...new Set(window.__bad)], seen: window.__bareSeen, credit: window.__creditSeen, morph: window.__morphSeen }));
 await browser.close(); server.close?.();
 if (!seen) { console.error(`card-order ${deck}: the bare phase never ran`); process.exit(1); }
 if (!credit) { console.error(`card-order ${deck}: the corner credit never came back after the slide changes`); process.exit(1); }
 if (bad.length) { console.error(`card-order ${deck}: ${bad.join('; ')}`); process.exit(1); }
-console.log(`card-order ${deck}: ${steps} slide changes, cards held out during every zoom (one move, none after they came in), credit out of sight until the cards and camera settled, catheter readings never jumped`);
+console.log(`card-order ${deck}: ${steps} slide changes, ${morph ? 'patient changes eased before the data card came in' : 'no change of patient'}${mid ? ', retargeted mid-change without a jump' : ''}, cards held out during every zoom (one move, none after they came in), credit out of sight until the cards and camera settled, catheter readings never jumped`);

@@ -872,7 +872,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=b8f80203ab', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=572a8799a6', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -884,7 +884,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=f867bd14bd');
+      const { createCore } = await import('../worker-core.js?v=3ebdd4d5c7');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -966,6 +966,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     replaceParams(structuredClone(st.params));
     store.set({ presetId: st.presetId, presetLoading: false, historyTick: (store.get().historyTick || 0) + 1 });
     host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
+  }
+  // A change of patient on screen eases (the model blends from where it is to the slide's state: lesions grow, sliders,
+  // pressures and flows travel, the days run on); a newer slide mid-way eases on from wherever the model has got to.
+  // Resolves once the slide's exact state is in, or early (the model left part way) when cut() says a newer slide was asked for.
+  const MORPH_MS = 2000;
+  // (.app.pz-morph while a change of patient eases: the checks hold the data card to it.)
+  async function morphTo(st, cut, ms = MORPH_MS, mark = true) {
+    host.send({ type: 'morph', snap: st.snap, ms });
+    store.set({ presetId: st.presetId, presetLoading: false });
+    if (mark) app.classList.add('pz-morph');
+    try {
+      await until(cut, ms + 80);
+      if (cut()) return false;
+      applyState(st);
+      await drawn(st);
+      return !cut();
+    } finally { if (mark) app.classList.remove('pz-morph'); }
   }
   // The live engine has sent a frame of the new state (its portal pressure is the slide's), and two more frames have painted it.
   let frames = 0;
@@ -1240,10 +1257,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (!lapseOn || cut()) { stopLapse(); return; }
     lapseOn = false; paintChrome();
-    applyState(end); shownState = stateOf[to];
     paintLapse(s, days, days, true);
     ui?.tools.progress(1);
-    dataTo(s, end.fp, ref, 700);
+    // (The live days land a hair off the computed end: the last step eases there too.)
+    shownState = -1;
+    if (!await morphTo(end, cut, reduce.matches ? 0 : 600, false)) return;
+    shownState = stateOf[to];
+    // A data card held through the days comes in now, already showing where they ended.
+    const held = !!ui && 'hold' in ui.data.dataset;
+    dataTo(s, end.fp, ref, held ? 0 : 700);
+    if (held) releaseData();
   }
 
   // ── Slides ──
@@ -1349,10 +1372,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (s.visual && s.visual !== 'table') { await Promise.all(rowIdx(s).map(stateReady)); if (cut()) return; }
     // A new patient, or the same one changed: the figure fades out, the state changes unseen, it fades back in.
     const swap = si !== shownState || liveOff || !!own;
+    // On screen the change eases (morphTo): after the camera has landed and before the cards come in, or for a catheter slide
+    // (its cards come in at once) right here. Only the first slide, or with reduced motion, does the figure dim while it changes.
+    const glide = swap && !booting && !reduce.matches, later = glide && !ct && !!ui;
     if (swap) {
-      if (shownState >= 0 && !view.classList.contains('pz-out')) await figureOut();
-      applyState(st); shownState = own ? -1 : si; liveOff = false;
-      await drawn(st);
+      liveOff = false;
+      if (glide) { shownState = -1; if (!later) { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; } }
+      else {
+        if (shownState >= 0 && !view.classList.contains('pz-out')) await figureOut();
+        applyState(st); shownState = own ? -1 : si;
+        await drawn(st);
+      }
       if (!deck) return;
     }
     // With a new patient and a move over the plate, the glide starts while the figure is still dim and runs on
@@ -1379,7 +1409,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual && !q) app.dataset.lit = slideTargets(s).lit.join(' ');
     if (s.visual === 'table') fillTable(s, cut);
-    const lead = swap && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? camera(cam, s, cut) : null;
+    const lead = swap && !glide && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? camera(cam, s, cut) : null;
     if (lead) await wait(150);
     if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
     if (cut()) return;
@@ -1391,6 +1421,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A glide's last frame can land just after the wait that timed it: the cards wait for the camera to be still.)
       await until(() => cut() || !stage.gliding(), 1500);
       if (cut()) return;
+      // The camera is still: the patient changes now, unhurried, and the cards come in only once it has.
+      if (later) { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; }
       bare = false; layout(); cardsIn();
       // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
       await wait(60); await until(() => cut() || !cardsEntering(), 1200);
@@ -1431,7 +1463,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
 
   // The fonts in and two frames for the cards' charts and refits to run, then one last fit; then the cards show (eased in).
-  function cardsIn() { if (ui) { if (!bare) { ui.text.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
+  function cardsIn() { if (ui) { if (!bare) { ui.text.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
+  // A time-lapse whose data card is only numbers holds that card back (unseen, at its resting place) until the days have run.
+  function releaseData() { if (!ui || !('hold' in ui.data.dataset)) return; delete ui.data.dataset.hold; if (ui.data.dataset.prep) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } }
   // While bare, the new slide's cards are fitted at their resting place but unseen, and the camera frames around them (see transitionRun).
   let bare = false;
   async function settleRun() {
@@ -1546,8 +1580,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
     }
+    delete data.dataset.hold;
     if (hasCard(s)) {
       const lad = s.data === 'ladder';
+      // (A time-lapse's numbers wait for its end; an instrument on the card plays the days, so that card comes in with the words.)
+      if (lap && !s.tool && ui.root.classList.contains('pz-prep')) data.dataset.hold = '';
       data.classList.toggle('tiles-only', !lad);
       data.classList.toggle('under', under(s));
       data.toggleAttribute('data-sin-tiles', sinTiles(s));
