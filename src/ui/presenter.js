@@ -1334,6 +1334,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui?.root.classList.add('pz-prep');
     bare = !booting && !!ui;
     wordsIn(s, q, said, to, swap, lap, st);
+    // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first.)
+    if (bare) ui.text.classList.add('pz-leave');
     await settleRun();
     if (!bare) cardsIn();
     if (cut()) return;
@@ -1393,7 +1395,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui) return;
     try { await settleRun(); } finally { cardsIn(); }
   }
-  function cardsIn() { if (ui) { ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
+  function cardsIn() { if (ui) { if (!bare) ui.text.classList.remove('pz-leave'); ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
   // While bare, the new slide's cards are fitted but unseen and the camera frames as if they were not there (see transitionRun).
   let bare = false;
   async function settleRun() {
