@@ -18,11 +18,11 @@ import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } f
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=a9b9795e1b';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=a7a05c7354';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=fbb9ced448';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=18b99b671d';
 import { createTools } from './presenter-tools.js?v=8c397bfb06';
-import { openHandout } from './handout.js?v=c916180ca3';
+import { openHandout } from './handout.js?v=f2d947807a';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=d151452073';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -421,8 +421,9 @@ function bigLadder() {
     const fit = [fs.val, fs.body, fs.lab, fs.cap].filter((x) => x > 0), v0 = fit.find((x) => est('20', x, 0.62) + 2 * 5 + 10 <= 70) ?? Math.min(...fit);
     const c = S.c = fs.cap, v = S.v = v0;
     // The names take two rows when neighbours would touch. (No falls are written: a big one is shaded instead.)
-    const nameW = Math.max(...RUNGS.map(([, a]) => est(a, c, 0.7))), two = nameW > 70 - 6;
-    S.ky = 0.8 * c + 1; S.ky2 = two ? S.ky + 1.15 * c : S.ky;
+    // The names tilt 45° when neighbours would touch, rising from just above their readings (two staggered rows crowded a narrow cell).
+    const nameW = Math.max(...RUNGS.map(([, a]) => est(a, c, 0.7))), tilt = nameW > 70 - 6;
+    S.ky = tilt ? 0.71 * nameW + 0.9 * c : 0.8 * c + 1; S.ky2 = S.ky;
     S.ny = S.ky2 + 0.3 * c + 0.55 * v + 3; S.vy = S.ny + 0.36 * v;
     numW.clear(); lineKey = '';
     // The unit sits after the last reading when it fits there, else at the end of the HVPG row (under the last stations).
@@ -434,7 +435,12 @@ function bigLadder() {
     unit.style.display = bare && !inline ? 'none' : '';
     strip.setAttribute('viewBox', `0 0 ${S.W} ${S.H.toFixed(1)}`);
     conns.forEach((cn) => { const y0 = S.ky2 + 0.35 * c; cn.band.setAttribute('y', y0.toFixed(1)); cn.band.setAttribute('height', (S.ny + 0.5 * v - y0).toFixed(1)); });
-    spts.forEach((p, i) => { p.v.setAttribute('y', S.vy.toFixed(1)); fsOf(p.v, v); p.k.setAttribute('y', (i % 2 ? S.ky2 : S.ky).toFixed(1)); fsOf(p.k, c); });
+    spts.forEach((p, i) => {
+      p.v.setAttribute('y', S.vy.toFixed(1)); fsOf(p.v, v); fsOf(p.k, c);
+      const x = tilt ? XS(i) - 0.3 * c : XS(i);
+      p.k.setAttribute('x', x.toFixed(1)); p.k.setAttribute('y', S.ky.toFixed(1)); p.k.setAttribute('text-anchor', tilt ? 'start' : 'middle');
+      if (tilt) p.k.setAttribute('transform', `rotate(-45 ${x.toFixed(1)} ${S.ky.toFixed(1)})`); else p.k.removeAttribute('transform');
+    });
     unit.setAttribute('x', S.W - 2); unit.setAttribute('y', (inline ? S.vy : S.hvpg + 0.33 * c).toFixed(1)); fsOf(unit, c);
     hvS.row = S.hvpg; ppS.row = S.ppg;
     for (const b of [hvS, ppS]) fsOf(b.lbl, c);

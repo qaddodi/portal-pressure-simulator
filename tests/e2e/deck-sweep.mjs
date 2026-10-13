@@ -130,6 +130,13 @@ const snap = (page) => page.evaluate(() => {
     if (fw < 0.7 || fh < 0.7) issues.push(`SMALL DRAWING: data card ${sv.getAttribute('class') || 'svg'} drawn in ${Math.round(fw * 100)}% x ${Math.round(fh * 100)}% of its ${Math.round(r.width)}x${Math.round(r.height)} box`);
   }
   if (D && cards) { const free = (D.height - [...dEl.children].reduce((a, c) => { const q = vis(c); return a + (q ? q.height : 0); }, 0)); if (free > 120) issues.push(`EMPTY DATA CARD SPACE: ${Math.round(free)}px of the data card's ${Math.round(D.height)}px height holds nothing`); }
+  // A pressure strip's or ladder's station names (PV, WHVP, FHVP, IVC, RA) never crowd: no two level names touch (tilted ones are clear by construction).
+  for (const svg of document.querySelectorAll('.pz-strip, .pz-ladder')) {
+    if (!vis(svg)) continue;
+    const ks = [...svg.querySelectorAll('.pzs-k, .pzl-k')].filter((t) => !t.getAttribute('transform') && vis(t)).map((t) => [t.textContent, t.getBoundingClientRect()]);
+    for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) { const [a, ra] = ks[i], [b, rb] = ks[j];
+      if (ra.top < rb.bottom && rb.top < ra.bottom && Math.max(ra.left, rb.left) - Math.min(ra.right, rb.right) < 4) issues.push(`LABELS CROWD: "${a}" and "${b}" in ${svg.getAttribute('class')}`); }
+  }
   const txt = (s) => { const el = document.querySelector(s); return vis(el) ? el.innerText.replace(/\s+/g, ' ').trim() : ''; };
   const terms = [...document.querySelectorAll('.pz-term')].map((t) => `${t.textContent}→${t.dataset.target}`);
   const count = document.querySelector('.pzb-n, .pz-count')?.textContent.trim();
@@ -177,6 +184,17 @@ async function run(deck, dev) {
     for (const k of ['.pz-text', '.pz-data']) if (s0.size[k] && s.size[k] && s0.size[k] !== s.size[k]) s.issues.push(`${k} changed size after it showed (${s0.size[k]} -> ${s.size[k]})`);
     if (!FAST && s0.cam + s.cam > 1) s.issues.push(`camera framed ${s0.cam + s.cam} times for one slide`);
     if (!FAST) { const w = wander([...s0.path, ...s.path]); if (w && i > 0) s.issues.push(`CAMERA ${w}`); }
+    // A quick check is sized once for every answer shown: opening them all moves neither its card nor its text size.
+    const qc = await page.evaluate(async () => {
+      const l = document.querySelector('.pz-check'); if (!l || !l.offsetParent) return null;
+      const c = l.closest('section'), m = () => `${Math.round(c.getBoundingClientRect().height)} ${c.style.getPropertyValue('--pz-fit')} ${getComputedStyle(l).fontSize}`;
+      const a = m(), qs = [...l.querySelectorAll('.pzc-q')];
+      for (const q of qs) q.click();
+      await new Promise((r) => setTimeout(r, 900)); const b = m();
+      for (const q of qs) q.click();
+      return a === b ? null : `${a} -> ${b}`;
+    });
+    if (qc) s.issues.push(`QUICK CHECK RESIZES when its answers open (height, fit, text: ${qc})`);
     s.slide = i + 1; fwd.push(s); lap('snap');
     const m = s.count?.match(/(\d+) \/ (\d+)/); if (m && !ONE) n = +m[2];
     if (i < n - 1) { await page.keyboard.press('ArrowRight'); await at(page, i + 2); }

@@ -76,7 +76,7 @@ import { BLEED } from './decks/variceal-bleed.js?v=f9f4868ad7';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=45c85aba92';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=b385d90871';
 import { SPLEEN } from './decks/spleen.js?v=7c17699e8b';
-import { NCPH } from './decks/ncph.js?v=be14a66c9a';
+import { NCPH } from './decks/ncph.js?v=4f17de6c9a';
 import { OUTFLOW } from './decks/outflow.js?v=35a981818a';
 import { RECOMPENSATION } from './decks/recompensation.js?v=84695120fb';
 

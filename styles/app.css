@@ -1697,7 +1697,10 @@ button.finding { cursor: pointer; }
 .pz-grid-key i { display: inline-block; width: 22px; margin-right: 8px; vertical-align: middle; border-top: 2px dashed var(--text-3); }
 .pz-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, calc(2 * var(--pzh) / var(--vz)), 26px); }
 .pz-cell { display: flex; flex-direction: column; gap: clamp(4px, calc(.8 * var(--pzh) / var(--vz)), 10px); padding: clamp(10px, calc(1.6 * var(--pzh) / var(--vz)), 20px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px) clamp(6px, calc(1 * var(--pzh) / var(--vz)), 12px); border-radius: clamp(12px, calc(1.8 * var(--pzh) / var(--vz)), 20px); background: var(--surface-2); min-width: 0; }
-.pz-cell .pz-kick { font-size: var(--s-cap); }
+/* (A long site name, POSTSINUSOIDAL, in a narrow cell steps its size down to fit the cell rather than run out of it.) */
+.pz-cell { container-type: inline-size; }
+.pz-cell .pz-kick { font-size: min(var(--s-cap), 8.4cqi); }
+.pz.stack .pz-cell .pz-kick { font-size: min(var(--s-lab), 8.4cqi); letter-spacing: .06em; white-space: nowrap; }
 .pz-cell-k { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 8px; }
 .pz-cell-k > span { font: 500 var(--s-cap) var(--font-ui); color: var(--text-3); white-space: nowrap; }
 .pz-cell-k b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -2014,12 +2017,11 @@ button.finding { cursor: pointer; }
 .pzc-q:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pzc-hint { font: 600 var(--s-cap)/1 var(--font-ui); color: var(--accent-ink, var(--accent)); white-space: nowrap; padding: .45em .8em; border-radius: 999px; background: color-mix(in srgb, var(--accent) 10%, transparent); transition: opacity .3s var(--ease); }
 .pz-check li.open .pzc-hint { opacity: 0; }
-/* (A closed answer is not laid out at all, so it is neither read aloud nor under the controls; it eases open and shut.) */
-.pzc-a { display: none; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .4s var(--ease), opacity .4s var(--ease), display .4s allow-discrete; }
-.pzc-a > p { overflow: hidden; min-height: 0; margin: 0; padding-left: calc(2.1em + .8em + .2em); color: var(--text-2); }
-.pz-check li.open .pzc-a { display: grid; grid-template-rows: 1fr; opacity: 1; }
-@starting-style { .pz-check li.open .pzc-a { grid-template-rows: 0fr; opacity: 0; } }
-.pz-check li.open .pzc-a > p { padding-bottom: .7em; }
+/* (Every answer keeps its room from the start, so the card and its words are sized once, for all answers shown: revealing one
+   or all never resizes them. A closed answer is hidden, so it is not read aloud either.) */
+.pzc-a { visibility: hidden; opacity: 0; transition: opacity .4s var(--ease), visibility 0s linear .4s; }
+.pzc-a > p { margin: 0; padding: 0 0 .7em calc(2.1em + .8em + .2em); color: var(--text-2); }
+.pz-check li.open .pzc-a { visibility: visible; opacity: 1; transition: opacity .4s var(--ease), visibility 0s; }
 .pz.stack .pzc-q { grid-template-columns: 1.8em minmax(0, 1fr); }
 .pz.stack .pzc-hint { display: none; }
 .pz.stack .pzc-a > p { padding-left: calc(1.8em + .8em + .2em); }
