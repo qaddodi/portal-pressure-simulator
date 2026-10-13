@@ -47,7 +47,7 @@ export const PVT_CIRRHOSIS = {
       id: 'scope', cam: 'varices', terms: ['varix'], tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'], delta: 'base',
       kicker: 'Before anticoagulation', site: 'sin', title: 'Check the varices first',
       line: 'The varices have grown to {varix}. Give bleeding prophylaxis before the anticoagulant, but do not let the endoscopy delay it.',
-      notes: 'Baveno VIII advises screening for varices and prophylaxis as in any patient with cirrhosis before anticoagulation starts, but the endoscopy should not hold it up: the chance of reopening the vein falls the longer treatment waits. Our patient has large varices.',
+      notes: 'Baveno VIII advises screening for varices and prophylaxis as in any patient with cirrhosis before anticoagulation starts, but the endoscopy should not hold it up: the chance of reopening the vein falls the longer treatment waits. The patient has large varices.',
       ask: ['Should anticoagulation wait for the endoscopy?', 'No: give variceal prophylaxis, but do not let the endoscopy delay anticoagulation.'],
     },
     {

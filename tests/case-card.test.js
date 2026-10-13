@@ -22,6 +22,7 @@ test('Next lifts an open case card before it changes the slide', () => {
 test('the case card is cards glass, enters and leaves whole, never resizing', () => {
   const rule = css.match(/\.pz-case \{[^}]*\}/)[0];
   assert.match(rule, /backdrop-filter: blur\(16px\) saturate\(1\.15\)/);
+  assert.match(rule, /height: fit-content/);
   assert.match(rule, /transition: opacity \.45s var\(--ease\), transform \.45s var\(--ease\);/);
   assert.doesNotMatch(rule, /scale/);
 });

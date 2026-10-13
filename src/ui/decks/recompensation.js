@@ -14,7 +14,7 @@ export const RECOMPENSATION = {
   ],
   checks: [
     ['Name the three events that mark decompensation.', 'Ascites, variceal bleeding and hepatic encephalopathy.'],
-    ['What lowered the portal pressure most in our patient?', 'Removing the cause: stopping alcohol.'],
+    ['What lowered the portal pressure most in the patient?', 'Removing the cause: stopping alcohol.'],
     ['When has a patient recompensated under Baveno VIII?', 'The cause is removed, there is no ascites, encephalopathy or variceal bleeding off treatment for more than 6 months, and the liver is back to Child–Pugh A.'],
   ],
   summary: 'One patient over two years: CSPH, the first ascites, diuretics and carvedilol, then the cause removed and the liver recompensates. The portal pressure falls, but recompensation is not a cure.',
@@ -23,7 +23,7 @@ export const RECOMPENSATION = {
       id: 'csph', tick: 'CSPH', preset: 'csph', cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'],
       kicker: 'Compensated', site: 'sin', title: 'Compensated, with CSPH',
       line: 'Alcohol-related cirrhosis with an HVPG of {hvpg}, 10 mmHg or more. No ascites or bleeding yet, but both are now possible, and the risk rises with the HVPG.',
-      notes: 'Clinically significant portal hypertension marks the patients at risk of decompensation. Baveno VIII advises treating the cause and starting a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. Our patient keeps drinking and takes no treatment, so the disease runs its course.',
+      notes: 'Clinically significant portal hypertension marks the patients at risk of decompensation. Baveno VIII advises treating the cause and starting a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. The patient keeps drinking and takes no treatment, so the disease runs its course.',
       ask: ['What does Baveno VIII advise for compensated cirrhosis with CSPH?', 'Treat the cause, and start a non-selective beta-blocker, preferably carvedilol, to prevent decompensation.'],
     },
     {
@@ -68,7 +68,7 @@ export const RECOMPENSATION = {
       kicker: 'Recompensation', site: 'sin', title: 'Two years on one chart',
       line: 'The portal pressure rose with the injury, fell a little with carvedilol and fell further once the cause was gone.',
       notes: 'The chart plots the portal, wedged and free pressures and the HVPG at each step. The drug buys a few mmHg; removing the cause changes the course of the disease. Neither returns the pressures to normal.',
-      ask: ['Which lowered the HVPG more in our patient, carvedilol or abstinence?', 'Abstinence, over a year.'],
+      ask: ['Which lowered the HVPG more in the patient, carvedilol or abstinence?', 'Abstinence, over a year.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['hvpg', 'varix', 'asc', 'plt'], asc: false, rowHead: 'Step', vs: 'first',
