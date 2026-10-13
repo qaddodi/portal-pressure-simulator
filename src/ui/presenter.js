@@ -422,8 +422,11 @@ function bigLadder() {
     const c = S.c = fs.cap, v = S.v = v0;
     // The names take two rows when neighbours would touch. (No falls are written: a big one is shaded instead.)
     // The names tilt 45° when neighbours would touch, rising from just above their readings (two staggered rows crowded a narrow cell).
+    // (Tilted, a name's box is about 0.71 × (its width + height) wide; at a large text size, where those boxes would touch 70 apart,
+    // the names stand upright instead, at the same size.)
     const nameW = Math.max(...RUNGS.map(([, a]) => est(a, c, 0.7))), tilt = nameW > 70 - 6;
-    S.ky = tilt ? 0.71 * nameW + 0.9 * c : 0.8 * c + 1; S.ky2 = S.ky;
+    const ang = !tilt ? 0 : 0.71 * (nameW + 1.2 * c) <= 64 ? 45 : 90, kc = c;
+    S.ky = ang === 45 ? 0.71 * nameW + 0.9 * c : ang ? nameW + 0.6 * c : 0.8 * c + 1; S.ky2 = S.ky;
     S.ny = S.ky2 + 0.3 * c + 0.55 * v + 3; S.vy = S.ny + 0.36 * v;
     numW.clear(); lineKey = '';
     // The unit sits after the last reading when it fits there, else at the end of the HVPG row (under the last stations).
@@ -436,10 +439,10 @@ function bigLadder() {
     strip.setAttribute('viewBox', `0 0 ${S.W} ${S.H.toFixed(1)}`);
     conns.forEach((cn) => { const y0 = S.ky2 + 0.35 * c; cn.band.setAttribute('y', y0.toFixed(1)); cn.band.setAttribute('height', (S.ny + 0.5 * v - y0).toFixed(1)); });
     spts.forEach((p, i) => {
-      p.v.setAttribute('y', S.vy.toFixed(1)); fsOf(p.v, v); fsOf(p.k, c);
-      const x = tilt ? XS(i) - 0.3 * c : XS(i);
-      p.k.setAttribute('x', x.toFixed(1)); p.k.setAttribute('y', S.ky.toFixed(1)); p.k.setAttribute('text-anchor', tilt ? 'start' : 'middle');
-      if (tilt) p.k.setAttribute('transform', `rotate(-45 ${x.toFixed(1)} ${S.ky.toFixed(1)})`); else p.k.removeAttribute('transform');
+      p.v.setAttribute('y', S.vy.toFixed(1)); fsOf(p.v, v); fsOf(p.k, kc);
+      const x = ang === 45 ? XS(i) - 0.3 * kc : ang ? XS(i) + 0.36 * kc : XS(i);
+      p.k.setAttribute('x', x.toFixed(1)); p.k.setAttribute('y', S.ky.toFixed(1)); p.k.setAttribute('text-anchor', ang ? 'start' : 'middle');
+      if (ang) p.k.setAttribute('transform', `rotate(-${ang} ${x.toFixed(1)} ${S.ky.toFixed(1)})`); else p.k.removeAttribute('transform');
     });
     unit.setAttribute('x', S.W - 2); unit.setAttribute('y', (inline ? S.vy : S.hvpg + 0.33 * c).toFixed(1)); fsOf(unit, c);
     hvS.row = S.hvpg; ppS.row = S.ppg;
@@ -1783,6 +1786,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (fitDone.get(el) === sig) continue;
       el.style.removeProperty('--pz-fit');
       fitHeads(el);
+      // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
+      const all = el.querySelector('.pz-check'); all?.classList.add('pzc-all');
       let k = 1;
       for (let n = 0; n < 8 && k > 0.5; n++) {
         const o = overflowOf(el);
@@ -1790,6 +1795,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         k = Math.max(0.5, k * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
         el.style.setProperty('--pz-fit', k.toFixed(3));
       }
+      all?.classList.remove('pzc-all');
       fitDone.set(el, fitSig(el));   // (as it rests once fitted: a folding part's height is part of it)
     }
   }
