@@ -18,11 +18,11 @@ import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } f
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=9818d847b0';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=5a375e73d7';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=7cb47e4ffe';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=558836b84d';
 import { createTools } from './presenter-tools.js?v=879582a709';
-import { openHandout } from './handout.js?v=3c641f9315';
+import { openHandout } from './handout.js?v=2bc06dd760';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=d151452073';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
