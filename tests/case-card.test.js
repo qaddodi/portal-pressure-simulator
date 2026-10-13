@@ -36,3 +36,8 @@ test('the case text is 2.5x the teaching card body, and eases down only to fit t
 test('the Case pill is set at the teaching card body size or larger, not the small site-tag size', () => {
   assert.match(css, /\.pz-case-tag \{[^}]*font-size: calc\(var\(--s-body\) \* 1\.15\)/);
 });
+
+test('the Case pill and the case text are centred on the card', () => {
+  assert.match(css, /\.pz-case-tag \{[^}]*align-self: center/);
+  assert.match(css.match(/\.pz-case-p \{[^}]*\}/)[0], /text-align: center/);
+});
