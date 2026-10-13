@@ -3996,7 +3996,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pzk-name { font-weight: 600; }
 .pzk-sub { font-size: var(--s-cap); color: var(--text-3); }
 @media (prefers-reduced-motion: reduce) { .pzk-dot, .pzk-key li { transition: none; } }
-.pz-visual.pz-sk { display: block; width: 100%; max-width: 1100px; margin: 0 auto; }
+.pz-visual.pz-sk { display: block; width: 100%; max-width: 1100px; margin: 0 auto; container: pzsk / inline-size; }
+/* (A scale drawn narrow, an upright iPad's card as a phone's: a short zone's name, CSPH, cannot wrap, so the names alternate
+   high and low and never run into the next one.) */
+@container pzsk (max-width: 680px) { .pzk-names { padding-top: 1.4em; } .pzk-names span { letter-spacing: 0; padding: 0; display: flex; justify-content: center; align-items: flex-end; white-space: nowrap; } .pzk-names span:nth-child(even) { transform: translateY(-1.3em); } }
 .pz-ph .pz-eq { margin: .35em 0 .5em; }
 @media (max-width: 900px) { .pzk-key { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .pz-sk { --sk: 14px; } .pzk-names { padding-top: 1.4em; } .pzk-names span { letter-spacing: 0; padding: 0; display: flex; justify-content: center; align-items: flex-end; white-space: nowrap; } .pzk-names span:nth-child(even) { transform: translateY(-1.3em); } .pzk-names, .pzk-bar, .pzk-axis { margin: 0 .9em; } .pzk-rules { margin: .1em .9em 0; } .pzk-rules span { padding: 0 .2em; } }
