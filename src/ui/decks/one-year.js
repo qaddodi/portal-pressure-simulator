@@ -56,7 +56,7 @@ export const ONE_YEAR = {
     {
       id: 'doppler', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'd0' },
       kicker: 'Day 365', site: 'sin', title: 'Portal flow is starting to slow',
-      line: 'As resistance in the liver rises, portal velocity falls. Our patient\'s mean is lower than on day 0 but still above about 15 cm/s, the level that supports portal hypertension. Flow runs toward the liver. Later it can become to-and-fro, then reversed.',
+      line: 'As resistance in the liver rises, portal velocity falls. Our patient\'s mean has fallen since day 0. A mean of 15 to 20 cm/s is already slower than normal; under about 15 cm/s supports portal hypertension. Flow runs toward the liver. Later it can become to-and-fro, then reversed.',
       notes: 'The main portal vein normally carries 15 cm/s or more toward the liver, with a gentle respiratory ripple. As resistance rises the velocity falls; under about 15 cm/s supports portal hypertension. Later the flow can become to-and-fro, then reverse (hepatofugal). Doppler also looks for a clot, a large spleen, collaterals and ascites. It is operator-dependent and changes with meals and breathing, so scan fasting.',
       ask: ['What portal vein velocity supports portal hypertension?', 'Under about 15 cm/s, or flow that is to-and-fro or reversed.'],
     },
