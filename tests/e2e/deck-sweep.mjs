@@ -117,7 +117,8 @@ const snap = (page) => page.evaluate(() => {
   const med = (a) => { const v = a.flatMap(([px, n]) => Array(Math.min(n, 40)).fill(px)).sort((x, y) => x - y); return v.length ? v[v.length >> 1] : 0; };
   const tBody = med(fonts.teaching.filter((f) => f[2] === 'text')), dMed = med(fonts.data), dMin = fonts.data.length ? Math.min(...fonts.data.map((f) => f[0])) : 0;
   const type = { tBody: +tBody.toFixed(1), dMed: +dMed.toFixed(1), dMin: +dMin.toFixed(1) };
-  if (tBody && dMed && dMed < tBody * 0.6) issues.push(`TEXT MISMATCH: data card text ${dMed.toFixed(1)}px against ${tBody.toFixed(1)}px teaching card text`);
+  const mr = app?.classList.contains('stack') ? 0.5 : 0.6;   // (a phone's data card is the compact strip above the words)
+  if (tBody && dMed && dMed < tBody * mr) issues.push(`TEXT MISMATCH: data card text ${dMed.toFixed(1)}px against ${tBody.toFixed(1)}px teaching card text`);
   if (dMed && dMin && dMin < dMed * 0.6) issues.push(`TEXT MISMATCH: data card's smallest text ${dMin.toFixed(1)}px against its usual ${dMed.toFixed(1)}px`);
   if (D) for (const sv of dEl.querySelectorAll('svg')) {
     const r = sv.getBoundingClientRect(); if (r.width < 120 || r.height < 80 || sv.closest('[aria-hidden="true"] button, button')) continue;

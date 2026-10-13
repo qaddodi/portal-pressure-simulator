@@ -2054,10 +2054,16 @@ button.finding { cursor: pointer; }
 .pz-tool .ab-belly { width: clamp(68px, calc(10 * var(--pzh)), 120px); height: clamp(68px, calc(10 * var(--pzh)), 120px); }
 .pz-tool .ab-big > b { font-size: var(--s-big); }
 /* (On the slide the readout's words and lab tiles use the card's type scale, so they step down with the other blocks.) */
-.pz-tool :is(.ab-grade, .ab-trend, .ab-why, .ab-kv, .ab-big > b small) { font-size: var(--s-cap); }
-.pz-tool .ab-tile dt, .pz-tool .ab-u { font-size: var(--s-cap); }
+.pz-tool :is(.ab-grade, .ab-trend, .ab-why, .ab-kv, .ab-big > b small) { font-size: var(--fs-12); }
+.pz-tool .ab-tile dt, .pz-tool .ab-u { font-size: var(--fs-12); }
 .pz-tool .ab-tile dd { font-size: var(--s-val); }
 .pz-tool { position: relative; flex: none; }
+/* (On a slide an instrument's small words follow the card's type scale, as the tiles' do, and stay 11.5 px or more on the
+   screen when a stacked data card's blocks are at a smaller step, --pz-dk; its sizes in px were the Explore pane's.) */
+.pz-tool { --fs-12: max(var(--s-cap), calc(11.5px / var(--pz-dk, 1))); --fs-14: max(calc(var(--s-cap) * 1.12), calc(12.5px / var(--pz-dk, 1))); }
+.pz-tool .dop-ticks { height: 1.3em; font-size: var(--fs-12); line-height: 1.3; }
+.pz-tool .dop .dop-report .dop-stats dt, .pz-tool .dop .dop-report .dop-stats dd small { font-size: var(--fs-12); }
+.pz-tool .dop .dop-report .dop-stats dd { font-size: max(16px, var(--fs-14)); }
 /* The varix wall: the cross-section beside its stress meter and the r, w and ΔP of Laplace's law (the equation is the slide's). */
 .pz-tool[data-kind="wall"] .pz-inst { display: flex; flex-direction: row; align-items: center; gap: 14px; }
 .pz-tool[data-kind="wall"] .endo-stage { flex: none; width: min(46%, calc(30 * var(--pzh))); min-height: 0; }
@@ -2227,6 +2233,8 @@ button.finding { cursor: pointer; }
 .pz-text, .pz-data, .pz-panel { overflow: clip; overscroll-behavior: none; }
 .pz-text > *, .pz-data > *, .pz-panel > * { zoom: var(--pz-fit, 1); }
 .pz-data.col > * { zoom: calc(var(--pz-fit, 1) * var(--pz-dk, 1)); }   /* (stacked under the words when the pair would not fit: the data card's blocks at one of a few fixed smaller sizes, presenter.js DK) */
+/* (The card's smallest words, a heading, a tile's name, stay 11.5 px or more on the screen at every step; a chart keeps its own scale.) */
+.pz-data.col > :not(svg) { --s-cap: max(calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1) * var(--pk, 1)), calc(11.5px / var(--pz-dk, 1))); }
 .pz-data.col > :is(.pz-ladder, .pz-strip, .pz-quad, .pz-tool:not([data-kind="abdomen"])) { width: calc(100% * var(--pz-dk, 1)); margin-inline: auto; }   /* (a chart drawn to the card's width: narrower by the same step, so it is smaller in height too, not only its zoom) */
 /* A phone's opened (or only) instrument is the one part that gives way when it is taller than the card: the header and tiles stay full size. */
 .pz.stack .pz-data:is(.tool-open, .tool-only) > :not(.pz-tool) { zoom: 1; }
