@@ -8,11 +8,11 @@
 //   Advanced                             physiology knobs (instructor)
 
 import { store, updateParams, hiddenNow } from './store.js?v=7c63421fac';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=9279d972cf';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=abb277f29f';
 import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
-import { TILES, VITALS, readoutValue } from './dock.js?v=68e89fdaa4';
-import { activeInterventions } from './inspector.js?v=510c16d93f';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=3709797fa5';
+import { TILES, VITALS, readoutValue } from './dock.js?v=d214dbfa0a';
+import { activeInterventions } from './inspector.js?v=bd017c28fd';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=fe569f4740';
 
 // Text that changes is rewritten in its text node (setting textContent replaces the node on every paint).
 const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };

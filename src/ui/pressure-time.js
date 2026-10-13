@@ -6,8 +6,8 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=7c63421fac';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=9279d972cf';
-import { FONT } from './charts.js?v=bb580fd485';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=abb277f29f';
+import { FONT } from './charts.js?v=00d4c71323';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('pressure-time');
 

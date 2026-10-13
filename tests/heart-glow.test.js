@@ -1,5 +1,5 @@
 // The right atrium's slides light the whole heart with a soft glow (not an outline of the atrium alone), and where the
-// GPU glow is not drawn (lite graphics) the heart gets a flat tint instead.
+// GPU glow is not drawn the heart gets a flat tint instead.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -26,9 +26,16 @@ test('the heart is a glow of soft, widening layers, and the old atrium id is fol
   assert.match(stage, /glow: id === 'heart'/);
 });
 
-test('lite graphics keep a flat tint that eases, with no filter or blur', () => {
+test('without GPU outlines the heart keeps a flat tint that eases, with no filter or blur', () => {
   assert.match(stage, /if \(glLines\) return;[\s\S]*org-pin-flat/);
   const rule = css.match(/\.org-pin-flat \{[^}]*\}/)[0];
   assert.match(rule, /transition: opacity/);
   assert.doesNotMatch(rule, /filter|blur|shadow/);
+});
+
+test('lite mode is gone: no switch, flag or lite-only branches', () => {
+  for (const f of ['src/ui/main.js', 'src/ui/util.js', 'src/ui/stage.js', 'src/ui/presenter.js', 'src/ui/lobule-zoom.js', 'styles/app.css']) {
+    const src = readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(src, /data-lite|pps\.lite|liteFade|liteOn|lite\(\)/, f);
+  }
 });

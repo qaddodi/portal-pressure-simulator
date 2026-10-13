@@ -3,7 +3,7 @@
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=34e377149b';
 import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
 import { store, updateParams, isLocked, hiddenNow } from './store.js?v=7c63421fac';
-import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=9279d972cf';
+import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=abb277f29f';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('inspector');
 

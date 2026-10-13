@@ -466,13 +466,3 @@ export function restBox(el, q = el.getBoundingClientRect()) {
   return new DOMRect(q.x - m.e * z, q.y - m.f * z, q.width, q.height);
 }
 
-// Lite mode (html[data-lite], main.js liteOn): the camera jumps instead of zooming, and the figure fades in at its new
-// framing (styles/app.css .lite-fade). liteFade restarts that fade on el, so a run of jumps ends in one fade from blank.
-export const lite = () => document.documentElement.hasAttribute('data-lite');
-const liteFading = new WeakSet();
-export function liteFade(el) {
-  if (!el) return;
-  // (Off once it has played, so the figure carries no animation, and no stacking context, between jumps.)
-  if (!liteFading.has(el)) { liteFading.add(el); el.addEventListener('animationend', (e) => { if (e.target === el && e.animationName === 'lite-fade') el.classList.remove('lite-fade'); }); }
-  el.classList.remove('lite-fade'); void el.offsetWidth; el.classList.add('lite-fade');
-}

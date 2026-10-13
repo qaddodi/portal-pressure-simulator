@@ -1122,7 +1122,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .org-hov-fluid { fill: var(--accent-soft); stroke: none; pointer-events: none; }
 .org-sel-fluid { fill: var(--accent-soft); stroke: none; pointer-events: none; }
 #organSel { pointer-events: none; }
-/* The heart a slide points at, where the GPU glow is not drawn (lite graphics): a flat tint, eased in and out */
+/* The heart a slide points at, where the GPU glow is not drawn: a flat tint, eased in and out */
 .org-pin-flat { fill: var(--pin, var(--accent)); fill-opacity: .16; stroke: var(--pin, var(--accent)); stroke-opacity: .4; stroke-width: 2; stroke-linejoin: round; opacity: 0; transition: opacity .25s ease; pointer-events: none; }
 .org-pin-flat.on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .org-pin-flat { transition: none; } }
@@ -4496,27 +4496,3 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @container (max-width: 140px) { .pz:not(.stack) .pzt-v, .pz:not(.stack) .pz-data.tiles-only .pzt-v { font-size: var(--s-val); } }
 @container (max-width: 72px) { .pz.stack .pzt-v, .pz.stack .pz-data .pz-tiles .pzt-v { font-size: var(--s-val); } }
 
-/* Lite mode (html[data-lite], src/ui/main.js liteOn: Settings › Lite mode, or on by itself without a GPU).
-   No frosted glass: every backdrop blur is off and the glass cards, the nav pill, label pills and toasts are solid.
-   No glows: blurred highlights, drop shadows and the heat map's blur become flat colour, and the cards' wide soft
-   shadows a thin edge. Without a GPU each of these is recomputed on the CPU for every frame of a transition. */
-html[data-lite] *, html[data-lite] *::before, html[data-lite] *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
-html[data-lite] :is(.lb-glass, .sv-legend) { background: var(--surface); box-shadow: 0 0 0 1px var(--hairline); }
-html[data-lite] .pz-shade { background: var(--stage-bg); box-shadow: 1px 0 0 var(--pz-glass-line); }
-html[data-lite] .pz-shade.pz-card:not(.stack), html[data-lite] .pz-shade.stack { background: var(--surface); box-shadow: 0 0 0 1px var(--hairline), 0 1px 3px var(--pz-glass-drop); }
-html[data-lite] .pz-data.pz-data { background: var(--surface-2); box-shadow: 0 1px 3px var(--pz-glass-drop); }
-html[data-lite] :is(.pz-data .pz-tile:not(.key), .pz-data.has-tool .pz-tile.key, .pz-data .pz-tool .endo-read > div) { background: var(--surface); }
-html[data-lite] .pz-bar, html[data-lite] .pz.stack .pz-bar { background: var(--surface); box-shadow: 0 1px 3px var(--pz-glass-drop); }
-html[data-lite] .cl-glass { background: var(--surface); }
-html[data-lite] .toast { background: var(--surface); box-shadow: 0 0 0 1px var(--hairline), 0 1px 3px rgb(var(--black-rgb) / .14); }
-html[data-lite] :is(.lz-lab, .lz-zone, .sv-region)::before { background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, var(--surface)); }
-html[data-lite] :is(.lb.inline .lb-bg, #labels .lb.scan .lb-bg, .scan-probe .sp-beam, #heatGlow) { filter: none; }
-html[data-lite] .vg.is-sel .v-shadow { filter: none; }
-html[data-lite] .vg.shunt-target :is(.v-lumen, .v-lumenP) { filter: none; stroke: var(--accent); }
-html[data-lite] .vg.shunt-src :is(.v-lumen, .v-lumenP) { filter: none; stroke: var(--flow-normal); }
-/* Lite mode: a camera jump (util.js liteFade) fades the figure in at its new framing instead of zooming there. */
-html[data-lite] .lite-fade { animation: lite-fade .4s var(--ease); }
-@keyframes lite-fade { from { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { html[data-lite] .lite-fade { animation-duration: .2s; } }
-/* Lite mode: a new patient's figure fades out fully, so the new slide fades in from blank at its framing. */
-html[data-lite] .app.presenting #stageView.pz-out { opacity: 0; }

@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=56e36c5522';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7c63421fac';
-import { createStage } from './stage.js?v=3d37228c75';
+import { createStage } from './stage.js?v=fb10f37560';
 import { createCreditPlacer } from './credit.js?v=b5d3742ef5';
-import { sinusoidSupported } from './sinusoid-view.js?v=4f09371905';
-import { createInspector } from './inspector.js?v=510c16d93f';
-import { createDock, CUTOFFS } from './dock.js?v=68e89fdaa4';
-import { setHvpgStage } from './hvpg-proc.js?v=a2d6aed87e';
-import { createWhy } from './why.js?v=04826eaf93';
-import { createTimeline, LAPSES } from './timeline.js?v=1077dad0aa';
-import { createCompare } from './compare.js?v=1b81b9e485';
-import { createCard } from './card.js?v=1ee035b132';
-import { createChart, computeFindings } from './chart.js?v=67739b764a';
-import { createMenu, ROLES } from './menu.js?v=3d2f8e2427';
+import { sinusoidSupported } from './sinusoid-view.js?v=9818d847b0';
+import { createInspector } from './inspector.js?v=bd017c28fd';
+import { createDock, CUTOFFS } from './dock.js?v=d214dbfa0a';
+import { setHvpgStage } from './hvpg-proc.js?v=44e7c70a7f';
+import { createWhy } from './why.js?v=1b2c299f70';
+import { createTimeline, LAPSES } from './timeline.js?v=c0f1d697a3';
+import { createCompare } from './compare.js?v=e318a8ae6f';
+import { createCard } from './card.js?v=69dd45435c';
+import { createChart, computeFindings } from './chart.js?v=85dda1b0ae';
+import { createMenu, ROLES } from './menu.js?v=b4385fb96f';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';
-import { caption } from './a11y.js?v=0143d328b1';
+import { caption } from './a11y.js?v=2348d35ff4';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=3709797fa5';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=001a2716b9';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=fe569f4740';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=01ee46a874';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=9279d972cf';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=abb277f29f';
 import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=a63e998b05';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=4461c8e89f';
 import { initTopbarMotion } from './topbar-motion.js?v=40e62f18bf';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=b2eabea2e1';
@@ -106,7 +106,6 @@ async function main() {
   store.set({ presetList: presets });
 
   why = createWhy($('#whyPop'));
-  document.documentElement.toggleAttribute('data-lite', liteOn());
   stage = createStage({
     wrap: view,
     onSelect: (sel, opts) => { select(sel); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
@@ -136,7 +135,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=c530c20c24'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=58c6ae1138'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -144,7 +143,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=e2c14bfbd7'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=aa29829481'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -299,7 +298,6 @@ function onFrame(f) {
   dock?.ingest(f);   // every frame's samples, even one that is not painted
   const now = performance.now();
   if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
-  if (liteMemo && !f.params && !f.events?.length && now - lastPaint < 400) return;   // lite graphics: a few repaints a second
   lastPaint = now;
   // running and clock only when they change: their listeners (the endoscopy redraw among them) need not re-run every frame.
   const st0 = store.get();
@@ -790,10 +788,6 @@ function openSettings(anchor) {
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['soft', t('menu.soft')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     fullscreenControl(),
-    menuToggle(liteOn(), 'activity', 'Lite mode', 'Solid cards, flat colours and fades instead of zooms, for slower computers (reloads the app)', (on) => {
-      try { localStorage.setItem('pps.lite', on ? '1' : '0'); } catch { /* storage unavailable */ }
-      location.reload();
-    }),
     ...(talk ? presenterSettings() : []),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
     textSizeControl(),
@@ -948,27 +942,6 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => sync
 // (again once the figure's background has finished its .5 s fade)
 new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'] });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
-// Lite graphics: for computers that draw on the CPU (no usable GPU, e.g. a hospital virtual desktop),
-// where the moving blood cost most of the page's time. The figure keeps its SVG vessels without moving
-// blood (stage.js), and the figure and panels repaint a few times a second. Turns on by itself or from Settings › Lite mode (liteOn);
-// ?lite=1 or ?lite=0 forces it for testing. Automated browsers (tests) stay on the full path unless asked.
-function gpuOK() {
-  try {
-    const gl = document.createElement('canvas').getContext('webgl2', { failIfMajorPerformanceCaveat: true });
-    if (!gl) return false;
-    gl.getExtension('WEBGL_lose_context')?.loseContext();
-    return true;
-  } catch { return false; }
-}
-let liteMemo;
-function liteOn() {
-  if (liteMemo !== undefined) return liteMemo;
-  // Settings › Lite mode saves a choice ('1' on, '0' off); with none saved it turns on by itself where
-  // there is no usable GPU. ?lite=1 or ?lite=0 in the address wins over both. Read once: the switch reloads.
-  const q = new URLSearchParams(location.search).get('lite'), saved = readLS('pps.lite');
-  const pick = q === '1' || q === '0' ? q : saved === '1' || saved === '0' ? saved : null;
-  return (liteMemo = pick ? pick === '1' : !navigator.webdriver && !gpuOK());
-}
 // ── Patient chart, Treat card and instrument workspace ─
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened
 // from Findings or by a vessel's Details. It starts closed: the figure

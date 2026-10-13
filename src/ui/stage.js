@@ -3,11 +3,11 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=34e377149b';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=5f9234c2f7';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=001a2716b9';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=01ee46a874';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7c63421fac';
 import { fibroReading } from './clock.js?v=6284ad19b7';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, lite, liteFade } from './util.js?v=9279d972cf';
-import { createLobuleZoom } from './lobule-zoom.js?v=39c952eab0';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=abb277f29f';
+import { createLobuleZoom } from './lobule-zoom.js?v=d347e200de';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -15,7 +15,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=9d3f9164af
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=8754cadc7f';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=6434f7ab87';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('stage');
@@ -448,7 +448,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   vCanvas.id = 'veins'; vCanvas.setAttribute('aria-hidden', 'true');
   svg.after(vCanvas);
   // Lite graphics (main.js) keeps the SVG tubes: a software renderer copied every WebGL frame back to the CPU.
-  veins = document.documentElement.hasAttribute('data-lite') ? null : createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
+  veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
   if (veins) {
     svgOver = s('svg', { id: 'stageOver', 'aria-hidden': 'true', viewBox: `0 0 ${VIEW.w} ${VIEW.h}`, preserveAspectRatio: 'xMidYMid meet' });
     worldOver = s('g');
@@ -458,7 +458,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.classList.add('veins-gl');
   } else {
     // No WebGL2 at all (very old browsers): a short notice; the SVG tubes still show the figure.
-    if (!document.documentElement.hasAttribute('data-lite')) console.warn('WebGL2 is not available: the figure is drawn without moving blood.');
+    console.warn('WebGL2 is not available: the figure is drawn without moving blood.');
   }
   wrap.dataset.veins = veins ? 'webgl2' : 'none';
   gBack.append(gBackS, gBackC, gBackL, gBackH);
@@ -1470,8 +1470,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
     // (Lite mode: no zoom, the figure fades in at the lobule or the anatomy.)
-    if (lite() && !reduceMotion.matches) liteFade(wrap);
-    const ms = reduceMotion.matches || lite() ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0;
+    const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0;
     // Out from the sinusoid, the rise starts when its zoom ended, so the two run on as one.
     const t0 = !on && riseAt !== null ? Math.min(performance.now(), riseAt) : performance.now();
     riseAt = null; diveClock = [t0, ms * Math.abs(to - from) || 1, from, to];
@@ -1532,7 +1531,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: 'glide', zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
     if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
     // Lite mode: a jump, and a move that changes the view (not a small refit) fades the figure in at its new framing.
-    if (lite() && ms > 0) { if (Math.abs(Math.log(to.k / from.k)) > 0.05 || Math.hypot(to.x - from.x, to.y - from.y) > 40) liteFade(wrap); ms = 0; }
     if (ms <= 0) { vtGliding = false; vt = to; applyVT(); CTM = null; camSettle(); return; }
     vtGliding = true;
     if (store.get().presenting && !sameView(from, to)) { camMove = true; wrap.classList.add('cam-move'); setTimeout(() => { if (!vtGliding) camSettle(); }, ms + 80); } else camSettle();
@@ -1685,13 +1683,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // back up once there is headroom. The level a device settles on is remembered.
   // The last step is only for a software renderer (WebGL drawn on the CPU), where it starts: there
   // every frame costs CPU the rest of the page needs.
-  // Lite graphics (main.js) has a step of its own: with no GPU each repaint of the SVG vessels costs a
-  // few hundred ms on the CPU, so the figure moves a few times a second and the page stays responsive.
-  const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }, { fps: 3, res: 0.5 }];
-  const LITE = document.documentElement.hasAttribute('data-lite');
-  const SOFTWARE = !!veins?.software || LITE;
-  const Q_MAX = LITE ? 4 : SOFTWARE ? 3 : 2;
-  let quality = LITE ? 4 : SOFTWARE ? 3 : (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })();
+  const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }];
+  const SOFTWARE = !!veins?.software;
+  const Q_MAX = SOFTWARE ? 3 : 2;
+  let quality = SOFTWARE ? 3 : (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })();
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
@@ -1888,7 +1883,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   function prepLobule() {
     const now = performance.now();
-    if (LITE || prepBusy || !lz || !figureShown || now - prepAt < 1000) return;   // lite graphics: the lobule is drawn when opened, not ahead
+    if (prepBusy || !lz || !figureShown || now - prepAt < 1000) return;
     prepAt = now;
     const calm = () => morphTarget === 0 && morph < 0.02 && !lobuleOn && diveT === 0 && !vtGliding;
     if (!calm() || figureHidden()) return;
@@ -3015,7 +3010,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Each in its station's colour ([{ id, tone }], --tr-<tone>).
   // The right atrium's slides light the whole heart (the atrium is one chamber of it), so both ids come to 'heart'.
   const PIN_ID = (id) => (id === 'heart-ra' ? 'heart' : id);
-  const gPinFlat = s('g', { id: 'organPin', 'aria-hidden': 'true' });   // lite graphics and no-GPU outlines: a flat tint instead of the glow
+  const gPinFlat = s('g', { id: 'organPin', 'aria-hidden': 'true' });   // no-GPU outlines: a flat tint instead of the glow
   let pinFlat = null;
   function pinOrgans(list) {
     const items = (list || []).map((o) => (typeof o === 'string' ? { id: o } : o)).map((o) => ({ id: PIN_ID(o.id), tone: o.tone || null }));
@@ -3031,7 +3026,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     olDirty = true; olLast = performance.now();
     syncPinFlat(want.has('heart') ? want.get('heart') : undefined);
   }
-  // Without the GPU outlines (lite graphics) the heart gets a flat tint in its station's colour, eased in and out.
+  // Without the GPU outlines the heart gets a flat tint in its station's colour, eased in and out.
   function syncPinFlat(tone) {
     if (glLines) return;
     if (!gPinFlat.isConnected) gOver.after(gPinFlat);
