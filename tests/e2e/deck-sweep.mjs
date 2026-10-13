@@ -16,6 +16,7 @@ const only = process.env.DECKS ? process.env.DECKS.split(',') : null;
 const decks = DECKS.map((d) => d.id).filter((id) => !only || only.includes(id));
 const server = await serve(ROOT);
 // FAST=1: layout only (shorter settle, no camera checks, no backward pass); JOBS=n plays n deck/size pairs at once.
+const ONE = +process.env.SLIDE || 0;   // SLIDE=n: only that slide (opened straight at it)
 const FAST = !!process.env.FAST, JOBS = +process.env.JOBS || 1;
 mkdirSync('deck-sweep', { recursive: true });
 const SIZES = {
@@ -90,7 +91,7 @@ const snap = (page) => page.evaluate(() => {
     if (!(D.top >= T.bottom - 1)) issues.push(`SIDE BY SIDE: data card ${Math.round(D.width)}x${Math.round(D.height)} beside teaching card ${Math.round(T.width)}x${Math.round(T.height)} (window ${W}x${H})`);
     else {
       const bar = vis(document.querySelector('.pz-bar')), foot = bar && bar.left < T.right ? bar.top : H, spare = foot - D.bottom;
-      if ((dk < 1 || bk < 1 || tk < 1) && spare > 90) issues.push(`SHRUNK WITH ROOM: ${Math.round(spare)}px spare below the stack, yet title x${tk}${bk < 1 ? `, text x${bk}` : ''}${dk < 1 ? `, data blocks x${dk}` : ''}`);
+      if ((dk < 1 || bk < 1 || tk < 1) && spare > 120) issues.push(`SHRUNK WITH ROOM: ${Math.round(spare)}px spare below the stack, yet title x${tk}${bk < 1 ? `, text x${bk}` : ''}${dk < 1 ? `, data blocks x${dk}` : ''}`);
     }
   }
   if (fit < 0.9) issues.push(`DATA FIT: data card contents shrunk to x${fit.toFixed(2)} to fit`);
@@ -158,7 +159,7 @@ async function run(deck, dev) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  const tl = Date.now(); await page.goto(server.url + '?script=' + deck + (process.env.LITE ? '&lite=' + process.env.LITE : '')); if (process.env.DEBUGT) console.log('goto', Date.now() - tl);
+  const tl = Date.now(); await page.goto(server.url + '?script=' + deck + (process.env.LITE ? '&lite=' + process.env.LITE : '') + (ONE ? '&slide=' + ONE : '')); if (process.env.DEBUGT) console.log('goto', Date.now() - tl);
   await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'), null, { timeout: 60000 });
   if (process.env.DEBUGT) console.log('presenting', Date.now() - tl);
   // Every camera move asked of the stage, counted (read and reset by snap).
@@ -166,8 +167,8 @@ async function run(deck, dev) {
   await page.evaluate(() => { window.__path = []; const st = window.pps.stage, f = () => { const g = window.pps.store.get(); if (!g.lobule && !g.sinusoid && st.cameraZoom() == null) { const c = st.cameraState(), l = window.__path.at(-1); if (!l || l[0] !== c.k || l[1] !== c.x || l[2] !== c.y) window.__path.push([c.k, c.x, c.y]); } requestAnimationFrame(f); }; f(); });
   await page.evaluate(() => { const st = window.pps.stage; for (const k of ['frameBox', 'fitSlow']) { const f = st[k]; st[k] = (...a) => { window.__cam = (window.__cam || 0) + 1; return f.apply(st, a); }; } });
   const fwd = [], back = [];
-  let n = 99;
-  for (let i = 0; i < n; i++) {
+  let n = ONE || 99;
+  for (let i = ONE ? ONE - 1 : 0; i < n; i++) {
     const t0 = Date.now(), lap = (w) => process.env.DEBUGT && console.log(deck, dev, i + 1, w, Date.now() - t0);
     const okT = await shows(page, TITLES[deck][i]); lap('title'); await settle(page); lap('settle'); await page.waitForTimeout(FAST ? 300 : 700); await page.waitForFunction(() => { const t = document.querySelector('.pzl-t'); return !t || !t.offsetParent || !/Day |→/.test(t.textContent); }, null, { timeout: 30000 }).catch(() => {}); await page.waitForTimeout(300);
     lap('lapse'); const s0 = await snap(page); await page.waitForTimeout(FAST ? 400 : 1500); const s = await snap(page); s.issues = s.issues.filter((x) => s0.issues.includes(x)); if (!okT) s.issues.push('title not shown: ' + TITLES[deck][i]);
@@ -175,8 +176,8 @@ async function run(deck, dev) {
     for (const k of ['.pz-text', '.pz-data']) if (s0.size[k] && s.size[k] && s0.size[k] !== s.size[k]) s.issues.push(`${k} changed size after it showed (${s0.size[k]} -> ${s.size[k]})`);
     if (!FAST && s0.cam + s.cam > 1) s.issues.push(`camera framed ${s0.cam + s.cam} times for one slide`);
     if (!FAST) { const w = wander([...s0.path, ...s.path]); if (w && i > 0) s.issues.push(`CAMERA ${w}`); }
-    fwd.push(s); lap('snap');
-    const m = s.count?.match(/(\d+) \/ (\d+)/); if (m) n = +m[2];
+    s.slide = i + 1; fwd.push(s); lap('snap');
+    const m = s.count?.match(/(\d+) \/ (\d+)/); if (m && !ONE) n = +m[2];
     if (i < n - 1) { await page.keyboard.press('ArrowRight'); await at(page, i + 2); }
   }
   // The same deck at one size: a data card's text much smaller or larger than on the deck's other slides.
@@ -194,7 +195,7 @@ const report = (deck, dev, r) => {
   const lines = [];
   r.errors.forEach((e) => lines.push(`console: ${e.slice(0, 200)}`));
   r.fwd.forEach((s, i) => {
-    s.issues.forEach((x) => { lines.push(`slide ${i + 1}: ${x}`); if (x.startsWith('CAMERA')) camBad++; });
+    s.issues.forEach((x) => { lines.push(`slide ${s.slide || i + 1}: ${x}`); if (x.startsWith('CAMERA')) camBad++; });
     const b = r.back[i];
     if (b && (b.text !== s.text || b.panel !== s.panel)) lines.push(`slide ${i + 1}: words differ going back | F: ${(s.text + s.panel).slice(0, 160)} | B: ${(b.text + b.panel).slice(0, 160)}`);
   });

@@ -2044,7 +2044,7 @@ button.finding { cursor: pointer; }
 .pz-tool:not([data-kind]) { display: none; }
 .pz-ghost { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2em .6em; margin-top: 6px; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-3); opacity: 0; max-height: 0; overflow: hidden; transition: opacity .5s var(--ease), max-height .5s var(--ease); }
 .pz-ghost.on { opacity: 1; max-height: 3em; }
-.pz-ghost span { letter-spacing: .06em; text-transform: uppercase; font-size: .85em; }
+.pz-ghost span { letter-spacing: .06em; text-transform: uppercase; font-size: max(.85em, calc(11.5px / var(--pz-dk, 1))); }
 .pz-ghost b { color: var(--text-2); opacity: .7; font-variant-numeric: tabular-nums; }
 .pz-data.tool-only .pz-tiles, .pz-data.tool-only .pz-ladder, .pz-data.tool-only .pz-strip, .pz-data.tool-only .pz-lg { display: none; }
 .pz-tool .ab-main { display: block; }
@@ -2226,7 +2226,9 @@ button.finding { cursor: pointer; }
 .pz-text, .pz-data, .pz-panel { overflow: clip; overscroll-behavior: none; }
 .pz-text > *, .pz-data > *, .pz-panel > * { zoom: var(--pz-fit, 1); }
 .pz-data.col > * { zoom: calc(var(--pz-fit, 1) * var(--pz-dk, 1)); }   /* (stacked under the words when the pair would not fit: the data card's blocks at one of a few fixed smaller sizes, presenter.js DK) */
-.pz-data.col > :is(.pz-ladder, .pz-strip, .pz-quad) { width: calc(100% * var(--pz-dk, 1)); margin-inline: auto; }   /* (a chart drawn to the card's width: narrower by the same step, so it is smaller in height too, not only its zoom) */
+/* (The smallest words, a tile's name and a unit, stay readable at every step: 11 px or more on the screen.) */
+.pz-data.col > * { --s-cap: max(calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1) * var(--pk, 1)), calc(11.5px / var(--pz-dk, 1))); }
+.pz-data.col > :is(.pz-ladder, .pz-strip, .pz-quad, .pz-tool:not([data-kind="abdomen"])) { width: calc(100% * var(--pz-dk, 1)); margin-inline: auto; }   /* (a chart drawn to the card's width: narrower by the same step, so it is smaller in height too, not only its zoom) */
 /* A phone's opened (or only) instrument is the one part that gives way when it is taller than the card: the header and tiles stay full size. */
 .pz.stack .pz-data:is(.tool-open, .tool-only) > :not(.pz-tool) { zoom: 1; }
 /* A slide whose card is the instrument alone gets more of the phone's height, so the instrument stays near full size. */

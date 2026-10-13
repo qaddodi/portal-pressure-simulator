@@ -1821,20 +1821,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const slack = dd.classList.contains('col') ? 8 : 0;
       below = top0 + t.height + 2 * pad + gap + ch <= foot + slack;
       // Too tall to stack: the words' card gives way first, only as far as it must: its title down to under half size (the largest
-      // size that still stacks), then the data card's blocks a step at a time through a few fixed smaller sizes (DK), the title
-      // sized again at each; only then the words' text and equation. The data card is never squeezed
+      // size that still stacks), then the data card's blocks a step at a time through a few fixed smaller sizes (DK), the words'
+      // text a little at each so the two cards' type stays close, the title sized again at each; only then the words' text alone. The data card is never squeezed
       // to fit (no --pz-fit): if even the smallest step will not stack (a very short window) it sits at the top right.
       const t0 = t, put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
-      const title = () => {
-        if (put(1, 1)) return true;
-        if (!put(TK_MIN, 1)) return false;
+      const title = (bk = 1) => {
+        if (put(1, bk)) return true;
+        if (!put(TK_MIN, bk)) return false;
         let lo = TK_MIN, hi = 1;   // (lo stacks, hi does not)
-        for (let n = 0; n < 6; n++) { const mid = (lo + hi) / 2; if (put(mid.toFixed(3), 1)) lo = mid; else hi = mid; }
-        return put(lo.toFixed(3), 1);
+        for (let n = 0; n < 6; n++) { const mid = (lo + hi) / 2; if (put(mid.toFixed(3), bk)) lo = mid; else hi = mid; }
+        return put(lo.toFixed(3), bk);
       };
       const step = (s) => { dk = s; ch = colHeight(cw / k, s) * k; };
-      for (const s of [1, ...DK]) { if (below) break; if (s < 1) step(s); below = title(); }
-      for (const s of DK) { if (below) break; step(s); for (const bk of [0.94, 0.88, 0.82, 0.76, 0.7]) if ((below = put(TK_MIN, bk))) break; }   // (the words' text last)
+      // (The words' text steps down with the blocks, a little less, so the two cards' type never ends far apart.)
+      for (const [s, bk] of [[1, 1], ...DK]) { if (below) break; if (s < 1) step(s); below = title(bk); }
+      if (!below) for (const bk of [0.68, 0.64, 0.6]) if ((below = put(TK_MIN, bk))) break;   // (the words' text last)
       if (!below) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); t = t0; dk = 1; }   // (a little slack once there: a number ticking never flips it)
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
     } else dd.style.removeProperty('--pz-dk');
@@ -1899,7 +1900,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
   let frameL = 0, colT = 0;
   // The stacked data card's fixed block sizes, largest first, and the smallest the words' title goes.
-  const DK = [0.8, 0.7, 0.6, 0.5], TK_MIN = 0.45;
+  const DK = [[0.9, 0.95], [0.8, 0.88], [0.7, 0.8], [0.6, 0.72]], TK_MIN = 0.45;   // (the data card's block size, the words' text size)
   // The data card's height at width w (page px) under the words: as it would stand there, at full size (unfitted).
   function colHeight(w, dk = 1) {
     const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk')];
