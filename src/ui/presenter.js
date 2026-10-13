@@ -669,23 +669,24 @@ function bigTiles() {
   };
 }
 
-// Where along the route each level sits: [id, name, place]. The three middle levels are inside the liver.
+// The six levels along the route, portal vein to heart: [id, name]. The three middle levels are inside the liver.
 const SITES = [
-  ['pre', 'Pre-hepatic', 'Portal vein'],
-  ['presin', 'Pre\u00ADsinusoidal', 'Portal tracts'],
-  ['sin', 'Sinusoidal', 'Sinusoids'],
-  ['postsin', 'Post\u00ADsinusoidal', 'Central veins'],
-  ['post', 'Post-hepatic', 'Hepatic veins, IVC'],
-  ['cardiac', 'Cardiac', 'Heart'],
+  ['pre', 'Pre-hepatic'],
+  ['presin', 'Presinusoidal'],
+  ['sin', 'Sinusoidal'],
+  ['postsin', 'Postsinusoidal'],
+  ['post', 'Post-hepatic'],
+  ['cardiac', 'Cardiac'],
 ];
-/** The six levels, portal vein to heart, the liver's three bracketed; mode: 'all' names each level and
- *  its place, a level id marks that one as the block, null shows the levels unmarked (a quiz). */
+/** The six levels, portal vein to heart, the liver's three bracketed; mode: 'all' shows each level named,
+ *  a level id marks that one as the block, null shows the levels unmarked (a quiz). Each name stays on one
+ *  line under its bar (it shrinks to fit the card, and tilts 45° when the card is too narrow). */
 function rail(mode) {
   const at = SITES.findIndex(([id]) => id === mode);
-  return h('div', { class: 'pz-rail' + (mode === 'all' ? ' all' : at >= 0 ? ' one' : ''), role: 'img', 'aria-label': at >= 0 ? `Block: ${SITES[at][1].replace('­', '')}` : 'Six levels: pre-hepatic, presinusoidal, sinusoidal, postsinusoidal, post-hepatic, cardiac' },
+  return h('div', { class: 'pz-rail' + (mode === 'all' ? ' all' : at >= 0 ? ' one' : ''), role: 'img', 'aria-label': at >= 0 ? `Block: ${SITES[at][1]}` : 'Six levels: pre-hepatic, presinusoidal, sinusoidal, postsinusoidal, post-hepatic, cardiac' },
     h('div', { class: 'pz-rail-liver' }, h('span', {}, 'Liver')),
-    h('ol', {}, SITES.map(([id, name, place], i) => h('li', { 'data-site': id, class: i === at ? 'on' : null },
-      h('i', {}, i === at ? h('b') : null), h('span', { class: 'n' }, name), mode === 'all' ? h('span', { class: 'p' }, place) : null))));
+    h('ol', {}, SITES.map(([id, name], i) => h('li', { 'data-site': id, class: i === at ? 'on' : null },
+      h('i', {}, i === at ? h('b') : null), h('span', { class: 'n' }, name)))));
 }
 
 // ── Visuals over the dimmed figure ─────────────────
