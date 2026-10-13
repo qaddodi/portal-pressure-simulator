@@ -1997,6 +1997,7 @@ button.finding { cursor: pointer; }
 .pz-cell > .pz-strip { display: none; }
 :is(.pz.stack .pz-cell, .pz-cell.strip) > .pz-strip { display: block; }
 :is(.pz.stack .pz-cell, .pz-cell.strip) > .pz-ladder { display: none; }
+.pz-cell > .pz-strip { margin-top: auto; }   /* (the pressure row sits on the tile's bottom edge, so the six line up whatever the title's length) */
 .pz.stack .pz-cell > .pz-strip .pzl-bg { display: none; }   /* (a cell's kicker carries its HVPG) */
 .pz.stack .pz-grid.big { grid-template-columns: minmax(0, 1fr); }
 /* (A cell that turned strip at a large text size: the rows take the strips' own height instead of the card's, and on a

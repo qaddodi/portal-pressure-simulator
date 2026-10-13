@@ -9,3 +9,7 @@ test('the dashed-healthy legend is hidden on the phone layout and over strip cel
   assert.match(css, /\.pz\.stack \.pz-grid-key, \.pz-grid:has\(> \.pz-cell\.strip\) \.pz-grid-key \{ display: none; \}/);
   assert.match(css, /:is\(\.pz\.stack \.pz-cell, \.pz-cell\.strip\) > \.pz-ladder \{ display: none; \}/);
 });
+
+test('the strip sits at the bottom of its tile', () => {
+  assert.match(css, /\.pz-cell > \.pz-strip \{ margin-top: auto; \}/);
+});
