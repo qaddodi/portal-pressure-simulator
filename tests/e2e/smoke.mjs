@@ -533,7 +533,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (back !== home) throw new Error(`the anatomy came back at ${back}, not at its framing ${home}`);
   });
 
-  // Every way into or out of the lobule is one continuous zoom: the camera's magnification (the plate's zoom plus the dive's)
+  // Every way into or out of the lobule is one continuous zoom (to the lobule's normal framing; the sinusoid and a station are a second zoom from there): the camera's magnification (the plate's zoom plus the dive's)
   // moves steadily from the first frame to the last, in one direction, with no stop at an intermediate framing (the liver, the fit).
   // The presenter's slides are walked with the arrow keys, from the slide before a crossing to the one after it, and back.
   const CROSSINGS = [   // [deck, slide to start on (0-based), key, whether the key goes into the lobule, whether it is the sinusoid view that is gone to or left]
@@ -591,15 +591,17 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       // One move: the dive (or rise) itself, with no glide of the camera before or after it beyond a small settling (a new patient changes the space the words leave, after the rise has begun).
       const moves = await page.evaluate(() => window.pps.stage.cameraMoves());
       const big = moves.filter((m) => m.kind === 'glide' && (m.zoom > 0.2 || m.pan > 100));
-      if (big.length && !newPatient) throw new Error(`${deck} slide ${n} ${way}: the camera also glided ${big.map((m) => `${m.zoom.toFixed(2)} in zoom, ${Math.round(m.pan)} across`).join('; ')} (${moves.map((m) => m.kind + (m.zoom !== undefined ? ` ${m.zoom.toFixed(2)}/${Math.round(m.pan)}@${Math.round(m.t - moves[0].t)}` : '')).join(', ')})`);
-      if (sin && moves.filter((m) => m.kind === (into ? 'chain-in' : 'chain-out')).length !== 1) throw new Error(`${deck} slide ${n} ${way}: not one zoom through the lobule (${moves.map((m) => m.kind).join(', ')})`);
+      // The sinusoid view and a station in the lobule are gone to in two steps (the lobule's normal framing first, then the target; out, the same in reverse), so a glide beside the dive or rise is expected there.
+      const twoStep = sin || big.length > 0;
+      if (big.length && !newPatient && !twoStep) throw new Error(`${deck} slide ${n} ${way}: the camera also glided ${big.map((m) => `${m.zoom.toFixed(2)} in zoom, ${Math.round(m.pan)} across`).join('; ')} (${moves.map((m) => m.kind + (m.zoom !== undefined ? ` ${m.zoom.toFixed(2)}/${Math.round(m.pan)}@${Math.round(m.t - moves[0].t)}` : '')).join(', ')})`);
+      if (moves.some((m) => m.kind === 'chain-in' || m.kind === 'chain-out')) throw new Error(`${deck} slide ${n} ${way}: a zoom straight through the lobule, without stopping at its normal framing (${moves.map((m) => m.kind).join(', ')})`);
       if (sin && into && !(await page.evaluate(() => window.pps.store.get().sinusoid && window.pps.stage.sinusoidOpen()))) throw new Error(`${deck} slide ${n}: the sinusoid view is not open at the end`);
       if (moves.filter((m) => m.kind === 'dive' || m.kind === 'rise').length !== 1) throw new Error(`${deck} slide ${n} ${way}: ${moves.filter((m) => m.kind === 'dive' || m.kind === 'rise').length} dives or rises, not one`);
       // The zoom's own span: from its first move to its last (the words fade before it starts and the labels after it ends).
       if (process.env.ZOOM_TRACE) console.log(`${deck} ${n} ${key}`, s.map(([t, z]) => `${Math.round(t - s[0][0])}:${z.toFixed(3)}`).join(' '));
       const z0 = s[0]?.[1], zEnd = s[s.length - 1]?.[1];
       // (A loaded software renderer may draw too few frames to follow the zoom: the check of the moves above is then the one that counts.)
-      if (s.length < 10 || Math.abs(zEnd - z0) < 0.3) return;
+      if (twoStep || s.length < 10 || Math.abs(zEnd - z0) < 0.3) return;
       const dir = Math.sign(zEnd - z0), eps = 0.02;   // (a step under 2% of the scale over 150 ms or more is a stop)
       let a = 0, b = s.length - 1;
       while (a < b && Math.abs(s[a + 1][1] - s[0][1]) < 0.02 * Math.abs(zEnd - z0)) a++;

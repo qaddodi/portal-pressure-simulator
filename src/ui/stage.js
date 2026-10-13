@@ -6169,20 +6169,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleAim: (part, opts) => lz?.aim(part, opts),
     /** The dive into the lobule (or back out) has finished: the view is wholly the lobule, or wholly the anatomy. */
     lobuleSettled: () => !chainOut && !(lz?.sinBusy()) && (lobuleOn ? diveT >= 1 : diveT <= 0),
-    /** From the anatomy straight to the sinusoid view: one zoom through the lobule, which it does not stop in. In the lobule already, just the sinusoid. */
-    diveToSinusoid() {
-      if (lobuleOn || diveT > 0 || morphTarget !== 0 || reduceMotion.matches) { store.set({ lobule: true, sinusoid: true }); return; }
-      chainIn = true; chainFired = false; chainAt = performance.now(); logMove({ t: chainAt, kind: 'chain-in' });
-      store.set({ lobule: true });
+    /** From the anatomy to the sinusoid view in two zooms: into the lobule's normal framing, then into the sinusoid. In the lobule already, just the sinusoid. */
+    async diveToSinusoid() {
+      if (!lobuleOn && diveT === 0 && morphTarget === 0 && !reduceMotion.matches) {
+        store.set({ lobule: true });
+        const t0 = performance.now();
+        while (!(lobuleOn && diveT >= 1 && lz?.isOpen()) && performance.now() - t0 < 12000) await new Promise((r) => setTimeout(r, 60));
+        await new Promise((r) => setTimeout(r, 120));
+        if (!lobuleOn) return;
+      }
+      store.set({ lobule: true, sinusoid: true });
     },
-    /** From the sinusoid view straight out to the anatomy: the sinusoid closes and the rise follows it with no rest in the lobule. */
-    exitSinusoid() {
+    /** From the sinusoid view out to the anatomy in three steps: out of the sinusoid, back to the lobule's normal framing, then out of the lobule. */
+    async exitSinusoid() {
       if (!store.get().sinusoid || !lz?.sinusoidOpen()) { store.set({ sinusoid: false, lobule: false }); return; }
-      const lc = lz.current(), lt = LC + Math.log(Math.max(RH * 2, lc.r) / RH);
-      chainOut = true; logMove({ t: performance.now(), kind: 'chain-out' });
-      lz.setSinChain({ speed: lt / RISE_MS }, true);
-      lz.onSinClosed((at) => { riseAt = at ?? null; store.set({ lobule: false }); });
       store.set({ sinusoid: false });
+      const t0 = performance.now(), wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      while ((lz.sinBusy() || lz.sinusoidOpen()) && performance.now() - t0 < 4000) await wait(60);
+      if (lz.focusOn('fit', { ms: 900 })) await wait(900);
+      if (store.get().lobule) store.set({ lobule: false });
     },
     /** True once the sinusoid view is wholly in. */
     sinusoidOpen: () => !!lz?.sinusoidOpen(),

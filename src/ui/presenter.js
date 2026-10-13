@@ -945,9 +945,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   async function toAnatomy(next) {
     const st = store.get();
     if (!st.lobule && !st.sinusoid) return;
+    // Out of the sinusoid, then back to the lobule's normal framing, and only then out of the lobule: three steps, never one zoom through them.
+    if (st.sinusoid) { store.set({ sinusoid: false }); await wait(60); await until(() => !stage.sinBusy() && !stage.sinusoidOpen(), 4000); }
+    if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : 900; if (stage.lobuleFocus('fit', { ms })) await wait(ms); }
     if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);   // (box: a function, asked for when the rise begins)
-    // Out of the sinusoid and the lobule as one zoom (the sinusoid closes and the rise follows it at once), or out of the lobule alone.
-    if (st.sinusoid) stage.exitSinusoid(); else store.set({ lobule: false });
+    store.set({ lobule: false });
     await until(() => stage.lobuleSettled(), 6000); await wait(80);
   }
   // Glide the camera to a slide's framing; resolves when it has landed (cut(): a newer slide was asked for).
@@ -961,17 +963,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // The station this slide frames: the dive lands on it in one move, and (mid-dive) no other station's labels show.
       const part = cam === 'sinusoid' ? 'sinusoid' : cam.split(':')[1] || 'fit', zoom = s.zoom ?? 2.3;
       if (!store.get().lobule) {
-        // Straight from wherever the camera is into the lobule: one continuous zoom, no stop at the liver on the way. For the
-        // sinusoid it is the same zoom, carried on through the lobule without resting in it.
-        const toSin = cam === 'sinusoid' && sinusoidSupported();
-        stage.lobuleAim(part, { zoom });
-        if (toSin) stage.diveToSinusoid(); else store.set({ lobule: true });
+        // Anatomy into the lobule's normal framing first (the same dive every time); the station, or the sinusoid, is gone to from there.
+        store.set({ lobule: true });
         // (A first dive also loads the lobule, which a slow tablet can take several seconds over.)
-        await until(() => cut() || (stage.lobuleSettled() && stage.lobuleOpen() && (!toSin || !store.get().sinusoid || stage.sinusoidOpen())), 12000);
+        await until(() => cut() || (stage.lobuleSettled() && stage.lobuleOpen()), 12000);
         if (cut()) return;
-        if (!toSin) await wait(120);
+        await wait(120);
       } else {
-        if (!stage.lobuleOpen()) stage.lobuleAim(part, { zoom });
         await until(() => cut() || stage.lobuleOpen(), 9000);
       }
       if (cut()) return;
