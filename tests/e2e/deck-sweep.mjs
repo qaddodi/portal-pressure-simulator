@@ -95,7 +95,7 @@ const snap = (page) => page.evaluate(() => {
   }
   if (fit < 0.9) issues.push(`DATA FIT: data card contents shrunk to x${fit.toFixed(2)} to fit`);
   if (tfit < 0.9) issues.push(`TEXT FIT: teaching card contents shrunk to x${tfit.toFixed(2)} to fit`);
-  const minPx = W < 700 || H < 500 ? 10 : 11, small = new Map();
+  const minPx = W < 700 || H < 500 ? 10 : 11, small = new Map(), fonts = { teaching: [], data: [], panel: [] };
   for (const [s, el] of [['teaching', tEl], ['data', dEl], ['panel', document.querySelector('.pz-panel')]]) {
     if (!el || !vis(el)) continue;
     const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -106,10 +106,18 @@ const snap = (page) => page.evaluate(() => {
       if (rr.some((q) => q.bottom < 0 || q.top > H) || hiddenIn(e, el)) continue;
       let px = parseFloat(getComputedStyle(e).fontSize);
       if (e instanceof SVGElement) { const m = e.getScreenCTM?.(); if (m) px *= Math.hypot(m.a, m.b); } else px *= e.currentCSSZoom || 1;
+      fonts[s].push([px, t.length, e.closest('h1, h2') ? 'title' : 'text']);
       if (px < minPx - 0.05) { const k = `${s}: "${t.slice(0, 24)}"`; if (!small.has(k) || small.get(k) > px) small.set(k, px); }
     }
   }
   if (small.size) issues.push(`SMALL TEXT (<${minPx}px): ` + [...small].sort((a, b) => a[1] - b[1]).slice(0, 6).map(([k, v]) => `${k} ${v.toFixed(1)}px`).join('; ') + (small.size > 6 ? ` (+${small.size - 6} more)` : ''));
+  // Text sizes on one slide stay within reach of each other: the data card's words and numbers against the teaching card's
+  // body text (its title aside), and no block far below the rest of its own card.
+  const med = (a) => { const v = a.flatMap(([px, n]) => Array(Math.min(n, 40)).fill(px)).sort((x, y) => x - y); return v.length ? v[v.length >> 1] : 0; };
+  const tBody = med(fonts.teaching.filter((f) => f[2] === 'text')), dMed = med(fonts.data), dMin = fonts.data.length ? Math.min(...fonts.data.map((f) => f[0])) : 0;
+  const type = { tBody: +tBody.toFixed(1), dMed: +dMed.toFixed(1), dMin: +dMin.toFixed(1) };
+  if (tBody && dMed && dMed < tBody * 0.6) issues.push(`TEXT MISMATCH: data card text ${dMed.toFixed(1)}px against ${tBody.toFixed(1)}px teaching card text`);
+  if (dMed && dMin && dMin < dMed * 0.6) issues.push(`TEXT MISMATCH: data card's smallest text ${dMin.toFixed(1)}px against its usual ${dMed.toFixed(1)}px`);
   if (D) for (const sv of dEl.querySelectorAll('svg')) {
     const r = sv.getBoundingClientRect(); if (r.width < 120 || r.height < 80 || sv.closest('[aria-hidden="true"] button, button')) continue;
     if (sv.checkVisibility && !sv.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
@@ -127,7 +135,7 @@ const snap = (page) => page.evaluate(() => {
   const size = Object.fromEntries(['.pz-text', '.pz-data'].map((k) => [k, boxes[k] ? `${Math.round(boxes[k].width)}x${Math.round(boxes[k].height)}` : '']));
   const cam = window.__cam || 0; window.__cam = 0;
   const path = window.__path.splice(0);
-  return { size, shrink, cam, path, count, text: txt('.pz-text'), data: txt('.pz-data'), panel: txt('.pz-panel'), terms, issues, m: { pv: m.pv?.toFixed(1), hvpg: m.hvpg?.toFixed(1), ppg: m.ppg?.toFixed(1) } };
+  return { size, shrink, type, cam, path, count, text: txt('.pz-text'), data: txt('.pz-data'), panel: txt('.pz-panel'), terms, issues, m: { pv: m.pv?.toFixed(1), hvpg: m.hvpg?.toFixed(1), ppg: m.ppg?.toFixed(1) } };
 });
 // A camera that moves into a slide goes once, straight: no zoom or pan that turns back on itself (a round trip, or a move
 // away and back to where it started). Zoom in log steps; pan in plate units at the camera's zoom (what the eye sees move).
@@ -171,6 +179,9 @@ async function run(deck, dev) {
     const m = s.count?.match(/(\d+) \/ (\d+)/); if (m) n = +m[2];
     if (i < n - 1) { await page.keyboard.press('ArrowRight'); await at(page, i + 2); }
   }
+  // The same deck at one size: a data card's text much smaller or larger than on the deck's other slides.
+  { const v = fwd.map((s) => s.type?.dMed).filter(Boolean).sort((a, b) => a - b), m = v[v.length >> 1];
+    if (m) fwd.forEach((s) => { const d = s.type?.dMed; if (d && (d < m * 0.75 || d > m * 1.33)) s.issues.push(`DECK MISMATCH: data card text ${d}px where the deck's slides use about ${m}px`); }); }
   if (dev === 'desktop' && !FAST) for (let i = n - 2; i >= 0; i--) { await page.keyboard.press('ArrowLeft'); await at(page, i + 1); await shows(page, TITLES[deck][i]); await settle(page); await page.waitForTimeout(2000); back.unshift(await snap(page)); }
   await ctx.close();
   return { fwd, back, errors };
