@@ -3,12 +3,12 @@
 // palette and the presenter all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=34e377149b';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=79f09b0d8a';
 import { store, updateParams, hiddenNow } from './store.js?v=7c63421fac';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=abb277f29f';
-import { aboutVessel, aboutOrgan } from './about.js?v=20280851ec';
-import { lobuleState } from './lobule-model.js?v=5a288158ab';
-import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=5f9234c2f7';
+import { aboutVessel, aboutOrgan } from './about.js?v=c6ec2e8ca0';
+import { lobuleState } from './lobule-model.js?v=d378c02386';
+import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=7e62e6b11a';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -130,7 +130,7 @@ export function cardFor(selIn, ctx) {
     verbs.push(narrow, clot);
     verbs.push(doppler);
     if (shunt) verbs.push(shunt);
-    if (id === 'SV_CONF' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => ctx.select({ type: 'organ', id: 'spleen' }) });
+    if (id === 'SV_CONF' || id === 'SV_MID' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => ctx.select({ type: 'organ', id: 'spleen' }) });
   }
   // Dye into this vessel, beside Doppler: a few seconds a press, or as long as it is held.
   if (ctx.injectDye && !SIN_EDGES.has(id)) {

@@ -39,7 +39,7 @@ export const CAUDATE = {
   veins: [['M588 334 Q 601 332 613 327', 3], ['M582 368 Q 598 365 613 359', 3.6], ['M590 398 Q 602 395 613 389', 2.8]],
   wall: 613, anchor: [612, 362], grow: [0.12, 0.2],
 };
-export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'HA']);
+export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'HA', 'SVD']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
 // Edges the circuit draws but the anatomy leaves out (none at present).
@@ -68,6 +68,7 @@ export const NODE_POS = {
   SMV: [[690, 660], [320, 394]],
   IMV: [[932, 690], [240, 310]],
   SV: [[880, 505], [320, 261]],
+  SVD: [[962, 448], [200, 261]],
   LGV: [[821, 318], [320, 191]],
   CONF: [[700, 556], [480, 345]],
   PVH: [[602, 442], [580, 345]],
@@ -109,7 +110,8 @@ export const EDGE_PATH = {
   V_INT: 'M756 800 C 752 758 700 716 690 660',
   V_COL: 'M960 790 C 952 760 942 725 932 690',
   V_IMV: 'M932 690 C 925 620 905 560 880 505',
-  V_SPL: 'M1034 360 C 1010 385 988 420 962 448 C 938 473 910 492 880 505',
+  V_SPL: 'M1034 360 C 1010 385 988 420 962 448',
+  SV_MID: 'M962 448 C 938 473 910 492 880 505',
   V_STO: 'M880 395 C 860 368 828 332 792 312',
   SMV_CONF: 'M690 660 C 692 625 696 590 700 556',
   SV_CONF: 'M880 505 C 830 525 765 545 700 556',
@@ -171,7 +173,9 @@ export const EDGE_PATH = {
   // Leaves the fundus in a gentle curve and runs down clear of the coronary vein, easing into
   // the left renal vein.
   C5: 'M876 302 C 868 314 854 336 852 380 C 850 460 852 560 858 596 C 860 606 861 612 862 618',
-  C6: 'M880 505 C 880 548 874 590 862 618',
+  // The splenorenal shunts leave the splenic vein halfway between the spleen and the IMV junction (SVD)
+  // and drop to the renal vein just below, right of the IMV, so they never cross it.
+  C6: 'M962 448 C 966 500 968 566 962 614',
   // The retroperitoneal collateral leaves the SMV well below the mesocaval origin, on the lower trunk,
   // and runs across to the cava lower down (see STRANDS for its small veins).
   C7: 'M738 755 C 706 756 664 748 620 745',
@@ -188,7 +192,7 @@ export const EDGE_PATH = {
   // confluence. It stops at the IVC's left wall (x 609) and does not run along the cava or enter its lumen.
   DIPS: 'M602 442 C 582 392 595 318 620 302',
   S_PC: 'M700 556 C 682 590 652 625 620 650',
-  S_DSR: 'M880 505 C 862 548 852 590 862 618',
+  S_DSR: 'M962 448 C 958 500 956 566 962 614',
   S_MC: 'M690 660 C 672 650 645 648 620 650',
 };
 
@@ -228,7 +232,7 @@ export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68, C7: 0.2 };
 // the colon, the left kidney) end as a straight vessel that fades out over the first fraction of its
 // length, rather than as a tree of branches: vessel → fraction of its length (from its first point)
 // over which it fades from nothing to solid. Anatomic view only.
-export const TIP_FADE = { V_SPL: 0.35, V_INT: 0.2, V_COL: 0.5, V_KID_L: 0.45, LGV_CONF: 0.28 };
+export const TIP_FADE = { V_SPL: 0.66, V_INT: 0.2, V_COL: 0.5, V_KID_L: 0.45, LGV_CONF: 0.28 };
 // A vessel whose tip fades unless something attaches there: it is drawn solid to its end while any
 // of the listed collaterals is open. The coronary vein's upper end is where the collaterals to the
 // esophageal varices (C1a) leave it.
@@ -317,8 +321,9 @@ export const CIRCUIT_PATH = {
   C8: route([[480, 345], [506, 376], [554, 376], [580, 345]], 12),
   S_PC: route([[480, 345], [480, 446], [1088, 446], [1120, 478]], 24),
   S_MC: route([[320, 394], [350, 424], [350, 478], [1120, 478]], 16),
-  C6: route([[320, 261], [410, 351], [410, 510], [970, 510], [1000, 540]], 16),
-  S_DSR: route([[320, 261], [320, 306], [380, 366], [380, 570], [970, 570], [1000, 540]], 16),
+  // The splenorenal shunts leave the splenic vein midway (SVD), left of the IMV's junction.
+  C6: route([[200, 261], [200, 510], [970, 510], [1000, 540]], 16),
+  S_DSR: route([[200, 261], [184, 277], [184, 570], [970, 570], [1000, 540]], 16),
   C7: route([[320, 394], [320, 600], [1120, 600]], 24),
   C3: route([[680, 387], [680, 640], [960, 640]], 24),
   C4: route([[240, 310], [240, 670], [1090, 670], [1120, 640]]),

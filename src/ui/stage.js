@@ -1,13 +1,13 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=34e377149b';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=5f9234c2f7';
+import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=79f09b0d8a';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=7e62e6b11a';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=01ee46a874';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7c63421fac';
 import { fibroReading } from './clock.js?v=6284ad19b7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=abb277f29f';
-import { createLobuleZoom } from './lobule-zoom.js?v=5eec582f95';
+import { createLobuleZoom } from './lobule-zoom.js?v=adc2aa82d8';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -33,7 +33,7 @@ const vesselPx = (D) => CALIBER * Math.max(2.6, 2.0 * Math.pow(Math.max(0.1, D),
 const ALL_EDGES = EDGES.filter((e) => e.kind !== 'wedge' && !HIDDEN_EDGES.has(e.id));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
-const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'V_SPL', 'V_IMV', 'V_INT', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
+const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'V_SPL', 'SV_MID', 'V_IMV', 'V_INT', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 // Relative luminance of an 'rgb(r,g,b)' string (non-rgb strings count as dark).
@@ -138,6 +138,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The IVC narrows to the SVC's caliber at the right atrium on the GPU too, so its end never
   // shows as a rounded cap inside the narrower SVC.
   const GPU_EASE = { IVCS_RA: 'RA' };
+  // Shunts that leave and join a vein part-way along it, not at a node: the veins at each end ([from end], [to end]).
+  const SIDE_HOSTS = { C6: [['V_SPL', 'SV_MID'], ['V_KID_L']], S_DSR: [['V_SPL', 'SV_MID'], ['V_KID_L']] };
   // The ascending lumbar–azygos channel runs in the azygos trunk's lane, so it stays straight.
   const STRAIGHT_COLL = new Set(['C9']);
   // Veins that fade into the vessel they sink into: a linear mask [x1, y1, x2, y2, offset], from
@@ -2144,7 +2146,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // beside a join. The SVG tubes ease their ends to the junction width instead.
     const gpu = glWanted(t);
     const endW = (n) => (J[n] && !stroked && (!gpu || GPU_EASE[id] === n) ? clamp(J[n], w * lo, w * lim) : w);
-    const a = endW(x.e.from), b = endW(x.e.to);
+    // A shunt drawn onto the side of a vein (SIDE_HOSTS) narrows at that end to the vein's own caliber, so its round
+    // end stays inside the vein instead of bulging out of the far wall.
+    const hostW = (i) => { const hs = SIDE_HOSTS[id]?.[i].filter((h) => E[h]?.vis).map((h) => E[h].width); return hs?.length ? clamp(Math.max(...hs), w * 0.4, w) : null; };
+    const a = (!stroked && hostW(0)) || endW(x.e.from), b = (!stroked && hostW(1)) || endW(x.e.to);
     const key = `${w.toFixed(1)},${a.toFixed(1)},${b.toFixed(1)}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + (stenosisAt[id] ?? 0.5) : ''}|${lastMorph}|${stroked}|${gpu}`;
     if (key === x.shadeKey) return;
     x.shadeKey = key;
@@ -5270,7 +5275,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const chevOn = () => !!F && flowSeen() && !!store.get().blood?.chevrons;
   // Key chevrons only (Blood menu; always while presenting): chevrons keep to the portal story (the portal
   // inflow, the liver's beds, the hepatic veins, any open collateral or shunt) and to a lit vessel; the rest fade.
-  const KEY_IDS = new Set(['V_INT', 'V_COL', 'V_IMV', 'V_SPL', 'V_STO', 'SMV_CONF', 'SV_CONF', 'LGV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_L', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC']);
+  const KEY_IDS = new Set(['V_INT', 'V_COL', 'V_IMV', 'V_SPL', 'SV_MID', 'V_STO', 'SMV_CONF', 'SV_CONF', 'LGV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_L', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC']);
   const KEY = EDGES.map((e) => KEY_IDS.has(e.id) || e.kind === 'liver' || e.kind === 'collateral' || e.kind === 'shunt');
   const keyOnly = () => !!store.get().presenting || !!store.get().blood?.keyChevrons;
   // The Blood origin lens colors each lumen by where its blood comes from (streams side by side).
@@ -5972,6 +5977,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     'RPV>IVCS': { key: 'dips', label: 'DIPS' },
     'CONF>IVCI': { key: 'portocaval', label: 'Portocaval shunt' },
     'SV>LRV': { key: 'dsrs', label: 'Distal splenorenal shunt' },
+    'SVD>LRV': { key: 'dsrs', label: 'Distal splenorenal shunt' },
     'SMV>IVCI': { key: 'mesocaval', label: 'Mesocaval shunt' },
   };
   function shuntRule(a, b, ax, ay, bx, by) {

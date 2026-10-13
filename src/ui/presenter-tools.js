@@ -23,16 +23,16 @@
 
 import { store } from './store.js?v=7c63421fac';
 import { h, fmt, clamp } from './util.js?v=abb277f29f';
-import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { createDoppler } from './doppler.js?v=0712d7c4eb';
-import { createFibroScan } from './fibroscan.js?v=4dd10dd44c';
-import { createPressureTime } from './pressure-time.js?v=36c55c075c';
+import { EDGES } from '../engine/topology.js?v=79f09b0d8a';
+import { createDoppler } from './doppler.js?v=ad16b96c1e';
+import { createFibroScan } from './fibroscan.js?v=9a5e465b80';
+import { createPressureTime } from './pressure-time.js?v=ca28b6ef46';
 import { createFlowTime } from './flow-time.js?v=9327f117b5';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=fc730c9a5d';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=44b54ac999';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('presenter-tools');
 
-const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
+const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava',
   A_HEP: 'hepatic artery', TIPS: 'the TIPS', C3: 'paraumbilical vein' };
 const TITLE = {

@@ -17,11 +17,11 @@ import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=abb277f29f';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=9818d847b0';
-import { NODES } from '../engine/topology.js?v=34e377149b';
+import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=5a375e73d7';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=44e7c70a7f';
-import { createTools } from './presenter-tools.js?v=4af67cac5b';
+import { createHvpgMonitor } from './hvpg-proc.js?v=d23536652a';
+import { createTools } from './presenter-tools.js?v=879582a709';
 import { openHandout } from './handout.js?v=3c641f9315';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=d151452073';
@@ -72,7 +72,7 @@ const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // glow (edges) or the organ outlined, in the station's colour (tone: --tr-<tone>), and the words that name it.
 const TARGETS = {
   pv: { node: 'CONF', edges: ['PV_TRUNK'], tone: 'pv', words: 'portal vein' },
-  sv: { node: 'SV', edges: ['SV_CONF', 'V_SPL'], tone: 'sv', words: 'splenic vein|splenic' },
+  sv: { node: 'SV', edges: ['SV_CONF', 'SV_MID', 'V_SPL'], tone: 'sv', words: 'splenic vein|splenic' },
   imv: { node: 'IMV', edges: ['V_IMV'], tone: 'imv', words: 'inferior mesenteric veins?|inferior mesenteric' },
   smv: { node: 'SMV', edges: ['SMV_CONF', 'V_INT'], tone: 'smv', words: 'superior mesenteric veins?|superior mesenteric' },
   sin: { node: 'SIN_R', edges: ['SIN_RR', 'SIN_LL'], tone: 'wedge', words: 'sinusoids?|sinusoidal pressure' },
@@ -865,7 +865,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=a6891481eb', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=b8f80203ab', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -877,7 +877,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=c4e8a823f7');
+      const { createCore } = await import('../worker-core.js?v=f867bd14bd');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

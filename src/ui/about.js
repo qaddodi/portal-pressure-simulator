@@ -2,9 +2,9 @@
 // is happening to it in this patient right now (reversed flow, a clot, a collateral opening). The
 // first sentence is fixed; the rest is read from the live model.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=34e377149b';
+import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=79f09b0d8a';
 import { fmt, clamp } from './util.js?v=abb277f29f';
-import { LABEL_VESSEL } from './anatomy.js?v=5f9234c2f7';
+import { LABEL_VESSEL } from './anatomy.js?v=7e62e6b11a';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -13,6 +13,7 @@ const VESSEL = {
   V_INT: 'Drain the small bowel, carrying absorbed nutrients toward the liver.',
   V_COL: 'Drain the colon into the inferior mesenteric vein.',
   V_IMV: 'Drains the left colon and rectum into the splenic vein. Its rectal branches meet systemic veins: a portosystemic crossroads.',
+  SV_MID: 'The splenic vein midway, where a splenorenal shunt leaves it.',
   V_SPL: 'Drains the spleen. In portal hypertension the spleen congests and enlarges.',
   V_STO: 'Drain the stomach toward the coronary vein.',
   SMV_CONF: 'Carries blood from the small bowel and right colon: the largest share of portal inflow.',

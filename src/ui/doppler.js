@@ -4,9 +4,9 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES, dopplerK } from '../engine/topology.js?v=34e377149b';
+import { EDGES, dopplerK } from '../engine/topology.js?v=79f09b0d8a';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=abb277f29f';
-import { FONT } from './charts.js?v=00d4c71323';
+import { FONT } from './charts.js?v=5d396fa343';
 import { logAction } from './store.js?v=7c63421fac';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=6d60af9a8d';
 import { frameFor } from './frame.js?v=0db47e99bf';
