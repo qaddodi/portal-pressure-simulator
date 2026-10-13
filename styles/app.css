@@ -1728,6 +1728,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-panel .pz-dtitle::after { margin-left: 0; }
 .pz-grid-key { grid-column: 1 / -1; margin: 0; font: 500 var(--s-cap) var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .pz-grid-key i { display: inline-block; width: 22px; margin-right: 8px; vertical-align: middle; border-top: 2px dashed var(--text-3); }
+.pz.stack .pz-grid-key, .pz-grid:has(> .pz-cell.strip) .pz-grid-key { display: none; }   /* (the phone's strips draw no dashed healthy line, so its legend goes too) */
 .pz-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, calc(2 * var(--pzh) / var(--vz)), 26px); }
 .pz-cell { display: flex; flex-direction: column; gap: clamp(4px, calc(.8 * var(--pzh) / var(--vz)), 10px); padding: clamp(10px, calc(1.6 * var(--pzh) / var(--vz)), 20px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px) clamp(6px, calc(1 * var(--pzh) / var(--vz)), 12px); border-radius: clamp(12px, calc(1.8 * var(--pzh) / var(--vz)), 20px); background: var(--surface-2); min-width: 0; }
 /* (A long site name, POSTSINUSOIDAL, in a narrow cell steps its size down to fit the cell rather than run out of it.) */
