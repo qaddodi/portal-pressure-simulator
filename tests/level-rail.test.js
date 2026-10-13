@@ -18,3 +18,8 @@ test('rail names stay on one line, sized to their column, and tilt 45° when the
   assert.ok(n.includes('white-space: nowrap') && n.includes('cqw'));
   assert.match(css, /@container \(max-width: \d+px\)\s*\{[^@]*rotate: -45deg/);
 });
+
+test('the rail marks the block with the ladder hatching (diagonal red stripes), not a solid bar', () => {
+  const b = css.split('\n').find((l) => l.startsWith('.pz-rail li > i b {'));
+  assert.ok(b.includes('repeating-linear-gradient(45deg') && b.includes('var(--danger)') && !b.includes('box-shadow'));
+});
