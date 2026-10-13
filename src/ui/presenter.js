@@ -139,7 +139,7 @@ function termList(s) {
   return (Array.isArray(t) ? t.map((k) => [TARGETS[k]?.words, k]) : Object.entries(t).map(([w, k]) => [esc(w), k])).filter(([w, k]) => w && TARGETS[k]);
 }
 /** Everything a slide points at on the figure: its terms (as the line names them) and its glow field. */
-// On a Doppler slide the words that point at the figure and the vessels they light all take the Doppler's green.
+// On a Doppler slide the vessel being read glows the Doppler's green (as in Explore), over the colour its word would give it.
 const isDop = (s) => s?.tool?.kind === 'doppler';
 export function slideTargets(s, line = s.line || '') {
   const keys = new Set();
@@ -166,7 +166,7 @@ export function slideTargets(s, line = s.line || '') {
     else if (ORGANS.has(id)) organs.set(id, tone || TARGETS[id]?.tone);
     else add(id, tone || EDGE_TONE[id] || 'accent');
   });
-  if (isDop(s)) { for (const k of Object.keys(terms)) terms[k] = '--doppler'; for (const e of glow.keys()) glow.set(e, '--doppler'); }
+  if (isDop(s)) { const v = s.tool.vessel || 'PV_TRUNK'; if (glow.has(v)) glow.set(v, '--doppler'); }
   return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0, soft: soft.has(id) || undefined })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
 }
 // A live value pill ({pv}): the model's reading for this slide, to its usual decimal.
@@ -191,7 +191,7 @@ function rich(t, s = {}, fp = null) {
   const pill = (v, stop, cls = '', tone = null) => { glue();
     pills++; return h('span', { class: 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, style: tone ? `--tone: ${toneVar(tone)}` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
   const termPill = (w, k) => { const tone = TARGETS[k].organ === 'spleen' ? (fp && rateTone('spleen', fp)) || '--text-2' : TARGETS[k].tone;   // (the spleen's word, as its outline)
-    return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: ${toneVar(isDop(s) ? '--doppler' : tone)}` }, w); };
+    return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: ${toneVar(tone)}` }, w); };
   while ((m = re.exec(t))) {
     const [all, lw, lk, mk, mkStop, tword, val, valStop, key, term] = m, w = (key || term)?.toLowerCase().replace(/(?:s|ces)$/, '');
     if (val && (marked || pills || s.pill === false)) continue;
@@ -1312,11 +1312,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // names that vessel, the pointer would only repeat it, so it goes (the glow stays).
       if (tg) {
         const named = new Set([...(s.labels || []), ...tg.labels].flatMap((n) => TARGETS[n]?.edges || []));
-        for (const m of marks) if (m.kind === 'note') for (const e of m.edges) if (!tg.glow.some((g) => g.id === e)) tg.glow.push({ id: e, tone: isDop(s) ? '--doppler' : EDGE_TONE[e] || 'accent' });
+        for (const m of marks) if (m.kind === 'note') for (const e of m.edges) if (!tg.glow.some((g) => g.id === e)) tg.glow.push({ id: e, tone: EDGE_TONE[e] || 'accent' });
         marks = marks.filter((m) => !(m.kind === 'note' && m.edges.some((e) => named.has(e))));
       }
       // (A site the label stands in for lends it its station colour, so the label is the slide's highlight.)
-      if (tg) for (const k of s.sites || []) if (SITE_NODE[k] && [...(s.labels || []), ...tg.labels].includes(SITE_NODE[k])) tg.terms[SITE_NODE[k]] ||= isDop(s) ? '--doppler' : TARGETS[k]?.tone || VAL_TONE[k];
+      if (tg) for (const k of s.sites || []) if (SITE_NODE[k] && [...(s.labels || []), ...tg.labels].includes(SITE_NODE[k])) tg.terms[SITE_NODE[k]] ||= TARGETS[k]?.tone || VAL_TONE[k];
       store.set({ presentLabels: q ? [] : [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg?.terms || null,
         presentNames: !q && (s.data === 'ladder' || !!s.cath), presentFp: st?.fp || null,
         focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: q || !s.callout ? null : { kind: 'block', ...s.callout } });
