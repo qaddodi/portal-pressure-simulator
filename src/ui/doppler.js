@@ -6,7 +6,7 @@
 
 import { EDGES, dopplerK } from '../engine/topology.js?v=79f09b0d8a';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=abb277f29f';
-import { FONT } from './charts.js?v=09a462c539';
+import { FONT } from './charts.js?v=ebc4fb147c';
 import { logAction } from './store.js?v=7c63421fac';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=6d60af9a8d';
 import { frameFor } from './frame.js?v=0db47e99bf';
@@ -228,7 +228,7 @@ export function createDoppler({ onProbe }) {
       note = backflow ? 'Blood surges back toward the liver each beat: tricuspid regurgitation or a high right atrial pressure.'
         : pattern === 'Triphasic' ? 'Normal: the atrial a-wave briefly reverses flow each beat.'
         : pattern === 'Biphasic' ? 'Damped: the a-wave no longer reverses flow.'
-        : 'Flat: a stiff liver (cirrhosis) or an outflow block damps the cardiac waveform.';
+        : 'Flat: a stiff liver (cirrhosis) or an outflow obstruction damps the cardiac waveform.';
     } else if (p.kind === 'artery') {
       dir = r.mean < 0 ? 'Reversed' : 'Antegrade'; sev = r.mean < 0 ? 'danger' : 'ok';
       const ri = r.vmax > 0.5 ? (r.vmax - Math.max(0, r.vmin)) / r.vmax : 0;

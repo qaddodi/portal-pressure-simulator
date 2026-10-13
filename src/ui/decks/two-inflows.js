@@ -36,7 +36,7 @@ export const TWO_INFLOWS = {
     {
       id: 'clot', preset: 'pvt-acute', cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: HA('dual'), data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['liver'], delta: 'dual',
       kicker: 'The buffer', site: 'pre', title: 'A clot stops the portal flow',
-      line: 'With the portal vein blocked, the hepatic artery opens up and carries about twice its usual flow, so liver blood flow falls only to {liver} of normal.',
+      line: 'With the portal vein obstructed, the hepatic artery opens up and carries about twice its usual flow, so liver blood flow falls only to {liver} of normal.',
       notes: 'This is the hepatic arterial buffer response. Adenosine is released at a steady rate around the hepatic arterioles and is normally washed away by portal flow; when portal flow falls, adenosine builds up and dilates the artery. The buffer makes up part, not all, of the lost flow. It is why acute portal vein thrombosis rarely infarcts the liver.',
       ask: ['Why does acute portal vein thrombosis rarely cause a liver infarct?', 'The hepatic artery dilates (the buffer response) and keeps the liver perfused.'],
     },

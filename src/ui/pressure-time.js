@@ -7,7 +7,7 @@
 
 import { store, hiddenNow } from './store.js?v=7c63421fac';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=abb277f29f';
-import { FONT } from './charts.js?v=09a462c539';
+import { FONT } from './charts.js?v=ebc4fb147c';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('pressure-time');
 

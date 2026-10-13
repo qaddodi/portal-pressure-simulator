@@ -5,12 +5,12 @@ import { store, hiddenNow } from './store.js?v=7c63421fac';
 import { EDGES } from '../engine/topology.js?v=79f09b0d8a';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=abb277f29f';
 import { lobuleFlows } from './lobule-model.js?v=d378c02386';
-import { createProfile } from './charts.js?v=09a462c539';
-import { createPressureTime } from './pressure-time.js?v=defa1be381';
-import { createFibroScan } from './fibroscan.js?v=898a8fdf38';
-import { createHvpgProcedure } from './hvpg-proc.js?v=9c0ecdd119';
-import { createDoppler } from './doppler.js?v=9dfa1425c0';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=21ba27e0bf';
+import { createProfile } from './charts.js?v=ebc4fb147c';
+import { createPressureTime } from './pressure-time.js?v=4ee01c7b38';
+import { createFibroScan } from './fibroscan.js?v=956ba3fe53';
+import { createHvpgProcedure } from './hvpg-proc.js?v=76545fa3cf';
+import { createDoppler } from './doppler.js?v=ba11286bde';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=8941d99433';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('dock');
 
@@ -29,7 +29,7 @@ export const TILES = [
     scale: [0, 25], ticks: [5, 10],
     st: (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger'),
     s: (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : 'CSPH') },
-  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes a block before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
+  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes an obstruction before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
     scale: [0, 25], ticks: [6, 12],
     st: (v) => (v < 6 ? 'ok' : v < 12 ? 'caution' : 'danger'), s: (v) => (v < 6 ? 'Normal' : v < 12 ? 'Raised' : 'High') },
   { id: 'pv', group: 'pressure', k: 'Portal pressure', ks: 'Portal P', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
@@ -95,7 +95,7 @@ export const CUTOFFS = [
   ['Spleen length', '≤ 13 cm', '13–16 cm', '> 16 cm', '—'],
 ];
 
-// Systemic circulation: a compact block at the end of the strip.
+// Systemic circulation: a compact obstruction at the end of the strip.
 export const VITALS = [
   { id: 'map', k: 'MAP', title: 'Mean arterial pressure', why: 'map', v: (m) => m.map, d: 0, u: 'mmHg', bad: (m) => m.map < 65 },
   { id: 'hr', k: 'HR', title: 'Heart rate', why: 'hr', v: (m) => m.hr, d: 0, u: '/min', bad: (m) => m.hr > 110 },

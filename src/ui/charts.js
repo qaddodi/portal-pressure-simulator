@@ -52,7 +52,7 @@ export function createProfile() {
     h('span', {}, h('i', { style: { borderColor: 'var(--text-3)', borderTopStyle: 'dashed' } }), 'Healthy'),
     h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--s1)', borderTopStyle: 'dotted' } }), 'Snapshot A'),
     h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--accent)', borderTopStyle: 'dashed' } }), 'Your prediction'));
-  const note = h('div', { class: 'sub' }, 'Pressure from gut to heart. Where the line drops steeply, that is where the block is. The spans along the bottom show HVPG (wedged − free hepatic vein) and PPG (portal vein − IVC).');
+  const note = h('div', { class: 'sub' }, 'Pressure from gut to heart. Where the line drops steeply, that is where the resistance is highest. The spans along the bottom show HVPG (wedged − free hepatic vein) and PPG (portal vein − IVC).');
   const side = h('div', { class: 'chart-side' }, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
   el.append(box, side);
   let pathId = 'main';

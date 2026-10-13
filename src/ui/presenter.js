@@ -19,11 +19,11 @@ import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=9818d847b0';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=cc6724c953';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=253e379d38';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=9c0ecdd119';
-import { createTools } from './presenter-tools.js?v=b86280ef98';
-import { openHandout } from './handout.js?v=8bdaec085e';
+import { createHvpgMonitor } from './hvpg-proc.js?v=76545fa3cf';
+import { createTools } from './presenter-tools.js?v=2f8574d5fc';
+import { openHandout } from './handout.js?v=d13e9350bf';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=20ffefba17';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -222,17 +222,17 @@ function rich(t, s = {}, fp = null) {
 }
 // The still column inside the lobule (D5), for a wedge slide with column: true: the balloon stops the hepatic vein,
 // and the column behind it (in the wedge colour) fills back through the central vein and the sinusoids to the
-// first moving blood. Here it stops at a block in the portal tract (schistosomiasis), so the wedge never sees it.
+// first moving blood. Here it stops at the resistance in the portal tract (schistosomiasis), so the wedge never sees it.
 function wedgeColumn() {
   const S = 'http://www.w3.org/2000/svg', el = (t, a = {}, txt) => { const e = document.createElementNS(S, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); if (txt) e.textContent = txt; return e; };
-  const svg = el('svg', { class: 'pz-col', viewBox: '0 0 360 98', role: 'img', 'aria-label': 'The still column fills from the balloon back through the central vein and the sinusoids, and stops at the block in the portal tract.' });
+  const svg = el('svg', { class: 'pz-col', viewBox: '0 0 360 98', role: 'img', 'aria-label': 'The still column fills from the balloon back through the central vein and the sinusoids, and stops at the resistance in the portal tract.' });
   const shapes = [
     el('rect', { class: 'c-pv', x: 4, width: 76, height: 18, rx: 9 }), el('rect', { class: 'c-sin', x: 92, width: 146, height: 14 }),
     el('rect', { class: 'c-hv', x: 238, width: 104, height: 20, rx: 10 }), el('rect', { class: 'c-fill', x: 92, width: 238, height: 20, rx: 6 }),
     el('ellipse', { class: 'c-bal', cx: 330, rx: 13, ry: 13 }), el('path', { class: 'c-blk' })];
   const topT = el('text', { class: 'c-top', 'text-anchor': 'middle' });
   const names = [[40, 'Portal vein'], [165, 'Sinusoids'], [262, 'Central vein'], [330, 'Balloon']].map(([x, t]) => ({ x, t, e: el('text', { 'text-anchor': 'middle' }, t) }));
-  const blk = el('text', { class: 'c-blkt', 'text-anchor': 'middle' }, 'Block in the portal tract');
+  const blk = el('text', { class: 'c-blkt', 'text-anchor': 'middle' }, 'Resistance in the portal tract');
   svg.append(...shapes, topT, ...names.map((n) => n.e), blk);
   // The rows follow the lettering (the slide's caption size as drawn): a heading too wide for one line takes two, the
   // names take two rows when neighbours would touch, and each stays inside the box.
@@ -257,7 +257,7 @@ function wedgeColumn() {
     const row = (i) => (rows3 ? i : rows2 ? i % 2 : 0);
     names.forEach((n, i) => { n.e.setAttribute('x', xs[i].toFixed(1)); n.e.setAttribute('y', (base + row(i) * lh).toFixed(1)); });
     const by = base + Math.max(...names.map((_, i) => row(i))) * lh + lh;
-    const nBlk = lines(blk, 'Block in the portal tract', 86, c); blk.setAttribute('y', by.toFixed(1));
+    const nBlk = lines(blk, 'Resistance in the portal tract', 86, c); blk.setAttribute('y', by.toFixed(1));
     [[0, cy - 9], [1, cy - 7], [2, cy - 10], [3, cy - 10]].forEach(([i, y]) => shapes[i].setAttribute('y', y.toFixed(1)));
     shapes[4].setAttribute('cy', cy.toFixed(1)); shapes[5].setAttribute('d', `M78 ${cy - 12} L94 ${cy + 12} M94 ${cy - 12} L78 ${cy + 12}`);
     svg.setAttribute('viewBox', `0 0 ${W} ${(by + (nBlk - 1) * lh + 0.3 * c + 2).toFixed(1)}`);

@@ -4,7 +4,7 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 
 export const DOPPLER = {
   id: 'doppler', level: 'core', title: 'Doppler of the portal system', minutes: 12,
-  sections: [['The probe', ['Doppler']], ['Cirrhosis', ['Cirrhosis']], ['Blocked veins', ['Portal vein thrombosis', 'Budd–Chiari syndrome']], ['Heart failure and TIPS', ['Heart failure', 'After TIPS']]],
+  sections: [['The probe', ['Doppler']], ['Cirrhosis', ['Cirrhosis']], ['Obstructed veins', ['Portal vein thrombosis', 'Budd–Chiari syndrome']], ['Heart failure and TIPS', ['Heart failure', 'After TIPS']]],
   objectives: [
     'Read normal portal and hepatic vein Doppler: direction, velocity and waveform',
     'Recognize slow and reversed portal flow in cirrhosis',
@@ -65,7 +65,7 @@ export const DOPPLER = {
       data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
       kicker: 'Portal vein thrombosis', site: 'pvt', title: 'An occlusive clot gives no signal',
       line: 'The clot fills the lumen. Check the superior mesenteric vein next to see how far it extends.',
-      notes: 'Doppler ultrasound is the first test for portal vein thrombosis: echogenic material in the lumen with no color or spectral signal. In cirrhosis many clots are partial, and show as a filling defect with flow around it. An acute clot may be nearly anechoic, so the missing flow signal matters more than the gray-scale picture. CT or MR then shows how far the clot extends into the splenic and mesenteric veins. The HVPG stays normal because the block lies before the liver.',
+      notes: 'Doppler ultrasound is the first test for portal vein thrombosis: echogenic material in the lumen with no color or spectral signal. In cirrhosis many clots are partial, and show as a filling defect with flow around it. An acute clot may be nearly anechoic, so the missing flow signal matters more than the gray-scale picture. CT or MR then shows how far the clot extends into the splenic and mesenteric veins. The HVPG stays normal because the obstruction lies before the liver.',
       ask: ['What is the first test for portal vein thrombosis?', 'Doppler ultrasound: no flow in an occlusive clot, or a filling defect with flow around a partial one.'],
     },
     {
@@ -77,11 +77,11 @@ export const DOPPLER = {
       ask: ['What is a portal cavernoma?', 'A network of collateral veins that bypasses a chronically occluded portal vein.'],
     },
     {
-      id: 'bc', terms: ['hv'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Blocked hepatic veins' },
+      id: 'bc', terms: ['hv'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Obstructed hepatic veins' },
       tool: { kind: 'doppler', vessel: 'RHV_IVC' },
       kicker: 'Budd–Chiari syndrome', site: 'post', title: 'Budd–Chiari: no flow in the hepatic veins',
       line: 'Hepatic vein flow is absent, reversed or flat. Look for spider-web collaterals and a large caudate lobe. The portal vein still carries blood into the liver, but more slowly, and it may reverse.',
-      notes: 'Doppler is also the first test for Budd–Chiari syndrome: absent, reversed or flat flow in the hepatic veins, intrahepatic collaterals (spider-web veins) and a large caudate lobe. The portal vein slows and may reverse. It is the mirror image of portal vein thrombosis: there the inflow is blocked and the hepatic veins are normal.',
+      notes: 'Doppler is also the first test for Budd–Chiari syndrome: absent, reversed or flat flow in the hepatic veins, intrahepatic collaterals (spider-web veins) and a large caudate lobe. The portal vein slows and may reverse. It is the mirror image of portal vein thrombosis: there the inflow is obstructed and the hepatic veins are normal.',
       ask: ['How does Doppler tell Budd–Chiari syndrome from portal vein thrombosis?', 'In Budd–Chiari the hepatic veins have no flow; in portal vein thrombosis the portal vein has none.'],
     },
     {
@@ -107,7 +107,7 @@ export const DOPPLER = {
         { id: 'reverse', title: 'Advanced cirrhosis', note: ['Portal: away from the liver', 'Hepatic veins: often flattened'] }, { id: 'clot', title: 'Portal vein thrombosis', note: ['Portal: no signal', 'Hepatic veins: normal'] },
         { id: 'bc', title: 'Budd–Chiari', note: ['Portal: toward the liver', 'Hepatic veins: no signal'] }, { id: 'rhf', title: 'Right heart failure', note: ['Portal: pulsatile', 'Hepatic veins: flow driven back'] }, { id: 'tips', title: 'TIPS', note: ['Portal: toward the stent', 'Stent: fast flow'] }],
       kicker: 'Summary', title: 'Doppler findings by diagnosis',
-      line: 'The direction, velocity and pulsatility of portal flow point to the level of the block before any catheter study.',
+      line: 'The direction, velocity and pulsatility of portal flow point to the level of resistance before any catheter study.',
       notes: 'The Doppler places the problem before, in or after the liver, often before any pressure is measured. No flow in the portal vein: thrombosis. Slow or reversed portal flow: cirrhosis. No flow in the hepatic veins: Budd–Chiari. A pulsing portal vein: the heart.',
       ask: ['A patient has no flow in the hepatic veins and slow portal flow. What is the diagnosis?', 'Budd–Chiari syndrome.'],
     },
