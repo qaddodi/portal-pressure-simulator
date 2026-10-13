@@ -7,6 +7,7 @@ import { store, updateParams } from './store.js?v=7c63421fac';
 import { h, icon, svgIcon, clamp, infoButton } from './util.js?v=abb277f29f';
 import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=4d33c4e423';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
+import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
 
 const LOCK_TIP = 'Not available here';
@@ -323,7 +324,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     position();
   }
 
-  // Beside the structure, on the side that covers least of it, inside the figure.
   // The zoom pill is a column above the dock on the right: a card that reaches it ends above it. The dock's
   // height settles after a card is placed, so this runs again whenever the occupancy changes (pps:occ).
   function fitAbovePill() {
@@ -358,30 +358,15 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     const css = (k) => parseFloat(appStyle.getPropertyValue(k)) || 0;
     const top = css('--top-safe') + 8, bottom = H - (css('--bot-occ') || 0) - 8, right = W - css('--right-occ') - 8;
     // ...unless it no longer fits there (placed before the dock published its height, or the card grew).
+    // A zoom or pan can bring the vessel under a pinned card: then it moves (gliding) to a clear spot.
+    // (A card that has no clear spot left, zoomed right in, stays where it is rather than hunting for one.)
     const fits = pinned && pinned.y >= top - 1 && pinned.y + hh <= Math.max(bottom, top + hh) + 1;
-    if (placedFor && pinned && fits) { drawLeader(pinned.x, pinned.y, w, hh, a); return; }
-    const pts = a.path || [[a.x, a.y]];
-    const gap = 22;
-    // Beside the structure first; failing that, in the empty margin beside the figure (with a leader
-    // line back to it), so the card covers as little of the anatomy as it can.
-    const fig = stage.contentRect?.();
-    const cands = [[a.x + gap, a.y - hh / 2], [a.x - gap - w, a.y - hh / 2], [a.x - w / 2, a.y + gap], [a.x - w / 2, a.y - gap - hh], [a.x + gap, a.y - 30], [a.x - gap - w, a.y - 30]];
-    if (fig) cands.push([fig.x1 + 16, a.y - hh / 2], [fig.x0 - 16 - w, a.y - hh / 2]);
-    let best = null;
-    // A touch tablet (an iPad): the card is a side panel on the right, under the top bar, with a leader to its structure,
-    // so it never lands under the hand working the figure.
-    if (tabletTouch.matches) best = { cost: 0, x: Math.max(8, right - w), y: top };
-    if (!best) cands.forEach(([x, y], i) => {
-      const cx = clamp(x, 8, Math.max(8, right - w)), cy = clamp(y, top, Math.max(top, bottom - hh));
-      let cover = 0;
-      for (const [px, py] of pts) if (px > cx - 6 && px < cx + w + 6 && py > cy - 6 && py < cy + hh + 6) cover++;
-      const shift = Math.abs(cx - x) + Math.abs(cy - y);
-      // The share of the card lying over the drawn figure.
-      const over = fig ? Math.max(0, Math.min(cx + w, fig.x1) - Math.max(cx, fig.x0)) * Math.max(0, Math.min(cy + hh, fig.y1) - Math.max(cy, fig.y0)) / (w * hh) : 0;
-      const far = Math.max(0, Math.hypot(cx + w / 2 - a.x, cy + hh / 2 - a.y) - (w + hh) / 2);
-      const cost = cover * 40 + over * 140 + shift * 0.5 + far * 0.15 + i * 3;
-      if (!best || cost < best.cost) best = { cost, x: cx, y: cy };
-    });
+    const clear = fits && (a.r == null || !coverCount(vesselPoints(a), pinned.x, pinned.y, w, hh, a.r + 4));
+    if (placedFor && pinned && clear) { drawLeader(pinned.x, pinned.y, w, hh, a); return; }
+    // Beside the structure, clear of the whole vessel; failing that, in the empty margin beside the figure
+    // (with a leader line back to it), so the card covers as little of the anatomy as it can (card-place.js).
+    const best = placeCard(a, w, hh, { top, bottom, right }, stage.contentRect?.(), tabletTouch.matches);
+    if (placedFor && pinned && fits && best.cover) { drawLeader(pinned.x, pinned.y, w, hh, a); return; }
     const key = `${Math.round(best.x)},${Math.round(best.y)}|${Math.round(a.x)},${Math.round(a.y)}`;
     if (key === placedFor) return;
     placedFor = key; pinned = { x: best.x, y: best.y };

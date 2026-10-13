@@ -1321,11 +1321,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const ins = safeInsets();
     const W = wrap.clientWidth, H = wrap.clientHeight, top = Math.max(44, ins.t + 12), bottom = H - Math.max(insetBottom, ins.b) - 18, side = 18;
     if (bottom - top < 80) return;
-    const inside = a.y >= top && a.y <= bottom && a.x >= side && a.x <= W - side;
+    // A vessel is kept wholly in view when it fits; one too long for that keeps at least its middle in view.
+    let x0 = a.x, x1 = a.x, y0 = a.y, y1 = a.y;
+    if (a.r != null) for (const [px, py] of a.path) { x0 = Math.min(x0, px - a.r); x1 = Math.max(x1, px + a.r); y0 = Math.min(y0, py - a.r); y1 = Math.max(y1, py + a.r); }
+    if (x1 - x0 > W - 2 * side) { x0 = x1 = a.x; }
+    if (y1 - y0 > bottom - top) { y0 = y1 = a.y; }
+    const inside = y0 >= top && y1 <= bottom && x0 >= side && x1 <= W - side;
     if (inside) return;
     const s = vbScale();
-    const dx = a.x < side || a.x > W - side ? W / 2 - a.x : 0;
-    const dy = a.y < top || a.y > bottom ? (top + bottom) / 2 - a.y : 0;
+    const dx = x0 < side ? side - x0 : x1 > W - side ? W - side - x1 : 0;
+    const dy = y0 < top ? top - y0 : y1 > bottom ? bottom - y1 : 0;
     if (revealTo && !sameView(vt, revealTo)) revealFrom = null;   // the learner moved the figure: keep it where it is
     if (!revealFrom) revealFrom = { ...vt };
     revealTo = { k: vt.k, x: vt.x + dx / s, y: vt.y + dy / s };
@@ -6077,9 +6082,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (sel.type === 'edge' && geo[sel.id] && E[sel.id]?.vis) {
       const pts = geo[sel.id].cur;
       const [x, y] = worldToLocal(...pointAt(pts, 0.5));
-      const path = [];
-      for (let i = 0; i < pts.length; i += 3) path.push(worldToLocal(pts[i][0], pts[i][1]));
-      return { x, y, path };
+      // The tube and, for a braided bed (varices), each of its strands: the card keeps clear of all of them.
+      const toPx = (line) => line.map((q) => worldToLocal(q[0], q[1]));
+      const lines = [toPx(pts)];
+      for (const sd of E[sel.id].strands || []) if (sd.cur && (sd.live ?? 1) >= 0.5) lines.push(toPx(sd.cur));
+      const path = lines.flat();
+      // The drawn half-width on screen (lumen and walls), so the card keeps clear of the whole tube (card-place.js).
+      const r = (((E[sel.id].width ?? 8) + 3) / 2) * (CTM?.sc || 1);
+      return { x, y, path, lines, r };
     }
     if (sel.type === 'organ') {
       const org = { liver: 'liver', heart: 'heart', spleen: 'spleen' }[sel.id];

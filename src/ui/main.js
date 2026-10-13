@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=d0279f60fd';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7c63421fac';
-import { createStage } from './stage.js?v=00355daf3f';
+import { createStage } from './stage.js?v=425ef0e837';
 import { createCreditPlacer } from './credit.js?v=b5d3742ef5';
 import { sinusoidSupported } from './sinusoid-view.js?v=9818d847b0';
 import { createInspector } from './inspector.js?v=47dbbdb818';
@@ -12,7 +12,7 @@ import { setHvpgStage } from './hvpg-proc.js?v=558836b84d';
 import { createWhy } from './why.js?v=cc6c636ed9';
 import { createTimeline, LAPSES } from './timeline.js?v=c43f22d9ef';
 import { createCompare } from './compare.js?v=1c11270f8f';
-import { createCard } from './card.js?v=b9856b2b75';
+import { createCard } from './card.js?v=5db33f6303';
 import { createChart, computeFindings } from './chart.js?v=f1158eecd2';
 import { createMenu, ROLES } from './menu.js?v=432df3628e';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';

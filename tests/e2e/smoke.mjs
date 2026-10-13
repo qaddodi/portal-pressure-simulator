@@ -695,6 +695,37 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(await page.$eval('.action-card', (c) => c.hidden))) throw new Error('close should dismiss the card');
 
   });
+  await check(device, 'a vessel\'s card never covers that vessel (every vessel, each window size)', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));
+    await page.waitForTimeout(800);
+    const sizes = device === 'phone' ? [[390, 844]] : [[1440, 900], [1024, 1366]];
+    const bad = [];
+    for (const [w, h] of sizes) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.evaluate(() => window.pps.stage.fit());
+      await page.waitForTimeout(700);
+      const ids = await page.evaluate(() => [...new Set([...document.querySelectorAll('.v-hit[data-id]')].map((e) => e.dataset.id))].filter((id) => window.pps.stage.anchorFor({ type: 'edge', id })));
+      if (ids.length < 10) throw new Error(`only ${ids.length} vessels to check`);
+      for (const id of ids) {
+        await page.evaluate((id) => window.pps.store.set({ selection: { type: 'edge', id } }), id);
+        await page.waitForTimeout(device === 'phone' ? 450 : 120);
+        const r = await page.evaluate((id) => {
+          const c = document.querySelector('.action-card'), a = window.pps.stage.anchorFor({ type: 'edge', id });
+          if (c.hidden || !a) return null;
+          const view = document.querySelector('#stageView').getBoundingClientRect(), cr = c.getBoundingClientRect();
+          // Where the card is going (its left/top glide), relative to the figure.
+          const x = c.classList.contains('docked') ? cr.left - view.left : parseFloat(c.style.left), y = c.classList.contains('docked') ? cr.top - view.top : parseFloat(c.style.top);
+          const under = a.path.filter(([px, py]) => px > x - a.r && px < x + c.offsetWidth + a.r && py > y - a.r && py < y + c.offsetHeight + a.r).length;
+          return { under, docked: c.classList.contains('docked'), mid: a.y > y - a.r && a.x > x - a.r && a.x < x + c.offsetWidth + a.r && a.y < y + c.offsetHeight + a.r };
+        }, id);
+        // A phone's sheet spans the width: a long vessel may run under it, but the part tapped stays in view.
+        if (r && (r.docked ? r.mid : r.under)) bad.push(`${id}@${w}x${h}`);
+      }
+      await page.evaluate(() => window.pps.store.set({ selection: null }));
+    }
+    if (bad.length) throw new Error(`card over its vessel: ${bad.join(', ')}`);
+  });
   await check(device, 'circuit view, selection card, lenses', async (page) => {
     await open(page, '?preset=csph');
     await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
