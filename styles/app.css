@@ -1389,7 +1389,7 @@ button.finding { cursor: pointer; }
 /* Station cards: the anatomy's label style, as buttons that open the station's card */
 .lz-call { position: absolute; padding: 4px 10px 5px; border-radius: 999px; font: 600 14px/1.2 var(--font-ui); width: max-content; text-wrap: balance; color: var(--on-status); background: var(--danger); box-shadow: var(--shadow-1); pointer-events: none; opacity: 0; transform: scale(.94); transition: opacity .5s var(--ease), transform .5s var(--ease); }
 .lz-call.on { opacity: 1; transform: none; }
-.lz-call-l, .lz-call-r { opacity: 0; transition: opacity .5s var(--ease); stroke: var(--danger); stroke-width: 2; fill: none; }
+.lz-call-l, .lz-call-r { opacity: 0; transition: opacity .5s var(--ease); stroke: var(--danger); stroke-width: 4px; fill: none; }
 .lz-call-l.on, .lz-call-r.on { opacity: 1; }
 .lz-call[data-kind="treat"] { background: var(--accent); } .lz-call-l[data-kind="treat"], .lz-call-r[data-kind="treat"] { stroke: var(--accent); }
 .lz-call[data-kind="note"] { background: var(--surface); color: var(--text); border: 1px solid var(--text-2); } .lz-call-l[data-kind="note"], .lz-call-r[data-kind="note"] { stroke: var(--text-2); }
