@@ -20,3 +20,13 @@ test('the lesion leader starts on the ring\'s edge, and labels keep clear of the
   assert.match(js, /ringDepth\(ring, box\) > 0 \? 1e6/, 'labels pay the full clash cost for touching the ring');
   assert.match(js, /ringDepth\(ring, box\) \* 1e4/, 'the pill keeps off the ring too');
 });
+
+test('lobule labels and the pointer pill prefer spots outside the lobule, falling back inside only when there is no room', () => {
+  const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  assert.match(js, /const hexOf = \(\) =>/, 'the lobule outline on screen is measured each layout');
+  assert.match(js, /for \(const c of hex\.outside\(a, w, hh\)\) candidates\.push\(c\)/, 'labels try spots just beyond the rim');
+  assert.match(js, /hex\.share\(box\) \* INSIDE_COST/, 'a label inside the lobule pays a soft cost (never above a clash)');
+  assert.match(js, /ringDepth\(ring, box\) \* 1e4 \+ hex\.share\(box\) \* INSIDE_COST/, 'the pill prefers outside too');
+  const cost = Number(js.match(/INSIDE_COST = (\d+)/)?.[1]);
+  assert.ok(cost > 0 && cost * 6 < 1e5, 'the inside cost stays well below the clash costs, so it never causes overlaps');
+});

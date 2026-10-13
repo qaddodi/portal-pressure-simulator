@@ -964,6 +964,36 @@ export function createLobuleZoom({ host }) {
   // The ring on the spot: its centre and radius on screen (null while the spot is out of view), and how far from the ring's
   // centre everything else keeps (the radius, half its 4 px stroke and a small gap), so no label or pill ever touches it.
   const RING_STROKE = 4, RING_GAP = 8;
+  // The lobule's outline on screen. Callout pills prefer to sit outside it, a leader reaching in to the structure: `share` is
+  // how much of a box lies inside the outline (0 to 1), and `outside` lists spots just beyond the rim, on rays from a point
+  // through the lobule, for a box of the given size. A frame too small to hold them clamps them back inside, where the
+  // share costs the same for every spot, so the label falls back to the inside only when there is no room outside.
+  const hexOf = () => {
+    const hex = geo.lobules[0].corners.map(toScreen);
+    const inPoly = (x, y) => { let c = false; for (let i = 0, j = 5; i < 6; j = i++) { const [xi, yi] = hex[i], [xj, yj] = hex[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c; } return c; };
+    const memo = new Map();
+    const share = (b) => { const key = `${b.l | 0},${b.t | 0},${b.r | 0},${b.b | 0}`; let m = memo.get(key); if (m === undefined) memo.set(key, m = shareOf(b)); return m; };
+    const shareOf = (b) => { let n = 0; for (let i = 0; i < 5; i++) for (let k = 0; k < 3; k++) if (inPoly(b.l + ((b.r - b.l) * (i + 0.5)) / 5, b.t + ((b.b - b.t) * (k + 0.5)) / 3)) n++; return n / 15; };
+    const outside = (a, w, hh) => {
+      const out = [];
+      for (let i = 0; i < 24; i++) {
+        const t = (i / 24) * Math.PI * 2, dx = Math.cos(t), dy = Math.sin(t);
+        let exit = 0;
+        for (let e = 0; e < 6; e++) {
+          const [ax, ay] = hex[e], [bx, by] = hex[(e + 1) % 6], ex = bx - ax, ey = by - ay, den = dx * ey - dy * ex;
+          if (Math.abs(den) < 1e-9) continue;
+          const sv = ((ax - a[0]) * ey - (ay - a[1]) * ex) / den, u = ((ax - a[0]) * dy - (ay - a[1]) * dx) / den;
+          if (sv > 0 && u >= 0 && u <= 1) exit = Math.max(exit, sv);
+        }
+        if (!exit) continue;
+        const d = exit + Math.min(w / 2 / Math.max(Math.abs(dx), 1e-6), hh / 2 / Math.max(Math.abs(dy), 1e-6)) + 14;
+        out.push([a[0] + dx * d, a[1] + dy * d]);
+      }
+      return out;
+    };
+    return { share, outside };
+  };
+  const INSIDE_COST = 3000;   // a label wholly inside the lobule costs this much more than one wholly outside (far below any clash)
   const callRingAt = (fr) => {
     const a = call && toScreen(anchorOf(call.at));
     if (!a || !(a[0] > fr.l && a[0] < fr.r && a[1] > fr.t && a[1] < fr.b)) return null;
@@ -976,7 +1006,7 @@ export function createLobuleZoom({ host }) {
     const dx = Math.max(b.l - ring.a[0], 0, ring.a[0] - b.r), dy = Math.max(b.t - ring.a[1], 0, ring.a[1] - b.b);
     return Math.max(0, ring.clear - Math.hypot(dx, dy));
   };
-  function placeCall(fr, placed, cards, leads, crosses, ring) {
+  function placeCall(fr, placed, cards, leads, crosses, ring, hex) {
     if (!callEl.isConnected) { labels.append(callEl); leaders.append(callLine, callRing); }
     const on = !!ring;
     for (const e of [callEl, callLine, callRing]) e.classList.toggle('on', on);
@@ -992,12 +1022,13 @@ export function createLobuleZoom({ host }) {
     // label that moved a pixel never flips the pill to another side, and the leader with it.
     const cands = [];
     for (const r0 of [70, 100, 140]) for (let i = 0; i < 12; i++) { const t = (i / 12) * Math.PI * 2 - Math.PI / 2, r = Math.max(r0, ring.clear + hh / 2 + 8 + r0 - 70); cands.push([a[0] + Math.cos(t) * (r + w / 3), a[1] + Math.sin(t) * r, 0]); }
+    for (const [px, py] of hex.outside(a, w, hh)) cands.push([px, py, 0]);
     if (callPrev && callPrev.at === call.at) cands.push([a[0] + callPrev.dx, a[1] + callPrev.dy, 1]);
     for (const [px, py, prev] of cands) {
       const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
       const box = { l: x - w / 2 - 6, r: x + w / 2 + 6, t: y - hh / 2 - 6, b: y + hh / 2 + 6 };
       const cost = placed.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 100 : 0) + (crosses(a, [x, y], o) ? 1e5 : 0), 0)
-        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + ringDepth(ring, box) * 1e4 + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 - (prev ? 60 : 0);
+        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + ringDepth(ring, box) * 1e4 + hex.share(box) * INSIDE_COST + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 - (prev ? 60 : 0);
       if (!best || cost < best.cost) best = { x, y, box, cost };
     }
     placed.push(best.box); callPrev = { at: call.at, dx: best.x - a[0], dy: best.y - a[1] };
@@ -1123,7 +1154,7 @@ export function createLobuleZoom({ host }) {
       if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       items.push({ k, L, w, hh, a });
     }
-    const base = placed.slice(), ring = callRingAt(fr);
+    const base = placed.slice(), ring = callRingAt(fr), hex = hexOf();
     const solve = (order) => {
       const pl = base.slice(), ld = [], res = [];
       let total = 0;
@@ -1140,6 +1171,8 @@ export function createLobuleZoom({ host }) {
           const t = (i / 16) * Math.PI * 2;
           candidates.push([a[0] + Math.cos(t) * (w / 2 + 18) * r, a[1] + Math.sin(t) * (hh / 2 + 18) * r]);
         }
+        // Just beyond the lobule's rim, all round: the labels sit outside it whenever there is room.
+        for (const c of hex.outside(a, w, hh)) candidates.push(c);
         // Snug against each label already placed (above, below or beside it), so a tight gap between two is found.
         for (const o of pl) candidates.push([preferred[0], o.b + hh / 2 + hy], [preferred[0], o.t - hh / 2 - hy], [o.r + w / 2 + hx, preferred[1]], [o.l - w / 2 - hx, preferred[1]]);
         const own = marks.filter((m) => m.k !== k);
@@ -1156,6 +1189,7 @@ export function createLobuleZoom({ host }) {
             + ld.reduce((sum, [p, q]) => sum + (crosses(p, q, box) ? 1e5 : 0) + (cut(p, q, a, [x, y]) ? 1e5 : 0), 0)
             + Math.max(0, 16 - lead) * 40
             + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0)
+            + hex.share(box) * INSIDE_COST
             + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e3 : 0)
             + own.reduce((sum, m) => sum + overlap(box, m) * 40, 0)
             + Math.hypot(x - preferred[0], y - preferred[1]);
@@ -1186,7 +1220,7 @@ export function createLobuleZoom({ host }) {
       L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
     }
-    placeCall(fr, placed, cards, leads, crosses, ring);
+    placeCall(fr, placed, cards, leads, crosses, ring, hex);
   }
 
   // ── Frame loop ──
