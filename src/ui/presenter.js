@@ -1946,12 +1946,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       let ch = colHeight(cw / k) * k, dk = 1;
       const slack = dd.classList.contains('col') ? 8 : 0;
       below = top0 + t.height + 2 * pad + gap + ch <= foot + slack;
-      // Too tall to stack: the words' card gives way first, only as far as it must: its title down to under half size (the largest
-      // size that still stacks), then the data card's blocks a step at a time through a few fixed smaller sizes (DK), the words'
-      // text a little at each so the two cards' type stays close, the title sized again at each; only then the words' text alone. The data card is never squeezed
-      // to fit (no --pz-fit): if even the smallest step will not stack (a very short window) it sits at the top right.
+      // Too tall to stack: the words' card gives way first, only a little: its title no smaller than TK_SOFT, its column wider (SW)
+      // where it takes fewer lines, then the data card's blocks a step or two smaller (DK) with the words a little smaller to match.
+      // If the pair still will not stack, the words keep their full size and the data card sits at the top right.
       const put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
-      const title = (bk = 1, floor = TK_MIN) => {
+      const title = (bk = 1, floor = TK_SOFT) => {
         if (put(1, bk)) return true;
         if (!put(floor, bk)) return false;
         let lo = floor, hi = 1;   // (lo stacks, hi does not)
@@ -1963,8 +1962,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const widen = () => { const was = cw; ts.setProperty('--pz-sw', SW); t = r(ui.text); cw = t.right - wr.left + pad - sl; dd.style.setProperty('--pz-cwr', (was / cw).toFixed(4));   // (the chart keeps the size it had in the narrower column: only the words gain)
         foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl; ch = colHeight(cw / k, dk) * k; };
       const ladder = () => {
-        for (const [s, bk] of [[1, 1], ...DK]) { if (below) break; if (s < 1) step(s); below = title(bk); }
-        if (!below) for (const bk of [0.68, 0.64, 0.6]) if ((below = put(TK_MIN, bk))) break;   // (the words' text last)
+        for (const [s, bk] of DK) { if (below) break; step(s); below = title(bk, TK_SOFT); }   // (the data card's blocks a step or two smaller, the words a little: no further, or the words would squeeze)
       };
       if (lock) {
         for (const [n, v] of lock.vars) if (v) ts.setProperty(n, v);
@@ -1977,7 +1975,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         below = title(1, TK_SOFT);
         if (!below) { widen(); below = title(1, TK_SOFT); }
         if (!below) ladder();
-        if (!below) { dk = 1; ts.removeProperty('--pz-sw'); dd.style.removeProperty('--pz-cwr'); t = r(ui.text); cw = t.right - wr.left + pad - sl; foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl; ch = colHeight(cw / k, 1) * k; ladder(); }
         if (!below) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ts.removeProperty('--pz-sw'); dd.style.removeProperty('--pz-cwr'); t = r(ui.text); dk = 1; }   // (a little slack once there: a number ticking never flips it)
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
@@ -2044,7 +2041,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
   let frameL = 0, colT = 0;
   // The stacked data card's fixed block sizes, largest first, and the smallest the words' title goes.
-  const SW = 1.45, DK = [[0.9, 0.95], [0.8, 0.88], [0.7, 0.8], [0.6, 0.72]], TK_MIN = 0.45, TK_SOFT = 0.8;   // (the data card's block size, the words' text size)
+  const SW = 1.45, DK = [[0.9, 0.95], [0.8, 0.88]], TK_SOFT = 0.8;   // (the data card's block size, the words' text size)
   // The data card's height at width w (page px) under the words: as it would stand there, at full size (unfitted).
   function colHeight(w, dk = 1) {
     const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk')];
