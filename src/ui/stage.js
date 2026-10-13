@@ -7,7 +7,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7c63421fac';
 import { fibroReading } from './clock.js?v=6284ad19b7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=abb277f29f';
-import { createLobuleZoom } from './lobule-zoom.js?v=d347e200de';
+import { createLobuleZoom } from './lobule-zoom.js?v=796c414950';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -1365,9 +1365,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const smoothT = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   // The elements' offsets are read once per dive, before any write: read between writes, each would
   // make the browser lay the page out again, every frame.
-  let diveOrig = null;
+  let diveOrig = null, diveHid = false, labHid = false;
+  function setDiveHidden(on, lab = on) {
+    lab = !!(on || lab);
+    if (on === diveHid && lab === labHid) return;
+    diveHid = on; labHid = lab;
+    for (const el of diveEls()) el.style.visibility = (el.id === 'labels' ? lab : on) ? 'hidden' : '';
+  }
   function setDiveScale(k) {
     if (k <= 1.0001) {
+      setDiveHidden(false, false);
       // The transform goes first and the layer hint a frame later: dropping both at once can leave the
       // browser showing the last zoomed picture while clicks already land on the unzoomed figure.
       if (diveOrig) { const els = diveOrig.map(([el]) => el); for (const el of els) { el.style.transform = 'none'; el.style.transformOrigin = ''; } nextFrame(() => { if (!diveOrig) for (const el of els) { el.style.willChange = ''; el.style.transform = ''; } }); }
@@ -1422,6 +1429,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         a: smoothT(LC * 0.45, LC + 0.3, z), x: px, y: py,
         r, ox, oy, quiet: smoothT(0.45, 0.8, t), focus: smoothT(0.1, 0.8, t),
       });
+      // Once the field is whole (fully opaque, from z = LC + 0.3) the magnified anatomy beneath it is not seen: it is hidden, so the
+      // browser stops compositing it (Safari redraws a scaled SVG at each new scale, every frame); the labels as soon as they have faded.
+      setDiveHidden(t > 0 && t < 1 && z >= LC + 0.3, lab && t > 0 && t < 1 && +lab.style.opacity <= 0.001);
     }
     lobU = easeInOut(clamp((t - 0.48) / 0.4, 0, 1));
     syncSemantic();

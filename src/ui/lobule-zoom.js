@@ -1423,13 +1423,16 @@ export function createLobuleZoom({ host }) {
   // focus: 0..1, the lobules away from it faded into the page }. null hides it.
   // What a dive's frames share (the stage's size, its styles), read once per dive: reading them each
   // frame, after the stage's own writes, would make the browser lay out the page again every frame.
+  // (cs: the styles' values remembered as first read, so a frame never reads a live style after the stage's writes, which makes the
+  // browser recompute the page's styles in the middle of the frame.)
   let diveCtx = null;
+  const styleSnap = (cs) => { const m = new Map(); return { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) m.set(n, (v = cs.getPropertyValue(n))); return v; } }; };
   function paintField(d) {
     if (!d) diveCtx = null;
     if (!d || d.a <= 0.002) { if (field.width) { field.width = 0; field.height = 0; } field.style.opacity = '0'; fieldOp = 0; return; }
     if (!diveCtx) {
       const rect = host.getBoundingClientRect(), cs = getComputedStyle(host), dark = isDark();
-      diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs, dark, bg: stageBg(cs, dark) };
+      diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs: styleSnap(cs), dark, bg: stageBg(cs, dark) };
     }
     const { W, H, cs, dark, bg } = diveCtx;
     const dpr = Math.min(1, devicePixelRatio || 1) * 0.8;   // in motion and behind the lobule: a modest resolution is plenty
@@ -2317,7 +2320,9 @@ export function createLobuleZoom({ host }) {
       el.classList.toggle('on', fade > 0.98);
       el.setAttribute('aria-hidden', String(fade < 0.98));
       // Entering: the lobule is framed.
-      if (fade > 0 && was === 0) { resetView(); if (F) update(F); }
+      // (Its flow marks start faded and ease in once it has landed: left at full from an earlier visit, they made every frame of the
+      // dive's first 0.3 s redraw the whole lobule at full size.)
+      if (fade > 0 && was === 0) { flowA = 0; flowT = 0; resetView(); if (F) update(F); }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { stopInertia(); if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
       if (fade === 0) { cancelFrame(raf); raf = 0; last = 0; if (was > 0) release(); }

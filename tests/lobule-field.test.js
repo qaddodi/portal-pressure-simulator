@@ -20,3 +20,14 @@ test('the dive fades the lobules away from the landing one, in and out, rising t
   assert.match(lz, /Math\.log\(Math\.min\(diag \* 0\.45, rd \* 1\.1\)\), f\)/);
   assert.match(lz, /fieldFade\(c, shadeOf\(rgb01\(bg\), dark\), sx \* dpr, sy \* dpr, R \* V\.k \* dpr, 1,/, 'the resting view keeps the faded surround');
 });
+
+test('the dive does no full-size redraws or hidden compositing mid-zoom', () => {
+  // The lobule's flow marks start faded each time it fades in, so the scaled lobule is drawn once, not every frame.
+  assert.match(lz, /if \(fade > 0 && was === 0\) \{ flowA = 0; flowT = 0;/);
+  // The field reads the styles once per dive, not live each frame after the stage's writes.
+  assert.match(lz, /cs: styleSnap\(cs\)/);
+  // The magnified anatomy is hidden while the whole field covers it (z ≥ LC + 0.3, where the field is opaque), and shown again on every end.
+  assert.match(stage, /setDiveHidden\(t > 0 && t < 1 && z >= LC \+ 0\.3,/);
+  assert.match(stage, /if \(k <= 1\.0001\) \{\n\s+setDiveHidden\(false, false\);/);
+  assert.match(stage, /a: smoothT\(LC \* 0\.45, LC \+ 0\.3, z\)/, 'the field is whole exactly where the anatomy is hidden');
+});
