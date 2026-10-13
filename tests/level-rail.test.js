@@ -28,4 +28,10 @@ test('the rail marks the block with the phone ladder block (hatched, outlined) w
   assert.ok(+hgt > 0.62 + 0.1, 'taller than the bar');
   assert.ok((+hgt - 0.62) / 2 < 0.5, 'overhang stays inside the gap above the label (.5em)');
   assert.ok(!css.split('\n').some((l) => l.startsWith('.pz-rail li > i b {')));
+  // (the block reaches past the end bars, so the rail keeps that much room at its sides, or the card edge clips it)
+  const [, over] = b.match(/left: -([\d.]+)em/);
+  const rail = css.split('\n').find((l) => l.startsWith('.pz-rail {'));
+  const [, rp] = rail.match(/--rp: ([\d.]+)em/);
+  assert.ok(rail.includes('padding: 1.6em var(--rp) 0'), 'rail padded at both sides');
+  assert.ok(+rp > +over, 'side room covers the overhang and its outline');
 });
