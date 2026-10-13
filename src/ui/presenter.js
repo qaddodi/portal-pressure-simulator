@@ -21,7 +21,7 @@ import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=a7a05c7354';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=18b99b671d';
-import { createTools } from './presenter-tools.js?v=42948be449';
+import { createTools } from './presenter-tools.js?v=8c397bfb06';
 import { openHandout } from './handout.js?v=c916180ca3';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=d151452073';
@@ -1803,7 +1803,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.root.classList.toggle('pz-card', cardOn); ui.shade.classList.toggle('pz-card', cardOn);
     const off = (el) => el.hidden || (el === ui.data ? 'gone' in el.dataset : el.classList.contains('pz-hide'));   // (a card only easing out and back in for the next slide still counts, where it rests: the camera frames once)
     const r = (el) => (off(el) ? null : restBox(el));
-    ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk');
+    ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ui.text.style.removeProperty('--pz-sw');
     ui.text.style.maxHeight = '';   // (the last pass's cap would shrink the words to a room they no longer have)
     fitCards(ui.text);
     let t = r(ui.text);
@@ -1814,7 +1814,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     let below = false, top0 = 0, gap = 0, cw = 0, foot = H;
     if (cardOn && t && !off(dd)) {
       ts.top = ''; top0 = parseFloat(getComputedStyle(ui.text).top) * k;   // (the cards' top: the data card's at the right)
-      gap = Math.max(sl, 28); cw = t.right - wr.left + pad - sl;
+      gap = Math.min(Math.max(sl, 20), H < 900 ? 20 : 28); cw = t.right - wr.left + pad - sl;
       const q = ui.bar.hidden || !ui.bar.offsetWidth ? null : ui.bar.getBoundingClientRect();
       foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl;
       let ch = colHeight(cw / k) * k, dk = 1;
@@ -1824,7 +1824,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // size that still stacks), then the data card's blocks a step at a time through a few fixed smaller sizes (DK), the words'
       // text a little at each so the two cards' type stays close, the title sized again at each; only then the words' text alone. The data card is never squeezed
       // to fit (no --pz-fit): if even the smallest step will not stack (a very short window) it sits at the top right.
-      const t0 = t, put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
+      const put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
       const title = (bk = 1) => {
         if (put(1, bk)) return true;
         if (!put(TK_MIN, bk)) return false;
@@ -1834,9 +1834,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       };
       const step = (s) => { dk = s; ch = colHeight(cw / k, s) * k; };
       // (The words' text steps down with the blocks, a little less, so the two cards' type never ends far apart.)
-      for (const [s, bk] of [[1, 1], ...DK]) { if (below) break; if (s < 1) step(s); below = title(bk); }
-      if (!below) for (const bk of [0.68, 0.64, 0.6]) if ((below = put(TK_MIN, bk))) break;   // (the words' text last)
-      if (!below) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); t = t0; dk = 1; }   // (a little slack once there: a number ticking never flips it)
+      const widen = () => { ts.setProperty('--pz-sw', SW); t = r(ui.text); cw = t.right - wr.left + pad - sl; foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl; ch = colHeight(cw / k, dk) * k; };
+      const ladder = () => {
+        for (const [s, bk] of [[1, 1], ...DK]) { if (below) break; if (s < 1) step(s); below = title(bk); }
+        if (!below) for (const bk of [0.68, 0.64, 0.6]) if ((below = put(TK_MIN, bk))) break;   // (the words' text last)
+      };
+      ladder();
+      // (Still too tall: the same steps again in a wider column, SW, where the words take fewer lines; a chart drawn to the
+      // card's width grows with it, so this comes second.)
+      if (!below) { dk = 1; widen(); below = top0 + t.height + 2 * pad + gap + ch <= foot; ladder(); }
+      if (!below) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ts.removeProperty('--pz-sw'); t = r(ui.text); dk = 1; }   // (a little slack once there: a number ticking never flips it)
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
     } else dd.style.removeProperty('--pz-dk');
     const isCol = dd.classList.contains('col');
@@ -1900,7 +1907,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
   let frameL = 0, colT = 0;
   // The stacked data card's fixed block sizes, largest first, and the smallest the words' title goes.
-  const DK = [[0.9, 0.95], [0.8, 0.88], [0.7, 0.8], [0.6, 0.72]], TK_MIN = 0.45;   // (the data card's block size, the words' text size)
+  const SW = 1.45, DK = [[0.9, 0.95], [0.8, 0.88], [0.7, 0.8], [0.6, 0.72]], TK_MIN = 0.45;   // (the data card's block size, the words' text size)
   // The data card's height at width w (page px) under the words: as it would stand there, at full size (unfitted).
   function colHeight(w, dk = 1) {
     const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk')];

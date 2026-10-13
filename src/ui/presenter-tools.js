@@ -50,6 +50,11 @@ const noop = () => {};
 export function createTools({ host, stage }) {
   const ghostEl = h('div', { class: 'pz-ghost', 'aria-live': 'polite' });
   const box = h('div', { class: 'pz-tool' });
+  // A chart drawn in its own units (a viewBox) shrinks its letters with the card: its smallest words (13 units) are kept
+  // 11.5 px or more on the screen, the chart's letters all grown by the same factor (--svk), up to half again.
+  const svk = () => { for (const sv of box.querySelectorAll('svg[viewBox]')) { const w = +sv.getAttribute('viewBox').split(/[\s,]+/)[2], r = sv.getBoundingClientRect().width;
+    if (!w || !r) continue; const k = Math.min(1.5, Math.max(1, 11.5 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) sv.style.setProperty('--svk', k.toFixed(2)); } };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => nextFrame(svk)).observe(box);
   const made = {};
   let cur = null, kind = null, probe0, lastSt = null;
   function make(k) {

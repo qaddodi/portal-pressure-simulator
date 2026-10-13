@@ -21,7 +21,7 @@ export function chartFaults(sel) {
   const out = [];
   for (const svg of charts) {
     // (A card too full for its screen zooms its contents down, --pz-fit: the roles are read at that zoom; 11 px stays the floor.)
-    const fit = svg.closest('.pz-text > *, .pz-data > *, .pz-panel > *'), z = fit ? parseFloat(fit.parentElement.style.getPropertyValue('--pz-fit')) || 1 : 1;
+    const fit = svg.closest('.pz-text > *, .pz-data > *, .pz-panel > *'), z = fit ? (parseFloat(fit.parentElement.style.getPropertyValue('--pz-fit')) || 1) * (fit.parentElement.classList.contains('col') && parseFloat(fit.parentElement.style.getPropertyValue('--pz-dk')) || 1) : 1;   // (and a stacked data card's blocks at their fixed smaller size, --pz-dk)
     const name = svg.getAttribute('class').split(' ')[0], vb = svg.viewBox.baseVal, sr = svg.getBoundingClientRect(), k = Math.min(sr.width / vb.width, sr.height / vb.height);   // (screen px per unit, zoom included)
     const card = (svg.closest('.pz-cell, .pz-panel, .pz-data, .pz-visual, .pz-text') || svg.parentElement).getBoundingClientRect();
     const runs = [...svg.querySelectorAll('text')].filter((t) => t.textContent.trim() && shown(t)).flatMap((t) => (t.querySelector('tspan') && !t.querySelector('tspan.pzs-bn') ? [...t.querySelectorAll('tspan')] : [t]).map((e) => ({ e, t, r: e.getBoundingClientRect() })));

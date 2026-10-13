@@ -92,8 +92,10 @@ const barFit = (page) => page.evaluate(() => {
   if (hit) return `the controls cover the card's ${hit.className || hit.tagName.toLowerCase()} ("${hit.textContent.trim().slice(0, 40)}")`;
   const b = bar.getBoundingClientRect();
   if (bar.classList.contains('phone')) {
-    if (Math.abs(innerWidth - b.right - 10) > 1.5) return `the pill is ${Math.round(innerWidth - b.right)} px from the right edge, not 10`;
-    if (Math.abs(innerHeight - b.bottom - 4) > 1.5) return `the pill is ${Math.round(innerHeight - b.bottom)} px from the bottom, not 4`;
+    // (Inside the teaching card at its lower right: 15 px in from the screen's edge on a phone, from the card's on an upright iPad.)
+    const inR = document.querySelector('.pz.stack.tab') ? innerWidth * 0.15 + 15 : 15;
+    if (Math.abs(innerWidth - b.right - inR) > 1.5) return `the pill is ${Math.round(innerWidth - b.right)} px from the right edge, not ${Math.round(inR)}`;
+    if (Math.abs(innerHeight - b.bottom - 14) > 1.5) return `the pill is ${Math.round(innerHeight - b.bottom)} px from the bottom, not 14`;
     const small = [...bar.querySelectorAll('button')].find((c) => { const r = c.getBoundingClientRect(); return r.width < 44 || r.height < 44; });
     if (small) return `a control (${small.getAttribute('aria-label')}) is under 44 px`;
     const h = host.getBoundingClientRect();
