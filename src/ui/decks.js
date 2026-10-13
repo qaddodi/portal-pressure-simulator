@@ -118,7 +118,7 @@ export function withOverview(d) {
   const firstNow = keep ? Object.fromEntries(Object.entries(first).filter(([k]) => !MODEL.includes(k))) : first;
   // The closing quick check (checks: [[question, answer]]): over the last slide's patient, which it keeps.
   const check = d.checks?.length ? [{ id: 'check', visual: 'check', checks: d.checks, kicker: 'Quick check', title: 'Check what you remember',
-    line: 'Answer each question in your head, then tap it to see the answer.', notes: 'Recall the key numbers and ideas of this talk.' }] : [];
+    line: 'Answer each question in your head, then tap it to see the answer.' }] : [];
   return { ...d, slides: [open, place(firstNow), ...rest.map(place), ...check] };
 }
 
