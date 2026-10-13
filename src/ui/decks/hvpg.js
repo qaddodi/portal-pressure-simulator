@@ -48,7 +48,7 @@ export const HVPG = {
       id: 'grades', visual: 'scale', scale: { key: 'hvpg', max: 20, legend: true, low: 'Normal', marks: [[5, 'Portal\nhypertension', 'Raised'], [10, 'Clinically significant\nportal hypertension\n(CSPH)', 'CSPH'], [12, 'Varices\ncan bleed', 'Bleeding risk']] },
       of: [{ preset: 'healthy', name: 'Healthy' }, { preset: 'cirr-comp', name: 'Compensated cirrhosis' }, { id: 'hvpg', name: 'The patient' }, { preset: 'cirr-decomp', name: 'Decompensated cirrhosis' }],
       kicker: 'Thresholds', title: 'Four patients on the HVPG scale',
-      line: 'A healthy liver, compensated cirrhosis, the patient and decompensated cirrhosis, each placed by its HVPG.',
+      line: 'A healthy liver, compensated cirrhosis, the patient\'s liver and decompensated cirrhosis, each placed by its HVPG.',
       notes: 'HVPG 1 to 5 mmHg is normal. 6 to 9: portal hypertension, still subclinical. 10 or more: clinically significant portal hypertension, where varices, ascites and decompensation become possible, and the risk rises with the gradient; Baveno VIII advises a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. 12 or more: varices can bleed, although size, red signs and liver function decide how likely that is. Higher values carry a worse outlook; in an acute bleed an HVPG of 20 or more predicts failure to control it.',
       ask: ['At what HVPG can varices bleed?', '12 mmHg or more.'],
     },

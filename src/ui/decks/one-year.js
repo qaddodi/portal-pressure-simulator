@@ -28,7 +28,7 @@ export const ONE_YEAR = {
       id: 'cath', cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'],
       kicker: 'Day 0', site: 'sin', title: 'At diagnosis the HVPG is just below 10',
       line: 'An HVPG of {hvpg} is portal hypertension, still below the 10 mmHg where CSPH begins.',
-      notes: 'HVPG = WHVP − FHVP. Above 5 mmHg is portal hypertension; 10 or more is clinically significant (CSPH), where varices and decompensation become possible, and the risk rises with the gradient. At 9 mmHg the patient is close. HVPG is the reference standard, but invasive, so most centers reserve it for trials, uncertain cases and before liver surgery.',
+      notes: 'HVPG = WHVP − FHVP. Above 5 mmHg is portal hypertension; 10 or more is clinically significant (CSPH), where varices and decompensation become possible, and the risk rises with the gradient. At 9 mmHg the HVPG is close. HVPG is the reference standard, but invasive, so most centers reserve it for trials, uncertain cases and before liver surgery.',
       ask: ['HVPG 9 mmHg. Is this CSPH?', 'No: portal hypertension, but CSPH starts at 10 mmHg.'],
     },
     {
