@@ -29,5 +29,5 @@ test('decks that teach more than one level tag their slides; cirrhosis-only deck
 
 test('the teaching card renders the tag above the title', () => {
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src, /siteTag\(deck, s\)[^\n]*'pz-site'[^\n]*h\('h1', \{ class: 'pz-h' \}, nb\(s\.title\)\)/);
+  assert.match(src, /siteTag\(deck, s\)[^\n]*'pz-site'[^\n]*h\('h1', \{ class: 'pz-h' \}, \.\.\.diseaseNodes\(nb\(s\.title\)\)\)/);
 });

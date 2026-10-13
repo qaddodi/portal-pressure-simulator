@@ -18,6 +18,7 @@ import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } f
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=9818d847b0';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
+import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=4fd8e10b03';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=558836b84d';
@@ -54,6 +55,8 @@ function equation([ml, legend]) {
   if (legend) box.append(h('p', { class: 'pz-eqk' }, legend));
   return box;
 }
+// A string with its disease names set in a pill (see diseases.js).
+const diseaseNodes = (t) => diseasePieces(t).map(([x, dz]) => (dz ? h('span', { class: 'pz-dz' }, x) : x));
 const nb = (t) => (t || '').replace(/(\p{L})–(\p{L})/gu, '$1–\u2060$2');
 // A slide's line, typeset. One value goes in a quiet pill: the one the deck marks with {braces}, else the first
 // value with a unit (a line of cut-offs leaves the rest to its scale). The slide's own key terms (its highlighted
@@ -184,7 +187,7 @@ function rich(t, s = {}, fp = null) {
   const tl = termList(s), tw = tl.map(([w]) => w.replace(/(^|\|)([a-z])/g, (_, p, c) => `${p}[${c}${c.toUpperCase()}]`));   // (a term may open the sentence)
   const marked = /\{[^}]+\}/.test(t);
   // (A group that never matches holds the place of an empty list, so each kind keeps its group number.)
-  const re = new RegExp(String.raw`\[([^\]]+)\]\(([\w:]+)\)|\{([^}]+)\}([,.;:]?)` + (tw.length ? `|\\b(${tw.join('|')})\\b` : '|((?!))') + `|(${VAL})([,.;:]?)` + (keys.length ? `|\\b(${keys.join('|')})\\b` : '|((?!))') + `|\\b(${TERMS.join('|')})\\b`, 'g');
+  const re = new RegExp(String.raw`\[([^\]]+)\]\(([\w:]+)\)|\{([^}]+)\}([,.;:]?)` + (tw.length ? `|\\b(${tw.join('|')})\\b` : '|((?!))') + `|(${VAL})([,.;:]?)` + (keys.length ? `|\\b(${keys.join('|')})\\b` : '|((?!))') + `|\\b(${TERMS.join('|')})\\b|\\b(${DISEASE_SRC})\\b`, 'g');
   const out = [], seen = new Set(), seenT = new Set(); let at = 0, bold = 0, pills = 0, m;
   t = nb(t);
   // A pill keeps the word before it and the stop after it on its line (a no-break space, one unbreakable span).
@@ -194,7 +197,7 @@ function rich(t, s = {}, fp = null) {
   const termPill = (w, k) => { const tone = TARGETS[k].organ === 'spleen' ? (fp && rateTone('spleen', fp)) || '--text-2' : TARGETS[k].tone;   // (the spleen's word, as its outline)
     return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: ${toneVar(tone)}` }, w); };
   while ((m = re.exec(t))) {
-    const [all, lw, lk, mk, mkStop, tword, val, valStop, key, term] = m, w = (key || term)?.toLowerCase().replace(/(?:s|ces)$/, '');
+    const [all, lw, lk, mk, mkStop, tword, val, valStop, key, term, dz] = m, w = (key || term)?.toLowerCase().replace(/(?:s|ces)$/, '');
     if (val && (marked || pills || s.pill === false)) continue;
     if (term && (seen.has(w) || bold >= 3)) continue;
     if (key && seen.has(w)) continue;
@@ -207,6 +210,7 @@ function rich(t, s = {}, fp = null) {
     else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(mk.replace(/^(?:>=|<=|[<>≥≤])\s*/, ''), mkStop, ' cut'));
     else if (mk) out.push(pill(mk, mkStop));
     else if (val) out.push(pill(val, valStop));
+    else if (dz) out.push(h('span', { class: 'pz-dz' }, dz));
     else { seen.add(w); bold++; out.push(h('b', {}, key || term)); }
     at = m.index + all.length;
     // (A term pill keeps the stop or bracket after it on its line.)
@@ -1565,7 +1569,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void panel.offsetWidth; }
       panel.classList.toggle('fill', s.visual === 'ladders');
       panel.dataset.visual = s.visual;
-      panel.replaceChildren(h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null),
+      panel.replaceChildren(h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null),
         VISUALS[s.visual](s));
       if (!ui.root.classList.contains('pz-prep')) panel.classList.remove('pz-leave');   // (else once fitted: settle)
       ui.veil.classList.add('on');
@@ -1574,7 +1578,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       text.hidden = false;
       text.replaceChildren(...(q
         ? [h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
-        : [(({ site, name } = siteTag(deck, s) || {}) => site ? h('span', { class: 'pz-site', 'data-site': site }, h('i'), name) : null)(), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
+        : [(({ site, name } = siteTag(deck, s) || {}) => site ? h('span', { class: 'pz-site', 'data-site': site }, h('i'), name) : null)(), h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
