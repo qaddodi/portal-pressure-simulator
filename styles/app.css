@@ -1599,10 +1599,10 @@ button.finding { cursor: pointer; }
 .pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
 .pz-tile { display: flex; flex-direction: column; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh) / var(--vz)), 18px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease); }
 .pz-tile.key { border-color: var(--accent); background: var(--accent-soft); }
-.pzt-k { font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); overflow-wrap: anywhere; }
+.pzt-k { font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); overflow-wrap: break-word; }
 /* The number shrinks with its tile (30cqi) and the unit drops under it rather than leave the box. */
-.pzt-vu { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .3em; min-width: 0; }
-.pzt-v { font: 600 var(--s-big)/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); transition: color .4s var(--ease); }
+.pzt-vu { display: flex; flex-wrap: nowrap; align-items: baseline; gap: 0 .3em; min-width: 0; }
+.pzt-v { font: 600 min(var(--s-big), 24cqi)/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); transition: color .4s var(--ease); }
 .pzt-vu small { font: 500 var(--s-cap) var(--font-ui); color: var(--text-3); white-space: nowrap; }
 .pzt-r { display: inline-flex; align-items: center; gap: .45em; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-2); }
 .pzt-r::before { content: ''; width: .6em; height: .6em; border-radius: 50%; background: var(--text-3); flex: none; transition: background-color .4s var(--ease); }
@@ -1632,6 +1632,7 @@ button.finding { cursor: pointer; }
    so a changing number does not nudge the card. Two tiles go side by side when the screen is wide. */
 .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) { width: fit-content; max-width: clamp(300px, calc(25vw / var(--vz)), 500px); }
 .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pz-tile { container-type: normal; }
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v { font-size: var(--s-big); }
 .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v { font-size: var(--s-title); min-width: 3.6ch; }
 @media (orientation: portrait) { .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) { max-width: min(62vw, 520px); } }
 @media (min-width: 1100px) {
@@ -2020,8 +2021,13 @@ button.finding { cursor: pointer; }
 .pz-tool[data-kind="wall"] .endo-stage { flex: none; width: min(46%, calc(30 * var(--pzh))); min-height: 0; }
 .pz-tool[data-kind="wall"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; }
 .pz-tool[data-kind="wall"] .chart-side { flex: 1; min-width: 0; }
-.pz-tool[data-kind="wall"] .endo-read { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+.pz-tool[data-kind="wall"] .endo-read { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
 .pz-tool[data-kind="wall"] .endo-stress { grid-column: 1 / -1; }
+/* Fixed shape whatever the numbers: one row per reading (label left, value right, never wrapped), so no tile or the card changes size. */
+.pz-tool[data-kind="wall"] .endo-read > .endo-tile { flex-direction: row; align-items: baseline; justify-content: space-between; gap: .6em; }
+.pz-tool[data-kind="wall"] .endo-read dt, .pz-tool[data-kind="wall"] .endo-num, .pz-tool[data-kind="wall"] .endo-stress-v { white-space: nowrap; overflow-wrap: normal; }
+.pz-tool[data-kind="wall"] .endo-num { justify-content: flex-end; }
+.pz-tool[data-kind="wall"] .endo-stress-v { overflow: hidden; text-overflow: ellipsis; }
 .pz-tool[data-kind="wall"] .endo-pos, .pz-tool[data-kind="wall"] .wall-law, .pz-tool[data-kind="wall"] .endo-read > :last-child { display: none; }
 .pz-data.has-tool { pointer-events: auto; }
 /* One block style beside a tool: the scope's readings and the key tile are all tiles of the data card (fill set above), laid out
@@ -2029,9 +2035,9 @@ button.finding { cursor: pointer; }
 .pz-data.has-tool .pz-tile.key { border-color: transparent; }
 .pz-tool .endo-read { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(6px, calc(1 * var(--pzh) / var(--vz)), 10px); }
 .pz-tool .endo-read > div { display: flex; flex-direction: column; justify-content: space-between; gap: .2em; min-width: 0; padding: clamp(8px, calc(1.1 * var(--pzh) / var(--vz)), 12px) clamp(10px, calc(1.4 * var(--pzh) / var(--vz)), 16px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); border: 2px solid transparent; }
-.pz-tool .endo-read dt { font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); white-space: normal; overflow-wrap: anywhere; }
+.pz-tool .endo-read dt { font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); white-space: normal; overflow-wrap: break-word; }
 .pz-tool .endo-num, .pz-tool .endo-chip-v, .pz-tool .endo-grade, .pz-tool .endo-grade span, .pz-tool .endo-grade b { font: 600 var(--s-body)/1.1 var(--font-ui); letter-spacing: -.02em; }
-.pz-tool .endo-num { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .3em; }
+.pz-tool .endo-num { display: flex; flex-wrap: nowrap; align-items: baseline; gap: 0 .3em; }   /* (a long value must not push its unit to a new line: that grows the tile) */
 .pz-tool .endo-chip-v { margin: 0 !important; text-align: left; }
 .pz-tool .endo-chip-v[data-long] { font-size: var(--s-cap); letter-spacing: 0; }
 .pz-tool .endo-chip-v::before { content: ''; display: inline-block; width: .5em; height: .5em; margin-right: .45em; border-radius: 50%; background: var(--text-3); vertical-align: .08em; transition: background-color .3s var(--ease); }
