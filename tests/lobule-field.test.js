@@ -31,3 +31,10 @@ test('the dive does no full-size redraws or hidden compositing mid-zoom', () => 
   assert.match(stage, /if \(k <= 1\.0001\) \{\n\s+setDiveHidden\(false, false\);/);
   assert.match(stage, /a: smoothT\(LC \* 0\.45, LC \+ 0\.3, z\)/, 'the field is whole exactly where the anatomy is hidden');
 });
+
+test('in dark mode the field lobules\' capillarized sinusoids are dark (they recede), pale in light and Soft', () => {
+  const tokens = read('../styles/tokens.css');
+  assert.match(lz, /c\.strokeStyle = fs\.sin > 0\.2 \? tk\('--lz-field-sin-pale'\) : gap;/);
+  assert.match(tokens, /--collagen: rgb\(237, 222, 186\); --lz-field-sin-pale: var\(--collagen\);/);
+  assert.equal((tokens.match(/--collagen: rgb\(199, 186, 153\); --lz-field-sin-pale: #2E1A26;/g) || []).length, 2, 'both dark blocks (system and chosen)');
+});

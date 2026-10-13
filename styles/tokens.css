@@ -192,7 +192,7 @@
   --cath-body: #F4F6FA; --cath-tip: #1B2230; --cath-balloon: rgba(226, 233, 244, .78); --cath-shadow: rgba(10, 14, 22, .55);
   --fibroscan: #f0924a; --dop-chip-away: var(--dop-away); --dop-chip-toward: var(--dop-toward);
   /* lobule art (canvas): tract, congestion, nutmeg, acinar zone fills, cells, lymph, albumin beads, collagen */
-  --lz-shade: #603A5C; --lz-lumen-hidden: var(--sv-lumen-hidden); --collagen: rgb(237, 222, 186); --lz-congestion: #8C283C; --lz-nutmeg: #80162C;
+  --lz-shade: #603A5C; --lz-lumen-hidden: var(--sv-lumen-hidden); --collagen: rgb(237, 222, 186); --lz-field-sin-pale: var(--collagen); --lz-congestion: #8C283C; --lz-nutmeg: #80162C;
   --lz-zone-1: #E86854; --lz-zone-2: #D6A05C; --lz-zone-3: #7C62CE; --lz-zone-line: rgba(60, 40, 60, .28);
   --lz-nodule-ink: rgba(110, 60, 84, .22); --lz-nodule-shadow: rgba(110, 50, 50, .3); --lz-plate-line: rgba(80, 50, 50, .14);
   --lz-hsc-body: #96603E; --lz-hsc-nucleus: #603628; --lz-casing: rgba(30, 24, 40, .45); --lz-bile-duct: var(--bile-duct); --lz-select: rgba(59, 108, 246, .45);
@@ -253,7 +253,7 @@
     --zone-1: rgb(246, 140, 120); --zone-2: rgb(232, 186, 112); --zone-3: rgb(170, 150, 246);
     --sv-lumen-hidden: #58607A; --sv-fenestra: #B8C6E2; --sv-disse: #B5D3A3; --sv-hsc: #D9B092; --sv-kupffer: #D6C6F2; --sv-hepatocyte: #E3B2A9;
     --tour-portal: #E06AA2; --tour-sys: #79AEEF; --lapse-ink: #f2b45a;
-    --collagen: rgb(199, 186, 153); --lz-zone-line: rgba(255, 255, 255, .3); --lz-nodule-ink: rgba(30, 14, 28, .22); --lz-nodule-shadow: rgba(0, 0, 0, .5); --lz-plate-line: rgba(255, 255, 255, .1);
+    --collagen: rgb(199, 186, 153); --lz-field-sin-pale: #2E1A26; --lz-zone-line: rgba(255, 255, 255, .3); --lz-nodule-ink: rgba(30, 14, 28, .22); --lz-nodule-shadow: rgba(0, 0, 0, .5); --lz-plate-line: rgba(255, 255, 255, .1);
     --lz-duct-cell: #8E9150; --lz-duct-edge: rgba(36, 38, 16, .55); --lz-duct-nucleus: #3E4120; --lz-duct-lumen: #2C2F16;
     --lz-lymph: rgba(214, 236, 204, .42); --lz-albumin-ring: rgba(20, 14, 4, .9); --lz-collagen: #E8C48C; --lz-rbc: rgba(255, 120, 140, .9);
     --sv-gl-nucleus: #281222; --sv-gl-basement: #CCBC8E; --bile-duct: #969C50; --sv-gl-endothelium: #7A749C;
@@ -300,7 +300,7 @@
   --zone-1: rgb(246, 140, 120); --zone-2: rgb(232, 186, 112); --zone-3: rgb(170, 150, 246);
   --sv-lumen-hidden: #58607A; --sv-fenestra: #B8C6E2; --sv-disse: #B5D3A3; --sv-hsc: #D9B092; --sv-kupffer: #D6C6F2; --sv-hepatocyte: #E3B2A9;
   --tour-portal: #E06AA2; --tour-sys: #79AEEF; --lapse-ink: #f2b45a;
-  --collagen: rgb(199, 186, 153); --lz-zone-line: rgba(255, 255, 255, .3); --lz-nodule-ink: rgba(30, 14, 28, .22); --lz-nodule-shadow: rgba(0, 0, 0, .5); --lz-plate-line: rgba(255, 255, 255, .1);
+  --collagen: rgb(199, 186, 153); --lz-field-sin-pale: #2E1A26; --lz-zone-line: rgba(255, 255, 255, .3); --lz-nodule-ink: rgba(30, 14, 28, .22); --lz-nodule-shadow: rgba(0, 0, 0, .5); --lz-plate-line: rgba(255, 255, 255, .1);
   --lz-duct-cell: #8E9150; --lz-duct-edge: rgba(36, 38, 16, .55); --lz-duct-nucleus: #3E4120; --lz-duct-lumen: #2C2F16;
   --lz-lymph: rgba(214, 236, 204, .42); --lz-albumin-ring: rgba(20, 14, 4, .9); --lz-collagen: #E8C48C; --lz-rbc: rgba(255, 120, 140, .9);
   --sv-gl-nucleus: #281222; --sv-gl-basement: #CCBC8E; --bile-duct: #969C50; --sv-gl-endothelium: #7A749C;

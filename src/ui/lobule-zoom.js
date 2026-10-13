@@ -1278,7 +1278,7 @@ export function createLobuleZoom({ host }) {
   function drawTile(t, { cell, gap, cvc, pvc, art, duct, dark, fs }) {
     const S3 = Math.sqrt(3), R = t.R;
     const hash = (i, j) => { let q = (i * 374761393 + j * 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };
-    const COL = tk('--collagen'), COLa = cssRGB01('--collagen'), edges = new Set();
+    const COLa = cssRGB01('--collagen'), edges = new Set();
     const TW = 6 * R, TH = 2 * S3 * R, tw = Math.round(TW), th = Math.round(TH);
     const cv = document.createElement('canvas'); cv.width = tw; cv.height = th;
     const c = cv.getContext('2d');
@@ -1325,8 +1325,8 @@ export function createLobuleZoom({ host }) {
         c.fillStyle = n; c.fillRect(x - R, y - R, 2 * R, 2 * R);
       }
       // Sinusoids: from each edge's portal side toward the central vein, each with a slight bend;
-      // capillarized, they turn pale.
-      c.strokeStyle = fs.sin > 0.2 ? COL : gap; c.lineCap = 'round'; c.lineWidth = Math.max(0.5, R * (0.022 + 0.01 * fs.sin));
+      // capillarized, they turn pale (in dark mode dark instead, so the lobules around the one in focus recede).
+      c.strokeStyle = fs.sin > 0.2 ? tk('--lz-field-sin-pale') : gap; c.lineCap = 'round'; c.lineWidth = Math.max(0.5, R * (0.022 + 0.01 * fs.sin));
       for (let i = 0; i < 18; i++) {
         const k = Math.floor(i / 3), f = (i % 3 + 0.5) / 3, A = P[k], B = P[(k + 1) % 6];
         const sx = A[0] + (B[0] - A[0]) * f, sy = A[1] + (B[1] - A[1]) * f;
