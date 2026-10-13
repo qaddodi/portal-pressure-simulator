@@ -12,3 +12,11 @@ test('the lobule callout ring and leader are at least 4px thick, in every kind',
   assert.ok(w >= 4, `stroke-width is ${w}px`);
   assert.doesNotMatch(css, /\.lz-call-[lr][^{]*\{[^}]*stroke-width:\s*[0-3](\.\d+)?px/);
 });
+
+test('the lesion leader starts on the ring\'s edge, and labels keep clear of the ring', () => {
+  const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  assert.match(js, /callLine\.setAttribute\('x1', a\[0\] \+ \(best\.x - a\[0\]\) \* e0\)/, 'leader start is offset by the ring radius');
+  assert.doesNotMatch(js, /callLine\.setAttribute\('x1', a\[0\]\); callLine/, 'leader no longer starts at the ring centre');
+  assert.match(js, /ringDepth\(ring, box\) > 0 \? 1e6/, 'labels pay the full clash cost for touching the ring');
+  assert.match(js, /ringDepth\(ring, box\) \* 1e4/, 'the pill keeps off the ring too');
+});

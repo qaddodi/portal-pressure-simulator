@@ -1712,6 +1712,25 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!still((r) => r.line.split(',').map(Number))) throw new Error('the lesion leader moved after it had settled');
   });
 
+  await check(device, 'presenter lobule: the lesion leader stops at the ring\'s edge and no label sits on the ring', async (page) => {
+    for (const slide of [7, 3]) {
+      await open(page, `?script=lobule&slide=${slide}`);
+      await page.waitForFunction(() => document.querySelector('.lz-call.on') && window.pps.stage.lobuleSettled(), null, { timeout: 60000 }).catch(() => null);
+      const r = await page.evaluate(() => {
+        const call = document.querySelector('.lz-call.on'), ring = document.querySelector('.lz-call-r.on'), line = document.querySelector('.lz-call-l.on');
+        if (!call || !ring || !line) return null;
+        const cx = +ring.getAttribute('cx'), cy = +ring.getAttribute('cy'), rr = +ring.getAttribute('r'), host = ring.ownerSVGElement.getBoundingClientRect();
+        const start = Math.hypot(+line.getAttribute('x1') - cx, +line.getAttribute('y1') - cy);
+        const near = (b) => Math.hypot(Math.max(b.left - host.left - cx, 0, cx - (b.right - host.left)), Math.max(b.top - host.top - cy, 0, cy - (b.bottom - host.top)));
+        const boxes = [...document.querySelectorAll('.lz-lab, .lz-call, .lz-zone')].filter((e) => e.offsetWidth && !e.hidden && +getComputedStyle(e).opacity > 0.5);
+        return { rr, start, closest: Math.min(...boxes.map((e) => near(e.getBoundingClientRect()))) };
+      });
+      if (!r) continue;
+      if (Math.abs(r.start - r.rr) > 1) throw new Error(`slide ${slide}: the leader starts ${r.start.toFixed(1)}px from the ring's centre, ring radius ${r.rr.toFixed(1)}px`);
+      if (r.closest < r.rr + 2) throw new Error(`slide ${slide}: a label reaches within ${r.closest.toFixed(1)}px of the ring's centre (radius ${r.rr.toFixed(1)}px)`);
+    }
+  });
+
   await check(device, 'moving blood on the GPU: menu, origin, dye, reversal', async (page) => {
     await open(page, '?preset=cirr-hepatofugal');
     const kind = await page.evaluate(() => document.querySelector('#stageView').dataset.veins);

@@ -961,33 +961,50 @@ export function createLobuleZoom({ host }) {
   const hitKind = (key) => (key === 'ha' || key === 'bd' ? { part: key, tri: pick.triad } : key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
   let callPrev = null;
-  function placeCall(fr, placed, cards, leads, crosses) {
+  // The ring on the spot: its centre and radius on screen (null while the spot is out of view), and how far from the ring's
+  // centre everything else keeps (the radius, half its 4 px stroke and a small gap), so no label or pill ever touches it.
+  const RING_STROKE = 4, RING_GAP = 8;
+  const callRingAt = (fr) => {
+    const a = call && toScreen(anchorOf(call.at));
+    if (!a || !(a[0] > fr.l && a[0] < fr.r && a[1] > fr.t && a[1] < fr.b)) return null;
+    const rr = Math.max(10, (call.at === 'triad' ? (geo.rt || 6) * 1.6 : (geo.rcv0 || 6) * 1.1) * V.k);
+    return { a, rr, clear: rr + RING_STROKE / 2 + RING_GAP };
+  };
+  // How far a box reaches into the ring's clear zone (0 when it keeps out): the nearest point of the box to the centre.
+  const ringDepth = (ring, b) => {
+    if (!ring) return 0;
+    const dx = Math.max(b.l - ring.a[0], 0, ring.a[0] - b.r), dy = Math.max(b.t - ring.a[1], 0, ring.a[1] - b.b);
+    return Math.max(0, ring.clear - Math.hypot(dx, dy));
+  };
+  function placeCall(fr, placed, cards, leads, crosses, ring) {
     if (!callEl.isConnected) { labels.append(callEl); leaders.append(callLine, callRing); }
-    const a = call && toScreen(anchorOf(call.at)), on = !!a && a[0] > fr.l && a[0] < fr.r && a[1] > fr.t && a[1] < fr.b;
+    const on = !!ring;
     for (const e of [callEl, callLine, callRing]) e.classList.toggle('on', on);
     if (!on) return;
+    const { a, rr } = ring;
     // Never wider than the free space: a long line wraps instead of running off the screen.
     const fit = `${Math.max(120, Math.round(fr.r - fr.l - 20))}px`;
     if (callEl.style.maxWidth !== fit) callEl.style.maxWidth = fit;
     const w = callEl.offsetWidth || 120, hh = callEl.offsetHeight || 28, pad = 10;
     const ov = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
-    const rr = Math.max(10, (call.at === 'triad' ? (geo.rt || 6) * 1.6 : (geo.rcv0 || 6) * 1.1) * V.k), spot = { l: a[0] - rr - 6, r: a[0] + rr + 6, t: a[1] - rr - 6, b: a[1] + rr + 6 };
     let best = null;
     // Where it sat last time (relative to the spot) is tried too and kept while it is still as good: a value easing or a
     // label that moved a pixel never flips the pill to another side, and the leader with it.
     const cands = [];
-    for (const r of [70, 100, 140]) for (let i = 0; i < 12; i++) { const t = (i / 12) * Math.PI * 2 - Math.PI / 2; cands.push([a[0] + Math.cos(t) * (r + w / 3), a[1] + Math.sin(t) * r, 0]); }
+    for (const r0 of [70, 100, 140]) for (let i = 0; i < 12; i++) { const t = (i / 12) * Math.PI * 2 - Math.PI / 2, r = Math.max(r0, ring.clear + hh / 2 + 8 + r0 - 70); cands.push([a[0] + Math.cos(t) * (r + w / 3), a[1] + Math.sin(t) * r, 0]); }
     if (callPrev && callPrev.at === call.at) cands.push([a[0] + callPrev.dx, a[1] + callPrev.dy, 1]);
     for (const [px, py, prev] of cands) {
       const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
       const box = { l: x - w / 2 - 6, r: x + w / 2 + 6, t: y - hh / 2 - 6, b: y + hh / 2 + 6 };
       const cost = placed.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 100 : 0) + (crosses(a, [x, y], o) ? 1e5 : 0), 0)
-        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + ov(box, spot) * 200 + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 - (prev ? 60 : 0);
+        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + ringDepth(ring, box) * 1e4 + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 - (prev ? 60 : 0);
       if (!best || cost < best.cost) best = { x, y, box, cost };
     }
     placed.push(best.box); callPrev = { at: call.at, dx: best.x - a[0], dy: best.y - a[1] };
     callEl.style.left = `${best.x - w / 2}px`; callEl.style.top = `${best.y - hh / 2}px`;
-    callLine.setAttribute('x1', a[0]); callLine.setAttribute('y1', a[1]); callLine.setAttribute('x2', best.x); callLine.setAttribute('y2', best.y);
+    // The leader starts on the ring's edge (not at its centre) and runs to the pill.
+    const dl = Math.hypot(best.x - a[0], best.y - a[1]) || 1, e0 = rr / dl;
+    callLine.setAttribute('x1', a[0] + (best.x - a[0]) * e0); callLine.setAttribute('y1', a[1] + (best.y - a[1]) * e0); callLine.setAttribute('x2', best.x); callLine.setAttribute('y2', best.y);
     callRing.setAttribute('cx', a[0]); callRing.setAttribute('cy', a[1]); callRing.setAttribute('r', rr);
   }
   // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
@@ -1106,7 +1123,7 @@ export function createLobuleZoom({ host }) {
       if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       items.push({ k, L, w, hh, a });
     }
-    const base = placed.slice();
+    const base = placed.slice(), ring = callRingAt(fr);
     const solve = (order) => {
       const pl = base.slice(), ld = [], res = [];
       let total = 0;
@@ -1139,6 +1156,7 @@ export function createLobuleZoom({ host }) {
             + ld.reduce((sum, [p, q]) => sum + (crosses(p, q, box) ? 1e5 : 0) + (cut(p, q, a, [x, y]) ? 1e5 : 0), 0)
             + Math.max(0, 16 - lead) * 40
             + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0)
+            + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e3 : 0)
             + own.reduce((sum, m) => sum + overlap(box, m) * 40, 0)
             + Math.hypot(x - preferred[0], y - preferred[1]);
           if (!best || cost < best.cost) best = { x, y, box, cost };
@@ -1168,7 +1186,7 @@ export function createLobuleZoom({ host }) {
       L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
     }
-    placeCall(fr, placed, cards, leads, crosses);
+    placeCall(fr, placed, cards, leads, crosses, ring);
   }
 
   // ── Frame loop ──
