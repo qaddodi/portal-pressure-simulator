@@ -57,6 +57,9 @@ export const TILE = {
   hb: { t: 'Hemoglobin', s: 'Blood', u: 'g/dL', better: 1 },
 };
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
+// The figure's "Portal blood" callout: whole-percent shares to the shunts and the liver that always add to 100, and the
+// shunt's rating, the same as its data card tile's (ok, mid: amber, hi: red).
+export const portalSplit = (sh) => { const v = Math.min(1, Math.max(0, +sh || 0)), s = Math.round(v * 100); return { shunt: s, liver: 100 - s, rate: RATE.shunt(v)[0] }; };
 
 // The table's columns: the raw pressures shade above normal, the rest by their tile's rating.
 // Headers match the pressure chart's axis (PV, WHVP, FHVP, IVC, RA). res: the resistance inside the liver, as the model has it (rih). (PPG ÷ portal flow would also count the collaterals,

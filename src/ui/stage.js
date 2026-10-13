@@ -18,6 +18,7 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=77835d5de8';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
+import { portalSplit } from './table-marks.js?v=20ffefba17';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 const nextFrame = frameFor('stage');
 
@@ -3683,7 +3684,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const SITE_DEF = { pv: { node: 'CONF', kicker: 'Portal vein', cls: 'pv', below: true }, ivc: { node: 'IVCS', kicker: 'IVC', cls: 'ivc' },
     ra: { node: 'RA', kicker: 'Right atrium', cls: 'ivc' },
     web: { node: 'IVCS', kicker: 'IVC, below the web', cls: 'ivc', below: true },   // (with ra above it: the two sides of an IVC web)
-    // split: where portal blood goes, a fork whose two branches are as wide as the shares to the liver and to the shunts.
+    // split: where portal blood goes, the share that bypasses the liver over a bar split into the liver's and the shunts' shares.
     split: { node: 'PVH', kicker: 'Portal blood', cls: 'split', split: true, below: true },
     // (Both readings stand above the liver's column, clear of the station labels; the zigzags mark where each resistor is.)
     rLiver: { kicker: 'R liver', cls: 'res', unit: 'vs healthy liver', res: 'liver' },
@@ -3747,6 +3748,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.append(el);
     return { el, list: null, fp: null, made: new Map() };
   })();
+  // The "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split into the liver's
+  // share (portal pink) and the shunts' (tinted like the shunt tile: plain, amber, red). A new share counts and slides
+  // there over 0.8 s, eased; the callout's size never changes.
+  function splitShow(el, sh) {
+    const p = portalSplit(sh), [n, lt, st] = el.querySelectorAll('.sp-n, .sp-lt, .sp-st'), lx = `Liver ${p.liver} %`, sx = `Shunts ${p.shunt} %`;
+    if (n.textContent !== `${p.shunt}`) n.textContent = `${p.shunt}`;
+    if (lt.textContent !== lx) lt.textContent = lx;
+    if (st.textContent !== sx) st.textContent = sx;
+    el.style.setProperty('--sp-lf', (1 - sh).toFixed(4)); el.style.setProperty('--sp-sf', sh.toFixed(4));
+    el.style.setProperty('--sp-lm', p.liver ? '4px' : '0px'); el.style.setProperty('--sp-sm', p.shunt ? '4px' : '0px');   // a share that rounds above 0 keeps a sliver; 0 leaves none
+  }
+  function splitTo(el, to) {
+    if (el._shTo === to) return;
+    el._shTo = to; el.dataset.rate = portalSplit(to).rate;
+    cancelAnimationFrame(el._shRaf);
+    if (el._sh == null || matchMedia('(prefers-reduced-motion: reduce)').matches) { splitShow(el, el._sh = to); return; }
+    const from = el._sh, t0 = performance.now();
+    const step = (now) => { const k = Math.min(1, (now - t0) / 800); splitShow(el, el._sh = from + (to - from) * easeInOut(k)); if (k < 1 && el.isConnected) el._shRaf = requestAnimationFrame(step); };
+    el._shRaf = requestAnimationFrame(step);
+  }
   function sitesPaint() {
     const want = sites.list || [], made = sites.made;
     for (const k of [...resMade.keys()]) if (!want.includes(k)) resPaint(k, SITE_DEF[k], null);
@@ -3767,20 +3788,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const b = document.createElement('b'), u = document.createElement('span'); u.textContent = d.unit ?? 'mmHg';
         el.append(sm, b, u);
         if (d.split) {
-          b.innerHTML = '<svg viewBox="0 0 64 40" aria-hidden="true"><path class="sp-l" d="M4 20 C26 20 32 7 60 7"/><path class="sp-s" d="M4 20 C26 20 32 33 60 33"/></svg>'
-            + '<span class="sp-t"><em class="sp-lt"></em><em class="sp-st"></em></span>';   // (constant markup)
+          b.innerHTML = '<span class="sp-h"><em class="sp-n"></em> % bypasses the liver</span>'
+            + '<span class="sp-bar"><i class="sp-l"></i><i class="sp-s"></i></span>'
+            + '<span class="sp-cap"><em class="sp-lt"></em><em class="sp-st"></em></span>';   // (constant markup)
           u.textContent = '';
         }
         sites.el.append(el); made.set(k, el);
         void el.offsetWidth; el.classList.remove('cath-pre');
       }
-      if (d.split) {
-        const sh = clamp(sites.fp?.shunt ?? F.metrics?.shuntFraction ?? 0, 0, 1), lt = `Liver ${Math.round((1 - sh) * 100)} %`, stx = `Shunts ${Math.round(sh * 100)} %`;
-        el.style.setProperty('--sp-l', `${(1.5 + 9 * (1 - sh)).toFixed(1)}px`); el.style.setProperty('--sp-s', `${(1.5 + 9 * sh).toFixed(1)}px`);
-        const [a, c] = el.querySelectorAll('em');
-        if (a.textContent !== lt) a.textContent = lt;
-        if (c.textContent !== stx) c.textContent = stx;
-      }
+      if (d.split) splitTo(el, clamp(sites.fp?.shunt ?? F.metrics?.shuntFraction ?? 0, 0, 1));
       const b = el.querySelector('b'), v = d.split ? null : d.res ? (ratio == null ? '' : '×' + fmt(ratio, ratio < 10 ? 1 : 0)) : fmt(sites.fp?.[k] ?? (F.Pf || F.P)[NI[d.node]], 1);
       if (v != null && b.textContent !== v) b.textContent = v;
       const ra = d.res ? resAt() : null;

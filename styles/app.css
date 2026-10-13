@@ -2608,17 +2608,25 @@ button.finding { cursor: pointer; }
 .scan-probe.tap .sp-tip { animation: sp-tap .36s ease-in-out; }   /* only the tip vibrates, a little, along the probe's own 45° axis, once a second */
 @keyframes sp-tap { 0% { transform: none; } 20% { transform: translateX(2px); } 45% { transform: translateX(-1.2px); } 70% { transform: translateX(.6px); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .scan-probe.tap .sp-tip { animation: none; } }
-/* Where portal blood goes: a fork, each branch as wide as its share, the two shares beside the tips. */
-.cath-label.site.split { --c: var(--tr-pv); }
-.cath-label.site.split b { display: flex; align-items: center; gap: 6px; font-size: 14px; line-height: 1.25; }
-.cath-label.site.split svg { width: 64px; height: 40px; overflow: visible; }
-.cath-label.site.split .sp-t { justify-content: space-between; height: 40px; }
-.cath-label.site.split svg path { fill: none; stroke-linecap: round; transition: stroke-width .8s var(--ease); }
-.cath-label.site.split .sp-l { stroke: var(--tr-pv); stroke-width: var(--sp-l, 8px); }
-.cath-label.site.split .sp-s { stroke: var(--text-3); stroke-width: var(--sp-s, 2px); }
-.cath-label.site.split .sp-t { display: flex; flex-direction: column; gap: 4px; }
-.cath-label.site.split em { font-style: normal; font-size: 14px; font-weight: 700; color: var(--tr-pv); } .cath-label.site.split em + em { color: var(--text-2); }
+/* Where portal blood goes: the share that bypasses the liver as the headline, over one bar split into the liver's share
+   (portal pink) and the shunts' (plain, amber from the shunt tile's moderate cut, red from its large one), each share
+   named under its end. Fixed sizes (the headline reserves room for 100 %), so the callout never resizes; it stays stacked on phones. */
+.cath-label.site.split, .app.presenting .cath-label.site.split { --c: var(--tr-pv); --sp-c: var(--text-3); --sp-t: var(--text); flex-direction: column; align-items: stretch; gap: 2px; }
+.cath-label.site.split[data-rate="mid"] { --sp-c: var(--caution); --sp-t: color-mix(in srgb, var(--caution) 80%, var(--text)); }
+.cath-label.site.split[data-rate="hi"] { --sp-c: var(--danger); --sp-t: var(--danger); }
+.cath-label.site.split small { text-align: left; }
+.cath-label.site.split b, .app.presenting .cath-label.site.split b { display: flex; flex-direction: column; font-size: 15px; line-height: 1.25; color: var(--text); }
+.cath-label.site.split .sp-h { width: 12.6em; font-weight: 700; }
+.cath-label.site.split em { font-style: normal; }
+.cath-label.site.split .sp-n { color: var(--sp-t); transition: color .6s var(--ease); }
+.cath-label.site.split .sp-bar { display: flex; gap: 2px; height: 8px; margin: 6px 0 4px; }
+.cath-label.site.split .sp-bar i { border-radius: 4px; flex-basis: 0; flex-shrink: 1; }
+.cath-label.site.split .sp-l { flex-grow: var(--sp-lf, .5); min-width: var(--sp-lm, 4px); background: var(--tr-pv); }
+.cath-label.site.split .sp-s { flex-grow: var(--sp-sf, .5); min-width: var(--sp-sm, 4px); background: var(--sp-c); transition: background-color .6s var(--ease); }
+.cath-label.site.split .sp-cap { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 600; }
+.cath-label.site.split .sp-lt { color: var(--tr-pv); } .cath-label.site.split .sp-st { color: var(--sp-t); transition: color .6s var(--ease); }
 .cath-label.site.split b + span { display: none; }
+@media (max-width: 600px) { .cath-label.site.split b, .app.presenting .cath-label.site.split b { font-size: 14px; } .cath-label.site.split .sp-cap { font-size: 11px; } .cath-label.site.split .sp-bar { height: 7px; margin: 5px 0 3px; } }
 /* A resistor's reading is a faded figure label, not a callout: its name and the ratio on one line, no box. */
 .cath-label.site.res, .app.presenting .cath-label.site.res { --c: var(--text-2); flex-direction: row; align-items: baseline; gap: 5px; padding: 0; background: none; border: 0; box-shadow: none;
   translate: -50% calc(-100% - 12px); text-shadow: 0 0 3px var(--stage-bg), 0 0 6px var(--stage-bg), 0 0 10px var(--stage-bg); }
