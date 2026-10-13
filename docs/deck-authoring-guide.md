@@ -171,7 +171,7 @@ Valid tokens (the tile keys, section 8.6): `hvpg ppg pv sin whvp fhvp saag tp as
 
 ### 6.2 Cut-off pills: `{>=10 mmHg}`
 
-`{>=10 mmHg}` (also `>`, `<`, `<=`, `≥`, `≤`) renders an **outlined** pill with the comparison symbol dropped, so **write the words around it**: "above {>=5 mmHg}", "below {<12 mmHg}". A filled pill is *this patient*, an outlined pill is *the rule*.
+`{>=10 mmHg}` (also `>`, `<`, `<=`, `≥`, `≤`) renders an **outlined** pill with the comparison symbol dropped, so **write the words around it**: "above {>=5 mmHg}", "below {<12 mmHg}". A filled pill is *our patient*, an outlined pill is *the rule*.
 
 Automatic pills/bold: if a line has no `{braces}`, the first `number + unit` (mmHg, g/dL, mL/min, kPa, cm/s, mm, %) becomes a pill. Fixed key terms are auto-bold, at most 3 a line, first mention only: CSPH, SAAG, WHVP, FHVP, central vein, portal tracts, fenestrae, space of Disse, basement membrane, capillarization, wedged pressure, free pressure, sinusoidal pressure, caput medusae, gastrorenal shunt, stellate cells, encephalopathy, periportal fibrosis, intrahepatic resistance, hepatopetal, hepatofugal, cavernoma, a wave, pulsatility, reflection coefficient, Laplace, congestion index, gray zone, red wale marks. The slide's `key` tiles' words are bold too.
 
@@ -486,7 +486,7 @@ export const MYDECK = {
     // … more slides …
     {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg'], asc: false, rowHead: 'Patient',
-      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'first', title: 'This patient' }],
+      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'first', title: 'Our patient' }],
       kicker: 'Summary', title: 'What to remember',
       line: 'One sentence that sums the deck up.',
       notes: 'Closing notes.',

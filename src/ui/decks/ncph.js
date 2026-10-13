@@ -61,7 +61,7 @@ export const NCPH = {
       line: 'Propranolol cuts the inflow from the gut: the portal vein pressure falls to {pv}, and with it the tension in the varix wall.',
       caveat: 'The model shrinks the varices. In patients the beta-blocker lowers the pressure, but no one re-scopes to watch them shrink.',
       notes: 'Bleeding prophylaxis in non-cirrhotic portal hypertension follows the rules for cirrhosis: a non-selective beta-blocker or banding for large varices, and both after a bleed. In schistosomiasis, praziquantel treats the infection, but established portal hypertension still needs its own treatment.',
-      ask: ['Does variceal prophylaxis differ from cirrhosis in this patient?', 'No: a non-selective beta-blocker or banding, as in cirrhosis, because the varices come from the same high portal pressure.'],
+      ask: ['Does variceal prophylaxis differ from cirrhosis in our patient?', 'No: a non-selective beta-blocker or banding, as in cirrhosis, because the varices come from the same high portal pressure.'],
     },
     {
       id: 'band', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],

@@ -18,11 +18,11 @@ import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } f
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=a9b9795e1b';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=1c73a31a36';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=34f9f60684';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=18b99b671d';
 import { createTools } from './presenter-tools.js?v=8c397bfb06';
-import { openHandout } from './handout.js?v=7a92a2d2f9';
+import { openHandout } from './handout.js?v=b1926b6e72';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=d151452073';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -1486,7 +1486,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const from = d === true ? slides[stateOf[i - 1]] : slides.find((x) => x.id === d);
     return { label: s.tool.deltaLabel || (d === true && s.lapse?.from) || from?.kicker || 'Before', value: `${fmt(r[g[0]], g[2])} ${g[1]}` };
   }
-  const cardTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'This patient'));
+  const cardTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'Our patient'));
   // The talk so far, for a pressure trace: every state up to slide i, once each.
   // Each carries its time point (the deck's days so far) and what happened there (the first tick among its slides, else its title).
   const whenOf = (k) => {
@@ -2316,7 +2316,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function build() {
     const ladder = bigLadder(), tiles = bigTiles();
     const text = h('section', { class: 'pz-text stage-blocker', 'aria-live': 'polite' });
-    const dhT = h('span', {}, 'Pressure, portal vein to heart'), dhL = h('span', { class: 'pz-lg' }, h('i', { class: 'now' }), 'This patient', h('i', { class: 'base' }), 'Healthy');
+    const dhT = h('span', {}, 'Pressure, portal vein to heart'), dhL = h('span', { class: 'pz-lg' }, h('i', { class: 'now' }), 'Our patient', h('i', { class: 'base' }), 'Healthy');
     const tools = createTools({ host, stage });
     // On a phone an instrument above tiles folds away (the tiles keep the reading), so the figure is not a strip between
     // two cards; the button opens it, and it stays open for the rest of the talk.
