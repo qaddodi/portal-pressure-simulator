@@ -24,7 +24,7 @@
 import { store } from './store.js?v=7c63421fac';
 import { h, fmt, clamp } from './util.js?v=9279d972cf';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { createDoppler } from './doppler.js?v=a82d32cbea';
+import { createDoppler } from './doppler.js?v=7ba10e3559';
 import { createFibroScan } from './fibroscan.js?v=129d419569';
 import { createPressureTime } from './pressure-time.js?v=94f65f3e6e';
 import { createFlowTime } from './flow-time.js?v=9327f117b5';

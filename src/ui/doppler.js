@@ -89,6 +89,7 @@ export function createDoppler({ onProbe }) {
     ringKey = '';
     if (frame) { updateReport(); draw(); }
   });
+  const WAVE_PX = 20;   // the a, S, v, D letters: large enough to read against the card text
   const cv = h('canvas', { role: 'img', 'aria-label': 'Spectral Doppler' });
   const box = h('div', { class: 'chart-box dark dop-box' }, cv);
 
@@ -584,15 +585,15 @@ export function createDoppler({ onProbe }) {
         wl.alpha = clamp(wl.alpha + (wl.out ? -1 : 1) * dtL / 0.4, 0, 1);
         labBusy = wl.out ? wl.alpha > 0 : wl.alpha < 1;
         const A = wl.alpha * wl.alpha * (3 - 2 * wl.alpha);
-        ctx.font = FONT(700, 13); ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.font = FONT(700, WAVE_PX); ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         const at = (t, v) => [padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr, padT + baseY - v * k * pxPerV];
         for (const [t, v, name] of wl.pts) {
           // (The a-wave's letter sits just past the baseline on its side, clear of the spectrum, even when it barely crosses.)
           const up = name === 'a', [x, y0] = at(t, v), y = up ? Math.min(y0, padT + baseY) : y0;
           if (x < padL + 2 || x > padL + W - 2) continue;
-          const ty = clamp(y + (up ? -5 : 5), padT + (up ? 14 : 0), padT + H - (up ? 0 : 14));
+          const ty = clamp(y + (up ? -5 : 5), padT + (up ? WAVE_PX + 1 : 0), padT + H - (up ? 0 : WAVE_PX + 1));
           ctx.textBaseline = up ? 'bottom' : 'top';
-          ctx.lineWidth = 4; ctx.strokeStyle = cssAlpha('--black', 0.9 * A); ctx.strokeText(name, x, ty);
+          ctx.lineWidth = 5; ctx.strokeStyle = cssAlpha('--black', 0.9 * A); ctx.strokeText(name, x, ty);
           ctx.fillStyle = cssAlpha('--white', A); ctx.fillText(name, x, ty);
         }
       }
