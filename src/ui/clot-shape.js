@@ -45,3 +45,13 @@ export function clotRadius(v, w, f, seed) {
 
 // How far the clot's centreline sits off the vessel's, so its outer edge rests on the wall.
 export const clotShift = (w, r, side) => side * (w / 2 - r);
+
+// The clot's body: stacked fills of one translucent red, each a fraction k of the clot's radius,
+// outermost first, so the colour builds toward the thick middle and fades out at the edges.
+export const clotLayers = [
+  { cls: 'thrombus-halo', k: 1 },
+  { cls: 'thrombus', k: 0.82 },
+  { cls: 'thrombus-core', k: 0.55 },
+];
+// Where the hairline sits, as a fraction of the radius: just inside the halo's free edge.
+export const CLOT_EDGE = 0.97;

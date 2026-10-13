@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { hashSeed, rng, clotSide, clotSpan, clotHalf, clotRadius, clotShift } from '../src/ui/clot-shape.js';
+import { hashSeed, rng, clotSide, clotSpan, clotHalf, clotRadius, clotShift, clotLayers, CLOT_EDGE } from '../src/ui/clot-shape.js';
 
 const W = 10;
 
@@ -49,10 +49,21 @@ test('it thickens and lengthens as the occlusion rises, with no jumps', () => {
   }
 });
 
-test('the stage draws the layered clot with tokens, not literal colours', () => {
+test('the clot is soft layers of one red that fade at the edges, with a hairline on the free edge only', () => {
+  assert.equal(clotLayers[0].k, 1, 'the outermost layer is the clot itself');
+  for (let i = 1; i < clotLayers.length; i++) assert.ok(clotLayers[i].k < clotLayers[i - 1].k, 'each layer sits inside the last');
+  assert.ok(CLOT_EDGE > 0.9 && CLOT_EDGE <= 1, 'the hairline hugs the outer edge');
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  for (const cls of ['thrombus-rim', "'thrombus'", 'thrombus-sheen', 'thrombus-speck', 'thrombus-channel']) assert.ok(stage.includes(cls), cls);
+  for (const { cls } of clotLayers) assert.ok(/\.thrombus(-halo|-core)?\b/.test(`.${cls}`), cls);
+  for (const cls of ["'thrombus-edge'", 'thrombus-channel']) assert.ok(stage.includes(cls), cls);
+  // no cartoon marks: no pale rim, sheen or speckles
+  for (const cls of ['thrombus-rim', 'thrombus-sheen', 'thrombus-speck']) assert.ok(!stage.includes(cls), cls);
+  // the hairline runs on the open side (away from the wall the clot rests on)
+  assert.match(stage, /q\[0\] - ln\[i\]\[0\] \* side \* r/);
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
-  for (const t of ['--thrombus-rim', '--thrombus-sheen', '--thrombus-speck']) { assert.ok(css.includes(`var(${t})`), t); assert.ok(tokens.includes(`${t}:`), t); }
+  for (const { cls } of clotLayers) assert.match(css, new RegExp(`\\.${cls} \\{ fill: var\\(--thrombus\\); fill-opacity: \\.[0-9]+; \\}`), cls);
+  assert.match(css, /\.thrombus-edge \{[^}]*stroke: var\(--thrombus-edge\)/);
+  for (const t of ['--thrombus', '--thrombus-edge']) assert.ok(tokens.includes(`${t}:`), t);
+  assert.ok(!/--thrombus-(rim|sheen|speck)/.test(css + tokens), 'old cartoon tokens are gone');
 });
