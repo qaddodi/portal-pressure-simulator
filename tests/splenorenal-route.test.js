@@ -48,3 +48,26 @@ test('splenorenal shunt flow: blood runs from the splenic vein into the renal ve
   assert.ok(Math.abs(W('S_DSR') - W('V_SPL')) < 0.05, 'only splenic blood takes the Warren shunt');
   assert.ok(Math.abs(W('V_IMV') - W('SV_CONF')) < 0.05, 'the IMV drains through the splenic vein to the portal vein');
 });
+
+test('Warren slide: the varices decompress while the PPG stays high and the liver keeps more portal flow than TIPS', async () => {
+  const { SHUNTS } = await import('../src/ui/decks/shunts.js');
+  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const sl = SHUNTS.slides.find((x) => x.id === 'dsrs');
+  assert.ok(sl && sl.params.dsrs && sl.mark.edges.includes('S_DSR'), 'the shunts deck has a Warren slide');
+  assert.ok(SHUNTS.slides.find((x) => x.id === 'summary').of.some((r) => r.id === 'dsrs'), 'the summary table lists it');
+  const m = (p) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, p)); e.settle(); return computeMetrics(e); };
+  const base = m({}), w = m({ dsrs: true }), tips = m({ tips: { on: true, d: 8 } });
+  assert.ok(w.varix.ratio < base.varix.ratio, 'varices decompress');
+  assert.ok(w.ppg > 12 && w.ppg > tips.ppg, 'the PPG stays high');
+  assert.ok(w.liverPerfPct > tips.liverPerfPct, 'more portal flow to the liver than TIPS');
+});
+
+test('the figure ties off the same vessels the engine closes for each surgical shunt', async () => {
+  const fs = await import('node:fs');
+  const stage = fs.readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const engine = fs.readFileSync(new URL('../src/engine/engine.js', import.meta.url), 'utf8');
+  assert.match(stage, /\['S_DSR', 'SV_MID',/);
+  assert.match(stage, /\['S_PC', 'PV_TRUNK',/);
+  assert.match(engine, /p\.dsrs && e\.id === 'SV_MID'/);
+  assert.match(engine, /p\.portocaval && e\.id === 'PV_TRUNK'/);
+});

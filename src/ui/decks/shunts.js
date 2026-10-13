@@ -9,14 +9,16 @@ export const SHUNTS = {
     'Explain why a shunt lowers the portal pressure and what it costs the liver',
     'Recognize gastrorenal and splenorenal shunts and their links to fundal varices and encephalopathy',
     'Describe TIPS, why it is kept narrow, and how a blocked stent shows',
+    'Explain how the selective Warren shunt decompresses the varices while keeping portal flow to the liver',
     'Predict what closing a shunt (BRTO) does to the portal pressure',
   ],
   checks: [
     ['Why is a TIPS stent usually 8 to 10 mm and not wider?', 'A wider stent lowers the gradient further but takes more portal blood from the liver, so encephalopathy and liver failure become more likely.'],
     ['Below what PPG does a TIPS aim?', '12 mmHg.'],
+    ['Why does ascites not improve after a Warren shunt?', 'The portal pressure stays high: only the varices drain through the spleen to the renal vein.'],
     ['What happens to the portal pressure after BRTO closes a gastrorenal shunt?', 'It rises, because blood that left through the shunt stays in the portal system. Esophageal varices can grow.'],
   ],
-  summary: 'Spontaneous portosystemic shunts, TIPS, and what closing a shunt does. Ends with a comparison of gradient, liver flow and encephalopathy risk.',
+  summary: 'Spontaneous portosystemic shunts, TIPS, the Warren shunt, and what closing a shunt does. Ends with a comparison of gradient, liver flow and encephalopathy risk.',
   slides: [
     {
       id: 'own', preset: 'cirr-decomp', cam: 'fit', sites: ['split'], glow: ['C1a', 'C1b', 'C3'], data: 'tiles', tiles: ['ppg', 'shunt', 'liver'],
@@ -65,6 +67,14 @@ export const SHUNTS = {
       ask: ['How does a blocked TIPS usually present?', 'With the return of what it treated: rebleeding or ascites, and an absent or changed Doppler signal.'],
     },
     {
+      id: 'dsrs', preset: 'cirr-decomp', params: { dsrs: true }, cam: 'splenic', mark: { edges: ['S_DSR'], label: 'Warren shunt', kind: 'treat' },
+      data: 'tiles', tiles: ['ppg', 'varix', 'liver'], delta: 'own',
+      kicker: 'Made', site: 'sin', title: 'Distal splenorenal (Warren) shunt',
+      line: 'The splenic vein is tied off near the portal vein, and its spleen end is joined to the left renal vein. The varices drain through the spleen, while SMV blood still reaches the liver. The PPG stays high at {ppg}.',
+      notes: 'The Warren shunt is a selective shunt. The splenic vein is divided close to its junction with the portal vein; the spleen end is sewn to the left renal vein, and the portal end is tied off. Blood from the gastroesophageal varices drains through the short gastric veins and the spleen to the renal vein, so the varices decompress, while SMV blood keeps perfusing the liver at portal pressure. The PPG stays high, so ascites is not relieved and can worsen; refractory ascites is a contraindication. Encephalopathy is less common than after a total shunt or TIPS. Today it is rare: it suits patients with preserved liver function and recurrent variceal bleeding, usually where TIPS is not suitable. The tiles compare with the same patient without the shunt.',
+      ask: ['Why is the Warren shunt called selective?', 'It drains the varices through the spleen to the left renal vein, while SMV blood keeps perfusing the liver at portal pressure.'],
+    },
+    {
       id: 'brto', terms: ['gv'], preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' },
       compare: [{ label: 'Shunt open', params: { occluded: { C5: false } } }, { label: 'Shunt closed', own: true, params: { occluded: { C5: true } } }],
       data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'], delta: 'grs',
@@ -76,7 +86,8 @@ export const SHUNTS = {
     {
       id: 'summary', visual: 'table', cols: ['ppg', 'shunt', 'liver'], asc: false, vs: 'first', note: 'Encephalopathy risk', rowHead: 'Shunt',
       of: [{ id: 'own', kicker: 'Baseline', title: 'Decompensated cirrhosis', note: 'Baseline' }, { id: 'srs', title: 'Splenorenal shunt', note: 'Higher' },
-        { id: 'tips', title: 'TIPS, 8 mm', note: 'Higher' }, { id: 'wide', title: 'TIPS, 12 mm', note: 'Highest' }, { id: 'occl', title: 'TIPS, occluded', note: 'Back to baseline' }],
+        { id: 'tips', title: 'TIPS, 8 mm', note: 'Higher' }, { id: 'wide', title: 'TIPS, 12 mm', note: 'Highest' }, { id: 'occl', title: 'TIPS, occluded', note: 'Back to baseline' },
+        { id: 'dsrs', title: 'Warren shunt', note: 'Lower than TIPS' }],
       kicker: 'Summary', title: 'Gradient and liver flow with each shunt',
       line: 'Every shunt lowers the gradient by diverting portal blood from the liver. The wider the shunt, the less portal blood reaches the liver.',
       notes: 'Every shunt trades the same two things: the more portal blood it carries, the lower the gradient and the less blood reaches the liver. Encephalopathy follows the shunted blood. A spontaneous shunt is uncontrolled; a TIPS is chosen, measured and can be narrowed or widened. A blocked stent gives back the gradient and the liver flow together.',

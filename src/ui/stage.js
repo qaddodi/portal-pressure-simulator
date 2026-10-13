@@ -3656,6 +3656,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     ov.stents.append(s('path', { class: 'suture', d }));
   }
+  // A vessel tied off at surgery (the splenic vein in a Warren shunt, the portal trunk in a portocaval
+  // shunt): two suture ties across the vessel, a little apart, at fraction u of its length.
+  function ligature(id, u) {
+    const x = E[id], c = geo[id].len * u;
+    const R = x.width / 2 + (x.wallPx || 1) + 3;
+    let d = '';
+    for (const o of [-3.5, 3.5]) {
+      const q = frameAt(id, c + o);
+      d += `M${(q.x + q.nx * R).toFixed(1)} ${(q.y + q.ny * R).toFixed(1)} L${(q.x - q.nx * R).toFixed(1)} ${(q.y - q.ny * R).toFixed(1)} `;
+    }
+    ov.stents.append(s('path', { class: 'ligature', d }));
+  }
 
   // ── The HVPG catheter (Measure › HVPG) ─────────────
   // A balloon catheter drawn along the real vessels: in from the neck, down the SVC, through the right
@@ -4302,13 +4314,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The overlays (clamps, clots, stents, varices, caput medusae, balloons, catheter) are rebuilt
   // only when something they draw has visibly changed: the key holds every input, rounded.
   let overlayKey = '', thrombiKey = '';
+  // Surgical shunts and the vessel each one ties off (engine.js: the same ligations), with where along it the tie sits.
+  const LIGATED = [['S_DSR', 'SV_MID', 0.3], ['S_PC', 'PV_TRUNK', 0.3]];
   // A quantized value that only moves once the input has clearly left its step (so a varix whose
   // diameter pulses across a rounding boundary is not rebuilt on every beat).
   const held = {};
   const hold = (k, v, step) => { const h0 = held[k]; if (h0 == null || Math.abs(v - h0) > step * 0.75) held[k] = Math.round(v / step) * step; return held[k]; };
   function overlayInputs(f, p, t) {
     const m = f.metrics;
-    const lesions = [...Object.keys(p.stenosis), ...Object.keys(p.thrombus), ...Object.keys(p.occluded), 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...Object.keys(p.customShunts || {}), 'C3'];
+    const lesions = [...Object.keys(p.stenosis), ...Object.keys(p.thrombus), ...Object.keys(p.occluded), 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...LIGATED.map((l) => l[1]), ...Object.keys(p.customShunts || {}), 'C3'];
     return JSON.stringify([t.toFixed(3), isImaging(), findingHidden('clot'), p.stenosis, p.thrombus, p.occluded, p.splenicRx | 0, p.tips, p.dips, p.customShunts, p.balloonEso, p.balloonGas,
       // A vessel's width eases with its pressure for a long while after a change; held in steps,
       // so a clot or stent is not rebuilt several times a second for sub-pixel drift.
@@ -4372,6 +4386,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!E[id].vis || E[id].reveal) continue;
       if (id === 'TIPS' || id === 'DIPS' || id.startsWith('X_')) stentMesh(id); else anastomoses(id);
     }
+    // The vessel each surgical shunt ties off, just past where the shunt leaves it.
+    for (const [shunt, vein, u] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis) ligature(vein, u);
     for (const id of new Set([...Object.keys(p.occluded), ...(p.occluded.C5 ? ['C2'] : [])])) {
       if (!isOccluded(p, id) || !E[id] || !E[id].vis) continue;
       const [x, y] = pointAt(geo[id].cur, 0.5);
