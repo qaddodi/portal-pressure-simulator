@@ -2447,6 +2447,9 @@ button.finding { cursor: pointer; }
 .tone-ra .org-fill { fill: url(#og-heart); }
 .organ-heart-ra .org-line { stroke-opacity: .35; }
 .organ-heart-ra .org-rimlight { stroke-opacity: .2; }
+/* The atrium is part of the heart: no dark halo or inner shade of its own on the ventricles it overlaps. */
+.organ-heart-ra .org-ao { display: none; }
+.organ-heart-ra .org-shade.s1, .organ-heart-ra .org-shade.s2, .organ-heart-ra .org-shade.s3 { stroke-opacity: .05; }
 /* Organs recede behind the vessels: the plate is context, the circulation is the subject. */
 #organs > .organ { opacity: .55; }
 #backdrop { opacity: .7; }

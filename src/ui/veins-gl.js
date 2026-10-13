@@ -271,7 +271,7 @@ void main() {
     vec4 ge = T(sid[s], 11);
     float e = sd[s] - swall[s], Lh = max(T(sid[s], 5).z, 1.0);
     float ends = (ge.x > 0.0 ? smoothstep(0.0, ge.x, sv[s] * Lh) : 1.0) * (ge.y > 0.0 ? smoothstep(0.0, ge.y, (1.0 - sv[s]) * Lh) : 1.0);
-    float fall = 1.0 - smoothstep(0.0, 12.0 * clamp(ge.w, 1.0, 1.3), e);
+    float fall = 1.0 - smoothstep(0.0, 12.0 * clamp(ge.w, 0.5, 1.3), e);
     float gv = min(0.9, 0.6 * gc.a) * sa[s] * smoothstep(-0.6, 0.6, e) * fall * ends;
     // None inside another lit vessel's lumen (the cava's two lengths, lit together): each band ends at the
     // other's wall, so a lit vessel's round end does not show as a disc in the next one's lumen.
