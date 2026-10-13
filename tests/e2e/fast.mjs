@@ -50,7 +50,8 @@ export async function gotoSlide(page, url, deck, i) {
   }
   shownDeck.set(page, deck);
   // (the count changes at once; the slide has arrived when the presenter is no longer moving to it)
-  await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !window.pps.presenter.busy() && !document.querySelector('.pz-load.on, .pz-cover'), i + 1, { timeout: 30000, polling: 50 });
+  // (A time-lapse is sped to its end, as Next does: a long one, two years of a growing spleen, outran the wait on a slow runner.)
+  await page.waitForFunction((k) => { if (Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) !== k) return false; window.pps.presenter.skipLapse?.(); return !window.pps.presenter.busy() && !document.querySelector('.pz-load.on, .pz-cover'); }, i + 1, { timeout: 60000, polling: 50 });
 }
 
 // Waits until the slide has stopped moving: no loading cover, no camera glide, no finite animation running, and the

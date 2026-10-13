@@ -2487,7 +2487,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
 
   return { start, stop, library, readLink, active: () => !!deck,
     // For the browser checks: straight to slide i (0-based) of the deck shown, as the arrow keys move.
-    go: (i) => go(i), busy: () => busy,
+    go: (i) => go(i), busy: () => busy, skipLapse: () => skipLapse(),   // (a time-lapse sped to its end, as Next does)
     // What Settings shows while presenting.
     settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }),
     // For the browser checks: the time-lapse slides, and the card's tiles as the slide shown should read them at its start and end.
