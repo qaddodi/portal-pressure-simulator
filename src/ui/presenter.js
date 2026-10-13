@@ -20,7 +20,7 @@ import { sinusoidSupported } from './sinusoid-view.js?v=9818d847b0';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=5a375e73d7';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=d23536652a';
+import { createHvpgMonitor } from './hvpg-proc.js?v=558836b84d';
 import { createTools } from './presenter-tools.js?v=879582a709';
 import { openHandout } from './handout.js?v=3c641f9315';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -1110,6 +1110,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const pk = cath.probeT0 ? clamp((now - cath.probeT0) / 3600, 0, 1) : 1, probe = pk < 1 ? Math.sin(pk * 3 * Math.PI) ** 2 * 0.9 : 0;
     stage.setCatheter({ u: v.u, balloon: v.balloon, column: v.column, columnColor: wedgeInk(), ring: cath.ring,
       pulse: 0.5 + 0.5 * Math.sin((now - cath.t0) / 170), clock: now - cath.t0, opacity: v.opacity, labels: cathLabels(), ostium: cath.ostium, probe });
+    mon?.balloon(v.balloon);   // the monitor's trace rides the same balloon value
     if (cath.follow) stage.cathFollow();
     cath.raf = nextFrame(cathFrame);
   }
@@ -1162,7 +1163,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (mode === 'free') { cath.show = ['f']; cath.ring = CC.free; cathTrack('balloon', 0, 500); cathTrack('column', 0, 500); return; }
     // Wedge: the balloon goes up just behind the tip, flow stops, the still column fills toward the sinusoids.
-    if (v.balloon < 0.999) { cath.show = ['f']; cath.ring = CC.free; cathTrack('balloon', 1, 800); await wait(ms(900)); if (cut()) return; }
+    if (v.balloon < 0.999) { cath.show = ['f']; cath.ring = CC.free; cathTrack('balloon', 1, 1800); await wait(ms(1900)); if (cut()) return; }
     cath.ring = CC.wedge;
     // The still column fills first and the pressure holds on its plateau; only then does the WHVP callout ease in,
     // and for the result slide the HVPG bracket follows it.
@@ -1548,7 +1549,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         const dy = y0 - mon.el.getBoundingClientRect().top;
         if (Math.abs(dy) > 1) mon.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 450, easing: 'cubic-bezier(.2,.7,.2,1)' });
       }
-      mon.set(s.monitor, states[stateOf[i]]?.fp);
+      mon.set(s.monitor, states[stateOf[i]]?.fp, cath.v.balloon);
     });
     return mon.el;
   }

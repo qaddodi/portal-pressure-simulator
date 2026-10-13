@@ -12,6 +12,7 @@ import { h, fmt, fitCanvas, clamp, icon, cssVar } from './util.js?v=abb277f29f';
 import { FONT } from './charts.js?v=5d396fa343';
 import { pressureColor } from './colormap.js?v=01ee46a874';
 import { store, logAction } from './store.js?v=7c63421fac';
+import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 const nextFrame = frameFor('hvpg-proc');
@@ -20,11 +21,6 @@ let stageRef = null;
 /** main.js hands over the figure once it exists. */
 export function setHvpgStage(stage) { stageRef = stage; }
 
-// The sequence, in ms from the start.
-// (settle: the wedged pressure has reached its plateau and the still column starts to fill; callout: the column
-// is full and the trace has held on the plateau, so only now is WHVP read and shown, then the result follows; sum: both readings
-// have travelled to the summary, and after a beat the HVPG fades in.)
-const T = { travel0: 300, travel1: 4300, zoom: 4300, free: 5100, inflate: 8200, wedge: 8900, settle: 10700, callout: 12400, result: 14600, sum: 15350, back: 20100, end: 20900 };
 // A thrombosed hepatic vein (Budd–Chiari): the tip reaches the ostium, probes it a few times, then the
 // procedure is aborted and the catheter withdrawn. No reading, so HVPG stays unmeasured.
 const TB = { probe0: 4600, probe1: 8200, abort: 8200, back: 9600, end: 13000 };
@@ -40,17 +36,6 @@ const C = Object.defineProperties({}, Object.fromEntries(Object.entries({ bg: '-
   free: '--mon-free', wedge: '--mon-wedge', ok: '--mon-ok', caution: '--mon-caution', danger: '--mon-alarm' }).map(([k, n]) => [k, { get: () => cssVar(n) }])));
 const sevOf = (v) => (v >= 10 ? 'danger' : v >= 5 ? 'caution' : 'ok');
 const sevWord = (v) => (v >= 10 ? 'Clinically significant portal hypertension (CSPH)' : v >= 5 ? 'Subclinical' : 'Normal');
-const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-const k01 = (t, a, b) => clamp((t - a) / (b - a), 0, 1);
-
-/** The catheter pressure at time tt: the free level with small cardiac and breathing waves, then an exponential climb
- *  to the wedged level once the balloon is up, the waves damped by the still column. */
-function pAt(tt, v) {
-  const wave = Math.sin(tt / 850 * 2 * Math.PI) * 0.55 + Math.sin(tt / 850 * 4 * Math.PI + 1) * 0.25 + Math.sin(tt / 3600 * 2 * Math.PI) * 0.45;
-  if (tt < T.inflate) return v.fhvp + wave;
-  const k = 1 - Math.exp(-(tt - T.inflate) / 650);
-  return v.fhvp + (v.whvp - v.fhvp) * k + wave * (0.15 + 0.85 * Math.exp(-(tt - T.inflate) / 500));
-}
 
 export function createHvpgProcedure() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'HVPG measurement: catheter pressure tracing' });
@@ -136,7 +121,7 @@ export function createHvpgProcedure() {
     }
     sg.setCatheter({
       u: ease(k01(t, T.travel0, T.travel1)),
-      balloon: ease(k01(t, T.inflate, T.wedge)) * (1 - k01(t, T.back, T.back + 500)),
+      balloon: balloonAt(t) * (1 - k01(t, T.back, T.back + 500)),
       column: ease(k01(t, T.settle, T.settle + 1400)) * (1 - k01(t, T.back, T.back + 500)),
       columnColor: pressureColor(v.whvp),
       ring: ph === 'free' ? C.free : ph === 'wedge' && t > T.wedge ? C.wedge : null, pulse, clock: t,
@@ -219,31 +204,49 @@ const ORDER = ['free', 'wedge', 'result'];
 export function createHvpgMonitor() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Catheter pressure tracing, as on the monitor in the procedure room' });
   const el = h('div', { class: 'pz-mon' }, h('div', { class: 'chart-box hvpg-box' }, cv));
-  let mode = null, t = 0, t1 = 0, last = 0, raf = 0, fp = null;
+  let mode = null, t = 0, t1 = 0, last = 0, raf = 0, fp = null, bal = 0;
   // The slide's own readings (the catheter's callouts and the tiles show the same), else the live model's.
   const live = () => { const m = fp || store.get().frame?.metrics; return { fhvp: m?.fhvp ?? 0, whvp: m?.whvp ?? 0, hvpg: m?.hvpg ?? 0 }; };
   const phase = () => (t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
   const draw = () => drawTrace(cv, { ph: phase(), t, v: live(), blocked: false, running: true });
+  // The balloon is the clock for the pressure's rise: the trace climbs exactly as far as the balloon is filled, so it
+  // waits at the free level until the balloon starts to fill, holds its plateau once it is up, and comes back down
+  // with it. Past the wedge (balloon up) the trace runs on its own clock again.
+  const rising = () => mode !== 'free' && bal < 1 && t <= T.wedge;   // the balloon is still setting the trace
+  const falling = () => mode === 'free' && bal > 0;                  // back from a wedge slide: held, then down with the balloon
   function step(now) {
-    t = Math.min(t1, t + (now - last)); last = now;
+    const dt = now - last; last = now;
+    if (falling()) { if (bal < 1) t = Math.min(t, timeOfBalloon(bal)); }
+    else if (mode === 'free' && t >= T.inflate) t = SPAN.free[0];   // the balloon is down: the free trace sweeps in afresh
+    else if (rising()) t = bal > 0 ? timeOfBalloon(bal) : Math.min(t + dt, T.inflate);
+    else t = Math.min(t1, t + dt);
     draw();
-    raf = t < t1 && el.isConnected ? nextFrame(step) : 0;
+    raf = el.isConnected && (t < t1 || falling() || rising()) ? nextFrame(step) : 0;
   }
-  function set(m, f = null) {
+  const go = () => { cancelFrame(raf); raf = nextFrame((now) => { last = now; step(now); }); };
+  function set(m, f = null, b = bal) {
     const span = SPAN[m];
-    fp = f;
+    fp = f; bal = b;
     if (!span || (m === mode && (raf || t >= t1))) { if (!raf) draw(); return; }
     const fwd = mode && ORDER.indexOf(m) > ORDER.indexOf(mode);
-    if (!(fwd && t >= SPAN[mode][0] && t <= span[0])) t = span[0];
+    // (A free slide reached with the balloon still up keeps the trace as it is until the balloon is down.)
+    if (!(m === 'free' && bal > 0) && !(fwd && t >= SPAN[mode][0] && t <= span[0])) t = span[0];
+    // Already wedged (back from the result slide): the pressure is on its plateau, nothing climbs again.
+    if (m !== 'free' && bal >= 1) t = Math.max(t, T.wedge);
     mode = m; t1 = span[1];
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) t = t1;
-    cancelFrame(raf);
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches && !falling()) t = t1;
     // (Once the card is laid out: the canvas sizes itself to it.)
-    nextFrame((now) => { last = now; step(now); });
+    go();
+  }
+  /** The catheter's balloon (0..1), every frame: the one value the pressure follows. */
+  function balloon(b) {
+    if (b === bal) return;
+    bal = b;
+    if (mode && !raf && el.isConnected) go();
   }
   // (A new size redraws it; the animation loop paints while it runs.)
   new ResizeObserver(() => { if (!raf && mode) draw(); }).observe(cv);
-  return { el, set };
+  return { el, set, balloon };
 }
 
 // ── The tracing: the monitor in the IR suite, dark in both themes ──
