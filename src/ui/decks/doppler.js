@@ -11,6 +11,11 @@ export const DOPPLER = {
     'Tell portal vein thrombosis, Budd–Chiari syndrome and heart failure apart on Doppler',
     'Describe what a patent TIPS looks like',
   ],
+  checks: [
+    ['Which way does normal portal vein flow run?', 'Toward the liver (hepatopetal).'],
+    ['What mean portal velocity is abnormal?', 'Under 15 cm/s.'],
+    ['What does a pulsatile portal vein point to?', 'A high right atrial pressure, as in heart failure, reaching back through the sinusoids.'],
+  ],
   summary: 'What the Doppler probe reads in the portal and hepatic veins: normal flow, cirrhosis, reversal, thrombosis, Budd–Chiari, heart failure and a TIPS. Ends with a comparison table.',
   slides: [
     {

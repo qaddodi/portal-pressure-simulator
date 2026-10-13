@@ -10,6 +10,11 @@ export const OUTFLOW = {
     'Explain why the wedge works in sinusoidal obstruction but not with clotted hepatic veins',
     'Outline the stepwise treatment of hepatic vein thrombosis',
   ],
+  checks: [
+    ['Why does the caudate lobe enlarge in Budd–Chiari syndrome?', 'Its short veins drain straight into the IVC below the clots, so it keeps its outflow while the rest of the liver congests.'],
+    ['Why can the HVPG be measured in sinusoidal obstruction syndrome?', 'The hepatic veins are open, and the block sits upstream of the free reading, so the wedged pressure rises.'],
+    ['What drains the liver when no hepatic vein can be opened?', 'A DIPS: a shunt from the portal vein through the caudate lobe into the IVC.'],
+  ],
   summary: 'Budd–Chiari syndrome and sinusoidal obstruction syndrome: a liver that cannot drain, what the catheter can and cannot read, and the stepwise reopening of the outflow.',
   slides: [
     {

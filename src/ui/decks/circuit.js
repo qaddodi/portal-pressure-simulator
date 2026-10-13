@@ -24,6 +24,11 @@ export const CIRCUIT = withPoints({
     'Explain why collaterals fail to decompress the portal system',
     'Place TIPS, propranolol and carvedilol on the flow or resistance side',
   ],
+  checks: [
+    ['How does pressure relate to flow and resistance?', 'The pressure drop equals flow times resistance: ΔP = Q × R.'],
+    ['Why does a meal raise the gradient more in cirrhosis?', 'The extra flow crosses a higher resistance, so the same rise in flow adds more pressure.'],
+    ['Why does a TIPS lower the gradient when collaterals do not?', 'The stent has far less resistance than the sinusoids or any collateral, so most portal blood goes through it.'],
+  ],
   summary: 'Portal hypertension as a circuit: more flow, more resistance, collaterals in parallel, TIPS and the drugs, each read as ΔP = Q × R.',
   slides: [
     {
@@ -51,7 +56,7 @@ export const CIRCUIT = withPoints({
     },
     {
       id: 'resist', preset: 'csph', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
-      compare: [{ label: 'Healthy', params: { cirrhosis: 0 } }, { label: 'Cirrhosis', own: true, params: { cirrhosis: 0.6 } }],
+      whatIf: { label: 'Scarring', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
       kicker: K, site: 'sin', title: 'Cirrhosis raises the resistance in the liver',
       line: 'Scarring raises the resistance several-fold. Part of the rise is vascular tone, which drugs can relax.',
       notes: 'The R term. In cirrhosis about three quarters of the extra resistance is fixed (fibrosis, nodules, capillarized sinusoids) and a quarter is tone: contracted stellate cells and too little nitric oxide in the sinusoids. The tone is what drugs can reverse. The tiles compare with the healthy liver on the first slide; the portal flow is almost the same.',

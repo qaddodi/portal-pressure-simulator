@@ -10,6 +10,11 @@ export const ONE_YEAR = {
     'Recognize the HVPG levels at which the risk rises: 10 and 12',
     'Decide when to start carvedilol',
   ],
+  checks: [
+    ['At what HVPG does CSPH begin?', '10 mmHg.'],
+    ['Which endoscopy finding counts as CSPH under Baveno VIII?', 'Any varices, even small ones.'],
+    ['Which drug does Baveno VIII prefer before a first bleed or decompensation?', 'Carvedilol, a non-selective beta-blocker.'],
+  ],
   summary: 'One patient with compensated cirrhosis followed for a year, seen in turn through the catheter, FibroScan, endoscopy, Doppler and the abdomen. Ends with carvedilol and a chart of the year.',
   slides: [
     {

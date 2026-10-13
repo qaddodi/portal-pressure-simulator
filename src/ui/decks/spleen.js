@@ -9,6 +9,11 @@ export const SPLEEN = {
     'Use the platelets and the liver stiffness to decide on a screening endoscopy',
     'Compare partial splenic embolization with splenectomy',
   ],
+  checks: [
+    ['Give two reasons the platelets fall in cirrhosis.', 'The large spleen pools them, and the scarred liver makes less thrombopoietin.'],
+    ['Which results spare a screening endoscopy?', 'Stiffness below 20 kPa with platelets above 150.'],
+    ['What risk does splenectomy carry?', 'Portal vein thrombosis, from blood stagnating in the stump of the splenic vein.'],
+  ],
   summary: 'How the spleen grows as the portal pressure rises, why the platelets fall, when platelets and stiffness can spare an endoscopy, and what splenic embolization and splenectomy do.',
   slides: [
     {

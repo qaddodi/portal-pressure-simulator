@@ -18,11 +18,11 @@ import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } f
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=a9b9795e1b';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=c9e394c44a';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=9cd85b29c9';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=18b99b671d';
 import { createTools } from './presenter-tools.js?v=42948be449';
-import { openHandout } from './handout.js?v=3ed501da09';
+import { openHandout } from './handout.js?v=b9ed8d5d93';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=d151452073';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -1121,12 +1121,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const merge = (a, b) => { for (const [k, v] of Object.entries(b)) a[k] = v && typeof v === 'object' && !Array.isArray(v) ? merge({ ...(a[k] || {}) }, v) : v; return a; };
   function abSlow() { abGen++; if (abFast) { abFast = false; host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 }); } }
   // The new treatment takes effect on the live figure, run three times faster while it settles; the ladder and tiles follow it.
-  async function abPick(s, i, k) {
+  function abPick(s, i, k) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     ui?.text.querySelectorAll('.pz-abb').forEach((b, j) => b.setAttribute('aria-pressed', String(j === k)));
+    liveSet(s, i, s.compare[k].params);
+  }
+  async function liveSet(s, i, patch) {
+    if (!deck || shown?.i !== i || slides[i] !== s) return;
     const g = ++abGen, ref = refOf(s, i), mine = () => g === abGen && shown?.i === i && !!deck;
     liveOff = true;
-    replaceParams(merge(structuredClone(store.get().params), s.compare[k].params));
+    replaceParams(merge(structuredClone(store.get().params), patch));
     host.send({ type: 'setParams', params: store.get().params, settle: false });
     abFast = true; host.send({ type: 'run', running: true, clock: 'hemo', speed: 3 });
     for (const t0 = performance.now(); performance.now() - t0 < 7000 && mine();) {
@@ -1135,6 +1139,30 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (fr?.metrics && mine()) dataTo(s, liveFp(fr), ref, 280);
     }
     if (mine()) abSlow();
+  }
+  // A what-if slider (whatIf: { label, param, min, max, step, ends?, unit? }) drags one parameter of the live model;
+  // the figure, the ladder and the tiles follow it as with the buttons. It starts at the slide's own value, and the
+  // slide's computed state comes back whenever the slide is shown again.
+  function whatIfEl(s, i, st) {
+    const w = s.whatIf, path = w.param.split('.');
+    const v0 = +(path.reduce((o, k) => o?.[k], st?.params) ?? w.min);
+    const patchOf = (x) => path.reduceRight((o, k) => ({ [k]: o }), x);
+    const out = h('output', { class: 'pzw-v' });
+    const input = h('input', { type: 'range', min: w.min, max: w.max, step: w.step ?? (w.max - w.min) / 20, value: v0, 'aria-label': `What if: ${w.label}` });
+    const fmtV = (x) => (w.unit ? `${fmt(x, w.step >= 1 ? 0 : 1)} ${w.unit}` : '');
+    const paint = (x) => { input.style.setProperty('--pct', `${((x - w.min) / (w.max - w.min)) * 100}%`); out.textContent = fmtV(x); };
+    let raf = 0;
+    input.addEventListener('input', () => {
+      paint(+input.value);
+      if (!raf) raf = nextFrame(() => { raf = 0; liveSet(s, i, patchOf(+input.value)); });
+    });
+    // (A finished drag hands the arrow keys back to the slides.)
+    input.addEventListener('pointerup', () => input.blur());
+    paint(v0);
+    return h('div', { class: 'pz-wi', role: 'group', 'aria-label': `What if: ${w.label}` },
+      h('span', { class: 'pzw-l' }, h('span', { class: 'pzw-k' }, 'What if'), w.label),
+      h('div', { class: 'pzw-t' }, w.ends ? h('span', { class: 'pzw-e' }, w.ends[0]) : null, h('div', { class: 'range-wrap' }, input), w.ends ? h('span', { class: 'pzw-e' }, w.ends[1]) : null),
+      w.unit ? out : null);
   }
   function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; paintChrome(); }
   // Next during a time-lapse runs the days that are left in about 600 ms (the clock speeds up, the ramp is unchanged) and stops on its end.
@@ -1454,6 +1482,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         : [h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
+          s.whatIf ? whatIfEl(s, i, st) : null,
           s.monitor ? monitorFor(s, i) : null,
           s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
@@ -1631,6 +1660,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     scale: (s) => scaleVisual(s.scale, rowsOf(s)),
     quadrant: (s) => quadrantVisual(rowsOf(s)),
     walls: () => wallsVisual(),
+    // The closing quick check: a few questions to answer from memory; a tap on one shows its answer.
+    check: (s) => h('ol', { class: 'pz-check' }, s.checks.map(([q, a], k) => {
+      const li = h('li', {}, h('button', { type: 'button', class: 'pzc-q', 'aria-expanded': 'false', 'aria-controls': `pzc-a${k}`,
+        onclick: (e) => { const on = !li.classList.contains('open'); li.classList.toggle('open', on); e.currentTarget.setAttribute('aria-expanded', String(on)); } },
+      h('span', { class: 'pzc-t' }, q), h('span', { class: 'pzc-hint', 'aria-hidden': 'true' }, 'Show answer')),
+      h('div', { class: 'pzc-a', id: `pzc-a${k}` }, h('p', {}, a)));
+      return li;
+    })),
     outline: (s) => h('div', { class: 'pz-outline' },
       h('section', {}, h('h2', { class: 'pz-sub' }, 'Outline'), h('ol', {}, s.outline.map((k) => h('li', {}, k)))),
       s.objectives.length ? h('section', { class: 'pzo-obj' }, h('h2', { class: 'pz-sub' }, 'By the end you can'), h('ul', {}, s.objectives.map((o) => h('li', {}, o)))) : null),

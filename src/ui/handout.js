@@ -6,7 +6,7 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=c9e394c44a';
+import { LEVELS, withOverview } from './decks.js?v=9cd85b29c9';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -46,6 +46,10 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; line-height: 1.25; }
 .ask { margin-top: 12px; padding: 8px 12px; border: 1px solid var(--rule); border-radius: 6px; }
 .ask p { margin: 0; }
 .ask .a { margin-top: 4px; color: var(--ink-2); }
+.checks { margin: 12px 0 0; padding-left: 1.4em; }
+.checks li { margin-top: 6px; }
+.checks p { margin: 0; }
+.checks .a { margin-top: 2px; color: var(--ink-2); }
 .ask .a b { color: var(--ink); }
 @media (max-width: 680px) {
   body { padding-top: 20px; }
@@ -79,6 +83,7 @@ function slideBlock(d, base, s, i) {
     ${s.line ? `<p class="line">${esc(s.line.replace(/[{}]/g, ''))}</p>` : ''}
     ${ml ? `<div class="eq"><math display="block">${ml}</math>${legend ? `<small>${esc(legend)}</small>` : ''}</div>` : ''}
     ${s.notes ? `<div class="notes"><p class="cap">Notes</p><p>${esc(s.notes)}</p></div>` : ''}
+    ${s.checks ? `<ol class="checks">${s.checks.map(([cq, ca]) => `<li><p>${esc(cq)}</p><p class="a"><b>Answer:</b> ${esc(ca)}</p></li>`).join('')}</ol>` : ''}
     ${q ? `<div class="ask"><p class="cap">Ask the room</p><p>${esc(q)}</p>${a ? `<p class="a"><b>Answer:</b> ${esc(a)}</p>` : ''}</div>` : ''}
   </div>
 </article>`;

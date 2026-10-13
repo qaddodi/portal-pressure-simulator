@@ -47,35 +47,38 @@
 //   quiz                     quiz mode (Q) asks this before the answer shows (the camera waits at the whole figure)
 //   caveat                   one short sentence in small print under the line, where the model differs from patients
 //   notes, ask               speaker notes, and [question, expected answer] for the room
+//   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter
+//                            (a dotted path, e.g. 'tips.d') of the live model; the figure and the data card follow it
 //
 // Deck fields: id, level, title, minutes, summary, objectives (3 to 4 short learning objectives), slides, and sections
-// ([name, [kickers]], three to five) when its kicker groups are more than five.
+// ([name, [kickers]], three to five) when its kicker groups are more than five, and checks ([[question, answer]], three
+// or four), the closing quick check.
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=d4320acd4d';
-import { SITES } from './decks/sites.js?v=41d6c83b44';
-import { HVPG } from './decks/hvpg.js?v=5c61506d11';
-import { ASCITES } from './decks/ascites.js?v=61999961c1';
-import { VARICES } from './decks/varices.js?v=47cde2d109';
-import { TREATMENT } from './decks/treatment.js?v=10e908cd93';
-import { STIFFNESS } from './decks/stiffness.js?v=6dc9727b70';
-import { ONE_YEAR } from './decks/one-year.js?v=cfb7ee27d2';
-import { LOBULE } from './decks/lobule.js?v=262a31ce6b';
-import { SHUNTS } from './decks/shunts.js?v=91699f4277';
-import { TAP } from './decks/tap.js?v=6f5d0af964';
-import { CIRCUIT } from './decks/circuit.js?v=9e16409fcb';
-import { DOPPLER } from './decks/doppler.js?v=7eb07fe1b9';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=e603168112';
-import { PREHEPATIC } from './decks/prehepatic.js?v=09eb3594b2';
-import { RIGHT_HEART } from './decks/right-heart.js?v=0d83a8772b';
-import { BLEED } from './decks/variceal-bleed.js?v=57dbec06f3';
-import { TWO_INFLOWS } from './decks/two-inflows.js?v=af7fc0c6ea';
-import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=411cfad4e1';
-import { SPLEEN } from './decks/spleen.js?v=7b3a1383f5';
-import { NCPH } from './decks/ncph.js?v=c58b81c951';
-import { OUTFLOW } from './decks/outflow.js?v=e0f5f66517';
-import { RECOMPENSATION } from './decks/recompensation.js?v=4aad5c5c36';
+import { CIRCULATION } from './decks/circulation.js?v=415a54c856';
+import { SITES } from './decks/sites.js?v=136596cd96';
+import { HVPG } from './decks/hvpg.js?v=613a031a7b';
+import { ASCITES } from './decks/ascites.js?v=f73e755ce7';
+import { VARICES } from './decks/varices.js?v=534bb3ec39';
+import { TREATMENT } from './decks/treatment.js?v=e3b0eee46d';
+import { STIFFNESS } from './decks/stiffness.js?v=d1986ddf9a';
+import { ONE_YEAR } from './decks/one-year.js?v=df07960c49';
+import { LOBULE } from './decks/lobule.js?v=6fd8ef0515';
+import { SHUNTS } from './decks/shunts.js?v=d3b93ba50b';
+import { TAP } from './decks/tap.js?v=5962504271';
+import { CIRCUIT } from './decks/circuit.js?v=7ce4853718';
+import { DOPPLER } from './decks/doppler.js?v=f46eeefd75';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=3efa2ca625';
+import { PREHEPATIC } from './decks/prehepatic.js?v=286f4e3b5f';
+import { RIGHT_HEART } from './decks/right-heart.js?v=b04295e4ab';
+import { BLEED } from './decks/variceal-bleed.js?v=f9f4868ad7';
+import { TWO_INFLOWS } from './decks/two-inflows.js?v=45c85aba92';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=b385d90871';
+import { SPLEEN } from './decks/spleen.js?v=7c17699e8b';
+import { NCPH } from './decks/ncph.js?v=be14a66c9a';
+import { OUTFLOW } from './decks/outflow.js?v=35a981818a';
+import { RECOMPENSATION } from './decks/recompensation.js?v=84695120fb';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -113,7 +116,10 @@ export function withOverview(d) {
     notes: 'Set out the plan of the talk and what the audience should be able to do by the end.',
     ...(keep ? Object.fromEntries(MODEL.filter((k) => first[k] !== undefined).map((k) => [k, first[k]])) : {}) };
   const firstNow = keep ? Object.fromEntries(Object.entries(first).filter(([k]) => !MODEL.includes(k))) : first;
-  return { ...d, slides: [open, place(firstNow), ...rest.map(place)] };
+  // The closing quick check (checks: [[question, answer]]): over the last slide's patient, which it keeps.
+  const check = d.checks?.length ? [{ id: 'check', visual: 'check', checks: d.checks, kicker: 'Quick check', title: 'Check what you remember',
+    line: 'Answer each question in your head, then tap it to see the answer.', notes: 'Recall the key numbers and ideas of this talk.' }] : [];
+  return { ...d, slides: [open, place(firstNow), ...rest.map(place), ...check] };
 }
 
 export const DECKS = [CIRCULATION, SITES, HVPG, ASCITES, VARICES, TREATMENT];

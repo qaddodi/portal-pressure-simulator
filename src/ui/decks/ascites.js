@@ -7,6 +7,11 @@ export const ASCITES = {
   summary: 'How ascites forms in the sinusoids and why presinusoidal disease rarely causes it. Ends with SAAG and protein.',
   sections: [['Where ascites forms', ['Ascites']], ['Tapping the fluid', ['Tapping the fluid']], ['Blocks before the sinusoids', ['Pre-hepatic block', 'Presinusoidal block']], ['Protein-rich ascites', ['Protein-rich ascites']]],
   objectives: ['Explain how sinusoidal pressure and lymph make ascites', 'Interpret the SAAG and ascitic protein', 'Explain why pre-hepatic and presinusoidal blocks rarely cause ascites', 'Tell cirrhosis from heart failure and Budd–Chiari by the tap'],
+  checks: [
+    ['What SAAG points to portal hypertension?', '1.1 g/dL or more.'],
+    ['A high SAAG with ascitic protein of 2.5 g/dL or more. Where is the problem?', 'Behind the liver: heart failure or Budd–Chiari syndrome. The sinusoid wall is still open and lets protein through.'],
+    ['Why does portal vein thrombosis rarely cause ascites?', 'The sinusoids beyond the clot stay at normal pressure, and ascites comes from sinusoidal pressure.'],
+  ],
   slides: [
     {
       id: 'start', terms: { 'space of Disse': 'sinusoid:disse', lymphatics: 'sinusoid:lymph' }, preset: 'csph', cam: 'sinusoid', data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],

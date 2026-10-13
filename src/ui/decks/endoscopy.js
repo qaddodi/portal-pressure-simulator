@@ -15,6 +15,11 @@ export const ENDOSCOPY = {
     'Manage a variceal bleed: octreotide, restrictive transfusion and banding',
     'Explain why banding needs a beta-blocker beside it',
   ],
+  checks: [
+    ['When is a varix called large?', 'Over 5 mm: it bulges into the lumen and does not flatten with air.'],
+    ['To what hemoglobin do you transfuse in a variceal bleed?', '7 to 8 g/dL. More volume raises the portal pressure and the risk of rebleeding.'],
+    ['Why does banding need a beta-blocker beside it?', 'Banding closes the varices but leaves the portal pressure unchanged, so new varices form.'],
+  ],
   summary: 'One patient seen through the scope: screening, growing and large varices, wall tension, a bleed, transfusion, octreotide and band ligation.',
   slides: [
     {

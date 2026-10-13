@@ -12,6 +12,11 @@ export const TWO_INFLOWS = {
     'Predict the hepatic artery flow after a portal vein clot and after TIPS',
     'Explain why the bile ducts depend on the hepatic artery',
   ],
+  checks: [
+    ['What share of the liver\'s blood comes from the portal vein?', 'About three quarters. The hepatic artery brings about a quarter.'],
+    ['What does the hepatic artery do when portal flow falls?', 'It dilates and carries more blood: the hepatic arterial buffer response.'],
+    ['Why do the bile ducts depend on the hepatic artery?', 'It is their only blood supply, and nothing buffers a fall in arterial flow.'],
+  ],
   summary: 'The portal vein and the hepatic artery share the liver\'s blood. The artery buffers every fall in portal flow, after a clot, a TIPS or in end-stage cirrhosis; nothing buffers a fall in arterial flow.',
   slides: [
     {

@@ -12,6 +12,11 @@ export const RECOMPENSATION = {
     'Explain what removing the cause does to the portal pressure',
     'State the Baveno VIII criteria for recompensation',
   ],
+  checks: [
+    ['Name the three events that mark decompensation.', 'Ascites, variceal bleeding and hepatic encephalopathy.'],
+    ['What lowered the portal pressure most in this patient?', 'Removing the cause: stopping alcohol.'],
+    ['When has a patient recompensated under Baveno VIII?', 'The cause is removed, there is no ascites, encephalopathy or variceal bleeding off treatment for more than 6 months, and the liver is back to Child–Pugh A.'],
+  ],
   summary: 'One patient over two years: CSPH, the first ascites, diuretics and carvedilol, then the cause removed and the liver recompensates. The portal pressure falls, but recompensation is not a cure.',
   slides: [
     {

@@ -6,6 +6,11 @@ export const CIRCULATION = {
   id: 'circulation', level: 'foundation', title: 'The portal circulation', minutes: 12,
   summary: 'The normal portal system, from the gut to the right atrium. Ends with the definition of portal hypertension and a summary of the normal pressures.',
   objectives: ['Trace portal blood from the gut and spleen through the lobule to the heart', 'Name the two capillary beds in series and explain why the sinusoid wall lets protein through', 'Give normal pressures from the portal vein to the right atrium', 'Define portal hypertension and CSPH by the HVPG'],
+  checks: [
+    ['Which two veins join to form the portal vein?', 'The splenic vein and the superior mesenteric vein, behind the pancreas.'],
+    ['Why does fluid leaving the sinusoids carry protein?', 'Sinusoids have fenestrae about 100 nm wide and no basement membrane, so plasma protein crosses into the space of Disse.'],
+    ['What HVPG defines clinically significant portal hypertension (CSPH)?', '10 mmHg or more. Normal is 1 to 5 mmHg, and 6 to 9 mmHg is subclinical.'],
+  ],
   slides: [
     {
       id: 'inflow', preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF', 'IMV'], tint: ['imv'], terms: ['sv', 'smv', 'pv'], glow: [{ id: 'imv', soft: true }, { id: 'lgv', soft: true }], data: 'tiles', tiles: ['pvFlow', 'pv'],

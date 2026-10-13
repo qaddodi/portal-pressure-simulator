@@ -10,6 +10,11 @@ export const STIFFNESS = {
     'Link a large spleen and low platelets to portal hypertension',
     'Recognize when stiffness misleads: presinusoidal block, congestion, a meal',
   ],
+  checks: [
+    ['Which stiffness means CSPH in compensated cirrhosis under Baveno VIII?', '25 kPa or more.'],
+    ['Which stiffness and platelet count rule CSPH out?', 'Stiffness of 15 kPa or less with platelets of 150 or more.'],
+    ['Name two situations where stiffness misleads.', 'A recent meal and heart failure congestion raise it. A presinusoidal block, such as schistosomiasis, keeps it low despite high portal pressure.'],
+  ],
   summary: 'FibroScan, spleen size and the platelet count against the portal gradient: the Baveno VIII rule, and where stiffness misleads (presinusoidal block, congestion, a meal).',
   slides: [
     {

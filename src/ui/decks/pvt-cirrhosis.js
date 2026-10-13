@@ -12,6 +12,11 @@ export const PVT_CIRRHOSIS = {
     'Prepare for anticoagulation: variceal prophylaxis first, without delay',
     'Describe what months of anticoagulation do to the clot and the pressures',
   ],
+  checks: [
+    ['What is the strongest local risk factor for a portal vein clot in cirrhosis?', 'Slow flow in the portal vein.'],
+    ['Why does the HVPG barely change with a portal vein clot?', 'The wedge reads the sinusoids beyond the clot. The PPG rises instead.'],
+    ['What comes before anticoagulation?', 'Variceal bleeding prophylaxis, without letting the endoscopy delay the anticoagulant.'],
+  ],
   summary: 'A partial clot in a cirrhotic portal vein: what it does to the portal pressure and the varices, why the HVPG misses it, and how months of anticoagulation reopen the vein.',
   slides: [
     {
@@ -23,7 +28,7 @@ export const PVT_CIRRHOSIS = {
       ask: ['Does a high INR protect a patient with cirrhosis from portal vein thrombosis?', 'No: the anticoagulant proteins fall too, so clotting is rebalanced.'],
     },
     {
-      id: 'clot', tick: 'Partial clot', params: { thrombus: { PV_TRUNK: 0.6 } }, cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], label: 'Partial clot' },
+      id: 'clot', tick: 'Partial clot', params: { thrombus: { PV_TRUNK: 0.6 } }, whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] }, cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], label: 'Partial clot' },
       tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'base' }, data: 'tiles', tiles: ['pv', 'varix'], key: ['pv'],
       kicker: 'The clot', site: 'pre', title: 'A partial clot in the portal vein',
       line: 'The clot fills more than half of the portal vein. Blood speeds through the channel that is left, and the pressure behind it rises to {pv}.',

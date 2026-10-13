@@ -11,6 +11,11 @@ export const SHUNTS = {
     'Describe TIPS, why it is kept narrow, and how a blocked stent shows',
     'Predict what closing a shunt (BRTO) does to the portal pressure',
   ],
+  checks: [
+    ['Why is a TIPS stent usually 8 to 10 mm and not wider?', 'A wider stent lowers the gradient further but takes more portal blood from the liver, so encephalopathy and liver failure become more likely.'],
+    ['Below what PPG does a TIPS aim?', '12 mmHg.'],
+    ['What happens to the portal pressure after BRTO closes a gastrorenal shunt?', 'It rises, because blood that left through the shunt stays in the portal system. Esophageal varices can grow.'],
+  ],
   summary: 'Spontaneous portosystemic shunts, TIPS, and what closing a shunt does. Ends with a comparison of gradient, liver flow and encephalopathy risk.',
   slides: [
     {
@@ -37,7 +42,7 @@ export const SHUNTS = {
       ask: ['A patient with cirrhosis has recurrent encephalopathy despite lactulose and rifaximin. What should you look for?', 'A large spontaneous portosystemic shunt, such as a splenorenal shunt, on CT.'],
     },
     {
-      id: 'tips', terms: ['pv', 'hv'], preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' },
+      id: 'tips', terms: ['pv', 'hv'], preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, whatIf: { label: 'Stent width', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' },
       tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: 'own',
       kicker: 'Made', site: 'sin', title: 'TIPS',
       line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The PPG falls to {ppg}, below 12 mmHg.',
@@ -61,6 +66,7 @@ export const SHUNTS = {
     },
     {
       id: 'brto', terms: ['gv'], preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' },
+      compare: [{ label: 'Shunt open', params: { occluded: { C5: false } } }, { label: 'Shunt closed', own: true, params: { occluded: { C5: true } } }],
       data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'], delta: 'grs',
       kicker: 'Closing a shunt', site: 'sin', title: 'BRTO closes the gastrorenal shunt',
       line: 'A balloon blocks the shunt, and sclerosant fills it and the fundal varices behind it, which then thrombose. Portal blood that used to leave through the shunt stays in the portal system, so pressure rises and esophageal varices grow.',

@@ -12,6 +12,11 @@ export const NCPH = {
     'Name the two main causes: schistosomiasis and porto-sinusoidal vascular disorder',
     'Treat the varices as in cirrhosis',
   ],
+  checks: [
+    ['Name the two main causes of presinusoidal portal hypertension.', 'Schistosomiasis and porto-sinusoidal vascular disorder.'],
+    ['Why is the HVPG near normal?', 'The block lies before the sinusoids, so the wedge reads normal sinusoidal pressure. Only a PPG shows the gradient.'],
+    ['Varices with a soft liver. What does that suggest?', 'A block before the sinusoids. Stiffness reflects scar and congestion, not portal pressure.'],
+  ],
   summary: 'Schistosomiasis and porto-sinusoidal vascular disorder: varices and a big spleen with a normal liver stiffness and a normal HVPG, because the block sits in the portal tracts.',
   slides: [
     {

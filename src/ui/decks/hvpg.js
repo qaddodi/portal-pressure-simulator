@@ -6,6 +6,11 @@ export const HVPG = {
   id: 'hvpg', level: 'core', title: 'Measuring HVPG and PPG', minutes: 15,
   summary: 'How the HVPG is measured and what it means. Then where it misleads, and how the PPG helps.',
   objectives: ['Describe how free and wedged hepatic pressures are recorded', 'Calculate the HVPG and state its 5, 10 and 12 mmHg cut-offs', 'Recognize when the HVPG misleads', 'Use the portal pressure gradient when it does'],
+  checks: [
+    ['How is the HVPG calculated?', 'Wedged hepatic vein pressure minus free hepatic vein pressure (WHVP − FHVP).'],
+    ['At which HVPG levels does the risk rise?', 'Above 5 mmHg is portal hypertension, 10 mmHg or more is CSPH, and from 12 mmHg varices can bleed.'],
+    ['When does the HVPG miss a high portal pressure, and what do you measure instead?', 'When the block lies before the sinusoids, as with a portal vein clot or schistosomiasis. Measure the PPG, portal vein minus IVC.'],
+  ],
   slides: [
     {
       id: 'route', preset: 'csph', cath: 'route',

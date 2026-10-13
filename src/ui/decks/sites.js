@@ -7,6 +7,11 @@ export const SITES = {
   summary: 'Six levels of block, each with its pressure ladder and HVPG. Ends with a comparison table.',
   sections: [['Portal hypertension', ['Portal hypertension', 'Reference']], ['Before the liver', ['Pre-hepatic']], ['In the liver', ['Intrahepatic · presinusoidal', 'Intrahepatic · sinusoidal', 'Intrahepatic · postsinusoidal']], ['After the liver', ['Post-hepatic', 'Cardiac']], ['Telling them apart', ['How to tell them apart']]],
   objectives: ['Place a cause of portal hypertension at one of six levels', 'Predict the HVPG for a block at each level', 'Read a pressure ladder to find where the largest drop is'],
+  checks: [
+    ['Portal vein thrombosis raises the portal pressure. What happens to the HVPG?', 'It stays normal. The catheter wedges beyond the clot, in normal sinusoids.'],
+    ['Which two levels of block raise the HVPG?', 'Sinusoidal, as in cirrhosis, and postsinusoidal, as in sinusoidal obstruction syndrome.'],
+    ['Every station is high in right heart failure. What sets it apart from a block in the liver?', 'The drops between stations stay small, so the HVPG is normal, and the right atrial pressure is high.'],
+  ],
   slides: [
     {
       id: 'overview', preset: 'healthy', cam: 'fit', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], rail: 'all',

@@ -8,6 +8,11 @@ export const VARICES = {
   sections: [['How collaterals form', ['Collaterals']], ['Esophageal and gastric varices', ['Varices', 'Gastric varices']], ['Other routes', ['Left-sided portal hypertension', 'Other collaterals']], ['Heart failure', ['Heart failure']]],
   summary: 'Six months of progression, then the varices and other collateral routes. Ends with why heart failure rarely causes varices.',
   objectives: ['Name the main portosystemic collaterals and where they form', 'Relate varix size and HVPG to bleeding risk', 'Recognize left-sided portal hypertension and gastric varices', 'Explain why heart failure rarely produces varices'],
+  checks: [
+    ['Name three places where portosystemic collaterals open.', 'Any three of: the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, including splenorenal and gastrorenal shunts.'],
+    ['From what HVPG can varices bleed?', '12 mmHg.'],
+    ['Why are varices rare in heart failure?', 'Portal and systemic pressures are both high, so the PPG stays low and nothing drives blood into collaterals.'],
+  ],
   slides: [
     {
       id: 'collat', preset: 'csph', cam: 'fit', glow: [{ id: 'lgv', soft: true }], data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'],

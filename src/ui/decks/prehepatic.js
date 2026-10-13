@@ -11,6 +11,11 @@ export const PREHEPATIC = {
     'Describe a cavernoma and its varices with a soft liver',
     'Spot left-sided portal hypertension from a splenic vein clot',
   ],
+  checks: [
+    ['Why is the HVPG normal with a portal vein clot?', 'The clot is before the liver. The wedge reads the normal sinusoids beyond it.'],
+    ['Which measurement shows the block?', 'The PPG, portal vein minus IVC.'],
+    ['Where do varices form with a splenic vein clot?', 'In the gastric fundus, often with no esophageal varices.'],
+  ],
   summary: 'A clot before the liver: acute portal vein thrombosis on Doppler, the normal HVPG and high PPG, the cavernoma months later, and splenic vein thrombosis with gastric varices.',
   slides: [
     {

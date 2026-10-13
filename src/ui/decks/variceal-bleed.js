@@ -14,6 +14,11 @@ export const BLEED = {
     'Transfuse to a hemoglobin of 7 to 8 g/dL and explain why not more',
     'Name the patients who need a pre-emptive TIPS',
   ],
+  checks: [
+    ['What shows shock early in a variceal bleed?', 'The heart rate and blood pressure. The hemoglobin falls only later, as fluid refills the vessels, and a beta-blocker can blunt the heart rate.'],
+    ['What do you start before the endoscopy?', 'Octreotide, a 50 µg bolus then 50 µg an hour, and ceftriaxone 1 g a day.'],
+    ['Within how long does a high-risk patient get a TIPS?', 'Within 72 hours, ideally within 24.'],
+  ],
   sections: [['Before the bleed', ['Before']], ['The bleed', ['The bleed']], ['Drugs and volume', ['Before the scope', 'Volume']], ['The scope', ['Endoscopy']], ['After the scope', ['After the scope']]],
   summary: 'One bleed from tear to TIPS: early shock with a normal hemoglobin, octreotide before the scope, restrictive transfusion, banding and why overfilling raises the portal pressure.',
   slides: [

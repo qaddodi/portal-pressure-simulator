@@ -9,6 +9,11 @@ export const LOBULE = {
     'Predict the HVPG and the ascites protein from the site of the block',
     'Explain what the wedged pressure reads and what it misses',
   ],
+  checks: [
+    ['Which zone of the lobule is injured first by low flow or congestion?', 'Zone 3, around the central vein, which gets the least oxygen.'],
+    ['Where does schistosomiasis block the flow?', 'In the portal venules of the portal tract, upstream of the sinusoids, so the HVPG stays near normal.'],
+    ['Why does the HVPG rise in sinusoidal obstruction syndrome?', 'The block sits in the small central veins, upstream of the free reading, so the wedged pressure rises.'],
+  ],
   summary: 'The lobule from portal tract to central vein, and the point in it that each disease blocks. Ends with what the wedge reads at each site.',
   slides: [
     {

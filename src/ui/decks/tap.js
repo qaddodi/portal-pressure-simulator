@@ -11,6 +11,11 @@ export const TAP = {
     'Use diuretics and TIPS for ascites that keeps coming back',
     'Recognize protein-rich ascites that points to the heart',
   ],
+  checks: [
+    ['How much albumin goes with a large-volume paracentesis?', '6 to 8 g for each liter removed, when more than 5 liters come out.'],
+    ['Why does ascites come back after a tap alone?', 'Sinusoidal pressure and the kidneys\' sodium retention are unchanged. Diuretics or a TIPS keep it away.'],
+    ['High SAAG and ascitic protein of 2.5 g/dL or more. What do you check?', 'The heart. Protein this high means the sinusoid wall is still open, as in heart failure.'],
+  ],
   summary: 'One patient with tense ascites: the diagnostic tap, large-volume paracentesis with albumin, diuretics and TIPS, with the effect of each on the fluid and the pressures.',
   slides: [
     {

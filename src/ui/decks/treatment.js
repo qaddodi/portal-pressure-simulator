@@ -5,6 +5,11 @@ export const TREATMENT = {
   sections: [['The patient', ['Lowering portal pressure']], ['Drugs', ['Non-selective beta-blocker', 'Acute variceal bleeding', 'Hepatorenal syndrome']], ['Endoscopy and TIPS', ['Endoscopy', 'Shunt', 'After TIPS']], ['Compared', ['Compared']]],
   summary: 'Propranolol, carvedilol, octreotide, terlipressin, band ligation and TIPS in one patient with decompensated cirrhosis, with the effect of each on HVPG, varices and ascites, and the cost of TIPS to liver perfusion.',
   objectives: ['Explain how each drug lowers portal pressure: inflow, resistance or both', 'Explain how a vasoactive drug lowers the pressure in an acute bleed', 'Compare banding, drugs and TIPS for pressure, varices and ascites', 'Weigh the costs of TIPS: liver perfusion and encephalopathy'],
+  checks: [
+    ['Why does carvedilol lower the HVPG more than propranolol?', 'It also blocks α1 receptors, so it lowers the resistance inside the liver as well as the inflow.'],
+    ['Does banding lower the portal pressure?', 'No. It closes the varices, but the pressure stays high, so new ones form unless a beta-blocker lowers it.'],
+    ['What does a TIPS cost the patient?', 'Portal blood bypasses the liver, so liver perfusion falls and about one patient in three develops encephalopathy.'],
+  ],
   slides: [
     {
       id: 'target', preset: 'cirr-decomp', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'],
