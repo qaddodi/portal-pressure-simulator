@@ -4018,6 +4018,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cath.column.style.stroke = st.columnColor || '';
     cath.g.style.opacity = st.opacity ?? 1;
   }
+  // A reading that has to move to a new spot (the cards or the slide changed the room it has) glides there, eased, never
+  // jumps: its jump is kept as an offset that eases to nothing, while it still follows its point on the figure as the camera moves.
+  // (x, y: where it should be now; ax, ay: its point. Returns where it shows. A glide still running asks for the next frame.)
+  const CATH_GLIDE = 600;
+  function cathGlide(el, x, y, ax, ay) {
+    const now = performance.now(), g = el._gl;
+    const left = (q) => { const u = Math.min(1, (now - q.t0) / CATH_GLIDE), e = 1 - (1 - u) ** 3; return [q.ox * (1 - e), q.oy * (1 - e), u < 1]; };
+    let [ox, oy] = g ? left(g) : [0, 0];
+    if (g) {
+      const jx = x - g.x - (ax - g.ax), jy = y - g.y - (ay - g.ay);
+      if (Math.hypot(jx, jy) > 4 && !matchMedia('(prefers-reduced-motion: reduce)').matches) { el._gl = { x, y, ax, ay, ox: ox - jx, oy: oy - jy, t0: now }; ox -= jx; oy -= jy; }
+      else el._gl = { ...g, x, y, ax, ay };
+    } else el._gl = { x, y, ax, ay, ox: 0, oy: 0, t0: now };
+    if (left(el._gl)[2] && !cath.glideRaf) cath.glideRaf = nextFrame(() => { cath.glideRaf = 0; cath.lblKey = ''; cathLabels(); });
+    return [x + ox, y + oy];
+  }
   function cathLabels() {
     const st = cath.st, at = cath.at;
     if (!st || !at) { for (const el of [...(cath.made?.values() || []), ...(cath.leaving?.keys() || [])]) el._glass?.dispose(); cath.labels.replaceChildren(); cath.made?.clear(); cath.leaving?.clear(); cath.lblKey = ''; return; }
@@ -4093,10 +4109,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       let dx = 0;
       if (el.dataset.at === 'ahead' && el._above && fEl) { const [tx] = worldToLocal(at.tip[0], at.tip[1]); dx = -clamp((x + w / 2) - (tx - fW / 2) + 6, 0, 14); }
       // Kept inside the stage: the box moves in and its pointer stays on the point.
-      const half = w / 2, cx = clamp(x + dx, Math.min(half + 8, W / 2), Math.max(W - half - 8, W / 2));
+      const half = w / 2, [cx, cy] = cathGlide(el, clamp(x + dx, Math.min(half + 8, W / 2), Math.max(W - half - 8, W / 2)), y, x, y);
       el.style.setProperty('--ax', `${(x + dx - cx).toFixed(1)}px`);
       el._glass(x + dx - cx);
-      el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
     }
     live.forEach(([el, l]) => {
       if (!l || l.at !== 'sum') return;
@@ -4122,6 +4138,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
       }
       let x = best ? best.x : clamp(cx0, xMin, xMax), y = clamp(best ? best.y : yUp, top, yMax);   // (room on the left for a leader)
+      [x, y] = cathGlide(box, x, y, (A.tip[0] + A.ahead[0]) / 2, (A.tip[1] + A.ahead[1]) / 2);
       box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
       // The bracket, from the middle of one reading to the middle of the other.
       const ys = R.map((q) => q[1] + q[3] / 2), path = box.querySelector('.cath-brace path');
@@ -6158,6 +6175,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
     cameraState: () => ({ ...(vtGliding && vtTarget ? vtTarget : vt) }),
+    /** The camera is still gliding (a slide's cards wait for it to land). */
+    gliding: () => vtGliding,
     setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; animateVT({ ...to }, ms); },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),

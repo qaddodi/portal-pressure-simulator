@@ -1378,6 +1378,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     else if (cam) await camera(cam, s, cut);
     if (cut()) return;
     if (bare) {
+      // (A glide's last frame can land just after the wait that timed it: the cards wait for the camera to be still.)
+      await until(() => cut() || !stage.gliding(), 1500);
+      if (cut()) return;
       bare = false; layout(); cardsIn();
       // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
       await wait(60); await until(() => cut() || !cardsEntering(), 1200);

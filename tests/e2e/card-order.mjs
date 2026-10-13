@@ -1,7 +1,8 @@
 // Slide change order: the cards leave, the camera makes one zoom to the framing that fits around the new cards (measured
 // unseen), then the cards come in. While the camera moves (the presenter's bare phase) the teaching card and its glass stay
 // out whole: never an empty card on screen. When they come back, the words are already in, the camera has stopped, and it
-// does not move again until the next slide's cards leave. The corner credit sits the whole move out: gone from the moment the cards leave, back once (fading
+// does not move again until the next slide's cards leave. The catheter's readings (FHVP, WHVP, HVPG) glide to a new spot,
+// never jump there in one frame. The corner credit sits the whole move out: gone from the moment the cards leave, back once (fading
 // in at its final spot, never moving while visible) after the cards are in and the camera has settled. Real motion, stepping with Next through a deck, sampled every frame.
 //
 //   DECKS=doppler node tests/e2e/card-order.mjs
@@ -24,7 +25,16 @@ await page.evaluate(() => {
   const world = document.getElementById('world');
   const camOf = () => (world?.getAttribute('transform') || '').match(/-?[\d.]+(e-?\d+)?/g)?.map(Number) || [];
   const moved = (a, b) => a.length !== b.length || a.some((v, i) => Math.abs(v - b[i]) > (i === 2 ? 0.002 : 0.5));
+  const at = new WeakMap();
+  let lastWorld = '';
   const tick = () => {
+    const wt = document.getElementById('world')?.getAttribute('transform') || '', still = wt === lastWorld; lastWorld = wt;
+    for (const el of document.querySelectorAll('.cath-labels .cath-label:not(.in-sum), .cath-labels .cath-sum-box')) {
+      const r = el.getBoundingClientRect(), p = at.get(el), vis = +getComputedStyle(el.closest('.cath-sum') || el).opacity > 0.5 && r.width > 0;
+      // (Checked while the camera holds still: a reading following the camera is not a jump.)
+      if (p && p.vis && vis && still && Math.hypot(r.left - p.x, r.top - p.y) > 30) window.__bad.push('catheter reading jumped to a new spot');
+      at.set(el, { x: r.left, y: r.top, vis });
+    }
     const held = app.classList.contains('pz-moving'), op = +getComputedStyle(cr).opacity, r = cr.getBoundingClientRect();
     if (held) { heldAt ||= performance.now(); if (performance.now() - heldAt > 400 && op > 0.02) window.__bad.push('corner credit visible during the slide change'); } else heldAt = 0;
     if (op > 0.02) window.__creditSeen++;
@@ -54,4 +64,4 @@ await browser.close(); server.close?.();
 if (!seen) { console.error(`card-order ${deck}: the bare phase never ran`); process.exit(1); }
 if (!credit) { console.error(`card-order ${deck}: the corner credit never came back after the slide changes`); process.exit(1); }
 if (bad.length) { console.error(`card-order ${deck}: ${bad.join('; ')}`); process.exit(1); }
-console.log(`card-order ${deck}: ${steps} slide changes, cards held out during every zoom (one move, none after they came in), credit out of sight until the cards and camera settled`);
+console.log(`card-order ${deck}: ${steps} slide changes, cards held out during every zoom (one move, none after they came in), credit out of sight until the cards and camera settled, catheter readings never jumped`);
