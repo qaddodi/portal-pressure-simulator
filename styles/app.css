@@ -4545,3 +4545,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .metric .v { overflow: hidden; }
 /* Event flags: a slightly smaller dot. */
 .tl-m.ev::before { width: 8px; height: 8px; }
+/* A slide's Doppler readings beside the speed: two across, each label and value on its own line, never overlapping
+   (the report is a narrow container there, so the Explore pane's four-across query had matched it). */
+.pz:not(.stack) .pz-tool .dop .dop-report .dop-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+.pz:not(.stack) .pz-tool .dop .dop-report .dop-stats :is(dt, dd) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

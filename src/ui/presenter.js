@@ -1894,6 +1894,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
   }
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
+  let textLock = null;
   let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0;
   const fitWatch = () => {
     fitRO ||= new ResizeObserver(() => {
@@ -1923,6 +1924,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.root.classList.toggle('low', !p && W > H && H <= 500);   // (a phone held sideways: its instruments fold behind Show)
     const off = (el) => el.hidden || (el === ui.data ? 'gone' in el.dataset : el.classList.contains('pz-hide'));   // (a card only easing out and back in for the next slide still counts, where it rests: the camera frames once)
     const r = (el) => (off(el) ? null : restBox(el));
+    // The words' sizes settle once per slide, before its cards enter: a later pass (a reading ticking, the data card growing)
+    // keeps them, so the teaching card's text never changes size while it is in view.
+    const lockKey = shown ? `${shown.gen}:${shown.i}:${W.toFixed(0)}x${H.toFixed(0)}` : null, lock = lockKey && textLock?.key === lockKey ? textLock : null;
     ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ui.text.style.removeProperty('--pz-sw');
     ui.text.style.maxHeight = '';   // (the last pass's cap would shrink the words to a room they no longer have)
     fitCards(ui.text);
@@ -1959,12 +1963,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         for (const [s, bk] of [[1, 1], ...DK]) { if (below) break; if (s < 1) step(s); below = title(bk); }
         if (!below) for (const bk of [0.68, 0.64, 0.6]) if ((below = put(TK_MIN, bk))) break;   // (the words' text last)
       };
-      ladder();
+      if (lock) { for (const [n, v] of lock.vars) if (v) ts.setProperty(n, v); t = r(ui.text); }
+      else ladder();
       // (Still too tall: the same steps again in a wider column, SW, where the words take fewer lines; a chart drawn to the
       // card's width grows with it, so this comes second.)
-      if (!below) { dk = 1; widen(); below = top0 + t.height + 2 * pad + gap + ch <= foot; ladder(); }
-      if (!below) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ts.removeProperty('--pz-sw'); t = r(ui.text); dk = 1; }   // (a little slack once there: a number ticking never flips it)
+      if (lock) { below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = colHeight(cw / k, dk) * k; }
+      else if (!below) { dk = 1; widen(); below = top0 + t.height + 2 * pad + gap + ch <= foot; ladder(); }
+      if (!below && !lock) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ts.removeProperty('--pz-sw'); t = r(ui.text); dk = 1; }   // (a little slack once there: a number ticking never flips it)
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
+      if (lockKey && !lock) textLock = { key: lockKey, below, dk, vars: ['--pz-tk', '--pz-bk', '--pz-sw'].map((n) => [n, ts.getPropertyValue(n)]) };
     } else dd.style.removeProperty('--pz-dk');
     const isCol = dd.classList.contains('col');
     if (below !== isCol) {
