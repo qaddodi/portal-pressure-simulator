@@ -1560,7 +1560,8 @@ button.finding { cursor: pointer; }
 .pz-term { border-radius: var(--r-pill); font-weight: 650; white-space: nowrap; }
 /* A disease name: a soft tinted pill, inline and with no vertical padding that counts, so a line never grows or shifts. */
 .pz-dz { padding: 0 .3em; margin-inline: -.04em; border-radius: .5em; font-weight: 600; color: color-mix(in srgb, var(--disease) 62%, var(--text)); background: color-mix(in srgb, var(--disease) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--disease) 36%, transparent); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
-.pz-h .pz-dz { padding: 0 .14em; margin-inline: -.02em; border-radius: .3em; font-weight: inherit; }
+/* In a title the name is only tinted: a box round big, tightly leaded letters would be clipped at the card's top. */
+.pz-h .pz-dz { padding: 0; margin: 0; background: none; box-shadow: none; border-radius: 0; font-weight: inherit; color: color-mix(in srgb, var(--disease) 82%, var(--text)); }
 /* A cut-off ({>=10 mmHg}): an outline, no fill. Filled is this patient, outlined is the rule. */
 .pz-val.cut { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent); color: var(--text-2); }
 .app.pz-hi .pz-val.tone, .app.pz-hi .pz-term { box-shadow: inset 0 0 0 1.5px var(--tone); }

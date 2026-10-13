@@ -41,3 +41,15 @@ test('the pill colour is a token with a value in the light and both dark blocks'
   // No vertical padding or display change: the pill never alters a line's height.
   assert.ok(!/\.pz-dz \{[^}]*(?:padding: [^0;]|display:|line-height)/.test(app));
 });
+
+test('a title only tints the name: no box, padding or shadow that a card edge could clip', () => {
+  const app = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const rule = app.match(/\.pz-h \.pz-dz \{([^}]*)\}/)?.[1] || '';
+  assert.ok(/background: none/.test(rule) && /box-shadow: none/.test(rule) && /padding: 0;/.test(rule) && /var\(--disease\)/.test(rule));
+});
+
+test('a body pill adds no vertical padding or margin, so it stays inside its line and the card', () => {
+  const app = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const rule = app.match(/\n\.pz-dz \{([^}]*)\}/)?.[1] || '';
+  assert.ok(rule && /padding: 0 \.3em;/.test(rule) && !/margin-block|margin-top|margin-bottom|display|line-height/.test(rule));
+});
