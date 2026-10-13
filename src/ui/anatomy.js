@@ -175,7 +175,7 @@ export const EDGE_PATH = {
   // The retroperitoneal collateral leaves the SMV well below the mesocaval origin, on the lower trunk,
   // and runs across to the cava lower down (see STRANDS for its small veins).
   C7: 'M738 755 C 706 756 664 748 620 745',
-  C8: 'M700 556 C 695 520 650 470 602 442',
+  C8: 'M700 556 C 706 506 668 462 602 442',
   // Ascending lumbar veins → the ascending azygos, up to its arch. Above y 172 it runs in the
   // azygos trunk's own lane (the same curve as its FEEDERS path), so the two read as one vein.
   C9: 'M620 650 C 584 604 566 500 564 400 C 563 320 564 240 564 172 C 563 120 562 72 564 52 C 566 41 569 35 574 30',
@@ -201,7 +201,7 @@ export const EDGE_PATH = {
 // large vein, not a plexus.) In the anatomic view these get extra strands that leave and rejoin
 // the vessel: [lateral offset at mid-course, serpentine phase, caliber fraction].
 export const STRANDS = {
-  C8: [[-36, 1.1, 0.5], [-24, 3.9, 0.6], [13, 2.4, 0.65], [25, 5.2, 0.5], [36, 0.3, 0.42]],
+  C8: [[-38, 1.1, 0.7], [-26, 3.9, 0.75], [-12, 2.4, 0.8], [30, 5.2, 0.7], [44, 0.3, 0.6]],
   C1a: [[-9, 0.7, 0.55], [-4.5, 3.3, 0.6], [0.5, 5.1, 0.5], [5, 1.9, 0.6], [9.5, 4.6, 0.5]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],

@@ -3,23 +3,23 @@
 
 import { startHost, host } from './host.js?v=56e36c5522';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7c63421fac';
-import { createStage } from './stage.js?v=6416da2844';
+import { createStage } from './stage.js?v=21c4c223a3';
 import { createCreditPlacer } from './credit.js?v=1f3b3c2f6f';
 import { sinusoidSupported } from './sinusoid-view.js?v=a9b9795e1b';
 import { createInspector } from './inspector.js?v=6e8a77657d';
-import { createDock, CUTOFFS } from './dock.js?v=3ec463e810';
-import { setHvpgStage } from './hvpg-proc.js?v=8edb25ac7b';
+import { createDock, CUTOFFS } from './dock.js?v=bdf59dbe92';
+import { setHvpgStage } from './hvpg-proc.js?v=18b99b671d';
 import { createWhy } from './why.js?v=f93872618b';
 import { createTimeline, LAPSES } from './timeline.js?v=41fd496223';
 import { createCompare } from './compare.js?v=d749838ac7';
-import { createCard } from './card.js?v=3eeff61095';
-import { createChart, computeFindings } from './chart.js?v=8ab371b075';
+import { createCard } from './card.js?v=ba47fa17ca';
+import { createChart, computeFindings } from './chart.js?v=e0ae45df9a';
 import { createMenu, ROLES } from './menu.js?v=f562fc21f7';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=2b593f6af1';
 import { caption } from './a11y.js?v=11255f5d04';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=db2f076e69';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=84320c17b2';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=a65dea21ce';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=b1761ad19c';
@@ -136,7 +136,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=898d39a82d'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=36ee1961e4'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -144,7 +144,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=8fe078b95f'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=49b0ae1beb'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),

@@ -10,9 +10,9 @@
 import { store, updateParams, hiddenNow } from './store.js?v=7c63421fac';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=b1761ad19c';
 import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
-import { TILES, VITALS, readoutValue } from './dock.js?v=3ec463e810';
+import { TILES, VITALS, readoutValue } from './dock.js?v=bdf59dbe92';
 import { activeInterventions } from './inspector.js?v=6e8a77657d';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=db2f076e69';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=84320c17b2';
 
 // Text that changes is rewritten in its text node (setting textContent replaces the node on every paint).
 const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
