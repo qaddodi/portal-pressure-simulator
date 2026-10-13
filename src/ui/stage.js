@@ -7,7 +7,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7c63421fac';
 import { fibroReading } from './clock.js?v=6284ad19b7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, lite, liteFade } from './util.js?v=9279d972cf';
-import { createLobuleZoom } from './lobule-zoom.js?v=011cb2356b';
+import { createLobuleZoom } from './lobule-zoom.js?v=39c952eab0';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -1342,7 +1342,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let lobuleOn = false, lobU = 0, lobAnim = 0;
   // Into the lobule, a dive (1.6 s): one continuous zoom from a spot in the liver, gentle at both ends.
   // The anatomy is magnified as it stands (a compositor transform: nothing is redrawn); a field of
-  // lobules, many and small, blooms out from that spot over it; the zoom goes on through them and
+  // lobules (few and large, so the zoom stays light) blooms out from that spot over it; the zoom goes on through them and
   // settles onto one, where the lobule's tissue fades in, in place, and then its labels and card.
   // Out, the same in reverse, quicker.
   // The anatomy's own framing is never touched. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
@@ -1354,7 +1354,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (diveClock: the dive's own start, span and ends, so the joint's moment is known exactly; riseAt: when the sinusoid finished
   // closing, the moment the rise that follows it begins, rather than when its callback happens to run.)
   let chainIn = false, chainOut = false, chainFired = false, chainAt = 0, zShift = 0, diveClock = null, riseAt = null;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
-  const RH = 11;   // a lobule's size on screen (px) as the liver's surface gives way to the field
+  const RH = 24;   // a lobule's size on screen (px) as the liver's surface gives way to the field
   const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
   function diveTarget() {
@@ -1420,7 +1420,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       lz.setDiveZoom(t >= 1 ? 1 : clamp(r / diveLand.r, 0.05, 1), diveLand.x, diveLand.y, px, py);
       lz.setDive(t <= 0 || t >= 1 ? null : {
         a: smoothT(LC * 0.45, LC + 0.3, z), x: px, y: py,
-        r, ox, oy, quiet: smoothT(0.45, 0.8, t),
+        r, ox, oy, quiet: smoothT(0.45, 0.8, t), focus: smoothT(0.1, 0.8, t),
       });
     }
     lobU = easeInOut(clamp((t - 0.48) / 0.4, 0, 1));

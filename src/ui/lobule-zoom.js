@@ -243,7 +243,7 @@ export function createLobuleZoom({ host }) {
 
   const phoneMQ = matchMedia('(max-width: 720px)');
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, glCv, fx, leaders, labels);
-  // The dive's field (below the view): the liver's lobules, many and small, that the camera falls through.
+  // The dive's field (below the view): the liver's lobules, few and large, that the camera falls through (those away from the landing lobule fade as it nears).
   const field = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
   host.append(field, el);
 
@@ -1414,14 +1414,14 @@ export function createLobuleZoom({ host }) {
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
   // The surround fades into the page (light in light mode, dark in dark mode).
   const shadeOf = (bg) => bg;
-  function fieldFade(c, bg, x, y, rd, q, w, h) {
-    const vg = c.createRadialGradient(x, y, rd * 1.1, x, y, rd * 3.2);
+  function fieldFade(c, bg, x, y, rd, q, w, h, r0 = rd * 1.1) {
+    const vg = c.createRadialGradient(x, y, r0, x, y, r0 * (3.2 / 1.1));
     vg.addColorStop(0, css(bg, 0)); vg.addColorStop(0.5, css(bg, 0.72 * q)); vg.addColorStop(1, css(bg, q));
     c.fillStyle = vg; c.fillRect(0, 0, w, h);
   }
   // d: { a: opacity 0..1, x, y: where the settling lobule's centre is (stage px), r: its radius on
-  // screen, ox, oy: the point it emerges from, quiet: 0..1, the surround fading into the page as the
-  // lobule view does }. null hides it.
+  // screen, ox, oy: the point it emerges from, quiet: 0..1, the surround drained as the lobule view's is,
+  // focus: 0..1, the lobules away from it faded into the page }. null hides it.
   // What a dive's frames share (the stage's size, its styles), read once per dive: reading them each
   // frame, after the stage's own writes, would make the browser lay out the page again every frame.
   let diveCtx = null;
@@ -1444,7 +1444,11 @@ export function createLobuleZoom({ host }) {
     // whichever theme), so the dive reads as one tissue; the lobule's own colours come in over it.
     fieldFill(c, liverTile(t, cs, dark, bg), d.x * dpr, d.y * dpr, rd, field.width, field.height);
     // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
-    if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), d.x * dpr, d.y * dpr, rd, field.width, field.height); c.globalAlpha = 1; fieldFade(c, shadeOf(bg, dark), d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height); }
+    if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), d.x * dpr, d.y * dpr, rd, field.width, field.height); c.globalAlpha = 1; }
+    // Focus: as the zoom goes on, the lobules away from the one being landed on fade into the page, the clear circle
+    // closing in on it (from most of the screen to the lobule view's own surround, which it matches at focus 1).
+    const f = clamp(d.focus ?? d.quiet, 0, 1);
+    if (f > 0) { const diag = Math.hypot(W, H) * dpr, r0 = Math.exp(lerp(Math.log(diag * 0.45), Math.log(Math.min(diag * 0.45, rd * 1.1)), f)); fieldFade(c, shadeOf(bg, dark), d.x * dpr, d.y * dpr, rd, Math.max(f, d.quiet), field.width, field.height, r0); }
     // Emerging: the field spreads out from the dive point as it fades in.
     if (d.a < 1) {
       const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a);
