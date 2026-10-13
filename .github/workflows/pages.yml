@@ -14,12 +14,18 @@ name: Pages (live site + preview)
 # The deploy needs only lint and unit, and it goes first: the browser, visual and WebKit checks wait
 # for the deploy job (they still run and report red afterwards). Before, the deploy job queued behind
 # about forty check jobs for the account's runners and a push took 40 minutes to go live.
-# Browser, visual and WebKit checks run only for main and the integration branch (other claude/**
-# branches get lint and unit here, and everything in ci.yml on a pull request), so runners stay free.
+# Only main and the integration branch run this workflow. Thread branches (other claude/**) used to
+# run lint and unit here too; those duplicate runs of the same commit took the account's runners while
+# the preview push sat queued. They get everything in ci.yml on a pull request.
+# The account runs about 20 jobs at once. An older run's ~40 check jobs used to take every slot, so a
+# newer push's lint job could not start (and its checks, which wait for its deploy, could not cancel
+# the old ones): pushes sat queued for 20-30 minutes. The browser shards now run at most 16 at a time
+# (+2 visual +1 WebKit), so a slot stays free for a newer push's lint and deploy; once that deploys,
+# its checks cancel the older run's checks through the concurrency groups below.
 
 on:
   push:
-    branches: [main, 'claude/**']
+    branches: [main, claude/settings-topbar-icon-flvft1]
   workflow_dispatch:
 
 permissions:
@@ -62,6 +68,8 @@ jobs:
     timeout-minutes: 25
     strategy:
       fail-fast: false
+      # Leaves one of the account's ~20 runners free for a newer push (see the top of this file).
+      max-parallel: 16
       matrix:
         # Desktop in twenty shares (the longest single checks take 11 to 15 minutes on a runner, so a share must not hold more than one plus a little); phone in sixteen, since it also walks every slide of all decks.
         include:
