@@ -1,10 +1,8 @@
 // Build a SCORM 1.2 package of the simulator for an LMS (Moodle, Canvas, Blackboard, D2L…).
 // No dependencies: files are stored in a plain ZIP. Inside the LMS, src/ui/lms.js finds the
-// SCORM API, reports the activity's best attempt (a single-activity package) or the course average over every lesson and case (whole package), marked passed only when mastered (80 %, critical objectives met for cases).
+// SCORM API and finishes the attempt on exit (presentations and patients are ungraded).
 //
 //   node scripts/scorm.mjs                       whole simulator, opens on Home
-//   node scripts/scorm.mjs --lesson hvpg         straight into one lesson
-//   node scripts/scorm.mjs --case bleed          straight into one case
 //   node scripts/scorm.mjs --script ph-ten       a presenter script
 //
 // Output: dist/portal-pressure-simulator[-<activity>]-scorm12.zip
@@ -16,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const opt = (k) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : null; };
-const kind = ['lesson', 'case', 'script'].find((k) => opt(k));
+const kind = ['script'].find((k) => opt(k));
 const target = kind ? opt(kind) : null;
 const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
 

@@ -1,5 +1,4 @@
-// Presenter: projector-first presentations on the live model (decks.js), the instructor's own scripts
-// and "Present a case".
+// Presenter: projector-first presentations on the live model (decks.js) and the instructor's own scripts.
 //
 // A slide is one idea: a big headline, one line, a few causes, and a figure that explains it. Every
 // slide's model state is computed off screen first (a second engine in its own worker, worker-core.js
@@ -849,7 +848,7 @@ function makeCalc() {
   };
 }
 
-export function createPresenter({ openSettings, startCase, loadPreset, cases = [], host, stage, projectorOn, projectorOff, closeHome, stashCards, rerenderHome }) {
+export function createPresenter({ openSettings, loadPreset, host, stage, projectorOn, projectorOff, closeHome, stashCards, rerenderHome }) {
   const app = document.getElementById('app'), view = document.getElementById('stageView'), wrap = document.getElementById('stageWrap');
   let calc = null;
   const getCalc = () => (calc ||= makeCalc());
@@ -2412,29 +2411,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), start, shareDeck, notes: openHandout,
     scriptNotes: (s) => openHandout(fromScript(s)), newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null });
 
-  // Present a case: any case full screen for a class. Projector-size labels on the figure; the slim bar reminds the presenter to take a show of hands before committing.
-  let classBar = null;
-  function presentCase(id) {
-    closeHome?.();
-    startCase(id);
-    stage.setProjection(innerWidth >= 768);   // projector-size labels; the case panel stays open
-    app.classList.add('class-case');
-    classBar?.remove();
-    classBar = h('div', { class: 'class-bar stage-blocker', role: 'status' },
-      h('span', { class: 'cb-k' }, 'Presenting'),
-      h('span', {}, 'Read each choice aloud, take a show of hands, then commit for the room.'),
-      h('button', { class: 'ib', 'aria-label': 'Stop presenting the case', title: 'Stop (Esc)', onclick: endCase }, icon('close')));
-    view.append(classBar);
-  }
-  function endCase() {
-    if (!classBar) return;
-    classBar.remove(); classBar = null;
-    app.classList.remove('class-case');
-    stage.setProjection(false);
-  }
-  addEventListener('keydown', (e) => { if (classBar && e.key === 'Escape' && !deck) endCase(); });
-
-  return { start, stop, library, readLink, presentCase, active: () => !!deck,
+  return { start, stop, library, readLink, active: () => !!deck,
     // What Settings shows while presenting.
     settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }),
     // For the browser checks: the time-lapse slides, and the card's tiles as the slide shown should read them at its start and end.

@@ -10,17 +10,14 @@ import { createInspector } from './inspector.js?v=58d14bee0e';
 import { createDock, CUTOFFS } from './dock.js?v=a4462cda94';
 import { setHvpgStage } from './hvpg-proc.js?v=b87658d79c';
 import { createWhy } from './why.js?v=b17f49d00c';
-import { createTimeline, LAPSES } from './timeline.js?v=cb2b52793d';
-import { createLearn } from './learn.js?v=fd16e831cc';
-import { createCases, CASES } from './cases.js?v=511357dcc3';
-import { isBlind } from './learning-kit.js?v=675e2287ba';
+import { createTimeline, LAPSES } from './timeline.js?v=366653abd0';
 import { createCompare } from './compare.js?v=653bb30f69';
 import { createCard } from './card.js?v=8a6fea826c';
 import { createChart, computeFindings } from './chart.js?v=d4c40aee00';
 import { createMenu, ROLES } from './menu.js?v=5607d562ad';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=91b41bee9d';
-import { startLMS } from './lms.js?v=dfc2f2ddff';
+import { startLMS } from './lms.js?v=ea7d9ab80b';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=9266baba58';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=a65dea21ce';
@@ -58,7 +55,7 @@ const LENSES = {
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', origin: 'Blood origin' };
 
-let stage, inspector, dock, why, timeline, learn, cases, compare, card, chart, mainMenu;
+let stage, inspector, dock, why, timeline, compare, card, chart, mainMenu;
 
 // Surfaces most sessions never open (the command palette, the presenter) load
 // on first use, so the first paint only waits for the model, the figure and the chart.
@@ -79,7 +76,6 @@ const presenter = {
   library: () => presenterL.get().then((p) => p.library()),
   libraryNow: () => presenterL.now()?.library() ?? null,
   start: (id, at) => presenterL.get().then((p) => p.start(id, at)),
-  presentCase: (id) => presenterL.get().then((p) => p.presentCase(id)),
   stop: () => presenterL.now()?.stop(),
   readLink: () => (/#script=/.test(location.hash) ? presenterL.get().then((p) => p.readLink()) : false),
   active: () => !!presenterL.now()?.active(),
@@ -125,7 +121,6 @@ async function main() {
     onSpeed: (v, lapse) => setSpeed(v, lapse),
     onJump: (d) => host.send(d === 'event' ? { type: 'advance', untilEvent: true } : { type: 'advance', days: d }),
     onRestart: () => restartPatient(),
-    canRevert: () => store.get().mode !== 'cases',
     scenarioLabel: () => store.get().presetList?.find((x) => x.id === store.get().presetId)?.label || 'Custom',
   });
   chart = createChart({
@@ -139,12 +134,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), showFound: (list) => stage.showFound(list), runHvpg: () => { dock.show('hvpg', { reveal: true }); dock.pane('hvpg')?.start(); }, openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
-  // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
-  // flagged, not forced.
-  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
-  cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=4b304a513f'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=cc122be946'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -157,7 +147,7 @@ async function main() {
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
-    lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => mainMenu.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
+    home: () => mainMenu.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
@@ -203,11 +193,10 @@ async function main() {
   store.on('shunting', renderPaintHint);
   store.on('mode', onMode);
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); syncBloodBtn(); redraw(); });
-  // A case never names its preset in the top bar: the name would give the diagnosis away.
   // A phone shows a short form of a long name (styles), wrapped to two lines if needed: "Decomp. cirrhosis", not "Decomp…".
   const shortName = (s) => s.replace(/\s*\(.*\)$/, '').replace(/,.*$/, '').replace(/^Decompensated\b/, 'Decomp.').replace(/^Compensated\b/, 'Comp.').replace(/^Clinically significant PH$/, 'CSPH');
   const syncScenarioName = () => {
-    const st = store.get(), name = st.mode === 'cases' ? 'Case' : presets.find((p) => p.id === st.presetId)?.label || 'Custom';
+    const st = store.get(), name = presets.find((p) => p.id === st.presetId)?.label || 'Custom';
     $('#scenarioName').replaceChildren(h('span', { class: 'sn-l' }, name), h('span', { class: 'sn-s' }, shortName(name)));
   };
   store.on('presetId', syncScenarioName);
@@ -224,7 +213,7 @@ async function main() {
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, card, timeline, menu: mainMenu, palette, startLesson, startCase, presenter, get perf() { return framePerf(); } };
+  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); } };
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare();
@@ -242,12 +231,10 @@ async function main() {
   setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); }), 3000);
   addEventListener('pps:lang', () => mainMenu.render());
 }
-// Deep links, for an LMS or a syllabus: ?lesson=<id> (&step=<step id or n>), ?case=<id>, ?script=<id> (&slide=<n>), ?preset=<id>,
+// Deep links, for an LMS or a syllabus: ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.
 async function openDeepLink() {
   const q = new URLSearchParams(location.search);
-  if (q.get('lesson')) { startLesson(q.get('lesson'), q.get('step')); return true; }
-  if (q.get('case')) { startCase(q.get('case')); return true; }
   if (q.get('script')) { presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1)); return true; }
   if (q.get('preset')) {
     const id = q.get('preset'), list = store.get().presetList || [];
@@ -342,9 +329,9 @@ const narratorOn = () => { const v = narrPref === undefined ? (narrPref = readLS
 function narrate(f, now = performance.now(), force = false) {
   const el = $('#narrator');
   const on = narratorOn() && !presenter.active();
-  // The caption names the diagnosis and the flow direction, so it stays quiet in cases and while a
-  // lesson question is open; it eases out and back in rather than popping.
-  const quiet = on && (store.get().mode === 'cases' || isBlind());
+  // The caption names the diagnosis and the flow direction, so it stays quiet while a question
+  // hides the numbers; it eases out and back in rather than popping.
+  const quiet = on && store.get().blind;
   if (!on) { clearTimeout(narrT); el.hidden = true; el.classList.remove('quiet'); }
   else if (quiet) {
     if (!el.hidden && !el.classList.contains('quiet')) { el.classList.add('quiet'); clearTimeout(narrT); narrT = setTimeout(() => { el.hidden = true; }, 260); }
@@ -386,8 +373,8 @@ async function loadPreset(id, opts = {}) {
   replaceParams(res.params);
   store.set({ presetParams: { id, params: structuredClone(res.params) } });   // what the patient came with (chart.js: About this patient)
   clearHistory();
-  store.set({ presetLoading: false, presetId: id, lastHVPG: null, hvpgMeasured: false, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
-  timeline?.reset(store.get().mode === 'cases' ? 'Case' : store.get().presetList?.find((x) => x.id === id)?.label);
+  store.set({ presetLoading: false, presetId: id, lastHVPG: null, hvpgMeasured: false, selection: store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
+  timeline?.reset(store.get().presetList?.find((x) => x.id === id)?.label);
 }
 
 function encodeShare() {
@@ -417,12 +404,10 @@ async function share() {
 }
 
 // ── Restart & reset ─────────────────────────────────
-// Restart: the current patient from its first moment (during a lesson or case, its own start).
+// Restart: the current patient from its first moment .
 // Reset: everything back to a fresh start, as on a first visit but keeping the preferences
 // (theme, language, role, progress): the page reloads without its links or state.
 async function restartPatient() {
-  const mode = store.get().mode;
-  if (mode === 'cases') { toast('A case runs once. Exit the case to restart the patient.'); return; }
   closePopover();
   store.set({ compareSnap: null, compareView: 'B', selection: null, details: null });
   if (stage.isShunting()) stage.cancelShunt();
@@ -434,44 +419,11 @@ async function restartPatient() {
 function resetEverything() {
   closePopover();
   openModal('Reset everything?', h('div', {},
-    h('p', {}, 'This leaves any lesson or case, clears the timeline, comparisons and every change, and reloads the simulator with a healthy patient. Your preferences, lesson progress and case scores are kept.'),
+    h('p', {}, 'This clears the timeline, comparisons and every change, and reloads the simulator with a healthy patient. Your preferences are kept.'),
     h('div', { class: 'btn-row', style: { justifyContent: 'flex-end', marginTop: '8px' } },
       h('button', { class: 'btn', onclick: () => closeModal() }, 'Cancel'),
       h('button', { class: 'btn primary', onclick: () => { try { sessionStorage.clear(); } catch { /* storage unavailable */ } location.replace(location.pathname); } }, 'Reset and reload'))), { sub: null });
 }
-
-// ── Session boundaries ──────────────────────────────
-// Entering a lesson or case remembers the model as it was; leaving one always asks whether to
-// keep that patient or go back, so a running bleed never follows the learner into Explore.
-let session = null;
-async function beginSession(kind) {
-  if (session) return;
-  const { snap } = await host.request('snapshot');
-  timeline.flush();
-  session = { kind, snap, presetId: store.get().presetId, view: store.get().view, tl: timeline.save() };
-}
-function endSession(kind, opts) {
-  if (!session || session.kind !== kind) return;
-  const saved = session;
-  session = null;
-  if (kind === 'unit' && opts?.keep) { store.set({ view: saved.view }); return; }   // "Open this patient in Explore": the patient loads next, so skip the restore (it would flash)
-  const f = store.get().frame;
-  const bleeding = !!f?.metrics?.bleeding;
-  // A course unit always hands back the model as it was: its patients belong to the unit.
-  if (kind === 'unit') { host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, view: saved.view, lastHVPG: null, hvpgMeasured: false, historyTick: (store.get().historyTick || 0) + 1 }); timeline.load(saved.tl); return; }
-  const noun = kind === 'case' ? 'case' : 'lesson';
-  const back = () => { closeModal(); host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, lastHVPG: null, hvpgMeasured: false, historyTick: (store.get().historyTick || 0) + 1 }); timeline.load(saved.tl); toast('Back where you were before the ' + noun + '.'); };
-  const keep = () => { closeModal(); toast(bleeding ? 'Kept the patient. The variceal bleed is still running.' : 'Kept this patient.'); };
-  openModal(`Leaving the ${noun}`, h('div', {},
-    h('p', {}, `Keep this patient to explore it further, or return to the model as it was before the ${noun}.`),
-    bleeding ? h('div', { class: 'callout-note', style: { marginBottom: '12px', color: 'var(--danger)' } }, 'This patient is still bleeding from varices. Keeping them keeps the bleed running.') : null,
-    h('div', { class: 'btn-row', style: { justifyContent: 'flex-end', marginTop: '8px' } },
-      h('button', { class: 'btn', onclick: keep }, 'Keep this patient'),
-      h('button', { class: 'btn primary', onclick: back }, 'Return to where I was'))), { sub: null });
-}
-
-function startLesson(id, step) { if (store.get().mode === 'cases') cases.exit(); store.set({ mode: 'learn' }); learn.start(id, step); }
-function startCase(id) { if (store.get().mode === 'learn') learn.stop(); store.set({ mode: 'cases' }); cases.start(id); openPanel(); }
 
 // ── Actions ─────────────────────────────────────────
 function doAction(a) {
@@ -780,10 +732,7 @@ function hoverInfo(info) {
 }
 let tipShape = '', tipVals = [], tipPlace = '';
 
-// The figure header carries the Then / Now / Change switch when a moment is pinned; a lesson or
-// case shows a slim banner in the top bar with its progress and a way out.
-let bannerInfo = null;
-function setBanner(info) { bannerInfo = info; renderBanner(); }
+// The figure header carries the Then / Now / Change switch when a moment is pinned.
 function renderBanner() {
   const el = $('#stageBanner');
   const s0 = store.get();
@@ -803,14 +752,6 @@ function renderBanner() {
   app.classList.toggle('cmp-on', !!s0.compareSnap);
   // The switch's height, for views that place their own controls under it (the lobule's).
   app.style.setProperty('--cmp-h', s0.compareSnap ? `${$('#stageCenter').offsetHeight + 8}px` : '0px');
-  const bar = $('#sessionBar');
-  const inSession = bannerInfo && (s0.mode === 'learn' || s0.mode === 'cases');
-  bar.hidden = !inSession;
-  if (inSession) {
-    const exit = h('button', { class: 'btn sm', onclick: () => (s0.mode === 'cases' ? cases.exit() : learn.stop()) }, `Exit ${s0.mode === 'cases' ? 'case' : 'lesson'}`);
-    bar.replaceChildren(h('span', { class: 'b-tag' + (s0.mode === 'cases' ? ' case' : '') }, bannerInfo.tag), h('span', { class: 'b-text', title: bannerInfo.text }, bannerInfo.text), exit);
-  }
-  app.classList.toggle('in-session', !!inSession);
   view.querySelector('.cmp-badge')?.remove();
   if (s0.compareSnap && s0.compareView === 'A') view.append(h('div', { class: 'cmp-badge stage-blocker' }, `Showing ${s0.compareSnap.when}`));
   redraw();
@@ -1368,11 +1309,7 @@ function closeTreat() {
 function onMode(mode) {
   app.dataset.mode = mode;
   const ptitle = document.querySelector('#panelTitle span'); if (ptitle) ptitle.textContent = 'Patient';
-  if (mode !== 'cases' && cases?.active()) cases.exit();
-  if (mode !== 'learn' && learn?.active()) learn.stop();
-  if (mode !== 'learn' && mode !== 'cases') { bannerInfo = null; store.set({ focus: null }); }
-  if (mode === 'cases') cases.mount();
-  learn.render();
+  store.set({ focus: null });
   if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, hiddenEvents: null, imaging: false, found: null }); setAllowedTools(null); }
   store.set({ selection: null, details: null });
   inspector.render();
@@ -1520,7 +1457,7 @@ const pmid = (id) => h('a', { href: `https://pubmed.ncbi.nlm.nih.gov/${id}/`, ta
 function openAbout(section) {
   openModal('About the model', h('div', {},
     h('p', {}, 'Created by ', h('b', {}, AUTHOR), '. ', h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'See all of the author’s teaching tools'), '.'),
-    h('p', {}, `Portal Pressure Simulator ${APP_VERSION} · content version ${CONTENT_VERSION} (${RELEASED}). A course built on one content version behaves the same all term: the model, patients, lessons and cases change only with a new content version.`),
+    h('p', {}, `Portal Pressure Simulator ${APP_VERSION} · content version ${CONTENT_VERSION} (${RELEASED}). A course built on one content version behaves the same all term: the model, patients and presentations change only with a new content version.`),
     h('h3', {}, 'The model'),
     h('p', {}, 'A lumped-parameter hemodynamic network of the splanchnic, portal, hepatic and systemic veins with the heart, arterial inflow and the hepatic arterial buffer; collateral recruitment and remodeling on a disease clock; Starling filtration and lymph for ascites; Laplace wall tension for varices; blood volume, bleeding and transfusion. Every number on screen comes out of it; nothing is scripted.'),
     h('h3', {}, 'Validation targets'),
@@ -1535,7 +1472,7 @@ function openAbout(section) {
     h('h3', {}, 'Reference review'),
     h('p', {}, 'Baveno VII (2022) is the basis for the thresholds above. They were reviewed against Baveno VIII (J Hepatol, August 2026), whose abstract states that earlier HVPG measurement recommendations remain valid where they were not revised. A line-by-line check of each statement against the full Baveno VIII text is still pending.'),
     h('h3', {}, 'Clinical review'),
-    h('p', {}, 'Lesson and case content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off per lesson and case will be listed here.'),
+    h('p', {}, 'Presentation and patient content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off will be listed here.'),
     h('h3', { 'data-sec': 'refs' }, 'References'),
     h('ol', { class: 'refs' },
       h('li', {}, 'de Franchis R, et al. Baveno VII: renewing consensus in portal hypertension. J Hepatol 2022;76:959–74. ', pmid(35120736)),
@@ -1556,13 +1493,13 @@ function openPrivacy() {
   const keys = (() => { try { return Object.keys(localStorage).filter((k) => k.startsWith('pps.')); } catch { return []; } })();
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
-    h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme, language, role), lesson progress and case scores, your assessment records and the name you type for them, and presenter scripts you create. It leaves the device only when you export it (CSV, xAPI, a shared link or a script file) or when your institution runs the simulator inside its LMS, which then receives your score.'),
+    h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme, language, role), your assessment records and the name you type for them, and presenter scripts you create. It leaves the device only when you export it (CSV, xAPI, a shared link or a script file) or when your institution runs the simulator inside its LMS, which then receives your score.'),
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance; the LMS remains the system of record.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));
 }
-// Launch goes straight into the simulator, the first time included: the course is one tap away
-// (Menu › Course). Only a deep link (?lesson=, ?case=, ?script=…) opens anything else.
+// Launch goes straight into the simulator, the first time included. Only a deep link
+// (?script=, ?preset=, ?home=) opens anything else.
 function firstRun() {
   try { localStorage.setItem('pps.seen', '1'); } catch { /* storage unavailable */ }
 }

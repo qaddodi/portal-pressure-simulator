@@ -117,9 +117,8 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 
 ## For institutions
 
-- **LMS.** `npm run scorm` builds a SCORM 1.2 package (optionally of one lesson, case or script)
-  that reports scores to the LMS. Deep links (`?lesson=hvpg`, `?case=bleed`, `?script=bleed`,
-  `?preset=csph`) open straight into an activity. See [docs/LMS.md](docs/LMS.md).
+- **LMS.** `npm run scorm` builds a SCORM 1.2 package (optionally of one script)
+  for the LMS. Deep links (`?script=bleed`, `?preset=csph`) open straight into an activity. See [docs/LMS.md](docs/LMS.md).
 - **Accessibility.** Keyboard access to every structure, a live one-line description of the
   patient, interface zoom, reduced motion, color always paired with a second cue. See
   [ACCESSIBILITY.md](ACCESSIBILITY.md).
@@ -145,7 +144,7 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 | `docs/` | Design blueprint and the v2 UI/UX plan ([UI_UX_NEXT_LEVEL.md](docs/UI_UX_NEXT_LEVEL.md)) |
 
 For preparing a class, `window.pps` in the browser console exposes `loadPreset`,
-`updateParams`, `startLesson`, `startCase`, `presenter` and the store.
+`updateParams`, `presenter` and the store.
 
 ## License
 

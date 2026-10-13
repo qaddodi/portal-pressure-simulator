@@ -1643,14 +1643,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!still((r) => r.line.split(',').map(Number))) throw new Error('the lesion leader moved after it had settled');
   });
 
-  await check(device, 'lesson and case deep links', async (page) => {
-    await open(page, '?lesson=portal-flow');
-    await page.waitForFunction(() => (document.querySelector('#coach')?.textContent.length > 20) || (document.querySelector('#panelLesson')?.textContent.length > 20));
-    await open(page, '?case=bleed');
-    await page.waitForFunction(() => document.querySelector('#panelCase')?.textContent.length > 20);
-    await shot(page, `${device}-case`);
-  });
-
   await check(device, 'moving blood on the GPU: menu, origin, dye, reversal', async (page) => {
     await open(page, '?preset=cirr-hepatofugal');
     const kind = await page.evaluate(() => document.querySelector('#stageView').dataset.veins);
@@ -1867,10 +1859,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
   // Nothing that floats over the figure may cover another floating piece, or leave the screen, at the
   // sizes the owner tests on (laptop, iPad both ways, iPhone both ways), in Explore, with the
-  // instruments, with the patient chart and the instruments together, and in a case.
+  // instruments, and with the patient chart and the instruments together.
   await check(device, 'floating pieces never overlap', async (page) => {
     const sizes = device === 'desktop' ? [[1440, 900], [1180, 820], [820, 1180]] : [[390, 844], [844, 390]];
-    const states = [['?preset=cirr-decomp', null], ['?preset=cirr-decomp', 'measure'], ['?preset=cirr-decomp', 'both'], ['?preset=cirr-decomp', 'card'], ['?case=bleed', null], ['?preset=cirr-decomp', 'lobule'], ['?preset=cirr-decomp', 'lobule-all']];
+    const states = [['?preset=cirr-decomp', null], ['?preset=cirr-decomp', 'measure'], ['?preset=cirr-decomp', 'both'], ['?preset=cirr-decomp', 'card'], ['?preset=cirr-decomp', 'lobule'], ['?preset=cirr-decomp', 'lobule-all']];
     for (const [w, hgt] of sizes) for (const [q, act] of states) {
       await page.setViewportSize({ width: w, height: hgt });
       await open(page, q);
@@ -1953,8 +1945,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } })); await verify(`${at} vessel card`);
       await open(page, '?preset=cirr-decomp'); await page.click('#tabInstruments'); await verify(`${at} tests`);
       await page.evaluate(() => document.querySelector('#btnInspector').click()); await verify(`${at} tests + patient`);
-      await open(page, '?lesson=portal-flow'); await verify(`${at} lesson`);
-      await open(page, '?case=bleed'); await verify(`${at} case`);
       await open(page, '?script=circulation');
       for (let i = 0; i < 10; i++) { await verify(`${at} slide ${i + 1}`); await page.keyboard.press('ArrowRight'); }
     }

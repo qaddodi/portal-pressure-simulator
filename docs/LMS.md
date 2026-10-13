@@ -8,32 +8,20 @@ Open straight into an activity by adding a query string to the simulator's URL:
 
 | Link | Opens |
 |------|-------|
-| `?lesson=<id>` | a lesson: `valveless`, `resistance-site`, `hvpg`, `forward`, `collaterals`, `laplace`, `hepatofugal`, `starling`, `sinistral`, `heart`, `vascular-patterns`, `costs` |
-| `?case=<id>` | a case: `bleed`, `prevention`, `new-ascites`, `refractory`, `gastric`, `budd-chiari`, `pvt`, `nsbb-problem`, `schisto`, `hepatofugal`, `post-tips`. Add `&variant=0`, `1`… to pick a variant |
 | `?script=<id>` | a presenter script: `where-block`, `bleed` |
 | `?preset=<id>` | a patient, e.g. `healthy`, `csph`, `cirr-decomp`, `budd-chiari`, `rhf` |
-| `?home=<tab>` | Home on `explore`, `learn`, `cases` or `present` |
+| `?home=<tab>` | the menu on `patients` (or `explore`) or `present` |
 | `?lang=<code>` | interface language: `en`, `es`, `fr`, `pt`, `ar` |
 
 ## SCORM 1.2
 
 ```bash
 npm run scorm                          # whole simulator, opens on Home
-npm run scorm -- --lesson hvpg         # one lesson
-npm run scorm -- --case bleed          # one case
 ```
 
-Upload the zip from `dist/` as a SCORM package. Inside the LMS the simulator finds the SCORM
-API, takes the learner's name from it, reports the best attempt of the activity
-(a single-activity package) or the course average over every lesson and case (whole package) in
-`cmi.core.score.raw` (0–100), and sets `cmi.core.lesson_status` to *passed* only when mastered
-(80 %, with every critical objective met for cases), otherwise *failed*. Earlier 50 % passes keep their old rule.
-
-## xAPI
-
-Learners can export their attempts as xAPI 1.0.3 statements (Home › Lessons or Cases ›
-*Export xAPI*, or from a case debrief) and upload them to a learning record store. Each
-statement carries the activity, score, duration, variant and objectives.
+Upload the zip from `dist/` as a SCORM package (`-- --script <id>` packages one presenter script).
+Inside the LMS the simulator finds the SCORM API, takes the learner's name from it and finishes the
+attempt on exit. Presentations and patients are ungraded, so no score is reported.
 
 ## LTI 1.3
 

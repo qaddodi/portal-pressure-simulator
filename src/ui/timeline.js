@@ -42,7 +42,7 @@ export const fmtClock = (t, day) => {
   return day > 0 ? `Day ${day} · ${tt}` : tt;
 };
 
-export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart, canRevert, scenarioLabel }) {
+export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart, canRevert = () => true, scenarioLabel }) {
   let entries = [], cursor = -1, seq = 0, baseline = null, pending = null, lastEv = {};
   const listeners = [];
   const absT = (e) => e.day * 86400 + e.t;
