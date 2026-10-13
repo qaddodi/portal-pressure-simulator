@@ -1476,7 +1476,7 @@ export function createLobuleZoom({ host }) {
     if (f > 0) { const diag = Math.hypot(W, H) * dpr, r0 = Math.exp(lerp(Math.log(diag * 0.45), Math.log(Math.min(diag * 0.45, rd * 1.1)), f)); fieldFade(c, shadeOf(bg, dark), d.x * dpr, d.y * dpr, rd, Math.max(f, d.quiet), field.width, field.height, r0); }
     // Emerging: the field spreads out from the dive point as it fades in.
     if (d.a < 1) {
-      const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a);
+      const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a + 2 * smooth(0.7, 1, d.a));   // (the last stretch spreads it past every corner, so dropping the mask at a = 1 changes nothing seen)
       const mg = c.createRadialGradient(d.ox * dpr, d.oy * dpr, rho * 0.35, d.ox * dpr, d.oy * dpr, rho);
       mg.addColorStop(0, 'rgba(0,0,0,1)'); mg.addColorStop(1, 'rgba(0,0,0,0)');   // colour-exempt: a mask
       c.globalCompositeOperation = 'destination-in';

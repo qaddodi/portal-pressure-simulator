@@ -7,7 +7,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7c63421fac';
 import { fibroReading } from './clock.js?v=6284ad19b7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=abb277f29f';
-import { createLobuleZoom } from './lobule-zoom.js?v=48fae57054';
+import { createLobuleZoom } from './lobule-zoom.js?v=a4ac67aad5';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -1374,11 +1374,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     diveHid = on; labHid = lab;
     for (const el of diveEls()) el.style.visibility = (el.id === 'labels' ? lab : on) ? 'hidden' : '';
   }
+  // The anatomy fades out as the field fades in over it (one crossfade, the same curve), and is hidden only once it is fully clear, so
+  // nothing pops out of or into view at either end of the zoom. Opacity on layers the zoom already composites costs nothing per frame;
+  // their usual .25s opacity transition is held off while it is driven frame by frame (and eases the anatomy back in under the landed lobule).
+  let diveFadeO = null;
+  function setDiveFade(o) {
+    const q = o === null ? null : +o.toFixed(3);
+    if (q === diveFadeO) return;
+    diveFadeO = q;
+    for (const el of diveEls()) { if (el.id === 'labels') continue; el.style.transition = q === null ? '' : 'none'; el.style.opacity = q === null ? '' : String(q); }
+  }
   // (keep: landed in the lobule, the anatomy stays hidden under it a moment longer, see diveFrame.)
   let unhideAt = 0;
   function setDiveScale(k, keep = false) {
     if (k <= 1.0001) {
-      if (!keep) setDiveHidden(false, false);
+      if (!keep) { setDiveHidden(false, false); setDiveFade(null); }
       // The transform goes first and the layer hint a frame later: dropping both at once can leave the
       // browser showing the last zoomed picture while clicks already land on the unzoomed figure.
       if (diveOrig) { const els = diveOrig.map(([el]) => el); for (const el of els) { el.style.transform = 'none'; el.style.transformOrigin = ''; } nextFrame(() => { if (!diveOrig) for (const el of els) { el.style.willChange = ''; el.style.transform = ''; } }); }
@@ -1421,7 +1431,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // faded in. (Shown in the landing frame, Safari redrew the whole figure there, with everything else the landing does.)
       const landed = t >= 1 && !diveOut;
       setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)), landed);
-      if (landed) { clearTimeout(unhideAt); unhideAt = setTimeout(() => { if (diveT >= 1 && lobuleOn) setDiveHidden(false, false); }, 500); }
+      if (landed) { clearTimeout(unhideAt); unhideAt = setTimeout(() => { if (diveT >= 1 && lobuleOn) { setDiveHidden(false, false); setDiveFade(null); } }, 500); }
+      setDiveFade(t <= 0 ? null : landed ? 0 : 1 - smoothT(LC * 0.45, LC + 0.3, z));
       // The anatomy's labels leave as the zoom starts.
       const lab = wrap.querySelector('#labels');
       // (Going out they come back over the last half of the zoom, in place, rather than at the very end.)

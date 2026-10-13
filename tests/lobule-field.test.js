@@ -28,8 +28,16 @@ test('the dive does no full-size redraws or hidden compositing mid-zoom', () => 
   assert.match(lz, /cs: styleSnap\(cs\)/);
   // The magnified anatomy is hidden while the whole field covers it (z ≥ LC + 0.3, where the field is opaque), and shown again on every end.
   assert.match(stage, /if \(!landed\) setDiveHidden\(t > 0 && t < 1 && z >= LC \+ 0\.3,/);
-  assert.match(stage, /if \(k <= 1\.0001\) \{\n\s+if \(!keep\) setDiveHidden\(false, false\);/);
+  assert.match(stage, /if \(k <= 1\.0001\) \{\n\s+if \(!keep\) \{ setDiveHidden\(false, false\); setDiveFade\(null\); \}/);
   assert.match(stage, /a: smoothT\(LC \* 0\.45, LC \+ 0\.3, z\)/, 'the field is whole exactly where the anatomy is hidden');
+});
+
+test('the anatomy fades with the field rather than popping, at both ends of the zoom', () => {
+  // One crossfade on the same curve as the field's opacity; hidden (visibility) only once it is fully clear.
+  assert.match(stage, /setDiveFade\(t <= 0 \? null : landed \? 0 : 1 - smoothT\(LC \* 0\.45, LC \+ 0\.3, z\)\)/);
+  assert.match(stage, /el\.style\.transition = q === null \? '' : 'none'; el\.style\.opacity = q === null \? '' : String\(q\)/, 'driven per frame with the CSS transition held off');
+  // The field's emerging mask spreads past every corner by the time it is dropped (a = 1), so nothing vanishes in the far corners.
+  assert.match(lz, /rho = diag \* \(0\.2 \+ 1\.1 \* d\.a \+ 2 \* smooth\(0\.7, 1, d\.a\)\)/);
 });
 
 test('in dark mode the field lobules\' capillarized sinusoids are dark (they recede), pale in light and Soft', () => {
@@ -55,7 +63,7 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
   assert.match(lz, /draw\(0\); release\(\); prepKey = key;/);
   // Landed, the anatomy stays hidden under the lobule until it has settled; every other end shows it at once.
   assert.match(stage, /const landed = t >= 1 && !diveOut;\n\s+setDiveScale\(t >= 1 \? 1 : Math\.exp\(Math\.min\(z, LC \+ 0\.4\)\), landed\);/);
-  assert.match(stage, /if \(diveT >= 1 && lobuleOn\) setDiveHidden\(false, false\); \}, 500\)/);
+  assert.match(stage, /if \(diveT >= 1 && lobuleOn\) \{ setDiveHidden\(false, false\); setDiveFade\(null\); \} \}, 500\)/);
 });
 
 test('nothing is built during the zoom: the field\'s tiles and their quieted copies are ready before it starts', () => {
