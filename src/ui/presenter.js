@@ -1285,9 +1285,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     app.classList.add('pz-hush-in'); app.classList.remove('pz-hush');
     clearTimeout(hushInT); hushInT = setTimeout(() => app.classList.remove('pz-hush-in'), HUSH_IN + 50);
   }
+  // The corner credit sits out a slide change (class pz-moving on #app, read by src/ui/credit.js): it fades as the cards leave and
+  // comes back once, at its final spot, after the cards are in and the camera has eased to fit around them.
+  let creditHolds = 0, creditT = 0;   // (moves running; the timer that lifts the hold)
   async function transition(to, rev) {
     stage.holdHome(true);
-    try { await transitionRun(to, rev); } finally { stage.holdHome(false); if (bare) { bare = false; layout(); cardsIn(); } }
+    creditHolds++; clearTimeout(creditT); app.classList.add('pz-moving');
+    try { await transitionRun(to, rev); } finally {
+      stage.holdHome(false); if (bare) { bare = false; layout(); cardsIn(); }
+      creditHolds--; clearTimeout(creditT);
+      creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 1000);   // (a camera ease of 900 ms follows the cards)
+    }
   }
   async function transitionRun(to, rev) {
     const g = gen, s = slides[to], cut = () => !deck || want !== to || wantRev !== rev || gen !== g;

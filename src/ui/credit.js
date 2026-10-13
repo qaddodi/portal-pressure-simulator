@@ -68,7 +68,7 @@ function labelRects(wr, wrap) {
 }
 
 export function createCreditPlacer(credit) {
-  const wrap = credit.offsetParent || credit.parentElement;
+  const wrap = credit.offsetParent || credit.parentElement, app = document.getElementById('app');
   let cur = null, curTight = false, pos = null, moving = false, changedAt = 0, lastSig = '', raf = 0, waitT = 0, moveT = 0, betterSince = 0, size = null, sizeKey = '';
   const measure = (busy) => {
     const key = innerWidth + 'x' + innerHeight;
@@ -116,6 +116,9 @@ export function createCreditPlacer(credit) {
   function check() {
     raf = 0;
     if (moving || !credit.isConnected || !wrap.offsetParent) return;
+    // A slide change (the presenter's pz-moving): out of sight until the cards are in and the camera has settled; it then
+    // snaps to its final spot and fades in once.
+    if (app?.classList.contains('pz-moving')) { credit.classList.add('moving'); changedAt = 0; lastSig = ''; return; }
     const wr = wrap.getBoundingClientRect();
     let { w, h } = measure(false);
     const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height };
@@ -164,7 +167,7 @@ export function createCreditPlacer(credit) {
     credit.classList.add('moving');
     moving = true;
     clearTimeout(moveT);
-    moveT = setTimeout(() => { moving = false; place(c, p, tight); soon(); }, 260);
+    moveT = setTimeout(() => { moving = false; if (app?.classList.contains('pz-moving')) return soon(); place(c, p, tight); soon(); }, 260);
   }
   function soon() { if (!raf) raf = nextFrame(check); }
   addEventListener('resize', soon);
@@ -173,7 +176,6 @@ export function createCreditPlacer(credit) {
   const settled = (e) => { if (!e.target.classList?.contains('rb-fill')) soon(); };
   addEventListener('transitionend', settled, true);
   addEventListener('animationend', settled, true);
-  const app = document.getElementById('app');
   if (app) new MutationObserver(soon).observe(app, { attributes: true, attributeFilter: ['class'] });
   // Cards open, close and resize in many ways; a light poll catches the ones no event announces.
   setInterval(() => { if (!document.hidden) soon(); }, 1000);
