@@ -1291,7 +1291,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     c.style.removeProperty('--case-k');
     for (let k = 2.5; k > 1.2 && c.scrollHeight > c.clientHeight + 1; k -= 0.1) c.style.setProperty('--case-k', k.toFixed(1));
     c.classList.add('on');
+    // Lifting works from the moment the card is up: a tap/Next/swipe while the patient still loads behind it is remembered, and the card lifts once loading ends (into this same slide, never the next).
     let lifted = false;
+    caseLift = () => { lifted = true; };
     try {
       await wait(ms);
       if (cut()) return false;
@@ -1303,8 +1305,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (view.classList.contains('pz-out')) figureIn(); else loading(false);
       await camera('fit', s, cut);
       if (cut()) return false;
-      caseLift = () => { lifted = true; };
-      await until(() => cut() || lifted, 864e5);
+      if (!lifted) await until(() => cut() || lifted, 864e5);
       return !cut();
     } finally {
       caseLift = null;
