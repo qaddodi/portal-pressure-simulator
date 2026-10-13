@@ -1785,7 +1785,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // What a card's fit depends on: its box, its words (digits alike, so a number that eases fits as before) and which parts show.
   // A card whose signature is unchanged keeps its fit without being measured again (measuring forces layouts mid-animation).
-  const fitSig = (el) => `${el.clientWidth}x${el.clientHeight}|${el.className}|${document.documentElement.style.cssText}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${el.textContent.replace(/\d/g, '0')}`;
+  // (A card holding the quick check grows as its answers ease open and shut; it was fitted with every answer open, so its own
+  // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
+  const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${document.documentElement.style.cssText}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${el.textContent.replace(/\d/g, '0')}`;
   const fitDone = new WeakMap();
   // A narrow summary table's column heads: 11 px, or as large as each column fits (down to 8), one size for the row.
   // (Only the phone and upright tablet layout reads --th-fs.)

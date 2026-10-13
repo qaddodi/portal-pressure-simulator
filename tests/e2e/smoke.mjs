@@ -1142,18 +1142,37 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     for (let k = 0; k < n; k++) {
       // (It eases open and shut: tapping starts a running transition of the answer's row, not a jump. The page may draw only a few frames
       // a second here, so the transition is read straight after the tap rather than by sampling heights.)
+      // (While it eases, no text on the card may change size and the easing may not be cut short (a refit mid-ease snapped it):
+      // every frame records the card's zoom and the type sizes, and any cancelled transition is counted.)
       const eases = (page) => page.evaluate((k) => {
-        const a = document.querySelectorAll('.pz-check .pzc-a')[k]; document.querySelectorAll('.pz-check .pzc-q')[k].click(); a.getBoundingClientRect();
+        const l = document.querySelector('.pz-check'), card = l.closest('.pz-panel, .pz-text, .pz-data');
+        const a = l.querySelectorAll('.pzc-a')[k];
+        const look = () => [card.style.getPropertyValue('--pz-fit') || '1', ...[...card.querySelectorAll('.pz-h, .pzc-t, .pzc-a > p')].map((e) => getComputedStyle(e).fontSize)].join();
+        const w = { cut: 0, first: look(), changed: null, done: false };
+        window.__pzcWatch = w;
+        const cut = () => { w.cut++; };
+        l.addEventListener('transitioncancel', cut);
+        const tick = () => { const v = look(); if (v !== w.first && !w.changed) w.changed = v; if (l.getAnimations({ subtree: true }).length) requestAnimationFrame(tick); else { w.done = true; l.removeEventListener('transitioncancel', cut); } };
+        l.querySelectorAll('.pzc-q')[k].click(); a.getBoundingClientRect();
+        requestAnimationFrame(tick);
         return a.getAnimations().filter((x) => x.transitionProperty === 'grid-template-rows' && x.effect.getTiming().duration >= 200).length;
       }, k);
+      const steady = async (what) => {
+        await page.waitForFunction(() => window.__pzcWatch?.done, null, { timeout: 20000 });
+        const w = await page.evaluate(() => window.__pzcWatch);
+        if (w.cut) throw new Error(`${d.id}: question ${k + 1}'s answer was cut short while easing ${what} (${w.cut} transitions cancelled)`);
+        if (w.changed) throw new Error(`${d.id}: the card's text changed size while question ${k + 1}'s answer eased ${what} (${w.first} became ${w.changed})`);
+      };
       if (!await eases(page)) throw new Error(`${d.id}: question ${k + 1}'s answer does not ease open`);
       // (A slow page draws few frames: wait for the transition to finish, not a fixed time.)
+      await steady('open');
       await page.waitForTimeout(100);
       await page.waitForFunction(() => !document.querySelector('.pz-check').getAnimations({ subtree: true }).length, null, { timeout: 20000 });
       const on = await state();
       if (!(on.answers[k] > 0) || on.answers.some((h, j) => j !== k && h > 0) || on.expanded[k] !== 'true') throw new Error(`${d.id}: question ${k + 1} does not open only its own answer ${JSON.stringify(on)}`);
       if (!await eases(page)) throw new Error(`${d.id}: question ${k + 1}'s answer does not ease shut`);
       // (A slow page draws few frames: wait for the transition to finish, not a fixed time.)
+      await steady('shut');
       await page.waitForTimeout(100);
       await page.waitForFunction(() => !document.querySelector('.pz-check').getAnimations({ subtree: true }).length, null, { timeout: 20000 });
       const off = await state();
