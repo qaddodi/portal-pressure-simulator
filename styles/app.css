@@ -1633,6 +1633,8 @@ button.finding { cursor: pointer; }
 /* On a laptop or tablet the data card can stack under the words' card (presenter.js layout sets its left, top and width):
    it follows the words' card as that grows or shrinks, at the same pace. */
 .pz-data.col { right: auto; }
+/* Stacked under the words' card, it leaves the way that card does, toward the left edge (not away from it). */
+.pz-data.col:not(.under).pz-hide { transform: translateX(-18px); }
 .pz-data.col:not(.pz-hide) { transition-property: opacity, transform, top; transition-duration: .5s, .5s, .45s; transition-delay: .12s, .12s, 0s; }
 .pz-data.under.tiles-only .pzt-v { font-size: var(--s-big); }
 /* Tiles alone, beside the words: the card is as wide as its tiles need (never wider than its old width). The tiles

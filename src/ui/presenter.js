@@ -1315,7 +1315,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
-    await wordsOut(s, shownState >= 0 && (si !== shownState || liveOff));
+    await wordsOut(s);
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
     if (cut()) return;
@@ -1446,23 +1446,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const shortSide = matchMedia('(orientation: landscape) and (max-height: 500px)');
   const sinTiles = (s) => s.data === 'tiles' && !s.visual && /^sinusoid/.test(s.cam || '');
   const under = (s) => sinTiles(s) && !shortSide.matches && phone();
-  async function wordsOut(next, newPatient = false) {
+  async function wordsOut(next) {
     if (!ui) return;
     const out = [ui.text, ui.panel], data = ui.data;
-    // A card that moves (under the words, or back beside them) goes out with the words and comes back in its new place.
-    // (Also when its kind or title changes, so the ladder never appears or goes under the numbers in one frame.)
-    const lad = next?.data === 'ladder', ttl = cardTitle(next);
-    const move = !data.hidden && !data.classList.contains('pz-hide') && next && hasCard(next)
-      && (under(next) !== data.classList.contains('under') || !lad !== data.classList.contains('tiles-only') || ttl !== ui.dhT.textContent
-        || ui.tools.sig(next.tool) !== (data.dataset.tool || '')
-        // (Other tiles change the card's size: it fades out and back in at its new size.)
-        || (!lad && next.data && tileKeys(next).join() !== (ui.tiles.el.dataset.keys || '')));
-    // A different patient: the card leaves with the words and stays gone until the new patient has settled, so its numbers never travel from one patient to the other.
-    const gone = newPatient && !data.hidden && !data.classList.contains('pz-hide');
-    if (move || gone) { data.classList.add('pz-hide'); delete data.dataset.colswap; }
+    // The data card leaves with the words on every slide change, whole (the same ease and pace), and comes back in with the new cards:
+    // never left standing while the words go, nor changed in place.
+    const dataOut = !data.hidden && !data.classList.contains('pz-hide');
+    if (dataOut) { data.classList.add('pz-hide'); delete data.dataset.colswap; }
     // Leaving a visual for the figure: the veil lifts with the panel, not after it.
     if (!next?.visual) ui.veil.classList.remove('on');
-    if (!move && !gone && out.every((el) => el.hidden || !el.childElementCount)) return;
+    if (!dataOut && out.every((el) => el.hidden || !el.childElementCount)) return;
     // The catheter's monitor stays up from one measuring slide to the next: only the words around it go.
     const keep = mon && next?.monitor && !next.visual && mon.el.parentNode === ui.text;
     for (const el of out) {

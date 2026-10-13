@@ -4,7 +4,8 @@
 // does not move again until the next slide's cards leave. A catheter slide keeps its teaching card (the live tracing) on
 // screen through the measurement. The catheter's readings (FHVP, WHVP, HVPG) glide to a new spot,
 // never jump there in one frame. The corner credit sits the whole move out: gone from the moment the cards leave, back once (fading
-// in at its final spot, never moving while visible) after the cards are in and the camera has settled. Real motion, stepping with Next through a deck, sampled every frame.
+// in at its final spot, never moving while visible) after the cards are in and the camera has settled.
+// The data card leaves at the same moment as the teaching card, with the same ease and pace (never left standing, never drifting the other way). Real motion, stepping with Next through a deck, sampled every frame.
 //
 //   DECKS=doppler node tests/e2e/card-order.mjs
 import { chromium } from 'playwright';
@@ -52,6 +53,15 @@ await page.evaluate(() => {
       if (bare || tx.classList.contains('pz-leave')) armed = false;   // (the next slide's cards are leaving)
       wasBare = bare; cam = c;
       if (bare && !tx.classList.contains('pz-leave')) window.__bad.push('teaching card not held out while the camera moves');
+      // (The data card leaves with the teaching card, at the same moment, with the same ease and pace, whole: never left standing
+      // while the words go, never snapped off, and never drifting the other way when it is stacked under the teaching card.)
+      const dc = document.querySelector('.pz-data'), gone = tx.classList.contains('pz-leave');
+      if (dc && !dc.hidden && gone && !dc.dataset.prep) {
+        const cs = getComputedStyle(dc), ts = getComputedStyle(tx), two = (v) => v.split(',').slice(0, 2).join(',');
+        if (!dc.classList.contains('pz-hide')) window.__bad.push('data card stayed on screen while the teaching card left');
+        else if (two(cs.transitionDuration) !== two(ts.transitionDuration) || two(cs.transitionTimingFunction) !== two(ts.transitionTimingFunction) || +cs.transitionDelay.split(',')[0].replace('s', '')) window.__bad.push('data card leaves with a different ease or pace than the teaching card');
+        if (dc.classList.contains('col') && !dc.classList.contains('under') && new DOMMatrixReadOnly(cs.transform).m41 > 0.5) window.__bad.push('stacked data card drifted away from the left edge while leaving');
+      }
       if (bare && tx.querySelector('.pz-mon')) window.__bad.push('live tracing card left during the HVPG measurement');
       if (!bare && op > 0.5 && !tx.classList.contains('pz-leave') && !tx.textContent.trim()) window.__bad.push('empty teaching card on screen');
     }
