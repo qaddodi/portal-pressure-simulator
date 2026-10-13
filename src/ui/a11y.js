@@ -2,7 +2,7 @@
 //
 // The figure's accessible description is kept current with the narrator's one-line reading.
 
-import { store, hiddenNow } from './store.js?v=7fb7280c05';
+import { store, hiddenNow } from './store.js?v=7c63421fac';
 import { fmt } from './util.js?v=b1761ad19c';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
 
@@ -10,7 +10,7 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
 // Narrator: the patient's reading in one line for the caption under the figure
 // ("Cirrhosis. Portal pressure 23 mmHg, HVPG 17. Large varices, 0.8 L ascites, flow toward the liver.").
-// It hides what the case hides. scenario: false leaves out the patient's name.
+// It hides what the figure hides. scenario: false leaves out the patient's name.
 export function caption(f, { scenario = true } = {}) {
   if (!f) return '';
   const st = store.get(), m = f.metrics, hidden = hiddenNow(st);

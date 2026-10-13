@@ -11,10 +11,10 @@
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
-import { store, replaceParams, onParamChange } from './store.js?v=7fb7280c05';
-import { host } from './host.js?v=e46f50c36e';
+import { store, replaceParams, onParamChange } from './store.js?v=7c63421fac';
+import { host } from './host.js?v=56e36c5522';
 import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=b1761ad19c';
-import { activeInterventions } from './inspector.js?v=58d14bee0e';
+import { activeInterventions } from './inspector.js?v=6e8a77657d';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('timeline');
 
@@ -202,7 +202,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   function goTo(i, { quiet = false } = {}) {
     const e = entries[i];
     if (!e?.snap) return false;
-    if (!canRevert()) { toast('Going back in time is off during a case.'); return false; }
+    if (!canRevert()) { toast('Going back in time is off here.'); return false; }
     flushParams();
     host.send({ type: 'restore', snap: e.snap });
     replaceParams(structuredClone(e.snap.params));

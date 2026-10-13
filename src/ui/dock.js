@@ -1,16 +1,16 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=7fb7280c05';
+import { store, hiddenNow } from './store.js?v=7c63421fac';
 import { EDGES } from '../engine/topology.js?v=34e377149b';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=b1761ad19c';
-import { lobuleFlows } from './lobule-model.js?v=ef674ee7ff';
-import { createProfile } from './charts.js?v=e073763634';
-import { createPressureTime } from './pressure-time.js?v=a1bb3a4807';
-import { createFibroScan } from './fibroscan.js?v=1b0c346f76';
-import { createHvpgProcedure } from './hvpg-proc.js?v=b87658d79c';
-import { createDoppler } from './doppler.js?v=b26ba3e4f5';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=9feb441f21';
+import { lobuleFlows } from './lobule-model.js?v=89546129c1';
+import { createProfile } from './charts.js?v=0a36a1d8cb';
+import { createPressureTime } from './pressure-time.js?v=e6126eae3f';
+import { createFibroScan } from './fibroscan.js?v=102fb25663';
+import { createHvpgProcedure } from './hvpg-proc.js?v=8edb25ac7b';
+import { createDoppler } from './doppler.js?v=4bf8abc218';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=21cd6d2201';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('dock');
 
@@ -114,7 +114,7 @@ const STUDENT_PRIMARY = new Set(['hvpg', 'ppg']);
 // bar's range), so the heartbeat and breathing never make it flicker.
 const TREND_S = 5, TREND_FRAC = 0.03;
 
-/** The value a readout shows, or null when a case hides it and it has not been measured. */
+/** The value a readout shows, or null when it is hidden and has not been measured. */
 export function readoutValue(t, m, hidden) {
   if (!hidden?.has(t.hideKey)) return t.v(m);
   const meas = t.id === 'hvpg' ? t.measured?.() : null;
@@ -304,7 +304,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
 
   // ── Instrument workspace ─────────────────────────
-  // The instruments. Legacy ids remain valid for lessons and actions:
+  // The instruments. Legacy ids remain valid for actions:
   // landscape is a Pressure view; varixwall is Scope's Wall mechanics tab.
   const app = document.getElementById('app');
   const workspace = head.closest('.dock');
@@ -343,7 +343,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const TINY = { endoscopy: 'Scope', fibroscan: 'Fibro' };
   const ORDER = ['profile', 'scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan'];
   // Pressure (along the circuit) and Over time (the same pressures through time) share one tab with a
-  // small switch inside it; 'scope' stays a pane of its own, so lessons and the Presenter still reach it.
+  // small switch inside it; 'scope' stays a pane of its own, so the Presenter still reaches it.
   const TABS = ORDER.filter((id) => id !== 'scope');
   const tabOf = (id) => (id === 'scope' ? 'profile' : id);
   const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
@@ -448,17 +448,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       divider.setAttribute('aria-valuenow', String(Math.round((w / W) * 100)));
     } else {
       // The sheet rises from above the vitals dock, at most to just under the top bar.
-      // A lesson's step card (under the top bar) keeps its room: the sheet takes what is below it.
-      const coach = document.getElementById('coach'), coachH = coach && coach.childElementCount ? coach.offsetHeight + 8 : 0;
-      // With a step card above it, a phone keeps about a quarter of the height for the figure itself.
-      const keep = coachH && matchMedia('(max-width: 767px)').matches ? Math.max(40, stageWrap.clientHeight * 0.26) : 40;
-      const max = stageWrap.clientHeight - css('--top-safe') - coachH - css('--vdock-h') - keep;
+      const max = stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') - 40;
       // A tablet held upright keeps more than half the stage for the figure, so its vessel labels stay legible.
       const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : matchMedia('(orientation: portrait)').matches ? 0.4 : 0.46);
-      // A phone in a lesson: the step card sits on top of the sheet and the two share the bottom half, so
-      // the figure keeps the top half (styles: the coach in learn mode).
-      const lessonPhone = coachH && app.dataset.mode === 'learn' && matchMedia('(max-width: 767px)').matches;
-      const height = lessonPhone ? Math.max(150, stageWrap.clientHeight * 0.27) : Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
+      const height = Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
       workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);
       divider.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
     }
@@ -466,8 +459,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   // A tab whose picture keeps its own shape (Ascites has none to stretch; HVPG and FibroScan are boxes of a fixed
   // aspect) has nothing to fill a tall card with, so its card is only as tall as its content: the height eases to
-  // fit, and eases back for any other tab. A sheet the learner has resized keeps their height, a lesson's sheet
-  // keeps its own, and when the content would not fit even the full card its picture shrinks as it always did.
+  // fit, and eases back for any other tab. A sheet the learner has resized keeps their height, and when the content would not fit even the full card its picture shrinks as it always did.
   const FIT = ['abdomen', 'hvpg', 'fibroscan'];
   const fitView = (id) => byId[id].el.firstElementChild;
   let fitTimer = 0;
@@ -475,9 +467,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const id = open.length === 1 && FIT.includes(open[0]) && state === 'open' ? open[0] : null;
     for (const o of FIT) if (o !== id) fitView(o).classList.remove('nat');
     const view = id ? fitView(id) : null;
-    const lessonSheet = app.dataset.mode === 'learn' && !isSide() && matchMedia('(max-width: 767px)').matches;
     // On a phone HVPG and FibroScan fill the sheet by design; only Ascites fits there.
-    let fits = !!view && !lessonSheet && !sidewaysMQ.matches && (isSide() || heightRatio == null) && (id === 'abdomen' || matchMedia('(min-width: 768px)').matches);
+    let fits = !!view && !sidewaysMQ.matches && (isSide() || heightRatio == null) && (id === 'abdomen' || matchMedia('(min-width: 768px)').matches);
     if (view) view.classList.toggle('nat', fits);   // nat: the view at its natural height, to measure it
     fits = fits && view.offsetHeight > 0;
     const on = workspace.classList.contains('fit');
@@ -649,7 +640,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     layout();
   });
   sizeObserver.observe(stageWrap); sizeObserver.observe(body);
-  const coachEl = document.getElementById('coach'); if (coachEl) sizeObserver.observe(coachEl);
   sideMQ.addEventListener('change', () => { updateSize(); layout(); });
   store.on('compareSnap', () => updateHeader());
   function updateHeader() {
@@ -670,7 +660,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (live.textContent !== txt) live.textContent = txt;
     const ls = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
     if (live.dataset.state !== ls) live.dataset.state = ls;
-    // Each tab carries its instrument's reading (not in a case, where the numbers are to be found).
+    // Each tab carries its instrument's reading (not where the numbers are hidden).
     if (frame && isVisible()) for (const id of TABS) {
       const v = st.imaging ? '' : INFO[id][1](frame);
       if (tabEls[id].val.textContent !== v) tabEls[id].val.textContent = v;

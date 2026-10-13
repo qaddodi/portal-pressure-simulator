@@ -19,7 +19,7 @@ export function lobuleFlows(f, H) {
   return { flow: ratio(LOBE.q), portal: ratio(LOBE.pre), art: ratio(LOBE.a), lymph: f.metrics?.ascites?.hepLymph ?? 0, lyProt: f.metrics?.ascites?.lymphProt ?? 0.88, sigma: f.metrics?.ascites?.lymphSigma ?? 0.15, lymph0: H?.metrics?.ascites?.hepLymph || 0.8 };
 }
 
-/** The lobule's state for frame `f` (store state `st` gives the healthy reference and the case). */
+/** The lobule's state for frame `f` (store state `st` gives the healthy reference). */
 export function lobuleState(f, st) {
   const S = LOBE, p = f.params || f.viewParams || st.params, H = st.healthy;
   const Pn = (id) => f.P[NI[id]], Hn = (id) => H?.P?.[NI[id]];
@@ -34,7 +34,7 @@ export function lobuleState(f, st) {
     congU: clamp(cong / 12, 0, 1), shuntU: clamp((sc - 0.45) / 0.35, 0, 1), septU: clamp((sc - 0.3) / 0.5, 0, 1),
   };
   m.act = clamp(Math.max(m.fibSin, sc * 0.9), 0, 1);
-  // What the vessel color encodes, as in the anatomy (the lens, a comparison, or a case's neutral view).
+  // What the vessel color encodes, as in the anatomy (the lens, a comparison, or the imaging view's neutral one).
   m.mode = m.hide ? 'neutral' : st.compareSnap && st.compareView === 'D' ? 'delta' : st.colorMode;
   const ref = st.compareSnap ? st.compareSnap.P : H?.P;
   // The reference the labels and the card measure change against: the pinned moment while

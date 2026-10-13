@@ -1,23 +1,23 @@
 // Verbs on the anatomy (object → verb). Every manipulation the learner can make lives here once:
 // the action card beside a selected structure, the Treat section of the patient chart, the command
-// palette, lessons and cases all call these same verbs, so each change is made one way and lands
+// palette and the presenter all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=34e377149b';
-import { store, updateParams, hiddenNow } from './store.js?v=7fb7280c05';
+import { store, updateParams, hiddenNow } from './store.js?v=7c63421fac';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=b1761ad19c';
 import { aboutVessel, aboutOrgan } from './about.js?v=b51139478a';
-import { lobuleState } from './lobule-model.js?v=ef674ee7ff';
+import { lobuleState } from './lobule-model.js?v=89546129c1';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=6e4d654280';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
-// Lessons and cases name the tools a step allows; these are the verbs they unlock.
+// Named tools and the verbs they unlock (store.allowedVerbs).
 const TOOL_VERB = { pinch: 'narrow', thrombus: 'clot', fibrosis: 'fibrosis', stent: 'shunt', band: 'band', occlude: 'occlude', balloon: 'balloon', doppler: 'doppler', endoscope: 'endoscope', needle: 'paracentesis' };
 export const toolsToVerbs = (list) => (list ? [...new Set(list.map((t) => TOOL_VERB[t] || t).filter((v) => v !== 'select' && v !== 'probe'))] : null);
 
-/** Is a verb available now? Lessons and cases restrict verbs; they may also unlock a parameter. */
+/** Is a verb available now? store.allowedVerbs can restrict verbs; it may also unlock a parameter. */
 export function verbEnabled(id, key) {
   const st = store.get();
   const allowed = st.allowedVerbs;

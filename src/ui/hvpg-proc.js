@@ -8,10 +8,10 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, fitCanvas, clamp, icon, toast, cssVar } from './util.js?v=b1761ad19c';
-import { FONT } from './charts.js?v=e073763634';
+import { h, fmt, fitCanvas, clamp, icon, cssVar } from './util.js?v=b1761ad19c';
+import { FONT } from './charts.js?v=0a36a1d8cb';
 import { pressureColor } from './colormap.js?v=a65dea21ce';
-import { store, logAction } from './store.js?v=7fb7280c05';
+import { store, logAction } from './store.js?v=7c63421fac';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('hvpg-proc');
 
@@ -82,7 +82,6 @@ export function createHvpgProcedure() {
 
   function start() {
     if (t0 != null && t < tEnd()) return;
-    if (store.get().blind) { toast('Answer the question first.'); return; }
     const st = store.get();
     if (st.lobule) store.set({ lobule: false });
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
@@ -100,7 +99,6 @@ export function createHvpgProcedure() {
       figure();
       paintSide(); draw();
       if (t < tEnd()) raf = nextFrame(step);
-      // A lesson waits for the whole procedure (the catheter back out) before it moves on.
       else { raf = 0; stageRef?.setCatheter(null); logAction('hvpg', blocked ? 'aborted' : 'measured'); }
     };
     step();

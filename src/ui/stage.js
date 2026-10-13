@@ -4,10 +4,10 @@
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=34e377149b';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=6e4d654280';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=a65dea21ce';
-import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7fb7280c05';
-import { fibroReading } from './clock.js?v=af42a9670d';
+import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7c63421fac';
+import { fibroReading } from './clock.js?v=6284ad19b7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=b1761ad19c';
-import { createLobuleZoom } from './lobule-zoom.js?v=9c57f771c4';
+import { createLobuleZoom } from './lobule-zoom.js?v=c3eac87a04';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -1715,7 +1715,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let F = null;            // latest frame
   let hoverId = null;
 
-  // A case keeps each finding (varices, collaterals, clots, flow) off the figure until a test shows it.
+  // A view may keep each finding (varices, collaterals, clots, flow) off the figure until a test shows it.
   const findingHidden = (k) => { const fd = store.get().found; return !!fd && !fd.has(k); };
   const FINDING_OF = { VAR: 'eso', GV: 'gv' };
   function edgeVisible(x, f) {
@@ -3330,7 +3330,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     gBridges.append(...out);
   }
 
-  // Where a lesson step or case asks the learner to act.
+  // Where the figure asks the viewer to look (store.focus).
   let focusKey = '';
   function updateFocus() {
     const foc = store.get().focus;
@@ -4487,7 +4487,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return st.compareSnap ? st.compareSnap.P : st.healthy?.P;
   };
   const isImaging = () => !!store.get().imaging;
-  // A case hides the captions of findings (varices, collaterals) until a test shows them.
+  // Captions of findings (varices, collaterals) can stay hidden until a test shows them.
   const labelHidden = (id) => !!store.get().hiddenLabels?.has(id);
   // The active data layer (what vessel color encodes).
   function layerMode() {
@@ -5120,7 +5120,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (!spots.some((u) => { at(u); return place(it, dirs, gaps, false, true); })) { at(laneU[id]); place(it, ['C'], 0, false); }
       }
     }
-    // Lesson / case focus callout
+    // Focus callout
     const foc = st.focus;
     (foc ? foc.marks || [foc] : []).forEach((m, i) => {
       if (!m.edges?.length || !E[m.edges[0]]?.vis || (i && !m.label)) return;
@@ -5214,7 +5214,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const bolus = createBolus(EDGES, NODES);
   const net = { Q: new Float32Array(EDGES.length), vd: new Float32Array(EDGES.length), len: new Float32Array(EDGES.length) };
   let origins = null, originsF = null, bloodClock = 0, dyeShown = false, endsKey = '';
-  // In a case the flow shows once a Doppler has looked at it (still in neutral colours: pressures stay unmeasured).
+  // In the imaging view the flow shows once a Doppler has looked at it (still in neutral colours: pressures stay unmeasured).
   const flowSeen = () => !store.get().imaging || !!store.get().found?.has('flow');
   const bloodOn = () => !!F && flowSeen() && store.get().layers.flow !== false;
   const chevOn = () => !!F && flowSeen() && !!store.get().blood?.chevrons;
@@ -6035,53 +6035,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return null;
   }
 
-  // ── "Found by" tags (cases) ──────────────────────
-  // A test that finds something on the figure marks it: a soft halo eases in at the spot with a small
-  // tag naming the finding and the test, then fades. Positions follow pan and zoom while they show.
-  const foundLayer = h('div', { class: 'found-layer', 'aria-hidden': 'true' });
-  wrap.append(foundLayer);
-  let foundRaf = 0;
-  const foundPoint = (at) => {
-    if (Array.isArray(at)) return at;
-    if (ORGAN_ANCHOR[at]) return ORGAN_ANCHOR[at];
-    const g = geo[at];
-    return g ? pointAt(g.cur, 0.5) : null;
-  };
-  function placeFound() {
-    foundRaf = 0;
-    if (!foundLayer.childElementCount) return;
-    refreshCTM();
-    const W = foundLayer.clientWidth, boxes = [];
-    for (const el of foundLayer.children) {
-      const [x, y] = worldToLocal(...el._w);
-      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-      // Near the right edge the tag hangs to the left of its spot, so it never runs off the figure;
-      // a tag that would cover an earlier one drops below it.
-      const pw = (el._pw ||= el.lastChild.offsetWidth), ph = (el._ph ||= el.lastChild.offsetHeight);
-      const left = x + 22 + pw > W - 8;
-      if (left !== el.classList.contains('left')) el.classList.toggle('left', left);
-      const x0 = left ? x - 14 - pw : x + 14;
-      let dy = 0;
-      while (dy < 200 && boxes.some((b) => x0 < b[2] && x0 + pw > b[0] && y - 40 + dy < b[3] && y - 40 + dy + ph > b[1])) dy += ph + 6;
-      boxes.push([x0, y - 40 + dy, x0 + pw, y - 40 + dy + ph]);
-      if (el._dy !== dy) { el._dy = dy; el.lastChild.style.marginTop = `${dy}px`; }
-    }
-    foundRaf = nextFrame(placeFound);
-  }
-  /** Mark findings: [{ at: organ id | vessel id | [x, y], text, by }]. */
-  function showFound(list) {
-    list.forEach((it, i) => {
-      const w = foundPoint(it.at);
-      if (!w) return;
-      const el = h('div', { class: 'found-tag' }, h('i', { class: 'found-halo' }), h('span', { class: 'found-pill' }, h('b', {}, it.text), it.by ? h('small', {}, it.by) : null));
-      el._w = w;
-      foundLayer.append(el);
-      setTimeout(() => el.classList.add('on'), 30 + i * 220);
-      setTimeout(() => { el.classList.remove('on'); setTimeout(() => el.remove(), 700); }, 5200 + i * 220);
-    });
-    if (!foundRaf) placeFound();
-  }
-
   // ── Public API ────────────────────────────────────
   return {
     update,
@@ -6236,7 +6189,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** On-screen scale, px per world unit (for the tests: turning the circuit keeps it). */
     zoomLevel: () => { refreshCTM(); return CTM.sc; },
     focusEdge(id) { E[id]?.hit.focus(); },
-    startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt, showFound,
+    startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt,
     /** Briefly glow the given vessels (where a readout is measured). */
     flash(ids) {
       setGlowSrc('flash', ids.filter((id) => E[id]?.vis).map((id) => ({ id, col: 'var(--accent)', amt: 1.3, dur: 380 })));

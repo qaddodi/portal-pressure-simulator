@@ -16,11 +16,11 @@ Open straight into an activity by adding a query string to the simulator's URL:
 ## SCORM 1.2
 
 ```bash
-npm run scorm                          # whole simulator, opens on Home
+npm run scorm                          # whole simulator, opens on the Patients menu
 ```
 
 Upload the zip from `dist/` as a SCORM package (`-- --script <id>` packages one presenter script).
-Inside the LMS the simulator finds the SCORM API, takes the learner's name from it and finishes the
+Inside the LMS the simulator finds the SCORM API and finishes the
 attempt on exit. Presentations and patients are ungraded, so no score is reported.
 
 ## LTI 1.3

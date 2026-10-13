@@ -58,9 +58,9 @@ stability). They are listed in the app under *Menu › About the model*.
 
 ## Using it
 
-**Home** has four doors: *Explore a patient* (16 patients from healthy to Budd–Chiari, laid out
-as a map of the disease: grouped by where the resistance sits, each with its pressure profile),
-*Lessons*, *Cases* and *Presenter*.
+The **menu** (top left) has two tabs: *Present* (the presentations, by topic, and your own
+scripts) and *Patients* (16 patients from healthy to Budd–Chiari, grouped by where the resistance
+sits, each with its pressure profile).
 
 - **Act on the anatomy.** Click any vessel or organ: a card opens beside it with what you can do
   there (narrow or clot a vein, make the liver cirrhotic, band varices, start
@@ -73,8 +73,8 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
   Measure, Search; two rows when they do not fit), a vitals dock at the bottom (play bar and the four
   key readouts; its chevron opens the rest), a zoom pill, and cards that open on demand. Fit glides
   to frame the anatomy in the space they leave, and nothing floating ever covers anything else.
-- **Menu** (top left, named after the current mode). Explore, Lessons, Cases, Presenter, the Home
-  page; a link to share the exact state; settings and help.
+- **Menu** (top left, named after the current patient). Present and Patients; a link to share
+  the exact state; help.
 - **Findings** (top bar badge: a check, or how many findings in the color of the worst). Opens the
   patient chart: what is abnormal in plain words, and the Story of what happened and why. Click
   any readout for a causal **Why?**
@@ -101,16 +101,6 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 
 ### Teaching
 
-- **Lessons** (12): predict → do → observe → explain → check, with the step card on the figure,
-  predictions made on the figure or the pressure profile, Replay per step, and a score.
-- **Cases** (11): named patients with an authored chart (history, exam, labs), orders in clinical words, and three or
-  four decision points that pause the clock. Eight core cases (a variceal bleed in the ED, big varices on a screening scope,
-  new ascites, refractory ascites, melena with a big spleen, Budd–Chiari and its relatives, portal vein thrombosis, and the
-  beta blocker that became a problem) plus three optional ones (varices with a normal liver, reversed flow on a routine scan,
-  confusion after a TIPS). Feedback waits for the debrief, except for unsafe choices, whose effect the model shows at once.
-  Randomized variants, 80 % mastery with critical key actions, and a debrief with the expert's choices and an "inside the
-  patient" table.
-- **Assessment:** every attempt is recorded on the device and exports as CSV or xAPI.
 - **Presenter:** scripts of model states with speaker notes, stepped with arrow keys or a
   clicker; notes in a second window; laser pointer. Build scripts from the live model and share
   them as a link or a file.
@@ -126,8 +116,8 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
   the device. See [PRIVACY.md](PRIVACY.md).
 - **Offline.** Installable PWA; works on poor exam-hall Wi-Fi once loaded.
 - **Languages.** The interface shell is available in English, Spanish, French, Portuguese and
-  Arabic (right-to-left); lesson and case text is English for now.
-- **Versioned content.** A course built on content version 2.0 behaves the same all term.
+  Arabic (right-to-left); presentation text is English for now.
+- **Versioned content.** A class taught on content version 2.0 behaves the same all term.
 
 ## What's inside
 
@@ -135,7 +125,7 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 |------|----------|
 | `src/engine/` | The model, with no DOM: topology, physiology (tube law, compliance, Frank–Starling), implicit solver, reflexes, hepatic arterial buffer, collaterals, varices, ascites, bleeding, two clocks, metrics, events, "Why?" attribution, presets and drugs |
 | `src/worker-core.js`, `src/worker.js` | Simulation host (Web Worker, main-thread fallback): frames at 30 Hz, snapshots, pre-roll and counterfactual replays |
-| `src/ui/` | Stage (GPU figure and moving blood over the SVG scene, labels, anatomy⇄circuit morph, semantic zoom), action card, timeline, chart, instruments, lessons, cases, presenter, records, LMS bridge, accessibility |
+| `src/ui/` | Stage (GPU figure and moving blood over the SVG scene, labels, anatomy⇄circuit morph, semantic zoom), action card, timeline, chart, instruments, presenter, LMS bridge, accessibility |
 | `src/i18n/` | Interface strings per language |
 | `styles/` | Design tokens (light and dark) and layout |
 | `fonts/`, `brand/` | Self-hosted fonts (SIL OFL); brand mark, lockup and app icons |

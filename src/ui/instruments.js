@@ -3,13 +3,13 @@
 
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { pressureColor } from './colormap.js?v=a65dea21ce';
-import { verbEnabled } from './actions.js?v=9266baba58';
+import { verbEnabled } from './actions.js?v=db2f076e69';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=b1761ad19c';
-import { simTime, isPaused } from './clock.js?v=af42a9670d';
+import { simTime, isPaused } from './clock.js?v=6284ad19b7';
 import { createEndoGL } from './endo-gl.js?v=b0d97e231f';
 import { renderEndo } from './endo-render.js?v=f3211177f0';
-import { FONT } from './charts.js?v=e073763634';
-import { store, updateParams, varicesPresent } from './store.js?v=7fb7280c05';
+import { FONT } from './charts.js?v=0a36a1d8cb';
+import { store, updateParams, varicesPresent } from './store.js?v=7c63421fac';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('instruments');
 
@@ -346,12 +346,11 @@ export function createAbdomen({ onAction }) {
     if (iapFill.style.width !== iw) iapFill.style.width = iw;
     setAttr(iapBar, 'aria-label', `Abdominal pressure ${fmt(a.iap, 0)} mmHg`);
     // SAAG from the rounded parts, so serum − ascitic always adds up on screen.
-    // In a case the fluid results come from the tap you order, in the case chart, never from here.
-    const inCase = !!store.get().found, tapped = a.volume > 150 && !inCase;
+    const tapped = a.volume > 150;
     const r1 = (x) => Math.round(x * 10) / 10, saag = r1(r1(p.albumin) - r1(a.albumin));
     setText(saagV, tapped ? fmt(saag, 1) : '—'); setText(tpV, tapped ? fmt(a.totalProtein, 1) : '—'); setText(albV, tapped ? fmt(a.albumin, 1) : '—');
     setAttr(saagEl, 'title', tapped ? `SAAG ${fmt(p.albumin, 1)} − ${fmt(a.albumin, 1)} = ${fmt(saag, 1)} g/dL. ≥ 1.1 means portal hypertension.` : null);
-    setText(why, inCase ? 'Order the tap in the case to see fluid results' : 'Too little fluid to tap');
+    setText(why, 'Too little fluid to tap');
     setAttr(tiles, 'data-empty', tapped ? null : '');
     if (hasFluid !== a.volume > 150) { hasFluid = a.volume > 150; paintVol(); }
     // Whole percents only: rewriting the height every frame would keep restarting its ease.

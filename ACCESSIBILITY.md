@@ -15,7 +15,7 @@ the product does today and where it falls short.
 | Motion | Supported. `prefers-reduced-motion` turns every animation into an instant state change (the moving blood holds still, halos and transitions are skipped). |
 | Zoom and reflow | Responsive layouts down to 320 CSS px with no horizontal page scroll; at 200 % browser zoom (1280 × 900 → 640 × 450 CSS px) the figure, top bar and transport reflow into the phone-landscape layout and the readouts stay in the Patient tab. Figure labels keep a constant size at any figure zoom. Settings → Interface zoom scales the bars, dock, sheets and menus from 80 % to 140 % without changing the figure. |
 | Text contrast | All text tokens measure at least 4.5:1 against every surface they sit on, in both themes (secondary captions 4.5–5.6:1, body 7–9:1). Text drawn over the anatomy carries a halo in the page color. |
-| Timing | No time limits, except the clinical clock in the bleeding case, which can be paused at any time. |
+| Timing | No time limits; the model's clock can be paused at any time. |
 | Language | The document language and direction follow the chosen interface language (Arabic is right-to-left). |
 
 ## WCAG 2.2 AA criteria with known gaps
@@ -30,8 +30,8 @@ the product does today and where it falls short.
 
 ## Testing done
 
-- Automated browser runs (Chromium) through Home, a lesson with an on-figure prediction, the
-  bleeding case to its debrief, and a presenter script stepped from the keyboard.
+- Automated browser runs (Chromium) through the menu, the patients and a presenter script
+  stepped from the keyboard.
 - Light and dark themes at 390 px (phone), 1024 px (tablet) and 1440 px (desktop).
 - Contrast of every text color token against every surface token, both themes (computed).
 - Reflow at 320 px and at 200 % browser zoom (640 × 450 CSS px): no horizontal page scroll, every

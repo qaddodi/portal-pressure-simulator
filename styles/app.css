@@ -49,8 +49,6 @@ svg { flex: none; }
   grid-template-areas: "stage";
   background: var(--stage-bg);
 }
-/* Charts need a little more width than the patient chart. */
-
 
 /* ── Top bar ────────────────────────────────────── */
 .topbar {
@@ -87,7 +85,7 @@ svg { flex: none; }
 .stage-bar.top { height: 52px; container-type: inline-size; container-name: figbar; }
 /* The figure header adapts to its own width (the side panel may be open or closed). */
 @container figbar (max-width: 1180px) { .lg-note { display: none; } }
-@container figbar (max-width: 1000px) { .lg-title, .chip-btn .cb-k { display: none; } }
+@container figbar (max-width: 1000px) { .lg-title { display: none; } }
 @container figbar (max-width: 860px) { #colorModeLabel { display: none; } .lg-scale { width: 128px; } }
 .stage-bar.bottom { height: 60px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; }
 .stage-bar.bottom .toolbar { min-width: 0; }
@@ -96,8 +94,6 @@ svg { flex: none; }
 .sb-center { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: center; gap: 8px; }
 .sb-banner { display: flex; min-width: 0; justify-content: center; align-items: center; gap: 8px; }
 .sb-banner:empty { display: none; }
-/* The case panel already shows the clinical clock beside the figure. */
-@media (min-width: 1280px) { .app[data-mode="cases"].panel-open:not(.cmp-on) .sb-banner { display: none; } }
 /* Active bleeding: a steady status, not a flashing alarm */
 .bleed-pill { flex: none; display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; padding: 4px 12px 4px 8px; border-radius: var(--r-card); font-size: var(--fs-14); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   color: color-mix(in srgb, var(--critical) 82%, var(--text)); background: color-mix(in srgb, var(--critical) 9%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--critical) 28%, transparent); }
@@ -133,7 +129,6 @@ svg { flex: none; }
 @media (hover: hover) { .chip-btn:hover { border-color: var(--border-strong); background: var(--surface-2); } }
 .chip-btn svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
 .chip-btn .chev { width: var(--ic-s); height: var(--ic-s); color: var(--text-3); }
-.chip-btn .cb-k { color: var(--text-3); }
 .chip-btn[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
 .chip-btn[aria-pressed="true"] svg { color: currentColor; }
 
@@ -230,12 +225,7 @@ svg { flex: none; }
 .lb-mod-act { fill: var(--accent-ink); }
 .lb-lane { fill: var(--text-3); font-style: italic; }
 
-/* Figure header banner (lesson instruction, case status, compare switch) */
-.banner { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; padding: 4px 12px 4px 8px; border-radius: var(--r-card); background: var(--accent-soft); color: var(--accent-ink); font-size: var(--fs-14); font-weight: 500; }
-.banner .b-tag { flex: none; font-size: var(--fs-12); font-weight: 600; padding: 2px 8px; border-radius: var(--r-control); background: var(--accent); color: var(--on-accent); }
-.banner .b-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
-.banner.case { background: var(--surface-2); color: var(--text-2); }
-.banner.case .b-tag { background: var(--text); color: var(--stage-bg); }
+/* Figure header: the compare switch */
 .cmp-label { font-size: var(--fs-12); font-weight: 600; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cmp-seg button { min-width: 44px; font-variant-numeric: tabular-nums; }
 .cmp-seg button b { font-weight: 600; }
@@ -347,7 +337,6 @@ div.vital { cursor: default; }
 .vital.bad b { color: var(--danger); }
 @media (hover: hover) { button.vital:hover b { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; } }
 .readouts .ro-more { display: none; flex: none; align-self: center; width: 32px; height: 32px; }
-/* Points up to open the drawer, down to close it. */
 /* A vertical flip, not a turn: the icon keeps its width while it animates. */
 .ro-more svg { transform: scaleY(-1); transition: transform .2s var(--ease); }
 .readouts.all .ro-more svg { transform: none; }
@@ -423,7 +412,6 @@ div.vital { cursor: default; }
 .formula { font: var(--fs-12)/1.6 var(--font-mono); background: var(--surface-2); border-radius: var(--r-control); padding: 8px 12px; overflow-x: auto; color: var(--text-2); }
 .callout-note { font-size: var(--fs-14); color: var(--text-2); background: var(--surface-2); border-radius: var(--r-card); padding: 12px 12px; line-height: 1.5; }
 
-/* ── Buttons & basic controls ───────────────────── */
 /* ── Buttons & basic controls ───────────────────── */
 .ib {
   display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: var(--r-control);
@@ -515,8 +503,6 @@ div.vital { cursor: default; }
 #organs, #ascites, #grid, #overlays, #nodes, #guides, #focus { pointer-events: none; }
 .stage-view.gl-on #overlays [data-gl] { visibility: hidden; }   /* drawn on the GPU with the vessels (stage.js marksBuild) */
 #organs { transition: opacity .5s var(--ease); }
-/* The venous network fades as one group (its union, once), with the focused vessel lifted out of
-   it (see gNet in stage.js); vessels behind the organs fade one by one. */
 /* Borders and contact shadows are solid, with their transparency set once per tier, so where two
    vessels' borders overlap (every junction, every bend) they read as one shape, not a darker patch. */
 .tier-casing { opacity: var(--casing-a); }
@@ -563,7 +549,6 @@ div.vital { cursor: default; }
 .org-ra.org-fill { fill: color-mix(in srgb, var(--organ-heart) calc(var(--organ-tint) + 14%), var(--stage-bg)); }
 .organ-heart-ra { color: color-mix(in srgb, var(--organ-heart) 80%, var(--shade-ink)); }
 .org-heart-flow { fill: color-mix(in srgb, var(--organ-heart) 70%, var(--shade-ink)); fill-opacity: .55; stroke: none; }
-/* The figure is a clean plate: flat lumens (color is the value), no texture or cast shadows. */
 /* Data layers: the anatomy steps back so the network carries the reading. */
 .stage-view.data-layer #organs, .stage-view.data-layer #backdrop { filter: saturate(.12) opacity(.72); }
 #heatGlow { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .28s var(--ease), visibility 0s linear .28s; }
@@ -613,14 +598,9 @@ div.vital { cursor: default; }
 .stent-guide.invalid { stroke: var(--danger); }
 .target-glow { fill: none; stroke: var(--accent); stroke-opacity: .35; stroke-linecap: round; }
 
-
-/* ── Panel (inspector, lessons, cases) ──────────── */
+/* ── Panel (inspector) ──────────────────────────── */
 .panel { background: var(--surface); overflow: hidden; min-width: 0; z-index: var(--z-panel); display: flex; flex-direction: column; }
 .panel-page { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
-/* A lesson's step card has its own rail at the top of the panel, above both tabs. */
-.lesson-rail { flex: none; max-height: 58%; overflow-y: auto; border-bottom: 1px solid var(--border); }
-.lesson-rail:empty { display: none; }
-.lesson-rail .lesson { border-bottom: 0; }
 .panel-tabs { flex: none; display: flex; align-items: stretch; gap: 2px; height: 44px; padding: 0 8px 0 8px; border-bottom: 1px solid var(--hairline); background: var(--surface); }
 .panel-tabs [role="tab"] { position: relative; display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0 12px; font: 600 var(--fs-14) var(--font-ui); color: var(--text-3); cursor: pointer; }
 @media (hover: hover) { .panel-tabs [role="tab"]:hover { color: var(--text); } }
@@ -725,51 +705,14 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .pill.warn { background: color-mix(in srgb, var(--caution) 14%, transparent); color: color-mix(in srgb, var(--caution) 80%, var(--text)); }
 .pill.bad { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
 
-/* ── Lesson & case cards ────────────────────────── */
-.lesson { padding: 20px; border-bottom: 1px solid var(--hairline); background: linear-gradient(180deg, var(--accent-soft), transparent 70%); }
-.lesson-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
-.step-type { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-12); font-weight: 600; color: var(--accent-ink); }
-.step-type .n { color: var(--text-3); font-weight: 500; }
-.step-type svg, .sec-ic { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.lesson h3 { margin: 0 0 8px; font-size: var(--fs-16); font-weight: 600; letter-spacing: -.012em; line-height: 1.3; }
-.lesson p { margin: 0 0 12px; font-size: var(--fs-14); line-height: 1.6; color: var(--text-2); }
-.lesson p b { color: var(--text); font-weight: 600; }
-.lesson .q { color: var(--text); font-weight: 600; font-size: var(--fs-14); line-height: 1.45; }
+/* ── Panel cards ───────────────────────────────── */
+.sec-ic { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .progress { display: flex; gap: 4px; margin-bottom: 16px; }
 .progress i { flex: 1; height: 3px; border-radius: 2px; background: var(--surface-3); }
 .progress i.on { background: var(--accent); }
 .progress i.cur { background: color-mix(in srgb, var(--accent) 55%, var(--surface-3)); }
-.opts { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 12px; }
-.opt {
-  text-align: left; border: 1px solid var(--border); background: var(--surface); padding: 8px 12px; border-radius: var(--r-card); cursor: pointer; font-size: var(--fs-14); line-height: 1.4;
-  display: flex; gap: 12px; align-items: flex-start; transition: border-color var(--t-fast), background var(--t-fast);
-}
-.opt .letter { flex: none; width: 20px; height: 20px; border-radius: var(--r-control); background: var(--surface-3); display: grid; place-items: center; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); }
-@media (hover: hover) { .opt:hover:not(:disabled) { border-color: var(--accent-line); } }
-.opt:disabled { cursor: default; color: var(--text-2); }
-.opt.right { border-color: color-mix(in srgb, var(--ok) 60%, transparent); background: color-mix(in srgb, var(--ok) 8%, var(--surface)); color: var(--text); }
-.opt.right .letter { background: var(--ok); color: var(--on-status); }
-.opt.wrong { border-color: color-mix(in srgb, var(--danger) 55%, transparent); background: color-mix(in srgb, var(--danger) 6%, var(--surface)); color: var(--text); }
-.opt.wrong .letter { background: var(--danger); color: var(--on-status); }
-.opt.sel { border-color: var(--accent, currentColor); background: color-mix(in srgb, var(--accent, currentColor) 8%, var(--surface)); color: var(--text); }
 .mon.lab .mv::after { content: ' lab'; font-size: 11px; opacity: .7; }
-.feedback { font-size: var(--fs-14); line-height: 1.55; color: var(--text-2); padding: 12px 12px; border-radius: var(--r-card); background: var(--surface-2); margin-bottom: 12px; }
-.feedback b { color: var(--text); }
-.goal { display: flex; align-items: center; gap: 12px; font-size: var(--fs-14); padding: 12px 12px; border-radius: var(--r-card); background: var(--surface); border: 1px solid var(--border); margin-bottom: 12px; }
-.goal .chk { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border-strong); flex: none; display: grid; place-items: center; }
-.goal .chk svg { width: var(--ic-mark); height: var(--ic-mark); stroke: var(--light-ink); stroke-width: 2.6; fill: none; opacity: 0; }
-.goal.waiting .chk { border-color: var(--accent); border-right-color: transparent; animation: spin 1s linear infinite; }
-.goal.met { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
-.goal.met .chk { background: var(--ok); border-color: var(--ok); }
-.goal.met .chk svg { opacity: 1; }
-.goal.failed .chk { background: var(--danger); border-color: var(--danger); }
-.goal.failed .chk svg { opacity: 1; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.inline-controls { display: flex; flex-direction: column; gap: 16px; padding: 12px; border-radius: var(--r-card); background: var(--surface); border: 1px solid var(--border); margin-bottom: 12px; }
-.lesson-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
-.panel.lesson-focus #inspector { display: none; }
-.panel.lesson-focus.show-all #inspector { display: block; }
-.panel.lesson-focus #inspector .p-head { position: static; }
 .card {
   border: 1px solid var(--border); border-radius: var(--r-card); padding: 16px; cursor: pointer; background: var(--surface); text-align: left;
   display: flex; flex-direction: column; gap: 4px; transition: border-color var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
@@ -785,97 +728,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .vitals .lbl { color: var(--text-3); font-size: var(--fs-12); font-weight: 600; letter-spacing: .04em; }
 .vitals b { font-size: var(--fs-16); font-weight: 600; display: block; font-variant-numeric: tabular-nums; }
 .vitals .bad b { color: var(--danger); }
-
-/* cases: content thread (patient header, vitals, Story / Chart / Orders, decision cards) */
-.cs-head { gap: 4px; }
-.cs-who { display: flex; align-items: baseline; gap: 10px; font-family: var(--font-ui); }
-.cs-who b { font-size: var(--fs-20); font-weight: 600; letter-spacing: -.01em; }
-.cs-who span { font-size: var(--fs-14); color: var(--text-2); }
-.cs-prob { margin: 0; font-size: var(--fs-14); color: var(--text); line-height: 1.45; }
-.cs-where { margin: 0; font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
-.cs-body { display: flex; flex-direction: column; gap: 12px; padding-top: 12px; font-family: var(--font-ui); }
-.cs-vitals { display: flex; flex-wrap: wrap; gap: 8px; }
-.cs-v { flex: 1 1 88px; display: grid; gap: 0; padding: 6px 10px; border-radius: var(--r-card); background: var(--surface-2); border: 1px solid transparent; min-width: 0; }
-.cs-v .cs-vl { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
-.cs-v b { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
-.cs-v i { font-style: normal; font-size: var(--fs-12); color: var(--text-3); }
-.cs-v.warn { border-color: color-mix(in srgb, var(--caution) 55%, transparent); background: color-mix(in srgb, var(--caution) 10%, var(--surface)); }
-.cs-v.bad { border-color: color-mix(in srgb, var(--danger) 60%, transparent); background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
-.cs-v.bad b { color: var(--danger); }
-.cs-v.dim b { font-size: var(--fs-14); color: var(--text-3); font-weight: 500; }
-.cs-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--hairline); }
-.cs-tab { appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; font: 500 var(--fs-14) var(--font-ui); color: var(--text-2); cursor: pointer; position: relative; min-height: 44px; }
-.cs-tab.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
-.cs-dot { position: absolute; top: 9px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
-.cs-pane { display: flex; flex-direction: column; gap: 12px; font-size: var(--fs-16); line-height: 1.5; }
-.cs-story p { margin: 0 0 12px; max-width: 62ch; }
-.cs-at { display: inline-block; min-width: 64px; margin-right: 8px; font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
-.cs-log { font-size: var(--fs-14) !important; color: var(--text-3); margin-bottom: 6px !important; }
-.cs-log.you { color: var(--text-2); }
-.cs-skip { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--text-3); font-size: var(--fs-12); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
-.cs-change { width: 100%; margin: 0 0 12px; font-size: var(--fs-14); }
-.cs-change th { text-align: left; font-weight: 600; color: var(--text-3); font-size: var(--fs-12); padding: 2px 6px 4px 0; }
-.cs-change td.chg { font-weight: 700; color: var(--accent); }
-.cs-skip::before, .cs-skip::after { content: ''; flex: 1; height: 1px; background: var(--hairline); }
-.cs-chip { margin: 0; font-size: var(--fs-12); color: var(--text-3); }
-.cs-chart section, .cs-orders section { margin-bottom: 14px; }
-.cs-chart h4, .cs-orders h4 { margin: 0 0 8px; font-size: var(--fs-12); font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; }
-.cs-item { border: 1px solid var(--border); border-radius: var(--r-card); padding: 12px 14px; background: var(--surface); margin-bottom: 8px; font-size: var(--fs-14); line-height: 1.5; }
-.cs-item.pending { opacity: .7; }
-.cs-item-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-.cs-item-h b { font-weight: 600; font-size: var(--fs-14); }
-.cs-badge { font-size: var(--fs-12); color: var(--text-3); }
-.cs-badge.new { color: var(--accent); font-weight: 600; }
-.cs-item ul { margin: 4px 0 0; padding-left: 18px; }
-.cs-item li { margin-bottom: 4px; }
-.cs-rows { width: 100%; border-collapse: collapse; margin-top: 4px; font-variant-numeric: tabular-nums; }
-.cs-rows td { padding: 5px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
-.cs-rows td:last-child { text-align: right; font-weight: 500; }
-.cs-rows td.warn { color: var(--caution); }
-.cs-rows td.bad { color: var(--danger); font-weight: 600; }
-.cs-note { margin: 8px 0 0; color: var(--text-3); font-size: var(--fs-12); }
-.cs-ord-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.cs-ord { appearance: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; min-height: 48px; padding: 8px 12px; border-radius: var(--r-control); border: 1px solid var(--border); background: var(--surface); color: var(--text); font: 500 var(--fs-14) var(--font-ui); line-height: 1.3; cursor: pointer; }
-@media (hover: hover) { .cs-ord:hover:not(:disabled) { border-color: var(--accent-line); } }
-.cs-ord.done { color: var(--text-3); }
-.cs-ord.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
-.cs-ord svg { width: 16px; height: 16px; flex: none; stroke: var(--ok); fill: none; stroke-width: 2.4; }
-.cs-decbar { position: sticky; bottom: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 12px 14px; margin-top: auto; border: 1px solid var(--accent-line); border-radius: var(--r-card); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
-.cs-decbar > div { display: grid; gap: 2px; flex: 1; min-width: 0; }
-.cs-decbar small { flex-basis: 100%; color: var(--text-3); font-size: var(--fs-12); }
-.cs-kicker { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; }
-.cs-dec { display: flex; flex-direction: column; gap: 12px; }
-.cs-q { margin: 0; font: 600 19px/26px var(--font-ui); max-width: 60ch; }
-.cs-hint { margin: -4px 0 0; font-size: var(--fs-14); color: var(--text-3); }
-.cs-opts { display: flex; flex-direction: column; gap: 8px; }
-.cs-opt { appearance: none; display: flex; align-items: flex-start; gap: 12px; width: 100%; min-height: 48px; padding: 12px 14px; text-align: left; border: 1.5px solid var(--border); border-radius: var(--r-card); background: var(--surface); color: var(--text); font: 400 var(--fs-16)/1.4 var(--font-ui); cursor: pointer; }
-@media (hover: hover) { .cs-opt:hover { border-color: var(--accent-line); } }
-.cs-opt.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
-.cs-k { flex: none; width: 22px; height: 22px; border-radius: var(--r-control); background: var(--surface-3); color: var(--text-2); display: grid; place-items: center; font-size: var(--fs-12); font-weight: 600; }
-.cs-opt.sel .cs-k { background: var(--accent); color: var(--on-accent); }
-.cs-dec-actions { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 0 4px; background: linear-gradient(to top, var(--surface) 70%, transparent); }
-.cs-dec-actions .btn { min-height: 44px; }
-.cs-wait { color: var(--text-3); }
-.cs-cons { border: 1px solid var(--border); border-radius: var(--r-card); padding: 14px 16px; background: var(--surface-2); }
-.cs-cons.unsafe { border-color: color-mix(in srgb, var(--danger) 55%, transparent); background: color-mix(in srgb, var(--danger) 7%, var(--surface)); }
-.cs-cons h3 { margin: 4px 0 6px; font: 600 var(--fs-16) var(--font-ui); }
-.cs-cons p { margin: 0 0 8px; font-size: var(--fs-14); line-height: 1.5; }
-.cs-foot { display: flex; justify-content: center; padding-top: 4px; }
-.cs-keys { display: flex; flex-direction: column; gap: 6px; }
-.cs-crit { margin-left: auto; color: var(--text-3); font-size: var(--fs-12); }
-.cs-cmp { display: flex; flex-direction: column; gap: 8px; }
-.cs-cmp-row { border: 1px solid var(--border); border-radius: var(--r-card); padding: 10px 14px; font-size: var(--fs-14); }
-.cs-cmp-row.ok { background: color-mix(in srgb, var(--ok) 5%, var(--surface)); }
-.cs-cmp-row.miss { background: color-mix(in srgb, var(--caution) 6%, var(--surface)); }
-.cs-cmp-row div { display: flex; gap: 10px; margin-top: 4px; }
-.cs-cmp-row div span { flex: none; width: 48px; color: var(--text-3); font-size: var(--fs-12); font-weight: 600; text-transform: uppercase; padding-top: 2px; }
-.cs-cmp-row p { margin: 6px 0 0; color: var(--text-2); }
-.cs-pearls { padding-left: 20px; font-size: var(--fs-14); line-height: 1.55; }
-.cs-see { margin-top: 8px; }
-@media (max-width: 720px) { .cs-ord-grid { grid-template-columns: 1fr; } .cs-q { font-size: 18px; } }
-.score { display: flex; align-items: center; gap: 20px; padding: 16px; border-radius: var(--r-sheet); background: var(--surface-2); margin-bottom: 16px; }
-.score-ring { width: 76px; height: 76px; flex: none; }
-.score b { font-size: var(--fs-16); }
 
 /* ── Popovers, menus, modals, toasts ────────────── */
 .tooltip {
@@ -970,8 +822,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .toast.bad { background: var(--danger); color: var(--on-status); }
 .toast.leaving { animation: fade .2s reverse forwards; }
 
-
-/* ── Explore start card, compare panel, lesson rail ─ */
+/* ── Explore start card, compare panel ─ */
 
 .cmp-states { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .cmp-card { border: 1px solid var(--border); border-radius: var(--r-card); padding: 12px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; background: var(--surface); }
@@ -992,14 +843,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .cmp-table td.d.up { color: color-mix(in srgb, var(--danger) 88%, var(--text)); } .cmp-table td.d.down { color: var(--accent-ink); } .cmp-table td.d.same { color: var(--text-3); font-weight: 500; }
 .cmp-table tr.big td { background: color-mix(in srgb, var(--accent) 4%, transparent); }
 
-.phase-rail { display: flex; align-items: center; gap: 4px; min-width: 0; }
-.phase-rail span { flex: none; display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
-.phase-rail span i { width: 6px; height: 6px; border-radius: 50%; background: var(--surface-3); }
-.phase-rail span.on i { background: var(--accent); }
-.phase-rail span.cur i { width: 16px; border-radius: 3px; background: var(--accent); }
-.phase-rail span.cur { color: var(--accent-ink); margin: 0 4px 0 1px; }
-.phase-rail span b { font-weight: 600; white-space: nowrap; }
-
 /* ── Tablet (768–1279) ──────────────────────────── */
 @media (max-width: 1279px) {
   .toast-wrap { left: 50%; }
@@ -1008,7 +851,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 @media (max-width: 1100px) {
   .brand { gap: 4px; }
   .modes button svg { display: none; }
-  .chip-btn .cb-k { display: none; }
 }
 @media (max-width: 900px) {
   .legend .lg-title { display: none; }
@@ -1032,9 +874,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .stage-bar.top { height: 46px; padding: 0 8px; gap: 8px; }
   .stage-bar.bottom { height: 56px; padding: 0 8px; grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
   .sb-center { display: none; }
-  .app.bleeding .sb-center, .app[data-mode="learn"] .sb-center, .app[data-mode="compare"] .sb-center, .app[data-mode="cases"] .sb-center { display: flex; position: absolute; left: 8px; right: 8px; top: 46px; justify-content: flex-start; z-index: var(--z-hud); pointer-events: none; }
+  .app.bleeding .sb-center, .app[data-mode="compare"] .sb-center { display: flex; position: absolute; left: 8px; right: 8px; top: 46px; justify-content: flex-start; z-index: var(--z-hud); pointer-events: none; }
   .sb-center > * { pointer-events: auto; }
-  .banner { font-size: var(--fs-12); box-shadow: var(--shadow-1); background: color-mix(in srgb, var(--accent-soft) 60%, var(--surface)); }
   .seg button { padding: 8px 12px; }
   /* Three views (Anatomy · Circuit · Lobule) share the row with the Blood and lens buttons. */
   #viewSeg button { padding: 8px 8px; font-size: var(--fs-14); }
@@ -1071,7 +912,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .p-head { padding: 12px 16px 12px; }
   .p-body { padding: 4px 16px 24px; }
   .changes { padding-left: 16px; padding-right: 16px; }
-  .lesson { padding: 16px; }
   input[type=range]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -8px; }
   .range-wrap, input[type=range] { height: 28px; }
   .section > summary { padding: 16px 0; min-height: 48px; }
@@ -1082,7 +922,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .topbar { padding: calc(var(--safe-top) + 6px) calc(env(safe-area-inset-right) + 8px) 0 calc(env(safe-area-inset-left) + 8px); gap: 6px; }
   .stage-bar.top { height: 44px; padding: 0 8px; }
   .stage-bar.bottom { height: 52px; padding: 0 8px; grid-template-columns: auto minmax(0, 1fr); }
-  .sb-center, .zoom, .legend .lg-title, #btnLayers #colorModeLabel, .chip-btn .cb-k { display: none; }
+  .sb-center, .zoom, .legend .lg-title, #btnLayers #colorModeLabel { display: none; }
   .lg-scale { width: 110px; }
   .toolbar { justify-self: end; }
   .readouts { display: none; }
@@ -1367,18 +1207,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 
 /* ── Shell (Phase D): top bar, Home, palette, chart, instruments ─── */
 .brand { cursor: pointer; }
-.session-bar { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 560px; flex: 0 1 auto; padding: 4px 4px 4px 8px; border-radius: var(--r-card); background: var(--accent-soft); }
-.session-bar .b-tag { flex: none; font-size: var(--fs-12); font-weight: 600; padding: 4px 8px; border-radius: var(--r-control); background: var(--accent); color: var(--on-accent); white-space: nowrap; }
-.session-bar .b-tag.case { background: var(--text); color: var(--stage-bg); }
-.session-bar .b-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-14); font-weight: 500; color: var(--text); }
-.session-bar .btn { flex: none; height: 26px; }
-/* Below 1280 px a lesson's sheet carries its progress and Exit, so the top bar keeps the patient;
-   on a phone, a case's banner takes the patient button's place. */
-@media (max-width: 1279px) { .app[data-mode="learn"] .session-bar { display: none; } }
-@media (max-width: 767px) {
-  .app.in-session[data-mode="cases"] .session-bar { flex: 1 1 auto; }
-  .session-bar .b-text { display: none; }
-}
 .pal-btn { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px 0 12px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface-2); color: var(--text-3); font: 500 var(--fs-14) var(--font-ui); cursor: pointer; min-width: 0; }
 @media (hover: hover) { .pal-btn:hover { border-color: var(--border-strong); color: var(--text-2); } }
 .pal-btn svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; }
@@ -1452,11 +1280,6 @@ button.finding { cursor: pointer; }
 .order-btn .ac-ic { flex: none; }
 .ob-t { display: flex; flex-direction: column; gap: 1px; font-size: var(--fs-14); font-weight: 600; line-height: 1.3; }
 .ob-t small { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); }
-.story { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.story li { display: grid; grid-template-columns: 52px 1fr auto; gap: 8px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--hairline); font-size: var(--fs-14); line-height: 1.45; color: var(--text); }
-.story li:last-child { border-bottom: 0; }
-.story li.future { opacity: .4; }
-.story li.st-empty { grid-template-columns: 1fr; color: var(--text-3); }
 .st-act { font-size: var(--fs-12); }
 
 /* Instruments: one level */
@@ -1468,14 +1291,8 @@ button.finding { cursor: pointer; }
 .dock-body.split .dock-pane + .dock-pane { border-top: 1px solid var(--hairline); }
 .app-menu { width: 280px; }
 
-/* The readout strip is for when the chart isn't beside the figure. */
-.case-head { position: static; }
-#panelCase:empty, #panelLesson:empty { display: none; }
-
 /* Display type (Phase E): a serif for the few places that read as prose or a title. */
-.lesson > h3, .lesson .q, .modal h2 { font-family: var(--font-display); letter-spacing: -.01em; }
-.lesson > h3 { font-weight: 600; font-size: var(--fs-20); }
-.lesson > p:not([class]) { font-family: var(--font-display); font-size: var(--fs-16); line-height: 1.55; }
+.modal h2 { font-family: var(--font-display); letter-spacing: -.01em; }
 /* Δ halos: where pressure moved most after a change */
 .halo circle { fill: none; stroke-width: 2.5; animation: haloRing 1.5s var(--ease) forwards; }
 .halo circle { stroke: var(--text-2); }
@@ -1529,7 +1346,7 @@ button.finding { cursor: pointer; }
 .sv-region-kup { font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--sv-kupffer); } .sv-region-kup > * { opacity: calc(.85 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
 .sv-region-hep { color: var(--sv-hepatocyte); }
 /* The sinusoid view is a focused mode: only the way back to the lobule and the pressure legend stay (no lens to pick). */
-#app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #zoomPill, #vdock, #dock, #panel, #treatCard, #stageCenter, #coach) { display: none !important; }
+#app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #zoomPill, #vdock, #dock, #panel, #treatCard, #stageCenter) { display: none !important; }
 #app.sin-focus #btnLayers { pointer-events: none; cursor: default; }
 #app.sin-focus #btnLayers .chev { display: none; }
 .sv-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; color: var(--text-2); transition: opacity .6s var(--ease); }
@@ -1558,8 +1375,7 @@ button.finding { cursor: pointer; }
 @property --pill-o { syntax: '<number>'; inherits: false; initial-value: 0; }
 .lz-lab, .lz-zone { transition: --lit-o .5s var(--ease); }
 .lz-labels > * > * { opacity: calc(var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
-.lz-leaders .leader { stroke: color-mix(in srgb, var(--text) 55%, transparent); }   /* (the lobule's labels are called out on busy art: a firmer line than the anatomy's) */
-/* The presenter's camera gliding in the lobule: its labels ease out, and back in at their new places (lobule-zoom.js focusOn). */
+.lz-leaders .leader { stroke: color-mix(in srgb, var(--text) 55%, transparent); }/* The presenter's camera gliding in the lobule: its labels ease out, and back in at their new places (lobule-zoom.js focusOn). */
 .lz.lz-cam .lz-leaders { opacity: 0; transition: opacity .2s var(--ease); } .lz.lz-cam .lz-labels { --lab-o: 0; transition: --lab-o .2s var(--ease); }
 .lz.lz-cam-in .lz-leaders { transition: opacity .35s var(--ease); } .lz.lz-cam-in .lz-labels { transition: --lab-o .35s var(--ease); }
 .lz-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
@@ -1599,30 +1415,9 @@ button.finding { cursor: pointer; }
 #bridges path { fill: none; stroke-linecap: butt; pointer-events: none; }
 #bridges .bridge-gap { stroke: var(--stage-bg, var(--bg)); }
 
-/* ── Phase G: teaching ─────────────────────────────── */
-/* Lesson step card as a bottom sheet under the figure (below 1280 px): it takes its own height,
-   so it never covers the anatomy; minimized, only its progress line stays. */
-.coach { flex: none; position: relative; z-index: var(--z-hud); max-height: 46%; overflow-y: auto; background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -6px 18px -12px rgb(var(--black-rgb) / .25); }
-.coach:empty { display: none; }
-.coach .lesson.sheet { border-bottom: 0; padding: 12px 16px 16px; animation: coachIn .16s var(--ease); }
-.coach .lesson.sheet .lesson-top { margin-bottom: 8px; }
-.coach .lesson.sheet.min > :not(.lesson-top) { display: none; }
-.coach .lesson.sheet.min .lesson-top { margin-bottom: 0; }
-.coach .lesson.sheet > h3 { font-size: var(--fs-16); margin: 0 0 8px; }
-.coach .lesson.sheet > p:not([class]) { font-size: var(--fs-14); }
-.sheet-min { width: 32px; height: 32px; margin: -8px -8px -8px 0; color: var(--text-2); }
-.sheet-min svg { width: var(--ic-s); height: var(--ic-s); transition: transform .2s var(--ease); }
-.lesson.min .sheet-min svg { transform: rotate(180deg); }
-@keyframes coachIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-.lt-act { display: inline-flex; align-items: center; gap: 12px; flex: none; }
-.lt-act .link:disabled { opacity: .4; cursor: default; }
-.feedback.pop { animation: fbPop .35s var(--ease); }
-.feedback.right { background: color-mix(in srgb, var(--ok) 10%, var(--surface)); }
-.feedback.wrong { background: color-mix(in srgb, var(--danger) 9%, var(--surface)); }
 @keyframes fbPop { 0% { transform: scale(.97); opacity: .4; } 100% { transform: none; opacity: 1; } }
-.dir-arrow { display: inline-block; font-size: var(--fs-16); line-height: 1; color: var(--accent-ink, var(--accent)); }
 
-/* Case: bedside monitor */
+/* Bedside monitor */
 .monitor { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--mon-grid); border-radius: var(--r-card); overflow: hidden; border: 1px solid var(--mon-line); box-shadow: inset 0 0 0 1px rgb(var(--white-rgb) / .03); }
 .mon { background: var(--mon-bg); padding: 8px 12px 8px; display: grid; grid-template-rows: auto auto auto; color: var(--mc); min-width: 0; }
 .mon .ml { font: 600 11px var(--font-ui); letter-spacing: .06em; text-transform: uppercase; opacity: .85; display: flex; justify-content: space-between; gap: 4px; }
@@ -1632,22 +1427,12 @@ button.finding { cursor: pointer; }
 .mon.bad .mv { animation: monAlarm 1.2s steps(1) infinite; }
 @keyframes monAlarm { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .mon.bad .mv { animation: none; text-decoration: underline; } }
-/* Debrief */
-.debrief .cmp-table td.good { color: var(--ok); font-weight: 600; }
-.debrief .refs { font-size: var(--fs-12); color: var(--text-2); padding-left: 20px; }
-@media print {
-  body.print-report > *:not(#modalBack) { display: none !important; }
-  body.print-report #modalBack { position: static; background: none; display: block; padding: 0; }
-  body.print-report #modal { box-shadow: none; border: 0; width: 100% !important; max-height: none; overflow: visible; color: var(--shade-ink); background: var(--light-ink); }
-  body.print-report #modal header .ib, body.print-report .no-print { display: none !important; }
-}
 /* Presenter (presenter.js): projector-first slides on the live model. Sizes follow the screen's height,
    so a 720-line and a 1080-line projector show the same slide. The words sit at the left, the data at the
    right; the figure frames itself in the space between (data-safe, --pz-l/--pz-r for the lobule). */
 .app.presenting .stage-bar,
 .app.presenting #zoomPill,
 .app.presenting .action-card,
-.app.presenting .coach,
 .app.presenting #toolHint,
 .app.presenting .stage-clock,
 .app.presenting .hover-tip,
@@ -1696,7 +1481,6 @@ button.finding { cursor: pointer; }
 .pz.pz-card:not(.stack) .pz-text, .pz.pz-card:not(.stack) .pz-data.under { left: calc(var(--pz-cm) + var(--pz-cp)); }
 /* The data card is the same glass: see-through tint, the same blur, crisp edge with a hairline highlight, soft shadow. */
 .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
-/* The blocks stand out from the glass: a fill a shade toward the text colour (darker in light, lighter in dark) and a hairline edge. */
 /* Tiles sit lighter than the glass around them in light mode, darker in dark mode. */
 .pz-data .pz-tile:not(.key), .pz-data.has-tool .pz-tile.key, .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--white) 78%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent); }
 :root[data-theme="dark"] .pz-data .pz-tile:not(.key), :root[data-theme="dark"] .pz-data.has-tool .pz-tile.key, :root[data-theme="dark"] .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--black) 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--white) 7%, transparent); }
@@ -1738,8 +1522,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-text, .pz.stack .pz-panel { --pk: 1.7; }
 @media (orientation: landscape) and (max-height: 500px) { .pz-text, .pz-panel { --pk: 1.3; } }
 @media (orientation: landscape) and (max-height: 500px) { .pz:not(.stack) .pz-data { top: 8px; max-height: calc(100% - 8px - 14px - 44px - 4px); max-width: calc(58vw - 50px); }
-  .pz:not(.stack) .pz-data > .pz-ladder { display: none; } .pz:not(.stack) .pz-data:not(.tiles-only):not(.tool-only) > .pz-strip { display: block; } }   /* (beside the words, never over them; the phone's pressure strip, not the tall ladder) */   /* (a phone on its side: the numbers card ends above the controls pill at the lower right, 4 px clear) */
-/* (Except the summary table: its five to seven columns only fit a phone at the roles' own size.) */
+  .pz:not(.stack) .pz-data > .pz-ladder { display: none; } .pz:not(.stack) .pz-data:not(.tiles-only):not(.tool-only) > .pz-strip { display: block; } }   /* (beside the words, never over them; the phone's pressure strip, not the tall ladder) *//* (Except the summary table: its five to seven columns only fit a phone at the roles' own size.) */
 .pz.stack .pz-table { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); }
 @media (orientation: landscape) and (max-height: 500px) { .pz .pz-table { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1));
   --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1)); } }
@@ -1829,7 +1612,6 @@ button.finding { cursor: pointer; }
 .pz-tile[data-rate="ok"] .pzt-r::before, .pz-tile[data-rate="lo"] .pzt-r::before { background: var(--ok); }
 .pz-tile[data-rate="none"] .pzt-v { color: var(--text-3); }
 .pz-tile[data-rate="info"] .pzt-r::before { background: var(--text-3); }
-/* A visual slide: a panel over the dimmed figure. */
 /* Tiles alone (no ladder), bigger; a tile's change from an earlier slide; the time-lapse counter. */
 .pz-data.tiles-only .pz-ladder, .pz-data.tiles-only .pz-strip, .pz-data.tiles-only .pz-lg { display: none; }
 .pz-data.tiles-only .pz-tiles { grid-template-columns: minmax(0, 1fr); }
@@ -2088,11 +1870,9 @@ button.finding { cursor: pointer; }
 .pz-bar .pzb-sep { width: 1px; align-self: stretch; margin: 8px 3px; background: color-mix(in srgb, var(--text) 12%, transparent); }
 .pz-black { position: fixed; inset: 0; z-index: var(--z-toast); background: var(--black); opacity: 0; pointer-events: none; transition: opacity .4s var(--ease); }
 .pz-black.on { opacity: 1; pointer-events: auto; cursor: none; }
-/* A phone, or a screen taller than wide: the words on top, the data below, the figure between. */
 /* (On a phone the words sit at the bottom over the Back/Next bar, on a glass pane rising from the bottom edge; the data card is at the top.) */
 .pz-shade.stack { width: auto !important; right: 0; top: auto; bottom: 0; height: 0; box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 -1px 0 var(--pz-glass-line), 0 -10px 24px -6px var(--pz-glass-drop), 0 -2px 5px -1px var(--pz-glass-drop); }
-.pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh) / var(--vz)), 20px)); left: 14px; right: 14px; top: auto; bottom: calc(max(16px, 48px - var(--pz-lh)) + env(safe-area-inset-bottom, 0px)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }   /* (twice-size words: room for most slides without zooming them down) */
-/* (With a data card under the words, the pair keeps to the top so the card has room.) */
+.pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh) / var(--vz)), 20px)); left: 14px; right: 14px; top: auto; bottom: calc(max(16px, 48px - var(--pz-lh)) + env(safe-area-inset-bottom, 0px)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: var(--s-lab); }
 .pz.stack .pz-h { font-size: var(--s-val); }
@@ -2167,8 +1947,7 @@ button.finding { cursor: pointer; }
 @media (max-width: 359px) { .pz.stack .pz-kick .pz-sec { display: none; } }
 .pz.stack .pz-kick .pz-kw { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pz.stack .pz-quadwrap { grid-template-columns: minmax(0, 1fr); }
-.pz.stack .pz-quad { max-height: none; }   /* (a phone's plot takes the height its lettering needs; the card scrolls) */
-/* An upright tablet uses the phone's compact table (one line per row, no sideways scroll), drawn larger. */
+.pz.stack .pz-quad { max-height: none; }/* An upright tablet uses the phone's compact table (one line per row, no sideways scroll), drawn larger. */
 @media (min-width: 768px) and (max-width: 1100px) and (orientation: portrait) {
   .pz-table table { font-size: var(--s-body); }
   .pz-table tr { grid-template-columns: minmax(10rem, 1.8fr) repeat(var(--nc, 7), minmax(0, 1fr)) var(--asc-w, 0px); }
@@ -2181,16 +1960,14 @@ button.finding { cursor: pointer; }
   .pz-table td.num { font-size: var(--s-val); }
   .pz-table td.asc { font-size: var(--s-lab); }
   .pz-table td.note { padding-left: 31px; font-size: var(--s-lab); }
-  .pz-table .pz-foot { position: static; }   /* (nothing scrolls here; stuck to the screen's bottom it would sit over the rows) */
-}
+  .pz-table .pz-foot { position: static; }}
 .pz.stack .pz-visual { flex: none; }   /* (a phone scrolls the card rather than squeeze the chart over its words) */
 .pz.stack .pz-data.tiles-only .pzt-v { font-size: var(--s-title); }
 .pz.stack .pz-data.tiles-only .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
 .pz.stack .pz-tiles[data-n="4"], .pz.stack .pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* (four in a row cannot hold their numbers on a phone) */
 .pz.stack .pz-lapse { font-size: var(--s-body); }
 .pz.stack .pz-abb { font-size: var(--s-lab); min-height: 34px; padding: .4em .7em; flex: none; }
-.pz.stack .pz-ab { gap: 2px; padding: 3px; justify-content: center; }   /* (every choice stays in view: tight buttons, wrapping to a second row only if they still don't fit) */
-/* A title that would run past two lines in the side pane steps down a size. */
+.pz.stack .pz-ab { gap: 2px; padding: 3px; justify-content: center; }/* A title that would run past two lines in the side pane steps down a size. */
 .pz:not(.stack) .pz-text .pz-h.long { font-size: var(--s-big); }
 /* A slide's instrument (tool) in the data card: the instrument as the app draws it, without its controls. */
 .pz-data.has-tool { width: clamp(340px, 32vw, 620px); }
@@ -2293,8 +2070,7 @@ button.finding { cursor: pointer; }
 .pz-flowtime { display: grid; }
 .pz:not(.stack) .pz-data.has-tool:has(.pz-tool[data-kind="flowtime"] .pz-flowtime:not(.days)) { width: clamp(340px, 44vw, 480px); }   /* (wide enough for its words on an iPad held upright; a disease time-lapse's short names keep the card's own width) */
 .pz-flowtime svg { grid-area: 1 / 1; width: 100%; height: auto; overflow: visible; transition: opacity .42s var(--ease); }
-@media (max-height: 760px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }   /* (a short phone: a slimmer chart leaves the figure a band between it and the words) */
-/* A short phone with the after-meal chart alone in the card: the chart folds behind Show (the words leave no room for it and the
+@media (max-height: 760px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }/* A short phone with the after-meal chart alone in the card: the chart folds behind Show (the words leave no room for it and the
    veins both), as an instrument above tiles does on every phone. */
 @media (max-height: 760px) {
   .pz.stack .pz-data.tool-only:has(.pz-tool[data-kind="flowtime"]) .pz-tool { max-height: 60vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
@@ -2393,7 +2169,7 @@ button.finding { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .pz *, .pz, .app.presenting #stageView { animation: none !important; transition: none !important; }
 }
-/* Home › Present: the presentations, your scripts, present a case. */
+/* Menu › Present: the presentations and your scripts. */
 .pz-decks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
 .pz-deck { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-sheet); background: var(--surface); overflow: hidden; }
 .pzd-top { display: flex; align-items: center; gap: 8px; font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); }
@@ -2405,7 +2181,6 @@ button.finding { cursor: pointer; }
 .pz-lib > .pz-lvl-div:first-of-type { margin-top: 8px; }
 /* High contrast (P while presenting, or Settings): colour only, never a size. Stronger words, ratings as filled chips, a deeper shade. Organ art unchanged. */
 .app.pz-hi .pz-text { filter: contrast(1.3); }
-/* The opening slide: the talk's outline beside its objectives. */
 /* The opening slide: the talk's plan as a numbered run of sections, its objectives on a tinted card beside it
    (under it on a narrow screen). One type size for both lists; the numbers and ticks in the accent colour. */
 .pz-outline { --pzo-fs: var(--s-body); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: start; gap: clamp(18px, calc(3.2 * var(--pzh) / var(--vz)), 44px) clamp(24px, 3.6vw, 60px); }
@@ -2434,7 +2209,7 @@ button.finding { cursor: pointer; }
 .app.pz-hi .pz-tile[data-rate="mid"] .pzt-v { color: color-mix(in srgb, var(--caution) 70%, var(--text)); }
 .app.pz-hi .pz-shade { filter: brightness(.9); }
 /* The pressure route runs from portal (magenta) to systemic (blue), as the vessels do on the figure. Each level of
-   portal hypertension has its own shade between them (presenter, drill, lessons). */
+   portal hypertension has its own shade between them (presenter). */
 [data-site] { --site: var(--text-3); }
 [data-site="pre"] { --site: var(--tour-portal); }
 [data-site="presin"] { --site: color-mix(in srgb, var(--tour-portal) 80%, var(--tour-sys)); }
@@ -2442,92 +2217,9 @@ button.finding { cursor: pointer; }
 [data-site="postsin"] { --site: color-mix(in srgb, var(--tour-portal) 40%, var(--tour-sys)); }
 [data-site="post"] { --site: color-mix(in srgb, var(--tour-portal) 20%, var(--tour-sys)); }
 [data-site="cardiac"] { --site: var(--tour-sys); }
-.tour-route { position: relative; padding-top: 20px; }
-.tr-liver { position: absolute; top: 0; left: calc(100% / 6 + 1px); width: calc(100% / 2 - 2px); height: 12px; border: 1.5px solid var(--border-strong); border-bottom: 0; border-radius: 6px 6px 0 0; }
-.tr-liver span { position: absolute; left: 50%; top: -8px; translate: -50% 0; padding: 0 6px; background: var(--surface); font: 600 11px/1.3 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
-.tr-track { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
-.tr-seg { display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0; }
-.tr-bar { position: relative; width: 100%; height: 8px; border-radius: 4px; background: var(--site); opacity: .28; }
-.tr-seg.on .tr-bar { opacity: 1; }
-.tr-x { position: absolute; left: 50%; top: 50%; width: 7px; height: 22px; translate: -50% -50%; border-radius: 3px; background: var(--danger); box-shadow: 0 0 0 2.5px var(--surface); }
-.tr-seg span { font: 500 11px/1.15 var(--font-ui); color: var(--text-3); text-align: center; hyphens: manual; overflow-wrap: anywhere; }
-.tr-seg.on span { color: var(--text); font-weight: 650; }
-.tr-s { display: none; }
-.tour-sub { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 650 var(--fs-12) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
-.tour-sub span { display: inline-flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0; font-weight: 500; }
-.tour-sub .lg-now { width: 16px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--tour-portal), var(--tour-sys)); }
-.tour-sub .lg-base { width: 16px; border-top: 1.5px dashed var(--text-3); margin-left: 6px; }
-.tl-ladder { display: block; width: 100%; height: auto; overflow: visible; }
-.tl-grid line { stroke: var(--hairline); stroke-width: 1; }
-.tl-grid text { fill: var(--text-3); font: 500 11px var(--font-ui); }
-.tl-base { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 4 4; opacity: .7; }
-.tl-line { fill: none; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
-.tl-pt circle { fill: var(--surface); stroke: var(--text-2); stroke-width: 2; }
-.tl-pt.key circle { fill: var(--accent); stroke: var(--surface); stroke-width: 2.5; }
-.tl-v { fill: var(--text); font: 650 13px var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px; stroke-linejoin: round; }
-.tl-pt.key .tl-v { fill: var(--accent); }
-.tl-k { fill: var(--text-2); font: 700 12px var(--font-ui); }
-.tl-drop rect { fill: color-mix(in srgb, var(--danger) 10%, transparent); }
-.tl-bg { --c: var(--ok); } .tl-bg[data-rate="mid"] { --c: var(--caution); } .tl-bg[data-rate="hi"] { --c: var(--danger); }
-.tl-br { fill: none; stroke: var(--c); stroke-width: 1.8; stroke-linecap: round; }
-.tl-lead { fill: none; stroke: var(--c); stroke-width: 1; stroke-dasharray: 1 3.5; stroke-linecap: round; opacity: .6; }
-.tl-pill { fill: var(--surface); stroke: var(--c); stroke-width: 1; stroke-opacity: .55; }
-.tl-bk { fill: var(--c); font: 700 11px var(--font-ui); letter-spacing: .05em; }
-.tl-ladder.reveal .tl-bg { animation: tl-fade .6s var(--ease) 1s both; }
-/* Pressure ladder (ladder.js): unknown rungs, the eased reveal, the tap-to-answer route strip. */
-.tl-pt.unk circle { fill: var(--surface); stroke: var(--text-3); stroke-dasharray: 2.5 2.5; }
-.tl-pt.unk .tl-v { fill: var(--text-3); }
-.tl-ladder.reveal .tl-line { stroke-dasharray: 1; animation: tl-draw .9s var(--ease) both; }
-.tl-ladder.reveal .tl-pt circle, .tl-ladder.reveal .tl-v { transform-box: fill-box; transform-origin: center; animation: tl-pop .45s var(--ease) both; animation-delay: calc(.12s + var(--i) * .16s); }
-.tl-ladder.reveal .tl-drop { animation: tl-fade .6s var(--ease) .8s both; }
-.tl-ladder.reveal .tl-drop rect { transform-box: fill-box; transform-origin: bottom; animation: tl-rise .6s var(--ease) .8s both; }
-@keyframes tl-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-@keyframes tl-pop { from { opacity: 0; transform: scale(.4); } }
-@keyframes tl-fade { from { opacity: 0; } }
-@keyframes tl-rise { from { transform: scaleY(0); } }
-.tour-route.pickable .tr-seg { appearance: none; margin: 0; padding: 8px 0 6px; min-height: 48px; border: 0; border-radius: 10px; background: none; color: inherit; cursor: pointer; transition: background-color var(--t-fast) var(--ease); }
-@media (hover: hover) { .tour-route.pickable .tr-seg:hover:not(:disabled) { background: var(--surface-2); } }
-.tour-route.pickable .tr-seg:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.tour-route.pickable .tr-seg:disabled { cursor: default; }
-.tour-route .tr-bar { transition: opacity .35s var(--ease), box-shadow .35s var(--ease); }
-@media (hover: hover) { .tour-route.pickable .tr-seg:hover:not(:disabled) .tr-bar { opacity: .55; } }
-.tour-route .tr-seg.pick .tr-bar { opacity: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
-.tour-route .tr-seg.pick span { color: var(--text); font-weight: 650; }
-.tour-route.answered .tr-seg:not(.on):not(.pick) .tr-bar { opacity: .18; }
-.tour-route .tr-seg.wrong .tr-bar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--danger); opacity: .45; }
-.tour-route .tr-seg.right .tr-bar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ok); }
-.tour-route.answered .tr-x { animation: tr-x-in .5s var(--ease) .15s both; }
-@keyframes tr-x-in { from { opacity: 0; scale: .3; } }
-@media (prefers-reduced-motion: reduce) { .tl-ladder.reveal *, .tour-route.answered .tr-x { animation: none !important; } }
-.tour-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.tour-tiles.wait { height: 92px; border-radius: 12px; background: var(--surface-2); }
-.tour-tile { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1.5px solid transparent; min-width: 0; }
-.tour-tile.key { border-color: var(--accent); background: var(--accent-soft); }
-.tt-k { display: flex; align-items: center; justify-content: space-between; gap: 4px; font: 600 11.5px/1.2 var(--font-ui); color: var(--text-2); }
-.tt-key { font: 700 11px/1 var(--font-ui); font-style: normal; letter-spacing: .08em; text-transform: uppercase; color: var(--text-inverse); background: var(--accent); padding: 3px 5px; border-radius: 4px; }
-.tt-v { font: 650 24px/1.1 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
-.tt-v small { font-size: 11px; font-weight: 500; color: var(--text-3); margin-left: 3px; letter-spacing: 0; }
-.tt-r { display: inline-flex; align-items: center; gap: 5px; font: 600 11.5px var(--font-ui); color: var(--text-2); }
-.tt-r::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
-.tour-tile[data-rate="hi"] .tt-v, .tour-tile[data-rate="hi"] .tt-r { color: var(--danger); }
-.tour-tile[data-rate="hi"] .tt-r::before { background: var(--danger); }
-.tour-tile[data-rate="mid"] .tt-r::before { background: var(--caution); }
-.tour-tile[data-rate="ok"] .tt-r::before, .tour-tile[data-rate="lo"] .tt-r::before { background: var(--ok); }
-.tour-tile[data-rate="none"] .tt-v { color: var(--text-3); }
-.tt-s { font: 500 11px/1.25 var(--font-ui); color: var(--text-3); }
-@media (max-width: 767px) {
-  .tour-route { padding-top: 16px; }
-  .tt-v { font-size: 20px; }
-}
-/* A narrow card (a phone, or an upright iPad): short route names, no legend text or tile captions. */
-@container (max-width: 420px) {
-  .tr-seg span.tr-l { display: none; }
-  .tr-seg span.tr-s { display: block; font-size: 11px; white-space: nowrap; }
-  .tour-sub span, .tt-s { display: none; }
-}
 .stage-view.in-lobule .big-overlay { display: none; }
 /* Right-to-left: English content inside an Arabic interface keeps its own direction. */
-[dir="rtl"] p, [dir="rtl"] .d, [dir="rtl"] .t, [dir="rtl"] li, [dir="rtl"] .feedback { unicode-bidi: plaintext; }
+[dir="rtl"] p, [dir="rtl"] .d, [dir="rtl"] .t, [dir="rtl"] li { unicode-bidi: plaintext; }
 
 /* ── 2.1 visual language: quiet anatomy, vivid vessels ──────────────────────────
    Organs are calm, flat silhouettes: a light tint of their own hue and a hairline, lit only by a
@@ -2662,8 +2354,7 @@ button.finding { cursor: pointer; }
 #backdrop { opacity: .7; }
 .organ .org-shade.s1, .organ .org-shade.s2, .organ .org-shade.s3 { stroke-opacity: .12; }
 .organ .org-line { stroke-opacity: .5; }
-.action-card.docked [data-key]::after, .action-card.docked .ac-slider[data-key]::after { display: none; }   /* no number-key hints on a phone */
-
+.action-card.docked [data-key]::after, .action-card.docked .ac-slider[data-key]::after { display: none; }
 /* Every live number uses tabular figures, so digits hold still as the model runs. */
 .metric,
 .vital,
@@ -2882,7 +2573,7 @@ button.finding { cursor: pointer; }
 .workspace-comparison > span { display: inline-flex; gap: 8px; }
 .workspace-comparison b { color: var(--text); font-variant-numeric: tabular-nums; }
 .workspace-comparison .comparison-label { color: var(--accent-ink); font-weight: 600; }
-.app.instrument-focus .stage-view, .app.instrument-focus #stageTop, .app.instrument-focus #coach { display: none; }
+.app.instrument-focus .stage-view, .app.instrument-focus #stageTop { display: none; }
 .app.instrument-focus .instrument-workspace { height: auto; flex: 1; }
 .app.instrument-focus .panel { display: none; }
 .app.instrument-focus { grid-template-columns: minmax(0, 1fr) 0; }
@@ -3037,7 +2728,6 @@ button.finding { cursor: pointer; }
 .blood-pop .menu-item small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
 @media (max-width: 600px) { #btnBlood > span, #btnBlood .chev { display: none; } }
 
-
 /* ── Floating layout ───────────────────────────────
    The figure fills the window; everything else floats over it. Each floating piece is a small
    surface with a soft shadow ("pill" for a row of controls, "card" for content), and declares
@@ -3066,11 +2756,9 @@ button.finding { cursor: pointer; }
 .topbar .sb-right > .chip-btn { border-color: transparent; height: 40px; border-radius: var(--r-sheet); }
 .topbar .lens-btn { height: 46px; border-radius: var(--r-sheet); border-color: transparent; padding: 0 10px; }
 @media (hover: hover) { .topbar .lens-btn:hover { background: var(--surface); } }
-.topbar .session-bar { box-shadow: var(--shadow-2); }
 /* Narrower screens: the figure's controls take a row of their own under the pills. */
 @media (max-width: 1599px) {
   .topbar .stage-bar.top { order: 5; flex: 1 1 100%; min-height: 0; }
-  .topbar .session-bar { order: 6; flex: 0 1 auto; margin: 0 auto; }
 }
 /* One row: make room by keeping the labels that matter. */
 @media (min-width: 1600px) and (max-width: 1799px) {
@@ -3133,12 +2821,9 @@ button.finding { cursor: pointer; }
 .stage-fit { bottom: calc(var(--vdock-h) + var(--gap) + 8px); right: calc(var(--gap) + 2px); }
 .stage-rotate { bottom: calc(var(--vdock-h) + var(--gap) + 48px); right: calc(var(--gap) + 2px); }
 .toast-wrap { bottom: calc(var(--vdock-h) + 28px); left: 50%; }
-/* A lesson's step card on a narrower screen: under the top bar, in the space the cards on the right
-   and the dock (or a sheet of instruments) leave. */
-.coach { position: absolute; z-index: calc(var(--z-hud) + 2); left: calc(env(safe-area-inset-left) + var(--gap)); right: calc(env(safe-area-inset-right) + var(--gap) + var(--right-occ, 0px)); margin: 0 auto; transform: none; width: auto; max-width: 640px; top: calc(var(--top-safe) + 4px); max-height: min(38%, calc(100% - var(--top-safe) - var(--bot-occ, 120px) - 60px)); overflow-y: auto; border: 0; border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); }
 
-/* The patient chart: a card on the right under the top bar, opened from Findings (or by a lesson, a
-   case, or a vessel's Details). On a phone it is a bottom sheet. */
+/* The patient chart: a card on the right under the top bar, opened from Findings (or by a
+   vessel's Details). On a phone it is a bottom sheet. */
 .panel {
   position: absolute; top: calc(var(--top-safe) + 4px); right: calc(env(safe-area-inset-right) + var(--gap)); bottom: calc(var(--vdock-h) + var(--gap) + 8px);
   width: min(380px, calc(calc(100vw / var(--vz)) - 2 * var(--gap))); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
@@ -3202,7 +2887,6 @@ button.finding { cursor: pointer; }
   .vdock .stage-bar.bottom { height: 52px; padding: 0 6px; }
   .readouts { padding-bottom: 0; border-top: 0; }
   .stage-fit { right: 8px; } .stage-rotate { right: 8px; }
-  .coach { left: 6px; right: calc(6px + var(--right-occ, 0px)); }
   .panel, .treat-card {
     top: auto !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: auto !important; max-height: none;
     height: var(--sheet-size, 55%); border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding-bottom: env(safe-area-inset-bottom);
@@ -3379,12 +3063,11 @@ button.finding { cursor: pointer; }
 .app.menu-sheet-open .stage-credit { opacity: 0; }
 .app-menu { max-height: calc(calc(100vh / var(--vz)) - 80px); overflow-y: auto; }
 
-/* The top row: menu + patient (or the lesson / case) · view · blood and legend · Findings, Treat, Measure, Search. */
+/* The top row: menu + patient · view · blood and legend · Findings, Treat, Measure, Search. */
 .topbar { gap: 8px; }
 .topbar .float-pill, .topbar #viewSeg, .topbar .sb-right > .chip-btn, .topbar .lens-btn { height: var(--pill-h); }
 .tb-id { padding: 3px 6px 3px 3px; }
 .menu-btn .scenario-v { max-width: 300px; }
-.tb-id .session-bar { background: transparent; padding: 0 0 0 4px; max-width: 460px; }
 .topbar .stage-bar.top { justify-content: space-between; }
 .topbar #viewSeg { align-items: center; padding: 4px; }
 .topbar #viewSeg button { height: 36px; }
@@ -3474,7 +3157,6 @@ button.finding { cursor: pointer; }
   .topbar .sb-right { padding: 0 2px; }
   .zoom-pill { flex-direction: row; right: calc(env(safe-area-inset-right) + 8px); }
   .zoom-pill .ib { width: 36px; height: 36px; }
-  .session-bar .b-text { display: none; }
 }
 /* A phone in landscape keeps a slim row of the four readouts beside the play bar. */
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
@@ -3499,9 +3181,8 @@ button.finding { cursor: pointer; }
   .topbar .lg-note { display: none; }
 }
 
-/* A phone in a lesson or case: the menu names the mode, so the pill keeps just Exit. */
+/* A phone: the patient pill clips rather than wrap. */
 @media (max-width: 767px) {
-  .app.in-session .tb-id .session-bar .b-tag { display: none; }
   .tb-id { overflow: hidden; }
 }
 /* A phone in landscape: a compact play bar beside the four readouts. */
@@ -3523,9 +3204,7 @@ button.finding { cursor: pointer; }
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .instrument-workspace.side { top: calc(var(--top-safe) + 2px); bottom: calc(var(--vdock-h) + 14px); }
 }
-@media (max-width: 767px) { .coach { max-height: 34%; } }
 
-/* ── Lobule: labels as in the anatomy ── */
 /* Labels: no box; the station, then its pressure with the unit and the change from healthy; a bar in
    the pressure's color on the side facing the vessel, as on the anatomy. */
 .lz-lab { display: grid; gap: 0; padding: 1px 8px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; line-height: 1.2; }
@@ -3599,7 +3278,6 @@ button.finding { cursor: pointer; }
 /* The Doppler's vessel on the figure: a steady green glow and a thin green edge. */
 .instrument-workspace .dock-title.dop-on .dt-l::before { content: ''; display: inline-block; width: 8px; height: 8px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--doppler); box-shadow: 0 0 0 3px color-mix(in srgb, var(--doppler) 22%, transparent); vertical-align: middle; }
 
-/* ── Polish pass: play bar, phone chrome, card leader, sheets, sliders ── */
 /* The play bar: the clock sits next to the track it reads, speed looks like a control, Compare is an icon. */
 .tl-time { min-width: 0; text-align: left; }
 .tl-time .tl-t-short { display: none; }
@@ -3661,8 +3339,6 @@ input[type="range"] { touch-action: none; }
   .readouts:not(.all) .metric .v .unit { margin-left: 2px; }
   .vdock .timeline { gap: 6px; }
 }
-
-/* After a change: the vessels whose pressure moved glow briefly behind their tubes (warm up, cool down). */
 
 /* ── Timeline and readouts, readable at a glance ──────────────────
    The timeline names its latest event beside the clock and keeps every change and event behind
@@ -3748,7 +3424,6 @@ input[type="range"] { touch-action: none; }
   .vdock .vd-status { margin-top: 4px; }
 }
 
-
 /* Text is not selectable anywhere, with a mouse or a finger: a drag or a long press highlights
    nothing, and a long press stays a gesture here (hold to inspect, drag, pinch). Fields that take
    typing (inputs, textareas, editable areas) still select, so typing, pasting and the caret work. */
@@ -3826,7 +3501,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
   .topbar .lens-btn { padding: 0 3px; }
 }
 @media (max-width: 380px) { .topbar #viewSeg button { padding: 6px 3px; } }
-/* Four views (Sinusoid shows in the Lobule view): tighter, so the lens keeps its room on a phone. */
 /* Phone: one view-switcher size in every view (with or without the Sinusoid tab), so the row never changes size. */
 @media (max-width: 720px) { .topbar #viewSeg button { font-size: 12px; letter-spacing: -.01em; }
   .topbar #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) button { padding-left: 3px; padding-right: 3px; }
@@ -3846,7 +3520,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .readouts:not(.lob) .ro-group[data-group="lobule"] { display: none; }
 .readouts.lob:not(.all) .ro-group[data-group="lobule"] { --n: 4; }
 .readouts.lob.all .ro-group[data-group="lobule"] { order: -1; }
-
 
 /* Compact phone inspector: one identity row, one reading row, and short control rows.
    Explanations stay in Why/Details; swipe down to close. */
@@ -3884,7 +3557,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .action-card.docked .ac-seg { display: flex; flex-wrap: wrap; }
 .action-card.docked .ac-seg button { min-height: 32px; }
 
-
 @keyframes acSheetIn { from { opacity: 0; transform: translateY(calc(100% + 12px)); } to { opacity: 1; transform: translateY(0); } }
 @keyframes acSheetOut { to { opacity: 0; transform: translateY(calc(100% + 12px)); } }
 .action-card.docked { animation: acSheetIn .22s var(--ease); }
@@ -3892,7 +3564,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 @media (prefers-reduced-motion: reduce) {
   .action-card.docked, .action-card.docked.ac-leaving { animation: none; }
 }
-
 
 /* Lobule station labels share a centred anchor; leaders terminate behind the text. */
 .lz-lab { text-align: center; border-left: 0; padding: 2px 5px 4px; }
@@ -3969,7 +3640,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .tl-left .tl-split .tl-speed, .vdock .tl-left .tl-split .tl-speed { border-radius: calc(var(--split-r) - var(--inset) - 1px); }
 
 /* Cards keep their size as live numbers and notes change: tabular figures, reserved widths and heights. */
-.action-card, .tool-card, .coach, .panel, .hover-tip, .sb-banner { font-variant-numeric: tabular-nums; }
+.action-card, .tool-card, .panel, .hover-tip, .sb-banner { font-variant-numeric: tabular-nums; }
 .ac-readout { min-height: 34px; }
 .ac-value b { display: inline-block; min-width: 3.4ch; text-align: right; }
 .ac-delta { display: inline-block; min-width: 5ch; }
@@ -3977,120 +3648,11 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .ac-status { min-height: 22px; }
 .hover-tip .r b { min-width: 5ch; text-align: right; }
 
-/* ── Learning surface: lessons and cases (blueprint §3) ───────────────────────
-   One Inter scale for everything the student reads; the question is the largest text on the card,
-   its answers sit directly under it, and the primary button stays at the bottom of the card. */
-.lesson > h3, .lesson .q, .lesson > p:not([class]) { font-family: var(--font-ui); }
-.lesson > h3 { font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; color: var(--text-3); margin-bottom: 12px; }
-.lesson > p:not([class]) { font-size: 16px; line-height: 24px; color: var(--text-2); max-width: 60ch; }
-.lesson .q { color: var(--text); font-weight: 600; font-size: 19px; line-height: 26px; letter-spacing: -.005em; margin: 0 0 12px; max-width: 60ch; }
-.lesson-rail .lesson .pearls ul { margin: 0 0 12px; padding-left: 20px; font-size: 16px; line-height: 24px; color: var(--text); }
-.step-label, .phase-rail span.cur b { font-size: var(--fs-12); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-.step-label { margin: 0 0 8px; color: var(--accent-ink); }
-.lesson .opt { min-height: 48px; padding: 12px 16px; font-size: 16px; line-height: 22px; align-items: center; font-family: var(--font-ui); }
-.opt .letter { width: 24px; height: 24px; }
-.opts.dir { flex-direction: row; gap: 12px; }
-.opts.dir .opt { flex: 1 1 0; justify-content: center; text-align: center; font-weight: 600; min-height: 56px; }
-.opts.dir .dir-arrow { font-size: 22px; }
-.opt[aria-checked="true"].sel .letter { background: var(--accent); color: var(--on-accent); }
-.lesson-foot { position: sticky; bottom: 0; z-index: 2; padding: 12px 0 0; margin-top: 8px; background: linear-gradient(180deg, transparent, var(--surface) 28%); }
-.lesson-foot .btn { min-height: 44px; }
-.trust-line { margin: 0 0 12px; font-size: var(--fs-12); line-height: 1.45; color: var(--text-3); }
-.lesson > .trust-line { font-size: var(--fs-12); line-height: 1.45; color: var(--text-3); }
-.teach-chip { display: inline-block; margin: 0 0 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--text-3); }
-.cmp-chip { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; margin: 0 0 12px; padding: 12px 16px; border-radius: var(--r-card); font-size: var(--fs-14); line-height: 1.4; background: var(--surface-2); color: var(--text); border: 1px solid var(--hairline); }
-.cmp-chip i { font-style: normal; color: var(--text-3); }
-.cmp-chip .sep { color: var(--text-3); }
-.cmp-chip.right { background: color-mix(in srgb, var(--ok) 6%, var(--surface)); }
-.cmp-chip.wrong { background: color-mix(in srgb, var(--caution) 7%, var(--surface)); }
 /* The figure mirrors the question */
-.dir-mirror { position: absolute; z-index: var(--z-hud); transform: translate(-50%, -50%); pointer-events: none; display: flex; align-items: center; gap: 6px; }
-.dm-q { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font: 700 16px var(--font-ui); background: var(--accent); color: var(--on-accent); animation: dmPulse 1.2s ease-in-out infinite; }
-.dm-arrow { font-size: 26px; line-height: 1; text-shadow: 0 0 3px var(--bg); }
-.dm-pick { color: var(--accent-ink, var(--accent)); }
-.dm-true { color: var(--ok); margin-left: 8px; }
-.dir-mirror.revealed .dm-pick { opacity: .6; }
 @keyframes dmPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 50% { box-shadow: 0 0 0 10px transparent; } }
-@media (prefers-reduced-motion: reduce) { .dm-q { animation: none; } }
-/* One surface: in a lesson the learning card is the only panel; Findings stay out of the way */
-.app[data-mode="learn"] #panel > .panel-head, .app[data-mode="learn"] #panel > .panel-page { display: none; }
-.app[data-mode="learn"] .lesson-rail { max-height: none; flex: 1 1 auto; border-bottom: 0; }
-/* Phone: while a question is open the sheet holds only the question and its answers */
-.coach .lesson.sheet.q-active > p:not(.q):not(.step-label):not(.trust-line):not(.route-story), .coach .lesson.sheet.q-active > .data-row, .coach .lesson.sheet.q-active > .teach-chip { display: none; }
-.coach .lesson.sheet .q { font-size: 18px; line-height: 24px; margin-bottom: 8px; }
-.coach .lesson.sheet .opt { min-height: 44px; padding: 8px 12px; }
-.coach .lesson.sheet > p:not([class]) { font-size: 15px; line-height: 22px; }
-.coach { max-height: 56%; }
-/* Phone lessons: the step card sits at the bottom, on top of any instrument sheet, and the two share the
-   bottom half so the figure keeps the top half (dock.js sizes the sheet; learn.js marks the card's edge). */
-@media (max-width: 767px) {
-  .app[data-mode="learn"] .coach { top: auto; bottom: calc(var(--bot-occ, 120px) + 2px); max-height: max(170px, calc(50% - var(--bot-occ, 120px))); transition: bottom .3s var(--ease), max-height .3s var(--ease); }
-}
-/* Lessons v2: the route game's clues, the dye button and the "Now try it" case */
-.route-story { color: var(--text) !important; }
-.route-clues { margin: 0 0 12px; padding-left: 18px; font-size: var(--fs-14); line-height: 1.5; color: var(--text-2); }
-.route-clues li + li { margin-top: 4px; }
-.lesson .tour-route { margin: 4px 0 12px; }
-.lesson svg.tl-ladder { display: block; width: 100%; max-width: 380px; max-height: 260px; margin: 6px auto 12px; }
-.dye-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
-.dr-v.dr-dial { display: inline-flex; align-items: center; gap: 8px; }
-.dr-dial svg { width: 64px; height: 35px; overflow: visible; }
-.dr-dial svg path { fill: none; stroke-width: 8; }
-.dr-dial .dz-ok { stroke: color-mix(in srgb, var(--ok) 70%, transparent); }
-.dr-dial .dz-mid { stroke: color-mix(in srgb, var(--caution) 80%, transparent); }
-.dr-dial .dz-hi { stroke: color-mix(in srgb, var(--danger) 80%, transparent); }
-.dr-dial .dn { stroke: var(--text); stroke-width: 3; stroke-linecap: round; transform-origin: 50px 46px; transition: transform .6s var(--ease); }
-.dr-dial circle { fill: var(--text); }
-.dr-dial[data-level="hi"] b { color: var(--danger); }
-@media (prefers-reduced-motion: reduce) { .dr-dial .dn { transition: none; } }
-.fluid-table { width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: var(--fs-14); }
-.fluid-table th, .fluid-table td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--hairline); font-variant-numeric: tabular-nums; }
-.fluid-table thead th { font-size: var(--fs-12); color: var(--text-3); font-weight: 600; }
-.fluid-table tbody th { font-weight: 500; color: var(--text); }
-.fluid-table td { font-weight: 650; }
-.fluid-table td small { margin-left: 6px; font-weight: 500; color: var(--text-3); }
-.fluid-table td.hi { color: var(--danger); }
+/* Compare table */
 .cmp-table tbody th small { display: block; font-size: var(--fs-12); color: var(--text-3); font-weight: 400; }
 .cmp-table td { font-weight: 600; color: var(--text); }
-.fluid-table td.lo { color: var(--accent-ink, var(--accent)); }
-.try-case { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 12px; padding: 12px 16px; border: 1px solid var(--accent); border-radius: var(--r-card); background: var(--accent-soft); color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: background-color var(--t-fast) var(--ease); }
-@media (hover: hover) { .try-case:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); } }
-.try-case small { display: block; font-size: var(--fs-12); color: var(--accent-ink, var(--accent)); font-weight: 600; }
-.try-case b { font-weight: 600; font-size: 16px; }
-/* Case decisions take over the card and pause the clock */
-#panelCase.deciding > .p-body { display: none; }
-/* Review pass (2026-10-07): keep the figure in view and keep model internals out of lessons and cases */
-/* Phone: the step card stays short so the figure keeps its place between it and the instruments */
-.coach .lesson.sheet > h3 { display: none; }
-.coach .lesson.sheet.q-active > .trust-line { display: none; }
-.coach .lesson.sheet .opts.dir .opt { min-height: 48px; padding: 6px 10px; font-size: 15px; }
-/* Cases: the model's own sliders, verdicts and readouts would give the answers away */
-.app[data-mode="cases"] #panelCase:not(:empty) ~ #inspector { display: none; }
-.app[data-mode="cases"] #strip { display: none; }
-/* Cases: vitals in one compact row, so a decision and its options fit without scrolling */
-.cs-vitals { flex-wrap: nowrap; gap: 6px; }
-.cs-v { flex: 1 1 0; padding: 5px 8px; display: flex; flex-direction: column; }
-.cs-v .cs-vl { font-size: 11px; line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cs-v b { font-size: 17px; line-height: 22px; }
-.cs-v i { display: none; }
-.cs-body { gap: 10px; }
-.cs-q { font: 600 17px/24px var(--font-ui); }
-.cs-opt { padding: 10px 12px; font-size: 15px; }
-/* Phone lessons: the step card sits on the instrument sheet and the two share the bottom half, so the figure keeps the top half */
-@media (max-width: 767px) {
-  .app[data-mode="learn"] .instrument-workspace.float-ui:not(.side):not(.dragging) { height: min(var(--sheet-size, 56%), 27%); }
-  .app[data-mode="learn"] .coach { max-height: max(170px, calc(50% - var(--bot-occ, 120px))); }
-  .coach .lesson.sheet .goal { padding: 6px 10px; margin-bottom: 6px; font-size: 14px; }
-  .coach .lesson.sheet .lesson-foot { padding-top: 6px; margin-top: 4px; }
-  .coach .lesson.sheet .lesson-foot .btn { min-height: 40px; }
-}
-/* Phone cases: a decision lifts the patient sheet so every option is in reach */
-@media (max-width: 767px) {
-  .app.case-deciding .panel { height: 90% !important; }
-  .app[data-mode="learn"] #strip { display: none; }
-}
-/* Lesson data rows: where a number started, beside where it is now. */
-.data-row .dr-was { margin-left: 6px; font-size: var(--fs-12); font-weight: 500; color: var(--text-3); white-space: nowrap; }
 
 /* Play/pause: looping sim animations freeze with the simulation (see ui/clock.js). */
 body.sim-paused .mon.bad .mv { animation-play-state: paused; }
@@ -4115,13 +3677,9 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 /* Event tags: one label per event type and side, joined to its markers by right-angle leaders. The track grows to fit them. */
 .tl-core { position: absolute; left: 0; right: 0; top: 0; height: 44px; }
 .tl-tags { position: absolute; left: 0; top: 0; width: 100%; overflow: visible; pointer-events: none; }
-.tl-lead path { fill: none; stroke: color-mix(in srgb, var(--sev) 70%, transparent); stroke-width: 1; shape-rendering: crispEdges; }
-.tl-lead text { font: 600 11px var(--font-ui); fill: color-mix(in srgb, var(--sev) 62%, var(--text)); }
 .vdock .stage-bar.bottom { height: auto; min-height: 60px; }
 .vdock .timeline { height: auto; }
 .tl-track { align-self: center; }
-.tl-lead.mine path { stroke: var(--text-3); stroke-dasharray: 2 2; }
-.tl-lead.mine text { font-weight: 500; font-style: italic; fill: var(--text-2); }
 
 /* Time-lapse mode: the play control turns amber so it is obvious the clock is averaged, not beat-by-beat. */
 .tl-split .ib.play.lapse { background: color-mix(in srgb, var(--lapse) 22%, var(--surface)); color: var(--lapse-ink); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--lapse) 70%, transparent); }
@@ -4257,94 +3815,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .treat-card .instr-tab { flex: 1 1 0; }
 .treat-pane { padding-top: 4px; }
 
-/* Home → Learn: warm-up, skills path, the "Where is the block?" drill (practice.js, drill.js). */
-.home-sub { margin: 8px 0 -4px; font: 650 var(--fs-12) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
-.sp, .rv { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); display: flex; flex-direction: column; gap: 12px; animation: lift .38s var(--ease) both; }
-.sp-head, .rv-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.sp-next { max-width: 100%; }
-.sp-next svg { width: 14px; height: 14px; }
-.sp-all { font-size: var(--fs-12); color: var(--text-2); }
-.sp-rows { display: flex; flex-direction: column; gap: 10px; }
-.sp-row { display: grid; grid-template-columns: minmax(150px, 220px) 1fr auto; grid-template-areas: "k bar n" "k items items"; align-items: center; gap: 6px 12px; padding-top: 10px; border-top: 1px solid var(--hairline); }
-.sp-row:first-child { border-top: 0; padding-top: 0; }
-.sp-k { grid-area: k; display: flex; flex-direction: column; gap: 2px; align-self: start; }
-.sp-k b { font: 650 var(--fs-14) var(--font-ui); }
-.sp-k span { font-size: var(--fs-12); color: var(--text-3); line-height: 1.3; }
-.sp-bar { grid-area: bar; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
-.sp-bar i { display: block; height: 100%; border-radius: 3px; background: var(--ok); transition: width .6s var(--ease); }
-.sp-n { grid-area: n; font: 600 var(--fs-12) var(--font-ui); color: var(--text-2); font-variant-numeric: tabular-nums; }
-.sp-n.soon { grid-column: bar / n; color: var(--text-3); font-weight: 500; }
-.sp-items { grid-area: items; display: flex; flex-wrap: wrap; gap: 6px; }
-.sp-it { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 5px 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font: 500 var(--fs-12)/1.25 var(--font-ui); cursor: pointer; transition: border-color var(--t-fast), background-color var(--t-fast); }
-.sp-it span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (hover: hover) { .sp-it:hover { border-color: var(--accent-line); color: var(--text); } }
-.sp-it[data-kind="case"] { border-style: dashed; }
-.sp-it[data-kind="drill"] { border-color: var(--accent-line); color: var(--accent-ink); }
-.sp-it.done { background: color-mix(in srgb, var(--ok) 10%, var(--surface)); border-color: color-mix(in srgb, var(--ok) 40%, transparent); color: var(--text); }
-.sp-ic { width: 12px; height: 12px; color: var(--ok); flex: none; }
-.rv-q { display: flex; flex-direction: column; gap: 8px; }
-.rv-q > p { margin: 0; font: 500 var(--fs-14)/1.45 var(--font-ui); }
-.rv-q small { display: block; font-size: var(--fs-12); color: var(--text-3); }
-.rv-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; }
-.rv-opt { text-align: left; padding: 10px 12px; min-height: 44px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: 500 var(--fs-14)/1.3 var(--font-ui); cursor: pointer; transition: border-color var(--t-fast), background-color .3s var(--ease); }
-@media (hover: hover) { .rv-opt:hover:not(:disabled) { border-color: var(--accent-line); } }
-.rv-opt:disabled { cursor: default; opacity: .7; }
-.rv-opt.ok { opacity: 1; border-color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--surface)); }
-.rv-opt.no { opacity: 1; border-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
-.rv-why { margin: 0; font-size: var(--fs-14); color: var(--text-2); animation: lift .3s var(--ease) both; }
-.drill { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; scroll-margin-top: 16px; }
-.dr-head { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "t x" "s s"; gap: 10px 12px; align-items: center; }
-.dr-head > div:first-child { grid-area: t; }
-.dr-head h2 { margin: 2px 0 0; font: 600 26px/1.15 var(--font-display); }
-.dr-head .ib { grid-area: x; }
-.dr-segs { grid-area: s; display: flex; gap: 4px; }
-.dr-segs i { flex: 1; height: 4px; border-radius: 2px; background: var(--border); transition: background-color .4s var(--ease); }
-.dr-segs i.cur { background: var(--accent); }
-.dr-segs i.ok { background: var(--ok); }
-.dr-segs i.no { background: var(--danger); }
-.dr-body { display: flex; flex-direction: column; gap: 16px; animation: tour-in .4s var(--ease) both; }
-.dr-story { margin: 0; font: 500 18px/1.45 var(--font-ui); }
-.dr-n { display: block; font: 650 var(--fs-12) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 4px; }
-.dr-step { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); }
-.dr-k { display: flex; align-items: center; gap: 8px; font: 650 var(--fs-14) var(--font-ui); }
-.dr-k b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--text); color: var(--stage-bg); font-size: 12px; }
-.dr-left { margin-left: auto; font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); }
-.dr-tests { display: flex; flex-wrap: wrap; gap: 6px; }
-.dr-test { min-height: 40px; padding: 0 14px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: 600 var(--fs-14) var(--font-ui); cursor: pointer; transition: background-color .25s var(--ease), border-color .25s var(--ease), opacity .25s var(--ease); }
-@media (hover: hover) { .dr-test:hover:not(:disabled) { border-color: var(--accent-line); } }
-.dr-test[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
-.dr-test:disabled:not([aria-pressed="true"]) { opacity: .45; cursor: default; }
-.dr-results { display: flex; flex-direction: column; gap: 6px; }
-.dr-res { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border: 1px solid var(--hairline); background: var(--surface-2); border-radius: 8px; animation: lift .35s var(--ease) both; }
-.dr-res b { font: 650 var(--fs-12) var(--font-ui); color: var(--text-2); }
-.dr-res span { font-size: var(--fs-14); line-height: 1.4; }
-.dr-step .tour-route { margin-top: 4px; }
-.dr-step .tr-liver span { background: var(--surface); }
-.dr-confirm { display: flex; flex-wrap: wrap; gap: 8px; }
-.dr-confirm .btn { flex: 1 1 160px; }
-.dr-verdict { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: var(--fs-14); line-height: 1.5; animation: lift .35s var(--ease) both; }
-.dr-verdict.ok { background: color-mix(in srgb, var(--ok) 12%, transparent); }
-.dr-verdict.no { background: color-mix(in srgb, var(--danger) 10%, transparent); }
-.dr-after { display: flex; flex-direction: column; gap: 10px; }
-.dr-after:empty { display: none; }
-.dr-after .tl-ladder { max-width: 460px; margin: 0 auto; }
-.dr-next { display: flex; justify-content: flex-end; gap: 8px; }
-.dr-next .btn svg { width: 14px; height: 14px; }
-.dr-score { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.dr-score b { font: 600 40px/1 var(--font-display); }
-.dr-score span { color: var(--text-2); }
-.dr-dl h3 { margin: 0 0 4px; font: 650 var(--fs-14) var(--font-ui); }
-.dr-dl h3 small { color: var(--text-3); font-weight: 500; }
-.dr-dl > p { margin: 0 0 6px; font-size: var(--fs-12); color: var(--text-3); }
-.dr-dl ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
-.dr-dl li { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); }
-.dr-dl-s { font-weight: 600; font-size: var(--fs-14); }
-.dr-dl-a { font-size: var(--fs-14); color: var(--text-2); line-height: 1.45; }
-@media (max-width: 640px) {
-  .sp-row { grid-template-columns: 1fr auto; grid-template-areas: "k n" "bar bar" "items items"; }
-  .dr-story { font-size: 16px; }
-  .drill .tr-seg span.tr-l { display: none; } .drill .tr-seg span.tr-s { display: block; font-size: 11px; white-space: nowrap; }
-}
+/* A plain bordered card */
+.sp { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); display: flex; flex-direction: column; gap: 12px; animation: lift .38s var(--ease) both; }
+.sp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 /* ── Student mode: a calmer, simpler screen ───────────────────────
    The timeline keeps play/pause, the scrubber and the clock; the readouts keep HVPG and PPG
    (dock.js); the figure keeps names (stage.js); tiles do not flash. Explore only. */
@@ -4357,127 +3830,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @keyframes obIn { from { opacity: 0; transform: translateY(-3px); } }
 @media (prefers-reduced-motion: reduce) { .order-btn.ob-extra:not(.ob-hidden) { animation: none; } }
 
-/* Present a case: a slim reminder bar over the figure; the case reads larger for the room. */
-
-/* ── Cases: "found by" tags on the figure ── */
-.found-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.found-tag { position: absolute; left: 0; top: 0; width: 0; height: 0; }
-.found-halo { position: absolute; left: -34px; top: -34px; width: 68px; height: 68px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 38%, transparent) 0%, color-mix(in srgb, var(--accent) 14%, transparent) 55%, transparent 72%); opacity: 0; transform: scale(.55); transition: opacity .6s ease, transform .9s cubic-bezier(.2,.7,.2,1); }
-.found-pill { position: absolute; left: 14px; top: -40px; display: grid; gap: 1px; padding: 5px 9px; border-radius: 10px; white-space: nowrap; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--accent-line); box-shadow: var(--shadow-1); color: var(--text); font: 600 var(--fs-12)/1.25 var(--font-ui); opacity: 0; transform: translateY(6px); transition: opacity .5s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
-.found-pill small { font-weight: 500; color: var(--text-3); font-size: 11px; }
-.found-tag.on .found-halo { opacity: 1; transform: scale(1); }
-.found-tag.on .found-pill { opacity: 1; transform: none; }
-.cs-ord .cs-cost { margin-left: auto; color: var(--text-3); font-size: var(--fs-12); font-weight: 500; white-space: nowrap; }
-@media (prefers-reduced-motion: reduce) { .found-halo, .found-pill { transition: opacity .2s linear; transform: none !important; } }
-.found-tag.left .found-pill { left: auto; right: 14px; }
-
-/* ── Case debrief v2: tests, trajectory, lesson links ── */
-.cs-tests { display: flex; flex-wrap: wrap; gap: 6px; }
-.cs-test { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); font-size: var(--fs-14); }
-.cs-test svg { width: 14px; height: 14px; fill: none; stroke-width: 2.4; stroke: currentColor; }
-.cs-test.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
-.cs-test.miss { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
-.cs-test.extra { color: var(--text-3); border-style: dashed; }
-.cs-test small { font-size: var(--fs-12); }
-.cs-cmp-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 6px; }
-.cs-learn { font-size: var(--fs-14); color: var(--accent); text-decoration: none; margin-left: auto; }
-.cs-keys .cs-learn { padding-left: 8px; }
-@media (hover: hover) { .cs-learn:hover { text-decoration: underline; } }
-.cs-trendchart { width: 100%; height: auto; max-height: 200px; display: block; }
-.cs-trendchart .tc-line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
-.cs-trendchart .tc-axis { stroke: var(--border); }
-.cs-trendchart .tc-break { stroke: var(--text-3); stroke-dasharray: 3 4; }
-.cs-trendchart text { font: 500 11px var(--font-ui); fill: var(--text-3); }
-.cs-trendchart .tc-y { text-anchor: end; }
-.cs-trendchart .tc-x.end { text-anchor: end; }
-.cs-trendchart .tc-pin circle { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
-.cs-trendchart .tc-pin text { text-anchor: middle; fill: var(--accent); font-weight: 700; }
-.cs-ladder { margin-top: 10px; }
-.cs-ladder > svg, .cs-ladder > * { max-width: 460px; }
-@media (max-width: 767px) {
-  .app.cmp-on[data-mode="cases"] .sb-center { top: 104px; justify-content: center; }
-  .cs-keys .goal { flex-wrap: wrap; }
-  .cs-keys .cs-learn { flex-basis: 100%; margin-left: 32px; padding-left: 0; }
-}
-.cs-learn { white-space: nowrap; }
-
-/* ── The course: the unit surface (course.js) ───────────────────────────
-   During a unit the card at the bottom owns the screen: the top bar (with the patient picker), the
-   readouts, narrator, Why?, zoom, timeline, side panel and cards fade out. The figure takes input
-   only on a Try step (.unit-try). The corner credit stays, beneath the card. */
-.app.unit-on .topbar, .app.unit-on .vdock, .app.unit-on .zoom-pill, .app.unit-on .panel, .app.unit-on .panel-scrim,
-.app.unit-on .treat-card, .app.unit-on #stageCenter, .app.unit-on .stage-rotate,
-.app.unit-on:not(.unit-try) .action-card, .app.unit-on:not(.unit-try) #toolHint {
-  opacity: 0 !important; visibility: hidden !important; pointer-events: none !important;
-  transition: opacity .28s var(--ease), visibility 0s linear .28s !important;
-}
-.app.unit-on:not(.unit-try) #stage, .app.unit-on:not(.unit-try) #labels { pointer-events: none; }
-.app.unit-on .coach { top: auto; bottom: calc(env(safe-area-inset-bottom) + 12px); max-width: 720px; max-height: min(62%, 640px); right: calc(env(safe-area-inset-right) + var(--gap)); transition: max-height .3s var(--ease); }
-@media (max-width: 767px) {
-  .app.unit-on .coach { left: 0; right: 0; bottom: 0; max-width: none; max-height: 62%; border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding-bottom: env(safe-area-inset-bottom); }
-  /* A step that opens an instrument (HVPG, Doppler, endoscopy, ascites): the instrument takes the bottom
-     sheet, so the card moves to the top, where both stay readable. */
-  .app.unit-on.dock-open .coach { top: calc(env(safe-area-inset-top) + 8px); bottom: auto; left: 8px; right: 8px; max-height: 42%; border-radius: var(--r-sheet); padding-bottom: 0; animation: fade .3s var(--ease); }
-}
-.coach .lesson.sheet.unit { padding: 14px 18px 16px; }
-.unit-bar { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.ub-t { font-size: var(--fs-12); color: var(--text-3); font-weight: 600; }
-.ub-t b { color: var(--accent-ink); font-weight: 650; }
-.ub-track { display: block; height: 3px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
-.ub-track i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .45s var(--ease); }
-/* A stem: the vignette, the lead-in, five options A–E, then one line under each option. */
-.stem-v { font-size: 15px; line-height: 1.55; color: var(--text); margin: 0 0 10px; }
-.opt-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.opt-why { font-size: var(--fs-12); line-height: 1.45; color: var(--text-2); animation: fade .3s var(--ease); }
-.opt.right .opt-why, .opt.wrong .opt-why { color: var(--text); }
-.keypoints ul { margin: 6px 0 4px; padding-left: 18px; line-height: 1.55; }
-
-/* Units 6–8: a case on the unit surface (cases.js startUnit). */
-.coach .lesson.sheet.cu-case > h3.cu-title { display: block; margin: 12px 0 8px; font-size: var(--fs-16); color: var(--text); }
-.cu-case .cu-vitals { margin: 0 0 12px; }
-.cu-case .cu-who { margin: 0 0 8px; font-size: var(--fs-14); color: var(--text-2); }
-.cu-case .cu-who b { color: var(--text); }
-.cu-case .cu-block { margin: 10px 0; }
-.cu-case .cu-block ul { margin: 4px 0 0; padding-left: 18px; font-size: var(--fs-14); line-height: 1.5; }
-.cu-case .cu-results, .cu-case .cs-cons, .cu-case .cs-change { margin-top: 12px; }
-.cu-case .cu-cmp th, .cu-case .cu-cmp td { text-align: right; padding: 6px 4px; }
-.cu-case .cu-cmp th:first-child, .cu-case .cu-cmp td:first-child { text-align: left; }
-.cu-case .cs-cmp { margin: 12px 0; }
-.cu-case .cu-refs { margin: 10px 0; font-size: var(--fs-12); color: var(--text-2); }
-
-/* Home as the course page */
-.course { display: flex; flex-direction: column; gap: 16px; max-width: 760px; }
-
-/* Explore for instructors: the Present and Case library row, and "Open this patient in Explore" on a unit's last card. */
-.explore-here { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; width: 100%; justify-content: center; }
-.explore-here svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; }
-.explore-here small { color: var(--text-3); font-size: var(--fs-12); }
-.explore-here { flex-wrap: wrap; row-gap: 0; }
-.explore-here small { flex-basis: 100%; text-align: center; }
-.explore-here { height: auto; min-height: 40px; padding-block: 8px; line-height: 1.25; }
-
 /* ── The final assessment (exam.js) ── */
-.exam { display: grid; gap: 14px; }
-.exam p { margin: 0; line-height: 1.5; }
-.exam-name { font: inherit; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2, var(--surface)); color: var(--text); }
-.exam-bar { display: grid; gap: 6px; font-size: 13px; color: var(--text-2); }
-.exam-stem { color: var(--text); }
-.exam-foot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-.exam-result { display: flex; align-items: baseline; gap: 12px; padding: 14px 16px; border-radius: 12px; background: var(--surface-2, var(--surface)); animation: fade .3s var(--ease); }
-.exam-result b { font-size: 32px; }
-.exam-result.pass b { color: var(--ok); }
-.exam-result.fail b { color: var(--s5); }
-.exam-cert { text-align: center; padding: 24px 16px; border: 2px solid var(--accent, var(--ok)); border-radius: 14px; animation: fade .4s var(--ease); }
-.exam-cert h3 { font-size: 24px; margin: 8px 0; }
-.exam-cert-m { color: var(--text-2); font-size: 14px; margin-top: 8px !important; }
-.exam-rev { border-top: 1px solid var(--border); padding: 8px 0; }
-.exam-rev summary { cursor: pointer; font-weight: 600; }
-.exam-rev .ok { color: var(--ok); } .exam-rev .no { color: var(--exam-no); }
-.exam-rev > *:not(summary) { margin-top: 10px; }
-.exam-kp h4 { margin: 0 0 4px; } .exam-kp ul { margin: 0; padding-left: 20px; line-height: 1.5; }
-.exam-kp.todo { opacity: .75; }
 @media print {
-  body:has(.exam-cert) > *:not(#modalBack), #modalBack .modal > header, .exam > *:not(.exam-cert) { display: none !important; }
+  #modalBack .modal > header { display: none !important; }
   #modalBack { position: static !important; background: none !important; }
 }
 
@@ -4507,7 +3862,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .topbar .scenario-v .sn-s { display: inline; }
 }
 
-/* A new patient settling between slides: one thin arc in the figure's free space, eased in with the dim and out with the return (it lives in the slide layer, so cards, sheets and menus lie over it). */
 /* The presenter's start: a calm cover while the projector layout, the first patient and the first slide are set up. */
 .pz-cover { position: fixed; inset: 0; z-index: 2147483000; display: grid; place-items: center; background: var(--stage-bg); opacity: 0; pointer-events: none; transition: opacity .6s var(--ease); }
 .pz-cover.on { opacity: 1; pointer-events: auto; transition-duration: .3s; }
@@ -4617,11 +3971,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"]:not(.nat) { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); }
   .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"]:not(.nat) .fibroscan-box { width: 100%; height: 100% !important; max-height: none; }
 }
-/* Ascites in the Tests card (instruments.js createAbdomen). Two blocks split by one hairline: what you read, then what
-   you change (side by side, the same height, where the card is wide). Readouts are plain text and flat tiles with the
-   label above the value, the Scope card's tile: no border, nothing that looks pressable. Controls share one vocabulary:
-   a stepper (the value, then − and + side by side), the app's switch on a row that is its own tap target, and one
-   filled button, Drain. The card is sized to this content by the dock (dock.js, fitHeight). */
 /* A phone's sheet is capped in height, so its rows and gaps are a little tighter and the whole card still fits without scrolling. */
 .dock-pane:has(> .instrument-view.ab) { --ab-g: 12px; --ab-rg: 10px; --ab-row: 42px; --ab-big: 28px; --ab-sb-w: 40px; --ab-sb-h: 34px; padding-top: 12px; padding-bottom: 8px; container-type: inline-size; }
 @media (min-width: 768px) { .dock-pane:has(> .instrument-view.ab) { --ab-g: 16px; --ab-rg: 12px; --ab-row: 44px; --ab-big: 30px; --ab-sb-w: 44px; --ab-sb-h: 36px; padding-top: 16px; padding-bottom: 12px; } }
@@ -4889,8 +4238,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack .pz-data .pz-tiles .pzt-vu small { font-size: var(--s-lab); }
 .pz.stack .pz-data .pz-tiles .pzt-r, .pz.stack .pz-data .pz-tiles .pzt-d { flex: 0 1 auto; font-size: var(--s-cap); line-height: 1.3; white-space: nowrap; }
 .pz.stack .pz-data .pz-tiles .pzt-r { white-space: normal; max-width: 100%; }   /* (a long rating, "Grade 1, ultrasound only", wraps inside its tile rather than running into the next) */
-.pz.stack .pz-data .pz-tiles .pzt-r { hyphens: manual; overflow-wrap: normal; }   /* (a rating never breaks inside a word: "Nor-mal") */
-/* A narrow tile (three or four across) has no room for the rating beside the value: every tile of the card then puts it on its own
+.pz.stack .pz-data .pz-tiles .pzt-r { hyphens: manual; overflow-wrap: normal; }/* A narrow tile (three or four across) has no room for the rating beside the value: every tile of the card then puts it on its own
    row under the value, left-aligned, with the change said short at that row's right end. */
 @container (max-width: 130px) {
   .pz.stack .pz-data .pz-tiles .pzt-k, .pz.stack .pz-data .pz-tiles .pzt-vu { grid-column: 1 / -1; }

@@ -4,7 +4,7 @@
 // same content as a bottom sheet. Hovering a row (or focusing it with the arrow keys) previews it beside
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
-import { store } from './store.js?v=7fb7280c05';
+import { store } from './store.js?v=7c63421fac';
 import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=b1761ad19c';
 import { SNAPSHOTS } from './snapshots.js?v=c8cbaabb1f';
 import { pressureColor } from './colormap.js?v=a65dea21ce';
@@ -184,7 +184,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
 
   // ── Panel ──
   function build(lib) {
-    const st = store.get(), cur = st.mode === 'cases' ? null : st.presetId;
+    const st = store.get(), cur = st.presetId;
     const groups = {};
     for (const p of st.presetList || []) (groups[p.group] ||= []).push(p);
     const patients = h('section', { class: 'um-col', 'data-col': 'patients' },

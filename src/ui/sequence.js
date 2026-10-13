@@ -1,12 +1,12 @@
-// Shared state executor for lessons and presenter slides (curriculum blueprint F1).
+// State executor for presenter slides (curriculum blueprint F1).
 // One step resolves in a fixed order, and the result is only exposed after the worker has
 // acknowledged every command (the worker queue is serial, so the snapshot request is the barrier):
 //   reset → patch → settle → optional action → post-patch disease days → settle → snapshot.
 // Three clocks stay separate: `presetDays` is native pre-aging inside the preset load, `days` is
 // extra disease days AFTER the patch, and observation seconds belong to the caller (hemodynamic time).
 
-import { store, updateParams } from './store.js?v=7fb7280c05';
-import { host } from './host.js?v=e46f50c36e';
+import { store, updateParams } from './store.js?v=7c63421fac';
+import { host } from './host.js?v=56e36c5522';
 
 /**
  * @param step { preset?, presetDays?, params?, action?, days?, label? }
@@ -15,7 +15,7 @@ import { host } from './host.js?v=e46f50c36e';
  * @returns {{ snap, params, presetId }} the canonical state this step produced
  */
 export async function runSequence(step, { loadPreset, action }, { reset = true } = {}) {
-  if (step.preset && reset) await loadPreset(step.preset, { keepLesson: true, days: step.presetDays });
+  if (step.preset && reset) await loadPreset(step.preset, { days: step.presetDays });
   if (step.params) updateParams(step.params, { settle: true, history: false, label: step.label });
   if (step.action) action?.(step.action);
   if (step.days) host.send({ type: 'advance', days: step.days });

@@ -1,25 +1,25 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=e46f50c36e';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7fb7280c05';
-import { createStage } from './stage.js?v=63024794a1';
+import { startHost, host } from './host.js?v=56e36c5522';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7c63421fac';
+import { createStage } from './stage.js?v=9cf8464520';
 import { createCreditPlacer } from './credit.js?v=1f3b3c2f6f';
-import { sinusoidSupported } from './sinusoid-view.js?v=5033bbc95f';
-import { createInspector } from './inspector.js?v=58d14bee0e';
-import { createDock, CUTOFFS } from './dock.js?v=a4462cda94';
-import { setHvpgStage } from './hvpg-proc.js?v=b87658d79c';
-import { createWhy } from './why.js?v=b17f49d00c';
-import { createTimeline, LAPSES } from './timeline.js?v=366653abd0';
-import { createCompare } from './compare.js?v=653bb30f69';
-import { createCard } from './card.js?v=8a6fea826c';
-import { createChart, computeFindings } from './chart.js?v=d4c40aee00';
-import { createMenu, ROLES } from './menu.js?v=5607d562ad';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
-import { caption } from './a11y.js?v=91b41bee9d';
-import { startLMS } from './lms.js?v=ea7d9ab80b';
-import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=9266baba58';
+import { sinusoidSupported } from './sinusoid-view.js?v=a9b9795e1b';
+import { createInspector } from './inspector.js?v=6e8a77657d';
+import { createDock, CUTOFFS } from './dock.js?v=3ec463e810';
+import { setHvpgStage } from './hvpg-proc.js?v=8edb25ac7b';
+import { createWhy } from './why.js?v=f93872618b';
+import { createTimeline, LAPSES } from './timeline.js?v=41fd496223';
+import { createCompare } from './compare.js?v=d749838ac7';
+import { createCard } from './card.js?v=3eeff61095';
+import { createChart, computeFindings } from './chart.js?v=8ab371b075';
+import { createMenu, ROLES } from './menu.js?v=f562fc21f7';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=2b593f6af1';
+import { caption } from './a11y.js?v=11255f5d04';
+import { startLMS } from './lms.js?v=284ef81e94';
+import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=db2f076e69';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=a65dea21ce';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=b1761ad19c';
@@ -134,7 +134,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=cc122be946'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=8656d4b9f1'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -142,7 +142,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=81fb82b4ad'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=8fe078b95f'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -324,23 +324,18 @@ function onFrame(f) {
 // events and changes (at most twice a second otherwise). On by default for both roles; the Settings
 // toggle overrides it until the role changes.
 const NARRATOR_DEFAULT = { student: true, instructor: true };
-let lastNarr = 0, narrPref, narrT;
+let lastNarr = 0, narrPref;
 const narratorOn = () => { const v = narrPref === undefined ? (narrPref = readLS('pps.narrator')) : narrPref; return v ? v === '1' : NARRATOR_DEFAULT[store.get().role || 'student'] !== false; };
 function narrate(f, now = performance.now(), force = false) {
   const el = $('#narrator');
   const on = narratorOn() && !presenter.active();
-  // The caption names the diagnosis and the flow direction, so it stays quiet while a question
-  // hides the numbers; it eases out and back in rather than popping.
-  const quiet = on && store.get().blind;
-  if (!on) { clearTimeout(narrT); el.hidden = true; el.classList.remove('quiet'); }
-  else if (quiet) {
-    if (!el.hidden && !el.classList.contains('quiet')) { el.classList.add('quiet'); clearTimeout(narrT); narrT = setTimeout(() => { el.hidden = true; }, 260); }
-  } else {
-    clearTimeout(narrT);
+  // The caption eases in rather than popping.
+  if (!on) { el.hidden = true; el.classList.remove('quiet'); }
+  else {
     if (el.hidden) { el.classList.add('quiet'); el.hidden = false; force = true; nextFrame(() => nextFrame(() => el.classList.remove('quiet'))); }
     else el.classList.remove('quiet');
   }
-  if (!on || quiet || (!force && !f?.events?.length && !f?.params && now - lastNarr < 500) || !f) return;
+  if (!on || (!force && !f?.events?.length && !f?.params && now - lastNarr < 500) || !f) return;
   lastNarr = now;
   const txt = caption(f), t = $('#narratorText');
   if (el.title !== txt) { el.title = txt; t.replaceChildren(h('span', { class: 'nr-s' }, txt.slice(0, txt.length - caption(f, { scenario: false }).length)), caption(f, { scenario: false })); }
@@ -666,7 +661,7 @@ function openLayers(anchor) {
   };
   popover(anchor, [
     h('div', { class: 'lens-grid' }, lensKeys().map(lens)),
-    s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, s0.blind ? 'The numbers appear once you answer.' : 'This case shows anatomy only until you measure.') : null,
+    s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This view shows anatomy only until you measure.') : null,
   ], { cls: 'layers-pop' });
 }
 // Active bleeding is a state, not an alarm: a steady status in the figure header.
@@ -970,7 +965,7 @@ function liteOn() {
 }
 // ── Patient chart, Treat card and instrument workspace ─
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened
-// from Findings, by a lesson or a case, or by a vessel's Details. It starts closed: the figure
+// from Findings or by a vessel's Details. It starts closed: the figure
 // has the screen until something is asked for.
 // Findings, Treat and Measure close the same way: the card plays its way out (CSS .card-leaving)
 // while the layout already treats it as closed.
@@ -1080,7 +1075,7 @@ function wireFloating() {
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
     const bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
     // The patient chart is a bottom sheet on a phone, over the dock: the corner credit rides above it, unless the
-    // sheet is so tall (a case's decision, nearly full screen) that there is no figure left to ride on.
+    // sheet is so tall (nearly full screen) that there is no figure left to ride on.
     const pn = $('#panel'), lift = isPhone() && panelShown() && pn.offsetParent ? pn.offsetParent.clientHeight - pn.offsetTop + 8 : 0;
     const tall = !!pn.offsetParent && lift > 0 && pn.offsetParent.clientHeight - lift < tbH + 48;
     const vars = {
@@ -1243,7 +1238,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
 // with every beat does not flicker the count (or bump it) back and forth.
 let lastFindKey = '', lastFindN = 0, nextFindKey = '', nextFindSince = 0;
 function updateFindBadge(f) {
-  // In a case where pressures are unmeasured, a check would claim more than is known.
+  // Where pressures are unmeasured (the imaging view), a check would claim more than is known.
   const unknown = !!store.get().imaging;
   const found = unknown ? [] : computeFindings(f.metrics, hiddenNow());
   const sev = unknown ? 'none' : found[0]?.sev || 'ok', n = found.length, key = `${n}|${sev}`;
@@ -1400,7 +1395,7 @@ function updateProjector(f) {
 
 // ── Phone & tablet ──────────────────────────────────
 // Instruments share space with the figure. A soft vessel hover/click can flag the launcher;
-// explicit tools and lesson steps open the workspace without a scrim.
+// explicit tools open the workspace without a scrim.
 function revealDock(mode) {
   if (app.classList.contains('dock-open')) return;
   if (mode === 'soft') { $('#tabInstruments').classList.add('ping'); return; }
@@ -1457,7 +1452,7 @@ const pmid = (id) => h('a', { href: `https://pubmed.ncbi.nlm.nih.gov/${id}/`, ta
 function openAbout(section) {
   openModal('About the model', h('div', {},
     h('p', {}, 'Created by ', h('b', {}, AUTHOR), '. ', h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'See all of the author’s teaching tools'), '.'),
-    h('p', {}, `Portal Pressure Simulator ${APP_VERSION} · content version ${CONTENT_VERSION} (${RELEASED}). A course built on one content version behaves the same all term: the model, patients and presentations change only with a new content version.`),
+    h('p', {}, `Portal Pressure Simulator ${APP_VERSION} · content version ${CONTENT_VERSION} (${RELEASED}). A class taught on one content version behaves the same all term: the model, patients and presentations change only with a new content version.`),
     h('h3', {}, 'The model'),
     h('p', {}, 'A lumped-parameter hemodynamic network of the splanchnic, portal, hepatic and systemic veins with the heart, arterial inflow and the hepatic arterial buffer; collateral recruitment and remodeling on a disease clock; Starling filtration and lymph for ascites; Laplace wall tension for varices; blood volume, bleeding and transfusion. Every number on screen comes out of it; nothing is scripted.'),
     h('h3', {}, 'Validation targets'),
@@ -1493,8 +1488,8 @@ function openPrivacy() {
   const keys = (() => { try { return Object.keys(localStorage).filter((k) => k.startsWith('pps.')); } catch { return []; } })();
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
-    h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme, language, role), your assessment records and the name you type for them, and presenter scripts you create. It leaves the device only when you export it (CSV, xAPI, a shared link or a script file) or when your institution runs the simulator inside its LMS, which then receives your score.'),
-    h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance; the LMS remains the system of record.'),
+    h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme, language, role) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
+    h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));
 }

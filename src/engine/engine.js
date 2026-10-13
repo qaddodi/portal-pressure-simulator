@@ -117,7 +117,7 @@ export class Engine {
     this.eventLog = [];
     this.quiet = false;
     // Beat-to-beat waveform switched on by the UI while a waveform instrument is on screen,
-    // without touching the patient's parameters (links, undo and cases stay unchanged).
+    // without touching the patient's parameters (links and undo stay unchanged).
     this.beat = false;
     this.bands = 0;
     for (let i = 0; i < this.N; i++) {

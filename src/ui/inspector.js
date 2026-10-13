@@ -2,7 +2,7 @@
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=34e377149b';
 import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
-import { store, updateParams, isLocked, hiddenNow } from './store.js?v=7fb7280c05';
+import { store, updateParams, isLocked, hiddenNow } from './store.js?v=7c63421fac';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=b1761ad19c';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('inspector');
@@ -18,7 +18,7 @@ const sten = (id) => ({ get: (p) => p.stenosis[id] || 0, set: (p, v) => { if (v 
 const fibAll = (z) => ({ get: (p) => Math.sqrt(p.fibrosis.R[z] * p.fibrosis.L[z]), set: (p, v) => { p.fibrosis.R[z] = v; p.fibrosis.L[z] = v; } });
 const prop = (k) => ({ get: (p) => p[k], set: (p, v) => { p[k] = v; } });
 
-// Every global control, addressable by id so lessons can embed the one they ask for.
+// Every global control, addressable by id.
 export const CONTROLS = {
   cirrhosis: { type: 'slider', key: 'cirrhosis', label: 'Cirrhosis severity', min: 0, max: 1, step: 0.01, ...prop('cirrhosis'), format: pct, def: 0,
     info: 'Macro control: sinusoidal fibrosis and capillarization, a stiffer liver, less buffer reserve and arterioportal shunting. Run the Months clock to watch collaterals and varices develop.',
@@ -93,7 +93,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     };
     let fresh = true;
     const locked = isLocked(lockKey || key);
-    if (locked) { input.disabled = true; wrap.title = 'Locked in this lesson or case'; }
+    if (locked) { input.disabled = true; wrap.title = 'Locked here'; }
     input.addEventListener('pointerdown', () => { fresh = true; });
     input.addEventListener('keydown', () => { fresh = true; });
     // The thumb and its number follow the pointer at once; the model gets the newest value once per frame.
@@ -136,7 +136,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     b._sync = (pp) => b.setAttribute('aria-pressed', String(!!pp.drugs[k]));
     return b;
   }
-  /** Build any registered control (used by panels and by lesson steps). */
+  /** Build any registered control (used by panels). */
   function build(id) {
     const c = CONTROLS[id];
     if (!c) return null;
@@ -330,7 +330,6 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
 
   // ── Render ────────────────────────────────────────
   function render() {
-    if (store.get().mode === 'cases') return; // the case panel owns this element
     live = []; syncers = [];
     const sel = store.get().details;
     const els = (!sel ? (chart ? chart.render((ids) => ids.map((id) => build(id))) : globalPanel()) : sel.type === 'edge' ? edgePanel(sel.id) : sel.type === 'node' ? nodePanel(sel.id) : sel.type === 'organ' ? organPanel(sel.id) : globalPanel());
@@ -350,12 +349,12 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   store.on('details', render);
   store.on('locked', render);
   document.addEventListener('pps:rerender-panel', render);
-  for (const k of ['presetId', 'role', 'mode', 'allowedVerbs', 'hiddenReadouts', 'showHvpg']) store.on(k, () => { if (!store.get().details && store.get().mode !== 'cases') render(); });
+  for (const k of ['presetId', 'role', 'mode', 'allowedVerbs', 'hiddenReadouts', 'showHvpg']) store.on(k, () => { if (!store.get().details) render(); });
   store.on('params', () => { const p = store.get().params; for (const s of syncers) s._sync(p); });
   if (!chart) render();
   return {
     render, update,
-    /** Detached controls for a lesson card; they keep themselves in sync with params. */
+    /** Detached controls; they keep themselves in sync with params. */
     buildControls(ids) {
       const els = ids.map((id) => { const c = CONTROLS[id]; if (!c) return null; return c.type === 'slider' ? slider(c) : c.type === 'toggle' ? toggle(c) : drugCard(c.drug); }).filter(Boolean);
       const off = store.on('params', () => { const p = store.get().params; for (const e of els) e._sync?.(p); });

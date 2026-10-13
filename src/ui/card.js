@@ -3,13 +3,13 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=7fb7280c05';
+import { store, updateParams } from './store.js?v=7c63421fac';
 import { h, icon, svgIcon, clamp, infoButton } from './util.js?v=b1761ad19c';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=9266baba58';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=db2f076e69';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('card');
 
-const LOCK_TIP = 'Not available in this step of the lesson or case';
+const LOCK_TIP = 'Not available here';
 
 export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const el = h('section', { class: 'action-card stage-blocker', role: 'dialog', 'aria-label': 'Actions', hidden: true });

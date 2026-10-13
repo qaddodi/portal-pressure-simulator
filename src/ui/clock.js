@@ -3,7 +3,7 @@
 // carry on from the same value on resume, so nothing jumps. Also mirrors the pause onto <body> so CSS
 // loops can freeze (body.sim-paused).
 
-import { store } from './store.js?v=7fb7280c05';
+import { store } from './store.js?v=7c63421fac';
 
 let acc = 0, lastReal = null;
 

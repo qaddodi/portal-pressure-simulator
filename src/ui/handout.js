@@ -5,7 +5,7 @@
 // and white. Opened as its own page to print or keep on a phone. Works for any deck the Presenter lists
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
-import { download } from './records.js?v=50fb9dd463';
+import { download } from './download.js?v=3564e5bf8c';
 import { LEVELS, withOverview } from './decks.js?v=c4c5646ee7';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

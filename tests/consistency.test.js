@@ -8,7 +8,7 @@ import { deepMerge, PRESETS } from '../src/engine/scenario.js';
 
 const run = (g) => { let n; do { n = g.next(); } while (!n.done); };
 
-test('varices lesson: thin varices grow large with red wale over six months', () => {
+test('varices: thin varices grow large with red wale over six months', () => {
   const e = new Engine(); run(e.loadPresetSteps('csph', {}));
   assert.equal(computeMetrics(e).varix.grade.label, 'Small');
   e.setParams(deepMerge(e.params, { cirrhosis: 0.85 })); e.settle();
@@ -16,7 +16,7 @@ test('varices lesson: thin varices grow large with red wale over six months', ()
   const m = computeMetrics(e);
   assert.equal(m.varix.grade.label, 'Large'); assert.ok(m.varix.redWale, 'red wale');
 });
-test('ascites lesson: about 4 litres to tap, and it comes back without diuretics', () => {
+test('ascites: about 4 litres to tap, and it comes back without diuretics', () => {
   const e = new Engine(); run(e.loadPresetSteps('cirr-decomp', {}));
   e.setParams(deepMerge(e.params, { diuretics: false })); e.settle();
   run(e.advanceDaySteps(300)); e.settle();

@@ -5,13 +5,13 @@
 // per day). Changes the learner makes and threshold events are marked where they happened, and
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
-import { store, hiddenNow } from './store.js?v=7fb7280c05';
+import { store, hiddenNow } from './store.js?v=7c63421fac';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=b1761ad19c';
-import { FONT } from './charts.js?v=e073763634';
+import { FONT } from './charts.js?v=0a36a1d8cb';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('pressure-time');
 
-// hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
+// hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
 const TRACES = [
   { id: 'CONF', label: 'Portal vein', abbr: 'PV', short: 'Portal', c: '--tr-pv', hide: 'pv', on: true, day: (m) => m.pv },

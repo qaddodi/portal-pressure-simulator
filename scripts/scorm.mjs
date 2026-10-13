@@ -2,7 +2,7 @@
 // No dependencies: files are stored in a plain ZIP. Inside the LMS, src/ui/lms.js finds the
 // SCORM API and finishes the attempt on exit (presentations and patients are ungraded).
 //
-//   node scripts/scorm.mjs                       whole simulator, opens on Home
+//   node scripts/scorm.mjs                       whole simulator, opens on the Patients menu
 //   node scripts/scorm.mjs --script ph-ten       a presenter script
 //
 // Output: dist/portal-pressure-simulator[-<activity>]-scorm12.zip

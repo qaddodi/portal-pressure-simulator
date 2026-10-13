@@ -1,19 +1,18 @@
 // Patient (was Findings): one card, no tabs, read top to bottom. The orders (drugs · fluids & blood ·
 // procedures) are in the Treat card, built here too (treatBody).
 //
-//   [step card of a lesson or case]      (rendered by learn.js / cases.js above this)
 //   [Compared with A]                    (when a moment is pinned)
 //   Changes                              what has been set: sliders, drugs, shunts, with values
 //   Abnormal results                     what is abnormal, in words, with its cut-off; Why?
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor)
 
-import { store, updateParams, hiddenNow } from './store.js?v=7fb7280c05';
+import { store, updateParams, hiddenNow } from './store.js?v=7c63421fac';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=b1761ad19c';
 import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
-import { TILES, VITALS, readoutValue } from './dock.js?v=a4462cda94';
-import { activeInterventions } from './inspector.js?v=58d14bee0e';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=9266baba58';
+import { TILES, VITALS, readoutValue } from './dock.js?v=3ec463e810';
+import { activeInterventions } from './inspector.js?v=6e8a77657d';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=db2f076e69';
 
 // Text that changes is rewritten in its text node (setting textContent replaces the node on every paint).
 const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };

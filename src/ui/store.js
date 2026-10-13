@@ -11,7 +11,7 @@ const state = {
   sinusoid: false,            // inside the Lobule view, zoomed on into one sinusoid
   selection: null,            // { type: 'edge' | 'node' | 'organ', id } — the structure whose action card is open
   details: null,              // a selection shown in full in the side panel ('Details ›')
-  allowedVerbs: null,         // verbs a lesson or case step allows (null = all)
+  allowedVerbs: null,         // verbs allowed now (null = all)
   shunting: null,             // { src, only } while a shunt waits for its drop target
   layers: { flow: true, chips: true, collaterals: false, organs: true, labels: true, grid: false },
   labelLevel: (() => { try { const v = localStorage.getItem('pps.labels'); return ['key', 'all', 'none'].includes(v) ? v : 'key'; } catch { return 'key'; } })(),   // station labels: key | all | none (Blood menu)
@@ -28,16 +28,15 @@ const state = {
   fibrosisZone: 'sin',
   compareSnap: null,
   compareView: 'B',           // With A pinned, what the figure shows: A | B (now) | D (change A→now)
-  imaging: false,             // Cases: anatomy only, pressures unmeasured
-  found: null,                // Cases: Set of findings a test has shown ('eso','gv','coll','clot','flow'); null shows all
-  blind: false,               // A lesson/case question is open: numbers that would answer it are hidden (learning-kit.js)
-  focus: null,                // { edges: [ids], label } where a lesson step asks the learner to act
+  imaging: false,             // Imaging view: anatomy only, pressures unmeasured
+  found: null,                // Set of findings a test has shown ('eso','gv','coll','clot','flow'); null shows all
+  focus: null,                // { edges: [ids], label } where the figure asks the viewer to look
   compareMetrics: null,
   healthy: null,
   presetId: 'healthy',
-  locked: null,               // Set of locked control keys (Learn / Cases)
-  hiddenReadouts: null,       // Set of hidden metrics (Cases)
-  hiddenEvents: null,         // Set of event ids a case keeps out of the story (model-only knowledge)
+  locked: null,               // Set of locked control keys
+  hiddenReadouts: null,       // Set of hidden metrics
+  hiddenEvents: null,         // Set of event ids kept out of the story (model-only knowledge)
   hvpgMeasured: false,        // Explore: the HVPG catheter procedure has run for this patient (the live HVPG shows)
   showHvpg: (() => { try { return localStorage.getItem('pps.showHvpg') === '1'; } catch { return false; } })(),   // Settings: show the HVPG without measuring it
   presenting: false,          // a Presenter script or the tour is running
@@ -58,7 +57,7 @@ export const store = {
   },
 };
 
-/** The readouts hidden right now: a case's or lesson's set and, in Explore, the true HVPG (wedged and free hepatic vein
+/** The readouts hidden right now: a set a view hides and, in Explore, the true HVPG (wedged and free hepatic vein
  *  pressures too) until the catheter procedure (Measure › HVPG) has measured it for this patient (or Settings › Always show HVPG is on). A Presenter script or
  *  the tour shows it as it is. */
 let hidCache = { base: undefined, set: null };

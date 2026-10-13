@@ -12,18 +12,17 @@
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen,
 // P high contrast, Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=7fb7280c05';
+import { store, replaceParams } from './store.js?v=7c63421fac';
+import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=b1761ad19c';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
-import { download } from './records.js?v=50fb9dd463';
-import { SITES } from './ladder.js?v=762bcbdd62';
-import { sinusoidSupported } from './sinusoid-view.js?v=5033bbc95f';
+import { sinusoidSupported } from './sinusoid-view.js?v=a9b9795e1b';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=c4c5646ee7';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=b87658d79c';
-import { createTools } from './presenter-tools.js?v=25a90bc286';
-import { openHandout } from './handout.js?v=9e5da7e200';
+import { createHvpgMonitor } from './hvpg-proc.js?v=8edb25ac7b';
+import { createTools } from './presenter-tools.js?v=a4dc5bc118';
+import { openHandout } from './handout.js?v=a38af48d6c';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=bf239e7484';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -636,6 +635,15 @@ function bigTiles() {
   };
 }
 
+// Where along the route each level sits: [id, name, place]. The three middle levels are inside the liver.
+const SITES = [
+  ['pre', 'Pre-hepatic', 'Portal vein'],
+  ['presin', 'Pre\u00ADsinusoidal', 'Portal tracts'],
+  ['sin', 'Sinusoidal', 'Sinusoids'],
+  ['postsin', 'Post\u00ADsinusoidal', 'Central veins'],
+  ['post', 'Post-hepatic', 'Hepatic veins, IVC'],
+  ['cardiac', 'Cardiac', 'Heart'],
+];
 /** The six levels, portal vein to heart, the liver's three bracketed; mode: 'all' names each level and
  *  its place, a level id marks that one as the block, null shows the levels unmarked (a quiz). */
 function rail(mode) {
@@ -822,7 +830,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=d885abc219', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=a6891481eb', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -834,7 +842,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=19fa98e79f');
+      const { createCore } = await import('../worker-core.js?v=c4e8a823f7');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

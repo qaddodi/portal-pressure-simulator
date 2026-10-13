@@ -1,12 +1,12 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=c5b849e284';
+import { Engine } from './engine/engine.js?v=31dbdd1c3b';
 import { computeMetrics } from './engine/metrics.js?v=72819396bb';
 import { tenthGap } from './engine/gap.js?v=3a5947c552';
 import { detectEvents } from './engine/events.js?v=a6e16e86ec';
-import { explain } from './engine/explain.js?v=fcd3ca252d';
-import { defaultParams, deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=b2eabea2e1';
+import { explain } from './engine/explain.js?v=09d3d15f88';
+import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=b2eabea2e1';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
@@ -198,7 +198,7 @@ export function createCore(post) {
       running = true; clock = lapse ? 'disease' : 'hemo'; speed = lapse ? s : 1; diseaseAcc = 0;
     },
     visibility({ visible: v }) { visible = v; },
-    // restartClock: the days are the patient's past (a case aging its patient), so the clock and
+    // restartClock: the days are the patient's past (the patient aged before the story starts), so the clock and
     // event log start fresh at day 0 afterwards.
     *advance({ days, untilEvent, restartClock }) {
       const n0 = eng.eventLog.length;
@@ -216,32 +216,11 @@ export function createCore(post) {
     },
     settle() { eng.settle(); },
     action({ action }) { applyAction(eng, action); paramsDirty = true; },
-    // Run the model forward at bedside time (e.g. so a case opens with vitals that match its story).
+    // Run the model forward at bedside time (so the vitals have settled before they are shown).
     *preroll({ seconds, reqId }) {
       for (let t = 0; t < seconds; t += 0.1) { eng.step(0.1); yield; }
       paramsDirty = true;
       if (reqId) post({ type: 'prerolled', reqId });
-    },
-    // Counterfactual for a case debrief: from a snapshot, replay a plan of timed parameter sets
-    // and actions in a separate engine, and report how the patient would have done.
-    *counterfactual({ snap, plan, seconds, reqId }) {
-      const e = new Engine();
-      e.restore(snap);
-      const steps = plan.slice().sort((a, b) => a.t - b.t);
-      let i = 0, minMap = Infinity, stopAt = null;
-      for (let t = 0, k = 0; t < seconds; t += 0.1, k++) {
-        while (i < steps.length && steps[i].t <= t) {
-          const s0 = steps[i++];
-          if (s0.params) e.setParams(deepMerge(defaultParams(), s0.params));
-          if (s0.action) applyAction(e, s0.action);
-        }
-        e.step(0.1);
-        if (k % 10 === 0) minMap = Math.min(minMap, computeMetrics(e).map);
-        if (stopAt == null && !e.bleed.active && t > 1) stopAt = t;
-        yield;
-      }
-      const m = computeMetrics(e);
-      post({ type: 'counterfactual', reqId, result: { minMap, lost: e.blood.lost, hb: m.blood.hb, map: m.map, bleeding: e.bleed.active, stopAt } });
     },
     probe({ id }) { probe = id; },
     beat({ on }) { if (beat !== !!on) { beat = !!on; frameDirty = true; } },
@@ -268,8 +247,8 @@ export function createCore(post) {
       post({ type: 'presetMetrics', reqId, result });
     },
     // The presenter's slides, computed off screen so the figure only ever shows finished states: a chain in
-    // which each slide starts from the one before (base: the state before the first), in the order the
-    // lessons use (preset → params → settle → actions → disease days → settle). Each slide is posted as it is
+    // which each slide starts from the one before (base: the state before the first), in a fixed order
+    // (preset → params → settle → actions → disease days → settle). Each slide is posted as it is
     // ready ('seqStep': snapshot, params, fingerprint); 'sequence' ends the chain. A slide the presenter plays
     // as a time-lapse (fine, or a ramp) steps its days one at a time, as the live 'lapse' does.
     *sequence({ steps, base, reqId }) {
@@ -329,7 +308,7 @@ export function createCore(post) {
         }
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!['snapshot', 'explain', 'healthyProfile', 'presets', 'counterfactual', 'metrics', 'presetMetrics', 'sequence'].includes(msg.type)) {
+        if (!['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence'].includes(msg.type)) {
           frameDirty = true;
           if (visible) { lastFrame = performance.now(); frame(); }
         }
