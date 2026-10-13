@@ -252,6 +252,8 @@ export function createLobuleZoom({ host }) {
   const V = { k: 1, x: 0, y: 0 };
   const KMAX = 5;
   let kFit = 1, atFit = true;
+  // A presenter's glide to a station still under way: its part, zoom and target (which refit moves, so the glide still lands on the station).
+  let camAim = null;
   const appStyle = document.getElementById('app')?.style;
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   function freeRect() {
@@ -317,7 +319,7 @@ export function createLobuleZoom({ host }) {
     V.x = mx - cxw * V.k; V.y = my - cyw * V.k;
   }
   // Match the anatomy's flick decay, measured in screen pixels per millisecond.
-  function stopInertia() { cancelFlick?.(); cancelFlick = null; }
+  function stopInertia() { cancelFlick?.(); cancelFlick = null; camAim = null; }
   let cancelFlick = null;
   function fling(vx, vy) {
     stopInertia();
@@ -345,18 +347,19 @@ export function createLobuleZoom({ host }) {
     if (fade > 0 && geo) layoutLabels();
     nextFrame(() => { if (camMove) return; el.classList.remove('lz-cam'); el.classList.add('lz-cam-in'); clearTimeout(camInT); camInT = setTimeout(() => el.classList.remove('lz-cam-in'), 400); });
   }
-  function glideTo(to, ms = 260, cam = false) {
+  function glideTo(to, ms = 260, cam = false, aim = null) {
     stopInertia();
     cancelFrame(glide);
+    camAim = aim;   // (any other glide, or a hand on the lobule, replaces the presenter's)
     const from = { ...V }, t0 = performance.now();
-    if (reduce.matches || !fade) { Object.assign(V, to); viewChanged(); camSettle(); return; }
+    if (reduce.matches || !fade) { camAim = null; Object.assign(V, to); viewChanged(); camSettle(); return; }
     if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; el.classList.remove('lz-cam-in'); el.classList.add('lz-cam'); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();
     const step = (now) => {
       const u = clamp((now - t0) / ms, 0, 1), e = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
       const k = from.k * Math.pow(to.k / from.k, e), a = (k - from.k) / ((to.k - from.k) || 1);
       V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? e : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? e : a);
       viewChanged();
-      if (u < 1) glide = nextFrame(step); else camSettle();
+      if (u < 1) glide = nextFrame(step); else { camAim = null; camSettle(); }
     };
     glide = nextFrame(step);
   }
@@ -374,7 +377,9 @@ export function createLobuleZoom({ host }) {
   // When the free space changes (a card opens, the readouts expand), a fitted lobule follows it.
   let refitLater = false;
   function refit() { if (!geo || rubber || sinU > 0 || sinTo) { refitLater = !!geo; return; }   // not while in or on the way to the sinusoid: the zoom holds the lobule still
-    refitLater = false; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else if (aimed && fade <= 0.98) glideTo(framing(aimed.part, aimed.zoom)); else { clampV(); viewChanged(); } }
+    // (Mid-glide to a station, the glide's target follows the new space: clampV would read the glide's first, still unzoomed frames as the fit
+    // and send the lobule back there, so a slide's zoom never arrived.)
+    refitLater = false; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else if (camAim) Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); else if (aimed && fade <= 0.98) glideTo(framing(aimed.part, aimed.zoom)); else { clampV(); viewChanged(); } }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   // A new text size: the labels glide to their new places instead of jumping.
   let easeT = 0;
@@ -1232,7 +1237,7 @@ export function createLobuleZoom({ host }) {
 
   function ensureGeo(W, H) {
     const key = W + 'x' + H;
-    if (key !== geoKey) { geo = build(W, H); geoKey = key; binKey = ''; binReach = []; binCache.clear(); radKey = []; radAll = ''; tissueKey = ''; layoutKey = ''; if (atFit || (aimed && fade <= 0.98)) resetView(); else clampV(); }
+    if (key !== geoKey) { geo = build(W, H); geoKey = key; binKey = ''; binReach = []; binCache.clear(); radKey = []; radAll = ''; tissueKey = ''; layoutKey = ''; if (atFit || (aimed && fade <= 0.98)) resetView(); else if (camAim) { kFit = fitV().k; Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); } else clampV(); }
   }
   const isDark = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
 
@@ -2378,7 +2383,7 @@ export function createLobuleZoom({ host }) {
       const F0 = fitV(); kFit = F0.k;
       const to = !part || part === 'fit' ? F0 : framing(part, zoom);
       const moved = Math.abs(V.k - to.k) + Math.abs(V.x - to.x) + Math.abs(V.y - to.y) > 0.5;
-      atFit = !part || part === 'fit'; camHeld = false; glideTo(to, ms, true);
+      atFit = !part || part === 'fit'; camHeld = false; glideTo(to, ms, true, atFit ? null : { part, zoom, to });
       return moved;
     },
     /** Before (or during) the dive into the lobule: where a presenter slide will want it, so the dive lands there
