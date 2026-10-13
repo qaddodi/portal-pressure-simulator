@@ -2013,9 +2013,11 @@ button.finding { cursor: pointer; }
 .pzc-q:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pzc-hint { font: 600 var(--s-cap)/1 var(--font-ui); color: var(--accent-ink, var(--accent)); white-space: nowrap; padding: .45em .8em; border-radius: 999px; background: color-mix(in srgb, var(--accent) 10%, transparent); transition: opacity .3s var(--ease); }
 .pz-check li.open .pzc-hint { opacity: 0; }
-.pzc-a { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .4s var(--ease), opacity .4s var(--ease); }
+/* (A closed answer is not laid out at all, so it is neither read aloud nor under the controls; it eases open and shut.) */
+.pzc-a { display: none; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .4s var(--ease), opacity .4s var(--ease), display .4s allow-discrete; }
 .pzc-a > p { overflow: hidden; min-height: 0; margin: 0; padding-left: calc(2.1em + .8em + .2em); color: var(--text-2); }
-.pz-check li.open .pzc-a { grid-template-rows: 1fr; opacity: 1; }
+.pz-check li.open .pzc-a { display: grid; grid-template-rows: 1fr; opacity: 1; }
+@starting-style { .pz-check li.open .pzc-a { grid-template-rows: 0fr; opacity: 0; } }
 .pz-check li.open .pzc-a > p { padding-bottom: .7em; }
 .pz.stack .pzc-q { grid-template-columns: 1.8em minmax(0, 1fr); }
 .pz.stack .pzc-hint { display: none; }
