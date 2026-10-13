@@ -1801,6 +1801,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.root.classList.toggle('tab', p && tabUp()); ui.shade.classList.toggle('tab', p && tabUp());
     const cardOn = TEXT_CARD && !p && !(W > H && H <= 500);   // (a phone held sideways keeps its panel too)
     ui.root.classList.toggle('pz-card', cardOn); ui.shade.classList.toggle('pz-card', cardOn);
+    ui.root.classList.toggle('low', !p && W > H && H <= 500);   // (a phone held sideways: its instruments fold behind Show)
     const off = (el) => el.hidden || (el === ui.data ? 'gone' in el.dataset : el.classList.contains('pz-hide'));   // (a card only easing out and back in for the next slide still counts, where it rests: the camera frames once)
     const r = (el) => (off(el) ? null : restBox(el));
     ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ui.text.style.removeProperty('--pz-sw');

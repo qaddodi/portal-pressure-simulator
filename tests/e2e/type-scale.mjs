@@ -26,7 +26,9 @@ export function offScale(roles) {
   const areas = [];
   const fig = document.querySelector('#stageView');
   if (fig) areas.push({ root: fig, name: 'figure', skip: '.pz, .float-ui, .stage-credit, .tool-card, .zoom-pill, .vdock, .sb-banner', sizes: (el) => { const host = el.closest('.sv, .lz-host') || fig; return roles.map((r) => probe(host, `calc(var(--t-${r}) * var(--label-scale, 1) * ${el.closest('.lz-zone') ? 'var(--zk, 1)' : 1})`)); } });
-  for (const pz of document.querySelectorAll('.pz')) areas.push({ root: pz, name: 'slide', skip: 'svg, .pz-bar, .pz-tool, .pzj, .pz-deck, .pz-outline svg', sizes: (el) => roles.map((r) => probe(el.closest('.pz-table, .pz-text, .pz-panel') || pz, `var(--s-${r})`)) });
+  for (const pz of document.querySelectorAll('.pz')) areas.push({ root: pz, name: 'slide', skip: 'svg, .pz-bar, .pz-tool, .pzj, .pz-deck, .pz-outline svg', sizes: (el) => { const host = el.closest('.pz-table, .pz-text, .pz-panel') || pz; return [...roles.map((r) => probe(host, `var(--s-${r})`)),
+    // (A long title in the teaching card is the big role at the title's step, --pz-tk, as the title itself: presenter.js layout.)
+    ...(host.matches('.pz-text') ? [probe(host, 'calc(var(--s-big) * var(--pz-tk, 1))')] : [])]; } });
   for (const a of areas) {
     const w = document.createTreeWalker(a.root, NodeFilter.SHOW_TEXT);
     const cache = new Map();

@@ -1902,14 +1902,15 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data.pz-hide { transform: translateY(-18px); }
 .pz.stack .pz-dh { font-size: var(--s-cap); }
 .pz-fold { display: none; }
-.pz.stack .pz-data.has-tool:not(.tool-only) .pz-fold { display: inline-flex; align-items: center; min-height: 28px; margin: -6px -4px -6px auto; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--accent); font: inherit; letter-spacing: .05em; cursor: pointer; }
-.pz.stack .pz-data.has-tool:not(.tool-only) .pz-tool { max-height: 60vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
-.pz.stack .pz-data.has-tool:not(.tool-only):not(.tool-open) .pz-tool { max-height: 0; opacity: 0; margin-bottom: -6px; }
+/* (A phone held sideways folds its instrument behind Show as upright: the card is too short for both it and the tiles.) */
+.pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-fold { display: inline-flex; align-items: center; min-height: 28px; margin: -6px -4px -6px auto; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--accent); font: inherit; letter-spacing: .05em; cursor: pointer; }
+.pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-tool { max-height: 60vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
+.pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only):not(.tool-open) .pz-tool { max-height: 0; opacity: 0; margin-bottom: -6px; }
 /* An instrument that is the slide's point (tool open: true) stays open on a phone and the tiles fold instead (the line's pill keeps the
    reading); the scope then sits as a compact row, the view beside its grade and size, so the figure keeps most of the screen. */
-.pz.stack .pz-data.has-tool.tool-lead:not(.tool-only):not(.tool-open) .pz-tool { max-height: 60vh; opacity: 1; margin-bottom: 0; }
-.pz.stack .pz-data.tool-lead .pz-tiles { max-height: 40vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
-.pz.stack .pz-data.tool-lead:not(.tool-open) .pz-tiles { max-height: 0; opacity: 0; margin-top: -6px; }
+.pz:is(.stack, .low) .pz-data.has-tool.tool-lead:not(.tool-only):not(.tool-open) .pz-tool { max-height: 60vh; opacity: 1; margin-bottom: 0; }
+.pz:is(.stack, .low) .pz-data.tool-lead .pz-tiles { max-height: 40vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
+.pz:is(.stack, .low) .pz-data.tool-lead:not(.tool-open) .pz-tiles { max-height: 0; opacity: 0; margin-top: -6px; }
 .pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
 .pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .endo-stage { flex: none; width: 42%; min-height: 0; }
 .pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; }
@@ -2237,7 +2238,10 @@ button.finding { cursor: pointer; }
 .pz-data.col > * { zoom: calc(var(--pz-fit, 1) * var(--pz-dk, 1)); }   /* (stacked under the words when the pair would not fit: the data card's blocks at one of a few fixed smaller sizes, presenter.js DK) */
 /* (The card's smallest words, a heading, a tile's name, stay 11.5 px or more on the screen at every step; a chart keeps its own scale.) */
 .pz-data.col > :not(svg) { --s-cap: max(calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1) * var(--pk, 1)), calc(11.5px / var(--pz-dk, 1))); }
-.pz-data.col > :is(.pz-ladder, .pz-strip, .pz-quad, .pz-tool:not([data-kind="abdomen"])) { width: calc(100% * var(--pz-dk, 1)); margin-inline: auto; }   /* (a chart drawn to the card's width: narrower by the same step, so it is smaller in height too, not only its zoom) */
+/* (A chart drawn to the card's width shrinks with the card's fit too: zoomed alone it was drawn wider by as much, so it kept
+   its size on the screen and the fit squeezed only the readings and tiles below it, to half size on a sideways phone.) */
+.pz-data > :is(.pz-ladder, .pz-strip, .pz-quad, .pz-tool:not([data-kind="abdomen"])) { width: calc(100% * var(--pz-fit, 1)); margin-inline: auto; }
+.pz-data.col > :is(.pz-ladder, .pz-strip, .pz-quad, .pz-tool:not([data-kind="abdomen"])) { width: calc(100% * var(--pz-fit, 1) * var(--pz-dk, 1)); margin-inline: auto; }   /* (a chart drawn to the card's width: narrower by the same step, so it is smaller in height too, not only its zoom) */
 /* A phone's opened (or only) instrument is the one part that gives way when it is taller than the card: the header and tiles stay full size. */
 .pz.stack .pz-data:is(.tool-open, .tool-only) > :not(.pz-tool) { zoom: 1; }
 /* A slide whose card is the instrument alone gets more of the phone's height, so the instrument stays near full size. */
