@@ -64,7 +64,7 @@ jobs:
           name: deck-sweep-${{ matrix.deck }}-${{ strategy.job-index }}
           path: deck-sweep/
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 1
 
   report:
     needs: [wait-for-deploy, sweep]

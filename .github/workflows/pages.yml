@@ -152,7 +152,7 @@ jobs:
           name: workspace-browser-checks-${{ matrix.device }}-${{ strategy.job-index }}
           path: workspace-shots/
           if-no-files-found: ignore
-          retention-days: 2
+          retention-days: 1
 
   # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
   webkit:
@@ -213,7 +213,7 @@ jobs:
           name: visual-diff-${{ matrix.device }}
           path: test-results/visual
           if-no-files-found: ignore
-          retention-days: 2
+          retention-days: 1
 
   # Only main and the one integration branch publish. Other claude/** branches are still checked,
   # but their pushes no longer replace /preview/.
