@@ -48,7 +48,7 @@ jobs:
       matrix:
         deck: [circulation, sites, hvpg, ascites, varices, treatment, stiffness, one-year, tap, circuit, lobule, shunts,
                doppler, endoscopy, prehepatic, right-heart, variceal-bleed, two-inflows, pvt-cirrhosis, spleen, ncph, outflow, recompensation]
-        size: [mac, desktop, laptop, wide, ipadwide, ipad, phone, phone375, phone430, sideways, sideways375, sideways430]
+        size: ['mac,desktop', 'laptop,wide', 'ipadwide,ipad', 'phone,phone375', 'phone430,sideways', 'sideways375,sideways430']   # (two sizes a job: a matrix holds at most 256 jobs)
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: deck-sweep-${{ matrix.deck }}-${{ matrix.size }}
+          name: deck-sweep-${{ matrix.deck }}-${{ strategy.job-index }}
           path: deck-sweep/
           if-no-files-found: ignore
           retention-days: 7

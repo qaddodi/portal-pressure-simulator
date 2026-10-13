@@ -2052,6 +2052,10 @@ button.finding { cursor: pointer; }
 .pz-tool .ab-read { gap: var(--pz-gap, 10px); }
 .pz-tool .ab-belly { width: clamp(68px, calc(10 * var(--pzh)), 120px); height: clamp(68px, calc(10 * var(--pzh)), 120px); }
 .pz-tool .ab-big > b { font-size: var(--s-big); }
+/* (On the slide the readout's words and lab tiles use the card's type scale, so they step down with the other blocks.) */
+.pz-tool :is(.ab-grade, .ab-trend, .ab-why, .ab-kv, .ab-big > b small) { font-size: var(--s-cap); }
+.pz-tool .ab-tile dt, .pz-tool .ab-u { font-size: var(--s-cap); }
+.pz-tool .ab-tile dd { font-size: var(--s-val); }
 .pz-tool { position: relative; flex: none; }
 /* The varix wall: the cross-section beside its stress meter and the r, w and ΔP of Laplace's law (the equation is the slide's). */
 .pz-tool[data-kind="wall"] .pz-inst { display: flex; flex-direction: row; align-items: center; gap: 14px; }
