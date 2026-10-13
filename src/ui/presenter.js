@@ -1809,6 +1809,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     for (const tr of el.querySelectorAll('.pz-table thead tr')) { headRO.observe(tr); fitHeadRow(tr); }
   }
+  // An equation never runs past its card: one wider than its box is set smaller (--eq-k, the share of its size that fits).
+  // (Measured at the card's final zoom; the math is a block of its own, so its box is the room the card gives it.)
+  function fitEquations(el) {
+    for (const box of el.querySelectorAll('.pz-eq')) {
+      box.style.removeProperty('--eq-k');
+      let k = 1;
+      for (let n = 0; n < 4; n++) {
+        const w = box.clientWidth, over = box.scrollWidth - w;
+        if (!w || over <= 0.5) break;
+        k = Math.max(0.4, k * (w / (w + over)) * 0.99);
+        box.style.setProperty('--eq-k', k.toFixed(3));
+      }
+    }
+  }
+  // (An equation typeset before the math font arrives is wider or narrower than it ends up: fitted again once the fonts are in.)
+  document.fonts?.ready.then(() => { for (const c of [ui?.text, ui?.data, ui?.panel]) if (c && !c.hidden) fitEquations(c); });
   function fitCards(...els) {
     for (const el of els) {
       if (!el || el.hidden) continue;
@@ -1825,6 +1841,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         k = Math.max(0.5, k * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
         el.style.setProperty('--pz-fit', k.toFixed(3));
       }
+      fitEquations(el);
       // (Closed again with no transition, so the answers start hidden and the card rests at its closed height.)
       if (all) { all.classList.remove('pzc-all'); void all.offsetHeight; all.classList.remove('pzc-still'); }
       fitDone.set(el, fitSig(el));   // (as it rests once fitted: a folding part's height is part of it)
