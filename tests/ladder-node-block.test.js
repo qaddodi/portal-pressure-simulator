@@ -22,8 +22,12 @@ test('every heart failure ladder puts its block on the right atrium node', () =>
   }
   // (Heart failure's falls are all small, so no stretch of line carries a hatched band there.)
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src, /nodeBlk\.setAttribute\('cx'/);
   assert.match(src, /snodeBlk/);
+  // (The block is a hatched rectangle at the RA node reaching a little to its right, not a ring or disc round the node.)
+  assert.match(src, /const nodeBlk = sv\('rect'/);
+  assert.match(src, /nodeBlk\.setAttribute\('x', \(X\(blockAt\) - 0\.12 \* step\)/);
+  assert.match(src, /nodeBlk\.setAttribute\('width', \(0\.46 \* step\)/);
+  assert.doesNotMatch(src, /sv\('circle', \{ class: 'pzl-nb'/);
 });
 
 test('the Sites summary ladders carry each slide\'s block, so the heart failure cell hatches its RA node too', () => {

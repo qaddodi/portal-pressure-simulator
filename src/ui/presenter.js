@@ -368,9 +368,10 @@ function bigLadder() {
     const r = sv('rect', { rx: 12, fill: `url(#${gid}hb)` });   // (placed in lay; y and height follow the axis, in draw; the band carries no label)
     return { g: sv('g', { class: 'pzl-drop', opacity: 0 }, r), r };
   });
-  // A block that sits on a station itself (the right atrium in heart failure), not on a stretch of line: the same hatching in a
-  // disc behind that node. A slide asks for it with block: 'ra'; the disc follows its node, and fades in and out.
-  const nodeBlk = sv('circle', { class: 'pzl-nb', r: 13, fill: `url(#${gid}hb)`, opacity: 0 });
+  // A block that sits on a station itself (the right atrium in heart failure), not on a stretch of line: the same hatched
+  // rectangle as the others, from just left of that node to a little right of it, under the reading. A slide asks for it with
+  // block: 'ra'; the rectangle follows its node, and fades in and out.
+  const nodeBlk = sv('rect', { class: 'pzl-nb', rx: 12, fill: `url(#${gid}hb)`, opacity: 0 });
   let blockAt = -1;
   const pts = RUNGS.map(([, a]) => {
     const c = sv('circle', { r: 8.5 }), v = sv('text', { class: 'pzl-v', 'text-anchor': 'middle' }), k = sv('text', { class: 'pzl-k', 'text-anchor': 'middle' }, a);
@@ -479,8 +480,8 @@ function bigLadder() {
   };
   const placeNodeBlk = () => {
     if (blockAt < 0) return;
-    const hw = Math.max(halves[blockAt], 6) + 5;
-    snodeBlk.setAttribute('x', (XS(blockAt) - hw).toFixed(1)); snodeBlk.setAttribute('width', (2 * hw).toFixed(1));
+    const hw = Math.max(halves[blockAt], 6) + 5;   // (the reading's own width, then a little more to its right)
+    snodeBlk.setAttribute('x', (XS(blockAt) - hw).toFixed(1)); snodeBlk.setAttribute('width', (2 * hw + 14).toFixed(1));
     snodeBlk.setAttribute('y', (S.vy - 0.78 * S.v - 2).toFixed(1)); snodeBlk.setAttribute('height', (1.05 * S.v + 4).toFixed(1));
   };
   const placeLine = () => {
@@ -554,7 +555,11 @@ function bigLadder() {
     drawBase();
     const y = RUNGS.map(([k]) => Y(f[k]));
     line.setAttribute('d', y.map((yy, i) => `${i ? 'L' : 'M'}${X(i)} ${yy.toFixed(1)}`).join(' '));
-    if (blockAt >= 0) { nodeBlk.setAttribute('cx', X(blockAt).toFixed(1)); nodeBlk.setAttribute('cy', y[blockAt].toFixed(1)); }
+    if (blockAt >= 0) {
+      const yt = y[blockAt] - 12, yb = Math.max(Y(0), y[blockAt] + 12);   // (starts just above the node, so its reading stays clear)
+      nodeBlk.setAttribute('x', (X(blockAt) - 0.12 * step).toFixed(1)); nodeBlk.setAttribute('width', (0.46 * step).toFixed(1));
+      nodeBlk.setAttribute('y', yt.toFixed(1)); nodeBlk.setAttribute('height', (yb - yt).toFixed(1));
+    }
     pts.forEach((p, i) => { p.c.setAttribute('cy', y[i].toFixed(1)); p.v.setAttribute('y', (y[i] - 12.5 - 0.22 * l).toFixed(1)); p.v.textContent = fmt(f[RUNGS[i][0]], 0); });
     // The strip: readings in the nodes, the fall on each connector (from the rounded readings, so it adds up).
     const raw = conns.map((_, i) => Math.max(0, f[RUNGS[i][0]] - f[RUNGS[i + 1][0]]));
