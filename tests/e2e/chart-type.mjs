@@ -32,7 +32,14 @@ export function chartFaults(sel) {
       if (r.left < card.left - 1 || r.right > card.right + 1 || r.top < card.top - 1 || r.bottom > card.bottom + 1 || r.left < -1 || r.right > innerWidth + 1) out.push(`${what} runs out of its card`);
     }
     // (Glyph boxes carry the line's ascent and descent, so two rows touch by a few px without the letters touching.)
+    // (Two names tilted by one angle are parallel strips: they touch only when their baselines are closer than a line of letters,
+    // however their slanted boxes overlap.)
+    const tilt = (e) => { const m = /rotate\((-?[\d.]+) (-?[\d.]+) (-?[\d.]+)\)/.exec(e.getAttribute('transform') || ''); return m && +m[1] ? m.slice(1).map(Number) : null; };
+    const parallel = (ea, eb) => { const ta = tilt(ea), tb = tilt(eb); if (!ta || !tb || ta[0] !== tb[0]) return false;
+      const t = ta[0] * Math.PI / 180, d = Math.abs((tb[1] - ta[1]) * -Math.sin(t) + (tb[2] - ta[2]) * Math.cos(t)), fs = parseFloat(ea.getAttribute('font-size') || getComputedStyle(ea).fontSize);
+      return d >= 1.05 * fs; };
     for (let i = 0; i < runs.length; i++) for (let j = i + 1; j < runs.length; j++) {
+      if (parallel(runs[i].e, runs[j].e)) continue;
       const a = runs[i].r, b = runs[j].r, sh = Math.min(a.height, b.height) * 0.22;
       if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > sh) out.push(`${name} "${runs[i].e.textContent.trim()}" overlaps "${runs[j].e.textContent.trim()}"`);
     }
