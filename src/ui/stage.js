@@ -7,7 +7,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7c63421fac';
 import { fibroReading } from './clock.js?v=6284ad19b7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=abb277f29f';
-import { createLobuleZoom } from './lobule-zoom.js?v=03e33d9368';
+import { createLobuleZoom } from './lobule-zoom.js?v=8f69e77f59';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -1464,6 +1464,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       } else diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2];
       diveLand = lz.landing();
       lz.prewarm(diveLand.r);
+      lz.stage();   // the lobule is drawn now, for where it lands, and only then does the zoom start (its clock starts below)
     } else if (!on && diveT >= 1) {
       diveLand = lz.current();
       // The anatomy is covered by the lobule at this point: take it to its fit framing now, unseen, so the way out is one
@@ -1657,6 +1658,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)];
     diveLand = lz.landing();
     lz.prewarm(diveLand.r);
+    lz.stage();
     cancelFrame(vtAnim); vtGliding = false;
     if (store.get().selection && store.get().selection.type !== 'lobule') store.set({ selection: null });
   }

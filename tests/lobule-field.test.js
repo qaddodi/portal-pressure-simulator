@@ -39,26 +39,21 @@ test('in dark mode the field lobules\' capillarized sinusoids are dark (they rec
   assert.equal((tokens.match(/--collagen: rgb\(199, 186, 153\); --lz-field-sin-pale: #2E1A26;/g) || []).length, 2, 'both dark blocks (system and chosen)');
 });
 
-test('the zoom\'s last stretch has nothing heavy to do: the lobule is drawn ahead, unseen, and the anatomy returns after landing', () => {
-  // prewarm ends with the landed lobule's state and picture, drawn while the dive still magnifies it and it is unseen.
-  assert.match(lz, /warmQ\.push\(\(\) => \{\n\s+if \(ready\(\)\) \{ flowA = 0; flowT = 0; return; \}\n\s+if \(fade > 0 \|\| !F \|\| !diveScaled\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true;/);
-  assert.match(lz, /diveDrawn = false; draw\(0\); staged = api\.viewKey\(\); relLater = true;/);
+test('every zoom into the lobule draws it first, for where it lands, then zooms; the anatomy returns after landing', () => {
+  assert.match(lz, /function stage\(\) \{\n\s+if \(fade > 0 \|\| !F\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true;/);
+  assert.match(lz, /idleDrawn = ''; draw\(0\); diveDrawn = true; staged = api\.viewKey\(\); relLater = true;/);
   assert.match(lz, /if \(fade <= 0 && !staging\) return;/, 'update fills in the model while staging');
-  // The frame it starts to fade in draws nothing new when the framing still matches; otherwise it draws as before.
+  // Both ways in (a tap or slide, and a pinch) draw it before their zoom's clock starts.
+  assert.match(stage, /lz\.prewarm\(diveLand\.r\);\n\s+lz\.stage\(\); {3}\/\/ the lobule is drawn now/);
+  assert.match(stage, /lz\.prewarm\(diveLand\.r\);\n\s+lz\.stage\(\);\n\s+cancelFrame\(vtAnim\);/);
+  assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = !on && riseAt'), 'drawn before the zoom is timed');
+  // The frame it starts to fade in draws nothing new when the framing still matches.
   assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ if \(!raf\) raf = nextFrame\(loop\); \} else \{ diveDrawn = false; if \(F\) update\(F\); \}/);
-  // The canvases are given back when a dive ends unseen (or the rise ends), never mid-zoom.
+  // Its memory is given back when the zoom returns to the anatomy (never mid-zoom); the idle preparation keeps nothing.
   assert.match(lz, /if \(was > 0\) \{ if \(diveScaled\) relLater = true; else release\(\); \}/);
   assert.match(lz, /if \(!diveScaled && fade <= 0\) \{ staged = ''; if \(relLater\) \{ relLater = false; release\(\); \} \}/);
+  assert.match(lz, /draw\(0\); release\(\); prepKey = key;/);
   // Landed, the anatomy stays hidden under the lobule until it has settled; every other end shows it at once.
   assert.match(stage, /const landed = t >= 1 && !diveOut;\n\s+setDiveScale\(t >= 1 \? 1 : Math\.exp\(Math\.min\(z, LC \+ 0\.4\)\), landed\);/);
   assert.match(stage, /if \(diveT >= 1 && lobuleOn\) setDiveHidden\(false, false\); \}, 500\)/);
-});
-
-test('the lobule is drawn before the dive begins: the idle preparation keeps its picture, and the dive only reuses it', () => {
-  assert.match(lz, /if \(fade <= 0\) \{ flowA = 0; flowT = 0; diveDrawn = false; draw\(0\); staged = api\.viewKey\(\); relLater = true; prepKey = key; \}/);
-  assert.doesNotMatch(lz, /draw\(0\); release\(\); prepKey = key;/, 'the prepared picture is no longer thrown away');
-  assert.match(lz, /const ready = \(\) => staged && staged === api\.viewKey\(\) && model;/);
-  assert.match(lz, /if \(ready\(\)\) \{ diveDrawn = true; return; \}/, 'framed the same: the dive draws nothing');
-  // Given back, the preparation runs again at the next idle moment.
-  assert.match(lz, /staged = ''; relLater = false; prepKey = '';/);
 });

@@ -589,7 +589,7 @@ export function createLobuleZoom({ host }) {
     free(tissue); free(fx); free(glCv);
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
     tissueKey = ''; idleDrawn = ''; drawKey = ''; glDirty = true; fxKey = '';
-    staged = ''; relLater = false; prepKey = '';   // (the idle preparation draws it again)
+    staged = ''; relLater = false;
   }
 
   // ── Geometry: one lobule and its network (built once per size) ──
@@ -1514,11 +1514,7 @@ export function createLobuleZoom({ host }) {
     }, () => {
       const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
       paintTissue(W, H, dpr, dark, cs, !gl || gl.lost);
-    }, () => {
-      // The landed lobule's picture is kept (staged), flow marks faded, so the dive starts with it already drawn: three canvases
-      // the size of the stage (about 16 MB on a phone), given back when a dive or the rise ends unseen, or the lobule closes.
-      if (fade <= 0) { flowA = 0; flowT = 0; diveDrawn = false; draw(0); staged = api.viewKey(); relLater = true; prepKey = key; }
-    });
+    }, () => { if (fade <= 0) { draw(0); release(); prepKey = key; } });
     return q;
   }
   // Runs the pieces in order; a null is a placeholder that a piece fills in.
@@ -1532,19 +1528,16 @@ export function createLobuleZoom({ host }) {
     warmQ = [() => ensureGL()];
     // The tiles paintField steps through (each a no-op when the idle preparation already drew it).
     for (let rd = 6; ; rd *= 2) { const r = rd; warmQ.push(() => liverTile(fieldTile(cs, dark, r), cs, dark, bg)); if (r >= top) break; }
-    // Then the landed lobule itself, a frame for its state and one for its picture (only once the dive magnifies it, so it is drawn once).
-    // (Already drawn while the anatomy sat idle, and framed the same: nothing to do but keep it.)
-    const ready = () => staged && staged === api.viewKey() && model;
-    warmQ.push(() => {
-      if (ready()) { flowA = 0; flowT = 0; return; }
-      if (fade > 0 || !F || !diveScaled) return;
-      flowA = 0; flowT = 0; resetView(); staging = true;
-      try { update(F); } finally { staging = false; }
-    }, () => {
-      if (ready()) { diveDrawn = true; return; }
-      if (fade > 0 || !model || !diveScaled) return;
-      diveDrawn = false; draw(0); staged = api.viewKey(); relLater = true;
-    });
+  }
+  // Right before a zoom into the lobule starts: the lobule is drawn, whole and unseen, for the framing it will land on (flow marks
+  // faded), so the zoom only magnifies and fades in what is already drawn. Its canvases (about 16 MB on a phone) are given back
+  // when the zoom returns to the anatomy (setDiveZoom), and drawn again before the next one.
+  function stage() {
+    if (fade > 0 || !F) return;
+    flowA = 0; flowT = 0; resetView(); staging = true;
+    try { update(F); } finally { staging = false; }
+    if (!model) return;
+    idleDrawn = ''; draw(0); diveDrawn = true; staged = api.viewKey(); relLater = true;
   }
   function warm() { const f = warmQ.shift(); if (f) f(); return warmQ.length > 0; }
 
@@ -2379,7 +2372,7 @@ export function createLobuleZoom({ host }) {
     sinusoidOpen: () => sv.isOpen(),
     sinZoom: () => sinZ,
     onZoomOut(fn) { outHandler = fn; },
-    prewarm, warm, preparePieces, prepareRun,
+    prewarm, warm, stage, preparePieces, prepareRun,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
