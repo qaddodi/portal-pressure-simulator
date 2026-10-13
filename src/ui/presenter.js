@@ -1294,7 +1294,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     try { await transitionRun(to, rev); } finally {
       stage.holdHome(false); if (bare) { bare = false; layout(); cardsIn(); }
       creditHolds--; clearTimeout(creditT);
-      creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 1000);   // (a camera ease of 900 ms follows the cards)
+      creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 1000);   // (the cards come in after the one camera move; the credit waits for them to settle)
     }
   }
   async function transitionRun(to, rev) {
@@ -1356,8 +1356,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Its card starts from the state the time-lapse plays from, and climbs with it.)
     // The new cards are built unseen (pz-prep) and fitted at their final size before they fade in, so they never grow on screen
     // and the camera frames once, into the space they really leave (see settle).
-    // The camera goes first, framing the slide in the whole view while the new cards wait unseen (bare); then they show, and the
-    // camera eases once more to fit the space they really leave.
+    // The new cards are laid out and measured where they will rest while still unseen (bare), so the camera makes one eased move
+    // straight to the framing that fits around them; only then do they come in, whole, and the camera stays put.
     ui?.root.classList.add('pz-prep');
     bare = !booting && !!ui;
     wordsIn(s, q, said, to, swap, lap, st);
@@ -1379,9 +1379,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cut()) return;
     if (bare) {
       bare = false; layout(); cardsIn();
+      // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
       await wait(60); await until(() => cut() || !cardsEntering(), 1200);
       if (cut()) return;
-      fitAround(s, cam, 900);
     }
     if (!s.visual) {
       // The slide's marks, labels, the stations its terms name (in their colours) and its glows (see slideTargets).
@@ -1419,7 +1419,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
 
   // The fonts in and two frames for the cards' charts and refits to run, then one last fit; then the cards show (eased in).
   function cardsIn() { if (ui) { if (!bare) { ui.text.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
-  // While bare, the new slide's cards are fitted but unseen and the camera frames as if they were not there (see transitionRun).
+  // While bare, the new slide's cards are fitted at their resting place but unseen, and the camera frames around them (see transitionRun).
   let bare = false;
   async function settleRun() {
     await Promise.race([document.fonts?.ready, wait(400)]);
@@ -1941,12 +1941,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.shade.style.height = !p && cardOn && t ? `${(t.height + 2 * pad) / k}px` : '';
     ui.shade.style.top = p && t ? `${ui.text.offsetTop - 16}px` : cardOn && t ? `${(t.top - wr.top - pad) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
-    ui.safe.hidden = !t || bare;
+    ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'bottom' : 'left';
     frameL = !p && t ? (card ? sl + card + 24 : L + 48) : 0;
     ui.safe.style.width = p ? '' : `${frameL / k}px`;
     ui.safe.style.height = p ? `${(B + 34) / k}px` : '';
-    const set = (k, v) => app.style.setProperty(k, `${bare ? 0 : Math.max(0, Math.round(v))}px`);
+    const set = (k, v) => app.style.setProperty(k, `${Math.max(0, Math.round(v))}px`);
     set('--pz-l', frameL);
     set('--pz-r', !p && d ? W - (ui.data.offsetLeft + dock.to * dv[0]) * k + 8 : 0);   // (where the card comes to rest: past its entry shift, at its dock)
     set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
@@ -1973,7 +1973,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = W / (wrap.clientWidth || W) || 1, G = 12;
     const obs = [], d = ui.data;
     let dk = null, pill = null;
-    if (bare) return [{ l: 0, t: 0, r: W, b: H }];
     if (!d.hidden && !('gone' in d.dataset) && !d.classList.contains('under') && !d.classList.contains('col')) {
       const x = d.offsetLeft + dock.to * dockVec()[0];
       obs.push(dk = { l: x * k, t: d.offsetTop * k, r: (x + d.offsetWidth) * k, b: (d.offsetTop + d.offsetHeight) * k });
