@@ -25,3 +25,11 @@ test('every heart failure ladder puts its block on the right atrium node', () =>
   assert.match(src, /nodeBlk\.setAttribute\('cx'/);
   assert.match(src, /snodeBlk/);
 });
+
+test('the Sites summary ladders carry each slide\'s block, so the heart failure cell hatches its RA node too', () => {
+  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  assert.match(src, /block: x\.block \?\? sl\?\.block/, 'rowsOf passes the slide\'s block');
+  assert.match(src, /L\.set\(r\.f, \{ block: r\.block \}\)/, 'laddersGrid draws it');
+  const lad = slides.find((x) => x.f === 'sites.js' && x.visual === 'ladders');
+  assert.ok(lad.of.includes('cardiac'), 'the summary includes the heart failure slide');
+});

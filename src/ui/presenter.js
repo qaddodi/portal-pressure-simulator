@@ -1590,7 +1590,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const [i, k] = rowAt(o), sl = i >= 0 ? slides[i] : null, x = typeof o === 'object' ? o : {};
       if (k == null || k < 0) return null;
       const title = x.title ?? sl?.title ?? '';
-      return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs, key: x.key, calm: x.calm || [] };
+      return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs, key: x.key, calm: x.calm || [], block: x.block ?? sl?.block };
     }).filter(Boolean);
   }
   const reveal = (c) => { c.classList.add('shown'); c.removeAttribute('role'); c.removeAttribute('tabindex'); c.removeAttribute('aria-label'); };
@@ -1600,7 +1600,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const grid = h('div', { class: 'pz-grid' + (big ? ' big' : '') });
     for (const r of rowsOf(s)) {
       if (!r.f) continue;
-      const L = bigLadder(); L.setBase(base); L.set(r.f, {});
+      const L = bigLadder(); L.setBase(base); L.set(r.f, { block: r.block });   // (a block on a station, the heart's RA, is hatched on its node)
       // In quiz mode each ladder's site is hidden until a tap (D7): the room names the site from the ladder's shape.
       const cell = h('div', quiz ? { class: 'pz-cell q', role: 'button', tabindex: '0', 'aria-label': 'Show the site of this ladder', onclick: () => reveal(cell), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reveal(cell); } } } : { class: 'pz-cell' },
         h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')),
