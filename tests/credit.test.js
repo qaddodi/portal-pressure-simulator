@@ -70,7 +70,7 @@ test('credit moves to a top corner when cards cover the lower half', () => {
   assert.ok(clear(s.tl, obs));
 });
 
-test('credit keeps its current corner while it stays free, and fades when no figure is left', () => {
+test('credit keeps its current corner while it stays free, and hides when no figure is left', () => {
   const s = freeSpots(fig, [{ l: 0, t: 600, r: 230, b: 700 }], W, H);
   assert.equal(pickCorner(s, 'br'), 'br');
   const none = freeSpots(fig, [{ l: 0, t: 0, r: 390, b: 700 }], W, H);
@@ -110,4 +110,16 @@ test('credit keeps clear of the FibroScan probe body (it is looked for, not only
   const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
   const obstacles = src.match(/const OBSTACLES = '([^']*)'/)[1];
   assert.ok(obstacles.includes('.scan-probe:not(.off) .sp-body'));
+});
+
+test('credit does not go back to a corner it left; a displaced credit takes the corner cards have left alone longest', () => {
+  const spots = { bl: { x: 1, y: 1 }, br: { x: 2, y: 2 }, tl: { x: 3, y: 3 }, tr: { x: 4, y: 4 } };
+  assert.equal(pickCorner(spots, 'br'), 'br', 'bl freeing up does not pull it back');
+  assert.equal(pickCorner(spots, null, { bl: 900, br: 100 }), 'tl', 'never-blocked corners come first, in order');
+  assert.equal(pickCorner({ ...spots, tl: null, tr: null }, null, { bl: 900, br: 100 }), 'br', 'else the corner blocked longest ago');
+});
+
+test('credit is never animated: no fade, glide or scale ease', () => {
+  assert.match(css, /\.stage-credit \{ transition: none; \}/);
+  assert.doesNotMatch(css, /\.stage-credit \{ transition: opacity/);
 });

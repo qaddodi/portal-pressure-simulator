@@ -1,6 +1,6 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
-// It keeps its corner while that corner stays free and never glides: any move fades it out in place, jumps it
-// unseen and fades it back in, once the cards have settled; with no figure left anywhere it stays faded out.
+// It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
+// holds it hidden until the cards have settled, then shows it at once at the new spot; with no figure left anywhere it stays hidden.
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('credit');
 
@@ -35,10 +35,13 @@ export function freeSpots(fig, obs, w, h, { gap = 10, inset = 12 } = {}) {
   return out;
 }
 
-// Which corner to use: the current one while it stays free, else the first free corner in order.
-export function pickCorner(spots, cur) {
+// Which corner to use: the current one while it stays free (it never goes back to a corner it left just because that one
+// freed up); else the free corner that has gone longest without being covered (blocked: corner -> when a card last covered
+// it), ties in the order above. A corner a card keeps coming back to is the last to be chosen, so the credit rarely moves.
+export function pickCorner(spots, cur, blocked = {}) {
   if (cur && spots[cur]) return cur;
-  return CORNERS.find((c) => spots[c]) || null;
+  const free = CORNERS.filter((c) => spots[c]);
+  return free.sort((a, b) => (blocked[a] ?? -Infinity) - (blocked[b] ?? -Infinity))[0] || null;
 }
 
 // What the credit keeps clear of. Chrome (the bars, the zoom pill, the figure's labels) is avoided but does not make the screen "busy".
@@ -69,7 +72,8 @@ function labelRects(wr, wrap) {
 
 export function createCreditPlacer(credit) {
   const wrap = credit.offsetParent || credit.parentElement, app = document.getElementById('app');
-  let cur = null, curTight = false, pos = null, moving = false, changedAt = 0, lastSig = '', raf = 0, waitT = 0, moveT = 0, betterSince = 0, size = null, sizeKey = '';
+  const blocked = {};   // corner -> when a card last covered it
+  let cur = null, curTight = false, pos = null, moving = false, changedAt = 0, lastSig = '', raf = 0, waitT = 0, moveT = 0, size = null, sizeKey = '';
   const measure = (busy) => {
     const key = innerWidth + 'x' + innerHeight;
     if (key !== sizeKey) {
@@ -117,7 +121,7 @@ export function createCreditPlacer(credit) {
     raf = 0;
     if (moving || !credit.isConnected || !wrap.offsetParent) return;
     // A slide change (the presenter's pz-moving): out of sight until the cards are in and the camera has settled; it then
-    // snaps to its final spot and fades in once.
+    // appears at once at its final spot.
     if (app?.classList.contains('pz-moving')) { credit.classList.add('moving'); changedAt = 0; lastSig = ''; return; }
     const wr = wrap.getBoundingClientRect();
     let { w, h } = measure(false);
@@ -131,7 +135,7 @@ export function createCreditPlacer(credit) {
     // A card still sliding or fading in is not where it will settle: wait for it (and for its size to stop changing).
     const settling = els.some((el) => el.getAnimations({ subtree: true }).some((an) => an.playState === 'running' && Number.isFinite(an.effect?.getComputedTiming().endTime)));
     if (sig !== lastSig || settling) {
-      // Something moved: if it now reaches the credit, fade out at once; let it settle before choosing a new spot
+      // Something moved: if it now reaches the credit, hide it at once; let it settle before choosing a new spot
       // (but not forever: a piece that keeps moving is taken where it is after a moment).
       lastSig = sig;
       if (pos && obs.some((o) => hit({ l: pos.x - 4, t: pos.y - 4, r: pos.x + w + 4, b: pos.y + h + 4 }, o))) credit.classList.add('moving');
@@ -141,29 +145,22 @@ export function createCreditPlacer(credit) {
     changedAt = 0;
     const opt = { inset: wr.width < 768 ? 12 : 24 };
     let spots = freeSpots(fig, obs, w, h, opt), tight = false;
-    let c = pickCorner(spots, cur);
+    for (const k of CORNERS) if (!spots[k]) blocked[k] = now;
+    let c = pickCorner(spots, cur, blocked);
     if (!c) {
       // Not on one line: try it on two, before giving the figure up as covered.
-      const t = measure('tight'), tspots = freeSpots(fig, obs, t.w, t.h, opt), tc = pickCorner(tspots, cur);
+      const t = measure('tight'), tspots = freeSpots(fig, obs, t.w, t.h, opt), tc = pickCorner(tspots, cur, blocked);
       if (tc) { spots = tspots; c = tc; tight = true; }
     }
     if (!c) { credit.classList.add('covered'); return; }
-    // A preferred corner that has been free for a while takes the credit back (not on every brief opening).
-    const pref = CORNERS.find((k) => spots[k]);
-    if (c === cur && pref !== cur) {
-      betterSince ||= now;
-      if (now - betterSince > 1500) c = pref;
-      else { clearTimeout(waitT); waitT = setTimeout(soon, 400); }
-    } else betterSince = 0;
-    if (c !== cur) betterSince = 0;
     const p = spots[c];
     if (c === cur && tight === curTight && !credit.classList.contains('moving') && !credit.classList.contains('covered') && Math.abs(p.x - pos.x) <= 4 && Math.abs(p.y - pos.y) <= 4) {
-      // A nudge of a few pixels (its own size easing to the busy size) is taken in place, without a fade.
+      // A nudge of a few pixels (its own size easing to the busy size) is taken in place.
       if (p.x !== pos.x || p.y !== pos.y) place(c, p, tight);
       return;
     }
     if (!pos || credit.classList.contains('covered') || credit.classList.contains('moving')) { place(c, p, tight); return; }
-    // A new spot: fade out in place, jump there unseen, fade back in (never a slide across the figure).
+    // A new spot: hide at once, hold hidden a moment, show at once there (never a slide across the figure, never a fade).
     credit.classList.add('moving');
     moving = true;
     clearTimeout(moveT);

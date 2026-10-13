@@ -3849,8 +3849,9 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .vdock.mini .vd-status, .vdock.mini .readouts { display: none; }
 .vdock.mini .stage-bar.bottom { height: 54px; min-height: 54px; padding: 0 12px 0 4px; }
 .app.figure-focus .zoom-pill { transition: opacity .25s var(--ease), translate .2s var(--ease), bottom .2s var(--ease), font-size .3s var(--ease); }
-/* The credit never glides: it fades out, jumps while unseen, and fades back in (src/ui/credit.js). */
-.stage-credit { transition: opacity .26s var(--ease), scale .3s var(--ease); }
+/* The credit is never animated: no glide, no fade, no scale ease. When it must move it vanishes at once, stays hidden until the
+   cards and camera settle, and appears at once at its new spot (src/ui/credit.js). */
+.stage-credit { transition: none; }
 /* Busy screen (a card or sheet is open beneath it): the credit shrinks a little and keeps a clear gap above the card. */
 .stage-credit { transform-origin: left bottom; }   /* sizes by scale, so its type stays on the 12 px step of the scale */
 .stage-credit.busy { scale: .875; }

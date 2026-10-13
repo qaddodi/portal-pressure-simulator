@@ -1527,7 +1527,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cancelFrame(vtAnim);
     vtTarget = to;
     const from = { ...vt }, t0 = performance.now();
-    if (!sameView(from, to)) logMove({ t: t0, kind: 'glide', zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
+    if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: 'glide', zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
     if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
     if (ms <= 0) { vtGliding = false; vt = to; applyVT(); CTM = null; camSettle(); return; }
     vtGliding = true;
