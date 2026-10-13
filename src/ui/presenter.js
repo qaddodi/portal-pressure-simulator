@@ -331,15 +331,22 @@ function fitChart(svg, lay) {
 if (typeof addEventListener !== 'undefined') addEventListener('pps:labelscale', () => requestAnimationFrame(() => fitted.forEach(fitNow)));
 const fsOf = (el, px) => { el.style.fontSize = px.toFixed(2) + 'px'; };
 
+// The block is a hatched fill: bold diagonal red stripes over a faint red tint (visible in light and dark, no label).
+// Shared by the ladders and the level rail, so the block looks the same everywhere.
+const hatch = (id, s) => sv('pattern', { id, width: s, height: s, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
+  sv('rect', { class: 'pz-hb', width: s, height: s }), sv('rect', { class: 'pz-hs', width: s / 2, height: s }));
+/** The block on the level rail: the ladder's block (rounded, red outline, red hatching) standing upright across the bar. */
+function railBlock() {
+  const id = 'pzRailB' + ++uid;
+  return sv('svg', { class: 'pz-rail-blk', viewBox: '0 0 18 28', 'aria-hidden': 'true' },
+    sv('defs', {}, hatch(id, 7)), sv('g', { class: 'pzl-drop' }, sv('rect', { x: 1, y: 1, width: 16, height: 26, rx: 5, fill: `url(#${id})` })));
+}
 /** The pressure ladder at projector size: five stations, the healthy line dashed behind, every fall of
  *  more than 4 mmHg shaded as a block. Under the axis, as on the app's own pressure chart, two spans run
  *  along the stations, named: HVPG (wedged to free hepatic vein) and PPG (portal
  *  vein to the IVC), coloured by their cut-offs, with faint leaders up to the
  *  stations they join. set(f, { key }) glides the line and counts the numbers. */
 function bigLadder() {
-  // The block is a hatched fill: bold diagonal red stripes over a faint red tint (visible in light and dark, no label).
-  const hatch = (id, s) => sv('pattern', { id, width: s, height: s, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
-    sv('rect', { class: 'pz-hb', width: s, height: s }), sv('rect', { class: 'pz-hs', width: s / 2, height: s }));
   // The geometry follows the lettering (lay, from the slide's type scale): the margins, rows and station spacing grow with
   // the text, the station names and the falls take two rows when one is too tight, and the box grows taller, never wider.
   const W = 500;
@@ -686,7 +693,7 @@ function rail(mode) {
   return h('div', { class: 'pz-rail' + (mode === 'all' ? ' all' : at >= 0 ? ' one' : ''), role: 'img', 'aria-label': at >= 0 ? `Block: ${SITES[at][1]}` : 'Six levels: pre-hepatic, presinusoidal, sinusoidal, postsinusoidal, post-hepatic, cardiac' },
     h('div', { class: 'pz-rail-liver' }, h('span', {}, 'Liver')),
     h('ol', {}, SITES.map(([id, name], i) => h('li', { 'data-site': id, class: i === at ? 'on' : null },
-      h('i', {}, i === at ? h('b') : null), h('span', { class: 'n' }, name)))));
+      h('i', {}, i === at ? railBlock() : null), h('span', { class: 'n' }, name)))));
 }
 
 // ── Visuals over the dimmed figure ─────────────────

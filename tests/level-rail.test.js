@@ -19,7 +19,12 @@ test('rail names stay on one line, sized to their column, and tilt 45° when the
   assert.match(css, /@container \(max-width: \d+px\)\s*\{[^@]*rotate: -45deg/);
 });
 
-test('the rail marks the block with the ladder hatching (diagonal red stripes), not a solid bar', () => {
-  const b = css.split('\n').find((l) => l.startsWith('.pz-rail li > i b {'));
-  assert.ok(b.includes('repeating-linear-gradient(45deg') && b.includes('var(--danger)') && !b.includes('box-shadow') && b.includes('inset: 0'));
+test('the rail marks the block with the ladder block (hatched, outlined, upright), not a bar fill', () => {
+  assert.match(js, /function railBlock\(\)[\s\S]*hatch\(id, 7\)[\s\S]*class: 'pzl-drop'/);
+  assert.ok(js.includes('i === at ? railBlock() : null'));
+  const b = css.split('\n').find((l) => l.startsWith('.pz-rail li > i .pz-rail-blk {'));
+  const [, w, hgt] = b.match(/width: ([\d.]+)em; height: ([\d.]+)em/);
+  assert.ok(+w > 0.62 && +hgt > 0.62 + 0.1, 'wider and taller than the bar');
+  assert.ok(+hgt - 0.62 < 2 * 0.5, 'overhang stays inside the gap above the label (.5em)');
+  assert.ok(!css.split('\n').some((l) => l.startsWith('.pz-rail li > i b {')));
 });
