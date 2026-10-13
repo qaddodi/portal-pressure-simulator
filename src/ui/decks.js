@@ -34,7 +34,8 @@
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
-//   tick                     a few words for what happened at this slide's time point, under its line on a talk trace (else its title)
+//   tick                     a few words for what happened at this slide's time point, over its line, at 45°, on a talk trace (else its title)
+//   when                     the time point under that line, in words, when the days so far would repeat the one before (a drug started at the same visit)
 //   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them) play on the
 //                            live figure as a time-lapse, from the slide before's state (from/to: words for the
 //                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
@@ -64,7 +65,7 @@ import { ASCITES } from './decks/ascites.js?v=00c30017df';
 import { VARICES } from './decks/varices.js?v=534bb3ec39';
 import { TREATMENT } from './decks/treatment.js?v=fb95b80156';
 import { STIFFNESS } from './decks/stiffness.js?v=d1986ddf9a';
-import { ONE_YEAR } from './decks/one-year.js?v=4ec4aac042';
+import { ONE_YEAR } from './decks/one-year.js?v=f5fba24ac9';
 import { LOBULE } from './decks/lobule.js?v=388ec9afa2';
 import { SHUNTS } from './decks/shunts.js?v=d3b93ba50b';
 import { TAP } from './decks/tap.js?v=5962504271';
