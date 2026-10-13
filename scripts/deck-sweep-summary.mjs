@@ -21,7 +21,8 @@ for (const p of files.sort()) {
   (rows[deck] ||= {})[size] = `${r.fwd.length} slides${lines.length ? `, ${lines.length} finding(s)` : ', clean'}`;
   for (const l of lines) findings.push(`${deck} ${size} ${l}`);
 }
-console.log('deck | desktop | ipad | phone');
-for (const [d, s] of Object.entries(rows)) console.log(`${d} | ${s.desktop || 'MISSING'} | ${s.ipad || 'MISSING'} | ${s.phone || 'MISSING'}`);
+const SZ = [...new Set(Object.values(rows).flatMap(Object.keys))].sort();
+console.log('deck | ' + SZ.join(' | '));
+for (const [d, s] of Object.entries(rows)) console.log(`${d} | ${SZ.map((z) => s[z] || 'MISSING').join(' | ')}`);
 console.log(`\n${findings.length} finding(s)`);
 for (const f of findings) console.log(f);
