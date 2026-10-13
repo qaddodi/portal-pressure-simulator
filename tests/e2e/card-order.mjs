@@ -1,7 +1,8 @@
 // Slide change order: the cards leave, the camera makes one zoom to the framing that fits around the new cards (measured
 // unseen), then the cards come in. While the camera moves (the presenter's bare phase) the teaching card and its glass stay
 // out whole: never an empty card on screen. When they come back, the words are already in, the camera has stopped, and it
-// does not move again until the next slide's cards leave. The catheter's readings (FHVP, WHVP, HVPG) glide to a new spot,
+// does not move again until the next slide's cards leave. A catheter slide keeps its teaching card (the live tracing) on
+// screen through the measurement. The catheter's readings (FHVP, WHVP, HVPG) glide to a new spot,
 // never jump there in one frame. The corner credit sits the whole move out: gone from the moment the cards leave, back once (fading
 // in at its final spot, never moving while visible) after the cards are in and the camera has settled. Real motion, stepping with Next through a deck, sampled every frame.
 //
@@ -51,6 +52,7 @@ await page.evaluate(() => {
       if (bare || tx.classList.contains('pz-leave')) armed = false;   // (the next slide's cards are leaving)
       wasBare = bare; cam = c;
       if (bare && !tx.classList.contains('pz-leave')) window.__bad.push('teaching card not held out while the camera moves');
+      if (bare && tx.querySelector('.pz-mon')) window.__bad.push('live tracing card left during the HVPG measurement');
       if (!bare && op > 0.5 && !tx.classList.contains('pz-leave') && !tx.textContent.trim()) window.__bad.push('empty teaching card on screen');
     }
     requestAnimationFrame(tick);

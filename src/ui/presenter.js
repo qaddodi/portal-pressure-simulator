@@ -1359,7 +1359,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The new cards are laid out and measured where they will rest while still unseen (bare), so the camera makes one eased move
     // straight to the framing that fits around them; only then do they come in, whole, and the camera stays put.
     ui?.root.classList.add('pz-prep');
-    bare = !booting && !!ui;
+    // (A catheter slide comes in at once: its teaching card carries the live tracing, which stays on screen through the
+    // measurement while the catheter drives the camera.)
+    bare = !booting && !!ui && !ct;
     wordsIn(s, q, said, to, swap, lap, st);
     // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first.)
     if (bare) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
