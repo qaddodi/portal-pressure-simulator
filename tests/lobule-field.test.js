@@ -41,7 +41,7 @@ test('in dark mode the field lobules\' capillarized sinusoids are dark (they rec
 
 test('the zoom\'s last stretch has nothing heavy to do: the lobule is drawn ahead, unseen, and the anatomy returns after landing', () => {
   // prewarm ends with the landed lobule's state and picture, drawn while the dive still magnifies it and it is unseen.
-  assert.match(lz, /warmQ\.push\(\(\) => \{\n\s+if \(fade > 0 \|\| !F \|\| !diveScaled\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true;/);
+  assert.match(lz, /warmQ\.push\(\(\) => \{\n\s+if \(ready\(\)\) \{ flowA = 0; flowT = 0; return; \}\n\s+if \(fade > 0 \|\| !F \|\| !diveScaled\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true;/);
   assert.match(lz, /diveDrawn = false; draw\(0\); staged = api\.viewKey\(\); relLater = true;/);
   assert.match(lz, /if \(fade <= 0 && !staging\) return;/, 'update fills in the model while staging');
   // The frame it starts to fade in draws nothing new when the framing still matches; otherwise it draws as before.
@@ -52,4 +52,13 @@ test('the zoom\'s last stretch has nothing heavy to do: the lobule is drawn ahea
   // Landed, the anatomy stays hidden under the lobule until it has settled; every other end shows it at once.
   assert.match(stage, /const landed = t >= 1 && !diveOut;\n\s+setDiveScale\(t >= 1 \? 1 : Math\.exp\(Math\.min\(z, LC \+ 0\.4\)\), landed\);/);
   assert.match(stage, /if \(diveT >= 1 && lobuleOn\) setDiveHidden\(false, false\); \}, 500\)/);
+});
+
+test('the lobule is drawn before the dive begins: the idle preparation keeps its picture, and the dive only reuses it', () => {
+  assert.match(lz, /if \(fade <= 0\) \{ flowA = 0; flowT = 0; diveDrawn = false; draw\(0\); staged = api\.viewKey\(\); relLater = true; prepKey = key; \}/);
+  assert.doesNotMatch(lz, /draw\(0\); release\(\); prepKey = key;/, 'the prepared picture is no longer thrown away');
+  assert.match(lz, /const ready = \(\) => staged && staged === api\.viewKey\(\) && model;/);
+  assert.match(lz, /if \(ready\(\)\) \{ diveDrawn = true; return; \}/, 'framed the same: the dive draws nothing');
+  // Given back, the preparation runs again at the next idle moment.
+  assert.match(lz, /staged = ''; relLater = false; prepKey = '';/);
 });
