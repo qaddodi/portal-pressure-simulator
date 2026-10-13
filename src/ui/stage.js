@@ -7,7 +7,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7c63421fac';
 import { fibroReading } from './clock.js?v=6284ad19b7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, lite, liteFade } from './util.js?v=9279d972cf';
-import { createLobuleZoom } from './lobule-zoom.js?v=d891e19357';
+import { createLobuleZoom } from './lobule-zoom.js?v=011cb2356b';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';

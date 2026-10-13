@@ -1,6 +1,6 @@
 // Semantic zoom, one level below the lobule: a stretch of one sinusoid, cut along its length, drawn on
-// the GPU (sinusoid-gl.js) in the lobule's language: the pressure-coloured lumen with its shimmer and
-// chevrons, the pale green lymph, the hepatocyte plates. Blood runs from the portal triad (left, or top
+// the GPU (sinusoid-gl.js) in the lobule's language: the pressure-coloured lumen with its shimmer,
+// the pale green lymph, the hepatocyte plates. Blood runs from the portal triad (left, or top
 // on a portrait screen) to the central vein.
 //
 // What it is for: the wall, and what crosses it. Plasma filters out of the lumen through the
@@ -19,11 +19,11 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp, bloodColors } from './util.js?v=9279d972cf';
+import { h, fmt, clamp, lerp } from './util.js?v=9279d972cf';
 import { pressureColor } from './colormap.js?v=001a2716b9';
 import { isPaused } from './clock.js?v=6284ad19b7';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8eea50315b';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=2a600a94b0';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('sinusoid-view');
 
@@ -247,14 +247,13 @@ export function createSinusoidView({ host }) {
       cRbc: t('--sv-gl-rbc'),
       // The end arrows are inked as their labels: the text's colour inside the labels' halo.
       cEndF: rgb(v('--text')), cEndE: rgb(v('--label-halo')),
-      cChev: bloodColors().chevInk, cRev: bloodColors().revCol,   // (the app's chevron inks: dark, orange where reversed)
       cAlb: t('--sv-gl-albumin'), cAlbE: t('--sv-gl-albumin-edge'),
       uShim: dark ? 0.3 : 0.5, uStreak: dark ? 0.3 : 0.85, uDark: dark ? 1 : 0,
     };
   }
 
   // ── What moves ──
-  // The blood: the shader's shimmer and chevrons, at the flow. Albumin rides in it (amber dots), each at
+  // The blood: the shader's shimmer, at the flow. Albumin rides in it (amber dots), each at
   // its lane's speed (parabolic: fastest in the middle). Plasma crosses the wall into Disse: its water
   // wherever it can (not drawn), albumin only through open fenestrae; at a closed wall albumin is turned back.
   // In Disse the lymph runs back toward the portal triad, carrying what crossed.
@@ -375,8 +374,7 @@ export function createSinusoidView({ host }) {
     if (g.tall) { layoutTall(); return; }
     for (const k in lead) if (k !== 'lymph' && k !== 'fen') lead[k].style.opacity = '0';   // (across the screen only the lymph and the fenestrae have leaders)
     const xc = away(pick(0.5), g.xk, 30);
-    const rs = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
-    LAB[0] = rs.x; LAB[1] = rs.half;
+    region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
     kupName();
     // In the plates: the stellate cell named just beyond its body; the fenestrae beside it in the same plate, with a
     // thin callout down to an open fenestra in the lining (to the name's left), clear of the stellate cell's name.
@@ -423,7 +421,7 @@ export function createSinusoidView({ host }) {
     const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
     const mid = (x) => hepIn(x) + Math.min(hep * 0.5, (geo.W / 2 / k - hepIn(x)) * 0.5);   // the middle of the plate's part on screen
     const dis = (x) => wallIn(x) + disseW(x) * 0.5;
-    LAB[0] = pick(0.42); LAB[1] = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), LAB[0], 0).half;
+    region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), pick(0.42), 0);
     // Right (y < 0): fenestrae, stellate cell, a hepatocyte.
     let x = pick(0.08);
     const xp = fenAt(x);
@@ -441,9 +439,6 @@ export function createSinusoidView({ host }) {
   // The Kupffer cell is named inside itself, over its body above the nucleus (its name tinted as the cell).
   const kupName = () => region('kup', 'Kupffer\ncell', '', geo.xk - 0.3, halfW(geo.xk) - 3.3 * clamp(halfW(geo.xk) / 5.2, 0.6, 1), { along: true });
   const BAND = [0, 0];   // a portrait screen's band for the other names, between the ends' (px down the screen)
-  const LAB = [0, 0];   // the lumen's name: x and half length (µm), for the shader to keep the arrowheads clear of it
-  // How much the lumen's name shows now (its own fades: a presenter slide that is not about it, the labels leaving).
-  const labShown = () => { const e = regions.sin?.el; return e && !e.hidden && e.firstElementChild ? +getComputedStyle(e.firstElementChild).opacity || 0 : 0; };
   // How much an end's name shows now (0 to 1): its pill's own fades (a presenter slide that is not about it, the names leaving).
   // In the presenter an end's arrow follows it, so no direction arrow shows without its name (Explore keeps both as they are).
   const endShown = (key) => {
@@ -619,7 +614,7 @@ export function createSinusoidView({ host }) {
       Object.assign(u, {
         uLum: UM.lum * S.lum, uPinch: S.pinch, uXs: geo.xs, uXk: geo.xk, uKy: halfW(geo.xk), uHscA: wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8,
         uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uLyF: clamp(0.32 * S.filt ** 1.5, 0.06, 1.75), uDir: Math.sign(S.v || 1),
-        uEnd: [END[0], END[1], END[2], 0.95], uEndA: endA, uLab: [LAB[0], LAB[1], labShown()], uRamp: Math.min(12, Math.abs(S.v * 24) * 0.5),
+        uEnd: [END[0], END[1], END[2], 0.95], uEndA: endA,
       });
       // The zoom from the lobule: one camera move. The lobule (magnified by the compositor) carries it most of the way;
       // the view, already drawn where the lobule's own sinusoid is, comes in over all of it at once as the zoom lands

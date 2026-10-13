@@ -26,3 +26,10 @@ test('cirrhosis: the wall seals, collagen fills Disse, the lumen narrows', () =>
 test('reversed sinusoidal flow runs the blood backwards', () => {
   assert.ok(sinusoidTargets({ ...base, rev: { sin: true }, lyProt: 0.9 }).v < 0);
 });
+
+test('the sinusoid view draws streaks only: no flow chevrons in its shader or its uniforms', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const gl = await readFile(new URL('../src/ui/sinusoid-gl.js', import.meta.url), 'utf8');
+  const view = await readFile(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
+  for (const src of [gl, view]) assert.doesNotMatch(src, /chevHead|CHEV_GLSL|\bcChev\b|\bcRev\b|\buRamp\b|\buLab\b|labShown/);
+});
