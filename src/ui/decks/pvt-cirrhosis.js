@@ -42,14 +42,14 @@ export const PVT_CIRRHOSIS = {
       id: 'scope', cam: 'varices', terms: ['varix'], tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'], delta: 'base',
       kicker: 'Before anticoagulation', site: 'sin', title: 'Check the varices first',
       line: 'The varices have grown to {varix}. Give bleeding prophylaxis before the anticoagulant, but do not let the endoscopy delay it.',
-      notes: 'Baveno VII advises screening for varices and prophylaxis as in any patient with cirrhosis before anticoagulation starts, but the endoscopy should not hold it up: the chance of reopening the vein falls the longer treatment waits. This patient has large varices.',
+      notes: 'Baveno VIII advises screening for varices and prophylaxis as in any patient with cirrhosis before anticoagulation starts, but the endoscopy should not hold it up: the chance of reopening the vein falls the longer treatment waits. This patient has large varices.',
       ask: ['Should anticoagulation wait for the endoscopy?', 'No: give variceal prophylaxis, but do not let the endoscopy delay anticoagulation.'],
     },
     {
       id: 'band', terms: ['varix'], tick: 'Banding', action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],
       kicker: 'Before anticoagulation', site: 'sin', title: 'Banding before anticoagulation',
       line: 'Banding shrinks the varices to {varix}. With prophylaxis in place, anticoagulation starts.',
-      notes: 'A non-selective beta-blocker or band ligation are both acceptable prophylaxis for large varices; carvedilol also lowers the portal pressure. Banding just before anticoagulation leaves ulcers that can bleed on it, so a beta-blocker, if tolerated, avoids that. For the anticoagulant, low molecular weight heparin or a vitamin K antagonist can be used, and a direct oral anticoagulant in Child–Pugh A and with caution in B.',
+      notes: 'A non-selective beta-blocker or band ligation are both acceptable prophylaxis for large varices; carvedilol also lowers the portal pressure. Banding just before anticoagulation leaves ulcers that can bleed on it, so a beta-blocker, if tolerated, avoids that. For the anticoagulant, low molecular weight heparin or a vitamin K antagonist can be used, and a direct oral anticoagulant in Child–Pugh A, with caution in B, and not in C.',
       ask: ['Name two acceptable forms of variceal prophylaxis before anticoagulation.', 'A non-selective beta-blocker or band ligation.'],
     },
     {
@@ -57,7 +57,7 @@ export const PVT_CIRRHOSIS = {
       tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'clot' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['pv'], delta: 'clot',
       kicker: 'Anticoagulation', site: 'sin', title: 'Months of anticoagulation reopen the vein',
       line: 'About 7 in 10 patients recanalize on anticoagulation. Here the clot clears over six months, the portal vein flows again and its pressure falls back to {pv}.',
-      notes: 'Baveno VII advises anticoagulation for a recent complete or near-complete clot of the main portal vein, with or without extension into the superior mesenteric vein, and for transplant candidates. The vein reopens in many patients, more often when treatment starts early. It continues for at least six months, and until transplant in candidates; the clot can recur after it stops. Without treatment many partial clots clear too, and whether a partial clot worsens the outlook is uncertain.',
+      notes: 'Baveno VIII advises anticoagulation for transplant candidates with any portal vein clot, and considers it for a recent partial or complete clot of the main portal vein, with or without extension into the superior mesenteric vein. The vein reopens in many patients, more often when treatment starts early. It continues for at least six months, and until transplant in candidates; the clot can recur after it stops. Without treatment many partial clots clear too, and whether a partial clot worsens the outlook is uncertain.',
       ask: ['What makes it more likely that anticoagulation reopens the portal vein?', 'Starting it early, soon after the clot forms.'],
     },
     {

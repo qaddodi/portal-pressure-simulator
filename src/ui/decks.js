@@ -55,27 +55,27 @@
 
 import { CIRCULATION } from './decks/circulation.js?v=d4320acd4d';
 import { SITES } from './decks/sites.js?v=41d6c83b44';
-import { HVPG } from './decks/hvpg.js?v=e4c550f298';
+import { HVPG } from './decks/hvpg.js?v=5c61506d11';
 import { ASCITES } from './decks/ascites.js?v=61999961c1';
-import { VARICES } from './decks/varices.js?v=784548fd64';
-import { TREATMENT } from './decks/treatment.js?v=8b12768e70';
-import { STIFFNESS } from './decks/stiffness.js?v=f9bcb84129';
-import { ONE_YEAR } from './decks/one-year.js?v=1ea7828e38';
+import { VARICES } from './decks/varices.js?v=47cde2d109';
+import { TREATMENT } from './decks/treatment.js?v=10e908cd93';
+import { STIFFNESS } from './decks/stiffness.js?v=6dc9727b70';
+import { ONE_YEAR } from './decks/one-year.js?v=cfb7ee27d2';
 import { LOBULE } from './decks/lobule.js?v=262a31ce6b';
 import { SHUNTS } from './decks/shunts.js?v=91699f4277';
-import { TAP } from './decks/tap.js?v=30ac81315c';
+import { TAP } from './decks/tap.js?v=6f5d0af964';
 import { CIRCUIT } from './decks/circuit.js?v=9e16409fcb';
 import { DOPPLER } from './decks/doppler.js?v=7eb07fe1b9';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=13143758ed';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=e603168112';
 import { PREHEPATIC } from './decks/prehepatic.js?v=09eb3594b2';
 import { RIGHT_HEART } from './decks/right-heart.js?v=0d83a8772b';
-import { BLEED } from './decks/variceal-bleed.js?v=995d3429d9';
+import { BLEED } from './decks/variceal-bleed.js?v=57dbec06f3';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=af7fc0c6ea';
-import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=a01124f125';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=411cfad4e1';
 import { SPLEEN } from './decks/spleen.js?v=7b3a1383f5';
 import { NCPH } from './decks/ncph.js?v=c58b81c951';
 import { OUTFLOW } from './decks/outflow.js?v=e0f5f66517';
-import { RECOMPENSATION } from './decks/recompensation.js?v=8df83fee40';
+import { RECOMPENSATION } from './decks/recompensation.js?v=4aad5c5c36';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

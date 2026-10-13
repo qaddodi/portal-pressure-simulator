@@ -42,7 +42,7 @@ export const BLEED = {
       id: 'oct', params: { drugs: { octreotide: true } }, cam: 'portal', labels: ['SMV', 'CONF'], tool: BEATS, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: true,
       kicker: 'Before the scope', site: 'sin', title: 'Start octreotide now',
       line: 'Give a 50 µg bolus, then 50 µg an hour for 2 to 5 days. Add ceftriaxone 1 g a day, which lowers infection, rebleeding and death. Erythromycin before the scope clears the stomach.',
-      notes: 'Octreotide, a somatostatin analogue: a 50 microgram bolus, then 50 micrograms an hour for 2 to 5 days. Give ceftriaxone 1 g a day as well, for up to 7 days: antibiotics lower infection, rebleeding and death. Erythromycin, 30 to 120 minutes before the scope, clears the stomach. Outside the US, terlipressin or somatostatin are used in its place. The portal pressure here falls with the blood loss too; in the model octreotide adds about 1 mmHg of that fall.',
+      notes: 'Octreotide, a somatostatin analogue: a 50 microgram bolus, then 50 micrograms an hour for 2 to 5 days. Give ceftriaxone 1 g a day as well, for up to 7 days: antibiotics lower infection, rebleeding and death. Erythromycin, 30 to 120 minutes before the scope, clears the stomach. Baveno VIII allows stopping the vasoactive drug as early as 24 hours after successful banding once a beta-blocker starts, and a shorter antibiotic course in Child–Pugh A. Outside the US, terlipressin or somatostatin are used in its place. The portal pressure here falls with the blood loss too; in the model octreotide adds about 1 mmHg of that fall.',
       ask: ['In the US, which drugs start before the endoscopy, and what does each do?', 'Octreotide lowers the portal pressure; ceftriaxone cuts infection, rebleeding and death; erythromycin clears the stomach for the scope.'],
     },
     {
@@ -55,8 +55,8 @@ export const BLEED = {
     {
       id: 'band', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'Bands stop the bleeding',
-      line: 'Endoscopy within 12 hours, once the circulation is restored. Banding does not lower portal pressure, and the HVPG rises slightly as the varix closes. If bleeding continues, a balloon tube or esophageal stent bridges to a rescue TIPS.',
-      notes: 'Band ligation controls most variceal bleeds. If bleeding cannot be controlled, a balloon tube or a self-expanding esophageal stent buys time as a bridge to a rescue TIPS. Banding does not lower the portal pressure; over the following days it raises the HVPG slightly as the varix closes.',
+      line: 'Endoscopy within 12 hours, once the circulation is restored. Banding does not lower portal pressure, and the HVPG rises slightly as the varix closes. If bleeding continues, an esophageal stent or a balloon tube bridges to a rescue TIPS.',
+      notes: 'Band ligation controls most variceal bleeds. If bleeding cannot be controlled, a covered self-expanding esophageal stent (preferred over a balloon tube where available) buys time as a bridge to a rescue TIPS. Banding does not lower the portal pressure; over the following days it raises the HVPG slightly as the varix closes.',
       ask: ['What bridges a bleed that banding cannot control?', 'A balloon tube or an esophageal stent, as a bridge to a rescue TIPS.'],
     },
     {
@@ -70,8 +70,8 @@ export const BLEED = {
       id: 'tips', params: { tips: { on: true } }, cam: 'liver', tool: BEATS, data: 'tiles', tiles: ['ppg', 'varix'], key: ['ppg'], delta: true,
       kicker: 'After the scope', site: 'sin', title: 'High-risk patients get a TIPS within 72 hours',
       causesHead: 'Who gets it', causes: ['Child–Pugh C, 10 to 13 points', 'Child–Pugh B, over 7, with active bleeding at endoscopy'],
-      line: 'A covered TIPS lowers the PPG to {ppg} and reduces rebleeding and death, ideally placed within 24 hours. An HVPG over 20 mmHg also marks high risk. Everyone else gets a beta-blocker plus repeat banding.',
-      notes: 'Baveno VII: in high-risk patients a pre-emptive TIPS, ideally within 24 hours and no later than 72, reduces rebleeding and death. An HVPG over 20 mmHg, where measured, also marks high risk. For everyone else, after the acute bleed: a non-selective beta-blocker with repeated banding every 2 to 4 weeks until the varices are gone. Rescue TIPS is for bleeding that drugs and banding do not control.',
+      line: 'A covered TIPS lowers the PPG to {ppg} and reduces rebleeding and death, ideally placed within 24 hours. An HVPG of 20 mmHg or more also marks high risk. Everyone else gets a beta-blocker plus repeat banding.',
+      notes: 'Baveno VIII: in high-risk patients a pre-emptive TIPS, ideally within 24 hours and no later than 72, reduces rebleeding and death. An HVPG of 20 mmHg or more, where measured, also marks high risk. A patient who misses the 72-hour window can still benefit from a TIPS placed later, up to about 1 week in Child–Pugh B and 2 weeks in Child–Pugh C. For everyone else, after the acute bleed: a non-selective beta-blocker with repeated banding every 2 to 4 weeks until the varices are gone. Rescue TIPS is for bleeding that drugs and banding do not control.',
       ask: ['Which patients get a pre-emptive TIPS after a variceal bleed?', 'Child–Pugh C 10 to 13, or Child–Pugh B over 7 with active bleeding at endoscopy.'],
     },
     {

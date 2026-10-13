@@ -21,7 +21,7 @@ export const VARICES = {
       kicker: 'Collaterals', site: 'sin', title: 'Varices grow as the gradient climbs',
       line: 'Over six months the HVPG climbs from about 12 to {17 mmHg}. Small varices become large, the spleen enlarges and platelets fall.',
       caveat: 'In patients this takes years: about 1 in 10 small varices become large each year.',
-      notes: 'The time-lapse runs the model\'s disease clock for 180 days while the cirrhosis advances. As the gradient rises, collateral flow grows (by the end about three quarters of the portal blood is shunted) and the varices enlarge. The congested spleen enlarges and holds back platelets (hypersplenism): a low platelet count with a stiff liver suggests clinically significant portal hypertension. Baveno VII\'s scope-sparing rule: screening endoscopy can be skipped when liver stiffness is below 20 kPa and platelets are above 150.',
+      notes: 'The time-lapse runs the model\'s disease clock for 180 days while the cirrhosis advances. As the gradient rises, collateral flow grows (by the end about three quarters of the portal blood is shunted) and the varices enlarge. The congested spleen enlarges and holds back platelets (hypersplenism): a low platelet count with a stiff liver suggests clinically significant portal hypertension. Baveno VIII\'s scope-sparing rule: screening endoscopy can be skipped when liver stiffness is below 20 kPa and platelets are above 150.',
       ask: ['Which tiles warn that varices are growing, without a scope?', 'The falling platelets and the growing spleen.'],
     },
     {

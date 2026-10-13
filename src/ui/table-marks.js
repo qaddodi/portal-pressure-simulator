@@ -21,7 +21,7 @@ export const RATE = {
   liver: (v) => (v <= 55 ? ['hi', 'Low'] : v <= 75 ? ['mid', 'Reduced'] : ['ok', 'Normal']),
   shunt: (v) => (v >= 0.3 ? ['hi', 'Large'] : v >= 0.1 ? ['mid', 'Moderate'] : ['ok', 'Small']),
   map: (v) => (v < 65 ? ['hi', 'Low'] : ['ok', 'Normal']),
-  // Liver stiffness (Baveno VII): under 10 kPa normal, 15 to 25 the grey zone, 25 or more CSPH.
+  // Liver stiffness (Baveno VIII): under 10 kPa normal, 15 to 25 the grey zone, 25 or more CSPH.
   lsm: (v) => (v >= 25 ? ['hi', 'CSPH likely'] : v >= 15 ? ['mid', 'Gray zone'] : v >= 10 ? ['mid', 'Raised'] : ['ok', 'Normal']),
   ra: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
   salb: (v) => (v < 3.5 ? ['mid', 'Low'] : ['ok', 'Normal']),

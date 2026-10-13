@@ -17,7 +17,7 @@ export const ONE_YEAR = {
       kicker: 'Day 0', site: 'sin', title: 'Cirrhosis found on a scan, without symptoms',
       line: 'Over the next year we follow this patient, one test per slide. Only the fibrosis progresses, until carvedilol is started at the end.',
       notes: 'One patient, one disease clock: each slide moves the same patient forward and shows one instrument. Fibrosis advances steadily in the model over the year; nothing else is changed until carvedilol at the end. At the start the stiffness and platelets sit in the gray zone, and the catheter decides.',
-      ask: ['Which two bedside numbers does Baveno VII use to rule out CSPH?', 'Liver stiffness and the platelet count.'],
+      ask: ['Which two bedside numbers does Baveno VIII use to rule out CSPH?', 'Liver stiffness and the platelet count.'],
     },
     {
       id: 'cath', cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'],
@@ -30,16 +30,16 @@ export const ONE_YEAR = {
       id: 'd90', tick: 'FibroScan', days: 90, ramp: ramp(0.5, 0.54), cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'd0',
       kicker: 'Day 90', site: 'sin', title: 'Stiffness and platelets make CSPH likely',
       line: 'Stiffness is {lsm} with platelets of {plt}, below 150. In this part of the gray zone, the pair makes CSPH likely without a catheter.',
-      notes: 'Baveno VII gray zone: 20 to 25 kPa with platelets below 150, or 15 to 20 kPa with platelets below 110, carries a risk of CSPH of 60% or more. The model agrees: the HVPG has just passed 10 mmHg. With CSPH likely, Baveno VII would start carvedilol here. Stiffness and platelets are cheap and repeatable, which is why they are used to follow patients between endoscopies.',
-      ask: ['Stiffness 21 kPa and platelets 115. How likely is CSPH?', 'Likely: 60% or more by the Baveno VII gray-zone rule.'],
+      notes: 'Between 15 and 25 kPa the stiffness alone does not decide. Baveno VIII calls CSPH present when a validated model (ANTICIPATE, built on the stiffness and the platelets) puts its probability at 75% or more, or when the spleen stiffness is 55 kPa or more. The model agrees: the HVPG has just passed 10 mmHg. With CSPH likely, Baveno VIII would start carvedilol here. Stiffness and platelets are cheap and repeatable, which is why they are used to follow patients between endoscopies.',
+      ask: ['Stiffness 21 kPa and platelets 115. How likely is CSPH?', 'Likely: in the gray zone, a stiffness over 20 kPa with low platelets gives ANTICIPATE a high probability of CSPH. A spleen stiffness of 55 kPa or more would settle it.'],
     },
     {
       id: 'd180', terms: ['varix'], tick: 'Endoscopy', days: 90, ramp: ramp(0.54, 0.58), cam: 'varices', tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'd0',
       kicker: 'Day 180', site: 'sin', title: 'Small varices mean CSPH',
-      line: 'Under Baveno VII, any varices count as CSPH. Here the scope finds small ones in the lower esophagus.',
+      line: 'Under Baveno VIII, any varices count as CSPH. Here the scope finds small ones in the lower esophagus.',
       caveat: 'Carvedilol would start by now; this case holds it back to show the pressure rising.',
-      notes: 'Small varices are under 5 mm and flatten with air. Without red wale signs and in compensated cirrhosis they bleed rarely, but they show that the gradient is very likely past 10 mmHg; below 10 varices are uncommon, not impossible. Varices mean CSPH, so by Baveno VII carvedilol would start now; this talk holds it back until the last slide only to show the untreated rise. A patient on a non-selective beta-blocker for CSPH needs no screening endoscopy; one who cannot take it has small varices rechecked in one to two years, sooner if the disease is active.',
-      ask: ['What do small varices tell you about the HVPG?', 'That CSPH is present: Baveno VII reads any varices as CSPH. Below 10 mmHg varices are uncommon, not impossible.'],
+      notes: 'Small varices are under 5 mm and flatten with air. Without red wale signs and in compensated cirrhosis they bleed rarely, but they show that the gradient is very likely past 10 mmHg; below 10 varices are uncommon, not impossible. Varices mean CSPH, so by Baveno VIII carvedilol would start now; this talk holds it back until the last slide only to show the untreated rise. A patient on a non-selective beta-blocker for CSPH needs no screening endoscopy; one who cannot take it has small varices rechecked in one to two years, sooner if the disease is active.',
+      ask: ['What do small varices tell you about the HVPG?', 'That CSPH is present: Baveno VIII reads any varices as CSPH. Below 10 mmHg varices are uncommon, not impossible.'],
     },
     {
       id: 'd365', tick: 'Catheter, Doppler', days: 185, ramp: ramp(0.58, 0.66), cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'], delta: 'd0',
@@ -65,8 +65,8 @@ export const ONE_YEAR = {
     {
       id: 'carv', tick: 'Carvedilol', params: { drugs: { carvedilol: true } }, cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'], delta: true,
       kicker: 'Day 365', site: 'sin', title: 'Carvedilol lowers the gradient',
-      line: 'Baveno VII recommends a non-selective beta-blocker, preferably carvedilol, before a first bleed or decompensation. It lowers the gradient by about a fifth, and in most patients it replaces screening endoscopy. Check the blood pressure.',
-      notes: 'Baveno VII: in compensated cirrhosis with CSPH, a non-selective beta-blocker, preferably carvedilol (6.25 mg, then 12.5 mg a day), to prevent decompensation, as in the PREDESCI trial. It replaces screening endoscopy for most patients who take it. A fall in HVPG of 10% or more on drugs predicts benefit in compensated patients. Watch the blood pressure.',
+      line: 'Baveno VIII recommends a non-selective beta-blocker, preferably carvedilol, before a first bleed or decompensation. It lowers the gradient by about a fifth, and in most patients it replaces screening endoscopy. Check the blood pressure.',
+      notes: 'Baveno VIII: in compensated cirrhosis with CSPH, a non-selective beta-blocker, preferably carvedilol (6.25 mg, then 12.5 mg a day), to prevent decompensation, as in the PREDESCI trial. It replaces screening endoscopy for most patients who take it. A fall in HVPG of 10% or more on drugs predicts benefit in compensated patients. Watch the blood pressure.',
       ask: ['Why start carvedilol before any bleed?', 'In compensated cirrhosis with CSPH it lowers the risk of decompensation (ascites, bleeding).'],
     },
     {

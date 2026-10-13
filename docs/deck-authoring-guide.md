@@ -425,7 +425,7 @@ Edge tones used when you glow an id by hand: portal vessels follow their station
 | `salb` | Serum albumin | g/dL | amber < 3.5 |
 | `hb` | Hemoglobin | g/dL | amber < 12, red < 7 |
 
-Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; HVPG ≥ 12 high risk of variceal bleeding; PPG normal ≤ 5; Baveno stiffness: < 10 kPa normal, 15–25 gray zone, ≥ 25 CSPH likely.
+Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; HVPG ≥ 12 high risk of variceal bleeding; PPG normal ≤ 5; Baveno VIII stiffness: < 10 kPa normal, ≤ 15 with platelets ≥ 150 rules CSPH out, 15–25 gray zone (ANTICIPATE ≥ 75% or spleen stiffness ≥ 55 kPa rules it in), ≥ 25 CSPH.
 
 ---
 
@@ -443,7 +443,7 @@ Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; HVPG ≥ 12 high ris
 10. **Order the patient deliberately.** First slide: `preset` (usually `healthy` or the disease). Later slides continue the same patient; use `params`/`days`/`action` to change it, `delta: true` or `delta: '<id>'` to show what changed. Switch the previous drug flag off when switching drugs.
 11. **Every content slide has** `id`, `kicker`, `title`, `line`, `notes` (2–4 sentences a lecturer can read aloud) and `ask: [question, answer]`. The last slide is a `visual: 'table'` summary under `kicker: 'Summary'` with `of` rows naming the earlier slides.
 12. **Decks:** 6–12 slides, 3–4 `objectives`, ≥ 3 kicker groups or explicit `sections`, `level` one of foundation/core/advanced.
-13. **Style:** plain sentence case, no emoji, American spelling, numbers with units (`mmHg`, `g/dL`, `kPa`), clinically accurate (Baveno VII).
+13. **Style:** plain sentence case, no emoji, American spelling, numbers with units (`mmHg`, `g/dL`, `kPa`), clinically accurate (Baveno VIII; AASLD where US practice differs).
 14. Presenter forces the pressure colour mode and keeps the app's own N, S, L keys off while presenting; there are **no lens, card or test-type fields on slides**: the nearest are `tool.kind` and `visual` (section 7).
 
 ---

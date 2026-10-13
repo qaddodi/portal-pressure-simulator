@@ -136,7 +136,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=41f7256302'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=6a50bfa86a'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -1444,7 +1444,7 @@ function openHelp(section) {
       h('li', {}, 'Line width follows vessel diameter (compressed, so the cavae don’t drown the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
     h('h3', {}, 'Thresholds & references'),
-    h('p', { class: 'sub' }, 'Baveno VII consensus on portal hypertension (2022), reviewed against Baveno VIII (August 2026); AASLD guidance on risk stratification and management of portal hypertension and varices in cirrhosis (2024). Thresholds apply to gradients (HVPG, direct portal–systemic gradient), never to the pressure at a single vessel. Physiology after Guyton; Lautt (hepatic arterial buffer response); Bosch & Groszmann (HVPG).'),
+    h('p', { class: 'sub' }, 'Baveno VIII consensus on portal hypertension (2026), building on Baveno VII (2022); AASLD guidance on risk stratification and management of portal hypertension and varices in cirrhosis (2024). Thresholds apply to gradients (HVPG, direct portal–systemic gradient), never to the pressure at a single vessel. Physiology after Guyton; Lautt (hepatic arterial buffer response); Bosch & Groszmann (HVPG).'),
     h('p', { class: 'disclaimer' }, 'Educational simulation. The model is simplified and its values are illustrative; do not use it for diagnosis or treatment decisions.')), { wide: true });
   scrollToSection(section);
 }
@@ -1467,7 +1467,7 @@ function openAbout(section) {
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c) => h('td', {}, c))))))),
     h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥ 10 mmHg is clinically significant portal hypertension in cirrhosis. HVPG ≥ 20 mmHg matters as a prognostic finding when measured during an acute variceal bleed. 12 mmHg is not a bleeding threshold: varices can bleed below it, and it is only a usual post-TIPS target for the direct gradient.'),
     h('h3', {}, 'Reference review'),
-    h('p', {}, 'Baveno VII (2022) is the basis for the thresholds above. They were reviewed against Baveno VIII (J Hepatol, August 2026), whose abstract states that earlier HVPG measurement recommendations remain valid where they were not revised. A line-by-line check of each statement against the full Baveno VIII text is still pending.'),
+    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (more than 6 months, Child–Pugh A), the gray zone for stiffness (ANTICIPATE probability of 75% or more, or spleen stiffness of 55 kPa or more), the window for pre-emptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),
     h('h3', {}, 'Clinical review'),
     h('p', {}, 'Presentation and patient content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off will be listed here.'),
     h('h3', { 'data-sec': 'refs' }, 'References'),

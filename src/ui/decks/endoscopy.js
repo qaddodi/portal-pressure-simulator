@@ -22,8 +22,8 @@ export const ENDOSCOPY = {
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
       kicker: 'Endoscopy', site: 'sin', title: 'Not every patient needs a screening scope',
       line: 'A scope is needed only when no beta-blocker is given and stiffness and platelets do not spare it. In compensated cirrhosis the esophagus is often still normal.',
-      notes: 'Baveno VII has two bedside rules, each for its own decision: stiffness of 15 kPa or less with platelets of 150 or more rules out CSPH, and stiffness under 20 kPa with platelets over 150 spares the screening scope. A patient with a liver stiffness under 20 kPa and platelets over 150 can skip the screening endoscopy, because the chance of varices needing treatment is very low; stiffness and platelets are then repeated every year. Patients with clinically significant portal hypertension who take carvedilol do not need a screening endoscopy either, since the drug prevents decompensation whatever the varices. Those who cannot take a beta-blocker are scoped.',
-      ask: ['Which compensated patients can skip a screening endoscopy?', 'Those taking carvedilol for CSPH, and those with liver stiffness under 20 kPa and platelets over 150 (Baveno VII).'],
+      notes: 'Baveno VIII has two bedside rules, each for its own decision: stiffness of 15 kPa or less with platelets of 150 or more rules out CSPH, and stiffness under 20 kPa with platelets over 150 spares the screening scope. A patient with a liver stiffness under 20 kPa and platelets over 150 can skip the screening endoscopy, because the chance of varices needing treatment is very low; stiffness and platelets are then repeated every year. Patients with clinically significant portal hypertension who take carvedilol do not need a screening endoscopy either, since the drug prevents decompensation whatever the varices. Those who cannot take a beta-blocker are scoped.',
+      ask: ['Which compensated patients can skip a screening endoscopy?', 'Those taking carvedilol for CSPH, and those with liver stiffness under 20 kPa and platelets over 150 (Baveno VIII).'],
     },
     {
       id: 'grow', terms: ['varix'], days: 180, ramp: { cirrhosis: [0.4, 0.6] }, lapse: { seconds: 10 }, cam: 'gej', labels: ['VAR', 'LGV'], tool: { kind: 'scope', open: true },
@@ -38,7 +38,7 @@ export const ENDOSCOPY = {
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
       kicker: 'Endoscopy', site: 'sin', title: 'Size and red signs predict the first bleed',
       line: 'Varices over 5 mm bulge into the lumen and do not flatten with air; this one is {varix}. Red wale marks show where the wall has thinned.',
-      notes: 'The size, the red signs (red wale marks, cherry-red spots) and the Child–Pugh class predict the first bleed. Large varices, or small ones with red signs or in Child–Pugh C, need prophylaxis: a non-selective beta-blocker (carvedilol preferred) or band ligation. Once ascites is present, Baveno VII gives the beta-blocker for the varices; whether it also prevents further decompensation is still an open question.',
+      notes: 'The size, the red signs (red wale marks, cherry-red spots) and the Child–Pugh class predict the first bleed. Large varices, or small ones with red signs or in Child–Pugh C, need prophylaxis: a non-selective beta-blocker (carvedilol preferred) or band ligation. Once ascites is present, Baveno VIII gives the beta-blocker for the varices; whether it also prevents further decompensation is still an open question.',
       ask: ['Name two endoscopic findings that predict a first bleed.', 'Size over 5 mm and red signs (red wale marks or cherry-red spots).'],
     },
     {
@@ -71,7 +71,7 @@ export const ENDOSCOPY = {
       data: 'tiles', tiles: ['pv', 'hvpg', 'map'], key: ['pv'], delta: true,
       kicker: 'Variceal bleeding', site: 'sin', title: 'Over-transfusion raises the portal pressure again',
       line: 'Extra volume raises portal flow, and portal pressure climbs back to {pv}, raising the risk of rebleeding. Transfuse to a hemoglobin of 7 to 8 g/dL.',
-      notes: 'A restrictive transfusion strategy (a threshold of 7 g/dL, with a target of 7 to 9 in the trial by Villanueva and colleagues) lowered rebleeding and death compared with a liberal one; Baveno VII sets the target at 7 to 8. Over-transfusion raises the portal pressure back to where it was before the bleed. Patients with heart disease or ongoing massive bleeding are the exceptions.',
+      notes: 'A restrictive transfusion strategy (a threshold of 7 g/dL, with a target of 7 to 9 in the trial by Villanueva and colleagues) lowered rebleeding and death compared with a liberal one; Baveno VII set the target at 7 to 8. Over-transfusion raises the portal pressure back to where it was before the bleed. Patients with heart disease or ongoing massive bleeding are the exceptions.',
       ask: ['What hemoglobin is the target in variceal bleeding?', '7 to 8 g/dL (restrictive transfusion).'],
     },
     {

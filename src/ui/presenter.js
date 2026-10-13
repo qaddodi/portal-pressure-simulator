@@ -18,13 +18,13 @@ import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } f
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=a9b9795e1b';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=c4bbd0481f';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=c9e394c44a';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=18b99b671d';
 import { createTools } from './presenter-tools.js?v=42948be449';
-import { openHandout } from './handout.js?v=781e218f11';
+import { openHandout } from './handout.js?v=3ed501da09';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=bf239e7484';
+import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=d151452073';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('presenter');
 
