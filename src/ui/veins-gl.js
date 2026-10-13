@@ -27,7 +27,7 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=6c39f43ddf';
-import { cssRGB } from './util.js?v=b1761ad19c';
+import { cssRGB } from './util.js?v=9279d972cf';
 
 export const N_SAMPLES = 64;
 export const FLOW_TEXELS = 4;          // per-vessel blood: see stage.js (syncBlood)

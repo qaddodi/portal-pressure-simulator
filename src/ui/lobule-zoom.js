@@ -22,13 +22,13 @@
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { store } from './store.js?v=7c63421fac';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=89546129c1';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01, GLIDE_MS } from './util.js?v=b1761ad19c';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=a65dea21ce';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=37758d87f1';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01, GLIDE_MS, lite, liteFade } from './util.js?v=9279d972cf';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=001a2716b9';
 import { NODES, EDGES } from '../engine/topology.js?v=34e377149b';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=2c8bd6638f';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=8754cadc7f';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=a9b9795e1b';
+import { createSinusoidView } from './sinusoid-view.js?v=321d16bed8';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -352,7 +352,9 @@ export function createLobuleZoom({ host }) {
     cancelFrame(glide);
     camAim = aim;   // (any other glide, or a hand on the lobule, replaces the presenter's)
     const from = { ...V }, t0 = performance.now();
-    if (reduce.matches || !fade) { camAim = null; Object.assign(V, to); viewChanged(); camSettle(); return; }
+    // (Lite mode: the presenter's camera jumps, and the lobule fades in at its new framing.)
+    if (lite() && cam && !reduce.matches && fade && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) liteFade(host);
+    if (reduce.matches || !fade || (lite() && cam)) { camAim = null; Object.assign(V, to); viewChanged(); camSettle(); return; }
     if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; el.classList.remove('lz-cam-in'); el.classList.add('lz-cam'); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();
     const step = (now) => {
       const u = clamp((now - t0) / ms, 0, 1), e = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
@@ -2279,7 +2281,9 @@ export function createLobuleZoom({ host }) {
     // On the way out the lobule is drawn once in its present state, so it does not change when it lands.
     if (!on) { diveDrawn = false; drawVersion++; tissueKey = ''; layoutKey = ''; }
     if (!raf && fade > 0) raf = nextFrame(loop);
-    const from = sinU, ms = (reduce.matches ? 280 : on ? 1150 : 950) * Math.abs(to - from);
+    // (Lite mode: no zoom into or out of the sinusoid; it fades in.)
+    if (lite() && !reduce.matches && to !== sinU) liteFade(host);
+    const from = sinU, ms = (lite() ? 0 : reduce.matches ? 280 : on ? 1150 : 950) * Math.abs(to - from);
     // Carried on from the dive, the zoom is timed from the moment the dive reached the joint (see stage.js diveFrame).
     const t0 = on && from === 0 && sinChain?.at != null ? Math.min(performance.now(), sinChain.at) : performance.now();
     cancelFrame(sinRaf);

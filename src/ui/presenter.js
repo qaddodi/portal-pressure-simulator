@@ -14,14 +14,14 @@
 
 import { store, replaceParams } from './store.js?v=7c63421fac';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=b1761ad19c';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox, lite } from './util.js?v=9279d972cf';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
-import { sinusoidSupported } from './sinusoid-view.js?v=a9b9795e1b';
+import { sinusoidSupported } from './sinusoid-view.js?v=321d16bed8';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=5a375e73d7';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=18b99b671d';
-import { createTools } from './presenter-tools.js?v=8c397bfb06';
+import { createHvpgMonitor } from './hvpg-proc.js?v=71f461b089';
+import { createTools } from './presenter-tools.js?v=f65c40a8f8';
 import { openHandout } from './handout.js?v=3c641f9315';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=d151452073';
@@ -981,14 +981,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!st.lobule && !st.sinusoid) return;
     // Out of the sinusoid, then back to the lobule's normal framing, and only then out of the lobule: three steps, never one zoom through them.
     if (st.sinusoid) { store.set({ sinusoid: false }); await wait(60); await until(() => !stage.sinBusy() && !stage.sinusoidOpen(), 4000); }
-    if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : 900; if (stage.lobuleFocus('fit', { ms })) await wait(ms); }
+    if (stage.lobuleOpen()) { const ms = reduce.matches || booting || lite() ? 0 : 900; if (stage.lobuleFocus('fit', { ms })) await wait(ms); }
     if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);   // (box: a function, asked for when the rise begins)
     store.set({ lobule: false });
     await until(() => stage.lobuleSettled(), 6000); await wait(80);
   }
   // Glide the camera to a slide's framing; resolves when it has landed (cut(): a newer slide was asked for).
   async function camera(cam, s, cut) {
-    const ms = reduce.matches || booting ? 0 : 1500;
+    // (Lite mode: every move is a jump, and the figure fades in at the new framing: see util.js liteFade.)
+    const ms = reduce.matches || booting || lite() ? 0 : 1500;
     if (LOBULE_CAM.test(cam)) {
       // (A slide's layers: ['zones'] shows the lobule's zone bands; any other lobule slide has them off.)
       const zonesWant = !!s.layers?.includes('zones');
@@ -1032,7 +1033,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const gl = ms || 300;
     if (cam === 'fit' || v === 'circuit') stage.fitSlow(gl);
     else stage.frameBox(camBox(cam, s), gl, s.kMax || 3.2, !!s.clear);
-    await wait(gl);
+    await wait(lite() ? 0 : gl);
   }
   const cardsEntering = () => [ui?.text, ui?.panel, ui?.data].some((el) => el && !el.hidden && el.getAnimations({ subtree: true }).some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime)));
   // Where the way out of the lobule should land for a slide: its framing, asked for when the rise begins (null: the fit).
@@ -1371,13 +1372,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual && !q) app.dataset.lit = slideTargets(s).lit.join(' ');
     if (s.visual === 'table') fillTable(s, cut);
-    const lead = swap && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? camera(cam, s, cut) : null;
+    const lead = swap && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting && !lite() ? camera(cam, s, cut) : null;
     if (lead) await wait(150);
+    // (Lite mode: the camera jumps to the new framing while the old patient's figure is still dim, then it fades in there.)
+    const pre = lite() && !booting && !ct && !!cam;
+    if (pre) { await camera(cam, s, cut); if (cut()) return; }
     if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
     if (cut()) return;
     if (ct) await cathTo(ct, st.fp, cut);
     else if (lead) await lead;
-    else if (cam) await camera(cam, s, cut);
+    else if (cam && !pre) await camera(cam, s, cut);
     if (cut()) return;
     if (bare) {
       // (A glide's last frame can land just after the wait that timed it: the cards wait for the camera to be still.)

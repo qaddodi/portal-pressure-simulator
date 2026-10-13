@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=56e36c5522';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7c63421fac';
-import { createStage } from './stage.js?v=cd44582b32';
+import { createStage } from './stage.js?v=ad5d979fa8';
 import { createCreditPlacer } from './credit.js?v=b5d3742ef5';
-import { sinusoidSupported } from './sinusoid-view.js?v=a9b9795e1b';
-import { createInspector } from './inspector.js?v=6e8a77657d';
-import { createDock, CUTOFFS } from './dock.js?v=bdf59dbe92';
-import { setHvpgStage } from './hvpg-proc.js?v=18b99b671d';
-import { createWhy } from './why.js?v=f93872618b';
-import { createTimeline, LAPSES } from './timeline.js?v=41fd496223';
-import { createCompare } from './compare.js?v=d749838ac7';
-import { createCard } from './card.js?v=ba47fa17ca';
-import { createChart, computeFindings } from './chart.js?v=e0ae45df9a';
-import { createMenu, ROLES } from './menu.js?v=f562fc21f7';
+import { sinusoidSupported } from './sinusoid-view.js?v=321d16bed8';
+import { createInspector } from './inspector.js?v=510c16d93f';
+import { createDock, CUTOFFS } from './dock.js?v=bfc51a2efe';
+import { setHvpgStage } from './hvpg-proc.js?v=71f461b089';
+import { createWhy } from './why.js?v=04826eaf93';
+import { createTimeline, LAPSES } from './timeline.js?v=1077dad0aa';
+import { createCompare } from './compare.js?v=1b81b9e485';
+import { createCard } from './card.js?v=1ee035b132';
+import { createChart, computeFindings } from './chart.js?v=234da82400';
+import { createMenu, ROLES } from './menu.js?v=3d2f8e2427';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=2b593f6af1';
-import { caption } from './a11y.js?v=11255f5d04';
+import { caption } from './a11y.js?v=0143d328b1';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=84320c17b2';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=a65dea21ce';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=3709797fa5';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=001a2716b9';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=b1761ad19c';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=9279d972cf';
 import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=da34a0ac69';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=a63e998b05';
 import { initTopbarMotion } from './topbar-motion.js?v=40e62f18bf';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=b2eabea2e1';
@@ -136,7 +136,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=44b39538cd'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=3e457cce82'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -144,7 +144,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=49b0ae1beb'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=e2c14bfbd7'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -790,6 +790,10 @@ function openSettings(anchor) {
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     fullscreenControl(),
+    menuToggle(liteOn(), 'activity', 'Lite mode', 'Solid cards, flat colours and fades instead of zooms, for slower computers (reloads the app)', (on) => {
+      try { localStorage.setItem('pps.lite', on ? '1' : '0'); } catch { /* storage unavailable */ }
+      location.reload();
+    }),
     ...(talk ? presenterSettings() : []),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
     textSizeControl(),
@@ -946,7 +950,7 @@ new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); })
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
 // Lite graphics: for computers that draw on the CPU (no usable GPU, e.g. a hospital virtual desktop),
 // where the moving blood cost most of the page's time. The figure keeps its SVG vessels without moving
-// blood (stage.js), and the figure and panels repaint a few times a second. Automatic only;
+// blood (stage.js), and the figure and panels repaint a few times a second. Turns on by itself or from Settings › Lite mode (liteOn);
 // ?lite=1 or ?lite=0 forces it for testing. Automated browsers (tests) stay on the full path unless asked.
 function gpuOK() {
   try {
@@ -959,11 +963,11 @@ function gpuOK() {
 let liteMemo;
 function liteOn() {
   if (liteMemo !== undefined) return liteMemo;
-  // No Settings switch: on a computer with a GPU the WebGL figure is far faster than the SVG one, so
-  // lite only ever turns on by itself. A choice saved by an earlier switch is dropped.
-  try { localStorage.removeItem('pps.lite'); } catch { /* storage unavailable */ }
-  const q = new URLSearchParams(location.search).get('lite');
-  return (liteMemo = q === '1' || q === '0' ? q === '1' : !navigator.webdriver && !gpuOK());
+  // Settings › Lite mode saves a choice ('1' on, '0' off); with none saved it turns on by itself where
+  // there is no usable GPU. ?lite=1 or ?lite=0 in the address wins over both. Read once: the switch reloads.
+  const q = new URLSearchParams(location.search).get('lite'), saved = readLS('pps.lite');
+  const pick = q === '1' || q === '0' ? q : saved === '1' || saved === '0' ? saved : null;
+  return (liteMemo = pick ? pick === '1' : !navigator.webdriver && !gpuOK());
 }
 // ── Patient chart, Treat card and instrument workspace ─
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened

@@ -50,7 +50,7 @@ Loop for every change (fast previews first, full tests before merge):
 5. Merge to `main` only when the owner says so. That also resets `/preview/` to match `main`.
    If the branch is already merged, restart it from the latest `main` before more work.
 
-The repository root is served as is (no build step for Pages); `dist/` is only for SCORM.
+Pages serves each copy as its production build (`npm run build` → `dist/`: bundled, minified, hashed), built in the deploy job of `pages.yml`; the repository root still runs as is for `npm start` and the browser checks.
 
 ## Pages setup and troubleshooting
 

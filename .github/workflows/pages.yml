@@ -1,6 +1,6 @@
 name: Pages (live site + preview)
 
-# Publishes two copies of the build-free site to GitHub Pages:
+# Publishes two copies of the site to GitHub Pages, each as its production build (npm run build):
 #   /          the tip of main (the live site)
 #   /preview/  the branch that triggered the run (a claude/** branch), or main again after a merge
 # Every run rebuilds both from scratch, so the newest run always wins: the deploy job shares one
@@ -239,15 +239,36 @@ jobs:
           ref: ${{ github.sha }}
           path: preview
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            live/package-lock.json
+            preview/package-lock.json
+
+      # Each copy is served as its production build (scripts/build.mjs: bundled, minified, hashed), which
+      # loads far faster than ~60 source files on a slow or filtered network. A copy whose build script is
+      # not ready for Pages yet (no "pages-build" marker, e.g. main before this change is merged) is
+      # served as the source, as before.
+      - name: Build
+        run: |
+          for d in live preview; do
+            if grep -q 'pages-build' "$d/scripts/build.mjs" 2>/dev/null; then
+              (cd "$d" && npm ci --no-audit --no-fund && npm run build)
+            fi
+          done
+
       - name: Assemble the site
         env:
           BRANCH: ${{ github.ref_name }}
           SHA: ${{ github.sha }}
         run: |
+          copy() { if [ -f "$1/dist/index.html" ]; then rsync -a "$1/dist/" "$2/"; else rsync -a --exclude .git --exclude .github --exclude node_modules "$1/" "$2/"; fi; }
           mkdir site
-          rsync -a --exclude .git --exclude .github --exclude node_modules live/ site/
+          copy live site
           mkdir site/preview
-          rsync -a --exclude .git --exclude .github --exclude node_modules preview/ site/preview/
+          copy preview site/preview
           # Keep the preview out of search engines and record what it was built from.
           sed -i 's|<head>|<head>\n  <meta name="robots" content="noindex" />|' site/preview/index.html
           printf 'branch: %s\ncommit: %s\nbuilt:  %s\n' "$BRANCH" "$SHA" "$(date -u +%FT%TZ)" > site/preview/preview-info.txt
