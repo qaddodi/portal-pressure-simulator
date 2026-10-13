@@ -54,6 +54,8 @@ for (const dev of devs) {
             if (d.top > s.top + 1.5) err.push('right card not at the top');
           }
         }
+        // (A stacked pair shrinks the words only after their column has widened, presenter.js: a title below 0.8 at the usual width means the wider column was never tried.)
+        if (tx.style.getPropertyValue('--pz-tk') && +tx.style.getPropertyValue('--pz-tk') < 0.8 && !tx.style.getPropertyValue('--pz-sw')) err.push(`title shrunk to ${tx.style.getPropertyValue('--pz-tk')} in the usual column`);
         const top = dv && !da.classList.contains('col') ? da.offsetTop : null;   // (no data card: the words stay centred, the card wraps them)
         if (top != null && Math.abs(s.top - document.querySelector('.pz').getBoundingClientRect().top - top) > 1) err.push(`top ${Math.round(s.top)} vs data ${Math.round(top)}`);
         const q = bar && !bar.hidden ? bar.getBoundingClientRect() : null;

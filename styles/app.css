@@ -2277,7 +2277,7 @@ button.finding { cursor: pointer; }
 /* (An instrument drawn to the card's width shrinks with the card's fit too: zoomed alone it was drawn wider by as much, so it kept
    its size on the screen and the fit squeezed only the readings and tiles below it, to half size on a sideways phone.) */
 .pz-data > .pz-tool:not([data-kind="abdomen"]) { width: calc(100% * var(--pz-fit, 1)); margin-inline: auto; }   /* (an instrument; a ladder sets its own lettering to its width, so it keeps the card's) */
-.pz-data.col > :is(.pz-ladder, .pz-strip, .pz-quad, .pz-tool:not([data-kind="abdomen"])) { width: calc(100% * var(--pz-fit, 1) * var(--pz-dk, 1)); margin-inline: auto; }   /* (a chart drawn to the card's width: narrower by the same step, so it is smaller in height too, not only its zoom) */
+.pz-data.col > :is(.pz-ladder, .pz-strip, .pz-quad, .pz-tool:not([data-kind="abdomen"])) { width: calc(100% * var(--pz-fit, 1) * var(--pz-dk, 1) * var(--pz-cwr, 1)); margin-inline: auto; }   /* (--pz-cwr: the words' column widened, SW, so the chart stays as large as in the usual column) (a chart drawn to the card's width: narrower by the same step, so it is smaller in height too, not only its zoom) */
 /* A phone's opened (or only) instrument is the one part that gives way when it is taller than the card: the header and tiles stay full size. */
 .pz.stack .pz-data:is(.tool-open, .tool-only) > :not(.pz-tool) { zoom: 1; }
 /* A slide whose card is the instrument alone gets more of the phone's height, so the instrument stays near full size. */
