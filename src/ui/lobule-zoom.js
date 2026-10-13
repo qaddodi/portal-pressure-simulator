@@ -21,7 +21,7 @@
 
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { store } from './store.js?v=7c63421fac';
-import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
+import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=d378c02386';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01, GLIDE_MS } from './util.js?v=abb277f29f';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=01ee46a874';
@@ -1795,7 +1795,8 @@ export function createLobuleZoom({ host }) {
     const key = [W, H, dpr, wk, flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
     if (key === tissueKey) return;
     tissueKey = key;
-    if (tissue.width !== W * dpr || tissue.height !== H * dpr) { tissue.width = W * dpr; tissue.height = H * dpr; }
+    const tw = canvasPx(W, dpr), th = canvasPx(H, dpr);
+    if (tissue.width !== tw || tissue.height !== th) { tissue.width = tw; tissue.height = th; }
     const c = tissue.getContext('2d');
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
@@ -2035,13 +2036,21 @@ export function createLobuleZoom({ host }) {
     }
     return (fxP = { duct, erase, lining });
   }
+  let fxDrawn = '';
   function paintFx(W, H, dpr, dark, dt, flat) {
-    if (fx.width !== W * dpr || fx.height !== H * dpr) { fx.width = W * dpr; fx.height = H * dpr; }
+    const fw = canvasPx(W, dpr), fh = canvasPx(H, dpr);
+    if (fx.width !== fw || fx.height !== fh) { fx.width = fw; fx.height = fh; fxDrawn = ''; }
+    const G = geo, m = model;
+    // With nothing moving on this layer (no lymph, WebGL vessels), it holds only the ductules' epithelium: drawn again only when
+    // the view, a caliber or the theme changes, not every frame (clearing and redrawing a full-screen canvas the screen then re-uploads).
+    const moving = fxMoves({ lymph: lymphOn, flat, hide: m.hide, flow: store.get().layers?.flow });
+    const fk = moving ? '' : [fw, fh, dpr, dark, m.hide, m.hide ? '' : (fxPaths(), fxKey), V.k, V.x, V.y, tk('--lz-duct-cell'), tk('--lz-duct-edge'), tk('--lz-duct-nucleus'), tk('--lz-duct-lumen')].join('|');
+    if (fk && fk === fxDrawn) return;
+    fxDrawn = fk;
     const c = fx.getContext('2d');
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     c.clearRect(0, 0, W, H);
     c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
-    const G = geo, m = model;
     if (!m.hide) {
       // The bile ductule is lined all round by a simple cuboidal epithelium: wedge-shaped cells side by side
       // around an open lumen, each with a darker round nucleus.
