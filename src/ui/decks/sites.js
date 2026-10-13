@@ -31,6 +31,7 @@ export const SITES = {
       id: 'pvt', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF', 'SV'], terms: { 'portal pressure': 'pv', 'wedged pressure': 'whvp' }, mark: { edges: ['PV_TRUNK'], label: 'Clot' },
       data: 'ladder', key: ['hvpg', 'ppg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Pre-hepatic', site: 'pre', title: 'Portal vein thrombosis',
+      vignette: '38-year-old man, necrotizing pancreatitis last year, now with splenomegaly, platelets 76,000/µL and small esophageal varices on EGD. Liver tests normal, no ascites.',
       line: 'Portal pressure is high, yet the wedged pressure and HVPG are normal because the hepatic vein catheter sits downstream of the clot.',
       causes: ['Cirrhosis', 'Myeloproliferative neoplasm, thrombophilia', 'Pancreatitis, abdominal sepsis', 'Liver or pancreatic cancer'],
       notes: 'Chronic thrombosis turns the portal vein into a cavernoma: a web of small collaterals around the occluded trunk that still carries portal blood to the liver. The liver itself is normal, so its function is preserved and ascites is uncommon, while varices and a large spleen are common. Doppler ultrasound or CT shows the clot or the cavernoma. HVPG is normal because the wedged catheter reads the sinusoids, downstream of the clot; the portal pressure gradient (PPG) is high.',
@@ -39,6 +40,7 @@ export const SITES = {
     {
       id: 'presin', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', data: 'ladder', key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Block: portal venules' }, rail: true, quiz: 'Where is the problem?',
       kicker: 'Intrahepatic · presinusoidal', site: 'presin', title: 'Schistosomiasis',
+      vignette: '26-year-old man raised in the Nile Delta presents with hematemesis. EGD shows large esophageal varices; spleen enlarged, liver tests normal, no ascites.',
       line: 'Eggs lodge in the portal venules and cause periportal fibrosis. The obstruction is upstream of the sinusoids, so HVPG stays near normal.',
       causes: ['Schistosomiasis', 'Porto-sinusoidal vascular disorder', 'Early primary biliary cholangitis', 'Sarcoidosis, congenital hepatic fibrosis'],
       notes: 'Schistosoma mansoni and japonicum eggs reach the presinusoidal portal venules, where granulomas form and periportal (Symmers) fibrosis follows. The sinusoids and liver cells are spared: liver function is preserved, ascites is rare and liver stiffness is near normal. The portal vein is open on imaging, which separates it from a portal vein clot. HVPG is normal or mildly raised and underestimates the portal pressure.',
@@ -47,6 +49,7 @@ export const SITES = {
     {
       id: 'sin', terms: { sinusoids: 'lobule:sinusoid' }, preset: 'cirr-decomp', cam: 'lobule:sinusoid', callout: { at: 'sin', label: 'Block: sinusoids' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Intrahepatic · sinusoidal', site: 'sin', title: 'Cirrhosis',
+      vignette: '58-year-old man with alcohol-associated cirrhosis has ascites despite spironolactone and furosemide. Albumin 2.8 g/dL, platelets 57,000/µL, large esophageal varices on EGD.',
       line: 'Fibrosis, nodules and stellate cell contraction narrow the sinusoids. The wedged pressure reflects sinusoidal pressure, so HVPG rises with portal pressure.',
       causes: ['Alcohol', 'Fatty liver disease (MASLD)', 'Hepatitis B and C', 'Autoimmune, cholestatic, metabolic'],
       notes: 'In cirrhosis the resistance is in the sinusoids: fibrosis, regenerative nodules, a capillarized endothelium and contracted stellate cells, the dynamic part that drugs can relax. Splanchnic vasodilation then raises portal inflow and sustains the pressure. The wedged pressure closely tracks the portal pressure, so HVPG estimates the portal gradient: 10 mmHg or more is clinically significant portal hypertension, and the risk of bleeding rises from about 12. In MASLD cirrhosis the wedge can read low, so an HVPG under 10 does not rule out CSPH.',
@@ -55,6 +58,7 @@ export const SITES = {
     {
       id: 'postsin', terms: { 'central veins': 'lobule:central', sinusoids: 'lobule:sinusoid' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central veins' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Intrahepatic · postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome',
+      vignette: '45-year-old woman, day 21 after myeloablative conditioning for allogeneic HSCT, has tender hepatomegaly, 4% weight gain and new ascites. Bilirubin 2.1 mg/dL.',
       line: 'Damaged endothelium obstructs the sinusoids and small central veins, upstream of the catheter tip, so the wedged pressure and HVPG rise.',
       causes: ['Conditioning for stem cell transplant', 'Oxaliplatin', 'Pyrrolizidine alkaloids (bush teas)'],
       notes: 'Formerly veno-occlusive disease. Toxic injury sheds sinusoidal endothelial cells, which obstruct the sinusoids and the terminal hepatic venules. It presents within weeks of myeloablative conditioning with tender hepatomegaly, weight gain, ascites and jaundice. An HVPG above 10 mmHg, measured with a transjugular biopsy, strongly supports the diagnosis. The model shows an earlier stage, with an HVPG of about 9 mmHg: raised, but under 10.',
@@ -64,6 +68,7 @@ export const SITES = {
       id: 'post', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Blocked hepatic veins' },
       data: 'ladder', key: ['fhvp', 'ra', 'hvpg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Post-hepatic', site: 'post', title: 'Budd–Chiari syndrome',
+      vignette: '29-year-old woman on OCPs has 2 months of RUQ pain and tense ascites. Paracentesis: SAAG 1.4, total protein 4.3 g/dL.',
       line: 'Hepatic venous outflow is blocked. Clotted veins usually cannot be entered; where a catheter reaches behind the block, wedged and free pressures are both high, so the HVPG is near zero while the [right atrium](ra) stays normal at {ra}.',
       causes: ['Myeloproliferative neoplasm (JAK2)', 'Thrombophilia, pregnancy, OCP use', 'IVC web', 'Tumor invading the veins'],
       notes: 'Hepatic venous outflow obstruction, anywhere from the small hepatic veins to the IVC at the right atrium. The liver is congested and enlarged; the caudate lobe, which drains straight into the IVC, hypertrophies. Ascites is common, protein-rich (2.5 g/dL or more) and with a SAAG of 1.1 or more. In practice the blocked veins often cannot be catheterized; when one can be entered, both readings lie behind the block. The model shows the pressures there. Doppler ultrasound, CT or MR venography make the diagnosis.',
@@ -73,6 +78,7 @@ export const SITES = {
       id: 'cardiac', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
       data: 'ladder', block: 'ra', key: ['fhvp', 'hvpg', 'ppg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure',
+      vignette: '67-year-old man with severe TR from pulmonary hypertension has a raised JVP, leg edema and ascites. SAAG 1.4, total protein 4.3 g/dL; no varices on EGD.',
       line: 'Raised [right atrial pressure](ra) passes back through the hepatic veins to the sinusoids. All stations rise together and HVPG stays normal.',
       causes: ['Tricuspid regurgitation', 'Pulmonary hypertension', 'Left heart failure', 'Constrictive pericarditis'],
       notes: 'Congestive hepatopathy. The jugular venous pressure is raised, the hepatojugular reflux is positive and Doppler shows a pulsatile portal vein. The ascites is protein-rich with a SAAG of 1.1 or more. Varices are rare: they need a gradient between the portal and the systemic veins, and here both are high, so the PPG is normal. Constrictive pericarditis gives the same pattern with a normal-sized heart.',

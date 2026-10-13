@@ -19,11 +19,11 @@ import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=9818d847b0';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=4fd8e10b03';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=ade522b00c';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=9c0ecdd119';
 import { createTools } from './presenter-tools.js?v=b86280ef98';
-import { openHandout } from './handout.js?v=f59694ab78';
+import { openHandout } from './handout.js?v=c50a7f69ce';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=20ffefba17';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -1280,6 +1280,36 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (held) releaseData();
   }
 
+  // ── The case card ──
+  // (caseLift: set while a case card is up; Next, a swipe on or a tap on the card lifts it rather than changing the slide.)
+  let caseLift = null;
+  async function caseRun(s, si, st, cut) {
+    const c = ui.vcase, ms = reduce.matches ? 0 : 450;
+    c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, h('i'), 'Case'), h('p', { class: 'pz-case-p' }, s.vignette));
+    c.hidden = false; void c.offsetWidth; c.classList.add('on');
+    let lifted = false;
+    try {
+      await wait(ms);
+      if (cut()) return false;
+      // Behind the card: out of the liver, the new patient eased in, the figure at its wide framing.
+      await toAnatomy(null); if (cut()) return false;
+      liveOff = false; shownState = -1;
+      if (!await morphTo(st, cut, reduce.matches ? 0 : 1200)) return false;
+      shownState = si;
+      if (view.classList.contains('pz-out')) figureIn(); else loading(false);
+      await camera('fit', s, cut);
+      if (cut()) return false;
+      caseLift = () => { lifted = true; };
+      await until(() => cut() || lifted, 864e5);
+      return !cut();
+    } finally {
+      caseLift = null;
+      c.classList.remove('on');
+      await wait(ms);
+      if (!c.classList.contains('on')) c.hidden = true;
+    }
+  }
+
   // ── Slides ──
   const asking = (s, rev) => quiz && !!s.quiz && !rev;
   function go(i, rev = false) {
@@ -1289,6 +1319,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!busy) run();
   }
   const next = () => {
+    if (caseLift) { caseLift(); return; }
     const s = slides[want];
     if (lapseOn && lapseLeft > 0 && shown?.i === want) skipLapse();
     else if (asking(s, wantRev)) go(want, true); else if (want < slides.length - 1) go(want + 1); else stop();
@@ -1381,6 +1412,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // A visual waits for every patient it compares (some are computed after the slides).
     // (A table shows at once, its rows' cells "…" until each patient is in.)
     if (s.visual && s.visual !== 'table') { await Promise.all(rowIdx(s).map(stateReady)); if (cut()) return; }
+    // A new patient's case (s.vignette), going forward: a centred glass card covers the figure while the patient loads behind it
+    // at the wide framing; Next lifts it, and the slide then goes on as usual (one zoom to its framing, then its cards).
+    if (s.vignette && ui && !booting && !rev && !lap && to > lastAt && (si !== shownState || liveOff)) { if (!await caseRun(s, si, st, cut)) return; }
     // A new patient, or the same one changed: the figure fades out, the state changes unseen, it fades back in.
     const swap = si !== shownState || liveOff || !!own;
     // On screen the change eases (morphTo): after the camera has landed and before the cards come in, or for a catheter slide
@@ -2423,12 +2457,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const safe = h('div', { class: 'pz-safe', 'aria-hidden': 'true', hidden: true });
     const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));
     const jump = h('nav', { class: 'pz-jump stage-blocker', hidden: true, 'aria-label': 'Slides' });
-    const root = h('div', { class: 'pz' }, safe, veil, load, text, data, panel, prog, bar, jump, blackEl);
+    const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, 'aria-live': 'polite', onclick: () => caseLift?.() });
+    const root = h('div', { class: 'pz' }, safe, veil, load, text, data, panel, vcase, prog, bar, jump, blackEl);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
-    return { root, shade, safe, load, text, data, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
+    return { root, shade, safe, load, text, data, vcase, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0;
