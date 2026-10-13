@@ -1124,6 +1124,32 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (d) SV_DECKS.set(d.id, { at: d.slides.map((x, i) => (x.cam === 'sinusoid' && !x.visual ? i : -1)).filter((i) => i >= 0), n: d.slides.length });
   }
   if (!SV_DECKS.size) throw new Error('no deck opens the sinusoid view: the end-arrow check has nothing to walk');
+  // Presenter, the closing quick check of every deck: every answer starts hidden (no room reserved for it), tapping a question
+  // slides only its own answer open, and a second tap closes it again.
+  for (const d of ALL.filter((x) => x.checks?.length)) await check(device, `presenter: quick check of ${d.id} starts with every answer hidden; a tap opens its answer and a second tap closes it`, async (page) => {
+    await open(page);
+    await page.evaluate((id) => window.pps.presenter.start(id, 0), d.id);
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+    await page.keyboard.press('End');
+    await page.waitForSelector('.pz-check .pzc-q', { state: 'visible', timeout: 30000 });
+    await page.waitForTimeout(1500);
+    const state = () => page.evaluate(() => {
+      const l = document.querySelector('.pz-check');
+      return { stuck: l.classList.contains('pzc-all') || l.classList.contains('pzc-still'), answers: [...l.querySelectorAll('.pzc-a')].map((a) => Math.round(a.getBoundingClientRect().height)), expanded: [...l.querySelectorAll('.pzc-q')].map((q) => q.getAttribute('aria-expanded')) };
+    });
+    const s0 = await state(), n = s0.answers.length;
+    if (n !== d.checks.length || s0.stuck || s0.answers.some((h) => h > 0) || s0.expanded.some((e) => e !== 'false')) throw new Error(`${d.id}: the quick check does not start with every answer hidden ${JSON.stringify(s0)}`);
+    for (let k = 0; k < n; k++) {
+      await page.locator('.pz-check .pzc-q').nth(k).click();
+      await page.waitForTimeout(900);
+      const on = await state();
+      if (!(on.answers[k] > 0) || on.answers.some((h, j) => j !== k && h > 0) || on.expanded[k] !== 'true') throw new Error(`${d.id}: question ${k + 1} does not open only its own answer ${JSON.stringify(on)}`);
+      await page.locator('.pz-check .pzc-q').nth(k).click();
+      await page.waitForTimeout(900);
+      const off = await state();
+      if (off.answers.some((h) => h > 0) || off.expanded.some((e) => e !== 'false')) throw new Error(`${d.id}: question ${k + 1} does not close again ${JSON.stringify(off)}`);
+    }
+  });
   const endArrows = () => {
     const c = document.querySelector('.sv.on .sv-canvas');
     if (!c || !c.dataset.endArrows) return null;
