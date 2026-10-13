@@ -65,7 +65,7 @@ export const SITES = {
       data: 'ladder', key: ['fhvp', 'ra', 'hvpg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Post-hepatic', site: 'post', title: 'Budd–Chiari syndrome',
       line: 'Hepatic venous outflow is blocked. Clotted veins usually cannot be entered; where a catheter reaches behind the block, wedged and free pressures are both high, so the HVPG is near zero while the [right atrium](ra) stays normal at {ra}.',
-      causes: ['Myeloproliferative neoplasm (JAK2)', 'Thrombophilia, pregnancy, the pill', 'IVC web', 'Tumor invading the veins'],
+      causes: ['Myeloproliferative neoplasm (JAK2)', 'Thrombophilia, pregnancy, OCP use', 'IVC web', 'Tumor invading the veins'],
       notes: 'Hepatic venous outflow obstruction, anywhere from the small hepatic veins to the IVC at the right atrium. The liver is congested and enlarged; the caudate lobe, which drains straight into the IVC, hypertrophies. Ascites is common, protein-rich (2.5 g/dL or more) and with a SAAG of 1.1 or more. In practice the blocked veins often cannot be catheterized; when one can be entered, both readings lie behind the block. The model shows the pressures there. Doppler ultrasound, CT or MR venography make the diagnosis.',
       ask: ['Why is HVPG near zero although the portal pressure is about 26 mmHg?', 'Where the catheter reaches behind the block, both the wedged and the free pressures are measured there, so both are high and their difference is small.'],
     },

@@ -58,7 +58,7 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=387a6cf6f3';
-import { SITES } from './decks/sites.js?v=365942f2fe';
+import { SITES } from './decks/sites.js?v=e9f7df793b';
 import { HVPG } from './decks/hvpg.js?v=2e77e5d5b6';
 import { ASCITES } from './decks/ascites.js?v=00c30017df';
 import { VARICES } from './decks/varices.js?v=534bb3ec39';
@@ -78,7 +78,7 @@ import { TWO_INFLOWS } from './decks/two-inflows.js?v=45c85aba92';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=e0c6f9bd6e';
 import { SPLEEN } from './decks/spleen.js?v=c752d62602';
 import { NCPH } from './decks/ncph.js?v=887fef3120';
-import { OUTFLOW } from './decks/outflow.js?v=35a981818a';
+import { OUTFLOW } from './decks/outflow.js?v=ed322d388a';
 import { RECOMPENSATION } from './decks/recompensation.js?v=269a2c0b33';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
