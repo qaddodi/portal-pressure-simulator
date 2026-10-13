@@ -26,3 +26,8 @@ test('the case card is cards glass, enters and leaves whole, never resizing', ()
   assert.match(rule, /transition: opacity \.45s var\(--ease\), transform \.45s var\(--ease\);/);
   assert.doesNotMatch(rule, /scale/);
 });
+
+test('the case text is set large: well above the teaching card body, never under 28px', () => {
+  const p = css.match(/\.pz-case-p \{[^}]*\}/)[0];
+  assert.match(p, /font: 500 max\(calc\(var\(--s-body\) \* 1\.75\), 28px\)/);
+});
