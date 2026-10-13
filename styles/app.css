@@ -1876,6 +1876,11 @@ button.finding { cursor: pointer; }
 .pz-bar.pzb-pill .ib { width: 44px; height: 44px; }
 /* The pill's hover, pressed and current highlights follow its curve: each button's box is the pill's 44 px (its tap target, 1 px over the border on each side), a 4 px clear border keeps the highlight 4 px inside the pill's edge, and the highlight's radius is the pill's less that 4 (concentric), so it never touches or crosses the curve. */
 .pz-bar.pzb-pill > :is(.ib, button.pzb-n), .pz.stack .pz-bar > :is(.ib, button.pzb-n) { border: 4px solid transparent; background-clip: padding-box !important; border-radius: var(--r-sheet); }   /* (!important: the buttons' background shorthands would reset the clip) */
+/* One quiet tint for hover, press and the open list, so every button in the pill reads the same: soft on hover, a touch deeper while pressed (touch screens too), easing in and out. */
+.pz-bar.pzb-pill > :is(.ib, button.pzb-n):not(:disabled), .pz.stack .pz-bar > :is(.ib, button.pzb-n):not(:disabled) { transition: background-color .22s var(--ease), color .22s var(--ease); -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) { .pz-bar.pzb-pill > :is(.ib, button.pzb-n):not(:disabled):hover, .pz.stack .pz-bar > :is(.ib, button.pzb-n):not(:disabled):hover { background-color: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); } }
+.pz-bar.pzb-pill > :is(.ib, button.pzb-n)[aria-expanded="true"], .pz.stack .pz-bar > :is(.ib, button.pzb-n)[aria-expanded="true"] { background-color: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
+.pz-bar.pzb-pill > :is(.ib, button.pzb-n):not(:disabled):active, .pz.stack .pz-bar > :is(.ib, button.pzb-n):not(:disabled):active { background-color: color-mix(in srgb, var(--text) 14%, transparent); color: var(--text); transition-duration: .08s; }
 .pz-bar.pzb-pill > :first-child, .pz.stack .pz-bar > :first-child { margin-left: -1px; }
 .pz-bar.pzb-pill > :last-child, .pz.stack .pz-bar > :last-child { margin-right: -1px; }
 .pz-bar.idle { opacity: 0; pointer-events: none; transform: translateY(8px); }
