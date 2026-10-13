@@ -132,7 +132,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   // A phone's four tiles are narrow: short names and status words where the long ones would be cut off.
-  const narrow = matchMedia('(max-width: 767px), (max-width: 1194px) and (pointer: coarse)');   // phones and tablets: short readout names
+  const narrow = matchMedia('(max-width: 1279px)');   // phones, tablets and narrow windows: short readout names
   const row = h('div', { class: 'ro-row' });
   strip.append(row);
   const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1) * 100;

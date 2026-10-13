@@ -1948,6 +1948,48 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // Nothing that floats over the figure may cover another floating piece, or leave the screen, at the
   // sizes the owner tests on (laptop, iPad both ways, iPhone both ways), in Explore, with the
   // instruments, and with the patient chart and the instruments together.
+  // The bottom bar's key readouts: every name, value and rating stays on one line inside its tile, the lines under each other never
+  // overlap, on a phone the ratings sit left-aligned under their values with the tiles side by side at one height, and different
+  // readings (a healthy patient, a decompensated one) never change a tile's size or place.
+  await check(device, 'bottom bar: readouts never wrap, clip or overlap, and keep their place as values change', async (page) => {
+    const sizes = device === 'desktop' ? [[1440, 900], [1180, 820], [820, 1180]] : [[390, 844], [360, 740], [430, 932]];
+    const read = () => page.evaluate(() => {
+      const strip = document.querySelector('#strip');
+      const tiles = [...strip.querySelectorAll('.metric')].filter((e) => e.offsetWidth && getComputedStyle(e).display !== 'none');
+      const R = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height }; };
+      return { tiles: tiles.map((m) => {
+        const parts = ['.k', '.v', '.rb', '.s'].map((q) => m.querySelector(q)).filter((e) => e && e.offsetWidth).map((e) => ({ q: e.className.split(' ')[0], ...R(e), clip: e.scrollWidth > e.clientWidth + 1 && !e.classList.contains('rb') }));
+        return { id: m.dataset.id, ...R(m), parts, sNode: R(m.querySelector('.s .status') || m.querySelector('.s')) };
+      }), strip: R(strip) };
+    });
+    for (const [w, hgt] of sizes) {
+      await page.setViewportSize({ width: w, height: hgt });
+      const seen = [];
+      for (const q of ['?preset=cirr-decomp', '?preset=healthy']) {
+        await open(page, q);
+        await page.evaluate(() => window.pps.store.set({ role: 'instructor' }));
+        await page.waitForTimeout(900);
+        const r = await read();
+        const where = `${w}x${hgt} ${q}`;
+        if (r.tiles.length < 2) throw new Error(`${where}: fewer than two readouts show`);
+        for (const t of r.tiles) {
+          for (const p of t.parts) if (p.clip) throw new Error(`${where}: the ${p.q} of "${t.id}" is clipped or wraps (${Math.round(p.w)} px)`);
+          for (let i = 1; i < t.parts.length; i++) if (t.parts[i].t < t.parts[i - 1].b - 0.5) throw new Error(`${where}: "${t.id}" ${t.parts[i].q} overlaps ${t.parts[i - 1].q}`);
+          if (t.parts.some((p) => p.l < t.l - 0.5 || p.r > t.r + 0.5)) throw new Error(`${where}: a line of "${t.id}" sticks out of its tile`);
+        }
+        for (let i = 1; i < r.tiles.length; i++) if (r.tiles[i].l < r.tiles[i - 1].r - 0.5 && r.tiles[i].t < r.tiles[i - 1].b - 0.5 && r.tiles[i].b > r.tiles[i - 1].t + 0.5) throw new Error(`${where}: readouts "${r.tiles[i - 1].id}" and "${r.tiles[i].id}" overlap`);
+        if (r.tiles.some((t) => t.r > r.strip.r + 0.5)) throw new Error(`${where}: a readout runs out of the strip`);
+        if (w < 768 && hgt > 500) {
+          if (new Set(r.tiles.map((t) => Math.round(t.t))).size > 1) throw new Error(`${where}: the readouts do not line up (tops ${r.tiles.map((t) => Math.round(t.t))})`);
+          if (new Set(r.tiles.map((t) => Math.round(t.h))).size > 1) throw new Error(`${where}: the readouts differ in height`);
+          for (const t of r.tiles) { const v = t.parts.find((p) => p.q === 'v'), s = t.parts.find((p) => p.q === 's'); if (Math.abs(v.l - s.l) > 1) throw new Error(`${where}: the rating of "${t.id}" is not under its value`); }
+        }
+        seen.push({ q, tiles: r.tiles.map((t) => [t.id, Math.round(t.l), Math.round(t.t), Math.round(t.w), Math.round(t.h)].join(':')).join(' '), strip: Math.round(r.strip.h) });
+      }
+      if (seen[0].tiles !== seen[1].tiles || seen[0].strip !== seen[1].strip) throw new Error(`${w}x${hgt}: the readouts moved or resized between two patients (${seen[0].tiles} | ${seen[1].tiles})`);
+    }
+  });
+
   await check(device, 'floating pieces never overlap', async (page) => {
     const sizes = device === 'desktop' ? [[1440, 900], [1180, 820], [820, 1180]] : [[390, 844], [844, 390]];
     const states = [['?preset=cirr-decomp', null], ['?preset=cirr-decomp', 'measure'], ['?preset=cirr-decomp', 'both'], ['?preset=cirr-decomp', 'card'], ['?preset=cirr-decomp', 'lobule'], ['?preset=cirr-decomp', 'lobule-all']];

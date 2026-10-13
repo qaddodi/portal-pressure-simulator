@@ -3414,7 +3414,7 @@ button.finding { cursor: pointer; }
 
 /* Readouts: short names where the tiles are narrow. */
 .metric .k .k-s { display: none; }
-@media (max-width: 767px), (max-width: 1194px) and (pointer: coarse) {
+@media (max-width: 1279px) {
   .metric .k .k-l { display: none; }
   .metric .k .k-s { display: inline; }
   .readouts:not(.all) .metric .tr { display: none; }
@@ -4495,3 +4495,18 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @container (max-width: 140px) { .pz:not(.stack) .pzt-v, .pz:not(.stack) .pz-data.tiles-only .pzt-v { font-size: var(--s-val); } }
 @container (max-width: 72px) { .pz.stack .pzt-v, .pz.stack .pz-data .pz-tiles .pzt-v { font-size: var(--s-val); } }
 
+
+/* Phone: the bottom bar, calmer. The key readouts are equal columns, each stacked the same way as on an iPad (name, value with
+   its unit, the meter, the rating right under it), so nothing wraps, the ratings sit with their values and the three line up.
+   Every line is one line high at all times, so the bar never shifts as the numbers change. The info line keeps to one line (tap
+   it for the rest). */
+@media (max-width: 767px) and (min-height: 501px) {
+  .readouts:not(.all) .ro-row { padding: 0 2px 0 0; }
+  .readouts:not(.all) .ro-group { padding: 6px 2px 4px; }
+  .readouts:not(.all) .metric { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 0; padding: 2px 6px; }
+  .readouts:not(.all) .metric .k { order: 0; flex: none; line-height: 16px; }
+  .readouts:not(.all) .metric .v { order: 1; flex: none; font-size: var(--fs-20); line-height: 26px; font-variant-numeric: tabular-nums; }
+  .readouts:not(.all) .metric .rb { order: 2; flex: none; margin: 2px 0 3px; }
+  .readouts:not(.all) .metric .s { order: 3; flex: none; margin-left: 0; min-height: 16px; line-height: 16px; }
+  .vdock .narrator:not(.full) .nr-t { -webkit-line-clamp: 1; }
+}
