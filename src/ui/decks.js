@@ -123,6 +123,15 @@ export function withOverview(d) {
   return { ...d, slides: [open, place(firstNow), ...rest.map(place), ...check] };
 }
 
+// The site tag by a slide's title: the level of its block (its site), on the slides of a deck that teaches more than one
+// level, so the learner always knows which type of portal hypertension the slide is about. A deck about cirrhosis alone
+// (every site sinusoidal) carries none, nor does a slide whose level rail already marks the block, or a visual.
+export const SITE_TAGS = { pre: 'Pre-hepatic', pvt: 'Pre-hepatic', presin: 'Presinusoidal', sin: 'Sinusoidal', postsin: 'Postsinusoidal', post: 'Post-hepatic', cardiac: 'Cardiac' };
+export function siteTag(deck, s) {
+  if (!s?.site || s.rail || s.visual || !deck?.slides?.some((x) => x.site && x.site !== 'sin')) return null;
+  return SITE_TAGS[s.site] ? { site: s.site === 'pvt' ? 'pre' : s.site, name: SITE_TAGS[s.site] } : null;
+}
+
 export const DECKS = [CIRCULATION, SITES, HVPG, ASCITES, VARICES, TREATMENT];
 
 DECKS.push(STIFFNESS, ONE_YEAR, TAP, CIRCUIT, LOBULE, SHUNTS);

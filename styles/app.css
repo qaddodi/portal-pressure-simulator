@@ -1528,6 +1528,9 @@ button.finding { cursor: pointer; }
 @media (orientation: landscape) and (max-height: 500px) { .pz .pz-table { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1));
   --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1)); } }
 .pz-kick { display: flex; align-items: center; gap: .55em; font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--site, var(--text-3)); }
+/* The site tag above a slide's title: which level the block sits at, a quiet pill in the level's colour. */
+.pz-site { align-self: flex-start; display: inline-flex; align-items: center; gap: .5em; margin-bottom: -.2em; padding: .28em .75em .28em .6em; border-radius: var(--r-pill); font: 600 var(--s-cap)/1.15 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); background: color-mix(in srgb, var(--site) 13%, transparent); }
+.pz-site i { width: .6em; height: .6em; border-radius: 50%; background: var(--site); flex: none; }
 .pz-kick[data-site="none"] { color: var(--text-3); }
 .pz-kick i { width: .62em; height: .62em; border-radius: 50%; background: currentColor; flex: none; }
 .pz-sec { color: var(--text-3); font-weight: 500; white-space: nowrap; }
