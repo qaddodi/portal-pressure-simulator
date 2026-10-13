@@ -2189,6 +2189,7 @@ button.finding { cursor: pointer; }
 .app.presenting .stage-view { touch-action: pan-x pan-y; }
 .pz-text, .pz-data, .pz-panel { overflow: clip; overscroll-behavior: none; }
 .pz-text > *, .pz-data > *, .pz-panel > * { zoom: var(--pz-fit, 1); }
+.pz-data.col.dk > * { zoom: calc(var(--pz-fit, 1) * .7); }   /* (stacked under the words when the pair would not fit: the data card's blocks at one fixed smaller size) */
 /* A phone's opened (or only) instrument is the one part that gives way when it is taller than the card: the header and tiles stay full size. */
 .pz.stack .pz-data:is(.tool-open, .tool-only) > :not(.pz-tool) { zoom: 1; }
 /* A slide whose card is the instrument alone gets more of the phone's height, so the instrument stays near full size. */

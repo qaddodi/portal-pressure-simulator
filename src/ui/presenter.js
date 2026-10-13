@@ -1777,20 +1777,26 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       gap = Math.max(sl, 28); cw = t.right - wr.left + pad - sl;
       const q = ui.bar.hidden || !ui.bar.offsetWidth ? null : ui.bar.getBoundingClientRect();
       foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl;
-      const ch = colHeight(cw / k) * k, slack = dd.classList.contains('col') ? 8 : 0;
+      let ch = colHeight(cw / k) * k, dk = false;
+      const slack = dd.classList.contains('col') ? 8 : 0;
       below = top0 + t.height + 2 * pad + gap + ch <= foot + slack;
       // Too tall to stack: the words' card gives way first, only as far as it must: its title down to half size (the largest
-      // size that still stacks), then its text and equation, so the pair still stacks and the title fills what room there is.
-      const t0 = t, put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot + slack; };
-      if (!below) {
-        if (put(0.52, 1)) {
-          let lo = 0.52, hi = 1;   // (lo stacks, hi does not)
-          for (let n = 0; n < 6; n++) { const mid = (lo + hi) / 2; if (put(mid.toFixed(3), 1)) lo = mid; else hi = mid; }
-          put(lo.toFixed(3), 1); below = true;
-        } else for (const bk of [0.94, 0.88, 0.82, 0.76, 0.7]) if ((below = put(0.52, bk))) break;
-      }
-      if (!below) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); t = t0; }   // (a little slack once there: a number ticking never flips it)
-    }
+      // size that still stacks). Then the data card's blocks drop to one fixed smaller size (DK) and the title is sized again,
+      // then the words' text and equation. Past that (a short window) the data card sits at the top right, never squeezed.
+      const t0 = t, put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
+      const title = () => {
+        if (put(1, 1)) return true;
+        if (!put(0.52, 1)) return false;
+        let lo = 0.52, hi = 1;   // (lo stacks, hi does not)
+        for (let n = 0; n < 6; n++) { const mid = (lo + hi) / 2; if (put(mid.toFixed(3), 1)) lo = mid; else hi = mid; }
+        return put(lo.toFixed(3), 1);
+      };
+      if (!below) below = title();
+      if (!below) { dk = true; ch = colHeight(cw / k, true) * k; below = title(); }
+      if (!below) for (const bk of [0.94, 0.88, 0.82, 0.76, 0.7]) if ((below = put(0.52, bk))) break;
+      if (!below) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); t = t0; dk = false; }   // (a little slack once there: a number ticking never flips it)
+      dd.classList.toggle('dk', dk);
+    } else dd.classList.remove('dk');
     const isCol = dd.classList.contains('col');
     if (below !== isCol) {
       if (colT) below = isCol;   // (a move under way: the card moves once it has faded out)
@@ -1852,9 +1858,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
   let frameL = 0, colT = 0;
   // The data card's height at width w (page px) under the words: as it would stand there, at full size (unfitted).
-  function colHeight(w) {
+  function colHeight(w, dk = false) {
     const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit')];
-    d.classList.add('col'); ds.width = `${w}px`; ds.maxHeight = 'none'; ds.removeProperty('--pz-fit');
+    d.classList.add('col'); d.classList.toggle('dk', dk); ds.width = `${w}px`; ds.maxHeight = 'none'; ds.removeProperty('--pz-fit');
     const hh = d.offsetHeight;
     d.className = sv[0]; ds.width = sv[1]; ds.maxHeight = sv[2]; if (sv[3]) ds.setProperty('--pz-fit', sv[3]);
     return hh;
