@@ -12,7 +12,7 @@ export const VARICES = {
     {
       id: 'collat', preset: 'csph', cam: 'fit', glow: [{ id: 'lgv', soft: true }], data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'],
       kicker: 'Collaterals', site: 'sin', title: 'Collaterals open where portal and systemic veins meet',
-      line: 'They form at the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, and as splenorenal and gastrorenal shunts. Some are existing channels that reopen, and some are new vessels.',
+      line: 'They form at the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, and as splenorenal and gastrorenal shunts. Some reopen existing channels, and some are new vessels.',
       notes: 'Portosystemic collaterals open where the portal and systemic venous beds meet: at the gastroesophageal junction (left gastric and short gastric veins to the azygos), the umbilicus (paraumbilical veins), the rectum (superior to middle and inferior rectal veins), the retroperitoneum (veins of Retzius), and through splenorenal and gastrorenal shunts. They form by reopening existing channels and by new vessel growth, driven by the portal-to-systemic gradient. Even large ones do not relieve portal hypertension: splanchnic inflow rises to fill them.',
       ask: ['Name four places where portosystemic collaterals form.', 'The gastroesophageal junction, the umbilicus, the rectum, the retroperitoneum (and splenorenal and gastrorenal shunts).'],
     },

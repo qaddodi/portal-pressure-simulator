@@ -28,7 +28,7 @@ export const RIGHT_HEART = {
     {
       id: 'pulse', terms: ['pv'], cam: 'portal', labels: ['CONF'], glow: ['heart', 'ivc', 'hv', 'sin', 'pv'], glowSeq: 550, tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       kicker: 'Heart failure', site: 'cardiac', title: 'A high atrial pressure makes the portal vein pulse',
-      line: 'With no resistance in the sinusoids, right atrial pressure is transmitted to the portal vein. A pulsatile portal flow usually points to the heart, not the liver.',
+      line: 'With no resistance in the sinusoids, right atrial pressure passes back to the portal vein. A pulsatile portal flow usually points to the heart, not the liver.',
       notes: 'Normal portal flow is steady, with a small change on breathing. When the right atrial pressure is high and the sinusoids are normal, its swings reach the portal vein: the trace pulses with each beat and may briefly reverse. In cirrhosis the stiff sinusoids damp these swings, so a pulsatile portal vein argues against cirrhosis. The pulsatility index falls as the heart failure is treated.',
       ask: ['A pulsatile portal vein on ultrasound. Where do you look next?', 'The right heart: tricuspid regurgitation or a raised right atrial pressure.'],
     },

@@ -53,29 +53,29 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=a0bf5a17c7';
-import { SITES } from './decks/sites.js?v=36e6abf616';
+import { CIRCULATION } from './decks/circulation.js?v=d4320acd4d';
+import { SITES } from './decks/sites.js?v=41d6c83b44';
 import { HVPG } from './decks/hvpg.js?v=e4c550f298';
-import { ASCITES } from './decks/ascites.js?v=4f7388ad65';
-import { VARICES } from './decks/varices.js?v=904a37fa1c';
+import { ASCITES } from './decks/ascites.js?v=61999961c1';
+import { VARICES } from './decks/varices.js?v=784548fd64';
 import { TREATMENT } from './decks/treatment.js?v=8b12768e70';
-import { STIFFNESS } from './decks/stiffness.js?v=da30273d27';
-import { ONE_YEAR } from './decks/one-year.js?v=aaf38e4baf';
+import { STIFFNESS } from './decks/stiffness.js?v=f9bcb84129';
+import { ONE_YEAR } from './decks/one-year.js?v=1ea7828e38';
 import { LOBULE } from './decks/lobule.js?v=262a31ce6b';
 import { SHUNTS } from './decks/shunts.js?v=91699f4277';
-import { TAP } from './decks/tap.js?v=57022d906f';
-import { CIRCUIT } from './decks/circuit.js?v=25877f3594';
+import { TAP } from './decks/tap.js?v=30ac81315c';
+import { CIRCUIT } from './decks/circuit.js?v=9e16409fcb';
 import { DOPPLER } from './decks/doppler.js?v=7eb07fe1b9';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=7499cfd26b';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=13143758ed';
 import { PREHEPATIC } from './decks/prehepatic.js?v=09eb3594b2';
-import { RIGHT_HEART } from './decks/right-heart.js?v=9076b88b18';
-import { BLEED } from './decks/variceal-bleed.js?v=920b99c0ca';
-import { TWO_INFLOWS } from './decks/two-inflows.js?v=2a19a5fc63';
+import { RIGHT_HEART } from './decks/right-heart.js?v=0d83a8772b';
+import { BLEED } from './decks/variceal-bleed.js?v=995d3429d9';
+import { TWO_INFLOWS } from './decks/two-inflows.js?v=af7fc0c6ea';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=a01124f125';
-import { SPLEEN } from './decks/spleen.js?v=c8fca55d38';
-import { NCPH } from './decks/ncph.js?v=8794f0bf6b';
+import { SPLEEN } from './decks/spleen.js?v=7b3a1383f5';
+import { NCPH } from './decks/ncph.js?v=c58b81c951';
 import { OUTFLOW } from './decks/outflow.js?v=e0f5f66517';
-import { RECOMPENSATION } from './decks/recompensation.js?v=0d5b3fb564';
+import { RECOMPENSATION } from './decks/recompensation.js?v=8df83fee40';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

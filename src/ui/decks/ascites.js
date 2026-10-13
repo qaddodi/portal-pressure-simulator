@@ -11,21 +11,21 @@ export const ASCITES = {
     {
       id: 'start', terms: { 'space of Disse': 'sinusoid:disse', lymphatics: 'sinusoid:lymph' }, preset: 'csph', cam: 'sinusoid', data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
       kicker: 'Ascites', site: 'sin', title: 'Ascites starts in the sinusoids',
-      line: 'Sinusoidal pressure drives plasma into the space of Disse. Hepatic lymphatics drain it until their capacity is exceeded.',
+      line: 'Sinusoidal pressure drives plasma into the space of Disse. Hepatic lymphatics drain it until they cannot keep up.',
       notes: 'Ascites in portal hypertension is mostly lymph, from the liver and, to a lesser degree, the gut. Sinusoidal pressure drives plasma through the open sinusoid wall into the space of Disse, and the hepatic lymphatics return it to the blood through the thoracic duct. Hepatic lymph flow can rise many-fold; once it outruns the lymphatics, lymph weeps from the surface of the liver into the peritoneum. This patient has clinically significant portal hypertension, and the lymphatics still keep up. Ascites becomes possible from an HVPG of 10 mmHg, the CSPH threshold, and the risk rises with the gradient.',
       ask: ['What carries the sinusoids\' filtrate away before ascites forms?', 'The hepatic lymphatics, to the thoracic duct.'],
     },
     {
       id: 'walls', visual: 'walls',
       kicker: 'Ascites', title: 'Gut capillary wall versus sinusoid wall',
-      line: 'Gut capillaries retain protein, so oncotic pressure limits filtration when their pressure rises. Sinusoids do not, so ascites depends on sinusoidal pressure.',
+      line: 'Gut capillaries hold back protein, so oncotic pressure limits filtration when their pressure rises. Sinusoids do not, so sinusoidal pressure drives ascites.',
       notes: 'Starling: filtration = Kf × [(capillary − tissue pressure) − σ × (plasma − tissue oncotic pressure)]. Gut capillaries hold back most protein (σ about 0.9), even where their lining is fenestrated, as in the intestinal mucosa: the plasma\'s oncotic pressure, about 25 mmHg, holds the fluid in, so a raised capillary pressure makes only a little more fluid, which the lymphatics carry away. In the sinusoid σ is near zero: oncotic pressure offers almost no opposition, and each rise in pressure adds to lymph flow. Capillarization in cirrhosis raises σ part of the way, which is why cirrhotic ascites is thin.',
       ask: ['What does a reflection coefficient (σ) near zero mean for the sinusoid wall?', 'Protein crosses freely, so oncotic pressure cannot hold the fluid back, and any rise in pressure becomes lymph.'],
     },
     {
       id: 'fill', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 9 }, cam: 'fit', glow: ['liver'], tool: { kind: 'flowtime', clock: 'days', lines: ['sin', 'asc'], title: 'Sinusoids and ascites over the days' }, data: 'tiles', tiles: ['sin', 'asc', 'tp'], key: ['asc'], delta: true,
       kicker: 'Ascites', site: 'sin', title: 'Ascites builds over two months',
-      line: 'As fibrosis advances, sinusoidal pressure rises and lymph outruns the lymphatics. High sinusoidal pressure puts the fluid in the peritoneum, and renal sodium and water retention keep replacing it.',
+      line: 'As fibrosis advances, sinusoidal pressure rises and lymph outruns the lymphatics. The fluid spills into the peritoneum, and the kidneys, retaining sodium and water, keep replacing it.',
       caveat: 'The model builds the fluid from pressure and albumin; it does not model the kidneys.',
       notes: 'The time-lapse runs the model\'s disease clock: cirrhosis advances and serum albumin falls from 4.0 to 2.8 g/dL over 60 days, without diuretics. The sinusoids climb from about 17 to 26 mmHg, hepatic lymph overflows and the ascites reaches several liters. In patients, splanchnic vasodilation lowers the effective blood volume, and the kidneys retain sodium and water through renin–angiotensin–aldosterone, the sympathetic system and vasopressin. High sinusoidal pressure puts the fluid in the peritoneum; renal sodium and water retention keep replacing it. Treatment: less salt, spironolactone with furosemide, large-volume paracentesis with albumin, TIPS.',
       ask: ['Which hormone system drives sodium retention in cirrhotic ascites, and which drug blocks it?', 'Renin–angiotensin–aldosterone; spironolactone.'],
@@ -36,7 +36,7 @@ export const ASCITES = {
       eq: [mi('SAAG') + mo('=') + sub(mi('Albumin'), 'serum') + mo('−') + sub(mi('Albumin'), 'ascites')],
       line: 'This patient\'s SAAG is {saag}. A value of 1.1 g/dL or more indicates portal hypertension.',
       notes: 'The serum–ascites albumin gradient uses serum and ascites taken the same day. A SAAG of 1.1 g/dL or more identifies portal hypertension as the cause with about 97% accuracy, whatever causes the portal hypertension. Below 1.1, the fluid comes from a leaky peritoneum or a very low serum albumin: cancer, tuberculosis, pancreatitis, nephrotic syndrome. Send a cell count as well (more than 250 neutrophils per mm³ is spontaneous bacterial peritonitis), the total protein, and a culture in blood-culture bottles.',
-      ask: ['The SAAG is 0.8 g/dL. Is portal hypertension the cause?', 'No: below 1.1 the fluid is not pushed out by portal pressure. Look for peritoneal disease or a very low protein state.'],
+      ask: ['The SAAG is 0.8 g/dL. Is portal hypertension the cause?', 'No: below 1.1 portal pressure is not pushing the fluid out. Look for peritoneal disease or a very low serum albumin.'],
     },
     {
       id: 'lowprot', terms: { fenestrae: 'sinusoid:fenestrae' }, cam: 'sinusoid', data: 'tiles', tiles: ['tp', 'saag'], key: ['tp'],
@@ -55,7 +55,7 @@ export const ASCITES = {
     {
       id: 'presin', terms: ['lobule:triad'], preset: 'schisto', cam: 'lobule:triad', data: 'tiles', tiles: ['pv', 'sin', 'asc'], key: ['sin'],
       kicker: 'Presinusoidal block', site: 'presin', title: 'Schistosomiasis',
-      line: 'Obstruction in the portal tracts leaves sinusoidal pressure near normal, so ascites is uncommon despite high portal pressure.',
+      line: 'A block in the portal tracts leaves sinusoidal pressure near normal, so ascites is uncommon despite high portal pressure.',
       notes: 'In presinusoidal disease the scar sits around the portal venules and the sinusoids are spared: their pressure is near normal, liver function is preserved and ascites is rare, while varices bleed. When ascites does appear in schistosomiasis or porto-sinusoidal vascular disorder, it usually follows a bleed, an infection or a falling albumin, or marks advanced or mixed disease.',
       ask: ['Bleeding varices, no ascites and normal liver tests. Where is the block, and what will the HVPG show?', 'Presinusoidal, in the portal tracts, as in schistosomiasis. The HVPG is near normal: the wedge reads the sinusoids, beyond the block.'],
     },
@@ -76,7 +76,7 @@ export const ASCITES = {
     {
       id: 'map', visual: 'quadrant', of: [{ id: 'fill', name: 'Cirrhosis' }, { id: 'hf', name: 'Heart failure' }, { id: 'bc', name: 'Budd–Chiari' }],
       kicker: 'Summary', title: 'Interpreting SAAG and protein',
-      line: 'SAAG indicates whether portal hypertension is the cause. Ascitic protein reflects whether the sinusoid wall is capillarized or still permeable.',
+      line: 'SAAG shows whether portal hypertension is the cause. Ascitic protein shows whether the sinusoid wall is capillarized or still permeable.',
       notes: 'Read the SAAG first: 1.1 g/dL or more is portal hypertension. Then the protein: below 2.5 g/dL fits cirrhosis (sealed, capillarized sinusoids); 2.5 or more with a high SAAG fits the heart or early Budd–Chiari (open, congested sinusoids). A low SAAG with high protein means a leaky peritoneum: peritoneal cancer, tuberculosis, pancreatic ascites. A low SAAG with low protein is rare: nephrotic syndrome. Portal vein thrombosis and presinusoidal disease have no point here, because they rarely cause ascites. The points are the model\'s patients.',
       ask: ['SAAG 0.6, protein 4.2 g/dL and weight loss. What is likely, and what next?', 'Peritoneal cancer or tuberculous peritonitis: cytology, adenosine deaminase, peritoneal biopsy.'],
     },

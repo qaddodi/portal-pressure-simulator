@@ -10,7 +10,7 @@ export const SITES = {
   slides: [
     {
       id: 'overview', preset: 'healthy', cam: 'fit', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], rail: 'all',
-      kicker: 'Portal hypertension', title: 'Portal hypertension is classified by the site of the block',
+      kicker: 'Portal hypertension', title: 'Portal hypertension is named for the site of the block',
       line: 'Blood runs from the gut through the liver to the heart. Obstruction at any point raises the pressure upstream of it.',
       notes: 'Portal hypertension is named for the level of the block. Two levels lie before the sinusoids (pre-hepatic and presinusoidal), one is the sinusoids themselves, and three come after them (postsinusoidal, post-hepatic and cardiac). The level decides which pressures rise, what HVPG shows, whether varices form and whether ascites follows. Portal hypertension is a portal pressure gradient above 5 mmHg; 10 mmHg or more is clinically significant.',
       ask: ['Name one cause of portal hypertension at each level.', 'Portal vein thrombosis; schistosomiasis; cirrhosis; sinusoidal obstruction syndrome; Budd–Chiari syndrome; right heart failure.'],
@@ -68,7 +68,7 @@ export const SITES = {
       id: 'cardiac', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
       data: 'ladder', key: ['fhvp', 'hvpg', 'ppg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure',
-      line: 'Raised [right atrial pressure](ra) is transmitted back through the hepatic veins to the sinusoids. All stations rise together and HVPG stays normal.',
+      line: 'Raised [right atrial pressure](ra) passes back through the hepatic veins to the sinusoids. All stations rise together and HVPG stays normal.',
       causes: ['Tricuspid regurgitation', 'Pulmonary hypertension', 'Left heart failure', 'Constrictive pericarditis'],
       notes: 'Congestive hepatopathy. The jugular venous pressure is raised, the hepatojugular reflux is positive and Doppler shows a pulsatile portal vein. The ascites is protein-rich with a SAAG of 1.1 or more. Varices are rare: they need a gradient between the portal and the systemic veins, and here both are high, so the PPG is normal. Constrictive pericarditis gives the same pattern with a normal-sized heart.',
       ask: ['Why are varices rare in heart failure despite a portal pressure of about 20 mmHg?', 'Varices need a portal-to-systemic gradient; the systemic veins are high too, so the gradient (PPG) is normal.'],

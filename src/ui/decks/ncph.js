@@ -38,7 +38,7 @@ export const NCPH = {
     {
       id: 'stiff', cam: 'liver', terms: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm'], key: ['lsm'],
       kicker: 'Where the block sits', site: 'presin', title: 'Stiffness stays low despite high portal pressure',
-      line: 'Stiffness reflects scar and congestion, not portal pressure, so it stays at {lsm}, under 10 kPa. Varices with a soft liver mean you should look for a non-cirrhotic cause.',
+      line: 'Stiffness reflects scar and congestion, not portal pressure, so it stays at {lsm}, under 10 kPa. Varices with a soft liver point to a non-cirrhotic cause.',
       notes: 'Liver stiffness rises with scar and with congestion in the liver, so it stays normal or only slightly raised in presinusoidal and pre-hepatic disease. Stiffness below 10 kPa with clear signs of portal hypertension should prompt a search for a non-cirrhotic cause. Spleen stiffness, where it is measured, is high, because it follows the portal pressure. The stiffness and platelet rules that spare a scope do not apply in porto-sinusoidal vascular disorder: screen with endoscopy at diagnosis.',
       ask: ['Stiffness 6 kPa with large varices. Does that rule out portal hypertension?', 'No: it argues against cirrhosis. Portal hypertension with a normal stiffness points to a non-cirrhotic cause.'],
     },
@@ -54,7 +54,7 @@ export const NCPH = {
       id: 'nsbb', params: { drugs: { propranolol: true } }, cam: 'portal', terms: ['pv'], data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
       kicker: 'Treatment', site: 'presin', title: 'A beta-blocker works here too',
       line: 'Propranolol cuts the inflow from the gut: the portal vein pressure falls to {pv}, and with it the tension in the varix wall.',
-      caveat: 'The model shrinks the varices; in patients a beta-blocker lowers the pressure, and the varices are not re-scoped to watch them shrink.',
+      caveat: 'The model shrinks the varices. In patients the beta-blocker lowers the pressure, but no one re-scopes to watch them shrink.',
       notes: 'Bleeding prophylaxis in non-cirrhotic portal hypertension follows the rules for cirrhosis: a non-selective beta-blocker or banding for large varices, and both after a bleed. In schistosomiasis, praziquantel treats the infection, but established portal hypertension still needs its own treatment.',
       ask: ['Does variceal prophylaxis differ from cirrhosis in this patient?', 'No: a non-selective beta-blocker or banding, as in cirrhosis, because the varices come from the same high portal pressure.'],
     },

@@ -38,8 +38,8 @@ export const TAP = {
     {
       id: 'albumin', params: { albumin: 2.74 }, cam: 'fit', data: 'tiles', tiles: ['salb', 'map'], key: ['salb'], delta: true,
       kicker: 'Large-volume paracentesis', site: 'sin', title: 'Albumin with the tap',
-      line: '{6 to 8 g} of albumin for each liter removed, when more than 5 liters come out. It keeps the circulation filled, so the kidneys are spared and the fluid returns more slowly.',
-      caveat: 'The model has no kidneys or renin, so here albumin acts by raising the serum albumin instead.',
+      line: '{6 to 8 g} of albumin for each liter removed, when more than 5 liters come out. It fills the circulation, protects the kidneys and slows the fluid\'s return.',
+      caveat: 'The model has no kidneys or renin, so albumin here just raises the serum albumin.',
       notes: 'For a 6 L tap, about 40 g of 20% albumin, given during or after the tap. Albumin prevents post-paracentesis circulatory dysfunction better than saline or synthetic colloids. Under 5 L, albumin is optional. The model has no kidneys or renin: here albumin raises the serum albumin and the plasma oncotic pressure, and the fluid comes back more slowly on "Ascites returns in two weeks".',
       ask: ['Why give albumin rather than saline after an 8 L tap, and how much?', 'It prevents post-paracentesis circulatory dysfunction better: less kidney injury, less hyponatremia, slower return. About 50 to 65 g, 6 to 8 g for each liter.'],
     },

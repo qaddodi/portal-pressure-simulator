@@ -15,7 +15,7 @@ export const ONE_YEAR = {
     {
       id: 'd0', tick: 'Diagnosis', preset: 'cirr-comp', params: { cirrhosis: 0.5 }, cam: 'fit', data: 'tiles', tiles: ['hvpg', 'lsm', 'plt'],
       kicker: 'Day 0', site: 'sin', title: 'Cirrhosis found on a scan, without symptoms',
-      line: 'Over the next year we follow this patient through one test per slide. Only the fibrosis progresses, until carvedilol is started at the end.',
+      line: 'Over the next year we follow this patient, one test per slide. Only the fibrosis progresses, until carvedilol is started at the end.',
       notes: 'One patient, one disease clock: each slide moves the same patient forward and shows one instrument. Fibrosis advances steadily in the model over the year; nothing else is changed until carvedilol at the end. At the start the stiffness and platelets sit in the gray zone, and the catheter decides.',
       ask: ['Which two bedside numbers does Baveno VII use to rule out CSPH?', 'Liver stiffness and the platelet count.'],
     },
@@ -72,7 +72,7 @@ export const ONE_YEAR = {
     {
       id: 'summary', tool: { kind: 'trace', range: 'talk', title: 'Pressures over the year' }, cam: 'fit',
       kicker: 'Summary', site: 'sin', title: 'Pressures over the year',
-      line: 'The pressures at every slide, from day 0 to carvedilol. The catheter, FibroScan, scope, Doppler and ultrasound each picked up the same rise in pressure.',
+      line: 'The pressures at every slide, from day 0 to carvedilol. The catheter, FibroScan, scope, Doppler and ultrasound each picked up the same rise.',
       notes: 'The catheter measures the gradient; FibroScan and the platelets estimate it; the scope shows its effect on the varices; Doppler shows the slower inflow; ultrasound finds the first fluid. In practice the cheap tests are repeated each year and the catheter is kept for uncertain cases.',
       ask: ['Which test would you repeat each year in this patient, and why?', 'Stiffness and platelets: cheap and repeatable, and a rise warns that the disease is advancing.'],
     },

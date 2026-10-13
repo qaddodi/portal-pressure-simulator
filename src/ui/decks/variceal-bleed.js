@@ -9,7 +9,7 @@ const SALINE = { kind: 'infuse', fluid: 'crystalloid' }, UNIT = { kind: 'infuse'
 export const BLEED = {
   id: 'variceal-bleed', level: 'core', title: 'Resuscitating an acute variceal bleed', minutes: 8,
   objectives: [
-    'Read early shock from the heart rate and blood pressure, knowing what blunts them, not from the hemoglobin',
+    'Read early shock from heart rate and blood pressure, not hemoglobin, and know what blunts them',
     'Give octreotide and antibiotics before endoscopy',
     'Transfuse to a hemoglobin of 7 to 8 g/dL and explain why not more',
     'Name the patients who need a pre-emptive TIPS',

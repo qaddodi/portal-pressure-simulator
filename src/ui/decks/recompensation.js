@@ -17,7 +17,7 @@ export const RECOMPENSATION = {
     {
       id: 'csph', tick: 'CSPH', preset: 'csph', cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'],
       kicker: 'Compensated', site: 'sin', title: 'Compensated, with CSPH',
-      line: 'Alcohol-related cirrhosis with an HVPG of {hvpg}, 10 mmHg or more: No ascites or bleeding yet. From here both become possible, and the risk rises as the HVPG climbs.',
+      line: 'Alcohol-related cirrhosis with an HVPG of {hvpg}, 10 mmHg or more. No ascites or bleeding yet, but both are now possible, and the risk rises with the HVPG.',
       notes: 'Clinically significant portal hypertension marks the patients at risk of decompensation. Baveno VII advises treating the cause and starting a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. This patient keeps drinking and takes no treatment, so the disease runs its course.',
       ask: ['What does Baveno VII advise for compensated cirrhosis with CSPH?', 'Treat the cause, and start a non-selective beta-blocker, preferably carvedilol, to prevent decompensation.'],
     },
@@ -31,7 +31,7 @@ export const RECOMPENSATION = {
     {
       id: 'diuretics', tick: 'Diuretics', params: { diuretics: true }, days: 30, lapse: { seconds: 6 }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc'], key: ['asc'],
       kicker: 'Decompensation', site: 'sin', title: 'Salt restriction and diuretics',
-      line: 'Spironolactone with furosemide and a moderate salt restriction bring the ascites down to {asc} in a month.',
+      line: 'Spironolactone, furosemide and moderate salt restriction bring the ascites down to {asc} in a month.',
       notes: 'A moderate sodium restriction, about 2 g of sodium (5 g of salt) a day, with spironolactone and furosemide treats grade 2 ascites; the doses rise stepwise to at most 400 mg of spironolactone and 160 mg of furosemide. Weight loss should stay under about 0.5 kg a day without leg edema. Watch the sodium, the potassium and the creatinine.',
       ask: ['What are the maximum daily doses of spironolactone and furosemide?', '400 mg of spironolactone and 160 mg of furosemide.'],
     },

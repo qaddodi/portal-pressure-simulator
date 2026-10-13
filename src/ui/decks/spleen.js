@@ -50,14 +50,14 @@ export const SPLEEN = {
     {
       id: 'later', days: 180, lapse: { seconds: 6 }, cam: 'splenic', terms: ['spleen'], data: 'tiles', tiles: ['plt', 'spleen'], key: ['plt'], delta: 'grown',
       kicker: 'Treating the spleen', site: 'sin', title: 'Platelets rise as the spleen shrinks',
-      line: 'With less functioning splenic pulp, fewer platelets are sequestered. Six months on, platelets are {plt} and the spleen is {spleen}. The count can fall again if the remaining spleen regrows.',
+      line: 'With less working pulp, the spleen traps fewer platelets. Six months on, platelets are {plt} and the spleen is {spleen}. The count can fall again if the remaining spleen regrows.',
       notes: 'With less working pulp, fewer platelets are pooled and the count rises over the following weeks. The rise can fade as the remaining spleen grows back. Embolization is used for severe thrombocytopenia or hypersplenism in centers with experience.',
       ask: ['Why do platelets rise after splenic embolization?', 'Less splenic pulp is left to pool them.'],
     },
     {
       id: 'splenectomy', terms: ['spleen', 'pv'], preset: 'csph', params: { splenicRx: 2 }, cam: 'splenic', data: 'tiles', tiles: ['plt', 'pv'], key: ['plt'],
       kicker: 'Treating the spleen', site: 'sin', title: 'Splenectomy raises platelets but can cause portal vein thrombosis',
-      line: 'With the spleen removed, platelets are no longer sequestered, and the count is {plt}. Blood can stagnate in the stump of the [splenic vein](sv), and the clot can spread into the portal vein.',
+      line: 'With the spleen gone, platelets have nowhere to pool, and the count is {plt}. Blood can stagnate in the stump of the [splenic vein](sv), and the clot can spread into the portal vein.',
       notes: 'Splenectomy is now rare in cirrhosis: the operation carries real risk, and splenic and portal vein thrombosis is common after it. It keeps a place for bleeding gastric varices caused by splenic vein thrombosis, where the spleen is the source of the high pressure.',
       ask: ['Which complication of splenectomy do you look for in the weeks after it, and why is it likely here?', 'Splenic and portal vein thrombosis: blood stagnates in the stump of the splenic vein.'],
     },

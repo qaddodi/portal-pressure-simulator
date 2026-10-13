@@ -67,7 +67,7 @@ export const TWO_INFLOWS = {
     {
       id: 'fugal', preset: 'cirr-hepatofugal', cam: 'portal', terms: ['pv'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['pvFlow'], delta: 'dual',
       kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'In end-stage cirrhosis the portal vein can drain the liver',
-      line: 'Flow reverses when the liver resists more than the collaterals do; arterial blood shunted into the portal branches then runs out through them: {pvFlow}.',
+      line: 'Flow reverses when the liver resists more than the collaterals do. Arterial blood shunted into the portal branches then drains through them: {pvFlow}.',
       notes: 'Hepatofugal flow appears in advanced cirrhosis with very high sinusoidal resistance, usually with a large spontaneous shunt to carry the reversed flow away. The liver is then perfused by the hepatic artery alone. On a standard Doppler display the portal vein signal lies below the baseline. It is uncommon, seen in about 8% of patients with cirrhosis, and goes with advanced liver failure and with encephalopathy from the large shunts.',
       ask: ['The portal vein Doppler signal lies below the baseline on a standard display. What does that mean?', 'Hepatofugal flow: blood leaves the liver by the portal vein, a sign of very advanced portal hypertension.'],
     },

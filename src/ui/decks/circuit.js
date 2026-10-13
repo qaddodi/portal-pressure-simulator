@@ -30,7 +30,7 @@ export const CIRCUIT = withPoints({
       id: 'ohm', preset: 'healthy', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'ppg'],
       kicker: K, title: 'Pressure falls in proportion to flow and resistance',
       eq: [dP + mo('=') + mi('Q') + mo('×') + '<mi class="eq-wedge">R</mi>', 'ΔP pressure drop · Q flow · R resistance'],
-      line: 'The pressure drop across any segment equals the flow through it times its resistance (ΔP = Q × R). In portal hypertension the drop across the liver is larger because flow, resistance or, usually, both have gone up.',
+      line: 'The pressure drop across any segment equals the flow through it times its resistance (ΔP = Q × R). In portal hypertension the drop across the liver is larger because flow or resistance has risen, usually both.',
       notes: 'The heart is the pump; arterioles, capillaries, sinusoids and veins are resistors in series. The same law as Ohm\'s: the drop in pressure across a segment is the flow through it times its resistance. Portal hypertension is a rise in the drop across the liver, so either the flow or the resistance has risen, and usually both.',
       ask: ['Name the two ways the pressure drop across the liver can rise.', 'More flow through it, or more resistance to that flow.'],
     },

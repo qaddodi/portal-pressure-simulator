@@ -78,7 +78,7 @@ export const CIRCULATION = {
       kicker: 'Summary', title: 'Normal gradients are small, even after a meal',
       line: 'A normal portal vein is under 10 mmHg, with an HVPG of 1 to 5 and a PPG of 5 or less. Cirrhosis raises resistance, so every gradient rises, and the HVPG climbs past 10 mmHg.',
       notes: 'Normal: portal vein under 10 mmHg, HVPG 1 to 5 mmHg, PPG 5 mmHg or less. Portal hypertension is a gradient above 5 mmHg, and clinically significant portal hypertension an HVPG of 10 mmHg or more. A meal raises flow in a healthy liver with almost no change in pressure; cirrhosis raises the resistance, and with it every gradient.',
-      ask: ['A patient with cirrhosis has an HVPG of 8 mmHg. Is there portal hypertension, and is it clinically significant?', 'Yes, it is above 5 mmHg; but it is not yet clinically significant, which starts at 10 mmHg, so decompensation is less likely, though not ruled out.'],
+      ask: ['A patient with cirrhosis has an HVPG of 8 mmHg. Is there portal hypertension, and is it clinically significant?', 'Yes, it is above 5 mmHg. It is not clinically significant until 10 mmHg, so decompensation is less likely, though not ruled out.'],
     },
   ],
 };
