@@ -2234,7 +2234,7 @@ button.finding { cursor: pointer; }
 .ptk-v[data-rate="mid"] { fill: var(--caution); } .ptk-v[data-rate="hi"] { fill: var(--danger); }
 .pz.stack .pz-data.has-tool { max-height: 50%; }
 .pz.stack .pz-data > * { flex-shrink: 0; }   /* (parts keep their height, so a card too full reads as overflow and is fitted, not squeezed until a reading is cut) */
-.pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 110px; }
+.pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
 /* Phone: the scope sits beside its grade and size, and the Doppler drops its sentence, so a tile still fits under the instrument. */
@@ -2254,9 +2254,9 @@ button.finding { cursor: pointer; }
    the four stats in one row. */
 .pz.stack .pz-tool .dop-main { gap: 8px; }
 .pz.stack .pz-tool .dop-report { grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; align-items: center; }
-.pz.stack .pz-tool .dop-report > .dop-dir { grid-column: 1 / -1; font-size: var(--s-val); }
+.pz.stack .pz-tool .dop-report > .dop-dir { grid-column: 1 / -1; font-size: var(--s-body); }
 .pz.stack .pz-tool .dop-velrow { grid-column: 1; grid-row: 2; margin: 0; gap: 2px 8px; }
-.pz.stack .pz-tool .dop-vel b { font-size: var(--s-title); }
+.pz.stack .pz-tool .dop-vel b { font-size: var(--s-val); }
 .pz.stack .pz-tool .dop-pattern { margin: 0; font-size: var(--s-lab); }
 .pz.stack .pz-tool .dop-range { grid-column: 2; grid-row: 2; margin: 0 6px; }
 .pz.stack .pz-tool .dop-ticks { margin-top: 3px; }
@@ -4080,6 +4080,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace.float-ui .dop-report > .dop-dir { grid-column: 1; }
   .instrument-workspace.float-ui .dop-report > .dop-pattern { grid-column: 2; grid-row: 1; margin: 0; }
   .instrument-workspace.float-ui .dop-velrow { margin-top: 0; }
+  /* The spectrum is the point of the sheet: it runs nearly edge to edge, and the readings under it stay small. */
+  .instrument-workspace.float-ui:not(.side) .instrument-view.dop .dop-box { margin-inline: -10px; }
   .instrument-workspace.float-ui .dop-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 10px; margin-top: 4px; padding-top: 6px; }
   /* FibroScan: the live map always gets its box (an older sheet rule made this view a block, collapsing it) */
   .instrument-workspace.float-ui .dock-pane > .instrument-view[data-pane="fibroscan"] { display: flex; flex-direction: column; }
@@ -4295,6 +4297,15 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace.float-ui:not(.side) .fibroscan-box { min-height: 180px !important; }
   .instrument-workspace.float-ui:not(.side) :is(.dop-box, .fibroscan-box) > canvas { width: 100%; height: 100%; }
 }
+/* Doppler readings on a phone sheet (portrait and on its side): direction and mean are sized as readings, never as headings,
+   so the spectrum above them keeps the height. */
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .instrument-workspace.float-ui:not(.side) .dop-dir { font-size: var(--fs-16); gap: 6px; }
+  .instrument-workspace.float-ui:not(.side) .dop-dir::before { width: 7px; height: 7px; }
+  .instrument-workspace.float-ui:not(.side) .dop-vel b { font-size: var(--fs-20); }
+  .instrument-workspace.float-ui:not(.side) .dop-velrow { margin-top: 0; }
+}
+@media (orientation: landscape) and (max-height: 500px) { .pz-tool .dop-dir { font-size: var(--s-body); } .pz-tool .dop-vel b { font-size: var(--s-val); } }
 /* The side card keeps one column at every width: widening it grows the pictures, it never splits them off. */
 .instrument-workspace.side { --one-col: 1; }
 .instrument-workspace.side :is(.instrument-view, .dop-main, .hv-main, .ab-main) { grid-template-columns: minmax(0, 1fr); }
