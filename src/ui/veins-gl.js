@@ -661,6 +661,8 @@ uniform int bleedN;
 uniform float rows;
 uniform sampler2D lineL;               // the organ outlines, drawn once per change (premultiplied, device pixels)
 uniform int lineOn;
+uniform sampler2D glowL;               // soft glows behind the plate (an organ a slide points at), same drawing
+uniform int glowOn;
 out vec4 outColor;
 
 const float SLOT = ${SLOT_W}.0;
@@ -887,6 +889,8 @@ void main() {
     if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) pl = texture(plate0, uv);
   }
   if (pl.a > 0.0) { float l = dot(pl.rgb / pl.a, vec3(0.299, 0.587, 0.114)); pl = vec4(mix(vec3(l) * pl.a, pl.rgb, plateSat), pl.a) * plateAlpha; }
+  // A glow lies behind the organs: the liver and the vessels pass over it.
+  if (glowOn == 1) pl = over(pl, texelFetch(glowL, ip, 0));
   // Ascites over the plate, in its own color whatever the lens: a meniscus (highest at the flanks)
   // with a slow two-part ripple, deeper fluid a little denser, a soft brighter band just under the surface.
   if (fluidInk.a > 0.0) {
@@ -987,9 +991,16 @@ precision highp float;
 in float vD;
 in float vW;
 uniform vec4 col;   // rgb, alpha
+uniform float soft;   // 1: a glow, strongest on the edge and easing out as a Gaussian over its width (vD runs 0 to the full reach)
 out vec4 o;
 void main() {
-  float a = col.a * clamp(max(vW, 0.5) + 0.5 - abs(vD), 0.0, 1.0) * min(1.0, vW * 2.0);
+  float a;
+  if (soft > 0.5) {
+    float t = clamp(abs(vD) / (vW + 1.0), 0.0, 1.0);
+    a = col.a * exp(-4.5 * t * t) * (1.0 - smoothstep(0.55, 1.0, t));
+    // A hair of noise, so a long faint ramp does not step in 8-bit colour.
+    a = max(a + (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0, 0.0) * step(0.0005, a);
+  } else a = col.a * clamp(max(vW, 0.5) + 0.5 - abs(vD), 0.0, 1.0) * min(1.0, vW * 2.0);
   o = vec4(col.rgb * a, a);
 }`;
 
@@ -1131,41 +1142,44 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
   for (let i = 0; i < 3; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 2, gl.FLOAT, false, 24, i * 8); }
   gl.bindVertexArray(null);
-  let lines = null, linesWas = false, lineVer = 0, lineSig = '', lineKey = '', lineW = 0, lineH = 0;
+  let lines = null, linesWas = false, lineVer = 0, lineSig = '', lineKey = '', glowKey = '';
   // The outlines are drawn into a layer of their own when they change, and the composite lays it over the picture: the
-  // cells-only pass then keeps them, so an open organ card no longer repaints the whole picture every frame.
-  const lineTex = dataTex(gl), lineFbo = gl.createFramebuffer();
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-  function renderLines(m) {
-    if (lineW !== canvas.width || lineH !== canvas.height) {
-      lineW = canvas.width; lineH = canvas.height;
-      gl.bindTexture(gl.TEXTURE_2D, lineTex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, lineW, lineH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, lineFbo);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lineTex, 0);
+  // cells-only pass then keeps them, so an open organ card no longer repaints the whole picture every frame. Glows
+  // (draws marked soft) have a layer too, which the composite lays under the organs.
+  const makeLayer = () => { const tex = dataTex(gl); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return { tex, fbo: gl.createFramebuffer(), w: 0, h: 0 }; };
+  const lineLayer = makeLayer(), glowLayer = makeLayer();
+  const hasSoft = () => !!lines?.draws.some((d) => d.soft), hasHard = () => !!lines?.draws.some((d) => !d.soft);
+  function renderLayer(L, m, soft) {
+    if (L.w !== canvas.width || L.h !== canvas.height) {
+      L.w = canvas.width; L.h = canvas.height;
+      gl.bindTexture(gl.TEXTURE_2D, L.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, L.w, L.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.tex, 0);
     }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, lineFbo);
-    gl.viewport(0, 0, lineW, lineH);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
+    gl.viewport(0, 0, L.w, L.h);
     gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
-    drawLines(m);
+    drawLines(m, soft);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
-  function freeLines() {   // back to a single texel while no organ is outlined
-    if (!lineW) return;
-    lineW = lineH = 0; lineKey = '';
-    gl.bindTexture(gl.TEXTURE_2D, lineTex);
+  function freeLayer(L) {   // back to a single texel while nothing is drawn in it
+    if (!L.w) return;
+    L.w = L.h = 0;
+    gl.bindTexture(gl.TEXTURE_2D, L.tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   }
-  function drawLines(m) {
+  function drawLines(m, soft) {
     const U = lineP.u;
     gl.useProgram(lineP.p);
     gl.uniformMatrix3fv(U.world, false, new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
     gl.uniform2f(U.size, canvas.width, canvas.height);
+    gl.uniform1f(U.soft, soft ? 1 : 0);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(lineVAO);
     for (const d of lines.draws) {
-      if (d.alpha <= 0) continue;
+      if (d.alpha <= 0 || !!d.soft !== !!soft) continue;
       gl.uniform4f(U.col, ...d.col, d.alpha);
       gl.drawArrays(d.tri ? gl.TRIANGLES : gl.TRIANGLE_STRIP, d.first, d.count);
     }
@@ -1397,11 +1411,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       // The organ outlines (over the vessels) are a layer redrawn when they or the view change, with one whole repaint
       // then and once after they go. Under the catheter's passes they are drawn last, as before, over it.
       const m = baseM;
-      const layer = !!lines && !cath;
+      const hard = hasHard(), glow = hasSoft(), layer = hard && !cath;
+      const vk = `${lineVer}|${m.join(',')}|${canvas.width}x${canvas.height}`;
       if (layer) {
-        const k = `${lineVer}|${m.join(',')}|${canvas.width}x${canvas.height}`;
-        if (k !== lineKey) { renderLines(m); lineKey = k; full = true; }
-      } else if (!lines) freeLines();
+        if (vk !== lineKey) { renderLayer(lineLayer, m, false); lineKey = vk; full = true; }
+      } else if (!hard) { freeLayer(lineLayer); lineKey = ''; }
+      // (The glow lies behind the organs, so the catheter never draws over it: its layer holds whatever the catheter does.)
+      if (glow) {
+        if (vk !== glowKey) { renderLayer(glowLayer, m, true); glowKey = vk; full = true; }
+      } else { freeLayer(glowLayer); glowKey = ''; }
       if (linesWas && !lines) full = true;
       linesWas = !!lines;
       wasBleeding = bleeding;
@@ -1456,7 +1474,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };
       bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
       bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2'); bind(9, fluidTex, 'fluidMask');
-      bind(10, lineTex, 'lineL'); gl.uniform1i(U.lineOn, layer ? 1 : 0);
+      bind(10, lineLayer.tex, 'lineL'); gl.uniform1i(U.lineOn, layer ? 1 : 0);
+      bind(11, glowLayer.tex, 'glowL'); gl.uniform1i(U.glowOn, glow ? 1 : 0);
       if (full) {
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -1466,20 +1485,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       }
       gl.bindVertexArray(null);
       if (cath) drawCath(m);
-      if (lines && !layer) drawLines(m);
+      if (hard && !layer) drawLines(m, false);
     },
     /** Whether organ outlines can be drawn here (else stage.js keeps its SVG ones). */
     get canLines() { return !!lineP; },
     /**
      * Organ outlines, or null: { verts: Float32Array (x, y, normal x, y, side, half width per vertex; world units),
-     * draws: [{ first, count, col: [r, g, b], alpha, tri (a fill: triangles, half width 1e4, side 0) }] }.
+     * draws: [{ first, count, col: [r, g, b], alpha, tri (a fill: triangles, half width 1e4, side 0), soft (a glow behind the organs: side 0 on the edge and ±1 at the reach, half width = the reach) }] }.
      * Alphas may change without new verts.
      */
     setLines(spec) {
       const fresh = spec && spec.verts !== lines?.verts;
       lines = lineP && spec?.draws?.length ? spec : null;
       if (!lines) return;
-      const sig = lines.draws.map((d) => `${d.first},${d.count},${d.alpha},${d.col},${d.tri ? 1 : 0}`).join(';');
+      const sig = lines.draws.map((d) => `${d.first},${d.count},${d.alpha},${d.col},${d.tri ? 1 : 0},${d.soft ? 1 : 0}`).join(';');
       if (fresh || sig !== lineSig) { lineSig = sig; lineVer++; }
       if (!fresh) return;
       gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
@@ -1513,7 +1532,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, 1, 1, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
       }
       fboW = fboH = 0; baseM = null;
-      freeLines();
+      freeLayer(lineLayer); freeLayer(glowLayer); lineKey = glowKey = '';
     },
     /**
      * Frees every GPU object (textures, the vessel framebuffer, buffers, programs) and stops
@@ -1524,11 +1543,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     dispose({ lose = false } = {}) {
       canvas.removeEventListener('webglcontextlost', onLost);
       if (!lost) {
-        for (const t of [entTex, radTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, lineTex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
+        for (const t of [entTex, radTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, lineLayer.tex, glowLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
         for (const b of [quad, cellBuf, fluidBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [vao, fluidVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
         for (const x of [prog, comp, compCell, cathP, lineP]) if (x) gl.deleteProgram(x.p);
-        gl.deleteFramebuffer(fbo); gl.deleteFramebuffer(lineFbo);
+        gl.deleteFramebuffer(fbo); gl.deleteFramebuffer(lineLayer.fbo); gl.deleteFramebuffer(glowLayer.fbo);
         if (lose) gl.getExtension('WEBGL_lose_context')?.loseContext();
       }
       plates[0] = plates[1] = null; lines = cath = null; nCells = nFluid = 0; baseM = null; fboW = fboH = 0;

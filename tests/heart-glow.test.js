@@ -17,25 +17,26 @@ test('the right atrium and the heart targets both light the heart, and no deck o
   assert.ok(lit.length >= 3, 'the right-heart slides name the right atrium');
 });
 
-test('the heart is a glow of soft, widening layers, and the old atrium id is folded into it', () => {
+const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+
+test('the old atrium id is folded into the heart, which is lit as one glow (not stacked rings)', () => {
   assert.match(stage, /PIN_ID = \(id\) => \(id === 'heart-ra' \? 'heart' : id\)/);
-  const layers = [...stage.match(/const HEART_GLOW = (\[\[.*\]\]);/)[1].matchAll(/\[(\d+), ([\d.]+)\]/g)].map((m) => [+m[1], +m[2]]);
-  assert.ok(layers.length >= 6, 'enough layers to read as a glow, not rings');
-  for (let i = 1; i < layers.length; i++) assert.ok(layers[i][0] > layers[i - 1][0] && layers[i][1] <= layers[i - 1][1], 'wider layers are fainter');
-  assert.ok(layers.reduce((a, l) => a + l[1], 0) < 0.4, 'the glow stays subtle at the edge');
+  assert.match(stage, /const HEART_GLOW = \{ reach: \d+, alpha: 0\.\d+ \};/);
   assert.match(stage, /glow: id === 'heart'/);
+  assert.ok(+stage.match(/HEART_GLOW = \{ reach: \d+, alpha: ([\d.]+)/)[1] <= 0.4, 'the glow stays subtle at the edge');
+  assert.doesNotMatch(stage, /HEART_GLOW = \[\[/, 'no stack of stroke layers (they showed as bands)');
 });
 
-test('without GPU outlines the heart keeps a flat tint that eases, with no filter or blur', () => {
-  assert.match(stage, /if \(glLines\) return;[\s\S]*org-pin-flat/);
-  const rule = css.match(/\.org-pin-flat \{[^}]*\}/)[0];
-  assert.match(rule, /transition: opacity/);
-  assert.doesNotMatch(rule, /filter|blur|shadow/);
+test('the glow is shaded smoothly on the GPU and lies behind the organs, not over them', () => {
+  const fs = veins.match(/const LINE_FS = `[\s\S]*?`;/)[0];
+  assert.match(fs, /exp\(-4\.5 \* t \* t\)/, 'a Gaussian falloff');
+  assert.match(fs, /gl_FragCoord/, 'dithered, so a long faint ramp does not step');
+  // the composite lays the glow under the plate (the organs and the liver), before the vessels go over
+  assert.match(veins, /if \(glowOn == 1\) pl = over\(pl, texelFetch\(glowL, ip, 0\)\);/);
+  assert.match(veins, /vec4 o = over\(v, pl\);/);
 });
 
-test('lite mode is gone: no switch, flag or lite-only branches', () => {
-  for (const f of ['src/ui/main.js', 'src/ui/util.js', 'src/ui/stage.js', 'src/ui/presenter.js', 'src/ui/lobule-zoom.js', 'styles/app.css']) {
-    const src = readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-    assert.doesNotMatch(src, /data-lite|pps\.lite|liteFade|liteOn|lite\(\)/, f);
-  }
+test('the heart glow has no lite or flat fallback left', () => {
+  assert.doesNotMatch(stage, /org-pin-flat|syncPinFlat/);
+  assert.doesNotMatch(css, /org-pin-flat/);
 });

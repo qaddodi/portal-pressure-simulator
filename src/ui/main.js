@@ -4,6 +4,7 @@
 import { startHost, host } from './host.js?v=3fa9773423';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=7c63421fac';
 import { createStage } from './stage.js?v=5887184e11';
+>>>>>>> f727dde (Heart glow: one smooth Gaussian falloff shaded on the GPU (no stepped bands), drawn behind the organs so the liver covers it; flat fallback removed)
 import { createCreditPlacer } from './credit.js?v=b5d3742ef5';
 import { sinusoidSupported } from './sinusoid-view.js?v=9818d847b0';
 import { createInspector } from './inspector.js?v=47dbbdb818';

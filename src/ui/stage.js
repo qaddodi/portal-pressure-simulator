@@ -15,7 +15,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=9d3f9164af
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=6434f7ab87';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=77835d5de8';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('stage');
@@ -2999,9 +2999,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const glLines = !!veins?.canLines;
   const OL_LOOK = { sel: [2.4, 0.55], hov: [2, 0.4], pin: [2.6, 0.6] };   // as .org-sel-line and .org-hov-line: width, opacity
   const OL_FADE = 160;   // ms
-  // The heart a slide points at (the right atrium, the heart itself) is lit whole by a soft glow, not a line: layers of
-  // widening, fainter stroke ([width, opacity], world units) that add up to a halo easing out from its edge.
-  const HEART_GLOW = [[4, 0.06], [8, 0.05], [13, 0.045], [18, 0.04], [24, 0.035], [30, 0.03], [37, 0.025], [44, 0.02]];
+  // The heart a slide points at (the right atrium, the heart itself) is lit whole by a soft glow, not a line: one band
+  // easing out from its edge (the GPU shades the falloff smoothly, behind the organs): reach in world units, peak opacity.
+  const HEART_GLOW = { reach: 46, alpha: 0.34 };
   let olPath = null;   // sampled in <defs>: the organ itself is hidden while the GPU draws the plate
   function olRings(id) {
     const m = organG[id].transform.baseVal.consolidate()?.matrix;
@@ -3033,8 +3033,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Each in its station's colour ([{ id, tone }], --tr-<tone>).
   // The right atrium's slides light the whole heart (the atrium is one chamber of it), so both ids come to 'heart'.
   const PIN_ID = (id) => (id === 'heart-ra' ? 'heart' : id);
-  const gPinFlat = s('g', { id: 'organPin', 'aria-hidden': 'true' });   // no-GPU outlines: a flat tint instead of the glow
-  let pinFlat = null;
   function pinOrgans(list) {
     const items = (list || []).map((o) => (typeof o === 'string' ? { id: o } : o)).map((o) => ({ id: PIN_ID(o.id), tone: o.tone || null }));
     const ids = items.map((o) => o.id);
@@ -3047,17 +3045,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (o) { o.on = true; o.col = col(tone); } else if (organEls[id].getAttribute('d')) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(tone), glow: id === 'heart' });
     }
     olDirty = true; olLast = performance.now();
-    syncPinFlat(want.has('heart') ? want.get('heart') : undefined);
-  }
-  // Without the GPU outlines the heart gets a flat tint in its station's colour, eased in and out.
-  function syncPinFlat(tone) {
-    if (glLines) return;
-    if (!gPinFlat.isConnected) gOver.after(gPinFlat);
-    if (tone === undefined) { pinFlat?.classList.remove('on'); return; }
-    if (!pinFlat) { pinFlat = s('path', { class: 'org-pin-flat', d: organEls.heart.getAttribute('d') }); const tr = organG.heart.getAttribute('transform'); if (tr) pinFlat.setAttribute('transform', tr); gPinFlat.append(pinFlat); }
-    pinFlat.style.setProperty('--pin', `var(${tone ? (tone.startsWith('--') ? tone : `--tr-${tone}`) : '--accent'})`);
-    void pinFlat.getBoundingClientRect();   // (a path just added starts from its hidden state, so the tint eases in)
-    pinFlat.classList.add('on');
   }
   // The organ was redrawn (a reshaped liver, a larger spleen): the outlines follow it.
   function olGeom() {
@@ -3080,20 +3067,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let first = 0;
     for (const o of olList) {
       const ease = o.a * o.a * (3 - 2 * o.a);
-      for (const [w, alpha] of o.glow ? HEART_GLOW : [OL_LOOK[o.kind]]) {
-        const h = w / 2, a = alpha * ease;
-        for (const r of o.rings) {
-          const closed = Math.hypot(r[0][0] - r[r.length - 1][0], r[0][1] - r[r.length - 1][1]) < 0.5;
-          const pts = closed ? r.slice(0, -1) : r, n = pts.length, count = (n + (closed ? 1 : 0)) * 2;
-          if (V) for (let i = 0; i <= n - (closed ? 0 : 1); i++) {
-            const k = i % n, p = pts[k];
-            const pa = pts[closed ? (k - 1 + n) % n : Math.max(0, k - 1)], pb = pts[closed ? (k + 1) % n : Math.min(n - 1, k + 1)];
-            let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
-            V.push(p[0], p[1], -ty, tx, 1, h, p[0], p[1], -ty, tx, -1, h);
-          }
-          draws.push({ first, count, col: o.col || olCol, alpha: a });
-          first += count;
+      const [w, alpha] = o.glow ? [HEART_GLOW.reach, HEART_GLOW.alpha] : OL_LOOK[o.kind], h = w / 2, a = alpha * ease;
+      for (const r of o.rings) {
+        const closed = Math.hypot(r[0][0] - r[r.length - 1][0], r[0][1] - r[r.length - 1][1]) < 0.5;
+        const pts = closed ? r.slice(0, -1) : r, n = pts.length, count = (n + (closed ? 1 : 0)) * 2;
+        // A glow starts on the edge and runs outward only (inside it would fold over itself on a tight curve): the side
+        // that points away from the shape, by the ring's winding.
+        let out = 1;
+        if (o.glow) { let ar = 0; for (let i = 0; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; ar += p[0] * q[1] - q[0] * p[1]; } out = ar > 0 ? -1 : 1; }
+        if (V) for (let i = 0; i <= n - (closed ? 0 : 1); i++) {
+          const k = i % n, p = pts[k];
+          const pa = pts[closed ? (k - 1 + n) % n : Math.max(0, k - 1)], pb = pts[closed ? (k + 1) % n : Math.min(n - 1, k + 1)];
+          let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+          if (o.glow) V.push(p[0], p[1], -ty, tx, 0, w, p[0], p[1], -ty, tx, out, w);
+          else V.push(p[0], p[1], -ty, tx, 1, h, p[0], p[1], -ty, tx, -1, h);
         }
+        draws.push({ first, count, col: o.col || olCol, alpha: a, soft: o.glow || undefined });
+        first += count;
       }
     }
     if (V) olVerts = new Float32Array(V);
