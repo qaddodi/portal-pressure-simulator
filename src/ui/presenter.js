@@ -1800,8 +1800,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dd.style.width = below ? `${(cw / k).toFixed(1)}px` : '';
     dd.style.top = below ? `${(y / k).toFixed(1)}px` : '';
     dd.style.maxHeight = below ? `${((foot - y) / k).toFixed(1)}px` : '';
-    // (A phone: the card above the words ends 8 px short of them, however much it holds: an opened instrument had grown over the words.)
-    if (p && t) { const cs = getComputedStyle(dd), room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 8); if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
+    // (A phone: the data card ends 8 px short of the teaching card (16 px above the words), however much it holds: an opened instrument had grown over the words.)
+    if (p && t) { const cs = getComputedStyle(dd), room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8); if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     if (below !== isCol) { void dd.offsetWidth; dd.style.transition = ''; }
     fitCards(ui.data, ui.panel);
     fitWatch();
@@ -1822,8 +1822,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The words' card: as far past the words on the right as its left edge is before them.)
     const card = cardOn && t ? L + pad - sl : 0;
     ui.shade.style.width = !p && t ? `${(card || L + 36) / k}px` : '';
-    ui.shade.style.height = p && t ? `${(B + 26) / k}px` : cardOn && t ? `${(t.height + 2 * pad) / k}px` : '';
-    ui.shade.style.top = !p && cardOn && t ? `${(t.top - wr.top - pad) / k}px` : '';
+    ui.shade.style.height = !p && cardOn && t ? `${(t.height + 2 * pad) / k}px` : '';
+    ui.shade.style.top = p && t ? `${ui.text.offsetTop - 16}px` : cardOn && t ? `${(t.top - wr.top - pad) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'bottom' : 'left';

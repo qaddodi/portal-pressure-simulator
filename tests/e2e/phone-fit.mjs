@@ -24,6 +24,15 @@ export const fitIssues = () => {
     if (text && Math.min(dr.right, text.right) - Math.max(dr.left, text.left) > 4 && Math.min(dr.bottom, text.bottom) - Math.max(dr.top, text.top) > 4) out.push('numbers card over the slide words');
     if (text && dr.height < 60 && !data.classList.contains('tool-only')) out.push(`numbers card squeezed to ${Math.round(dr.height)} px`);
   }
+  // Upright, the words sit in a teaching card at the bottom: it holds the words and the pill, stays on screen, and the data card
+  // at the top ends clear of it, so the figure shows between them.
+  const sh = document.querySelector('.pz.stack') && text && vis(document.querySelector('.pz-shade'));
+  if (sh) {
+    if (text.left < sh.left - 1 || text.right > sh.right + 1 || text.top < sh.top + 4 || text.bottom > sh.bottom + 1) out.push('slide words outside the teaching card');
+    if (bar && (bar.left < sh.left || bar.right > sh.right || bar.bottom > sh.bottom)) out.push('controls pill outside the teaching card');
+    if (sh.left < 1 || sh.right > innerWidth - 1 || sh.bottom > innerHeight - 1) out.push('teaching card touches the screen edge');
+    if (db && db.width && !data.classList.contains('pz-hide') && db.bottom > sh.top - 4) out.push(`data card runs into the teaching card (${Math.round(db.bottom)} vs ${Math.round(sh.top)})`);
+  }
   // No slide words, card or legend chip under the preview badge (a slim tab at the top centre, 13 px tall, added only to
   // /preview/). (An organ's name the camera leaves at the screen's edge is the figure, not a chip; it is not judged.)
   const seen = (e) => { for (let a = e; a; a = a.parentElement) { const cs = getComputedStyle(a); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return false; } return true; };
