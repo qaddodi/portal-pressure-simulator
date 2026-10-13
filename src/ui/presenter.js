@@ -1631,9 +1631,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   };
 
   // ── Layout: what the slide's words and data cover, so the figure frames itself in the rest ──
-  // Only an upright phone stacks the words over the figure; a tablet (either way up) and any phone on its side keep the words
-  // at the left and the data card at the right (a small phone on its side had no height for the two stacked).
-  const phone = () => innerWidth < 700 && innerHeight >= 500;
+  // An upright phone, or a tablet held upright, stacks the words under the figure and the data card over it; a tablet on its
+  // side and any phone on its side keep the words at the left and the data card at the right (a small phone on its side had
+  // no height for the two stacked). An upright tablet's cards take 70% of the width (class `tab`), centred.
+  const tabUp = () => innerWidth >= 700 && innerWidth <= 1100 && innerHeight > innerWidth * 1.15;
+  const phone = () => (innerWidth < 700 && innerHeight >= 500) || tabUp();
   // ── The data card slides out of view and back ──
   // Drag or swipe it away (up on a phone, to the right on a tablet; to the left when it sits under the words) and a sliver
   // stays at the edge: a tap or a drag on the sliver brings it back. It follows the finger, eases to rest, and stays put from
@@ -1753,6 +1755,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The --pz-* insets stay in screen px, the figure's own units (the stage view undoes the zoom).
     const p = phone(), wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = wr.width / (wrap.clientWidth || wr.width) || 1;
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
+    ui.root.classList.toggle('tab', p && tabUp()); ui.shade.classList.toggle('tab', p && tabUp());
     const cardOn = TEXT_CARD && !p && !(W > H && H <= 500);   // (a phone held sideways keeps its panel too)
     ui.root.classList.toggle('pz-card', cardOn); ui.shade.classList.toggle('pz-card', cardOn);
     const off = (el) => el.hidden || (el === ui.data ? 'gone' in el.dataset : el.classList.contains('pz-hide'));   // (a card only easing out and back in for the next slide still counts, where it rests: the camera frames once)

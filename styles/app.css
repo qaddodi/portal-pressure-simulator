@@ -1932,6 +1932,11 @@ button.finding { cursor: pointer; }
 .pz.stack .pzt-v { font-size: var(--s-title); }
 /* (Centred in the figure above the controls' pill: top and bottom set, its own height, auto margins.) */
 .pz.stack .pz-panel { top: 8px; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); height: fit-content; margin-block: auto; translate: -50% 0; width: calc(100% - 16px); max-height: calc(100% - 72px - env(safe-area-inset-bottom, 0px)); padding: 16px; gap: 12px; }
+/* An upright tablet uses the phone layout, its cards 70% of the width and centred (the phone's own sizes are untouched). */
+.pz-shade.stack.tab { left: 15%; right: 15%; }
+.pz.stack.tab .pz-text { left: calc(15% + 13px); right: calc(15% + 13px); }
+.pz.stack.tab .pz-data { left: 15%; right: 15%; }
+.pz.stack.tab .pz-panel { width: 70%; }
 .pz.stack .pz-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
 .pz.stack .pz-panel.fill { height: fit-content; }
 .pz.stack .pz-panel.fill .pz-grid { flex: none; }   /* (the six ladders keep their height; the card scrolls instead of the charts spilling out of their cells) */
