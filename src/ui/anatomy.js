@@ -451,10 +451,9 @@ export const ORGAN_DETAIL = {
   heart: [['fine', 'M691 64 C 700 108 722 152 751 176']],
 };
 // Background plane (anatomic view): the posterior wall the organs sit against, drawn quietly
-// so the plate reads in depth: the body cavity and the diaphragm domes the liver and spleen
+// so the plate reads in depth: the diaphragm domes the liver and spleen
 // tuck under.
 export const BACKDROP = {
-  cavity: 'M318 250 C 314 190 360 150 440 142 C 520 136 600 150 700 150 C 800 150 900 150 980 166 C 1060 182 1100 230 1104 300 C 1112 480 1100 700 1068 900 L 352 900 C 326 700 318 480 318 250 Z',
   diaphragm: 'M316 330 C 314 250 352 182 450 170 C 520 162 590 170 640 176 C 700 184 780 204 848 226 C 940 214 1040 232 1092 290 C 1112 316 1116 360 1110 400',
 };
 

@@ -557,12 +557,8 @@ div.vital { cursor: default; }
 .v-heat { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .map-grid { opacity: .9; }
 .map-dot { fill: var(--map-dot); }
-/* Background plane: body cavity, vertebral column, diaphragm. */
+/* Background plane: the diaphragm (no body-cavity shading). */
 #backdrop { pointer-events: none; transition: opacity .5s var(--ease); }
-/* The cavity is a soft pool of shade with no hard edge. */
-.cav-hi { stop-color: var(--cavity); stop-opacity: 1; }
-.cav-mid { stop-color: var(--cavity); stop-opacity: .75; }
-.cav-lo { stop-color: var(--cavity); stop-opacity: 0; }
 .org-colon.band-cast { stroke-width: 26; }
 .band-sheen { fill: none; stroke: var(--light-ink); stroke-opacity: calc(var(--tube-sheen) * .55); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 .tex { fill: none; stroke: currentColor; stroke-width: .8; }
