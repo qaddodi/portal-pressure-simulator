@@ -6,8 +6,9 @@
 //   DECKS=doppler DEVS=mac,ipad node tests/e2e/text-card.mjs
 import { chromium } from 'playwright';
 import { serve } from '../../scripts/serve.mjs';
+import { fastContext, gotoSlide, quiet } from './fast.mjs';
 const ROOT = new URL('../..', import.meta.url).pathname;
-const { DECKS } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
 const only = process.env.DECKS ? process.env.DECKS.split(',') : null;
 const decks = DECKS.map((d) => d.id).filter((id) => !only || only.includes(id));
 const SIZES = {
@@ -20,17 +21,15 @@ const devs = (process.env.DEVS || 'mac,desktop,ipad,ipadL').split(',');
 const server = await serve(ROOT);
 let fails = 0, seen = 0, stacked = 0;
 const fallback = {};
-const settle = (page) => page.waitForFunction(() => !document.querySelector('.pz-load.on') && !document.getAnimations().some((a) => a.playState === 'running' && isFinite(a.effect?.getTiming().iterations)), null, { timeout: 8000, polling: 150 }).catch(() => {});
+const browser = await chromium.launch();
 for (const dev of devs) {
-  const browser = await chromium.launch();
+  // (one page per size; each slide reached directly, its motion instant: tests/e2e/fast.mjs)
+  const ctx = await fastContext(browser, SIZES[dev]);
+  const page = await ctx.newPage(); page.setDefaultTimeout(60000);
   for (const deck of decks) {
-    const ctx = await browser.newContext({ ...SIZES[dev], serviceWorkers: 'block', reducedMotion: 'reduce' });
-    const page = await ctx.newPage(); page.setDefaultTimeout(60000);
-    await page.goto(server.url + '?script=' + deck);
-    await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'));
-    const n = await page.evaluate(() => +(document.querySelector('.pzb-n')?.textContent.split('/')[1] || 0));
+    const n = withOverview(DECKS.find((d) => d.id === deck)).slides.length;
     for (let i = 1; i <= n; i++) {
-      await page.waitForTimeout(700); await settle(page);
+      await gotoSlide(page, server.url, deck, i - 1); await quiet(page);
       const check = () => page.evaluate(() => {
         const sh = document.querySelector('.pz-shade'), tx = document.querySelector('.pz-text'), da = document.querySelector('.pz-data'), bar = document.querySelector('.pz-bar');
         if (!sh?.classList.contains('pz-card') || !tx || tx.hidden || !tx.childElementCount || tx.classList.contains('pz-leave') || getComputedStyle(sh).opacity === '0') return null;
@@ -62,18 +61,17 @@ for (const dev of devs) {
         return { err, where };
       });
       let res = await check();
-      if (res?.err.length) { await page.waitForTimeout(2500); await settle(page); res = await check(); }   // (a slow machine: a slide or chart may still be landing)
+      if (res?.err.length) { await page.waitForTimeout(2500); await quiet(page); res = await check(); }   // (a slow machine: a slide or chart may still be landing)
       if (res) {
         seen++;
         if (res.err.length) { fails++; console.log(`FAIL ${dev} ${deck} ${i}/${n} ${res.err.join('; ')}`); }
         if (res.where === 'right') (fallback[dev] ||= []).push(`${deck} ${i}`); else if (res.where) stacked++;
       }
-      if (i < n) await page.keyboard.press('ArrowRight');
     }
-    await ctx.close();
   }
-  await browser.close();
+  await ctx.close();
 }
+await browser.close();
 server.close?.();
 console.log(`data card stacked on ${stacked} slide(s); at the top right (pair too tall):`);
 for (const [dev, l] of Object.entries(fallback)) console.log(`  ${dev}: ${l.join(', ')}`);

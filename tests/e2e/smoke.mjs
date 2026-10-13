@@ -15,6 +15,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
+import { instantMotionOn, quiet } from './fast.mjs';
 import { checkCharts, checkLadderBrackets, LADDER_SIZES, checkStrip, checkStripSlides, stripSlides, checkStripGaps } from './chart-text.mjs';
 import { checkPhoneFit } from './phone-fit.mjs';
 import { checkTypeScale } from './type-scale.mjs';
@@ -1211,11 +1212,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const slides = DECKS.flatMap((d) => withOverview(d).slides.map((s, i) => [d.id, i, s]).filter(([, , s]) => K.some((k) => (s.line || '').includes(`{${k}}`)) || s.data === 'ladder' || (s.tiles || []).some((k) => k === 'hvpg' || k === 'ppg' || k === 'sin')))
       .filter(([d]) => !process.env.DECKS || process.env.DECKS.split(',').includes(d));
     await open(page);
+    // (motion instant and a wait for the readings to stop changing, not a fixed 3.5 s a slide: tests/e2e/fast.mjs)
+    const restore = await instantMotionOn(page);
     const bad = [];
     for (const [d, i, s] of slides) {
       await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [d, i]);
       await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover, .pz-load.on'), null, { timeout: 30000 }).catch(() => {});
-      await page.waitForTimeout(3500);   // (the readings ease in over about two seconds)
+      await quiet(page, { still: 400 });
       const keys = [...(s.line || '').matchAll(/\{([^}]+)\}/g)].map((m) => m[1]).filter((k) => !/^[<>≥≤]/.test(k));
       const read = () => page.evaluate((keys) => {
         const num = (t) => { const m = /(-?\d+(?:\.\d+)?)/.exec(t || ''); return m ? +m[1] : null; };
@@ -1247,6 +1250,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (r.length) { await page.waitForTimeout(2500); r = await read(); }   // (a slow machine: a long glide may still be landing)
       if (r.length) bad.push(`${d} slide ${i + 1}: ${r.join('; ')}`);
     }
+    await restore();
     if (bad.length) throw new Error(bad.join('\n'));
   });
 

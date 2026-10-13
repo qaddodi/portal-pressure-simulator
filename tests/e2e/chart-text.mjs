@@ -3,6 +3,7 @@
 // rule line (a cut-off tick, a divider, an SVG line). Run alone: node tests/e2e/chart-text.mjs; also run by smoke.mjs.
 import { chromium } from 'playwright';
 import { serve } from '../../scripts/serve.mjs';
+import { fastContext, gotoSlide, quiet } from './fast.mjs';
 
 const CHARTS = new Set(['scale', 'ladders', 'quadrant', 'walls']);
 export async function chartSlides() {
@@ -324,15 +325,16 @@ export async function checkLadderBrackets(browser, url, log = console.log, sizes
   const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
   const decks = DECKS.filter((d) => !process.env.DECKS || process.env.DECKS.split(',').includes(d.id)), bad = [];
   for (const { name, ...opts } of sizes) for (const z of zooms) {
-    const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
+    // (one page per size and text size; each slide reached directly, its motion instant: tests/e2e/fast.mjs)
+    const ctx = await fastContext(browser, opts);
     await ctx.addInitScript((z) => { try { localStorage.setItem('pps.labelScale', String(z)); localStorage.setItem('pps.labelScaleV', '2'); } catch { /* private mode */ } }, z);
     const page = await ctx.newPage();
     for (const d of decks) {
       const n = withOverview(d).slides.length;
       for (let i = 1; i <= n; i++) {
-        await page.goto(`${url}?script=${d.id}&slide=${i}`);
+        await gotoSlide(page, url, d.id, i - 1);
         await page.waitForFunction(() => document.querySelector('.pz-visual, .pz-grid, .pz-data'), null, { timeout: 45000 }).catch(() => {});
-        await settle(page); await page.waitForTimeout(900);
+        await quiet(page);
         const c = await page.evaluate(ladderBrackets);
         if (c.length) bad.push(`${d.id} slide ${i} at ${name} ${z * 100}%: ${c.slice(0, 4).join('; ')}`);
       }

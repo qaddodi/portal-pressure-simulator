@@ -1,6 +1,7 @@
 // Phone slide fit, on every slide of one deck at three phone widths upright and sideways: the slide's words stay clear
 // of the controls pill (back, count, next): no drawn word under it, and every reading in the numbers card (tiles, and an instrument such as the
 // Doppler, opened if it is folded) sits inside the card. Content the card hides (a folded instrument) is not judged.
+import { fastContext, gotoSlide, quiet } from './fast.mjs';
 export const PHONES = [{ width: 375, height: 667 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 667, height: 375 }, { width: 844, height: 390 }, { width: 932, height: 430 }];
 export const fitIssues = () => {
   const vis = (el) => { if (!el || el.hidden) return null; const st = getComputedStyle(el); if (st.display === 'none' || st.visibility === 'hidden' || +st.opacity < 0.5) return null; const r = el.getBoundingClientRect(); return r.width ? r : null; };
@@ -38,22 +39,18 @@ export const fitIssues = () => {
 export async function checkPhoneFit(browser, url, deck, slides, log = () => {}) {
   const bad = [];
   for (const size of PHONES) {
-    const ctx = await browser.newContext({ viewport: size, deviceScaleFactor: 3, isMobile: true, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce' });
+    // (one page per size; each slide reached directly, its motion instant: tests/e2e/fast.mjs)
+    const ctx = await fastContext(browser, { viewport: size, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
     const page = await ctx.newPage();
-    await page.goto(`${url}?script=${deck}`);
-    await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'), null, { timeout: 60000 });
     for (let i = 0, again = 1; i < slides; i++) try {
-      // (the presenter moved on to each slide, not reloaded: a load per slide outran a CI runner)
-      if (i) await page.evaluate(([id, k]) => window.pps.presenter.start(id, k), [deck, i]);
-      await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !document.querySelector('.pz-load.on'), i + 1, { timeout: 30000 });
-      await page.waitForTimeout(800);
-      if (await page.evaluate(() => { const b = document.querySelector('.pz-data:not(.pz-hide):not(.tool-open) .pz-fold'); if (b && b.offsetWidth) { b.click(); return true; } return false; })) await page.waitForTimeout(700);
+      await gotoSlide(page, url, deck, i); await quiet(page);
+      if (await page.evaluate(() => { const b = document.querySelector('.pz-data:not(.pz-hide):not(.tool-open) .pz-fold'); if (b && b.offsetWidth) { b.click(); return true; } return false; })) await quiet(page);
       const c = await page.evaluate(fitIssues);
       if (c.length) bad.push(`${deck} slide ${i + 1} at ${size.width}x${size.height}: ${c.join('; ')}`); else log(`ok ${size.width}x${size.height} ${deck} ${i + 1}`);
     } catch (e) {
       // (a page that reloaded mid-slide, as a runner's page now and then does: once more from a fresh load, then it counts)
       if (!again-- || !/context was destroyed|navigation/.test(e.message)) throw e;
-      await page.goto(`${url}?script=${deck}&slide=${i + 1}`); i--;
+      await page.goto('about:blank'); i--;
     }
     await ctx.close();
   }

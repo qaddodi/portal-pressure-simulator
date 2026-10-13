@@ -2420,6 +2420,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     scriptNotes: (s) => openHandout(fromScript(s)), newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null });
 
   return { start, stop, library, readLink, active: () => !!deck,
+    // For the browser checks: straight to slide i (0-based) of the deck shown, as the arrow keys move.
+    go: (i) => go(i), busy: () => busy,
     // What Settings shows while presenting.
     settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }),
     // For the browser checks: the time-lapse slides, and the card's tiles as the slide shown should read them at its start and end.
