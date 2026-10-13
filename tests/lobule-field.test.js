@@ -40,7 +40,7 @@ test('in dark mode the field lobules\' capillarized sinusoids are dark (they rec
 });
 
 test('every zoom into the lobule draws it first, for where it lands, then zooms; the anatomy returns after landing', () => {
-  assert.match(lz, /function stage\(\) \{\n\s+if \(fade > 0 \|\| !F\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true;/);
+  assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);[^\n]*\n\s+if \(fade > 0 \|\| !F\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true;/);
   assert.match(lz, /idleDrawn = ''; draw\(0\); diveDrawn = true; staged = api\.viewKey\(\); relLater = true;/);
   assert.match(lz, /if \(fade <= 0 && !staging\) return;/, 'update fills in the model while staging');
   // Both ways in (a tap or slide, and a pinch) draw it before their zoom's clock starts.
@@ -56,4 +56,9 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
   // Landed, the anatomy stays hidden under the lobule until it has settled; every other end shows it at once.
   assert.match(stage, /const landed = t >= 1 && !diveOut;\n\s+setDiveScale\(t >= 1 \? 1 : Math\.exp\(Math\.min\(z, LC \+ 0\.4\)\), landed\);/);
   assert.match(stage, /if \(diveT >= 1 && lobuleOn\) setDiveHidden\(false, false\); \}, 500\)/);
+});
+
+test('nothing is built during the zoom: the field\'s tiles and their quieted copies are ready before it starts', () => {
+  assert.equal((lz.match(/const t = fieldTile\(cs, dark, r\); liverTile\(t, cs, dark, bg\); quietTile\(t, shadeOf\(bg, dark\)\);/g) || []).length, 2, 'idle preparation and prewarm both build the quieted copy');
+  assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);/, 'whatever prewarm queued is done before the zoom starts');
 });

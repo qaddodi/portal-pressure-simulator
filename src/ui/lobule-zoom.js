@@ -1502,7 +1502,9 @@ export function createLobuleZoom({ host }) {
     const fdpr = Math.min(1, devicePixelRatio || 1) * 0.8;
     q.push(() => {
       const top = land.r * fdpr * 0.55;
-      for (let rd = 6; ; rd *= 2) { const r = rd; q.splice(q.indexOf(null), 0, () => liverTile(fieldTile(cs, dark, r), cs, dark, bg)); if (r >= top) break; }
+      // (Each with its quieted copy too: the dive lays it over the field from midway, and building one there, a tile at a time,
+      // snagged the zoom's last stretch.)
+      for (let rd = 6; ; rd *= 2) { const r = rd; q.splice(q.indexOf(null), 0, () => { const t = fieldTile(cs, dark, r); liverTile(t, cs, dark, bg); quietTile(t, shadeOf(bg, dark)); }); if (r >= top) break; }
     }, null);
     q.push(() => {   // the landed lobule: its state, then the tissue, then one full frame
       const st = store.get();
@@ -1527,12 +1529,13 @@ export function createLobuleZoom({ host }) {
     const cs = getComputedStyle(host), dark = isDark(), bg = stageBg(cs, dark), top = rEnd * Math.min(1, devicePixelRatio || 1) * 0.8 * 0.55;
     warmQ = [() => ensureGL()];
     // The tiles paintField steps through (each a no-op when the idle preparation already drew it).
-    for (let rd = 6; ; rd *= 2) { const r = rd; warmQ.push(() => liverTile(fieldTile(cs, dark, r), cs, dark, bg)); if (r >= top) break; }
+    for (let rd = 6; ; rd *= 2) { const r = rd; warmQ.push(() => { const t = fieldTile(cs, dark, r); liverTile(t, cs, dark, bg); quietTile(t, shadeOf(bg, dark)); }); if (r >= top) break; }
   }
   // Right before a zoom into the lobule starts: the lobule is drawn, whole and unseen, for the framing it will land on (flow marks
   // faded), so the zoom only magnifies and fades in what is already drawn. Its canvases (about 16 MB on a phone) are given back
   // when the zoom returns to the anatomy (setDiveZoom), and drawn again before the next one.
   function stage() {
+    while (warm());   // the dive's field tiles (built ahead while idle, so usually nothing left), the vessels' WebGL
     if (fade > 0 || !F) return;
     flowA = 0; flowT = 0; resetView(); staging = true;
     try { update(F); } finally { staging = false; }
