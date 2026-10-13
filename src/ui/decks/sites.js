@@ -31,7 +31,7 @@ export const SITES = {
       id: 'pvt', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF', 'SV'], terms: { 'portal pressure': 'pv', 'wedged pressure': 'whvp' }, mark: { edges: ['PV_TRUNK'], label: 'Clot' },
       data: 'ladder', key: ['hvpg', 'ppg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Pre-hepatic', site: 'pre', title: 'Portal vein thrombosis',
-      vignette: '38-year-old man, necrotizing pancreatitis last year, now with splenomegaly, platelets 76,000/µL and small esophageal varices on EGD. Liver tests normal, no ascites.',
+      vignette: '38-year-old man with a JAK2-positive myeloproliferative neoplasm has splenomegaly and small esophageal varices on EGD. Liver tests normal, no ascites.',
       line: 'Portal pressure is high, yet the wedged pressure and HVPG are normal because the hepatic vein catheter sits downstream of the clot.',
       causes: ['Cirrhosis', 'Myeloproliferative neoplasm, thrombophilia', 'Pancreatitis, abdominal sepsis', 'Liver or pancreatic cancer'],
       notes: 'Chronic thrombosis turns the portal vein into a cavernoma: a web of small collaterals around the occluded trunk that still carries portal blood to the liver. The liver itself is normal, so its function is preserved and ascites is uncommon, while varices and a large spleen are common. Doppler ultrasound or CT shows the clot or the cavernoma. HVPG is normal because the wedged catheter reads the sinusoids, downstream of the clot; the portal pressure gradient (PPG) is high.',
