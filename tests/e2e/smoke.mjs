@@ -1117,7 +1117,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // venule, toward the central vein) shows only with its name and fades with it; where the name shows, so does the arrow.
   // DOM state, not pixels: the view exposes each arrow's strength (canvas data-end-arrows) and the names' own opacity is read here.
   // (Each deck's sinusoid slides, from its source: the slide's cam. A software renderer takes up to a minute to open the view.)
-  const SV_DECKS = new Map();
+  const SV_DECKS = new Map(), { DECKS: ALL } = await import(new URL('../../src/ui/decks.js', import.meta.url)), CHECKS = (id) => (ALL.find((d) => d.id === id)?.checks?.length ? 1 : 0);
   for (const f of readdirSync(new URL('../../src/ui/decks/', import.meta.url))) {
     if (!f.endsWith('.js') || !/cam: ['"]sinusoid/.test(readFileSync(new URL(`../../src/ui/decks/${f}`, import.meta.url), 'utf8'))) continue;
     const mod = await import(`../../src/ui/decks/${f}`), d = Object.values(mod).find((v) => Array.isArray(v?.slides));
@@ -1148,7 +1148,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         const [a, b] = n.split('/').map((x) => +x);
         await barSettle(page);
         // (A slide that opens the sinusoid view is waited for until it shows; any other slide is checked only if the view happens to be up.)
-        const must = sinAt.some((i) => i + 1 + (b - count) === a);
+        const must = sinAt.some((i) => i + 1 + (b - count - CHECKS(deck)) === a);   // (the overview before, the quick check after)
         let r = null;
         for (let t = 0; t < (must ? 240 : 14); t++) {   // (the names and their arrows ease together; the view itself can be slow to open)
           r = await page.evaluate(endArrows);
@@ -1325,9 +1325,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.fill('.um-q', 'lobule');
     await page.press('.um-q', 'Enter');
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting'));
-    const at = (n) => page.waitForFunction((n) => /^(\d+) \/ \1$/.test(document.querySelector('.pzb-n, .pz-count')?.textContent.trim() || '') === n, n);
+    // (The summary is the slide before the closing quick check.)
+    const at = (n) => page.waitForFunction((n) => { const m = (document.querySelector('.pzb-n, .pz-count')?.textContent.trim() || '').match(/^(\d+) \/ (\d+)$/); return !!m && (+m[1] === +m[2] - 1) === n; }, n);
     const table = () => page.waitForSelector('.pz-panel .pz-table', { state: 'visible' });
     await page.keyboard.press('End');
+    await page.waitForFunction(() => /^(\d+) \/ \1$/.test(document.querySelector('.pzb-n, .pz-count')?.textContent.trim() || ''));
+    await page.keyboard.press('ArrowLeft');
+    await at(true);
     await table();
     // Back one and forward again, several times and also before the move has finished: the table always draws again.
     for (const fast of [false, true, false]) {
@@ -1478,7 +1482,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     for (const size of sizes) {
       if (size) await page.setViewportSize(size);
       for (const deck of ['circulation', 'hvpg', 'sites']) {   // (sites: the most columns)
-        await open(page, `?script=${deck}&slide=99`);   // (the last slide: the summary)
+        const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+        const at = withOverview(DECKS.find((d) => d.id === deck)).slides.findIndex((x) => x.visual === 'table') + 1;
+        await open(page, `?script=${deck}&slide=${at}`);   // (the summary: the slide before the closing quick check)
         await page.waitForFunction(() => { const t = document.querySelector('.pz-table'); return t && t.querySelector('tbody tr') && !t.querySelector('td.pend'); });
         await page.waitForTimeout(600);
         const bad = await page.evaluate(() => {

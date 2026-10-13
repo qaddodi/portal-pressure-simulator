@@ -2004,6 +2004,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pzw-l { flex-direction: row; align-items: baseline; gap: .5em; }
 /* The quick check: numbered questions; a tap opens the answer under its question (it eases open, never jumps). */
 .pz-check { margin: 0; padding: 0; list-style: none; counter-reset: pzc; display: flex; flex-direction: column; min-height: 0; overflow: auto; font: 400 var(--s-body)/1.35 var(--font-display); color: var(--text); }
+.pz.stack .pz-check { padding-bottom: 48px; }   /* (a phone: the list ends above the controls' pill, which sits in the card's lower right) */
 .pz-check li { counter-increment: pzc; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
 .pz-check li:first-child { border-top: 0; }
 .pzc-q { appearance: none; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; width: 100%; cursor: pointer; display: grid; grid-template-columns: 2.1em minmax(0, 1fr) auto; align-items: baseline; gap: 0 .8em; padding: .6em .2em; border-radius: 12px; transition: background-color .3s var(--ease); }
@@ -2134,9 +2135,9 @@ button.finding { cursor: pointer; }
 .pz-flowtime { display: grid; }
 .pz:not(.stack) .pz-data.has-tool:has(.pz-tool[data-kind="flowtime"] .pz-flowtime:not(.days)) { width: clamp(340px, 44vw, 480px); }   /* (wide enough for its words on an iPad held upright; a disease time-lapse's short names keep the card's own width) */
 .pz-flowtime svg { grid-area: 1 / 1; width: 100%; height: auto; overflow: visible; transition: opacity .42s var(--ease); }
-@media (max-height: 760px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }/* A short phone with the after-meal chart alone in the card: the chart folds behind Show (the words leave no room for it and the
+@media (max-height: 960px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }/* A phone with the after-meal chart alone in the card: the chart folds behind Show (the words leave no room for it and the
    veins both), as an instrument above tiles does on every phone. */
-@media (max-height: 760px) {
+@media (max-height: 960px) {
   .pz.stack .pz-data.tool-only:has(.pz-tool[data-kind="flowtime"]) .pz-tool { max-height: 60vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
   .pz.stack .pz-data.tool-only:has(.pz-tool[data-kind="flowtime"]):not(.tool-open) .pz-tool { max-height: 0; opacity: 0; margin-bottom: -6px; }
   .pz.stack .pz-data.tool-only:has(.pz-tool[data-kind="flowtime"]) .pz-fold { display: inline-flex; align-items: center; min-height: 20px; margin: 0 -2px 0 auto; padding: 0 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--accent); font: inherit; letter-spacing: .05em; cursor: pointer; }
