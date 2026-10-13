@@ -1752,6 +1752,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     ui.root.classList.toggle('pz-card', cardOn); ui.shade.classList.toggle('pz-card', cardOn);
     const off = (el) => el.hidden || (el === ui.data ? 'gone' in el.dataset : el.classList.contains('pz-hide'));   // (a card only easing out and back in for the next slide still counts, where it rests: the camera frames once)
     const r = (el) => (off(el) ? null : restBox(el));
+    ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk');
     fitCards(ui.text);
     let t = r(ui.text);
     const sl = ui.shade.offsetLeft * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style, was = ts.top;
@@ -1764,7 +1765,15 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       gap = Math.max(sl, 28); cw = t.right - wr.left + pad - sl;
       const q = ui.bar.hidden || !ui.bar.offsetWidth ? null : ui.bar.getBoundingClientRect();
       foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl;
-      below = top0 + t.height + 2 * pad + gap + colHeight(cw / k) * k <= foot + (dd.classList.contains('col') ? 8 : 0);   // (a little slack once there: a number ticking never flips it)
+      const ch = colHeight(cw / k) * k, slack = dd.classList.contains('col') ? 8 : 0;
+      below = top0 + t.height + 2 * pad + gap + ch <= foot + slack;
+      // Too tall to stack: the words' card gives way first (its title, then its text, a step at a time) so the two still stack.
+      for (const [tk, bk] of below ? [] : [[0.92, 1], [0.84, 1], [0.76, 1], [0.76, 0.94], [0.76, 0.88], [0.76, 0.82]]) {
+        ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk);
+        t = r(ui.text);
+        if ((below = top0 + t.height + 2 * pad + gap + ch <= foot + slack)) break;
+      }
+      if (!below) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); t = r(ui.text); }   // (a little slack once there: a number ticking never flips it)
     }
     const isCol = dd.classList.contains('col');
     if (below !== isCol) {
