@@ -798,7 +798,7 @@ export function createLobuleZoom({ host }) {
   function update(f) {
     drawVersion++;
     F = f;
-    if (fade <= 0) return;
+    if (fade <= 0 && !staging) return;
     const st = store.get();
     // Pressures ease toward the model's beat-filtered values (shared with the Pressure card), so the
     // ladder, labels and colors glide rather than jump, every display frame between model frames.
@@ -1213,6 +1213,10 @@ export function createLobuleZoom({ host }) {
   // While the dive magnifies the lobule's layers (a compositor scale), they are drawn once and then left
   // alone: redrawing the WebGL vessels, the effects and the labels each frame, at full size, is what lagged.
   let diveScaled = false, diveDrawn = false;
+  // The landed lobule, drawn ahead during the dive while it is still unseen (prewarm), so the frame it starts to fade in has
+  // nothing to draw: drawing it there (sizing three full-screen canvases, the tissue, the vessels) snagged the zoom's last stretch.
+  // staged: the view it was drawn for; relLater: its canvases are given back when the dive ends, not mid-zoom.
+  let staging = false, staged = '', relLater = false;
   function draw(dt) {
     stepFlowA();
     const scaled = diveScaled || sinU > 0;   // the dive, or the zoom on into a sinusoid
@@ -1523,6 +1527,15 @@ export function createLobuleZoom({ host }) {
     warmQ = [() => ensureGL()];
     // The tiles paintField steps through (each a no-op when the idle preparation already drew it).
     for (let rd = 6; ; rd *= 2) { const r = rd; warmQ.push(() => liverTile(fieldTile(cs, dark, r), cs, dark, bg)); if (r >= top) break; }
+    // Then the landed lobule itself, a frame for its state and one for its picture (only once the dive magnifies it, so it is drawn once).
+    warmQ.push(() => {
+      if (fade > 0 || !F || !diveScaled) return;
+      flowA = 0; flowT = 0; resetView(); staging = true;
+      try { update(F); } finally { staging = false; }
+    }, () => {
+      if (fade > 0 || !model || !diveScaled) return;
+      diveDrawn = false; draw(0); staged = api.viewKey(); relLater = true;
+    });
   }
   function warm() { const f = warmQ.shift(); if (f) f(); return warmQ.length > 0; }
 
@@ -2322,10 +2335,12 @@ export function createLobuleZoom({ host }) {
       // Entering: the lobule is framed.
       // (Its flow marks start faded and ease in once it has landed: left at full from an earlier visit, they made every frame of the
       // dive's first 0.3 s redraw the whole lobule at full size.)
-      if (fade > 0 && was === 0) { flowA = 0; flowT = 0; resetView(); if (F) update(F); }
+      // (Drawn ahead in the dive (staged), and still framed the same: nothing more to draw, the loop just starts.)
+      if (fade > 0 && was === 0) { flowA = 0; flowT = 0; resetView(); relLater = false; if (staged && staged === api.viewKey() && model) { if (!raf) raf = nextFrame(loop); } else { diveDrawn = false; if (F) update(F); } staged = ''; }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { stopInertia(); if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
-      if (fade === 0) { cancelFrame(raf); raf = 0; last = 0; if (was > 0) release(); }
+      // (Mid-zoom out, the canvases are given back when the zoom ends: freeing them there is one more thing in a moving frame.)
+      if (fade === 0) { cancelFrame(raf); raf = 0; last = 0; if (was > 0) { if (diveScaled) relLater = true; else release(); } }
       // Out of the lobule: a presenter's aim is spent (the next way in frames the whole lobule).
       if (fade === 0 && was > 0) { aimed = null; camHeld = false; if (camMove) { camMove = false; el.classList.remove('lz-cam'); } }
       // Leaving the lobule view from inside a sinusoid: the sinusoid fades out with it.
@@ -2361,6 +2376,7 @@ export function createLobuleZoom({ host }) {
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
     setDiveZoom(k, x, y, tx = x, ty = y) {
       diveScaled = k < 0.9999; if (!diveScaled) diveDrawn = false;
+      if (!diveScaled && fade <= 0) { staged = ''; if (relLater) { relLater = false; release(); } }   // the dive is over with the lobule unseen
       // Scaled down, the tissue's own page fill would show as a pale card; a soft round mask keeps only the lobule and its rim.
       const r = geo ? geo.R * V.k : 0, mask = k >= 0.9999 || !r ? '' : `radial-gradient(circle at ${x.toFixed(1)}px ${y.toFixed(1)}px, #000 ${(r * 1.02).toFixed(1)}px, transparent ${(r * 1.2).toFixed(1)}px)`;   // colour-exempt: a mask
       for (const e of [tissue, glCv, fx, leaders, labels]) {

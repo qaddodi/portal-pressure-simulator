@@ -7,7 +7,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7c63421fac';
 import { fibroReading } from './clock.js?v=6284ad19b7';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=abb277f29f';
-import { createLobuleZoom } from './lobule-zoom.js?v=adc2aa82d8';
+import { createLobuleZoom } from './lobule-zoom.js?v=5ab3c0e2ef';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -1374,9 +1374,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     diveHid = on; labHid = lab;
     for (const el of diveEls()) el.style.visibility = (el.id === 'labels' ? lab : on) ? 'hidden' : '';
   }
-  function setDiveScale(k) {
+  // (keep: landed in the lobule, the anatomy stays hidden under it a moment longer, see diveFrame.)
+  let unhideAt = 0;
+  function setDiveScale(k, keep = false) {
     if (k <= 1.0001) {
-      setDiveHidden(false, false);
+      if (!keep) setDiveHidden(false, false);
       // The transform goes first and the layer hint a frame later: dropping both at once can leave the
       // browser showing the last zoomed picture while clicks already land on the unzoomed figure.
       if (diveOrig) { const els = diveOrig.map(([el]) => el); for (const el of els) { el.style.transform = 'none'; el.style.transformOrigin = ''; } nextFrame(() => { if (!diveOrig) for (const el of els) { el.style.willChange = ''; el.style.transform = ''; } }); }
@@ -1415,7 +1417,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (chainIn && !chainFired || chainOut) lz.setSinChain({ speed: lt / (TJ * (diveOut ? RISE_MS : DIVE_MS)), at: clockAt(TJ), now: clockAt(t) }, true);
       const z = lt * p;
       diveZ = z;
-      setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)));
+      // Landed in the lobule: the anatomy under it is shown again only once the lobule has settled and its flow marks have
+      // faded in. (Shown in the landing frame, Safari redrew the whole figure there, with everything else the landing does.)
+      const landed = t >= 1 && !diveOut;
+      setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)), landed);
+      if (landed) { clearTimeout(unhideAt); unhideAt = setTimeout(() => { if (diveT >= 1 && lobuleOn) setDiveHidden(false, false); }, 500); }
       // The anatomy's labels leave as the zoom starts.
       const lab = wrap.querySelector('#labels');
       // (Going out they come back over the last half of the zoom, in place, rather than at the very end.)
@@ -1433,7 +1439,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       });
       // Once the field is whole (fully opaque, from z = LC + 0.3) the magnified anatomy beneath it is not seen: it is hidden, so the
       // browser stops compositing it (Safari redraws a scaled SVG at each new scale, every frame); the labels as soon as they have faded.
-      setDiveHidden(t > 0 && t < 1 && z >= LC + 0.3, lab && t > 0 && t < 1 && +lab.style.opacity <= 0.001);
+      if (!landed) setDiveHidden(t > 0 && t < 1 && z >= LC + 0.3, lab && t > 0 && t < 1 && +lab.style.opacity <= 0.001);
     }
     lobU = easeInOut(clamp((t - 0.48) / 0.4, 0, 1));
     syncSemantic();

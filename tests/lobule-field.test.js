@@ -27,8 +27,8 @@ test('the dive does no full-size redraws or hidden compositing mid-zoom', () => 
   // The field reads the styles once per dive, not live each frame after the stage's writes.
   assert.match(lz, /cs: styleSnap\(cs\)/);
   // The magnified anatomy is hidden while the whole field covers it (z ≥ LC + 0.3, where the field is opaque), and shown again on every end.
-  assert.match(stage, /setDiveHidden\(t > 0 && t < 1 && z >= LC \+ 0\.3,/);
-  assert.match(stage, /if \(k <= 1\.0001\) \{\n\s+setDiveHidden\(false, false\);/);
+  assert.match(stage, /if \(!landed\) setDiveHidden\(t > 0 && t < 1 && z >= LC \+ 0\.3,/);
+  assert.match(stage, /if \(k <= 1\.0001\) \{\n\s+if \(!keep\) setDiveHidden\(false, false\);/);
   assert.match(stage, /a: smoothT\(LC \* 0\.45, LC \+ 0\.3, z\)/, 'the field is whole exactly where the anatomy is hidden');
 });
 
@@ -37,4 +37,19 @@ test('in dark mode the field lobules\' capillarized sinusoids are dark (they rec
   assert.match(lz, /c\.strokeStyle = fs\.sin > 0\.2 \? tk\('--lz-field-sin-pale'\) : gap;/);
   assert.match(tokens, /--collagen: rgb\(237, 222, 186\); --lz-field-sin-pale: var\(--collagen\);/);
   assert.equal((tokens.match(/--collagen: rgb\(199, 186, 153\); --lz-field-sin-pale: #2E1A26;/g) || []).length, 2, 'both dark blocks (system and chosen)');
+});
+
+test('the zoom\'s last stretch has nothing heavy to do: the lobule is drawn ahead, unseen, and the anatomy returns after landing', () => {
+  // prewarm ends with the landed lobule's state and picture, drawn while the dive still magnifies it and it is unseen.
+  assert.match(lz, /warmQ\.push\(\(\) => \{\n\s+if \(fade > 0 \|\| !F \|\| !diveScaled\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true;/);
+  assert.match(lz, /diveDrawn = false; draw\(0\); staged = api\.viewKey\(\); relLater = true;/);
+  assert.match(lz, /if \(fade <= 0 && !staging\) return;/, 'update fills in the model while staging');
+  // The frame it starts to fade in draws nothing new when the framing still matches; otherwise it draws as before.
+  assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ if \(!raf\) raf = nextFrame\(loop\); \} else \{ diveDrawn = false; if \(F\) update\(F\); \}/);
+  // The canvases are given back when a dive ends unseen (or the rise ends), never mid-zoom.
+  assert.match(lz, /if \(was > 0\) \{ if \(diveScaled\) relLater = true; else release\(\); \}/);
+  assert.match(lz, /if \(!diveScaled && fade <= 0\) \{ staged = ''; if \(relLater\) \{ relLater = false; release\(\); \} \}/);
+  // Landed, the anatomy stays hidden under the lobule until it has settled; every other end shows it at once.
+  assert.match(stage, /const landed = t >= 1 && !diveOut;\n\s+setDiveScale\(t >= 1 \? 1 : Math\.exp\(Math\.min\(z, LC \+ 0\.4\)\), landed\);/);
+  assert.match(stage, /if \(diveT >= 1 && lobuleOn\) setDiveHidden\(false, false\); \}, 500\)/);
 });
