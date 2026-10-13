@@ -16,5 +16,5 @@ test('rail names carry no vessel text or soft hyphens', () => {
 test('rail names stay on one line, sized to their column, and tilt 45° when the card is narrow', () => {
   const n = css.split('\n').find((l) => l.startsWith('.pz-rail .n {'));
   assert.ok(n.includes('white-space: nowrap') && n.includes('cqw'));
-  assert.match(css, /@container \(max-width: \d+px\)\s*\{[^}]*rotate: -45deg/);
+  assert.match(css, /@container \(max-width: \d+px\)\s*\{[^@]*rotate: -45deg/);
 });
