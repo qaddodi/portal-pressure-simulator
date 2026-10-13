@@ -335,11 +335,11 @@ const fsOf = (el, px) => { el.style.fontSize = px.toFixed(2) + 'px'; };
 // Shared by the ladders and the level rail, so the block looks the same everywhere.
 const hatch = (id, s) => sv('pattern', { id, width: s, height: s, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
   sv('rect', { class: 'pz-hb', width: s, height: s }), sv('rect', { class: 'pz-hs', width: s / 2, height: s }));
-/** The block on the level rail: the ladder's block (rounded, red outline, red hatching) standing upright across the bar. */
+/** The block on the level rail: the phone ladder's block (rounded, red outline, red hatching) wrapped round the blocked level's whole bar. */
 function railBlock() {
   const id = 'pzRailB' + ++uid;
-  return sv('svg', { class: 'pz-rail-blk', viewBox: '0 0 18 28', 'aria-hidden': 'true' },
-    sv('defs', {}, hatch(id, 7)), sv('g', { class: 'pzl-drop' }, sv('rect', { x: 1, y: 1, width: 16, height: 26, rx: 5, fill: `url(#${id})` })));
+  return sv('svg', { class: 'pz-rail-blk', 'aria-hidden': 'true' },
+    sv('defs', {}, hatch(id, 7)), sv('rect', { class: 'pzs-drop', width: '100%', height: '100%', rx: 6, fill: `url(#${id})` }));
 }
 /** The pressure ladder at projector size: five stations, the healthy line dashed behind, every fall of
  *  more than 4 mmHg shaded as a block. Under the axis, as on the app's own pressure chart, two spans run
