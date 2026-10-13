@@ -28,7 +28,7 @@ export const PREHEPATIC = {
     {
       id: 'cath', cath: 'result', data: 'ladder', key: ['hvpg', 'ppg'], tiles: ['hvpg', 'ppg'],
       kicker: 'Acute thrombosis', site: 'pvt', title: 'HVPG is normal with a portal vein clot',
-      eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC'), 'Portal pressure gradient: the whole fall from the portal vein to the IVC'],
+      eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC')],
       line: 'The clot is before the liver, so wedged and free pressures stay normal and the HVPG is {hvpg}. The PPG of {ppg} shows the block.',
       notes: 'The wedged catheter reads the sinusoids, which sit downstream of the clot, so the HVPG is normal however high the portal vein pressure. The PPG compares the portal vein itself with the IVC and catches the block; it needs a direct portal vein reading (transhepatic, at TIPS, or by EUS). In practice the diagnosis is made on imaging, and the catheter is rarely needed. A normal HVPG with varices is the clue that the block is not in the sinusoids.',
       ask: ['Varices, a large spleen and an HVPG of 3 mmHg. What does the HVPG tell you?', 'The block is not sinusoidal: look before the sinusoids, in the portal vein or the portal tracts.'],

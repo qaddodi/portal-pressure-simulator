@@ -59,7 +59,7 @@
 
 import { CIRCULATION } from './decks/circulation.js?v=387a6cf6f3';
 import { SITES } from './decks/sites.js?v=e9f7df793b';
-import { HVPG } from './decks/hvpg.js?v=2e77e5d5b6';
+import { HVPG } from './decks/hvpg.js?v=561a9a23a2';
 import { ASCITES } from './decks/ascites.js?v=00c30017df';
 import { VARICES } from './decks/varices.js?v=534bb3ec39';
 import { TREATMENT } from './decks/treatment.js?v=fb95b80156';
@@ -71,11 +71,11 @@ import { TAP } from './decks/tap.js?v=5962504271';
 import { CIRCUIT } from './decks/circuit.js?v=7ce4853718';
 import { DOPPLER } from './decks/doppler.js?v=f46eeefd75';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=3efa2ca625';
-import { PREHEPATIC } from './decks/prehepatic.js?v=286f4e3b5f';
+import { PREHEPATIC } from './decks/prehepatic.js?v=bbe0929e7b';
 import { RIGHT_HEART } from './decks/right-heart.js?v=ece868831a';
 import { BLEED } from './decks/variceal-bleed.js?v=9b41360e63';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=45c85aba92';
-import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=e0c6f9bd6e';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=81f956bfc2';
 import { SPLEEN } from './decks/spleen.js?v=c752d62602';
 import { NCPH } from './decks/ncph.js?v=887fef3120';
 import { OUTFLOW } from './decks/outflow.js?v=ed322d388a';
