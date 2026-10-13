@@ -1589,7 +1589,9 @@ button.finding { cursor: pointer; }
 .pzl-v { fill: var(--text); font: 600 25px var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
 .pzl-pt.key .pzl-v { fill: var(--accent); }
 .pzl-k { fill: var(--text-2); font: 700 18px var(--font-ui); }
-.pzl-drop rect { fill: color-mix(in srgb, var(--danger) 11%, transparent); }
+.pzl-drop rect { stroke: var(--danger); stroke-width: 2; stroke-opacity: .7; }
+.pz-hb { fill: color-mix(in srgb, var(--danger) 10%, transparent); }
+.pz-hs { fill: var(--danger); fill-opacity: .55; }
 .pzl-bg { --c: var(--ok); transition: opacity .4s var(--ease); }
 .pzl-bg[data-rate="mid"] { --c: var(--caution); } .pzl-bg[data-rate="hi"] { --c: var(--danger); }
 .pzl-br { fill: none; stroke: var(--c); stroke-width: 1.9; stroke-linecap: round; transition: stroke .4s var(--ease); }
@@ -1919,7 +1921,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data > .pz-strip { display: block; }
 .pz.stack .pz-data.tiles-only > .pz-strip, .pz.stack .pz-data.tool-only > .pz-strip { display: none; }
 .pzs-c { stroke-width: 6; stroke-linecap: round; }
-.pzs-drop { fill: color-mix(in srgb, var(--danger) 11%, transparent); transition: opacity .4s var(--ease); }
+.pzs-drop { stroke: var(--danger); stroke-width: 1.2; stroke-opacity: .7; transition: opacity .4s var(--ease); }
 .pzs-v { fill: var(--text); font: 700 15px var(--font-ui); font-variant-numeric: tabular-nums; transition: fill .4s var(--ease); }
 .pzs-pt.key .pzs-v { fill: var(--accent); }
 .pzs-k { fill: var(--text-2); font: 700 11px var(--font-ui); letter-spacing: .02em; }

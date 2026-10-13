@@ -337,6 +337,9 @@ const fsOf = (el, px) => { el.style.fontSize = px.toFixed(2) + 'px'; };
  *  vein to the IVC), coloured by their cut-offs, with faint leaders up to the
  *  stations they join. set(f, { key }) glides the line and counts the numbers. */
 function bigLadder() {
+  // The block is a hatched fill: bold diagonal red stripes over a faint red tint (visible in light and dark, no label).
+  const hatch = (id, s) => sv('pattern', { id, width: s, height: s, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
+    sv('rect', { class: 'pz-hb', width: s, height: s }), sv('rect', { class: 'pz-hs', width: s / 2, height: s }));
   // The geometry follows the lettering (lay, from the slide's type scale): the margins, rows and station spacing grow with
   // the text, the station names and the falls take two rows when one is too tight, and the box grows taller, never wider.
   const W = 500;
@@ -355,7 +358,7 @@ function bigLadder() {
   const base = sv('path', { class: 'pzl-base' });
   const line = sv('path', { class: 'pzl-line', stroke: `url(#${gid})` });
   const bands = [0, 1, 2, 3].map(() => {
-    const r = sv('rect', { rx: 12 });   // (placed in lay; y and height follow the axis, in draw; the band carries no label)
+    const r = sv('rect', { rx: 12, fill: `url(#${gid}hb)` });   // (placed in lay; y and height follow the axis, in draw; the band carries no label)
     return { g: sv('g', { class: 'pzl-drop', opacity: 0 }, r), r };
   });
   const pts = RUNGS.map(([, a]) => {
@@ -386,7 +389,7 @@ function bigLadder() {
   // line, straight and thick, with the fall written above each stretch (the largest named by colour, a fall over 4 in red). Under them the HVPG and PPG as thin brackets with their reading
   // in the rating's colour (numbers only, no arrows), so a phone needs no tiles. Its rows follow its lettering too (layS).
   const S = { W: 360, ky: 9, dy: 16, ny: 27, vy: 32.5, hvpg: 52, ppg: 68, H: 76, c: 11, d: 12, v: 15, gap: 13 }, XS = (i) => 28 + 70 * i;
-  const conns = [0, 1, 2, 3].map(() => ({ band: sv('rect', { class: 'pzs-drop', rx: 6, opacity: 0 }) }));
+  const conns = [0, 1, 2, 3].map(() => ({ band: sv('rect', { class: 'pzs-drop', rx: 6, opacity: 0, fill: `url(#${gid}hs)` }) }));
   // (The line stops a clear gap short of each reading, so no outline is needed: the gap is measured from the digits' own edge, so it is the same beside one digit or two, and it eases when a reading gains or loses a digit.)
   const sline = sv('path', { class: 'pzs-c', stroke: `url(#${gid}s)` });
   const sgrad = sv('linearGradient', { id: gid + 's', gradientUnits: 'userSpaceOnUse', x1: XS(0), x2: XS(4), y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }));
@@ -403,7 +406,7 @@ function bigLadder() {
   const hvS = sbr('HVPG', 1, 2), ppS = sbr('PPG', 0, 3);
   const unit = sv('text', { class: 'pzs-u', 'text-anchor': 'end' }, 'mmHg');
   const strip = sv('svg', { class: 'pz-strip', viewBox: `0 0 ${S.W} ${S.H}`, role: 'img' },
-    sv('defs', {}, sgrad), conns.map((c) => c.band), sline, spts.map((p) => [p.g, p.k]), unit, hvS.g, ppS.g);
+    sv('defs', {}, sgrad, hatch(gid + 'hs', 7)), conns.map((c) => c.band), sline, spts.map((p) => [p.g, p.k]), unit, hvS.g, ppS.g);
   // A bracket's label: inline with a gap each side when the bracket has room for it, otherwise just above an unbroken line
   // (its width an estimate, so a hidden strip needs no measuring and nothing jumps).
   const lay = (b) => {
@@ -477,7 +480,7 @@ function bigLadder() {
   };
   let verdict = {};
   const el = sv('svg', { class: 'pz-ladder', viewBox: `0 0 ${W} ${H}`, role: 'img' },
-    sv('defs', {}, sv('linearGradient', { id: gid, x1: 0, x2: 1, y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }))),
+    sv('defs', {}, hatch(gid + 'hb', 14), sv('linearGradient', { id: gid, x1: 0, x2: 1, y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }))),
     grid.map((r) => r.g),
     bands.map((b) => b.g), hv.g, pp.g, base, line, pts.map((p) => p.g));
   const layL = (fs, box) => {
