@@ -2136,6 +2136,23 @@ button.finding { cursor: pointer; }
 .pz-tool .endo-grade span { color: var(--text); }
 .pz-tool[data-kind="scope"] .endo-read > .endo-g { grid-column: 1 / -1; order: 0; }
 .pz-tool[data-kind="scope"] .endo-read > .endo-chip { order: 1; }
+/* Mac and iPad landscape: the view is the card's centrepiece and the readings are one compact row beneath it (grade, diameter,
+   wall, bands, stigmata; three over two on a narrower window), so the view gets the room the tall tile stack used to take. Every
+   tile holds one fixed shape: its label (up to two lines) above one line of value, so a live value never moves anything. */
+.pz:not(.stack) .pz-data.col > .pz-tool[data-kind="scope"] { width: 100%; }   /* (the card's full width: the row of readings needs it, and the view is sized on its own below) */
+.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > .endo-g { grid-column: auto; }
+.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-column: span 2; }
+.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > div { padding: 6px 8px; gap: 2px; border-radius: 12px; }
+.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read dt { font-size: max(calc(12px / var(--pz-dk, 1)), .6vw); letter-spacing: .04em; }
+.pz:not(.stack) .pz-tool[data-kind="scope"] :is(.endo-num, .endo-chip-v, .endo-grade, .endo-grade span, .endo-grade b) { font-size: max(calc(15px / var(--pz-dk, 1)), .9vw); white-space: nowrap; }
+.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-num small { font-size: inherit; }
+.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-more { display: none; }
+@media (min-width: 1500px) {
+  .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read { grid-template-columns: 1.2fr 1fr 1fr .9fr 1.2fr; }
+  .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-column: auto; }
+  .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read dt { min-height: 2.4em; }   /* (two lines for the longer names, so every value sits on one line) */
+}
 .pz-tool .dop-main { flex: none; gap: 12px; }
 .pz-tool .dop-report { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 16px; align-items: start; }
 .pz-tool .dop-report > :not(.dop-stats) { grid-column: 1; }
@@ -2157,7 +2174,7 @@ button.finding { cursor: pointer; }
 .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: clamp(220px, calc(38 * var(--pzh)), 440px); }
 /* The scope's view sits in .endo-stage, a size container in the Tests card; here the stage takes the view's own height. */
 .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { container-type: normal; min-height: 0; }
-.pz-tool[data-kind="scope"] .endo-stage { width: min(100%, calc(30 * var(--pzh)), 20vw); margin: 0 auto; }
+.pz-tool[data-kind="scope"] .endo-stage { width: min(100%, calc(40 * var(--pzh)), 30vw); margin: 0 auto; }
 .pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; margin: 0; }
 .pz-tool[data-kind="scope"] .chart-side { width: 100%; max-width: none; }
 .pz-tool[data-kind="beats"] .pt-box { height: clamp(180px, calc(30 * var(--pzh)), 360px); }

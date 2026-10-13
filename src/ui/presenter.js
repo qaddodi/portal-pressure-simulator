@@ -21,8 +21,13 @@ import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=4fd8e10b03';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=558836b84d';
-import { createTools } from './presenter-tools.js?v=215924ec29';
+<<<<<<< HEAD
+import { createTools } from './presenter-tools.js?v=16d314f735';
 import { openHandout } from './handout.js?v=f59694ab78';
+=======
+import { createTools } from './presenter-tools.js?v=16d314f735';
+import { openHandout } from './handout.js?v=f59694ab78';
+>>>>>>> 558e7b9 (Endoscopy card: bigger scope view, readings in one compact row (grade, diameter, wall, bands, stigmata) above the varix and HVPG tiles)
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=d151452073';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
