@@ -1140,12 +1140,22 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const s0 = await state(), n = s0.answers.length;
     if (n !== d.checks.length || s0.stuck || s0.answers.some((h) => h > 0) || s0.expanded.some((e) => e !== 'false')) throw new Error(`${d.id}: the quick check does not start with every answer hidden ${JSON.stringify(s0)}`);
     for (let k = 0; k < n; k++) {
-      await page.locator('.pz-check .pzc-q').nth(k).click();
-      await page.waitForTimeout(900);
+      // (It eases open and shut: tapping starts a running transition of the answer's row, not a jump. The page may draw only a few frames
+      // a second here, so the transition is read straight after the tap rather than by sampling heights.)
+      const eases = (page) => page.evaluate((k) => {
+        const a = document.querySelectorAll('.pz-check .pzc-a')[k]; document.querySelectorAll('.pz-check .pzc-q')[k].click(); a.getBoundingClientRect();
+        return a.getAnimations().filter((x) => x.transitionProperty === 'grid-template-rows' && x.effect.getTiming().duration >= 200).length;
+      }, k);
+      if (!await eases(page)) throw new Error(`${d.id}: question ${k + 1}'s answer does not ease open`);
+      // (A slow page draws few frames: wait for the transition to finish, not a fixed time.)
+      await page.waitForTimeout(100);
+      await page.waitForFunction(() => !document.querySelector('.pz-check').getAnimations({ subtree: true }).length, null, { timeout: 20000 });
       const on = await state();
       if (!(on.answers[k] > 0) || on.answers.some((h, j) => j !== k && h > 0) || on.expanded[k] !== 'true') throw new Error(`${d.id}: question ${k + 1} does not open only its own answer ${JSON.stringify(on)}`);
-      await page.locator('.pz-check .pzc-q').nth(k).click();
-      await page.waitForTimeout(900);
+      if (!await eases(page)) throw new Error(`${d.id}: question ${k + 1}'s answer does not ease shut`);
+      // (A slow page draws few frames: wait for the transition to finish, not a fixed time.)
+      await page.waitForTimeout(100);
+      await page.waitForFunction(() => !document.querySelector('.pz-check').getAnimations({ subtree: true }).length, null, { timeout: 20000 });
       const off = await state();
       if (off.answers.some((h) => h > 0) || off.expanded.some((e) => e !== 'false')) throw new Error(`${d.id}: question ${k + 1} does not close again ${JSON.stringify(off)}`);
     }
@@ -2244,7 +2254,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForSelector('#dockBody .dock-pane.active');
     for (const id of ['abdomen', 'hvpg', 'fibroscan']) {
       await page.click(`.instr-tab[data-instrument="${id}"]`);
-      await page.waitForTimeout(900);
+      // (A slow page draws few frames: wait for the transition to finish, not a fixed time.)
+      await page.waitForTimeout(100);
+      await page.waitForFunction(() => !document.querySelector('.pz-check').getAnimations({ subtree: true }).length, null, { timeout: 20000 });
       const off = await page.evaluate((id) => {
         const pane = document.querySelector(`#pane-${id}`), view = pane.firstElementChild, R = (e) => e.getBoundingClientRect();
         const inner = R(pane).right - parseFloat(getComputedStyle(pane).paddingRight) - (pane.offsetWidth - pane.clientWidth);

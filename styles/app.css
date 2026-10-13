@@ -2017,18 +2017,18 @@ button.finding { cursor: pointer; }
 .pzc-q:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pzc-hint { font: 600 var(--s-cap)/1 var(--font-ui); color: var(--accent-ink, var(--accent)); white-space: nowrap; padding: .45em .8em; border-radius: 999px; background: color-mix(in srgb, var(--accent) 10%, transparent); transition: opacity .3s var(--ease); }
 .pz-check li.open .pzc-hint { opacity: 0; }
-/* (A closed answer is not laid out, so it is neither read aloud nor under the controls; an opened one slides down. The card's
-   text is sized once with every answer open, pzc-all while presenter.js fits it, so revealing answers grows the list, never shrinks the words.) */
-.pzc-a { display: none; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .4s var(--ease), opacity .4s var(--ease), display .4s allow-discrete; }
-.pzc-a > p { overflow: hidden; min-height: 0; margin: 0; padding-left: calc(2.1em + .8em + .2em); color: var(--text-2); }
-.pz-check li.open .pzc-a, .pz-check.pzc-all .pzc-a { display: grid; grid-template-rows: 1fr; opacity: 1; }
-.pz-check.pzc-all .pzc-a, .pz-check.pzc-still .pzc-a { transition: none; }
-@starting-style { .pz-check li.open .pzc-a { grid-template-rows: 0fr; opacity: 0; } }
+/* (A closed answer is a zero-height row, hidden from readers and the controls; tapping its question eases the row open (and shut on a
+   second tap). The card's text is sized once with every answer open, pzc-all while presenter.js fits it (pzc-still: no easing while it
+   does), so revealing answers grows the list, never shrinks the words.) */
+.pzc-a { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .4s var(--ease), opacity .4s var(--ease), visibility 0s linear .4s; }
+.pzc-a > p { overflow: hidden; min-height: 0; margin: 0; padding: 0 0 0 calc(2.1em + .8em + .2em); color: var(--text-2); transition: padding-bottom .4s var(--ease); }
+.pz-check li.open .pzc-a, .pz-check.pzc-all .pzc-a { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows .4s var(--ease), opacity .4s var(--ease), visibility 0s; }
 .pz-check li.open .pzc-a > p, .pz-check.pzc-all .pzc-a > p { padding-bottom: .7em; }
+.pz-check.pzc-all .pzc-a, .pz-check.pzc-still .pzc-a, .pz-check.pzc-all .pzc-a > p, .pz-check.pzc-still .pzc-a > p { transition: none; }
 .pz.stack .pzc-q { grid-template-columns: 1.8em minmax(0, 1fr); }
 .pz.stack .pzc-hint { display: none; }
 .pz.stack .pzc-a > p { padding-left: calc(1.8em + .8em + .2em); }
-@media (prefers-reduced-motion: reduce) { .pzc-a { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .pzc-a, .pzc-a > p { transition: none; } }
 .pz.stack .pz-ab { gap: 2px; padding: 3px; justify-content: center; }/* A title that would run past two lines in the side pane steps down a size. */
 .pz:not(.stack) .pz-text .pz-h.long { font-size: var(--s-big); }
 .pz.pz-card:not(.stack) .pz-text .pz-h.long { font-size: calc(var(--s-big) * var(--pz-tk, 1)); }   /* (a long title gives way too when the cards stack) */
