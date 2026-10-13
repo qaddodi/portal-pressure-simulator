@@ -13,6 +13,7 @@ import { FONT } from './charts.js?v=bb580fd485';
 import { pressureColor } from './colormap.js?v=001a2716b9';
 import { store, logAction } from './store.js?v=7c63421fac';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
+import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -257,7 +258,7 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
   ctx.fillStyle = C.text; ctx.font = FONT(600, 10);
   ctx.fillText(narrow ? 'CATHETER TIP · mmHg' : 'CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', x, y + 13);
-  const big = Math.round(clamp(Math.min(W * 0.1, H * 0.14), 22, 40));
+  const { big } = traceRoom(W, H);
   let label, num = '', col = C.text;
   if (ph === 'abort') {
     ctx.font = FONT(600, 12); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 32);
@@ -273,8 +274,8 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
   else { label = 'HVPG'; num = fmt(v.hvpg, 1); col = C[sevOf(v.hvpg)]; }
   ctx.font = FONT(600, 12); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);
   if (num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
-  const top = y + 30 + Math.max(big, 26) - 4, bot = y + H - 16, L = x + 22, R = x + W - (narrow ? 2 : 50);
-  if (bot - top < 40) return;
+  const { top, bot } = traceRoom(W, H, y), L = x + 22, R = x + W - (narrow ? 2 : 50);
+  if (bot - top < TRACE_MIN) return;
   const ymax = Math.max(15, Math.ceil((Math.max(v.whvp, v.fhvp) + 5) / 5) * 5);
   const Y = (p) => bot - (clamp(p, 0, ymax) / ymax) * (bot - top);
   const X = (tt) => L + k01(tt, T.free - 300, T.back) * (R - L);

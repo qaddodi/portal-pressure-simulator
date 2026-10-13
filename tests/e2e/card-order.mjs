@@ -63,6 +63,8 @@ await page.evaluate(() => {
         if (dc.classList.contains('col') && !dc.classList.contains('under') && new DOMMatrixReadOnly(cs.transform).m41 > 0.5) window.__bad.push('stacked data card drifted away from the left edge while leaving');
       }
       if (bare && tx.querySelector('.pz-mon')) window.__bad.push('live tracing card left during the HVPG measurement');
+      const mc = tx.querySelector('.pz-mon canvas');
+      if (mc && op > 0.5 && mc.getBoundingClientRect().height < 126) window.__bad.push('live tracing box too short to draw its trace');
       if (!bare && op > 0.5 && !tx.classList.contains('pz-leave') && !tx.textContent.trim()) window.__bad.push('empty teaching card on screen');
     }
     requestAnimationFrame(tick);

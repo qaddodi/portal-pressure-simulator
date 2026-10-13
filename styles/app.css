@@ -2158,7 +2158,7 @@ button.finding { cursor: pointer; }
 .pz-talk { display: grid; }
 .pz-mon { flex: none; margin-top: 14px; }
 .pz-mon .hvpg-box { height: clamp(150px, calc(24 * var(--pzh)), 280px); }
-.pz.pz-card:not(.stack) .pz-text .pz-mon .hvpg-box { height: calc(clamp(150px, calc(24 * var(--pzh)), 280px) * var(--pz-bk, 1) * var(--pz-bk, 1)); }   /* (when the cards stack the words' monitor gives way with their text, and faster: a chart reads at a smaller size than words; presenter.js layout) */
+.pz.pz-card:not(.stack) .pz-text .pz-mon .hvpg-box { height: max(var(--mon-min, 132px), calc(clamp(150px, calc(24 * var(--pzh)), 280px) * var(--pz-bk, 1) * var(--pz-bk, 1))); }   /* (never below what the tracing needs to draw its grid and trace) */   /* (when the cards stack the words' monitor gives way with their text, and faster: a chart reads at a smaller size than words; presenter.js layout) */
 .pz.stack .pz-mon { margin-top: 8px; }
 .pz.stack .pz-text:has(.pz-mon) { max-height: 50%; }
 .pz.stack .pz-mon .hvpg-box { height: 136px; }
