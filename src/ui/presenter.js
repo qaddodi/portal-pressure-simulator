@@ -1767,7 +1767,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.text.style.maxHeight = '';   // (the last pass's cap would shrink the words to a room they no longer have)
     fitCards(ui.text);
     let t = r(ui.text);
-    const sl = ui.shade.offsetLeft * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style, was = ts.top;
+    const sl = ui.shade.offsetLeft * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style;
     // On a laptop or tablet the data card stacks under the words' card, at its width, a gap below it, when both fit above the
     // controls; otherwise (long words, a tall chart) it sits at the top right. A card in view that changes place fades out,
     // moves while unseen and fades back in.
@@ -1779,12 +1779,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl;
       const ch = colHeight(cw / k) * k, slack = dd.classList.contains('col') ? 8 : 0;
       below = top0 + t.height + 2 * pad + gap + ch <= foot + slack;
-      // Too tall to stack: the words' card gives way first (its title, then its text and equation, a step at a time) so the two still stack.
-      const t0 = t;
-      for (const [tk, bk] of below ? [] : [[0.92, 1], [0.84, 1], [0.76, 1], [0.68, 1], [0.6, 1], [0.52, 1], [0.52, 0.94], [0.52, 0.88], [0.52, 0.82], [0.52, 0.76], [0.52, 0.7]]) {
-        ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk);
-        t = r(ui.text);
-        if ((below = top0 + t.height + 2 * pad + gap + ch <= foot + slack)) break;
+      // Too tall to stack: the words' card gives way first, only as far as it must: its title down to half size (the largest
+      // size that still stacks), then its text and equation, so the pair still stacks and the title fills what room there is.
+      const t0 = t, put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot + slack; };
+      if (!below) {
+        if (put(0.52, 1)) {
+          let lo = 0.52, hi = 1;   // (lo stacks, hi does not)
+          for (let n = 0; n < 6; n++) { const mid = (lo + hi) / 2; if (put(mid.toFixed(3), 1)) lo = mid; else hi = mid; }
+          put(lo.toFixed(3), 1); below = true;
+        } else for (const bk of [0.94, 0.88, 0.82, 0.76, 0.7]) if ((below = put(0.52, bk))) break;
       }
       if (!below) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); t = t0; }   // (a little slack once there: a number ticking never flips it)
     }
@@ -1819,7 +1822,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
     if (lvl != null) ts.marginBlock = '0';
     ts.maxHeight = lvl != null ? `${((H - lvl - pad - 16) / k).toFixed(1)}px` : '';
-    if (ts.top !== was && t) t = r(ui.text);
+    if (t) t = r(ui.text);   // (always: the words may already stand there, and the glass is sized to where they are)
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
     // (On a phone the words sit at the bottom, over the Back/Next bar, and the data card at the top: B is the height
