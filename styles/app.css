@@ -4510,3 +4510,35 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .readouts:not(.all) .metric .s { order: 3; flex: none; margin-left: 0; min-height: 16px; line-height: 16px; }
   .vdock .narrator:not(.full) .nr-t { -webkit-line-clamp: 1; }
 }
+
+/* ── The bottom bar, one quiet design on every size ───────────────────────────────────────────────
+   Two rows. The info line is one line (text, a compact event chip, a plain "Why?"); the play row is the speed/play pill, the
+   scrubber with its time beside it, then jump-ahead, History and Compare as matching quiet icon buttons (History's count is a
+   badge). Every line is one line high at all times, so nothing wraps and the bar does not shift as the numbers change. */
+.vdock .vd-status { flex-wrap: nowrap; min-height: 28px; margin: 6px 12px 0; }
+.vdock .vd-status:has(.narrator:not([hidden])) { flex-wrap: nowrap; row-gap: 0; }
+.vdock .narrator { flex: 1 1 0; order: 0; align-items: center; max-height: none; min-width: 0; }
+.vdock .narrator .nr-t { white-space: nowrap; display: block; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.vdock .narrator.full:not(.quiet) .nr-t { white-space: normal; }
+.vdock .narrator .nr-why { border: 0; padding: 4px 6px; margin-right: -6px; background: transparent; }
+.vdock .tl-latest { flex: 0 1 auto; max-width: 46%; order: 1; }
+.tl-latest small { display: none; }
+/* A phone shows the event chip in place of the info line while it is there (it fades after a few seconds). */
+@media (max-width: 767px) { .vdock .vd-status:has(.tl-latest:not([hidden]):not(.stale)) .narrator { display: none; } .vdock .tl-latest { max-width: 100%; } }
+/* The play row's three right-hand buttons: the same quiet 36 px icon button. */
+.vdock .tl-jumps { gap: 0; }
+.vdock :is(.tl-ff, .tl-hist, .tl-pin) { position: relative; flex: none; width: 36px; height: 36px; min-width: 0; padding: 0; gap: 0; justify-content: center; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text-2); }
+.vdock :is(.tl-ff, .tl-hist, .tl-pin) svg { width: var(--ic-m); height: var(--ic-m); }
+.vdock :is(.tl-hist, .tl-pin) .tl-hl, .vdock .tl-pin span { display: none; }
+@media (hover: hover) { .vdock :is(.tl-ff, .tl-hist, .tl-pin):hover { background: var(--surface-3); color: var(--text); } }
+.vdock .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); }
+.vdock .tl-hc:not(:empty) { position: absolute; top: 0; right: -2px; min-width: 16px; height: 16px; padding: 0 4px; font-size: var(--fs-12); line-height: 16px; background: var(--text); color: var(--stage-bg); }
+.vdock .tl-hist { display: inline-grid; place-items: center; }
+.vdock .timeline { gap: 8px; }
+.vdock .tl-time { flex: none; min-width: 3.4em; font-size: var(--fs-14); font-weight: 600; color: var(--text-2); text-align: right; }
+/* Readouts: wide enough that a unit never clips. */
+@media (min-width: 1100px) { .vdock .readouts:not(.all) { width: clamp(440px, calc(38vw / var(--vz)), 580px); } }
+.metric .v .unit { flex: none; overflow: visible; }
+.metric .v { overflow: hidden; }
+/* Event flags: a slightly smaller dot. */
+.tl-m.ev::before { width: 8px; height: 8px; }

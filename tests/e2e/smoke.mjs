@@ -1951,8 +1951,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // The bottom bar's key readouts: every name, value and rating stays on one line inside its tile, the lines under each other never
   // overlap, on a phone the ratings sit left-aligned under their values with the tiles side by side at one height, and different
   // readings (a healthy patient, a decompensated one) never change a tile's size or place.
-  await check(device, 'bottom bar: readouts never wrap, clip or overlap, and keep their place as values change', async (page) => {
-    const sizes = device === 'desktop' ? [[1440, 900], [1180, 820], [820, 1180]] : [[390, 844], [360, 740], [430, 932]];
+  await check(device, 'bottom bar: nothing wraps, clips or overlaps, and the readouts keep their place as values change', async (page) => {
+    const sizes = device === 'desktop' ? [[1440, 900], [1180, 820], [1024, 768], [820, 1180]] : [[390, 844], [360, 740], [430, 932], [844, 390]];
     const read = () => page.evaluate(() => {
       const strip = document.querySelector('#strip');
       const tiles = [...strip.querySelectorAll('.metric')].filter((e) => e.offsetWidth && getComputedStyle(e).display !== 'none');
@@ -1979,6 +1979,20 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         }
         for (let i = 1; i < r.tiles.length; i++) if (r.tiles[i].l < r.tiles[i - 1].r - 0.5 && r.tiles[i].t < r.tiles[i - 1].b - 0.5 && r.tiles[i].b > r.tiles[i - 1].t + 0.5) throw new Error(`${where}: readouts "${r.tiles[i - 1].id}" and "${r.tiles[i].id}" overlap`);
         if (r.tiles.some((t) => t.r > r.strip.r + 0.5)) throw new Error(`${where}: a readout runs out of the strip`);
+        // The rest of the bar: the info line and the play row's parts are one line each, stay inside the bar, never overlap, and the buttons are touch-sized.
+        const bar = await page.evaluate(() => {
+          const dock = document.querySelector('#vdock').getBoundingClientRect();
+          const parts = ['.narrator .nr-t', '.narrator .nr-why', '.tl-latest', '.tl-split', '.tl-track', '.tl-time', '.tl-ff', '.tl-hist', '.tl-pin'].map((q) => [q, document.querySelector(q)])
+            .filter(([, e]) => e && e.offsetWidth && !e.closest('[hidden]') && getComputedStyle(e).opacity !== '0')
+            .map(([q, e]) => { const b = e.getBoundingClientRect(); return { q, l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width, h: b.height, wrap: q === '.narrator .nr-t' && b.height > 26 }; });
+          return { dock: { l: dock.left, r: dock.right, t: dock.top, b: dock.bottom }, parts };
+        });
+        for (const p of bar.parts) {
+          if (p.l < bar.dock.l - 0.5 || p.r > bar.dock.r + 0.5 || p.t < bar.dock.t - 0.5 || p.b > bar.dock.b + 0.5) throw new Error(`${where}: ${p.q} sticks out of the bottom bar`);
+          if (p.wrap) throw new Error(`${where}: the info line wraps`);
+          if (/tl-(ff|hist|pin)/.test(p.q) && (p.w < 35.5 || p.h < 35.5)) throw new Error(`${where}: ${p.q} is smaller than a 36 px button`);
+        }
+        for (let i = 0; i < bar.parts.length; i++) for (let j = i + 1; j < bar.parts.length; j++) { const a = bar.parts[i], c = bar.parts[j]; if (a.l < c.r - 0.5 && c.l < a.r - 0.5 && a.t < c.b - 0.5 && c.t < a.b - 0.5) throw new Error(`${where}: ${a.q} overlaps ${c.q}`); }
         if (w < 768 && hgt > 500) {
           if (new Set(r.tiles.map((t) => Math.round(t.t))).size > 1) throw new Error(`${where}: the readouts do not line up (tops ${r.tiles.map((t) => Math.round(t.t))})`);
           if (new Set(r.tiles.map((t) => Math.round(t.h))).size > 1) throw new Error(`${where}: the readouts differ in height`);

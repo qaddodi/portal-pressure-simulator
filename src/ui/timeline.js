@@ -85,7 +85,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   latestEl.addEventListener('click', (e) => { const i = latestEventIndex(); if (i >= 0) openMarker(e.currentTarget, [i]); });
   latestEl.addEventListener('transitionend', (e) => { if (e.propertyName === 'opacity' && latestEl.classList.contains('stale')) latestEl.hidden = true; });
   const histCount = h('span', { class: 'tl-hc' });
-  const histBtn = h('button', { class: 'tl-hist', 'aria-haspopup': 'dialog', title: 'History: every change and event, with a way back to each' }, svgIcon('menu', 'mi-ic'), h('span', { class: 'tl-hl' }, 'History'), histCount);
+  const histBtn = h('button', { class: 'tl-hist', 'aria-haspopup': 'dialog', 'aria-label': 'History', title: 'History: every change and event, with a way back to each' }, svgIcon('clock', 'mi-ic'), h('span', { class: 'tl-hl' }, 'History'), histCount);
   histBtn.addEventListener('click', (e) => openHistory(e.currentTarget));
   // The latest event sits in the dock's status row (with the bleed), above the play bar, on every screen.
   (document.getElementById('vdStatus') || root).append(latestEl);
