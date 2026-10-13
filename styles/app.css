@@ -1915,7 +1915,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-line { font-size: var(--s-lab); }
 /* (A phone's lines run the card's full width: balancing and pretty-wrapping shorten lines well before the edge, so the words wrap plainly, first-fit.) */
 .pz.stack .pz-h, .pz.stack .pz-line { text-wrap: wrap; }
-.pz.stack .pz-eq math { font-size: calc(var(--s-lab) * 1.25); }   /* (a phone's equation sits close to its line: 1.25 times the line, never the heading-sized figure) */
+.pz.stack .pz-eq math { font-size: calc(var(--s-lab) * 1.1); }   /* (a phone's equation matches its line to the eye: STIX's letters are about 6 to 15% shorter than the UI font's at one size, so 1.1 times the line's size, not more) */
 .pz.stack .pz-eqk { font-size: var(--s-lab); }
 .pz.stack .pz-causes, .pz.stack .pz-rail { display: none; }
 .pz.stack .pz-data { left: 8px; right: 8px; top: 8px; bottom: auto; width: auto; max-height: 42%; --pz-gap: 6px; gap: var(--pz-gap); padding: 10px 12px; border-radius: 18px; }

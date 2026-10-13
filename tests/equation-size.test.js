@@ -11,13 +11,13 @@ const px = (name, vmin) => {   // --t-<name>: clamp(lo, calc(lo + (100vmin - 390
   return Math.min(+hi, Math.max(+lo, +lo + (vmin - 390) * +k));
 };
 
-test('on the stacked layout the equation is at most 1.35 times the slide line', () => {
+test('on the stacked layout the equation is about the same visible size as the slide line (1.0 to 1.15 times its font size)', () => {
   const eq = rules.find((r) => r.sel === '.pz.stack .pz-eq math');
   const line = rules.find((r) => r.sel === '.pz.stack .pz-line');
   assert.ok(eq && line, 'stack equation and line rules exist');
   assert.match(line.body, /font-size:\s*var\(--s-lab\)/);
   const m = eq.body.match(/font-size:\s*calc\(var\(--s-lab\)\s*\*\s*([\d.]+)\)/);
   assert.ok(m, `equation is sized from the line's own token, got: ${eq.body}`);
-  assert.ok(+m[1] <= 1.35 && +m[1] >= 1, `ratio ${m[1]}`);
+  assert.ok(+m[1] <= 1.15 && +m[1] >= 1, `ratio ${m[1]}`);
   for (const vmin of [360, 390, 430, 768, 834]) assert.ok(px('lab', vmin) * +m[1] < px('val', vmin), `equation stays below the heading at ${vmin}`);
 });
