@@ -18,6 +18,7 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=77835d5de8';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
+import { hashSeed, rng as clotRng, clotSide, clotSpan, clotRadius, clotShift } from './clot-shape.js?v=de12a755e8';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -4327,20 +4328,38 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       ov.clamps.append(s('text', { x: x + nx * (off + 16) + 4, y: y + ny * (off + 16) + 4, class: 'clamp-label' }, document.createTextNode(`${Math.round(v * 100)} %`)));
     }
-    // Thrombus: a dark clot inside the lumen, its length and bulk following the occlusion, with
-    // laminations (lines of Zahn) and, below full occlusion, the channel blood still finds.
+    // Thrombus: a lumpy clot lying against one wall of the lumen. A pale fibrin rim wraps a dark red
+    // core with a soft sheen and a few cell-like speckles; below full occlusion the blood still flows
+    // down the open side. Its thickness, length and lumps are smooth in the occlusion (see clot-shape.js),
+    // so an eased change eases the clot: it thickens from the wall inwards, then lengthens.
     for (const [id, v] of Object.entries(clots ? p.thrombus : {})) {
       if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
-      const g = geo[id], lit = g.lit, x = E[id];
-      const u0 = 0.5 - 0.1 - 0.22 * v, u1 = 0.5 + 0.1 + 0.22 * v;
-      const R = (x.width / 2) * clamp(0.55 + 0.45 * v, 0.55, 1);
-      const rOf = (u) => { const uu = u0 + u * (u1 - u0); const e = Math.sin(Math.PI * clamp((uu - u0) / (u1 - u0), 0, 1)); return R * (0.35 + 0.65 * Math.sqrt(e)); };
+      const g = geo[id], lit = g.lit, W = E[id].width;
+      const seed = hashSeed(id), side = clotSide(seed), { u0, u1 } = clotSpan(v);
       const i0 = Math.round(u0 * (N_SAMPLES - 1)), i1 = Math.round(u1 * (N_SAMPLES - 1));
-      const pts = g.cur.slice(i0, i1 + 1), ln = lit.slice(i0, i1 + 1);
-      if (pts.length < 3) continue;
-      ov.thrombi.append(s('path', { class: 'thrombus', d: tubeOutline(pts, ln, rOf) }));
-      for (const k of [-0.45, 0, 0.45]) ov.thrombi.append(s('path', { class: 'thrombus-lam', d: polyD(litOffset(g.cur, lit, R * k * 0.6, u0 + 0.06, u1 - 0.06)) }));
-      if (v < 0.97) ov.thrombi.append(s('path', { class: 'thrombus-channel', d: polyD(litOffset(g.cur, lit, R * 0.62, u0, u1)), 'stroke-width': (R * 0.5 * (1 - v)).toFixed(2) }));
+      const pts = g.cur.slice(i0, i1 + 1), ln = lit.slice(i0, i1 + 1), n = pts.length;
+      if (n < 3) continue;
+      const rOf = (f) => clotRadius(v, W, f, seed);
+      const mid = pts.map((q, i) => { const sh = clotShift(W, rOf(i / (n - 1)), side); return [q[0] + ln[i][0] * sh, q[1] + ln[i][1] * sh]; });
+      ov.thrombi.append(s('path', { class: 'thrombus-rim', d: tubeOutline(mid, ln, rOf) }));
+      ov.thrombi.append(s('path', { class: 'thrombus', d: tubeOutline(mid, ln, (f) => rOf(f) * 0.68) }));
+      const a0 = Math.round(n * 0.12), a1 = Math.round(n * 0.88);
+      const sheen = [];
+      for (let i = a0; i <= a1; i++) { const r = rOf(i / (n - 1)) * 0.3; sheen.push([mid[i][0] + ln[i][0] * ln[i][2] * r, mid[i][1] + ln[i][1] * ln[i][2] * r]); }
+      if (sheen.length > 2) ov.thrombi.append(s('path', { class: 'thrombus-sheen', d: polyD(sheen), 'stroke-width': Math.max(0.8, rOf(0.5) * 0.28).toFixed(2) }));
+      const rnd = clotRng(seed);
+      for (let k = 0; k < 16; k++) {
+        const u = 0.3 + rnd() * 0.4, lat = rnd() - 0.5, sz = 0.6 + rnd() * 0.9;
+        if (u < u0 + 0.03 || u > u1 - 0.03) continue;
+        const i = Math.round(u * (N_SAMPLES - 1)) - i0, r = rOf(i / (n - 1));
+        if (i < 1 || i >= n - 1) continue;
+        ov.thrombi.append(s('circle', { class: 'thrombus-speck', cx: (mid[i][0] + ln[i][0] * lat * r * 0.9).toFixed(1), cy: (mid[i][1] + ln[i][1] * lat * r * 0.9).toFixed(1), r: Math.max(0.5, sz * W * 0.05).toFixed(2) }));
+      }
+      const rc = rOf(0.5), free = W - 2 * rc;
+      if (free > 0.8) {
+        const open = pts.map((q, i) => [q[0] - ln[i][0] * side * rc, q[1] - ln[i][1] * side * rc]);
+        ov.thrombi.append(s('path', { class: 'thrombus-channel', d: polyD(open), 'stroke-width': (free * 0.5).toFixed(2) }));
+      }
     }
     for (const id of ['TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...Object.keys(p.customShunts || {})]) {
       if (!E[id].vis || E[id].reveal) continue;
