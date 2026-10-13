@@ -2022,7 +2022,7 @@ button.finding { cursor: pointer; }
 .pzc-a { display: none; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .4s var(--ease), opacity .4s var(--ease), display .4s allow-discrete; }
 .pzc-a > p { overflow: hidden; min-height: 0; margin: 0; padding-left: calc(2.1em + .8em + .2em); color: var(--text-2); }
 .pz-check li.open .pzc-a, .pz-check.pzc-all .pzc-a { display: grid; grid-template-rows: 1fr; opacity: 1; }
-.pz-check.pzc-all .pzc-a { transition: none; }
+.pz-check.pzc-all .pzc-a, .pz-check.pzc-still .pzc-a { transition: none; }
 @starting-style { .pz-check li.open .pzc-a { grid-template-rows: 0fr; opacity: 0; } }
 .pz-check li.open .pzc-a > p, .pz-check.pzc-all .pzc-a > p { padding-bottom: .7em; }
 .pz.stack .pzc-q { grid-template-columns: 1.8em minmax(0, 1fr); }

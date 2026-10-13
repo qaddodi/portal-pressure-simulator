@@ -1787,7 +1787,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       el.style.removeProperty('--pz-fit');
       fitHeads(el);
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
-      const all = el.querySelector('.pz-check'); all?.classList.add('pzc-all');
+      const all = el.querySelector('.pz-check'); all?.classList.add('pzc-all', 'pzc-still');
       let k = 1;
       for (let n = 0; n < 8 && k > 0.5; n++) {
         const o = overflowOf(el);
@@ -1795,7 +1795,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         k = Math.max(0.5, k * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
         el.style.setProperty('--pz-fit', k.toFixed(3));
       }
-      all?.classList.remove('pzc-all');
+      // (Closed again with no transition, so the answers start hidden and the card rests at its closed height.)
+      if (all) { all.classList.remove('pzc-all'); void all.offsetHeight; all.classList.remove('pzc-still'); }
       fitDone.set(el, fitSig(el));   // (as it rests once fitted: a folding part's height is part of it)
     }
   }
