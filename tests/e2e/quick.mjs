@@ -4,9 +4,9 @@
 //   npm run smoke:quick                         (doppler, hvpg, ascites at mac,ipad)
 //   DECKS=circuit,shunts DEVS=mac,ipadL npm run smoke:quick
 import { spawnSync } from 'node:child_process';
-const env = { ...process.env, DECKS: process.env.DECKS || 'doppler,hvpg,ascites', DEVS: process.env.DEVS || 'mac,ipad' };
+const env = { ...process.env, DECKS: process.env.DECKS || 'doppler,hvpg,ascites', DEVS: process.env.DEVS || 'mac,ipad' };   // (tile-fit.mjs also knows ipadL and phone)
 let code = 0;
-for (const f of ['text-card.mjs', 'frame-centre.mjs']) {
+for (const f of ['text-card.mjs', 'frame-centre.mjs', 'tile-fit.mjs']) {
   const t0 = Date.now();
   const r = spawnSync(process.execPath, [new URL(f, import.meta.url).pathname], { env, stdio: 'inherit' });
   console.log(`${f}: ${r.status ? 'FAILED' : 'passed'} in ${Math.round((Date.now() - t0) / 1000)} s (${env.DECKS} at ${env.DEVS})`);

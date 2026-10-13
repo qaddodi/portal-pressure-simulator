@@ -2110,11 +2110,13 @@ button.finding { cursor: pointer; }
 .pz-tool[data-kind="wall"] .chart-side { flex: 1; min-width: 0; }
 .pz-tool[data-kind="wall"] .endo-read { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
 .pz-tool[data-kind="wall"] .endo-stress { grid-column: 1 / -1; }
-/* Fixed shape whatever the numbers: one row per reading (label left, value right, never wrapped), so no tile or the card changes size. */
-.pz-tool[data-kind="wall"] .endo-read > .endo-tile { flex-direction: row; align-items: baseline; justify-content: space-between; gap: .6em; }
-.pz-tool[data-kind="wall"] .endo-read dt, .pz-tool[data-kind="wall"] .endo-num, .pz-tool[data-kind="wall"] .endo-stress-v { white-space: nowrap; overflow-wrap: normal; }
-.pz-tool[data-kind="wall"] .endo-num { justify-content: flex-end; }
-.pz-tool[data-kind="wall"] .endo-stress-v { overflow: hidden; text-overflow: ellipsis; }
+/* Fixed shape whatever the numbers: one row per reading, the value and unit never wrapped or clipped. The name takes what room is left
+   and wraps onto a second line when it must (a long one, such as Transmural ΔP, on a narrow card), so nothing spills past the tile. */
+.pz-tool[data-kind="wall"] .endo-read > .endo-tile { flex-direction: row; align-items: center; justify-content: space-between; gap: .6em; }
+.pz-tool[data-kind="wall"] .endo-read dt { flex: 1 1 0; min-width: 0; white-space: normal; overflow-wrap: break-word; }
+.pz-tool[data-kind="wall"] .endo-num { white-space: nowrap; overflow-wrap: normal; }
+.pz-tool[data-kind="wall"] .endo-num { flex: none; justify-content: flex-end; }
+.pz-tool[data-kind="wall"] .endo-stress-v { white-space: normal; overflow-wrap: break-word; text-wrap: balance; }   /* (wraps rather than clip: "past the tear point" on a narrow card) */
 .pz-tool[data-kind="wall"] .endo-pos, .pz-tool[data-kind="wall"] .wall-law, .pz-tool[data-kind="wall"] .endo-read > :last-child { display: none; }
 .pz-data.has-tool { pointer-events: auto; }
 /* One block style beside a tool: the scope's readings and the key tile are all tiles of the data card (fill set above), laid out
