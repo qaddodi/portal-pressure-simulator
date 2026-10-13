@@ -1759,6 +1759,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const off = (el) => el.hidden || (el === ui.data ? 'gone' in el.dataset : el.classList.contains('pz-hide'));   // (a card only easing out and back in for the next slide still counts, where it rests: the camera frames once)
     const r = (el) => (off(el) ? null : restBox(el));
     ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk');
+    ui.text.style.maxHeight = '';   // (the last pass's cap would shrink the words to a room they no longer have)
     fitCards(ui.text);
     let t = r(ui.text);
     const sl = ui.shade.offsetLeft * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style, was = ts.top;
