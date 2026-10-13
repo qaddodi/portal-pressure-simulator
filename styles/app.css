@@ -1615,14 +1615,14 @@ button.finding { cursor: pointer; }
 .pzl-lead { fill: none; stroke: var(--c); stroke-width: 1.6; stroke-dasharray: 1 5; stroke-linecap: round; opacity: .6; transition: stroke .4s var(--ease); }
 .pzl-bk { fill: var(--c); font: 700 15px var(--font-ui); letter-spacing: .06em; transition: fill .4s var(--ease); }
 .pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
-.pz-tile { display: flex; flex-direction: column; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh) / var(--vz)), 18px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease); }
+.pz-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh) / var(--vz)), 18px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease); }
 .pz-tile.key { border-color: var(--accent); background: var(--accent-soft); }
 .pzt-k { font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); overflow-wrap: break-word; }
 /* The number shrinks with its tile (30cqi) and the unit drops under it rather than leave the box. */
-.pzt-vu { display: flex; flex-wrap: nowrap; align-items: baseline; gap: 0 .3em; min-width: 0; }
+.pzt-vu { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: center; gap: 0 .3em; min-width: 0; }
 .pzt-v { font: 600 min(var(--s-big), 24cqi)/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); transition: color .4s var(--ease); }
 .pzt-vu small { font: 500 var(--s-cap) var(--font-ui); color: var(--text-3); white-space: nowrap; }
-.pzt-r { display: inline-flex; align-items: center; gap: .45em; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-2); }
+.pzt-r { display: inline-flex; align-items: center; justify-content: center; gap: .45em; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-2); }
 .pzt-r::before { content: ''; width: .6em; height: .6em; border-radius: 50%; background: var(--text-3); flex: none; transition: background-color .4s var(--ease); }
 .pz-tile[data-rate="hi"] .pzt-v, .pz-tile[data-rate="hi"] .pzt-r { color: var(--danger); }
 .pz-tile[data-rate="hi"] .pzt-r::before { background: var(--danger); }
@@ -1640,6 +1640,8 @@ button.finding { cursor: pointer; }
 .pz-data.under { left: clamp(20px, calc(3.4vw / var(--vz)), 76px); right: auto; width: clamp(300px, calc(29vw / var(--vz)), 600px); }
 .pz-data.under.pz-hide { transform: translateY(14px); }
 .pz-data.under.tiles-only .pz-tiles, .pz-data.col.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* (An odd last tile keeps the others' size and sits centred under the pair above it.) */
+.pz:not(.stack) .pz-data:is(.under, .col).tiles-only .pz-tiles[data-n="3"] > .pz-tile:last-child { grid-column: 1 / -1; justify-self: center; width: calc(50% - clamp(4px, calc(.6 * var(--pzh) / var(--vz)), 7px)); }
 /* On a laptop or tablet the data card can stack under the words' card (presenter.js layout sets its left, top and width):
    it follows the words' card as that grows or shrinks, at the same pace. */
 .pz-data.col { right: auto; }
@@ -2316,7 +2318,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pzo-obj { padding: 12px 14px; border-radius: 14px; }
 .pz-panel[data-visual="outline"] { width: min(1180px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); }
 .app.pz-hi .pzl-lead { opacity: .85; }
-.app.pz-hi .pzt-r { align-self: flex-start; padding: .22em .7em; border-radius: var(--r-pill); background: var(--text-2); color: var(--surface); transition: background-color .4s var(--ease), color .4s var(--ease); }
+.app.pz-hi .pzt-r { align-self: center; padding: .22em .7em; border-radius: var(--r-pill); background: var(--text-2); color: var(--surface); transition: background-color .4s var(--ease), color .4s var(--ease); }
 .app.pz-hi .pzt-r::before { display: none; }
 .app.pz-hi .pz-tile[data-rate="hi"] .pzt-r { background: var(--danger); color: var(--stage-bg); }
 .app.pz-hi .pz-tile[data-rate="mid"] .pzt-r { background: var(--caution); color: var(--on-caution); }
@@ -4359,14 +4361,14 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack .pz-data { gap: 6px; padding-top: 10px; padding-inline: 10px; }
 .pz.stack .pz-data.has-tool:not(.tool-only) .pz-fold { min-height: 20px; margin: 0 -2px 0 auto; padding: 0 9px; }   /* (no negative margin: a pill spilling from the header would read as overflow and shrink the card) */
 .pz.stack .pz-data .pz-tiles { gap: 6px; }
-.pz.stack .pz-data .pz-tiles .pz-tile { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 0 6px; padding: 4px 9px 5px; border-radius: 11px; }
+.pz.stack .pz-data .pz-tiles .pz-tile { display: grid; grid-template-columns: auto minmax(0, auto); justify-content: center; justify-items: center; align-items: baseline; gap: 0 6px; padding: 4px 9px 5px; border-radius: 11px; }
 .pz.stack .pz-data .pz-tiles .pzt-k { grid-area: 1 / 1 / 2 / -1; }
 .pz.stack .pz-data .pz-tiles .pzt-d { grid-area: 3 / 1 / 4 / -1; }
 .pz.stack .pz-data .pz-tiles .pzt-vu { grid-area: 2 / 1; }
 .pz.stack .pz-data .pz-tiles .pzt-r { grid-area: 2 / 2; }
 .pz.stack .pz-data .pz-tiles .pzt-k { font-size: var(--s-cap); letter-spacing: .05em; }
 .pz.stack .pz-data .pz-tiles .pzt-vu { flex-wrap: nowrap; }
-.pz.stack .pz-data .pz-tiles .pzt-r { justify-self: end; text-align: end; }
+.pz.stack .pz-data .pz-tiles .pzt-r { justify-self: center; text-align: center; }   /* (the tile's contents sit centred: name, then value with its rating beside it, then the change) */
 .pz.stack .pz-data .pz-tiles .pzt-v { font-size: var(--s-big); line-height: 1.1; }
 .pz.stack .pz-data .pz-tiles .pzt-vu small { font-size: var(--s-lab); }
 .pz.stack .pz-data .pz-tiles .pzt-r, .pz.stack .pz-data .pz-tiles .pzt-d { flex: 0 1 auto; font-size: var(--s-cap); line-height: 1.3; white-space: nowrap; }
@@ -4375,7 +4377,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    row under the value, left-aligned, with the change said short at that row's right end. */
 @container (max-width: 130px) {
   .pz.stack .pz-data .pz-tiles .pzt-k, .pz.stack .pz-data .pz-tiles .pzt-vu { grid-column: 1 / -1; }
-  .pz.stack .pz-data .pz-tiles .pzt-r { grid-area: 3 / 1 / 4 / -1; justify-self: start; text-align: start; }
+  .pz.stack .pz-data .pz-tiles .pzt-r { grid-area: 3 / 1 / 4 / -1; justify-self: center; text-align: center; }
   .pz.stack .pz-data .pz-tiles .pzt-d { grid-area: 4 / 1 / 5 / -1; }
 }
 .pz.stack .pzt-dw, .pz.stack .pzt-du { display: none; }
