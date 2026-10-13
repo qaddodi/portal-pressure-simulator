@@ -16,7 +16,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: deck-sweep-${{ github.ref }}
+  group: deck-sweep-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deck-sweep]') }}   # (a push that does not sweep never cancels one that does)
   cancel-in-progress: true
 
 jobs:
