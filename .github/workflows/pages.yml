@@ -34,6 +34,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write
 
 jobs:
   # Quick checks gate the deploy (about a minute end to end), so a preview is never held up by
@@ -286,3 +287,13 @@ jobs:
           retention-days: 1
       - id: deployment
         uses: actions/deploy-pages@v4
+      # The site artifact (~14 MB) is only needed until Pages has it; drop it so Actions storage stays near zero.
+      - name: Delete the site artifact
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.actions.listWorkflowRunArtifacts({ ...context.repo, run_id: context.runId });
+            for (const a of data.artifacts.filter((a) => a.name === 'github-pages')) {
+              await github.rest.actions.deleteArtifact({ ...context.repo, artifact_id: a.id });
+            }
