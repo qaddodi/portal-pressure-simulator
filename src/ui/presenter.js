@@ -1772,9 +1772,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl;
       const ch = colHeight(cw / k) * k, slack = dd.classList.contains('col') ? 8 : 0;
       below = top0 + t.height + 2 * pad + gap + ch <= foot + slack;
-      // Too tall to stack: the words' card gives way first (its title, then its text, a step at a time) so the two still stack.
+      // Too tall to stack: the words' card gives way first (its title, then its text and equation, a step at a time) so the two still stack.
       const t0 = t;
-      for (const [tk, bk] of below ? [] : [[0.92, 1], [0.84, 1], [0.76, 1], [0.76, 0.94], [0.76, 0.88], [0.76, 0.82]]) {
+      for (const [tk, bk] of below ? [] : [[0.92, 1], [0.84, 1], [0.76, 1], [0.68, 1], [0.6, 1], [0.52, 1], [0.52, 0.94], [0.52, 0.88], [0.52, 0.82], [0.52, 0.76], [0.52, 0.7]]) {
         ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk);
         t = r(ui.text);
         if ((below = top0 + t.height + 2 * pad + gap + ch <= foot + slack)) break;

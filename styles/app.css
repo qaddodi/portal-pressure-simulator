@@ -1513,7 +1513,8 @@ button.finding { cursor: pointer; }
   --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1) * var(--pk, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1) * var(--pk, 1));
   --s-big: calc(clamp(28px, calc(4.622 * var(--pzh) / var(--vz)), 56px) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(clamp(32px, calc(6.356 * var(--pzh) / var(--vz)), 77px) * var(--ts, 1) * var(--pk, 1)); }
 .pz.pz-card:not(.stack) .pz-text { --s-title: calc(clamp(32px, calc(6.356 * var(--pzh) / var(--vz)), 77px) * var(--ts, 1) * var(--pk, 1) * var(--pz-tk, 1));
-  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)); }
+  --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1));
+  --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)); }
 .pz.stack, .pz.stack .pz-text, .pz.stack .pz-panel { --s-cap: calc(var(--t-cap) * var(--ts, 1) * var(--pk, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1) * var(--pk, 1)); --s-body: calc(var(--t-body) * var(--ts, 1) * var(--pk, 1));
   --s-val: calc(var(--t-val) * var(--ts, 1) * var(--pk, 1)); --s-big: calc(var(--t-big) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(var(--t-title) * var(--ts, 1) * var(--pk, 1)); }
 /* A phone: the slide's words (its bottom panel, and the title panel) 1.7 times the roles' size upright, which reads about
