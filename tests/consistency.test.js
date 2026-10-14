@@ -73,3 +73,14 @@ test('varices take weeks to form, then follow the gradient in real time', () => 
   e.setParams(deepMerge(e.params, { cirrhosis: 0 })); e.settle();
   assert.ok(computeMetrics(e).varix.d < 2.5, 'and they are gone when the gradient is');
 });
+
+test('two inflows: with the buffer off a portal clot leaves about 40% of liver flow, reached within the button\'s ease', () => {
+  const e = new Engine(); run(e.loadPresetSteps('pvt-acute', {})); e.settle(2);
+  const on = computeMetrics(e).liverPerfPct;
+  e.setParams(deepMerge(e.params, { habrStrength: 0 }));
+  // The presenter's button: 1.2 s of quiet relaxation (36 ticks) while the clock runs at real time.
+  for (let k = 0; k < 36; k++) { e.relax(); e.step(0.033); }
+  const off = computeMetrics(e).liverPerfPct;
+  assert.ok(on > 60 && on < 80, `buffer on ${on.toFixed(0)}%`);
+  assert.ok(off > 33 && off < 47, `buffer off ${off.toFixed(0)}% (the slide says about 40%)`);
+});

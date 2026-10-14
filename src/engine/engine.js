@@ -552,6 +552,13 @@ export class Engine {
     for (let r = 0; r < n; r++) for (const [dt, k] of sched) for (let i = 0; i < k; i++) this.step(dt);
     this.quiet = q; this.t = t; this.cyc = cyc;
   }
+  /** A few quiet relaxation steps that leave the clock alone, so a live change reaches its steady state in about a second
+   *  while the Doppler and tracings keep sweeping at real time (the arterial buffer alone takes half a minute of model time). */
+  relax(dt = 0.5, n = 3) {
+    const q = this.quiet, t = this.t, cyc = this.cyc; this.quiet = true;
+    for (let i = 0; i < n; i++) this.step(dt);
+    this.quiet = q; this.t = t; this.cyc = cyc;
+  }
   settleQuick() {
     const q = this.quiet, t = this.t, cyc = this.cyc; this.quiet = true;
     for (let i = 0; i < 10; i++) this.step(5);

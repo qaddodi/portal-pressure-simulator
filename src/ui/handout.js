@@ -6,7 +6,7 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=9b635bc5f0';
+import { LEVELS, withOverview } from './decks.js?v=d78bf66460';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();

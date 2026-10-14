@@ -45,8 +45,8 @@ export const TWO_INFLOWS = {
       id: 'switch', lens: 'flow', cam: 'portal', tool: HA('dual'), data: 'tiles', tiles: ['liver'], key: ['liver'], delta: 'dual',
       compare: [{ label: 'Buffer on', own: true, params: { habrStrength: 1 } }, { label: 'Buffer off', params: { habrStrength: 0 } }],
       kicker: 'The buffer', site: 'pre', title: 'Without the buffer the liver loses far more blood',
-      line: 'The liver adjusts its arterial inflow to portal flow, but it cannot adjust portal flow. With the buffer switched off, which cannot happen in a patient, liver blood flow falls to about a third of normal. With the vessels colored by flow, the hepatic artery and the sinusoids thin when the buffer is off.',
-      notes: 'No patient can switch the buffer off, but the model can: liver blood flow falls to about a third of normal. The control runs one way only. The liver adjusts its arterial inflow to the portal flow, but it cannot control the portal flow, which is set by the arterioles of the gut and the spleen.',
+      line: 'The liver adjusts its arterial inflow to portal flow, but it cannot adjust portal flow. With the buffer switched off, which cannot happen in a patient, liver blood flow falls to about 40% of normal. With the vessels colored by flow, the hepatic artery and the sinusoids thin when the buffer is off.',
+      notes: 'No patient can switch the buffer off, but the model can: liver blood flow falls to about 40% of normal. The control runs one way only. The liver adjusts its arterial inflow to the portal flow, but it cannot control the portal flow, which is set by the arterioles of the gut and the spleen.',
       ask: ['Why does the same clot leave the liver far less blood with the buffer off?', 'The artery can no longer dilate, so nothing replaces the portal share, about three quarters of the flow.'],
     },
     {

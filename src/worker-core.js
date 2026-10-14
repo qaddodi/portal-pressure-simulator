@@ -1,11 +1,11 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=9f7e65bd71';
+import { Engine } from './engine/engine.js?v=a8e81e63ca';
 import { computeMetrics } from './engine/metrics.js?v=1cfd90ae2b';
 import { tenthGap } from './engine/gap.js?v=3a5947c552';
 import { detectEvents } from './engine/events.js?v=8244732765';
-import { explain } from './engine/explain.js?v=0d9d28213b';
+import { explain } from './engine/explain.js?v=062a0e3436';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=a6c564d238';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
@@ -68,6 +68,8 @@ export function createCore(post) {
   let lapse = null;
   // The presenter's eased change of patient on the live model: { from, to, t0, ms } (see 'morph').
   let morph = null;
+  // Until this time (ms) every tick also relaxes the model quietly, so a live change settles while the clock runs on.
+  let relaxUntil = 0;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
   const newSamples = () => ({ t: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
 
@@ -128,6 +130,7 @@ export function createCore(post) {
       paramsDirty = true; frameDirty = true;
     } else if (running) {
       if (clock === 'hemo') {
+        if (now < relaxUntil) eng.relax();
         const pulse = eng.params.pulsatile || beat;
         const h = pulse ? 0.004 : 0.02;
         let simDt = realDt * speed;
@@ -205,11 +208,13 @@ export function createCore(post) {
       paramsDirty = true;
       start();
     },
-    setParams({ params, settle }) {
+    setParams({ params, settle, ease }) {
       morph = null;
       // UI-originated: not echoed back (avoids overwriting in-flight edits).
       eng.setParams(sanitizeParams(params));
       if (settle) eng.settle();
+      // ease (ms): the presenter's live buttons and sliders, eased to the new steady state over that long (see tick).
+      relaxUntil = ease > 0 ? performance.now() + ease : 0;
     },
     *preset({ id, days, reqId }) {
       morph = null;
@@ -261,10 +266,10 @@ export function createCore(post) {
     probe({ id }) { probe = id; },
     beat({ on }) { if (beat !== !!on) { beat = !!on; frameDirty = true; } },
     snapshot({ reqId }) { post({ type: 'snapshot', reqId, snap: eng.snapshot() }); },
-    restore({ snap }) { morph = null; eng.restore(snap); lapse = null; paramsDirty = true; },
+    restore({ snap }) { morph = null; relaxUntil = 0; eng.restore(snap); lapse = null; paramsDirty = true; },
     // The presenter's change of patient, eased over ms from the live state (wherever it is, a change under way included) to snap.
     morph({ snap, ms }) {
-      lapse = null; clock = 'hemo'; speed = 1; diseaseAcc = 0;
+      lapse = null; clock = 'hemo'; speed = 1; diseaseAcc = 0; relaxUntil = 0;
       if (!(ms > 0)) { morph = null; eng.restore(snap); paramsDirty = true; return; }
       morph = { from: eng.snapshot(), to: snap, t0: performance.now(), ms };
       running = true; start();
