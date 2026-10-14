@@ -507,14 +507,26 @@ export function createDoppler({ onProbe }) {
     }
   }
 
-  // The top strip stays on one line: measured at full size, then scaled (gaps and type together) to the room there is.
+  // The top strip stays on one line: the gaps and type scale together (--dop-k) to the room there is. Measured only when its
+  // words or width change, from the words' own extent (a range, not scrollWidth, which Safari counts without the end padding),
+  // in one read: everything in the strip scales with k, so k × room ÷ width is the fit. It grows back only by a clear step, so
+  // a reading that changes by a digit does not resize the strip (and the trace under it) every second.
+  let stripKey = '', rng = null;
   function fitStrip() {
-    report.style.setProperty('--dop-k', '1');
-    const pad = 64, have = report.clientWidth - pad;
-    let k = 1;
-    for (let i = 0; i < 6 && report.scrollWidth - pad > have + 0.5 && k > 0.5; i++) {
-      k = Math.max(0.5, Math.floor(k * Math.min(0.97, have / (report.scrollWidth - pad)) * 100) / 100);
-      report.style.setProperty('--dop-k', String(k));
+    const key = `${report.clientWidth}|${dirEl.textContent}|${velEl.textContent}|${patternEl.textContent}`;
+    if (key === stripKey) return;
+    stripKey = key;
+    const cs = getComputedStyle(report), have = report.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    rng ||= document.createRange();
+    const k0 = +report.style.getPropertyValue('--dop-k') || 1;
+    for (let i = 0, k = k0; i < 3; i++) {
+      rng.selectNodeContents(report);
+      const nat = rng.getBoundingClientRect().width;
+      if (!(nat > 0) || have <= 0) return;
+      const fit = Math.max(0.5, Math.min(1, Math.floor(k * (have / nat) * 0.98 * 100) / 100));
+      if (nat <= have && (fit - k < 0.05 || k >= 1)) return;   // fits, and would not grow by a clear step
+      if (fit === k) return;
+      k = fit; report.style.setProperty('--dop-k', String(k));
     }
   }
 
@@ -527,8 +539,14 @@ export function createDoppler({ onProbe }) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // On a slide's data card the report sits in the top strip (CSS sets --dop-ov on the box): the strip is as tall as the
     // report, and the vessel and settings move to the bottom strip under the second ticks. Read again when the size changes.
+    // (Its height is read only when the strip was refitted or the size changed, and it gives back room only by more than 4 px.)
     const ovKey = `${w}x${hh}`, tOv = performance.now();
-    if (ovKey !== ovLast || tOv - ovAt > 500) { ovLast = ovKey; ovAt = tOv; ovOn = getComputedStyle(cv).getPropertyValue('--dop-ov').trim() === '1'; if (ovOn) fitStrip(); ovTop = ovOn ? Math.ceil(report.offsetHeight) + 4 : 26; }
+    if (ovKey !== ovLast || tOv - ovAt > 500) { ovAt = tOv; ovOn = getComputedStyle(cv).getPropertyValue('--dop-ov').trim() === '1'; }
+    if (ovOn) {
+      const k0 = stripKey; fitStrip();
+      if (ovKey !== ovLast || stripKey !== k0) { const t = Math.ceil(report.offsetHeight) + 4; if (ovKey !== ovLast || t > ovTop || t < ovTop - 4) ovTop = t; }
+    } else ovTop = 26;
+    ovLast = ovKey;
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
     if (w < 60 || hh < 60) return;
@@ -573,11 +591,24 @@ export function createDoppler({ onProbe }) {
     const RW = Math.max(1, Math.round(W * dpr)), RH = Math.max(1, Math.round(H * dpr));
     const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / sweepSeconds, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, k, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
     const cNow = Math.floor(tNow * g.cps);
-    const key = `${RW}x${RH}|${scale}|${baseF}|${probe}|${sgn}|${sweepSeconds}|${mode}`;
+    const rest = `${scale}|${baseF}|${probe}|${sgn}|${sweepSeconds}|${mode}`, key = `${RW}x${RH}|${rest}`;
     if (!img || img.width !== RW || img.height !== RH) {
+      const old = off, oRW = img?.width, oRH = img?.height;
       img = new ImageData(RW, RH);
       off = mk(RW, RH);
       octx = off.getContext('2d');
+      // Only the size changed (a card settling as it enters, the top strip refitted): the trace already drawn is stretched
+      // to the new size in two image copies instead of being synthesised again line by line, and new lines scroll in sharp.
+      const lc = lastCol != null && old && ringKey === `${oRW}x${oRH}|${rest}` ? Math.floor(lastCol * RW / oRW) : null;
+      if (lc != null && cNow >= lc && cNow - lc < RW) {
+        const T = mk(oRW, oRH), tctx = T.getContext('2d'), po = ((lastCol % oRW) + oRW) % oRW;
+        if (po + 1 < oRW) tctx.drawImage(old, po + 1, 0, oRW - po - 1, oRH, 0, 0, oRW - po - 1, oRH);
+        tctx.drawImage(old, 0, 0, po + 1, oRH, oRW - po - 1, 0, po + 1, oRH);
+        const sx = (lc + 1) % RW, fx = oRW / RW;   // (the oldest line shown goes to ring column sx)
+        if (RW - sx > 0) octx.drawImage(T, 0, 0, (RW - sx) * fx, oRH, sx, 0, RW - sx, RH);
+        if (sx > 0) octx.drawImage(T, (RW - sx) * fx, 0, sx * fx, oRH, 0, 0, sx, RH);
+        ringKey = key; lastCol = lc;
+      }
     }
     // redraw every line after a change of scale, size or colour, or when time runs backwards
     const full = key !== ringKey || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
