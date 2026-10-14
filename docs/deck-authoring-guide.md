@@ -203,7 +203,7 @@ Pointing at the resistor words `resistance` / `collaterals` / `gut arterioles` w
 
 `{pv}` in a `line` is replaced by the model's **live reading for that slide**, in a pill, rounded as the card shows it. Ladder slides (`data: 'ladder'`) round `pv`, `whvp`, `fhvp`, `ivc`, `ra` to whole mmHg. The pill takes the station colour where one exists (`pv`, `whvp`, `sin`, `fhvp`, `ivc`, `ra`); sizes (`spleen`, `varix`, `gv`) take their status colour (amber/red). Prefer a live token over a typed number so it cannot drift.
 
-Valid tokens (the tile keys, section 8.6): `hvpg ppg pv sin whvp fhvp saag tp asc varix gv spleen plt pvFlow liver shunt map hr lsm ra salb ivc hb`. A typed `{8 mmHg}` also works but avoid it.
+Valid tokens (the tile keys, section 8.6): `hvpg ppg pv sin whvp fhvp saag tp asc varix gv spleen plt pvFlow pvVel liver shunt map hr lsm ra salb ivc hb`. `{ppg@before}` reads the value at another slide of the deck (here the slide with `id: 'before'`), for "the PPG falls from {ppg@before} to {ppg}". A typed `{8 mmHg}` also works but avoid it.
 
 ### 6.2 Cut-off pills: `{>=10 mmHg}`
 
@@ -467,6 +467,7 @@ Edge tones used when you glow an id by hand: portal vessels follow their station
 | `spleen` | Spleen length | cm | red > 13 |
 | `plt` | Platelets | × 10⁹/L | amber < 150, red < 100 |
 | `pvFlow` | Portal vein flow | L/min | red if reversed |
+| `pvVel` | Portal vein velocity (Doppler, main portal vein) | cm/s | amber < 15 ("Slow"), red < 9 ("Stasis") or reversed |
 | `liver` | Liver blood flow (of normal) | % | amber < 80, red < 50 |
 | `shunt` | Portal blood bypassing the liver | % | amber ≥ 20, red ≥ 50 |
 | `map` | Mean arterial pressure | mmHg | red < 65 |

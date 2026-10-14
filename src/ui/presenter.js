@@ -19,13 +19,13 @@ import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=0dcc3de787';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=ff284bd0e7';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=5e412dfbcf';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d2c2580bdd';
 import { createTools } from './presenter-tools.js?v=996ba0e78e';
-import { openHandout } from './handout.js?v=23a38a244a';
+import { openHandout } from './handout.js?v=8ee3bea39c';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=214d4e8404';
+import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=5c9b8f7944';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { velocityCss, flowCss, heatCss, dropCss } from './colormap.js?v=01ee46a874';
@@ -89,7 +89,7 @@ const TERMS = ['CSPH', 'SAAG', 'WHVP', 'FHVP', 'central vein', 'portal tracts?',
 // A tile's words in a line (the slide's key tiles are its key terms).
 const KEYWORDS = { hvpg: 'HVPG', ppg: 'PPG', pv: 'portal pressure', whvp: 'WHVP|wedged pressure', fhvp: 'FHVP|free pressure', ra: 'right atrial pressure|right atrium',
   ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'blood pressure', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', spleen: 'spleen',
-  liver: 'liver blood flow', shunt: 'shunt', sin: 'sinusoidal pressure', saag: 'SAAG', tp: 'protein', hb: 'hemoglobin', pvFlow: 'portal flow' };
+  liver: 'liver blood flow', shunt: 'shunt', sin: 'sinusoidal pressure', saag: 'SAAG', tp: 'protein', hb: 'hemoglobin', pvFlow: 'portal flow', pvVel: 'portal vein velocity' };
 const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // What a word in a line can point at on the figure (a term pill, M1): the station's label (node), the vessels that
 // glow (edges) or the organ outlined, in the station's colour (tone: --tr-<tone>), and the words that name it.
@@ -198,6 +198,9 @@ export function slideTargets(s, line = s.line || '') {
   return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0, soft: soft.has(id) || undefined })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
 }
 // A live value pill ({pv}): the model's reading for this slide, to its usual decimal.
+// {ppg@before}: the value at another slide of the deck (its id), set by the presenter while a deck plays.
+let fpAt = () => null;
+const atRe = /^(\w+)@([\w-]+)$/;
 function liveVal(k, s, fp) {
   const T = TILE[k], v = fp?.[k];
   if (v == null || !Number.isFinite(v)) return '…';
@@ -231,6 +234,7 @@ function rich(t, s = {}, fp = null) {
     if (lw) out.push(TARGETS[lk] ? termPill(lw, lk) : lw);
     else if (tword) { seenT.add(tk); out.push(termPill(tword, tk)); }
     else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp)));
+    else if (mk && atRe.test(mk) && TILE[mk.match(atRe)[1]]) { const [, k, id] = mk.match(atRe), f = fpAt(id); out.push(pill(liveVal(k, s, f), mkStop, '', valTone(k, f))); }
     else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(mk.replace(/^(?:>=|<=|[<>≥≤])\s*/, ''), mkStop, ' cut'));
     else if (mk) out.push(pill(mk, mkStop));
     else if (val) out.push(pill(val, valStop));
@@ -1765,6 +1769,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
   }
   const fpOf = (id) => { const i = slides.findIndex((x) => x.id === id); return i >= 0 ? states[stateOf[i]]?.fp : null; };
+  fpAt = fpOf;   // (for {key@slide} in the words: see liveVal)
   // A visual's rows: the deck's slides by id ('pvt', or { id, name } to name it), or { preset, name } patients that
   // no slide shows, computed after the slides.
   const rowAt = (o) => { const id = typeof o === 'string' ? o : o.id, i = id ? slides.findIndex((x) => x.id === id) : -1; return [i, i >= 0 ? stateOf[i] : extraOf.get(xKey(o))]; };

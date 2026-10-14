@@ -6,7 +6,7 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=ff284bd0e7';
+import { LEVELS, withOverview } from './decks.js?v=5e412dfbcf';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -80,7 +80,7 @@ function slideBlock(d, base, s, i) {
   <div class="txt">
     <p class="cap"><span class="n">${i + 1}</span>${s.kicker ? ` · ${esc(s.kicker)}` : ''}</p>
     <h2>${esc(s.title || 'Slide')}</h2>
-    ${s.line ? `<p class="line">${esc(s.line.replace(/[{}]/g, ''))}</p>` : ''}
+    ${s.line ? `<p class="line">${esc(s.line.replace(/\{(\w+)@[\w-]+\}/g, '$1').replace(/[{}]/g, ''))}</p>` : ''}
     ${ml ? `<div class="eq"><math display="block">${ml}</math>${legend ? `<small>${esc(legend)}</small>` : ''}</div>` : ''}
     ${s.notes ? `<div class="notes"><p class="cap">Notes</p><p>${esc(s.notes)}</p></div>` : ''}
     ${s.checks ? `<ol class="checks">${s.checks.map(([cq, ca]) => `<li><p>${esc(cq)}</p><p class="a"><b>Answer:</b> ${esc(ca)}</p></li>`).join('')}</ol>` : ''}

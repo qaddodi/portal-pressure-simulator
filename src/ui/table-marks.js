@@ -18,6 +18,8 @@ export const RATE = {
   spleen: (v) => (v > 16 ? ['hi', 'Large'] : v > 13 ? ['mid', 'Large'] : ['ok', 'Normal']),
   plt: (v) => (v < 100 ? ['hi', 'Severe'] : v < 150 ? ['mid', 'Low'] : ['ok', 'Normal']),
   pvFlow: (v) => (v < 0 ? ['hi', 'Hepatofugal'] : [null, 'Hepatopetal']),
+  // Main portal vein velocity on Doppler: 15 cm/s or more normal, slower is slow, under 9 stasis, below zero reversed.
+  pvVel: (v) => (v < 0 ? ['hi', 'Reversed'] : v < 9 ? ['hi', 'Stasis'] : v < 15 ? ['mid', 'Slow'] : ['ok', 'Normal']),
   liver: (v) => (v <= 55 ? ['hi', 'Severe'] : v <= 75 ? ['mid', 'Low'] : ['ok', 'Normal']),
   shunt: (v) => (v >= 0.3 ? ['hi', 'Large'] : v >= 0.1 ? ['mid', 'Moderate'] : ['ok', 'Small']),
   map: (v) => (v < 65 ? ['hi', 'Low'] : ['ok', 'Normal']),
@@ -47,6 +49,7 @@ export const TILE = {
   spleen: { t: 'Spleen', s: 'Length', u: 'cm', better: -1 },
   plt: { t: 'Platelets', s: '× 10⁹ per litre', u: '×10⁹/L', d: 0, better: 1 },
   pvFlow: { t: 'Portal vein flow', n: 'Portal flow', s: 'Mean', u: 'L/min' },
+  pvVel: { t: 'Portal vein velocity', n: 'PV velocity', s: 'Doppler, main portal vein', u: 'cm/s', d: 0, better: 1 },
   liver: { t: 'Liver blood flow', n: 'Liver flow', s: 'Through the sinusoids, of normal', u: '%', d: 0, better: 1 },
   shunt: { t: 'Shunted', s: 'Portal blood bypassing the liver', u: '%', x: 100, d: 0, better: -1 },
   map: { t: 'Blood pressure', n: 'MAP', s: 'Mean arterial', u: 'mmHg', d: 0 },
@@ -64,7 +67,7 @@ export const SCALE = {
   hvpg: [0, 25, [5, 10]], ppg: [0, 25, [6, 12]], pv: [0, 30, [10, 15]], sin: [0, 20, [9, 12]],
   saag: [0, 3, [1.1]], tp: [0, 5, [1.5, 2.5]], asc: [0, 8, [0.15, 1.5, 5]],
   varix: [0, 10, [2.5, 5]], gv: [0, 10, [2.5, 5]], spleen: [8, 22, [13, 16]], plt: [0, 300, [100, 150]],
-  pvFlow: [-0.6, 2, [0]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],
+  pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [9, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],
   lsm: [0, 35, [10, 15, 25]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]],
 };
 // A bar's bands: each from a to b (shown units), and m, its middle in the model's units (what the rating reads).
