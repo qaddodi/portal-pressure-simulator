@@ -171,12 +171,31 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
   const moreBtn = h('button', { class: 'ib ro-more', 'aria-expanded': 'false', 'aria-label': 'Show all readouts', title: 'All readouts' }, svgIcon('chev-down'));
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  // Tiles, captions and vitals glide to their new spots when the strip re-flows (FLIP, by translate only, so no text is
+  // ever scaled): positions are taken against the strip's own top, which the height animation moves, and anything that was
+  // not on screen before fades in.
+  const gliding = new WeakMap();
+  const glide = (mutate, animate) => {
+    const els = animate && !reduce.matches && strip.animate ? [...strip.querySelectorAll('.metric, .ro-cap, .vital')] : [];
+    const rel = (el) => { const r = el.getBoundingClientRect(), s0 = strip.getBoundingClientRect(); return r.width || r.height ? { x: r.left - s0.left, y: r.top - s0.top } : null; };
+    const before = els.map(rel);
+    mutate();
+    els.forEach((el) => gliding.get(el)?.cancel());
+    els.forEach((el, i) => {
+      const a = rel(el), b = before[i];
+      if (!a) return;
+      const kf = b ? ((b.x - a.x) || (b.y - a.y) ? { translate: [`${b.x - a.x}px ${b.y - a.y}px`, '0px 0px'] } : null) : { opacity: [0, 1] };
+      if (!kf) return;
+      const an = el.animate(kf, { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      gliding.set(el, an);
+    });
+  };
   // Open or close the rest of the readouts; the strip grows upward from the bottom edge, so its height
   // animates between the two sizes.
   const setAll = (on, animate) => {
     if (strip.classList.contains('all') === on) return;
     const h0 = strip.offsetHeight;
-    strip.classList.toggle('all', on);
+    glide(() => strip.classList.toggle('all', on), animate);
     moreBtn.setAttribute('aria-expanded', String(on));
     moreBtn.setAttribute('aria-label', on ? 'Show fewer readouts' : 'Show all readouts');
     const h1 = strip.offsetHeight;
@@ -202,7 +221,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       if (Math.abs(dy) < 8) return;
       flick.on = true; flick.wasAll = strip.classList.contains('all');
       [flick.lo, flick.hi] = sizes();
-      strip.classList.add('all'); strip.style.overflow = 'hidden';
+      glide(() => strip.classList.add('all'), true); strip.style.overflow = 'hidden';
       try { strip.setPointerCapture(e.pointerId); } catch {}
     }
     e.stopPropagation();
@@ -214,7 +233,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const f = flick; flick = null;
     if (!f || !f.on) return;
     const open = Math.abs(f.v) > 0.3 ? f.v < 0 : f.h > (f.lo + f.hi) / 2, to = open ? f.hi : f.lo;
-    const finish = () => { strip.style.height = ''; strip.style.overflow = ''; strip.classList.toggle('all', open); moreBtn.setAttribute('aria-expanded', String(open)); moreBtn.setAttribute('aria-label', open ? 'Show fewer readouts' : 'Show all readouts'); dispatchEvent(new Event('resize')); };
+    const finish = () => { strip.style.height = ''; strip.style.overflow = ''; if (strip.classList.contains('all') !== open) glide(() => strip.classList.toggle('all', open), true); moreBtn.setAttribute('aria-expanded', String(open)); moreBtn.setAttribute('aria-label', open ? 'Show fewer readouts' : 'Show all readouts'); dispatchEvent(new Event('resize')); };
     if (reduce.matches || !strip.animate) return finish();
     const an = strip.animate({ height: [`${f.h}px`, `${to}px`] }, { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
     strip.style.height = `${to}px`; an.onfinish = finish; an.oncancel = finish;
