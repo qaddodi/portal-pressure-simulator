@@ -8,9 +8,9 @@ Open straight into an activity by adding a query string to the simulator's URL:
 
 | Link | Opens |
 |------|-------|
-| `?script=<id>` | a presenter script: `where-block`, `bleed` |
+| `?script=<id>` | a presentation deck by id (its file name in `src/ui/decks/`, e.g. `sites`, `hvpg`, `varices`) or a saved script; add `&slide=<n>` to start on slide n |
 | `?preset=<id>` | a patient, e.g. `healthy`, `csph`, `cirr-decomp`, `budd-chiari`, `rhf` |
-| `?home=<tab>` | the menu on `patients` (or `explore`) or `present` |
+| `?home=<tab>` | the menu on `present` or `patients` |
 | `?lang=<code>` | interface language: `en`, `es`, `fr`, `pt`, `ar` |
 
 ## SCORM 1.2
@@ -19,7 +19,7 @@ Open straight into an activity by adding a query string to the simulator's URL:
 npm run scorm                          # whole simulator, opens on the Patients menu
 ```
 
-Upload the zip from `dist/` as a SCORM package (`-- --script <id>` packages one presenter script).
+Upload the zip from `dist/` as a SCORM package (`-- --script <id>` packages one deck or script).
 Inside the LMS the simulator finds the SCORM API and finishes the
 attempt on exit. Presentations and patients are ungraded, so no score is reported.
 

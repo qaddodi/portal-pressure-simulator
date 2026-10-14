@@ -1,6 +1,6 @@
 # Accessibility
 
-Portal Pressure Simulator 2.0.0 · self-assessment against WCAG 2.2 level AA, in the format of an
+Portal Pressure Simulator 2.1.0 · self-assessment against WCAG 2.2 level AA, in the format of an
 Accessibility Conformance Report (ACR). **This is not a third-party audit.** An independent
 audit and a published VPAT® are planned before institutional sale; this document records what
 the product does today and where it falls short.
@@ -30,7 +30,7 @@ the product does today and where it falls short.
 
 ## Testing done
 
-- Automated browser runs (Chromium) through the menu, the patients and a presenter script
+- Automated browser runs (Chromium) through the menu, the patients and the presentation decks
   stepped from the keyboard.
 - Light and dark themes at 390 px (phone), 1024 px (tablet) and 1440 px (desktop).
 - Contrast of every text color token against every surface token, both themes (computed).

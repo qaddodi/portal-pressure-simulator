@@ -43,13 +43,16 @@ npm install          # dev tools only: esbuild, ESLint, Playwright
 npm test             # physiological acceptance tests and the stamp check (Node ≥ 20)
 npm run lint         # ESLint
 npm run smoke        # the app in a real browser (desktop and phone): loads, runs, every surface opens
+npm run smoke:quick  # a fast browser check (DECKS=<id> limits it to one deck)
+npm run visual       # compare the look against tests/visual/ references
 npm run perf         # frame rate and main-thread stalls on a desktop, a laptop and a phone profile
 npm run check        # all of the above, on the root site and on the build
 ```
 
 The browser checks need a Chromium for Playwright (`npx playwright install chromium`). CI
 (`.github/workflows/ci.yml`) runs lint, tests, the build, both smoke tests and the performance
-report on every push and pull request.
+report on pull requests and on `main`; `.github/workflows/pages.yml` publishes the live site and
+the preview (see [AGENTS.md](AGENTS.md)).
 
 The acceptance tests are the model's validation targets (healthy ranges, HVPG in presinusoidal
 disease and heart failure, splenic-vein reversal, hepatofugal flow, TIPS outcomes, the rupture
@@ -58,8 +61,8 @@ stability). They are listed in the app under *Menu › About the model*.
 
 ## Using it
 
-The **menu** (top left) has two tabs: *Present* (the presentations, by topic, and your own
-scripts) and *Patients* (16 patients from healthy to Budd–Chiari, grouped by where the resistance
+The **menu** (top left) has two tabs: *Present* (the 23 presentation decks, by topic, and your own
+scripts and imported decks) and *Patients* (16 patients from healthy to Budd–Chiari, grouped by where the resistance
 sits, each with its pressure profile).
 
 - **Act on the anatomy.** Click any vessel or organ: a card opens beside it with what you can do
@@ -101,19 +104,22 @@ sits, each with its pressure profile).
 
 ### Teaching
 
-- **Presenter:** scripts of model states with speaker notes, stepped with arrow keys or a
-  clicker; notes in a second window; laser pointer. Build scripts from the live model and share
-  them as a link or a file.
+- **Presenter:** decks of model states, each slide with a teaching card and a data card,
+  stepped with arrow keys, a swipe or a clicker; cases open with a short clinical vignette and
+  each deck ends with quick-check questions. Build scripts from the live model and share them as
+  a link or a file, or import a deck file (Menu › Present › Your scripts › *Import*).
+- **Writing decks:** [docs/deck-authoring-guide.md](docs/deck-authoring-guide.md) (format and
+  layout rules) and [docs/ai-humanizer.md](docs/ai-humanizer.md) (how slide wording should read).
 
 ## For institutions
 
 - **LMS.** `npm run scorm` builds a SCORM 1.2 package (optionally of one script)
-  for the LMS. Deep links (`?script=bleed`, `?preset=csph`) open straight into an activity. See [docs/LMS.md](docs/LMS.md).
+  for the LMS. Deep links (`?script=sites`, `?preset=csph`) open straight into an activity. See [docs/LMS.md](docs/LMS.md).
 - **Accessibility.** Keyboard access to every structure, a live one-line description of the
   patient, interface zoom, reduced motion, color always paired with a second cue. See
-  [ACCESSIBILITY.md](ACCESSIBILITY.md).
+  [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
 - **Privacy.** No trackers, no third-party requests (fonts are self-hosted), nothing stored off
-  the device. See [PRIVACY.md](PRIVACY.md).
+  the device. See [docs/PRIVACY.md](docs/PRIVACY.md).
 - **Offline.** Installable PWA; works on poor exam-hall Wi-Fi once loaded.
 - **Languages.** The interface shell is available in English, Spanish, French, Portuguese and
   Arabic (right-to-left); presentation text is English for now.
@@ -131,10 +137,25 @@ sits, each with its pressure profile).
 | `fonts/`, `brand/` | Self-hosted fonts (SIL OFL); brand mark, lockup and app icons |
 | `scripts/` | Cache stamping, SCORM packaging |
 | `tests/` | Acceptance tests |
-| `docs/` | Design blueprint and the v2 UI/UX plan ([UI_UX_NEXT_LEVEL.md](docs/UI_UX_NEXT_LEVEL.md)) |
+| `src/ui/decks/` | The presentation decks, one file each |
+| `docs/` | All documentation (see below) |
 
 For preparing a class, `window.pps` in the browser console exposes `loadPreset`,
 `updateParams`, `presenter` and the store.
+
+## Documentation
+
+| File | What it covers |
+|------|----------------|
+| [AGENTS.md](AGENTS.md) | Working rules for coding agents: preview branch, Pages deploys, the test loop |
+| [CHANGELOG.md](CHANGELOG.md) | What changed, release by release |
+| [docs/deck-authoring-guide.md](docs/deck-authoring-guide.md) | How to write a presentation deck |
+| [docs/ai-humanizer.md](docs/ai-humanizer.md) | Style rules for slide wording |
+| [docs/DESIGN_BLUEPRINT.md](docs/DESIGN_BLUEPRINT.md) | The original design spec; its model sections (§7, §12) are what the code comments cite |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Rendering and simulation scheduling |
+| [docs/LMS.md](docs/LMS.md) | Deep links and SCORM packaging |
+| [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) | WCAG 2.2 AA self-assessment |
+| [docs/PRIVACY.md](docs/PRIVACY.md) | What the app stores and sends (nothing off the device) |
 
 ## License
 

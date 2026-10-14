@@ -142,7 +142,7 @@
   "Patient") instead of spaced capitals. Icons come in 16, 20 and 24 (12 for a check mark in a dot),
   down from 17 sizes; corners use the three radius tokens. The lobule card's title is no longer serif.
   A new browser check opens every menu and card and fails on any other size, weight or icon size, or
-  a button without a name. Plan: [docs/MENUS_AND_CARDS_PLAN.md](docs/MENUS_AND_CARDS_PLAN.md).
+  a button without a name. (The working plan has since been removed; see git history.)
 - On a phone held sideways, the zoom buttons step aside when a vessel's card leaves no room for them
   under the top bar.
 - **Into the lobule, a dive.** Choosing *Lobule* flies the camera into the liver (0.9 s) while the lobule grows out of
@@ -542,7 +542,7 @@ patients, lessons and cases are unchanged (content version 2.0).
 
 ## 2.0.0 (content version 2.0), 2026-09
 
-The v2 redesign from [docs/UI_UX_NEXT_LEVEL.md](docs/UI_UX_NEXT_LEVEL.md).
+The v2 redesign (its proposal, `docs/UI_UX_NEXT_LEVEL.md`, is in git history).
 
 - **Interaction:** object → verb. Click a vessel or organ and an action card opens beside it;
   the toolbar and tool modes are gone. Shunts are dragged from source to target.
