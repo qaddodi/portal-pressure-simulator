@@ -449,15 +449,9 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   }
   function openHistory(anchor) {
     const items = entries.map((_, i) => i);
-    const copy = h('button', { class: 'link st-act', title: 'Copy the history as text' }, 'Copy');
-    copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(historyText()); toast('History copied.'); } catch { toast('Copy is not available here.'); } });
-    const head = h('div', { class: 'tl-pop-top' }, h('b', {}, 'History'), h('span', { class: 'sp' }), copy);
     const body = items.length > 1 ? markerRows(items)
       : [h('p', { class: 'tl-pop-empty' }, 'Nothing has happened yet. Change something on the figure, or jump ahead in time.')];
-    popover(anchor, h('div', { class: 'tl-pop tl-history' }, head, body), { place: 'above', align: 'end' });
-  }
-  function historyText() {
-    return entries.map((e) => `${e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day)}  ${e.kind === 'start' ? 'Patient: ' : ''}${e.label}${e.detail ? ': ' + e.detail : ''}`).join('\n');
+    popover(anchor, h('div', { class: 'tl-pop tl-history' }, body), { place: 'above', align: 'end' });
   }
   function openMarker(anchor, items) {
     popover(anchor, h('div', { class: 'tl-pop' }, markerRows(items)), { place: 'above', align: 'center' });
