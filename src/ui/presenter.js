@@ -1957,6 +1957,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const sig = fitSig(el);
       if (fitDone.get(el) === sig) continue;
       el.style.removeProperty('--pz-fit'); el.style.removeProperty('--pz-z');
+      // (A tablet's narrow data card: its own grid changes, which a container query on the card cannot do.)
+      if (el.classList.contains('pz-data')) el.classList.toggle('pz-narrow', el.offsetWidth > 0 && el.offsetWidth < 420);
+      // (A tile's name in full when it fits on one line in its tile, else its short form: Liver flow, Protein ...)
+      for (const k of el.querySelectorAll('.pz-tiles .pzt-k[data-s]')) {
+        k.classList.remove('short');
+        const t = k.parentElement, cs = getComputedStyle(t), room = t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        if (room > 0 && k.scrollWidth > room + 0.5) k.classList.add('short');
+      }
       fitHeads(el);
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
       const all = el.querySelector('.pz-check'); all?.classList.add('pzc-all', 'pzc-still');

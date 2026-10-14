@@ -4806,18 +4806,18 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    one (table-marks.js TILE n), drawn in its place (the full name stays the tile's text, for screen readers). */
 @container pzd (max-width: 419px) {
   .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] .pzt-k { min-height: 0; white-space: nowrap; letter-spacing: .03em; }
-  .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] .pzt-k[data-s] { font-size: 0; letter-spacing: 0; }
-  .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] .pzt-k[data-s]::after { content: attr(data-s); font-size: var(--pz-sm); letter-spacing: .03em; }
+  .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] .pzt-k.short { font-size: 0; letter-spacing: 0; }
+  .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] .pzt-k.short::after { content: attr(data-s); font-size: var(--pz-sm); letter-spacing: .03em; }
 }
 .pz.stack .pz-data .pz-tiles:is([data-n="3"], [data-n="4"]) .pzt-k.pzt-k { white-space: nowrap; min-height: 0; letter-spacing: .03em; }
-.pz.stack .pz-data .pz-tiles:is([data-n="3"], [data-n="4"]) .pzt-k.pzt-k[data-s] { font-size: 0; letter-spacing: 0; }
-.pz.stack .pz-data .pz-tiles:is([data-n="3"], [data-n="4"]) .pzt-k[data-s]::after { content: attr(data-s); font-size: var(--pz-psm); letter-spacing: .03em; }
+.pz.stack .pz-data .pz-tiles:is([data-n="3"], [data-n="4"]) .pzt-k.pzt-k.short { font-size: 0; letter-spacing: 0; }
+.pz.stack .pz-data .pz-tiles:is([data-n="3"], [data-n="4"]) .pzt-k.short::after { content: attr(data-s); font-size: var(--pz-psm); letter-spacing: .03em; }
 /* A narrow card (a tablet's): the instrument takes about two thirds, its tiles the rest, their names the short ones on one line. */
+.pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow.has-tool:not([data-tn="4"]) { grid-template-columns: minmax(0, 1fr) max(104px, 30%); }   /* (set on the card itself: a container query cannot change its own container) */
 @container pzd (max-width: 419px) {
-  .pz:not(.stack):not(.low) .pz-data.pz-beside.has-tool:not([data-tn="4"]) { grid-template-columns: minmax(0, 1fr) max(108px, 32%); }
   .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-k { white-space: nowrap; letter-spacing: .03em; min-height: 0; }
-  .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-k[data-s] { font-size: 0; letter-spacing: 0; }
-  .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-k[data-s]::after { content: attr(data-s); font-size: var(--pz-sm); letter-spacing: .03em; }
+  .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-k.short { font-size: 0; letter-spacing: 0; }
+  .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-k.short::after { content: attr(data-s); font-size: var(--pz-sm); letter-spacing: .03em; }
 }
 @container (max-width: 300px) { .pz:not(.stack):not(.low) .pz-data.pz-data.pz-data .pz-tool[data-kind="beats"] .pt-head { grid-template-columns: auto minmax(0, 1fr); } .pz:not(.stack):not(.low) .pz-data.pz-data.pz-data .pz-tool[data-kind="beats"] .pt-sev { grid-column: 1 / -1; justify-self: start; } }   /* (a narrow tracing: its status under the HVPG, not over its unit) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { container-type: normal; }   /* (laid out as contents it has no box: as a container it hid the instrument's own width from its queries) */
@@ -4843,3 +4843,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-flowtime :is(.pft-key text, .pft-t, .pft-tk, .pft-v0, .ptk-grid text, .ptk-ax) { font-size: 1em; }
 .pz-flowtime .pft-v { font-size: 1.1em; } .pz-flowtime .ptk-ax { letter-spacing: .04em; }
 .pz-flowtime .pft-u { font-weight: 500; fill: var(--text-3); }
+@media (pointer: coarse) { .pz:not(.stack) .pz-grip { opacity: 0; transition: opacity .3s var(--ease); } .pz:not(.stack) .pz-data:is(:hover, :active) .pz-grip { opacity: 1; } }   /* (a tablet's handle shows once the card is touched, not at rest over the tiles' edge) */
+/* Tile names stay on one line everywhere; a name too long for its tile (measured, see fitCards) shows its short form. */
+.pz .pz-data .pz-tiles .pzt-k { white-space: nowrap !important; min-height: 0 !important; }
+.pz .pz-data .pz-tiles .pzt-k.short { font-size: 0 !important; letter-spacing: 0 !important; }
+.pz:not(.stack) .pz-data .pz-tiles .pzt-k.short::after { content: attr(data-s); font-size: var(--pz-sm); letter-spacing: .03em; }
+.pz.stack .pz-data .pz-tiles .pzt-k.short::after { content: attr(data-s); font-size: var(--pz-psm); letter-spacing: .03em; }
