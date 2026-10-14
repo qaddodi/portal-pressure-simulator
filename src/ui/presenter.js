@@ -1981,7 +1981,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const cz = parseFloat(s.zoom) || 1;
       // (A part with a height cap clips by design, and mid-fold its clipped contents are not overflow either: counting them
       // shrank the card while a phone's tool folded, and the shrunk fit then stuck.)
-      const clip = s.maxHeight !== 'none' ? 0 : Math.max(0, c.scrollHeight - c.clientHeight);
+      // (A line's glyphs or a pinned button reaching a pixel or two past its part is not overflow: counted, it shrank every
+      // phone instrument card by the fit loop's full eight steps, its words to 0.86.)
+      const clip = s.maxHeight !== 'none' ? 0 : Math.max(0, c.scrollHeight - c.clientHeight - 3);
       used += Math.max(c.getBoundingClientRect().height, side && (c.classList.contains('pz-tool') || c.classList.contains('pz-ladder')) ? side.getBoundingClientRect().height : 0) / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
       n++;
     }
