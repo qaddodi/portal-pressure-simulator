@@ -7,7 +7,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf 
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=14d67870c8';
 import { fibroReading } from './clock.js?v=50927fe3bc';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=abb277f29f';
-import { createLobuleZoom } from './lobule-zoom.js?v=5aafcba58c';
+import { createLobuleZoom } from './lobule-zoom.js?v=ce3c009324';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -15,7 +15,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=9d3f9164af
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=44ad78059c';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=544c590951';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { portalSplit } from './table-marks.js?v=525d14632b';
@@ -3612,7 +3612,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false };
   const abdomenClipEl = defs.querySelector('#abdomenClip path');
   const fluidPhase = () => (performance.now() / 1100) % (20 * Math.PI);   // both ripple terms are periodic over 20π
-  const fluidSurfAt = (x, ph) => { const c = (x - 712) / 400; return ABDOMEN_FLOOR + 5 - fluidH * (0.9 + 0.1 * c * c) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp; };
+  const fluidSurfAt = (x, ph) => { const c = (x - 712) / 400; return ABDOMEN_FLOOR + 5 - fluidH * (0.8 + 0.2 * c * c) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp; };
   // A thin pool fades in as it fills and fades out as it drains, so the first and last millimetres never pop.
   const fluidFade = () => clamp((fluidH - 3) / 45, 0, 1);
   function drawAscites() {
@@ -3637,7 +3637,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     organG.bowel.setAttribute('transform', `translate(0 ${(-bulge / 34 * 26).toFixed(1)})`);
     // The fluid level rises on a compressed scale (u^0.6), so a grade 1–2 effusion is a visible pool, not a sliver. Near the
-    // top of the scale (about 8.5 L) the surface reaches the lower edge of the spleen: gently concave (about 50 units
+    // top of the scale (about 8.5 L) the surface reaches the lower edge of the spleen: clearly concave (about 100 units
     // lower in the middle than at the flanks), the same on both sides.
     const uv = Math.pow(u, 0.6);
     fluidH = uv * 485; fluidAmp = 2 * Math.min(1, uv * 4);
@@ -3657,7 +3657,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         fluidBandH = fluidH;
         const cells = [];
         for (let x = 288; x < 1136; x += 16) {
-          const base = (z) => { const c = (z - 712) / 400; return ABDOMEN_FLOOR + 5 - fluidH * (0.9 + 0.1 * c * c); };
+          const base = (z) => { const c = (z - 712) / 400; return ABDOMEN_FLOOR + 5 - fluidH * (0.8 + 0.2 * c * c); };
           const a = base(x), b = base(x + 16);
           const y0 = Math.min(a, b) - fluidAmp - 2, y1 = Math.max(a, b) + fluidAmp + 10;
           for (let y = y0; y < y1; y += 16) cells.push(x, y);
