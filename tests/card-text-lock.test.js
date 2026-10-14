@@ -30,7 +30,8 @@ test('one margin, padding, gap and card width, all from the body size', () => {
   assert.match(css, /\.pz-bar\.pzb-pill \{[^}]*right: var\(--pz-cm\); bottom: max\(var\(--pz-cm\)/, 'the nav pill sits one margin from the right and the bottom');
   assert.match(js, /gap = Math\.round\(0\.6 \* sl\)/);
   assert.match(js, /const top0 = cardOn && t \? sl : 0;/, 'the cards start one margin from the top');
-  assert.match(js, /const lvl = cardOn && t \? \(d && !below \? d\.top - wr\.top : off\(dd\) \? Math\.max\(sl, \(H - t\.height - 2 \* pad\) \/ 2\) : top0\) \+ pad : null;/, 'a teaching card alone is centred top to bottom, at least one margin from each edge');
+  assert.match(js, /const lvl = cardOn && t \? \(d && !below \? d\.top - wr\.top : off\(dd\) \? Math\.max\(sl, \(H - t\.height - 2 \* pad\) \/ 2\) : top0 \+ shift\) \+ pad : null;/, 'a teaching card alone is centred top to bottom, at least one margin from each edge');
+  assert.match(js, /shift = Math\.max\(0, Math\.min\(\(H - stackH\) \/ 2 - top0, foot - top0 - stackH\)\);/, 'the stacked pair shorter than the screen is centred as one, never past one margin or the controls');
 });
 
 test('a tight slide shrinks in fixed steps and the data card never moves to the top right', () => {
