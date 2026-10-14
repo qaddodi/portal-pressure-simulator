@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=3c6e1c046e'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=ccb6e457c5'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -831,22 +831,8 @@ function openSettings(anchor) {
       menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() })]),
   ], { align: 'start', cls: 'app-menu' });
 }
-// While presenting: the words' panel width and high contrast (colour only; no size changes). A phone's panel spans the screen, so no width there.
-function presenterSettings() {
-  const ps = presenter.settings();
-  if (!ps) return [];
-  const out = [];
-  if (!ps.stacked) {
-    out.push(h('div', { class: 'menu-title' }, 'Panel width'),
-      h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': 'Panel width' }, [['narrow', 'Narrow'], ['medium', 'Medium'], ['wide', 'Wide']].map(([v, l]) => {
-        const b = h('button', { 'aria-pressed': String(ps.width === v) }, l);
-        b.addEventListener('click', () => { ps.setWidth(v); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
-        return b;
-      })));
-  }
-  out.push(menuToggle(ps.contrast, 'projector', 'High contrast', 'Stronger text and a deeper shade; nothing changes size (P)', (on) => ps.setContrast(on)));
-  return out;
-}
+// While presenting: no extra settings for now (panel width and high contrast were taken out of slides).
+function presenterSettings() { return []; }
 // Text size: smaller and larger in even steps, and the middle shows the size and resets it.
 // (100 % is the design size; the steps only go up, so no text drops under 11 px. src/ui/type-scale.js)
 function textSizeControl() {

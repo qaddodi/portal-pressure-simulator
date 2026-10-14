@@ -10,7 +10,7 @@
 //
 // Keys (clickers send the same): → Page Down Space Enter next (during a time-lapse the first runs it to its end),
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen,
-// P high contrast, Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
+// Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
 import { store, replaceParams } from './store.js?v=14d67870c8';
 import { download } from './download.js?v=3564e5bf8c';
@@ -19,11 +19,11 @@ import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=bcfe6fb904';
 import { NODES } from '../engine/topology.js?v=93dd221434';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=d54955216c';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=c5afe79554';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=e78c8b9ad7';
 import { createTools } from './presenter-tools.js?v=92877d2b85';
-import { openHandout } from './handout.js?v=56e5c2bd92';
+import { openHandout } from './handout.js?v=0be173f5fb';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=471e7f0f49';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -1007,12 +1007,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let want = 0, wantRev = false, shown = null, shownState = -1, busy = false, quiz = false, gen = 0;
   let ui = null, black = false, digits = '', digitT = 0;
   let saved = null, layersBefore = null;   // (the viewer's own lobule layers, put back when the show ends)
-  // High contrast (P, or Settings): a deeper shade, stronger text, ratings as filled chips. It changes colour only, never a size. Remembered.
+  // High contrast: a deeper shade, stronger text, ratings as filled chips (pz-hi). Off for now; no control offers it.
   const PROJ = 'pps.projector';
-  let hiCon = (() => { try { return localStorage.getItem(PROJ) === '1'; } catch { return false; } })();
-  // Panel width (Settings): the words' panel at its usual width (medium), narrower or wider. Remembered. A phone's panel spans the screen.
+  let hiCon = false;   // (off for now: no control offers it; a saved choice is ignored)
+  // Panel width: fixed at medium for now. A phone's panel spans the screen.
   const PW = 'pps.pzWidth', PW_K = { narrow: 0.8, medium: 1, wide: 1.3 };
-  let pzWidth = (() => { try { const v = localStorage.getItem(PW); return PW_K[v] ? v : 'medium'; } catch { return 'medium'; } })();
+  let pzWidth = 'medium';   // (fixed for now: no control offers it; a saved choice is ignored)
 
   const all = () => [...DECKS, ...readMine().map(fromScript)];
   // An instructor's script (captured model states) as slides: its own titles and notes, the ladder beside.
@@ -2405,7 +2405,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     app.classList.toggle('pz-hi', hiCon);
     paintChrome();
   }
-  const toggleProj = () => { setContrast(); toast(hiCon ? 'High contrast on.' : 'High contrast off.'); };
   // The panel's width changes under cover: the words fade out, the panel takes its new width (the glass behind eases to it),
   // and the words fade back in. Nothing jumps and nothing is measured mid-way.
   let widthT = 0;
@@ -2511,7 +2510,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     else if (lk === 'b' || k === '.' || lk === 'w') toggleBlack();
     else if (lk === 'f') fullscreen();
     else if (lk === 'g') toggleJump(true);
-    else if (lk === 'p') toggleProj();
     else if (lk === 'n' || lk === 's' || lk === 'l') { /* the app's own N, S and L (such as the lens) stay off while presenting */ }
     else if (k === 'F5') { /* a clicker's "start show": never reload the page */ }
     else if (k === 'Escape') { if (black) toggleBlack(false); else stop(); }

@@ -9,8 +9,8 @@ export const SITES = {
   objectives: ['Place a cause of portal hypertension at one of six levels', 'Predict the HVPG for resistance at each level', 'Read a pressure ladder to find where the largest drop is'],
   checks: [
     ['Portal vein thrombosis raises the portal pressure. What happens to the HVPG?', 'It stays normal. The catheter wedges beyond the clot, in normal sinusoids.'],
-    ['Which two levels of resistance raise the HVPG?', 'Sinusoidal, as in cirrhosis, and postsinusoidal, as in sinusoidal obstruction syndrome.'],
-    ['Every station is high in right heart failure. What sets it apart from resistance in the liver?', 'The drops between stations stay small, so the HVPG is normal, and the right atrial pressure is high.'],
+    ['In which two diseases from this talk is the HVPG high?', 'Cirrhosis and sinusoidal obstruction syndrome. In both, the resistance lies between the wedged and the free hepatic vein readings, the two pressures HVPG compares.'],
+    ['Right heart failure and cirrhosis both raise the portal pressure. Which readings tell them apart?', 'In right heart failure the right atrial pressure is high and the HVPG is normal. In cirrhosis the right atrial pressure is normal and the HVPG is high.'],
   ],
   slides: [
     {
@@ -86,7 +86,7 @@ export const SITES = {
     },
     {
       id: 'ladders', cam: 'fit', visual: 'ladders', of: SIX,
-      kicker: 'How to tell them apart', title: 'The largest pressure drop marks where resistance is highest',
+      kicker: 'How to tell them apart', title: 'The biggest pressure drop shows where the resistance is',
       line: 'HVPG reads only the drop across the sinusoids.',
       notes: 'Read each ladder from left to right. Pre-hepatic and presinusoidal: the fall is between the portal vein and the wedge, so HVPG is normal and only a direct portal pressure (or the PPG) shows it. Sinusoidal and postsinusoidal: the fall is between the wedged and the free pressures, exactly what HVPG measures. Post-hepatic: the fall is between the free hepatic vein and the right atrium. Cardiac: there is no fall at all; every station is high.',
       ask: ['Which two levels raise the HVPG?', 'Sinusoidal and postsinusoidal: only there does the resistance lie between the wedge and the free reading.'],
