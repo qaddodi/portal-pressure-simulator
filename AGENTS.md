@@ -16,7 +16,7 @@ Work happens in the cloud; previews are published to GitHub Pages.
   `/preview/preview-info.txt` shows which branch and commit the preview was built from.
   Do not publish preview artifacts.
 - **Preview badge:** a branch preview shows an orange "PREVIEW · <commit>" pill at the top
-  centre and a "PREVIEW ·" title prefix, so the owner knows which build they are on. It is
+  centre (the page title is left as is), so the owner knows which build they are on. It is
   injected at deploy time by `scripts/preview-badge.mjs` (on every `/preview/` build, `main` included),
   never committed to the source, so nothing has to be removed on merge.
 - **Preview branch:** work on your own one-level `claude/<name>` branch (include `preview`

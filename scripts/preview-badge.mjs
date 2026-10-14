@@ -1,4 +1,4 @@
-// Marks a copy of the site as a preview: a "PREVIEW" pill in the corner and a title prefix.
+// Marks a copy of the site as a preview: a "PREVIEW" pill in the corner.
 // Run by .github/workflows/pages.yml on the /preview/ copy only, so the badge never exists in
 // the source and nothing has to be removed when a branch is merged.
 //
@@ -28,7 +28,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const file = join(dir, 'index.html');
   let html = readFileSync(file, 'utf8');
   if (!html.includes('</body>') || !html.includes('<title>')) { console.error('index.html: no </body> or <title> to mark'); process.exit(1); }
-  html = html.replace('<title>', '<title>PREVIEW · ').replace('</body>', () => `${badgeHtml(label)}\n</body>`);
+  html = html.replace('</body>', () => `${badgeHtml(label)}\n</body>`);
   writeFileSync(file, html);
   console.log(`Marked ${file} as preview`);
 }
