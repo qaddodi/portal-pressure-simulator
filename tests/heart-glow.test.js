@@ -33,7 +33,8 @@ test('the glow is shaded smoothly on the GPU and lies behind the organs, not ove
   assert.match(fs, /gl_FragCoord/, 'dithered, so a long faint ramp does not step');
   // the composite lays the glow under the plate (the organs and the liver), before the vessels go over
   assert.match(veins, /if \(glowOn == 1\) pl = over\(pl, texelFetch\(glowL, ip, 0\)\);/);
-  assert.match(veins, /vec4 o = over\(v, pl\);/);
+  // the vessels go over the plate, and the ascites goes over both, so the vessels show through the fluid
+  assert.match(veins, /vec4 o = over\(fluidC, over\(v, pl\)\);/);
 });
 
 test('the heart glow has no lite or flat fallback left', () => {

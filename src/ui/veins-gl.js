@@ -907,8 +907,9 @@ void main() {
   if (pl.a > 0.0) { float l = dot(pl.rgb / pl.a, vec3(0.299, 0.587, 0.114)); pl = vec4(mix(vec3(l) * pl.a, pl.rgb, plateSat), pl.a) * plateAlpha; }
   // A glow lies behind the organs: the liver and the vessels pass over it.
   if (glowOn == 1) pl = over(pl, texelFetch(glowL, ip, 0));
-  // Ascites over the plate, in its own color whatever the lens: a meniscus (highest at the flanks)
+  // Ascites over the plate and the vessels (they show through it), in its own color whatever the lens: a meniscus (highest at the flanks)
   // with a slow two-part ripple, deeper fluid a little denser, a soft brighter band just under the surface.
+  vec4 fluidC = vec4(0.0);
   if (fluidInk.a > 0.0) {
     vec2 fu = (w - fluidRect.xy) / fluidRect.zw;
     if (all(greaterThanEqual(fu, vec2(0.0))) && all(lessThanEqual(fu, vec2(1.0)))) {
@@ -919,7 +920,7 @@ void main() {
       if (e > 0.0) {
         float a = fluidInk.a * (0.5 + 0.5 * clamp(d / max(fluidS.y, 1.0), 0.0, 1.0)) + fluidInk.a * 0.5 * exp(-d * d / 14.0);
         a = min(a, 1.0) * e;
-        pl = over(vec4(fluidInk.rgb * a, a), pl);
+        fluidC = vec4(fluidInk.rgb * a, a);
       }
     }
   }
@@ -969,7 +970,7 @@ void main() {
     }
     v = vec4(col * v.a, v.a);
   }
-  vec4 o = over(v, pl);
+  vec4 o = over(fluidC, over(v, pl));
   for (int i = 0; i < 10; i++) {
     if (i >= bleedN) break;
     vec2 d = (w - bleedE[i].xy) / max(bleedE[i].zw, vec2(1e-3));
