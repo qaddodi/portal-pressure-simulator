@@ -4259,8 +4259,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab .ab-belly > .ab-big > b { font-size: clamp(12px, 22cqi, 40px) !important; line-height: 1; white-space: nowrap; }
 .ab .ab-belly > .ab-big > b small { margin-left: .15em !important; font-size: .5em !important; }
 .ab .ab-belly > .ab-big > .ab-grade { font-size: clamp(9px, 8.5cqi, 15px) !important; line-height: 1.1; }
-.ab .ab-belly > .ab-big :is(b, b[data-sev], b small, .ab-grade, .ab-rate) { color: var(--white) !important; text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }   /* (white on a dark outline, as every instrument writes over its picture) */
-.ab .ab-belly > .ab-big > .ab-grade::before { width: .6em; height: .6em; }
+.ab .ab-belly > .ab-big :is(b, b[data-sev], .ab-grade, .ab-rate) { color: var(--text) !important; text-shadow: 0 0 4px var(--surface), 0 0 2px var(--surface) !important; }   /* (the theme's own text with a soft halo of the card, readable in every theme) */
+.ab .ab-belly > .ab-big b small { color: var(--text-2) !important; text-shadow: none !important; }
+.ab .ab-grade::before, .pz-tool .ab-grade::before { display: none !important; }   /* (no grade dot) */
+.ab-rate:empty { display: none; }
 .ab-rate { font-size: clamp(8px, 7cqi, 13px); font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .ab-belly { position: relative; flex: none; width: 64px; height: 64px; container-type: inline-size; border-radius: 50% 50% 44% 44%; border: 2px solid color-mix(in srgb, var(--text-3) 45%, transparent); overflow: hidden; background: var(--surface); }
 .ab-belly-fill { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--ascites) 55%, transparent), color-mix(in srgb, var(--ascites) 90%, transparent)); transition: height .6s var(--ease); }
@@ -4268,10 +4270,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    so the separate daily-change line is not repeated beside it. */
 .dock-pane > .instrument-view.ab .ab-vol { grid-template-columns: minmax(0, 1fr); justify-items: center; }
 .dock-pane > .instrument-view.ab .ab-vol-l { display: none; }
-.instrument-workspace:not(.float-ui) .dock-pane > .instrument-view.ab .ab-belly { width: clamp(120px, 34cqi, 180px); height: clamp(120px, 34cqi, 180px); }
+.dock-pane > .instrument-view.ab .ab-gauge { width: 100%; justify-self: stretch; }
+.instrument-workspace:not(.float-ui) .dock-pane > .instrument-view.ab .ab-belly { width: clamp(160px, 50cqi, 260px); height: clamp(160px, 50cqi, 260px); }
 @container (min-width: 620px) {
-  .instrument-workspace:not(.side):not(.float-ui) .dock-pane > .instrument-view.ab .ab-belly { width: clamp(120px, 18cqi, 180px); height: clamp(120px, 18cqi, 180px); }
-  .instrument-workspace.float-ui:not(.side) .dock-pane > .instrument-view.ab .ab-belly { width: clamp(120px, min(28cqh, 20cqw), 200px); height: clamp(120px, min(28cqh, 20cqw), 200px); }
+  .instrument-workspace:not(.side):not(.float-ui) .dock-pane > .instrument-view.ab .ab-belly { width: clamp(160px, 26cqi, 260px); height: clamp(160px, 26cqi, 260px); }
+  .instrument-workspace.float-ui:not(.side) .dock-pane > .instrument-view.ab .ab-belly { width: clamp(160px, min(38cqh, 28cqw), 280px); height: clamp(160px, min(38cqh, 28cqw), 280px); }
 }
 .ab-iap { display: grid; gap: 6px; }
 .ab-kv { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; }
@@ -4908,8 +4911,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* (Inside the beaker the litres read white on a dark outline, centred, as every instrument writes over its picture; the beaker and
    its grade sit together in the middle of the card, the beaker sized by the card's room so it never collapses on a phone.) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big { justify-content: center; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b, :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b[data-sev] { color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); white-space: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b small { color: rgb(var(--white-rgb) / .8); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b, :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b[data-sev] { color: var(--text); text-shadow: 0 0 4px var(--surface), 0 0 2px var(--surface); white-space: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b small { color: var(--text-2); }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-gauge { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly { flex: 0 1 auto; min-height: 0; height: min(46cqi, calc(16 * var(--pzh))); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { height: min(30cqi, 96px); }

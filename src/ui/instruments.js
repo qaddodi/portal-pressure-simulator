@@ -365,7 +365,7 @@ export function createAbdomen({ onAction }) {
     if (sa.get() !== p.albumin) sa.set(p.albumin);
     const r = a.ratePerDay, trend = Math.abs(r) < 20 ? 'steady' : r > 0 ? 'building up' : 'resolving';
     const r100 = Math.round(r / 100) * 100;
-    setText(rateEl, r100 === 0 ? 'Steady' : `${r100 > 0 ? '+' : '−'}${fmt(Math.abs(r100), 0)} mL/day`);
+    setText(rateEl, r100 === 0 ? '' : `${r100 > 0 ? '+' : '−'}${fmt(Math.abs(r100), 0)} mL/day`);
     setText(trendEl, `${r > 0 ? '+' : ''}${fmt(r, 0)} mL a day · ${trend}`);
     const sev = a.iap >= 20 ? 'danger' : a.iap >= 12 ? 'caution' : 'ok';
     setText(iapNum, `${fmt(a.iap, 0)} mmHg`);
@@ -379,7 +379,7 @@ export function createAbdomen({ onAction }) {
     const r1 = (x) => Math.round(x * 10) / 10, saag = r1(r1(p.albumin) - r1(a.albumin));
     setText(saagV, tapped ? fmt(saag, 1) : '—'); setText(tpV, tapped ? fmt(a.totalProtein, 1) : '—'); setText(albV, tapped ? fmt(a.albumin, 1) : '—');
     setAttr(saagEl, 'title', tapped ? `SAAG ${fmt(p.albumin, 1)} − ${fmt(a.albumin, 1)} = ${fmt(saag, 1)} g/dL. ≥ 1.1 means portal hypertension.` : null);
-    setText(why, 'Too little fluid to tap');
+    setText(why, a.volume < 1 ? 'No fluid to tap' : 'Too little fluid to tap');
     setAttr(tiles, 'data-empty', tapped ? null : '');
     if (hasFluid !== a.volume > 150) { hasFluid = a.volume > 150; paintVol(); }
     // Whole percents only: rewriting the height every frame would keep restarting its ease.
