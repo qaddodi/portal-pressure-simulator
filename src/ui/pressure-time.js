@@ -279,7 +279,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
       if (slide) {
         const firstIn = (q) => { for (let i = 0; i < q.x.length; i++) if (Number.isFinite(q.mid[i])) return q.x[i]; return Infinity; };   // (its first reading in the window: after a restart, or a stall that dropped samples, the window starts there)
         const first = Math.min(...[...traces.map((t) => t.id), 'hvpg'].map((k) => firstIn(series(k, x0, x1))));
-        if (Number.isFinite(first)) x0 = Math.max(x0, Math.min(first, x1 - 0.3));
+        // (The scale stays fixed: recording starts at the left edge and fills to the right, then scrolls left.)
+        if (Number.isFinite(first) && first > x0) { x0 = first; x1 = first + span; }
       }
     }
     const X = (x) => L + ((x - x0) / Math.max(1e-9, x1 - x0)) * plotW;
@@ -451,11 +452,13 @@ export function createPressureTime({ marks = () => [] } = {}) {
       ctx.textAlign = 'right'; ctx.fillStyle = muted; ctx.fillText(`Day ${Math.round(x1)}`, L + plotW, hh - 6);
     } else {
       const step = range === 'beats' ? (narrow ? 5 : 2) : (narrow ? 60 : 30);
-      for (let s = step; s < span - 1e-9; s += step) {
-        const xx = X(x1 - s);
+      for (let s = step; xNow - s > x0 + 1e-9; s += step) {
+        const xx = X(xNow - s);
+        if (xx < L + 12) break;
         ctx.fillText(range === 'beats' ? `−${s} s` : s % 60 === 0 ? `−${s / 60} min` : `−${s} s`, xx, hh - 6);
       }
-      ctx.textAlign = 'right'; ctx.fillStyle = muted; ctx.fillText('now', L + plotW, hh - 6);
+      const nowX = X(xNow);
+      ctx.textAlign = nowX > L + plotW - 14 ? 'right' : 'center'; ctx.fillStyle = muted; ctx.fillText('now', Math.min(nowX, L + plotW), hh - 6);
     }
 
     // crosshair and its readout card
