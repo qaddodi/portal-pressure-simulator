@@ -75,7 +75,8 @@ const palette = {
 const presenter = {
   library: () => presenterL.get().then((p) => p.library()),
   libraryNow: () => presenterL.now()?.library() ?? null,
-  start: (id, at) => presenterL.get().then((p) => p.start(id, at)),
+  start: (id, at, opts) => presenterL.get().then((p) => p.start(id, at, opts)),
+  position: () => presenterL.now()?.position() ?? null,
   stop: () => presenterL.now()?.stop(),
   go: (i) => presenterL.now()?.go(i),
   busy: () => !!presenterL.now()?.busy(),
@@ -217,13 +218,14 @@ async function main() {
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); } };
+  window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); } };
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
-  const shared = readShare();
-  if (shared) await loadShared(shared); else timeline.reset();
+  const shared = readShare(), back = new URLSearchParams(location.search).has('back');
+  if (shared) await loadShared(shared, { quiet: back }); else timeline.reset();
   inspector.render();
   if (!(await openDeepLink())) firstRun();
+  if (back) { const u = new URL(location.href); for (const k of ['back', 'script', 'slide']) u.searchParams.delete(k); u.hash = ''; history.replaceState(null, '', u.pathname + u.search); }   // (a later plain reload starts fresh)
   // Startup has decided who the patient is (a deep link, a shared link, or the default one): the figure may frame itself.
   store.set({ booted: true });
   // Offline support registers once the figure is up, so its install does not compete with the modules still loading.
@@ -239,7 +241,7 @@ async function main() {
 // ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.
 async function openDeepLink() {
   const q = new URLSearchParams(location.search);
-  if (q.get('script')) { presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1)); return true; }
+  if (q.get('script')) { presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1), { resume: q.has('back') }); return true; }
   if (q.get('preset')) {
     const id = q.get('preset'), list = store.get().presetList || [];
     if (list.some((p) => p.id === id)) { await loadPreset(id); return true; }
@@ -375,9 +377,9 @@ async function loadPreset(id, opts = {}) {
   timeline?.reset(store.get().presetList?.find((x) => x.id === id)?.label);
 }
 
-function encodeShare() {
+function encodeShare(extra) {
   const st = store.get();
-  const payload = { v: 1, preset: st.presetId, params: st.params, view: st.view };
+  const payload = { v: 1, preset: st.presetId, params: st.params, view: st.view, ...extra };
   return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 function readShare() {
@@ -385,7 +387,7 @@ function readShare() {
   if (!m) return null;
   try { return JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g, '+').replace(/_/g, '/'))))); } catch { return null; }
 }
-async function loadShared(s) {
+async function loadShared(s, { quiet = false } = {}) {
   await loadPreset(s.preset || 'healthy');
   if (s.params) {
     const merged = deepMerge(store.get().params, s.params), clean = sanitizeParams(merged);
@@ -393,8 +395,21 @@ async function loadShared(s) {
     if (JSON.stringify(clean) !== JSON.stringify(merged)) { timeline.flush(); toast('This link had values out of range; they were set to the nearest allowed values.'); return; }
   }
   if (s.view) store.set({ view: s.view });
+  if (s.sel) store.set({ selection: s.sel });
+  if (s.cam && !store.get().lobule) stage.setCamera(s.cam, 0);
   timeline.flush();
-  toast('Loaded the shared scenario.');
+  if (!quiet) toast('Loaded the shared scenario.');
+}
+// The orange PREVIEW pill reloads onto the newest build and calls this first: a URL for the same place. In Present, the same
+// presentation and slide (?script=&slide=); in Patients, the same patient, settings, view, camera and selection (#s=).
+// "back" tells the next load to land there quietly: no case card, no "shared scenario" toast.
+function resumeUrl() {
+  const u = new URL(location.href), pos = presenter.position();
+  for (const k of ['script', 'slide', 'preset', 'home']) u.searchParams.delete(k);
+  u.searchParams.set('back', '1');
+  if (pos) { u.searchParams.set('script', pos.id); u.searchParams.set('slide', String(pos.at + 1)); u.hash = ''; }
+  else { const st = store.get(); u.hash = `#s=${encodeShare({ sel: st.selection || undefined, cam: st.lobule ? undefined : stage.cameraState() })}`; }
+  return u.href;
 }
 async function share() {
   const url = `${location.origin}${location.pathname}#s=${encodeShare()}`;
