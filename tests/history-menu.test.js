@@ -15,3 +15,9 @@ test('the History menu has no Copy action or header', () => {
 test('timeline menus have no Why? button', () => {
   assert.doesNotMatch(src, /Why\?'|onWhy|EVENT_WHY/);
 });
+
+test('go-back and compare are icon-only buttons on the event row, with labels as tooltips', () => {
+  const rows = src.slice(src.indexOf('function markerRows'), src.indexOf('let pulseT'));
+  assert.match(rows, /tl-pop-ic', title: label, 'aria-label': label/);
+  assert.doesNotMatch(rows, /btn-row|class: 'btn sm'/);
+});
