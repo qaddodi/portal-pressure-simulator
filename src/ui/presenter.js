@@ -1424,7 +1424,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     try { await transitionRun(to, rev); } finally {
       stage.holdHome(false); if (bare) { bare = false; layout(); cardsIn(); }
       creditHolds--; clearTimeout(creditT);
-      creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 1000);   // (the cards come in after the one camera move; the credit waits for them to settle)
+      creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 120);   // (the cards come in after the one camera move; src/ui/credit.js then waits for any card still sliding)
     }
   }
   async function transitionRun(to, rev) {

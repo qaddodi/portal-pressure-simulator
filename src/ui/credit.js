@@ -1,6 +1,6 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
 // It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
-// holds it hidden until the cards have settled, then shows it at once at the new spot; with no figure left anywhere it stays hidden.
+// holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('credit');
 
@@ -207,7 +207,8 @@ export function createCreditPlacer(credit) {
     // A card still sliding or fading in is not where it will settle: wait for it (and for its size to stop changing).
     // (The card and its blocks only: a live instrument deep inside eases all the time and kept the credit hidden.)
     const settling = els.some((el) => [el, ...el.children].some((c) => c.getAnimations().some((an) => an.playState === 'running' && Number.isFinite(an.effect?.getComputedTiming().endTime))));
-    if (sig !== lastSig || settling) {
+    // (lastSig is empty after a slide change: the first look at the settled cards is taken as it is, with no extra beat.)
+    if ((lastSig && sig !== lastSig) || settling) {
       // Something moved: if it now reaches the credit, hide it at once; let it settle before choosing a new spot
       // (but not forever: a piece that keeps moving is taken where it is after a moment).
       lastSig = sig;
@@ -216,10 +217,10 @@ export function createCreditPlacer(credit) {
       // (Shown and still clear: it stays painted where it is while the rest settles; it waits only when it has to move.)
       if (hitNow || !pos || credit.matches('.moving, .covered')) {
         changedAt ||= now;
-        if (now - changedAt < 1600) { clearTimeout(waitT); waitT = setTimeout(soon, 120); return; }
+        if (now - changedAt < 1600) { clearTimeout(waitT); waitT = setTimeout(soon, 50); return; }
       }
     }
-    changedAt = 0;
+    changedAt = 0; lastSig = sig;
     // (One margin with the cards: the credit's edge lines up with the presenter's cards, the screen's margin.)
     const shade = document.querySelector('.pz-shade'), sr = shade && getComputedStyle(shade).opacity !== '0' ? shade.getBoundingClientRect() : null;
     const opt = { gap: wr.width < 768 ? 12 : 24, inset: sr?.width ? Math.max(12, Math.round(sr.left - wr.left - fig.l)) : wr.width < 768 ? 12 : 24 };   // (a clear gap from every card: 24 px on a laptop or tablet)
@@ -249,7 +250,7 @@ export function createCreditPlacer(credit) {
     credit.classList.add('moving');
     moving = true;
     clearTimeout(moveT);
-    moveT = setTimeout(() => { moving = false; if (app?.classList.contains('pz-moving')) return soon(); place(c, p, tight); soon(); }, 260);
+    moveT = setTimeout(() => { moving = false; if (app?.classList.contains('pz-moving')) return soon(); place(c, p, tight); soon(); }, 80);
   }
   function soon() { if (!raf) raf = nextFrame(check); }
   addEventListener('resize', soon);
