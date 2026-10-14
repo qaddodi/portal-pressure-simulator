@@ -2,7 +2,7 @@
 //
 // The figure's accessible description is kept current with the narrator's one-line reading.
 
-import { store, hiddenNow } from './store.js?v=7c63421fac';
+import { store, hiddenNow } from './store.js?v=e2da75a079';
 import { fmt } from './util.js?v=abb277f29f';
 import { EDGES } from '../engine/topology.js?v=79f09b0d8a';
 

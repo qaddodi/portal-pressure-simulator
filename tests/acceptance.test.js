@@ -155,6 +155,15 @@ test('T12b BRTO from the default (settled) gastrorenal-shunt state raises portal
   assert.ok(m1.hvpg - m0.hvpg >= 0.3, `ΔHVPG ${m1.hvpg - m0.hvpg}`);
 });
 
+test('Gastric varix preset: isolated fundal varices (IGV1), no esophageal varices until BRTO', () => {
+  const e = preset('gastric-varix');
+  const m = M(e);
+  assert.ok(m.gastricVarix.d >= 5, `GV ${m.gastricVarix.d}`);
+  assert.ok(m.varix.d < 2.5, `esophageal ${m.varix.d}`);
+  patch(e, { occluded: { C5: true } });
+  assert.ok(M(e).varix.d > m.varix.d, 'esophageal varices should grow after BRTO');
+});
+
 test('T9b TIPS diameter grades the gradient, stent flow and shunt fraction (no early saturation)', () => {
   const e = preset('csph');
   const out = [4, 6, 8, 10].map((d) => { patch(e, { tips: { on: true, d } }); const m = M(e); return { ppg: m.ppg, sf: m.shuntFraction, q: Q(e, 'TIPS') }; });

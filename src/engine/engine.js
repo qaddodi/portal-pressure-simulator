@@ -6,7 +6,7 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=b2eabea2e1';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=a9eeb41726';
 import { detectEvents } from './events.js?v=6ef054e2e5';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -864,7 +864,8 @@ export class Engine {
     // open and the size must not fall away as they do.
     const ex = site === 'VAR' ? this.routeExcess(['CONF', 'RA'], P) : this.routeExcess(['SV', 'IVCI'], P);
     // Fundal varices exist only where a gastrorenal shunt can drain them.
-    const ex0 = site === 'GV' && p.spontaneous.C5 === false ? -1e9 : ex;
+    // Isolated fundal varices (IGV1) have no esophageal varices beside them, until BRTO closes their shunt.
+    const ex0 = (site === 'GV' && p.spontaneous.C5 === false) || (site === 'VAR' && p.isolatedGV && !p.occluded.C5) ? -1e9 : ex;
     // Esophageal varices are collaterals too, so they take weeks to form: their size is capped by how far the coronary
     // vein feeding them has remodeled on the disease clock (none at the onset of an acute block). Fundal varices ride
     // on a gastrorenal shunt that is present from birth, so they are not capped.
@@ -876,6 +877,7 @@ export class Engine {
   /** How far the channel feeding a varix has remodeled (0 at the onset of a block, 1 once established). */
   varixMature(site) {
     if (site === 'GV') return 1;
+    if (this.params.isolatedGV && !this.params.occluded.C5) return 0;   // BRTO closes the shunt: esophageal varices can form
     const ch = EDGES[this.ei.C1a], chMin = dMinOf(ch);
     return clamp((this.slow.d.C1a - chMin) / (ch.dMax - chMin) / VARIX.mature, 0, 1);
   }

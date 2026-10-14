@@ -55,7 +55,7 @@ for (const [id, grows] of [['rhf', false], ['constrictive', false], ['cirr-decom
 }
 
 test('esophageal varix size follows the portal-to-right-atrial gradient across every preset', () => {
-  for (const pr of PRESETS.filter((x) => x.days >= 30)) {   // varices remodel over weeks: acute presets have not grown yet
+  for (const pr of PRESETS.filter((x) => x.days >= 30 && x.id !== 'gastric-varix')) {   // varices remodel over weeks: acute presets have not grown yet; IGV1 has none
     const e = new Engine(); run(e.loadPresetSteps(pr.id, {})); e.settle();
     const ex = e.routeExcess(['CONF', 'RA']), d = computeMetrics(e).varix.d;
     if (ex >= 11) assert.ok(d >= 2.5, `${pr.id}: gradient excess ${ex.toFixed(1)} but varix ${d.toFixed(1)} mm`);

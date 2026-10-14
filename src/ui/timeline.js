@@ -11,10 +11,10 @@
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
-import { store, replaceParams, onParamChange } from './store.js?v=7c63421fac';
-import { host } from './host.js?v=d0279f60fd';
+import { store, replaceParams, onParamChange } from './store.js?v=e2da75a079';
+import { host } from './host.js?v=613637878c';
 import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=abb277f29f';
-import { activeInterventions } from './inspector.js?v=47dbbdb818';
+import { activeInterventions } from './inspector.js?v=a25332c6d2';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('timeline');
 

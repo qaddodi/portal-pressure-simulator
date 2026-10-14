@@ -7,12 +7,12 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor)
 
-import { store, updateParams, hiddenNow } from './store.js?v=7c63421fac';
+import { store, updateParams, hiddenNow } from './store.js?v=e2da75a079';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=abb277f29f';
-import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
-import { TILES, VITALS, readoutValue } from './dock.js?v=099366d636';
-import { activeInterventions } from './inspector.js?v=47dbbdb818';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=d24b3edb2f';
+import { DRUGS } from '../engine/scenario.js?v=a9eeb41726';
+import { TILES, VITALS, readoutValue } from './dock.js?v=7ebac49982';
+import { activeInterventions } from './inspector.js?v=a25332c6d2';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=82a5eefa55';
 
 // Text that changes is rewritten in its text node (setting textContent replaces the node on every paint).
 const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
