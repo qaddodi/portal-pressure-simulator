@@ -471,7 +471,7 @@ Edge tones used when you glow an id by hand: portal vessels follow their station
 | `plt` | Platelets | × 10⁹/L | amber < 150, red < 100 |
 | `pvFlow` | Portal vein flow | L/min | red if reversed |
 | `pvVel` | Portal vein velocity (Doppler, main portal vein) | cm/s | amber < 15 ("Slow"), red < 9 ("Stasis") or reversed |
-| `liver` | Liver blood flow (of normal) | % | amber < 80, red < 50 |
+| `liver` | Liver flow, % of normal | % | amber < 80, red < 50 |
 | `shunt` | Portal blood bypassing the liver | % | amber ≥ 20, red ≥ 50 |
 | `map` | Mean arterial pressure | mmHg | red < 65 |
 | `hr` | Heart rate | /min | slow < 60, fast > 100 |

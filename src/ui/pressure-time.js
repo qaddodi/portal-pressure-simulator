@@ -426,7 +426,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     for (const lane of lanes) {
       const es = ends.filter((e) => e.lane === lane).sort((a, b) => a.y - b.y);
       for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + (tiny ? 27 : slide ? 18 : 15));
-      const over = es.length ? es[es.length - 1].y - lane.bot : 0;
+      const over = es.length ? Math.min(es[es.length - 1].y - lane.bot, es[0].y - (lane.top + 4)) : 0;   // (lifted only as far as the top allows: a short lane lets its last label hang below rather than pile the readings on each other)
       if (over > 0) for (const e of es) e.y -= over;
       for (const e of es) {
         const yy = Math.max(lane.top + 4, e.y);

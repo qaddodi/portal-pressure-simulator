@@ -4849,6 +4849,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack .pz-data .pz-tiles:is([data-n="3"], [data-n="4"]) .pzt-k.short::after { content: attr(data-s); font-size: var(--pz-psm); letter-spacing: .03em; }
 /* A narrow card (a tablet's): the instrument takes about two thirds, its tiles the rest, their names the short ones on one line. */
 .pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow.has-tool:not([data-tn="4"]) { grid-template-columns: minmax(0, 1fr) max(104px, 30%); }   /* (set on the card itself: a container query cannot change its own container) */
+/* (A narrow card's tiles with a scale bar stand tighter: two stacked beside a tracing would otherwise be taller than the card's room, and the
+   fit cannot shrink the words. Only the padding and gaps give; the sizes of the words stay.) */
+.pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow .pz-tiles .pz-tile:has(.pzt-bar) { gap: 0; padding-block: 5px; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow .pz-tiles .pz-tile:has(.pzt-bar) .pzt-k { margin: 0; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow .pz-tiles .pz-tile:has(.pzt-bar) .pzt-bar { margin-top: 2px; }
 @container pzd (max-width: 419px) {
   .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-k { white-space: nowrap; letter-spacing: .03em; min-height: 0; }
   .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-k.short { font-size: 0; letter-spacing: 0; }
