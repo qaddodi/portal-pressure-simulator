@@ -104,34 +104,25 @@ export function createFibroScan() {
     shown = shown === null || Math.abs(model - shown) < 0.05 ? model : shown + (model - shown) * (1 - Math.exp(-dt * 2.5));
     const c = shearSpeed(kNow);
     const th = colors(now);
+    const reading = shown.toFixed(1); if (cv.dataset.reading !== reading) cv.dataset.reading = reading;
+    fibroReading.txt = reading; fibroReading.cv = cv; fibroReading.show?.(reading);
     ctx.clearRect(0, 0, w, hh);
-    rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.fillStyle = th.panel; ctx.fill(); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
-    // A short, wide panel (a phone's presenter card) puts the reading beside the map rather than over it.
-    const side = !cv.closest('.pz-tool') && hh < 200 && w > hh * 2.2;   // (a slide's FibroScan always reads top left, the map under it)
+    // The map is the whole instrument: it fills the canvas, the depth labels inside its left edge, the time labels inside its bottom
+    // edge and the reading inside its top right corner (the clearest part: the wave front starts at the top left).
+    // A short, wide panel (a phone's presenter card on its side) differs only in its smaller words.
+    const side = !cv.closest('.pz-tool') && hh < 200 && w > hh * 2.2;
     // The panel's words are the size of the card's small words (the canvas's own font size, which a slide sets to the tiles'
     // small size), so the labels never look tiny beside the card: one size for the axes and the units.
     if (w !== sized.w || hh !== sized.h) { sized.w = w; sized.h = hh; const fs = parseFloat(getComputedStyle(cv).fontSize) || 11; sized.cap = clamp(fs * (w / (cv.offsetWidth || w)), 10, 20); }
-    const CAP = side ? 10 : sized.cap, pad = side ? 14 : Math.round(CAP * 1.2);
-    // The reading, top left: the median in the waves' orange, its unit beside it, modest so the map gets the room.
-    const big = Math.round(side ? clamp(hh * 0.32, 30, 56) : clamp(CAP * 2.5, 26, 48));
-    const RY = side ? 28 + big : pad + Math.round(big * 0.74);
-    if (side) { ctx.textAlign = 'left'; ctx.fillStyle = th.tick; ctx.font = FONT(600, 10); ctx.fillText('LIVER STIFFNESS · MEDIAN', pad, 24); }
-    ctx.textAlign = 'left'; ctx.fillStyle = th.orange; ctx.font = FONT(600, big);
-    const txt = shown.toFixed(1); if (cv.dataset.reading !== txt) cv.dataset.reading = txt;
-    fibroReading.txt = txt; fibroReading.cv = cv; fibroReading.show?.(txt); ctx.fillText(txt, pad, RY);
-    const tw = ctx.measureText(txt).width;
-    ctx.fillStyle = th.tick; ctx.font = FONT(500, side ? 14 : Math.round(CAP * 1.15)); ctx.fillText('kPa', pad + tw + 6, RY);
-    // Map: under the reading, as large as the panel allows; the depth labels inside its left edge, the time labels inside its bottom edge.
-    ctx.font = FONT(500, CAP);
-    const top = side ? 44 : RY + Math.round(CAP * 1.3), bot = hh - (side ? 10 : pad), ph = bot - top;
-    const ex = side ? pad + Math.max(tw + 34, 96) + 30 : pad, ew = w - pad - ex;   // the depth labels sit inside the map, so it takes the full width; bottom room keeps the tick row inside the canvas on a phone
+    const CAP = side ? 10 : sized.cap, m = Math.round(CAP * 0.7);
+    const ex = 0, top = 0, ew = w, ph = hh, bot = hh;
     if (ph < 50 || ew < 60) return;
     // Sample the map at about half the screen pixels (smooth, never blocky); drop the cap if frames run long.
     const want = clamp(Math.round(Math.max(ew, ph) * (w / cv.clientWidth || 1) * 0.75), 140, cap);
     if (want !== N) { N = want; off.width = off.height = N; img = octx.createImageData(N, N); }
     const t0p = performance.now();
     drawElastogram(octx, img, N, c, t);
-    ctx.save(); rrect(ctx, ex, top, ew, ph, 8); ctx.clip();
+    ctx.save(); rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.clip();
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(off, 0, 0, N, N, ex, top, ew, ph);
     ema = ema * 0.9 + (performance.now() - t0p) * 0.1; if (ema > 14 && cap > 130) { cap -= 20; ema = 0; }
     ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
@@ -140,7 +131,7 @@ export function createFibroScan() {
     const x0 = ex + (WAVE_T0 / 80) * ew, x1 = x0 + clamp((40 / c) / 80, 0, 1) * ew;
     ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + (5 / 60) * ph); ctx.lineTo(x1, top + (45 / 60) * ph); ctx.stroke();
     ctx.restore();
-    rrect(ctx, ex, top, ew, ph, 8); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
+    rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
     // Axes: the units ride on the last ticks ("90 mm", "80 ms"), so they need no room of their own.
     const TK = side ? 10 : CAP;
     ctx.fillStyle = th.tick; ctx.font = FONT(500, TK);
@@ -148,15 +139,22 @@ export function createFibroScan() {
     ctx.textAlign = 'left'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, TK * 0.32); ctx.strokeStyle = cssAlpha('--black', 0.7);
     for (let d = 30; d <= 90; d += 20) {
       const y = top + ((d - 30) / 60) * ph, txt = d === 90 ? '90 mm' : String(d), by = clamp(y + TK * 0.35, top + TK * 1.1, bot - TK * 0.45);
-      ctx.fillStyle = cssAlpha('--white', 0.96); ctx.strokeText(txt, ex + 6, by); ctx.fillText(txt, ex + 6, by);
+      ctx.fillStyle = cssAlpha('--white', 0.96); ctx.strokeText(txt, ex + m, by); ctx.fillText(txt, ex + m, by);
     }
     // Time labels sit inside the map's bottom edge the same way; 0 is left off so it never meets "90 mm" in the corner.
     // (A narrow box names every other tick, 40 and 80 ms: "60" ran into "80 ms".)
     const tstep = ctx.measureText('80 ms').width + ctx.measureText('60').width / 2 + 8 > ew / 4 ? 40 : 20;
-    for (let m = tstep; m <= 80; m += tstep) {
-      const txt = m === 80 ? '80 ms' : String(m), right = m === 80, bx = right ? ex + ew - 6 : ex + (m / 80) * ew;
+    for (let tm = tstep; tm <= 80; tm += tstep) {
+      const txt = tm === 80 ? '80 ms' : String(tm), right = tm === 80, bx = right ? ex + ew - m : ex + (tm / 80) * ew;
       ctx.textAlign = right ? 'right' : 'center'; ctx.fillStyle = cssAlpha('--white', 0.96); ctx.strokeText(txt, bx, bot - TK * 0.45); ctx.fillText(txt, bx, bot - TK * 0.45);
     }
+    // The reading, inside the top right corner in the same white with a dark halo: the number about twice the label size, "kPa" small
+    // beside it. Right aligned, so "kPa" never moves while the number eases.
+    const big = Math.round(CAP * 2), RY = m + Math.round(big * 0.74);
+    ctx.textAlign = 'right'; ctx.lineWidth = Math.max(3, big * 0.16);
+    ctx.font = FONT(500, CAP); const ux = ex + ew - m, uw = ctx.measureText('kPa').width;
+    ctx.strokeText('kPa', ux, RY); ctx.fillText('kPa', ux, RY);
+    ctx.font = FONT(600, big); ctx.strokeText(reading, ux - uw - 5, RY); ctx.fillText(reading, ux - uw - 5, RY);
   }
   // Runs only while the pane is on screen; update() restarts it when the tab is shown again.
   function loop(now) {

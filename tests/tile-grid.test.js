@@ -68,10 +68,12 @@ test('every instrument is one screen: a reading top left, its status top right, 
   assert.ok(css.includes('.pz-tool .pt-smooth { display: none; }'));
 });
 
-test('the FibroScan draws its words at the card\'s small size: reading top left, no LIVE tag, units on the last ticks', () => {
+test('the FibroScan draws its words at the card\'s small size: map fills the card, reading in its top right corner, no LIVE tag, units on the last ticks', () => {
   const src = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
   assert.match(src, /getComputedStyle\(cv\)\.fontSize/);
   assert.doesNotMatch(src, /LIVE\b|LIVE ·/);
   assert.match(src, /'90 mm'/); assert.match(src, /'80 ms'/);
+  assert.match(src, /const ex = 0, top = 0, ew = w, ph = hh/, 'the map is the whole instrument');
+  assert.match(src, /ctx\.strokeText\('kPa', ux, RY\)/, 'the reading sits inside the map, top right');
   assert.ok(css.includes('.pz-tool .fibroscan-box > canvas { font-size: var(--pz-sm, 14px); }'));
 });
