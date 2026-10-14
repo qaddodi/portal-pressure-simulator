@@ -459,12 +459,12 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
     return items.slice().reverse().map((i) => {
       const e = entries[i];
       const acts = [];
-      const act = (label, ic, fn) => acts.push(h('button', { class: 'tl-pop-ic', title: label, 'aria-label': label, onclick: fn }, ic));
-      if (e.snap && canRevert()) act(i === liveIndex() && cursor < 0 ? 'Back to this moment' : 'Go back here', icon('undo'), () => { closePopover(); goTo(i); });
-      if (e.frame) act('Compare with now', svgIcon('camera', 'mi-ic'), () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Comparing with ${fmtClock(e.t, e.day)}: ${e.label}.`); });
+      const act = (label, ic, col, fn) => acts.push(h('button', { class: 'tl-pop-ic', style: { gridColumn: col }, title: label, 'aria-label': label, onclick: fn }, ic));
+      if (e.snap && canRevert()) act(i === liveIndex() && cursor < 0 ? 'Back to this moment' : 'Go back here', svgIcon('rewind', 'mi-ic'), 1, () => { closePopover(); goTo(i); });
+      if (e.frame) act('Compare with now', svgIcon('camera', 'mi-ic'), 2, () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Comparing with ${fmtClock(e.t, e.day)}: ${e.label}.`); });
       const future = cursor >= 0 && i > cursor;
       return h('div', { class: `tl-pop-row${future ? ' future' : ''}` },
-        h('div', { class: 'tl-pop-head' }, h('i', { class: `tl-dot ${e.kind}`, style: { background: e.kind === 'event' ? SEV[e.sev] || SEV.info : '' } }), h('b', {}, e.kind === 'start' ? `Patient: ${e.label}` : e.label), h('span', { class: 'when' }, e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day)), acts.length ? h('span', { class: 'tl-pop-acts' }, acts) : null),
+        h('div', { class: 'tl-pop-head' }, h('i', { class: `tl-dot ${e.kind}`, style: { background: e.kind === 'event' ? SEV[e.sev] || SEV.info : '' } }), h('b', {}, e.kind === 'start' ? `Patient: ${e.label}` : e.label), h('span', { class: 'when' }, e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day)), h('span', { class: 'tl-pop-acts' }, acts)),
         e.detail ? h('div', { class: 'tl-pop-d' }, e.detail) : null);
     });
   }
