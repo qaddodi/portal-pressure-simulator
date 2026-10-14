@@ -328,8 +328,9 @@ export function createAbdomen({ onAction }) {
   const bigEl = h('b', {}, numEl, h('small', {}, 'L'));   // (the volume, coloured by its grade like the Ascites tile)
   const bellyFill = h('i', { class: 'ab-belly-fill' });
   // The litres sit inside the belly and the grade under it, so the reading and the picture stay one object.
-  const belly = h('div', { class: 'ab-belly' }, bellyFill, h('div', { class: 'ab-big' }, bigEl));
-  const gauge = h('div', { class: 'ab-gauge' }, belly, gradeEl);
+  const rateEl = h('span', { class: 'ab-rate' });
+  const belly = h('div', { class: 'ab-belly' }, bellyFill, h('div', { class: 'ab-big' }, bigEl, gradeEl, rateEl));
+  const gauge = h('div', { class: 'ab-gauge' }, belly);
   // Abdominal pressure as one slim bar, 0–30 mmHg, ticked at 12 (IAH) and 20 (ACS).
   const iapFill = h('i', { class: 'ab-iap-fill' }), iapNum = h('b'), iapWord = h('span', { class: 'ab-w' });
   const iapBar = h('div', { class: 'ab-iap-bar', role: 'img', title: '12 mmHg: intra-abdominal hypertension · 20 mmHg: compartment syndrome' }, iapFill,
@@ -363,6 +364,8 @@ export function createAbdomen({ onAction }) {
     diu.disabled = !(verbEnabled('drug:diuretics', 'drug:diuretics') || verbEnabled('drugs', 'drugs'));
     if (sa.get() !== p.albumin) sa.set(p.albumin);
     const r = a.ratePerDay, trend = Math.abs(r) < 20 ? 'steady' : r > 0 ? 'building up' : 'resolving';
+    const r100 = Math.round(r / 100) * 100;
+    setText(rateEl, r100 === 0 ? 'Steady' : `${r100 > 0 ? '+' : '−'}${fmt(Math.abs(r100), 0)} mL/day`);
     setText(trendEl, `${r > 0 ? '+' : ''}${fmt(r, 0)} mL a day · ${trend}`);
     const sev = a.iap >= 20 ? 'danger' : a.iap >= 12 ? 'caution' : 'ok';
     setText(iapNum, `${fmt(a.iap, 0)} mmHg`);
