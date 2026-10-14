@@ -66,7 +66,7 @@ for (const k of Object.keys(DRUGS)) CONTROLS['drug:' + k] = { type: 'drug', key:
 
 const DRUG_SHORT = { propranolol: 'Non-selective β-blocker', carvedilol: 'β-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
 
-export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios, onMode, pinned, chart }) {
+export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios, onMode, pinned, chart, onBack }) {
   let live = [];        // [el, fn(frame)]
   let syncers = [];
   let lastSel;
@@ -226,7 +226,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   function selectionHead(kicker, title, extra) {
     return h('div', { class: 'p-head' },
       h('div', { class: 'p-head-row' },
-        h('button', { class: 'ib', 'aria-label': 'Back', title: 'Back', onclick: () => store.set({ details: null }) }, icon('arrow-left')),
+        h('button', { class: 'ib', 'aria-label': 'Back', title: 'Back', onclick: () => (onBack ? onBack() : store.set({ details: null })) }, icon('arrow-left')),
         h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, kicker), h('h2', { title }, title))),
       extra);
   }
@@ -332,7 +332,8 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   function render() {
     live = []; syncers = [];
     const sel = store.get().details;
-    const els = (!sel ? (chart ? chart.render((ids) => ids.map((id) => build(id))) : globalPanel()) : sel.type === 'edge' ? edgePanel(sel.id) : sel.type === 'node' ? nodePanel(sel.id) : sel.type === 'organ' ? organPanel(sel.id) : globalPanel());
+    const ctl = (ids) => ids.map((id) => build(id));
+    const els = (!sel ? (chart ? chart.render(ctl) : globalPanel()) : sel.type === 'advanced' ? (chart ? chart.renderAdvanced(ctl) : globalPanel()) : sel.type === 'edge' ? edgePanel(sel.id) : sel.type === 'node' ? nodePanel(sel.id) : sel.type === 'organ' ? organPanel(sel.id) : globalPanel());
     const scroller = root.closest('.panel') || root;
     const top = scroller.scrollTop;
     root.replaceChildren(...els.filter(Boolean));

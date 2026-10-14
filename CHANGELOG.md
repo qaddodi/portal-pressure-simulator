@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **No Patient button.** The top bar is Treat, Tests, Settings and Search. The abnormal-results list and its badge
+  are gone (the readouts and instruments already show the numbers). What has been changed, with undo and Clear all, sits
+  closed under the orders in the Treat card. Advanced physiology opens from Settings, for instructors only. Tapping a
+  vessel's details still opens the side panel.
 - **One type scale for the figure and slides.** Figure labels and slide cards now use six text roles (caption, label,
   body, value, big value, title) instead of about 18 loose sizes. Each grows smoothly with the screen (phone 11/12/14/16/20/28 px
   up to laptop 12/14/16/22/32/44; slide cards on a wide screen follow its height). A pill keeps name, reading and unit in

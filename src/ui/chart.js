@@ -1,87 +1,25 @@
-// Patient (was Findings): one card, no tabs, read top to bottom. The orders (drugs · fluids & blood ·
-// procedures) are in the Treat card, built here too (treatBody).
+// The Treat card's orders (drugs · fluids & blood · procedures, treatBody) and its Changes list, the
+// advanced physiology knobs (opened from Settings) and the side panel's pinned comparison.
 //
-//   [Compared with A]                    (when a moment is pinned)
-//   Changes                              what has been set: sliders, drugs, shunts, with values
-//   Abnormal results                     what is abnormal, in words, with its cut-off; Why?
-//   (what has happened lives in the timeline's History, under the figure)
-//   Advanced                             physiology knobs (instructor)
+//   [Compared with A]                    side panel, when a moment is pinned
+//   Changes                              Treat card, closed until opened: what has been set, with values
+//   Advanced physiology                  side panel, from Settings (instructor)
 
-import { store, updateParams, hiddenNow } from './store.js?v=16a6ccb071';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=abb277f29f';
+import { store, updateParams } from './store.js?v=16a6ccb071';
+import { h, icon, svgIcon, toast } from './util.js?v=abb277f29f';
 import { DRUGS } from '../engine/scenario.js?v=a9eeb41726';
-import { TILES, VITALS, readoutValue } from './dock.js?v=a02e669373';
-import { activeInterventions } from './inspector.js?v=d7b1b82e2e';
+import { activeInterventions } from './inspector.js?v=eaa9a96666';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=4f9a48b999';
 
-// Text that changes is rewritten in its text node (setting textContent replaces the node on every paint).
-const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
-
-// Where each readout is measured, so a click can show it on the figure.
-const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
-const ALL = [...TILES, ...VITALS];
-const RANK = { critical: 3, danger: 2, caution: 1, ok: 0 };
-const n1 = (v) => fmt(v, 1), n0 = (v) => fmt(v, 0);
-// One finding per abnormal readout: [what it is, the numbers and the cut-off it crossed].
-const FIND = {
-  hvpg: (v, m, sev) => sev === 'caution'
-    ? ['Portal hypertension, subclinical', `HVPG ${n1(v)} mmHg: above normal (< 5), below the clinically significant threshold (10).`]
-    : ['Clinically significant portal hypertension', `HVPG ${n1(v)} mmHg (≥ 10). At this level varices, ascites and other complications can develop.`],
-  ppg: (v, m) => ['PPG raised', m.hvpg < 5
-    ? `PPG ${n1(v)} mmHg (normal < 6) while HVPG is normal: the block sits before the sinusoids, where the wedged catheter cannot see it.`
-    : `PPG ${n1(v)} mmHg (normal < 6), measured directly from the portal vein to the vena cava.`],
-  pv: (v, m, sev) => [sev === 'danger' ? 'Portal pressure high' : 'Portal pressure raised', `Portal vein ${n1(v)} mmHg (normal ≤ 10).`],
-  pvflow: (v, m, sev) => sev === 'critical'
-    ? ['Portal flow reversed (hepatofugal)', `${fmt(Math.abs(v), 1)} L/min flows away from the liver, out through collaterals.`]
-    : sev === 'danger'
-      ? ['Portal flow near stasis', `${n0(Math.abs(m.pvVelMean ?? m.pvVel))} cm/s (normal ≥ 15). Slow flow favors portal vein thrombosis.`]
-      : ['Portal flow reduced', `${fmt(v, 1)} L/min at ${n0(Math.abs(m.pvVelMean ?? m.pvVel))} cm/s (normal ≥ 0.9 L/min, ≥ 15 cm/s).`],
-  liver: (v, m) => ['Liver perfusion reduced', `${n0(v)} % of this model’s healthy sinusoidal flow. The hepatic artery has risen ×${fmt(m.habr, 1)} to buffer the loss of portal flow.`],
-  shunt: (v, m) => ['Portosystemic shunting', `${n0(v)} % of the gut\u2019s blood bypasses the liver.`],
-  varix: (v, m, sev) => [m.varix.d < 2.5 ? 'Varix wall under strain' : sev === 'critical' ? 'Varices close to rupture' : `Esophageal varices, ${m.varix.grade.label.toLowerCase()}`,
-    `${n1(m.varix.d)} mm across; modeled wall stress ${n0(v)} % of the rupture point${m.varix.redWale ? ', with red wale signs' : ''}.`],
-  ascites: (v, m) => [`Ascites, grade ${m.ascites.grade}`, `${fmt(v, 1)} L of free fluid in the abdomen.`],
-  spleen: (v) => ['Splenomegaly', `Spleen ${n1(v)} cm (normal ≤ 13). An enlarged spleen traps platelets.`],
-  map: (v) => ['Hypotension', `Mean arterial pressure ${n0(v)} mmHg (< 65).`],
-  hr: (v) => ['Tachycardia', `Heart rate ${n0(v)} /min (> 110).`],
-  co: (v) => ['Hyperdynamic circulation', `Cardiac output ${n1(v)} L/min (> 6.5), from splanchnic and systemic vasodilation.`],
-  ra: (v) => ['Right atrial pressure raised', `RA ${n1(v)} mmHg (> 10). Back-pressure reaches the liver from the heart.`],
-  hb: (v) => ['Severe anemia', `Hemoglobin ${n1(v)} g/dL (< 7).`],
-};
-
-// A vital sign that has crossed its cut-off stays a finding until it is clearly back (the beat lifts cardiac output
-// across 6.5 and back several times a minute), so the count does not flicker.
-const STAY = { map: (m) => m.map < 67, hr: (m) => m.hr > 107, co: (m) => m.co > 6.3, ra: (m) => m.ra > 9.7, hb: (m) => m.blood.hb < 7.2 };
-const vitalOn = new Set();
-
-/** Every abnormal readout as a finding, most severe first: [{ id, sev, txt: [title, detail] }]. */
-export function computeFindings(m, hidden) {
-  const found = [];
-  for (const t of TILES) {
-    const v = readoutValue(t, m, hidden);
-    if (v == null) continue;
-    const sev = t.st(v, m);
-    if (sev === 'ok') continue;
-    const txt = FIND[t.id]?.(v, m, sev);
-    if (txt) found.push({ id: t.id, sev, txt });
-  }
-  for (const x of VITALS) {
-    const on = x.bad(m) || (vitalOn.has(x.id) && !!STAY[x.id]?.(m));
-    if (on) vitalOn.add(x.id); else vitalOn.delete(x.id);
-    if (hidden?.has(x.hideKey) || !on) continue;
-    found.push({ id: x.id, sev: 'danger', txt: FIND[x.id](x.v(m), m) });
-  }
-  return found.sort((a, b) => RANK[b.sev] - RANK[a.sev]);
-}
 
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, timeline, pinned }) {
   let controls = () => [];
-  const open = new Set(JSON.parse(safeGet('pps.chartOpen2') || '["findings","changes"]'));
-  open.add('changes');
+  // Changes starts closed in the Treat card so the card does not grow with every order.
+  const open = new Set(JSON.parse(safeGet('pps.chartOpen3') || '[]'));
   let live = [];
 
   function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
-  function remember() { try { localStorage.setItem('pps.chartOpen2', JSON.stringify([...open])); } catch { /* storage unavailable */ } }
+  function remember() { try { localStorage.setItem('pps.chartOpen3', JSON.stringify([...open])); } catch { /* storage unavailable */ } }
 
   function section(id, title, ic, badge, ...kids) {
     const d = h('details', { class: 'section chart-sec', 'data-id': id },
@@ -128,42 +66,6 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     };
     live.push(paint);
     const sec = section('changes', 'Changes', 'sliders', '0', list, empty, clear);
-    count = sec.querySelector('summary .count');
-    count.classList.add('fd-count');
-    return sec;
-  }
-
-  // ── Findings ──────────────────────────────────────
-  // The strip under the figure carries the numbers; the chart says what they mean. Each abnormal
-  // readout becomes one finding in plain language, most severe first, with its cut-off.
-  function findings() {
-    const list = h('div', { class: 'fd-list', role: 'list' });
-    const empty = h('p', { class: 'fd-empty' }, 'Nothing abnormal. Pressures, flow and the circulation are all in their normal ranges.');
-    const els = new Map();
-    let count = null, order = '';
-    const row = (key) => {
-      const src = ALL.find((x) => x.id === key);
-      const title = h('span', { class: 'fd-t' }), detail = h('span', { class: 'fd-d' });
-      const el = h(src.why ? 'button' : 'div', { class: 'finding', role: 'listitem' }, h('span', { class: 'fd-dot', 'aria-hidden': 'true' }), h('span', { class: 'fd-body' }, title, detail));
-      if (src.why) { el.title = 'What is driving this, and where it is measured'; el.addEventListener('click', () => { onWhy(src.why, el); flash(WHERE[key] || []); }); }
-      return { el, title, detail };
-    };
-    const paint = () => {
-      const f = store.get().frame;
-      if (!f) return;
-      const found = computeFindings(f.metrics, hiddenNow());
-      for (const x of found) {
-        let e = els.get(x.id);
-        if (!e) { e = row(x.id); els.set(x.id, e); }
-        if (e.el.dataset.sev !== x.sev) e.el.dataset.sev = x.sev;
-        setText(e.title, x.txt[0]); setText(e.detail, x.txt[1]);
-      }
-      const key = found.map((x) => x.id).join();
-      if (key !== order) { order = key; list.replaceChildren(...found.map((x) => els.get(x.id).el)); empty.hidden = found.length > 0; }
-      if (count && count.textContent !== String(found.length)) { count.textContent = found.length; count.hidden = !found.length; }
-    };
-    live.push(paint);
-    const sec = section('findings', 'Abnormal results', 'activity', '0', list, empty);
     count = sec.querySelector('summary .count');
     count.classList.add('fd-count');
     return sec;
@@ -257,32 +159,42 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
 
   // ── Advanced ──────────────────────────────────────
   function advanced() {
-    const role = store.get().role || 'student';
-    if (role === 'student') return null;
     const acts = h('div', { class: 'order-grid' },
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'valsalva' }) }, h('span', { class: 'ob-t' }, 'Valsalva', h('small', {}, '10 s strain'))),
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'rupture', site: 'VAR', tear: 0.6 }) }, h('span', { class: 'ob-t' }, 'Rupture a varix', h('small', {}, 'start a bleed'))),
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'hemorrhage', mL: 500 }) }, h('span', { class: 'ob-t' }, '− 500 mL', h('small', {}, 'hemorrhage'))));
-    if (role === 'instructor') open.add('advanced');
-    return section('advanced', 'Advanced physiology', 'sliders', null,
+    return [
       h('div', { class: 'subhead' }, 'Inflow & vascular tone'), controls(['splanchnicTone', 'systemicTone']),
       h('div', { class: 'subhead' }, 'Hepatic circulation'), controls(['habr', 'apShunt']),
       h('div', { class: 'subhead' }, 'Anatomical variants'), controls(['grShunt', 'srShunt']),
-      h('div', { class: 'subhead' }, 'Simulation'), controls(['pulsatile', 'respiration', 'respDepth', 'bleeding', 'detRupture']), acts);
+      h('div', { class: 'subhead' }, 'Simulation'), controls(['pulsatile', 'respiration', 'respDepth', 'bleeding', 'detRupture']), acts];
   }
 
+  // The side panel with nothing selected shows only a pinned comparison; the changes live in the Treat card
+  // (treatChanges) and the physiology knobs open from Settings (renderAdvanced).
   function render(ctl) {
     if (ctl) controls = ctl;
     live = [];
-    // Treat has a card of its own (the Treat button), so the chart keeps to what has been done and what it does.
-    const kids = [pinned(), h('div', { class: 'p-body chart-body' }, changes(), findings(), advanced())];
-    update(store.get().frame, true);
-    return kids;
+    return [pinned()];
+  }
+  function renderAdvanced(ctl) {
+    if (ctl) controls = ctl;
+    live = [];
+    return [h('div', { class: 'p-body chart-body adv-body' }, ...advanced().flat())];
+  }
+  /** The changes list for the Treat card; `sync` collects its repaint. */
+  function treatChanges(sync) {
+    const saved = live, from = sync.length;
+    live = sync;
+    const sec = changes();
+    live = saved;
+    for (const fn of sync.slice(from)) fn();
+    return sec;
   }
 
   function update(f) {
     if (!f) return;
     for (const fn of live) fn();
   }
-  return { render, update, treatBody, treatCount };
+  return { render, renderAdvanced, update, treatBody, treatCount, treatChanges };
 }

@@ -6,14 +6,14 @@ import { store, updateParams, replaceParams, bindParamSender, clearHistory, logA
 import { createStage } from './stage.js?v=26181cbcf6';
 import { createCreditPlacer } from './credit.js?v=e8704a31a2';
 import { sinusoidSupported } from './sinusoid-view.js?v=808d5c3e35';
-import { createInspector } from './inspector.js?v=d7b1b82e2e';
+import { createInspector } from './inspector.js?v=eaa9a96666';
 import { createDock, CUTOFFS } from './dock.js?v=a02e669373';
 import { setHvpgStage } from './hvpg-proc.js?v=2be0ead28a';
 import { createWhy } from './why.js?v=7bcf29abd9';
-import { createTimeline, LAPSES } from './timeline.js?v=fa8136c86f';
-import { createCompare } from './compare.js?v=3734af6d7e';
+import { createTimeline, LAPSES } from './timeline.js?v=31dab65de7';
+import { createCompare } from './compare.js?v=e91f84b50b';
 import { createCard } from './card.js?v=d3a170db7e';
-import { createChart, computeFindings } from './chart.js?v=67d349744b';
+import { createChart } from './chart.js?v=0a09879886';
 import { createMenu, ROLES } from './menu.js?v=48d3f568f4';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';
 import { caption } from './a11y.js?v=c03f5408a2';
@@ -131,7 +131,10 @@ async function main() {
   inspector = createInspector($('#inspector'), {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
     onScenarios: () => mainMenu.open('patients'), onMode: (m) => store.set({ mode: m }), chart,
+    // Back from a selection's details: to the pinned comparison if there is one, else the panel closes.
+    onBack: () => { if (store.get().compareSnap) store.set({ details: null }); else closePanel(); },
   });
+  store.on('details', (d) => { const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare'; });
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
@@ -214,7 +217,7 @@ async function main() {
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); } };
+  window.pps = { loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); } };
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare();
@@ -315,7 +318,6 @@ function onFrame(f) {
   if (txt !== lastClockTxt) { lastClockTxt = txt; stageClock.textContent = txt; }
   if (tipInfo) hoverInfo(tipInfo);   // the readings popup stays live with the sim
   updateBleedBanner(f);
-  updateFindBadge(f);
   if (projector) updateProjector(f);
   if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', caption(f)); }
   narrate(f, now);
@@ -759,9 +761,8 @@ function wireTopbar() {
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
-  $('#btnInspector').addEventListener('click', () => { if (panelShown() && !store.get().details) closePanel(); else { store.set({ details: null }); openPanel(); } });
   $('#btnTreat').addEventListener('click', () => (treatOpen() ? closeTreat() : openTreat()));
-  for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnTreat', 'bottom'], ['#btnInspector', 'bottom'], ['#zoomIn', 'left'], ['#zoomOut', 'left'], ['#zoomFit', 'left'], ['#rotateCircuit', 'left']]) {
+  for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnTreat', 'bottom'], ['#zoomIn', 'left'], ['#zoomOut', 'left'], ['#zoomFit', 'left'], ['#rotateCircuit', 'left']]) {
     const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
   }
 }
@@ -807,6 +808,8 @@ function openSettings(anchor) {
       }),
       // Debug toggles stay out of the sheet; ?debug in the address brings them back.
       ...(new URLSearchParams(location.search).has('debug') ? [h('div', { class: 'menu-title' }, 'Debug'), ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on)))] : []),
+      ...(store.get().role === 'instructor' ? [h('div', { class: 'menu-sep' }),
+        menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } })] : []),
       h('div', { class: 'menu-sep' }),
       menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() })]),
   ], { align: 'start', cls: 'app-menu' });
@@ -968,14 +971,13 @@ function refitStage() {
 }
 function syncPanelToggle() {
   refitStage();
-  const on = panelShown();
-  $('#btnInspector').setAttribute('aria-pressed', String(on));
-  if (on) $('#btnInspector').classList.remove('ping');
   setTimeout(() => stage?.relayout(), 320);
 }
 /** Opens the patient chart; or the instruments when named. */
 function openPanel(tab = 'chart') {
   if (tab === 'instruments') { setPanelTab('instruments'); if (isPhone()) { closePanel(); closeTreat(); } return; }
+  // The panel holds a selection's details, the advanced physiology or a pinned comparison; with none of them it stays shut.
+  if (!store.get().details && !store.get().compareSnap) return;
   if (app.classList.contains('instrument-focus')) dock.setState('open');
   // A phone has room for one sheet at a time: the chart puts Treat and the instruments away.
   if (isPhone()) { closeTreat(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
@@ -984,7 +986,12 @@ function openPanel(tab = 'chart') {
   panelSheet?.open();
   syncPanelToggle();
 }
-function closePanel() { if (panelShown()) leave($('#panel')); app.classList.remove('panel-open'); panelSheet?.closed(); syncPanelToggle(); }
+function closePanel() {
+  if (panelShown()) leave($('#panel'));
+  app.classList.remove('panel-open'); panelSheet?.closed(); syncPanelToggle();
+  // Once it has played out, what it showed is put away, so it never reopens on stale details.
+  setTimeout(() => { if (!app.classList.contains('panel-open') && store.get().details) store.set({ details: null }); }, 420);
+}
 function setPanelTab(tab) {
   const instr = tab === 'instruments';
   if (instr) dock.ensure();
@@ -1213,29 +1220,6 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   return { open: () => { if (isPhone()) { size = 1; apply(); } }, closed: () => { el.style.translate = ''; el.style.height = ''; } };
 }
-// The findings badge: a check when nothing is abnormal, else how many findings, in the color of the worst.
-// A new count must hold for a moment before the badge takes it, so a value hovering on a cut-off
-// with every beat does not flicker the count (or bump it) back and forth.
-let lastFindKey = '', lastFindN = 0, nextFindKey = '', nextFindSince = 0;
-function updateFindBadge(f) {
-  // Where pressures are unmeasured (the imaging view), a check would claim more than is known.
-  const unknown = !!store.get().imaging;
-  const found = unknown ? [] : computeFindings(f.metrics, hiddenNow());
-  const sev = unknown ? 'none' : found[0]?.sev || 'ok', n = found.length, key = `${n}|${sev}`;
-  if (key === lastFindKey) { nextFindKey = ''; return; }
-  const now = performance.now();
-  if (key !== nextFindKey) { nextFindKey = key; nextFindSince = now; }
-  // Only a one-step change at the same severity (the beat straddling a cut-off) waits; a new patient or a real change shows at once.
-  const [ln, ls] = lastFindKey.split('|');
-  if (lastFindKey && ls === sev && Math.abs(n - +ln) === 1 && store.get().running && now - nextFindSince < 2000) return;
-  lastFindKey = key;
-  const el = $('#findBadge');
-  el.dataset.sev = sev;
-  el.replaceChildren(unknown ? '–' : n ? String(n) : svgIcon('check'));
-  if (n > lastFindN) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
-  lastFindN = n;
-  $('#btnInspector').setAttribute('aria-label', unknown ? 'Patient chart' : n ? `Patient chart: ${n} finding${n > 1 ? 's' : ''}` : 'Patient chart: nothing abnormal');
-}
 // ── Treat card ──────────────────────────────────────
 let treatOff = null;
 const treatOpen = () => !$('#treatCard').hidden;
@@ -1248,7 +1232,7 @@ function openTreat() {
   const paintCount = () => { const n = chart.treatCount(store.get().params); count.textContent = n ? `${n} running` : ''; };
   sync.push(paintCount);
   const [tabs, pane] = chart.treatBody(sync, () => {});
-  const body = h('div', { class: 'tc-body' }, pane);
+  const body = h('div', { class: 'tc-body' }, pane, chart.treatChanges(sync));
   const grab = el.querySelector('.sheet-grab');
   el.replaceChildren(...[grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('pill'), h('span', {}, 'Treat')), count,
     h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), tabs, body].filter(Boolean));
@@ -1283,7 +1267,6 @@ function closeTreat() {
 // ── Modes ───────────────────────────────────────────
 function onMode(mode) {
   app.dataset.mode = mode;
-  const ptitle = document.querySelector('#panelTitle span'); if (ptitle) ptitle.textContent = 'Patient';
   store.set({ focus: null });
   if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, hiddenEvents: null, imaging: false, found: null }); setAllowedTools(null); }
   store.set({ selection: null, details: null });

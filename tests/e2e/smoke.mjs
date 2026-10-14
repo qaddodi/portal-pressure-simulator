@@ -1955,27 +1955,34 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (await page.evaluate(() => window.pps.store.get().selection?.type === 'lobule')) throw new Error('the lobule card stayed open after leaving');
   });
 
-  await check(device, 'floating layout: figure fills the screen, Treat card, findings badge', async (page) => {
+  await check(device, 'floating layout: figure fills the screen, Treat card, its changes, advanced physiology in Settings', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.waitForTimeout(800);
     const fill = await page.evaluate(() => { const r = document.querySelector('#stageView').getBoundingClientRect(); return (r.width * r.height) / (innerWidth * innerHeight); });
     if (fill < 0.97) throw new Error(`the figure covers only ${Math.round(fill * 100)} % of the screen`);
-    if (await page.evaluate(() => document.querySelector('#app').classList.contains('panel-open'))) throw new Error('the patient chart should start closed');
-    const n = await page.$eval('#findBadge', (el) => parseInt(el.textContent, 10));
-    if (!(n > 0)) throw new Error('decompensated cirrhosis shows no findings on the badge');
-    await page.click('#btnInspector');
-    await page.waitForFunction(() => document.querySelector('#app').classList.contains('panel-open'));
-    // The model runs, so a finding can come or go between two reads: compare them in one frame.
-    await page.waitForFunction(() => parseInt(document.querySelector('#findBadge').textContent, 10) === document.querySelectorAll('#panel .finding').length, null, { timeout: 5000 })
-      .catch((e) => { throw new Error('the badge and the chart disagree on the number of findings', { cause: e }); });
-    await page.click('#panelClose');
+    if (await page.evaluate(() => document.querySelector('#app').classList.contains('panel-open'))) throw new Error('the side panel should start closed');
+    // No Patient button and no abnormal-results list: the top bar is Treat, Tests, Settings and Search.
+    if (await page.$('#btnInspector, #findBadge, #panel .finding')) throw new Error('the Patient button or its abnormal results are back');
     await page.click('#btnTreat');
     await page.waitForSelector('#treatCard:not([hidden]) .order-chip');
     await page.locator('#treatCard .order-chip', { hasText: 'Carvedilol' }).click();
     await page.waitForFunction(() => window.pps.store.get().params.drugs.carvedilol);
+    // The changes sit closed under the orders; opened, they list the new order with its undo.
+    if (await page.$eval('#treatCard .tc-body > .section[data-id="changes"]', (d) => d.open)) throw new Error('Changes should start closed in the Treat card');
+    await page.click('#treatCard .section[data-id="changes"] > summary');
+    await page.waitForFunction(() => [...document.querySelectorAll('#treatCard .chg .chg-n')].some((e) => e.textContent.includes('Carvedilol')), null, { timeout: 5000 })
+      .catch((e) => { throw new Error('the Treat card does not list Carvedilol under Changes', { cause: e }); });
     await shot(page, `${device}-treat`);
     await page.keyboard.press('Escape');
     await page.waitForSelector('#treatCard', { state: 'hidden' });
+    // Advanced physiology: only an instructor finds it, in Settings; it opens in the side panel.
+    await page.evaluate(() => window.pps.store.set({ role: 'instructor' }));
+    await page.click('#btnSettings');
+    await page.locator('.menu-item', { hasText: 'Advanced physiology' }).click();
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('panel-open') && document.querySelector('#panelTitle').textContent.includes('Advanced physiology'));
+    if (!(await page.$('#panel .adv-body input[type="range"]'))) throw new Error('advanced physiology has no controls');
+    await page.click('#panelClose');
+    await page.evaluate(() => window.pps.store.set({ role: 'student' }));
   });
   // Nothing that floats over the figure may cover another floating piece, or leave the screen, at the
   // sizes the owner tests on (laptop, iPad both ways, iPhone both ways), in Explore, with the
@@ -2043,7 +2050,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.setViewportSize({ width: w, height: hgt });
       await open(page, q);
       if (act === 'measure' || act === 'both') { await page.click('#tabInstruments'); await page.waitForSelector('#dockBody .dock-pane.active'); }
-      if (act === 'both') await page.evaluate(() => document.querySelector('#btnInspector').click());
+      if (act === 'both') await page.evaluate(() => window.pps.details({ type: 'edge', id: 'PV_TRUNK' }));
       if (act === 'lobule' || act === 'lobule-all') {
         await page.evaluate(() => window.pps.store.set({ lobule: true }));
         await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 15000 });
@@ -2120,7 +2127,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page, '?preset=cirr-decomp'); await verify(`${at} explore`);
       await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } })); await verify(`${at} vessel card`);
       await open(page, '?preset=cirr-decomp'); await page.click('#tabInstruments'); await verify(`${at} tests`);
-      await page.evaluate(() => document.querySelector('#btnInspector').click()); await verify(`${at} tests + patient`);
+      await page.evaluate(() => window.pps.details({ type: 'edge', id: 'PV_TRUNK' })); await verify(`${at} tests + details`);
       await open(page, '?script=circulation');
       for (let i = 0; i < 10; i++) { await verify(`${at} slide ${i + 1}`); await page.keyboard.press('ArrowRight'); }
     }
@@ -2332,7 +2339,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'one type and icon scale in every menu and card', async (page) => {
     const surfaces = [
       ['explore', null], ['menu', '#btnMenu'], ['blood', '#btnBlood'], ['colors', '#btnLayers'],
-      ['findings', '#btnInspector'], ['treat', '#btnTreat'], ['measure', '#tabInstruments'], ['search', '#btnPalette'],
+      ['treat', '#btnTreat'], ['measure', '#tabInstruments'], ['search', '#btnPalette'],
       ['vessel card', { type: 'edge', id: 'PV_TRUNK' }], ['liver card', { type: 'organ', id: 'liver' }], ['all readouts', '#strip .ro-more'],
       ['help', '?'], ['menu from a link', 'home'],
     ];
