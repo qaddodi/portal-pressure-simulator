@@ -2892,12 +2892,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vLook.netAlpha = netA;
   }
   const plateEasing = () => { if (plateDim == null) return false; const [d, s, n] = plateTargets(); return d !== plateDim || s !== plateSat || n !== netA; };
-  function stepPlateEase(dt) {
+  // Timed on the clock with an ease in and out (PLATE_FADE), so the organs fade to grey and back smoothly at any frame rate.
+  const PLATE_FADE = 450;
+  let plateFrom = null, plateTo = null, plateT0 = 0;
+  function stepPlateEase() {
     if (lensFrom) veinsDirty = true;
-    if (!vLook || !plateEasing()) return;
-    const [d, s, n] = plateTargets(), k = dt / 0.28;
-    const step = (c, t, span) => (Math.abs(t - c) <= k * span ? t : c + Math.sign(t - c) * k * span);
-    plateDim = step(plateDim, d, 0.48); plateSat = step(plateSat, s, 0.88); netA = step(netA, n, 0.58);
+    if (!vLook || !plateEasing()) { plateFrom = null; return; }
+    const to = plateTargets(), now = performance.now();
+    if (!plateFrom || to.some((v, i) => v !== plateTo[i])) { plateFrom = [plateDim, plateSat, netA]; plateTo = to; plateT0 = now; }
+    const u = easeInOut(clamp((now - plateT0) / PLATE_FADE, 0, 1));
+    [plateDim, plateSat, netA] = u >= 1 ? to : plateFrom.map((v, i) => v + (to[i] - v) * u);
+    if (u >= 1) plateFrom = null;
     syncPlateLook(); veinsDirty = true;
   }
 
@@ -5569,7 +5574,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
     if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { nextFrame(animate); return; }
-    stepPlateEase(dt);
+    stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);

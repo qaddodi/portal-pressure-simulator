@@ -1490,8 +1490,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (inLiver && !booting && (hushed || cam !== lastCam || litNext !== (app.dataset.lit || '') || s.visual || q || ct)) hush();
     // Words out, and the marks: they belong to the slide that is leaving.
     store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
-    // The slide's lens: the figure crossfades to its colours (stage.js) while the old words leave.
-    { const lens = slideLens(s, q); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
+    // The slide's lens: the figure crossfades to its colours (stage.js) while the old words leave. A question, or a
+    // visual over the figure, keeps the colours already showing: they change only when a slide's lens does.
+    if (!q && !s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
