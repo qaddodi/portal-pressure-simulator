@@ -4256,14 +4256,14 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab-trend { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .ab-gauge { display: grid; place-items: center; min-height: 0; }
 .ab .ab-belly > .ab-big { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3cqi; padding: 0 12cqi; text-align: center; }
-.ab .ab-belly > .ab-big > b { font-size: clamp(12px, 22cqi, 40px) !important; line-height: 1; white-space: nowrap; }
+.ab .ab-belly > .ab-big > b { font-size: clamp(12px, 22cqi, 72px) !important; line-height: 1; white-space: nowrap; }
 .ab .ab-belly > .ab-big > b small { margin-left: .15em !important; font-size: .5em !important; }
-.ab .ab-belly > .ab-big > .ab-grade { font-size: clamp(9px, 8.5cqi, 15px) !important; line-height: 1.1; }
+.ab .ab-belly > .ab-big > .ab-grade { font-size: clamp(9px, 8.5cqi, 26px) !important; line-height: 1.1; }
 .ab .ab-belly > .ab-big :is(b, b[data-sev], .ab-grade, .ab-rate) { color: var(--text) !important; text-shadow: 0 0 4px var(--surface), 0 0 2px var(--surface) !important; }   /* (the theme's own text with a soft halo of the card, readable in every theme) */
 .ab .ab-belly > .ab-big b small { color: var(--text-2) !important; text-shadow: none !important; }
 .ab .ab-grade::before, .pz-tool .ab-grade::before { display: none !important; }   /* (no grade dot) */
 .ab-rate:empty { display: none; }
-.ab-rate { font-size: clamp(8px, 7cqi, 13px); font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.ab-rate { font-size: clamp(8px, 7cqi, 22px); font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .ab-belly { position: relative; flex: none; width: 64px; height: 64px; container-type: inline-size; border-radius: 50% 50% 44% 44%; border: 2px solid color-mix(in srgb, var(--text-3) 45%, transparent); overflow: hidden; background: var(--surface); }
 .ab-belly-fill { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--ascites) 55%, transparent), color-mix(in srgb, var(--ascites) 90%, transparent)); transition: height .6s var(--ease); }
 /* In Patients the belly is the card's centrepiece: large and centred, carrying the litres, grade and daily rate inside it,
@@ -4271,10 +4271,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .dock-pane > .instrument-view.ab .ab-vol { grid-template-columns: minmax(0, 1fr); justify-items: center; }
 .dock-pane > .instrument-view.ab .ab-vol-l { display: none; }
 .dock-pane > .instrument-view.ab .ab-gauge { width: 100%; justify-self: stretch; }
-.instrument-workspace:not(.float-ui) .dock-pane > .instrument-view.ab .ab-belly { width: clamp(160px, 50cqi, 260px); height: clamp(160px, 50cqi, 260px); }
+.instrument-workspace:not(.float-ui) .dock-pane > .instrument-view.ab .ab-belly { width: clamp(180px, 75cqi, 460px); height: clamp(180px, 75cqi, 460px); }
 @container (min-width: 620px) {
-  .instrument-workspace:not(.side):not(.float-ui) .dock-pane > .instrument-view.ab .ab-belly { width: clamp(160px, 26cqi, 260px); height: clamp(160px, 26cqi, 260px); }
-  .instrument-workspace.float-ui:not(.side) .dock-pane > .instrument-view.ab .ab-belly { width: clamp(160px, min(38cqh, 28cqw), 280px); height: clamp(160px, min(38cqh, 28cqw), 280px); }
+  .instrument-workspace:not(.side):not(.float-ui) .dock-pane > .instrument-view.ab .ab-belly { width: clamp(180px, 75cqi, 460px); height: clamp(180px, 75cqi, 460px); }
+  .instrument-workspace.float-ui:not(.side) .dock-pane > .instrument-view.ab .ab-belly { width: clamp(180px, min(75cqi, 52cqh), 460px); height: clamp(180px, min(75cqi, 52cqh), 460px); }
 }
 .ab-iap { display: grid; gap: 6px; }
 .ab-kv { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; }
