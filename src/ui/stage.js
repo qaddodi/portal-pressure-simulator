@@ -4727,14 +4727,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function beatMean(key, x, tau) {
     if (!Number.isFinite(x)) return x;
     const now = performance.now(), e = emas.get(key);
-    if (!e || now - e.t > 3000) { emas.set(key, { v: x, t: now }); return x; }
-    e.v += (x - e.v) * (1 - Math.exp(-(now - e.t) / 1000 / tau)); e.t = now;
+    if (!e || now - e.t > 3000) { emas.set(key, { v: x, t: now, n: 1 }); return x; }
+    e.n++; e.v += (x - e.v) * Math.max(1 / e.n, 1 - Math.exp(-(now - e.t) / 1000 / tau)); e.t = now;   // (a plain average until tau has passed: the first beats do not set it)
     return e.v;
   }
   // A TIPS or DIPS shunt's callout: the velocity through it (cm/s), as Doppler reads it (its own mean while it is on that shunt).
   function velItem(sid, f) {
     const it = nodeItem('RPV', f, 'inline', stageBox().width < 700);
-    const dop = shownVel.get(sid), live = beatMean('v:' + sid, Math.abs(edgeVel(f, EI[sid])) * dopplerK(EDGES[EI[sid]]), 1.5);
+    const dop = shownVel.get(sid), live = beatMean('v:' + sid, Math.abs(edgeVel(f, EI[sid])) * dopplerK(EDGES[EI[sid]]), 6);
     const vel = dop && performance.now() - dop.t < 1000 ? dop.v : live;
     it.lines = [[{ ...it.lines[0][0], t: sid }, { t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4 }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }]];
     it.key = `n:${sid}`; it.src = ['vel', sid]; it.node = undefined; it.sel = false; it.swatch = null;
