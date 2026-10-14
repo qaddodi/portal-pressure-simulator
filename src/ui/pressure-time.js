@@ -28,10 +28,10 @@ const SMOOTH_S = 6; // seconds averaged by the Smooth toggle
 const RANGES = [['beats', '10 s', 10], ['minutes', '2 min', 120], ['days', 'Days', null]];
 const LAG_S = 0.12; // wall seconds the trace runs behind the newest sample, so it can glide between frames
 const FINE_S = 22, COARSE_S = 140, BIN = 0.25;
-// HVPG cut-offs (Baveno): above normal, clinically significant, variceal bleeding risk.
-const LIMITS = [[5, ''], [10, 'CSPH 10'], [12, 'Bleeding risk 12']];
+// HVPG cut-offs: above normal, clinically significant (Baveno), and 12, below which varices rarely bleed.
+const LIMITS = [[5, ''], [10, 'CSPH 10'], [12, 'Can bleed 12']];
 const sevOf = (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger');
-const wordOf = (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : v < 12 ? 'CSPH' : 'CSPH · bleeding risk');
+const wordOf = (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : v < 12 ? 'CSPH' : 'CSPH · can bleed');
 const nice = (span, n = 4) => { const raw = Math.max(1e-6, span / n); const p = Math.pow(10, Math.floor(Math.log10(raw))); const r = raw / p; return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * p; };
 
 export function createPressureTime({ marks = () => [] } = {}) {
