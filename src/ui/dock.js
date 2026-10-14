@@ -1,16 +1,16 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=16a6ccb071';
+import { store, hiddenNow } from './store.js?v=14d67870c8';
 import { EDGES } from '../engine/topology.js?v=79f09b0d8a';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=abb277f29f';
 import { lobuleFlows } from './lobule-model.js?v=d378c02386';
-import { createProfile } from './charts.js?v=08d2eeeb36';
-import { createPressureTime } from './pressure-time.js?v=7274fa3f75';
-import { createFibroScan } from './fibroscan.js?v=2305110071';
-import { createHvpgProcedure } from './hvpg-proc.js?v=2be0ead28a';
-import { createDoppler } from './doppler.js?v=8f470441ec';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=da56777f28';
+import { createProfile } from './charts.js?v=e11342cb0a';
+import { createPressureTime } from './pressure-time.js?v=8619e5ef71';
+import { createFibroScan } from './fibroscan.js?v=34113cfc96';
+import { createHvpgProcedure } from './hvpg-proc.js?v=d2c2580bdd';
+import { createDoppler } from './doppler.js?v=dc685b90d2';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=5996c56653';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('dock');
 

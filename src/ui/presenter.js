@@ -12,18 +12,18 @@
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen,
 // P high contrast, Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=16a6ccb071';
+import { store, replaceParams } from './store.js?v=14d67870c8';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=abb277f29f';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
-import { sinusoidSupported } from './sinusoid-view.js?v=808d5c3e35';
+import { sinusoidSupported } from './sinusoid-view.js?v=0dcc3de787';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=b865d1e321';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=4879a005e0';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=2be0ead28a';
-import { createTools } from './presenter-tools.js?v=9145001293';
-import { openHandout } from './handout.js?v=544720fbdd';
+import { createHvpgMonitor } from './hvpg-proc.js?v=d2c2580bdd';
+import { createTools } from './presenter-tools.js?v=5b5455c176';
+import { openHandout } from './handout.js?v=9f89cdc53e';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=291487be4c';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -897,7 +897,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=39f7dc5304', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=d7f929c548', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -909,7 +909,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=2277610274');
+      const { createCore } = await import('../worker-core.js?v=6579ebd256');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
