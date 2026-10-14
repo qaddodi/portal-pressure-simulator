@@ -150,9 +150,9 @@ export function createFibroScan() {
     }
     // The reading, inside the top right corner in the same white with a dark halo: the number big (about four times the label size, within the map's room), "kPa" small
     // beside it. Right aligned, so "kPa" never moves while the number eases.
-    const big = Math.round(Math.max(24, Math.min(CAP * 4, 72, ph * 0.3, ew * 0.28))), RY = m + Math.round(big * 0.74);
+    const big = Math.round(Math.max(24, Math.min(CAP * 4, 72, ph * 0.3, ew * 0.28))), RM = Math.max(m * 2, Math.round(big * 0.4)), RY = RM + Math.round(big * 0.74);   // (RM: the reading's own margin from the map's top and right edges)
     ctx.textAlign = 'right'; ctx.lineWidth = Math.max(3, big * 0.16);
-    ctx.font = FONT(500, Math.round(CAP * 1.4)); const ux = ex + ew - m, uw = ctx.measureText('kPa').width;
+    ctx.font = FONT(500, Math.round(CAP * 1.4)); const ux = ex + ew - RM, uw = ctx.measureText('kPa').width;
     ctx.strokeText('kPa', ux, RY); ctx.fillText('kPa', ux, RY);
     ctx.font = FONT(600, big); ctx.strokeText(reading, ux - uw - 5, RY); ctx.fillText(reading, ux - uw - 5, RY);
   }

@@ -1595,8 +1595,12 @@ button.finding { cursor: pointer; }
 /* The six levels, portal vein to heart. */
 .pz-rail { --rp: .2em; position: relative; padding: 1.6em var(--rp) 0; font-size: var(--s-cap); }
 /* (--rp: side room so the block round the end bars (pre-hepatic, cardiac) is never clipped by the card's edge) */
-.pz-rail-liver { position: absolute; top: .25em; left: calc(var(--rp) + (100% - 2 * var(--rp)) / 6 + 3px); width: calc((100% - 2 * var(--rp)) / 2 - 6px); height: .95em; border: 2px solid var(--border-strong); border-bottom: 0; border-radius: .55em .55em 0 0; }
-.pz-rail-liver span { position: absolute; left: 50%; top: -.8em; translate: -50% 0; padding: 0 .5em; background: var(--stage-bg); font: 600 1em/1.3 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.pz-rail-liver { position: absolute; top: .25em; left: calc(var(--rp) + (100% - 2 * var(--rp)) / 6 + 3px); width: calc((100% - 2 * var(--rp)) / 2 - 6px); height: .95em; display: flex; align-items: flex-start; }
+/* (The bracket is two arms with the name between them, so the card's frosted glass shows through the label: no box behind it.) */
+.pz-rail-liver i { flex: 1 1 0; align-self: stretch; box-sizing: border-box; min-width: 0; border: 2px solid var(--border-strong); border-bottom: 0; }
+.pz-rail-liver i:first-child { border-right: 0; border-radius: .55em 0 0 0; }
+.pz-rail-liver i:last-child { border-left: 0; border-radius: 0 .55em 0 0; }
+.pz-rail-liver span { flex: none; margin-top: -.8em; padding: 0 .5em; font: 600 1em/1.3 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
 .pz-rail ol { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; margin: 0; padding: 0; list-style: none; }
 .pz-rail li { display: flex; flex-direction: column; align-items: center; gap: .5em; min-width: 0; text-align: center; }
 .pz-rail li > i { position: relative; width: 100%; height: .62em; border-radius: .31em; background: var(--site); opacity: .28; transition: opacity .4s var(--ease); }
@@ -4920,6 +4924,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz .pz-data .pz-tiles .pzt-r::before { display: none; }
 .pz .pz-data .pz-tiles .pz-tile[data-rate] .pzt-v { color: var(--text); }
 .pz .pz-data .pz-tiles .pz-tile[data-rate="none"] .pzt-v { color: var(--text-3); }
+/* A tile with a scale bar colours its number by the band the value is in, as its dot is (the status word beside it says the same). */
+.pz .pz-data .pz-tiles .pz-tile.scaled:is([data-rate="ok"], [data-rate="lo"]) .pzt-v { color: var(--ok); }
+.pz .pz-data .pz-tiles .pz-tile.scaled[data-rate="mid"] .pzt-v { color: color-mix(in srgb, var(--caution) 85%, var(--text)); }
+.pz .pz-data .pz-tiles .pz-tile.scaled[data-rate="hi"] .pzt-v { color: var(--danger); }
 .app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="mid"] .pzt-r { color: color-mix(in srgb, var(--caution) 85%, var(--text)); }
 .app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="hi"] .pzt-r { color: var(--danger); }
 .pz .pz-data .pz-tiles .pzt-d, .pz .pz-data .pz-tiles .pzt-d[data-way] { color: var(--text-3); }
