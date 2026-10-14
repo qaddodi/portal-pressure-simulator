@@ -231,8 +231,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const hidden = hiddenSet();
     const showHvpg = !hidden.has('trueHVPG');
     const traces = TRACES.filter((t) => chosen.has(t.id) && !hidden.has(t.hide) && (range !== 'days' || t.day));
-    const narrow = w < 460;
-    const L = 34, R = narrow ? 90 : 104, B = 22, GAP = 16;
+    const narrow = w < 460, tiny = w < 300;   // (tiny: a tablet's card with its tiles beside; each end's name goes under its value)
+    const L = 34, R = tiny ? 62 : narrow ? 90 : 104, B = 22, GAP = 16;
     let T = 30;
     const plotW = w - L - R;
 
@@ -354,7 +354,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           ctx.lineTo(X(s.x[s.x.length - 1]), Y(0)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
           if (s.lo) band(ctx, s, X, Y, text, 0.1);
           line(ctx, s, X, Y, text, 1.75, plotW);
-          const e = recent(s); ends.push({ y: Y(e), v: e, label: 'HVPG', c: text, lane });
+          const e = range === 'days' ? recent(s) : hv; ends.push({ y: Y(e), v: e, label: 'HVPG', c: text, lane });   // (the header's own reading)
         }
       } else {
         // the HVPG itself, shaded between wedged and free hepatic pressure
@@ -372,7 +372,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           if (s.lo) band(ctx, s, X, Y, c, 0.16);
           line(ctx, s, X, Y, c, t.id === 'CONF' ? 2 : 1.75, plotW);
           if (range === 'days' && s.x.length < 60) dots(ctx, s, X, Y, c, surface);
-          const e = recent(s); ends.push({ y: Y(e), v: e, label: t.abbr, c, lane });
+          const e = range === 'days' ? recent(s) : t.day?.(frame.metrics) ?? recent(s); ends.push({ y: Y(e), v: e, label: t.abbr, c, lane });   // (the live readings, so wedged − free is the header's HVPG)
         }
       }
       ctx.restore();
@@ -392,7 +392,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     // live values at the right edge, nudged apart where they would collide (per lane)
     for (const lane of lanes) {
       const es = ends.filter((e) => e.lane === lane).sort((a, b) => a.y - b.y);
-      for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + 15);
+      for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + (tiny ? 27 : 15));
       const over = es.length ? es[es.length - 1].y - lane.bot : 0;
       if (over > 0) for (const e of es) e.y -= over;
       for (const e of es) {
@@ -403,7 +403,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
         const vt = fmt(e.v, 1);
         ctx.fillText(vt, L + plotW + 17, yy);
         // Each line is named at its end (PV, WHVP, FHVP, HVPG), on every screen.
-        const vw = ctx.measureText(vt).width; ctx.font = FONT(600, 12); ctx.fillStyle = e.c === text ? muted : e.c; ctx.fillText(e.label, L + plotW + 20 + vw, yy);
+        const vw = ctx.measureText(vt).width; ctx.font = FONT(600, 12); ctx.fillStyle = e.c === text ? muted : e.c;
+        if (tiny) ctx.fillText(e.label, L + plotW + 17, yy + 12); else ctx.fillText(e.label, L + plotW + 20 + vw, yy);
         ctx.textBaseline = 'alphabetic';
       }
     }

@@ -157,7 +157,8 @@ export function createCreditPlacer(credit) {
     const sig = obs.map((o) => [o.l, o.t, o.r, o.b].map(Math.round).join(',')).join(';') + '|' + w + '|' + wr.width + 'x' + wr.height;
     const now = performance.now();
     // A card still sliding or fading in is not where it will settle: wait for it (and for its size to stop changing).
-    const settling = els.some((el) => el.getAnimations({ subtree: true }).some((an) => an.playState === 'running' && Number.isFinite(an.effect?.getComputedTiming().endTime)));
+    // (The card and its blocks only: a live instrument deep inside eases all the time and kept the credit hidden.)
+    const settling = els.some((el) => [el, ...el.children].some((c) => c.getAnimations().some((an) => an.playState === 'running' && Number.isFinite(an.effect?.getComputedTiming().endTime))));
     if (sig !== lastSig || settling) {
       // Something moved: if it now reaches the credit, hide it at once; let it settle before choosing a new spot
       // (but not forever: a piece that keeps moving is taken where it is after a moment).

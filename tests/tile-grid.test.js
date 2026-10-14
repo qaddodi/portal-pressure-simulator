@@ -57,10 +57,10 @@ test('an instrument with tiles: the instrument on the left, the tiles stacked be
   assert.match(pres, /if \(c === side\) continue;/);
 });
 
-test('every instrument is one screen: a reading top left, its status top right, the picture under them, words never zoomed', () => {
+test('every instrument is one screen: a reading top left, its status top right, the picture under them, words zoomed only as a last resort', () => {
   const B = '.pz:not(.stack):not(.low) .pz-data.pz-beside', S = ':is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool';
   assert.ok(css.includes(`${B} > .pz-tool { --bs: var(--pz-sm);`));
-  assert.ok(css.includes(`.pz:not(.stack):not(.low) .pz-data.col.pz-beside > * { zoom: 1; }`), 'the card fit shortens the picture, not the words');
+  assert.ok(css.includes(`.pz:not(.stack):not(.low) .pz-data.col.pz-beside > * { zoom: var(--pz-z, 1); }`), 'the card fit shortens the picture; the words zoom only past its last step');
   assert.ok(css.includes(`${S}[data-kind="doppler"] .dop-report { display: contents; }`));
   assert.ok(css.includes(`${S}[data-kind="doppler"] :is(.dop-range, .dop-stats, .dop-note) { display: none; }`));
   assert.ok(css.includes(`${S}[data-kind="abdomen"] :is(.ab-trend, .ab-iap, .ab-tiles) { display: none; }`));

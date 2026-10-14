@@ -95,7 +95,7 @@ export function createDoppler({ onProbe }) {
 
   // The report
   const dirEl = h('b', { class: 'dop-dir' }, '—');
-  const velEl = h('span', { class: 'dop-vel' }, h('b', {}, '—'), h('small', {}, 'cm/s mean'));
+  const velEl = h('span', { class: 'dop-vel' }, h('b', {}, '—'), h('small', {}, 'cm/s', h('span', { class: 'dop-mean' }, ' mean')));
   // Normal-range gauge: a track with the usual band shaded and a marker for the current mean.
   const bandEl = h('i', { class: 'dop-band' });
   const markEl = h('i', { class: 'dop-mark' });

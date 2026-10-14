@@ -22,10 +22,10 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e7450bd6af';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=258d41dbc8';
-import { createTools } from './presenter-tools.js?v=70d8152895';
+import { createTools } from './presenter-tools.js?v=71b75ff1d1';
 import { openHandout } from './handout.js?v=680b9bd894';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=20ffefba17';
+import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=ad58eb361d';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 const nextFrame = frameFor('presenter');
@@ -320,7 +320,10 @@ const fitNow = (c) => {
     pr.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
     host.append(pr);
     const fs = {};
-    for (const r of ROLE_NAMES) { pr.style.fontSize = `var(--ch-${r}, var(--s-${r}))`; fs[r] = parseFloat(getComputedStyle(pr).fontSize) * k; }
+    // (The screen's matrix carries the card's zoom: a data card whose words zoom down past its fit's last step, --pz-z, has its
+    // chart's words drawn that much smaller too.)
+    const wz = parseFloat(host.style?.getPropertyValue('--pz-z')) || 1;
+    for (const r of ROLE_NAMES) { pr.style.fontSize = `var(--ch-${r}, var(--s-${r}))`; fs[r] = parseFloat(getComputedStyle(pr).fontSize) * k * wz; }
     pr.remove();
     if (c.fs && ROLE_NAMES.every((r) => Math.abs(c.fs[r] - fs[r]) < 0.01 * fs[r]) && Math.abs(c.w - box.width) + Math.abs(c.h - box.height) < 1) return;
     c.fs = fs; c.w = box.width; c.h = box.height; lay(fs, box);
@@ -538,12 +541,12 @@ function bigLadder() {
     // what the lettering leaves, so the words keep their size and only the plot gets shorter.)
     const own = box && !cell && el.matches(LADDER_FILL);
     // (Its lettering's own height goes to the stylesheet, --lad-fixed, so the box is that plus the plot's share of the card.)
-    if (own) el.style.setProperty('--lad-fixed', `${((yTop + rows + (nameRows > 1 ? 1.15 * c : 0)) * box.width / W).toFixed(1)}px`);
+    if (own) el.style.setProperty('--lad-fixed', `${((yTop + rows + (nameRows > 1 ? 1.15 * c : 0)) * box.width / W / (parseFloat(getComputedStyle(el).zoom) || 1)).toFixed(1)}px`);   // (in the ladder's own px, before a zoom of the card's words)
     if (cell || own) {
       PH = W * box.height / box.width - yTop - rows - (nameRows > 1 ? 1.15 * c : 0);
       // (Too short for a plot at this text size: the cell shows the strip instead, for the rest of the slide.)
       if (cell && PH < 60) { cell.classList.add('strip'); PH = 60; }
-      if (own) PH = Math.max(40, PH);
+      if (own) PH = Math.max(12, PH);
     } else PH = 198;
     const yBot = yTop + PH;
     hv.row = yBot + ph / 2 + 13; pp.row = hv.row + ph + 12;
@@ -565,7 +568,8 @@ function bigLadder() {
     const sparse = every(tTo);
     for (const g of grid) {
       g.line.setAttribute('y1', Y(g.v).toFixed(1)); g.line.setAttribute('y2', Y(g.v).toFixed(1)); g.txt.setAttribute('y', (Y(g.v) + 0.36 * c).toFixed(1));
-      g.g.setAttribute('opacity', (clamp(f['g' + g.v] ?? 0, 0, 1) * (g.v % (stepOf(tTo) * sparse) === 0 ? 1 : 0)).toFixed(3));
+      // (A plot too short for two rows of numbers names only its zero line.)
+      g.g.setAttribute('opacity', (clamp(f['g' + g.v] ?? 0, 0, 1) * (g.v % (stepOf(tTo) * sparse) === 0 && (g.v === 0 || PH >= 2.4 * c) ? 1 : 0)).toFixed(3));
     }
     bands.forEach((b) => { b.r.setAttribute('y', (Y(top) - 6).toFixed(1)); b.r.setAttribute('height', (Y(0) - Y(top) + 6).toFixed(1)); });
     drawBase();
@@ -657,7 +661,7 @@ function bigTiles() {
       const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' });
       // The change in parts, so a phone can say it short ("▲ 7.5 from 5.0": the word and unit fold away there).
       const dp = [h('span'), h('span', { class: 'pzt-dw' }), h('span'), h('span', { class: 'pzt-du' }), h('span')], d = h('span', { class: 'pzt-d' }, dp);
-      const tile = h('div', { class: 'pz-tile' }, h('span', { class: 'pzt-k' }, T.t), h('span', { class: 'pzt-vu' }, v, u), r, withRef ? d : null);
+      const tile = h('div', { class: 'pz-tile' }, h('span', { class: 'pzt-k', 'data-s': T.n || null }, T.t), h('span', { class: 'pzt-vu' }, v, u), r, withRef ? d : null);
       return { k, T, tile, v, u, r, d, dp };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
@@ -1944,7 +1948,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (!el || el.hidden) continue;
       const sig = fitSig(el);
       if (fitDone.get(el) === sig) continue;
-      el.style.removeProperty('--pz-fit');
+      el.style.removeProperty('--pz-fit'); el.style.removeProperty('--pz-z');
       fitHeads(el);
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
       const all = el.querySelector('.pz-check'); all?.classList.add('pzc-all', 'pzc-still');
@@ -1954,6 +1958,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         if (o.v <= 1 && o.h <= 1) break;
         k = Math.max(0.5, k * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
         el.style.setProperty('--pz-fit', k.toFixed(3));
+      }
+      // (Parts whose words keep their size (styles/app.css: zoom var(--pz-z)) let the fit shorten only their pictures; when even
+      // the shortest pictures leave the card too full, a large text setting, the words then zoom down too, to half at most.)
+      // (Never past the 12 px floor: the card's small size, --pz-sm, zoomed, stays at least 11.5 px.)
+      const sm = (() => { const pr = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--pz-sm, 12px)' }); el.append(pr); const v = parseFloat(getComputedStyle(pr).fontSize) || 12; pr.remove(); return v; })();
+      const zMin = Math.max(0.5, Math.min(1, 11.5 / sm));
+      for (let n = 0, z = 1; n < 8 && z > zMin; n++) {
+        const o = overflowOf(el);
+        if (o.v <= 1 && o.h <= 1) break;
+        z = Math.max(zMin, z * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
+        el.style.setProperty('--pz-z', z.toFixed(3));
       }
       fitEquations(el);
       // (Closed again with no transition, so the answers start hidden and the card rests at its closed height.)

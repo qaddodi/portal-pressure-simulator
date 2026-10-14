@@ -154,7 +154,9 @@ export function createFibroScan() {
     ctx.fillStyle = th.tick; ctx.font = FONT(500, TK);
     ctx.textAlign = 'right';
     for (let d = 30; d <= 90; d += 20) { const y = top + ((d - 30) / 60) * ph; ctx.fillText(side ? String(d) : d === 90 ? '90 mm' : String(d), ax, Math.min(y + TK * 0.35, bot)); }
-    for (let m = 0; m <= 80; m += 20) { ctx.textAlign = m === 80 && !side ? 'right' : 'center'; ctx.fillText(m === 80 && !side ? '80 ms' : String(m), m === 80 && !side ? ex + ew : ex + (m / 80) * ew, bot + TK + 6); }
+    // (A narrow box names every other tick, 0, 40 and 80 ms: "60" ran into "80 ms".)
+    const tstep = !side && ctx.measureText('80 ms').width + ctx.measureText('60').width / 2 + 8 > ew / 4 ? 40 : 20;
+    for (let m = 0; m <= 80; m += tstep) { ctx.textAlign = m === 80 && !side ? 'right' : 'center'; ctx.fillText(m === 80 && !side ? '80 ms' : String(m), m === 80 && !side ? ex + ew : ex + (m / 80) * ew, bot + TK + 6); }
     if (side) { ctx.textAlign = 'left'; ctx.fillText('mm', ax - 22, top - 6); ctx.fillText('ms', ax - 22, bot + 16); }
   }
   // Runs only while the pane is on screen; update() restarts it when the tab is shown again.

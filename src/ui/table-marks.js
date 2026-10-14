@@ -29,32 +29,32 @@ export const RATE = {
   ivc: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
   hb: (v) => (v < 7 ? ['hi', 'Low'] : v < 12 ? ['mid', 'Below normal'] : ['ok', 'Normal']),
 };
-// Each tile: its name, what it is, the unit, the decimals (1 unless d), a scale (x) and which way is better
+// Each tile: its name (n: a short one for a narrow tile, three in a row on a tablet or phone), what it is, the unit, the decimals (1 unless d), a scale (x) and which way is better
 // (−1 lower, 1 higher) for the colour of a change.
 export const TILE = {
   hvpg: { t: 'HVPG', s: 'Wedged − free', u: 'mmHg', better: -1 },
   ppg: { t: 'PPG', s: 'Portal − IVC', u: 'mmHg', better: -1 },
-  pv: { t: 'Portal vein', s: 'Pressure', u: 'mmHg', better: -1 },
+  pv: { t: 'Portal vein', n: 'Portal', s: 'Pressure', u: 'mmHg', better: -1 },
   sin: { t: 'Sinusoids', s: 'Pressure', u: 'mmHg', better: -1 },
   whvp: { t: 'WHVP', s: 'Wedged hepatic vein', u: 'mmHg', better: -1 },
   fhvp: { t: 'FHVP', s: 'Free hepatic vein', u: 'mmHg', better: -1 },
   saag: { t: 'SAAG', s: 'Serum − ascites albumin', u: 'g/dL' },
-  tp: { t: 'Ascites protein', s: 'Total protein', u: 'g/dL' },
+  tp: { t: 'Ascites protein', n: 'Protein', s: 'Total protein', u: 'g/dL' },
   asc: { t: 'Ascites', s: 'Volume', u: 'L', x: 0.001, better: -1 },
-  varix: { t: 'Esophageal varix', s: 'Diameter', u: 'mm', better: -1 },
-  gv: { t: 'Gastric varix', s: 'Fundal, diameter', u: 'mm', better: -1 },
+  varix: { t: 'Esophageal varix', n: 'Varix', s: 'Diameter', u: 'mm', better: -1 },
+  gv: { t: 'Gastric varix', n: 'Fundal', s: 'Fundal, diameter', u: 'mm', better: -1 },
   spleen: { t: 'Spleen', s: 'Length', u: 'cm', better: -1 },
   plt: { t: 'Platelets', s: '× 10⁹ per litre', u: '×10⁹/L', d: 0, better: 1 },
-  pvFlow: { t: 'Portal vein flow', s: 'Mean', u: 'L/min' },
-  liver: { t: 'Liver blood flow', s: 'Through the sinusoids, of normal', u: '%', d: 0, better: 1 },
+  pvFlow: { t: 'Portal vein flow', n: 'Portal flow', s: 'Mean', u: 'L/min' },
+  liver: { t: 'Liver blood flow', n: 'Liver flow', s: 'Through the sinusoids, of normal', u: '%', d: 0, better: 1 },
   shunt: { t: 'Shunted', s: 'Portal blood bypassing the liver', u: '%', x: 100, d: 0, better: -1 },
-  map: { t: 'Blood pressure', s: 'Mean arterial', u: 'mmHg', d: 0 },
-  hr: { t: 'Heart rate', s: 'Beats a minute', u: '/min', d: 0 },
-  lsm: { t: 'Liver stiffness', s: 'FibroScan', u: 'kPa', better: -1 },
-  ra: { t: 'Right atrium', s: 'Pressure', u: 'mmHg', better: -1 },
-  salb: { t: 'Serum albumin', s: 'Blood', u: 'g/dL', better: 1 },
+  map: { t: 'Blood pressure', n: 'MAP', s: 'Mean arterial', u: 'mmHg', d: 0 },
+  hr: { t: 'Heart rate', n: 'HR', s: 'Beats a minute', u: '/min', d: 0 },
+  lsm: { t: 'Liver stiffness', n: 'Stiffness', s: 'FibroScan', u: 'kPa', better: -1 },
+  ra: { t: 'Right atrium', n: 'RA', s: 'Pressure', u: 'mmHg', better: -1 },
+  salb: { t: 'Serum albumin', n: 'Albumin', s: 'Blood', u: 'g/dL', better: 1 },
   ivc: { t: 'IVC', s: 'Pressure', u: 'mmHg', better: -1 },
-  hb: { t: 'Hemoglobin', s: 'Blood', u: 'g/dL', better: 1 },
+  hb: { t: 'Hemoglobin', n: 'Hb', s: 'Blood', u: 'g/dL', better: 1 },
 };
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
 // The figure's "Portal blood" callout: whole-percent shares to the shunts and the liver that always add to 100, and the

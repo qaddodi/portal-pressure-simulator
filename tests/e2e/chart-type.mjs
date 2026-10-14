@@ -18,6 +18,9 @@ export function chartFaults(sel) {
   const charts = [...document.querySelectorAll(sel)].filter(shown);
   if (!charts.length) return null;
   const pz = document.querySelector('.pz'), roles = ['cap', 'lab', 'body', 'val', 'big'].map((r) => { const p = document.createElement('span'); p.style.cssText = `position:absolute;visibility:hidden;font-size:var(--s-${r})`; pz.append(p); const v = parseFloat(getComputedStyle(p).fontSize); p.remove(); return v; });
+  // (A data card's charts draw at the card's own sizes where it sets them, --ch-cap and --ch-lab: the tiles' small size and
+  // one and a half times it; past the fit's last step its words zoom, --pz-z.)
+  const cardRoles = (svg) => { const d = svg.closest('.pz-data'); if (!d) return []; return ['cap', 'lab'].map((r) => { const p = document.createElement('span'); p.style.cssText = `position:absolute;visibility:hidden;font-size:var(--ch-${r}, 0px)`; d.append(p); const v = parseFloat(getComputedStyle(p).fontSize); p.remove(); return v; }).filter((v) => v > 0); };
   const out = [];
   for (const svg of charts) {
     // (A card too full for its screen zooms its contents down, --pz-fit: the roles are read at that zoom; 11 px stays the floor.)
@@ -25,10 +28,11 @@ export function chartFaults(sel) {
     const name = svg.getAttribute('class').split(' ')[0], vb = svg.viewBox.baseVal, sr = svg.getBoundingClientRect(), k = Math.min(sr.width / vb.width, sr.height / vb.height);   // (screen px per unit, zoom included)
     const card = (svg.closest('.pz-cell, .pz-panel, .pz-data, .pz-visual, .pz-text') || svg.parentElement).getBoundingClientRect();
     const runs = [...svg.querySelectorAll('text')].filter((t) => t.textContent.trim() && shown(t)).flatMap((t) => (t.querySelector('tspan') && !t.querySelector('tspan.pzs-bn') ? [...t.querySelectorAll('tspan')] : [t]).map((e) => ({ e, t, r: e.getBoundingClientRect() })));
+    const own = cardRoles(svg), zz = parseFloat(svg.closest('.pz-data')?.style.getPropertyValue('--pz-z')) || 1;
     for (const { e, t, r } of runs) {
       const px = parseFloat(getComputedStyle(t).fontSize) * k, what = `${name} "${e.textContent.trim().slice(0, 18)}" ${px.toFixed(1)}px`;
       if (px < 10.95) out.push(`${what} under 11 px`);
-      else if (!roles.some((v) => Math.abs(v * z - px) < 0.6 || Math.abs(v - px) < 0.6) && !(fit && fit.parentElement.style.getPropertyValue('--pz-fit') && roles.some((v) => px < v && px > v * 0.5))) out.push(`${what} off the scale (${roles.map((v) => v.toFixed(1)).join(' ')})`);
+      else if (!roles.some((v) => Math.abs(v * z - px) < 0.6 || Math.abs(v - px) < 0.6) && !own.some((v) => Math.abs(v * zz - px) < 0.6 || (px < v && px > v * 0.5)) && !(fit && fit.parentElement.style.getPropertyValue('--pz-fit') && roles.some((v) => px < v && px > v * 0.5))) out.push(`${what} off the scale (${roles.map((v) => v.toFixed(1)).join(' ')})`);
       if (r.left < card.left - 1 || r.right > card.right + 1 || r.top < card.top - 1 || r.bottom > card.bottom + 1 || r.left < -1 || r.right > innerWidth + 1) out.push(`${what} runs out of its card`);
     }
     // (Glyph boxes carry the line's ascent and descent, so two rows touch by a few px without the letters touching.)
