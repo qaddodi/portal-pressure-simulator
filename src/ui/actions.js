@@ -3,7 +3,7 @@
 // palette and the presenter all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=93dd221434';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, dopplerK, edgePresent } from '../engine/topology.js?v=93dd221434';
 import { store, updateParams, hiddenNow } from './store.js?v=14d67870c8';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=abb277f29f';
 import { aboutVessel, aboutOrgan } from './about.js?v=aa30971ea2';
@@ -167,7 +167,8 @@ export function edgeValue(e, f, lens, ref) {
     return { v: fmtFlow(Math.abs(q)), u: 'L/min', d: d != null && Math.abs(d) >= 5 ? `${d > 0 ? '▲' : '▼'} ${Math.round(Math.abs(d))} %` : null, up: d > 0 };
   }
   if (lens === 'velocity' && e.kind === 'liver') return { v: '—', u: 'cm/s' };   // a lumped bed has no one velocity
-  if (lens === 'velocity') { const D = Math.max(0.5, f.D[k]) / 10; return { v: fmt(Math.abs((q / 0.06) / (Math.PI * D * D / 4)), 0), u: 'cm/s' }; }
+  // Velocity reads as Doppler does (peak, see dopplerK), so it matches the figure callouts and the Doppler monitor.
+  if (lens === 'velocity') { const D = Math.max(0.5, f.D[k]) / 10; return { v: fmt(Math.abs((q / 0.06) / (Math.PI * D * D / 4)) * dopplerK(e), 0), u: 'cm/s' }; }
   if (lens === 'drop') return { v: fmt(P1 - P2, 1), u: 'mmHg drop' };
   const r = ref ? (st ? ref[NI[st]] : (ref[NI[e.from]] + ref[NI[e.to]]) / 2) : null;
   return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r };

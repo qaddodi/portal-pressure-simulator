@@ -10,7 +10,7 @@ import { createPressureTime } from './pressure-time.js?v=3321ba6d97';
 import { createFibroScan } from './fibroscan.js?v=94bc406285';
 import { createHvpgProcedure } from './hvpg-proc.js?v=9767e70a65';
 import { createDoppler } from './doppler.js?v=b13f3d48a1';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=42fc729047';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=ba76db13c8';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('dock');
 
