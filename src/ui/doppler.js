@@ -309,6 +309,15 @@ export function createDoppler({ onProbe }) {
     set2(gLo, String(n0)); set2(gHi, `${n1} cm/s`);
     rangeEl.title = `Usual ${n0}–${n1} cm/s`;
   }
+  // A slide's own state (its fingerprint's network, presenter dataTo → tools.pin): the probed vessel's velocity as the scanner reads it.
+  let pinAt = null;
+  function pin(fp) { pinAt = fp?.at || null; }
+  function pinnedVel() {
+    const k = EI[probe];
+    if (!pinAt || k == null) return NaN;
+    const D = Math.max(0.5, pinAt.D[k]) / 10;
+    return Math.abs(pinAt.Q[k] / ((Math.PI * D * D) / 4)) * dopplerK(EDGES[k]);
+  }
   const set2 = (e, t) => { if (e.textContent !== t) e.textContent = t; };
 
   // The running mean behind a slide's reading: eases toward the 3 s mean over about six seconds (about a second and a half after a clear
@@ -342,7 +351,11 @@ export function createDoppler({ onProbe }) {
     // probe, below the baseline, so it reads "−18 · Toward the heart", and the sign, the words and the drawing agree.)
     // (And steady: the 3 s mean swings a few percent with the beat and breath, so a slide's strip, and the callout that copies it, read a
     // slow running mean of it, the same number at any moment of the slide on any screen.)
-    const mean = ovOn ? steadyMean(r.mean) : r.mean, drawn = ovOn ? mean * pol() : mean;
+    let mean = ovOn ? steadyMean(r.mean) : r.mean;
+    // (While it agrees, the slide's own velocity in this vessel, as its tiles and callouts read the slide: one number on every screen.)
+    const fixed = ovOn ? pinnedVel() : NaN;
+    if (Number.isFinite(fixed) && Math.abs(Math.abs(mean) - fixed) < Math.max(4, fixed * 0.12)) mean = (mean < 0 ? -1 : 1) * fixed;
+    const drawn = ovOn ? mean * pol() : mean;
     set(velEl.firstChild, num(drawn, Math.abs(drawn) < 10 ? 1 : 0));
     shownVel.set(probe, { v: Math.abs(mean), t: performance.now() });
     updateGauge(p, r.mean, it.expected);
@@ -780,5 +793,5 @@ export function createDoppler({ onProbe }) {
   function autoWindow() { manualSweep = false; pickNext = true; redraw(); }
   /** Name the hepatic vein's a, S, v and D waves on the trace (the Presenter's waveform slides). */
   function setWaves(on) { if (waves !== !!on) { waves = !!on; redraw(); } }
-  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves, autoWindow };
+  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves, autoWindow, pin };
 }

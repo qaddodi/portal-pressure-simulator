@@ -30,6 +30,8 @@ test('Present phone: the Doppler and FibroScan zoom stops at .85 and the fit sho
 
 test('a slide\'s Doppler strip reads signed as drawn and as a steady running mean', () => {
   const src = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
-  assert.match(src, /const mean = ovOn \? steadyMean\(r\.mean\) : r\.mean, drawn = ovOn \? mean \* pol\(\) : mean;/);
+  assert.match(src, /let mean = ovOn \? steadyMean\(r\.mean\) : r\.mean;/);
+  assert.match(src, /const drawn = ovOn \? mean \* pol\(\) : mean;/);
+  assert.match(src, /pinnedVel\(\)/);   // (and the slide's own velocity while it agrees)
   assert.match(src, /shownVel\.set\(probe, \{ v: Math\.abs\(mean\)/);
 });

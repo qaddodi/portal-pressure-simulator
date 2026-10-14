@@ -297,13 +297,13 @@ export function createPressureTime({ marks = () => [] } = {}) {
     // lanes
     const avail = hh - T - B;
     const lanes = [];
-    // (On a slide both lanes start at zero on one scale, so a millimetre of mercury is as tall in each: the axis reads straight.)
+    // (On a slide both lanes start at zero and end on a round number above every reading, with a tick at the top.)
     const top0 = (key) => { let mx = -Infinity; for (const k of key === 'pressure' ? traces.map((t) => t.id) : ['hvpg']) { const q = series(k, -Infinity, x1); for (let i = 0; i < q.x.length; i++) mx = Math.max(mx, q.hi ? q.hi[i] : q.mid[i]); }
       mx = Math.max(mx, ...(key === 'pressure' ? traces.map((t) => endOf(t.id)) : [steadyHvpg()]).filter(Number.isFinite));   // (and the numbers written at the ends: a reading never sits above its lane)
-      return key === 'hvpg' ? Math.max(16, Math.ceil(((Number.isFinite(mx) ? mx : 0) + 3) / 4) * 4) : Math.max(10, Math.ceil(((Number.isFinite(mx) ? mx : 10) * 1.1) / 5) * 5); };
+      return key === 'hvpg' ? Math.max(15, Math.ceil(((Number.isFinite(mx) ? mx : 0) + 3) / 5) * 5) : Math.max(10, Math.ceil(((Number.isFinite(mx) ? mx : 10) * 1.1) / 5) * 5); };
     const fixed = slide ? { pressure: [0, top0('pressure')], hvpg: [0, top0('hvpg')] } : null;
     if (traces.length && showHvpg) {
-      const pH = fixed ? Math.round((avail - GAP) * fixed.pressure[1] / (fixed.pressure[1] + fixed.hvpg[1])) : Math.round((avail - GAP) * 0.64);
+      const pH = Math.round((avail - GAP) * (fixed ? 0.66 : 0.64));   // (a slide's pressure lane holds five lines, the HVPG lane one: two thirds of the room)
       lanes.push({ key: 'pressure', top: T, bot: T + pH }, { key: 'hvpg', top: T + pH + GAP, bot: T + avail });
     } else lanes.push({ key: traces.length ? 'pressure' : 'hvpg', top: T, bot: T + avail });
 
@@ -347,7 +347,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
         lo = Math.max(lane.key === 'pressure' && mn >= 0 ? 0 : -Infinity, mn - pad); hi = mx + pad;
       }
       [lo, hi] = fixed ? fixed[lane.key] : ease(lane.key, lo, hi);
-      const tick = fixed ? (hi > 30 ? 20 : hi > 12 ? 10 : 5) : nice(hi - lo, (bot - top) > 120 ? 4 : 2);
+      const tick = fixed ? [5, 10, 20, 25, 50].find((t) => hi % t === 0 && (bot - top) * t / hi >= 15) ?? hi : nice(hi - lo, (bot - top) > 120 ? 4 : 2);   // (a slide's ticks end on its top line, never closer than 15 px)
       const Y = (v) => bot - ((v - lo) / Math.max(1e-6, hi - lo)) * (bot - top);
       lane.Y = Y;
 
@@ -406,7 +406,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           if (s.lo) band(ctx, s, X, Y, c, 0.16);
           line(ctx, s, X, Y, c, t.id === 'CONF' ? 2 : 1.75, plotW);
           if (range === 'days' && s.x.length < 60) dots(ctx, s, X, Y, c, surface);
-          const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : t.day?.(frame.metrics)) ?? recent(s); ends.push({ y: Y(e), v: e, label: t.abbr, c, lane });   // (the live readings, so wedged − free is the header's HVPG)
+          const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : t.day?.(frame.metrics)) ?? recent(s); ends.push({ y: Y(range !== 'days' && slide && Number.isFinite(recent(s)) ? recent(s) : e), v: e, label: t.abbr, c, lane });   // (on a slide, written at the line's end, its steady number; the live readings, so wedged − free is the header's HVPG)
         }
       }
       ctx.restore();
