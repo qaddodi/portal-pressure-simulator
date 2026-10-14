@@ -319,7 +319,9 @@ export function createAbdomen({ onAction }) {
   const numEl = h('span', {}, '—'), gradeEl = h('span', { class: 'ab-grade' }), trendEl = h('div', { class: 'ab-trend' });
   const bigEl = h('b', {}, numEl, h('small', {}, 'L'));   // (the volume, coloured by its grade like the Ascites tile)
   const bellyFill = h('i', { class: 'ab-belly-fill' });
-  const belly = h('div', { class: 'ab-belly', 'aria-hidden': 'true' }, bellyFill);
+  // The litres sit inside the belly and the grade under it, so the reading and the picture stay one object.
+  const belly = h('div', { class: 'ab-belly' }, bellyFill, h('div', { class: 'ab-big' }, bigEl));
+  const gauge = h('div', { class: 'ab-gauge' }, belly, gradeEl);
   // Abdominal pressure as one slim bar, 0–30 mmHg, ticked at 12 (IAH) and 20 (ACS).
   const iapFill = h('i', { class: 'ab-iap-fill' }), iapNum = h('b'), iapWord = h('span', { class: 'ab-w' });
   const iapBar = h('div', { class: 'ab-iap-bar', role: 'img', title: '12 mmHg: intra-abdominal hypertension · 20 mmHg: compartment syndrome' }, iapFill,
@@ -330,7 +332,7 @@ export function createAbdomen({ onAction }) {
   const why = h('div', { class: 'ab-why' });
   const tiles = h('div', { class: 'ab-tiles' }, saagEl, tpEl, albEl, why);
   const read = h('div', { class: 'ab-read' },
-    h('div', { class: 'ab-vol' }, h('div', { class: 'ab-vol-l' }, h('div', { class: 'ab-big' }, bigEl, gradeEl), trendEl), belly),
+    h('div', { class: 'ab-vol' }, h('div', { class: 'ab-vol-l' }, trendEl), gauge),
     h('div', { class: 'ab-iap' }, h('div', { class: 'ab-kv' }, h('span', {}, 'Abdominal pressure'), h('span', { class: 'ab-v' }, iapNum, iapWord)), iapBar),
     tiles);
   const ctl = h('div', { class: 'ab-ctl' },

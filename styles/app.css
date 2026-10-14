@@ -2181,7 +2181,7 @@ button.finding { cursor: pointer; }
 .pz-tool .ab-main { display: block; }
 /* The card's own section gap between the readout, the pressure bar and the lab tiles, the same as above the tiles below. */
 .pz-tool .ab-read { gap: var(--pz-gap, 10px); }
-.pz-tool .ab-belly { width: clamp(68px, calc(10 * var(--pzh)), 120px); height: clamp(68px, calc(10 * var(--pzh)), 120px); }
+.pz-tool .ab-belly { width: clamp(72px, calc(10 * var(--pzh)), 120px); height: clamp(72px, calc(10 * var(--pzh)), 120px); }
 .pz-tool .ab-big > b { font-size: var(--s-big); }
 /* (On the slide the readout's words and lab tiles use the card's type scale, so they step down with the other blocks.) */
 .pz-tool :is(.ab-grade, .ab-trend, .ab-why, .ab-kv, .ab-big > b small) { font-size: var(--fs-12); }
@@ -4241,7 +4241,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab-grade[data-sev="caution"]::before { background: var(--caution); }
 .ab-grade[data-sev="danger"]::before { background: var(--danger); }
 .ab-trend { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
-.ab-belly { position: relative; flex: none; width: 40px; height: 40px; border-radius: 50% 50% 44% 44%; border: 2px solid color-mix(in srgb, var(--text-3) 45%, transparent); overflow: hidden; background: var(--surface); }
+.ab-gauge { display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; gap: 4px; min-height: 0; }
+.ab-belly > .ab-big { position: relative; z-index: 1; display: grid; place-items: center; height: 100%; }
+.ab-belly > .ab-big > b { font-size: clamp(10px, 24cqi, 40px) !important; line-height: 1; }
+.ab-belly > .ab-big > b small { margin-left: .15em !important; font-size: .5em !important; }
+.ab-belly { position: relative; flex: none; width: 64px; height: 64px; container-type: inline-size; border-radius: 50% 50% 44% 44%; border: 2px solid color-mix(in srgb, var(--text-3) 45%, transparent); overflow: hidden; background: var(--surface); }
 .ab-belly-fill { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--ascites) 55%, transparent), color-mix(in srgb, var(--ascites) 90%, transparent)); transition: height .6s var(--ease); }
 .ab-iap { display: grid; gap: 6px; }
 .ab-kv { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; }
@@ -4299,7 +4303,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   --ab-big: clamp(28px, min(7.5cqh, 8cqw), 52px); --ab-row: clamp(42px, 9cqh, 58px); --ab-rg: clamp(10px, 2.6cqh, 20px); --ab-g: clamp(12px, 3cqh, 24px);
   --ab-sb-h: clamp(34px, 6.5cqh, 44px); --fs-12: clamp(12px, min(2.6cqh, 3.4cqw), 15px); --fs-14: clamp(14px, min(3cqh, 3.9cqw), 17px);
 }
-.instrument-workspace.float-ui .ab-belly { width: clamp(40px, min(15cqh, 22cqw), 104px); height: clamp(40px, min(15cqh, 22cqw), 104px); }
+.instrument-workspace.float-ui .ab-belly { width: clamp(64px, min(15cqh, 22cqw), 104px); height: clamp(64px, min(15cqh, 22cqw), 104px); }
 .instrument-workspace.float-ui .ab :is(.ab-grade, .ab-trend, .ab-why) { font-size: var(--fs-14); }
 .instrument-workspace.float-ui .ab-tile { padding: clamp(6px, 1.6cqh, 12px) clamp(10px, 2cqh, 14px) clamp(7px, 1.7cqh, 13px); }
 .instrument-workspace.float-ui .ab-tile dd { font-size: clamp(17px, min(4.4cqh, 5cqw), 28px); }
@@ -4742,10 +4746,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* Abdomen: "7.5 L" and "● Grade 3" over the belly, drawn large. */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab, .ab-main) { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-read { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 6px; align-items: center; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol-l { grid-area: 1 / 1; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol-l { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-gauge { grid-area: 1 / 1; height: 100%; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-big { justify-content: space-between; flex-wrap: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly { grid-area: 2 / 1; justify-self: center; width: calc(min(46cqi, calc(16 * var(--pzh))) * var(--pz-fit, 1)); height: auto; aspect-ratio: 1; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly { height: 100%; width: auto; max-height: min(46cqi, calc(16 * var(--pzh))); aspect-ratio: 1; }   /* (sized by the card's own room, never by --pz-fit, so it never jumps smaller after the fit) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab-trend, .ab-iap, .ab-tiles) { display: none; }
 /* (The beat-by-beat trace's Smooth switch is the Explore pane's, not a slide's.) */
 .pz-tool .pt-smooth { display: none; }
@@ -4776,7 +4781,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box { min-height: 0; height: calc(128px + var(--dop-free, 0px)); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { width: min(56cqi, 150px); }
-.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { width: min(30cqi, 96px); }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { max-height: min(30cqi, 96px); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 168px; }
 /* (A card with Show/Hide keeps its title centred like every other card: the pill sits at the right end, the same room kept at
    the left, so the title is centred on the card.) */

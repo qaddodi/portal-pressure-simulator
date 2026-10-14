@@ -29,7 +29,7 @@ import { createDoppler } from './doppler.js?v=499b8ffea0';
 import { createFibroScan } from './fibroscan.js?v=9e406d9c40';
 import { createPressureTime } from './pressure-time.js?v=8a6075778b';
 import { createFlowTime } from './flow-time.js?v=109a17e443';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=1dcf717f26';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=8a554527c6';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('presenter-tools');
 
