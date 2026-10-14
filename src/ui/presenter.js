@@ -349,7 +349,7 @@ const fitNow = (c) => {
     const m = svg.getScreenCTM?.(), k = m && m.a ? 1 / m.a : 0, box = svg.getBoundingClientRect();
     if (!k || !box.width) return;
     // (A chart in a data card reads the card's own chart sizes, --ch-<role>, where it sets them: a ladder's words at the tiles' small size.)
-    const pr = document.createElement('span'), host = svg.closest('.pz-data') || svg.closest('.pz') || document.body;
+    const pr = document.createElement('span'), host = svg.closest('.pz-data, .pz-cell') || svg.closest('.pz') || document.body;
     pr.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
     host.append(pr);
     const fs = {};
@@ -573,7 +573,7 @@ function bigLadder() {
     // what the lettering leaves, so the words keep their size and only the plot gets shorter.)
     const own = box && !cell && el.matches(LADDER_FILL);
     // (A ladder card in a narrow column, a tablet's, packs its rows under the plot closer, so the plot keeps its height.)
-    const tight = own && box.width < 420;
+    const tight = (own && box.width < 420) || !!cell;   // (and the six site ladders, so a big screen's cells keep a plot)
     if (tight) ph = 1.35 * c;
     const g1 = tight ? 9 : 13, g2 = tight ? 4 : 12, g3 = tight ? 6 : 10;
     const rows = (ph / 2 + g1) + (ph + g2) + (ph / 2 + g3 + 0.75 * c) + 0.25 * c + 6;
@@ -582,7 +582,8 @@ function bigLadder() {
     if (cell || own) {
       PH = W * box.height / box.width - yTop - rows - (nameRows > 1 ? 1.15 * c : 0);
       // (Too short for a plot at this text size: the cell shows the strip instead, for the rest of the slide.)
-      if (cell && PH < 60) { cell.classList.add('strip'); PH = 60; }
+      // (All six or none, so the grid keeps its two rows; a box not laid out yet decides nothing.)
+      if (cell && box.height > 0 && PH < 48) { for (const x of cell.parentElement.children) x.classList.toggle('strip', x.classList.contains('pz-cell')); PH = 48; }
       if (own) PH = Math.max(12, PH);
     } else PH = 198;
     const yBot = yTop + PH;
