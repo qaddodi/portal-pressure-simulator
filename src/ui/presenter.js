@@ -22,7 +22,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e7450bd6af';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=258d41dbc8';
-import { createTools } from './presenter-tools.js?v=27f73d5243';
+import { createTools } from './presenter-tools.js?v=98a7b1ad09';
 import { openHandout } from './handout.js?v=680b9bd894';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=20ffefba17';
@@ -1568,8 +1568,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const GHOST = { fibroscan: ['lsm', 'kPa', 1], doppler: ['pvVel', 'cm/s', 0] };
   function toolGhost(s, i) {
     const g = GHOST[s.tool.kind];
-    if (s.tiles?.includes(g[0])) return null;   // (a tile already gives the change and where it came from)
     if (!g || (s.tool.kind === 'doppler' && (s.tool.vessel || 'PV_TRUNK') !== 'PV_TRUNK')) return null;
+    if (s.tiles?.includes(g[0])) return null;   // (a tile already gives the change and where it came from)
     const t = s.tool.delta != null ? { ...s, delta: s.tool.delta } : s, d = deltaOf(t, i), r = refOf(t, i);
     if (r?.[g[0]] == null) return null;
     // (The earlier reading only: the instrument's live reading jitters, so a computed change could disagree with it.)
@@ -1644,6 +1644,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.toggleAttribute('data-sin-tiles', sinTiles(s));
       data.classList.toggle('has-tool', !!s.tool);
       data.classList.toggle('tool-only', !!s.tool && !s.data);
+      data.classList.toggle('pz-beside', s.tool?.kind === 'fibroscan' && !!s.data && tileKeys(s).length > 0);
+      data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: the tiles stacked beside a picture-only instrument; the Doppler, scope, abdomen, wall and charts carry their own readings across the full width, so their tiles stay in a row under them)
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
       data.dataset.tool = ui.tools.sig(s.tool);
       ui.dhT.textContent = cardTitle(s);
@@ -1864,10 +1866,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The height is summed from the children's own boxes (a slide-up does not change a box's height), never read from
   // scrollHeight: WebKit keeps an entry shift's overflow there after the shift has eased away, so the words fitted
   // once at their size and then, on the next layout, shrank. (So a card is judged by where its contents come to rest.)
+  const RAIL = '.pz:not(.stack):not(.low) .pz-data.pz-beside';   // (styles/app.css: the tiles stacked beside the instrument)
   function overflowOf(el) {
     const cs = getComputedStyle(el), z = el.offsetHeight ? el.getBoundingClientRect().height / el.offsetHeight : 1;
     let used = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0), n = 0;
+    // (An instrument with its tiles beside it shares one row with them: the row is counted once, at its taller side.)
+    const rail = el.matches(RAIL), side = rail && el.querySelector(':scope > .pz-tiles');
     for (const c of el.children) {
+      if (c === side) continue;
       const s = getComputedStyle(c);
       if (s.display === 'none' || s.position === 'absolute' || s.position === 'fixed') continue;
       if (s.maxHeight === '0px') continue;   // (a folded part, a phone's closed tool: its hidden contents are not overflow)
@@ -1875,7 +1881,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A part with a height cap clips by design, and mid-fold its clipped contents are not overflow either: counting them
       // shrank the card while a phone's tool folded, and the shrunk fit then stuck.)
       const clip = s.maxHeight !== 'none' ? 0 : Math.max(0, c.scrollHeight - c.clientHeight);
-      used += c.getBoundingClientRect().height / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
+      used += Math.max(c.getBoundingClientRect().height, side && c.classList.contains('pz-tool') ? side.getBoundingClientRect().height : 0) / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
       n++;
     }
     used += (parseFloat(cs.rowGap) || 0) * Math.max(0, n - 1);

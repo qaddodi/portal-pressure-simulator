@@ -13,7 +13,9 @@ const hit = (a, o) => a.l < o.r && a.r > o.l && a.t < o.b && a.b > o.t;
 // fig, obstacles: rects { l, t, r, b } in one frame. Returns { bl, br, tl, tr }: the top-left point of the free box
 // of size w × h nearest each corner, or null. A corner that no card clears by moving up or down is tried again beside
 // each card, further along the same edge (a phone held sideways: the strip of figure between the words' pane and the data card).
-export function freeSpots(fig, obs, w, h, { gap = 10, inset = 12 } = {}) {
+// avoid(box): true for a spot the credit should not take though no card covers it (over an organ's art); such a spot is passed
+// over like a covered one.
+export function freeSpots(fig, obs, w, h, { gap = 10, inset = 12, avoid = null } = {}) {
   const out = {}, H = fig.b - fig.t;
   for (const c of CORNERS) {
     const left = c[1] === 'l', up = c[0] === 'b', x0 = left ? fig.l + inset : fig.r - inset - w;
@@ -26,8 +28,8 @@ export function freeSpots(fig, obs, w, h, { gap = 10, inset = 12 } = {}) {
         if (up ? y < fig.t + H * 0.45 - h : y + h > fig.t + H * 0.55 + h) break;
         const box = { l: x - gap, t: y - gap, r: x + w + gap, b: y + h + gap };
         const o = obs.filter((q) => hit(box, q));
-        if (!o.length) { spot = { x, y }; break; }
-        y = up ? Math.min(...o.map((q) => q.t)) - gap - h : Math.max(...o.map((q) => q.b)) + gap;
+        if (!o.length && !avoid?.({ l: x, t: y, r: x + w, b: y + h })) { spot = { x, y }; break; }
+        y = !o.length ? (up ? y - h - gap : y + h + gap) : up ? Math.min(...o.map((q) => q.t)) - gap - h : Math.max(...o.map((q) => q.b)) + gap;
       }
       if (spot && spot.y >= fig.t && spot.y + h <= fig.b) { out[c] = spot; break; }
     }
@@ -68,6 +70,28 @@ function labelRects(wr, wrap) {
     out.push({ l: Math.floor((l - wr.left - 2) / GRID) * GRID, t: Math.floor((t - wr.top - 2) / GRID) * GRID, r: Math.ceil((r - wr.left + 2) / GRID) * GRID, b: Math.ceil((b - wr.top + 2) / GRID) * GRID, chrome: true });
   }
   return out;
+}
+
+// A test for spots over an organ's drawing (wrap px): the credit sits on bare background where it can, never on the liver or
+// another organ (Mohammad, 14 Oct). Checks a box's corners, edges' middles and centre against each organ shape it overlaps.
+function organTest(wr) {
+  const shapes = [];
+  for (const el of document.querySelectorAll('g.organ :is(path, circle, ellipse, rect, polygon)')) {
+    const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
+    if (!m || !r.width || getComputedStyle(el).visibility === 'hidden') continue;
+    shapes.push({ el, inv: m.inverse(), l: r.left - wr.left, t: r.top - wr.top, r: r.right - wr.left, b: r.bottom - wr.top });
+  }
+  return (box) => {
+    const xs = [box.l, (box.l + box.r) / 2, box.r], ys = [box.t, (box.t + box.b) / 2, box.b];
+    for (const q of shapes) {
+      if (!hit(box, q)) continue;
+      for (const x of xs) for (const y of ys) {
+        const p = new DOMPoint(wr.left + x, wr.top + y).matrixTransform(q.inv);
+        if (q.el.isPointInFill(p) || q.el.isPointInStroke(p)) return true;
+      }
+    }
+    return false;
+  };
 }
 
 export function createCreditPlacer(credit) {
@@ -144,7 +168,9 @@ export function createCreditPlacer(credit) {
     }
     changedAt = 0;
     const opt = { inset: wr.width < 768 ? 12 : 24 };
-    let spots = freeSpots(fig, obs, w, h, opt), tight = false;
+    // (Clear of the organs where the figure allows; else as before, clear of the cards only, so the credit stays in view.)
+    let spots = freeSpots(fig, obs, w, h, { ...opt, avoid: organTest(wr) }), tight = false;
+    if (!CORNERS.some((k) => spots[k])) spots = freeSpots(fig, obs, w, h, opt);
     for (const k of CORNERS) if (!spots[k]) blocked[k] = now;
     let c = pickCorner(spots, cur, blocked);
     if (!c) {

@@ -123,3 +123,12 @@ test('credit is never animated: no fade, glide or scale ease', () => {
   assert.match(css, /\.stage-credit \{ transition: none; \}/);
   assert.doesNotMatch(css, /\.stage-credit \{ transition: opacity/);
 });
+
+test('a spot over an organ is passed over like a covered one; the right corners stay free when only the left is drawn on', () => {
+  const fig = { l: 0, t: 0, r: 1000, b: 800 };
+  const s = freeSpots(fig, [], 200, 20, { avoid: (q) => q.l < 500 });
+  assert.equal(s.bl, null);
+  assert.equal(s.tl, null);
+  assert.ok(s.br && s.br.x >= 500);
+  assert.equal(pickCorner(s, null), 'br');
+});

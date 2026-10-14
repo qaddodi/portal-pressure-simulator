@@ -38,8 +38,28 @@ test('a ladder card shows no HVPG or PPG tiles: its brackets give them, so no nu
   for (const line of decks.split('\n').filter((l) => l.includes("data: 'ladder'"))) assert.doesNotMatch(line, /tiles: \[[^\]]*'(hvpg|ppg)'/, line.slice(0, 60));
 });
 
-test('compact tiles on Mac and iPad landscape: the status and change sit small beside the number', () => {
-  assert.match(css, /\.pz-tiles:not\(\[data-n="3"\]\) \.pzt-r \{ grid-area: 2 \/ 2 \/ 3 \/ 3;/);
-  assert.match(css, /\.pz-tiles:not\(\[data-n="3"\]\) \.pzt-d \{ grid-area: 3 \/ 2 \/ 4 \/ 3;/);
-  assert.ok(css.includes('.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles .pzt-v { font-size: min(var(--s-val), 26cqi); }'));
+test('one tile design on Mac and iPad landscape: centred lines, two sizes (the number and one small size)', () => {
+  assert.ok(css.includes('.pz:not(.stack) .pz-data .pz-tiles .pz-tile { display: flex; flex-direction: column; align-items: center; justify-content: center;'));
+  assert.ok(css.includes('.pz:not(.stack) .pz-data .pz-tiles .pzt-v { font-size: min(var(--pz-num), 26cqi); }'));
+  for (const sel of ['.pzt-k { font-size: var(--pz-sm);', '.pzt-vu small { font-size: var(--pz-sm); }', ':is(.pzt-r, .pzt-d) { font-size: var(--pz-sm);']) assert.ok(css.includes(`.pz:not(.stack) .pz-data .pz-tiles ${sel}`), sel);
+  assert.doesNotMatch(css, /\.pz-tiles:not\(\[data-n="3"\]\) \.pzt-r \{ grid-area/, 'the old two-column compact tile is gone');
+});
+
+test('an instrument with tiles: the instrument on the left, the tiles stacked beside it, counted once by the card fit', () => {
+  const B = '.pz:not(.stack):not(.low) .pz-data.pz-beside';
+  assert.ok(css.includes(`${B} { display: grid; grid-template-columns: minmax(0, 1fr) max(150px, 31%);`));
+  assert.ok(css.includes(`${B} > .pz-tool { grid-column: 1 / 2; grid-row: 2;`));
+  assert.ok(css.includes(`${B} > .pz-tiles:not([data-n="0"]) { grid-column: 2 / 3; grid-row: 2;`));
+  assert.doesNotMatch(css, /pz-data[^{]*:has\(> \.pz-tiles/, 'no :has() on the data card (it made every layout of the page slow)');
+  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  assert.match(pres, /data\.classList\.toggle\('pz-beside', s\.tool\?\.kind === 'fibroscan' && !!s\.data && tileKeys\(s\)\.length > 0\)/);
+  assert.match(pres, /if \(c === side\) continue;/);
+});
+
+test('the FibroScan draws its words at the card\'s small size: reading top left, LIVE top right, units on the last ticks', () => {
+  const src = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
+  assert.match(src, /getComputedStyle\(cv\)\.fontSize/);
+  assert.match(src, /ctx\.fillText\(live, w - pad, ly\)/);
+  assert.match(src, /'90 mm'/); assert.match(src, /'80 ms'/);
+  assert.ok(css.includes('.pz-tool .fibroscan-box > canvas { font-size: var(--pz-sm, 14px); }'));
 });
