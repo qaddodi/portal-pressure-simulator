@@ -319,6 +319,11 @@
   --text: #221E18; --text-2: #4A443A; --text-3: #5E574B;
   --brand-bg: #3A3228; --accent: #3652B8; --accent-ink: #2A4399; --accent-soft: rgba(54, 82, 184, .11); --accent-line: rgba(54, 82, 184, .32);
   --stage-grid: rgba(100, 72, 36, .06);
+  /* status inks deepened for cream (the light theme's are tuned for white); the figure's label halo matches the paper */
+  --ok: #24724F; --caution: #A2700C; --danger: #B03C28; --critical: #7E1C12;
+  --label-halo: rgba(236, 228, 214, .9);
+  /* data card tiles and the FibroScan panel share one warm cream with a warm edge */
+  --tile-bg: rgba(251, 247, 240, .72); --tile-edge: rgba(110, 82, 46, .12); --inst-panel: #F8F2E8;
   color-scheme: light;
 }
 

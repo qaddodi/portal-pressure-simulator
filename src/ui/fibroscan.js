@@ -17,7 +17,7 @@ let theme = null, themeAt = 0;
 function colors(now) {
   if (!theme || now - themeAt > 1000) {
     const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
-    theme = { panel: g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan') };
+    theme = { panel: g('--inst-panel') || g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan') };
     themeAt = now;
   }
   return theme;
