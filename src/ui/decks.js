@@ -32,7 +32,7 @@
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
 //                            (on a phone it folds away behind a Show button; open: true keeps it open there and folds the tiles instead)
 //   lens                     the vessel colours on that slide: 'velocity', 'flow', 'direction', 'heat' (congestion), 'drop'
-//                            (pressure drop) or 'delta' (change from healthy), with a key under the line; pressure when absent
+//                            (pressure drop), 'delta' (change from healthy) or 'origin' (blood origin), with a key under the line; pressure when absent
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
@@ -47,7 +47,8 @@
 //                            compares it with that row instead, its note: the text column's words, or an array of them), 'scale' (scale), 'quadrant'
 //                            (SAAG × protein) or 'walls'; of: the rows, slide ids or { id | preset, name, title, note, blank: [columns] }
 //   compare                  [{ label, params, own? }]: buttons that switch the live model between treatments in real
-//                            time (params: each option's full set of the switched keys; own: the slide's own state)
+//                            time (params: each option's full set of the switched keys; own: the slide's own state);
+//                            or [{ label, lens, own? }]: buttons that switch the figure's lens, the model untouched
 //   quiz                     quiz mode (Q) asks this before the answer shows (the camera waits at the whole figure)
 //   caveat                   one short sentence in small print under the line, where the model differs from patients
 //   notes, ask               speaker notes, and [question, expected answer] for the room
@@ -60,9 +61,9 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=caea65cdd3';
-import { SITES } from './decks/sites.js?v=3b196bdf33';
-import { HVPG } from './decks/hvpg.js?v=341aceb3c4';
+import { CIRCULATION } from './decks/circulation.js?v=5677c6c958';
+import { SITES } from './decks/sites.js?v=07680d382e';
+import { HVPG } from './decks/hvpg.js?v=e4c3ab381c';
 import { ASCITES } from './decks/ascites.js?v=976bf94a57';
 import { VARICES } from './decks/varices.js?v=971ac5c692';
 import { TREATMENT } from './decks/treatment.js?v=528e3fa858';
@@ -72,13 +73,13 @@ import { LOBULE } from './decks/lobule.js?v=46cadf140b';
 import { SHUNTS } from './decks/shunts.js?v=2d7fedbc1c';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=bfcc6f9ccf';
 import { TAP } from './decks/tap.js?v=04459c913c';
-import { CIRCUIT } from './decks/circuit.js?v=7ce4853718';
-import { DOPPLER } from './decks/doppler.js?v=6939fe97c1';
+import { CIRCUIT } from './decks/circuit.js?v=93e4262ecf';
+import { DOPPLER } from './decks/doppler.js?v=40a6d87877';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=2a0ee87f4e';
 import { PREHEPATIC } from './decks/prehepatic.js?v=7141aee27a';
 import { RIGHT_HEART } from './decks/right-heart.js?v=9da89bf67d';
 import { BLEED } from './decks/variceal-bleed.js?v=6c69d5144f';
-import { TWO_INFLOWS } from './decks/two-inflows.js?v=36d48e36e3';
+import { TWO_INFLOWS } from './decks/two-inflows.js?v=7fe9283935';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=184a1e2fb2';
 import { SPLEEN } from './decks/spleen.js?v=dae24cd0c3';
 import { NCPH } from './decks/ncph.js?v=8733bf3424';

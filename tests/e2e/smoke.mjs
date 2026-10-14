@@ -1485,7 +1485,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // The slides with a row of choices are read from the decks, not probed for on screen: a probe with a time limit
     // read a slow runner's late-arriving words as "no row", and a sweep of every slide costs minutes besides.
     const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
-    const found = ['circuit', 'recompensation', 'treatment', 'two-inflows'].flatMap((deck) =>
+    const found = ['circulation', 'circuit', 'recompensation', 'treatment', 'two-inflows'].flatMap((deck) =>
       withOverview(DECKS.find((d) => d.id === deck)).slides.flatMap((x, i) => (x.compare?.length ? [[deck, i + 1]] : [])));
     if (!found.length) throw new Error('no slide has a row of choices');
     for (const size of [{ width: 375, height: 667 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 844, height: 390 }, { width: 820, height: 1180 }]) {
@@ -1515,8 +1515,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const bad = [];
     for (const size of [{ width: 1440, height: 900 }, { width: 1180, height: 820 }, { width: 820, height: 1180 }]) {
       await page.setViewportSize(size);
-      for (const [deck, n] of [['circulation', 3], ['hvpg', 10], ['circulation', 11]]) {
-        if (size.width === 1440 && n === 3) await open(page, `?script=${deck}&slide=${n}`);
+      for (const [deck, n] of [['circulation', 4], ['hvpg', 10], ['circulation', 12]]) {
+        if (size.width === 1440 && n === 4) await open(page, `?script=${deck}&slide=${n}`);
         else await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, n - 1]);
         await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !document.querySelector('.pz-cover, .pz-load.on'), n, { timeout: 60000 });
         await page.waitForTimeout(3500);   // (longer than the old bar's idle fade)
@@ -1667,7 +1667,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
     for (const size of sizes) {
       if (size) await page.setViewportSize(size);
-      for (const [deck, n] of [['circulation', 5], ['circulation', 6], ['two-inflows', 3], ['lobule', 7]]) {
+      for (const [deck, n] of [['circulation', 6], ['circulation', 7], ['two-inflows', 3], ['lobule', 7]]) {
         await open(page, `?script=${deck}&slide=${n}`);
         await page.waitForFunction(() => [...document.querySelectorAll('.lz.on:not(.lz-cam):not(.lz-sin) .lz-lab, .sv-region')].filter((e) => !e.hidden && e.offsetParent).length >= 2);
         // Settled: the labels hold still across two looks a moment apart.
