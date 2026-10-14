@@ -2021,7 +2021,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         // The rest of the bar: the info line and the play row's parts are one line each, stay inside the bar, never overlap, and the buttons are touch-sized.
         const bar = await page.evaluate(() => {
           const dock = document.querySelector('#vdock').getBoundingClientRect();
-          const parts = ['.narrator .nr-t', '.narrator .nr-why', '.tl-latest', '.tl-split', '.tl-track', '.tl-time', '.tl-ff', '.tl-hist', '.tl-pin'].map((q) => [q, document.querySelector(q)])
+          const parts = ['.narrator .nr-t', '.narrator .nr-why', '.tl-latest', '.tl-split', '.tl-time', '.tl-ff', '.tl-hist', '.tl-pin'].map((q) => [q, document.querySelector(q)])
             .filter(([, e]) => e && e.offsetWidth && !e.closest('[hidden]') && getComputedStyle(e).opacity !== '0')
             .map(([q, e]) => { const b = e.getBoundingClientRect(); return { q, l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width, h: b.height, wrap: q === '.narrator .nr-t' && b.height > 26 }; });
           return { dock: { l: dock.left, r: dock.right, t: dock.top, b: dock.bottom }, parts };
