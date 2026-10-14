@@ -329,6 +329,7 @@ export function createDoppler({ onProbe }) {
   let settleAt = 0;     // when the signal last fitted the current scale
   let tDisp = null;     // the display clock (model seconds)
   let wallLast = 0;
+  let ovLast = '', ovAt = 0, ovOn = false, ovTop = 26;   // the report in the top strip (see draw)
   let img = null, off = null, octx = null;
   let floor = null, noiseAt = 0, nx = 0, ny = 0;
   let ringKey = '', lastCol = null, jit = 0, lineGain = 0, spk = null;
@@ -474,18 +475,22 @@ export function createDoppler({ onProbe }) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = cssVar('--black'); ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const padL = 12, padR = 46, padT = 26, padB = 20;
+    // On a slide's data card the report sits in the top strip (CSS sets --dop-ov on the box): the strip is as tall as the
+    // report, and the vessel and settings move to the bottom strip under the second ticks. Read again when the size changes.
+    const ovKey = `${w}x${hh}`, tOv = performance.now();
+    if (ovKey !== ovLast || tOv - ovAt > 500) { ovLast = ovKey; ovAt = tOv; ovOn = getComputedStyle(cv).getPropertyValue('--dop-ov').trim() === '1'; ovTop = ovOn ? Math.ceil(report.offsetHeight) + 4 : 26; }
+    const padL = 12, padR = 46, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
     if (w < 60 || hh < 60) return;
     const label = probe ? EDGES[EI[probe]].label : '';
     ctx.font = FONT(600, 12); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(label, padL, 13);
+    ctx.fillText(label, padL, yLab);
     const lw = ctx.measureText(label).width;
     ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
     // (The settings drop from the end, sweep first, where the strip is too narrow for all of them beside the units.)
     const parts = [mode === 'spectrum' ? 'PW' : 'PW + CD', 'θ 60°', 'SV 3 mm', `${sweepSeconds} s`], room = w - padR - (padL + lw + 12) - 6;
     while (parts.length > 1 && ctx.measureText(parts.join('  ·  ')).width > room) parts.pop();
-    if (ctx.measureText(parts.join('  ·  ')).width <= room) ctx.fillText(parts.join('  ·  '), padL + lw + 12, 13);
+    if (ctx.measureText(parts.join('  ·  ')).width <= room) ctx.fillText(parts.join('  ·  '), padL + lw + 12, yLab);
     if (buf.length < 2) {
       tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = cssAlpha('--white', .55);

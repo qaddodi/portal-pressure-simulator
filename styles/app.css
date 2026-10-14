@@ -4689,7 +4689,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { display: contents; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { grid-area: 1 / 1; margin: 0; flex-wrap: nowrap; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { grid-area: 1 / 2; justify-self: end; gap: .45em; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-box { grid-area: 2 / 1 / 3 / -1; align-self: stretch; width: 100%; height: auto; min-height: calc(58cqi * var(--pz-fit, 1)); aspect-ratio: auto; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-box { grid-area: 2 / 1 / 3 / -1; align-self: stretch; width: 100%; height: auto; min-height: calc((58cqi + var(--dop-free, 0px)) * var(--pz-fit, 1)); aspect-ratio: auto; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] :is(.dop-range, .dop-stats, .dop-note) { display: none; }
 /* (The waveform's name, "Phasic", "Reversed S", is the trace's caption, under it at the small size.) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { display: contents; }
@@ -4755,7 +4755,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack .pz-data.has-tool { --pz-num: var(--pz-pnum); }
 .pz.stack .pz-data.has-tool > .pz-tool { --bs: var(--pz-psm); container-type: inline-size; font-size: var(--bs); }
 .pz.stack .pz-data.has-tool > .pz-tool > .pz-ghost { display: none; }
-.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box { min-height: 0; height: 128px; }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box { min-height: 0; height: calc(128px + var(--dop-free, 0px)); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { width: min(56cqi, 150px); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { width: min(30cqi, 96px); }
@@ -4767,7 +4767,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* (An instrument alone, or over a ladder, is the same screen at the card's full width.) */
 .pz:not(.stack):not(.low) .pz-data.has-tool > .pz-tool { --bs: var(--pz-sm); container-type: inline-size; }
 .pz:not(.stack):not(.low) .pz-data.has-tool:not(.pz-beside) > .pz-tool > .pz-ghost { display: none; }
-.pz:not(.stack):not(.low) .pz-data.has-tool:not(.pz-beside) .pz-tool[data-kind="doppler"] .dop-box { min-height: calc(40cqi * var(--pz-fit, 1) * var(--pz-dk, 1)); }
+.pz:not(.stack):not(.low) .pz-data.has-tool:not(.pz-beside) .pz-tool[data-kind="doppler"] .dop-box { min-height: calc((40cqi * var(--pz-dk, 1) + var(--dop-free, 0px)) * var(--pz-fit, 1)); }
 /* (A Doppler over a ladder keeps its words' size too: the card's fit shortens its trace, the ladder zooms as before.) */
 .pz:not(.stack):not(.low) .pz-data.col.has-tool:not(.pz-beside) > .pz-tool[data-kind="doppler"] { zoom: var(--pz-z, 1); }
 /* (A card of tiles alone never zooms its words: they keep the card's two sizes on every slide. A ladder's card still zooms as a
@@ -4800,8 +4800,22 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack):not(.low) .pz-data.pz-beside[data-tn="1"] > .pz-tiles:not([data-n="0"]) { align-self: center; grid-auto-rows: auto; }   /* (one tile beside a picture: its own height, centred on it, not a tall empty box) */
 .pz:not(.stack):not(.low) .pz-data.pz-beside:not(.tiles-only):not(.has-tool) { grid-template-columns: minmax(0, 1fr) max(104px, 28%); }   /* (a ladder's tile column a little narrower: the ladder keeps its station names on one row) */
 .pz:not(.stack):not(.low) .pz-data.pz-beside:not(.tiles-only):not(.has-tool) .pz-tiles .pzt-k { white-space: normal; text-wrap: balance; }
-.pz:not(.stack):not(.low) .pz-data.has-tool:not(.tiles-only):not(.pz-beside) > .pz-tool[data-kind="doppler"] .dop-box { min-height: calc(34cqi * var(--pz-fit, 1)); }   /* (a Doppler over a ladder: its trace stays a trace) */
+.pz:not(.stack):not(.low) .pz-data.has-tool:not(.tiles-only):not(.pz-beside) > .pz-tool[data-kind="doppler"] .dop-box { min-height: calc((34cqi + var(--dop-free, 0px)) * var(--pz-fit, 1)); }   /* (a Doppler over a ladder: its trace stays a trace) */
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-grip { grid-area: auto; }   /* (placed on the grid, an absolute part takes its grid area as its box: the grip sat inside the tiles; auto puts it at the card's own edge) */
+/* (The reading, the flow's direction and the waveform's name sit in the monitor's top strip, as a scanner shows its
+   measurements: "28 cm/s  ● Hepatopetal · Phasic". The trace takes the rows they used to fill (--dop-free); doppler.js reads
+   --dop-ov and draws its own label and settings along the bottom strip instead.) */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] { --dop-free: calc(var(--pz-num) + 1.25 * var(--bs) + 12px); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-main { grid-template-rows: minmax(0, 1fr); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-box { --dop-ov: 1; grid-area: 1 / 1 / 2 / -1; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { grid-area: 1 / 1 / 2 / -1; align-self: start; position: relative; z-index: 1; display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 .6em; min-width: 0; padding: 8px 52px 0 12px; pointer-events: none; color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel { order: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel small { color: rgb(var(--white-rgb) / .6); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { order: 1; color: var(--white); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir:is([data-sev="danger"], [data-sev="critical"]) { color: color-mix(in srgb, var(--danger) 70%, var(--white)); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-pattern { order: 2; color: rgb(var(--white-rgb) / .8); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-pattern::before { content: '·'; margin-right: .45em; color: rgb(var(--white-rgb) / .6); }
 @container (max-width: 240px) { .pz-tool[data-kind="doppler"] .dop-mean { display: none; } }   /* (a narrow Doppler reads "cm/s": the word mean ran into its status) */
 @container (max-width: 240px) { :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { grid-area: 3 / 2; } }   /* (a narrow Doppler: its status under the trace, beside the pattern's name, so the reading keeps its line) */
 /* Three tiles in a narrow row (a tablet's card, a phone): one line each, never wrapped; a long name gives way to its short

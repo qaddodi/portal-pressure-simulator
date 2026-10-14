@@ -64,7 +64,10 @@ test('every instrument is one screen: a reading top left, its status top right, 
   assert.ok(css.includes(`${S}[data-kind="doppler"] .dop-report { display: contents; }`));
   assert.ok(css.includes(`${S}[data-kind="doppler"] :is(.dop-range, .dop-stats, .dop-note) { display: none; }`));
   assert.ok(css.includes(`${S}[data-kind="abdomen"] :is(.ab-trend, .ab-iap, .ab-tiles) { display: none; }`));
-  assert.match(css, /dop-box \{[^}]*min-height: calc\(58cqi \* var\(--pz-fit, 1\)\)/);
+  assert.match(css, /dop-box \{[^}]*min-height: calc\(\(58cqi \+ var\(--dop-free, 0px\)\) \* var\(--pz-fit, 1\)\)/);
+  // The reading, direction and waveform name sit in the monitor's top strip; the trace takes the rows they freed.
+  assert.ok(css.includes(`${S}[data-kind="doppler"] .dop-box { --dop-ov: 1; grid-area: 1 / 1 / 2 / -1; }`));
+  assert.match(css, /\[data-kind="doppler"\] \.dop-report \{ grid-area: 1 \/ 1 \/ 2 \/ -1; align-self: start;/);
   assert.ok(css.includes('.pz-tool .pt-smooth { display: none; }'));
 });
 
