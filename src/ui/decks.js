@@ -117,7 +117,8 @@ export function withOverview(d) {
   const open = { id: 'outline', visual: 'outline', outline, objectives: d.objectives || [], kicker: d.title, title: 'Outline and objectives',
     notes: 'Set out the plan of the talk and what the audience should be able to do by the end.',
     ...(keep ? Object.fromEntries(MODEL.filter((k) => first[k] !== undefined).map((k) => [k, first[k]])) : {}) };
-  const firstNow = keep ? Object.fromEntries(Object.entries(first).filter(([k]) => !MODEL.includes(k))) : first;
+  // A first slide that opens with a case keeps its patient too, so it loads that patient afresh behind the case card.
+  const firstNow = keep && !first.vignette ? Object.fromEntries(Object.entries(first).filter(([k]) => !MODEL.includes(k))) : first;
   // The closing quick check (checks: [[question, answer]]): over the last slide's patient, which it keeps.
   const check = d.checks?.length ? [{ id: 'check', visual: 'check', checks: d.checks, kicker: 'Quick check', title: 'Check what you remember',
     line: 'Answer each question in your head, then tap it to see the answer.' }] : [];

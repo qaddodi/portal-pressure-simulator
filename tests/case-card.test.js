@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { SITES } from '../src/ui/decks/sites.js';
+import { withOverview } from '../src/ui/decks.js';
 
 const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
@@ -18,7 +19,10 @@ test('every case in every deck sits on a slide with a preset and stays under 220
   let n = 0;
   for (const f of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
     for (const deck of Object.values(await import(new URL(f, dir)))) {
-      for (const s of deck?.slides || []) {
+      if (!deck?.slides) continue;
+      // As presented (after the outline slide): the case slide itself loads a patient (the presenter's
+      // changes()), so it is a new patient and the card shows, the deck's first slide included.
+      for (const s of withOverview(deck).slides) {
         if (!s.vignette) continue;
         n++;
         assert.ok(s.preset && s.vignette.length < 220, `${f} ${s.id}`);
