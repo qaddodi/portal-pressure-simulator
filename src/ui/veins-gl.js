@@ -442,7 +442,14 @@ void main() {
       }
     }
     if (sel && grp == 2) lum = min(lum * 1.12, vec3(1.0));
-    lum = mix(lum, min(lum * 1.18 + 0.04, vec3(1.0)), shov[ow]);   // the hovered vessel, a little brighter in its own hue
+    if (shov[ow] > 0.0) {
+      // The hovered vessel, a little brighter in its own hue, easing out toward each end that meets a vessel not lit with it
+      // (over a third of its length, at most 60), so the brighter lumen never stops in a hard line at the join.
+      vec4 he = T(sid[ow], 11);
+      float Lh = max(T(sid[ow], 5).z, 1.0), fl = min(0.35 * Lh, 60.0);
+      float hs = (he.x > 0.0 ? smoothstep(0.0, max(he.x, fl), sv[ow] * Lh) : 1.0) * (he.y > 0.0 ? smoothstep(0.0, max(he.y, fl), (1.0 - sv[ow]) * Lh) : 1.0);
+      lum = mix(lum, min(lum * 1.18 + 0.04, vec3(1.0)), shov[ow] * hs);
+    }
     c = over(vec4(lum, 1.0) * aL, c);
     c *= alpha * tierAlpha[ti];
     float gf = grp == 0 ? 1.0 - occl : grp == 1 ? netAlpha : 1.0;
