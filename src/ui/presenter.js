@@ -2013,6 +2013,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         // (A title only a little smaller (TK_SOFT) at the one card width, then the steps below; the column never widens.)
         below = title(1, TK_SOFT);
         if (!below) ladder();
+        // (Still too tall: the pair stays stacked at the one card width; only the data card's blocks and monitor scale down to fit.)
+        if (!below) { let lo = 0.4, hi = DK[DK.length - 1][0]; step(lo); if (title(DK[DK.length - 1][1], TK_SOFT)) { for (let n = 0; n < 6; n++) { const mid = (lo + hi) / 2; step(mid); if (title(DK[DK.length - 1][1], TK_SOFT)) lo = mid; else hi = mid; } step(lo); below = title(DK[DK.length - 1][1], TK_SOFT); } }
         if (!below) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ts.removeProperty('--pz-sw'); dd.style.removeProperty('--pz-cwr'); t = r(ui.text); dk = 1; }   // (a little slack once there: a number ticking never flips it)
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
