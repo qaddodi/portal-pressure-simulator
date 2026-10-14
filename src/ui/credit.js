@@ -77,7 +77,7 @@ export function pickCorner(spots, cur, blocked = {}) {
 const OBSTACLES = '.stage-blocker:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .pz-shade';   // (the FibroScan probe's body carries its reading; it counts as chrome below)
 const CHROME = '#topbar, #vdock, #zoomPill, .stage-clock, .pz-bar, .scan-probe:not(.off) .sp-body';   // (the FibroScan probe: its body carries the reading)
 
-// The figure's own labels (station values, organ captions): each one's text and pill, padded and snapped outward to a small
+// The figure's own labels (station values, organ captions) and measuring callouts: each one's text and pill, padded and snapped outward to a small
 // grid, so a label that jitters by a pixel as its number changes does not read as a move.
 const GRID = 8;
 function labelRects(wr, wrap) {
@@ -95,6 +95,15 @@ function labelRects(wr, wrap) {
     }
     if (r <= l) continue;
     out.push({ l: Math.floor((l - wr.left - 2) / GRID) * GRID, t: Math.floor((t - wr.top - 2) / GRID) * GRID, r: Math.ceil((r - wr.left + 2) / GRID) * GRID, b: Math.ceil((b - wr.top + 2) / GRID) * GRID, chrome: true });
+  }
+  // The measuring callouts (the catheter's WHVP and FHVP, the slide's site readings), likewise.
+  for (const el of document.querySelectorAll('.cath-labels .cath-label')) {
+    let o = 1;
+    for (let q = el; q && q !== wrap && o > 0.01; q = q.parentElement) o *= own(q);
+    if (o <= 0.01) continue;
+    const k = el.getBoundingClientRect();
+    if (k.width < 1 || k.height < 1) continue;
+    out.push({ l: Math.floor((k.left - wr.left - 2) / GRID) * GRID, t: Math.floor((k.top - wr.top - 2) / GRID) * GRID, r: Math.ceil((k.right - wr.left + 2) / GRID) * GRID, b: Math.ceil((k.bottom - wr.top + 2) / GRID) * GRID, chrome: true });
   }
   return out;
 }

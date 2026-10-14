@@ -540,11 +540,15 @@ function bigLadder() {
     // (The readings sit above their points, at the top of the plot.)
     yTop = 6 + 0.8 * l + 12.5 + 0.22 * l;
     // (A ladder in a cell of fixed height, the site ladders, gives its plot whatever height the lettering leaves.)
-    const rows = (ph / 2 + 13) + (ph + 12) + (ph / 2 + 10 + 0.75 * c) + 0.25 * c + 6;
     const cell = box && el.closest('.pz-panel.fill .pz-cell');
     // (A laptop's or tablet's ladder card gives the ladder a height (styles/app.css, shorter as the card fits): the plot takes
     // what the lettering leaves, so the words keep their size and only the plot gets shorter.)
     const own = box && !cell && el.matches(LADDER_FILL);
+    // (A ladder card in a narrow column, a tablet's, packs its rows under the plot closer, so the plot keeps its height.)
+    const tight = own && box.width < 420;
+    if (tight) ph = 1.35 * c;
+    const g1 = tight ? 9 : 13, g2 = tight ? 4 : 12, g3 = tight ? 6 : 10;
+    const rows = (ph / 2 + g1) + (ph + g2) + (ph / 2 + g3 + 0.75 * c) + 0.25 * c + 6;
     // (Its lettering's own height goes to the stylesheet, --lad-fixed, so the box is that plus the plot's share of the card.)
     if (own) el.style.setProperty('--lad-fixed', `${((yTop + rows + (nameRows > 1 ? 1.15 * c : 0)) * box.width / W / (parseFloat(getComputedStyle(el).zoom) || 1)).toFixed(1)}px`);   // (in the ladder's own px, before a zoom of the card's words)
     if (cell || own) {
@@ -554,8 +558,8 @@ function bigLadder() {
       if (own) PH = Math.max(12, PH);
     } else PH = 198;
     const yBot = yTop + PH;
-    hv.row = yBot + ph / 2 + 13; pp.row = hv.row + ph + 12;
-    nameY = [pp.row + ph / 2 + 10 + 0.75 * c]; nameY[1] = nameY[0] + (nameRows > 1 ? 1.15 * c : 0);
+    hv.row = yBot + ph / 2 + g1; pp.row = hv.row + ph + g2;
+    nameY = [pp.row + ph / 2 + g3 + 0.75 * c]; nameY[1] = nameY[0] + (nameRows > 1 ? 1.15 * c : 0);
     H = nameY[1] + 0.25 * c + 6;
     el.setAttribute('viewBox', `0 0 ${W} ${H.toFixed(1)}`);
     for (const g of grid) { g.line.setAttribute('x1', gx.toFixed(1)); g.line.setAttribute('x2', W - 10); g.txt.setAttribute('x', tx.toFixed(1)); fsOf(g.txt, c); }
