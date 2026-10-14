@@ -15,7 +15,7 @@ export const RECOMPENSATION = {
   checks: [
     ['Name the three events that mark decompensation.', 'Ascites, variceal bleeding and hepatic encephalopathy.'],
     ['What lowered the portal pressure most in the patient?', 'Removing the cause: stopping alcohol.'],
-    ['When has a patient recompensated under Baveno VIII?', 'The cause is removed, there is no ascites, encephalopathy or variceal bleeding off treatment for more than 6 months, and the liver is back to Child–Pugh A.'],
+    ['When has a patient recompensated under Baveno VIII?', 'The cause is removed or controlled, there is no ascites or encephalopathy off treatment and no further variceal bleed for more than 6 months, and the liver is back to Child–Pugh A.'],
   ],
   summary: 'One patient over two years: CSPH, the first ascites, diuretics and carvedilol, then the cause removed and the liver recompensates. The portal pressure falls, but recompensation is not a cure.',
   slides: [
@@ -60,8 +60,8 @@ export const RECOMPENSATION = {
       id: 'recomp', tick: 'Off diuretics', params: { diuretics: false }, days: 60, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'],
       kicker: 'Recompensation', site: 'sin', title: 'Baveno VIII criteria for recompensation',
       line: 'Off diuretics the ascites stays away and the albumin holds. If that lasts more than 6 months, with the liver back to Child–Pugh A, the patient has recompensated.',
-      causesHead: 'Baveno VIII criteria', causes: ['Cause removed or cured', 'No ascites, encephalopathy or variceal bleed for over 6 months, off treatment', 'Back to Child–Pugh A'],
-      notes: 'Baveno VIII asks for all of: the cause removed, suppressed or cured; no ascites off diuretics, no encephalopathy off lactulose or rifaximin and no recurrent variceal bleed, all for more than 6 months in a row; and liver function back to Child–Pugh A (5 or 6 points). Recompensation means the disease behaves as compensated again; it is not a cure. The patient still has cirrhosis, still needs a clinic visit every 6 months with surveillance for liver cancer and, while CSPH persists, the beta-blocker. If the cause returns, decompensation can follow.',
+      causesHead: 'Baveno VIII criteria', causes: ['Cause removed or controlled', 'No ascites or encephalopathy off treatment, and no rebleed, for over 6 months', 'Back to Child–Pugh A'],
+      notes: 'Baveno VIII asks for all of: the cause removed, suppressed or cured; no ascites on imaging off diuretics, no encephalopathy off lactulose or rifaximin and, after a variceal bleed, no further bleed (carvedilol may continue), all for more than 6 months in a row; and liver function back to Child–Pugh A (5 or 6 points). Recompensation means the disease behaves as compensated again; it is not a cure. The patient still has cirrhosis, still needs a clinic visit every 6 months with surveillance for liver cancer and, while CSPH persists, the beta-blocker. If the cause returns, decompensation can follow.',
       ask: ['After recompensation, does liver cancer surveillance stop?', 'No: the cirrhosis remains, so surveillance continues.'],
     },
     {
@@ -78,7 +78,7 @@ export const RECOMPENSATION = {
       kicker: 'Summary', title: 'Two years, from decompensation to recompensation',
       line: 'Removing the cause lowered the portal pressure more than any drug. Carvedilol continues while CSPH persists, and so does liver cancer surveillance.',
       notes: 'The first decompensation is a turning point, but not always a one-way one. Treat the ascites and the portal pressure, and above all the cause: a patient who stops drinking or is cured of a virus can recompensate. Keep the beta-blocker while CSPH lasts, and keep watching for liver cancer.',
-      ask: ['Name the three conditions Baveno VIII sets for recompensation.', 'The cause removed, suppressed or cured; no ascites, encephalopathy or variceal bleeding off treatment for more than 6 months; and liver function back to Child–Pugh A.'],
+      ask: ['Name the three conditions Baveno VIII sets for recompensation.', 'The cause removed, suppressed or cured; no ascites or encephalopathy off treatment and no further variceal bleed for more than 6 months; and liver function back to Child–Pugh A.'],
     },
   ],
 };
