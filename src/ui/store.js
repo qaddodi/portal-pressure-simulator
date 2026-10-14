@@ -42,6 +42,9 @@ const state = {
   presenting: false,          // a Presenter script or the tour is running
 };
 
+// The Doppler's last mean per vessel (cm/s, with when it was read), so the figure's callout shows the same number.
+export const shownVel = new Map();
+
 export const store = {
   get: () => state,
   set(patch) {

@@ -25,7 +25,7 @@ test('the tint follows the shunt tile: plain, amber, red', () => {
 });
 
 test('the callout is a headline over a split bar, not the old two-stroke fork', () => {
-  assert.match(stage, /<span class="sp-h"><em class="sp-n"><\/em> % bypasses the liver<\/span>/);
+  assert.match(stage, /<span class="sp-h"><em class="sp-n"><\/em>% bypasses the liver<\/span>/);
   assert.match(stage, /<span class="sp-bar"><i class="sp-l"><\/i><i class="sp-s"><\/i><\/span>/);
   assert.doesNotMatch(stage, /M4 20 C26 20 32 7 60 7/);
   assert.doesNotMatch(css, /\.cath-label\.site\.split svg/);

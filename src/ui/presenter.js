@@ -12,17 +12,17 @@
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen,
 // P high contrast, Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=e2da75a079';
+import { store, replaceParams } from './store.js?v=16a6ccb071';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=abb277f29f';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
-import { sinusoidSupported } from './sinusoid-view.js?v=d7a37139b9';
+import { sinusoidSupported } from './sinusoid-view.js?v=808d5c3e35';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e7450bd6af';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=258d41dbc8';
-import { createTools } from './presenter-tools.js?v=71b75ff1d1';
+import { createHvpgMonitor } from './hvpg-proc.js?v=2be0ead28a';
+import { createTools } from './presenter-tools.js?v=e4e22ff8c1';
 import { openHandout } from './handout.js?v=680b9bd894';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=ad58eb361d';
@@ -1593,7 +1593,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const from = d === true ? slides[stateOf[i - 1]] : slides.find((x) => x.id === d);
     return { label: s.tool.deltaLabel || (d === true && s.lapse?.from) || from?.kicker || 'Before', value: `${fmt(r[g[0]], g[2])} ${g[1]}` };
   }
-  const cardTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'The patient'));
+  const fullTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'The patient'));
+  // A phone's card title is one short line beside Show: the long name's head, never broken into two lines or a hyphen.
+  const SHORT_TITLE = { 'Pressure, portal vein to heart': 'Portal vein to heart', 'Endoscopy, the lower esophagus': 'Endoscopy', 'The varix wall, in cross-section': 'The varix wall',
+    'Liver stiffness, FibroScan': 'FibroScan', 'Pressure, beat by beat': 'Beat by beat', 'Portal pressure and flow over time': 'Pressure and flow', 'Doppler, main portal vein': 'Doppler, portal vein',
+    'Doppler, superior mesenteric vein': 'Doppler, SMV', 'Doppler, splenic vein, at the hilum': 'Doppler, splenic hilum', 'Doppler, right portal vein': 'Doppler, right PV', 'Doppler, left portal vein': 'Doppler, left PV',
+    'Doppler, right hepatic vein': 'Doppler, right HV', 'Doppler, middle hepatic vein': 'Doppler, middle HV', 'Doppler, left hepatic vein': 'Doppler, left HV', 'Doppler, inferior vena cava': 'Doppler, IVC',
+    'Doppler, paraumbilical vein': 'Doppler, umbilical v.', 'Two years on one chart': 'Two years', 'The course on one chart': 'The course', 'Pressure over the talk': 'Pressure so far',
+    'Pressures over the year': 'The year' };
+  const cardTitle = (s) => { const t = fullTitle(s); return phone() && t.length > 20 ? SHORT_TITLE[t] || t.replace(/ over the (days|year|talk)$/, '').replace(/,.*$/, '') : t; };
   // The talk so far, for a pressure trace: every state up to slide i, once each.
   // Each carries its time point (the deck's days so far) and what happened there (the first tick among its slides, else its title).
   const whenOf = (k) => {

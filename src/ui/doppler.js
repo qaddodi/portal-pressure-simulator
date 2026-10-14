@@ -6,8 +6,8 @@
 
 import { EDGES, dopplerK } from '../engine/topology.js?v=79f09b0d8a';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=abb277f29f';
-import { FONT } from './charts.js?v=a093bca0ea';
-import { logAction } from './store.js?v=e2da75a079';
+import { FONT } from './charts.js?v=08d2eeeb36';
+import { logAction, shownVel } from './store.js?v=16a6ccb071';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=6d60af9a8d';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('doppler');
@@ -290,6 +290,7 @@ export function createDoppler({ onProbe }) {
     const set = (e, t) => { if (e.textContent !== t) e.textContent = t; };
     set(dirEl, it.dir); dirEl.dataset.sev = it.sev;
     set(velEl.firstChild, num(r.mean, Math.abs(r.mean) < 10 ? 1 : 0));
+    shownVel.set(probe, { v: Math.abs(r.mean), t: performance.now() });
     updateGauge(p, r.mean);
     set(patternEl, it.pattern);
     // peak: the extreme farthest from zero, whichever the direction

@@ -3,13 +3,13 @@
 
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { pressureColor } from './colormap.js?v=01ee46a874';
-import { verbEnabled } from './actions.js?v=82a5eefa55';
+import { verbEnabled } from './actions.js?v=4f9a48b999';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=abb277f29f';
-import { simTime, isPaused } from './clock.js?v=c4b9ba05a3';
+import { simTime, isPaused } from './clock.js?v=ad6f435e7a';
 import { createEndoGL } from './endo-gl.js?v=79991ea476';
 import { renderEndo } from './endo-render.js?v=bbe56cef4d';
-import { FONT } from './charts.js?v=a093bca0ea';
-import { store, updateParams, varicesPresent } from './store.js?v=e2da75a079';
+import { FONT } from './charts.js?v=08d2eeeb36';
+import { store, updateParams, varicesPresent } from './store.js?v=16a6ccb071';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('instruments');
 
@@ -166,6 +166,7 @@ export function createEndoscopy({ onAction }) {
 // ── Varix wall cross-section (L3) ───────────────────
 // Scope's Wall mechanics tab: a cross-section of the esophagus with the varix in its wall, and Laplace's
 // law as readings in the same tiles and meter as the scope view.
+const WALL_SEV = { ok: 'Low', caution: 'Raised', danger: 'Near tear', critical: 'Past tear' };
 export function createVarixWall() {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'varixwall' });
   const box = h('div', { class: 'chart-box square' });
@@ -178,9 +179,11 @@ export function createVarixWall() {
   // Each number with its unit in smaller type, so a long reading still fits a narrow tile.
   const num = (unit) => { const v = h('span'); const d = h('dd', { class: 'endo-num' }, v, unit ? h('small', {}, ' ' + unit) : ''); d.v = v; return d; };
   const ptm = num('mmHg'), rad = num('mm'), wal = num('mm'), idx = num('');
+  // A slide's screen reads the stress as one number top left and its state top right (the pane keeps its sentence).
+  const wPct = h('span'), wBig = h('b', { class: 'wall-big' }, wPct, h('small', {}, '%', h('span', { class: 'wall-of' }, ' of tear point'))), wSev = h('span', { class: 'wall-sev' });
   const stats = h('dl', { class: 'endo-read' },
     item('endo-g wall-law', h('dt', {}, 'Laplace’s law'), h('dd', { class: 'wall-formula' }, 'T = ΔP · r / w')),
-    item('endo-stress', h('dt', {}, 'Wall stress (model)'), stressTxt, stressBar),
+    item('endo-stress', h('dt', {}, 'Wall stress (model)'), stressTxt, wBig, wSev, stressBar),
     item('endo-tile', h('dt', {}, 'Transmural ΔP'), ptm),
     item('endo-tile', h('dt', {}, 'Radius r'), rad),
     item('endo-tile', h('dt', {}, 'Wall w'), wal),
@@ -189,14 +192,20 @@ export function createVarixWall() {
     h('div', { class: 'ctl-sub' }, 'A wider varix, higher transmural pressure and a thinner wall all raise the stress. Remodeling enlarges the varix and thins its wall over months; a balloon raises the pressure outside it.'));
   el.append(stage, side);
   const set = (node, v) => { if (node.textContent !== v) node.textContent = v; };
+  let wMean = null, wT = 0;
   function update(f) {
     const v = f.metrics.varix;
     set(ptm.v, fmt(v.ptm, 1)); set(rad.v, fmt(v.r, 1)); set(wal.v, fmt(v.w, 1)); set(idx.v, fmt(v.T, 0));
     set(stressTxt, v.ratio >= 1 ? 'past the tear point' : `${Math.round(v.ratio * 100)} % of the tear point`);
     const sev = v.ratio > 1 ? 'critical' : v.ratio > 0.7 ? 'danger' : v.ratio > 0.4 ? 'caution' : 'ok';
     if (stressBar.dataset.sev !== sev) stressBar.dataset.sev = sev;
-    const wPct = `${Math.round(clamp(v.ratio, 0, 1) * 1000) / 10}%`;
-    if (stressFill.style.width !== wPct) stressFill.style.width = wPct;
+    // (The stress swings with each beat: the number is its mean over the last beats, so it reads steady.)
+    const now = performance.now(); wMean = wMean == null || now - wT > 3000 ? v.ratio : wMean + (v.ratio - wMean) * (1 - Math.exp(-(now - wT) / 1500)); wT = now;
+    const ms = wMean > 1 ? 'critical' : wMean > 0.7 ? 'danger' : wMean > 0.4 ? 'caution' : 'ok';
+    set(wPct, String(Math.round(wMean * 100))); set(wSev, WALL_SEV[ms]);
+    if (wSev.dataset.sev !== ms) wSev.dataset.sev = wBig.dataset.sev = ms;
+    const wPctW = `${Math.round(clamp(v.ratio, 0, 1) * 1000) / 10}%`;
+    if (stressFill.style.width !== wPctW) stressFill.style.width = wPctW;
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return;
     ctx.clearRect(0, 0, w, hh);
@@ -225,7 +234,8 @@ export function createVarixWall() {
     // The radius, drawn across the varix.
     ctx.strokeStyle = cssAlpha('--white', 0.85); ctx.lineWidth = 1.25; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(cx, vy); ctx.lineTo(cx + rr, vy); ctx.stroke(); ctx.setLineDash([]);
-    const fs = clamp(R / 11, 10, 14);
+    // (On a slide the labels take the card's small size, so they never fall under 12 px.)
+    const fs = cv.closest('.pz-tool') ? parseFloat(getComputedStyle(cv).fontSize) || 12 : clamp(R / 11, 10, 14);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (rr > 14) { ctx.fillStyle = cssVar('--white'); ctx.font = FONT(600, fs); ctx.fillText('r', cx + rr / 2, vy + fs * 0.7); }
     // Laplace's other two terms on the picture: the tension T along the wall (two arrows pulling apart round the top,
@@ -304,6 +314,7 @@ export function createAbdomen({ onAction }) {
   sa.out.classList.add('ab-wide');
   // Volume, grade and daily change, with a small belly that fills with the fluid.
   const numEl = h('span', {}, '—'), gradeEl = h('span', { class: 'ab-grade' }), trendEl = h('div', { class: 'ab-trend' });
+  const bigEl = h('b', {}, numEl, h('small', {}, 'L'));   // (the volume, coloured by its grade like the Ascites tile)
   const bellyFill = h('i', { class: 'ab-belly-fill' });
   const belly = h('div', { class: 'ab-belly', 'aria-hidden': 'true' }, bellyFill);
   // Abdominal pressure as one slim bar, 0–30 mmHg, ticked at 12 (IAH) and 20 (ACS).
@@ -316,7 +327,7 @@ export function createAbdomen({ onAction }) {
   const why = h('div', { class: 'ab-why' });
   const tiles = h('div', { class: 'ab-tiles' }, saagEl, tpEl, albEl, why);
   const read = h('div', { class: 'ab-read' },
-    h('div', { class: 'ab-vol' }, h('div', { class: 'ab-vol-l' }, h('div', { class: 'ab-big' }, h('b', {}, numEl, h('small', {}, 'L')), gradeEl), trendEl), belly),
+    h('div', { class: 'ab-vol' }, h('div', { class: 'ab-vol-l' }, h('div', { class: 'ab-big' }, bigEl, gradeEl), trendEl), belly),
     h('div', { class: 'ab-iap' }, h('div', { class: 'ab-kv' }, h('span', {}, 'Abdominal pressure'), h('span', { class: 'ab-v' }, iapNum, iapWord)), iapBar),
     tiles);
   const ctl = h('div', { class: 'ab-ctl' },
@@ -334,7 +345,7 @@ export function createAbdomen({ onAction }) {
     const a = f.metrics.ascites, p = store.get().params;
     setText(numEl, fmt(a.volume / 1000, 1));
     setText(gradeEl, GRADE[a.grade] || a.label); setAttr(gradeEl, 'title', GRADE_TIP[a.grade] || '');
-    setData(gradeEl, 'sev', SEV[a.grade] || 'danger');
+    setData(gradeEl, 'sev', SEV[a.grade] || 'danger'); setData(bigEl, 'sev', SEV[a.grade] || 'danger');
     setAttr(diu, 'aria-checked', String(!!p.diuretics));
     diu.disabled = !(verbEnabled('drug:diuretics', 'drug:diuretics') || verbEnabled('drugs', 'drugs'));
     if (sa.get() !== p.albumin) sa.set(p.albumin);

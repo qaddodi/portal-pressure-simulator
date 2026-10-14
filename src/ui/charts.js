@@ -3,7 +3,7 @@
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=0ce510e29b';
 import { pressureColor } from './colormap.js?v=01ee46a874';
-import { store, hiddenNow } from './store.js?v=e2da75a079';
+import { store, hiddenNow } from './store.js?v=16a6ccb071';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop, GLIDE_MS } from './util.js?v=abb277f29f';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('charts');
