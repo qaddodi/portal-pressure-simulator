@@ -129,9 +129,9 @@ Typical "meal" lapse (used by several decks): `days: 8, ramp: { splanchnicTone: 
 
 ### 5.2 Lens (what the vessel colours show)
 
-`lens` picks the colour lens of the figure for that slide, as the lens menu does in Patients. Without it the slide shows pressure. The figure crossfades to the new colours while the old words leave, and the teaching card shows a small key under the line (the lens name and its two ends). Quiz questions and `visual` slides always show pressure.
+`lens` picks what the figure's vessels are colored by on that slide, as the color menu does in Patients. Without it the slide shows pressure. The figure crossfades to the new colours while the old words leave, and the teaching card shows a small key under the line: "Colored by velocity" and the two ends. Quiz questions and `visual` slides always show pressure. In learner-facing words say "colored by velocity", never "lens" (Mohammad, 14 Oct).
 
-| `lens` | Colours | Key |
+| `lens` | Colours | Key (after "Colored by …") |
 |---|---|---|
 | `'velocity'` | mean velocity, pale amber (slow) to deep brown (fast) | Slow to Fast |
 | `'flow'` | flow volume, how much blood each vessel carries | Little to Much |

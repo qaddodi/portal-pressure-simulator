@@ -19,11 +19,11 @@ import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=0dcc3de787';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=5e412dfbcf';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=aed946d4d5';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d2c2580bdd';
 import { createTools } from './presenter-tools.js?v=996ba0e78e';
-import { openHandout } from './handout.js?v=8ee3bea39c';
+import { openHandout } from './handout.js?v=af804cad05';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=5c9b8f7944';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -56,21 +56,22 @@ function equation([ml, legend]) {
   if (legend) box.append(h('p', { class: 'pz-eqk' }, legend));
   return box;
 }
-// A slide's lens (decks.js lens): what the vessel colours show on that slide, with a key under its line that names
-// the lens and its two ends, as the legend does in Explore. Pressure is the default and needs no key.
+// A slide's lens (decks.js lens): what the vessel colours show on that slide, with a key under its line, "Colored by
+// velocity" and the two ends, as the legend does in Explore. (Learner-facing words say "colored by", never "lens".)
+// Pressure is the default and needs no key.
 const LENS_KEY = {
-  velocity: ['Velocity', () => velocityCss('to right'), 'Slow', 'Fast'],
-  flow: ['Flow volume', () => flowCss('to right'), 'Little', 'Much'],
-  direction: ['Direction', null, 'Usual direction', 'Reversed'],
-  heat: ['Congestion', () => heatCss('to right'), 'None', 'Backed up'],
-  drop: ['Pressure drop', () => dropCss('to right'), 'None', 'Large'],
-  delta: ['Change', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
+  velocity: ['velocity', () => velocityCss('to right'), 'Slow', 'Fast'],
+  flow: ['flow volume', () => flowCss('to right'), 'Little', 'Much'],
+  direction: ['direction', null, 'Usual direction', 'Reversed'],
+  heat: ['congestion', () => heatCss('to right'), 'None', 'Backed up'],
+  drop: ['pressure drop', () => dropCss('to right'), 'None', 'Large'],
+  delta: ['change from healthy', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
 };
 export const slideLens = (s, q = false) => (!q && !s?.visual && LENS_KEY[s?.lens] ? s.lens : 'pressure');
 function lensKey(k) {
   const [name, bar, lo, hi] = LENS_KEY[k];
   const dot = (v) => h('i', { class: 'pz-lens-dot', style: { background: `var(${v})` } });
-  return h('p', { class: 'pz-lens', 'data-lens': k }, h('b', {}, `${name} lens`),
+  return h('p', { class: 'pz-lens', 'data-lens': k }, h('b', {}, `Colored by ${name}`),
     ...(bar ? [h('span', {}, lo), h('i', { class: 'pz-lens-bar', style: { background: bar() } }), h('span', {}, hi)]
       : [dot('--flow-normal'), h('span', {}, lo), dot('--flow-reversed'), h('span', {}, hi)]));
 }

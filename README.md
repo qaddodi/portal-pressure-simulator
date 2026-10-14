@@ -94,7 +94,7 @@ sits, each with its pressure profile).
   (sinusoids, stellate cells, collagen, congestion). Zooming alone never leaves the anatomy.
 - **Phones.** The same layout; the patient chart and Treat open as bottom sheets with three
   heights (drag the handle; drag below the lowest to close).
-- **Views and lenses.** Anatomy or a transit-map Circuit; the color menu colors the vessels by
+- **Views and colors.** Anatomy or a transit-map Circuit; the color menu colors the vessels by
   pressure, change, congestion, pressure drop, flow, velocity, direction or blood origin (L cycles).
   The Blood menu switches the moving blood (streaks, chevrons) and what the figure shows (pressure
   values, potential collaterals, organ names).
