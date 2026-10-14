@@ -25,7 +25,7 @@ import { store } from './store.js?v=14d67870c8';
 import { h, fmt, clamp } from './util.js?v=abb277f29f';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { EDGES } from '../engine/topology.js?v=79f09b0d8a';
-import { createDoppler } from './doppler.js?v=d58c3c2c44';
+import { createDoppler } from './doppler.js?v=f69a611f9c';
 import { createFibroScan } from './fibroscan.js?v=ca96f143fe';
 import { createPressureTime } from './pressure-time.js?v=7bea7cb6be';
 import { createFlowTime } from './flow-time.js?v=109a17e443';
@@ -57,7 +57,7 @@ export function createTools({ host, stage }) {
     if (!w || !r) continue; const k = Math.min(2, Math.max(1, 12 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) sv.style.setProperty('--svk', k.toFixed(2)); } };
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => nextFrame(svk)).observe(box);
   const made = {};
-  let cur = null, kind = null, probe0, lastSt = null;
+  let cur = null, kind = null, probe0, lastSt = null, lastSlide = null;
   function make(k) {
     if (made[k]) return made[k];
     const inst = k === 'doppler' ? createDoppler({ onProbe: noop }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
@@ -78,7 +78,7 @@ export function createTools({ host, stage }) {
     /** Put the slide's tool in the box. stateKey: the slide's model state (a new one clears a recording trace);
      *  chain: for the talk trace, [{ n, title, fp }] of every state up to this slide.
      *  trail, reveal: for the flow-time chart, its series and how far along to draw it (see progress). */
-    show(t, { quiz = false, stateKey = null, chain = [], trail = null, reveal = 1 } = {}) {
+    show(t, { slide = null, quiz = false, stateKey = null, chain = [], trail = null, reveal = 1 } = {}) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
@@ -89,6 +89,8 @@ export function createTools({ host, stage }) {
         stage?.pinDoppler?.(t.vessel || 'PV_TRUNK');
       }
       inst.setWaves?.(!!t.waves);
+      if (cur !== inst || slide !== lastSlide) inst.autoWindow?.();   // (a new slide chooses its Doppler window again from the width it is drawn at)
+      lastSlide = slide;
       if (stateKey !== lastSt && (k === 'doppler' || k === 'beats')) inst.clear?.();
       lastSt = stateKey;
       if (cur !== inst) box.replaceChildren(inst.el, ghostEl);
@@ -108,10 +110,10 @@ export function createTools({ host, stage }) {
       ghostEl.classList.toggle('on', !!g);
       if (g) ghostEl.replaceChildren(h('span', {}, g.label), h('b', {}, g.value));
     },
-    hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; delete box.dataset.kind; },
+    hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; lastSlide = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
     dispose() {
-      if (probe0 !== undefined) host.send({ type: 'probe', id: probe0 }); probe0 = undefined; lastSt = null; this.hide();
+      if (probe0 !== undefined) host.send({ type: 'probe', id: probe0 }); probe0 = undefined; lastSt = null; lastSlide = null; this.hide();
       // Each presentation builds its own tools: let go of this one's instruments (and the endoscopy's GL context).
       offFrame();
       for (const k of Object.keys(made)) { made[k]?.dispose?.(); delete made[k]; }

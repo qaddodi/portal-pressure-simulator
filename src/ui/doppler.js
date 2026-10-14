@@ -10,6 +10,7 @@ import { FONT } from './charts.js?v=e11342cb0a';
 import { logAction, shownVel } from './store.js?v=14d67870c8';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=6d60af9a8d';
 import { frameFor } from './frame.js?v=0db47e99bf';
+import { windowIndexFor } from './dopplerWindow.js?v=fce3147a4c';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -37,6 +38,7 @@ const PROBES = [
   { id: 'C3', short: 'Paraumb. C3', kind: 'collateral', normal: null },
 ];
 const SWEEP_SECONDS = [6, 3, 12]; // Start at 6 s; first tap shortens the visible window.
+const PAD_L = 12, PAD_R = 46;        // The trace's side margins (CSS px).
 const KEEP = 16;                 // Retain enough samples for the 12 s sweep and display lag.
 const MINUS = '−';
 const num = (v, d = 0) => (v < 0 ? MINUS : '') + fmt(Math.abs(v), d);
@@ -80,15 +82,29 @@ export function createDoppler({ onProbe }) {
     title: `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`,
     'aria-label': `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`,
   }, sweepIcon, h('span', { class: 'dop-sweep-label' }, `${sweepSeconds} s`));
-  sweepBtn.addEventListener('click', () => {
-    sweepIndex = (sweepIndex + 1) % SWEEP_SECONDS.length;
+  // The window in use: set by a tap, or chosen from the drawn width (see pickWindow).
+  function setSweep(i) {
+    sweepIndex = i;
     sweepSeconds = SWEEP_SECONDS[sweepIndex];
     sweepBtn.lastChild.textContent = `${sweepSeconds} s`;
     sweepBtn.title = `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`;
     sweepBtn.setAttribute('aria-label', `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`);
     ringKey = '';
+  }
+  sweepBtn.addEventListener('click', () => {
+    manualSweep = true;
+    setSweep((sweepIndex + 1) % SWEEP_SECONDS.length);
     if (frame) { updateReport(); draw(); }
   });
+  // Auto window: once per showing (first draw, and again each time a slide shows it), a narrow trace takes 3 s and a wide one 6 s.
+  // It never switches while the slide stays; a tap picks a window by hand until the next showing.
+  let manualSweep = false, pickNext = true;
+  function pickWindow() {
+    pickNext = false;
+    if (manualSweep) return;
+    const i = windowIndexFor(cv.clientWidth - PAD_L - PAD_R);   // (layout width: not scaled by a card still easing in, and never a stale cached size)
+    if (i !== sweepIndex) { setSweep(i); updateReport(); }
+  }
   const WAVE_PX = 20;   // the a, S, v, D letters: large enough to read against the card text
   const cv = h('canvas', { role: 'img', 'aria-label': 'Spectral Doppler' });
   const box = h('div', { class: 'chart-box dark dop-box' }, cv);
@@ -479,9 +495,10 @@ export function createDoppler({ onProbe }) {
     // report, and the vessel and settings move to the bottom strip under the second ticks. Read again when the size changes.
     const ovKey = `${w}x${hh}`, tOv = performance.now();
     if (ovKey !== ovLast || tOv - ovAt > 500) { ovLast = ovKey; ovAt = tOv; ovOn = getComputedStyle(cv).getPropertyValue('--dop-ov').trim() === '1'; ovTop = ovOn ? Math.ceil(report.offsetHeight) + 4 : 26; }
-    const padL = 12, padR = 46, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
+    const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
     if (w < 60 || hh < 60) return;
+    if (pickNext) pickWindow();
     const label = probe ? EDGES[EI[probe]].label : '';
     ctx.font = FONT(600, 12); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(label, padL, yLab);
@@ -671,7 +688,9 @@ export function createDoppler({ onProbe }) {
   }
   function update(f) { ingest(f); redraw(); }
   function clear() { buf = []; wl = null; redraw(); }
+  /** A slide is showing this monitor: choose its window again from the width it is drawn at. */
+  function autoWindow() { manualSweep = false; pickNext = true; ringKey = null; redraw(); }
   /** Name the hepatic vein's a, S, v and D waves on the trace (the Presenter's waveform slides). */
   function setWaves(on) { if (waves !== !!on) { waves = !!on; ringKey = null; redraw(); } }
-  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves };
+  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves, autoWindow };
 }
