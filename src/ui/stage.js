@@ -142,6 +142,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const GPU_EASE = { IVCS_RA: 'RA' };
   // Shunts that leave and join a vein part-way along it, not at a node: the veins at each end ([from end], [to end]).
   const SIDE_HOSTS = { C6: [['V_SPL', 'SV_MID'], ['V_KID_L']], S_DSR: [['V_SPL', 'SV_MID'], ['V_KID_L']] };
+  // Surgical shunts and the vein each one divides (engine.js closes the same vessels): the Warren shunt the splenic
+  // vein, the portocaval shunt the portal trunk. The vein's first stretch, at the shunt, is not drawn, so the shunt
+  // side and the tied-off stump stand apart with a clear gap, each ending in a rounded cap.
+  const LIGATED = [['S_DSR', 'SV_MID'], ['S_PC', 'PV_TRUNK']];
+  // How much of the divided vein is cut away (arc length, world units): the clear gap plus both rounded ends.
+  // It opens and closes as the shunt draws on or retracts; 0 without the shunt.
+  function divideLen(vein) {
+    const sh = LIGATED.find((l) => l[1] === vein), x = sh && E[sh[0]], v = E[vein];
+    if (!x?.vis || !v?.vis) return 0;
+    let k = 1;
+    if (x.reveal) { const u = clamp((performance.now() - x.reveal.t0) / x.reveal.dur, 0, 1); k = x.reveal.out ? 1 - easeInOut(u) : easeInOut(u); }
+    return k * (v.width * 2.2 + 2 * (v.wallPx || 1));
+  }
   // The ascending lumbar–azygos channel runs in the azygos trunk's lane, so it stays straight.
   const STRAIGHT_COLL = new Set(['C9']);
   // Veins that fade into the vessel they sink into: a linear mask [x1, y1, x2, y2, offset], from
@@ -2664,6 +2677,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const r = x.reveal, u = clamp((now - r.t0) / r.dur, 0, 1), off = r.out ? easeInOut(u) : 1 - easeInOut(u);
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }
+      if (kind === 'v' && LIGATED.some((l) => l[1] === id)) lo = Math.max(lo, divideLen(id) / (it.len || geo[id].len || 1));
       tubeData.set([lo, hi, kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : it.len || geo[id].len || 1, 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), 0], o + 20);
       let tint = kind === 'v' && cathTint?.[id];
       if (ra && kind === 'v') {
@@ -3656,10 +3670,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     ov.stents.append(s('path', { class: 'suture', d }));
   }
-  // A vessel tied off at surgery (the splenic vein in a Warren shunt, the portal trunk in a portocaval
-  // shunt): two suture ties across the vessel, a little apart, at fraction u of its length.
-  function ligature(id, u) {
-    const x = E[id], c = geo[id].len * u;
+  // A vessel divided at surgery (the splenic vein in a Warren shunt, the portal trunk in a portocaval
+  // shunt): two suture ties across its tied-off stump, a little apart, just behind the stump's rounded end.
+  function ligature(id) {
+    const x = E[id], c = Math.min(divideLen(id) + 5, geo[id].len * 0.6);
     const R = x.width / 2 + (x.wallPx || 1) + 3;
     let d = '';
     for (const o of [-3.5, 3.5]) {
@@ -4314,8 +4328,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The overlays (clamps, clots, stents, varices, caput medusae, balloons, catheter) are rebuilt
   // only when something they draw has visibly changed: the key holds every input, rounded.
   let overlayKey = '', thrombiKey = '';
-  // Surgical shunts and the vessel each one ties off (engine.js: the same ligations), with where along it the tie sits.
-  const LIGATED = [['S_DSR', 'SV_MID', 0.3], ['S_PC', 'PV_TRUNK', 0.3]];
   // A quantized value that only moves once the input has clearly left its step (so a varix whose
   // diameter pulses across a rounding boundary is not rebuilt on every beat).
   const held = {};
@@ -4386,8 +4398,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!E[id].vis || E[id].reveal) continue;
       if (id === 'TIPS' || id === 'DIPS' || id.startsWith('X_')) stentMesh(id); else anastomoses(id);
     }
-    // The vessel each surgical shunt ties off, just past where the shunt leaves it.
-    for (const [shunt, vein, u] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis) ligature(vein, u);
+    // The stump of the vessel each surgical shunt divides, a clear gap past where the shunt leaves it.
+    for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis) ligature(vein);
     for (const id of new Set([...Object.keys(p.occluded), ...(p.occluded.C5 ? ['C2'] : [])])) {
       if (!isOccluded(p, id) || !E[id] || !E[id].vis) continue;
       const [x, y] = pointAt(geo[id].cur, 0.5);
