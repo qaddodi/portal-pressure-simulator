@@ -58,6 +58,21 @@ export const TILE = {
   hb: { t: 'Hemoglobin', n: 'Hb', s: 'Blood', u: 'g/dL', better: 1 },
 };
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
+// Each tile's scale bar, in the units the tile shows: [from, to, the cut-offs between its coloured bands]. The bands take their
+// colour from the tile's own rating, so the bar and the status word always agree. (No bar where nothing is rated: WHVP, FHVP, HR.)
+export const SCALE = {
+  hvpg: [0, 25, [5, 10]], ppg: [0, 25, [6, 12]], pv: [0, 30, [10, 15]], sin: [0, 20, [9, 12]],
+  saag: [0, 3, [1.1]], tp: [0, 5, [1.5, 2.5]], asc: [0, 8, [0.15, 1.5, 5]],
+  varix: [0, 10, [2.5, 5]], gv: [0, 10, [2.5, 5]], spleen: [8, 22, [13, 16]], plt: [0, 300, [100, 150]],
+  pvFlow: [-0.6, 2, [0]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],
+  lsm: [0, 35, [10, 15, 25]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]],
+};
+// A bar's bands: each from a to b (shown units), and m, its middle in the model's units (what the rating reads).
+export const bandsOf = (k) => {
+  const s = SCALE[k]; if (!s) return null;
+  const x = TILE[k]?.x ?? 1, e = [s[0], ...s[2], s[1]];
+  return e.slice(0, -1).map((a, i) => ({ a, b: e[i + 1], m: (a + e[i + 1]) / 2 / x }));
+};
 // The figure's "Portal blood" callout: whole-percent shares to the shunts and the liver that always add to 100, and the
 // shunt's rating, the same as its data card tile's (ok, mid: amber, hi: red).
 export const portalSplit = (sh) => { const v = Math.min(1, Math.max(0, +sh || 0)), s = Math.round(v * 100); return { shunt: s, liver: 100 - s, rate: RATE.shunt(v)[0] }; };

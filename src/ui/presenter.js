@@ -25,7 +25,7 @@ import { createHvpgMonitor } from './hvpg-proc.js?v=d2c2580bdd';
 import { createTools } from './presenter-tools.js?v=3a9ae9f727';
 import { openHandout } from './handout.js?v=d33e4b61e3';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=291487be4c';
+import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=615f1b6bba';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 const nextFrame = frameFor('presenter');
@@ -655,14 +655,24 @@ function bigTiles() {
   // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "High" under a line that
   // says the target is reached.
   const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? (f.ppg < 12 ? ['ok', 'Target met'] : ['hi', 'Above target']) : rateOf(k, f));
+  // Where a value sits on its tile's bar, 0 to 100 (shown units, held inside the bar).
+  const at = (k, v) => { const [a, b] = SCALE[k], x = TILE[k]?.x ?? 1; return Math.min(100, Math.max(0, ((v * x - a) / (b - a)) * 100)); };
   function build(ks, withRef) {
+    const bars = ks.some((k) => SCALE[k]);
     parts = ks.map((k) => {
       const T = TILE[k] || { t: k, s: '', u: '' };
       const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' });
-      // The change in parts, so a phone can say it short ("▲ 7.5 from 5.0": the word and unit fold away there).
-      const dp = [h('span'), h('span', { class: 'pzt-dw' }), h('span'), h('span', { class: 'pzt-du' }), h('span')], d = h('span', { class: 'pzt-d' }, dp);
-      const tile = h('div', { class: 'pz-tile' }, h('span', { class: 'pzt-k', 'data-s': T.n || null }, T.t), h('span', { class: 'pzt-vu' }, v, u), r, withRef ? d : null);
-      return { k, T, tile, v, u, r, d, dp };
+      const d = h('span', { class: 'pzt-d' });
+      // The scale bar: the tile's bands (coloured by its rating), its cut-offs, a ring where it started (given ref) and a dot
+      // where it is. A tile with no scale beside one that has one keeps an empty bar, so every tile in a row is the same height.
+      const bands = bandsOf(k) || [], S = SCALE[k];
+      const zs = bands.map((z) => h('i', { class: 'pzb-z', style: `left:${at(k, z.a / (T.x ?? 1))}%;width:${at(k, z.b / (T.x ?? 1)) - at(k, z.a / (T.x ?? 1))}%` }));
+      const ts = S ? S[2].map((c) => h('i', { class: 'pzb-t', style: `left:${at(k, c / (T.x ?? 1))}%` })) : [];
+      const ls = S ? S[2].map((c) => h('span', { class: 'pzb-l', style: `left:${at(k, c / (T.x ?? 1))}%` }, fmt(c, Math.abs(c % 1) > 1e-9 ? String(c).split('.')[1].length : 0))) : [];
+      const link = withRef ? h('i', { class: 'pzb-link' }) : null, was = withRef ? h('i', { class: 'pzb-was' }) : null, now = h('i', { class: 'pzb-now' });
+      const bar = bars ? h('span', { class: 'pzt-bar' + (S ? '' : ' empty'), 'aria-hidden': 'true' }, h('span', { class: 'pzb-track' }, h('span', { class: 'pzb-zs' }, zs), ts, link, was, S ? now : null), ls) : null;
+      const tile = h('div', { class: 'pz-tile' }, h('span', { class: 'pzt-k', 'data-s': T.n || null }, T.t), h('span', { class: 'pzt-vu' }, v, u), r, withRef ? d : null, bar);
+      return { k, T, tile, v, u, r, d, S, bands, zs, link, was, now, zr: '' };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
     el.dataset.n = String(parts.length);
@@ -673,16 +683,33 @@ function bigTiles() {
       p.r.textContent = word;
       p.tile.dataset.rate = cls || 'none';
       const r0 = f['ref_' + p.k];
+      if (p.S) {
+        const on = !none && f[p.k] != null, w = on ? at(p.k, f[p.k]) : 0;
+        p.now.hidden = !on;
+        p.now.style.left = w + '%';
+        if (p.was) {
+          const ok = on && r0 != null, w0 = ok ? at(p.k, r0) : 0;
+          p.was.hidden = p.link.hidden = !ok;
+          p.was.style.left = w0 + '%';
+          p.link.style.left = Math.min(w, w0) + '%'; p.link.style.width = Math.abs(w - w0) + '%';
+        }
+      }
       if (r0 == null || f[p.k] == null) return;
-      // (The change is taken between the two numbers as shown, so it always equals the value minus the "from".)
-      const x = p.T.x ?? 1, dg = p.T.d ?? 1, rd = (v) => +(v * x).toFixed(dg), dd = rd(f[p.k]) - rd(r0), same = Math.abs(dd) < 0.5 * 10 ** -dg;
-      // "Up 9 points from 82%", "Down 2.1 mmHg from 17.7": the change, then where it started (never read as "up to").
-      const pct = p.T.u === '%', by = pct ? (Math.abs(dd) === 1 ? ' point' : ' points') : p.T.u ? ' ' + p.T.u : '';
-      const t = same ? ['No change', '', '', '', ''] : [dd < 0 ? '▼ ' : '▲ ', dd < 0 ? 'Down ' : 'Up ', fmt(Math.abs(dd), dg), by, ` from ${fmt(r0 * x, dg)}${pct ? '%' : ''}`];
-      p.dp.forEach((e, i) => { if (e.textContent !== t[i]) e.textContent = t[i]; });
-      const calm = cls === 'ok' && rated(p.k, { ...f, [p.k]: r0 })[0] === 'ok';   // (a change within normal is neither)
-      p.d.dataset.way = same || calm || !p.T.better ? '' : Math.sign(dd) === p.T.better ? 'good' : 'bad';
+      // (The start as shown: the ring on the bar marks it, the words give its number.)
+      const x = p.T.x ?? 1, dg = p.T.d ?? 1, rd = (v) => +(v * x).toFixed(dg), same = Math.abs(rd(f[p.k]) - rd(r0)) < 0.5 * 10 ** -dg;
+      const t = same ? 'No change' : `from ${fmt(r0 * x, dg)}${p.T.u === '%' ? '%' : ''}`;
+      if (p.d.textContent !== t) p.d.textContent = t;
     }));
+  }
+  // A band's colour is the rating of its middle (after TIPS the PPG's bands follow its target, as its word does).
+  function paintBands(f) {
+    for (const p of parts) {
+      if (!p.S) continue;
+      const rs = p.bands.map((z) => rated(p.k, { ...f, asc: Math.max(f.asc ?? 0, NO_ASC), [p.k]: z.m })[0] || 'info'), sig = rs.join();
+      if (sig === p.zr) continue;
+      p.zr = sig;
+      p.zs.forEach((e, i) => { e.dataset.rate = rs[i]; });
+    }
   }
   return {
     el,
@@ -694,6 +721,7 @@ function bigTiles() {
       // (On a phone the strip's brackets carry HVPG and PPG with their ratings, so plain tiles of just those two fold away.)
       el.dataset.compact = ks.join() === 'hvpg,ppg' && !ref && !tips ? '1' : '';
       parts.forEach((p) => p.tile.classList.toggle('key', key.includes(p.k)));
+      paintBands(f);
       const to = Object.fromEntries([...ks, 'asc'].map((k) => [k, f[k]]));
       if (ref) for (const k of ks) to['ref_' + k] = ref[k];
       draw(to, ms);
@@ -1965,6 +1993,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         k.classList.remove('short');
         const t = k.parentElement, cs = getComputedStyle(t), room = t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
         if (room > 0 && k.scrollWidth > room + 0.5) k.classList.add('short');
+      }
+      // (A scale bar's cut-off numbers stay inside the bar, and one that would touch the number before it is left out.)
+      for (const bar of el.querySelectorAll('.pz-tiles .pzt-bar')) {
+        const B = bar.getBoundingClientRect();
+        let end = -Infinity;
+        for (const l of bar.querySelectorAll('.pzb-l')) {
+          l.classList.remove('lo', 'hi', 'off');
+          let r = l.getBoundingClientRect();
+          if (!r.width) continue;
+          if (r.left < B.left) { l.classList.add('lo'); r = l.getBoundingClientRect(); } else if (r.right > B.right) { l.classList.add('hi'); r = l.getBoundingClientRect(); }
+          if (r.left < end + 4) l.classList.add('off'); else end = r.right;
+        }
       }
       fitHeads(el);
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)

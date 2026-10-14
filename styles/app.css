@@ -4865,3 +4865,40 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz .pz-data .pz-tiles .pzt-k.short { font-size: 0 !important; letter-spacing: 0 !important; }
 .pz:not(.stack) .pz-data .pz-tiles .pzt-k.short::after { content: attr(data-s); font-size: var(--pz-sm); letter-spacing: .03em; }
 .pz.stack .pz-data .pz-tiles .pzt-k.short::after { content: attr(data-s); font-size: var(--pz-psm); letter-spacing: .03em; }
+
+/* A tile's scale bar (Mohammad's layout A, 14 Oct): bands coloured by the tile's own rating, the cut-offs numbered under them, a
+   ring where the value started (a slide that gives a change) and a dot where it is now. The dot replaces the rating's dot, the
+   rating word carries the colour, and the number keeps plain ink. Every tile of a card has the bar (an empty one where a reading
+   has no scale), so tiles in a row stay one height; the bar's height is fixed, so a tile never resizes as its numbers change. */
+.pz-tile .pzt-bar { position: relative; display: block; align-self: stretch; width: auto; height: calc(7px + 1.05em); margin-top: .3em; flex: none; font: 500 var(--s-cap)/1.2 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: 0; color: var(--text-3); }
+.pz:not(.stack) .pz-data .pz-tiles .pzt-bar { font-size: var(--pz-sm); }
+.pz.stack .pz-data .pz-tiles .pzt-bar { font-size: var(--pz-psm); margin-top: .25em; }
+.pzt-bar.empty { visibility: hidden; }
+.pzt-bar [hidden] { display: none; }
+.pzb-track { position: absolute; left: 0; right: 0; top: 0; height: 5px; }
+.pzb-zs { position: absolute; inset: 0; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--text) 8%, transparent); }
+.pzb-z { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--text-3) 30%, transparent); transition: background-color .4s var(--ease); }
+.pzb-z[data-rate="ok"] { background: color-mix(in srgb, var(--ok) 38%, transparent); }
+.pzb-z[data-rate="mid"] { background: color-mix(in srgb, var(--caution) 42%, transparent); }
+.pzb-z[data-rate="hi"] { background: color-mix(in srgb, var(--danger) 40%, transparent); }
+.pzb-t { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--surface); }
+.pzb-l { position: absolute; top: 7px; line-height: 1.05; translate: -50% 0; white-space: nowrap; }
+.pzb-l.lo { translate: 0 0; }
+.pzb-l.hi { translate: -100% 0; }
+.pzb-l.off { visibility: hidden; }
+.pzb-link { position: absolute; top: 1.5px; height: 2px; background: color-mix(in srgb, var(--text) 45%, transparent); }
+.pzb-was, .pzb-now { position: absolute; top: 2.5px; translate: -50% -50%; border-radius: 50%; box-sizing: border-box; }
+.pzb-was { width: 9px; height: 9px; border: 2px solid color-mix(in srgb, var(--text) 50%, transparent); background: var(--surface); }
+.pzb-now { width: 12px; height: 12px; background: var(--text-3); box-shadow: 0 0 0 2px var(--surface); transition: background-color .4s var(--ease); }
+.pz-tile:is([data-rate="ok"], [data-rate="lo"]) .pzb-now { background: var(--ok); }
+.pz-tile[data-rate="mid"] .pzb-now { background: var(--caution); }
+.pz-tile[data-rate="hi"] .pzb-now { background: var(--danger); }
+.pz .pz-data .pz-tiles .pzt-r::before { display: none; }
+.pz .pz-data .pz-tiles .pz-tile[data-rate] .pzt-v { color: var(--text); }
+.pz .pz-data .pz-tiles .pz-tile[data-rate="none"] .pzt-v { color: var(--text-3); }
+.app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="mid"] .pzt-r { color: color-mix(in srgb, var(--caution) 85%, var(--text)); }
+.app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="hi"] .pzt-r { color: var(--danger); }
+.pz .pz-data .pz-tiles .pzt-d, .pz .pz-data .pz-tiles .pzt-d[data-way] { color: var(--text-3); }
+/* (Where the bar's ring marks where the value started, the "from" words fold away: the bar takes the place of the change
+   line, so a tile is no taller than it was before the bar and the data card never grows for it.) */
+.pz .pz-data .pz-tiles .pz-tile:has(.pzb-was:not([hidden])) .pzt-d { display: none; }
