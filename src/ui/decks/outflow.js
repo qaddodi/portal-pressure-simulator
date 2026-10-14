@@ -27,9 +27,9 @@ export const OUTFLOW = {
       ask: ['A young woman has a tender liver and sudden ascites. Her blood count is normal. Which test still looks for the commonest cause?', 'JAK2 V617F, then CALR if it is negative: a myeloproliferative neoplasm is the commonest cause even with a normal count.'],
     },
     {
-      id: 'caudate', cam: 'liver', terms: ['ivc', 'caudate'], mark: { edges: ['CAUD'], label: 'Caudate veins', kind: 'note' },
+      id: 'caudate', lens: 'flow', cam: 'liver', terms: ['ivc', 'caudate'], mark: { edges: ['CAUD'], label: 'Caudate veins', kind: 'note' },
       kicker: 'Hepatic veins', site: 'post', title: 'The caudate lobe still drains',
-      line: 'Short caudate veins run straight into the IVC, below the clots, so the caudate lobe keeps its outflow and enlarges while the rest of the liver congests.',
+      line: 'Short caudate veins run straight into the IVC, below the clots, so the caudate lobe keeps its outflow and enlarges while the rest of the liver congests. On the flow lens the caudate\'s own veins carry the liver\'s outflow.',
       notes: 'The caudate lobe drains through several short veins directly into the IVC, so it escapes the clot in the three main hepatic veins. Over weeks it enlarges while the rest of the liver shrinks. On imaging, caudate hypertrophy with patchy enhancement and no visible hepatic veins is characteristic; a large caudate can in turn compress the IVC.',
       ask: ['Why does the caudate lobe enlarge in Budd–Chiari syndrome?', 'Its veins drain straight into the IVC, below the resistance, so it keeps its outflow and grows.'],
     },
@@ -48,9 +48,9 @@ export const OUTFLOW = {
       ask: ['When is angioplasty enough, and when is a shunt chosen?', 'Angioplasty, with a stent if the vein narrows again, for a short stenosis; a TIPS or DIPS when no vein can be opened or the patient does not improve.'],
     },
     {
-      id: 'dips', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc', 'caudateLobe'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' }, data: 'tiles', tiles: ['pv', 'asc', 'liver'], key: ['pv'], delta: 'bcs',
+      id: 'dips', lens: 'flow', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc', 'caudateLobe'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' }, data: 'tiles', tiles: ['pv', 'asc', 'liver'], key: ['pv'], delta: 'bcs',
       kicker: 'Opening the outflow', site: 'post', title: 'When no vein opens, a DIPS drains the liver into the IVC',
-      line: 'A direct intrahepatic portosystemic shunt (DIPS) runs from the portal vein through the caudate lobe straight into the IVC, bypassing the clotted veins. Two months later the portal pressure is {pv} and the ascites has nearly gone.',
+      line: 'A direct intrahepatic portosystemic shunt (DIPS) runs from the portal vein through the caudate lobe straight into the IVC, bypassing the clotted veins. Two months later the portal pressure is {pv} and the ascites has nearly gone. On the flow lens the shunt carries most of the liver\'s outflow.',
       notes: 'A standard TIPS runs from a hepatic vein to the portal vein, so when all three hepatic veins are clotted the stent is placed from the IVC through the liver to the portal vein instead (a direct intrahepatic portosystemic shunt). The portal vein becomes the liver\'s outflow, and the congestion and ascites resolve. Like any shunt it diverts portal blood from the liver, so encephalopathy is watched for.',
       ask: ['Why can a standard TIPS not be placed when all three hepatic veins are clotted?', 'It needs a hepatic vein to start from; the stent goes from the IVC instead.'],
     },

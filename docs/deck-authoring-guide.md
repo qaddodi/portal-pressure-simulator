@@ -139,6 +139,9 @@ Typical "meal" lapse (used by several decks): `days: 8, ramp: { splanchnicTone: 
 | `'heat'` | congestion: pressure above healthy | None to Backed up |
 | `'drop'` | pressure drop across each vessel: where the resistance lives | None to Large |
 | `'delta'` | higher or lower than healthy | Lower to Higher |
+| `'origin'` | where each vessel's blood comes from: SMV, IMV, spleen, hepatic artery, the rest systemic, mixed by flow at each junction | the five sources |
+
+A `compare` row can switch lenses instead of treatments: `compare: [{ label: 'Pressure', lens: 'pressure', own: true }, { label: 'Flow', lens: 'flow' }]`. Each button crossfades the figure to its lens and swaps the key, without touching the model; the key keeps room for two lines so the card stays one height (Circulation's lens slide).
 
 Use it where the colour is the point of the slide (a reversed branch on `'direction'`, a fast stent on `'velocity'`), and say in the line what the colours show. The lens does not carry over: each slide sets its own.
 

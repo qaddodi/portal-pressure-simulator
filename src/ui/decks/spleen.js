@@ -61,9 +61,9 @@ export const SPLEEN = {
       ask: ['Why do platelets rise after splenic embolization?', 'Less splenic pulp is left to pool them.'],
     },
     {
-      id: 'splenectomy', terms: ['spleen', 'pv'], preset: 'csph', params: { splenicRx: 2 }, cam: 'splenic', data: 'tiles', tiles: ['plt', 'pv'], key: ['plt'],
+      id: 'splenectomy', lens: 'velocity', terms: ['spleen', 'pv'], preset: 'csph', params: { splenicRx: 2 }, cam: 'splenic', data: 'tiles', tiles: ['plt', 'pv'], key: ['plt'],
       kicker: 'Treating the spleen', site: 'sin', title: 'Splenectomy raises platelets but can cause portal vein thrombosis',
-      line: 'With the spleen gone, platelets have nowhere to pool, and the count is {plt}. Blood can stagnate in the stump of the [splenic vein](sv), and the clot can spread into the portal vein.',
+      line: 'With the spleen gone, platelets have nowhere to pool, and the count is {plt}. Blood can stagnate in the stump of the [splenic vein](sv), and the clot can spread into the portal vein. On the velocity lens the splenic vein goes still and the portal vein slows.',
       notes: 'Splenectomy is now rare in cirrhosis: the operation carries real risk, and splenic and portal vein thrombosis is common after it. It keeps a place for bleeding gastric varices caused by splenic vein thrombosis, where the spleen is the source of the high pressure.',
       ask: ['Which complication of splenectomy do you look for in the weeks after it, and why is it likely here?', 'Splenic and portal vein thrombosis: blood stagnates in the stump of the splenic vein.'],
     },
