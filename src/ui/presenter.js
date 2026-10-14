@@ -582,11 +582,15 @@ function bigLadder() {
     if (own) el.style.setProperty('--lad-fixed', `${((yTop + rows + (nameRows > 1 ? 1.15 * c : 0)) * box.width / W / (parseFloat(getComputedStyle(el).zoom) || 1)).toFixed(1)}px`);   // (in the ladder's own px, before a zoom of the card's words)
     if (cell || own) {
       PH = W * box.height / box.width - yTop - rows - (nameRows > 1 ? 1.15 * c : 0);
-      // (Too short for a plot at this text size: the cell shows the strip instead, for the rest of the slide.)
+      // (Too short for a plot at this text size: the cell shows the strip instead, until a resize or the next slide.)
       // (All six or none, so the grid keeps its two rows; a box not laid out yet decides nothing.)
-      if (cell && box.height > 0 && PH < 48) { for (const x of cell.parentElement.children) x.classList.toggle('strip', x.classList.contains('pz-cell')); PH = 48; }
-      // (Too short for a readable plot: the card shows the compact strip instead, until the next slide.)
-      if (own && box.height > 0 && PH < 48) el.closest('.pz-data')?.classList.add('strip');
+      // (The lettering above came through the screen's matrix, which shrinks with a last viewBox taller than the box: the fit
+      // test reads it at the box's width, so the choice of plot or strip does not depend on the previous pass.)
+      const fw = box.width ? Math.min(1, (el.getScreenCTM?.()?.a || 0) * W / box.width) || 1 : 1;
+      const PHw = W * box.height / box.width - (yTop + rows + (nameRows > 1 ? 1.15 * c : 0)) * fw;
+      if (cell && box.height > 0 && PHw < 48) { for (const x of cell.parentElement.children) x.classList.toggle('strip', x.classList.contains('pz-cell')); PH = 48; }
+      // (Too short for a readable plot: the card shows the compact strip instead, until a resize or the next slide.)
+      if (own && box.height > 0 && PHw < 48) el.closest('.pz-data')?.classList.add('strip');
       if (own) PH = Math.max(12, PH);
     } else PH = 198;
     const yBot = yTop + PH;
@@ -1612,7 +1616,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
 
   // The fonts in and two frames for the cards' charts and refits to run, then one last fit; then the cards show (eased in).
-  function cardsIn() { if (ui) { if (!bare) { ui.text.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
+  // (The cards were fitted unseen; once in place, every ladder asks again whether its plot fits, before the next paint.)
+  const reFit = () => { for (const x of document.querySelectorAll('.pz-data.strip, .pz-cell.strip')) x.classList.remove('strip'); fitted.forEach(fitNow); };
+  function cardsIn() { if (ui) { reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
   // A time-lapse whose data card is only numbers holds that card back (unseen, at its resting place) until the days have run.
   function releaseData() { if (!ui || !('hold' in ui.data.dataset)) return; delete ui.data.dataset.hold; if (ui.data.dataset.prep) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } }
   // While bare, the new slide's cards are fitted at their resting place but unseen, and the camera frames around them (see transitionRun).
@@ -2283,8 +2289,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cath.on && cath.cam) stage.cathFocus(cath.cam, ms, { both: true });
     else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) { if (cam === 'fit') stage.fitSlow(ms); else stage.frameBox(camBox(cam, s), ms, s.kMax || 3.2, !!s.clear); }
   }
+  // (A resize or a turn asks every ladder again whether its plot fits: strips drop, the plots re-measure and take the strip
+  // back only where they still don't fit, with a short fade rather than a jump.)
+  let restrip = 0;
+  const reStrip = () => {
+    const was = [...document.querySelectorAll('.pz-data.strip, .pz-cell.strip')];
+    document.documentElement.classList.add('lad-swap');
+    for (const x of was) x.classList.remove('strip');
+    fitted.forEach(fitNow);
+    setTimeout(() => document.documentElement.classList.remove('lad-swap'), 600);
+  };
   const onResize = () => {
     if (!ui) return;
+    clearTimeout(restrip); restrip = setTimeout(reStrip, 250);
     if (ui.data.hasAttribute('data-sin-tiles')) ui.data.classList.toggle('under', !shortSide.matches && phone());   // (turned on or off its side)
     layout(); setLabels();
     if (shown) reframe(400);
