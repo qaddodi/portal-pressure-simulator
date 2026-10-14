@@ -161,7 +161,6 @@ function wait(){if(ready()){if(w.ppsUnsupported)return;failed=false;setTimeout(h
         </div>
       </div>
       <div class="top-right float-pill">
-        <button class="find-badge" id="btnInspector" aria-pressed="false" aria-haspopup="dialog" aria-controls="panel" title="Patient chart: what is abnormal and why"><svg><use href="#i-activity"/></svg><span class="fb-l">Patient</span><span class="fb-n" id="findBadge" data-sev="ok"><svg><use href="#i-check"/></svg></span></button>
         <button class="tb-act" id="btnTreat" aria-haspopup="dialog" aria-expanded="false" aria-controls="treatCard" title="Treat: drugs, fluids and procedures (T)"><svg><use href="#i-pill"/></svg><span>Treat</span></button>
         <button class="measure-launch tb-act" id="tabInstruments" aria-pressed="false" aria-controls="dock" title="Tests: pressures, HVPG, Doppler, endoscopy and more (I)"><svg><use href="#i-gauge"/></svg><span data-i18n="tabs.instruments">Tests</span></button>
         <span class="tb-sep" aria-hidden="true"></span>
@@ -200,10 +199,10 @@ function wait(){if(ready()){if(w.ppsUnsupported)return;failed=false;setTimeout(h
     </main>
 
     <div class="panel-scrim" id="panelScrim" aria-hidden="true"></div>
-    <aside class="panel float-ui stage-blocker" id="panel" aria-label="Patient" data-safe="right">
+    <aside class="panel float-ui stage-blocker" id="panel" aria-label="Details" data-safe="right">
       <div class="panel-head card-head">
-        <h2 class="card-title" id="panelTitle"><svg><use href="#i-activity"/></svg><span>Patient</span></h2>
-        <button class="ib card-close" id="panelClose" aria-label="Close Patient" title="Close (Esc)"><svg><use href="#i-close"/></svg></button>
+        <h2 class="card-title" id="panelTitle"><svg><use href="#i-activity"/></svg><span>Details</span></h2>
+        <button class="ib card-close" id="panelClose" aria-label="Close details" title="Close (Esc)"><svg><use href="#i-close"/></svg></button>
       </div>
       <div class="panel-page" id="panelChart" role="region" aria-labelledby="panelTitle">
         <div id="inspector"></div>
