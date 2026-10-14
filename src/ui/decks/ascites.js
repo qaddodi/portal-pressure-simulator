@@ -60,7 +60,7 @@ export const ASCITES = {
       ask: ['Why does a portal vein clot raise portal pressure but rarely cause ascites?', 'The sinusoids, where ascites starts, lie downstream of the clot at normal pressure.'],
     },
     {
-      id: 'presin', terms: ['lobule:triad'], preset: 'schisto', cam: 'lobule:triad', data: 'tiles', tiles: ['pv', 'sin', 'asc'], key: ['sin'],
+      id: 'presin', terms: { 'portal tracts': 'lobule:triad', 'sinusoidal pressure': 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', data: 'tiles', tiles: ['pv', 'sin', 'asc'], key: ['sin'],
       kicker: 'Presinusoidal resistance', site: 'presin', title: 'Schistosomiasis',
       vignette: 'A 30-year-old man who grew up in Yemen has a large spleen, low platelets and large esophageal varices. His liver tests are normal, and there is no ascites.',
       line: 'Resistance in the portal tracts leaves sinusoidal pressure near normal, so ascites is uncommon despite high portal pressure.',

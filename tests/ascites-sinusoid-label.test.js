@@ -10,3 +10,10 @@ test('ascites slide 2 lights the sinusoid callout', () => {
   assert.match(start, /glow: \[[^\]]*'sinusoid:lumen'/);
   assert.match(start, /tiles: \['sin'/);
 });
+
+test('ascites slide 8 pills sinusoidal pressure and lights the sinusoid callout', () => {
+  const src = readFileSync(new URL('../src/ui/decks/ascites.js', import.meta.url), 'utf8');
+  const presin = src.match(/id: 'presin'[^\n]*/)[0];
+  assert.match(presin, /'sinusoidal pressure': 'lobule:sinusoid'/);
+  assert.match(presin, /'portal tracts': 'lobule:triad'/);
+});
