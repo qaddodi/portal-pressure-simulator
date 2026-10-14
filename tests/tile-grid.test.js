@@ -37,3 +37,9 @@ test('a ladder card shows no HVPG or PPG tiles: its brackets give them, so no nu
     .map((d) => readFileSync(new URL(`../src/ui/decks/${d}.js`, import.meta.url), 'utf8')).join('\n');
   for (const line of decks.split('\n').filter((l) => l.includes("data: 'ladder'"))) assert.doesNotMatch(line, /tiles: \[[^\]]*'(hvpg|ppg)'/, line.slice(0, 60));
 });
+
+test('compact tiles on Mac and iPad landscape: the status and change sit small beside the number', () => {
+  assert.match(css, /\.pz-tiles:not\(\[data-n="3"\]\) \.pzt-r \{ grid-area: 2 \/ 2 \/ 3 \/ 3;/);
+  assert.match(css, /\.pz-tiles:not\(\[data-n="3"\]\) \.pzt-d \{ grid-area: 3 \/ 2 \/ 4 \/ 3;/);
+  assert.ok(css.includes('.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles .pzt-v { font-size: min(var(--s-val), 26cqi); }'));
+});

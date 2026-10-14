@@ -110,7 +110,7 @@ export function createFibroScan() {
     // Readout
     ctx.textAlign = 'left'; ctx.fillStyle = th.tick; ctx.font = FONT(600, 10);
     ctx.fillText('LIVER STIFFNESS · MEDIAN', pad, 24);
-    const big = Math.round(side ? clamp(hh * 0.24, 26, 40) : clamp(Math.min(w * 0.13, hh * 0.13), 30, 52));
+    const big = Math.round(side ? clamp(hh * 0.32, 30, 56) : clamp(Math.min(w * 0.14, hh * 0.17), 36, 64));   // (the reading is the panel's headline)
     ctx.fillStyle = th.orange; ctx.font = FONT(600, big);
     const txt = shown.toFixed(1); if (cv.dataset.reading !== txt) cv.dataset.reading = txt;
     fibroReading.txt = txt; fibroReading.cv = cv; fibroReading.show?.(txt); ctx.fillText(txt, pad, 28 + big);
