@@ -53,3 +53,12 @@ test('the talk uses the lenses it teaches, and every lens is one the presenter k
   assert.equal(slide('left').tool.vessel, 'PVH_L');
   assert.equal(slide('warn').whatIf.param, 'stenosis.TIPS');
 });
+
+test('proximal, mid and distal stent velocities: the narrowed stent slows along its length and speeds up at its hepatic vein end', async () => {
+  const { stentSegments } = await import('../src/engine/topology.js');
+  const ok = run('stent'), [p0, m0, d0] = stentSegments(vel(ok, 'TIPS'), 0);
+  assert.ok(p0 === m0 && m0 === d0 && p0 >= 90 && p0 <= 190, `a working stent reads the same at all three points (${p0})`);
+  const e = run('narrow'), [p, m, d] = stentSegments(vel(e, 'TIPS'), slide('narrow').params.stenosis.TIPS);
+  assert.ok(p < 90 && m < 90, `proximal and mid slow under 90 (${p})`);
+  assert.ok(d > 2.5 * p, `the distal stent speeds up through the narrowing (${d} vs ${p})`);
+});

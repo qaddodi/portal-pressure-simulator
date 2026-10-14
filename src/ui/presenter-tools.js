@@ -24,12 +24,12 @@
 import { store } from './store.js?v=14d67870c8';
 import { h, fmt, clamp } from './util.js?v=abb277f29f';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
-import { EDGES } from '../engine/topology.js?v=93dd221434';
-import { createDoppler } from './doppler.js?v=b13f3d48a1';
-import { createFibroScan } from './fibroscan.js?v=94bc406285';
-import { createPressureTime } from './pressure-time.js?v=3321ba6d97';
+import { EDGES } from '../engine/topology.js?v=b3925862b9';
+import { createDoppler } from './doppler.js?v=59d6ac08b6';
+import { createFibroScan } from './fibroscan.js?v=9342182207';
+import { createPressureTime } from './pressure-time.js?v=5f123a96fd';
 import { createFlowTime } from './flow-time.js?v=109a17e443';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=ba76db13c8';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=e87867f5d0';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('presenter-tools');
 

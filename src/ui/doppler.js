@@ -4,10 +4,10 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES, dopplerK } from '../engine/topology.js?v=93dd221434';
+import { EDGES, dopplerK, stentSegments } from '../engine/topology.js?v=b3925862b9';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=abb277f29f';
-import { FONT } from './charts.js?v=6ae89f2cd2';
-import { logAction, shownVel } from './store.js?v=14d67870c8';
+import { FONT } from './charts.js?v=14128dc81c';
+import { logAction, shownVel, store } from './store.js?v=14d67870c8';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=6d60af9a8d';
 import { frameFor } from './frame.js?v=0db47e99bf';
 import { windowIndexFor } from './dopplerWindow.js?v=fce3147a4c';
@@ -120,7 +120,7 @@ export function createDoppler({ onProbe }) {
   const patternEl = h('div', { class: 'dop-pattern' });
   const noteEl = h('p', { class: 'dop-note' });
   const statEls = {};
-  const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI'].map((k) => {
+  const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI', 'Proximal', 'Mid', 'Distal'].map((k) => {
     const dd = h('dd', {}, '—'); const wrap = h('div', {}, h('dt', {}, k), dd); statEls[k] = { dd, wrap }; return wrap;
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
@@ -374,6 +374,14 @@ export function createDoppler({ onProbe }) {
       const D = Math.max(0.5, frame.D[EI[probe]]) / 10, area = Math.PI * D * D / 4;
       const vm = Math.abs(r.mean) / dopplerK(EDGES[EI[probe]]);   // Moriyasu's index uses the mean across the lumen
       vm > 0.3 ? setStat(statEls.CI.dd, fmt(area / vm, 2), 'cm·s') : setStat(statEls.CI.dd, '—');
+    }
+    // A stent: velocity at its portal end, middle and hepatic vein end, in place of trough and pulsatility.
+    const isStent = p.kind === 'tips';
+    statEls.Trough.wrap.hidden = statEls.Pulsatility.wrap.hidden = isStent;
+    for (const k of ['Proximal', 'Mid', 'Distal']) statEls[k].wrap.hidden = !isStent;
+    if (isStent) {
+      const prm = store.get().params, s = 1 - (1 - (prm?.stenosis?.[probe] || 0)) * (1 - (prm?.thrombus?.[probe] || 0));
+      stentSegments(Math.abs(mean), s).forEach((v, i) => setStat(statEls[['Proximal', 'Mid', 'Distal'][i]].dd, num(v), 'cm/s'));
     }
     set(noteEl, it.note);
     const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;

@@ -1,27 +1,27 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=1524821c76';
+import { startHost, host } from './host.js?v=5e24aa7737';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=14d67870c8';
-import { createStage } from './stage.js?v=953a6ac848';
+import { createStage } from './stage.js?v=601c947565';
 import { createCreditPlacer } from './credit.js?v=7bbccaaa8c';
-import { sinusoidSupported } from './sinusoid-view.js?v=fe1671628f';
-import { createInspector } from './inspector.js?v=3bf9e2102c';
-import { createDock, CUTOFFS } from './dock.js?v=56a669c6a8';
-import { setHvpgStage } from './hvpg-proc.js?v=9767e70a65';
-import { createWhy } from './why.js?v=3f99426737';
-import { createTimeline, LAPSES } from './timeline.js?v=6416ac4256';
-import { createCompare } from './compare.js?v=b96392b1a6';
-import { createCard } from './card.js?v=b31798ffa0';
-import { createChart } from './chart.js?v=b78c0eb81d';
-import { createMenu, ROLES } from './menu.js?v=7624915353';
+import { sinusoidSupported } from './sinusoid-view.js?v=cfa1eee397';
+import { createInspector } from './inspector.js?v=7b0c1a1dd0';
+import { createDock, CUTOFFS } from './dock.js?v=5b9955d904';
+import { setHvpgStage } from './hvpg-proc.js?v=eaee0d3316';
+import { createWhy } from './why.js?v=95f5c50572';
+import { createTimeline, LAPSES } from './timeline.js?v=e7821d52cb';
+import { createCompare } from './compare.js?v=b636be5c9c';
+import { createCard } from './card.js?v=bb3cbdb953';
+import { createChart } from './chart.js?v=4d922e15e8';
+import { createMenu, ROLES } from './menu.js?v=db8f2b9739';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';
-import { caption } from './a11y.js?v=1ab8cb7f9b';
+import { caption } from './a11y.js?v=f462149049';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=8ab4a129ca';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=2756edaf09';
-import { EDGES, PORTAL_TERRITORY, dopplerK } from '../engine/topology.js?v=93dd221434';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=feda72d159';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=8bc87faed1';
+import { EDGES, PORTAL_TERRITORY, dopplerK } from '../engine/topology.js?v=b3925862b9';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=abb277f29f';
 import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
 
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=91a6c0f40b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=37681266fb'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -147,7 +147,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=ed3c35c300'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=d007a2e71f'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
