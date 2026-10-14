@@ -454,7 +454,7 @@ export const ORGAN_DETAIL = {
 // so the plate reads in depth: the diaphragm domes the liver and spleen
 // tuck under.
 export const BACKDROP = {
-  diaphragm: 'M316 330 C 314 250 352 182 450 170 C 520 162 590 170 640 176 C 700 184 780 204 848 226 C 940 214 1040 232 1092 290 C 1112 316 1116 360 1110 400',
+  diaphragm: 'M306 330 C 302 240 350 168 452 158 C 530 150 600 160 650 168 C 712 178 760 204 800 208 C 840 212 930 200 1020 222 C 1084 238 1124 300 1122 400',
 };
 
 // Invisible peritoneal outline: ascites fills it from the bottom.
