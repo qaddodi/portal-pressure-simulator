@@ -15,7 +15,7 @@ export const TIPS_DOPPLER = {
   summary: 'Doppler of a TIPS, from the scan before the stent to a working stent and a narrowed one, read on the velocity, flow, direction and congestion lenses.',
   checks: [
     ['With a working TIPS, which way does the left portal vein flow?', 'Toward the stent, away from the liver (hepatofugal).'],
-    ['Which stent velocities suggest stenosis?', 'A velocity under 90 or over 190 cm/s, or a change of more than 50 cm/s from the baseline study.'],
+    ['Which velocities suggest stenosis?', 'A stent velocity under 90 or over 190 cm/s, a change of more than 50 cm/s from the baseline study, or a main portal vein under 30 cm/s.'],
     ['A follow-up scan shows hepatopetal flow in the left portal vein. Why is that a concern?', 'With a working TIPS it should flow toward the stent. Flow toward the liver suggests the stent is narrowing.'],
     ['What confirms a suspected stenosis?', 'TIPS venography with a portosystemic pressure gradient, followed by angioplasty or a new stent if it is narrowed.'],
   ],
@@ -30,11 +30,14 @@ export const TIPS_DOPPLER = {
       ask: ['Why scan the portal vein before a TIPS?', 'To confirm that it is patent and to record its direction and velocity for comparison.'],
     },
     {
-      id: 'stent', params: { tips: { on: true, d: 8 } }, days: 30, cam: 'liver', lens: 'flow', labels: ['CONF'],
+      // After TIPS the splanchnic circulation grows more hyperdynamic and the hepatic artery takes up the portal flow the liver
+      // loses (its buffer response, with some arterioportal shunting): the patch stands for both, so the stent reads 90–190 cm/s,
+      // the main portal vein over 30 cm/s and the left portal vein clearly reversed, as on a working TIPS.
+      id: 'stent', params: { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5 }, days: 30, cam: 'liver', lens: 'flow', labels: ['CONF'],
       mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['ppg', 'shunt'], key: ['ppg'], delta: 'before',
       kicker: 'A working TIPS', title: 'The stent carries most of the portal flow',
       line: 'A covered stent joins the [right portal vein](RPV) to the right hepatic vein. On the flow lens it is the busiest vessel in the liver, and the PPG falls to {ppg}.',
-      notes: 'An 8 mm covered stent runs through the liver from the right portal vein to the right hepatic vein. The low-resistance path takes most of the portal blood straight to the heart, so the gradient falls. The flow lens colours each vessel by how much blood it carries. A baseline Doppler is done in the first weeks after the procedure, and every later scan is compared with it.',
+      notes: 'A covered stent, here 9 mm wide, runs through the liver from the right portal vein to the right hepatic vein. The low-resistance path takes most of the portal blood straight to the heart, so the gradient falls. The flow lens colours each vessel by how much blood it carries. A baseline Doppler is done in the first weeks after the procedure, and every later scan is compared with it.',
       ask: ['When is the baseline TIPS Doppler done?', 'In the first weeks after the stent is placed; every later scan is compared with it.'],
     },
     {
@@ -47,7 +50,7 @@ export const TIPS_DOPPLER = {
     {
       id: 'mpv', cam: 'portal', lens: 'velocity', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'before' },
       kicker: 'A working TIPS', title: 'The main portal vein speeds up',
-      line: 'With the stent open, the main portal vein carries more blood, and faster, than before. A later fall in this velocity is one sign that the stent is narrowing.',
+      line: 'With the stent open, the main portal vein carries more blood, and faster, than before, usually over {30 cm/s}. A later fall under 30 cm/s is one sign that the stent is narrowing.',
       notes: 'The stent draws portal blood through the main portal vein, so its velocity rises well above the scan before TIPS, shown as the ghost reading. Flow stays hepatopetal: toward the liver and on into the stent. A main portal vein that slows again on a later scan points to a narrowing downstream.',
       ask: ['What happens to main portal vein velocity after a TIPS?', 'It rises, because the stent draws more blood through it.'],
     },
@@ -59,10 +62,11 @@ export const TIPS_DOPPLER = {
       ask: ['With a working TIPS, which way does the left portal vein flow?', 'Away from the liver, toward the stent (hepatofugal).'],
     },
     {
-      id: 'right', cam: 'liver', lens: 'direction', labels: ['RPV'], tool: { kind: 'doppler', vessel: 'PVH_R' },
+      id: 'right', cam: 'liver', lens: 'direction', labels: ['RPV'], tool: { kind: 'doppler', vessel: 'PVH_R', title: 'Right portal vein, before the stent' },
+      mark: { edges: ['PRE_R'], label: 'Hepatofugal beyond the stent', kind: 'note' },
       kicker: 'A working TIPS', title: 'The right portal vein runs into the stent',
       line: 'The [right portal vein](RPV) flows hepatopetal only in the short segment before the stent, and hepatofugal beyond it.',
-      notes: 'The stent starts in the right portal vein, close to the bifurcation. Between the bifurcation and the stent, blood flows toward the liver because it is on its way into the stent. Beyond the stent, the right portal branches drain back toward it, so they are hepatofugal like the left. The rule is the same for every segment: flow runs toward the stent.',
+      notes: 'The stent starts in the right portal vein, close to the bifurcation. The Doppler here samples the short segment between the bifurcation and the stent, where blood flows toward the liver because it is on its way into the stent. Beyond the stent, the right portal branches drain back toward it, so they are hepatofugal like the left, drawn in the reversed colour. The rule is the same for every segment: flow runs toward the stent.',
       ask: ['Why is the right portal vein hepatopetal before the stent but hepatofugal beyond it?', 'Every segment flows toward the stent, and the stent starts in the right portal vein.'],
     },
     {
@@ -86,7 +90,7 @@ export const TIPS_DOPPLER = {
       id: 'backup', cam: 'route', lens: 'heat', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'mpv' },
       data: 'tiles', tiles: ['varix'], key: ['varix'], delta: 'stent',
       kicker: 'TIPS stenosis', title: 'The main portal vein slows again',
-      line: 'Behind the narrowed stent, the main portal vein slows toward its speed before the TIPS. The congestion lens shows pressure backing up into the gut veins, and the varices grow again.',
+      line: 'Behind the narrowed stent, the main portal vein slows under {30 cm/s}, toward its speed before the TIPS. The congestion lens shows pressure backing up into the gut veins, and the varices grow again.',
       notes: 'The ghost reading is the main portal vein with the working stent. With the stent narrowed, portal blood has to find its way through the liver and the collaterals again, so the velocity falls and the varices refill. The congestion lens colours each vessel by how far its pressure sits above a healthy one.',
       ask: ['A TIPS patient rebleeds and the main portal vein has slowed since the baseline study. What do you suspect?', 'Stenosis of the stent.'],
     },
@@ -105,9 +109,9 @@ export const TIPS_DOPPLER = {
         { id: 'stent', title: 'Working TIPS', note: ['90 to 190 cm/s', 'Toward the stent'] },
         { id: 'narrow', title: 'Stenosed TIPS', note: ['Under 90 or over 190 cm/s', 'Toward the liver again'] }],
       kicker: 'Summary', title: 'Doppler after TIPS',
-      line: 'With a working TIPS, every branch flows toward the stent. A slow or fast stent, a slower portal vein or a left portal vein that turns hepatopetal suggests stenosis.',
-      notes: 'Read every TIPS Doppler against the baseline study. In a working stent the velocity sits between 90 and 190 cm/s, the main portal vein is faster than before, and the intrahepatic branches flow toward the stent. Stenosis shows as a stent velocity outside that range or a change of more than 50 cm/s, a slower main portal vein, and branches that turn back toward the liver.',
-      ask: ['Name three Doppler signs of TIPS stenosis.', 'A stent velocity under 90 or over 190 cm/s (or a change of more than 50 cm/s), a slower main portal vein, and hepatopetal flow in the intrahepatic branches.'],
+      line: 'With a working TIPS, every branch flows toward the stent. A slow or fast stent, a main portal vein under 30 cm/s or a left portal vein that turns hepatopetal suggests stenosis.',
+      notes: 'Read every TIPS Doppler against the baseline study. In a working stent the velocity sits between 90 and 190 cm/s, the main portal vein is faster than before, and the intrahepatic branches flow toward the stent. Stenosis shows as a stent velocity outside that range or a change of more than 50 cm/s, a main portal vein under 30 cm/s, and branches that turn back toward the liver.',
+      ask: ['Name three Doppler signs of TIPS stenosis.', 'A stent velocity under 90 or over 190 cm/s (or a change of more than 50 cm/s), a main portal vein under 30 cm/s, and hepatopetal flow in the intrahepatic branches.'],
     },
   ],
 };

@@ -232,7 +232,7 @@ export function createDoppler({ onProbe }) {
       if (branch && (toStent < 0 ? r.mean < -2 : r.mean > 2)) {
         dir = toStent < 0 ? 'Hepatofugal' : 'Hepatopetal'; sev = 'ok';
         pattern = pi > 0.5 ? 'Pulsatile' : pi > 0.15 ? 'Phasic' : 'Monophasic';
-        note = toStent < 0 ? `Expected with a ${stent}: flow runs back toward the stent.` : 'Expected with a TIPS: flow runs on toward the stent.';
+        note = toStent < 0 ? `Expected with a ${stent}: flow runs back toward the stent.` : 'Expected with a TIPS: the segment before the stent flows hepatopetal into it; beyond the stent the right branches are hepatofugal.';
         return { dir, sev, pattern, note, pi, expected: true };
       }
       if (a < 9 && !reverses) { dir = 'Stasis'; sev = 'danger'; }

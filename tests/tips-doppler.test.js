@@ -1,7 +1,7 @@
 // The TIPS Doppler talk teaches what the model shows: with a working stent every intrahepatic branch flows toward it
 // (left portal vein reversed, right portal vein before the stent hepatopetal, the right branches beyond it reversed),
-// the stent runs at 90–190 cm/s and the main portal vein speeds up; narrowed, the stent slows under 90 cm/s, the main
-// portal vein slows again and the left portal vein turns back toward the liver. The slides are run as the presenter runs them.
+// the stent runs at 90–190 cm/s and the main portal vein speeds up past 30 cm/s; narrowed, the stent slows under 90 cm/s, the main
+// portal vein slows under 30 cm/s and the left portal vein turns back toward the liver. The slides are run as the presenter runs them.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/engine/engine.js';
@@ -27,9 +27,10 @@ function run(upTo) {
 test('a working TIPS: fast stent, faster portal vein, every branch toward the stent', () => {
   const before = run('before'), e = run('stent');
   assert.ok(vel(e, 'TIPS') >= 90 && vel(e, 'TIPS') <= 190, `stent ${vel(e, 'TIPS')}`);
-  assert.ok(vel(e, 'PV_TRUNK') > vel(before, 'PV_TRUNK') + 5, 'the main portal vein speeds up');
+  assert.ok(vel(e, 'PV_TRUNK') > 30 && vel(e, 'PV_TRUNK') > vel(before, 'PV_TRUNK') + 10, `the main portal vein speeds up past 30 cm/s (${vel(e, 'PV_TRUNK')})`);
+  assert.ok(vel(before, 'PV_TRUNK') < 15, 'slow before the stent');
   assert.ok(vel(before, 'PVH_L') > 9, 'the left portal vein is hepatopetal before the stent');
-  assert.ok(vel(e, 'PVH_L') < -2, `left portal vein toward the stent (${vel(e, 'PVH_L')})`);
+  assert.ok(vel(e, 'PVH_L') < -5, `left portal vein toward the stent (${vel(e, 'PVH_L')})`);
   assert.ok(vel(e, 'PVH_R') > 9, 'right portal vein before the stent runs on into it');
   assert.ok(e.Q[e.ei.PRE_R] < 0, 'right branches beyond the stent drain back toward it');
   assert.ok(computeMetrics(e).ppg < 12, 'the PPG falls under 12 mmHg');
@@ -38,7 +39,7 @@ test('a working TIPS: fast stent, faster portal vein, every branch toward the st
 test('a narrowed TIPS: slow stent, slower portal vein, a hepatopetal left portal vein, varices back', () => {
   const ok = run('stent'), e = run('narrow');
   assert.ok(vel(e, 'TIPS') > 2 && vel(e, 'TIPS') < 90, `stent ${vel(e, 'TIPS')}`);
-  assert.ok(vel(e, 'PV_TRUNK') < vel(ok, 'PV_TRUNK') - 5, 'the main portal vein slows again');
+  assert.ok(vel(e, 'PV_TRUNK') < 30 && vel(e, 'PV_TRUNK') < vel(ok, 'PV_TRUNK') - 5, `the main portal vein slows under 30 cm/s (${vel(e, 'PV_TRUNK')})`);
   assert.ok(vel(e, 'PVH_L') > 9, `left portal vein back toward the liver (${vel(e, 'PVH_L')})`);
   const m = computeMetrics(e);
   assert.ok(m.ppg >= 12 && m.ascites.volume > 150, 'the gradient and the fluid come back');
