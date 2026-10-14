@@ -192,7 +192,13 @@ export function createVarixWall() {
     h('div', { class: 'ctl-sub' }, 'A wider varix, higher transmural pressure and a thinner wall all raise the stress. Remodeling enlarges the varix and thins its wall over months; a balloon raises the pressure outside it.'));
   el.append(stage, side);
   const set = (node, v) => { if (node.textContent !== v) node.textContent = v; };
-  let wMean = null, wT = 0, wN = 0;
+  let wMean = null, wT = 0, wN = 0, wPin = NaN, wPinT = 0;
+  // (A what-if or a time-lapse pins a new state every few frames: each eases into the last, so the figure does not flicker.)
+  function pin(fp) {
+    const x = fp?.wall, now = performance.now();
+    wPin = !Number.isFinite(x) ? NaN : Number.isFinite(wPin) && now - wPinT < 1000 ? wPin + (x - wPin) * 0.35 : x;
+    wPinT = now;
+  }
   function update(f) {
     const v = f.metrics.varix;
     set(ptm.v, fmt(v.ptm, 1)); set(rad.v, fmt(v.r, 1)); set(wal.v, fmt(v.w, 1)); set(idx.v, fmt(v.T, 0));
@@ -204,6 +210,8 @@ export function createVarixWall() {
     const now = performance.now();
     if (wMean == null || now - wT > 3000) { wMean = v.ratio; wN = 1; } else { wN++; wMean += (v.ratio - wMean) * Math.max(1 / wN, 1 - Math.exp(-(now - wT) / 6000)); }
     wT = now;
+    // (On a slide the figure is the slide's own, the state its tiles show (pin), so every screen reads the same number.)
+    if (Number.isFinite(wPin)) wMean = wPin;
     const ms = wMean > 1 ? 'critical' : wMean > 0.7 ? 'danger' : wMean > 0.4 ? 'caution' : 'ok';
     set(wPct, String(Math.round(wMean * 100))); set(wSev, WALL_SEV[ms]);
     if (wSev.dataset.sev !== ms) wSev.dataset.sev = wBig.dataset.sev = ms;
@@ -263,7 +271,7 @@ export function createVarixWall() {
     ctx.fillText('lumen', cx, cy + Rl * 0.35);
     ctx.fillText('muscle', cx, cy + R * 0.87);
   }
-  return { id: 'varixwall', label: 'Varix wall', el, update };
+  return { id: 'varixwall', label: 'Varix wall', el, update, pin };
 }
 
 // ── Ascites (L2c) ───────────────────────────────────
