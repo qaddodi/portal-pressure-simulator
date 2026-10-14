@@ -28,7 +28,8 @@ export const RATE = {
   lsm: (v) => (v >= 25 ? ['hi', 'CSPH'] : v >= 15 ? ['mid', 'Borderline'] : v >= 10 ? ['mid', 'cACLD'] : ['ok', 'Normal']),
   ra: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
   salb: (v) => (v < 3.5 ? ['mid', 'Low'] : ['ok', 'Normal']),
-  hr: (v) => [null, v < 60 ? 'Slow' : v > 100 ? 'Fast' : 'Normal'],
+  // (A slow rate is no warning on its own: beta-blocked patients aim for 55 to 60, so its band is plain gray.)
+  hr: (v) => (v < 60 ? ['info', 'Slow'] : v > 100 ? ['hi', 'Fast'] : ['ok', 'Normal']),
   ivc: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
   hb: (v) => (v < 7 ? ['hi', 'Severe'] : v < 12 ? ['mid', 'Low'] : ['ok', 'Normal']),
 };
@@ -62,13 +63,13 @@ export const TILE = {
 };
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
 // Each tile's scale bar, in the units the tile shows: [from, to, the cut-offs between its coloured bands]. The bands take their
-// colour from the tile's own rating, so the bar and the status word always agree. (No bar where nothing is rated: WHVP, FHVP, HR.)
+// colour from the tile's own rating, so the bar and the status word always agree. (No bar where nothing is rated: WHVP, FHVP.)
 export const SCALE = {
   hvpg: [0, 25, [5, 10]], ppg: [0, 25, [6, 12]], pv: [0, 30, [10, 15]], sin: [0, 20, [9, 12]],
   saag: [0, 3, [1.1]], tp: [0, 5, [1.5, 2.5]], asc: [0, 8, [0.15, 1.5, 5]],
   varix: [0, 10, [2.5, 5]], gv: [0, 10, [2.5, 5]], spleen: [8, 22, [13, 16]], plt: [0, 300, [100, 150]],
   pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [9, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],
-  lsm: [0, 35, [10, 15, 25]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]],
+  lsm: [0, 35, [10, 15, 25]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]], hr: [30, 200, [60, 100]],
 };
 // A bar's bands: each from a to b (shown units), and m, its middle in the model's units (what the rating reads).
 export const bandsOf = (k) => {
@@ -87,7 +88,7 @@ export const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA'
 // Each column's cut-offs (the same as the readouts' status colors), shown on its heading (hover, or a tap under the table) so the legend can stay short.
 export const CUT = { pv: '↑ over 10, ↑↑ 15 or more mmHg', whvp: '↑ over 10, ↑↑ 15 or more mmHg', fhvp: '↑ over 8, ↑↑ over 16 mmHg', ivc: '↑ over 8, ↑↑ over 16 mmHg', ra: '↑ over 8, ↑↑ over 16 mmHg',
   hvpg: '↑ 5 or more, ↑↑ 10 or more mmHg', ppg: '↑ 6 or more, ↑↑ 12 or more mmHg', sin: '↑ 9 or more, ↑↑ 12 or more mmHg', varix: '↑ 2.5 to 5 mm, ↑↑ 5 mm or more',
-  plt: '↓ under 150, ↓↓ under 100 × 10⁹/L', lsm: '↑ 10 to 25, ↑↑ 25 kPa or more', spleen: '↑ over 13, ↑↑ over 16 cm', liver: '↓ 75% or less, ↓↓ 55% or less', shunt: '↑ 10% or more, ↑↑ 30% or more', map: '↓↓ under 65 mmHg',
+  plt: '↓ under 150, ↓↓ under 100 × 10⁹/L', lsm: '↑ 10 to 25, ↑↑ 25 kPa or more', spleen: '↑ over 13, ↑↑ over 16 cm', liver: '↓ 75% or less, ↓↓ 55% or less', shunt: '↑ 10% or more, ↑↑ 30% or more', map: '↓↓ under 65 mmHg', hr: '↑↑ over 100 beats/min (slow, under 60, is not flagged)',
   asc: '↑ grade 1, ↑↑ grade 2 or 3', saag: '↑ 1.1 g/dL or more: portal hypertension; ↓ under 1.1', tp: '↑ 2.5 g/dL or more, ↓ under 2.5 (ascites protein)', pvFlow: '↓ under 0.9 L/min, ↓↓ stasis or reversed; ↑ over 1.3 L/min (fasting normal)' };
 // Raw pressures, in whole mmHg: ↑ over the first, ↑↑ over the second. PV and WHVP follow the portal pressure readout (normal 10 or less, high from 15).
 export const RAW = { pv: [10, 14], whvp: [10, 14], fhvp: [8, 16], ivc: [8, 16], ra: [8, 16] };

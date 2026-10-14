@@ -7,7 +7,7 @@ import { SCALE, TILE, RATE, bandsOf, rateOf } from '../src/ui/table-marks.js';
 const bandRates = (k) => bandsOf(k).map((z) => rateOf(k, { asc: 1e4, [k]: z.m })[0] || 'info');
 
 test('every rated tile has a scale, with its cut-offs in order inside it', () => {
-  for (const k of Object.keys(RATE)) if (k !== 'hr') assert.ok(SCALE[k], `${k} has no scale`);
+  for (const k of Object.keys(RATE)) assert.ok(SCALE[k], `${k} has no scale`);
   for (const [k, [a, b, cuts]] of Object.entries(SCALE)) {
     assert.ok(TILE[k], `${k} is a tile`);
     assert.ok(a < b, k);
@@ -21,6 +21,7 @@ test('the bands follow the ratings (Baveno VIII stiffness, platelets lower is wo
   assert.deepEqual(bandRates('lsm'), ['ok', 'mid', 'mid', 'hi']);
   assert.deepEqual(bandRates('plt'), ['hi', 'mid', 'ok']);
   assert.deepEqual(bandRates('asc'), ['ok', 'mid', 'hi', 'hi']);   // (litres shown, millilitres rated)
+  assert.deepEqual(bandRates('hr'), ['info', 'ok', 'hi']);          // (slow is gray: a beta-blocked rate is the goal)
   assert.deepEqual(bandRates('shunt'), ['ok', 'mid', 'hi']);       // (percent shown, a fraction rated)
 });
 

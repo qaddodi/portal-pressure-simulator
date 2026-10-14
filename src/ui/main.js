@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=5febeb2cc7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=14d67870c8';
-import { createStage } from './stage.js?v=af532282c8';
+import { createStage } from './stage.js?v=8989591935';
 import { createCreditPlacer } from './credit.js?v=7bbccaaa8c';
 import { sinusoidSupported } from './sinusoid-view.js?v=bcfe6fb904';
 import { createInspector } from './inspector.js?v=6ac06a4419';
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=736b7beca9'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=84dd860998'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -861,12 +861,15 @@ function fullscreenControl() {
     return /iPhone|iPod/.test(navigator.userAgent) && !matchMedia('(display-mode: standalone)').matches
       ? h('small', { class: 'mm-role-note fs-hint' }, 'For full screen on iPhone: Share › Add to Home Screen.') : null;
   }
-  const b = menuToggle(!!document.fullscreenElement, 'fullscreen', 'Full screen', 'Hide the browser bars (Esc leaves)', (on) => {
-    const p = on ? root.requestFullscreen() : document.exitFullscreen();
+  // A plain button (it acts once, it is not a setting): the label says what the next press does.
+  const t = h('span', {}), b = h('button', { class: 'btn block menu-btn', title: 'Hide the browser bars (Esc leaves)' }, svgIcon('fullscreen', 'bo-ic'), t);
+  const sync = () => { t.textContent = document.fullscreenElement ? 'Exit full screen' : 'Enter full screen'; };
+  sync();
+  b.addEventListener('click', () => {
+    const p = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen();
     p?.catch?.(() => sync());
   });
-  const sync = () => { const on = !!document.fullscreenElement; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); };
-  // One document listener for the session; it updates whichever Settings toggle is showing (each open builds a new one).
+  // One document listener for the session; it updates whichever Settings button is showing (each open builds a new one).
   fsSync = sync;
   if (!fsListening) { fsListening = true; document.addEventListener('fullscreenchange', () => fsSync?.()); }
   return b;

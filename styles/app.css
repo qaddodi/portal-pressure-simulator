@@ -1217,6 +1217,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 /* Home */
 .home { position: fixed; inset: 0; z-index: var(--z-popover); background: var(--bg); overflow: auto; animation: homeIn .32s var(--ease) both; transition: opacity .22s var(--ease); padding: var(--safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 .menu-seg { margin: 2px 8px 8px; }
+.btn.menu-btn { width: auto; margin: 2px 8px 8px; gap: 8px; justify-content: center; }
+.btn.menu-btn .bo-ic { stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .menu-select { height: 30px; font-size: var(--fs-14); }
 .menu-select { margin: 2px 12px 8px; width: calc(100% - 24px); }
 .menu-credit .mc-link { display: inline-flex; align-items: center; gap: 2px; color: var(--accent-ink); font-weight: 600; text-decoration: none; }
