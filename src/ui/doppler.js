@@ -313,11 +313,15 @@ export function createDoppler({ onProbe }) {
 
   // The running mean behind a slide's reading: eases toward the 3 s mean over about six seconds (about a second and a half after a clear
   // change, a what-if or a new disease state), and starts again on a new vessel or after a gap.
-  const steady = { probe: null, v: 0, t: 0 };
+  const steady = { probe: null, v: 0, t: 0, n: 0 };
   function steadyMean(x) {
     const now = performance.now(), dt = (now - steady.t) / 1000;
-    if (steady.probe !== probe || dt > 1.5 || !Number.isFinite(steady.v)) { steady.probe = probe; steady.v = x; }
-    else if (dt > 0) steady.v += (x - steady.v) * (1 - Math.exp(-dt / (Math.abs(x - steady.v) > 0.25 * Math.max(Math.abs(x), 4) ? 1.5 : 6)));
+    if (steady.probe !== probe || dt > 1.5 || !Number.isFinite(steady.v)) { steady.probe = probe; steady.v = x; steady.n = 1; }
+    else if (dt > 0) {
+      const far = Math.abs(x - steady.v) > 0.25 * Math.max(Math.abs(x), 4);   // (a clear change: the number follows it)
+      steady.n++;
+      steady.v += (x - steady.v) * (far ? 1 - Math.exp(-dt / 1.5) : Math.max(1 / steady.n, 1 - Math.exp(-dt / 6)));   // (a plain average until the time constant has passed: the first moments do not set it)
+    }
     steady.t = now;
     return steady.v;
   }
