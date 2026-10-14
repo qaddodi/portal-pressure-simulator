@@ -5389,6 +5389,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // A label a pan has pushed over the stage edge is pulled back inside (with a leader to its station)
       // so it is never cut off; once its station has left the stage the label goes too.
       const edge = rectOf(it), V = it.key === 'scan' ? plain : view;
+      // An organ's name is pinned inside its organ: where a card or the stage edge covers it, it hides with the organ, never slides.
+      if (it.cls === 'organ') { const was = labelVis.get(it.key) !== false, m = was ? 0 : 10; it.hide = !within({ x0: edge.x0 - m, y0: edge.y0 - m, x1: edge.x1 + m, y1: edge.y1 + m }, V) || obstacles.some((o) => hits(edge, o)); labelVis.set(it.key, !it.hide); continue; }
       const cx = Math.max(V.x0 - edge.x0, Math.min(0, V.x1 - edge.x1)), cy = Math.max(V.y0 - edge.y0, Math.min(0, V.y1 - edge.y1));
       if (cx || cy) { it.x += cx; it.y += cy; if (Math.hypot(cx, cy) > 2) it.leader = true; }
       if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; labelVis.set(it.key, false); continue; }
