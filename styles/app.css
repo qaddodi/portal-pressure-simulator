@@ -3579,6 +3579,16 @@ input[type="range"] { touch-action: none; }
    History; events stand on the rail as colored flags. The readouts name each value plainly, with
    its unit, and only an abnormal status is spelled out in color. */
 @media (min-width: 1100px) { .vdock .readouts:not(.all) { width: clamp(400px, calc(34vw / var(--vz)), 500px); } }
+/* Side by side, the play bar packs its controls together and keeps only the width they need; the
+   readouts take the rest, with varix and ascites as two more key tiles (dock.js WIDE_PRIMARY).
+   A student in Patients keeps the two gradients, so their dock is unchanged. */
+@media (min-width: 1100px) {
+  #app:not([data-role="student"][data-mode="explore"]) .vdock:not(:has(.readouts.all)) { grid-template-columns: auto minmax(0, 1fr); }
+  #app:not([data-role="student"][data-mode="explore"]) .vdock .readouts:not(.all) { width: auto; }
+  #app:not([data-role="student"][data-mode="explore"]) .vdock .timeline .tl-jumps { margin-left: 8px; }
+  .readouts:not(.all) .ro-group[data-group="effects"] { --n: 2; }
+  .readouts:not(.all) .metric[data-id="varix"] { flex-grow: 1; }
+}
 .tl-latest {
   --sev: var(--info); flex: 0 1 auto; min-width: 0; max-width: 100%; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;
   border: 0; border-radius: 999px; cursor: pointer; font: 600 var(--fs-12) var(--font-ui); color: var(--text);

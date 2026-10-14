@@ -109,6 +109,10 @@ export const VITALS = [
 // where there is room (not on a phone), portal flow: where the pressure sends the blood.
 export const PRIMARY = new Set(['hvpg', 'ppg', 'pv', 'pvflow']);
 const STUDENT_PRIMARY = new Set(['hvpg', 'ppg']);
+// Side by side (1100 px and up) the play bar keeps only the width its controls need, and the
+// freed width shows two more key readouts: the consequences a learner watches.
+export const WIDE_PRIMARY = new Set(['varix', 'ascites']);
+const wideMq = typeof matchMedia === 'function' ? matchMedia('(min-width: 1100px)') : null;
 
 // A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the
 // bar's range), so the heartbeat and breathing never make it flicker.
@@ -157,9 +161,16 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
   // Student mode keeps the two gradients (HVPG, PPG) and no "all readouts" chevron (CSS).
-  const syncLobule = () => { const st = store.get(), on = !!st.lobule, pri = on ? LOBULE_PRIMARY : st.role === 'student' && st.mode === 'explore' ? STUDENT_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
+  const syncLobule = () => {
+    const st = store.get(), on = !!st.lobule, student = st.role === 'student' && st.mode === 'explore';
+    const pri = on ? LOBULE_PRIMARY : student ? STUDENT_PRIMARY : PRIMARY, wide = !on && !student && !!wideMq?.matches;
+    strip.classList.toggle('lob', on);
+    for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id) || (wide && WIDE_PRIMARY.has(x.t.id)));
+  };
   // A paused model sends no frames: fill the tiles from the last one at once (no dashes).
-  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
+  const resync = () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); };
+  for (const k of ['lobule', 'role', 'mode']) store.on(k, resync);
+  wideMq?.addEventListener?.('change', resync);
   syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
