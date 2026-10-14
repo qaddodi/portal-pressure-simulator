@@ -217,6 +217,7 @@ export function createDoppler({ onProbe }) {
         : dir === 'Stasis' ? 'Almost no net flow: a setting for portal vein thrombosis.'
         : pattern === 'Pulsatile' ? 'A pulsatile portal vein suggests right-heart pressure transmitted back (heart failure, tricuspid regurgitation).'
         : a < p.normal[0] ? 'Toward the liver but slow: typical of portal hypertension.'
+        : pattern === 'Monophasic' ? 'Normal: toward the liver, steady.'
         : 'Normal: toward the liver with gentle phasicity.';
     } else if (p.kind === 'hepatic') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
