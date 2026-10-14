@@ -128,9 +128,9 @@ export function createFibroScan() {
     ctx.fillText(live, w - pad, ly);
     const pulse = 0.55 + 0.45 * Math.sin(t * 3), lw = ctx.measureText(live).width;
     ctx.fillStyle = cssAlpha('--fibroscan-live', pulse); ctx.beginPath(); ctx.arc(w - pad - lw - CAP * 0.75, ly - CAP * 0.35, Math.max(3, CAP * 0.27), 0, 7); ctx.fill();
-    // Map: under the reading, as large as the panel allows; the depth labels inside its left edge, the time labels under it.
+    // Map: under the reading, as large as the panel allows; the depth labels inside its left edge, the time labels inside its bottom edge.
     ctx.font = FONT(500, CAP);
-    const top = side ? 44 : RY + Math.round(CAP * 1.3), bot = hh - (side ? 22 : Math.round(CAP * 1.9)), ph = bot - top;
+    const top = side ? 44 : RY + Math.round(CAP * 1.3), bot = hh - (side ? 10 : pad), ph = bot - top;
     const ex = side ? pad + Math.max(tw + 34, 96) + 30 : pad, ew = w - pad - ex;   // the depth labels sit inside the map, so it takes the full width; bottom room keeps the tick row inside the canvas on a phone
     if (ph < 50 || ew < 60) return;
     // Sample the map at about half the screen pixels (smooth, never blocky); drop the cap if frames run long.
@@ -157,10 +157,13 @@ export function createFibroScan() {
       const y = top + ((d - 30) / 60) * ph, txt = d === 90 ? '90 mm' : String(d), by = clamp(y + TK * 0.35, top + TK * 1.1, bot - TK * 0.45);
       ctx.fillStyle = cssAlpha('--white', 0.96); ctx.strokeText(txt, ex + 6, by); ctx.fillText(txt, ex + 6, by);
     }
-    ctx.fillStyle = th.tick;
-    // (A narrow box names every other tick, 0, 40 and 80 ms: "60" ran into "80 ms".)
+    // Time labels sit inside the map's bottom edge the same way; 0 is left off so it never meets "90 mm" in the corner.
+    // (A narrow box names every other tick, 40 and 80 ms: "60" ran into "80 ms".)
     const tstep = ctx.measureText('80 ms').width + ctx.measureText('60').width / 2 + 8 > ew / 4 ? 40 : 20;
-    for (let m = 0; m <= 80; m += tstep) { ctx.textAlign = m === 80 ? 'right' : 'center'; ctx.fillText(m === 80 ? '80 ms' : String(m), m === 80 ? ex + ew : ex + (m / 80) * ew, bot + TK + 6); }
+    for (let m = tstep; m <= 80; m += tstep) {
+      const txt = m === 80 ? '80 ms' : String(m), right = m === 80, bx = right ? ex + ew - 6 : ex + (m / 80) * ew;
+      ctx.textAlign = right ? 'right' : 'center'; ctx.fillStyle = cssAlpha('--white', 0.96); ctx.strokeText(txt, bx, bot - TK * 0.45); ctx.fillText(txt, bx, bot - TK * 0.45);
+    }
   }
   // Runs only while the pane is on screen; update() restarts it when the tab is shown again.
   function loop(now) {
