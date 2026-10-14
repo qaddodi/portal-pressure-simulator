@@ -1644,8 +1644,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.toggleAttribute('data-sin-tiles', sinTiles(s));
       data.classList.toggle('has-tool', !!s.tool);
       data.classList.toggle('tool-only', !!s.tool && !s.data);
-      data.classList.toggle('pz-beside', s.tool?.kind === 'fibroscan' && !!s.data && tileKeys(s).length > 0);
-      data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: the tiles stacked beside a picture-only instrument; the Doppler, scope, abdomen, wall and charts carry their own readings across the full width, so their tiles stay in a row under them)
+      data.classList.toggle('pz-beside', !!s.tool && !!s.data && tileKeys(s).length > 0);
+      data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: every instrument with tiles has them stacked beside it; its own readings fold to a short list under its picture)
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
       data.dataset.tool = ui.tools.sig(s.tool);
       ui.dhT.textContent = cardTitle(s);

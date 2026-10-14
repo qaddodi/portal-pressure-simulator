@@ -52,8 +52,17 @@ test('an instrument with tiles: the instrument on the left, the tiles stacked be
   assert.ok(css.includes(`${B} > .pz-tiles:not([data-n="0"]) { grid-column: 2 / 3; grid-row: 2;`));
   assert.doesNotMatch(css, /pz-data[^{]*:has\(> \.pz-tiles/, 'no :has() on the data card (it made every layout of the page slow)');
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /data\.classList\.toggle\('pz-beside', s\.tool\?\.kind === 'fibroscan' && !!s\.data && tileKeys\(s\)\.length > 0\)/);
+  assert.match(pres, /data\.classList\.toggle\('pz-beside', !!s\.tool && !!s\.data && tileKeys\(s\)\.length > 0\)/, 'every instrument, not only the FibroScan');
   assert.match(pres, /if \(c === side\) continue;/);
+});
+
+test('beside its tiles, every instrument lists its own readings at the small size, a row each', () => {
+  const B = '.pz:not(.stack):not(.low) .pz-data.pz-beside';
+  assert.ok(css.includes(`${B} > .pz-tool { --bs: var(--pz-sm);`));
+  assert.ok(css.includes(`${B} .pz-tool :is(.endo-read > div:not([hidden]), .dop-stats > div:not([hidden]), .ab-tile) { display: flex; flex-direction: row;`));
+  for (const k of ['doppler', 'beats', 'abdomen']) assert.ok(css.includes(`${B} .pz-tool[data-kind="${k}"]`), k);
+  assert.ok(css.includes(`${B} .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage {`));
+  assert.ok(css.includes('.pz-tool .pt-smooth { display: none; }'));
 });
 
 test('the FibroScan draws its words at the card\'s small size: reading top left, LIVE top right, units on the last ticks', () => {
