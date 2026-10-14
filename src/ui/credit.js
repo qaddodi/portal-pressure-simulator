@@ -109,42 +109,54 @@ function labelRects(wr, wrap) {
 }
 
 // A test for spots over the figure's art (wrap px): the credit sits on bare background, never on an organ or a vessel nor
-// touching an outline (Mohammad, 14 Oct). The art is sampled on a 6 px grid (each shape's fill and stroke, a cell once per
-// layout, when first asked), grown by `pad` px all round, and a box is tested against every cell it covers, so a thin
-// outline running between a few sample points is never missed.
+// touching an outline (Mohammad, 14 Oct). The art (each shape's fill and stroke) is drawn once per layout onto a small canvas,
+// one pixel per 6 px cell, and any cell it touches counts; the grid is grown by `pad` px all round, and a box is tested
+// against every cell it covers. (Testing each cell's centre against the shapes, thousands of isPointInStroke calls along
+// the vessels, took a few hundred ms per look and made panning and zooming lag.)
 const CELL = 6;
 const ART = 'g.organ :is(path, circle, ellipse, rect, polygon):not(.org-shade), #edges :is(.v-lumen, .v-lumenP, .v-strand)';
+const num = (el, a) => parseFloat(el.getAttribute(a)) || 0;
+function shapePath(el) {
+  const p = new Path2D(), tag = el.tagName.toLowerCase();
+  if (tag === 'path') return new Path2D(el.getAttribute('d') || '');
+  if (tag === 'circle') p.arc(num(el, 'cx'), num(el, 'cy'), num(el, 'r'), 0, 2 * Math.PI);
+  else if (tag === 'ellipse') p.ellipse(num(el, 'cx'), num(el, 'cy'), num(el, 'rx'), num(el, 'ry'), 0, 0, 2 * Math.PI);
+  else if (tag === 'rect') p.rect(num(el, 'x'), num(el, 'y'), num(el, 'width'), num(el, 'height'));
+  else if (tag === 'polygon') {
+    const v = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number);
+    for (let k = 0; k + 1 < v.length; k += 2) k ? p.lineTo(v[k], v[k + 1]) : p.moveTo(v[k], v[k + 1]);
+    p.closePath();
+  }
+  return p;
+}
 let organMemo = { key: '', test: null };
 function organTest(wr, pad = 18) {
   const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2))].join('|');
   if (organMemo.key === key) return organMemo.test;
-  const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, on = new Int8Array(cols * rows).fill(-1);
-  const shapes = [];
-  for (const el of document.querySelectorAll(ART)) {
-    const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
-    if (!m || !r.width || getComputedStyle(el).display === 'none') continue;   // (drawn as a bitmap plate, the shapes stay in place but hidden: they still count)
-    const sw = el.matches('#edges *') ? 3 : 0;   // (a vessel's few pixels of edge)
-    shapes.push({ el, inv: m.inverse(), l: r.left - wr.left - sw, t: r.top - wr.top - sw, r: r.right - wr.left + sw, b: r.bottom - wr.top + sw });
-  }
-  const pt = new DOMPoint();
-  // (Each cell is sampled once, when a spot first asks about it: one point at its centre against the shapes over it.)
-  const cell = (i, j) => {
-    const k = j * cols + i;
-    if (on[k] >= 0) return on[k];
-    const x = (i + 0.5) * CELL, y = (j + 0.5) * CELL;
-    let v = 0;
-    pt.x = wr.left + x; pt.y = wr.top + y;
-    for (const q of shapes) {
-      if (x < q.l || x > q.r || y < q.t || y > q.b) continue;
-      const p = pt.matrixTransform(q.inv);
-      if (q.el.isPointInFill(p) || q.el.isPointInStroke(p)) { v = 1; break; }
+  const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, on = new Uint8Array(cols * rows);
+  const cv = document.createElement('canvas');
+  cv.width = cols; cv.height = rows;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  if (ctx) {
+    for (const el of document.querySelectorAll(ART)) {
+      const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
+      if (!m || !r.width) continue;   // (drawn as a bitmap plate, the shapes stay in place but hidden: they still count)
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none') continue;
+      // One canvas pixel per cell: cell (i, j) covers wrap px [i * CELL, (i + 1) * CELL).
+      ctx.setTransform(m.a / CELL, m.b / CELL, m.c / CELL, m.d / CELL, (m.e - wr.left) / CELL, (m.f - wr.top) / CELL);
+      const path = shapePath(el);
+      ctx.fill(path);
+      const w = parseFloat(cs.strokeWidth) || 0;
+      if (w > 0) { ctx.lineWidth = w; ctx.lineCap = cs.strokeLinecap || 'butt'; ctx.lineJoin = cs.strokeLinejoin || 'miter'; ctx.stroke(path); }
     }
-    return (on[k] = v);
-  };
+    const px = ctx.getImageData(0, 0, cols, rows).data;
+    for (let k = 0; k < on.length; k++) on[k] = px[k * 4 + 3] > 0 ? 1 : 0;
+  }
   const test = (box) => {
     const c0 = Math.max(0, Math.floor((box.l - pad) / CELL)), c1 = Math.min(cols - 1, Math.floor((box.r + pad) / CELL));
     const r0 = Math.max(0, Math.floor((box.t - pad) / CELL)), r1 = Math.min(rows - 1, Math.floor((box.b + pad) / CELL));
-    for (let j = r0; j <= r1; j++) for (let i = c0; i <= c1; i++) if (cell(i, j)) return true;
+    for (let j = r0; j <= r1; j++) for (let i = c0; i <= c1; i++) if (on[j * cols + i]) return true;
     return false;
   };
   organMemo = { key, test };
@@ -155,6 +167,7 @@ export function createCreditPlacer(credit) {
   const wrap = credit.offsetParent || credit.parentElement, app = document.getElementById('app');
   const blocked = {};   // corner -> when a card last covered it
   let cur = null, curTight = false, pos = null, moving = false, changedAt = 0, lastSig = '', raf = 0, waitT = 0, moveT = 0, size = null, sizeKey = '';
+  let worldKey = '', worldAt = 0, camT = 0;   // (the figure's camera: its last transform and when it last changed)
   const measure = (busy) => {
     const key = innerWidth + 'x' + innerHeight;
     if (key !== sizeKey) {
@@ -204,6 +217,12 @@ export function createCreditPlacer(credit) {
     // A slide change (the presenter's pz-moving): out of sight until the cards are in and the camera has settled; it then
     // appears at once at its final spot.
     if (app?.classList.contains('pz-moving')) { credit.classList.add('moving'); changedAt = 0; lastSig = ''; return; }
+    // A pan or a zoom under way: the art under every spot moves with the camera, and sampling it again on each look
+    // (thousands of point-in-shape tests over the vessels) made panning and zooming lag. A placed credit keeps its spot
+    // until the camera has rested a moment, then looks once.
+    const wm = document.getElementById('world')?.getScreenCTM(), wk = wm ? [wm.a, wm.d, wm.e, wm.f].map((v) => v.toFixed(2)).join(',') : '';
+    if (wk !== worldKey) { worldKey = wk; worldAt = performance.now(); }
+    if (pos && performance.now() - worldAt < 250) { clearTimeout(camT); camT = setTimeout(soon, 260); return; }
     const wr = wrap.getBoundingClientRect();
     let { w, h } = measure(false);
     const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height };
