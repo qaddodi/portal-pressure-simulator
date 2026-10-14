@@ -1183,8 +1183,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A compare slide's buttons switch the live model's params (liveOff: it no longer shows the slide's computed state).
   let liveOff = false, abGen = 0, abFast = false;
   const merge = (a, b) => { for (const [k, v] of Object.entries(b)) a[k] = v && typeof v === 'object' && !Array.isArray(v) ? merge({ ...(a[k] || {}) }, v) : v; return a; };
-  function abSlow() { abGen++; if (abFast) { abFast = false; host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 }); } }
-  // The new treatment takes effect on the live figure, run three times faster while it settles; the ladder and tiles follow it.
+  function abSlow() { abGen++; abFast = false; }
+  // The new treatment takes effect on the live figure at real time (a faster clock would make the Doppler and tracings
+  // sweep faster while it settles); the ladder and tiles follow it.
   function abPick(s, i, k) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     ui?.text.querySelectorAll('.pz-abb').forEach((b, j) => b.setAttribute('aria-pressed', String(j === k)));
@@ -1196,7 +1197,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     liveOff = true;
     replaceParams(merge(structuredClone(store.get().params), patch));
     host.send({ type: 'setParams', params: store.get().params, settle: false });
-    abFast = true; host.send({ type: 'run', running: true, clock: 'hemo', speed: 3 });
+    abFast = true; host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
     for (const t0 = performance.now(); performance.now() - t0 < 7000 && mine();) {
       await wait(150);
       const fr = store.get().frame;
