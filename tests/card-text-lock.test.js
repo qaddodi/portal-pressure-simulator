@@ -30,7 +30,7 @@ test('one margin, padding, gap and card width, all from the body size', () => {
   assert.match(css, /\.pz-bar\.pzb-pill \{[^}]*right: var\(--pz-cm\); bottom: max\(var\(--pz-cm\)/, 'the nav pill sits one margin from the right and the bottom');
   assert.match(js, /gap = Math\.round\(0\.6 \* sl\)/);
   assert.match(js, /const top0 = cardOn && t \? sl : 0;/, 'the cards start one margin from the top');
-  assert.match(js, /const lvl = cardOn && t \? \(d && !below \? d\.top - wr\.top : top0\) \+ pad : null;/, 'a teaching card alone stays at the top left, never centred');
+  assert.match(js, /const lvl = cardOn && t \? \(d && !below \? d\.top - wr\.top : off\(dd\) \? Math\.max\(sl, \(H - t\.height - 2 \* pad\) \/ 2\) : top0\) \+ pad : null;/, 'a teaching card alone is centred top to bottom, at least one margin from each edge');
 });
 
 test('a tight slide shrinks in fixed steps and the data card never moves to the top right', () => {

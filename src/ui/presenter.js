@@ -2042,7 +2042,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const d = below ? null : r(ui.data);
     // The words' card is only as tall as the words. With a data card beside or under it, its top is level with the data
     // card's place at the top right and the words start one padding below it; without one, the words stay centred and the card wraps them.
-    const lvl = cardOn && t ? (d && !below ? d.top - wr.top : top0) + pad : null;   // (with no data card too: the card stays at the top left, never centred)
+    // (With no data card the card is centred top to bottom, never closer than one margin to either edge.)
+    const lvl = cardOn && t ? (d && !below ? d.top - wr.top : off(dd) ? Math.max(sl, (H - t.height - 2 * pad) / 2) : top0) + pad : null;
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
     if (lvl != null) ts.marginBlock = '0';
     ts.maxHeight = lvl != null ? `${((H - lvl - pad - sl) / k).toFixed(1)}px` : '';   // (one margin at the bottom too)
