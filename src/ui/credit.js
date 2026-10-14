@@ -99,34 +99,43 @@ function labelRects(wr, wrap) {
   return out;
 }
 
-// A test for spots over an organ's drawing (wrap px): the credit sits on bare background, never on the liver or another
-// organ, nor touching an organ's outline (Mohammad, 14 Oct). The organs are sampled once per layout on a 6 px grid (each
-// shape's fill and stroke), the grid grown by `pad` px all round, and a box is tested against every cell it covers, so a
-// thin outline running between a few sample points is never missed.
+// A test for spots over the figure's art (wrap px): the credit sits on bare background, never on an organ or a vessel nor
+// touching an outline (Mohammad, 14 Oct). The art is sampled on a 6 px grid (each shape's fill and stroke, a cell once per
+// layout, when first asked), grown by `pad` px all round, and a box is tested against every cell it covers, so a thin
+// outline running between a few sample points is never missed.
 const CELL = 6;
+const ART = 'g.organ :is(path, circle, ellipse, rect, polygon):not(.org-shade), #edges :is(.v-lumen, .v-lumenP, .v-strand)';
 let organMemo = { key: '', test: null };
 function organTest(wr, pad = 18) {
   const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2))].join('|');
   if (organMemo.key === key) return organMemo.test;
-  const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, on = new Uint8Array(cols * rows);
-  const pt = new DOMPoint();
-  for (const el of document.querySelectorAll('g.organ :is(path, circle, ellipse, rect, polygon):not(.org-shade)')) {
+  const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, on = new Int8Array(cols * rows).fill(-1);
+  const shapes = [];
+  for (const el of document.querySelectorAll(ART)) {
     const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
-    if (!m || !r.width) continue;   // (drawn as a bitmap plate, the shapes stay in place but hidden: they still count)
-    const inv = m.inverse();
-    const c0 = Math.max(0, Math.floor((r.left - wr.left) / CELL)), c1 = Math.min(cols - 1, Math.ceil((r.right - wr.left) / CELL));
-    const r0 = Math.max(0, Math.floor((r.top - wr.top) / CELL)), r1 = Math.min(rows - 1, Math.ceil((r.bottom - wr.top) / CELL));
-    for (let j = r0; j <= r1; j++) for (let i = c0; i <= c1; i++) {
-      if (on[j * cols + i]) continue;
-      pt.x = wr.left + (i + 0.5) * CELL; pt.y = wr.top + (j + 0.5) * CELL;
-      const p = pt.matrixTransform(inv);
-      if (el.isPointInFill(p) || el.isPointInStroke(p)) on[j * cols + i] = 1;
-    }
+    if (!m || !r.width || getComputedStyle(el).display === 'none') continue;   // (drawn as a bitmap plate, the shapes stay in place but hidden: they still count)
+    const sw = el.matches('#edges *') ? 3 : 0;   // (a vessel's few pixels of edge)
+    shapes.push({ el, inv: m.inverse(), l: r.left - wr.left - sw, t: r.top - wr.top - sw, r: r.right - wr.left + sw, b: r.bottom - wr.top + sw });
   }
+  const pt = new DOMPoint();
+  // (Each cell is sampled once, when a spot first asks about it: one point at its centre against the shapes over it.)
+  const cell = (i, j) => {
+    const k = j * cols + i;
+    if (on[k] >= 0) return on[k];
+    const x = (i + 0.5) * CELL, y = (j + 0.5) * CELL;
+    let v = 0;
+    pt.x = wr.left + x; pt.y = wr.top + y;
+    for (const q of shapes) {
+      if (x < q.l || x > q.r || y < q.t || y > q.b) continue;
+      const p = pt.matrixTransform(q.inv);
+      if (q.el.isPointInFill(p) || q.el.isPointInStroke(p)) { v = 1; break; }
+    }
+    return (on[k] = v);
+  };
   const test = (box) => {
     const c0 = Math.max(0, Math.floor((box.l - pad) / CELL)), c1 = Math.min(cols - 1, Math.floor((box.r + pad) / CELL));
     const r0 = Math.max(0, Math.floor((box.t - pad) / CELL)), r1 = Math.min(rows - 1, Math.floor((box.b + pad) / CELL));
-    for (let j = r0; j <= r1; j++) for (let i = c0; i <= c1; i++) if (on[j * cols + i]) return true;
+    for (let j = r0; j <= r1; j++) for (let i = c0; i <= c1; i++) if (cell(i, j)) return true;
     return false;
   };
   organMemo = { key, test };
