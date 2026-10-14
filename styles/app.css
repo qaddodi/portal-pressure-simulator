@@ -344,8 +344,8 @@ div.vital { cursor: default; }
 @container (max-width: 1000px) {
   .readouts .ro-more { display: inline-grid; }
   .readouts:not(.all) .ro-systemic { display: none; }
-  .readouts.all .ro-row { flex-wrap: wrap; padding-right: 40px; }
-  .readouts.all .ro-more { position: absolute; top: 4px; right: 4px; }
+  .readouts.all .ro-row { flex-wrap: wrap; }   /* full width: the chevron sits over the first caption line, not in a column of its own */
+  .readouts.all .ro-more { position: absolute; top: -2px; right: 4px; z-index: 1; }
   .readouts.all .ro-systemic { flex: 1 1 100%; border-top: 1px solid var(--hairline); padding-bottom: 10px; }
   .readouts.all .ro-systemic::before { display: none; }
   .readouts.all .vb-grid { grid-template-columns: repeat(5, auto); justify-content: start; }
@@ -360,7 +360,7 @@ div.vital { cursor: default; }
   .readouts.all .ro-group { flex: 1 1 100%; }
   .readouts.all .ro-group + .ro-group { border-top: 1px solid var(--hairline); }
   .ro-group + .ro-group::before { display: none; }   /* hidden groups still count as siblings: no stray divider at the left */
-  .readouts.all .vb-grid { grid-template-columns: repeat(3, auto); }
+  .readouts.all .vb-grid { grid-template-columns: repeat(5, auto); justify-content: space-between; column-gap: 8px; }   /* the five vitals share one row */
   .metric { padding: 2px 6px; }
   .metric .v { font-size: var(--fs-16); }
   .metric .k, .metric .s { font-size: var(--fs-12); }
@@ -3581,6 +3581,7 @@ input[type="range"] { touch-action: none; }
   background: var(--surface); color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap;
 }
 @media (hover: hover) { .tl-hist:hover { border-color: var(--border-strong); background: var(--surface-2); } }
+.tl-hc:empty { display: none; }   /* an empty badge would still take a grid row and push the clock icon up */
 .tl-hc:not(:empty) { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
 /* Events: a colored flag standing on the rail, so they read apart from the learner's changes. */
 .tl-m.ev { top: 2px; width: 18px; height: 22px; }
