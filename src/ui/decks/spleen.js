@@ -19,6 +19,7 @@ export const SPLEEN = {
     {
       id: 'normal', preset: 'healthy', cam: 'splenic', terms: ['spleen', 'pv'], data: 'tiles', tiles: ['spleen', 'plt'], key: ['spleen'],
       kicker: 'A growing spleen', title: 'A normal spleen',
+      vignette: 'A 45-year-old woman with obesity and type 2 diabetes has MASLD with raised liver enzymes. Her spleen and platelet count are normal.',
       line: 'The spleen is {spleen} long, the platelets are {plt}, and the [splenic vein](sv) drains it into the portal vein.',
       notes: 'The splenic vein joins the superior mesenteric vein behind the pancreas to form the portal vein. At any time about a third of the body\'s platelets are held in a normal spleen. On ultrasound a length up to about 12 to 13 cm is normal in an adult.',
       ask: ['What share of the body\'s platelets sits in a normal spleen?', 'About a third.'],

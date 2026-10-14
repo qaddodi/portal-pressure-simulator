@@ -26,6 +26,7 @@ export const RIGHT_HEART = {
     {
       id: 'tr', terms: ['hv'], preset: 'rhf', cam: 'hepatic', whatIf: { label: 'Tricuspid leak', param: 'tr', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] }, labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['ra', 'hvpg'], key: ['ra'],
       kicker: 'Heart failure', site: 'cardiac', title: 'Tricuspid regurgitation reverses the S wave',
+      vignette: 'A 72-year-old woman with long-standing atrial fibrillation has leg edema, ascites and a raised JVP with large v waves. Her liver pulses under the examining hand.',
       line: 'Severe tricuspid regurgitation drives blood back into the hepatic veins in systole. The [right atrium](ra) reads {ra}.',
       notes: 'With a leaking tricuspid valve the ventricle ejects into the atrium and the hepatic veins as well as the lungs, so the S wave shrinks, then reverses. At the bedside this is the large v wave in the jugular vein and a pulsatile liver. A high right atrial pressure without regurgitation makes the trace more pulsatile, with a tall a wave; a flat trace points to the liver, not the heart.',
       ask: ['What happens to the S wave of the hepatic vein in severe tricuspid regurgitation?', 'It reverses: flow goes back toward the liver in systole.'],
@@ -47,6 +48,7 @@ export const RIGHT_HEART = {
     {
       id: 'constrict', preset: 'constrictive', cam: 'heart', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['ra', 'lsm'], key: ['ra'],
       kicker: 'Constrictive pericarditis', site: 'cardiac', title: 'Constriction congests the liver with a normal-sized heart',
+      vignette: 'A 58-year-old man who had mediastinal radiation for Hodgkin lymphoma 20 years ago has a swollen abdomen and fatigue. His JVP is raised and rises further on inspiration.',
       line: 'The heart cannot fill, and the [right atrial pressure](ra) rises to {ra}. Ascites often forms before the legs swell.',
       notes: 'Constriction follows tuberculosis, cardiac surgery, radiotherapy or viral pericarditis. It is often first seen as ascites or a stiff liver and mistaken for cirrhosis. The neck veins are high and rise on inspiration (Kussmaul sign); there may be a pericardial knock. On Doppler the hepatic vein reversal grows in expiration. Echocardiography, CT or MRI of the pericardium and right heart catheterization make the diagnosis; pericardiectomy treats it.',
       ask: ['Ascites with a high SAAG and high protein, a JVP that rises on inspiration and a normal ejection fraction. What is the likely cause, and how do you confirm it?', 'Constrictive pericarditis: a thick pericardium on CT or MRI.'],
@@ -54,6 +56,7 @@ export const RIGHT_HEART = {
     {
       id: 'web', terms: ['hv', 'ivc', 'ra'], preset: 'ivc-web', cam: 'hepatic', whatIf: { label: 'Web narrowing', param: 'stenosis.IVCS_RA', min: 0, max: 0.9, step: 0.05, ends: ['Open', 'Tight'] }, labels: ['RHV'], sites: ['web', 'ra'], mark: { edges: ['IVCS_RA'], label: 'Web in the IVC' }, tool: { kind: 'doppler', vessel: 'IVCS_RA' }, data: 'tiles', tiles: ['ivc', 'ra'], key: ['ivc'],
       kicker: 'The IVC', site: 'post', title: 'An IVC web congests the liver while the atrium stays normal',
+      vignette: 'A 36-year-old man who grew up in Nepal has ascites, leg swelling and dilated veins over his back and flanks. His JVP is normal.',
       line: 'A membrane in the IVC above the hepatic veins obstructs outflow. Below it the pressure is {ivc}, and the right atrium is {ra}.',
       notes: 'Membranous obstruction of the IVC is a form of Budd–Chiari syndrome, common in South and East Asia and southern Africa. The liver congests as in heart failure, but the jugular venous pressure is normal and the echocardiogram is too. Doppler shows fast or turbulent flow at the web and slow or reversed flow below it. The PPG, read against the IVC below the web, looks normal; the portal vein against the right atrium shows the full gradient. Angioplasty, with or without a stent, treats it.',
       ask: ['Congested liver, ascites, normal JVP and a normal echocardiogram. Where does the resistance lie?', 'Between the liver and the heart: the hepatic veins or the IVC.'],

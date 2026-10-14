@@ -23,6 +23,7 @@ export const SHUNTS = {
     {
       id: 'own', preset: 'cirr-decomp', cam: 'fit', sites: ['split'], glow: ['C1a', 'C1b', 'C3'], data: 'tiles', tiles: ['ppg', 'shunt', 'liver'],
       kicker: 'Shunts', site: 'sin', title: 'Spontaneous collaterals',
+      vignette: 'A 56-year-old man with alcohol-associated cirrhosis has ascites despite spironolactone and furosemide, and large esophageal varices. His platelets are 57,000/µL.',
       eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', sub(mi('R'), 'liver')) + mo('+') + frac('<mn>1</mn>', sub(mi('R'), 'shunt')), 'R resistance to portal flow · the liver and the shunt in parallel'],
       line: 'Collaterals already carry part of the portal blood around the liver. They lower the gradient only slightly.',
       notes: 'A shunt is a second path for portal blood, in parallel with the liver. Paths in parallel add their conductances, so any shunt lowers the total resistance, and with it the portal pressure, for the same inflow. In cirrhosis the collaterals open as the pressure rises, but the splanchnic inflow rises too, so the gradient stays high. The blood they carry skips the liver: less portal blood for the liver cells, and gut-derived ammonia and toxins reach the brain.',
@@ -31,6 +32,7 @@ export const SHUNTS = {
     {
       id: 'grs', terms: ['gv', 'lrv'], preset: 'gastric-varix', cam: 'fundus', mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['gv', 'ppg'],
       kicker: 'Spontaneous', site: 'sin', title: 'Gastrorenal shunt',
+      vignette: 'A 63-year-old man with hepatitis C cirrhosis has a large fundal varix on surveillance EGD. He has never bled, and his albumin is 3.0 g/dL.',
       line: 'Fundal varices drain through the gastrorenal shunt to the left renal vein.',
       notes: 'Isolated fundal varices (IGV1) and those continuous with the esophageal varices along the greater curve toward the fundus (GOV2) are fed by the short and posterior gastric veins, and most drain through a gastrorenal shunt, often via the left inferior phrenic vein, into the left renal vein. Fundal varices bleed at a lower gradient than esophageal ones, and more heavily, perhaps because they are wider and their wall tension higher, or because the shunt lowers the pressure. The shunt is the route used to close them from below (BRTO), later in this talk. Endoscopy in this app stays in the esophagus; fundal varices are read from the tile.',
       ask: ['Why do fundal varices bleed at a lower gradient than esophageal ones?', 'Probably because they are wider, so their wall tension is higher at the same pressure; a gastrorenal shunt can also lower the gradient.'],
@@ -39,6 +41,7 @@ export const SHUNTS = {
       id: 'srs', preset: 'cirr-decomp', params: { spontaneous: { C6: true } }, days: 30, cam: 'splenic', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' },
       data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: 'own',
       kicker: 'Spontaneous', site: 'sin', title: 'Splenorenal shunt',
+      vignette: 'A 64-year-old woman with MASH cirrhosis has had repeated bouts of confusion despite lactulose and rifaximin. Her ascites has gone, and EGD shows no varices.',
       line: 'A large spontaneous shunt lowers the gradient but diverts portal blood from the liver. Portal flow may reverse.',
       notes: 'A splenorenal shunt joins the splenic vein to the left renal vein; with the retroperitoneal and paraumbilical shunts it is one of the large spontaneous portosystemic shunts seen on CT in up to half of patients with cirrhosis. A large one lowers the gradient and can reduce variceal bleeding, but it diverts portal blood from the liver: liver function worsens, portal flow may turn away from the liver, and ammonia reaches the brain. Large shunts go with recurrent or persistent encephalopathy, and closing one by embolization can control it in selected patients. The tiles compare with the same patient without the shunt.',
       ask: ['A patient with cirrhosis has recurrent encephalopathy despite lactulose and rifaximin. What should you look for?', 'A large spontaneous portosystemic shunt, such as a splenorenal shunt, on CT.'],

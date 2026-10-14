@@ -27,6 +27,7 @@ export const STIFFNESS = {
     {
       id: 'fibrosis', preset: 'cirr-comp', cam: 'liver', glow: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'measure',
       kicker: 'Liver stiffness', site: 'sin', title: 'Fibrosis stiffens the liver',
+      vignette: 'A 50-year-old man with chronic hepatitis B, lost to follow-up for years, is referred for staging. He feels well, and his platelets are 159,000/µL.',
       line: 'Stiffness is {lsm}, with an HVPG of {hvpg}. By Baveno VIII, under 10 kPa makes advanced disease unlikely and 15 kPa or more makes it highly likely. Stiffness tracks the gradient well up to about 12 mmHg and only loosely above that.',
       caveat: 'The model\'s stiffness follows the gradient more closely than patients\' does.',
       notes: 'Baveno VIII: below 10 kPa, compensated advanced chronic liver disease (cACLD) is unlikely without other signs; 10 to 15 kPa suggests it; 15 kPa or more makes it highly likely. Stiffness also rises with inflammation (a hepatitis flare, alcohol), cholestasis and congestion, so a high reading is read against the whole picture. In the model stiffness follows the sinusoidal gradient and the hepatic vein pressure, which is why it climbs with the HVPG.',
@@ -52,6 +53,7 @@ export const STIFFNESS = {
     {
       id: 'spleen', terms: ['spleen'], preset: 'csph', cam: 'spleen', glow: ['spleen'], data: 'tiles', tiles: ['spleen', 'plt', 'hvpg'], key: ['plt'], delta: 'fibrosis',
       kicker: 'The spleen and the platelets', site: 'sin', title: 'A large spleen sequesters platelets',
+      vignette: 'A 63-year-old woman with MASH cirrhosis has had a lower platelet count at each yearly visit. She feels well and has never had ascites or bleeding.',
       line: 'A falling platelet count is often the first sign in the blood tests. Here the spleen is {spleen} and platelets are {plt}.',
       notes: 'Splenic congestion and hyperplasia enlarge the spleen; a normal spleen already holds about a third of the platelets and an enlarged one up to about 90%, and a lower thrombopoietin from the liver adds to the fall. Spleen length over about 12 to 13 cm and platelets below 150 support portal hypertension. Spleen stiffness, where available, tracks the portal pressure more closely than liver stiffness, including in presinusoidal disease. The tiles compare with the compensated patient of "Fibrosis stiffens the liver".',
       ask: ['Give two reasons the platelet count falls in portal hypertension.', 'Splenic pooling in a large congested spleen, and less thrombopoietin from the liver.'],
@@ -59,6 +61,7 @@ export const STIFFNESS = {
     {
       id: 'schisto', preset: 'schisto', cam: 'liver', glow: ['liver'], sites: ['pv'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'pv', 'hvpg'], key: ['lsm', 'pv'],
       kicker: 'Where stiffness misleads', site: 'presin', title: 'In schistosomiasis the liver stays soft',
+      vignette: 'A 33-year-old man who grew up in northeastern Brazil and swam in its rivers as a child has a large spleen and low platelets. His liver tests are normal.',
       line: 'The obstruction is in the portal tracts, upstream of the sinusoids, so the wedge misses it as well. The HVPG is normal while portal vein pressure is high. Varices, a large spleen and low platelets with a soft liver suggest this diagnosis.',
       notes: 'In presinusoidal disease (schistosomiasis, porto-sinusoidal vascular disorder) the parenchyma is spared, so the stiffness is normal or only slightly raised, and the wedged pressure, which reads the sinusoids, misses the obstruction too. Varices, a large spleen and low platelets with a soft liver point here. Spleen stiffness stays high, and the diagnosis rests on imaging, the history and often a liver biopsy.',
       ask: ['Large varices, a large spleen and a stiffness of 5 kPa. What is the likely level of the obstruction?', 'Presinusoidal: schistosomiasis or porto-sinusoidal vascular disorder.'],
@@ -66,6 +69,7 @@ export const STIFFNESS = {
     {
       id: 'heart', preset: 'rhf', cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'ra', 'hvpg'], key: ['lsm', 'ra'],
       kicker: 'Where stiffness misleads', site: 'cardiac', title: 'Congestion stiffens the liver',
+      vignette: 'A 70-year-old woman with severe TR is admitted with heart failure and ascites. A FibroScan done for raised liver enzymes reads in the cirrhosis range.',
       line: 'Readings above 25 kPa are common in decompensated heart failure and fall within days of diuresis. Check the jugular venous pressure and get an echocardiogram before calling it cirrhosis.',
       notes: 'Raised right atrial pressure fills the hepatic veins and sinusoids and stiffens the liver; readings over 25 kPa are common in decompensated heart failure and fall within days of diuresis. The HVPG is normal because the wedged and free pressures rise together. Hepatic outflow obstruction (Budd–Chiari syndrome) does the same. Check the jugular venous pressure and an echocardiogram before reading a high stiffness as fibrosis.',
       ask: ['Stiffness 32 kPa and a raised jugular venous pressure. What is going on?', 'Congestion from the right heart, not cirrhosis.'],

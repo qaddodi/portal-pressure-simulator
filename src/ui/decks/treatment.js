@@ -14,6 +14,7 @@ export const TREATMENT = {
     {
       id: 'target', preset: 'cirr-decomp', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'],
       kicker: 'Lowering portal pressure', site: 'sin', title: 'A patient with decompensated cirrhosis',
+      vignette: 'A 58-year-old woman with MASH cirrhosis has ascites controlled on spironolactone and furosemide. A surveillance EGD shows large esophageal varices. She has never bled.',
       line: 'The patient has an HVPG of {hvpg}, large varices and ascites. Treatment lowers the inflow or the resistance, or bypasses the liver.',
       notes: 'Portal pressure is flow times resistance. Non-selective beta-blockers and the vasoactive drugs used in bleeding cut the inflow; carvedilol also lowers the resistance inside the liver; TIPS goes around it. Banding treats the varix, not the pressure. Removing the cause (stopping alcohol, treating hepatitis) lowers the resistance over months to years. On drugs, the aim after a bleed is an HVPG fall of 20% or more, or to below 12 mmHg; in compensated patients a fall of 10% already helps.',
       ask: ['Name a treatment that cuts the inflow and one that lowers the resistance.', 'Inflow: propranolol, octreotide, terlipressin. Resistance: carvedilol, treating the cause; TIPS goes around it.'],

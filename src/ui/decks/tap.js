@@ -21,6 +21,7 @@ export const TAP = {
     {
       id: 'tense', preset: 'cirr-decomp', params: { diuretics: false }, days: 120, ramp: { albumin: [2.8, 2.4] }, cam: 'fit', terms: { 'renal veins': 'lrv' }, tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'],
       kicker: 'Ascites', site: 'sin', title: 'Grade 3 ascites',
+      vignette: 'A 61-year-old man with alcohol-associated cirrhosis stopped his diuretics 4 months ago. His abdomen is now tense, and he is short of breath lying flat. His albumin is 2.4 g/dL.',
       line: 'Tense ascites raises the pressure inside the abdomen, which presses on the renal veins and the kidneys.',
       notes: 'Decompensated cirrhosis without diuretics for four months, the serum albumin falling. Tense ascites raises intra-abdominal pressure, which lowers kidney perfusion, splints the diaphragm and adds to the pressure on the varices. Breathlessness, early satiety and an umbilical hernia are common. Grade 3 is treated first with large-volume paracentesis.',
       ask: ['Name two effects of tense ascites outside the abdomen.', 'Breathlessness from a splinted diaphragm, and lower kidney perfusion.'],
@@ -72,6 +73,7 @@ export const TAP = {
     {
       id: 'heart', terms: ['sinusoid:lumen'], preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['saag', 'tp'], key: ['tp'],
       kicker: 'Protein-rich fluid', site: 'cardiac', title: 'High-protein ascites: check the heart',
+      vignette: 'A 76-year-old man with no known liver disease has new ascites and swollen legs. He does not drink, and he becomes breathless climbing one flight of stairs.',
       line: 'SAAG {saag}, 1.1 g/dL or more, with protein {tp}, 2.5 g/dL or more. Protein this high means the sinusoid wall is still open, not capillarized.',
       notes: 'Congestion without scarring gives a high-SAAG, high-protein fluid: heart failure, constrictive pericarditis, early Budd–Chiari syndrome. A raised jugular venous pressure and a high BNP point to the heart; a normal one to the hepatic veins (Doppler). Here the treatment is the heart, not TIPS. The ascites talk covers the four patterns of SAAG and protein.',
       ask: ['SAAG 1.5 g/dL and protein 4 g/dL. What do you examine next?', 'The heart: the jugular venous pressure, BNP and an echocardiogram.'],

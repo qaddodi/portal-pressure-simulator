@@ -22,6 +22,7 @@ export const PVT_CIRRHOSIS = {
     {
       id: 'base', tick: 'Before the clot', preset: 'csph', cam: 'portal', terms: ['pv'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
       kicker: 'The clot', site: 'sin', title: 'Slow flow toward a stiff liver',
+      vignette: 'A 61-year-old man with hepatitis C cirrhosis, cured 3 years ago, comes for his six-monthly liver cancer surveillance ultrasound. His platelets are 88,000/µL.',
       line: 'Cirrhosis with CSPH, portal pressure {pv}. Slow flow in the portal vein is the strongest local risk factor for a clot. A high INR does not protect, because the liver also makes less protein C and antithrombin.',
       causesHead: 'Risk of a clot', causes: ['Slow portal flow', 'More advanced liver disease', 'A high INR does not protect', 'Recent abdominal surgery'],
       notes: 'Portal vein thrombosis becomes more common as cirrhosis advances, and slow portal flow is the strongest local factor. The INR measures only the fall in clotting factors; the liver also makes less protein C and antithrombin, so hemostasis is rebalanced and a high INR does not protect. Abdominal surgery, splenectomy above all, adds to the risk. Many clots are partial and found on a routine scan.',

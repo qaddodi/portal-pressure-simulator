@@ -1,7 +1,7 @@
 // The case card: a new patient's case covers the figure while the patient loads, and Next lifts it before the slide goes on.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { SITES } from '../src/ui/decks/sites.js';
 
 const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
@@ -11,6 +11,21 @@ test('Sites and causes gives each site slide (and only those) a case', () => {
   const withCase = SITES.slides.filter((s) => s.vignette);
   assert.deepEqual(withCase.map((s) => s.site), ['pre', 'presin', 'sin', 'postsin', 'post', 'cardiac']);
   for (const s of withCase) assert.ok(s.preset && s.vignette.length < 220, s.id);
+});
+
+test('every case in every deck sits on a slide with a preset and stays under 220 characters', async () => {
+  const dir = new URL('../src/ui/decks/', import.meta.url);
+  let n = 0;
+  for (const f of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
+    for (const deck of Object.values(await import(new URL(f, dir)))) {
+      for (const s of deck?.slides || []) {
+        if (!s.vignette) continue;
+        n++;
+        assert.ok(s.preset && s.vignette.length < 220, `${f} ${s.id}`);
+      }
+    }
+  }
+  assert.ok(n >= 55, `only ${n} cases`);
 });
 
 test('Next lifts an open case card before it changes the slide', () => {

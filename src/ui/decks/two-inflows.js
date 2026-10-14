@@ -36,6 +36,7 @@ export const TWO_INFLOWS = {
     {
       id: 'clot', preset: 'pvt-acute', cam: 'portal', terms: ['pv'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: HA('dual'), data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['liver'], delta: 'dual',
       kicker: 'The buffer', site: 'pre', title: 'A clot stops the portal flow',
+      vignette: 'A 47-year-old man with a newly diagnosed JAK2-positive myeloproliferative neoplasm has had 3 days of constant abdominal pain. His liver tests are normal.',
       line: 'With the portal vein obstructed, the hepatic artery opens up and carries about twice its usual flow, so liver blood flow falls only to {liver} of normal.',
       notes: 'This is the hepatic arterial buffer response. Adenosine is released at a steady rate around the hepatic arterioles and is normally washed away by portal flow; when portal flow falls, adenosine builds up and dilates the artery. The buffer makes up part, not all, of the lost flow. It is why acute portal vein thrombosis rarely infarcts the liver.',
       ask: ['Why does acute portal vein thrombosis rarely cause a liver infarct?', 'The hepatic artery dilates (the buffer response) and keeps the liver perfused.'],
@@ -51,6 +52,7 @@ export const TWO_INFLOWS = {
     {
       id: 'artery', preset: 'healthy', params: { thrombus: { A_HEP: 1 } }, cam: 'liver', tool: HA('dual'), data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['liver'], delta: 'dual',
       kicker: 'The buffer', title: 'Hepatic artery thrombosis',
+      vignette: 'A 52-year-old man had a deceased-donor liver transplant 10 days ago. His AST and ALT have risen sharply overnight.',
       line: 'If the hepatic artery clots, the portal flow barely changes. Liver blood flow falls to {liver} of normal, and the bile ducts lose their only supply.',
       notes: 'The clinical setting is hepatic artery thrombosis after liver transplantation. In a graft the liver cells may live on portal blood, but often do not; the bile ducts, fed only by the artery, suffer first and become ischemic: bile leaks, strictures and abscesses follow, and early thrombosis often needs revascularization or a new graft. The Doppler shows no arterial signal.',
       ask: ['After a liver transplant the hepatic artery clots. Which structure suffers most?', 'The bile ducts, which have no portal supply.'],
@@ -58,6 +60,7 @@ export const TWO_INFLOWS = {
     {
       id: 'cirr', preset: 'cirr-decomp', cam: 'liver', tool: HA('dual'), data: 'tiles', tiles: ['liver', 'shunt'], key: ['shunt'], delta: 'dual',
       kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'In cirrhosis the artery does more',
+      vignette: 'A 60-year-old man with alcohol-associated cirrhosis has ascites despite spironolactone and furosemide, large esophageal varices and platelets of 57,000/µL.',
       line: 'Collaterals take {shunt} of the portal blood past the liver. The artery dilates and supplies a larger share, but liver blood flow is only {liver} of normal.',
       notes: 'As cirrhosis advances, more portal blood leaves through collaterals and the hepatic artery supplies a growing share of the liver\'s flow; its Doppler velocity rises. The liver also loses part of its first-pass clearance of gut toxins and drugs. The fall in total liver blood flow adds to the loss of function.',
       ask: ['Why does the hepatic artery velocity rise in advanced cirrhosis?', 'Portal inflow to the liver falls, and the buffer response dilates the artery.'],
@@ -72,6 +75,7 @@ export const TWO_INFLOWS = {
     {
       id: 'fugal', preset: 'cirr-hepatofugal', cam: 'portal', terms: ['pv'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['pvFlow'], delta: 'dual',
       kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'In end-stage cirrhosis the portal vein can drain the liver',
+      vignette: 'A 67-year-old woman with MASH cirrhosis has had repeated admissions for hepatic encephalopathy. Her albumin is 2.6 g/dL, and she has only a little ascites.',
       line: 'Flow reverses when the liver resists more than the collaterals do. Arterial blood shunted into the portal branches then drains through them: {pvFlow}.',
       notes: 'Hepatofugal flow appears in advanced cirrhosis with very high sinusoidal resistance, usually with a large spontaneous shunt to carry the reversed flow away. The liver is then perfused by the hepatic artery alone. On a standard Doppler display the portal vein signal lies below the baseline. It is uncommon, seen in about 8% of patients with cirrhosis, and goes with advanced liver failure and with encephalopathy from the large shunts.',
       ask: ['The portal vein Doppler signal lies below the baseline on a standard display. What does that mean?', 'Hepatofugal flow: blood leaves the liver by the portal vein, a sign of very advanced portal hypertension.'],

@@ -26,6 +26,7 @@ export const ENDOSCOPY = {
       id: 'screen', preset: 'cirr-comp', cam: 'gej', labels: ['VAR', 'LGV'], tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
       kicker: 'Endoscopy', site: 'sin', title: 'Not every patient needs a screening scope',
+      vignette: 'A 49-year-old woman with MASH cirrhosis feels well. Her platelets are 159,000/µL, and her liver stiffness is 12.5 kPa. She takes no beta-blocker.',
       line: 'A scope is needed only when no beta-blocker is given and stiffness and platelets do not spare it. In compensated cirrhosis the esophagus is often still normal.',
       notes: 'Baveno VIII has two bedside rules, each for its own decision: stiffness of 15 kPa or less with platelets of 150 or more rules out CSPH, and stiffness under 20 kPa with platelets over 150 spares the screening scope. A patient with a liver stiffness under 20 kPa and platelets over 150 can skip the screening endoscopy, because the chance of varices needing treatment is very low; stiffness and platelets are then repeated every year. Patients with clinically significant portal hypertension who take carvedilol do not need a screening endoscopy either, since the drug prevents decompensation whatever the varices. Those who cannot take a beta-blocker are scoped.',
       ask: ['Which compensated patients can skip a screening endoscopy?', 'Those taking carvedilol for CSPH, and those with liver stiffness under 20 kPa and platelets over 150 (Baveno VIII).'],

@@ -33,6 +33,7 @@ export const LOBULE = {
     {
       id: 'schisto', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance: portal venules' }, data: 'tiles', tiles: ['pv', 'hvpg'],
       kicker: 'Presinusoidal', site: 'presin', title: 'Schistosomiasis raises resistance in the portal tract',
+      vignette: 'A 29-year-old man who grew up farming rice in the Philippines has a large spleen and large esophageal varices. His liver tests are normal, and there is no ascites.',
       line: 'Eggs lodge in the portal venules. Granulomas and fibrosis form around them, and the sinusoids downstream stay normal. The portal pressure is {pv}, yet the HVPG only {hvpg}.',
       notes: 'Schistosoma mansoni and japonicum eggs are carried in portal blood and trapped in the small portal venules, where they cause granulomas and then periportal (pipestem) fibrosis. The obstruction is before the sinusoids: the portal pressure is high, but the wedge reads the normal sinusoids, so the HVPG is normal or only slightly raised. Liver cells are spared, so function is kept for years. Varices and splenomegaly are the presentation; ascites is rare. Porto-sinusoidal vascular disorder behaves the same way.',
       ask: ['A patient with schistosomiasis also has hepatitis C cirrhosis. What will the HVPG show?', 'Raised, but below the true gradient: the wedge reads the sinusoidal obstruction, not the presinusoidal one before it.'],
@@ -40,6 +41,7 @@ export const LOBULE = {
     {
       id: 'cirr', terms: { 'space of Disse': 'sinusoid:disse', fenestrae: 'sinusoid:fenestrae', 'stellate cells': 'sinusoid:stellate', sinusoid: 'sinusoid:lumen' }, preset: 'cirr-decomp', cam: 'sinusoid', callout: { at: 'sin', label: 'Resistance: sinusoids' }, data: 'tiles', tiles: ['sin', 'hvpg'],
       kicker: 'Sinusoidal', site: 'sin', title: 'Cirrhosis narrows the sinusoid',
+      vignette: 'A 61-year-old woman with MASH cirrhosis has ascites despite spironolactone and furosemide. Her albumin is 2.8 g/dL, and her platelets are 57,000/µL.',
       line: 'Collagen fills the space of Disse, the fenestrae close, and stellate cells contract around the sinusoid.',
       notes: 'Activated stellate cells lay down collagen in the space of Disse; the endothelium loses its fenestrae and gains a basement membrane (capillarization). Scar and regenerative nodules distort and compress the sinusoids. This structural part makes up about three quarters of the raised resistance. The rest is tone: too little nitric oxide in the liver, and contracted stellate cells, which is why drugs such as carvedilol and statins can lower it. With the wall closed, protein no longer crosses freely, so the ascites of cirrhosis is low in protein.',
       ask: ['Name the two parts of the raised resistance in cirrhosis.', 'Structural (scar, nodules, capillarized sinusoids) and dynamic (vascular tone).'],
@@ -47,6 +49,7 @@ export const LOBULE = {
     {
       id: 'sos', terms: { 'central veins': 'lobule:central' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance: central veins' }, data: 'tiles', tiles: ['hvpg', 'asc'],
       kicker: 'Postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome obstructs the central veins',
+      vignette: 'A 38-year-old woman with lymphoma, 18 days after high-dose conditioning for HSCT, has tender hepatomegaly, weight gain and new ascites. Her bilirubin is 2.3 mg/dL.',
       line: 'Injured endothelium swells and sloughs into the small central veins and obstructs them.',
       notes: 'Sinusoidal obstruction syndrome (veno-occlusive disease) follows injury to the sinusoidal endothelium of zone 3: myeloablative conditioning before stem cell transplantation (busulfan, cyclophosphamide, total body irradiation), oxaliplatin, and pyrrolizidine alkaloids in herbal teas. The cells round up and detach, red cells dissect into the space of Disse, and debris obstructs the central veins. Weight gain, painful hepatomegaly, ascites and jaundice follow, classically within three weeks of transplant. The wedge lies upstream of the obstruction, so the HVPG is raised; above 10 mmHg supports the diagnosis. Defibrotide is the treatment.',
       ask: ['Why does the HVPG rise in sinusoidal obstruction syndrome?', 'The obstruction is in the central veins, between the sinusoids the wedge reads and the free hepatic vein.'],
@@ -54,6 +57,7 @@ export const LOBULE = {
     {
       id: 'cong', terms: { 'zone 3': 'lobule:zone3', 'central vein': 'lobule:central', sinusoids: 'lobule:sinusoid' }, layers: ['zones'], callout: { at: 'cv', label: 'Dilated zone 3 sinusoids' }, preset: 'rhf', cam: 'lobule:central', data: 'tiles', tiles: ['pv', 'hvpg'],
       kicker: 'Cardiac', site: 'cardiac', title: 'Congestion dilates the sinusoids of zone 3',
+      vignette: 'A 71-year-old woman with pulmonary hypertension and severe TR has a raised JVP, ascites and a tender, enlarged liver. Her ALT is mildly raised.',
       line: 'Back pressure from the heart dilates the sinusoids around the central vein, and zone 3 cells die first. The portal vein reads {pv}, the HVPG {hvpg}.',
       notes: 'A high right atrial pressure passes back through the hepatic veins into the central veins and the sinusoids of zone 3, which dilate and fill with blood; the cut liver looks like a nutmeg. Low cardiac output adds hypoxia, and zone 3 cells atrophy and die. Years of this lay down fibrosis that links the central veins (cardiac cirrhosis). Every pressure from the portal vein to the atrium is high, so the HVPG is normal. The sinusoid wall is still open, so the ascites is rich in protein.',
       ask: ['Why is the HVPG normal in congestive hepatopathy although the portal pressure is high?', 'The wedged and free pressures rise together with the right atrium.'],

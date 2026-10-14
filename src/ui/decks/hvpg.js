@@ -15,6 +15,7 @@ export const HVPG = {
     {
       id: 'route', preset: 'csph', cath: 'route',
       kicker: 'Measuring portal pressure', title: 'Access through the internal jugular vein',
+      vignette: 'A 57-year-old man with alcohol-associated cirrhosis has platelets of 88,000/µL and a liver stiffness of 24 kPa. He has never had ascites or bleeding, and he is referred for HVPG measurement.',
       terms: { 'right atrium': 'ra', IVC: 'ivc', 'hepatic vein': 'hv' },
       line: 'A balloon catheter goes down the superior vena cava, through the right atrium and the IVC, into a hepatic vein.',
       notes: 'Under local anesthetic and ultrasound guidance the right internal jugular vein is punctured, and a balloon catheter is passed under fluoroscopy through the right atrium into the IVC and on into a hepatic vein, usually the right. The transducer is zeroed at the mid-axillary line and each reading is taken in triplicate; deep sedation is avoided because it disturbs the readings. A transjugular liver biopsy can be taken in the same session.',

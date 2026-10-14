@@ -22,6 +22,7 @@ export const RECOMPENSATION = {
     {
       id: 'csph', tick: 'CSPH', preset: 'csph', cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'],
       kicker: 'Compensated', site: 'sin', title: 'Compensated, with CSPH',
+      vignette: 'A 47-year-old man with alcohol-associated cirrhosis drinks about eight drinks a day. He has never had ascites or bleeding, and his platelets are 88,000/µL.',
       line: 'Alcohol-related cirrhosis with an HVPG of {hvpg}, 10 mmHg or more. No ascites or bleeding yet, but both are now possible, and the risk rises with the HVPG.',
       notes: 'Clinically significant portal hypertension marks the patients at risk of decompensation. Baveno VIII advises treating the cause and starting a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. The patient keeps drinking and takes no treatment, so the disease runs its course.',
       ask: ['What does Baveno VIII advise for compensated cirrhosis with CSPH?', 'Treat the cause, and start a non-selective beta-blocker, preferably carvedilol, to prevent decompensation.'],

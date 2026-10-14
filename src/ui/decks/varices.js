@@ -17,6 +17,7 @@ export const VARICES = {
     {
       id: 'collat', preset: 'csph', cam: 'fit', glow: [{ id: 'lgv', soft: true }], data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'],
       kicker: 'Collaterals', site: 'sin', title: 'Collaterals open where portal and systemic veins meet',
+      vignette: 'A 59-year-old man with alcohol-associated cirrhosis keeps drinking. His platelets are 88,000/µL, and EGD shows small esophageal varices.',
       line: 'They form at the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, and as splenorenal and gastrorenal shunts. Some reopen existing channels, and some are new vessels.',
       notes: 'Portosystemic collaterals open where the portal and systemic venous beds meet: at the gastroesophageal junction (left gastric and short gastric veins to the azygos), the umbilicus (paraumbilical veins), the rectum (superior to middle and inferior rectal veins), the retroperitoneum (veins of Retzius), and through splenorenal and gastrorenal shunts. They form by reopening existing channels and by new vessel growth, driven by the portal-to-systemic gradient. Even large ones do not relieve portal hypertension: splanchnic inflow rises to fill them.',
       ask: ['Name four places where portosystemic collaterals form.', 'The gastroesophageal junction, the umbilicus, the rectum, the retroperitoneum (and splenorenal and gastrorenal shunts).'],
@@ -47,6 +48,7 @@ export const VARICES = {
     {
       id: 'fundal', preset: 'gastric-varix', cam: 'fundus', labels: ['GV', 'LRV'], terms: { 'Fundal varices': 'gv', 'left renal vein': 'lrv' }, mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['gv', 'varix'], key: ['gv'],
       kicker: 'Gastric varices', site: 'sin', title: 'Fundal varices and the gastrorenal shunt',
+      vignette: 'A 62-year-old woman with MASH cirrhosis presents with melena. EGD shows a large varix in the gastric fundus. Her albumin is 3.0 g/dL.',
       line: 'Fundal varices bleed less often than esophageal varices, but they bleed more heavily. Treatment is cyanoacrylate glue, BRTO through the left renal vein, or TIPS.',
       notes: 'Isolated fundal varices (IGV1) and those running from the esophagus along the greater curve (GOV2) usually drain through a spontaneous gastrorenal shunt to the left renal vein. They bleed less often than esophageal varices, but more heavily. They are treated with cyanoacrylate glue at endoscopy, by blocking the shunt from below (balloon-occluded retrograde transvenous obliteration, BRTO), or with TIPS. A large shunt also steals portal blood from the liver and raises the risk of encephalopathy.',
       ask: ['Which vein does BRTO enter, and why from there?', 'The left renal vein: the gastrorenal shunt drains into it, so a balloon there blocks the shunt from below.'],
@@ -54,6 +56,7 @@ export const VARICES = {
     {
       id: 'svt', preset: 'svt', cam: 'splenic', labels: ['SV', 'CONF', 'GV'], terms: ['sv', 'pv', 'spleen', 'gv'], mark: { edges: ['SV_CONF'], label: 'Clot' }, data: 'tiles', tiles: ['pv', 'gv', 'spleen'], key: ['pv', 'gv'],
       kicker: 'Left-sided portal hypertension', site: 'pre', title: 'Splenic vein thrombosis and gastric varices',
+      vignette: 'A 47-year-old woman, 4 months after severe necrotizing pancreatitis, has a large spleen and low platelets. EGD shows fundal varices, and her liver tests are normal.',
       line: 'The usual causes are pancreatitis and pancreatic cancer, because the pancreas lies against the splenic vein. The portal vein stays normal while the spleen enlarges and gastric varices form. Splenectomy or splenic artery embolization removes the inflow and cures it.',
       notes: 'Sinistral (left-sided) portal hypertension. Splenic blood goes around the clot through the short gastric and gastroepiploic veins, giving isolated gastric varices with a normal portal pressure and a normal liver; esophageal varices are uncommon. Pancreatitis and pancreatic cancer are the usual causes. Removing the inflow cures it: splenectomy, or splenic artery embolization.',
       ask: ['Gastric varices, a large spleen and normal liver tests after pancreatitis. Diagnosis and cure?', 'Splenic vein thrombosis; splenectomy, or splenic artery embolization.'],
@@ -75,6 +78,7 @@ export const VARICES = {
     {
       id: 'nograd', preset: 'rhf', cam: 'varices', labels: ['AZY'], glow: ['azy'], data: 'tiles', tiles: ['ppg', 'varix'], key: ['ppg'],
       kicker: 'Heart failure', site: 'cardiac', title: 'Why varices are rare in heart failure',
+      vignette: 'A 73-year-old man with severe TR has ascites, leg edema and a raised JVP. Screening EGD shows no varices.',
       line: 'Collaterals need a gradient from the portal to the systemic veins. In heart failure both are high, so the PPG is {ppg} and varices are rare.',
       notes: 'Portosystemic collaterals open only where portal pressure exceeds systemic venous pressure. In right heart failure and constrictive pericarditis the systemic veins are as high as the portal vein, so the gradient that drives collateral flow is missing. In Budd–Chiari syndrome the obstruction lies between the liver and the heart: the portal pressure is high, while the veins the collaterals drain into (the azygos, the right atrium) stay normal, so a gradient opens and varices form.',
       ask: ['Why do varices form in Budd–Chiari syndrome but rarely in heart failure?', 'In Budd–Chiari the obstruction lies between the liver and the heart, so the veins the collaterals drain into (the azygos, the right atrium) stay normal and a gradient opens; in heart failure those veins are high too.'],

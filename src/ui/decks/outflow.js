@@ -20,6 +20,7 @@ export const OUTFLOW = {
     {
       id: 'bcs', terms: ['ivc', 'ra'], preset: 'budd-chiari', cam: 'hepatic', mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clots' }, tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'],
       kicker: 'Hepatic veins', site: 'post', title: 'In Budd–Chiari syndrome the hepatic veins clot',
+      vignette: 'A 31-year-old woman with antiphospholipid syndrome stopped warfarin 3 months ago. She has had RUQ pain for 2 months and now has tense ascites.',
       line: 'An obstruction anywhere from the small [hepatic veins](hv) to where the IVC enters the right atrium traps blood in the liver. The liver swells, portal pressure rises to {pv} and ascites forms.',
       causesHead: 'Look for', causes: ['Myeloproliferative neoplasm', 'Thrombophilia', 'Pregnancy or OCP use'],
       notes: 'Budd–Chiari syndrome is an obstruction to hepatic venous outflow anywhere from the small hepatic veins to the entry of the IVC into the right atrium, without heart disease. It presents with abdominal pain, a large tender liver and ascites, suddenly or over months. Most patients have at least one prothrombotic condition, often more than one: a myeloproliferative neoplasm (the commonest), antiphospholipid syndrome, inherited thrombophilia, paroxysmal nocturnal hemoglobinuria, pregnancy or oral contraceptive (OCP) use; and JAK2 is tested even when the blood count is normal.',
@@ -56,6 +57,7 @@ export const OUTFLOW = {
     {
       id: 'sos', preset: 'sos', params: { fibrosis: { R: { post: 32 }, L: { post: 32 } } }, cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance: central veins' }, terms: { 'central veins': 'lobule:central' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'],
       kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'Chemotherapy injures the sinusoid lining',
+      vignette: 'A 52-year-old man with AML, three weeks after busulfan and cyclophosphamide conditioning for HSCT, has RUQ pain, a 6% weight gain and new ascites. His bilirubin is 2.6 mg/dL.',
       line: 'Debris from the injured lining obstructs the central veins, and within weeks the liver swells and ascites collects.',
       causesHead: 'Causes', causes: ['Stem cell transplant conditioning', 'Oxaliplatin', 'Thiopurines', 'Pyrrolizidine alkaloids'],
       notes: 'Sinusoidal obstruction syndrome (veno-occlusive disease) starts in the sinusoidal endothelium, injured by conditioning with busulfan, cyclophosphamide or total body irradiation, by oxaliplatin, by thiopurines or by pyrrolizidine alkaloids in herbal teas. It presents with jaundice, painful hepatomegaly, ascites and weight gain, usually within three weeks of a transplant, although late forms occur.',

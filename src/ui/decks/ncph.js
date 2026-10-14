@@ -22,6 +22,7 @@ export const NCPH = {
     {
       id: 'patient', preset: 'schisto', cam: 'fit', terms: ['varix', 'spleen'], data: 'tiles', tiles: ['varix', 'spleen', 'plt'], key: ['varix'],
       kicker: 'The patient', site: 'presin', title: 'Varices with normal liver function',
+      vignette: 'A 27-year-old woman who grew up near Lake Victoria in Uganda is admitted with hematemesis. She has never had jaundice, and she does not drink alcohol.',
       line: 'A young adult with varices of {varix}, a spleen of {spleen} and platelets of {plt}, but no jaundice, no ascites and normal liver tests.',
       notes: 'This is the usual picture of non-cirrhotic portal hypertension: a first variceal bleed, or a large spleen found by chance, in a patient whose liver works normally. The bleed is usually well tolerated because the liver has reserve. Worldwide, schistosomiasis is a leading cause; where it is absent, porto-sinusoidal vascular disorder is the commonest intrahepatic cause.',
       ask: ['A patient bleeds from varices but has normal liver tests and no ascites. What should you think of?', 'Non-cirrhotic portal hypertension: a pre-hepatic or presinusoidal obstruction.'],
