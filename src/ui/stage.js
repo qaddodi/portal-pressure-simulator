@@ -4885,11 +4885,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     sigW.set(x.e.id, Math.round(w));
     return Math.round(w);
   }
+  // A stent's velocity callout waits until the stent has grown in and the flow through it has settled: while it draws on,
+  // widens, or the presenter eases the model to a new patient, the reading swings through values no scan would show.
+  const STENT_CALM_MS = 1200, stentCalm = new Map();
+  function stentReady(sid, f) {
+    const x = E[sid];
+    if (!x?.vis) { stentCalm.delete(sid); return false; }
+    const now = performance.now(), c = stentCalm.get(sid);
+    if (!c || x.reveal || f.morphing || x.width !== x.wT) { stentCalm.set(sid, now); return false; }
+    return now - c >= STENT_CALM_MS;
+  }
   function labelSig(f) {
     const st = store.get(), t = easeInOut(morph);
     const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, JSON.stringify((f.viewParams || st.params).stenosis),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, scan.on, scan.cover, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges].join('|');
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, scan.on, scan.cover, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join('')].join('|');
   }
   // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
   // signature (geometry, widths, selection, layers, levels...), the morph and turn, the floating panels,
@@ -5127,7 +5137,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       // A TIPS or DIPS shunt gets its own callout: the velocity through it (cm/s), as Doppler reads it.
       for (const sid of ['TIPS', 'DIPS']) {
-        if (E[sid]?.vis && EI[sid] >= 0) {
+        if (stentReady(sid, f) && EI[sid] >= 0) {
           const { ax, ay, mid, w: vw } = labelAnchor(sid, t);
           const it = velItem(sid, f);
           it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = 9; it.side = 'R';

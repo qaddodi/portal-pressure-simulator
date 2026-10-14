@@ -23,3 +23,19 @@ test('without breathing the portal trunk flow is steady', () => {
   assert.ok(swing(false) < 0.15, 'steady: pulsatility index under the Doppler "Phasic" cut-off');
   assert.ok(swing(true) > 0.15);
 });
+
+test('breathing stops on the live model as the slide begins, before its probe records', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const pres = await readFile(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const core = await readFile(new URL('../src/worker-core.js', import.meta.url), 'utf8');
+  const run = pres.slice(pres.indexOf('async function transitionRun'));
+  assert.ok(run.indexOf("type: 'breath', on: false") > 0 && run.indexOf("type: 'breath', on: false") < run.indexOf('wordsIn('), 'sent before the slide\'s words and tools come in');
+  assert.match(core, /breath\(\{ on \}\) \{ eng\.params\.respiration = !!on;/);
+  // Off mid-breath, the portal trunk is steady within a second.
+  const e = new Engine(); e.loadPreset('healthy'); e.settle(); e.beat = true;
+  for (let n = 0; n < 1500; n++) e.step(0.004);
+  e.params.respiration = false;
+  let mn = Infinity, mx = -Infinity;
+  for (let n = 0; n < 1500; n++) { e.step(0.004); if (n > 250) { const v = e.velocity('PV_TRUNK'); mn = Math.min(mn, v); mx = Math.max(mx, v); } }
+  assert.ok((mx - mn) / mx < 0.15);
+});

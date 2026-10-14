@@ -93,6 +93,7 @@ export function createCore(post) {
       t: eng.t, day: eng.day, running, speed, clock, probe,
       pulsing: !!(eng.params.pulsatile || eng.beat),
       resp: !!eng.params.respiration,
+      morphing: !!morph,
       phase: eng.phase(),
       P: Float32Array.from(eng.P),
       Pf: Float32Array.from(eng.Pf || eng.P),
@@ -228,6 +229,9 @@ export function createCore(post) {
       lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null } : null;
       running = true; clock = lapse ? 'disease' : 'hemo'; speed = lapse ? s : 1; diseaseAcc = 0;
     },
+    // The presenter's slide that turns breathing off stops it on the live model as the slide begins (only that switch;
+    // a morph under way keeps easing to its own state).
+    breath({ on }) { eng.params.respiration = !!on; paramsDirty = true; },
     visibility({ visible: v }) { visible = v; },
     // restartClock: the days are the patient's past (the patient aged before the story starts), so the clock and
     // event log start fresh at day 0 afterwards.

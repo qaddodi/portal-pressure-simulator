@@ -971,7 +971,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=a993d49d7e', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=eb202cb6be', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -983,7 +983,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=fd536e46c0');
+      const { createCore } = await import('../worker-core.js?v=126fd25c8e');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1487,6 +1487,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     // Coming back to it from a later slide shows its end at once: it plays only going forward.
     const back = to < lastAt, lap = !!s.lapse && to > 0 && !q && !back, ct = !q && !s.visual ? s.cath || null : null;
+    // A slide without breathing stops it on the live figure at once, before its probe is placed: otherwise its Doppler
+    // trace records the leaving patient's breathing until the slide's own state eases in (the Doppler talk's meal slide).
+    if (s.params?.respiration === false && store.get().params?.respiration !== false) {
+      host.send({ type: 'breath', on: false }); replaceParams({ ...store.get().params, respiration: false });
+    }
     // In the liver, with a new framing or new lit labels: all labels out first (see hush).
     const inLiver = store.get().lobule || store.get().sinusoid;
     const litNext = !s.visual && !q ? slideTargets(s).lit.join(' ') : '';
