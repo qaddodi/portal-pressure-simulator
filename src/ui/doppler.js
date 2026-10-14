@@ -311,6 +311,16 @@ export function createDoppler({ onProbe }) {
   }
   const set2 = (e, t) => { if (e.textContent !== t) e.textContent = t; };
 
+  // The running mean behind a slide's reading: eases toward the 3 s mean over about six seconds (about a second and a half after a clear
+  // change, a what-if or a new disease state), and starts again on a new vessel or after a gap.
+  const steady = { probe: null, v: 0, t: 0 };
+  function steadyMean(x) {
+    const now = performance.now(), dt = (now - steady.t) / 1000;
+    if (steady.probe !== probe || dt > 1.5 || !Number.isFinite(steady.v)) { steady.probe = probe; steady.v = x; }
+    else if (dt > 0) steady.v += (x - steady.v) * (1 - Math.exp(-dt / (Math.abs(x - steady.v) > 0.25 * Math.max(Math.abs(x), 4) ? 1.5 : 6)));
+    steady.t = now;
+    return steady.v;
+  }
   function updateReport() {
     const r = reading();
     if (!r) {
@@ -324,8 +334,13 @@ export function createDoppler({ onProbe }) {
     const it = interpret(r);
     const set = (e, t) => { if (e.textContent !== t) e.textContent = t; };
     set(dirEl, it.dir); dirEl.dataset.sev = it.sev;
-    set(velEl.firstChild, num(r.mean, Math.abs(r.mean) < 10 ? 1 : 0));
-    shownVel.set(probe, { v: Math.abs(r.mean), t: performance.now() });
+    // (In a slide's top strip the reading is signed as the trace is drawn, the scanner's way: a hepatic vein's forward flow runs away from the
+    // probe, below the baseline, so it reads "−18 · Toward the heart", and the sign, the words and the drawing agree.)
+    // (And steady: the 3 s mean swings a few percent with the beat and breath, so a slide's strip, and the callout that copies it, read a
+    // slow running mean of it, the same number at any moment of the slide on any screen.)
+    const mean = ovOn ? steadyMean(r.mean) : r.mean, drawn = ovOn ? mean * pol() : mean;
+    set(velEl.firstChild, num(drawn, Math.abs(drawn) < 10 ? 1 : 0));
+    shownVel.set(probe, { v: Math.abs(mean), t: performance.now() });
     updateGauge(p, r.mean, it.expected);
     set(patternEl, it.pattern);
     // peak: the extreme farthest from zero, whichever the direction

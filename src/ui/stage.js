@@ -3845,13 +3845,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // line. Screen-space, at the liver's outline. Each tap (three a second) sends one shear wavefront: a soft arc that spreads and fades as
   // it crosses the liver. The true speed goes with √kPa (about 2.2× from 5 to 25 kPa); on screen it is exaggerated to
   // roughly linear in kPa (5× from 5 to 25) so the difference reads at a glance, easing to a new speed when the reading changes.
-  const scan = { on: false, el: null, raf: 0, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, cover: false, leaving: false };   // k: the stiffness the callout shows, eased; cover: a quiz holds the reading back
+  const scan = { on: false, el: null, raf: 0, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, cover: false, leaving: false, headAt: 0 };   // k: the stiffness the callout shows, eased; cover: a quiz holds the reading back
   const SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1 / 3, SCAN_N = 12, SCAN_HALF = 0.5, SCAN_GAP = 6;   // three pulses a second, so several fronts are in flight at once
   const scanSpeed = () => 35 * (clamp(F?.metrics?.lsm ?? 5, 4, 40) / 5) ** 1.3;   // px/s, steeper than linear: 35 at 5 kPa (clearly slow), 240 at 25 (7x), 520 from 40
   function scanArc(r) {
     const [cx, cy] = SCAN_TIP, h = SCAN_HALF * (0.75 + 0.25 * Math.min(1, r / 50));   // the front widens a little with depth
     const p = (t) => `${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`;
     return `M${p(-h)} A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${p(h)}`;
+  }
+  // The probe's body and cable lie up and to the left of its tip, turned 45°: where a card covers any of that, the head fades out and the
+  // waves stay, so no stub pokes out from under the card. (The box is the head's four corners, 90 px back along the axis, 13 px to either side.)
+  function scanHead() {
+    const tip = scan.el && scanTipLocal();
+    if (!tip) return;
+    const wr = wrap.getBoundingClientRect(), c = Math.SQRT1_2, ax = tip.tx, ay = tip.y;
+    const xs = [], ys = [];
+    for (const [u, v] of [[-92, -13], [-92, 13], [-2, -13], [-2, 13]]) { xs.push(ax + (u - v) * c); ys.push(ay + (u + v) * c); }
+    const x0 = Math.min(...xs) + wr.left, x1 = Math.max(...xs) + wr.left, y0 = Math.min(...ys) + wr.top, y1 = Math.max(...ys) + wr.top;
+    let hit = false;
+    for (const el of document.querySelectorAll('.pz-text.stage-blocker, .pz-data.stage-blocker, .pz-panel.stage-blocker')) {
+      if (el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || getComputedStyle(el).opacity < 0.5) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width && r.left < x1 && r.right > x0 && r.top < y1 && r.bottom > y0) { hit = true; break; }
+    }
+    scan.el.classList.toggle('head-off', hit);
   }
   function scanTick(now) {
     scan.raf = 0;
@@ -3862,6 +3879,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lsm = F?.metrics?.lsm;
     if (Number.isFinite(lsm)) scan.k = scan.k == null || reduceMotion.matches ? lsm : scan.k + (lsm - scan.k) * (1 - Math.exp(-dt / 0.6));   // the callout's number eases too
     scanShow();
+    if (!(now < scan.headAt)) { scan.headAt = now + 250; scanHead(); }
     if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; }
     if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; scan.el.classList.remove('tap'); void scan.el.offsetWidth; scan.el.classList.add('tap'); }   // the probe itself shakes once a second; the waves keep their own rhythm
     const span = clamp(scan.v * 2.5, 70, SCAN_SPAN);   // slow fronts fade sooner, so a healthy liver shows a few calm arcs, not a crowd

@@ -2686,6 +2686,8 @@ button.finding { cursor: pointer; }
 .scan-probe .sp-screen { fill: var(--fibroscan); }   /* the probe's own display: the live stiffness, along its 45° axis */
 .scan-probe .sp-read { font: 700 12px Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-variant-numeric: tabular-nums; fill: color-mix(in srgb, var(--fibroscan) 12%, black); }
 .scan-probe .sp-unit { font-size: 11px; font-weight: 600; fill: color-mix(in srgb, var(--fibroscan) 30%, black); }
+.scan-probe :is(.sp-head, .sp-cable) { transition: opacity .3s var(--ease); }
+.scan-probe.head-off :is(.sp-head, .sp-cable) { opacity: 0; }   /* (a card over the probe's body: its waves stay, no stub pokes out from under the card) */
 .scan-probe .sp-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
 .scan-probe .sp-beam { fill: url(#sp-beam); filter: blur(5px); }
 .scan-probe .sp-waves > g { opacity: 0; }
@@ -4779,11 +4781,14 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack .pz-data.has-tool { --pz-num: var(--pz-pnum); }
 .pz.stack .pz-data.has-tool > .pz-tool { --bs: var(--pz-psm); container-type: inline-size; font-size: var(--bs); }
 .pz.stack .pz-data.has-tool > .pz-tool > .pz-ghost { display: none; }
-.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box { min-height: 0; height: calc(128px + var(--dop-free, 0px)); }
+/* (A phone's Doppler and FibroScan give way when the card is short, but by their pictures: the instrument's own zoom stops at .85,
+   so its words stay 10 px or more on the screen (they were 7.9 at the fit's .65), and the rest of the fit shortens the picture.) */
+.pz.stack:not(.low) .pz-data.has-tool.has-tool > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"]) { --tz: max(var(--pz-fit, 1), .85); zoom: var(--tz); }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box { min-height: 0; height: calc(128px * var(--pz-fit, 1) / var(--tz, 1) + var(--dop-free, 0px)); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { width: min(56cqi, 150px); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { max-height: min(30cqi, 96px); }
-.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 168px; }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: calc(168px * var(--pz-fit, 1) / var(--tz, 1)); }
 /* (A card with Show/Hide keeps its title centred like every other card: the pill sits at the right end, the same room kept at
    the left, so the title is centred on the card.) */
 .pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-dh { position: relative; padding-inline: 64px; justify-content: center; text-align: center; }

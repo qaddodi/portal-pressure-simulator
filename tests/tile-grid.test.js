@@ -71,12 +71,21 @@ test('every instrument is one screen: a reading top left, its status top right, 
   assert.ok(css.includes('.pz-tool .pt-smooth { display: none; }'));
 });
 
-test('the FibroScan draws its words at the card\'s small size: map fills the card, reading in its top right corner, no LIVE tag, units on the last ticks', () => {
+test('the FibroScan draws its words at the card\'s small size: map fills the card, reading in its top right corner, no LIVE tag, units on the 60 mm and 0 ms ticks', () => {
   const src = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
   assert.match(src, /getComputedStyle\(cv\)\.fontSize/);
   assert.doesNotMatch(src, /LIVE\b|LIVE ·/);
-  assert.match(src, /'90 mm'/); assert.match(src, /'80 ms'/);
+  assert.match(src, /'60 mm'/); assert.match(src, /'0 ms'/);
   assert.match(src, /const ex = 0, top = 0, ew = w, ph = hh/, 'the map is the whole instrument');
   assert.match(src, /ctx\.strokeText\('kPa', ux, RY\)/, 'the reading sits inside the map, top right');
   assert.ok(css.includes('.pz-tool .fibroscan-box > canvas { font-size: var(--pz-sm, 14px); }'));
+});
+
+test('the FibroScan names its depths and times at even gaps, and the probe\'s head gives way to a card over it', () => {
+  const src = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
+  assert.match(src, /for \(let d = 40; d <= 80; d \+= 20\)/);
+  assert.match(src, /bx = c0 \+ i \* \(c1 - c0\) \/ \(tks\.length - 1\)/);
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(stage, /classList\.toggle\('head-off', hit\)/);
+  assert.match(css, /\.scan-probe\.head-off :is\(\.sp-head, \.sp-cable\) \{ opacity: 0; \}/);
 });

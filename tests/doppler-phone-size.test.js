@@ -19,3 +19,17 @@ test('Present phone data card: direction and mean step down, the spectrum is tal
   const h = Number(rule('.pz.stack .pz-tool[data-kind="doppler"] .dop-box').match(/height: (?:calc\()?(\d+)px/)?.[1]);
   assert.ok(h >= 140, `spectrum is ${h}px`);
 });
+
+test('Present phone: the Doppler and FibroScan zoom stops at .85 and the fit shortens their pictures', () => {
+  const r = rule('.pz.stack:not(.low) .pz-data.has-tool.has-tool > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"])');
+  assert.match(r, /--tz: max\(var\(--pz-fit, 1\), \.85\)/);
+  assert.match(r, /zoom: var\(--tz\)/);
+  assert.match(rule('.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box'), /128px \* var\(--pz-fit, 1\) \/ var\(--tz, 1\)/);
+  assert.match(rule('.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box'), /168px \* var\(--pz-fit, 1\) \/ var\(--tz, 1\)/);
+});
+
+test('a slide\'s Doppler strip reads signed as drawn and as a steady running mean', () => {
+  const src = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
+  assert.match(src, /const mean = ovOn \? steadyMean\(r\.mean\) : r\.mean, drawn = ovOn \? mean \* pol\(\) : mean;/);
+  assert.match(src, /shownVel\.set\(probe, \{ v: Math\.abs\(mean\)/);
+});

@@ -132,22 +132,24 @@ export function createFibroScan() {
     ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + (5 / 60) * ph); ctx.lineTo(x1, top + (45 / 60) * ph); ctx.stroke();
     ctx.restore();
     rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
-    // Axes: the units ride on the last ticks ("90 mm", "80 ms"), so they need no room of their own.
+    // Axes: the units ride on one tick each ("60 mm", "0 ms"), so they need no room of their own.
     const TK = side ? 10 : CAP;
     ctx.fillStyle = th.tick; ctx.font = FONT(500, TK);
-    // Depth labels sit inside the map's left edge in white with a dark halo, so they read on any colour of the elastogram.
+    // Depth labels sit inside the map's left edge in white with a dark halo, so they read on any colour of the elastogram. They stand at
+    // 40, 60 and 80 mm (a sixth, a half and five sixths of the way down): even gaps, clear of the corners and of the time row.
     ctx.textAlign = 'left'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, TK * 0.32); ctx.strokeStyle = cssAlpha('--black', 0.7);
-    for (let d = 30; d <= 90; d += 20) {
-      const y = top + ((d - 30) / 60) * ph, txt = d === 90 ? '90 mm' : String(d), by = clamp(y + TK * 0.35, top + TK * 1.1, bot - TK * 0.45);
+    for (let d = 40; d <= 80; d += 20) {
+      const y = top + ((d - 30) / 60) * ph, txt = d === 60 ? '60 mm' : String(d), by = y + TK * 0.35;
       ctx.fillStyle = cssAlpha('--white', 0.96); ctx.strokeText(txt, ex + m, by); ctx.fillText(txt, ex + m, by);
     }
-    // Time labels sit inside the map's bottom edge the same way; 0 is left off so it never meets "90 mm" in the corner.
-    // (A narrow box names every other tick, 40 and 80 ms: "60" ran into "80 ms".)
-    const tstep = ctx.measureText('80 ms').width + ctx.measureText('60').width / 2 + 8 > ew / 4 ? 40 : 20;
-    for (let tm = tstep; tm <= 80; tm += tstep) {
-      const txt = tm === 80 ? '80 ms' : String(tm), right = tm === 80, bx = right ? ex + ew - m : ex + (tm / 80) * ew;
-      ctx.textAlign = right ? 'right' : 'center'; ctx.fillStyle = cssAlpha('--white', 0.96); ctx.strokeText(txt, bx, bot - TK * 0.45); ctx.fillText(txt, bx, bot - TK * 0.45);
-    }
+    // Time labels sit inside the map's bottom edge the same way, 0 to 80 ms with the unit on the first: their centres are spread evenly
+    // between the two end labels (which cannot sit on the edges), so the gaps between the numbers are equal.
+    // (A narrow box names every other tick, 0, 40 and 80 ms: "60" ran into "80".)
+    const tw = (t) => ctx.measureText(t).width, tstep = tw('0 ms') / 2 + tw('80') / 2 + tw('60') + 3 * 8 > ew - 2 * m ? 40 : 20;
+    const tks = []; for (let tm = 0; tm <= 80; tm += tstep) tks.push(tm);
+    const c0 = ex + m + tw('0 ms') / 2, c1 = ex + ew - m - tw('80') / 2, by = bot - TK * 0.45;
+    ctx.textAlign = 'center'; ctx.fillStyle = cssAlpha('--white', 0.96);
+    tks.forEach((tm, i) => { const txt = tm === 0 ? '0 ms' : String(tm), bx = c0 + i * (c1 - c0) / (tks.length - 1); ctx.strokeText(txt, bx, by); ctx.fillText(txt, bx, by); });
     // The reading, inside the top right corner in the same white with a dark halo: the number big (about four times the label size, within the map's room), "kPa" small
     // beside it. Right aligned, so "kPa" never moves while the number eases.
     const big = Math.round(Math.max(24, Math.min(CAP * 4, 72, ph * 0.3, ew * 0.28))), RM = Math.max(m * 2, Math.round(big * 0.4)), RY = RM + Math.round(big * 0.74);   // (RM: the reading's own margin from the map's top and right edges)
