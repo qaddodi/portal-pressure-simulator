@@ -386,9 +386,11 @@ export function createDoppler({ onProbe }) {
   // The noise floor: a screen-sized texture made once per size and shown at a new random offset
   // a few times a second. Like the grain, it is exponential power, independent from one spectral
   // line to the next but smooth over a few frequency bins along it, log-compressed.
+  // (Made on a 128 px grid and kept while it covers the screen, so a monitor that settles by a few pixels
+  // as its card enters, or its report grows, does not build it again.)
   function makeNoise(RW, RH, binPx, cw) {
     binPx *= 2;
-    const TW = RW + PAD, TH = RH + PAD;
+    const TW = Math.ceil((RW + PAD) / 128) * 128, TH = Math.ceil((RH + PAD) / 128) * 128;
     const fi = new ImageData(TW, TH), F = fi.data;
     const nb = Math.ceil(TH / binPx) + 2;
     const nf = new Float32Array(nb);
@@ -406,7 +408,7 @@ export function createDoppler({ onProbe }) {
       }
     }
     floor = mk(TW, TH); floor.getContext('2d').putImageData(fi, 0, 0);
-    floor.key = `${RW}x${RH}`;
+    floor.dpr = cw;
   }
 
   // Synthesise spectral line c into the ring. Geometry in device pixels.
@@ -446,6 +448,12 @@ export function createDoppler({ onProbe }) {
       lineS = (Number.isNaN(vp) ? 0 : Math.abs(v - vp) / (0.45 * scale)) + 0.5 * clamp((av - 80) / 120, 0, 1);
     }
     const D = img.data;
+    // No flow on this line (before the record starts, as on a slide's first sweep): every pixel is black,
+    // so skip the per-pixel synthesis (a full redraw of an empty screen used to cost tens of ms).
+    if (!has || av <= 0.3) {
+      for (let ry = 0, q = x * 4; ry < RH; ry++, q += RW * 4) { D[q] = 0; D[q + 1] = 0; D[q + 2] = 0; D[q + 3] = 255; }
+      return;
+    }
     for (let ry = 0; ry < RH; ry++) {
       const vel = (rBase - ry) / rPxPerV;
       let S = 0;
@@ -578,8 +586,8 @@ export function createDoppler({ onProbe }) {
     };
     ring(ctx, off, dx, dy);
     // the noise floor, fixed to the screen: a new random view of the texture ~10 times a second
-    if (floor?.key !== `${RW}x${RH}`) makeNoise(RW, RH, g.binPx, Math.max(1, dpr));
-    if (now - noiseAt > 100) { noiseAt = now; nx = (Math.random() * PAD) | 0; ny = (Math.random() * PAD) | 0; }
+    if (!floor || floor.width < RW + PAD || floor.height < RH + PAD || floor.dpr !== Math.max(1, dpr)) makeNoise(RW, RH, g.binPx, Math.max(1, dpr));
+    if (now - noiseAt > 100) { noiseAt = now; nx = (Math.random() * (floor.width - RW)) | 0; ny = (Math.random() * (floor.height - RH)) | 0; }
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = mode === 'spectrum' ? 1 : 0.3;
     ctx.drawImage(floor, nx, ny, RW, RH, dx, dy, RW, RH);
@@ -699,9 +707,10 @@ export function createDoppler({ onProbe }) {
   }
   function update(f) { ingest(f); redraw(); }
   function clear() { buf = []; wl = null; redraw(); }
-  /** A slide is showing this monitor: choose its window again from the width it is drawn at. */
-  function autoWindow() { manualSweep = false; pickNext = true; ringKey = null; redraw(); }
+  /** A slide is showing this monitor: choose its window again from the width it is drawn at. (The trace already drawn
+   *  stays: only a change of window redraws it, so a slide that keeps the window enters without a full repaint.) */
+  function autoWindow() { manualSweep = false; pickNext = true; redraw(); }
   /** Name the hepatic vein's a, S, v and D waves on the trace (the Presenter's waveform slides). */
-  function setWaves(on) { if (waves !== !!on) { waves = !!on; ringKey = null; redraw(); } }
+  function setWaves(on) { if (waves !== !!on) { waves = !!on; redraw(); } }
   return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves, autoWindow };
 }
