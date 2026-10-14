@@ -262,22 +262,7 @@ void main() {
     float gv = 0.58 * (1.0 - smoothstep(hw - 12.0, hw + 12.0, x)) * sheat[s] * sa[s];
     if (gv > glow.a) glow = vec4(shcol[s] * gv, gv);
   }
-  // ── Glow: one thin soft band hugging a lit vessel's wall on both sides (under the network), fading to nothing
-  // at a free end. Every highlight (hover, a slide's or step's vessels, the Doppler's) is this band, in its colour.
-  for (int s = 0; s < MAXS; s++) {
-    if (s >= n) continue;
-    vec4 gc = T(sid[s], 10);
-    if (gc.a <= 0.0) continue;
-    vec4 ge = T(sid[s], 11);
-    float e = sd[s] - swall[s], Lh = max(T(sid[s], 5).z, 1.0);
-    float ends = (ge.x > 0.0 ? smoothstep(0.0, ge.x, sv[s] * Lh) : 1.0) * (ge.y > 0.0 ? smoothstep(0.0, ge.y, (1.0 - sv[s]) * Lh) : 1.0);
-    float fall = 1.0 - smoothstep(0.0, 12.0 * clamp(ge.w, 0.5, 1.3), e);
-    float gv = min(0.9, 0.6 * gc.a) * sa[s] * smoothstep(-0.6, 0.6, e) * fall * ends;
-    // None inside another lit vessel's lumen (the cava's two lengths, lit together): each band ends at the
-    // other's wall, so a lit vessel's round end does not show as a disc in the next one's lumen.
-    for (int t = 0; t < MAXS; t++) if (t != s && t < n && T(sid[t], 10).a > 0.0) gv *= smoothstep(-0.6, 0.6, sd[t] - swall[t]);
-    if (gv > glow.a) glow = vec4((ge.z > 0.5 ? scol[s] : gc.rgb) * gv, gv);
-  }
+  // (A lit vessel's glow, the thin soft band hugging its wall, is laid down with its own tier below.)
 
   // ── Hand-off at a join across tiers ──
   // A vessel that ends on one in a lower tier draws a copy of that one near the junction (see
@@ -317,6 +302,30 @@ void main() {
     last = tt;
     int ti = int(tt + 0.5);
     int grp = tierGroup[ti];
+    // ── Glow: one thin soft band hugging a lit vessel's wall on both sides, fading to nothing at a free end.
+    // Every highlight (hover, a slide's or step's vessels, the Doppler's) is this band, in its colour. It goes
+    // down with the lit vessel's own tier: over every vessel in the tiers beneath, under the lit vessel itself,
+    // so where it crosses another vessel its glow is not cut by that vessel's body.
+    vec4 lg = vec4(0.0);
+    for (int s = 0; s < MAXS; s++) {
+      if (s >= n || stier[s] != tt) continue;
+      vec4 gc = T(sid[s], 10);
+      if (gc.a <= 0.0) continue;
+      vec4 ge = T(sid[s], 11);
+      float e = sd[s] - swall[s], Lh = max(T(sid[s], 5).z, 1.0);
+      float ends = (ge.x > 0.0 ? smoothstep(0.0, ge.x, sv[s] * Lh) : 1.0) * (ge.y > 0.0 ? smoothstep(0.0, ge.y, (1.0 - sv[s]) * Lh) : 1.0);
+      float fall = 1.0 - smoothstep(0.0, 12.0 * clamp(ge.w, 0.5, 1.3), e);
+      float gv = min(0.9, 0.6 * gc.a) * sa[s] * smoothstep(-0.6, 0.6, e) * fall * ends;
+      // None inside another lit vessel's lumen (the cava's two lengths, lit together): each band ends at the
+      // other's wall, so a lit vessel's round end does not show as a disc in the next one's lumen.
+      for (int u = 0; u < MAXS; u++) if (u != s && u < n && T(sid[u], 10).a > 0.0) gv *= smoothstep(-0.6, 0.6, sd[u] - swall[u]);
+      if (gv > lg.a) lg = vec4((ge.z > 0.5 ? scol[s] : gc.rgb) * gv, gv);
+    }
+    if (lg.a > 0.0) {
+      if (grp == 0) accB = over(lg, accB);
+      else if (grp == 1) accN = over(lg * min(1.0 / max(netAlpha, 1e-3), 1.0 / lg.a), accN);   // (accN is faded by netAlpha as a whole)
+      else accT = over(lg, accT);
+    }
     // Members: this tier's vessels, and (except in the lifted tier) vessels of lower tiers that
     // share a junction with one of them, faded out with distance from that junction.
     float pres[MAXS];
