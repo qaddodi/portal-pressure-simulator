@@ -3,7 +3,7 @@
 Use this whenever you write or revise words a learner will read: teaching card text, titles,
 pills, tile labels, tooltips, README and changelog prose. It rewrites text that sounds
 machine-made into the way a good clinician-teacher would say it at the bedside.
-It sits on top of the style rules in `docs/deck-authoring-guide.md` section 13 (plain sentence
+It sits on top of the style rules in `docs/deck-authoring-guide.md` section 9, rule 13 (plain sentence
 case, no emoji, American spelling, numbers with units, Baveno VIII accurate). Where they differ,
 the authoring guide and the clinical facts win.
 
