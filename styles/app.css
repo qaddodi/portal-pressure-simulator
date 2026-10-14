@@ -4412,6 +4412,19 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* A data card squeezed by long words (an imported deck's long title, a tool and several tiles) shrinks to fit (presenter.js
    fitCards), the tool's tap chips put the name over the number when narrow, and a tile's rating wraps inside the tile. */
 .pz-data.under > *, .pz-data.col > * { flex: none; }
+/* The instrument card (presenter.js placeInst): bottom right, level with and as tall as the stacked data card, the instrument centred in it. */
+.pz-data.pz-icard { right: auto; }
+/* (The two cards one height: under each one's header, its contents centred in what is left.) */
+.pz-data.pz-icard > .pz-tool { margin-block: auto; }
+.pz-data.col.pz-even > .pz-ladder, .pz-data.col.pz-even.tiles-only > .pz-tiles { margin-top: auto; }
+.pz-data.col.pz-even > .pz-tiles { margin-bottom: auto; }
+.pz-data.pz-icard > * { flex: none; }
+.pz-data.pz-icard.pz-hide { transform: translateY(14px); }
+.pz-data.pz-icard { container-type: inline-size; }
+/* (Wide enough: a Doppler's spectrum and its readings, and an endoscope's view and its grade, side by side.) */
+@container (min-width: 460px) {
+  .pz-icard .pz-tool .dop-main { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: center; column-gap: 20px; }
+}
 .pzt-r { min-width: 0; hyphens: auto; overflow-wrap: break-word; }
 .pz.stack .pzt-r { font-size: var(--s-cap); }
 /* Phone: every data card's tiles kept short and laid out alike: the name on top, then the value and its unit with the

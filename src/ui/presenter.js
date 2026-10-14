@@ -1643,7 +1643,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.classList.toggle('tool-only', !!s.tool && !s.data);
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
       data.dataset.tool = ui.tools.sig(s.tool);
-      ui.dhT.textContent = cardTitle(s);
+      ui.dhT.textContent = ui.dhT.dataset.full = cardTitle(s);
+      ui.dhT.dataset.split = lad ? cardTitle(s) : s.dataTitle || 'The patient';   // (the instrument in its own card takes its name with it)
+      ui.ihT.textContent = s.tool ? ui.tools.title(s.tool) : '';
       ui.dhL.hidden = !lad;
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
       if (s.tool) ui.tools.show(s.tool, { quiz: q, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1 }); else ui.tools.hide();
@@ -1981,12 +1983,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // controls; otherwise (long words, a tall chart) it sits at the top right. A card in view that changes place fades out,
     // moves while unseen and fades back in.
     let below = false, top0 = 0, gap = 0, cw = 0, foot = H;
+    const split = cardOn && !!t && splitOk();
+    placeTool(split);
     if (cardOn && t && !off(dd)) {
       ts.top = ''; top0 = parseFloat(getComputedStyle(ui.text).top) * k;   // (the cards' top: the data card's at the right)
       gap = Math.min(Math.max(sl, 20), H < 900 ? 20 : 28); cw = t.right - wr.left + pad - sl;
       const q = ui.bar.hidden || !ui.bar.offsetWidth ? null : ui.bar.getBoundingClientRect();
       foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl;
-      let ch = colHeight(cw / k) * k, dk = 1;
+      // (With an instrument card beside it, the pair needs room for the taller of the two: they stand one height. The instrument
+      // may be fitted down to INST_FIT of its full size to stand there; past that the pair does not stack.)
+      const colH = (s = 1) => Math.max(colHeight(cw / k, s) * k, split ? instHeight(((q && q.left - wr.left > sl + cw + gap ? q.left - wr.left - gap : W - sl) - (sl + cw + gap)) / k) * k * INST_FIT : 0);
+      let ch = colH(), dk = 1;
       const slack = dd.classList.contains('col') ? 8 : 0;
       below = top0 + t.height + 2 * pad + gap + ch <= foot + slack;
       // Too tall to stack: the words' card gives way first, only a little: its title no smaller than TK_SOFT, its column wider (SW)
@@ -2000,24 +2007,26 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         for (let n = 0; n < 6; n++) { const mid = (lo + hi) / 2; if (put(mid.toFixed(3), bk)) lo = mid; else hi = mid; }
         return put(lo.toFixed(3), bk);
       };
-      const step = (s) => { dk = s; ch = colHeight(cw / k, s) * k; };
+      const step = (s) => { dk = s; ch = colH(s); };
       // (The words' text steps down with the blocks, a little less, so the two cards' type never ends far apart.)
       const widen = () => { const was = cw; ts.setProperty('--pz-sw', SW); t = r(ui.text); cw = t.right - wr.left + pad - sl; dd.style.setProperty('--pz-cwr', (was / cw).toFixed(4));   // (the chart keeps the size it had in the narrower column: only the words gain)
-        foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl; ch = colHeight(cw / k, dk) * k; };
+        foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl; ch = colH(dk); };
       const ladder = () => {
         for (const [s, bk] of DK) { if (below) break; step(s); below = title(bk, TK_SOFT); }   // (the data card's blocks a step or two smaller, the words a little: no further, or the words would squeeze)
       };
       if (lock) {
         for (const [n, v] of lock.vars) if (v) ts.setProperty(n, v);
         if (lock.cwr) dd.style.setProperty('--pz-cwr', lock.cwr);
-        t = r(ui.text); below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = colHeight(cw / k, dk) * k;
+        t = r(ui.text); below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = colH(dk);
       } else {
         // (A wider column comes before any real shrinking: a title only a little smaller (TK_SOFT) at the usual width, else the
         // words' column wider, SW, where the title and the text take fewer lines and the monitor keeps its height; only then
         // the steps below. A chart drawn to the card's width grows with it, which is why the usual width goes first.)
         below = title(1, TK_SOFT);
-        if (!below) { widen(); below = title(1, TK_SOFT); }
+        if (!below && !split) { widen(); below = title(1, TK_SOFT); }   // (not beside an instrument card: it needs the width)
         if (!below) ladder();
+        // (Beside an instrument card the pair stacks whenever the data card fits: the instrument is fitted to the room left.)
+        if (!below && split && top0 + t.height + 2 * pad + gap + colHeight(cw / k, dk) * k <= foot) below = true;
         if (!below) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ts.removeProperty('--pz-sw'); dd.style.removeProperty('--pz-cwr'); t = r(ui.text); dk = 1; }   // (a little slack once there: a number ticking never flips it)
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
@@ -2045,6 +2054,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (p && t) { const cs = getComputedStyle(dd), room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8); if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     if (below !== isCol) { void dd.offsetWidth; dd.style.transition = ''; }
     fitCards(ui.data, ui.panel);
+    placeInst(split && below, { sl, gap, cw, y: top0 + (t?.height || 0) + 2 * pad + gap, foot, W, k, wr });
     fitWatch();
     const dv = ui.data.hidden ? [0, 0] : dockVec();
     const d = below ? null : r(ui.data);
@@ -2083,9 +2093,51 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
   // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
   let frameL = 0, colT = 0;
+  // The instrument card's part: an instrument beside tiles or a ladder, on a slide in view (or easing between two).
+  const splitOk = () => { const d = ui.data; return !d.hidden && !('gone' in d.dataset) && d.classList.contains('has-tool') && !d.classList.contains('tool-only'); };
+  // The instrument goes to its own card, or back to the data card (under its header), once per change.
+  function placeTool(on) {
+    const el = ui.tools.el, home = on ? ui.inst : ui.data, nm = on ? ui.dhT.dataset.split : ui.dhT.dataset.full;
+    if (nm != null && ui.dhT.textContent !== nm) ui.dhT.textContent = nm;
+    if (el.parentElement === home) return;
+    if (on) home.append(el); else home.insertBefore(el, home.querySelector('.pz-dh').nextSibling);
+    fitDone.delete(ui.data); fitDone.delete(ui.inst);
+    if (!on) ui.inst.removeAttribute('style');
+    syncInst();
+  }
+  // The instrument card shows, hides and eases with the data card (a MutationObserver on the data card calls this).
+  function syncInst() {
+    if (!ui?.inst) return;
+    const d = ui.data, c = ui.inst, on = ui.tools.el.parentElement === c;
+    c.hidden = !on || d.hidden;
+    c.classList.toggle('pz-hide', !on || d.classList.contains('pz-hide'));
+    c.dataset.kind = ui.tools.el.dataset.kind || '';
+  }
+  // Bottom right, level with the stacked data card, as tall as it (the taller of the two sets both), from a gap past it to
+  // the right margin, or to a gap short of the controls' pill when the pill sits beside it.
+  function placeInst(on, { sl, gap, cw, y, foot, W, k, wr }) {
+    const c = ui.inst, dd = ui.data;
+    if (!on) { if (ui.tools.el.parentElement === c) placeTool(false); dd.style.minHeight = ''; dd.classList.remove('pz-even'); return; }
+    const x = sl + cw + gap, q = ui.bar.hidden || !ui.bar.offsetWidth ? null : ui.bar.getBoundingClientRect();
+    const room = foot - y, rgt = q && q.top - wr.top < y + room && q.left - wr.left > x ? q.left - wr.left - gap : W - sl;
+    const cs = c.style;
+    cs.left = `${(x / k).toFixed(1)}px`; cs.top = `${(y / k).toFixed(1)}px`; cs.width = `${(Math.max(0, rgt - x) / k).toFixed(1)}px`;
+    cs.maxHeight = `${(room / k).toFixed(1)}px`; cs.minHeight = ''; dd.style.minHeight = '';
+    fitCards(c);
+    const hh = Math.max(dd.offsetHeight, c.offsetHeight);
+    dd.style.minHeight = cs.minHeight = `${hh}px`; dd.classList.add('pz-even');
+  }
   // The stacked data card's fixed block sizes, largest first, and the smallest the words' title goes.
-  const SW = 1.45, DK = [[0.9, 0.95], [0.8, 0.88]], TK_SOFT = 0.8;   // (the data card's block size, the words' text size)
+  const SW = 1.45, DK = [[0.9, 0.95], [0.8, 0.88]], TK_SOFT = 0.8, INST_FIT = 0.72;   // (the data card's block size, the words' text size)
   // The data card's height at width w (page px) under the words: as it would stand there, at full size (unfitted).
+  // The instrument card's height at width w (page px), at full size (unfitted). (The pill beside it may narrow it a little: the fit takes up that.)
+  function instHeight(w) {
+    const c = ui.inst, cs = c.style, sv = [c.hidden, cs.width, cs.maxHeight, cs.minHeight, cs.getPropertyValue('--pz-fit')];
+    c.hidden = false; cs.width = `${w}px`; cs.maxHeight = 'none'; cs.minHeight = ''; cs.removeProperty('--pz-fit');
+    const hh = c.offsetHeight;
+    c.hidden = sv[0]; cs.width = sv[1]; cs.maxHeight = sv[2]; cs.minHeight = sv[3]; if (sv[4]) cs.setProperty('--pz-fit', sv[4]);
+    return hh;
+  }
   function colHeight(w, dk = 1) {
     const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk')];
     d.classList.add('col'); if (dk < 1) ds.setProperty('--pz-dk', dk); else ds.removeProperty('--pz-dk'); ds.width = `${w}px`; ds.maxHeight = 'none'; ds.removeProperty('--pz-fit');
@@ -2102,6 +2154,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const x = d.offsetLeft + dock.to * dockVec()[0];
       obs.push(dk = { l: x * k, t: d.offsetTop * k, r: (x + d.offsetWidth) * k, b: (d.offsetTop + d.offsetHeight) * k });
     }
+    let ins = null;
+    if (!ui.inst.hidden) { const q = ui.inst.getBoundingClientRect(); obs.push(ins = { l: q.left - wr.left, t: q.top - wr.top, r: q.right - wr.left, b: q.bottom - wr.top }); }
     if (!ui.bar.hidden && ui.bar.offsetWidth) { const q = ui.bar.getBoundingClientRect(); obs.push(pill = { l: q.left - wr.left, t: q.top - wr.top, r: q.right - wr.left, b: q.bottom - wr.top }); }
     // Each obstacle splits a rectangle it overlaps into the open parts left, right, above and below it.
     const split = (q, o) => (o.r <= q.l || o.l >= q.r || o.b <= q.t || o.t >= q.b ? [q]
@@ -2111,6 +2165,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const ok = (q) => q.r - q.l >= 200 && q.b - q.t >= 150;
     let mid = [{ l: frameL, t: 0, r: dk ? dk.l - G : W, b: H }];
     if (pill) mid = mid.flatMap((q) => split(q, pill));
+    if (ins) mid = mid.flatMap((q) => split(q, ins));
     // (Marked pref: the camera uses the rest only for a box too big for these at its widest zoom.)
     mid = mid.filter(ok).map((q) => ({ ...q, pref: true }));
     let out = [{ l: frameL, t: 0, r: W, b: H }];
@@ -2121,7 +2176,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const onFonts = () => { if (ui) layout(); };
   // Where the cards stand, rounded: the camera framed this space last; the same space needs no second glide.
   let framedSig = '';
-  const cardSig = () => (ui ? [ui.text, ui.data].map((el) => (el.hidden ? '-' : ((r) => [r.left, r.top, r.width, r.height].map((v) => Math.round(v / 4)).join())(el.getBoundingClientRect()))).join('|') : '');
+  const cardSig = () => (ui ? [ui.text, ui.data, ui.inst].map((el) => (el.hidden ? '-' : ((r) => [r.left, r.top, r.width, r.height].map((v) => Math.round(v / 4)).join())(el.getBoundingClientRect()))).join('|') : '');
   function reframe(ms) {
     const s = slides[shown.i];
     fitAround(s, s.visual ? s.cam : asking(s, shown.rev) ? 'fit' : s.cam || 'fit', ms);
@@ -2451,6 +2506,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dockTouch(data);
     // A part that has finished folding or unfolding: fit the card again from full size (a fit taken mid-fold kept the tiles small).
     data.addEventListener('transitionend', (e) => { if (e.propertyName === 'max-height' && e.target.parentElement === data) { fitDone.delete(data); onResize(); } });
+    // The instrument card (Mohammad, 13 Oct): on a laptop or tablet held sideways, an instrument beside tiles or a ladder leaves
+    // the data card for a card of its own at the bottom right, level with the data card, the figure open above it.
+    // (Class pz-data too, so the instrument keeps the data card's look; presenter.js moves tools.el between the two.)
+    const ihT = h('span');
+    const inst = h('section', { class: 'pz-data pz-icard has-tool stage-blocker pz-hide', hidden: true, 'aria-label': 'The instrument' }, h('div', { class: 'pz-dh' }, ihT));
+    new MutationObserver(() => syncInst()).observe(data, { attributes: true, attributeFilter: ['class', 'hidden'] });
     const veil = h('div', { class: 'pz-veil' }), panel = h('section', { class: 'pz-panel stage-blocker', hidden: true, 'aria-live': 'polite' });
     const prog = h('div', { class: 'pz-prog', 'aria-hidden': 'true' }, h('i'));
     const bar = h('div', { class: 'pz-bar stage-blocker', role: 'toolbar', 'aria-label': 'Presenter' });
@@ -2463,12 +2524,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));
     const jump = h('nav', { class: 'pz-jump stage-blocker', hidden: true, 'aria-label': 'Slides' });
     const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, 'aria-live': 'polite', onclick: () => caseLift?.() });
-    const root = h('div', { class: 'pz' }, safe, veil, load, text, data, panel, vcase, prog, bar, jump, blackEl);
+    const root = h('div', { class: 'pz' }, safe, veil, load, text, data, inst, panel, vcase, prog, bar, jump, blackEl);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
-    return { root, shade, safe, load, text, data, vcase, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
+    return { root, shade, safe, load, text, data, inst, ihT, vcase, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0;
