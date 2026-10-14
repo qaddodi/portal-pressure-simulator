@@ -299,6 +299,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const lanes = [];
     // (On a slide both lanes start at zero on one scale, so a millimetre of mercury is as tall in each: the axis reads straight.)
     const top0 = (key) => { let mx = -Infinity; for (const k of key === 'pressure' ? traces.map((t) => t.id) : ['hvpg']) { const q = series(k, -Infinity, x1); for (let i = 0; i < q.x.length; i++) mx = Math.max(mx, q.hi ? q.hi[i] : q.mid[i]); }
+      mx = Math.max(mx, ...(key === 'pressure' ? traces.map((t) => endOf(t.id)) : [steadyHvpg()]).filter(Number.isFinite));   // (and the numbers written at the ends: a reading never sits above its lane)
       return key === 'hvpg' ? Math.max(16, Math.ceil(((Number.isFinite(mx) ? mx : 0) + 3) / 4) * 4) : Math.max(10, Math.ceil(((Number.isFinite(mx) ? mx : 10) * 1.1) / 5) * 5); };
     const fixed = slide ? { pressure: [0, top0('pressure')], hvpg: [0, top0('hvpg')] } : null;
     if (traces.length && showHvpg) {

@@ -26,7 +26,9 @@ const fingerprint = (m, e) => {
   return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg),
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
     sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, wall: e ? e.varix('VAR', e.Pf || e.P).ratio : m.varix.ratio, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, pvVel: m.pvVelMean, map: m.map, hr: m.hr, hb: m.blood.hb, rih: e ? liverRes(e) : null };
+    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, pvVel: m.pvVelMean, map: m.map, hr: m.hr, hb: m.blood.hb, rih: e ? liverRes(e) : null,
+    // (the whole network as it stood, so a slide's callouts and figure labels read its numbers as the tiles do: the same on every screen)
+    at: e ? { P: Float32Array.from(e.Pf || e.P), Q: Float32Array.from(e.Qf || e.Q), D: Float32Array.from(e.edges, (ed) => e.diameter(ed.id)) } : null };
 };
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 const rampAt = (ramp, d, n) => Object.fromEntries(ramp.map(([k, [a, b]]) => [k, a + (b - a) * Math.min(1, d / n)]));

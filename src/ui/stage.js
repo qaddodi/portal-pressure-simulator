@@ -3729,7 +3729,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const liverRes = (P, Q) => 1 / LOBES.reduce((g, ids) => g + 1 / Math.max(1e-6, ids.reduce((r, id) => r + rOf(P, Q, id), 0)), 0);
   /** The ratio a resistor shows, or null when there is nothing to show (collaterals closed). */
   function resRatio(kind) {
-    const hp = store.get().healthy, P = F.Pf || F.P, Q = F.Qf || F.Q;
+    const hp = store.get().healthy, at = pinned()?.at, P = at?.P || F.Pf || F.P, Q = at?.Q || F.Qf || F.Q;
     if (!hp?.P || !hp?.Q) return null;
     const r0 = liverRes(hp.P, hp.Q);
     // (The live frame breathes a few percent around the settled value, so a liver within 8% of the healthy one reads exactly ×1.0, not ×0.9 and ×1.0 by turns.)
@@ -3773,6 +3773,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.append(el);
     return { el, list: null, fp: null, made: new Map() };
   })();
+  // A slide's numbers (its fingerprint, or a what-if's or time-lapse's since): the tiles show them, and a callout or figure
+  // label that agrees with the model reads them too, so a laptop and a tablet show the same number at the same moment.
+  let slideFp = null;
+  store.on('presentFp', () => { slideFp = null; });
+  const pinned = () => (store.get().presenting ? slideFp || store.get().presentFp : null);
+  const breath = (v) => Math.max(0.8, Math.abs(v) * 0.08);   // (how far the live model may breathe from a pinned number and still read it)
   // The "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split into the liver's
   // share (portal pink) and the shunts' (tinted like the shunt tile: plain, amber, red). A new share counts and slides
   // there over 0.8 s, eased; the callout's size never changes.
@@ -3825,7 +3831,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Live readings, like the data card: the slide's numbers (fp) only while the model still agrees with them, so a
       // what-if slider moves the callouts as it moves the tiles.
       if (d.split) splitTo(el, clamp((Number.isFinite(sites.fp?.shunt) ? sites.fp.shunt : beatMean('shunt', F.metrics?.shuntFraction, 2)) ?? 0, 0, 1));   // (the slide's own share, the tile's number; a what-if or a time-lapse moves it with the tiles)
-      const b = el.querySelector('b'), v = d.split ? null : d.res ? (ratio == null ? '' : '×' + fmt(ratio, ratio < 10 ? 1 : 0)) : fmt(siteLive(sites.fp?.[k], (F.Pf || F.P)[NI[d.node]], 0.6), 1);
+      const b = el.querySelector('b'), v = d.split ? null : d.res ? (ratio == null ? '' : '×' + fmt(ratio, ratio < 10 ? 1 : 0)) : fmt(siteLive(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : pinned()?.at?.P[NI[d.node]], (F.Pf || F.P)[NI[d.node]], Number.isFinite(sites.fp?.[k]) ? 0.6 : breath((F.Pf || F.P)[NI[d.node]])), 1);
       if (v != null && b.textContent !== v) b.textContent = v;
       const ra = d.res ? resAt() : null;
       if (ra) el.classList.toggle('low', ra.up);
@@ -4718,8 +4724,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let P = (f.Pf || f.P)[NI[id]];
     // On a slide, a station the tiles and words also read shows their reading: the measured one (the wedge, not the
     // sinusoid node), and once it has settled, the slide's settled value itself, so the callouts, tiles and words agree.
-    const mk = st.presenting && LADDER_KEY[id], live = mk && f.metrics?.[mk], fp = mk && st.presentFp?.[mk];
+    const pin = pinned(), mk = pin && LADDER_KEY[id], live = mk && f.metrics?.[mk], fp = mk && pin[mk];
     if (Number.isFinite(live)) P = Number.isFinite(fp) && Math.abs(live - fp) < 0.6 ? fp : live;
+    else if (pin && Number.isFinite(P)) {   // (a station the tiles do not read: the slide's own number while the model agrees, else its mean over several breaths)
+      const at = pin.at?.P[NI[id]];
+      P = Number.isFinite(at) && Math.abs(P - at) < breath(at) ? at : beatMean('n:' + id, P, 6);
+    }
     let name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
     // On a presenter's ladder and catheter slides, the stations the ladder names carry its name too (one vocabulary).
     if (st.presenting && st.presentNames && LADDER_TAG[id]) name += ` · ${LADDER_TAG[id]}`;
@@ -4752,7 +4762,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A TIPS or DIPS shunt's callout: the velocity through it (cm/s), as Doppler reads it (its own mean while it is on that shunt).
   function velItem(sid, f) {
     const it = nodeItem('RPV', f, 'inline', stageBox().width < 700);
-    const dop = shownVel.get(sid), live = beatMean('v:' + sid, Math.abs(edgeVel(f, EI[sid])) * dopplerK(EDGES[EI[sid]]), 6);
+    const dop = shownVel.get(sid), at = pinned()?.at, now = Math.abs(edgeVel(f, EI[sid])) * dopplerK(EDGES[EI[sid]]);
+    const fixed = at && Math.abs(edgeVel(at, EI[sid])) * dopplerK(EDGES[EI[sid]]);   // (the slide's own velocity, as its tiles read the slide)
+    const live = Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + sid, now, 6);
     const vel = dop && performance.now() - dop.t < 1000 ? dop.v : live;
     it.lines = [[{ ...it.lines[0][0], t: sid }, { t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4 }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }]];
     it.key = `n:${sid}`; it.src = ['vel', sid]; it.node = undefined; it.sel = false; it.swatch = null;
@@ -6225,8 +6237,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setGlow(list) { setGlow(list); },
     setResGlow(list) { resLit = new Map((list || []).map((r) => [r.id, r.tone])); if (sites.list) sitesPaint(); },
     pinOrgans(list) { pinOrgans(list); },
-    siteFp(fp) { if (sites.list) sites.fp = fp; },   // (the numbers the slide's tiles now show: a what-if, a time-lapse)
-    setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const k of [...sites.made.keys()]) { const el = sites.made.get(k); sites.made.delete(k); el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); }, 500); } else { refreshCTM(); sitesPaint(); } },
+    siteFp(fp) { slideFp = fp; if (sites.list) sites.fp = fp; },   // (the numbers the slide's tiles now show: a what-if, a time-lapse)
+    setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (fp) slideFp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const k of [...sites.made.keys()]) { const el = sites.made.get(k); sites.made.delete(k); el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); }, 500); } else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
     cathFocus,
     cathFollow,
