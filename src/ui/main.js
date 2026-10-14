@@ -3,11 +3,11 @@
 
 import { startHost, host } from './host.js?v=5febeb2cc7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=14d67870c8';
-import { createStage } from './stage.js?v=a1ae742863';
+import { createStage } from './stage.js?v=b79c6891d3';
 import { createCreditPlacer } from './credit.js?v=7bbccaaa8c';
 import { sinusoidSupported } from './sinusoid-view.js?v=bcfe6fb904';
 import { createInspector } from './inspector.js?v=6ac06a4419';
-import { createDock, CUTOFFS } from './dock.js?v=94774fb4bd';
+import { createDock, CUTOFFS } from './dock.js?v=b1af549961';
 import { setHvpgStage } from './hvpg-proc.js?v=e78c8b9ad7';
 import { createWhy } from './why.js?v=46ef456a89';
 import { createTimeline, LAPSES } from './timeline.js?v=46697513e6';
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=47b7ccd292'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=0520fd5af5'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

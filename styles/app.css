@@ -4890,6 +4890,24 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @container (max-width: 300px) { .pz:not(.stack):not(.low) .pz-data.pz-data.pz-data .pz-tool[data-kind="beats"] .pt-head { grid-template-columns: auto minmax(0, 1fr); } .pz:not(.stack):not(.low) .pz-data.pz-data.pz-data .pz-tool[data-kind="beats"] .pt-sev { grid-column: 1 / -1; justify-self: start; } }   /* (a narrow tracing: its status under the HVPG, not over its unit) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { container-type: normal; }   /* (laid out as contents it has no box: as a container it hid the instrument's own width from its queries) */
 .pz-tool .ab-big > b[data-sev="caution"] { color: var(--caution); } .pz-tool .ab-big > b[data-sev="danger"] { color: var(--danger); }   /* (the reading in its tile's colour) */
+/* (Inside the beaker the litres read white on a dark outline, centred, as every instrument writes over its picture; the beaker and
+   its grade sit together in the middle of the card, the beaker sized by the card's room so it never collapses on a phone.) */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big { justify-content: center; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b, :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b[data-sev] { color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); white-space: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b small { color: rgb(var(--white-rgb) / .8); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-gauge { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly { flex: 0 1 auto; min-height: 0; height: min(46cqi, calc(16 * var(--pzh))); }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { height: min(30cqi, 96px); }
+/* (The Doppler strip's pattern word gives way first, with an ellipsis, so the strip never shrinks its type below three quarters.) */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report > .dop-pattern { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* (Beside an instrument a tile's number and unit sit closer, so "−0.6 L/min" keeps clear of the tile's edge.) */
+.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-vu { gap: 0 .12em; }
+/* (The beat-by-beat lanes never get too flat to tell the lines apart.) */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-box { min-height: 170px; }
+/* (A colour key with many swatches puts its name on a line of its own, so the swatches wrap evenly; on a phone they keep clear
+   of the nav pill at the card's lower right.) */
+.pz-lens-many > b { flex-basis: 100%; }
+.pz.stack .pz-lens { padding-right: 150px; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt.endo-dt, :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: inline; }   /* (named, "Stigmata ● None", so it never reads as a second grade) */
 
 .wall-big, .wall-sev { display: none; }

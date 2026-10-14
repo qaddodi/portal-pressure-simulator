@@ -558,7 +558,7 @@ export function createDoppler({ onProbe }) {
       rng.selectNodeContents(report);
       const nat = rng.getBoundingClientRect().width;
       if (!(nat > 0) || have <= 0) return;
-      const fit = Math.max(0.5, Math.min(1, Math.floor(k * (have / nat) * 0.98 * 100) / 100));
+      const fit = Math.max(0.75, Math.min(1, Math.floor(k * (have / nat) * 0.98 * 100) / 100));
       if (nat <= have && (fit - k < 0.05 || k >= 1)) return;   // fits, and would not grow by a clear step
       if (fit === k) return;
       k = fit; report.style.setProperty('--dop-k', String(k));

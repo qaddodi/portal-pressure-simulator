@@ -4717,12 +4717,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { runs, color: velColorOf(f, bestK, store.get().healthy) };
   }
 
-  // Where a label has no room with its value, it keeps the name alone (see placeMulti and the overlap pass).
+  // Where a label has no room with its value, it first drops the unit and change badge (keeping "Azygos 6.7"), then
+  // keeps the name alone (see placeMulti and the overlap pass). it.short: 1 trimmed, 2 the name alone.
   function shortenItem(it) {
-    if (it.short || (it.lines.length < 2 && it.lines[0].length < 2)) return false;
-    it.lines = [[it.lines[0][0]]]; it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); it.short = true;
+    if (it.short === 2 || (it.lines.length < 2 && it.lines[0].length < 2)) return false;
+    const val = !it.short && it.lines.length === 2 ? it.lines[1].filter((r) => r.cls === 'lb-val') : [];
+    if (val.length && val.length < it.lines[1].length) {
+      it.lines = [it.lines[0], val]; it.w = Math.max(...it.lines.map(lineW)); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0); it.short = 1;
+      return true;
+    }
+    it.lines = [[it.lines[0][0]]]; it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); it.short = 2;
     return true;
   }
+  const shortenTo = (it, lvl) => { while ((it.short || 0) < lvl && shortenItem(it)); };
   function nodeItem(id, f, mode, compact) {
     const st = store.get();
     const meta = ATLAS_LABELS[id];
@@ -4914,7 +4921,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const it of labelShown) {
       const [kind, id, mode, compact] = it.src;
       const n = kind === 'vel' ? velItem(id, f) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
-      if (it.short) shortenItem(n);
+      if (it.short) shortenTo(n, it.short);
       if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;
       for (let i = 0; i < n.lines.length; i++) {
         const a = n.lines[i], o = it.lines[i];
@@ -5036,7 +5043,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // Carry: the label goes where it was put, relative to the figure point it names.
         if (!prev) { stale = true; return false; }
         if (prev.drop) return false;
-        if (prev.short && it.canShort) shortenItem(it);
+        if (prev.short && it.canShort) shortenTo(it, +prev.short);
         if (it.w > prev.w + 0.5 || it.h > prev.h + 0.5) { stale = true; return false; }
         const [ax, ay] = worldToLocal(prev.wx, prev.wy);
         it.ax = ax; it.ay = ay; it.dir = prev.dir; it.leader = prev.leader;
@@ -5078,7 +5085,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const lead = gapPx > 18 || (!!prev?.lead && gapPx >= 10);
       it.leader = !!best.leader || lead;
       const [wx, wy] = localToWorld(it.ax, it.ay);
-      nextSol.set(it.key, { wx, wy, dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: !!it.short });
+      nextSol.set(it.key, { wx, wy, dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0 });
       placed.push(best.r); out.push(it);
       return true;
     };
@@ -5329,8 +5336,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       let r = boxOf(it);
       if (it.rot) { if (!it.sel && kept.some((k) => hits(r, k))) { it.hide = true; continue; } kept.push(r); continue; }
       if (kept.some((k) => hits(r, k))) {
-        const w0 = it.w, h0 = it.h, d = it.dir || '';
-        if (it.canShort && shortenItem(it)) {
+        const d = it.dir || '';
+        for (let w0 = it.w, h0 = it.h; it.canShort && kept.some((k) => hits(r, k)) && shortenItem(it); w0 = it.w, h0 = it.h) {
           it.x += d.includes('W') ? w0 - it.w : d.includes('E') ? 0 : (w0 - it.w) / 2;
           it.y += d.includes('N') ? h0 - it.h : d.includes('S') ? 0 : (h0 - it.h) / 2;
           r = rectOf(it);

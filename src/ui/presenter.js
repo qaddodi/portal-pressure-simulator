@@ -22,7 +22,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=d54955216c';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=e78c8b9ad7';
-import { createTools } from './presenter-tools.js?v=e88dec2978';
+import { createTools } from './presenter-tools.js?v=3e02e823f6';
 import { openHandout } from './handout.js?v=56e5c2bd92';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=471e7f0f49';
@@ -75,7 +75,7 @@ const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
 function lensKey(k, fixed = false) {
   const [name, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY;
   const dot = (v) => h('i', { class: 'pz-lens-dot', style: { background: `var(${v})` } });
-  return h('p', { class: 'pz-lens' + (fixed ? ' pz-lens-fix' : ''), 'data-lens': k }, h('b', {}, `Colored by ${name}`),
+  return h('p', { class: 'pz-lens' + (fixed ? ' pz-lens-fix' : '') + (Array.isArray(bar) && bar.length > 3 ? ' pz-lens-many' : ''), 'data-lens': k }, h('b', {}, `Colored by ${name}`),
     // (Each swatch stays on one line with its words: "Low ▬▬ High" as one piece, a dot with its name.)
     ...(typeof bar === 'function' ? [h('span', { class: 'pz-lens-k' }, h('span', {}, lo), h('i', { class: 'pz-lens-bar', style: { background: bar() } }), h('span', {}, hi))]
       : bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, dot(v), h('span', {}, t)))));
@@ -714,7 +714,7 @@ function bigTiles() {
       const bands = bandsOf(k) || [], S = SCALE[k];
       const zs = bands.map((z) => h('i', { class: 'pzb-z', style: `left:${at(k, z.a / (T.x ?? 1))}%;width:${at(k, z.b / (T.x ?? 1)) - at(k, z.a / (T.x ?? 1))}%` }));
       const ts = S ? S[2].map((c) => h('i', { class: 'pzb-t', style: `left:${at(k, c / (T.x ?? 1))}%` })) : [];
-      const ls = S ? S[2].map((c) => h('span', { class: 'pzb-l', style: `left:${at(k, c / (T.x ?? 1))}%` }, fmt(c, Math.abs(c % 1) > 1e-9 ? String(c).split('.')[1].length : 0))) : [];
+      const ls = S ? S[2].map((c) => h('span', { class: 'pzb-l', style: `left:${at(k, c / (T.x ?? 1))}%` }, fmt(c, Math.abs(c % 1) > 1e-9 ? 1 : 0))) : [];
       const link = withRef ? h('i', { class: 'pzb-link' }) : null, was = withRef ? h('i', { class: 'pzb-was' }) : null, now = h('i', { class: 'pzb-now' });
       const bar = bars ? h('span', { class: 'pzt-bar' + (S ? '' : ' empty'), 'aria-hidden': 'true' }, h('span', { class: 'pzb-track' }, h('span', { class: 'pzb-zs' }, zs), ts, link, was, S ? now : null), ls) : null;
       const tile = h('div', { class: 'pz-tile' + (S ? ' scaled' : '') }, h('span', { class: 'pzt-k', 'data-s': T.n || null }, T.t), h('span', { class: 'pzt-vu' }, v, u), r, withRef ? d : null, bar);
