@@ -284,7 +284,8 @@ const COLLAPSE = { on: (m) => m.map < 45 || m.co < 1.5, off: (m) => m.map > 50 &
 let collapseEl = null, collapsed = false;
 function syncCollapse(m) {
   if (!m || !Number.isFinite(m.map) || !Number.isFinite(m.co)) return;
-  const next = collapsed ? !COLLAPSE.off(m) : COLLAPSE.on(m);
+  // Present (any deck) never shows it: the warning belongs to Patients, where the settings are the viewer's own.
+  const next = !store.get().presenting && (collapsed ? !COLLAPSE.off(m) : COLLAPSE.on(m));
   if (!collapseEl) {
     collapseEl = h('div', { class: 'collapse-banner', role: 'status', 'aria-live': 'polite' }, h('b', {}, 'This patient would not survive these settings'), h('span'));
     document.getElementById('stageWrap')?.append(collapseEl);
