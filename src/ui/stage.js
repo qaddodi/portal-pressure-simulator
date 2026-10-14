@@ -3793,6 +3793,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const step = (now) => { const k = Math.min(1, (now - t0) / 800); splitShow(el, el._sh = from + (to - from) * easeInOut(k)); if (k < 1 && el.isConnected) el._shRaf = requestAnimationFrame(step); };
     el._shRaf = requestAnimationFrame(step);
   }
+  const siteLive = (f, live, tol) => Number.isFinite(live) ? (Number.isFinite(f) && Math.abs(live - f) < tol ? f : live) : f;
   function sitesPaint() {
     const want = sites.list || [], made = sites.made;
     for (const k of [...resMade.keys()]) if (!want.includes(k)) resPaint(k, SITE_DEF[k], null);
@@ -3821,8 +3822,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         sites.el.append(el); made.set(k, el);
         void el.offsetWidth; el.classList.remove('cath-pre');
       }
-      if (d.split) splitTo(el, clamp(sites.fp?.shunt ?? F.metrics?.shuntFraction ?? 0, 0, 1));
-      const b = el.querySelector('b'), v = d.split ? null : d.res ? (ratio == null ? '' : '×' + fmt(ratio, ratio < 10 ? 1 : 0)) : fmt(sites.fp?.[k] ?? (F.Pf || F.P)[NI[d.node]], 1);
+      // Live readings, like the data card: the slide's numbers (fp) only while the model still agrees with them, so a
+      // what-if slider moves the callouts as it moves the tiles.
+      if (d.split) splitTo(el, clamp(siteLive(sites.fp?.shunt, F.metrics?.shuntFraction, 0.005) ?? 0, 0, 1));
+      const b = el.querySelector('b'), v = d.split ? null : d.res ? (ratio == null ? '' : '×' + fmt(ratio, ratio < 10 ? 1 : 0)) : fmt(siteLive(sites.fp?.[k], (F.Pf || F.P)[NI[d.node]], 0.6), 1);
       if (v != null && b.textContent !== v) b.textContent = v;
       const ra = d.res ? resAt() : null;
       if (ra) el.classList.toggle('low', ra.up);
