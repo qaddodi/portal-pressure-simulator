@@ -63,7 +63,7 @@ export const PVT_CIRRHOSIS = {
       tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'clot' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['pv'], delta: 'clot',
       kicker: 'Anticoagulation', site: 'sin', title: 'Months of anticoagulation reopen the vein',
       line: 'About 7 in 10 patients recanalize on anticoagulation. Here the clot clears over six months, the portal vein flows again and its pressure falls back to {pv}.',
-      notes: 'Baveno VIII advises anticoagulation for transplant candidates with any portal vein clot, and considers it for a recent partial or complete clot of the main portal vein, with or without extension into the superior mesenteric vein. The vein reopens in many patients, more often when treatment starts early. It continues for at least six months, and until transplant in candidates; the clot can recur after it stops. Without treatment many partial clots clear too, and whether a partial clot worsens the outlook is uncertain.',
+      notes: 'Baveno VIII advises anticoagulation for transplant candidates with any portal vein clot, and considers it for a recent partial or complete clot of the main portal vein and for any clot that causes symptoms. The vein reopens in many patients, more often when treatment starts early. It continues for at least six months, and until transplant in candidates; the clot can recur after it stops. Without treatment many partial clots clear too, and whether a partial clot worsens the outlook is uncertain.',
       ask: ['What makes it more likely that anticoagulation reopens the portal vein?', 'Starting it early, soon after the clot forms.'],
     },
     {

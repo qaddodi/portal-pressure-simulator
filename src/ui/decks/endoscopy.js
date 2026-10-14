@@ -77,7 +77,7 @@ export const ENDOSCOPY = {
       data: 'tiles', tiles: ['pv', 'hvpg', 'map'], key: ['pv'], delta: true,
       kicker: 'Variceal bleeding', site: 'sin', title: 'Over-transfusion raises the portal pressure again',
       line: 'Extra volume raises portal flow, and portal pressure climbs back to {pv}, raising the risk of rebleeding. Transfuse to a hemoglobin of 7 to 8 g/dL.',
-      notes: 'A restrictive transfusion strategy (a threshold of 7 g/dL, with a target of 7 to 9 in the trial by Villanueva and colleagues) lowered rebleeding and death compared with a liberal one; Baveno VIII sets the target at 7 to 8. Over-transfusion raises the portal pressure back to where it was before the bleed. Patients with heart disease or ongoing massive bleeding are the exceptions.',
+      notes: 'A restrictive transfusion strategy (a threshold of 7 g/dL, with a target of 7 to 9 in the trial by Villanueva and colleagues) lowered rebleeding and death compared with a liberal one; Baveno VIII sets the target at 7 to 8, and AASLD at about 7. Over-transfusion raises the portal pressure back to where it was before the bleed. Patients with heart disease or ongoing massive bleeding are the exceptions.',
       ask: ['What hemoglobin is the target in variceal bleeding?', '7 to 8 g/dL (restrictive transfusion).'],
     },
     {
