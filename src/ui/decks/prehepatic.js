@@ -37,7 +37,7 @@ export const PREHEPATIC = {
     {
       id: 'cavernoma', lens: 'flow', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Occluded portal vein' }, data: 'tiles', tiles: ['varix', 'spleen', 'plt'], key: ['varix'],
       kicker: 'Months later', site: 'pvt', title: 'Months later, collaterals grow around the clot',
-      line: 'A cavernoma, a web of small collaterals, grows around the clotted vein and carries some blood to the liver. Varices form and the spleen enlarges. On the flow lens the cavernoma carries the blood the clotted trunk cannot.',
+      line: 'A cavernoma, a web of small collaterals, grows around the clotted vein and carries some blood to the liver. Varices form and the spleen enlarges. With the vessels colored by flow, the cavernoma carries the blood the clotted trunk cannot.',
       notes: 'Cavernous transformation is a web of collaterals around the occluded portal vein, seen within weeks to months. It does not carry enough blood to bring the portal pressure down, so varices, a large spleen and low platelets follow. Screen for varices with endoscopy and treat them as in cirrhosis: a non-selective beta-blocker or banding. Long-term anticoagulation is advised when a thrombophilia persists. Large collaterals around the bile duct can narrow it (portal cholangiopathy). In children the clot often follows umbilical vein catheterization or sepsis in infancy.',
       ask: ['A child bleeds from varices with normal liver tests. What is the likely cause?', 'Chronic portal vein thrombosis with a cavernoma: varices with a normal liver point to resistance before the sinusoids.'],
     },
@@ -52,7 +52,7 @@ export const PREHEPATIC = {
       id: 'svt', lens: 'origin', terms: ['pv'], preset: 'svt', cam: 'splenic', mark: { edges: ['SV_CONF'], label: 'Clot in the splenic vein' }, data: 'tiles', tiles: ['pv', 'gv', 'plt'], key: ['gv'],
       kicker: 'Splenic vein thrombosis', site: 'pvt', title: 'A splenic vein clot raises the pressure on the left only',
       vignette: 'A 51-year-old man with alcohol-associated chronic pancreatitis presents with melena. EGD shows a large fundal varix and no esophageal varices. His liver tests are normal.',
-      line: 'Splenic blood drains out through the short gastric veins, so varices form in the gastric fundus, often with no esophageal varices. Portal vein pressure and HVPG stay normal. On the blood origin lens splenic blood takes the gastric varices, while the portal vein carries only gut blood.',
+      line: 'Splenic blood drains out through the short gastric veins, so varices form in the gastric fundus, often with no esophageal varices. Portal vein pressure and HVPG stay normal. With the vessels colored by origin, splenic blood takes the gastric varices, while the portal vein carries only gut blood.',
       notes: 'Splenic vein thrombosis (sinistral portal hypertension) usually follows pancreatitis or a pancreatic tumor, which sit beside the vein. Blood from the spleen escapes through the short gastric veins, so the varices are in the gastric fundus, often without esophageal varices. The portal vein pressure and the HVPG are normal. When the gastric varices bleed, splenectomy, or embolization of the splenic artery, removes their inflow and cures them.',
       ask: ['Isolated gastric varices after pancreatitis. What is the cause and the cure?', 'Splenic vein thrombosis; splenectomy or splenic artery embolization, which removes the inflow that fills the varices.'],
     },

@@ -40,7 +40,7 @@ export const PVT_CIRRHOSIS = {
       id: 'gradients', lens: 'drop', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'IVCS'], data: 'ladder', key: ['hvpg', 'ppg'], brackets: { hvpg: 'misleads', ppg: 'works' }, delta: 'base',
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC')],
       kicker: 'The clot', site: 'pre', title: 'HVPG stays flat while PPG rises',
-      line: 'The wedge reads the sinusoids, beyond the clot, so the HVPG barely moves at {hvpg}. The PPG rises to {ppg}. On the pressure drop lens a second large drop appears at the clot, before the sinusoids.',
+      line: 'The wedge reads the sinusoids, beyond the clot, so the HVPG barely moves at {hvpg}. The PPG rises to {ppg}. With the vessels colored by pressure drop, a second large drop appears at the clot, before the sinusoids.',
       notes: 'In cirrhosis the HVPG measures the sinusoidal part of the resistance. A clot adds a second site of resistance before the liver, which only a direct portal pressure shows. So in a patient with portal vein thrombosis the HVPG underestimates the portal pressure, and a TIPS gradient is taken from the portal vein itself.',
       ask: ['A patient with cirrhosis develops a partial portal vein clot. Will the HVPG show it?', 'No: the clot is before the sinusoids. The PPG, from a direct portal reading, shows it.'],
     },
