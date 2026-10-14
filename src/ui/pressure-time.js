@@ -94,8 +94,13 @@ export function createPressureTime({ marks = () => [] } = {}) {
     steadyAt = now;
     for (const t of TRACES) { const v = t.day?.(m); if (Number.isFinite(v)) steady[t.id] = a < 1 && Number.isFinite(steady[t.id]) ? steady[t.id] + (v - steady[t.id]) * a : v; }
   }
+  // (A slide pins the numbers its tiles show, its settled state: the ends and the header read those, so they match the tiles
+  // to the digit on every screen. A trace with no tile number keeps its steady mean.)
+  let pinned = null;
+  const PIN = { CONF: 'pv', whvp: 'whvp', RHV: 'fhvp', RA: 'ra', IVCS: 'ivc' };
   const onSlide = () => !!cv.closest('.pz-tool');
-  const steadyHvpg = () => tenthGap(steady.whvp, steady.RHV, frame.metrics.hvpg);
+  const endOf = (id) => (Number.isFinite(pinned?.[PIN[id]]) ? pinned[PIN[id]] : steady[id]);
+  const steadyHvpg = () => tenthGap(endOf('whvp'), endOf('RHV'), frame.metrics.hvpg);
   function ingest(f) {
     frame = f; wallAt = performance.now();
     wake();
@@ -272,8 +277,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
       x1 = xNow; x0 = x1 - span;
       // (On a slide the window starts where its record does: a slide just arrived has no empty left part.)
       if (slide) {
-        const runStart = (q) => { let i = q.x.length - 1; while (i > 0 && Number.isFinite(q.mid[i - 1]) && q.x[i] - q.x[i - 1] < 0.5) i--; return q.x[i] ?? Infinity; };   // (the record since its last break or skip)
-        const first = Math.min(...[...traces.map((t) => t.id), 'hvpg'].map((k) => runStart(series(k, -Infinity, x1))));
+        const firstIn = (q) => { for (let i = 0; i < q.x.length; i++) if (Number.isFinite(q.mid[i])) return q.x[i]; return Infinity; };   // (its first reading in the window: after a restart, or a stall that dropped samples, the window starts there)
+        const first = Math.min(...[...traces.map((t) => t.id), 'hvpg'].map((k) => firstIn(series(k, x0, x1))));
         if (Number.isFinite(first)) x0 = Math.max(x0, Math.min(first, x1 - 0.3));
       }
     }
@@ -399,7 +404,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           if (s.lo) band(ctx, s, X, Y, c, 0.16);
           line(ctx, s, X, Y, c, t.id === 'CONF' ? 2 : 1.75, plotW);
           if (range === 'days' && s.x.length < 60) dots(ctx, s, X, Y, c, surface);
-          const e = range === 'days' ? recent(s) : (slide && Number.isFinite(steady[t.id]) ? steady[t.id] : t.day?.(frame.metrics)) ?? recent(s); ends.push({ y: Y(e), v: e, label: t.abbr, c, lane });   // (the live readings, so wedged − free is the header's HVPG)
+          const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : t.day?.(frame.metrics)) ?? recent(s); ends.push({ y: Y(e), v: e, label: t.abbr, c, lane });   // (the live readings, so wedged − free is the header's HVPG)
         }
       }
       ctx.restore();
@@ -561,7 +566,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       heroDelta.textContent = '';
       return;
     }
-    const v = onSlide() && Number.isFinite(steady.whvp) ? steadyHvpg() : frame.metrics.hvpg;
+    const v = onSlide() && Number.isFinite(endOf('whvp')) ? steadyHvpg() : frame.metrics.hvpg;
     const txt = fmt(v, 1);
     if (heroVal.textContent !== txt) heroVal.textContent = txt;
     const word = wordOf(v);
@@ -592,7 +597,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const offs = ['hiddenReadouts', 'hvpgMeasured', 'showHvpg'].map((k) => store.on(k, () => { yr.pressure = yr.hvpg = null; }));
   // A new patient (or the same one restarted) starts with empty traces.
   function clear() { clearHemo(); days = []; redraw(); }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, dispose() { offs.forEach((off) => off()); frame = null; } };
+  function pin(fp) { pinned = fp || null; if (frame) redraw(); }
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, dispose() { offs.forEach((off) => off()); frame = null; } };
 }
 
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).
