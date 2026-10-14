@@ -13,7 +13,7 @@ test('the teaching card text sizes settle once per slide and are reused while it
 
 test('a stacked pair widens the words\' column before it shrinks the title or text, and the chart keeps its size', () => {
   const at = (re) => js.search(re);
-  const soft = at(/below = title\(1, TK_SOFT\);/), wide = at(/if \(!below(?: && !split)?\) \{ widen\(\); below = title\(1, TK_SOFT\); \}/), steps = at(/if \(!below\) ladder\(\);/);
+  const soft = at(/below = title\(1, TK_SOFT\);/), wide = at(/if \(!below\) \{ widen\(\); below = title\(1, TK_SOFT\); \}/), steps = at(/if \(!below\) ladder\(\);/);
   assert.ok(soft > 0 && soft < wide && wide < steps, 'title (soft floor) at the usual width, then widened, then the shrinking steps');
   assert.match(js, /TK_SOFT = 0\.8/);
   assert.match(js, /--pz-cwr/);
