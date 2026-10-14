@@ -19,15 +19,16 @@ import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=0dcc3de787';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=274a6ff852';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=2c633146d8';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d2c2580bdd';
-import { createTools } from './presenter-tools.js?v=f69fd72617';
-import { openHandout } from './handout.js?v=1fb5500853';
+import { createTools } from './presenter-tools.js?v=bc46cd8fa0';
+import { openHandout } from './handout.js?v=f98de7a9cd';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=214d4e8404';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
+import { velocityCss, flowCss, heatCss, dropCss } from './colormap.js?v=01ee46a874';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -54,6 +55,24 @@ function equation([ml, legend]) {
   box.innerHTML = `<math>${ml}</math>`;   // (the decks' own constant markup, never user text)
   if (legend) box.append(h('p', { class: 'pz-eqk' }, legend));
   return box;
+}
+// A slide's lens (decks.js lens): what the vessel colours show on that slide, with a key under its line that names
+// the lens and its two ends, as the legend does in Explore. Pressure is the default and needs no key.
+const LENS_KEY = {
+  velocity: ['Velocity', () => velocityCss('to right'), 'Slow', 'Fast'],
+  flow: ['Flow volume', () => flowCss('to right'), 'Little', 'Much'],
+  direction: ['Direction', null, 'Usual direction', 'Reversed'],
+  heat: ['Congestion', () => heatCss('to right'), 'None', 'Backed up'],
+  drop: ['Pressure drop', () => dropCss('to right'), 'None', 'Large'],
+  delta: ['Change', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
+};
+export const slideLens = (s, q = false) => (!q && !s?.visual && LENS_KEY[s?.lens] ? s.lens : 'pressure');
+function lensKey(k) {
+  const [name, bar, lo, hi] = LENS_KEY[k];
+  const dot = (v) => h('i', { class: 'pz-lens-dot', style: { background: `var(${v})` } });
+  return h('p', { class: 'pz-lens', 'data-lens': k }, h('b', {}, `${name} lens`),
+    ...(bar ? [h('span', {}, lo), h('i', { class: 'pz-lens-bar', style: { background: bar() } }), h('span', {}, hi)]
+      : [dot('--flow-normal'), h('span', {}, lo), dot('--flow-reversed'), h('span', {}, hi)]));
 }
 // A string with its disease names set in a pill (see diseases.js).
 const diseaseNodes = (t) => diseasePieces(t).map(([x, dz]) => (dz ? h('span', { class: 'pz-dz' }, x) : x));
@@ -1446,6 +1465,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (inLiver && !booting && (hushed || cam !== lastCam || litNext !== (app.dataset.lit || '') || s.visual || q || ct)) hush();
     // Words out, and the marks: they belong to the slide that is leaving.
     store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    // The slide's lens: the figure crossfades to its colours (stage.js) while the old words leave.
+    { const lens = slideLens(s, q); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
@@ -1684,7 +1705,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       text.replaceChildren(...(q
         ? [h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
         : [(({ site, name } = siteTag(deck, s) || {}) => site ? h('span', { class: 'pz-site', 'data-site': site }, h('i'), name) : null)(), h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
-          s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
+          s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, slideLens(s) !== 'pressure' ? lensKey(s.lens) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,

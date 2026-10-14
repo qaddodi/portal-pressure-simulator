@@ -79,7 +79,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.3 The figure (section 5)
 
-`view`, `cam`, `kMax`, `zoom`, `clear`, `labels`, `tint`, `terms`, `glow`, `glowSeq`, `mark`, `marks`, `sites`, `layers`, `callout`, `cath`, `monitor`.
+`view`, `cam`, `kMax`, `zoom`, `clear`, `lens`, `labels`, `tint`, `terms`, `glow`, `glowSeq`, `mark`, `marks`, `sites`, `layers`, `callout`, `cath`, `monitor`.
 
 ### 3.4 The data card (section 7)
 
@@ -127,25 +127,40 @@ Typical "meal" lapse (used by several decks): `days: 8, ramp: { splanchnicTone: 
 **Inside the liver** (these dive in from the anatomy; the view returns to the body plate for the next normal `cam`):
 `'lobule'` (whole lobule) · `'lobule:fit'` · `'lobule:triad'` (portal tract) · `'lobule:sinusoid'` · `'lobule:central'` (central vein) · `'sinusoid'` (the sinusoid wall, cross-section). Some devices cannot draw `'sinusoid'` and fall back to the lobule.
 
-### 5.2 Layers and lobule callouts
+### 5.2 Lens (what the vessel colours show)
+
+`lens` picks the colour lens of the figure for that slide, as the lens menu does in Patients. Without it the slide shows pressure. The figure crossfades to the new colours while the old words leave, and the teaching card shows a small key under the line (the lens name and its two ends). Quiz questions and `visual` slides always show pressure.
+
+| `lens` | Colours | Key |
+|---|---|---|
+| `'velocity'` | mean velocity, pale amber (slow) to deep brown (fast) | Slow to Fast |
+| `'flow'` | flow volume, how much blood each vessel carries | Little to Much |
+| `'direction'` | the usual direction in teal, reversed flow in orange | Usual direction, Reversed |
+| `'heat'` | congestion: pressure above healthy | None to Backed up |
+| `'drop'` | pressure drop across each vessel: where the resistance lives | None to Large |
+| `'delta'` | higher or lower than healthy | Lower to Higher |
+
+Use it where the colour is the point of the slide (a reversed branch on `'direction'`, a fast stent on `'velocity'`), and say in the line what the colours show. The lens does not carry over: each slide sets its own.
+
+### 5.3 Layers and lobule callouts
 
 * `layers: ['zones']` turns the lobule's zone 1 / 3 bands on for the slide (needed for the `lobule:zone1` / `lobule:zone3` labels); `'lymph'` turns the lymphatics on the same way. Other lobule slides have zones off and lymph as the viewer had it; the viewer's own layers return when the show ends.
 * `callout: { at, label }` on a lobule slide: a red callout in the lobule marking where the resistance sits. `at` values used: `'triad'` (portal tract), `'sin'` (sinusoids), `'cv'` (central veins). Example: `callout: { at: 'cv', label: 'Resistance: central veins' }`.
 
-### 5.3 Station labels
+### 5.4 Station labels
 
 `labels: ['CONF', 'SIN_R', 'RHV', 'RA']`: the stations named on the anatomy figure (none shown if absent; **only the stations you list, plus those your terms point at, appear**). `tint: ['imv']` takes the colour of a target's station label although the line never names it (the label is on, in its station colour). Valid ids are node ids (section 8.4). Only labels the anatomy draws appear. On the circuit view the labels are the circuit's own.
 `VAR` (esophageal varices) is hidden when the patient has no varices; `GV` is hidden when there are no fundal varices.
 On ladder (`data: 'ladder'`) and catheter (`cath`) slides the figure automatically renames to "Sinusoids R · WHVP" and "RHV · FHVP".
 
-### 5.4 Glow, highlights and term pills
+### 5.5 Glow, highlights and term pills
 
 * `terms` : words in the line that become coloured pills **and** light the figure (section 6.3).
 * `glow: [...]`: light vessels or organs directly. Items: a target key (`'smv'`, `'liver'`), a vessel/edge id (`'PV_TRUNK'`, `'C5'`), an organ (`'liver'` `'spleen'` `'heart'` `'caudate'`), or `{ id, tone, soft? }` (`soft: true` marks a supporting vein lit softly; a slide with any soft glow makes the camera frame every vessel it lights, so none runs off the edge). Tone defaults to the target's station colour (accent for an unknown edge). Terms glow automatically, so `glow` is for things the line does not name.
 * `glowSeq: 550`: ms between successive `glow` items, so they light in order (e.g. pressure travelling back from the heart). Existing use: `550`.
 * Tones usable in `{ id, tone }`: `pv`, `sv`, `smv`, `wedge`, `hv`, `ivc`, `ra`, `var`, `accent`, or a CSS variable name starting `--` (e.g. `'--danger'`).
 
-### 5.5 Marks (callouts on a vessel)
+### 5.6 Marks (callouts on a vessel)
 
 `mark: { edges, label, kind }` or `marks: [ … ]` (several). `edges` = vessel ids (section 8.5). Only labelled marks get a callout box.
 
@@ -158,7 +173,7 @@ On ladder (`data: 'ladder'`) and catheter (`cath`) slides the figure automatical
 **No repeats:** a `note` mark whose vessel is already named by a station label (or a term) on the slide is dropped by the engine, but its glow stays. Do not point at what a label already names.
 Marks are hidden in quiz mode until the answer shows.
 
-### 5.6 Readouts on the figure
+### 5.7 Readouts on the figure
 
 `sites: [...]`: pressure/resistance readings drawn on the figure:
 
@@ -175,7 +190,7 @@ Marks are hidden in quiz mode until the answer shows.
 
 Pointing at the resistor words `resistance` / `collaterals` / `gut arterioles` with `terms: { resistance: 'rLiver', collaterals: 'rColl' }` also lights those zigzags.
 
-### 5.7 The HVPG catheter
+### 5.8 The HVPG catheter
 
 `cath` replaces the camera with the catheter choreography (the camera follows it): `'route'` (in along the jugular route) · `'free'` (free hepatic vein pressure) · `'wedge'` (balloon up, still column, WHVP) · `'result'` (both pressures and the HVPG) · `'blocked'` (catheter in a presinusoidal block).
 `monitor: 'free' | 'wedge' | 'result'` shows the catheter's pressure-monitor trace under the slide's words.
@@ -482,7 +497,7 @@ Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; HVPG ≥ 12 high ris
 12. **Decks:** 6–12 slides, 3–4 `objectives`, ≥ 3 kicker groups or explicit `sections`, `level` one of foundation/core/advanced.
 13. **Style:** plain sentence case, no emoji, American spelling, numbers with units (`mmHg`, `g/dL`, `kPa`), clinically accurate (Baveno VIII, the latest, never Baveno VII; AASLD where US practice differs; US drug choices such as octreotide). Write for the learner, never the instructor, in full grammatical sentences that read like a clinician-teacher at the bedside (`docs/ai-humanizer.md`). Use proper clinical shorthand ("OCP use", never "on the pill"). Never write "our patient" or "the patient we just measured", and never an ambiguous "this patient": say "in this case, the HVPG is…" or use the case's own description. Say **resistance** (site labels and running prose), not "block" or "obstruction", for where pressure is lost; drug and procedure uses such as "blocks α1 receptors" stay. (The code's `kind: 'block'`, `block:` and `callout` names are fine; only learner-facing text is affected.) Word thresholds as rising risk, not a cliff.
 14. **No new furniture by hand.** The app adds the site tag above the title (decks covering more than one `site`), disease-name pills (list in `src/ui/diseases.js`), the Outline slide, the quick check and the corner credit. Do not write them into lines or titles.
-15. Presenter forces the pressure colour mode and keeps the app's own N, S, L keys off while presenting; there are **no lens, card or test-type fields on slides**: the nearest are `tool.kind` and `visual` (section 7).
+15. Presenter shows pressure unless a slide sets `lens` (section 5.2), and keeps the app's own N, S, L keys off while presenting; there are **no card or test-type fields on slides**: the nearest are `tool.kind` and `visual` (section 7).
 
 ---
 

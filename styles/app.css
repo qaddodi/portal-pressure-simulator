@@ -1557,6 +1557,12 @@ button.finding { cursor: pointer; }
 .pz-line { margin: 0; font: 400 var(--s-body)/1.38 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
 /* Body emphasis: key terms in the heading colour, values in a quiet pill with even figures. */
 .pz-line b { font-weight: 600; color: var(--text); }
+/* A slide's lens key (presenter.js lensKey): the lens named, then its two ends, as the Explore legend shows them. */
+.pz-lens { display: flex; flex-wrap: wrap; align-items: center; gap: .3em .5em; margin: .55em 0 0; font: 400 var(--s-cap)/1.3 var(--font-ui); color: var(--text-2); }
+.pz-lens b { font-weight: 600; color: var(--text); margin-right: .15em; }
+.pz-lens-bar { width: 5em; height: .6em; border-radius: var(--r-pill); flex: none; }
+.pz-lens-dot { width: .7em; height: .7em; border-radius: 50%; flex: none; }
+.pz-lens-dot + span + .pz-lens-dot { margin-left: .35em; }
 .pz-caveat { margin: .5em 0 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
 .pz-val { display: inline-block; padding: .02em .42em .06em; border-radius: var(--r-pill); background: color-mix(in srgb, var(--text) 7%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
 /* Every pill (value or term) is one box: the same size, line height and padding, so they match in height; a little room either side, and a taller line where a line holds one so pills on adjacent lines never touch. */

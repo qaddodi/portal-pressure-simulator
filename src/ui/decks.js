@@ -31,6 +31,8 @@
 //                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section); title? names the card; waves: true
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
 //                            (on a phone it folds away behind a Show button; open: true keeps it open there and folds the tiles instead)
+//   lens                     the vessel colours on that slide: 'velocity', 'flow', 'direction', 'heat' (congestion), 'drop'
+//                            (pressure drop) or 'delta' (change from healthy), with a key under the line; pressure when absent
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
@@ -68,6 +70,7 @@ import { STIFFNESS } from './decks/stiffness.js?v=a6c522cc89';
 import { ONE_YEAR } from './decks/one-year.js?v=6dc4ebe0ee';
 import { LOBULE } from './decks/lobule.js?v=46cadf140b';
 import { SHUNTS } from './decks/shunts.js?v=2d7fedbc1c';
+import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=b69498b988';
 import { TAP } from './decks/tap.js?v=04459c913c';
 import { CIRCUIT } from './decks/circuit.js?v=7ce4853718';
 import { DOPPLER } from './decks/doppler.js?v=6939fe97c1';
@@ -137,7 +140,7 @@ export function siteTag(deck, s) {
 export const DECKS = [CIRCULATION, SITES, HVPG, ASCITES, VARICES, TREATMENT];
 
 DECKS.push(STIFFNESS, ONE_YEAR, TAP, CIRCUIT, LOBULE, SHUNTS);
-DECKS.push(DOPPLER, ENDOSCOPY);
+DECKS.push(DOPPLER, ENDOSCOPY, TIPS_DOPPLER);
 DECKS.push(PREHEPATIC, RIGHT_HEART, BLEED);
 DECKS.push(TWO_INFLOWS, PVT_CIRRHOSIS, SPLEEN, NCPH, OUTFLOW, RECOMPENSATION);
 
@@ -147,6 +150,6 @@ export const TOPICS = [
   ['causes', 'Causes', [['sites', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH'], ['ncph', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver'], ['outflow', 'Hepatic venous outflow block'], ['lobule', 'Inside the lobule']]],
   ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system'], ['stiffness', 'Stiffness, spleen and platelets'], ['one-year', 'A year of compensated cirrhosis']]],
   ['complications', 'Complications', [['varices', 'Collaterals and varices'], ['endoscopy', 'Endoscopy and the varix'], ['variceal-bleed', 'Acute variceal bleeding'], ['ascites', 'How ascites forms'], ['tap', 'Paracentesis and albumin'], ['spleen', 'The spleen: size and treatment'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis'], ['recompensation', 'Decompensation and recovery']]],
-  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure'], ['shunts', 'Spontaneous shunts and TIPS']]],
+  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure'], ['shunts', 'Spontaneous shunts and TIPS'], ['tips-doppler', 'Doppler after TIPS']]],
 ];
 for (const [topic, , list] of TOPICS) for (const [id, short] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short }); }

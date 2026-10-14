@@ -223,6 +223,18 @@ export function createDoppler({ onProbe }) {
       dir = 'No flow'; sev = 'critical'; pattern = 'No signal';
       note = p.kind === 'tips' ? 'No flow in the stent: occluded.' : 'No detectable flow: the vessel is occluded, as in thrombosis.';
     } else if (p.kind === 'portal') {
+      // A stent draws the intrahepatic branches toward it: the left branch (and with a DIPS, which leaves the bifurcation,
+      // the right too) runs back toward it, often slowly, so slow reversed flow there is still a direction, not stasis.
+      // The right branch probe sits between the bifurcation and a TIPS, so it flows on toward the stent, hepatopetal.
+      const stent = frame?.D ? (frame.D[EI.TIPS] > 0 ? 'TIPS' : frame.D[EI.DIPS] > 0 ? 'DIPS' : null) : null;
+      const branch = stent && (p.id === 'PVH_L' || p.id === 'PVH_R') ? p.id : null;
+      const toStent = branch === 'PVH_R' && stent === 'TIPS' ? 1 : -1;
+      if (branch && (toStent < 0 ? r.mean < -2 : r.mean > 2)) {
+        dir = toStent < 0 ? 'Hepatofugal' : 'Hepatopetal'; sev = 'ok';
+        pattern = pi > 0.5 ? 'Pulsatile' : pi > 0.15 ? 'Phasic' : 'Monophasic';
+        note = toStent < 0 ? `Expected with a ${stent}: flow runs back toward the stent.` : 'Expected with a TIPS: flow runs on toward the stent.';
+        return { dir, sev, pattern, note, pi, expected: true };
+      }
       if (a < 9 && !reverses) { dir = 'Stasis'; sev = 'danger'; }
       else if (reverses && Math.abs(r.mean) < swing * 0.35) { dir = 'To-and-fro'; sev = 'danger'; }
       else if (r.mean < 0) { dir = 'Hepatofugal'; sev = 'critical'; }
@@ -235,6 +247,8 @@ export function createDoppler({ onProbe }) {
         : a < p.normal[0] ? 'Toward the liver but slow: typical of portal hypertension.'
         : pattern === 'Monophasic' ? 'Normal: toward the liver, steady.'
         : 'Normal: toward the liver with gentle phasicity.';
+      // Flow toward the liver in a branch that a working stent would reverse: the stent no longer draws it, as when it narrows.
+      if (branch && dir === 'Hepatopetal') { sev = 'caution'; note = `With a ${stent}, flow toward the liver here is not expected: it suggests the stent is narrowing.`; }
     } else if (p.kind === 'hepatic') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
       // A reversal over 15 cm/s and 0.4 of the forward peak is more than the a-wave: tricuspid regurgitation or a high atrium.
@@ -277,14 +291,15 @@ export function createDoppler({ onProbe }) {
 
   // Place the normal band and the current mean on one scale: 0 to ~1.7x the top of the usual range, widened
   // when the mean falls outside (reversed flow reaches below zero). The marker eases there with CSS.
-  function updateGauge(p, mean) {
+  // (expected: a reading the stent explains, as a branch running back toward a TIPS, is not flagged out of range.)
+  function updateGauge(p, mean, expected = false) {
     if (!p.normal) { rangeEl.hidden = true; velEl.dataset.out = 'false'; return; }
     const [n0, n1] = p.normal;
     const hi = Math.max(Math.round(n1 * 1.7), Math.ceil(mean * 1.1));
     const lo = Math.min(0, Math.floor(mean * 1.1));
     const pos = (v) => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
     rangeEl.hidden = false;
-    rangeEl.dataset.out = velEl.dataset.out = mean < n0 || mean > n1 ? 'true' : 'false';
+    rangeEl.dataset.out = velEl.dataset.out = !expected && (mean < n0 || mean > n1) ? 'true' : 'false';
     bandEl.style.left = `${pos(n0)}%`; bandEl.style.width = `${pos(n1) - pos(n0)}%`;
     markEl.style.left = `${pos(mean)}%`;
     gZero.style.left = `${pos(0)}%`; gLo.style.left = `${pos(n0)}%`; gHi.style.left = `${pos(n1)}%`;
@@ -308,7 +323,7 @@ export function createDoppler({ onProbe }) {
     set(dirEl, it.dir); dirEl.dataset.sev = it.sev;
     set(velEl.firstChild, num(r.mean, Math.abs(r.mean) < 10 ? 1 : 0));
     shownVel.set(probe, { v: Math.abs(r.mean), t: performance.now() });
-    updateGauge(p, r.mean);
+    updateGauge(p, r.mean, it.expected);
     set(patternEl, it.pattern);
     // peak: the extreme farthest from zero, whichever the direction
     const [pk, tr] = Math.abs(r.vmax) >= Math.abs(r.vmin) ? [r.vmax, r.vmin] : [r.vmin, r.vmax];
