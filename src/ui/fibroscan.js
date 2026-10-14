@@ -97,9 +97,10 @@ export function createFibroScan() {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 80 || hh < 80) return;
     const st = simTime(now), t = REDUCED ? 3 : st, dt = clamp(st - last, 0, 0.2); last = st;
-    // The measured value drifts gently around the model's median; the readout follows it smoothly.
+    // The wave front drifts gently around the model's median; the readout is the median itself (eased when it changes),
+    // so it reads the same number as the slide's tile and words.
     const kNow = model * (1 + 0.05 * Math.sin(t * 0.8) + 0.03 * Math.sin(t * 1.9 + 1));
-    shown = shown === null ? kNow : shown + (kNow - shown) * (1 - Math.exp(-dt * 2.5));
+    shown = shown === null || Math.abs(model - shown) < 0.05 ? model : shown + (model - shown) * (1 - Math.exp(-dt * 2.5));
     const c = shearSpeed(kNow);
     const th = colors(now);
     ctx.clearRect(0, 0, w, hh);

@@ -17,3 +17,13 @@ test('no tile sits alone, centred at half width, and no tile grid auto-fits to a
   assert.doesNotMatch(css, /justify-self: center; width: calc\(50%/);
   assert.doesNotMatch(css, /\.pz-data\.has-tool:not\(\.tool-only\) \.pz-tiles \{ grid-template-columns: repeat\(auto-fit/);
 });
+
+test('live monitors fill the card width and get shorter when tight, never narrower', () => {
+  assert.ok(css.includes('.pz-data > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"], [data-kind="beats"]) { width: 100%; }'));
+  assert.match(css, /\.pz-tool\[data-kind="fibroscan"\] \.fibroscan-box \{ width: 100%; height: calc\([^}]*var\(--pz-fit, 1\)\); \}/);
+});
+
+test('the FibroScan reads the model median, the number in the tile and words', () => {
+  const src = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
+  assert.match(src, /shown = shown === null \|\| Math\.abs\(model - shown\) < 0\.05 \? model/);
+});

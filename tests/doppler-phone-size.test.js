@@ -16,6 +16,6 @@ test('Explore phone sheet: direction and mean are small, the spectrum bleeds to 
 test('Present phone data card: direction and mean step down, the spectrum is taller', () => {
   assert.match(rule('.pz.stack .pz-tool .dop-report > .dop-dir'), /font-size: var\(--s-body\)/);
   assert.match(rule('.pz.stack .pz-tool .dop-vel b'), /font-size: var\(--s-val\)/);
-  const h = Number(rule('.pz.stack .pz-tool[data-kind="doppler"] .dop-box').match(/height: (\d+)px/)?.[1]);
+  const h = Number(rule('.pz.stack .pz-tool[data-kind="doppler"] .dop-box').match(/height: (?:calc\()?(\d+)px/)?.[1]);
   assert.ok(h >= 140, `spectrum is ${h}px`);
 });

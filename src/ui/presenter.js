@@ -22,7 +22,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=b07322d217';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=258d41dbc8';
-import { createTools } from './presenter-tools.js?v=3bfac7d9a4';
+import { createTools } from './presenter-tools.js?v=1122f2dde6';
 import { openHandout } from './handout.js?v=925dcb7018';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=20ffefba17';
@@ -1567,6 +1567,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const GHOST = { fibroscan: ['lsm', 'kPa', 1], doppler: ['pvVel', 'cm/s', 0] };
   function toolGhost(s, i) {
     const g = GHOST[s.tool.kind];
+    if (s.tiles?.includes(g[0])) return null;   // (a tile already gives the change and where it came from)
     if (!g || (s.tool.kind === 'doppler' && (s.tool.vessel || 'PV_TRUNK') !== 'PV_TRUNK')) return null;
     const t = s.tool.delta != null ? { ...s, delta: s.tool.delta } : s, d = deltaOf(t, i), r = refOf(t, i);
     if (r?.[g[0]] == null) return null;
