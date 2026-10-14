@@ -11,9 +11,10 @@ import { pathToFileURL } from 'node:url';
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 // Tapping the pill loads the newest preview in an installed (home-screen) app, where there is no
-// reload button: drop the service worker and its caches, then reload with a cache-busting URL.
+// reload button: drop the service worker and its caches, then reload with a cache-busting URL. The URL is the app's own
+// resumeUrl() (the same presentation slide, or the same patient and view), so the reload lands where the viewer was.
 // The pill's own script, run as a function body so tests/preview-badge.test.js can drive it.
-export const RELOAD_JS = `(function(){var b=document.getElementById('preview-badge');if(!b)return;var busy=0;b.addEventListener('click',function(){if(busy)return;busy=1;b.textContent='RELOADING…';var go=function(){var u=new URL(location.href);u.searchParams.set('r',Date.now());location.replace(u.href);};var t=setTimeout(go,3000);var all=function(){var p=[];if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations)p.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister();}));}));if(window.caches&&caches.keys)p.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k);}));}));return Promise.all(p);};all().catch(function(){}).then(function(){clearTimeout(t);go();});});})();`;
+export const RELOAD_JS = `(function(){var b=document.getElementById('preview-badge');if(!b)return;var busy=0;b.addEventListener('click',function(){if(busy)return;busy=1;b.textContent='RELOADING…';var go=function(){var u;try{u=new URL(window.pps.resumeUrl());}catch(e){u=new URL(location.href);}u.searchParams.set('r',Date.now());location.replace(u.href);};var t=setTimeout(go,3000);var all=function(){var p=[];if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations)p.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister();}));}));if(window.caches&&caches.keys)p.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k);}));}));return Promise.all(p);};all().catch(function(){}).then(function(){clearTimeout(t);go();});});})();`;
 
 // Absolute, not fixed: on iOS 26 an installed app's top bar stays sharp under the status bar only
 // while the app's own fixed layer is the one fixed element there; a second fixed element at the top

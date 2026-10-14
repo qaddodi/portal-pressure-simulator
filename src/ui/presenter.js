@@ -1438,7 +1438,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (s.visual && s.visual !== 'table') { await Promise.all(rowIdx(s).map(stateReady)); if (cut()) return; }
     // A new patient's case (s.vignette), going forward: a centred glass card covers the figure while the patient loads behind it
     // at the wide framing; Next lifts it, and the slide then goes on as usual (one zoom to its framing, then its cards).
-    if (s.vignette && ui && !booting && !rev && !lap && to > lastAt && (si !== shownState || liveOff)) { if (!await caseRun(s, si, st, cut)) return; }
+    const skipCase = noCase; noCase = false;
+    if (!skipCase && s.vignette && ui && !booting && !rev && !lap && to > lastAt && (si !== shownState || liveOff)) { if (!await caseRun(s, si, st, cut)) return; }
     // A new patient, or the same one changed: the figure fades out, the state changes unseen, it fades back in.
     const swap = si !== shownState || liveOff || !!own;
     // On screen the change eases (morphTo): after the camera has landed and before the cards come in, or for a catheter slide
@@ -2526,7 +2527,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return { root, shade, safe, load, text, data, vcase, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
-  let cover = null, booting = false, coverT = 0;
+  let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: landing back on a slide after a reload, its case card is not replayed)
   function coverUp() {
     booting = true;
     clearTimeout(coverT); coverT = setTimeout(() => coverDown(true), 12000);   // (never left up)
@@ -2564,7 +2565,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       lobuleLayers: st.lobuleLayers, running: st.running, speed: st.speed, lapse: st.lapse, clock: st.clock, hvpgMeasured: st.hvpgMeasured, lastHVPG: st.lastHVPG,
       labelK: stage.labelScale(), cam: stage.cameraState() };
   }
-  async function start(id, at = 0) {
+  async function start(id, at = 0, { resume = false } = {}) {
+    noCase = resume;
     const want0 = Math.max(0, (parseInt(at, 10) || 0));
     const d = typeof id === 'object' ? id : all().find((x) => x.id === (ALIAS[id] || id));
     if (!d?.slides?.length) { toast('That presentation could not be found.'); return; }
@@ -2723,6 +2725,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     scriptNotes: (s) => openHandout(fromScript(s)), newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null });
 
   return { start, stop, library, readLink, active: () => !!deck,
+    // Where the show is (for the preview pill's reload): the deck and the slide on screen, or the one it is moving to.
+    position: () => (deck ? { id: deck.id, at: shown?.i ?? want } : null),
     // For the browser checks: straight to slide i (0-based) of the deck shown, as the arrow keys move.
     go: (i) => go(i), busy: () => busy, skipLapse: () => skipLapse(),   // (a time-lapse sped to its end, as Next does)
     // What Settings shows while presenting.
