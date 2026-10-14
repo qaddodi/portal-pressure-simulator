@@ -584,6 +584,8 @@ function bigLadder() {
       // (Too short for a plot at this text size: the cell shows the strip instead, for the rest of the slide.)
       // (All six or none, so the grid keeps its two rows; a box not laid out yet decides nothing.)
       if (cell && box.height > 0 && PH < 48) { for (const x of cell.parentElement.children) x.classList.toggle('strip', x.classList.contains('pz-cell')); PH = 48; }
+      // (Too short for a readable plot: the card shows the compact strip instead, until the next slide.)
+      if (own && box.height > 0 && PH < 48) el.closest('.pz-data')?.classList.add('strip');
       if (own) PH = Math.max(12, PH);
     } else PH = 198;
     const yBot = yTop + PH;
@@ -1746,6 +1748,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.toggleAttribute('data-sin-tiles', sinTiles(s));
       data.classList.toggle('has-tool', !!s.tool);
       data.classList.toggle('tool-only', !!s.tool && !s.data);
+      data.classList.remove('strip');   // (a squashed ladder's strip lasts one slide)
       data.classList.toggle('pz-beside', (!!s.tool || lad) && !!s.data && tileKeys(s).length > 0);
       data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: every instrument with tiles has them stacked beside it; its own readings fold to a short list under its picture)
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)

@@ -2035,6 +2035,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-panel.fill .pz-cell .pz-ladder { flex: none; }
 /* A phone's site ladders, or a cell too short for a plot at a large text size, read as strips (two to a row on a phone). */
 .pz-cell > .pz-strip { display: none; }
+.pz-data.strip > .pz-ladder, .pz-data.strip .pz-lg { display: none; } .pz-data.strip:not(.tiles-only):not(.tool-only) > .pz-strip { display: block; }   /* (a ladder card too short for its plot shows the compact strip) */
 :is(.pz.stack .pz-cell, .pz-cell.strip) > .pz-strip { display: block; }
 :is(.pz.stack .pz-cell, .pz-cell.strip) > .pz-ladder { display: none; }
 .pz-cell > .pz-strip { margin-top: auto; }   /* (the pressure row sits on the tile's bottom edge, so the six line up whatever the title's length) */
