@@ -7,8 +7,9 @@
 
 import { store, hiddenNow } from './store.js?v=14d67870c8';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=abb277f29f';
-import { FONT } from './charts.js?v=e11342cb0a';
+import { FONT as FONT0, FONT } from './charts.js?v=e11342cb0a';
 import { frameFor } from './frame.js?v=0db47e99bf';
+import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
@@ -80,11 +81,25 @@ export function createPressureTime({ marks = () => [] } = {}) {
 
   function clearHemo() {
     for (const k of Object.keys(fine)) fine[k].length = 0;
-    coarse = []; bin = null; lastT = -Infinity;
+    coarse = []; bin = null; lastT = -Infinity; steadyAt = 0;
   }
+  // On a slide each reading is its steady value, the mean over the last few seconds, so the lines' end labels, the header and
+  // the tiles agree, and a laptop and a tablet show the same numbers whenever they are looked at. (The HVPG is the difference
+  // of the two readings as shown, so WHVP − FHVP reads exactly.)
+  const steady = {};
+  let steadyAt = 0;
+  function settle(m) {
+    if (!m) return;
+    const now = performance.now(), a = steadyAt ? 1 - Math.exp(-Math.min(1, (now - steadyAt) / 1000) / 2.5) : 1;
+    steadyAt = now;
+    for (const t of TRACES) { const v = t.day?.(m); if (Number.isFinite(v)) steady[t.id] = a < 1 && Number.isFinite(steady[t.id]) ? steady[t.id] + (v - steady[t.id]) * a : v; }
+  }
+  const onSlide = () => !!cv.closest('.pz-tool');
+  const steadyHvpg = () => tenthGap(steady.whvp, steady.RHV, frame.metrics.hvpg);
   function ingest(f) {
     frame = f; wallAt = performance.now();
     wake();
+    if (f.clock !== 'disease') settle(f.metrics);
     if (f.clock !== clock) {
       clock = f.clock;
       // The disease clock is a trend: show it as one while it runs, then return to the learner's range.
@@ -231,9 +246,10 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const hidden = hiddenSet();
     const showHvpg = !hidden.has('trueHVPG');
     const traces = TRACES.filter((t) => chosen.has(t.id) && !hidden.has(t.hide) && (range !== 'days' || t.day));
-    const slide = !!cv.closest('.pz-tool');   // (a slide's card: its own window and one scale, below)
-    const narrow = w < 460, tiny = w < 300 && (hh - 52) * 0.55 >= traces.length * 27;   // (tiny: a tablet's card with its tiles beside; each end's name goes under its value, where the lane has room to stack them)
-    const L = 34, R = tiny ? 62 : narrow ? 90 : 104, B = 22, GAP = 16;
+    const slide = onSlide();   // (a slide's card: its own window, one scale, steady readings and larger lettering, below)
+    const FONT = (wt, px) => FONT0(wt, slide ? px * 13 / 12 : px);
+    const narrow = w < 460, tiny = !slide && w < 300 && (hh - 52) * 0.55 >= traces.length * 27;   // (tiny: a tablet's card with its tiles beside; each end's name goes under its value, where the lane has room to stack them)
+    const L = 34, R = tiny ? 62 : narrow ? (slide ? 96 : 90) : 104, B = 22, GAP = slide ? 30 : 16;   // (a slide's lanes stand apart, the lower one named)
     let T = 30;
     const plotW = w - L - R;
 
@@ -254,11 +270,11 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const span = RANGES.find((r) => r[0] === range)[2];
       xNow = headX();
       x1 = xNow; x0 = x1 - span;
-      // (On a slide the window starts where its record does, 3 s at least: a slide just arrived has no empty left part.)
+      // (On a slide the window starts where its record does: a slide just arrived has no empty left part.)
       if (slide) {
         const runStart = (q) => { let i = q.x.length - 1; while (i > 0 && Number.isFinite(q.mid[i - 1]) && q.x[i] - q.x[i - 1] < 0.5) i--; return q.x[i] ?? Infinity; };   // (the record since its last break or skip)
         const first = Math.min(...[...traces.map((t) => t.id), 'hvpg'].map((k) => runStart(series(k, -Infinity, x1))));
-        if (Number.isFinite(first)) x0 = Math.max(x0, Math.min(first, x1 - 3));
+        if (Number.isFinite(first)) x0 = Math.max(x0, Math.min(first, x1 - 0.3));
       }
     }
     const X = (x) => L + ((x - x0) / Math.max(1e-9, x1 - x0)) * plotW;
@@ -342,7 +358,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
         // clinical thresholds
         const roomy = bot - top > 90;
         for (const [v, label] of LIMITS) {
-          if (v > hi || (v === 5 && !roomy)) continue;
+          if (v > hi || (v === 5 && !roomy) || (slide && v !== 10)) continue;   // (a slide's small lane: the one cut-off, CSPH)
           const yy = Math.round(Y(v)) + 0.5;
           ctx.strokeStyle = col(v >= 10 ? '--danger' : '--caution'); ctx.globalAlpha = v >= 10 ? 0.5 : 0.35;
           ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + plotW, yy); ctx.stroke(); ctx.setLineDash([]);
@@ -365,7 +381,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           ctx.lineTo(X(s.x[s.x.length - 1]), Y(0)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
           if (s.lo) band(ctx, s, X, Y, text, 0.1);
           line(ctx, s, X, Y, text, 1.75, plotW);
-          const e = range === 'days' ? recent(s) : hv; ends.push({ y: Y(e), v: e, label: 'HVPG', c: text, lane });   // (the header's own reading)
+          const e = range === 'days' ? recent(s) : slide ? steadyHvpg() : hv; ends.push({ y: Y(e), v: e, label: 'HVPG', c: text, lane });   // (the header's own reading)
         }
       } else {
         // the HVPG itself, shaded between wedged and free hepatic pressure
@@ -383,7 +399,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           if (s.lo) band(ctx, s, X, Y, c, 0.16);
           line(ctx, s, X, Y, c, t.id === 'CONF' ? 2 : 1.75, plotW);
           if (range === 'days' && s.x.length < 60) dots(ctx, s, X, Y, c, surface);
-          const e = range === 'days' ? recent(s) : t.day?.(frame.metrics) ?? recent(s); ends.push({ y: Y(e), v: e, label: t.abbr, c, lane });   // (the live readings, so wedged − free is the header's HVPG)
+          const e = range === 'days' ? recent(s) : (slide && Number.isFinite(steady[t.id]) ? steady[t.id] : t.day?.(frame.metrics)) ?? recent(s); ends.push({ y: Y(e), v: e, label: t.abbr, c, lane });   // (the live readings, so wedged − free is the header's HVPG)
         }
       }
       ctx.restore();
@@ -396,6 +412,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     }
 
     ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 4, T - 12);
+    if (slide && lanes.length > 1) ctx.fillText('HVPG, mmHg', 4, lanes[1].top - 10);
 
     // markers: learner changes and events, where they happened
     const allBot = drawMarkers(markLayout, lanes);
@@ -403,7 +420,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     // live values at the right edge, nudged apart where they would collide (per lane)
     for (const lane of lanes) {
       const es = ends.filter((e) => e.lane === lane).sort((a, b) => a.y - b.y);
-      for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + (tiny ? 27 : 15));
+      for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + (tiny ? 27 : slide ? 18 : 15));
       const over = es.length ? es[es.length - 1].y - lane.bot : 0;
       if (over > 0) for (const e of es) e.y -= over;
       for (const e of es) {
@@ -544,7 +561,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       heroDelta.textContent = '';
       return;
     }
-    const v = frame.metrics.hvpg;
+    const v = onSlide() && Number.isFinite(steady.whvp) ? steadyHvpg() : frame.metrics.hvpg;
     const txt = fmt(v, 1);
     if (heroVal.textContent !== txt) heroVal.textContent = txt;
     const word = wordOf(v);
