@@ -124,11 +124,21 @@ test('credit is never animated: no fade, glide or scale ease', () => {
   assert.doesNotMatch(css, /\.stage-credit \{ transition: opacity/);
 });
 
-test('a spot over an organ is passed over like a covered one; the right corners stay free when only the left is drawn on', () => {
+test('a spot over an organ is passed over like a covered one; the corners on the left step to the bare right side', () => {
   const fig = { l: 0, t: 0, r: 1000, b: 800 };
   const s = freeSpots(fig, [], 200, 20, { avoid: (q) => q.l < 500 });
-  assert.equal(s.bl, null);
-  assert.equal(s.tl, null);
-  assert.ok(s.br && s.br.x >= 500);
-  assert.equal(pickCorner(s, null), 'br');
+  for (const c of ['bl', 'tl', 'br', 'tr']) assert.ok(s[c] && s[c].x >= 500, `${c} must be on the bare side`);
+  assert.equal(s.br.y, 800 - 12 - 20);
+  assert.equal(pickCorner(s, null), 'bl');
+});
+
+test('with art all round, the credit takes the gap between two cards', () => {
+  // A phone with its data card open: cards above and below, a 90 px strip of figure between, vessels along its top and bottom edges.
+  const fig = { l: 0, t: 0, r: 390, b: 800 };
+  const cards = [{ l: 8, t: 8, r: 382, b: 330 }, { l: 8, t: 420, r: 382, b: 792 }];
+  const s = freeSpots(fig, cards, 158, 13, { gap: 12, avoid: (q) => q.t < 350 || q.b > 400 });
+  const at = s.bl;
+  assert.ok(at, 'a spot must be found in the strip');
+  assert.ok(at.y >= 330 + 12 && at.y + 13 <= 420 - 12, `y ${at.y} is not in the strip`);
+  assert.ok(at.y >= 350 && at.y + 13 <= 400, 'and clear of the art');
 });

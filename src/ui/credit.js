@@ -10,6 +10,18 @@ export const CORNERS = ['bl', 'br', 'tl', 'tr'];
 
 const hit = (a, o) => a.l < o.r && a.r > o.l && a.t < o.b && a.b > o.t;
 
+// Every free box over the whole figure on a coarse grid (clear of the cards by `gap`, and of the art by `avoid`).
+function wideSpots(fig, obs, w, h, gap, inset, avoid) {
+  const big = fig.r - fig.l >= 768, sx = big ? 24 : 12, sy = big ? 16 : 8, out = [];
+  for (let y = fig.t; y + h <= fig.b; y += sy) {
+    for (let x = fig.l + inset; x + w <= fig.r - inset + 0.5; x += sx) {
+      const box = { l: x - gap, t: y - gap, r: x + w + gap, b: y + h + gap };
+      if (!obs.some((q) => hit(box, q)) && !avoid({ l: x, t: y, r: x + w, b: y + h })) out.push({ x, y });
+    }
+  }
+  return out;
+}
+
 // fig, obstacles: rects { l, t, r, b } in one frame. Returns { bl, br, tl, tr }: the top-left point of the free box
 // of size w × h nearest each corner, or null. A corner that no card clears by moving up or down is tried again beside
 // each card, further along the same edge (a phone held sideways: the strip of figure between the words' pane and the data card).
@@ -17,6 +29,7 @@ const hit = (a, o) => a.l < o.r && a.r > o.l && a.t < o.b && a.b > o.t;
 // over like a covered one.
 export function freeSpots(fig, obs, w, h, { gap = 10, inset = 12, avoid = null } = {}) {
   const out = {}, H = fig.b - fig.t;
+  let wide = null;
   // A free spot at x: from y0 toward the middle, past the cards (and the art to avoid) it meets.
   const walk = (x, y0, up = y0 > fig.t + H / 2) => {
     if (x < fig.l || x + w > fig.r) return null;
@@ -45,6 +58,16 @@ export function freeSpots(fig, obs, w, h, { gap = 10, inset = 12, avoid = null }
         const cost = Math.abs(p.y - y0) + 0.5 * Math.abs(x - x0);
         if (cost < bc) { bc = cost; best = p; }
       }
+      // (Nothing along the edges: look over the whole free figure, nearest the corner first: a gap between two cards, a bare patch
+      // beside the organs. The free boxes are found once for all four corners.)
+      if (!best) {
+        wide ||= wideSpots(fig, obs, w, h, gap, inset, avoid);
+        const ay = up ? fig.b - inset - h : fig.t + inset;
+        for (const q of wide) {
+          const cost = Math.abs(q.y - ay) + 0.5 * Math.abs(q.x - x0);
+          if (cost < bc) { bc = cost; best = q; }
+        }
+      }
       out[c] = best;
       continue;
     }
@@ -62,6 +85,24 @@ export function freeSpots(fig, obs, w, h, { gap = 10, inset = 12, avoid = null }
     }
   }
   return out;
+}
+
+// The last resort where no bare spot exists (a phone's crowded figure): per corner, the free box with the least art under it,
+// the corner's own pull counting a little. Returns { spots, cover }: the spots and the least cover among them.
+export function leastCovered(fig, obs, w, h, { gap = 10, inset = 12 } = {}, cover) {
+  const wide = wideSpots(fig, obs, w, h, gap, inset, () => false), out = {};
+  let least = Infinity;
+  for (const c of CORNERS) {
+    const left = c[1] === 'l', up = c[0] === 'b', x0 = left ? fig.l + inset : fig.r - inset - w, y0 = up ? fig.b - inset - h : fig.t + inset;
+    let best = null, bc = Infinity;
+    for (const q of wide) {
+      const cv = cover({ l: q.x, t: q.y, r: q.x + w, b: q.y + h }), cost = cv * 40 + Math.abs(q.y - y0) + 0.5 * Math.abs(q.x - x0);
+      if (cost < bc) { bc = cost; best = { ...q, cv }; }
+    }
+    out[c] = best;
+    if (best) least = Math.min(least, best.cv);
+  }
+  return { spots: out, cover: least };
 }
 
 // Which corner to use: the current one while it stays free (it never goes back to a corner it left just because that one
@@ -113,8 +154,11 @@ function labelRects(wr, wrap) {
 // one pixel per 6 px cell, and any cell it touches counts; the grid is grown by `pad` px all round, and a box is tested
 // against every cell it covers. (Testing each cell's centre against the shapes, thousands of isPointInStroke calls along
 // the vessels, took a few hundred ms per look and made panning and zooming lag.)
+// Organs and vessels are kept in two grids. On the GPU figure the vessel tubes are not in the page at all (their SVG tubes are
+// display:none), only their transparent hit strokes are, so those stand for the vessels there, at 0.7 of their width (a hit stroke is wider than its tube).
 const CELL = 6;
-const ART = 'g.organ :is(path, circle, ellipse, rect, polygon):not(.org-shade), #edges :is(.v-lumen, .v-lumenP, .v-strand)';
+const ORGANS = 'g.organ :is(path, circle, ellipse, rect, polygon):not(.org-shade)';
+const VESSELS = '#edges :is(.v-lumen, .v-lumenP, .v-strand), #world .v-hit';
 const num = (el, a) => parseFloat(el.getAttribute(a)) || 0;
 function shapePath(el) {
   const p = new Path2D(), tag = el.tagName.toLowerCase();
@@ -130,35 +174,51 @@ function shapePath(el) {
   return p;
 }
 let organMemo = { key: '', test: null };
-function organTest(wr, pad = 18) {
+// test(box, { pad, org, ves }): true when the box, grown by pad, touches the organs and/or the vessels.
+function organTest(wr) {
   const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2))].join('|');
   if (organMemo.key === key) return organMemo.test;
-  const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, on = new Uint8Array(cols * rows);
+  const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, grids = { org: new Uint8Array(cols * rows), ves: new Uint8Array(cols * rows) };
   const cv = document.createElement('canvas');
   cv.width = cols; cv.height = rows;
   const ctx = cv.getContext('2d', { willReadFrequently: true });
   if (ctx) {
-    for (const el of document.querySelectorAll(ART)) {
-      const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
-      if (!m || !r.width) continue;   // (drawn as a bitmap plate, the shapes stay in place but hidden: they still count)
-      const cs = getComputedStyle(el);
-      if (cs.display === 'none') continue;
-      // One canvas pixel per cell: cell (i, j) covers wrap px [i * CELL, (i + 1) * CELL).
-      ctx.setTransform(m.a / CELL, m.b / CELL, m.c / CELL, m.d / CELL, (m.e - wr.left) / CELL, (m.f - wr.top) / CELL);
-      const path = shapePath(el);
-      ctx.fill(path);
-      const w = parseFloat(cs.strokeWidth) || 0;
-      if (w > 0) { ctx.lineWidth = w; ctx.lineCap = cs.strokeLinecap || 'butt'; ctx.lineJoin = cs.strokeLinejoin || 'miter'; ctx.stroke(path); }
-    }
-    const px = ctx.getImageData(0, 0, cols, rows).data;
-    for (let k = 0; k < on.length; k++) on[k] = px[k * 4 + 3] > 0 ? 1 : 0;
+    const paint = (sel, grid, vessel) => {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, cols, rows);
+      for (const el of document.querySelectorAll(sel)) {
+        const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
+        if (!m || !r.width) continue;   // (drawn as a bitmap plate, the shapes stay in place but hidden: they still count)
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none') continue;
+        // One canvas pixel per cell: cell (i, j) covers wrap px [i * CELL, (i + 1) * CELL).
+        ctx.setTransform(m.a / CELL, m.b / CELL, m.c / CELL, m.d / CELL, (m.e - wr.left) / CELL, (m.f - wr.top) / CELL);
+        const path = shapePath(el);
+        if (!vessel || (cs.fill !== 'none' && !el.classList.contains('v-hit'))) ctx.fill(path);
+        const w = parseFloat(cs.strokeWidth) || 0;
+        if (w > 0 && (!vessel || cs.stroke !== 'none' || el.classList.contains('v-hit'))) { ctx.lineWidth = el.classList.contains('v-hit') ? w * 0.7 : w; ctx.lineCap = cs.strokeLinecap || 'butt'; ctx.lineJoin = cs.strokeLinejoin || 'miter'; ctx.stroke(path); }
+      }
+      const px = ctx.getImageData(0, 0, cols, rows).data;
+      for (let k = 0; k < grid.length; k++) grid[k] = px[k * 4 + 3] > 0 ? 1 : 0;
+    };
+    paint(ORGANS, grids.org, false);
+    paint(VESSELS, grids.ves, true);
   }
-  const test = (box) => {
+  // How much art a box covers: organ cells count 1, vessel cells 3.
+  const cover = (box) => {
+    const c0 = Math.max(0, Math.floor(box.l / CELL)), c1 = Math.min(cols - 1, Math.floor(box.r / CELL));
+    const r0 = Math.max(0, Math.floor(box.t / CELL)), r1 = Math.min(rows - 1, Math.floor(box.b / CELL));
+    let n = 0;
+    for (let j = r0; j <= r1; j++) for (let i = c0; i <= c1; i++) n += grids.org[j * cols + i] + 3 * grids.ves[j * cols + i];
+    return n;
+  };
+  const test = (box, { pad = 18, org = true, ves = true } = {}) => {
     const c0 = Math.max(0, Math.floor((box.l - pad) / CELL)), c1 = Math.min(cols - 1, Math.floor((box.r + pad) / CELL));
     const r0 = Math.max(0, Math.floor((box.t - pad) / CELL)), r1 = Math.min(rows - 1, Math.floor((box.b + pad) / CELL));
-    for (let j = r0; j <= r1; j++) for (let i = c0; i <= c1; i++) if (on[j * cols + i]) return true;
+    for (let j = r0; j <= r1; j++) for (let i = c0; i <= c1; i++) if ((org && grids.org[j * cols + i]) || (ves && grids.ves[j * cols + i])) return true;
     return false;
   };
+  test.cover = cover;
   organMemo = { key, test };
   return test;
 }
@@ -256,9 +316,30 @@ export function createCreditPlacer(credit) {
     for (const k of CORNERS) if (!spots[k]) blocked[k] = now;
     // (Spots clear of the organs' art too, found the same way (stepping in along the edge if need be), where there are any;
     // else the plain spots, so the credit always shows.)
-    const bare = freeSpots(fig, obs, w, h, { ...opt, avoid: organTest(wr) });
+    // (The strictest look first: 18 px clear of organs and vessels; then 8 px clear of both; then clear of the vessels only (over an
+    // organ's plain fill), 8 px and then 2 px; at each step on one line, then on two. The plain spots last, so the credit still shows.)
+    const art = organTest(wr);
+    let bare = null;
+    find: for (const t of [{ pad: 18 }, { pad: 8 }, { pad: 8, org: false }, { pad: 2, org: false }]) {
+      for (const two of [false, true]) {
+        const z = two ? measure('tight') : { w, h }, b = freeSpots(fig, obs, z.w, z.h, { ...opt, avoid: (box) => art(box, t) });
+        if (CORNERS.some((k) => b[k])) { bare = b; tight = two; break find; }
+      }
+    }
+    // (Nowhere bare: the free spot with the least art under it, on one line or on two, whichever covers less; with the usual gap
+    // from the cards and labels, else with a narrow one, where an open card leaves only a strip of figure.)
+    if (!bare) {
+      for (const gap of [opt.gap, 4]) {
+        const o = { ...opt, gap }, one = leastCovered(fig, obs, w, h, o, art.cover), z = measure('tight'), two = leastCovered(fig, obs, z.w, z.h, o, art.cover);
+        if (Number.isFinite(one.cover) || Number.isFinite(two.cover)) {
+          tight = !(one.cover <= two.cover);
+          bare = tight ? two.spots : one.spots;
+          break;
+        }
+      }
+    }
     // (A slide on a laptop or tablet: one spot, the figure's top right, whenever it is free; a phone keeps the corner order.)
-    const pref = app?.classList.contains('presenting') && document.querySelector('.pz:not(.stack)') ? 'tr' : null, pool = CORNERS.some((k) => bare[k]) ? bare : spots;
+    const pref = app?.classList.contains('presenting') && document.querySelector('.pz:not(.stack)') ? 'tr' : null, pool = bare || spots;
     if (pool === bare) spots = bare;
     let c = pref && pool[pref] ? pref : pickCorner(pool, cur, blocked);
     if (!c) {
