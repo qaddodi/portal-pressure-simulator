@@ -18,5 +18,5 @@ test('every tile shows its HVPG as a nowrap pill at the top right, beside the si
   assert.match(css, /\.pz-cell-k \{ display: flex; align-items: center; justify-content: space-between;[^}]*flex-wrap: nowrap;/);
   assert.match(css, /\.pz-cell-pill \{ flex: none; margin-left: auto;[^}]*white-space: nowrap;/);
   const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(js, /class: 'pz-cell-pill', 'data-rate': rateOf\('hvpg', r\.f\)\[0\]/);
+  assert.match(js, /class: 'pz-cell-pill', 'data-rate': rateOf\('hvpg', \{ hvpg: wholeGap\(r\.f\.whvp, r\.f\.fhvp, r\.f\.hvpg\) \}\)\[0\]/);   // (rated and shown as its ladder's bracket: whole readings, their difference)
 });

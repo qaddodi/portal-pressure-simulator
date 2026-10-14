@@ -1777,6 +1777,7 @@ button.finding { cursor: pointer; }
 @media (hover: hover) { .pz-cell.q:not(.shown):hover { box-shadow: inset 0 0 0 1.5px var(--accent); } }
 .pz-cell.q:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pz-cell-t { font: 600 var(--s-body)/1.15 var(--font-display); color: var(--text); }
+.pz-cell-t { font-size: min(var(--s-body), 12cqi); overflow-wrap: anywhere; }   /* (a long one-word name, Schistosomiasis, stays inside a phone's half-width cell) */
 /* The six ladders fill the panel: two rows share its height and each chart shrinks to its cell. */
 .pz-panel.fill { height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh) / var(--vz)), 56px)); }
 .pz-panel.fill .pz-grid { flex: 1; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }

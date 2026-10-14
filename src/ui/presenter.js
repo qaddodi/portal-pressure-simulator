@@ -1805,7 +1805,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // In quiz mode each ladder's site is hidden until a tap (D7): the room names the site from the ladder's shape.
       const cell = h('div', quiz ? { class: 'pz-cell q', role: 'button', tabindex: '0', 'aria-label': 'Show the site of this ladder', onclick: () => reveal(cell), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reveal(cell); } } } : { class: 'pz-cell' },
         h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')),
-          h('span', { class: 'pz-cell-pill', 'data-rate': rateOf('hvpg', r.f)[0] }, 'HVPG ', h('b', {}, fmt(r.f.hvpg, 1)))),
+          h('span', { class: 'pz-cell-pill', 'data-rate': rateOf('hvpg', { hvpg: wholeGap(r.f.whvp, r.f.fhvp, r.f.hvpg) })[0] }, 'HVPG ', h('b', {}, fmt(wholeGap(r.f.whvp, r.f.fhvp, r.f.hvpg), 0)))),   // (as its ladder's bracket reads it: whole readings, their difference)
         h('div', { class: 'pz-cell-t' }, r.title), L.el, L.strip);
       grid.append(cell);
     }
