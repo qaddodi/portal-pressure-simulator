@@ -318,7 +318,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       lane.Y = Y;
 
       // grid
-      ctx.lineWidth = 1; ctx.font = FONT(500, 10.5); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 1; ctx.font = FONT(500, 12); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       for (let v = Math.ceil(lo / tick) * tick; v <= hi + 1e-9; v += tick) {
         const yy = Math.round(Y(v)) + 0.5;
         ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + plotW, yy); ctx.stroke();
@@ -337,7 +337,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + plotW, yy); ctx.stroke(); ctx.setLineDash([]);
           ctx.globalAlpha = 1;
           if (label && !narrow && (roomy || v === 10)) {
-            ctx.font = FONT(600, 10); const tw = ctx.measureText(label).width;
+            ctx.font = FONT(600, 12); const tw = ctx.measureText(label).width;
             ctx.fillStyle = surface; ctx.fillRect(L + 6, yy - 6, tw + 8, 12);
             ctx.fillStyle = col('--danger'); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
             ctx.fillText(label, L + 10, yy); ctx.textBaseline = 'alphabetic';
@@ -384,7 +384,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       }
     }
 
-    ctx.font = FONT(500, 10); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 4, T - 12);
+    ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 4, T - 12);
 
     // markers: learner changes and events, where they happened
     const allBot = drawMarkers(markLayout, lanes);
@@ -403,13 +403,13 @@ export function createPressureTime({ marks = () => [] } = {}) {
         const vt = fmt(e.v, 1);
         ctx.fillText(vt, L + plotW + 17, yy);
         // Each line is named at its end (PV, WHVP, FHVP, HVPG), on every screen.
-        const vw = ctx.measureText(vt).width; ctx.font = FONT(600, 11); ctx.fillStyle = e.c === text ? muted : e.c; ctx.fillText(e.label, L + plotW + 20 + vw, yy);
+        const vw = ctx.measureText(vt).width; ctx.font = FONT(600, 12); ctx.fillStyle = e.c === text ? muted : e.c; ctx.fillText(e.label, L + plotW + 20 + vw, yy);
         ctx.textBaseline = 'alphabetic';
       }
     }
 
     // time axis
-    ctx.fillStyle = faint; ctx.font = FONT(500, 10.5); ctx.textAlign = 'center';
+    ctx.fillStyle = faint; ctx.font = FONT(500, 12); ctx.textAlign = 'center';
     const span = x1 - x0;
     if (range === 'days') {
       const step = nice(span, narrow ? 3 : 5);
@@ -440,7 +440,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, cw, ch, 10) : ctx.rect(bx, by, cw, ch); ctx.fill();
       ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
       ctx.strokeStyle = grid; ctx.stroke();
-      ctx.textAlign = 'left'; ctx.fillStyle = muted; ctx.font = FONT(600, 11); ctx.fillText(when, bx + padX, by + 18);
+      ctx.textAlign = 'left'; ctx.fillStyle = muted; ctx.font = FONT(600, 12); ctx.fillText(when, bx + padX, by + 18);
       crossRows.forEach((r, i) => {
         const yy = by + 18 + rowH * (i + 1);
         ctx.fillStyle = r.c; ctx.beginPath(); ctx.arc(bx + padX + 3, yy - 4, 3, 0, 7); ctx.fill();
@@ -457,7 +457,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const ROW = 13, MAX_ROWS = 4;
   function layoutMarkers(ms, X, right) {
     const ctx = cv.getContext('2d');
-    ctx.font = FONT(600, 10.5);
+    ctx.font = FONT(600, 12);
     const groups = [];
     for (const mk of ms) {
       const xx = Math.round(X(mk.x)) + 0.5, g = groups[groups.length - 1];
@@ -494,7 +494,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       ctx.beginPath(); ctx.moveTo(g.xx, yOf(g) + 4); ctx.lineTo(g.xx, allBot); ctx.stroke();
     }
     ctx.setLineDash([]); ctx.globalAlpha = 1;
-    ctx.font = FONT(600, 10.5); ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    ctx.font = FONT(600, 12); ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
     for (const g of groups) {
       const y = yOf(g);
       ctx.fillStyle = colOf(g); ctx.beginPath(); ctx.arc(g.xx, y, 3, 0, 7); ctx.fill();

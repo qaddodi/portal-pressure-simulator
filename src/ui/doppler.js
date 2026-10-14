@@ -476,10 +476,10 @@ export function createDoppler({ onProbe }) {
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
     if (w < 60 || hh < 60) return;
     const label = probe ? EDGES[EI[probe]].label : '';
-    ctx.font = FONT(600, 11); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.font = FONT(600, 12); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(label, padL, 13);
     const lw = ctx.measureText(label).width;
-    ctx.font = FONT(500, 11); ctx.fillStyle = cssAlpha('--white', .5);
+    ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
     ctx.fillText(`${mode === 'spectrum' ? 'PW' : 'PW + CD'}  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, padL + lw + 12, 13);
     if (buf.length < 2) {
       tDisp = null;
@@ -557,7 +557,7 @@ export function createDoppler({ onProbe }) {
     // Baseline
     ctx.fillStyle = cssAlpha('--white', .8); ctx.fillRect(padL, padT + baseY, W, 1);
     // Velocity scale on the right
-    ctx.font = FONT(500, 10.5); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.font = FONT(500, 12); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     // ticks: a labelled tick every 1, 2, 5, 10, 20, 50 ... cm/s (the first that gives at most five a side), a half tick between
     const lab = [1, 2, 5, 10, 20, 50, 100, 200].find((x) => scale / x <= 5) || 100, minor = lab / 2;
     for (let k = -Math.ceil(scale / minor); k <= Math.ceil(scale / minor); k++) {

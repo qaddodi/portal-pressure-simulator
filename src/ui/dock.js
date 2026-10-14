@@ -6,11 +6,11 @@ import { EDGES } from '../engine/topology.js?v=79f09b0d8a';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=abb277f29f';
 import { lobuleFlows } from './lobule-model.js?v=d378c02386';
 import { createProfile } from './charts.js?v=a093bca0ea';
-import { createPressureTime } from './pressure-time.js?v=53a37a7cea';
-import { createFibroScan } from './fibroscan.js?v=a1bc34fffd';
+import { createPressureTime } from './pressure-time.js?v=9d197d3cb8';
+import { createFibroScan } from './fibroscan.js?v=1aba6f82f7';
 import { createHvpgProcedure } from './hvpg-proc.js?v=258d41dbc8';
-import { createDoppler } from './doppler.js?v=54a45cc31a';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=2964caa3c1';
+import { createDoppler } from './doppler.js?v=1e1cb9e578';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=41e12b06c3';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('dock');
 

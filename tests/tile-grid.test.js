@@ -30,7 +30,7 @@ test('the FibroScan reads the model median, the number in the tile and words', (
 
 test('a ladder card shows no HVPG or PPG tiles: its brackets give them, so no number is shown twice, rounded two ways', () => {
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /const tileKeys = \(s\) => s\.tiles \|\| \[\];/);
+  assert.match(pres, /const tileKeys = \(s\) => \(s\.tiles \|\| \[\]\)\.filter\(\(k\) => !\(s\.tool\?\.kind === 'flowtime' && s\.tool\.lines\?\.includes\(k\) && !phone\(\)\)\);/, 'a chart over the days drops tiles for its own two lines, on a laptop or tablet');
   assert.match(pres, /if \(sg !== sig \|\| !draw\)/, 'an empty tile set still builds');
   assert.ok(css.includes('.pz-tiles[data-n="0"] { display: none; }'));
   const decks = ['hvpg', 'ncph', 'one-year', 'outflow', 'prehepatic', 'pvt-cirrhosis', 'recompensation', 'right-heart', 'treatment']
@@ -56,12 +56,14 @@ test('an instrument with tiles: the instrument on the left, the tiles stacked be
   assert.match(pres, /if \(c === side\) continue;/);
 });
 
-test('beside its tiles, every instrument lists its own readings at the small size, a row each', () => {
-  const B = '.pz:not(.stack):not(.low) .pz-data.pz-beside';
+test('every instrument is one screen: a reading top left, its status top right, the picture under them, words never zoomed', () => {
+  const B = '.pz:not(.stack):not(.low) .pz-data.pz-beside', S = ':is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool';
   assert.ok(css.includes(`${B} > .pz-tool { --bs: var(--pz-sm);`));
-  assert.ok(css.includes(`${B} .pz-tool :is(.endo-read > div:not([hidden]), .dop-stats > div:not([hidden]), .ab-tile) { display: flex; flex-direction: row;`));
-  for (const k of ['doppler', 'beats', 'abdomen']) assert.ok(css.includes(`${B} .pz-tool[data-kind="${k}"]`), k);
-  assert.ok(css.includes(`${B} .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage {`));
+  assert.ok(css.includes(`.pz:not(.stack):not(.low) .pz-data.col.pz-beside > * { zoom: 1; }`), 'the card fit shortens the picture, not the words');
+  assert.ok(css.includes(`${S}[data-kind="doppler"] .dop-report { display: contents; }`));
+  assert.ok(css.includes(`${S}[data-kind="doppler"] :is(.dop-pattern, .dop-range, .dop-stats, .dop-note) { display: none; }`));
+  assert.ok(css.includes(`${S}[data-kind="abdomen"] :is(.ab-trend, .ab-iap, .ab-tiles) { display: none; }`));
+  assert.match(css, /dop-box \{[^}]*min-height: calc\(58cqi \* var\(--pz-fit, 1\)\)/);
   assert.ok(css.includes('.pz-tool .pt-smooth { display: none; }'));
 });
 

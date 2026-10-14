@@ -107,7 +107,7 @@ export function createFibroScan() {
     ctx.clearRect(0, 0, w, hh);
     rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.fillStyle = th.panel; ctx.fill(); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
     // A short, wide panel (a phone's presenter card) puts the reading beside the map rather than over it.
-    const narrow = w < 380, side = hh < 200 && w > hh * 2.2;
+    const narrow = w < 380, side = !cv.closest('.pz-tool') && hh < 200 && w > hh * 2.2;   // (a slide's FibroScan always reads top left, LIVE top right, the map under them)
     // The panel's words are the size of the card's small words (the canvas's own font size, which a slide sets to the tiles'
     // small size), so the labels never look tiny beside the card: one size for the axes, the units and LIVE.
     if (w !== sized.w || hh !== sized.h) { sized.w = w; sized.h = hh; const fs = parseFloat(getComputedStyle(cv).fontSize) || 11; sized.cap = clamp(fs * (w / (cv.offsetWidth || w)), 10, 20); }

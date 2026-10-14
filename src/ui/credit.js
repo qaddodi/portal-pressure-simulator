@@ -167,12 +167,15 @@ export function createCreditPlacer(credit) {
       if (now - changedAt < 1600) { clearTimeout(waitT); waitT = setTimeout(soon, 120); return; }
     }
     changedAt = 0;
-    const opt = { inset: wr.width < 768 ? 12 : 24 };
-    // (Clear of the organs where the figure allows; else as before, clear of the cards only, so the credit stays in view.)
-    let spots = freeSpots(fig, obs, w, h, { ...opt, avoid: organTest(wr) }), tight = false;
-    if (!CORNERS.some((k) => spots[k])) spots = freeSpots(fig, obs, w, h, opt);
+    // (One margin with the cards: the credit's edge lines up with the presenter's cards, the screen's margin.)
+    const shade = document.querySelector('.pz-shade'), sr = shade && getComputedStyle(shade).opacity !== '0' ? shade.getBoundingClientRect() : null;
+    const opt = { inset: sr?.width ? Math.max(12, Math.round(sr.left - wr.left - fig.l)) : wr.width < 768 ? 12 : 24 };
+    let spots = freeSpots(fig, obs, w, h, opt), tight = false;
     for (const k of CORNERS) if (!spots[k]) blocked[k] = now;
-    let c = pickCorner(spots, cur, blocked);
+    // (Of the free corners, one whose spot is clear of the organs' art, where there is one; the spots themselves are as
+    // before, so the credit always shows.)
+    const onOrgan = organTest(wr), bare = Object.fromEntries(CORNERS.map((k) => [k, spots[k] && !onOrgan({ l: spots[k].x, t: spots[k].y, r: spots[k].x + w, b: spots[k].y + h }) ? spots[k] : null]));
+    let c = pickCorner(CORNERS.some((k) => bare[k]) ? bare : spots, cur, blocked);
     if (!c) {
       // Not on one line: try it on two, before giving the figure up as covered.
       const t = measure('tight'), tspots = freeSpots(fig, obs, t.w, t.h, opt), tc = pickCorner(tspots, cur, blocked);

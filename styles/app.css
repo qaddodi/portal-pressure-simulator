@@ -2145,9 +2145,6 @@ button.finding { cursor: pointer; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool { grid-column: 1 / 2; grid-row: 2; align-self: center; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tiles:not([data-n="0"]) { grid-column: 2 / 3; grid-row: 2; align-self: stretch; grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; min-width: 0; overflow: hidden; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tiles:not([data-n="0"]) > .pz-tile { grid-column: auto; container-type: normal; }
-/* (Beside its tiles the FibroScan is a little wider than tall; with three tiles, square, so each tile has room for its four lines.) */
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: auto; aspect-ratio: 5 / 4; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside[data-tn="3"] .pz-tool[data-kind="fibroscan"] .fibroscan-box, .pz:not(.stack):not(.low) .pz-data.pz-beside[data-tn="4"] .pz-tool[data-kind="fibroscan"] .fibroscan-box { aspect-ratio: 1; }
 /* (The instrument's own words at the tiles' small size: the FibroScan reads its canvas's font size.) */
 .fibroscan-box > canvas { font-size: 12px; }
 .pz-tool .fibroscan-box > canvas { font-size: var(--pz-sm, 14px); }
@@ -4662,61 +4659,94 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    (the report is a narrow container there, so the Explore pane's four-across query had matched it). */
 .pz:not(.stack) .pz-tool .dop .dop-report .dop-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
 .pz:not(.stack) .pz-tool .dop .dop-report .dop-stats :is(dt, dd) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Every instrument beside its tiles (Mac and iPad landscape, Mohammad 14 Oct, "not just the FibroScan, everything"): the picture on
-   top of the left column, as large as the column allows; under it the instrument's own readings as one short list, a hairline
-   between rows, the name on the left and the value on the right, all at the card's small size. The big numbers live in the tiles. */
-.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool { --bs: var(--pz-sm); font-size: var(--bs); }
-.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool .pz-inst { gap: 8px; }
-/* The list rows, shared by every instrument. */
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool :is(.endo-read, .dop-stats, .ab-tiles) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; margin: 0; padding: 0; border: 0; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool :is(.endo-read > div:not([hidden]), .dop-stats > div:not([hidden]), .ab-tile) { display: flex; flex-direction: row; align-items: baseline; justify-content: space-between; gap: .8em; min-width: 0; min-height: 0; margin: 0; padding: .42em 0; border: 0; border-top: 1px solid var(--hairline); border-radius: 0; background: none; box-shadow: none; text-align: left; grid-column: auto; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool :is(.endo-read, .dop-stats, .ab-tiles) dt { flex: 1 1 auto; min-width: 0; font: 600 var(--bs)/1.25 var(--font-ui); letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; overflow: visible; overflow-wrap: normal; hyphens: manual; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool :is(.endo-read, .dop-stats, .ab-tiles) dd { flex: none; margin: 0; font: 600 var(--bs)/1.25 var(--font-ui); letter-spacing: 0; color: var(--text); white-space: nowrap; overflow: visible; text-align: right; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool :is(.endo-read, .dop-stats, .ab-tiles) dd :is(small, span, b) { font-size: inherit; letter-spacing: 0; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool :is(.endo-num, .endo-chip-v, .endo-grade, .endo-grade span, .endo-grade b, .endo-stress-v) { font: 600 var(--bs)/1.25 var(--font-ui); letter-spacing: 0; white-space: nowrap; justify-content: flex-end; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool :is(.endo-num small, .ab-u, .dop-stats dd small) { color: var(--text-3); font-weight: 500; }
-/* Doppler: the trace, then the direction and its pattern, the mean speed with its range, then the list. */
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="doppler"] .dop-main { gap: 8px; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="doppler"] .dop-box { height: auto; aspect-ratio: 16 / 9; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .dop-report { container-type: normal; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 2px 14px; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .dop .dop-dir { grid-column: 1 / -1; grid-row: 1; font-size: var(--bs); gap: .5em; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .dop .dop-dir::before { width: .6em; height: .6em; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .dop .dop-velrow { grid-column: 1; grid-row: 2; margin: 0; gap: 0 .6em; flex-wrap: nowrap; justify-content: flex-start; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .dop .dop-vel b { font-size: var(--pz-num); }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .dop .dop-vel small { font-size: var(--bs); }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .dop .dop-pattern { display: none; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .dop .dop-range { grid-column: 2; grid-row: 2; margin: 0 4px; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .dop .dop-ticks { font-size: var(--bs); height: 1.3em; line-height: 1.3; margin-top: 4px; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .dop .dop-report .dop-stats { grid-column: 1 / -1; grid-row: 3; margin-top: 4px; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .dop .dop-note { grid-column: 1 / -1; grid-row: 4; margin: 4px 0 0; font-size: var(--bs); line-height: 1.35; }
-/* Scope and varix wall: the picture centred, the list under it. */
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .pz-inst { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { flex: none; width: min(72%, calc(26 * var(--pzh))); margin: 0 auto; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .chart-side { width: 100%; flex: none; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-pos { display: none; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="scope"] .endo-read > .endo-g { order: -1; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="scope"] .endo-read > .endo-red .endo-more { display: none; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="wall"] .endo-read > .endo-stress { flex-wrap: wrap; row-gap: .35em; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="wall"] .endo-read > .endo-stress > .endo-bar { flex: 1 0 100%; margin: 0; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool :is(.endo-read, .dop-stats, .ab-tiles) > :first-child { border-top: 0; }
-/* Abdomen: the volume and the belly side by side, the abdominal pressure with its bar, then the list. */
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="abdomen"] .ab-read { gap: 8px; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="abdomen"] .ab-big > b { font-size: var(--pz-num); }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="abdomen"] .ab-big > b small { font-size: var(--bs); }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="abdomen"] :is(.ab-grade, .ab-trend, .ab-kv) { font-size: var(--bs); }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="abdomen"] .ab-belly { width: clamp(56px, calc(8 * var(--pzh)), 96px); height: clamp(56px, calc(8 * var(--pzh)), 96px); }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="abdomen"] .ab-why { font-size: var(--bs); }
-/* The beat-by-beat trace and the charts fill the column. */
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="beats"] .pt-box { height: auto; aspect-ratio: 4 / 3; }
-/* (The earlier reading is one more row of the list; the wall's law and stress index stay in the teaching card, as before.) */
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .pz-ghost { justify-content: space-between; margin: 0; padding: 0; font-size: var(--bs); border-top: 1px solid transparent; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .pz-ghost.on { padding: .42em 0; border-top-color: var(--hairline); }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool .pz-ghost span { font-size: inherit; letter-spacing: .04em; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="wall"] .endo-read > :is(.wall-law, :last-child) { display: none; }
-/* (The beat-by-beat trace's reading: its name and status at the small size, the number at the tiles' size; its Smooth switch is
-   the Explore pane's, not a slide's.) */
+/* Every instrument beside its tiles (Mac and iPad landscape, Mohammad 14 Oct: "not just fixing fibroscan but everything"): drawn
+   like the FibroScan he approved. The instrument is a screen on the left: one reading top left (the number at the tiles' size,
+   its unit small), its status or LIVE top right, the picture as large as the column allows under them. Its other readings and
+   sentences leave the card (the tiles and the teaching card carry them). The tiles stack on the right, the column exactly as
+   tall as the instrument: the picture grows to the row's height. */
+.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool { --bs: var(--pz-sm); align-self: stretch; display: flex; flex-direction: column; min-height: 0; font-size: var(--bs); container-type: inline-size; }
+/* (Its words never shrink: where the card is short, its fit (--pz-fit) shortens the picture instead of zooming the card.) */
+.pz:not(.stack):not(.low) .pz-data.col.pz-beside > * { zoom: 1; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="fibroscan"] .fibroscan-box { flex: 1 0 auto; height: calc(var(--fh, 78cqi) * var(--pz-fit, 1)); aspect-ratio: auto; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside:is([data-tn="3"], [data-tn="4"]) .pz-tool[data-kind="fibroscan"] .fibroscan-box { --fh: 92cqi; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="flowtime"] .pz-flowtime { flex: 1 1 auto; align-content: center; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="flowtime"] .pz-flowtime svg { width: calc(100% * var(--pz-fit, 1)); justify-self: center; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool > .pz-inst { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool > .pz-ghost { display: none; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tiles:not([data-n="0"]) { overflow: clip; }
+/* The header's two sizes, shared by every instrument: the reading's number, everything else small. */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-vel b, .ab-big > b, .pt-num) { font: 600 var(--pz-num)/1 var(--font-ui); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-vel small, .ab-big > b small, .pt-v small, .pt-k, .pt-sev, .dop-dir, .ab-grade, .endo-stress-v, .endo-grade, .endo-grade *, .endo-chip-v, .endo-read dt) { font: 600 var(--bs)/1.25 var(--font-ui); letter-spacing: 0; white-space: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-vel small, .ab-big > b small, .pt-v small) { margin-left: .3em; font-weight: 500; color: var(--text-3); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-dir, .pt-sev, .ab-grade)::before { width: .6em; height: .6em; }
+/* Doppler: "−12 cm/s mean" and "● Hepatofugal" over the trace. */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-main { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); align-items: baseline; gap: 6px 12px; min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { grid-area: 1 / 1; margin: 0; flex-wrap: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { grid-area: 1 / 2; justify-self: end; gap: .45em; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-box { grid-area: 2 / 1 / 3 / -1; align-self: stretch; width: 100%; height: auto; min-height: calc(58cqi * var(--pz-fit, 1)); aspect-ratio: auto; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] :is(.dop-pattern, .dop-range, .dop-stats, .dop-note) { display: none; }
+/* Beat by beat: "HVPG 6.7 mmHg" and "● Subclinical" over the trace. */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-head { flex-wrap: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-hero { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 0 .5em; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-k { color: var(--text-2); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-sev { justify-self: end; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-delta { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-box { flex: 1 0 auto; height: calc(72cqi * var(--pz-fit, 1)); min-height: 0; aspect-ratio: auto; }
+/* Scope and varix wall: the grade, or the wall stress, over the picture; the picture as large as the column. */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .pz-inst { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto minmax(0, 1fr); align-items: baseline; gap: 6px 12px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) :is(.chart-side, .endo-read) { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read > div { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { grid-area: 3 / 1 / 4 / -1; align-self: center; width: calc(min(100cqi, calc(30 * var(--pzh))) * var(--pz-fit, 1)); margin: 0 auto; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-pos { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read > :is(.endo-g:not(.wall-law), .endo-stress, .endo-red) { display: flex; align-items: baseline; gap: .5em; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read dt { color: var(--text-2); letter-spacing: .04em; text-transform: uppercase; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-g { grid-area: 1 / 1; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-area: 1 / 2; justify-self: end; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-more { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress { grid-area: 1 / 1 / 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 6px 12px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > dt { flex: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > .endo-bar { grid-column: 1 / -1; display: block; width: 100%; height: 6px; margin: 0; }
+/* Abdomen: "7.5 L" and "● Grade 3" over the belly, drawn large. */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab, .ab-main) { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-read { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 6px; align-items: center; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol-l { grid-area: 1 / 1; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-big { justify-content: space-between; flex-wrap: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly { grid-area: 2 / 1; justify-self: center; width: calc(min(46cqi, calc(16 * var(--pzh))) * var(--pz-fit, 1)); height: auto; aspect-ratio: 1; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab-trend, .ab-iap, .ab-tiles) { display: none; }
+/* (The beat-by-beat trace's Smooth switch is the Explore pane's, not a slide's.) */
 .pz-tool .pt-smooth { display: none; }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="beats"] :is(.pt-k, .pt-sev, .pt-v small) { font-size: var(--bs); }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="beats"] .pt-k { letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="beats"] .pt-num { font-size: var(--pz-num); }
-.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="abdomen"] .ab-kv > span:first-child { letter-spacing: .04em; text-transform: uppercase; font-weight: 600; }
+/* (Beside an instrument the tile column is a little wider, so every tile's name stays on one line.) */
+.pz:not(.stack):not(.low) .pz-data.pz-beside { grid-template-columns: minmax(0, 1fr) max(160px, 36%); }
+.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-k { white-space: nowrap; letter-spacing: .02em; }
+/* (Four tiles beside an instrument stand two by two, the column half the card: four stacked would not fit a laptop's card.
+   Their names may take two balanced lines there, the one place a tile's name wraps.) */
+.pz:not(.stack):not(.low) .pz-data.pz-beside[data-tn="4"] { grid-template-columns: minmax(0, 1fr) 54%; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside[data-tn="4"] > .pz-tiles:not([data-n="0"]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pz:not(.stack):not(.low) .pz-data.pz-beside[data-tn="4"] .pz-tiles .pzt-k { white-space: normal; text-wrap: balance; min-height: 2.5em; display: flex; align-items: flex-end; justify-content: center; }
+/* One tile design on phones too (the reviewer's round 1, 14 Oct): every tile, however many share its row, is the same stack of
+   centred lines (name, number with unit, "● status", "▲ change"), at two sizes: one number size, one small size (12 px or more).
+   A name never breaks inside a word; in a row of three or four the names may take two balanced lines, every tile of the row
+   keeping room for two so the numbers share one line. */
+.pz.stack .pz-data { --pz-psm: max(12px, var(--s-cap)); --pz-pnum: calc(var(--s-big) * 1.1); }
+.pz.stack .pz-data .pz-tiles .pz-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 0; padding: 6px 8px; text-align: center; }
+.pz.stack .pz-data .pz-tiles .pzt-k { font-size: var(--pz-psm); letter-spacing: .03em; white-space: nowrap; overflow-wrap: normal; hyphens: manual; margin: 0; min-height: 0; }
+.pz.stack .pz-data .pz-tiles :is([data-n="3"], [data-n="4"]) .pzt-k, .pz.stack .pz-data .pz-tiles:is([data-n="3"], [data-n="4"]) .pzt-k { white-space: normal; text-wrap: balance; min-height: 2.5em; display: flex; align-items: flex-end; justify-content: center; line-height: 1.25; }
+.pz.stack .pz-data .pz-tiles .pzt-vu { flex-wrap: nowrap; justify-content: center; white-space: nowrap; }
+.pz.stack .pz-data .pz-tiles .pzt-v, .pz.stack .pz-data.tiles-only .pzt-v { font-size: var(--pz-pnum); line-height: 1.1; }
+.pz.stack .pz-data .pz-tiles .pzt-vu small { font-size: var(--pz-psm); }
+.pz.stack .pz-data .pz-tiles :is(.pzt-r, .pzt-d) { font-size: var(--pz-psm); line-height: 1.3; white-space: nowrap; max-width: none; text-align: center; }
+/* (A phone draws each instrument the same way, full width over its tiles, at the phone's two sizes, and shorter.) */
+.pz.stack .pz-data.has-tool { --pz-num: var(--pz-pnum); }
+.pz.stack .pz-data.has-tool > .pz-tool { --bs: var(--pz-psm); container-type: inline-size; font-size: var(--bs); }
+.pz.stack .pz-data.has-tool > .pz-tool > .pz-ghost { display: none; }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box { min-height: 0; height: 128px; }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { width: min(56cqi, 150px); }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { width: min(30cqi, 96px); }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 168px; }

@@ -22,7 +22,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e7450bd6af';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=258d41dbc8';
-import { createTools } from './presenter-tools.js?v=98a7b1ad09';
+import { createTools } from './presenter-tools.js?v=d8f0f79d33';
 import { openHandout } from './handout.js?v=680b9bd894';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=20ffefba17';
@@ -1241,7 +1241,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     el.querySelector('.pzl-t').textContent = lapseText(s, d, n, done);
     el.classList.toggle('done', done);
   }
-  const tileKeys = (s) => s.tiles || [];   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
+  // (A chart over the days already draws its two lines from where they started to where they are, numbers and all: on a laptop
+  // or tablet, where the chart is always in view beside the tiles, tiles for those two would repeat it.)
+  const tileKeys = (s) => (s.tiles || []).filter((k) => !(s.tool?.kind === 'flowtime' && s.tool.lines?.includes(k) && !phone()));   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
   function dataTo(s, f, ref, ms) {
     if (!ui) return;
     if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets, block: s.block });
@@ -1584,7 +1586,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return d && d % 365 === 0 ? `Year ${d / 365}` : d <= 200 ? `Day ${d}` : `Month ${Math.round(d / 30.4)}`;
   };
   // (A state on the same day as the one before it, as a drug started at that visit, says so instead of repeating the day; a slide's `when` words it.)
-  const chainTo = (i) => { let before = null; return [...new Set(stateOf.slice(0, i + 1))].map((k) => { const w = whenOf(k), p = { n: k + 1, title: slides[k].title, tick: slides.find((x, j) => stateOf[j] === k && x.tick)?.tick || slides[k].title, when: traceWhen(slides[k].when, w, before), fp: states[k]?.fp }; before = w; return p; }); };
+  const chainTo = (i) => { let before = null; return [...new Set(stateOf.slice(0, i + 1))].filter((k) => slides[k]?.visual !== 'outline').map((k) => { const w = whenOf(k), p = { n: k + 1, title: slides[k].title, tick: slides.find((x, j) => stateOf[j] === k && x.tick)?.tick || slides[k].title, when: traceWhen(slides[k].when, w, before), fp: states[k]?.fp }; before = w; return p; }); };
   // The catheter's pressure monitor, made once and kept, so its trace carries on from slide to slide.
   let mon = null;
   function monitorFor(s, i) {

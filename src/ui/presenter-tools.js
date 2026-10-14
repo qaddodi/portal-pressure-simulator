@@ -25,11 +25,11 @@ import { store } from './store.js?v=e2da75a079';
 import { h, fmt, clamp } from './util.js?v=abb277f29f';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=180c87ed56';
 import { EDGES } from '../engine/topology.js?v=79f09b0d8a';
-import { createDoppler } from './doppler.js?v=54a45cc31a';
-import { createFibroScan } from './fibroscan.js?v=a1bc34fffd';
-import { createPressureTime } from './pressure-time.js?v=53a37a7cea';
+import { createDoppler } from './doppler.js?v=1e1cb9e578';
+import { createFibroScan } from './fibroscan.js?v=1aba6f82f7';
+import { createPressureTime } from './pressure-time.js?v=9d197d3cb8';
 import { createFlowTime } from './flow-time.js?v=9327f117b5';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=2964caa3c1';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=41e12b06c3';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('presenter-tools');
 
@@ -52,9 +52,9 @@ export function createTools({ host, stage }) {
   const ghostEl = h('div', { class: 'pz-ghost', 'aria-live': 'polite' });
   const box = h('div', { class: 'pz-tool' });
   // A chart drawn in its own units (a viewBox) shrinks its letters with the card: its smallest words (13 units) are kept
-  // 11.5 px or more on the screen, the chart's letters all grown by the same factor (--svk), up to half again.
+  // 12 px or more on the screen, the chart's letters all grown by the same factor (--svk), up to twice.
   const svk = () => { for (const sv of box.querySelectorAll('svg[viewBox]')) { const w = +sv.getAttribute('viewBox').split(/[\s,]+/)[2], r = sv.getBoundingClientRect().width;
-    if (!w || !r) continue; const k = Math.min(1.5, Math.max(1, 11.5 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) sv.style.setProperty('--svk', k.toFixed(2)); } };
+    if (!w || !r) continue; const k = Math.min(2, Math.max(1, 12 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) sv.style.setProperty('--svk', k.toFixed(2)); } };
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => nextFrame(svk)).observe(box);
   const made = {};
   let cur = null, kind = null, probe0, lastSt = null;
