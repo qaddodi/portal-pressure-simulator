@@ -2083,13 +2083,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (p && t) { const cs = getComputedStyle(dd), room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8); if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     if (below !== isCol) { void dd.offsetWidth; dd.style.transition = ''; }
     fitCards(ui.data, ui.panel);
+    // The stacked pair shorter than the screen is centred top to bottom as one (equal room above and below, never closer than one margin
+    // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
+    let shift = 0;
+    if (below && t && !off(dd)) {
+      const stackH = t.height + 2 * pad + gap + dd.offsetHeight * k;
+      shift = Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
+      if (shift > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = `${((foot - y - shift) / k).toFixed(1)}px`; } else shift = 0;
+    }
     fitWatch();
     const dv = ui.data.hidden ? [0, 0] : dockVec();
     const d = below ? null : r(ui.data);
     // The words' card is only as tall as the words. With a data card beside or under it, its top is level with the data
     // card's place at the top right and the words start one padding below it; without one, the words stay centred and the card wraps them.
     // (With no data card the card is centred top to bottom, never closer than one margin to either edge.)
-    const lvl = cardOn && t ? (d && !below ? d.top - wr.top : off(dd) ? Math.max(sl, (H - t.height - 2 * pad) / 2) : top0) + pad : null;
+    const lvl = cardOn && t ? (d && !below ? d.top - wr.top : off(dd) ? Math.max(sl, (H - t.height - 2 * pad) / 2) : top0 + shift) + pad : null;
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
     if (lvl != null) ts.marginBlock = '0';
     ts.maxHeight = lvl != null ? `${((H - lvl - pad - sl) / k).toFixed(1)}px` : '';   // (one margin at the bottom too)
