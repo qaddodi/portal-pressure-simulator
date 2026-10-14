@@ -181,6 +181,8 @@ export function createDoppler({ onProbe }) {
       if (!synth) return;
       if (s?.vel?.length) synth.target = s.vel[s.vel.length - 1];
       synth.still = f.resp === false;
+      // A lapse without respiration shows none from its first frame: the replay and the trace already drawn go flat at once.
+      if (synth.still && !synth.flat) { synth.flat = true; synth.amp = 0; for (const p of buf) p[1] = synth.mean; }
       if (f.running) runSynth();
     } else {
       if (synth && s?.t.length) { tOff = synth.t + 0.02 - s.t[0]; synth = null; }
