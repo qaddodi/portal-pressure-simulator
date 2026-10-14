@@ -58,3 +58,8 @@ test('a chart with no readings and no tiles: the data card keeps its place unsee
   assert.match(js, /ui\.data\.classList\.toggle\('pz-void', on && rd\.hidden && ui\.data\.classList\.contains\('tool-only'\)\)/);
   assert.match(css, /\.pz-data\.pz-void \{ visibility: hidden; \}/);
 });
+
+test('a Doppler or FibroScan in the instrument card is a wide strip that fills the card, one height with the data card', () => {
+  assert.match(css, /\.pz-data\.pz-icard > \.pz-tool:is\(\[data-kind="doppler"\], \[data-kind="fibroscan"\]\) \{ flex: 1 1 auto;/);
+  assert.match(css, /\.pz-icard \.pz-tool\[data-kind="doppler"\] \.dop-box \{ height: auto;/);
+});

@@ -4422,6 +4422,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-data.pz-icard.pz-hide { transform: translateY(14px); }
 /* (Only the picture stands here: its readings are in the data card, so the Doppler's spectrum, the wall and the belly take the card.) */
 .pz-icard .pz-tool .dop-main { grid-template-columns: minmax(0, 1fr); }
+/* (A Doppler or FibroScan is a wide, short strip: it fills the card, whose height the data card's readings set; a short
+   natural height so the readings, not the picture, decide it.) */
+.pz-data.pz-icard > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"]) { flex: 1 1 auto; min-height: 0; margin-block: 0; display: flex; flex-direction: column; }
+.pz-icard .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"]) > .pz-inst { flex: 1 1 auto; min-height: 0; }
+.pz-icard .pz-tool[data-kind="doppler"] .dop-main { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.pz-icard .pz-tool[data-kind="doppler"] .dop-box { height: auto; min-height: clamp(110px, calc(14 * var(--pzh)), 200px); }
+.pz-icard .pz-tool[data-kind="fibroscan"] .fibroscan-box { flex: 1 1 auto; height: auto; min-height: clamp(150px, calc(20 * var(--pzh)), 260px); }
 .pz-icard .pz-tool[data-kind="wall"] .pz-inst { justify-content: center; }
 .pz-icard .pz-tool[data-kind="wall"] .endo-stage { width: min(100%, calc(40 * var(--pzh)), 30vw); }
 .pz-icard .pz-tool .ab-main { display: flex; justify-content: center; }
