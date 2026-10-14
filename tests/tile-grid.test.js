@@ -6,10 +6,11 @@ import { readFileSync } from 'node:fs';
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const G = '.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles';
 
-test('one to three tiles take one row, four go two by two, one gap', () => {
+test('one to three tiles take one row (any width), four go two by two, one gap', () => {
   assert.ok(css.includes(`${G}[data-n="1"] { grid-template-columns: minmax(0, 1fr); }`));
-  assert.ok(css.includes(`${G}:is([data-n="2"], [data-n="3"], [data-n="4"]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }`));
-  assert.match(css, /@container pzd \(min-width: 420px\) \{\s*\.pz:not\(\.stack\) \.pz-data:is\(\.col, \.under, \.has-tool\) \.pz-tiles\[data-n="3"\] \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/);
+  assert.ok(css.includes(`${G}:is([data-n="2"], [data-n="4"]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }`));
+  assert.ok(css.includes(`${G}[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }`), 'three in one row at any card width');
+  assert.doesNotMatch(css, /\[data-n="3"\] > \.pz-tile:last-child \{ grid-column: 1 \/ -1; \}/, 'never two and a lone one');
   assert.ok(css.includes(`${G} { gap: var(--pz-tg); }`));
 });
 
@@ -52,7 +53,7 @@ test('an instrument with tiles: the instrument on the left, the tiles stacked be
   assert.ok(css.includes(`${B} > .pz-tiles:not([data-n="0"]) { grid-column: 2 / 3; grid-row: 2;`));
   assert.doesNotMatch(css, /pz-data[^{]*:has\(> \.pz-tiles/, 'no :has() on the data card (it made every layout of the page slow)');
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /data\.classList\.toggle\('pz-beside', !!s\.tool && !!s\.data && tileKeys\(s\)\.length > 0\)/, 'every instrument, not only the FibroScan');
+  assert.match(pres, /data\.classList\.toggle\('pz-beside', \(!!s\.tool \|\| lad\) && !!s\.data && tileKeys\(s\)\.length > 0\)/, 'every instrument and every ladder, not only the FibroScan');
   assert.match(pres, /if \(c === side\) continue;/);
 });
 

@@ -15,9 +15,9 @@ export function traceWhen(own, whenNow, whenBefore, same = 'Same day') {
   return own || (whenBefore != null && whenNow === whenBefore ? same : whenNow);
 }
 
-/** Room the chart needs for its 45° labels: the plot's right edge R, and the pad above it. */
-export function traceLabelRoom(ticks, { W = 520, L = 46, right = 64 } = {}) {
-  const dx = ticks.map((t) => Math.ceil(traceLabel(t).length * CW * SLANT));
+/** Room the chart needs for its 45° labels: the plot's right edge R, and the pad above it (cw: a character's width at the labels' size). */
+export function traceLabelRoom(ticks, { W = 520, L = 46, right = 64, cw = CW } = {}) {
+  const dx = ticks.map((t) => Math.ceil(traceLabel(t).length * cw * SLANT));
   const n = Math.max(ticks.length, 2), at = (i, r) => L + (r - L) * (ticks.length < 2 ? 0.5 : i / (n - 1));
   let R = W - right;
   while (R > L + 160 && dx.some((d, i) => at(i, R) + 6 + d > W - 4)) R -= 4;

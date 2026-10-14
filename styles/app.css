@@ -2118,8 +2118,9 @@ button.finding { cursor: pointer; }
 .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) { container: pzd / inline-size; --pz-tg: clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
 .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles { gap: var(--pz-tg); }
 .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="1"] { grid-template-columns: minmax(0, 1fr); }
-.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles:is([data-n="2"], [data-n="3"], [data-n="4"]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] > .pz-tile:last-child { grid-column: 1 / -1; }
+.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles:is([data-n="2"], [data-n="4"]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }   /* (three always share one row, a narrow iPad card too: never two and a lone one) */
+.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] .pzt-k { min-height: 2.4em; display: flex; align-items: flex-end; justify-content: center; }
 .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pzt-k { overflow-wrap: normal; hyphens: manual; }
 .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pz-tg, 8px); }
 .pz:not(.stack) .pz-data .pz-tool[data-kind="scope"] .endo-read > div { align-items: center; justify-content: flex-start; gap: .25em; text-align: center; padding: clamp(8px, calc(1.1 * var(--pzh) / var(--vz)), 14px) clamp(9px, calc(1.1 * var(--pzh) / var(--vz)), 14px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); }
@@ -2262,7 +2263,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-mon { margin-top: 8px; }
 .pz.stack .pz-text:has(.pz-mon) { max-height: 50%; }
 .pz.stack .pz-mon .hvpg-box { height: 136px; }
-.pz-talk svg { grid-area: 1 / 1; width: 100%; height: auto; overflow: visible; transition: opacity .42s var(--ease); }
+.pz-talk svg { grid-area: 1 / 1; width: 100%; height: 100%; overflow: visible; transition: opacity .42s var(--ease); }
 .pz-talk svg.in { opacity: 0; }
 /* Portal pressure and flow over a time-lapse (flow-time.js): two scales, the lines drawing as it plays. */
 .pz-flowtime { display: grid; }
@@ -4769,3 +4770,31 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* (A card of tiles alone never zooms its words: they keep the card's two sizes on every slide. A ladder's card still zooms as a
    whole, the ladder's own lettering with it.) */
 .pz:not(.stack):not(.low) .pz-data.col.tiles-only:not(.has-tool) > :is(.pz-tiles, .pz-dh) { zoom: 1; }
+/* (A full panel, the six ladders or a table, keeps the cards' one margin at every edge and ends above the nav pill, centred in
+   the room over it, so the pill never sits on its corner.) */
+.pz:not(.stack) .pz-panel { width: min(1560px, calc(100% - 2 * var(--pz-cm))); top: calc(50% - (var(--pz-cm) + 44px) / 2); max-height: calc(100% - 3 * var(--pz-cm) - 44px); }
+.pz:not(.stack) .pz-panel.fill { height: calc(100% - 3 * var(--pz-cm) - 44px); }
+/* A ladder card on a laptop or tablet: the ladder's words at the cards' sizes (presenter.js fitNow reads --ch-<role>), never
+   zoomed; the ladder takes the card's width and the fit shortens only its plot (presenter.js LADDER_FILL). With a tile, the
+   tile stands beside it, as beside an instrument; with an instrument, the instrument above it. */
+.pz:not(.stack):not(.low) .pz-data:not(.tiles-only) { container: pzd / inline-size; --ch-cap: var(--pz-sm); --ch-lab: calc(var(--pz-sm) * 1.5); }
+.pz:not(.stack):not(.low) .pz-data:not(.tiles-only) > * { zoom: 1; }
+.pz:not(.stack):not(.low) .pz-data:not(.tiles-only) > .pz-ladder.pz-ladder.pz-ladder { width: 100%; height: calc(var(--lad-fixed, 130px) + var(--lp, 34cqi) * var(--pz-fit, 1) * var(--pz-fit, 1)); margin-inline: 0; }   /* (the lettering's height, then the plot: the plot alone shortens, faster than the fit) */
+.pz:not(.stack):not(.low) .pz-data.has-tool:not(.tiles-only) > .pz-ladder { --lp: 26cqi; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-ladder { grid-column: 1 / 2; grid-row: 2; align-self: center; --lp: 28cqi; }
+.pz:not(.stack):not(.low) .pz-data > .pz-dh { font-size: var(--pz-sm); }   /* (a card's title and its key at the cards' one small size, on one line where it fits) */
+.pz:not(.stack):not(.low) .pz-data > .pz-dh { zoom: 1; }   /* (every card's title at one size) */
+.pz:not(.stack) .pz-panel.fill:has(> .pz-grid > .pz-cell.strip) { height: auto; }   /* (six ladders drawn as strips: the panel wraps them, no empty half under the grid) */
+.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool:not([data-kind]) { display: none; }   /* (a ladder with its tile: no instrument, so its empty slot takes no room) */
+/* The talk-so-far chart: drawn at its own pixels in the cards' one small size (presenter-tools.js talkTrace); the card's fit
+   shortens the chart, never its words. */
+.pz-talk { font-size: var(--pz-sm, var(--pz-psm, 12px)); height: calc(var(--talk-h, 280px) * var(--pz-fit, 1)); }
+.pz-talk :is(.ptk-grid text, .ptk-mark text, .ptk-ax, .ptk-lbl) { font-size: 1em; }
+.pz-talk .ptk-ax { letter-spacing: .04em; }
+.pz-talk .ptk-v { font-size: 1.5em; }
+.pz:not(.stack) .pz-tool[data-kind="talk"] .pz-talk { --talk-h: min(80cqi, calc(46 * var(--pzh))); }
+.pz:not(.stack):not(.low) .pz-data > .pz-tool[data-kind="talk"] { zoom: 1; container-type: inline-size; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside[data-tn="1"] > .pz-tiles:not([data-n="0"]) { align-self: center; grid-auto-rows: auto; }   /* (one tile beside a picture: its own height, centred on it, not a tall empty box) */
+.pz:not(.stack):not(.low) .pz-data.pz-beside:not(.tiles-only):not(.has-tool) { grid-template-columns: minmax(0, 1fr) max(104px, 28%); }   /* (a ladder's tile column a little narrower: the ladder keeps its station names on one row) */
+.pz:not(.stack):not(.low) .pz-data.pz-beside:not(.tiles-only):not(.has-tool) .pz-tiles .pzt-k { white-space: normal; text-wrap: balance; }
+.pz:not(.stack):not(.low) .pz-data.has-tool:not(.tiles-only):not(.pz-beside) > .pz-tool[data-kind="doppler"] .dop-box { min-height: calc(34cqi * var(--pz-fit, 1)); }   /* (a Doppler over a ladder: its trace stays a trace) */

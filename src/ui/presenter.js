@@ -22,12 +22,12 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e7450bd6af';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=258d41dbc8';
-import { createTools } from './presenter-tools.js?v=5ec4df75bf';
+import { createTools } from './presenter-tools.js?v=70d8152895';
 import { openHandout } from './handout.js?v=680b9bd894';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=20ffefba17';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
-import { traceWhen } from './trace-labels.js?v=180c87ed56';
+import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -315,11 +315,12 @@ const fitNow = (c) => {
     // (Units per css px, before a full card's zoom: the chart's lettering zooms with the rest of its card.)
     const m = svg.getScreenCTM?.(), k = m && m.a ? 1 / m.a : 0, box = svg.getBoundingClientRect();
     if (!k || !box.width) return;
-    const pr = document.createElement('span'), host = svg.closest('.pz') || document.body;
+    // (A chart in a data card reads the card's own chart sizes, --ch-<role>, where it sets them: a ladder's words at the tiles' small size.)
+    const pr = document.createElement('span'), host = svg.closest('.pz-data') || svg.closest('.pz') || document.body;
     pr.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
     host.append(pr);
     const fs = {};
-    for (const r of ROLE_NAMES) { pr.style.fontSize = `var(--s-${r})`; fs[r] = parseFloat(getComputedStyle(pr).fontSize) * k; }
+    for (const r of ROLE_NAMES) { pr.style.fontSize = `var(--ch-${r}, var(--s-${r}))`; fs[r] = parseFloat(getComputedStyle(pr).fontSize) * k; }
     pr.remove();
     if (c.fs && ROLE_NAMES.every((r) => Math.abs(c.fs[r] - fs[r]) < 0.01 * fs[r]) && Math.abs(c.w - box.width) + Math.abs(c.h - box.height) < 1) return;
     c.fs = fs; c.w = box.width; c.h = box.height; lay(fs, box);
@@ -351,6 +352,7 @@ function railBlock() {
  *  along the stations, named: HVPG (wedged to free hepatic vein) and PPG (portal
  *  vein to the IVC), coloured by their cut-offs, with faint leaders up to the
  *  stations they join. set(f, { key }) glides the line and counts the numbers. */
+const LADDER_FILL = '.pz:not(.stack):not(.low) .pz-data:not(.tiles-only) > .pz-ladder';   // (styles/app.css: a ladder card's ladder, words at one size)
 function bigLadder() {
   // The geometry follows the lettering (lay, from the slide's type scale): the margins, rows and station spacing grow with
   // the text, the station names and the falls take two rows when one is too tight, and the box grows taller, never wider.
@@ -520,20 +522,29 @@ function bigLadder() {
     bands.map((b) => b.g), nodeBlk, hv.g, pp.g, base, line, pts.map((p) => p.g));
   const layL = (fs, box) => {
     c = fs.cap; l = fs.lab; ph = 1.75 * c;
-    tx = est('50', c) + 4; gx = tx + 0.5 * c; x0 = gx + 12;
+    // (The first reading, centred on its station, stays clear of the axis numbers to its left.)
+    tx = est('50', c) + 4; gx = tx + 0.5 * c; x0 = Math.max(gx + 12, tx + 6 + 0.62 * l);
     const xr = W - Math.max(56, Math.max(est('WHVP', c, 0.66) / 2, est('20', l) / 2) + 8);
     step = (xr - x0) / 4;
-    const nameRows = Math.max(...RUNGS.map(([, a]) => est(a, c, 0.66))) > step - 0.4 * c ? 2 : 1;
+    // (Two rows only when two neighbouring names, as drawn, would come closer than a quarter letter.)
+    const kw = pts.map((p, i) => { fsOf(p.k, c); let w = 0; try { w = p.k.getComputedTextLength(); } catch { /* not rendered */ } return w > 0 ? w : est(RUNGS[i][1], c, 0.78); });
+    const nameRows = kw.some((w, i) => i && (w + kw[i - 1]) / 2 + 0.25 * c > step) ? 2 : 1;
     // (The readings sit above their points, at the top of the plot.)
     yTop = 6 + 0.8 * l + 12.5 + 0.22 * l;
     // (A ladder in a cell of fixed height, the site ladders, gives its plot whatever height the lettering leaves.)
     const rows = (ph / 2 + 13) + (ph + 12) + (ph / 2 + 10 + 0.75 * c) + 0.25 * c + 6;
     const cell = box && el.closest('.pz-panel.fill .pz-cell');
-    if (cell) {
+    // (A laptop's or tablet's ladder card gives the ladder a height (styles/app.css, shorter as the card fits): the plot takes
+    // what the lettering leaves, so the words keep their size and only the plot gets shorter.)
+    const own = box && !cell && el.matches(LADDER_FILL);
+    // (Its lettering's own height goes to the stylesheet, --lad-fixed, so the box is that plus the plot's share of the card.)
+    if (own) el.style.setProperty('--lad-fixed', `${((yTop + rows + (nameRows > 1 ? 1.15 * c : 0)) * box.width / W).toFixed(1)}px`);
+    if (cell || own) {
       PH = W * box.height / box.width - yTop - rows - (nameRows > 1 ? 1.15 * c : 0);
       // (Too short for a plot at this text size: the cell shows the strip instead, for the rest of the slide.)
-      if (PH < 60) { cell.classList.add('strip'); PH = 60; }
-    }
+      if (cell && PH < 60) { cell.classList.add('strip'); PH = 60; }
+      if (own) PH = Math.max(40, PH);
+    } else PH = 198;
     const yBot = yTop + PH;
     hv.row = yBot + ph / 2 + 13; pp.row = hv.row + ph + 12;
     nameY = [pp.row + ph / 2 + 10 + 0.75 * c]; nameY[1] = nameY[0] + (nameRows > 1 ? 1.15 * c : 0);
@@ -1646,7 +1657,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.toggleAttribute('data-sin-tiles', sinTiles(s));
       data.classList.toggle('has-tool', !!s.tool);
       data.classList.toggle('tool-only', !!s.tool && !s.data);
-      data.classList.toggle('pz-beside', !!s.tool && !!s.data && tileKeys(s).length > 0);
+      data.classList.toggle('pz-beside', (!!s.tool || lad) && !!s.data && tileKeys(s).length > 0);
       data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: every instrument with tiles has them stacked beside it; its own readings fold to a short list under its picture)
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
       data.dataset.tool = ui.tools.sig(s.tool);
@@ -1883,7 +1894,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A part with a height cap clips by design, and mid-fold its clipped contents are not overflow either: counting them
       // shrank the card while a phone's tool folded, and the shrunk fit then stuck.)
       const clip = s.maxHeight !== 'none' ? 0 : Math.max(0, c.scrollHeight - c.clientHeight);
-      used += Math.max(c.getBoundingClientRect().height, side && c.classList.contains('pz-tool') ? side.getBoundingClientRect().height : 0) / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
+      used += Math.max(c.getBoundingClientRect().height, side && (c.classList.contains('pz-tool') || c.classList.contains('pz-ladder')) ? side.getBoundingClientRect().height : 0) / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
       n++;
     }
     used += (parseFloat(cs.rowGap) || 0) * Math.max(0, n - 1);
