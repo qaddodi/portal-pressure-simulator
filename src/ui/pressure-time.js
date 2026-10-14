@@ -302,7 +302,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
       mx = Math.max(mx, ...(key === 'pressure' ? traces.map((t) => endOf(t.id)) : [steadyHvpg()]).filter(Number.isFinite));   // (and the numbers written at the ends: a reading never sits above its lane)
       return key === 'hvpg' ? Math.max(15, Math.ceil(((Number.isFinite(mx) ? mx : 0) + 3) / 5) * 5) : Math.max(10, Math.ceil(((Number.isFinite(mx) ? mx : 10) * 1.1) / 5) * 5); };
     const fixed = slide ? { pressure: [0, top0('pressure')], hvpg: [0, top0('hvpg')] } : null;
-    if (traces.length && showHvpg) {
+    // (A slide's small card drops the HVPG lane, which the header already reads, and gives its room to the pressures.)
+    if (traces.length && showHvpg && !(slide && avail < 160)) {
       const pH = Math.round((avail - GAP) * (fixed ? 0.66 : 0.64));   // (a slide's pressure lane holds five lines, the HVPG lane one: two thirds of the room)
       lanes.push({ key: 'pressure', top: T, bot: T + pH }, { key: 'hvpg', top: T + pH + GAP, bot: T + avail });
     } else lanes.push({ key: traces.length ? 'pressure' : 'hvpg', top: T, bot: T + avail });
