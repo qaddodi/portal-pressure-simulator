@@ -231,7 +231,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const hidden = hiddenSet();
     const showHvpg = !hidden.has('trueHVPG');
     const traces = TRACES.filter((t) => chosen.has(t.id) && !hidden.has(t.hide) && (range !== 'days' || t.day));
-    const narrow = w < 460, tiny = w < 300;   // (tiny: a tablet's card with its tiles beside; each end's name goes under its value)
+    const slide = !!cv.closest('.pz-tool');   // (a slide's card: its own window and one scale, below)
+    const narrow = w < 460, tiny = w < 300 && (hh - 52) * 0.55 >= traces.length * 27;   // (tiny: a tablet's card with its tiles beside; each end's name goes under its value, where the lane has room to stack them)
     const L = 34, R = tiny ? 62 : narrow ? 90 : 104, B = 22, GAP = 16;
     let T = 30;
     const plotW = w - L - R;
@@ -253,6 +254,12 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const span = RANGES.find((r) => r[0] === range)[2];
       xNow = headX();
       x1 = xNow; x0 = x1 - span;
+      // (On a slide the window starts where its record does, 3 s at least: a slide just arrived has no empty left part.)
+      if (slide) {
+        const runStart = (q) => { let i = q.x.length - 1; while (i > 0 && Number.isFinite(q.mid[i - 1]) && q.x[i] - q.x[i - 1] < 0.5) i--; return q.x[i] ?? Infinity; };   // (the record since its last break or skip)
+        const first = Math.min(...[...traces.map((t) => t.id), 'hvpg'].map((k) => runStart(series(k, -Infinity, x1))));
+        if (Number.isFinite(first)) x0 = Math.max(x0, Math.min(first, x1 - 3));
+      }
     }
     const X = (x) => L + ((x - x0) / Math.max(1e-9, x1 - x0)) * plotW;
 
@@ -268,8 +275,12 @@ export function createPressureTime({ marks = () => [] } = {}) {
     // lanes
     const avail = hh - T - B;
     const lanes = [];
+    // (On a slide both lanes start at zero on one scale, so a millimetre of mercury is as tall in each: the axis reads straight.)
+    const top0 = (key) => { let mx = -Infinity; for (const k of key === 'pressure' ? traces.map((t) => t.id) : ['hvpg']) { const q = series(k, -Infinity, x1); for (let i = 0; i < q.x.length; i++) mx = Math.max(mx, q.hi ? q.hi[i] : q.mid[i]); }
+      return key === 'hvpg' ? Math.max(16, Math.ceil(((Number.isFinite(mx) ? mx : 0) + 3) / 4) * 4) : Math.max(10, Math.ceil(((Number.isFinite(mx) ? mx : 10) * 1.1) / 5) * 5); };
+    const fixed = slide ? { pressure: [0, top0('pressure')], hvpg: [0, top0('hvpg')] } : null;
     if (traces.length && showHvpg) {
-      const pH = Math.round((avail - GAP) * 0.64);
+      const pH = fixed ? Math.round((avail - GAP) * fixed.pressure[1] / (fixed.pressure[1] + fixed.hvpg[1])) : Math.round((avail - GAP) * 0.64);
       lanes.push({ key: 'pressure', top: T, bot: T + pH }, { key: 'hvpg', top: T + pH + GAP, bot: T + avail });
     } else lanes.push({ key: traces.length ? 'pressure' : 'hvpg', top: T, bot: T + avail });
 
@@ -312,8 +323,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
         const pad = Math.max(1.5, (mx - mn) * 0.1);
         lo = Math.max(lane.key === 'pressure' && mn >= 0 ? 0 : -Infinity, mn - pad); hi = mx + pad;
       }
-      [lo, hi] = ease(lane.key, lo, hi);
-      const tick = nice(hi - lo, (bot - top) > 120 ? 4 : 2);
+      [lo, hi] = fixed ? fixed[lane.key] : ease(lane.key, lo, hi);
+      const tick = fixed ? (hi > 30 ? 20 : hi > 12 ? 10 : 5) : nice(hi - lo, (bot - top) > 120 ? 4 : 2);
       const Y = (v) => bot - ((v - lo) / Math.max(1e-6, hi - lo)) * (bot - top);
       lane.Y = Y;
 
