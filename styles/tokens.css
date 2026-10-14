@@ -163,7 +163,7 @@
   --scope-bg: #05070D; --mon-bg: #07090C; --mon-grid: #1C2128; --mon-line: #2A3038; --mon-text: #9AA4B2; --mon-alarm: #FF7A85;
   /* endoscopy and FibroScan screens (both themes): balloon glare, blood pool and jet, the scope's rim, the live dot */
   --scope-balloon-hi: rgba(255, 250, 225, .55); --scope-balloon-lo: rgba(235, 215, 160, .35); --scope-blood-pool: rgba(95, 0, 12, .95); --scope-blood-pool-edge: #780014;
-  --scope-blood-jet: rgba(165, 8, 28, .85); --scope-rim: #0c0d10; --fibroscan-live: rgb(80, 210, 130);
+  --scope-blood-jet: rgba(165, 8, 28, .85); --scope-rim: #0c0d10;
   /* endoscopy (WebGL, both themes): mucosa pale to deep, Z-line, surface vessels, varices small to large, crest highlight,
      red wale marks, band halo and band, the scope light near and far, glint, the dark lumen */
   --endo-mucosa: rgb(226, 150, 132); --endo-mucosa-deep: rgb(150, 52, 50); --endo-zline: rgb(200, 70, 60); --endo-vessels: rgb(184, 84, 92);

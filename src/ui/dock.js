@@ -7,7 +7,7 @@ import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=abb277f29f';
 import { lobuleFlows } from './lobule-model.js?v=d378c02386';
 import { createProfile } from './charts.js?v=08d2eeeb36';
 import { createPressureTime } from './pressure-time.js?v=7274fa3f75';
-import { createFibroScan } from './fibroscan.js?v=4892562427';
+import { createFibroScan } from './fibroscan.js?v=f917b5022e';
 import { createHvpgProcedure } from './hvpg-proc.js?v=2be0ead28a';
 import { createDoppler } from './doppler.js?v=8f470441ec';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=da56777f28';
@@ -675,7 +675,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     }
     paintTitle();
     const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][1](frame)
-      : frame.clock === 'disease' ? `${st.running ? 'Live' : 'Paused'} · Day ${frame.day}` : st.running ? 'Live' : 'Paused';
+      : frame.clock === 'disease' ? (st.running ? `Day ${frame.day}` : `Paused · Day ${frame.day}`) : st.running ? '' : 'Paused';
     if (live.textContent !== txt) live.textContent = txt;
     const ls = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
     if (live.dataset.state !== ls) live.dataset.state = ls;

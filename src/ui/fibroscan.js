@@ -107,12 +107,11 @@ export function createFibroScan() {
     ctx.clearRect(0, 0, w, hh);
     rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.fillStyle = th.panel; ctx.fill(); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
     // A short, wide panel (a phone's presenter card) puts the reading beside the map rather than over it.
-    const narrow = w < 380, side = !cv.closest('.pz-tool') && hh < 200 && w > hh * 2.2;   // (a slide's FibroScan always reads top left, LIVE top right, the map under them)
+    const side = !cv.closest('.pz-tool') && hh < 200 && w > hh * 2.2;   // (a slide's FibroScan always reads top left, the map under it)
     // The panel's words are the size of the card's small words (the canvas's own font size, which a slide sets to the tiles'
-    // small size), so the labels never look tiny beside the card: one size for the axes, the units and LIVE.
+    // small size), so the labels never look tiny beside the card: one size for the axes and the units.
     if (w !== sized.w || hh !== sized.h) { sized.w = w; sized.h = hh; const fs = parseFloat(getComputedStyle(cv).fontSize) || 11; sized.cap = clamp(fs * (w / (cv.offsetWidth || w)), 10, 20); }
     const CAP = side ? 10 : sized.cap, pad = side ? 14 : Math.round(CAP * 1.2);
-    const live = narrow || cv.closest('.pz-tool') ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model';
     // The reading, top left: the median in the waves' orange, its unit beside it, modest so the map gets the room.
     const big = Math.round(side ? clamp(hh * 0.32, 30, 56) : clamp(CAP * 2.5, 26, 48));
     const RY = side ? 28 + big : pad + Math.round(big * 0.74);
@@ -122,12 +121,6 @@ export function createFibroScan() {
     fibroReading.txt = txt; fibroReading.cv = cv; fibroReading.show?.(txt); ctx.fillText(txt, pad, RY);
     const tw = ctx.measureText(txt).width;
     ctx.fillStyle = th.tick; ctx.font = FONT(500, side ? 14 : Math.round(CAP * 1.15)); ctx.fillText('kPa', pad + tw + 6, RY);
-    // LIVE, top right: level with the reading's middle (in the short panel, the top line).
-    const ly = side ? 24 : Math.round(RY - big * 0.36 + CAP * 0.36);
-    ctx.textAlign = 'right'; ctx.font = FONT(600, CAP); ctx.fillStyle = th.tick;
-    ctx.fillText(live, w - pad, ly);
-    const pulse = 0.55 + 0.45 * Math.sin(t * 3), lw = ctx.measureText(live).width;
-    ctx.fillStyle = cssAlpha('--fibroscan-live', pulse); ctx.beginPath(); ctx.arc(w - pad - lw - CAP * 0.75, ly - CAP * 0.35, Math.max(3, CAP * 0.27), 0, 7); ctx.fill();
     // Map: under the reading, as large as the panel allows; the depth labels inside its left edge, the time labels inside its bottom edge.
     ctx.font = FONT(500, CAP);
     const top = side ? 44 : RY + Math.round(CAP * 1.3), bot = hh - (side ? 10 : pad), ph = bot - top;

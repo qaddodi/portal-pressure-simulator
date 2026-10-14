@@ -2605,8 +2605,7 @@ button.finding { cursor: pointer; }
 .instrument-workspace .dock-title { min-width: 0; font-size: var(--fs-14); flex: none; }
 .instrument-workspace .dock-title .dt-l { max-width: 210px; overflow: hidden; text-overflow: ellipsis; }
 .workspace-live { flex: 1; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); display: inline-flex; align-items: center; gap: 6px; }
-.workspace-live[data-state="live"]::before, .workspace-live[data-state="paused"]::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
-.workspace-live[data-state="live"]::before { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent); }
+.workspace-live[data-state="paused"]::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
 .workspace-live[data-state="summary"] { color: var(--text-2); }
 /* Run and Compare repeat the play bar right above; they are only needed when the instrument
    has the whole screen. */
@@ -4663,7 +4662,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack) .pz-tool .dop .dop-report .dop-stats :is(dt, dd) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Every instrument beside its tiles (Mac and iPad landscape, Mohammad 14 Oct: "not just fixing fibroscan but everything"): drawn
    like the FibroScan he approved. The instrument is a screen on the left: one reading top left (the number at the tiles' size,
-   its unit small), its status or LIVE top right, the picture as large as the column allows under them. Its other readings and
+   its unit small), its status top right, the picture as large as the column allows under them. Its other readings and
    sentences leave the card (the tiles and the teaching card carry them). The tiles stack on the right, the column exactly as
    tall as the instrument: the picture grows to the row's height. */
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool { --bs: var(--pz-sm); align-self: stretch; display: flex; flex-direction: column; min-height: 0; font-size: var(--bs); container-type: inline-size; }

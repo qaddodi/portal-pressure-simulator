@@ -68,10 +68,10 @@ test('every instrument is one screen: a reading top left, its status top right, 
   assert.ok(css.includes('.pz-tool .pt-smooth { display: none; }'));
 });
 
-test('the FibroScan draws its words at the card\'s small size: reading top left, LIVE top right, units on the last ticks', () => {
+test('the FibroScan draws its words at the card\'s small size: reading top left, no LIVE tag, units on the last ticks', () => {
   const src = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
   assert.match(src, /getComputedStyle\(cv\)\.fontSize/);
-  assert.match(src, /ctx\.fillText\(live, w - pad, ly\)/);
+  assert.doesNotMatch(src, /LIVE\b|LIVE ·/);
   assert.match(src, /'90 mm'/); assert.match(src, /'80 ms'/);
   assert.ok(css.includes('.pz-tool .fibroscan-box > canvas { font-size: var(--pz-sm, 14px); }'));
 });
