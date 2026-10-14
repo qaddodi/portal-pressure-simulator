@@ -22,7 +22,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=b22c8d1e1a';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d2c2580bdd';
-import { createTools } from './presenter-tools.js?v=77e9dff5b7';
+import { createTools } from './presenter-tools.js?v=dfde41c119';
 import { openHandout } from './handout.js?v=1e47cf7ec7';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=57731b70d0';
@@ -962,7 +962,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=d7f929c548', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=f7e79a7ed0', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -974,7 +974,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=6579ebd256');
+      const { createCore } = await import('../worker-core.js?v=4a3ac024f5');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

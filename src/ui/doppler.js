@@ -144,7 +144,7 @@ export function createDoppler({ onProbe }) {
     if (pts.length < 8 || L < 1) return null;
     const mean = pts.reduce((a, p) => a + p[1], 0) / pts.length;
     tpl = { t0: pts[0][0], L, pts, mean };
-    return { t: tEnd, wall: performance.now(), mean, target: mean };
+    return { t: tEnd, wall: performance.now(), mean, target: mean, amp: 1, still: false };
   }
   function tplAt(t) {
     const { t0, L, pts } = tpl;
@@ -166,7 +166,9 @@ export function createDoppler({ onProbe }) {
     for (let k = 0, n = Math.ceil(dt / 0.02); k < n; k++) {
       synth.t += dt / n;
       synth.mean += (synth.target - synth.mean) * Math.min(1, (dt / n) * 3);
-      const v = tplAt(synth.t);
+      // (The template was recorded with breathing; a lapse run without respiration eases its swings out.)
+      synth.amp = clamp(synth.amp + (synth.still ? -1.5 : 1.5) * (dt / n), 0, 1);
+      const v = m0 + (tplAt(synth.t) - m0) * synth.amp;
       buf.push([synth.t, ratio ? v * synth.mean / m0 : v - m0 + synth.mean]);
     }
   }
@@ -178,6 +180,7 @@ export function createDoppler({ onProbe }) {
       if (!synth && buf.length) synth = startSynth();
       if (!synth) return;
       if (s?.vel?.length) synth.target = s.vel[s.vel.length - 1];
+      synth.still = f.resp === false;
       if (f.running) runSynth();
     } else {
       if (synth && s?.t.length) { tOff = synth.t + 0.02 - s.t[0]; synth = null; }

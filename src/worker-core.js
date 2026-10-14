@@ -90,6 +90,7 @@ export function createCore(post) {
       changed: frameDirty,
       t: eng.t, day: eng.day, running, speed, clock, probe,
       pulsing: !!(eng.params.pulsatile || eng.beat),
+      resp: !!eng.params.respiration,
       phase: eng.phase(),
       P: Float32Array.from(eng.P),
       Pf: Float32Array.from(eng.Pf || eng.P),
