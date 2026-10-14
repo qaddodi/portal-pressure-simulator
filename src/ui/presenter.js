@@ -1972,53 +1972,46 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The words' sizes settle once per slide, before its cards enter: a later pass (a reading ticking, the data card growing)
     // keeps them, so the teaching card's text never changes size while it is in view.
     const lockKey = shown ? `${shown.gen}:${shown.i}:${W.toFixed(0)}x${H.toFixed(0)}` : null, lock = lockKey && textLock?.key === lockKey ? textLock : null;
-    ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ui.text.style.removeProperty('--pz-sw'); ui.data.style.removeProperty('--pz-cwr');
+    ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk');
     ui.text.style.maxHeight = '';   // (the last pass's cap would shrink the words to a room they no longer have)
     fitCards(ui.text);
     let t = r(ui.text);
     const sl = ui.shade.offsetLeft * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style;
-    // On a laptop or tablet the data card stacks under the words' card, at its width, a gap below it, when both fit above the
-    // controls; otherwise (long words, a tall chart) it sits at the top right. A card in view that changes place fades out,
-    // moves while unseen and fades back in.
-    let below = false, top0 = 0, gap = 0, cw = 0, foot = H;
+    // On a laptop or tablet the data card always stacks under the words' card, at its width, a gap below it (0.6 of the margin),
+    // above the controls; what does not fit is made smaller in fixed steps, never moved to the top right. A card in view that
+    // changes place fades out, moves while unseen and fades back in.
+    let below = false, gap = 0, cw = 0, foot = H;
+    const top0 = cardOn && t ? sl : 0;   // (the cards' top: one margin from the top, as from the side)
     if (cardOn && t && !off(dd)) {
-      ts.top = ''; top0 = parseFloat(getComputedStyle(ui.text).top) * k;   // (the cards' top: the data card's at the right)
-      gap = Math.min(Math.max(sl, 20), H < 900 ? 20 : 28); cw = t.right - wr.left + pad - sl;
+      gap = Math.round(0.6 * sl); cw = t.right - wr.left + pad - sl;
       const q = ui.bar.hidden || !ui.bar.offsetWidth ? null : ui.bar.getBoundingClientRect();
       foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl;
       let ch = colHeight(cw / k) * k, dk = 1;
       const slack = dd.classList.contains('col') ? 8 : 0;
       below = top0 + t.height + 2 * pad + gap + ch <= foot + slack;
-      // Too tall to stack: the words' card gives way first, only a little: its title no smaller than TK_SOFT (its column never
-      // widens: every slide keeps one card width), then the data card's blocks a step or two smaller (DK) with the words a little smaller to match.
-      // If the pair still will not stack, the words keep their full size and the data card sits at the top right.
+      // Too tall to stack: the words' card gives way first, only a little: its title steps down (TK, fixed steps, so titles
+      // match across a deck; its column never widens: every slide keeps one card width), then the data card's blocks step
+      // smaller (DK) with the words a little smaller to match. At the last step the pair stays stacked and the data card's own fit does the rest.
       const put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
-      const title = (bk = 1, floor = TK_SOFT) => {
-        if (put(1, bk)) return true;
-        if (!put(floor, bk)) return false;
-        let lo = floor, hi = 1;   // (lo stacks, hi does not)
-        for (let n = 0; n < 6; n++) { const mid = (lo + hi) / 2; if (put(mid.toFixed(3), bk)) lo = mid; else hi = mid; }
-        return put(lo.toFixed(3), bk);
-      };
+      const title = (bk = 1) => { for (const tk of TK) if (put(tk, bk)) return true; return false; };
       const step = (s) => { dk = s; ch = colHeight(cw / k, s) * k; };
       // (The words' text steps down with the blocks, a little less, so the two cards' type never ends far apart.)
       const ladder = () => {
-        for (const [s, bk] of DK) { if (below) break; step(s); below = title(bk, TK_SOFT); }   // (the data card's blocks a step or two smaller, the words a little: no further, or the words would squeeze)
+        for (const [s, bk] of DK) { if (below) break; step(s); below = title(bk); }   // (the data card's blocks a step or two smaller, the words a little: no further, or the words would squeeze)
       };
       if (lock) {
         for (const [n, v] of lock.vars) if (v) ts.setProperty(n, v);
-        if (lock.cwr) dd.style.setProperty('--pz-cwr', lock.cwr);
         t = r(ui.text); below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = colHeight(cw / k, dk) * k;
       } else {
-        // (A title only a little smaller (TK_SOFT) at the one card width, then the steps below; the column never widens.)
-        below = title(1, TK_SOFT);
+        // (A title a step or two smaller at the one card width, then the steps below; the column never widens.)
+        below = title(1);
         if (!below) ladder();
-        // (Still too tall: the pair stays stacked at the one card width; only the data card's blocks and monitor scale down to fit.)
-        if (!below) { let lo = 0.4, hi = DK[DK.length - 1][0]; step(lo); if (title(DK[DK.length - 1][1], TK_SOFT)) { for (let n = 0; n < 6; n++) { const mid = (lo + hi) / 2; step(mid); if (title(DK[DK.length - 1][1], TK_SOFT)) lo = mid; else hi = mid; } step(lo); below = title(DK[DK.length - 1][1], TK_SOFT); } }
-        if (!below) { ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk'); ts.removeProperty('--pz-sw'); dd.style.removeProperty('--pz-cwr'); t = r(ui.text); dk = 1; }   // (a little slack once there: a number ticking never flips it)
+        // (Still too tall at the smallest step: the pair stays stacked at the one card width, the title and blocks at their
+        // smallest steps; the data card is never moved to the top right, its own fit (fitCards) makes the rest fit its room.)
+        if (!below) { put(TK[TK.length - 1], DK[DK.length - 1][1]); below = true; }
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
-      if (lockKey && !lock) textLock = { key: lockKey, below, dk, cwr: dd.style.getPropertyValue('--pz-cwr'), vars: ['--pz-tk', '--pz-bk', '--pz-sw'].map((n) => [n, ts.getPropertyValue(n)]) };
+      if (lockKey && !lock) textLock = { key: lockKey, below, dk, vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
     } else dd.style.removeProperty('--pz-dk');
     const isCol = dd.classList.contains('col');
     if (below !== isCol) {
@@ -2049,10 +2042,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const d = below ? null : r(ui.data);
     // The words' card is only as tall as the words. With a data card beside or under it, its top is level with the data
     // card's place at the top right and the words start one padding below it; without one, the words stay centred and the card wraps them.
-    const lvl = cardOn && t && (d || below) ? (below ? top0 : d.top - wr.top) + pad : null;
+    const lvl = cardOn && t ? (d && !below ? d.top - wr.top : top0) + pad : null;   // (with no data card too: the card stays at the top left, never centred)
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
     if (lvl != null) ts.marginBlock = '0';
-    ts.maxHeight = lvl != null ? `${((H - lvl - pad - 16) / k).toFixed(1)}px` : '';
+    ts.maxHeight = lvl != null ? `${((H - lvl - pad - sl) / k).toFixed(1)}px` : '';   // (one margin at the bottom too)
     if (t) t = r(ui.text);   // (always: the words may already stand there, and the glass is sized to where they are)
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
@@ -2083,7 +2076,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
   let frameL = 0, colT = 0;
   // The stacked data card's fixed block sizes, largest first, and the smallest the words' title goes.
-  const DK = [[0.9, 0.95], [0.8, 0.88]], TK_SOFT = 0.8;   // (the data card's block size, the words' text size)
+  const DK = [[0.9, 0.95], [0.8, 0.9], [0.7, 0.88], [0.6, 0.88]], TK = [1, 0.95, 0.9, 0.85, 0.8];   // (the data card's block size with the words' text size; the title's steps)
   // The data card's height at width w (page px) under the words: as it would stand there, at full size (unfitted).
   function colHeight(w, dk = 1) {
     const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk')];
