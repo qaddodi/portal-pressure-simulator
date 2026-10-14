@@ -11,13 +11,13 @@ test('the teaching card text sizes settle once per slide and are reused while it
   assert.match(js, /if \(!below\) ladder\(\);/);
 });
 
-test('a stacked pair widens the words\' column before it shrinks the title or text, and the chart keeps its size', () => {
-  const at = (re) => js.search(re);
-  const soft = at(/below = title\(1, TK_SOFT\);/), wide = at(/if \(!below\) \{ widen\(\); below = title\(1, TK_SOFT\); \}/), steps = at(/if \(!below\) ladder\(\);/);
-  assert.ok(soft > 0 && soft < wide && wide < steps, 'title (soft floor) at the usual width, then widened, then the shrinking steps');
-  assert.match(js, /TK_SOFT = 0\.8/);
-  assert.match(js, /--pz-cwr/);
-  assert.match(css, /width: calc\(100% \* var\(--pz-fit, 1\) \* var\(--pz-dk, 1\) \* var\(--pz-cwr, 1\)\)/);
+test('the teaching and data cards keep one width on every slide: the column never widens', () => {
+  assert.doesNotMatch(js, /widen\(\)/);
+  assert.doesNotMatch(js, /setProperty\('--pz-sw'/);
+  assert.match(js, /below = title\(1, TK_SOFT\);\s*if \(!below\) ladder\(\);/);
+  const w = 'width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)';
+  assert.ok(css.includes('.pz-text {') && css.slice(css.indexOf('.pz-text {')).split('}')[0].includes(w), 'teaching card width');
+  assert.ok(css.slice(css.indexOf('.pz-data { position: absolute;')).split('}')[0].includes(w), 'data card (top right) at the same width');
 });
 
 test('a slide Doppler card lays its readings two across so labels and values never overlap', () => {
