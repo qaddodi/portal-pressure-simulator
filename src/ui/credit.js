@@ -17,10 +17,37 @@ const hit = (a, o) => a.l < o.r && a.r > o.l && a.t < o.b && a.b > o.t;
 // over like a covered one.
 export function freeSpots(fig, obs, w, h, { gap = 10, inset = 12, avoid = null } = {}) {
   const out = {}, H = fig.b - fig.t;
+  // A free spot at x: from y0 toward the middle, past the cards (and the art to avoid) it meets.
+  const walk = (x, y0, up = y0 > fig.t + H / 2) => {
+    if (x < fig.l || x + w > fig.r) return null;
+    let y = y0;
+    for (let i = 0; i < 40; i++) {
+      if (up ? y < fig.t + H * 0.45 - h : y + h > fig.t + H * 0.55 + h) return null;
+      const box = { l: x - gap, t: y - gap, r: x + w + gap, b: y + h + gap };
+      const o = obs.filter((q) => hit(box, q));
+      if (!o.length && !avoid?.({ l: x, t: y, r: x + w, b: y + h })) return y >= fig.t && y + h <= fig.b ? { x, y } : null;
+      y = !o.length ? (up ? y - h / 2 : y + h / 2) : up ? Math.min(...o.map((q) => q.t)) - gap - h : Math.max(...o.map((q) => q.b)) + gap;
+    }
+    return null;
+  };
   for (const c of CORNERS) {
     const left = c[1] === 'l', up = c[0] === 'b', x0 = left ? fig.l + inset : fig.r - inset - w;
     const xs = [x0, ...obs.map((q) => (left ? q.r + gap : q.l - gap - w)).filter((x) => (left ? x > x0 : x < x0)).sort((p, q) => (left ? p - q : q - p))];
     out[c] = null;
+    // (With art to avoid, the spot may also step in along its edge, 40 px at a time up to the middle; of the spots found, the
+    // one nearest its corner, a step in counting half a step down.)
+    if (avoid) {
+      for (let k = 1; k * 40 < (fig.r - fig.l) * 0.5 - w; k++) xs.push(left ? x0 + k * 40 : x0 - k * 40);
+      let best = null, bc = Infinity;
+      for (const x of xs) {
+        const y0 = up ? fig.b - inset - h : fig.t + inset, p = walk(x, y0);
+        if (!p) continue;
+        const cost = Math.abs(p.y - y0) + 0.5 * Math.abs(x - x0);
+        if (cost < bc) { bc = cost; best = p; }
+      }
+      out[c] = best;
+      continue;
+    }
     for (const x of xs) {
       if (x < fig.l || x + w > fig.r) continue;
       let y = up ? fig.b - inset - h : fig.t + inset, spot = null;
@@ -72,26 +99,38 @@ function labelRects(wr, wrap) {
   return out;
 }
 
-// A test for spots over an organ's drawing (wrap px): the credit sits on bare background where it can, never on the liver or
-// another organ (Mohammad, 14 Oct). Checks a box's corners, edges' middles and centre against each organ shape it overlaps.
-function organTest(wr) {
-  const shapes = [];
-  for (const el of document.querySelectorAll('g.organ :is(path, circle, ellipse, rect, polygon)')) {
+// A test for spots over an organ's drawing (wrap px): the credit sits on bare background, never on the liver or another
+// organ, nor touching an organ's outline (Mohammad, 14 Oct). The organs are sampled once per layout on a 6 px grid (each
+// shape's fill and stroke), the grid grown by `pad` px all round, and a box is tested against every cell it covers, so a
+// thin outline running between a few sample points is never missed.
+const CELL = 6;
+let organMemo = { key: '', test: null };
+function organTest(wr, pad = 18) {
+  const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2))].join('|');
+  if (organMemo.key === key) return organMemo.test;
+  const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, on = new Uint8Array(cols * rows);
+  const pt = new DOMPoint();
+  for (const el of document.querySelectorAll('g.organ :is(path, circle, ellipse, rect, polygon):not(.org-shade)')) {
     const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
-    if (!m || !r.width || getComputedStyle(el).visibility === 'hidden') continue;
-    shapes.push({ el, inv: m.inverse(), l: r.left - wr.left, t: r.top - wr.top, r: r.right - wr.left, b: r.bottom - wr.top });
-  }
-  return (box) => {
-    const xs = [box.l, (box.l + box.r) / 2, box.r], ys = [box.t, (box.t + box.b) / 2, box.b];
-    for (const q of shapes) {
-      if (!hit(box, q)) continue;
-      for (const x of xs) for (const y of ys) {
-        const p = new DOMPoint(wr.left + x, wr.top + y).matrixTransform(q.inv);
-        if (q.el.isPointInFill(p) || q.el.isPointInStroke(p)) return true;
-      }
+    if (!m || !r.width) continue;   // (drawn as a bitmap plate, the shapes stay in place but hidden: they still count)
+    const inv = m.inverse();
+    const c0 = Math.max(0, Math.floor((r.left - wr.left) / CELL)), c1 = Math.min(cols - 1, Math.ceil((r.right - wr.left) / CELL));
+    const r0 = Math.max(0, Math.floor((r.top - wr.top) / CELL)), r1 = Math.min(rows - 1, Math.ceil((r.bottom - wr.top) / CELL));
+    for (let j = r0; j <= r1; j++) for (let i = c0; i <= c1; i++) {
+      if (on[j * cols + i]) continue;
+      pt.x = wr.left + (i + 0.5) * CELL; pt.y = wr.top + (j + 0.5) * CELL;
+      const p = pt.matrixTransform(inv);
+      if (el.isPointInFill(p) || el.isPointInStroke(p)) on[j * cols + i] = 1;
     }
+  }
+  const test = (box) => {
+    const c0 = Math.max(0, Math.floor((box.l - pad) / CELL)), c1 = Math.min(cols - 1, Math.floor((box.r + pad) / CELL));
+    const r0 = Math.max(0, Math.floor((box.t - pad) / CELL)), r1 = Math.min(rows - 1, Math.floor((box.b + pad) / CELL));
+    for (let j = r0; j <= r1; j++) for (let i = c0; i <= c1; i++) if (on[j * cols + i]) return true;
     return false;
   };
+  organMemo = { key, test };
+  return test;
 }
 
 export function createCreditPlacer(credit) {
@@ -177,11 +216,12 @@ export function createCreditPlacer(credit) {
     const opt = { gap: wr.width < 768 ? 12 : 24, inset: sr?.width ? Math.max(12, Math.round(sr.left - wr.left - fig.l)) : wr.width < 768 ? 12 : 24 };   // (a clear gap from every card: 24 px on a laptop or tablet)
     let spots = freeSpots(fig, obs, w, h, opt), tight = false;
     for (const k of CORNERS) if (!spots[k]) blocked[k] = now;
-    // (Of the free corners, one whose spot is clear of the organs' art, where there is one; the spots themselves are as
-    // before, so the credit always shows.)
-    const onOrgan = organTest(wr), bare = Object.fromEntries(CORNERS.map((k) => [k, spots[k] && !onOrgan({ l: spots[k].x, t: spots[k].y, r: spots[k].x + w, b: spots[k].y + h }) ? spots[k] : null]));
+    // (Spots clear of the organs' art too, found the same way (stepping in along the edge if need be), where there are any;
+    // else the plain spots, so the credit always shows.)
+    const bare = freeSpots(fig, obs, w, h, { ...opt, avoid: organTest(wr) });
     // (A slide on a laptop or tablet: one spot, the figure's top right, whenever it is free; a phone keeps the corner order.)
     const pref = app?.classList.contains('presenting') && document.querySelector('.pz:not(.stack)') ? 'tr' : null, pool = CORNERS.some((k) => bare[k]) ? bare : spots;
+    if (pool === bare) spots = bare;
     let c = pref && pool[pref] ? pref : pickCorner(pool, cur, blocked);
     if (!c) {
       // Not on one line: try it on two, before giving the figure up as covered.
