@@ -15,3 +15,13 @@ test('no body-cavity glow is drawn behind the abdomen', () => {
   assert.doesNotMatch(tokens, /--cavity:/);
   assert.match(stage, /class="org-diaphragm band-body"/, 'the diaphragm stays');
 });
+
+test('the diaphragm is hidden behind the organs and traced from their outlines', () => {
+  const stage = read('src/ui/stage.js');
+  // The organs are see-through: without the mask the line shows through the heart and liver as a stray arc.
+  assert.match(stage, /id: 'backdrop', mask: 'url\(#diaMask\)'/);
+  assert.match(stage, /\['heart', 'heart-ra', 'esophagus', 'liver', 'stomach', 'spleen'\]/);
+  // It follows the organs as they change (no fixed lift of a hand-drawn path).
+  assert.match(stage, /function diaphragmPath\(shrink, sc\)/);
+  assert.match(stage, /liverPaths\.push\(diaCut\.liver\)/);
+});

@@ -5,7 +5,7 @@
 
 import { store, updateParams } from './store.js?v=14d67870c8';
 import { h, icon, svgIcon, clamp, infoButton } from './util.js?v=abb277f29f';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=4aae084ed5';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=d930c73471';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');

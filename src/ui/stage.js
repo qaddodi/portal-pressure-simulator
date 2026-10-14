@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=93dd221434';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=93537ffff7';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=0b72305f30';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=0a9634e3fb';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=14d67870c8';
 import { fibroReading } from './clock.js?v=50927fe3bc';
@@ -399,6 +399,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="mt-a"/><stop offset=".5" class="mt-b"/><stop offset="1" class="mt-a"/></linearGradient>
     <linearGradient id="esoFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="0" y2="-40"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
     <mask id="esoFade" maskUnits="userSpaceOnUse" x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}"><rect x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}" fill="url(#esoFadeG)"/></mask>
+    <linearGradient id="diaFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="300" x2="0" y2="420"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <mask id="diaMask" maskUnits="userSpaceOnUse" x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}"><rect x="0" y="-150" width="${VIEW.w}" height="${VIEW.h + 150}" fill="url(#diaFadeG)"/></mask>
     <clipPath id="abdomenClip"><path d="${ABDOMEN_CLIP}"/></clipPath>
     <radialGradient id="orgForm" cx=".3" cy=".2" r=".95"><stop offset="0" class="lit-hi"/><stop offset=".48" class="lit-mid"/><stop offset="1" class="lit-lo"/></radialGradient>
     <filter id="castShadow" x="-10%" y="-10%" width="130%" height="130%"><feGaussianBlur stdDeviation="7"/></filter>
@@ -415,7 +417,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const gGrid = s('g', { id: 'grid', class: 'circuit-only' });
   // Background plane (anatomy): the diaphragm, behind everything else (no body-cavity shading: the abdomen sits on the
   // plain stage background).
-  const gBackdrop = s('g', { id: 'backdrop' });
+  const gBackdrop = s('g', { id: 'backdrop', mask: 'url(#diaMask)' });
   gBackdrop.innerHTML = `<path class="org-diaphragm band-edge" d="${BACKDROP.diaphragm}"/><path class="org-diaphragm band-body" d="${BACKDROP.diaphragm}"/>`;
   const gOrgans = s('g', { id: 'organs' });
   const gAscites = s('g', { id: 'ascites', 'clip-path': 'url(#abdomenClip)' });
@@ -594,6 +596,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const liverClip = defs.querySelector('#clip-liver path');
   if (liverClip) liverPaths.push(liverClip);
   liverPaths.push(lv.sep);
+  // The diaphragm is hidden under every organ it passes behind (the organs are see-through, and a
+  // line showing through the heart or liver reads as a stray arc), with a little clearance. The
+  // liver and spleen copies follow their organ's shape and size (liftDiaphragm).
+  const diaMask = defs.querySelector('#diaMask');
+  const diaCut = {};
+  for (const o of ORGANS) if (['heart', 'heart-ra', 'esophagus', 'liver', 'stomach', 'spleen'].includes(o.id)) {
+    diaCut[o.id] = s('path', { d: o.d, fill: '#000', stroke: '#000', 'stroke-width': 5, 'stroke-linejoin': 'round' });   // colour-exempt: a mask (black hides)
+    diaMask.append(diaCut[o.id]);
+  }
+  liverPaths.push(diaCut.liver);
   let baseLiver = null, liverKey = '';
   const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };
   function sampleLiver() {
@@ -3441,33 +3453,81 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
 
-  // The diaphragm domes rest on the liver (right) and spleen (left): when either organ swells
-  // its dome rises with it, so the organ never pokes above the muscle. Follows the eased organ
-  // size, so it never pops; at the healthy size the path is exactly BACKDROP.diaphragm.
+  // The diaphragm is drawn around the organs it covers, the way a plate shows it: one smooth dome a
+  // little above the liver, the fundus and the spleen, bridging the dips between them, and down the
+  // flanks on both sides (where diaMask fades it out). It is the upper convex hull of their current
+  // outlines, pushed out a few units, so it follows a shrunken or congested liver and an enlarged
+  // spleen as they ease, and never crosses an organ.
   const diaEls = gBackdrop.querySelectorAll('.org-diaphragm');
-  const diaPts = BACKDROP.diaphragm.match(/-?\d+(\.\d+)?/g).map(Number);
-  const domeW = (x, c, h) => { const u = (x - c) / h; return Math.abs(u) >= 1 ? 0 : (1 + Math.cos(Math.PI * u)) / 2; };
-  // Tops of the healthy liver and spleen outlines (plate units), just under the domes.
-  const DIA_REF = { liver: 182, spleen: 266 };
+  const DIA_GAP = 11, DIA_FOOT = 420;
   let diaKey = '';
+  // An outline's points: a polyline's own (the diseased liver), else sampled once along the curve.
+  const outlineCache = new Map();
+  function outlinePts(d, el) {
+    if (!/[CQSAcqsa]/.test(d)) { const n = d.match(/-?\d+(\.\d+)?/g).map(Number); return n.flatMap((v, i) => (i % 2 ? [] : [[v, n[i + 1]]])); }
+    if (!outlineCache.has(d)) {
+      const L = el.getTotalLength(), out = [];
+      for (let u = 0; u < L; u += 4) { const q = el.getPointAtLength(u); out.push([q.x, q.y]); }
+      outlineCache.set(d, out);
+    }
+    return outlineCache.get(d);
+  }
+  function diaphragmPath(shrink, sc) {
+    const pts = [];
+    const add = (el, cx, cy, k) => {
+      for (const [x, y] of outlinePts(el.getAttribute('d'), el)) pts.push([cx + (x - cx) * k, cy + (y - cy) * k]);
+    };
+    add(diaCut.liver, 560, 350, shrink);
+    add(diaCut.stomach, 0, 0, 1);
+    add(diaCut.spleen, SPLEEN_CENTER[0], SPLEEN_CENTER[1], sc);
+    // Upper hull, left to right (monotone chain).
+    pts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+    const hull = [];
+    for (const p of pts) {
+      while (hull.length > 1) {
+        const [o, a] = hull.slice(-2);
+        if ((a[0] - o[0]) * (p[1] - o[1]) - (a[1] - o[1]) * (p[0] - o[0]) > 0) break;
+        hull.pop();
+      }
+      hull.push(p);
+    }
+    // A long straight run of the hull (across from the liver to the spleen) arches up a little, as
+    // the left dome does over the fundus: tangent at both ends, highest in the middle.
+    const arched = [hull[0]];
+    for (let i = 1; i < hull.length; i++) {
+      const a = hull[i - 1], b = hull[i], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+      if (len > 60) {
+        const n = Math.ceil(len / 20), h = 0.1 * len;
+        for (let j = 1; j < n; j++) { const t = j / n, up = h * Math.sin(Math.PI * t) ** 1.5; arched.push([a[0] + dx * t + (up * dy) / len, a[1] + dy * t - (up * dx) / len]); }
+      }
+      arched.push(b);
+    }
+    // Down the sides to the foot, then pushed out along each point's normal.
+    const line = [[hull[0][0], Math.max(DIA_FOOT, hull[0][1])], ...arched, [hull.at(-1)[0], Math.max(DIA_FOOT, hull.at(-1)[1])]]
+      .filter((p, i, a) => i === 0 || Math.hypot(p[0] - a[i - 1][0], p[1] - a[i - 1][1]) > 3);
+    const out = line.map((p, i) => {
+      const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)];
+      const dx = b[0] - a[0], dy = b[1] - a[1], n = Math.hypot(dx, dy) || 1;
+      return [p[0] + DIA_GAP * dy / n, p[1] - DIA_GAP * dx / n];
+    });
+    // Through every point (Catmull-Rom as cubic Béziers).
+    const f1 = (v) => v.toFixed(1);
+    let d = `M${f1(out[0][0])} ${f1(out[0][1])}`;
+    for (let i = 0; i < out.length - 1; i++) {
+      const p0 = out[Math.max(0, i - 1)], p1 = out[i], p2 = out[i + 1], p3 = out[Math.min(out.length - 1, i + 2)];
+      d += ` C${f1(p1[0] + (p2[0] - p0[0]) / 6)} ${f1(p1[1] + (p2[1] - p0[1]) / 6)} ${f1(p2[0] - (p3[0] - p1[0]) / 6)} ${f1(p2[1] - (p3[1] - p1[1]) / 6)} ${f1(p2[0])} ${f1(p2[1])}`;
+    }
+    return d;
+  }
   function liftDiaphragm(shrink, sc) {
-    const lTop = organEls.liver?.getBBox().y, sTop = organEls.spleen?.getBBox().y;
-    if (lTop === undefined || sTop === undefined) return;
-    // How far each organ's top now rises above its healthy top (never below: a shrunken organ
-    // leaves the dome where it was), plus a little so the muscle stays clear of the organ.
-    const lift = (top, c, s, ref) => Math.max(0, ref - (c - (c - top) * s)) * 1.2;
-    const lr = lift(lTop, 350, shrink, DIA_REF.liver), ll = lift(sTop, SPLEEN_CENTER[1], sc, DIA_REF.spleen);
-    const key = `${lr.toFixed(1)},${ll.toFixed(1)}`;
+    // The spleen in steps of 1% (as the plate key reads it): the running model's slow drift must not
+    // redraw the dome, and the plate with it, every frame. The gap absorbs the difference.
+    const scQ = Math.round(sc * 100) / 100;
+    const key = `${liverKey}|${shrink.toFixed(3)}|${scQ}`;
     if (key === diaKey) return;
     diaKey = key;
-    let i = 0;
-    const d = BACKDROP.diaphragm.replace(/-?\d+(\.\d+)?/g, () => {
-      const v = diaPts[i];
-      // The left dome also widens outward with the spleen, so its lateral edge stays covered.
-      if (i++ % 2 === 0) return (v + ll * 0.5 * domeW(v, 1110, 240)).toFixed(1);
-      const x = diaPts[i - 2];
-      return (v - lr * domeW(x, 560, 420) - ll * domeW(x, 1040, 280)).toFixed(1);
-    });
+    for (const id of ['liver', 'spleen']) diaCut[id].setAttribute('transform', organG[id].getAttribute('transform') || '');
+    const d = diaphragmPath(shrink, scQ);
     for (const el of diaEls) el.setAttribute('d', d);
   }
 

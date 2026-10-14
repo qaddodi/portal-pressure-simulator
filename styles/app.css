@@ -2584,8 +2584,8 @@ button.finding { cursor: pointer; }
 .organ .org-shade.s1 { stroke-width: 30; stroke-opacity: .16; }
 .organ .org-shade.s2 { stroke-width: 18; stroke-opacity: .22; }
 .organ .org-shade.s3 { stroke-width: 8; stroke-opacity: .3; }
-.org-diaphragm.band-edge { stroke-opacity: .1; }
-.org-diaphragm.band-body { stroke-opacity: .35; stroke-width: 1; }
+.org-diaphragm.band-edge { stroke-opacity: .12; }
+.org-diaphragm.band-body { stroke-opacity: .45; stroke-width: 1.1; }
 .tone-ra { --o1: var(--og-heart-1); --o2: color-mix(in srgb, var(--og-heart-2) 80%, var(--og-ra-2)); }
 .tone-ra .org-fill { fill: url(#og-heart); }
 .organ-heart-ra .org-line { stroke-opacity: .35; }

@@ -451,10 +451,13 @@ export const ORGAN_DETAIL = {
   heart: [['fine', 'M691 64 C 700 108 722 152 751 176']],
 };
 // Background plane (anatomic view): the posterior wall the organs sit against, drawn quietly
-// so the plate reads in depth: the diaphragm domes the liver and spleen
-// tuck under.
+// so the plate reads in depth. The diaphragm is one muscle sheet a little above the organs: a higher
+// right dome over the liver, a saddle under the heart (which rests on it), a lower left dome over the
+// fundus and spleen, then down the flanks, where it fades out. stage.js traces it again from the
+// organs' current outlines (diaphragmPath) and hides it wherever an organ covers it (diaMask), so it
+// never shows through the see-through organs; this is the healthy outline it starts from.
 export const BACKDROP = {
-  diaphragm: 'M306 330 C 302 240 350 168 452 158 C 530 150 600 160 650 168 C 712 178 760 204 800 208 C 840 212 930 200 1020 222 C 1084 238 1124 300 1122 400',
+  diaphragm: 'M312 420 C 306 330 308 244 336 204 C 360 178 416 168 480 168 C 570 166 650 180 710 194 C 760 206 800 220 850 226 C 880 228 900 224 930 228 C 980 234 1010 246 1040 252 C 1090 260 1112 300 1116 350 C 1118 380 1119 400 1119 420',
 };
 
 // Invisible peritoneal outline: ascites fills it from the bottom.
