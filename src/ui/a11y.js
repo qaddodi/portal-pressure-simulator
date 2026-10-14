@@ -4,7 +4,7 @@
 
 import { store, hiddenNow } from './store.js?v=14d67870c8';
 import { fmt } from './util.js?v=abb277f29f';
-import { EDGES } from '../engine/topology.js?v=79f09b0d8a';
+import { EDGES } from '../engine/topology.js?v=93dd221434';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 

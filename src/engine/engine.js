@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=79f09b0d8a';
+import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=93dd221434';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
 import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=a6c564d238';
-import { detectEvents } from './events.js?v=6ef054e2e5';
+import { detectEvents } from './events.js?v=8244732765';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -842,7 +842,10 @@ export class Engine {
   /** Mean velocity (cm/s), signed. */
   velocity(id) {
     const q = this.Q[this.ei[id]];
-    const d = Math.max(0.5, this.diameter(id)) / 10; // cm
+    const e = EDGES[this.ei[id]];
+    // A lumped bundle (e.g. the jejunal and ileal veins) is drawn at one vein's width but its flow
+    // reaches the probe through a wider trunk: vd is the diameter the probe sees.
+    const d = Math.max(0.5, this.diameter(id) * (e.vd ? e.vd / e.d : 1)) / 10; // cm
     return q / (Math.PI * d * d / 4);
   }
 

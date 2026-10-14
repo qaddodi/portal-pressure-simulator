@@ -4,7 +4,7 @@
 
 import { store, updateParams } from './store.js?v=14d67870c8';
 import { h, svgIcon, toast } from './util.js?v=abb277f29f';
-import { EDGES } from '../engine/topology.js?v=79f09b0d8a';
+import { EDGES } from '../engine/topology.js?v=93dd221434';
 import { DRUGS } from '../engine/scenario.js?v=a6c564d238';
 import { HIDDEN_EDGES } from './anatomy.js?v=0ce510e29b';
 

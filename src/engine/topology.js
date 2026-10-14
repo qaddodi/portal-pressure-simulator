@@ -89,7 +89,7 @@ export const EDGES = [
   { id: 'A_EPI', from: 'AO', to: 'EPI', Q: 0.8, kind: 'arteriole', tone: 'systemic', d: 2, label: 'Abdominal-wall arteries' },
 
   // Splanchnic venous drainage
-  { id: 'V_INT', from: 'INT', to: 'SMV', Q: 10.0, kind: 'vein', d: 6, label: 'Jejunal & ileal veins' },
+  { id: 'V_INT', from: 'INT', to: 'SMV', Q: 10.0, kind: 'vein', d: 6, vd: 9.5, label: 'Jejunal & ileal veins' },
   { id: 'V_COL', from: 'COL', to: 'IMV', Q: 1.7, kind: 'vein', d: 4, label: 'Colic veins' },
   { id: 'V_IMV', from: 'IMV', to: 'SV', Q: 1.7, kind: 'vein', d: 5, label: 'Inferior mesenteric vein' },
   { id: 'V_SPL', from: 'SPL', to: 'SVD', Q: 5.0, kind: 'vein', d: 8, label: 'Splenic vein (distal)' },
