@@ -19,11 +19,11 @@ import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=d7a37139b9';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=b07322d217';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e7450bd6af';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=258d41dbc8';
-import { createTools } from './presenter-tools.js?v=1122f2dde6';
-import { openHandout } from './handout.js?v=925dcb7018';
+import { createTools } from './presenter-tools.js?v=17aeda85c3';
+import { openHandout } from './handout.js?v=680b9bd894';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=20ffefba17';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -674,7 +674,7 @@ function bigTiles() {
     set(f, ks, key = [], ref = null, ms, tips = false) {
       goal = !!tips;
       const sg = ks.join() + (ref ? '|ref' : '');
-      if (sg !== sig) { sig = sg; build(ks, !!ref); }
+      if (sg !== sig || !draw) { sig = sg; build(ks, !!ref); }   // (no tiles at all is a build too)
       el.dataset.keys = ks.join();
       // (On a phone the strip's brackets carry HVPG and PPG with their ratings, so plain tiles of just those two fold away.)
       el.dataset.compact = ks.join() === 'hvpg,ppg' && !ref && !tips ? '1' : '';
@@ -1241,11 +1241,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     el.querySelector('.pzl-t').textContent = lapseText(s, d, n, done);
     el.classList.toggle('done', done);
   }
-  const tileKeys = (s) => s.tiles || (s.data === 'ladder' ? ['hvpg', 'ppg'] : []);
+  const tileKeys = (s) => s.tiles || [];   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
   function dataTo(s, f, ref, ms) {
     if (!ui) return;
     if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets, block: s.block });
     if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
+    ui.tools.pin(f);   // (an instrument's reading is the tiles' number)
   }
   async function playLapse(s, to, cut) {
     const end = await stateReady(stateOf[to]);
@@ -1654,6 +1655,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const ms = fresh ? 0 : undefined;
       if (lad) ui.ladder.set(now.fp, { key: q ? [] : s.key || [], ms, brackets: q ? null : s.brackets, block: q ? null : s.block });
       if (s.data) ui.tiles.set(now.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms, now.params?.tips?.on);
+      ui.tools.pin(now.fp);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
       if (!ui.root.classList.contains('pz-prep')) data.classList.remove('pz-hide');   // (else once fitted: settle)
       else data.dataset.prep = '1';

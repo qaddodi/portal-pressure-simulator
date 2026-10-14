@@ -1632,6 +1632,7 @@ button.finding { cursor: pointer; }
 .pzl-lead { fill: none; stroke: var(--c); stroke-width: 1.6; stroke-dasharray: 1 5; stroke-linecap: round; opacity: .6; transition: stroke .4s var(--ease); }
 .pzl-bk { fill: var(--c); font: 700 15px var(--font-ui); letter-spacing: .06em; transition: fill .4s var(--ease); }
 .pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
+.pz-tiles[data-n="0"] { display: none; }   /* (a ladder alone: its brackets give the HVPG and PPG) */
 .pz-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh) / var(--vz)), 18px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease); }
 .pz-tile.key { border-color: var(--accent); background: var(--accent-soft); }
 .pzt-k { font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); overflow-wrap: break-word; }
@@ -2130,6 +2131,7 @@ button.finding { cursor: pointer; }
 @container pzd (min-width: 420px) {
   .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] > .pz-tile:last-child { grid-column: auto; }
+  .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] .pzt-k { min-height: 2.4em; display: flex; align-items: flex-end; justify-content: center; }   /* (three across: room for a two-line name in every tile, so the numbers share one line) */
   .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-column: span 2; }
 }
@@ -2218,15 +2220,15 @@ button.finding { cursor: pointer; }
 .pz-tool .ab-ctl { display: none; }
 .pz-tool .dop-head:empty, .pz-tool .dop-head:not(:has(> :not(select):not(.dop-btns))) { display: none; }
 /* The Doppler monitor fills its card's width with rounded corners; a tight card shortens it (--pz-dk), never narrows it. */
-.pz-tool[data-kind="doppler"] .dop-box { width: 100%; height: calc(clamp(150px, calc(24 * var(--pzh)), 300px) * var(--pz-dk, 1) * var(--pz-fit, 1)); border-radius: 12px; overflow: hidden; }
+.pz-tool[data-kind="doppler"] .dop-box { width: 100%; height: calc(clamp(150px, calc(24 * var(--pzh)), 300px) * var(--pz-dk, 1)); border-radius: 12px; overflow: hidden; }
 .pz-tool[data-kind="doppler"] .dop-box > canvas { width: 100%; height: 100%; border-radius: inherit; }
-.pz-tool[data-kind="fibroscan"] .fibroscan-box { width: 100%; height: calc(clamp(220px, calc(38 * var(--pzh)), 440px) * var(--pz-dk, 1) * var(--pz-fit, 1)); }
+.pz-tool[data-kind="fibroscan"] .fibroscan-box { width: 100%; height: clamp(220px, calc(38 * var(--pzh)), 440px); }
 /* The scope's view sits in .endo-stage, a size container in the Tests card; here the stage takes the view's own height. */
 .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { container-type: normal; min-height: 0; }
 .pz-tool[data-kind="scope"] .endo-stage { width: min(100%, calc(40 * var(--pzh)), 30vw); margin: 0 auto; }
 .pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; margin: 0; }
 .pz-tool[data-kind="scope"] .chart-side { width: 100%; max-width: none; }
-.pz-tool[data-kind="beats"] .pt-box { width: 100%; height: calc(clamp(180px, calc(30 * var(--pzh)), 360px) * var(--pz-dk, 1) * var(--pz-fit, 1)); }
+.pz-tool[data-kind="beats"] .pt-box { width: 100%; height: clamp(180px, calc(30 * var(--pzh)), 360px); }
 /* Quiz: the reading stays covered until the answer (a soft veil, never a pop). */
 .pz-tool::after { content: ""; position: absolute; pointer-events: none; opacity: 0; transition: opacity .32s var(--ease); background: var(--surface); border-radius: 10px; }
 .pz-tool.ask[data-kind="fibroscan"]::after { opacity: 1; left: 8px; top: 30px; width: 46%; height: 64px; }
@@ -2283,9 +2285,9 @@ button.finding { cursor: pointer; }
 .ptk-v[data-rate="mid"] { fill: var(--caution); } .ptk-v[data-rate="hi"] { fill: var(--danger); }
 .pz.stack .pz-data.has-tool { max-height: 50%; }
 .pz.stack .pz-data > * { flex-shrink: 0; }   /* (parts keep their height, so a card too full reads as overflow and is fitted, not squeezed until a reading is cut) */
-.pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: calc(140px * var(--pz-fit, 1)); }
-.pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: calc(140px * var(--pz-fit, 1)); }
-.pz.stack .pz-tool[data-kind="beats"] .pt-box { height: calc(140px * var(--pz-fit, 1)); }
+.pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 140px; }
+.pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 140px; }
+.pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
 /* Phone: the scope sits beside its grade and size, and the Doppler drops its sentence, so a tile still fits under the instrument. */
 .pz.stack .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
 .pz.stack .pz-tool[data-kind="scope"] .endo-stage { width: min(40%, 24vh); flex: none; margin: 0; }
@@ -2343,8 +2345,8 @@ button.finding { cursor: pointer; }
 /* (An instrument drawn to the card's width shrinks with the card's fit too: zoomed alone it was drawn wider by as much, so it kept
    its size on the screen and the fit squeezed only the readings and tiles below it, to half size on a sideways phone.) */
 .pz-data > .pz-tool:not([data-kind="abdomen"]):not([data-kind="doppler"]):not([data-kind="fibroscan"]):not([data-kind="beats"]) { width: calc(100% * var(--pz-fit, 1)); margin-inline: auto; }
-/* A live monitor (Doppler, FibroScan, tracing) always fills the card's width; when the card is tight it gets shorter (the fit and
-   the block step scale its height), never narrower. */
+/* A live monitor (Doppler, FibroScan, tracing) always fills the card's width; when the card is tight it gets shorter (the card's
+   zoom, --pz-fit and the block step, scales its height), never narrower. */
 .pz-data > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"], [data-kind="beats"]) { width: 100%; }   /* (an instrument; a ladder sets its own lettering to its width, so it keeps the card's) */
 .pz-data.col > :is(.pz-ladder, .pz-strip, .pz-quad, .pz-tool:not([data-kind="abdomen"]):not([data-kind="doppler"]):not([data-kind="fibroscan"]):not([data-kind="beats"])) { width: calc(100% * var(--pz-fit, 1) * var(--pz-dk, 1)); margin-inline: auto; }   /* (a chart drawn to the card's width: narrower by the same step, so it is smaller in height too, not only its zoom) */
 /* A phone's opened (or only) instrument is the one part that gives way when it is taller than the card: the header and tiles stay full size. */

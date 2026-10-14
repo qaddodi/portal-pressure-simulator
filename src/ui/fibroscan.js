@@ -155,10 +155,11 @@ export function createFibroScan() {
     if (REDUCED || isPaused()) { running = false; return; }   // paused: hold this frame; resume restarts the loop
     nextFrame(loop);
   }
+  let pinned = null;   // (the slide's settled stiffness, the tiles' and words' number; the live value swings with each beat)
   function update(f) {
-    model = f.metrics.lsm;
+    model = pinned ?? f.metrics.lsm;
     if (!running && cv.offsetParent !== null) { running = true; nextFrame(loop); }
   }
   const offRun = store.on('running', (on) => { if (on && !running && cv.offsetParent !== null) { running = true; nextFrame(loop); } });
-  return { id: 'fibroscan', label: 'FibroScan', el, update, dispose: offRun };
+  return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose: offRun };
 }

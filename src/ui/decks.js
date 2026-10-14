@@ -60,27 +60,27 @@
 
 import { CIRCULATION } from './decks/circulation.js?v=f992e1f34d';
 import { SITES } from './decks/sites.js?v=742e291503';
-import { HVPG } from './decks/hvpg.js?v=90727ef950';
+import { HVPG } from './decks/hvpg.js?v=4b02189486';
 import { ASCITES } from './decks/ascites.js?v=06f3f72393';
 import { VARICES } from './decks/varices.js?v=2cc4fcacc8';
-import { TREATMENT } from './decks/treatment.js?v=0676694f47';
+import { TREATMENT } from './decks/treatment.js?v=528e3fa858';
 import { STIFFNESS } from './decks/stiffness.js?v=373db59835';
-import { ONE_YEAR } from './decks/one-year.js?v=1208788c57';
+import { ONE_YEAR } from './decks/one-year.js?v=23784252a0';
 import { LOBULE } from './decks/lobule.js?v=8889ca494b';
 import { SHUNTS } from './decks/shunts.js?v=2d7fedbc1c';
 import { TAP } from './decks/tap.js?v=04459c913c';
 import { CIRCUIT } from './decks/circuit.js?v=7ce4853718';
 import { DOPPLER } from './decks/doppler.js?v=51f6471255';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=28c2a74fe5';
-import { PREHEPATIC } from './decks/prehepatic.js?v=57c36d4515';
-import { RIGHT_HEART } from './decks/right-heart.js?v=45860826aa';
+import { PREHEPATIC } from './decks/prehepatic.js?v=36c3ebf18e';
+import { RIGHT_HEART } from './decks/right-heart.js?v=10f4520306';
 import { BLEED } from './decks/variceal-bleed.js?v=df1f366fc1';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=359e8145f9';
-import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=a45c073ae9';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=e7866aaf92';
 import { SPLEEN } from './decks/spleen.js?v=689852e4e0';
-import { NCPH } from './decks/ncph.js?v=d0a6d19a30';
-import { OUTFLOW } from './decks/outflow.js?v=51a7f7791a';
-import { RECOMPENSATION } from './decks/recompensation.js?v=ba947d0724';
+import { NCPH } from './decks/ncph.js?v=99ee251049';
+import { OUTFLOW } from './decks/outflow.js?v=15b03eaffa';
+import { RECOMPENSATION } from './decks/recompensation.js?v=d5e43b2d63';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

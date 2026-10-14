@@ -26,7 +26,7 @@ export const ONE_YEAR = {
       ask: ['Which two bedside numbers does Baveno VIII use to rule out CSPH?', 'Liver stiffness and the platelet count.'],
     },
     {
-      id: 'cath', cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'],
+      id: 'cath', cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'],
       kicker: 'Day 0', site: 'sin', title: 'At diagnosis the HVPG is just below 10',
       line: 'An HVPG of {hvpg} is portal hypertension, still below the 10 mmHg where CSPH begins.',
       notes: 'HVPG = WHVP − FHVP. Above 5 mmHg is portal hypertension; 10 or more is clinically significant (CSPH), where varices and decompensation become possible, and the risk rises with the gradient. At 9 mmHg the HVPG is close. HVPG is the reference standard, but invasive, so most centers reserve it for trials, uncertain cases and before liver surgery.',
@@ -48,7 +48,7 @@ export const ONE_YEAR = {
       ask: ['What do small varices tell you about the HVPG?', 'That CSPH is present: Baveno VIII reads any varices as CSPH. Below 10 mmHg varices are uncommon, not impossible.'],
     },
     {
-      id: 'd365', tick: 'Catheter, Doppler', days: 185, ramp: ramp(0.58, 0.66), cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'], delta: 'd0',
+      id: 'd365', tick: 'Catheter, Doppler', days: 185, ramp: ramp(0.58, 0.66), cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], delta: 'd0',
       kicker: 'Day 365', site: 'sin', title: 'At one year, HVPG is above 12',
       line: 'The HVPG is {hvpg}, up from 9 a year ago. At 12 or more, varices can bleed.',
       notes: 'A year on, the gradient has risen by 4 mmHg. Above 12 mmHg varices can bleed, and the risk of ascites and other decompensation rises with each mmHg. Repeat catheter studies are not routine; in practice the stiffness, the platelets and the scope track this rise.',
@@ -69,7 +69,7 @@ export const ONE_YEAR = {
       ask: ['How is grade 1 ascites detected?', 'On ultrasound only; it cannot be found by examination.'],
     },
     {
-      id: 'carv', tick: 'Carvedilol started', when: 'On carvedilol', params: { drugs: { carvedilol: true } }, cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'], delta: true,
+      id: 'carv', tick: 'Carvedilol started', when: 'On carvedilol', params: { drugs: { carvedilol: true } }, cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['varix'], delta: true,
       kicker: 'Day 365', site: 'sin', title: 'Carvedilol lowers the gradient',
       line: 'Baveno VIII recommends a non-selective beta-blocker, preferably carvedilol, before a first bleed or decompensation. It lowers the gradient by about a fifth, and in most patients it replaces screening endoscopy. Check the blood pressure.',
       notes: 'Baveno VIII: in compensated cirrhosis with CSPH, a non-selective beta-blocker, preferably carvedilol (6.25 mg, then 12.5 mg a day), to prevent decompensation, as in the PREDESCI trial. It replaces screening endoscopy for most patients who take it. A fall in HVPG of 10% or more on drugs predicts benefit in compensated patients. Watch the blood pressure.',

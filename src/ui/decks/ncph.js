@@ -35,7 +35,7 @@ export const NCPH = {
       ask: ['Why does liver function last for years in schistosomiasis?', 'The obstruction is in the portal venules; the sinusoids and liver cells are spared.'],
     },
     {
-      id: 'wedge', cath: 'result', data: 'ladder', key: ['pv', 'whvp', 'hvpg'], tiles: ['hvpg', 'ppg'], brackets: { hvpg: 'misleads', ppg: 'works' },
+      id: 'wedge', cath: 'result', data: 'ladder', key: ['pv', 'whvp', 'hvpg'], brackets: { hvpg: 'misleads', ppg: 'works' },
       kicker: 'Where the resistance sits', site: 'presin', title: 'The wedge reads normal sinusoids',
       line: 'The obstruction lies before the sinusoids, so the HVPG is {hvpg}. Only a direct portal reading shows the gradient, a PPG of {ppg}.',
       notes: 'In a presinusoidal obstruction the HVPG is normal or only mildly raised and underestimates the portal pressure, often by a wide margin. A normal HVPG in a patient with varices or a large spleen points to a presinusoidal or pre-hepatic cause. The portal pressure itself can be measured directly, through the liver at TIPS or with an endoscopic ultrasound needle.',

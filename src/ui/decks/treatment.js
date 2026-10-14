@@ -12,7 +12,7 @@ export const TREATMENT = {
   ],
   slides: [
     {
-      id: 'target', preset: 'cirr-decomp', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'],
+      id: 'target', preset: 'cirr-decomp', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg'], tiles: ['varix'],
       kicker: 'Lowering portal pressure', site: 'sin', title: 'A patient with decompensated cirrhosis',
       vignette: 'A 58-year-old woman with MASH cirrhosis has ascites controlled on spironolactone and furosemide. A surveillance EGD shows large esophageal varices. She has never bled.',
       line: 'The patient has an HVPG of {hvpg}, large varices and ascites. Treatment lowers the inflow or the resistance, or bypasses the liver.',
@@ -20,7 +20,7 @@ export const TREATMENT = {
       ask: ['Name a treatment that cuts the inflow and one that lowers the resistance.', 'Inflow: propranolol, octreotide, terlipressin. Resistance: carvedilol, treating the cause; TIPS goes around it.'],
     },
     {
-      id: 'prop', params: { drugs: { propranolol: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv', 'hvpg'], tiles: ['hvpg', 'varix'], delta: 'target',
+      id: 'prop', params: { drugs: { propranolol: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv', 'hvpg'], tiles: ['varix'], delta: 'target',
       kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Propranolol lowers portal inflow',
       line: 'β1 blockade lowers cardiac output. β2 blockade removes the gut arterioles\' dilating tone, so they constrict. Portal inflow falls to {pvFlow}, and HVPG falls with it.',
       notes: 'Propranolol (or nadolol) is titrated to a resting heart rate of 55 to 60 a minute, keeping systolic pressure above 90 mmHg. It prevents a first bleed from large varices and, with banding, a second one. About a third to a half of patients reach a protective fall in HVPG. In refractory ascites with low blood pressure or kidney injury the dose is reduced or stopped. The model shows a modest fall.',
@@ -28,14 +28,14 @@ export const TREATMENT = {
     },
     {
       id: 'carv', params: { drugs: { propranolol: false, carvedilol: true } }, cam: 'liver', glow: ['liver'],
-      compare: [{ label: 'Propranolol', params: { drugs: { propranolol: true, carvedilol: false } } }, { label: 'Carvedilol', own: true, params: { drugs: { propranolol: false, carvedilol: true } } }], data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['hvpg', 'varix'], delta: 'target',
+      compare: [{ label: 'Propranolol', params: { drugs: { propranolol: true, carvedilol: false } } }, { label: 'Carvedilol', own: true, params: { drugs: { propranolol: false, carvedilol: true } } }], data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['varix'], delta: 'target',
       kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Carvedilol also lowers resistance in the liver',
       line: 'It also blocks α1 receptors, relaxing stellate cells and portal venules. HVPG falls further, but blood pressure falls too.',
       notes: 'Carvedilol 6.25 to 12.5 mg a day. Its α1 blockade relaxes the contracted stellate cells and lowers the resistance inside the liver, so it lowers HVPG more than propranolol and brings about half of propranolol non-responders to a protective fall. Baveno VIII recommends a non-selective beta-blocker, preferably carvedilol, in compensated cirrhosis with clinically significant portal hypertension, to prevent decompensation. Watch the blood pressure, especially with ascites.',
       ask: ['Why does carvedilol lower HVPG more than propranolol?', 'Its α1 blockade also lowers the vascular resistance inside the liver.'],
     },
     {
-      id: 'oct', params: { drugs: { carvedilol: false, octreotide: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv'], tiles: ['hvpg', 'pvFlow'], delta: 'target',
+      id: 'oct', params: { drugs: { carvedilol: false, octreotide: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv'], tiles: ['pvFlow'], delta: 'target',
       kicker: 'Acute variceal bleeding', site: 'sin', title: 'Octreotide cuts splanchnic inflow',
       line: 'Octreotide is a somatostatin analogue. It blocks the gut\'s vasodilating peptides, so splanchnic inflow falls to {pvFlow}. Its effect on portal pressure is modest and partly transient.',
       notes: 'Suspected variceal bleeding: octreotide at once (a 50 µg bolus, then 50 µg an hour), continued for 2 to 5 days. The full order of care is in the acute variceal bleeding talk. Octreotide is the vasoactive drug used for bleeding in the US; elsewhere terlipressin or somatostatin are alternatives. Its effect on portal pressure is modest and partly transient, so the model gives it a smaller fall than terlipressin (splanchnic resistance × 1.35 against × 1.9), in line with HVPG studies of somatostatin analogues (Escorsell 2001, Baik 2005).',
@@ -59,7 +59,7 @@ export const TREATMENT = {
       ask: ['Why combine banding with a beta-blocker after a bleed?', 'Banding removes the varices, not the high pressure that makes new ones; the beta-blocker lowers it.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, cam: 'liver', terms: { sinusoids: 'sin', 'portal vein': 'pv', 'hepatic vein': 'hv' }, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'ladder', key: ['pv', 'ppg'], tiles: ['ppg', 'varix'], delta: 'target',
+      id: 'tips', params: { tips: { on: true } }, cam: 'liver', terms: { sinusoids: 'sin', 'portal vein': 'pv', 'hepatic vein': 'hv' }, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'ladder', key: ['pv', 'ppg'], tiles: ['varix'], delta: 'target',
       kicker: 'Shunt', site: 'sin', title: 'TIPS lowers the gradient by bypassing the liver',
       line: 'A needle is passed from the right hepatic vein into the right portal vein, and the tract is lined with a covered stent, usually 8 mm, so portal blood bypasses the sinusoids. The PPG falls to {ppg}, below the 12 mmHg target for bleeding.',
       notes: 'Transjugular intrahepatic portosystemic shunt: from the jugular vein, a needle is passed from the right hepatic vein through the liver into the right portal vein, and the tract is lined with a covered stent, usually 8 mm wide. The portal pressure gradient is measured before and after; for bleeding the aim is below 12 mmHg. Indications: pre-emptive TIPS in high-risk variceal bleeding, rescue when bleeding cannot be controlled, recurrent bleeding, and recurrent or refractory ascites.',
@@ -80,7 +80,7 @@ export const TREATMENT = {
       ask: ['Name two contraindications to TIPS.', 'Heart failure or severe pulmonary hypertension; advanced liver failure (high MELD); recurrent severe encephalopathy.'],
     },
     {
-      id: 'vs', cam: 'liver', data: 'ladder', key: ['ppg'], tiles: ['ppg', 'liver'], delta: 'target',
+      id: 'vs', cam: 'liver', data: 'ladder', key: ['ppg'], tiles: ['liver'], delta: 'target',
       compare: [
         { label: 'TIPS', own: true, params: { tips: { on: true }, drugs: { propranolol: false, carvedilol: false, octreotide: false, terlipressin: false } } },
         { label: 'Propranolol', params: { tips: { on: false }, drugs: { propranolol: true, carvedilol: false, octreotide: false, terlipressin: false } } },

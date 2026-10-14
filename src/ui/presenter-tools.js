@@ -26,7 +26,7 @@ import { h, fmt, clamp } from './util.js?v=abb277f29f';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=180c87ed56';
 import { EDGES } from '../engine/topology.js?v=79f09b0d8a';
 import { createDoppler } from './doppler.js?v=54a45cc31a';
-import { createFibroScan } from './fibroscan.js?v=636bddb15c';
+import { createFibroScan } from './fibroscan.js?v=e7c69cafae';
 import { createPressureTime } from './pressure-time.js?v=53a37a7cea';
 import { createFlowTime } from './flow-time.js?v=9327f117b5';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=2964caa3c1';
@@ -100,6 +100,8 @@ export function createTools({ host, stage }) {
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update(f)); }
     },
     /** The flow-time chart drawn up to k (0 to 1) of its time-lapse, with its series (trail) once it is computed. */
+    /** The numbers the slide's tiles and words show (a fingerprint): a reading instrument shows the same, not the beat-to-beat live value. */
+    pin(fp) { for (const inst of Object.values(made)) inst?.pin?.(fp); },
     progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); },
     /** The earlier reading, faint beside the live one ({ label, value }), or null. Eases in and out. */
     ghost(g) {

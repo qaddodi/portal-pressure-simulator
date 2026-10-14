@@ -34,7 +34,7 @@ export const OUTFLOW = {
       ask: ['Why does the caudate lobe enlarge in Budd–Chiari syndrome?', 'Its veins drain straight into the IVC, below the obstruction, so it keeps its outflow and grows.'],
     },
     {
-      id: 'nowedge', terms: ['hv'], cam: 'hepatic', tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'ladder', key: ['ppg'], tiles: ['hvpg', 'ppg'], brackets: { hvpg: 'misleads', ppg: 'works' },
+      id: 'nowedge', terms: ['hv'], cam: 'hepatic', tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'ladder', key: ['ppg'], brackets: { hvpg: 'misleads', ppg: 'works' },
       kicker: 'Hepatic veins', site: 'post', title: 'No hepatic vein to wedge',
       line: 'Doppler shows absent or reversed hepatic vein flow, intrahepatic collaterals and a large caudate lobe. At venography the veins cannot be entered, or they show a spider-web pattern, so the HVPG cannot be measured. Portal pressure is {pv}.',
       notes: 'Doppler ultrasound is the first test: absent or reversed flow in the hepatic veins, intrahepatic collaterals and a large caudate lobe. CT or MR shows the extent and the state of the IVC. At venography the hepatic veins either cannot be entered or show a spider-web pattern of collaterals, so the HVPG cannot be measured in the usual way.',
@@ -64,7 +64,7 @@ export const OUTFLOW = {
       ask: ['Two weeks after a stem cell transplant a patient has gained 5 kg and has a tender liver. What is the likely diagnosis?', 'Sinusoidal obstruction syndrome: weight gain, a tender liver and the timing after conditioning fit it.'],
     },
     {
-      id: 'soswedge', cath: 'result', data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['hvpg', 'ppg'], brackets: { hvpg: 'works' },
+      id: 'soswedge', cath: 'result', data: 'ladder', key: ['whvp', 'hvpg'], brackets: { hvpg: 'works' },
       kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'In sinusoidal obstruction the HVPG can be measured',
       line: 'The hepatic veins are open, and the obstruction sits upstream of the free reading, so the wedged pressure rises: the HVPG is {hvpg}. After a transplant, a gradient above 10 mmHg strongly supports the diagnosis.',
       notes: 'In sinusoidal obstruction a transjugular catheter can enter the hepatic veins and wedge, and the obstruction lies between the wedged and the free readings, so the HVPG rises. After a stem cell transplant an HVPG above 10 mmHg strongly supports the diagnosis. A transjugular liver biopsy can be taken at the same time, without crossing the liver capsule, which matters with low platelets and ascites.',
