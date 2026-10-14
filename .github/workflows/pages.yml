@@ -278,6 +278,9 @@ jobs:
           LABEL="${SHA:0:7}"
           if [ "$BRANCH" = "main" ]; then LABEL="main $LABEL"; fi
           node preview/scripts/preview-badge.mjs site/preview "$LABEL"
+          # One small page per case under c/, so shared links preview with the case title (scripts/share-pages.mjs).
+          if [ -f live/scripts/share-pages.mjs ]; then node live/scripts/share-pages.mjs site; fi
+          if [ -f preview/scripts/share-pages.mjs ]; then node preview/scripts/share-pages.mjs site/preview; fi
           touch site/.nojekyll
 
       - uses: actions/configure-pages@v5
