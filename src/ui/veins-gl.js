@@ -913,7 +913,7 @@ void main() {
     vec2 fu = (w - fluidRect.xy) / fluidRect.zw;
     if (all(greaterThanEqual(fu, vec2(0.0))) && all(lessThanEqual(fu, vec2(1.0)))) {
       float c = (w.x - 712.0) / 400.0;
-      float s = fluidS.x - fluidS.y * (0.75 + 0.25 * c * c) + (sin(w.x / 38.0 + fluidS.w) * 0.7 + sin(w.x / 23.0 - fluidS.w * 1.3) * 0.3) * fluidS.z;
+      float s = fluidS.x - fluidS.y * (0.95 + 0.05 * c * c) + (sin(w.x / 38.0 + fluidS.w) * 0.7 + sin(w.x / 23.0 - fluidS.w * 1.3) * 0.3) * fluidS.z;
       float d = w.y - s;
       float e = smoothstep(-pxW, pxW, d) * texture(fluidMask, fu).a;
       if (e > 0.0) {
