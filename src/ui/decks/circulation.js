@@ -44,7 +44,7 @@ export const CIRCULATION = {
       id: 'triad', terms: { 'portal venule': 'lobule:triad', 'hepatic arteriole': 'lobule:arteriole', 'bile ductule': 'lobule:ductule' }, cam: 'lobule:triad',
       kicker: 'Inside the liver', title: 'Portal and arterial blood enter the lobule together',
       line: 'Each portal tract holds a portal venule, a hepatic arteriole and a bile ductule. Bile leaves through the ductule, against the direction of blood flow.',
-      notes: 'The portal tract (portal triad) holds a branch of the portal vein, a branch of the hepatic artery and a bile ductule, with lymphatics, in connective tissue. Lymph made in the liver drains back toward the portal tracts. Presinusoidal diseases (schistosomiasis, porto-sinusoidal vascular disorder) obstruct the portal venules here, upstream of the sinusoids.',
+      notes: 'The portal tract (portal triad) holds a branch of the portal vein, a branch of the hepatic artery and a bile ductule, with lymphatics, in connective tissue. Lymph made in the liver drains back toward the portal tracts. Presinusoidal diseases (schistosomiasis, porto-sinusoidal vascular disorder) raise resistance in the portal venules here, upstream of the sinusoids.',
       ask: ['Name the three structures of the portal tract.', 'A portal venule, a hepatic arteriole and a bile ductule.'],
     },
     {

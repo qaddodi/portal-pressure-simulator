@@ -3,9 +3,9 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=16a6ccb071';
+import { store, updateParams } from './store.js?v=14d67870c8';
 import { h, icon, svgIcon, clamp, infoButton } from './util.js?v=abb277f29f';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=4f9a48b999';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=7061f3f980';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');

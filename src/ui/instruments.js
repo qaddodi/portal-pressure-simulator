@@ -3,13 +3,13 @@
 
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { pressureColor } from './colormap.js?v=01ee46a874';
-import { verbEnabled } from './actions.js?v=4f9a48b999';
+import { verbEnabled } from './actions.js?v=7061f3f980';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=abb277f29f';
-import { simTime, isPaused } from './clock.js?v=ad6f435e7a';
+import { simTime, isPaused } from './clock.js?v=50927fe3bc';
 import { createEndoGL } from './endo-gl.js?v=79991ea476';
 import { renderEndo } from './endo-render.js?v=bbe56cef4d';
-import { FONT } from './charts.js?v=08d2eeeb36';
-import { store, updateParams, varicesPresent } from './store.js?v=16a6ccb071';
+import { FONT } from './charts.js?v=e11342cb0a';
+import { store, updateParams, varicesPresent } from './store.js?v=14d67870c8';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('instruments');
 

@@ -4,7 +4,7 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 
 export const DOPPLER = {
   id: 'doppler', level: 'core', title: 'Doppler of the portal system', minutes: 12,
-  sections: [['The probe', ['Doppler']], ['Cirrhosis', ['Cirrhosis']], ['Obstructed veins', ['Portal vein thrombosis', 'Budd–Chiari syndrome']], ['Heart failure and TIPS', ['Heart failure', 'After TIPS']]],
+  sections: [['The probe', ['Doppler']], ['Cirrhosis', ['Cirrhosis']], ['Venous resistance', ['Portal vein thrombosis', 'Budd–Chiari syndrome']], ['Heart failure and TIPS', ['Heart failure', 'After TIPS']]],
   objectives: [
     'Read normal portal and hepatic vein Doppler: direction, velocity and waveform',
     'Recognize slow and reversed portal flow in cirrhosis',
@@ -68,7 +68,7 @@ export const DOPPLER = {
       kicker: 'Portal vein thrombosis', site: 'pvt', title: 'An occlusive clot gives no signal',
       vignette: 'A 44-year-old woman has had 4 days of constant periumbilical pain, two weeks after a laparoscopic sleeve gastrectomy. Her liver tests and platelets are normal.',
       line: 'The clot fills the lumen. Check the superior mesenteric vein next to see how far it extends.',
-      notes: 'Doppler ultrasound is the first test for portal vein thrombosis: echogenic material in the lumen with no color or spectral signal. In cirrhosis many clots are partial, and show as a filling defect with flow around it. An acute clot may be nearly anechoic, so the missing flow signal matters more than the gray-scale picture. CT or MR then shows how far the clot extends into the splenic and mesenteric veins. The HVPG stays normal because the obstruction lies before the liver.',
+      notes: 'Doppler ultrasound is the first test for portal vein thrombosis: echogenic material in the lumen with no color or spectral signal. In cirrhosis many clots are partial, and show as a filling defect with flow around it. An acute clot may be nearly anechoic, so the missing flow signal matters more than the gray-scale picture. CT or MR then shows how far the clot extends into the splenic and mesenteric veins. The HVPG stays normal because the resistance lies before the liver.',
       ask: ['What is the first test for portal vein thrombosis?', 'Doppler ultrasound: no flow in an occlusive clot, or a filling defect with flow around a partial one.'],
     },
     {
@@ -81,12 +81,12 @@ export const DOPPLER = {
       ask: ['What is a portal cavernoma?', 'A network of collateral veins that bypasses a chronically occluded portal vein.'],
     },
     {
-      id: 'bc', terms: ['hv'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Obstructed hepatic veins' },
+      id: 'bc', terms: ['hv'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Resistance in hepatic veins' },
       tool: { kind: 'doppler', vessel: 'RHV_IVC' },
       kicker: 'Budd–Chiari syndrome', site: 'post', title: 'Budd–Chiari: no flow in the hepatic veins',
       vignette: 'A 35-year-old woman with paroxysmal nocturnal hemoglobinuria has had RUQ pain for 2 months and now has tense ascites. Her liver is large and tender.',
       line: 'Hepatic vein flow is absent, reversed or flat. Look for spider-web collaterals and a large caudate lobe. The portal vein still carries blood into the liver, but more slowly, and it may reverse.',
-      notes: 'Doppler is also the first test for Budd–Chiari syndrome: absent, reversed or flat flow in the hepatic veins, intrahepatic collaterals (spider-web veins) and a large caudate lobe. The portal vein slows and may reverse. It is the mirror image of portal vein thrombosis: there the inflow is obstructed and the hepatic veins are normal.',
+      notes: 'Doppler is also the first test for Budd–Chiari syndrome: absent, reversed or flat flow in the hepatic veins, intrahepatic collaterals (spider-web veins) and a large caudate lobe. The portal vein slows and may reverse. It is the mirror image of portal vein thrombosis: there the inflow meets resistance and the hepatic veins are normal.',
       ask: ['How does Doppler tell Budd–Chiari syndrome from portal vein thrombosis?', 'In Budd–Chiari the hepatic veins have no flow; in portal vein thrombosis the portal vein has none.'],
     },
     {

@@ -80,8 +80,8 @@ export const VARICES = {
       kicker: 'Heart failure', site: 'cardiac', title: 'Why varices are rare in heart failure',
       vignette: 'A 73-year-old man with severe TR has ascites, leg edema and a raised JVP. Screening EGD shows no varices.',
       line: 'Collaterals need a gradient from the portal to the systemic veins. In heart failure both are high, so the PPG is {ppg} and varices are rare.',
-      notes: 'Portosystemic collaterals open only where portal pressure exceeds systemic venous pressure. In right heart failure and constrictive pericarditis the systemic veins are as high as the portal vein, so the gradient that drives collateral flow is missing. In Budd–Chiari syndrome the obstruction lies between the liver and the heart: the portal pressure is high, while the veins the collaterals drain into (the azygos, the right atrium) stay normal, so a gradient opens and varices form.',
-      ask: ['Why do varices form in Budd–Chiari syndrome but rarely in heart failure?', 'In Budd–Chiari the obstruction lies between the liver and the heart, so the veins the collaterals drain into (the azygos, the right atrium) stay normal and a gradient opens; in heart failure those veins are high too.'],
+      notes: 'Portosystemic collaterals open only where portal pressure exceeds systemic venous pressure. In right heart failure and constrictive pericarditis the systemic veins are as high as the portal vein, so the gradient that drives collateral flow is missing. In Budd–Chiari syndrome the resistance lies between the liver and the heart: the portal pressure is high, while the veins the collaterals drain into (the azygos, the right atrium) stay normal, so a gradient opens and varices form.',
+      ask: ['Why do varices form in Budd–Chiari syndrome but rarely in heart failure?', 'In Budd–Chiari the resistance lies between the liver and the heart, so the veins the collaterals drain into (the azygos, the right atrium) stay normal and a gradient opens; in heart failure those veins are high too.'],
     },
   ],
 };

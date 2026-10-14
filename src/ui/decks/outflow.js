@@ -1,4 +1,4 @@
-// Presenter talk: obstructed outflow from the liver, in the hepatic veins (Budd–Chiari syndrome) and in the central
+// Presenter talk: resistance to outflow from the liver, in the hepatic veins (Budd–Chiari syndrome) and in the central
 // veins (sinusoidal obstruction syndrome), what the catheter can read in each, and how the outflow is reopened
 // (the slide fields are described at the top of decks.js).
 
@@ -12,7 +12,7 @@ export const OUTFLOW = {
   ],
   checks: [
     ['Why does the caudate lobe enlarge in Budd–Chiari syndrome?', 'Its short veins drain straight into the IVC below the clots, so it keeps its outflow while the rest of the liver congests.'],
-    ['Why can the HVPG be measured in sinusoidal obstruction syndrome?', 'The hepatic veins are open, and the obstruction sits upstream of the free reading, so the wedged pressure rises.'],
+    ['Why can the HVPG be measured in sinusoidal obstruction syndrome?', 'The hepatic veins are open, and the resistance sits upstream of the free reading, so the wedged pressure rises.'],
     ['What drains the liver when no hepatic vein can be opened?', 'A DIPS: a shunt from the portal vein through the caudate lobe into the IVC.'],
   ],
   summary: 'Budd–Chiari syndrome and sinusoidal obstruction syndrome: a liver that cannot drain, what the catheter can and cannot read, and the stepwise reopening of the outflow.',
@@ -21,17 +21,17 @@ export const OUTFLOW = {
       id: 'bcs', terms: ['ivc', 'ra'], preset: 'budd-chiari', cam: 'hepatic', mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clots' }, tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'],
       kicker: 'Hepatic veins', site: 'post', title: 'In Budd–Chiari syndrome the hepatic veins clot',
       vignette: 'A 31-year-old woman with antiphospholipid syndrome stopped warfarin 3 months ago. She has had RUQ pain for 2 months and now has tense ascites.',
-      line: 'An obstruction anywhere from the small [hepatic veins](hv) to where the IVC enters the right atrium traps blood in the liver. The liver swells, portal pressure rises to {pv} and ascites forms.',
+      line: 'Resistance anywhere from the small [hepatic veins](hv) to where the IVC enters the right atrium traps blood in the liver. The liver swells, portal pressure rises to {pv} and ascites forms.',
       causesHead: 'Look for', causes: ['Myeloproliferative neoplasm', 'Thrombophilia', 'Pregnancy or OCP use'],
-      notes: 'Budd–Chiari syndrome is an obstruction to hepatic venous outflow anywhere from the small hepatic veins to the entry of the IVC into the right atrium, without heart disease. It presents with abdominal pain, a large tender liver and ascites, suddenly or over months. Most patients have at least one prothrombotic condition, often more than one: a myeloproliferative neoplasm (the commonest), antiphospholipid syndrome, inherited thrombophilia, paroxysmal nocturnal hemoglobinuria, pregnancy or oral contraceptive (OCP) use; and JAK2 is tested even when the blood count is normal.',
+      notes: 'Budd–Chiari syndrome is raised resistance to hepatic venous outflow anywhere from the small hepatic veins to the entry of the IVC into the right atrium, without heart disease. It presents with abdominal pain, a large tender liver and ascites, suddenly or over months. Most patients have at least one prothrombotic condition, often more than one: a myeloproliferative neoplasm (the commonest), antiphospholipid syndrome, inherited thrombophilia, paroxysmal nocturnal hemoglobinuria, pregnancy or oral contraceptive (OCP) use; and JAK2 is tested even when the blood count is normal.',
       ask: ['A young woman has a tender liver and sudden ascites. Her blood count is normal. Which test still looks for the commonest cause?', 'JAK2 V617F, then CALR if it is negative: a myeloproliferative neoplasm is the commonest cause even with a normal count.'],
     },
     {
       id: 'caudate', cam: 'liver', terms: ['ivc', 'caudate'], mark: { edges: ['CAUD'], label: 'Caudate veins', kind: 'note' },
       kicker: 'Hepatic veins', site: 'post', title: 'The caudate lobe still drains',
       line: 'Short caudate veins run straight into the IVC, below the clots, so the caudate lobe keeps its outflow and enlarges while the rest of the liver congests.',
-      notes: 'The caudate lobe drains through several short veins directly into the IVC, so it escapes an obstruction of the three main hepatic veins. Over weeks it enlarges while the rest of the liver shrinks. On imaging, caudate hypertrophy with patchy enhancement and no visible hepatic veins is characteristic; a large caudate can in turn compress the IVC.',
-      ask: ['Why does the caudate lobe enlarge in Budd–Chiari syndrome?', 'Its veins drain straight into the IVC, below the obstruction, so it keeps its outflow and grows.'],
+      notes: 'The caudate lobe drains through several short veins directly into the IVC, so it escapes the clot in the three main hepatic veins. Over weeks it enlarges while the rest of the liver shrinks. On imaging, caudate hypertrophy with patchy enhancement and no visible hepatic veins is characteristic; a large caudate can in turn compress the IVC.',
+      ask: ['Why does the caudate lobe enlarge in Budd–Chiari syndrome?', 'Its veins drain straight into the IVC, below the resistance, so it keeps its outflow and grows.'],
     },
     {
       id: 'nowedge', terms: ['hv'], cam: 'hepatic', tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'ladder', key: ['ppg'], brackets: { hvpg: 'misleads', ppg: 'works' },
@@ -50,15 +50,15 @@ export const OUTFLOW = {
     {
       id: 'dips', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc', 'caudateLobe'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' }, data: 'tiles', tiles: ['pv', 'asc', 'liver'], key: ['pv'], delta: 'bcs',
       kicker: 'Opening the outflow', site: 'post', title: 'When no vein opens, a DIPS drains the liver into the IVC',
-      line: 'A direct intrahepatic portosystemic shunt (DIPS) runs from the portal vein through the caudate lobe straight into the IVC, bypassing the obstructed veins. Two months later the portal pressure is {pv} and the ascites has nearly gone.',
-      notes: 'A standard TIPS runs from a hepatic vein to the portal vein, so when all three hepatic veins are obstructed the stent is placed from the IVC through the liver to the portal vein instead (a direct intrahepatic portosystemic shunt). The portal vein becomes the liver\'s outflow, and the congestion and ascites resolve. Like any shunt it diverts portal blood from the liver, so encephalopathy is watched for.',
-      ask: ['Why can a standard TIPS not be placed when all three hepatic veins are obstructed?', 'It needs a hepatic vein to start from; the stent goes from the IVC instead.'],
+      line: 'A direct intrahepatic portosystemic shunt (DIPS) runs from the portal vein through the caudate lobe straight into the IVC, bypassing the clotted veins. Two months later the portal pressure is {pv} and the ascites has nearly gone.',
+      notes: 'A standard TIPS runs from a hepatic vein to the portal vein, so when all three hepatic veins are clotted the stent is placed from the IVC through the liver to the portal vein instead (a direct intrahepatic portosystemic shunt). The portal vein becomes the liver\'s outflow, and the congestion and ascites resolve. Like any shunt it diverts portal blood from the liver, so encephalopathy is watched for.',
+      ask: ['Why can a standard TIPS not be placed when all three hepatic veins are clotted?', 'It needs a hepatic vein to start from; the stent goes from the IVC instead.'],
     },
     {
       id: 'sos', preset: 'sos', params: { fibrosis: { R: { post: 32 }, L: { post: 32 } } }, cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance: central veins' }, terms: { 'central veins': 'lobule:central' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'],
       kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'Chemotherapy injures the sinusoid lining',
       vignette: 'A 52-year-old man with AML, three weeks after busulfan and cyclophosphamide conditioning for HSCT, has RUQ pain, a 6% weight gain and new ascites. His bilirubin is 2.6 mg/dL.',
-      line: 'Debris from the injured lining obstructs the central veins, and within weeks the liver swells and ascites collects.',
+      line: 'Debris from the injured lining raises resistance in the central veins, and within weeks the liver swells and ascites collects.',
       causesHead: 'Causes', causes: ['Stem cell transplant conditioning', 'Oxaliplatin', 'Thiopurines', 'Pyrrolizidine alkaloids'],
       notes: 'Sinusoidal obstruction syndrome (veno-occlusive disease) starts in the sinusoidal endothelium, injured by conditioning with busulfan, cyclophosphamide or total body irradiation, by oxaliplatin, by thiopurines or by pyrrolizidine alkaloids in herbal teas. It presents with jaundice, painful hepatomegaly, ascites and weight gain, usually within three weeks of a transplant, although late forms occur.',
       ask: ['Two weeks after a stem cell transplant a patient has gained 5 kg and has a tender liver. What is the likely diagnosis?', 'Sinusoidal obstruction syndrome: weight gain, a tender liver and the timing after conditioning fit it.'],
@@ -66,9 +66,9 @@ export const OUTFLOW = {
     {
       id: 'soswedge', cath: 'result', data: 'ladder', key: ['whvp', 'hvpg'], brackets: { hvpg: 'works' },
       kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'In sinusoidal obstruction the HVPG can be measured',
-      line: 'The hepatic veins are open, and the obstruction sits upstream of the free reading, so the wedged pressure rises: the HVPG is {hvpg}. After a transplant, a gradient above 10 mmHg strongly supports the diagnosis.',
-      notes: 'In sinusoidal obstruction a transjugular catheter can enter the hepatic veins and wedge, and the obstruction lies between the wedged and the free readings, so the HVPG rises. After a stem cell transplant an HVPG above 10 mmHg strongly supports the diagnosis. A transjugular liver biopsy can be taken at the same time, without crossing the liver capsule, which matters with low platelets and ascites.',
-      ask: ['Why can the wedge be read here but not when the hepatic veins are clotted?', 'Here the veins are open, so the catheter can wedge, and the obstruction lies between the wedge and the free reading.'],
+      line: 'The hepatic veins are open, and the resistance sits upstream of the free reading, so the wedged pressure rises: the HVPG is {hvpg}. After a transplant, a gradient above 10 mmHg strongly supports the diagnosis.',
+      notes: 'In sinusoidal obstruction a transjugular catheter can enter the hepatic veins and wedge, and the resistance lies between the wedged and the free readings, so the HVPG rises. After a stem cell transplant an HVPG above 10 mmHg strongly supports the diagnosis. A transjugular liver biopsy can be taken at the same time, without crossing the liver capsule, which matters with low platelets and ascites.',
+      ask: ['Why can the wedge be read here but not when the hepatic veins are clotted?', 'Here the veins are open, so the catheter can wedge, and the resistance lies between the wedge and the free reading.'],
     },
     {
       id: 'recover', params: { fibrosis: { R: { post: 1 }, L: { post: 1 } } }, days: 30, lapse: { seconds: 6 }, cam: 'lobule:central', terms: { 'central veins': 'lobule:central' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'], delta: 'sos',
@@ -83,7 +83,7 @@ export const OUTFLOW = {
         { id: 'dips', kicker: 'Hepatic veins', title: 'DIPS' }, { id: 'sos', kicker: 'Central veins', title: 'Sinusoidal obstruction' }, { id: 'recover', kicker: 'Central veins', title: 'Recovered' }],
       kicker: 'Summary', title: 'Budd–Chiari versus sinusoidal obstruction syndrome',
       line: 'In Budd–Chiari the catheter cannot wedge a clotted vein. In sinusoidal obstruction the hepatic veins are open and the HVPG rises. Both improve once outflow is restored.',
-      notes: 'With clotted hepatic veins the wedged and free readings are taken behind the same obstruction, so the HVPG is meaningless; the PPG and imaging make the diagnosis. With obstructed central veins the hepatic veins are open, the obstruction sits between the two readings, and the HVPG is raised. Reopening one hepatic vein, or a shunt to the IVC, drains the liver.',
+      notes: 'With clotted hepatic veins the wedged and free readings are taken behind the same resistance, so the HVPG is meaningless; the PPG and imaging make the diagnosis. With resistance in the central veins the hepatic veins are open, the resistance sits between the two readings, and the HVPG is raised. Reopening one hepatic vein, or a shunt to the IVC, drains the liver.',
       ask: ['Where does the resistance lie in sinusoidal obstruction syndrome, relative to the wedge?', 'Between the wedged and the free readings, in the central veins, so the HVPG rises.'],
     },
   ],

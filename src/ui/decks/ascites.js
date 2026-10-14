@@ -5,8 +5,8 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => 
 export const ASCITES = {
   id: 'ascites', level: 'advanced', title: 'How ascites forms, and what the tap shows', minutes: 15,
   summary: 'How ascites forms in the sinusoids and why presinusoidal disease rarely causes it. Ends with SAAG and protein.',
-  sections: [['Where ascites forms', ['Ascites']], ['Tapping the fluid', ['Tapping the fluid']], ['Resistance before the sinusoids', ['Pre-hepatic obstruction', 'Presinusoidal obstruction']], ['Protein-rich ascites', ['Protein-rich ascites']]],
-  objectives: ['Explain how sinusoidal pressure and lymph make ascites', 'Interpret the SAAG and ascitic protein', 'Explain why pre-hepatic and presinusoidal obstructions rarely cause ascites', 'Tell cirrhosis from heart failure and Budd–Chiari by the tap'],
+  sections: [['Where ascites forms', ['Ascites']], ['Tapping the fluid', ['Tapping the fluid']], ['Resistance before the sinusoids', ['Pre-hepatic resistance', 'Presinusoidal resistance']], ['Protein-rich ascites', ['Protein-rich ascites']]],
+  objectives: ['Explain how sinusoidal pressure and lymph make ascites', 'Interpret the SAAG and ascitic protein', 'Explain why pre-hepatic and presinusoidal resistance rarely causes ascites', 'Tell cirrhosis from heart failure and Budd–Chiari by the tap'],
   checks: [
     ['What SAAG points to portal hypertension?', '1.1 g/dL or more.'],
     ['A high SAAG with ascitic protein of 2.5 g/dL or more. Where is the problem?', 'Behind the liver: heart failure or Budd–Chiari syndrome. The sinusoid wall is still open and lets protein through.'],
@@ -53,7 +53,7 @@ export const ASCITES = {
     },
     {
       id: 'pvt', terms: ['sin'], preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, data: 'tiles', tiles: ['pv', 'sin', 'asc'], key: ['sin'],
-      kicker: 'Pre-hepatic obstruction', site: 'pre', title: 'Portal vein thrombosis',
+      kicker: 'Pre-hepatic resistance', site: 'pre', title: 'Portal vein thrombosis',
       vignette: 'A 34-year-old woman with protein C deficiency has had an enlarged spleen for several months, and EGD shows small esophageal varices. Her liver tests are normal, and ultrasound shows no ascites.',
       line: 'Portal pressure is {pv}, but the sinusoids beyond the clot are at {sin}, so little or no ascites forms.',
       notes: 'Pre-hepatic portal hypertension raises the pressure in the gut and spleen, so varices and a large spleen are common, but the sinusoids lie downstream of the clot at normal pressure. The gut\'s capillaries hold their fluid (see "Gut capillary wall versus sinusoid wall"), and their extra lymph drains away. Ascites is uncommon: it appears briefly in acute thrombosis, after a variceal bleed with fluid loading, or when the serum albumin falls.',
@@ -61,11 +61,11 @@ export const ASCITES = {
     },
     {
       id: 'presin', terms: ['lobule:triad'], preset: 'schisto', cam: 'lobule:triad', data: 'tiles', tiles: ['pv', 'sin', 'asc'], key: ['sin'],
-      kicker: 'Presinusoidal obstruction', site: 'presin', title: 'Schistosomiasis',
+      kicker: 'Presinusoidal resistance', site: 'presin', title: 'Schistosomiasis',
       vignette: 'A 30-year-old man who grew up in Yemen has a large spleen, low platelets and large esophageal varices. His liver tests are normal, and there is no ascites.',
-      line: 'An obstruction in the portal tracts leaves sinusoidal pressure near normal, so ascites is uncommon despite high portal pressure.',
+      line: 'Resistance in the portal tracts leaves sinusoidal pressure near normal, so ascites is uncommon despite high portal pressure.',
       notes: 'In presinusoidal disease the scar sits around the portal venules and the sinusoids are spared: their pressure is near normal, liver function is preserved and ascites is rare, while varices bleed. When ascites does appear in schistosomiasis or porto-sinusoidal vascular disorder, it usually follows a bleed, an infection or a falling albumin, or marks advanced or mixed disease.',
-      ask: ['Bleeding varices, no ascites and normal liver tests. Where does the resistance lie, and what will the HVPG show?', 'Presinusoidal, in the portal tracts, as in schistosomiasis. The HVPG is near normal: the wedge reads the sinusoids, beyond the obstruction.'],
+      ask: ['Bleeding varices, no ascites and normal liver tests. Where does the resistance lie, and what will the HVPG show?', 'Presinusoidal, in the portal tracts, as in schistosomiasis. The HVPG is near normal: the wedge reads the sinusoids, beyond the resistance.'],
     },
     {
       id: 'hf', terms: { lymph: 'sinusoid:lymph', sinusoid: 'sinusoid:lumen' }, preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['tp', 'saag', 'sin'], key: ['tp'],
@@ -76,10 +76,10 @@ export const ASCITES = {
       ask: ['Ascites with a SAAG of 1.5 and protein of 3.8 g/dL. What do you examine next?', 'The heart: the jugular venous pressure, an echocardiogram, BNP.'],
     },
     {
-      id: 'bc', terms: ['hv', 'sin'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Obstructed hepatic veins' }, data: 'tiles', tiles: ['tp', 'saag', 'sin'], key: ['tp'],
+      id: 'bc', terms: ['hv', 'sin'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Resistance in hepatic veins' }, data: 'tiles', tiles: ['tp', 'saag', 'sin'], key: ['tp'],
       kicker: 'Protein-rich ascites', site: 'post', title: 'High protein in Budd–Chiari syndrome',
       vignette: 'A 26-year-old woman, 3 months postpartum, has had RUQ pain for 2 months and now has tense ascites. Her liver is large and tender.',
-      line: 'Obstructed hepatic veins congest a liver that is not yet scarred. Its sinusoids are still open, so the SAAG is high and protein is 2.5 g/dL or more.',
+      line: 'Resistance in the hepatic veins congests a liver that is not yet scarred. Its sinusoids are still open, so the SAAG is high and protein is 2.5 g/dL or more.',
       notes: 'Hepatic venous outflow obstruction gives the same high-SAAG, high-protein ascites as heart failure, but with a normal jugular venous pressure. Over months the congested liver can scar and capillarize, and the protein falls toward the cirrhotic range. Ascites with abdominal pain and a large liver, in a patient with a myeloproliferative neoplasm or in pregnancy, calls for a Doppler of the hepatic veins.',
       ask: ['High-SAAG, high-protein ascites and a normal jugular venous pressure. Where do you look?', 'At the hepatic veins and the IVC, for Budd–Chiari syndrome (Doppler ultrasound).'],
     },

@@ -1,5 +1,5 @@
 // Presenter talk: presinusoidal portal hypertension (schistosomiasis and porto-sinusoidal vascular disorder),
-// an obstruction in the portal tracts that the wedge and the stiffness both miss (the slide fields are described at the top
+// resistance in the portal tracts that the wedge and the stiffness both miss (the slide fields are described at the top
 // of decks.js).
 
 const BAND = { kind: 'band' };
@@ -8,16 +8,16 @@ export const NCPH = {
   id: 'ncph', level: 'core', title: 'Presinusoidal portal hypertension', minutes: 9,
   objectives: [
     'Recognize portal hypertension with a working liver: varices, a big spleen, normal stiffness',
-    'Explain why the HVPG is near normal in a presinusoidal obstruction',
+    'Explain why the HVPG is near normal in presinusoidal resistance',
     'Name the two main causes: schistosomiasis and porto-sinusoidal vascular disorder',
     'Treat the varices as in cirrhosis',
   ],
   checks: [
     ['Name the two main causes of presinusoidal portal hypertension.', 'Schistosomiasis and porto-sinusoidal vascular disorder.'],
-    ['Why is the HVPG near normal?', 'The obstruction lies before the sinusoids, so the wedge reads normal sinusoidal pressure. Only a PPG shows the gradient.'],
-    ['Varices with a soft liver. What does that suggest?', 'An obstruction before the sinusoids. Stiffness reflects scar and congestion, not portal pressure.'],
+    ['Why is the HVPG near normal?', 'The resistance lies before the sinusoids, so the wedge reads normal sinusoidal pressure. Only a PPG shows the gradient.'],
+    ['Varices with a soft liver. What does that suggest?', 'Resistance before the sinusoids. Stiffness reflects scar and congestion, not portal pressure.'],
   ],
-  summary: 'Schistosomiasis and porto-sinusoidal vascular disorder: varices and a big spleen with a normal liver stiffness and a normal HVPG, because the obstruction sits in the portal tracts.',
+  summary: 'Schistosomiasis and porto-sinusoidal vascular disorder: varices and a big spleen with a normal liver stiffness and a normal HVPG, because the resistance sits in the portal tracts.',
   slides: [
     {
       id: 'patient', preset: 'schisto', cam: 'fit', terms: ['varix', 'spleen'], data: 'tiles', tiles: ['varix', 'spleen', 'plt'], key: ['varix'],
@@ -25,20 +25,20 @@ export const NCPH = {
       vignette: 'A 27-year-old woman who grew up near Lake Victoria in Uganda is admitted with hematemesis. She has never had jaundice, and she does not drink alcohol.',
       line: 'A young adult with varices of {varix}, a spleen of {spleen} and platelets of {plt}, but no jaundice, no ascites and normal liver tests.',
       notes: 'This is the usual picture of non-cirrhotic portal hypertension: a first variceal bleed, or a large spleen found by chance, in a patient whose liver works normally. The bleed is usually well tolerated because the liver has reserve. Worldwide, schistosomiasis is a leading cause; where it is absent, porto-sinusoidal vascular disorder is the commonest intrahepatic cause.',
-      ask: ['A patient bleeds from varices but has normal liver tests and no ascites. What should you think of?', 'Non-cirrhotic portal hypertension: a pre-hepatic or presinusoidal obstruction.'],
+      ask: ['A patient bleeds from varices but has normal liver tests and no ascites. What should you think of?', 'Non-cirrhotic portal hypertension: pre-hepatic or presinusoidal resistance.'],
     },
     {
       id: 'tract', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance: portal tracts' }, terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['pv', 'sin'], key: ['pv'],
-      kicker: 'Where the resistance sits', site: 'presin', title: 'The obstruction is in the portal tracts',
+      kicker: 'Where the resistance sits', site: 'presin', title: 'The resistance is in the portal tracts',
       line: 'Schistosome eggs lodge in the small portal venules; granulomas and scar narrow them, while the sinusoids beyond stay at {sin}.',
       notes: 'Schistosoma mansoni and japonicum live in the mesenteric veins, and their eggs are carried to the liver and trapped in the portal venules. Granulomas form around them and heal as periportal (pipestem) fibrosis. The sinusoids and the liver cells are spared, which is why liver function lasts and ascites is rare.',
-      ask: ['Why does liver function last for years in schistosomiasis?', 'The obstruction is in the portal venules; the sinusoids and liver cells are spared.'],
+      ask: ['Why does liver function last for years in schistosomiasis?', 'The resistance is in the portal venules; the sinusoids and liver cells are spared.'],
     },
     {
       id: 'wedge', cath: 'result', data: 'ladder', key: ['pv', 'whvp', 'hvpg'], brackets: { hvpg: 'misleads', ppg: 'works' },
       kicker: 'Where the resistance sits', site: 'presin', title: 'The wedge reads normal sinusoids',
-      line: 'The obstruction lies before the sinusoids, so the HVPG is {hvpg}. Only a direct portal reading shows the gradient, a PPG of {ppg}.',
-      notes: 'In a presinusoidal obstruction the HVPG is normal or only mildly raised and underestimates the portal pressure, often by a wide margin. A normal HVPG in a patient with varices or a large spleen points to a presinusoidal or pre-hepatic cause. The portal pressure itself can be measured directly, through the liver at TIPS or with an endoscopic ultrasound needle.',
+      line: 'The resistance lies before the sinusoids, so the HVPG is {hvpg}. Only a direct portal reading shows the gradient, a PPG of {ppg}.',
+      notes: 'In presinusoidal resistance the HVPG is normal or only mildly raised and underestimates the portal pressure, often by a wide margin. A normal HVPG in a patient with varices or a large spleen points to a presinusoidal or pre-hepatic cause. The portal pressure itself can be measured directly, through the liver at TIPS or with an endoscopic ultrasound needle.',
       ask: ['Varices and a 17 cm spleen; Doppler shows an open portal vein. At the transjugular study the HVPG is 3 mmHg. What do you do before the catheter comes out?', 'Take a transjugular liver biopsy: clear portal hypertension with a normal HVPG points to a presinusoidal cause such as porto-sinusoidal vascular disorder.'],
     },
     {
@@ -75,7 +75,7 @@ export const NCPH = {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'lsm', 'spleen'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'patient', kicker: 'Presinusoidal', title: 'Schistosomiasis' },
         { preset: 'csph', kicker: 'Sinusoidal', title: 'Cirrhosis with CSPH' }, { id: 'band', kicker: 'Presinusoidal', title: 'After treatment' }],
-      kicker: 'Summary', title: 'Presinusoidal obstruction versus cirrhosis',
+      kicker: 'Summary', title: 'Presinusoidal resistance versus cirrhosis',
       line: 'Both have a high PPG and a big spleen. Only cirrhosis raises the HVPG and liver stiffness.',
       notes: 'Suspect a non-cirrhotic cause when signs of portal hypertension come with normal liver tests, a normal or near-normal stiffness and a low HVPG. Image the portal vein, ask about travel and drugs, and take a biopsy. The varices are treated exactly as in cirrhosis.',
       ask: ['Which two tests are falsely reassuring in presinusoidal portal hypertension?', 'The HVPG and the liver stiffness.'],

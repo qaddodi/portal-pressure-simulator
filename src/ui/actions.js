@@ -4,7 +4,7 @@
 // in the timeline as one entry.
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=79f09b0d8a';
-import { store, updateParams, hiddenNow } from './store.js?v=16a6ccb071';
+import { store, updateParams, hiddenNow } from './store.js?v=14d67870c8';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=abb277f29f';
 import { aboutVessel, aboutOrgan } from './about.js?v=eb824591bc';
 import { lobuleState } from './lobule-model.js?v=d378c02386';
@@ -277,7 +277,7 @@ function lobuleCard(sel, ctx) {
       verbs: [about((m) => ['A branch of the portal venule running along the lobule’s border, feeding the sinusoids it passes.', m.portal < 0 ? 'Flow here runs backwards (orange): arterial blood that entered the sinusoids drains out through the portal venules.' : ''].filter(Boolean)),
         fibrosisVerb('pre'), stat('Portal inflow', (m) => (m.portal < 0 ? 'reversed' : pc(m.portal)))] };
     case 'sin': case 'an': return { ...base, title: sel.part === 'an' ? 'Sinusoidal anastomosis' : 'Sinusoid', value: pv((m) => m.P2),
-      verbs: [about((m) => [sel.part === 'an' ? 'A cross-link between sinusoids: blood can go around a local block, so one obstructed sinusoid does not starve the cells beyond it.'
+      verbs: [about((m) => [sel.part === 'an' ? 'A cross-link between sinusoids: blood can go around a local block, so one blocked sinusoid does not starve the cells beyond it.'
         : 'A leaky capillary lined by fenestrated endothelium, between plates of hepatocytes one cell thick. Sinusoids merge toward the central vein, so blood speeds up as it goes; the highlighted path runs to the central vein.',
       m.fibSin > 0.1 ? 'Capillarization: the fenestrae close and collagen fills the space of Disse (pale sleeve), raising sinusoidal resistance: this is what raises HVPG in cirrhosis.' : '',
       m.congU > 0.1 ? 'Zone 3 sinusoids are dilated and packed with blood: the outflow is backing up.' : ''].filter(Boolean)),

@@ -331,7 +331,7 @@ Visuals may also carry `cam` (how the dimmed figure is framed).
 | `cirr-decomp` | Sinusoidal | Decompensated cirrhosis | 540 | cirrhosis 0.85, albumin 2.8, diuretics; large varices, ascites |
 | `cirr-hepatofugal` | Sinusoidal | End-stage cirrhosis, hepatofugal flow | 540 | cirrhosis 0.95, arterioportal shunting, splenorenal shunt |
 | `gastric-varix` | Sinusoidal | Cirrhosis with gastrorenal shunt | 450 | isolated fundal varices (IGV1) fed by the short and posterior gastric veins, draining through the `C5` gastrorenal shunt (BRTO target); no esophageal varices until BRTO closes the shunt |
-| `sos` | Postsinusoidal (`postsin`) | Sinusoidal obstruction syndrome | 21 | central-vein obstruction |
+| `sos` | Postsinusoidal (`postsin`) | Sinusoidal obstruction syndrome | 21 | central-vein resistance |
 | `budd-chiari` | Posthepatic (`post`) | Budd–Chiari | 60 | all three hepatic veins occluded |
 | `ivc-web` | Posthepatic | IVC web | 90 | suprahepatic IVC stenosis |
 | `rhf` | Cardiac (`cardiac`) | Right heart failure + TR | 60 | HVPG stays normal; pulsatile portal vein |
@@ -480,7 +480,7 @@ Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; HVPG ≥ 12 high ris
 10. **Order the patient deliberately.** First slide: `preset` (usually `healthy` or the disease). Later slides continue the same patient; use `params`/`days`/`action` to change it, `delta: true` or `delta: '<id>'` to show what changed. Switch the previous drug flag off when switching drugs.
 11. **Every content slide has** `id`, `kicker`, `title`, `line`, `notes` (2–4 sentences a lecturer can read aloud) and `ask: [question, answer]`. The last slide is a `visual: 'table'` summary under `kicker: 'Summary'` with `of` rows naming the earlier slides, and the deck ends with `checks` (3 or 4 `[question, answer]` pairs; the app adds the quick-check slide).
 12. **Decks:** 6–12 slides, 3–4 `objectives`, ≥ 3 kicker groups or explicit `sections`, `level` one of foundation/core/advanced.
-13. **Style:** plain sentence case, no emoji, American spelling, numbers with units (`mmHg`, `g/dL`, `kPa`), clinically accurate (Baveno VIII, the latest, never Baveno VII; AASLD where US practice differs; US drug choices such as octreotide). Write for the learner, never the instructor, in full grammatical sentences that read like a clinician-teacher at the bedside (`docs/ai-humanizer.md`). Use proper clinical shorthand ("OCP use", never "on the pill"). Never write "our patient" or "the patient we just measured", and never an ambiguous "this patient": say "in this case, the HVPG is…" or use the case's own description. Say **resistance** (site labels) or **obstruction** (running prose), not "block", for where pressure is lost; drug and procedure uses such as "blocks α1 receptors" stay. (The code's `kind: 'block'`, `block:` and `callout` names are fine; only learner-facing text is affected.) Word thresholds as rising risk, not a cliff.
+13. **Style:** plain sentence case, no emoji, American spelling, numbers with units (`mmHg`, `g/dL`, `kPa`), clinically accurate (Baveno VIII, the latest, never Baveno VII; AASLD where US practice differs; US drug choices such as octreotide). Write for the learner, never the instructor, in full grammatical sentences that read like a clinician-teacher at the bedside (`docs/ai-humanizer.md`). Use proper clinical shorthand ("OCP use", never "on the pill"). Never write "our patient" or "the patient we just measured", and never an ambiguous "this patient": say "in this case, the HVPG is…" or use the case's own description. Say **resistance** (site labels and running prose), not "block" or "obstruction", for where pressure is lost; drug and procedure uses such as "blocks α1 receptors" stay. (The code's `kind: 'block'`, `block:` and `callout` names are fine; only learner-facing text is affected.) Word thresholds as rising risk, not a cliff.
 14. **No new furniture by hand.** The app adds the site tag above the title (decks covering more than one `site`), disease-name pills (list in `src/ui/diseases.js`), the Outline slide, the quick check and the corner credit. Do not write them into lines or titles.
 15. Presenter forces the pressure colour mode and keeps the app's own N, S, L keys off while presenting; there are **no lens, card or test-type fields on slides**: the nearest are `tool.kind` and `visual` (section 7).
 
@@ -544,7 +544,7 @@ export const MYDECK = {
 
 ## 11. Short complete example deck
 
-A 4-slide pre-hepatic obstruction talk, using only the names in this guide (illustrative: it is not one of the app's decks).
+A 4-slide pre-hepatic resistance talk, using only the names in this guide (illustrative: it is not one of the app's decks).
 
 ```js
 // Presenter talk: a clot in the portal vein, and why the HVPG misses it
@@ -557,11 +557,11 @@ export const CLOT_DEMO = {
   objectives: [
     'Recognise an occluded portal vein on Doppler',
     'Explain why the HVPG stays normal',
-    'Say which gradient finds a pre-hepatic obstruction',
+    'Say which gradient finds pre-hepatic resistance',
   ],
   summary: 'An acute portal vein clot on Doppler, the normal HVPG and high PPG, and what a cavernoma looks like months later.',
   checks: [
-    ['Which gradient finds a pre-hepatic obstruction?', 'The PPG.'],
+    ['Which gradient finds pre-hepatic resistance?', 'The PPG.'],
     ['Why is the HVPG normal in a portal vein clot?', 'The wedged catheter reads the sinusoids, which sit downstream of the clot.'],
     ['What grows around a chronic clot?', 'A cavernoma of small collaterals.'],
   ],
@@ -580,9 +580,9 @@ export const CLOT_DEMO = {
       id: 'cath', cath: 'result', data: 'ladder', key: ['hvpg', 'ppg'], tiles: ['hvpg', 'ppg'], brackets: { hvpg: 'misleads', ppg: 'works' },
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC'), 'Portal pressure gradient: the whole fall from the portal vein to the IVC'],
       kicker: 'Acute thrombosis', site: 'pre', title: 'The HVPG misses it',
-      line: 'The obstruction is before the liver, so the wedged and free hepatic pressures stay normal and the HVPG reads {hvpg}. The PPG, {ppg}, finds it.',
-      notes: 'The wedged catheter reads the sinusoids, which sit downstream of the clot. The PPG compares the portal vein itself with the IVC. A normal HVPG with varices says the obstruction is not in the sinusoids.',
-      ask: ['Varices and an HVPG of 3 mmHg. What does that tell you?', 'The obstruction is not sinusoidal.'],
+      line: 'The resistance is before the liver, so the wedged and free hepatic pressures stay normal and the HVPG reads {hvpg}. The PPG, {ppg}, finds it.',
+      notes: 'The wedged catheter reads the sinusoids, which sit downstream of the clot. The PPG compares the portal vein itself with the IVC. A normal HVPG with varices says the resistance is not in the sinusoids.',
+      ask: ['Varices and an HVPG of 3 mmHg. What does that tell you?', 'The resistance is not sinusoidal.'],
     },
     {
       id: 'cavernoma', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'],
@@ -596,9 +596,9 @@ export const CLOT_DEMO = {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'plt'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'clot', kicker: 'Portal vein', title: 'Acute thrombosis' }, { id: 'cavernoma', kicker: 'Portal vein', title: 'Cavernoma' }],
       kicker: 'Summary', title: 'A clot before the liver',
-      line: 'The HVPG stays normal in both; the PPG rises when the portal vein itself is obstructed.',
-      notes: 'A pre-hepatic obstruction raises the pressure upstream of the liver and leaves the sinusoids alone. The HVPG is normal and the liver works.',
-      ask: ['Which pressure reading is normal in every pre-hepatic obstruction?', 'The HVPG.'],
+      line: 'The HVPG stays normal in both; the PPG rises when the portal vein itself carries the resistance.',
+      notes: 'Pre-hepatic resistance raises the pressure upstream of the liver and leaves the sinusoids alone. The HVPG is normal and the liver works.',
+      ask: ['Which pressure reading is normal in every case of pre-hepatic resistance?', 'The HVPG.'],
     },
   ],
 };

@@ -4,7 +4,7 @@
 // same content as a bottom sheet. Hovering a row (or focusing it with the arrow keys) previews it beside
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
-import { store } from './store.js?v=16a6ccb071';
+import { store } from './store.js?v=14d67870c8';
 import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=abb277f29f';
 import { SNAPSHOTS } from './snapshots.js?v=0f6fae1c74';
 import { pressureColor } from './colormap.js?v=01ee46a874';
@@ -13,7 +13,7 @@ const nextFrame = frameFor('menu');
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 // Where each group's resistance sits along the pathway from the gut to the heart.
-const GROUP_WHERE = { Normal: 'No obstruction', Prehepatic: 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', Posthepatic: 'Hepatic veins and IVC', Cardiac: 'The right heart' };
+const GROUP_WHERE = { Normal: 'No added resistance', Prehepatic: 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', Posthepatic: 'Hepatic veins and IVC', Cardiac: 'The right heart' };
 const LEVEL_N = { foundation: 1, core: 2, advanced: 3 };
 
 // Who is using the simulator (chosen in Settings): Student sees a simpler Explore; Instructor adds the physiology knobs.

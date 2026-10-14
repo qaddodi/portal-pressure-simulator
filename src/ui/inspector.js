@@ -1,8 +1,8 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=79f09b0d8a';
-import { DRUGS } from '../engine/scenario.js?v=a9eeb41726';
-import { store, updateParams, isLocked, hiddenNow } from './store.js?v=16a6ccb071';
+import { DRUGS } from '../engine/scenario.js?v=a6c564d238';
+import { store, updateParams, isLocked, hiddenNow } from './store.js?v=14d67870c8';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=abb277f29f';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('inspector');
@@ -32,7 +32,7 @@ export const CONTROLS = {
   rhv: { type: 'slider', key: 'thrombus', label: 'Right hepatic vein', min: 0, max: 1, step: 0.01, ...occl('RHV_IVC'), format: pct, def: 0 },
   mhv: { type: 'slider', key: 'thrombus', label: 'Middle hepatic vein', min: 0, max: 1, step: 0.01, ...occl('MHV_IVC'), format: pct, def: 0 },
   lhv: { type: 'slider', key: 'thrombus', label: 'Left hepatic vein', min: 0, max: 1, step: 0.01, ...occl('LHV_IVC'), format: pct, def: 0 },
-  ivc: { type: 'slider', key: 'stenosis', label: 'Suprahepatic IVC stenosis', min: 0, max: 0.95, step: 0.01, ...sten('IVCS_RA'), format: pct, def: 0, info: 'IVC web or membranous obstruction.' },
+  ivc: { type: 'slider', key: 'stenosis', label: 'Suprahepatic IVC stenosis', min: 0, max: 0.95, step: 0.01, ...sten('IVCS_RA'), format: pct, def: 0, info: 'IVC web or membrane that narrows the outflow.' },
   anticoag: { type: 'toggle', key: 'anticoag', label: 'Anticoagulation', ...prop('anticoag'), info: 'Thrombi slowly recanalize on the Months clock.' },
   contractility: { type: 'slider', key: 'contractility', label: 'Right-heart contractility', min: 0.15, max: 1.6, step: 0.01, ...prop('contractility'), format: pct, def: 1, normal: [0.85, 1.2] },
   tr: { type: 'slider', key: 'tr', label: 'Tricuspid regurgitation', min: 0, max: 1, step: 0.01, ...prop('tr'), format: pct, def: 0, info: 'Systolic backflow into the right atrium: large v-waves reach the liver (turn on Pulsatile mode and use the Doppler).' },
@@ -319,7 +319,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
       C6: 'Spontaneous splenorenal shunt: large, can steal portal flow and cause encephalopathy.',
       C7: 'Retroperitoneal veins of Retzius connect mesenteric veins to lumbar and renal veins.',
       C8: 'Periportal (pericholedochal) collaterals bypass an occluded portal vein: cavernous transformation, which stays hepatopetal.',
-      C9: 'The ascending lumbar–azygos route decompresses the IVC when it is obstructed.',
+      C9: 'The ascending lumbar–azygos route decompresses the IVC when its outflow is resistant.',
       TIPS: 'A covered stent from a portal branch to a hepatic vein. Target portosystemic gradient < 12 mmHg. Costs: encephalopathy, liver hypoperfusion, higher cardiac preload.',
       CAUD: 'The caudate lobe drains straight into the IVC through its own short veins, so it is spared (and hypertrophies) in Budd–Chiari syndrome.',
       PRE_R: 'Presinusoidal segment: portal venules in the portal tract. Blocked in schistosomiasis and other non-cirrhotic portal hypertension.',
