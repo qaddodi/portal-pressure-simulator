@@ -163,9 +163,13 @@ export function createCreditPlacer(credit) {
       // Something moved: if it now reaches the credit, hide it at once; let it settle before choosing a new spot
       // (but not forever: a piece that keeps moving is taken where it is after a moment).
       lastSig = sig;
-      if (pos && obs.some((o) => hit({ l: pos.x - 4, t: pos.y - 4, r: pos.x + w + 4, b: pos.y + h + 4 }, o))) credit.classList.add('moving');
-      changedAt ||= now;
-      if (now - changedAt < 1600) { clearTimeout(waitT); waitT = setTimeout(soon, 120); return; }
+      const hitNow = pos && obs.some((o) => hit({ l: pos.x - 4, t: pos.y - 4, r: pos.x + w + 4, b: pos.y + h + 4 }, o));
+      if (hitNow) credit.classList.add('moving');
+      // (Shown and still clear: it stays painted where it is while the rest settles; it waits only when it has to move.)
+      if (hitNow || !pos || credit.matches('.moving, .covered')) {
+        changedAt ||= now;
+        if (now - changedAt < 1600) { clearTimeout(waitT); waitT = setTimeout(soon, 120); return; }
+      }
     }
     changedAt = 0;
     // (One margin with the cards: the credit's edge lines up with the presenter's cards, the screen's margin.)
@@ -176,7 +180,9 @@ export function createCreditPlacer(credit) {
     // (Of the free corners, one whose spot is clear of the organs' art, where there is one; the spots themselves are as
     // before, so the credit always shows.)
     const onOrgan = organTest(wr), bare = Object.fromEntries(CORNERS.map((k) => [k, spots[k] && !onOrgan({ l: spots[k].x, t: spots[k].y, r: spots[k].x + w, b: spots[k].y + h }) ? spots[k] : null]));
-    let c = pickCorner(CORNERS.some((k) => bare[k]) ? bare : spots, cur, blocked);
+    // (A slide on a laptop or tablet: one spot, the figure's top right, whenever it is free; a phone keeps the corner order.)
+    const pref = app?.classList.contains('presenting') && document.querySelector('.pz:not(.stack)') ? 'tr' : null, pool = CORNERS.some((k) => bare[k]) ? bare : spots;
+    let c = pref && pool[pref] ? pref : pickCorner(pool, cur, blocked);
     if (!c) {
       // Not on one line: try it on two, before giving the figure up as covered.
       const t = measure('tight'), tspots = freeSpots(fig, obs, t.w, t.h, opt), tc = pickCorner(tspots, cur, blocked);
