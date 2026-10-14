@@ -13,6 +13,8 @@ test('the teaching card text sizes settle once per slide and are reused while it
 
 test('the teaching and data cards keep one width on every slide: the column never widens', () => {
   assert.doesNotMatch(js, /widen\(\)/);
+  assert.match(js, /dd\.style\.width = cw \? /);
+  assert.match(js, /dd\.style\.maxWidth = cw \? 'none'/);
   assert.doesNotMatch(js, /setProperty\('--pz-sw'/);
   assert.match(js, /below = title\(1, TK_SOFT\);\s*if \(!below\) ladder\(\);/);
   const w = 'width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)';

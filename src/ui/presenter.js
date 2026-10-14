@@ -2035,7 +2035,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (off(dd) || below) delete dd.dataset.safe; else dd.dataset.safe = p ? 'top' : 'right';
     const y = top0 + t?.height + 2 * pad + gap;
     dd.style.left = below ? `${(sl / k).toFixed(1)}px` : '';
-    dd.style.width = below ? `${(cw / k).toFixed(1)}px` : '';
+    // (One width on every slide: stacked or at the top right, the data card is always the teaching card's width, whatever it holds.)
+    dd.style.width = cw ? `${(cw / k).toFixed(1)}px` : '';
+    dd.style.maxWidth = cw ? 'none' : '';   // (no per-content cap: tiles, an instrument or a chart never make it narrower)
     dd.style.top = below ? `${(y / k).toFixed(1)}px` : '';
     dd.style.maxHeight = below ? `${((foot - y) / k).toFixed(1)}px` : '';
     // (A phone: the data card ends 8 px short of the teaching card (16 px above the words), however much it holds: an opened instrument had grown over the words.)
