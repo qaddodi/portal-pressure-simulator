@@ -4818,7 +4818,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box { min-height: 0; height: calc(128px * var(--pz-fit, 1) / var(--tz, 1) + var(--dop-free, 0px)); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { width: min(56cqi, 150px); }
-.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { max-height: min(30cqi, 96px); }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { max-height: min(52cqi, 200px); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: calc(168px * var(--pz-fit, 1) / var(--tz, 1)); }
 /* (A card with Show/Hide keeps its title centred like every other card: the pill sits at the right end, the same room kept at
    the left, so the title is centred on the card.) */
@@ -4920,7 +4920,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b small { color: var(--text-2); }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-gauge { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly { flex: 0 1 auto; min-height: 0; height: min(46cqi, calc(16 * var(--pzh))); }
-.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { height: min(30cqi, 96px); }
+/* (Beside the tiles the beaker fills most of its half: as tall as the tile column, which sets the row. The tool takes no height of its own
+   (contain: size), so the card never resizes for it, and the beaker is a square sized by that height; its litres, grade and rate scale with it.) */
+.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool[data-kind="abdomen"] { align-self: stretch; contain: size; min-height: calc(16 * var(--pzh)); display: flex; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool[data-kind="abdomen"] :is(.ab, .ab-main, .ab-read, .ab-vol, .ab-gauge) { min-height: 0; height: 100%; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool[data-kind="abdomen"] .ab { flex: 1 1 auto; min-width: 0; }
+.pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="abdomen"] .ab-belly { flex: 1 1 0; width: auto; height: auto; max-height: none; max-width: 100%; aspect-ratio: 1; }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { height: min(52cqi, 200px); }
 /* (The Doppler strip's pattern word gives way first, with an ellipsis, so the strip never shrinks its type below three quarters.) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report > .dop-pattern { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* (Beside an instrument a tile's number and unit sit closer, so "−0.6 L/min" keeps clear of the tile's edge.) */
