@@ -350,7 +350,8 @@
   "superior mesenteric vein"
  ],
  "doppler/smv": [
-  "superior mesenteric vein"
+  "superior mesenteric vein",
+  "cavernoma"
  ],
  "doppler/bc": [
   "hepatic vein"
@@ -388,6 +389,9 @@
  "prehepatic/cath": [
   "{hvpg}",
   "{ppg}"
+ ],
+ "prehepatic/cavernoma": [
+  "cavernoma"
  ],
  "prehepatic/liver": [
   "{lsm}"

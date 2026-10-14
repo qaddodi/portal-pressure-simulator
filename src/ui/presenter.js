@@ -19,11 +19,11 @@ import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=0dcc3de787';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=5f318f5b27';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=274a6ff852';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d2c2580bdd';
 import { createTools } from './presenter-tools.js?v=3f382ff634';
-import { openHandout } from './handout.js?v=aadbf34275';
+import { openHandout } from './handout.js?v=1fb5500853';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=214d4e8404';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -88,6 +88,8 @@ const TARGETS = {
   varix: { node: 'VAR', edges: ['C1a', 'C1b'], tone: 'var', words: 'esophageal varices|varices|varix' },
   gv: { node: 'GV', edges: ['C2'], tone: 'var', words: 'gastric varices|fundal varices' },
   lgv: { node: 'LGV', edges: ['LGV_CONF', 'V_STO'], tone: 'var', words: 'left gastric vein|coronary vein' },
+  // The cavernoma: the periportal collaterals around a clotted portal vein (its own colour, apart from the varices').
+  cavernoma: { edges: ['C8'], tone: 'cav', words: 'cavernomas?' },
   azy: { node: 'AZY', edges: ['AZY_SVC'], tone: 'var', words: 'azygos(?: vein)?' },
   // The circuit's resistors (its zigzags): lit in a station colour, not outlined.
   rLiver: { res: 'rLiver', tone: 'wedge', words: 'resistance' },
@@ -136,11 +138,14 @@ const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc'
 const BY_RATE = new Set(['spleen', 'varix', 'gv']), RATE_TONE = { hi: '--danger', mid: '--caution' };
 const rateTone = (k, fp) => RATE_TONE[rateOf(k, fp)[0]] || null;
 const valTone = (k, fp) => (BY_RATE.has(k) ? rateTone(k, fp) : VAL_TONE[k]);
-// A slide's terms: { words: target } (terms: ['pv', 'ra'] takes each target's own words).
+// A slide's terms: { words: target } (terms: ['pv', 'ra'] takes each target's own words). A word every slide uses the
+// same way needs no listing: the cavernoma is always a pill that lights its collaterals.
+const AUTO_TERMS = ['cavernoma'];
 function termList(s) {
-  const t = s.terms;
-  if (!t) return [];
-  return (Array.isArray(t) ? t.map((k) => [TARGETS[k]?.words, k]) : Object.entries(t).map(([w, k]) => [esc(w), k])).filter(([w, k]) => w && TARGETS[k]);
+  const t = s.terms || [];
+  const own = Array.isArray(t) ? t.map((k) => [TARGETS[k]?.words, k]) : Object.entries(t).map(([w, k]) => [esc(w), k]);
+  const have = new Set(own.map(([, k]) => k));
+  return [...own, ...AUTO_TERMS.filter((k) => !have.has(k)).map((k) => [TARGETS[k].words, k])].filter(([w, k]) => w && TARGETS[k]);
 }
 /** Everything a slide points at on the figure: its terms (as the line names them) and its glow field. */
 // On a Doppler slide the vessel being read glows the Doppler's green (as in Explore), over the colour its word would give it.

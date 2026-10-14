@@ -21,6 +21,7 @@ function pills(s) {
   for (const m of line.matchAll(/\[([^\]]+)\]\(([\w:]+)\)/g)) out.push(m[1]);
   const plain = line.replace(/\[([^\]]+)\]\([\w:]+\)/g, '§');
   const t = s.terms, words = !t ? [] : Array.isArray(t) ? t.map((k) => WORDS[k]).filter(Boolean) : Object.keys(t).map(esc);
+  words.push(WORDS.cavernoma);   // (presenter.js AUTO_TERMS: on every slide)
   for (const w of words) { const m = plain.match(new RegExp(`\\b(?:${w})\\b`, 'i')); if (m) out.push(m[0].toLowerCase()); }
   const marked = line.match(/\{[^}]+\}/g);
   if (marked) out.push(...marked);
@@ -53,4 +54,12 @@ test('every term a slide gives is named by its line (its pill shows)', () => {
     }
   }
   assert.deepEqual(missing, []);
+});
+
+test('the cavernoma is a pill that lights its collaterals wherever a line names it', () => {
+  assert.match(SRC, /AUTO_TERMS = \['cavernoma'\]/);
+  assert.match(SRC, /cavernoma: \{ edges: \['C8'\], tone: 'cav'/);
+  const named = [];
+  for (const d of DECKS) for (const s of d.slides) if (/\bcavernoma/i.test(s.line || '')) named.push(`${d.id}/${s.id}`);
+  assert.ok(named.includes('prehepatic/cavernoma') && named.includes('doppler/smv'), named.join());
 });
