@@ -9,7 +9,7 @@ export const SITES = {
   objectives: ['Place a cause of portal hypertension at one of six levels', 'Predict the HVPG for resistance at each level', 'Read a pressure ladder to find where the largest drop is'],
   checks: [
     ['Portal vein thrombosis raises the portal pressure. What happens to the HVPG?', 'It stays normal. The catheter wedges beyond the clot, in normal sinusoids.'],
-    ['In which two diseases from this talk is the HVPG high?', 'Cirrhosis and sinusoidal obstruction syndrome. In both, the resistance lies between the wedged and the free hepatic vein readings, the two pressures HVPG compares.'],
+    ['Cirrhosis raises the portal pressure. Does the HVPG rise too?', 'Yes. The resistance is in the sinusoids, and the wedged pressure reads the sinusoids.'],
     ['Right heart failure and cirrhosis both raise the portal pressure. Which readings tell them apart?', 'In right heart failure the right atrial pressure is high and the HVPG is normal. In cirrhosis the right atrial pressure is normal and the HVPG is high.'],
   ],
   slides: [
