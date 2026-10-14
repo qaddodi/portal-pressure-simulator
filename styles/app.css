@@ -4927,6 +4927,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool[data-kind="abdomen"] .ab { flex: 1 1 auto; min-width: 0; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="abdomen"] .ab-belly { flex: 1 1 0; width: auto; height: auto; max-height: none; max-width: 100%; aspect-ratio: 1; }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { height: min(52cqi, 200px); }
+/* (The words inside the beaker grow with it, a third larger for the size: the litres, the grade and the daily rate, all in the beaker's own width units.) */
+.pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big { gap: 2.5cqi; padding: 0 8cqi; }
+.pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b { font-size: clamp(14px, 29cqi, 96px) !important; }
+.pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-grade { font-size: clamp(10px, 11cqi, 34px) !important; }
+.pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-rate { font-size: clamp(9px, 8.5cqi, 28px) !important; }
 /* (The Doppler strip's pattern word gives way first, with an ellipsis, so the strip never shrinks its type below three quarters.) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report > .dop-pattern { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* (Beside an instrument a tile's number and unit sit closer, so "−0.6 L/min" keeps clear of the tile's edge.) */
