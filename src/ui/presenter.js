@@ -76,8 +76,9 @@ function lensKey(k, fixed = false) {
   const [name, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY;
   const dot = (v) => h('i', { class: 'pz-lens-dot', style: { background: `var(${v})` } });
   return h('p', { class: 'pz-lens' + (fixed ? ' pz-lens-fix' : ''), 'data-lens': k }, h('b', {}, `Colored by ${name}`),
-    ...(typeof bar === 'function' ? [h('span', {}, lo), h('i', { class: 'pz-lens-bar', style: { background: bar() } }), h('span', {}, hi)]
-      : bar.flatMap(([v, t]) => [dot(v), h('span', {}, t)])));
+    // (Each swatch stays on one line with its words: "Low ▬▬ High" as one piece, a dot with its name.)
+    ...(typeof bar === 'function' ? [h('span', { class: 'pz-lens-k' }, h('span', {}, lo), h('i', { class: 'pz-lens-bar', style: { background: bar() } }), h('span', {}, hi))]
+      : bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, dot(v), h('span', {}, t)))));
 }
 // A string with its disease names set in a pill (see diseases.js).
 const diseaseNodes = (t) => diseasePieces(t).map(([x, dz]) => (dz ? h('span', { class: 'pz-dz' }, x) : x));

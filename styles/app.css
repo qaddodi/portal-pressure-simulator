@@ -1562,7 +1562,13 @@ button.finding { cursor: pointer; }
 .pz-lens b { font-weight: 600; color: var(--text); margin-right: .15em; }
 .pz-lens-bar { width: 5em; height: .6em; border-radius: var(--r-pill); flex: none; }
 .pz-lens-dot { width: .7em; height: .7em; border-radius: 50%; flex: none; }
-.pz-lens-dot + span + .pz-lens-dot { margin-left: .35em; }
+.pz-lens-k { display: inline-flex; align-items: center; gap: .4em; white-space: nowrap; }
+.pz-lens-k + .pz-lens-k { margin-left: .2em; }
+/* (A phone: the key at the data card's size, its name on a line of its own and the key under it, so it adds two short lines, not three large ones.) */
+.pz.stack .pz-lens { font-size: calc(var(--t-cap) * var(--ts, 1) * 1.15); gap: .25em .5em; margin-top: .4em; }
+.pz.stack .pz-lens > b { flex-basis: 100%; }
+/* (A slide with a colour key keeps its words' card to half the screen: the key is about the figure, so the figure must stay in view; the words fit a little smaller.) */
+.pz.stack .pz-text:has(.pz-lens) { max-height: 50%; }
 /* On a slide with lens buttons the key keeps room for two lines, so the card stays one height as the lens changes. */
 .pz-lens-fix { min-height: calc(2.6em + .3em); align-content: flex-start; }
 .pz-caveat { margin: .5em 0 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
@@ -4868,6 +4874,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow.has-tool:not([data-tn="4"]) { grid-template-columns: minmax(0, 1fr) max(104px, 30%); }   /* (set on the card itself: a container query cannot change its own container) */
 /* (A narrow card's tiles with a scale bar stand tighter: two stacked beside a tracing would otherwise be taller than the card's room, and the
    fit cannot shrink the words. Only the padding and gaps give; the sizes of the words stay.) */
+/* (Every card's tiles with a scale bar stand as tight: the bar takes the room the padding and gaps gave, so a tile is no taller than it
+   was without one and the card never has to shrink its words to fit.) */
+.pz:not(.stack) .pz-data .pz-tiles .pz-tile:has(.pzt-bar) { gap: 0; padding-block: 6px; }
+.pz:not(.stack) .pz-data .pz-tiles .pz-tile:has(.pzt-bar) .pzt-k { margin: 0; }
+.pz:not(.stack) .pz-data .pz-tiles .pz-tile:has(.pzt-bar) .pzt-bar { margin-top: 3px; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow .pz-tiles .pz-tile:has(.pzt-bar) { gap: 0; padding-block: 5px; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow .pz-tiles .pz-tile:has(.pzt-bar) .pzt-k { margin: 0; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow .pz-tiles .pz-tile:has(.pzt-bar) .pzt-bar { margin-top: 2px; }
