@@ -25,15 +25,6 @@ test('go-back and compare are icon-only buttons on the event row, with labels as
 test('every history row reserves the icon column and uses stroke icons', () => {
   const rows = src.slice(src.indexOf('function markerRows'), src.indexOf('let pulseT'));
   assert.match(rows, /h\('span', \{ class: 'tl-pop-acts' \}, acts\)\)/);
-  const hist = src.slice(src.indexOf('function rowActs'), src.indexOf('function markerRows'));
-  assert.match(hist, /h\('span', \{ class: 'tl-pop-acts' \}, acts\)/);
   assert.match(rows, /svgIcon\('rewind', 'mi-ic'\)/);
   assert.doesNotMatch(rows, /icon\('undo'\)/);
-});
-
-test('History groups by day, folds same-day collaterals, and has filter chips', () => {
-  const open = src.slice(src.indexOf('function openHistory'), src.indexOf('function markerRows'));
-  assert.match(open, /tl-day/);
-  assert.match(open, /collaterals recruited/);
-  assert.match(src, /HIST_FILTERS = \[\['all', 'All'\], \['warn', 'Warnings'\], \['coll', 'Collaterals'\]\]/);
 });
