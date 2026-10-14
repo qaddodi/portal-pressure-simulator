@@ -18,6 +18,13 @@ import { activeInterventions } from './inspector.js?v=7b0c1a1dd0';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('timeline');
 
+const COLL = 'Collateral recruited: ';
+const isCollateral = (e) => e.kind === 'event' && typeof e.label === 'string' && e.label.startsWith(COLL);
+const collName = (e) => e.label.slice(COLL.length);
+const collPct = (e) => (/^(\d+) %/.exec(e.detail || '') || [])[1]?.concat('%') || '';
+const HIST_FILTERS = [['all', 'All'], ['warn', 'Warnings'], ['coll', 'Collaterals']];
+const histMatch = (e, f) => f === 'all' || e.kind === 'start' ? f === 'all' || false
+  : f === 'coll' ? isCollateral(e) : e.kind === 'event' && ['caution', 'danger', 'critical'].includes(e.sev);
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 /** One-to-two-word tags shown beside each event marker on the strip (full title stays in the tooltip and History). */
 export const EVENT_TAG = { HEPATOFUGAL_PV: 'PV Reversed', SV_REVERSAL: 'SV Reversed', SMV_REVERSAL: 'SMV Reversed', INTRAHEPATIC_REVERSAL: 'IHPV Reversed', PV_STASIS: 'PV Stasis', CSPH: 'CSPH', BLEED_RISK: 'HVPG ≥ 12', VARIX_LARGE: 'Large Varices', RED_WALE: 'Red Wale', VARIX_RUPTURE: 'Varix Rupture', BLEED_STOPPED: 'Bleed Stopped', ASCITES_FORMING: 'Ascites', TENSE_ASCITES: 'Tense Ascites', HYPERDYNAMIC: 'Hyperdynamic', HIGH_SHUNT: 'High Shunt', LIVER_HYPOPERFUSION: 'Liver Hypoperf.', CAUDATE: 'Caudate Spared', RA_HIGH: 'High RAP', SPLENOMEGALY: 'Splenomegaly', SHOCK_2: 'Shock II', SHOCK_3: 'Shock III' };
@@ -448,9 +455,72 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
   }
   function openHistory(anchor) {
     const items = entries.map((_, i) => i);
-    const body = items.length > 1 ? markerRows(items)
-      : [h('p', { class: 'tl-pop-empty' }, 'Nothing has happened yet. Change something on the figure, or jump ahead in time.')];
-    popover(anchor, h('div', { class: 'tl-pop tl-history' }, body), { place: 'above', align: 'end' });
+    if (items.length <= 1) {
+      popover(anchor, h('div', { class: 'tl-pop tl-history' }, h('p', { class: 'tl-pop-empty' }, 'Nothing has happened yet. Change something on the figure, or jump ahead in time.')), { place: 'above', align: 'end' });
+      return;
+    }
+    const list = h('div', { class: 'tl-hist-list' });
+    let filter = 'all';
+    const chips = HIST_FILTERS.map(([k, label]) => h('button', { class: 'tl-chip', 'aria-pressed': String(k === filter), onclick: () => {
+      filter = k; chips.forEach((c, j) => c.setAttribute('aria-pressed', String(HIST_FILTERS[j][0] === k))); fill();
+    } }, label));
+    const fill = () => { list.replaceChildren(...historyGroups(items.filter((i) => histMatch(entries[i], filter)))); };
+    fill();
+    popover(anchor, h('div', { class: 'tl-pop tl-history' }, h('div', { class: 'tl-chips', role: 'group', 'aria-label': 'Show' }, chips), list), { place: 'above', align: 'end' });
+  }
+  // History, newest first: one header per day, same-day collaterals folded into one row, and the
+  // clock time on a row only when that day holds more than one time.
+  function historyGroups(items) {
+    if (!items.length) return [h('p', { class: 'tl-pop-empty' }, 'Nothing here yet.')];
+    const days = [];
+    for (const i of items.slice().reverse()) {
+      const e = entries[i], key = e.kind === 'start' ? 'start' : e.day;
+      if (!days.length || days[days.length - 1].key !== key) days.push({ key, idx: [] });
+      days[days.length - 1].idx.push(i);
+    }
+    const out = [];
+    for (const d of days) {
+      const times = new Set(d.idx.map((i) => clockPart(entries[i])));
+      const showTime = times.size > 1;
+      out.push(h('div', { class: 'tl-day' }, d.key === 'start' ? 'Start' : `Day ${d.key}`, showTime ? null : h('span', {}, d.key === 'start' ? '' : [...times][0])));
+      const coll = d.idx.filter((i) => isCollateral(entries[i]));
+      let folded = false;
+      for (const i of d.idx) {
+        if (coll.length > 1 && isCollateral(entries[i])) {
+          if (folded) continue;
+          folded = true;
+          out.push(collateralGroup(coll, showTime));
+        } else out.push(historyRow(i, showTime));
+      }
+    }
+    return out;
+  }
+  const clockPart = (e) => fmtClock(e.t, e.day).split(' · ').pop();
+  function rowActs(i) {
+    const e = entries[i], acts = [];
+    const act = (label, ic, col, fn) => acts.push(h('button', { class: 'tl-pop-ic', style: { gridColumn: col }, title: label, 'aria-label': label, onclick: (ev) => { ev.stopPropagation(); fn(); } }, ic));
+    if (e.snap && canRevert()) act(i === liveIndex() && cursor < 0 ? 'Back to this moment' : 'Go back here', svgIcon('rewind', 'mi-ic'), 1, () => { closePopover(); goTo(i); });
+    if (e.frame) act('Compare with now', svgIcon('camera', 'mi-ic'), 2, () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Comparing with ${fmtClock(e.t, e.day)}: ${e.label}.`); });
+    return h('span', { class: 'tl-pop-acts' }, acts);
+  }
+  const sevOf = (e) => (e.kind === 'event' ? SEV[e.sev] || SEV.info : e.kind === 'jump' ? 'var(--accent)' : 'var(--text-3)');
+  const tapOpen = (row) => { row.addEventListener('click', () => row.classList.toggle('open')); return row; };
+  function historyRow(i, showTime) {
+    const e = entries[i];
+    const title = e.kind === 'start' ? `Patient: ${e.label}` : isCollateral(e) ? collName(e) : e.label;
+    const future = cursor >= 0 && i > cursor;
+    return tapOpen(h('div', { class: `tl-hrow${future ? ' future' : ''}`, style: { '--sev': sevOf(e) } },
+      h('div', { class: 'tl-hrow-head' }, h('b', {}, title, isCollateral(e) ? h('span', { class: 'tl-tag' }, 'Collateral') : null),
+        showTime && e.kind !== 'start' ? h('span', { class: 'when' }, clockPart(e)) : null, rowActs(i)),
+      e.detail ? h('div', { class: 'tl-pop-d' }, e.detail) : null));
+  }
+  function collateralGroup(idx, showTime) {
+    const e = entries[idx[0]];
+    const future = cursor >= 0 && idx[0] > cursor;
+    return h('details', { class: `tl-hrow tl-hgroup${future ? ' future' : ''}`, style: { '--sev': sevOf(e) } },
+      h('summary', { class: 'tl-hrow-head' }, h('b', {}, `${idx.length} collaterals recruited`),
+        showTime ? h('span', { class: 'when' }, clockPart(e)) : null, rowActs(idx[0])),
+      h('ul', { class: 'tl-hsub' }, idx.map((i) => h('li', {}, h('span', {}, collName(entries[i])), h('span', { class: 'pct' }, collPct(entries[i]))))));
   }
   function openMarker(anchor, items) {
     popover(anchor, h('div', { class: 'tl-pop' }, markerRows(items)), { place: 'above', align: 'center' });

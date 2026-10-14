@@ -5012,3 +5012,28 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* (Where the bar's ring marks where the value started, the "from" words fold away: the bar takes the place of the change
    line, so a tile is no taller than it was before the bar and the data card never grows for it.) */
 .pz .pz-data .pz-tiles .pz-tile:has(.pzb-was:not([hidden])) .pzt-d { display: none; }
+/* History: filter chips, day headers, and each entry as a small card with a severity edge. */
+.tl-history { gap: 6px; }
+.tl-chips { display: flex; gap: 6px; padding: 2px 2px 4px; position: sticky; top: 0; z-index: 1; background: var(--surface); }
+.tl-chip { border: 1px solid var(--border); background: transparent; color: var(--text-2); border-radius: var(--r-pill); padding: 3px 10px; font-size: var(--fs-12); font-weight: 600; cursor: pointer; transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast); }
+.tl-chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.tl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tl-hist-list { display: flex; flex-direction: column; gap: 6px; }
+.tl-day { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 4px 0; font-size: var(--fs-12); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.tl-day span { font-weight: 500; letter-spacing: 0; text-transform: none; }
+.tl-hrow { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px 8px 12px; border: 1px solid var(--border); border-left: 3px solid var(--sev); border-radius: var(--r-card); background: var(--surface-2); cursor: pointer; transition: border-color var(--t-fast), box-shadow var(--t-fast); }
+@media (hover: hover) { .tl-hrow:hover { border-color: var(--border-strong); border-left-color: var(--sev); box-shadow: var(--shadow-1); } }
+.tl-hrow.future { opacity: .5; }
+.tl-hrow-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; font-size: var(--fs-14); line-height: 1.3; list-style: none; }
+.tl-hrow-head::-webkit-details-marker { display: none; }
+.tl-hrow-head b { font-weight: 600; min-width: 0; }
+.tl-hrow-head .when { font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.tl-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: var(--r-pill); background: var(--surface-3); color: var(--text-2); font-size: var(--fs-11, 11px); font-weight: 600; vertical-align: 1px; }
+.tl-hgroup summary b::after { content: '▸'; display: inline-block; margin-left: 6px; color: var(--text-3); transition: transform var(--t-fast); }
+.tl-hgroup[open] summary b::after { transform: rotate(90deg); }
+.tl-hsub { margin: 4px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-12); color: var(--text-2); }
+.tl-hsub li { display: flex; justify-content: space-between; gap: 8px; }
+.tl-hsub .pct { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 600; }
+/* Go back / compare appear on hover or focus (mouse) and on tap (touch). */
+.tl-hrow .tl-pop-acts { opacity: 0; pointer-events: none; transition: opacity var(--t-fast); }
+.tl-hrow:hover .tl-pop-acts, .tl-hrow:focus-within .tl-pop-acts, .tl-hrow.open .tl-pop-acts, .tl-hgroup[open] .tl-pop-acts { opacity: 1; pointer-events: auto; }
