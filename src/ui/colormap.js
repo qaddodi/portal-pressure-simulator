@@ -2,6 +2,7 @@
 // Every ramp's stops are colour tokens (--ramp-* in styles/tokens.css); the tables are built on first use.
 
 import { cssRamp, cssRGB } from './util.js?v=abb277f29f';
+import { velPos, velNormal, dopplerVel } from './velNormal.js?v=a2ed991a20';
 // The scale shows absolute mean venous pressure at a vessel. Its ticks are plain numbers: no
 // value on it is a clinical threshold (HVPG and other gradients are separate measurements).
 export const PRESSURE_TICKS = [0, 10, 20, 30];
@@ -95,13 +96,19 @@ export const flowPos = (lpm) => Math.log10(Math.max(FLOW_MIN, lpm) / FLOW_MIN) /
 export const flowColor = (lpm) => flowScale(flowPos(lpm));
 export const flowCss = (dir) => flowScale.css(dir);
 
-// Mean velocity, cm/s on a square-root scale to 60: one hue, light amber (slow) to deep brown
-// (fast), so it reads without colour vision and never uses red for "slow". Stasis is named on the label.
-export const VEL_MAX = 60;
+// Mean velocity against the vessel's normal range (velNormal.js), as the Doppler reads it: pale sand below normal
+// (paler the slower), teal within it, violet above it (deepest at twice the top of the range). Each band is a third of
+// the scale and darker than the one before, so it reads without colour vision, and red never means slow. A vessel with
+// no normal (a collateral, a surgical shunt) stays neutral.
 const velScale = makeScale('--ramp-velocity');
-export const velPos = (v) => Math.sqrt(Math.min(VEL_MAX, Math.abs(v)) / VEL_MAX);
-export const velocityColor = (v) => velScale(velPos(v));
-export const velocityCss = (dir) => velScale.css(dir);
+export const velocityColor = (v, normal) => (normal ? velScale(velPos(v, normal)) : 'var(--lens-neutral)');
+// Vessel k of frame f against its normal (velNormal.js), with the healthy frame for the veins no range covers.
+export const velColorOf = (f, k, healthy) => velocityColor(dopplerVel(f, k), velNormal(k, f, healthy));
+// The key's bar: the three bands with hard edges.
+export const velocityCss = (dir = 'to right') => {
+  const b = (u0, u1, p0, p1) => `${velScale(u0)} ${p0}%, ${velScale(u1)} ${p1}%`;
+  return `linear-gradient(${dir}, ${b(0.06, 0.32, 0, 33.3)}, ${b(0.34, 0.66, 33.3, 66.7)}, ${b(0.68, 0.94, 66.7, 100)})`;
+};
 
 // Congestion heat: pressure above the reference, 0 to 15 mmHg. Neutral grey when none.
 export const HEAT_MAX = 15;

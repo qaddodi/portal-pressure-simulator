@@ -1,26 +1,26 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=2d2d989bf2';
+import { startHost, host } from './host.js?v=d327e8d9ea';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=14d67870c8';
-import { createStage } from './stage.js?v=67c2c3fd2f';
+import { createStage } from './stage.js?v=ab51dea361';
 import { createCreditPlacer } from './credit.js?v=fdce4c21e3';
-import { sinusoidSupported } from './sinusoid-view.js?v=0dcc3de787';
+import { sinusoidSupported } from './sinusoid-view.js?v=05677f2ea1';
 import { createInspector } from './inspector.js?v=a47ce5f135';
-import { createDock, CUTOFFS } from './dock.js?v=d0903c046c';
-import { setHvpgStage } from './hvpg-proc.js?v=d2c2580bdd';
-import { createWhy } from './why.js?v=a0507d2928';
-import { createTimeline, LAPSES } from './timeline.js?v=6f3a72a5d3';
+import { createDock, CUTOFFS } from './dock.js?v=16bbd69ccf';
+import { setHvpgStage } from './hvpg-proc.js?v=a8d2e6fda1';
+import { createWhy } from './why.js?v=c51325d374';
+import { createTimeline, LAPSES } from './timeline.js?v=92a40b28f2';
 import { createCompare } from './compare.js?v=f6c88a3d77';
-import { createCard } from './card.js?v=5abd09983b';
-import { createChart } from './chart.js?v=5ba6b7be95';
-import { createMenu, ROLES } from './menu.js?v=03dc7df98a';
+import { createCard } from './card.js?v=a19d61843f';
+import { createChart } from './chart.js?v=c0bdce8fc9';
+import { createMenu, ROLES } from './menu.js?v=e0a985e1e6';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';
 import { caption } from './a11y.js?v=ceff08f3e1';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=7061f3f980';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=01ee46a874';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=384e511ad1';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=78132ceacb';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=79f09b0d8a';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=abb277f29f';
 import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
@@ -49,7 +49,7 @@ const LENSES = {
   heat: ['Congestion', 'Where pressure has backed up', () => heatCss('to right')],
   drop: ['Pressure drop', 'Where the resistance lives', () => dropCss('to right')],
   flow: ['Flow volume', 'How much blood; width = flow', () => flowCss('to right')],
-  velocity: ['Velocity', 'How fast; pale = slow, dark = fast', () => velocityCss('to right')],
+  velocity: ['Velocity', 'Against each vessel\'s normal: sand = slower, teal = normal, violet = faster', () => velocityCss('to right')],
   direction: ['Direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
 };
@@ -103,7 +103,7 @@ async function main() {
 
   // Both asked at once: one round trip to the engine before any UI, not two.
   const [healthy, { presets }] = await Promise.all([host.request('healthyProfile'), host.request('presets')]);
-  store.set({ healthy: { P: healthy.P, Q: healthy.Q, metrics: healthy.metrics } });
+  store.set({ healthy: { P: healthy.P, Q: healthy.Q, D: healthy.D, metrics: healthy.metrics } });
   store.set({ presetList: presets });
 
   why = createWhy($('#whyPop'));
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=7e93f17973'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=960a035fd3'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -560,10 +560,9 @@ function renderLegend() {
       scale(flowCss('to right'), [[at(0.02), '0.02'], [at(0.5), '0.5'], [at(5), '5']], [at(0.5)]));
     el.setAttribute('aria-label', 'Legend: flow volume from 0.02 to 6 liters per minute on a log scale, pale mint to deep blue; line width grows with flow');
   } else if (m === 'velocity') {
-    const at = (v) => velPos(v) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Mean velocity', h('small', {}, 'cm/s')), cap('Velocity', 'cm/s'),
-      scale(velocityCss('to right'), [[at(0), '0'], [at(5), '5'], [at(15), '15'], [at(30), '30'], [at(60), '60']], [at(5)]));
-    el.setAttribute('aria-label', 'Legend: mean blood velocity from 0 to 60 centimeters per second, pale amber (slow; stasis below 5) to deep brown (fast)');
+    el.replaceChildren(h('div', { class: 'lg-title' }, 'Velocity', h('small', {}, 'vs normal')), cap('Velocity', 'vs normal'),
+      scale(velocityCss('to right'), [[16.7, 'Slow'], [50, 'Normal'], [83.3, 'Fast']], [33.3, 66.7]));
+    el.setAttribute('aria-label', 'Legend: each vessel\'s mean velocity against its normal range: pale sand slower than normal, teal normal, violet faster; collaterals stay grey');
   } else if (m === 'heat') {
     const at = (v) => (v / HEAT_MAX) * 100;
     el.replaceChildren(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),

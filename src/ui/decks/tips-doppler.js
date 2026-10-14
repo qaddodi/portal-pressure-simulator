@@ -10,9 +10,9 @@ export const TIPS_DOPPLER = {
     'Describe the Doppler of a working TIPS: the stent velocity and the flow in each portal branch',
     'Explain why the intrahepatic portal branches flow toward the stent',
     'Recognize the Doppler signs of TIPS stenosis, including a hepatopetal left portal vein',
-    'Read the figure colored by velocity, flow, direction and congestion',
+    'Read the figure colored by velocity, flow, direction, congestion and blood origin',
   ],
-  summary: 'Doppler of a TIPS, from the scan before the stent to a working stent and a narrowed one, with the vessels colored by velocity, flow, direction and congestion.',
+  summary: 'Doppler of a TIPS, from the scan before the stent to a working stent and a narrowed one, with the vessels colored by velocity, flow, direction, congestion and blood origin.',
   checks: [
     ['With a working TIPS, which way does the left portal vein flow?', 'Toward the stent, away from the liver (hepatofugal).'],
     ['Which velocities suggest stenosis?', 'A stent velocity under 90 or over 190 cm/s, a change of more than 50 cm/s from the baseline study, or a main portal vein under 30 cm/s.'],
@@ -26,8 +26,20 @@ export const TIPS_DOPPLER = {
       vignette: 'A 53-year-old woman with cirrhosis from hepatitis C, cured 4 years ago, has bled again from esophageal varices despite banding and a beta-blocker. She has a fasting Doppler before a planned TIPS.',
       kicker: 'Before TIPS', title: 'Before the stent, portal flow is slow',
       line: 'Resistance in the sinusoids slows the main portal vein, under {<15 cm/s}, so colored by velocity the portal veins look pale. These velocities are the starting point for every later scan.',
-      notes: 'The scan before TIPS confirms that the portal vein is patent and records its direction and velocity. In decompensated cirrhosis the main portal vein is slow, often under 15 cm/s, and may be to-and-fro or reversed. Colored by velocity, each vessel is pale when slow and dark when fast. Keep these numbers: after the stent they should rise.',
+      notes: 'The scan before TIPS confirms that the portal vein is patent and records its direction and velocity. In decompensated cirrhosis the main portal vein is slow, often under 15 cm/s, and may be to-and-fro or reversed. Colored by velocity, each vessel is compared with its own normal range: pale sand when slower, teal when normal and violet when faster. Keep these numbers: after the stent they should rise.',
       ask: ['Why scan the portal vein before a TIPS?', 'To confirm that it is patent and to record its direction and velocity for comparison.'],
+    },
+    {
+      // The stent switched on in real time, before the varices shrink over the following weeks (the next slide): about
+      // three quarters of the gut and spleen blood already bypasses the liver through collaterals, and the TIPS takes it
+      // to almost 90%, while the varices slow from about 270 to 170 cm/s. The buttons carry the next slide's settings.
+      id: 'shunted', cam: 'route', lens: 'origin', labels: ['CONF'], data: 'tiles', tiles: ['shunt', 'ppg'], key: ['shunt'],
+      compare: [{ label: 'Before TIPS', own: true, params: { tips: { on: false, d: 8 }, splanchnicTone: 1, habrStrength: 1, apShunt: 0 } },
+        { label: 'With TIPS', params: { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5 } }],
+      kicker: 'Before TIPS', title: 'Most portal blood already bypasses the liver',
+      line: 'Colored by blood origin, gut and spleen blood reaches the heart through the varices, and {shunt} of it bypasses the liver before the TIPS. With the stent the share rises only a little, but the route moves from the varices to the stent.',
+      notes: 'In decompensated cirrhosis, collaterals already carry about three quarters of the gut and spleen blood past the liver, mostly through the gastroesophageal varices. A TIPS adds a wider route with less resistance, so the shunted share rises only a little, to almost 90%, while flow through the varices falls and the PPG falls with it. More blood now reaches the heart without passing through the liver, which is why hepatic encephalopathy can follow a TIPS. Tap the buttons to compare the circulation before and with the stent; over the following weeks the varices shrink further.',
+      ask: ['Why does the shunted share rise only a little after a TIPS?', 'The collaterals were already carrying most of the gut blood past the liver; the stent mainly moves that flow off the varices.'],
     },
     {
       // After TIPS the splanchnic circulation grows more hyperdynamic and the hepatic artery takes up the portal flow the liver
@@ -43,7 +55,7 @@ export const TIPS_DOPPLER = {
     {
       id: 'jet', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS' },
       kicker: 'A working TIPS', title: 'Flow in a working stent is fast',
-      line: 'Blood speeds up as it enters the stent, which is narrower than the portal vein, so colored by velocity it looks dark. A velocity under {<90 cm/s} or over {>190 cm/s} suggests narrowing.',
+      line: 'Blood speeds up as it enters the stent, which is narrower than the portal vein. Colored by velocity, a working stent shows in the normal colour. A velocity under {<90 cm/s} or over {>190 cm/s} suggests narrowing.',
       notes: 'The stent is sampled at its portal end, in the middle and at its hepatic vein end. Flow runs from the portal vein toward the heart along its whole length, typically at 90 to 190 cm/s. A velocity outside that range, or a change of more than 50 cm/s from the baseline study, suggests stenosis. These cut-offs come from bare stents; covered stents narrow far less often, so the change from the baseline study counts for more.',
       ask: ['Where along the stent is the velocity measured?', 'At the portal end, in the middle and at the hepatic vein end.'],
     },

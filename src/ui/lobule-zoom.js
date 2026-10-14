@@ -22,13 +22,13 @@
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { store } from './store.js?v=14d67870c8';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=d378c02386';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=abcb87807a';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01, GLIDE_MS } from './util.js?v=abb277f29f';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=01ee46a874';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=78132ceacb';
 import { NODES, EDGES } from '../engine/topology.js?v=79f09b0d8a';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=4e3553e6dc';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=0dcc3de787';
+import { createSinusoidView } from './sinusoid-view.js?v=05677f2ea1';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -1676,9 +1676,9 @@ export function createLobuleZoom({ host }) {
       case 'drop': return dropColor(e === 'pre' ? m.P1 - m.P2 : e === 'sin' ? m.P2 - m.P3 : m.P3 - m.P4);
       case 'direction': return m.rev[e] ? m.inks.reversed : m.inks.normal;
       case 'flow': return flowColor(Math.abs(m.Qs[e]) * 0.06);
-      // Mean velocity as the anatomy has it for the liver's beds; in the sinusoids it rises toward the
-      // central vein as they merge (the same ×1 → ×2 the moving blood shows).
-      case 'velocity': return velocityColor(Math.abs(m.Qs[e]) * 0.6 * (seg === 'sin' ? lerp(1.35, 0.65, w) : 1));
+      // Velocity against the healthy liver's own beds (no Doppler range covers them): normal from two-thirds to one and
+      // a half times the healthy flow, as the anatomy colors its veins without a published range (velNormal.js).
+      case 'velocity': return velocityColor(Math.abs(m.Qs[e]) / Math.max(1e-6, Math.abs(m.Q0[e] ?? m.Qs[e])), [1 / 1.5, 1.5]);
       case 'neutral': {
         const a = rgb01(m.inks.portal), b = rgb01(m.inks.systemic), k = seg === 'cv' ? 1 : seg === 'sin' ? 1 - w : 0;
         return css(a.map((x, i) => lerp(x, b[i], k)));

@@ -46,6 +46,7 @@ export function lobuleState(f, st) {
   m.dP = [dOf(S.pv), dOf(S.sin), dOf(S.cv)];
   m.Qs = { pre: Qe(S.pre), sin: Qe(S.q), post: Qe(S.post) };
   const Q0 = { pre: He(S.pre), sin: He(S.q), post: He(S.post) };
+  m.Q0 = Q0;
   m.rev = Object.fromEntries(Object.entries(m.Qs).map(([k, q]) => [k, q < -Math.max(0.12, 0.02 * Math.abs(Q0[k] ?? 1))]));
   return m;
 }

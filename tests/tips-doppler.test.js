@@ -49,7 +49,7 @@ test('a narrowed TIPS: slow stent, slower portal vein, a hepatopetal left portal
 test('the talk uses the lenses it teaches, and every lens is one the presenter knows', () => {
   const lenses = new Set(TIPS_DOPPLER.slides.map((s) => s.lens).filter(Boolean));
   for (const k of ['velocity', 'flow', 'direction', 'heat']) assert.ok(lenses.has(k), k);
-  for (const k of lenses) assert.ok(['velocity', 'flow', 'direction', 'heat', 'drop', 'delta'].includes(k), k);
+  for (const k of lenses) assert.ok(['velocity', 'flow', 'direction', 'heat', 'drop', 'delta', 'origin'].includes(k), k);
   assert.equal(slide('left').tool.vessel, 'PVH_L');
   assert.equal(slide('warn').whatIf.param, 'stenosis.TIPS');
 });

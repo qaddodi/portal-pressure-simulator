@@ -269,7 +269,7 @@ export function createCore(post) {
     },
     healthyProfile({ reqId }) {
       const h = new Engine();
-      post({ type: 'healthy', reqId, P: Array.from(h.P), Q: Array.from(h.Q), metrics: computeMetrics(h) });
+      post({ type: 'healthy', reqId, P: Array.from(h.P), Q: Array.from(h.Q), D: h.edges.map((e) => h.diameter(e.id)), metrics: computeMetrics(h) });
     },
     // The presenter tour's fingerprint: the live state, or each listed preset loaded fresh.
     metrics({ reqId }) { post({ type: 'metrics', reqId, result: fingerprint(computeMetrics(eng), eng) }); },

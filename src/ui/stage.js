@@ -3,11 +3,11 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=79f09b0d8a';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=0ce510e29b';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=01ee46a874';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=78132ceacb';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=14d67870c8';
 import { fibroReading } from './clock.js?v=50927fe3bc';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=abb277f29f';
-import { createLobuleZoom } from './lobule-zoom.js?v=1703c0311d';
+import { createLobuleZoom } from './lobule-zoom.js?v=bec15ee155';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -2104,7 +2104,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (mode === 'drop') { c1 = c2 = dropColor(P1 - P2); }
       else if (mode === 'direction') { const rev = isReversed(e, f); c1 = c2 = rev ? 'var(--flow-reversed)' : 'var(--flow-normal)'; }
       else if (mode === 'flow') { c1 = c2 = flowColor(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06); }
-      else if (mode === 'velocity') { c1 = c2 = e.kind === 'liver' ? 'var(--lens-neutral)' : velocityColor(edgeVel(f, k)); }
+      else if (mode === 'velocity') { c1 = c2 = e.kind === 'liver' ? 'var(--lens-neutral)' : velColorOf(f, k, store.get().healthy); }
       else if (mode === 'heat') { c1 = heatColor(ref ? qP(P1 - ref[NI[e.from]]) : 0); c2 = heatColor(ref ? qP(P2 - ref[NI[e.to]]) : 0); }
       else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }
       else { c1 = deltaColor(ref ? qP(P1 - ref[NI[e.from]]) : 0); c2 = deltaColor(ref ? qP(P2 - ref[NI[e.to]]) : 0); }
@@ -4671,21 +4671,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       return { runs, color: flowColor(v) };
     }
-    let best = 0, tubes = 0, bed = false;
+    let best = 0, bestK = -1, tubes = 0, bed = false;
     for (const x of Object.values(E)) {
       if (!x.vis || x.isArt || (x.e.from !== id && x.e.to !== id)) continue;
       if (x.e.kind === 'liver') { bed = true; continue; }
       if (x.g.classList.contains('coll-ghost') || x.e.id === 'TIPS' || x.e.id === 'DIPS') continue;   // the TIPS and DIPS shunts have their own velocity label
       tubes++;
       const v = Math.abs(edgeVel(f, EI[x.e.id]));
-      if (v > best) best = v;
+      if (bestK < 0 || v > best) { best = v; bestK = EI[x.e.id]; }
     }
     // A microvascular bed has no single velocity; a station whose only vessels are closed
     // collaterals carries no flow at all (not stasis in an open vessel).
     if (!tubes) return { runs: [{ ...unit, t: bed ? 'microcirculation' : 'collaterals closed', gap: 0 }], color: 'var(--lens-neutral)' };
     const runs = [{ ...big, t: fmt(best, 0) }, { ...unit, t: 'cm/s' }];
     if (best < 5) runs.push({ t: 'stasis', size: 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
-    return { runs, color: velocityColor(best) };
+    return { runs, color: velColorOf(f, bestK, store.get().healthy) };
   }
 
   // Where a label has no room with its value, it keeps the name alone (see placeMulti and the overlap pass).

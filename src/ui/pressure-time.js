@@ -7,7 +7,7 @@
 
 import { store, hiddenNow } from './store.js?v=14d67870c8';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=abb277f29f';
-import { FONT as FONT0, FONT } from './charts.js?v=e11342cb0a';
+import { FONT as FONT0, FONT } from './charts.js?v=fdf593b2a3';
 import { frameFor } from './frame.js?v=0db47e99bf';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 const nextFrame = frameFor('pressure-time');
