@@ -2670,7 +2670,7 @@ button.finding { cursor: pointer; }
 .cath-label.wedge { --c: var(--tr-wedge); }
 .cath-label.ghost { --lo: .5; }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
-.cath-label.site { transition: scale .6s var(--ease) .35s; } .cath-label.site > * { transition: opacity .6s var(--ease) .35s; }
+.cath-label.site { transition: scale .6s var(--ease) .35s, box-shadow .6s var(--ease) .35s; } .cath-label.site > * { transition: opacity .6s var(--ease) .35s; }
 .cath-label.site.pv { --c: var(--tr-pv); } .cath-label.site.ivc { --c: var(--tr-ivc); }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
 .scan-probe { --scan: var(--fibroscan); /* the orange of the FibroScan card's readout (ORANGE in fibroscan.js) */ position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity .6s var(--ease); pointer-events: none; }
@@ -2730,6 +2730,11 @@ button.finding { cursor: pointer; }
 .res-one.lit .res-line { opacity: 1; stroke-width: calc(var(--res-w, 1.5px) + 1.5px); }
 .res-one.lit .res-halo { stroke: var(--res-c); stroke-width: calc(var(--res-w, 1.5px) + 9px); opacity: .22; }
 .cath-label.site.off { --lo: 0; } .cath-label.site.off, .cath-label.site.off > * { transition-delay: 0s; }
+/* (A hidden callout's frosted glass is hidden outright once it has faded, and its shadow fades with it: the shadow left behind
+   drew a ghost rectangle over the figure on a phone.) */
+.cath-label.site.off > .cl-glass { visibility: hidden; transition: opacity .6s var(--ease), visibility 0s linear .6s; }
+.cath-label.site.cath-pre > .cl-glass { visibility: hidden; }
+.cath-label.site.off { box-shadow: var(--shadow-cath-label-off); }   /* (its shadow goes with it, else the shadow alone drew the ghost) */
 .cath-label.site { padding: 5px 12px 6px; } .cath-label.site b { font-size: 20px; }
 /* A phone keeps each site to one line (name, value, unit) so two fit in the small figure. */
 @media (max-width: 600px) { .cath-label.site { flex-direction: row; align-items: baseline; gap: 5px; padding: 4px 10px; border-radius: 11px; } .cath-label.site b { font-size: 16px; } .cath-label.site b + span { margin-top: 0; } }
