@@ -330,6 +330,9 @@
  "shunts/wide": [
   "(a value)"
  ],
+ "shunts/dsrs": [
+  "{ppg}"
+ ],
  "shunts/brto": [
   "fundal varices"
  ],
@@ -423,15 +426,14 @@
   "{hr}",
   "{map}"
  ],
+ "variceal-bleed/oct": [
+  "{map}"
+ ],
  "variceal-bleed/blood": [
   "{map}"
  ],
  "variceal-bleed/band": [
   "varix"
- ],
- "variceal-bleed/over": [
-  "varix",
-  "{pv}"
  ],
  "variceal-bleed/tips": [
   "{ppg}"
@@ -560,7 +562,8 @@
   "{pv}"
  ],
  "outflow/caudate": [
-  "ivc"
+  "ivc",
+  "caudate lobe"
  ],
  "outflow/nowedge": [
   "hepatic vein",
@@ -573,6 +576,7 @@
  "outflow/dips": [
   "portal vein",
   "ivc",
+  "caudate lobe",
   "{pv}"
  ],
  "outflow/sos": [
