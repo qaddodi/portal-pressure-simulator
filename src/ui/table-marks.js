@@ -35,8 +35,8 @@ export const RATE = {
 export const TILE = {
   hvpg: { t: 'HVPG', s: 'Wedged − free', u: 'mmHg', better: -1 },
   ppg: { t: 'PPG', s: 'Portal − IVC', u: 'mmHg', better: -1 },
-  pv: { t: 'Portal vein', n: 'Portal', s: 'Pressure', u: 'mmHg', better: -1 },
-  sin: { t: 'Sinusoids', s: 'Pressure', u: 'mmHg', better: -1 },
+  pv: { t: 'Portal vein pressure', n: 'Portal', s: 'Pressure', u: 'mmHg', better: -1 },
+  sin: { t: 'Sinusoidal pressure', n: 'Sinusoids', s: 'Pressure', u: 'mmHg', better: -1 },
   whvp: { t: 'WHVP', s: 'Wedged hepatic vein', u: 'mmHg', better: -1 },
   fhvp: { t: 'FHVP', s: 'Free hepatic vein', u: 'mmHg', better: -1 },
   saag: { t: 'SAAG', s: 'Serum − ascites albumin', u: 'g/dL' },
@@ -52,9 +52,9 @@ export const TILE = {
   map: { t: 'Blood pressure', n: 'MAP', s: 'Mean arterial', u: 'mmHg', d: 0 },
   hr: { t: 'Heart rate', n: 'HR', s: 'Beats a minute', u: '/min', d: 0 },
   lsm: { t: 'Liver stiffness', n: 'Stiffness', s: 'FibroScan', u: 'kPa', better: -1 },
-  ra: { t: 'Right atrium', n: 'RA', s: 'Pressure', u: 'mmHg', better: -1 },
+  ra: { t: 'Right atrial pressure', n: 'RA', s: 'Pressure', u: 'mmHg', better: -1 },
   salb: { t: 'Serum albumin', n: 'Albumin', s: 'Blood', u: 'g/dL', better: 1 },
-  ivc: { t: 'IVC', s: 'Pressure', u: 'mmHg', better: -1 },
+  ivc: { t: 'IVC pressure', n: 'IVC', s: 'Pressure', u: 'mmHg', better: -1 },
   hb: { t: 'Hemoglobin', n: 'Hb', s: 'Blood', u: 'g/dL', better: 1 },
 };
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);

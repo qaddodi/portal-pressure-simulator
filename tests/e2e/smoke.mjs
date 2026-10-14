@@ -1322,7 +1322,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         }
         for (const t of document.querySelectorAll('.pz-data:not(.pz-hide) .pz-tile')) {
           if (!t.offsetWidth) continue;
-          const k = { HVPG: 'hvpg', PPG: 'ppg', Sinusoids: 'sinT' }[t.querySelector('.pzt-k')?.textContent.trim()], x = num(t.querySelector('.pzt-vu')?.textContent);
+          const k = { HVPG: 'hvpg', PPG: 'ppg', 'Sinusoidal pressure': 'sinT' }[t.querySelector('.pzt-k')?.textContent.trim()], x = num(t.querySelector('.pzt-vu')?.textContent);
           if (k && x != null) v[k] = x;
         }
         // The lobule's and the zoomed sinusoid's labels read as the Sinusoids tile.
