@@ -62,11 +62,11 @@ function equation([ml, legend]) {
 const LENS_KEY = {
   velocity: ['velocity', [['--vel-slow', 'Slow'], ['--vel-normal', 'Normal'], ['--vel-fast', 'Fast']]],
   flow: ['flow volume', () => flowCss('to right'), 'Little', 'Much'],
-  direction: ['direction', [['--flow-normal', 'Usual direction'], ['--flow-reversed', 'Reversed']]],
+  direction: ['direction', [['--flow-normal', 'Usual'], ['--flow-reversed', 'Reversed']]],
   heat: ['congestion', () => heatCss('to right'), 'None', 'Backed up'],
   drop: ['pressure drop', () => dropCss('to right'), 'None', 'Large'],
-  delta: ['change from healthy', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
-  origin: ['blood origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen'], ['--origin-artery', 'Artery'], ['--origin-systemic', 'Systemic']]],
+  delta: ['change', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
+  origin: ['origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen'], ['--origin-artery', 'Artery'], ['--origin-systemic', 'Systemic']]],
 };
 export const slideLens = (s, q = false) => (!q && !s?.visual && LENS_KEY[s?.lens] ? s.lens : 'pressure');
 // Pressure's key shows only on a slide with lens buttons, so its card keeps one height as the buttons switch lens.
@@ -75,7 +75,7 @@ const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
 function lensKey(k, fixed = false) {
   const [name, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY;
   const dot = (v) => h('i', { class: 'pz-lens-dot', style: { background: `var(${v})` } });
-  return h('p', { class: 'pz-lens' + (fixed ? ' pz-lens-fix' : '') + (Array.isArray(bar) && bar.length > 3 ? ' pz-lens-many' : ''), 'data-lens': k }, h('b', {}, `Colored by ${name}`),
+  return h('p', { class: 'pz-lens' + (fixed ? ' pz-lens-fix' : ''), 'data-lens': k }, h('b', {}, `Colored by ${name}`),
     // (Each swatch stays on one line with its words: "Low ▬▬ High" as one piece, a dot with its name.)
     ...(typeof bar === 'function' ? [h('span', { class: 'pz-lens-k' }, h('span', {}, lo), h('i', { class: 'pz-lens-bar', style: { background: bar() } }), h('span', {}, hi))]
       : bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, dot(v), h('span', {}, t)))));
@@ -1285,7 +1285,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function lensPick(l) {
     const lens = slideLens({ lens: l });
     if (store.get().colorMode !== lens) store.set({ colorMode: lens });
-    ui?.text.querySelector('.pz-lens')?.replaceWith(lensKey(lens, true));
+    const key = lensKey(lens, true);
+    ui?.text.querySelector('.pz-lens')?.replaceWith(key);
+    if (ui?.text) fitLensKeys(ui.text);
   }
   async function liveSet(s, i, patch) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
@@ -2029,6 +2031,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // An equation never runs past its card: one wider than its box is set smaller (--eq-k, the share of its size that fits).
   // (Measured at the card's final zoom; the math is a block of its own, so its box is the room the card gives it.)
+  // A colour key always keeps to one line: one wider than the card is set smaller (--lens-k), to 60% at most.
+  function fitLensKeys(el) {
+    for (const p of el.querySelectorAll('.pz-lens')) {
+      p.style.removeProperty('--lens-k');
+      let k = 1;
+      for (let n = 0; n < 4; n++) {
+        const w = p.clientWidth, over = p.scrollWidth - w;
+        if (!w || over <= 0.5) break;
+        k = Math.max(0.6, k * (w / (w + over)) * 0.99);
+        p.style.setProperty('--lens-k', k.toFixed(3));
+      }
+    }
+  }
   function fitEquations(el) {
     for (const box of el.querySelectorAll('.pz-eq')) {
       box.style.removeProperty('--eq-k');
@@ -2042,7 +2057,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
   }
   // (An equation typeset before the math font arrives is wider or narrower than it ends up: fitted again once the fonts are in.)
-  document.fonts?.ready.then(() => { for (const c of [ui?.text, ui?.data, ui?.panel]) if (c && !c.hidden) fitEquations(c); });
+  document.fonts?.ready.then(() => { for (const c of [ui?.text, ui?.data, ui?.panel]) if (c && !c.hidden) { fitEquations(c); fitLensKeys(c); } });
   function fitCards(...els) {
     for (const el of els) {
       if (!el || el.hidden) continue;
@@ -2070,6 +2085,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         }
       }
       fitHeads(el);
+      fitLensKeys(el);
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
       const all = el.querySelector('.pz-check'); all?.classList.add('pzc-all', 'pzc-still');
       let k = 1;
@@ -2091,6 +2107,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         el.style.setProperty('--pz-z', z.toFixed(3));
       }
       fitEquations(el);
+      fitLensKeys(el);
       // (Closed again with no transition, so the answers start hidden and the card rests at its closed height.)
       if (all) { all.classList.remove('pzc-all'); void all.offsetHeight; all.classList.remove('pzc-still'); }
       fitDone.set(el, fitSig(el));   // (as it rests once fitted: a folding part's height is part of it)
