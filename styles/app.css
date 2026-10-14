@@ -1657,8 +1657,6 @@ button.finding { cursor: pointer; }
 .pz-data.under { left: clamp(20px, calc(3.4vw / var(--vz)), 76px); right: auto; width: clamp(300px, calc(29vw / var(--vz)), 600px); }
 .pz-data.under.pz-hide { transform: translateY(14px); }
 .pz-data.under.tiles-only .pz-tiles, .pz-data.col.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-/* (An odd last tile keeps the others' size and sits centred under the pair above it.) */
-.pz:not(.stack) .pz-data:is(.under, .col).tiles-only .pz-tiles[data-n="3"] > .pz-tile:last-child { grid-column: 1 / -1; justify-self: center; width: calc(50% - clamp(4px, calc(.6 * var(--pzh) / var(--vz)), 7px)); }
 /* On a laptop or tablet the data card can stack under the words' card (presenter.js layout sets its left, top and width):
    it follows the words' card as that grows or shrinks, at the same pace. */
 .pz-data.col { right: auto; }
@@ -2106,20 +2104,36 @@ button.finding { cursor: pointer; }
 .pz-data.has-tool { width: clamp(340px, 32vw, 620px); }
 /* An instrument with tiles under it (desktop): a narrower card with the tiles side by side, so the figure keeps more of the middle. */
 .pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) { width: clamp(320px, 27vw, 540px); }
-/* Beside a tool the card is narrow: a tile keeps room for its name and rating (about 9 em), and the tiles wrap to a second row rather than squeeze. */
-.pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5em), 1fr)); }
-.pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pz:not(.stack):not(.port) .pz-data.has-tool.tiles-only:not(.tool-only) .pzt-v { font-size: var(--s-val); }
-/* Tiles under a chart (desktop and iPad): a tile is as narrow as its longest name word (about 8.6 caption sizes), so a name
-   never breaks mid-word; three tiles stay in one row (the card widens a little for them); the reading is the small value
-   size, and the change says only "▲ 7.9 from 16.9" (as on a phone), so it takes one or two lines. */
-.pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--s-cap) * 8.6)), 1fr)); }
-.pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.pz:not(.stack) .pz-data.has-tool:not(.tool-only):has(.pz-tiles[data-n="3"]) { width: max(clamp(320px, 27vw, 540px), calc(var(--s-cap) * 9 * 3 + 2 * clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px) + 2 * clamp(14px, calc(2.1 * var(--pzh) / var(--vz)), 28px) + 4px)); }
+/* Tiles under a chart (desktop and iPad): the reading is the small value size, and the change says only "▲ 7.9 from 16.9"
+   (as on a phone), so it takes one or two lines. The grid itself is the data card's one tile grid (below). */
 .pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pz-tile { gap: .15em; padding: clamp(8px, calc(1.1 * var(--pzh) / var(--vz)), 14px) clamp(9px, calc(1.1 * var(--pzh) / var(--vz)), 14px); }
 .pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pzt-k { letter-spacing: .04em; overflow-wrap: normal; }
 .pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pzt-v { font-size: var(--s-val); }
 .pz:not(.stack) .pz-data.has-tool:not(.tool-only) :is(.pzt-dw, .pzt-du) { display: none; }
+/* One tile grid in every data card (Mac and iPad landscape). Tiles and the scope's readings are laid on columns that span the
+   card's full inner width, at one gap, one padding and one corner; every row fills the width (no tile alone, centred or leaving
+   a row half empty) and a row's tiles share one height. One to three tiles take one row, four go two by two; three drop to two
+   over one (the last across) only on a card too narrow to hold three names whole. The scope's readings: grade, diameter, wall
+   thickness, then bands and red signs (the signs across two columns); two columns on a narrow card. Names never break mid-word. */
+.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) { container: pzd / inline-size; --pz-tg: clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
+.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles { gap: var(--pz-tg); }
+.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="1"] { grid-template-columns: minmax(0, 1fr); }
+.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles:is([data-n="2"], [data-n="3"], [data-n="4"]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] > .pz-tile:last-child { grid-column: 1 / -1; }
+.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pzt-k { overflow-wrap: normal; hyphens: manual; }
+.pz:not(.stack) .pz-data.tiles-only:is(.col, .under) .pzt-v { font-size: min(var(--s-title), 30cqi); }   /* (a big number never runs past its tile) */
+.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pz-tg, 8px); }
+.pz:not(.stack) .pz-data .pz-tool[data-kind="scope"] .endo-read > div { align-items: center; justify-content: flex-start; gap: .25em; text-align: center; padding: clamp(8px, calc(1.1 * var(--pzh) / var(--vz)), 14px) clamp(9px, calc(1.1 * var(--pzh) / var(--vz)), 14px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); }
+.pz:not(.stack) .pz-data .pz-tool[data-kind="scope"] .endo-read dt { overflow-wrap: normal; hyphens: manual; }
+.pz:not(.stack) .pz-data .pz-tool[data-kind="scope"] :is(.endo-num, .endo-grade) { justify-content: center; }
+.pz:not(.stack) .pz-data .pz-tool[data-kind="scope"] .endo-read > div > dd { margin-top: auto; }   /* (values share one line across a row, whatever the names' lines) */
+@container pzd (min-width: 420px) {
+  .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] > .pz-tile:last-child { grid-column: auto; }
+  .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-column: span 2; }
+}
 .pz-tool:not([data-kind]) { display: none; }
 .pz-ghost { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2em .6em; margin-top: 6px; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-3); opacity: 0; max-height: 0; overflow: hidden; transition: opacity .5s var(--ease), max-height .5s var(--ease); }
 .pz-ghost.on { opacity: 1; max-height: 3em; }
@@ -2181,19 +2195,12 @@ button.finding { cursor: pointer; }
    wall, bands, stigmata; three over two on a narrower window), so the view gets the room the tall tile stack used to take. Every
    tile holds one fixed shape: its label (up to two lines) above one line of value, so a live value never moves anything. */
 .pz:not(.stack) .pz-data.col > .pz-tool[data-kind="scope"] { width: 100%; }   /* (the card's full width: the row of readings needs it, and the view is sized on its own below) */
-.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > .endo-g { grid-column: auto; }
-.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-column: span 2; }
-.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > div { padding: 6px 8px; gap: 2px; border-radius: 12px; }
+.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-column: 1 / -1; }
 .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read dt { font-size: max(calc(12px / var(--pz-dk, 1)), var(--s-cap)); letter-spacing: .04em; }
-.pz:not(.stack) .pz-tool[data-kind="scope"] :is(.endo-num, .endo-chip-v, .endo-grade, .endo-grade span, .endo-grade b) { font-size: max(calc(15px / var(--pz-dk, 1)), .9vw); white-space: nowrap; }
+.pz:not(.stack) .pz-tool[data-kind="scope"] :is(.endo-num, .endo-chip-v, .endo-grade, .endo-grade span, .endo-grade b) { white-space: nowrap; }
 .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-num small { font-size: inherit; }
 .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-more { display: none; }
-@media (min-width: 1500px) {
-  .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read { grid-template-columns: 1.2fr 1fr 1fr .9fr 1.2fr; }
-  .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-column: auto; }
-  .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read dt { min-height: 2.4em; }   /* (two lines for the longer names, so every value sits on one line) */
-}
 .pz-tool .dop-main { flex: none; gap: 12px; }
 .pz-tool .dop-report { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 16px; align-items: start; }
 .pz-tool .dop-report > :not(.dop-stats) { grid-column: 1; }
