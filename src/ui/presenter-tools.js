@@ -140,7 +140,7 @@ function talkTrace() {
   ro?.observe(el);
   function set(chain) { chain0 = chain; draw(chain, true); }
   function draw(chain, fade) {
-    const W = el.clientWidth || 520, HT = el.clientHeight || 420, fs = parseFloat(getComputedStyle(el).fontSize) || 12, L = Math.ceil(2 * 0.62 * fs) + 12;
+    const W = el.clientWidth || 520, HT = el.clientHeight || 420, fs = parseFloat(getComputedStyle(el).fontSize) || 12, L = Math.ceil(3.3 * fs) + 8;
     size = `${W}x${HT}`;
     const pts = chain.filter((c) => c.fp);
     // Over each line: what happened there, at 45° along the top (the chart makes room); under it, its time point.
@@ -167,8 +167,9 @@ function talkTrace() {
     }
     const svg = sv('svg', { viewBox: `0 0 ${W} ${HT}`, role: 'img', 'aria-label': 'Pressures over the talk so far: ' + pts.map((p) => `${p.when || `slide ${p.n}`}${p.tick ? `, ${p.tick}` : ''}, PV ${fmt(p.fp.pv, 0)}, HVPG ${fmt(p.fp.hvpg, 1)}`).join('; ') },
       Array.from({ length: pMax / gStep + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: L, x2: R, y1: Y(k * gStep), y2: Y(k * gStep) }), sv('text', { x: L - 8, y: Y(k * gStep) + 0.35 * fs, 'text-anchor': 'end' }, String(k * gStep)))),
-      sv('text', { class: 'ptk-ax', x: L, y: T - 10 }, 'Pressure, mmHg'),
-      sv('text', { class: 'ptk-ax', x: L, y: T2 - 12 }, 'HVPG, mmHg'),
+      // The unit sits once at the top of each axis, above its numbers; the lane's name stays beside it (nothing wedged under the event labels).
+      sv('text', { class: 'ptk-ax', x: L, y: T - 8 }, 'Pressure'), sv('text', { class: 'ptk-unit', x: L - 8, y: T - 8, 'text-anchor': 'end' }, 'mmHg'),
+      sv('text', { class: 'ptk-ax', x: L, y: T2 - 8 }, 'HVPG'), sv('text', { class: 'ptk-unit', x: L - 8, y: T2 - 8, 'text-anchor': 'end' }, 'mmHg'),
       hTicks.map((v) => sv('g', { class: 'ptk-grid' + (v ? ' cut' : ''), 'data-rate': v === 10 ? 'hi' : v === 5 ? 'mid' : null },
         sv('line', { x1: L, x2: R, y1: Y2(v), y2: Y2(v) }), sv('text', { x: L - 8, y: Y2(v) + 0.35 * fs, 'text-anchor': 'end' }, String(v)))),
       // A line at each time point, with when and what happened.

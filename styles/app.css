@@ -2326,6 +2326,7 @@ button.finding { cursor: pointer; }
 .ptk-grid[data-rate="mid"] line { stroke: var(--caution); } .ptk-grid[data-rate="hi"] line { stroke: var(--danger); }
 .ptk-grid text, .ptk-mark text { font: 500 calc(15px * var(--svk, 1)) var(--font-ui); fill: var(--text-3); font-variant-numeric: tabular-nums; }
 .ptk-ax { font: 600 calc(13px * var(--svk, 1)) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; fill: var(--text-3); }
+.ptk-unit { font: 500 calc(13px * var(--svk, 1)) var(--font-ui); fill: var(--text-3); }
 .ptk-mark line { stroke: var(--border); stroke-dasharray: 2 6; }
 .ptk-mark text.ptk-ev { font: 600 16px var(--font-ui); fill: var(--text-2); }
 .ptk-mark.now text { fill: var(--text); font-weight: 700; }
@@ -4852,7 +4853,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* The talk-so-far chart: drawn at its own pixels in the cards' one small size (presenter-tools.js talkTrace); the card's fit
    shortens the chart, never its words. */
 .pz-talk { font-size: var(--pz-sm, var(--pz-psm, 12px)); height: calc(var(--talk-h, 280px) * var(--pz-fit, 1)); }
-.pz-talk :is(.ptk-grid text, .ptk-mark text, .ptk-ax, .ptk-lbl) { font-size: 1em; }
+.pz-talk :is(.ptk-grid text, .ptk-mark text, .ptk-ax, .ptk-unit, .ptk-lbl) { font-size: 1em; }
 .pz-talk .ptk-ax { letter-spacing: .04em; }
 .pz-talk .ptk-v { font-size: 1.5em; }
 .pz:not(.stack) .pz-tool[data-kind="talk"] .pz-talk { --talk-h: min(80cqi, calc(46 * var(--pzh))); }
