@@ -484,6 +484,17 @@ export function createDoppler({ onProbe }) {
     }
   }
 
+  // The top strip stays on one line: measured at full size, then scaled (gaps and type together) to the room there is.
+  function fitStrip() {
+    report.style.setProperty('--dop-k', '1');
+    const pad = 64, have = report.clientWidth - pad;
+    let k = 1;
+    for (let i = 0; i < 6 && report.scrollWidth - pad > have + 0.5 && k > 0.5; i++) {
+      k = Math.max(0.5, Math.floor(k * Math.min(0.97, have / (report.scrollWidth - pad)) * 100) / 100);
+      report.style.setProperty('--dop-k', String(k));
+    }
+  }
+
   function draw(now = performance.now()) {
     labBusy = false;
     const { ctx, w, h: hh } = fitCanvas(cv);
@@ -494,7 +505,7 @@ export function createDoppler({ onProbe }) {
     // On a slide's data card the report sits in the top strip (CSS sets --dop-ov on the box): the strip is as tall as the
     // report, and the vessel and settings move to the bottom strip under the second ticks. Read again when the size changes.
     const ovKey = `${w}x${hh}`, tOv = performance.now();
-    if (ovKey !== ovLast || tOv - ovAt > 500) { ovLast = ovKey; ovAt = tOv; ovOn = getComputedStyle(cv).getPropertyValue('--dop-ov').trim() === '1'; ovTop = ovOn ? Math.ceil(report.offsetHeight) + 4 : 26; }
+    if (ovKey !== ovLast || tOv - ovAt > 500) { ovLast = ovKey; ovAt = tOv; ovOn = getComputedStyle(cv).getPropertyValue('--dop-ov').trim() === '1'; if (ovOn) fitStrip(); ovTop = ovOn ? Math.ceil(report.offsetHeight) + 4 : 26; }
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
     if (w < 60 || hh < 60) return;
