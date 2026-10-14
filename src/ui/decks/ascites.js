@@ -76,7 +76,7 @@ export const ASCITES = {
       ask: ['Ascites with a SAAG of 1.5 and protein of 3.8 g/dL. What do you examine next?', 'The heart: the jugular venous pressure, an echocardiogram, BNP.'],
     },
     {
-      id: 'bc', terms: ['hv', 'sin'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Resistance in hepatic veins' }, data: 'tiles', tiles: ['tp', 'saag', 'sin'], key: ['tp'],
+      id: 'bc', terms: ['hv', 'sin'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true }, data: 'tiles', tiles: ['tp', 'saag', 'sin'], key: ['tp'],
       kicker: 'Protein-rich ascites', site: 'post', title: 'High protein in Budd–Chiari syndrome',
       vignette: 'A 26-year-old woman, 3 months postpartum, has had RUQ pain for 2 months and now has tense ascites. Her liver is large and tender.',
       line: 'Resistance in the hepatic veins congests a liver that is not yet scarred. Its sinusoids are still open, so the SAAG is high and protein is 2.5 g/dL or more.',

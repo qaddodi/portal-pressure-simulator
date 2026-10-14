@@ -19,11 +19,11 @@ import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=0dcc3de787';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=10a267de53';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=b22c8d1e1a';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d2c2580bdd';
 import { createTools } from './presenter-tools.js?v=f356e43c75';
-import { openHandout } from './handout.js?v=46580a3d5d';
+import { openHandout } from './handout.js?v=1e47cf7ec7';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=5c9b8f7944';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -1575,7 +1575,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!s.visual) {
       // The slide's marks, labels, the stations its terms name (in their colours) and its glows (see slideTargets).
       const tg = q ? null : slideTargets(s);
-      let marks = q ? [] : (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block' }));
+      let marks = q ? [] : (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block', free: !!m.free }));
       // A note mark is a pointer: its vessel glows in its station's colour. Where a station label on the slide already
       // names that vessel, the pointer would only repeat it, so it goes (the glow stays).
       if (tg) {

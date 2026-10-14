@@ -62,9 +62,9 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=d7903a8961';
-import { SITES } from './decks/sites.js?v=85f93d6b81';
+import { SITES } from './decks/sites.js?v=6608ad5c07';
 import { HVPG } from './decks/hvpg.js?v=92f7c3d332';
-import { ASCITES } from './decks/ascites.js?v=976bf94a57';
+import { ASCITES } from './decks/ascites.js?v=fa4ce44b78';
 import { VARICES } from './decks/varices.js?v=4637c20f67';
 import { TREATMENT } from './decks/treatment.js?v=088c0a2ca9';
 import { STIFFNESS } from './decks/stiffness.js?v=a6c522cc89';
@@ -74,7 +74,7 @@ import { SHUNTS } from './decks/shunts.js?v=ba8e038cb0';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=bfcc6f9ccf';
 import { TAP } from './decks/tap.js?v=04459c913c';
 import { CIRCUIT } from './decks/circuit.js?v=766499377a';
-import { DOPPLER } from './decks/doppler.js?v=e368ce7bd0';
+import { DOPPLER } from './decks/doppler.js?v=02b6d4d3a8';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=2a0ee87f4e';
 import { PREHEPATIC } from './decks/prehepatic.js?v=24aebcd245';
 import { RIGHT_HEART } from './decks/right-heart.js?v=c452d25c1c';

@@ -65,7 +65,7 @@ export const SITES = {
       ask: ['Why does HVPG rise here but not in schistosomiasis?', 'Here the resistance is in the sinusoids and central veins the wedge reads; in schistosomiasis it is in the portal tracts, upstream of them.'],
     },
     {
-      id: 'post', lens: 'drop', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Resistance in hepatic veins' },
+      id: 'post', lens: 'drop', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true },
       data: 'ladder', key: ['fhvp', 'ra', 'hvpg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Post-hepatic', site: 'post', title: 'Budd–Chiari syndrome',
       vignette: 'A 29-year-old woman taking OCPs has had RUQ pain for 2 months and now has tense ascites. Paracentesis shows a SAAG of 1.4 and a total protein of 4.3 g/dL.',

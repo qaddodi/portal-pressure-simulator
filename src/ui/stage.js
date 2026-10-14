@@ -5259,7 +5259,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const [ax, ay] = worldToLocal(x, y);
       const it = { key: i || m.kind ? `focus${i}${m.kind || ''}` : 'focus', mk: m.kind, cls: 'focus' + (m.kind ? ` k-${m.kind}` : ''), lines: [[{ t: m.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4, ax, ay };
       it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-      if (place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], 18 + (E[m.edges[0]].width || 4), true)) it.focusLeader = true;
+      // (A free mark stands by itself, with no leader: it names a group of vessels, so a line to the first would single it out.)
+      if (place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], 18 + (E[m.edges[0]].width || 4), true) && !m.free) it.focusLeader = true;
+      it.free = !!m.free;
     });
     if (stale) return false;
     if (solve) labelSol = nextSol;
@@ -5309,7 +5311,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const far = Math.hypot(le.x - it.ax, le.y - it.ay) > 5;
       if (it.focusLeader) leaders += `<path class="leader focus${it.mk ? ` k-${it.mk}` : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
       else if (it.leader && (circuit || far)) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
-      if (it.focusLeader) continue;
+      if (it.focusLeader || it.free) continue;
       if (!circuit || it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
     }
     for (const it of out) renderBlock(it);

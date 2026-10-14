@@ -81,7 +81,7 @@ export const DOPPLER = {
       ask: ['What is a portal cavernoma?', 'A network of collateral veins that bypasses a chronically occluded portal vein.'],
     },
     {
-      id: 'bc', terms: ['hv'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Resistance in hepatic veins' },
+      id: 'bc', terms: ['hv'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true },
       tool: { kind: 'doppler', vessel: 'RHV_IVC' },
       kicker: 'Budd–Chiari syndrome', site: 'post', title: 'Budd–Chiari: no flow in the hepatic veins',
       vignette: 'A 35-year-old woman with paroxysmal nocturnal hemoglobinuria has had RUQ pain for 2 months and now has tense ascites. Her liver is large and tender.',
