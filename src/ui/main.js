@@ -6,14 +6,14 @@ import { store, updateParams, replaceParams, bindParamSender, clearHistory, logA
 import { createStage } from './stage.js?v=dbc3559da8';
 import { createCreditPlacer } from './credit.js?v=7bbccaaa8c';
 import { sinusoidSupported } from './sinusoid-view.js?v=fe1671628f';
-import { createInspector } from './inspector.js?v=6ac06a4419';
+import { createInspector } from './inspector.js?v=3bf9e2102c';
 import { createDock, CUTOFFS } from './dock.js?v=56a669c6a8';
 import { setHvpgStage } from './hvpg-proc.js?v=9767e70a65';
 import { createWhy } from './why.js?v=3f99426737';
-import { createTimeline, LAPSES } from './timeline.js?v=6dba7c2fb8';
-import { createCompare } from './compare.js?v=e0a7c1c3c4';
+import { createTimeline, LAPSES } from './timeline.js?v=6ea30f1df0';
+import { createCompare } from './compare.js?v=b96392b1a6';
 import { createCard } from './card.js?v=b31798ffa0';
-import { createChart } from './chart.js?v=ad8e20ffd8';
+import { createChart } from './chart.js?v=b78c0eb81d';
 import { createMenu, ROLES } from './menu.js?v=7624915353';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';
 import { caption } from './a11y.js?v=1ab8cb7f9b';
@@ -21,7 +21,7 @@ import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=8ab4a129ca';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=2756edaf09';
-import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=93dd221434';
+import { EDGES, PORTAL_TERRITORY, dopplerK } from '../engine/topology.js?v=93dd221434';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=abb277f29f';
 import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
 
@@ -707,7 +707,7 @@ function hoverInfo(info) {
   if (!info || !f || tool !== 'select' || store.get().shunting || (isPhone() && !info.peek) || store.get().imaging) { tipEl.classList.remove('on'); tipPlace = ''; return; }
   const e = EDGES[EI[info.id]], k = EI[info.id];
   const D = Math.max(0.5, f.D[k]) / 10;
-  const v = f.Q[k] / (Math.PI * D * D / 4);
+  const v = f.Q[k] / (Math.PI * D * D / 4) * dopplerK(e);   // as Doppler reads it (peak), like the callouts
   const liver = e.kind === 'liver', b = liver ? bedStats(e, f) : null;
   const vals = [edgeValue(e, f, 'pressure', null).v, fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06),
     ...(liver ? [fmt(b.dp, 1), b.r == null ? '—' : fmt(b.r, 1)] : [fmt(v, 1), fmt(f.D[k], 1)])].map(String);

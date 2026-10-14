@@ -1,6 +1,6 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=93dd221434';
+import { EDGES, NODES, dMinOf, dopplerK } from '../engine/topology.js?v=93dd221434';
 import { DRUGS } from '../engine/scenario.js?v=a6c564d238';
 import { store, updateParams, isLocked, hiddenNow } from './store.js?v=14d67870c8';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=abb277f29f';
@@ -257,7 +257,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
             stat(`Out · ${toN.label}`, (f) => fp(f.P[NI[e.to]]).join(' '), true),
             stat('Pressure drop', (f) => `${fmt(f.P[NI[e.from]] - f.P[NI[e.to]], 1)} mmHg`),
             stat('Flow', (f) => ff(f.Q[k] * 0.06).join(' ')),
-            stat('Mean velocity', (f) => { const D = Math.max(0.5, f.D[k]) / 10; return `${fmt(f.Q[k] / (Math.PI * D * D / 4), 1)} cm/s`; }),
+            stat('Velocity', (f) => { const D = Math.max(0.5, f.D[k]) / 10; return `${fmt(Math.abs(f.Q[k]) / (Math.PI * D * D / 4) * dopplerK(e), 1)} cm/s`; }),   // Doppler (peak), like the callouts
             stat('Diameter', (f) => `${fmt(f.D[k], 1)} mm`),
             stat('Resistance', R),
             isColl ? stat('Recruitment', (f) => `${Math.round(clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1) * 100)} %`) : stat('Healthy flow', () => { const q = store.get().healthy?.Q?.[k]; return q != null ? `${fmtFlow(q * 0.06)} L/min` : '—'; })),

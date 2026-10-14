@@ -14,7 +14,7 @@
 import { store, replaceParams, onParamChange } from './store.js?v=14d67870c8';
 import { host } from './host.js?v=1524821c76';
 import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=abb277f29f';
-import { activeInterventions } from './inspector.js?v=6ac06a4419';
+import { activeInterventions } from './inspector.js?v=3bf9e2102c';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('timeline');
 
