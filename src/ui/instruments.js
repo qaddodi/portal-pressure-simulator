@@ -192,15 +192,18 @@ export function createVarixWall() {
     h('div', { class: 'ctl-sub' }, 'A wider varix, higher transmural pressure and a thinner wall all raise the stress. Remodeling enlarges the varix and thins its wall over months; a balloon raises the pressure outside it.'));
   el.append(stage, side);
   const set = (node, v) => { if (node.textContent !== v) node.textContent = v; };
-  let wMean = null, wT = 0;
+  let wMean = null, wT = 0, wN = 0;
   function update(f) {
     const v = f.metrics.varix;
     set(ptm.v, fmt(v.ptm, 1)); set(rad.v, fmt(v.r, 1)); set(wal.v, fmt(v.w, 1)); set(idx.v, fmt(v.T, 0));
     set(stressTxt, v.ratio >= 1 ? 'past the tear point' : `${Math.round(v.ratio * 100)} % of the tear point`);
     const sev = v.ratio > 1 ? 'critical' : v.ratio > 0.7 ? 'danger' : v.ratio > 0.4 ? 'caution' : 'ok';
     if (stressBar.dataset.sev !== sev) stressBar.dataset.sev = sev;
-    // (The stress swings with each beat: the number is its mean over the last beats, so it reads steady.)
-    const now = performance.now(); wMean = wMean == null || now - wT > 3000 ? v.ratio : wMean + (v.ratio - wMean) * (1 - Math.exp(-(now - wT) / 1500)); wT = now;
+    // (The stress swings with each beat and each breath: the number is its mean over the last several breaths, a plain
+    // average while that many have not passed yet, so it reads steady and the same on every screen, folded or open.)
+    const now = performance.now();
+    if (wMean == null || now - wT > 3000) { wMean = v.ratio; wN = 1; } else { wN++; wMean += (v.ratio - wMean) * Math.max(1 / wN, 1 - Math.exp(-(now - wT) / 6000)); }
+    wT = now;
     const ms = wMean > 1 ? 'critical' : wMean > 0.7 ? 'danger' : wMean > 0.4 ? 'caution' : 'ok';
     set(wPct, String(Math.round(wMean * 100))); set(wSev, WALL_SEV[ms]);
     if (wSev.dataset.sev !== ms) wSev.dataset.sev = wBig.dataset.sev = ms;
