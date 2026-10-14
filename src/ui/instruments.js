@@ -2,13 +2,13 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=93dd221434';
-import { pressureColor } from './colormap.js?v=0a9634e3fb';
+import { pressureColor } from './colormap.js?v=2756edaf09';
 import { verbEnabled } from './actions.js?v=d930c73471';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=abb277f29f';
 import { simTime, isPaused } from './clock.js?v=50927fe3bc';
 import { createEndoGL } from './endo-gl.js?v=79991ea476';
 import { renderEndo } from './endo-render.js?v=bbe56cef4d';
-import { FONT } from './charts.js?v=0a9d6623df';
+import { FONT } from './charts.js?v=6ae89f2cd2';
 import { store, updateParams, varicesPresent } from './store.js?v=14d67870c8';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('instruments');

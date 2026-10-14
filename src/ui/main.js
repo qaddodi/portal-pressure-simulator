@@ -3,24 +3,24 @@
 
 import { startHost, host } from './host.js?v=1524821c76';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=14d67870c8';
-import { createStage } from './stage.js?v=f3ef10bbdd';
+import { createStage } from './stage.js?v=dbc3559da8';
 import { createCreditPlacer } from './credit.js?v=7bbccaaa8c';
-import { sinusoidSupported } from './sinusoid-view.js?v=bcfe6fb904';
+import { sinusoidSupported } from './sinusoid-view.js?v=fe1671628f';
 import { createInspector } from './inspector.js?v=6ac06a4419';
-import { createDock, CUTOFFS } from './dock.js?v=9c0d8def7b';
-import { setHvpgStage } from './hvpg-proc.js?v=86f452677d';
+import { createDock, CUTOFFS } from './dock.js?v=e3ed09831f';
+import { setHvpgStage } from './hvpg-proc.js?v=9767e70a65';
 import { createWhy } from './why.js?v=3f99426737';
 import { createTimeline, LAPSES } from './timeline.js?v=6dba7c2fb8';
 import { createCompare } from './compare.js?v=e0a7c1c3c4';
 import { createCard } from './card.js?v=515a72b531';
 import { createChart } from './chart.js?v=08da30a87d';
-import { createMenu, ROLES } from './menu.js?v=8a6ec1df13';
+import { createMenu, ROLES } from './menu.js?v=7624915353';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';
 import { caption } from './a11y.js?v=1ab8cb7f9b';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=d930c73471';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=0a9634e3fb';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=2756edaf09';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=93dd221434';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=abb277f29f';
 import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
@@ -49,7 +49,7 @@ const LENSES = {
   heat: ['Congestion', 'Where pressure has backed up', () => heatCss('to right')],
   drop: ['Pressure drop', 'Where the resistance lives', () => dropCss('to right')],
   flow: ['Flow volume', 'How much blood; width = flow', () => flowCss('to right')],
-  velocity: ['Velocity', 'Against each vessel\'s normal: sand = slower, teal = normal, violet = faster', () => velocityCss('to right')],
+  velocity: ['Velocity', 'Against each vessel\'s normal: sand slower, teal normal, violet faster, graded', () => velocityCss('to right')],
   direction: ['Direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
 };
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=7b0079d967'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=9bde3ff4fd'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -562,7 +562,7 @@ function renderLegend() {
   } else if (m === 'velocity') {
     el.replaceChildren(h('div', { class: 'lg-title' }, 'Velocity', h('small', {}, 'vs normal')), cap('Velocity', 'vs normal'),
       scale(velocityCss('to right'), [[16.7, 'Slow'], [50, 'Normal'], [83.3, 'Fast']], [33.3, 66.7]));
-    el.setAttribute('aria-label', 'Legend: each vessel\'s mean velocity against its normal range: pale sand slower than normal, teal normal, violet faster; collaterals stay grey');
+    el.setAttribute('aria-label', 'Legend: each vessel\'s mean velocity against its normal range: a continuous scale from sand (slower than normal) through teal (normal) to violet (faster), stronger the further from normal; collaterals stay grey');
   } else if (m === 'heat') {
     const at = (v) => (v / HEAT_MAX) * 100;
     el.replaceChildren(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),

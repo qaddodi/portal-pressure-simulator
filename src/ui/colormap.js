@@ -96,19 +96,16 @@ export const flowPos = (lpm) => Math.log10(Math.max(FLOW_MIN, lpm) / FLOW_MIN) /
 export const flowColor = (lpm) => flowScale(flowPos(lpm));
 export const flowCss = (dir) => flowScale.css(dir);
 
-// Mean velocity against the vessel's normal range (velNormal.js), as the Doppler reads it: pale sand below normal
-// (paler the slower), teal within it, violet above it (deepest at twice the top of the range). Each band is a third of
-// the scale and darker than the one before, so it reads without colour vision, and red never means slow. A vessel with
-// no normal (a collateral, a surgical shunt) stays neutral.
+// Mean velocity against the vessel's normal range (velNormal.js), as the Doppler reads it, on one continuous scale:
+// teal at the middle of the normal range, shading toward sand as it falls below normal and deepening toward violet as
+// it rises above (deepest at twice the top of the range). The further outside normal, the stronger the colour, and
+// red never means slow. A vessel with no normal (a collateral, a surgical shunt) stays neutral.
 const velScale = makeScale('--ramp-velocity');
 export const velocityColor = (v, normal) => (normal ? velScale(velPos(v, normal)) : 'var(--lens-neutral)');
 // Vessel k of frame f against its normal (velNormal.js), with the healthy frame for the veins no range covers.
 export const velColorOf = (f, k, healthy) => velocityColor(dopplerVel(f, k), velNormal(k, f, healthy));
-// The key's bar: the three bands with hard edges.
-export const velocityCss = (dir = 'to right') => {
-  const b = (u0, u1, p0, p1) => `${velScale(u0)} ${p0}%, ${velScale(u1)} ${p1}%`;
-  return `linear-gradient(${dir}, ${b(0.06, 0.32, 0, 33.3)}, ${b(0.34, 0.66, 33.3, 66.7)}, ${b(0.68, 0.94, 66.7, 100)})`;
-};
+// The key's bar: the same continuous gradient.
+export const velocityCss = (dir) => velScale.css(dir);
 
 // Congestion heat: pressure above the reference, 0 to 15 mmHg. Neutral grey when none.
 export const HEAT_MAX = 15;

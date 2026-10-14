@@ -96,7 +96,7 @@
   --ramp-pressure: #DCEBF7 0, #7CC4E4 5, #6A7FD8 10, #8E4FC4 12, #C0307A 20, #6E0B3A 30;
   --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #1B366A 1;
   /* velocity against each vessel's normal: sand below it, teal within it, violet above it (thirds of the scale) */
-  --ramp-velocity: #EFDDAE 0, #D8B26A .32, #5DB4A4 .34, #2E8C80 .66, #9A7ED6 .68, #4A2A8C 1;
+  --ramp-velocity: #C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #4A2A8C 1;
   --vel-slow: #D8B26A; --vel-normal: #3FA092; --vel-fast: #6E4FB0;
   --ramp-heat: #B4B8C2 0, #F4D35E .12, #F08A24 .45, #D7263D .75, #6E0B2E 1;
   --ramp-drop: #DCE6D2 0, #A8C97A .3, #4F8C3C .65, #1D4724 1;
