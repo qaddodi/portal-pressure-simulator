@@ -169,7 +169,7 @@ export function createCreditPlacer(credit) {
     changedAt = 0;
     // (One margin with the cards: the credit's edge lines up with the presenter's cards, the screen's margin.)
     const shade = document.querySelector('.pz-shade'), sr = shade && getComputedStyle(shade).opacity !== '0' ? shade.getBoundingClientRect() : null;
-    const opt = { inset: sr?.width ? Math.max(12, Math.round(sr.left - wr.left - fig.l)) : wr.width < 768 ? 12 : 24 };
+    const opt = { gap: wr.width < 768 ? 12 : 24, inset: sr?.width ? Math.max(12, Math.round(sr.left - wr.left - fig.l)) : wr.width < 768 ? 12 : 24 };   // (a clear gap from every card: 24 px on a laptop or tablet)
     let spots = freeSpots(fig, obs, w, h, opt), tight = false;
     for (const k of CORNERS) if (!spots[k]) blocked[k] = now;
     // (Of the free corners, one whose spot is clear of the organs' art, where there is one; the spots themselves are as

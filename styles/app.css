@@ -4564,7 +4564,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .pz.stack .pz-data { padding-bottom: 10px; }
   .pz.stack .pz-grip { bottom: 3px; height: 3px; width: 34px; }
   .pz:not(.stack) .pz-grip { left: 7px; bottom: auto; top: 50%; width: 4px; height: 38px; translate: 0 -50%; }
-  .pz:not(.stack) .pz-data.under .pz-grip, .pz:not(.stack) .pz-data.col .pz-grip { left: auto; right: 7px; }
+  .pz:not(.stack) .pz-data.under .pz-grip, .pz:not(.stack) .pz-data.col .pz-grip { left: auto; right: 4px; width: 3px; }   /* (in the card's edge, clear of the tiles beside an instrument) */
 }
 
 /* A phone held sideways (844x390, 667x375): laid out like a narrow iPad. One bar row, the Tests card docked
@@ -4675,50 +4675,56 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool > .pz-ghost { display: none; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tiles:not([data-n="0"]) { overflow: clip; }
 /* The header's two sizes, shared by every instrument: the reading's number, everything else small. */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-vel b, .ab-big > b, .pt-num) { font: 600 var(--pz-num)/1 var(--font-ui); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-vel small, .ab-big > b small, .pt-v small, .pt-k, .pt-sev, .dop-dir, .ab-grade, .endo-stress-v, .endo-grade, .endo-grade *, .endo-chip-v, .endo-read dt) { font: 600 var(--bs)/1.25 var(--font-ui); letter-spacing: 0; white-space: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-vel small, .ab-big > b small, .pt-v small) { margin-left: .3em; font-weight: 500; color: var(--text-3); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-dir, .pt-sev, .ab-grade)::before { width: .6em; height: .6em; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-vel b, .ab-big > b, .pt-num) { font: 600 var(--pz-num)/1 var(--font-ui); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-vel small, .ab-big > b small, .pt-v small, .pt-k, .pt-sev, .dop-dir, .ab-grade, .endo-stress-v, .endo-grade, .endo-grade *, .endo-chip-v, .endo-read dt) { font: 600 var(--bs)/1.25 var(--font-ui); letter-spacing: 0; white-space: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-vel small, .ab-big > b small, .pt-v small) { margin-left: .3em; font-weight: 500; color: var(--text-3); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-dir, .pt-sev, .ab-grade)::before { width: .6em; height: .6em; }
 /* Doppler: "−12 cm/s mean" and "● Hepatofugal" over the trace. */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-main { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); align-items: baseline; gap: 6px 12px; min-height: 0; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { display: contents; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { grid-area: 1 / 1; margin: 0; flex-wrap: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { grid-area: 1 / 2; justify-self: end; gap: .45em; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-box { grid-area: 2 / 1 / 3 / -1; align-self: stretch; width: 100%; height: auto; min-height: calc(58cqi * var(--pz-fit, 1)); aspect-ratio: auto; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] :is(.dop-pattern, .dop-range, .dop-stats, .dop-note) { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-main { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr) auto; align-items: baseline; gap: 6px 12px; min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { grid-area: 1 / 1; margin: 0; flex-wrap: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { grid-area: 1 / 2; justify-self: end; gap: .45em; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-box { grid-area: 2 / 1 / 3 / -1; align-self: stretch; width: 100%; height: auto; min-height: calc(58cqi * var(--pz-fit, 1)); aspect-ratio: auto; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] :is(.dop-range, .dop-stats, .dop-note) { display: none; }
+/* (The waveform's name, "Phasic", "Reversed S", is the trace's caption, under it at the small size.) */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel { grid-area: 1 / 1; white-space: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-pattern { grid-area: 3 / 1 / 4 / -1; margin: 0; font: 600 var(--bs)/1.25 var(--font-ui); color: var(--text-2); white-space: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-pattern:empty { display: none; }
+
 /* Beat by beat: "HVPG 6.7 mmHg" and "● Subclinical" over the trace. */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-height: 0; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-head { flex-wrap: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-hero { display: contents; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 0 .5em; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-k { color: var(--text-2); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-sev { justify-self: end; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-delta { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-box { flex: 1 0 auto; height: calc(72cqi * var(--pz-fit, 1)); min-height: 0; aspect-ratio: auto; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-head { flex-wrap: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-hero { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 0 .5em; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-k { color: var(--text-2); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-sev { justify-self: end; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-delta { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-box { flex: 1 0 auto; height: calc(72cqi * var(--pz-fit, 1)); min-height: 0; aspect-ratio: auto; }
 /* Scope and varix wall: the grade, or the wall stress, over the picture; the picture as large as the column. */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .pz-inst { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto minmax(0, 1fr); align-items: baseline; gap: 6px 12px; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) :is(.chart-side, .endo-read) { display: contents; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read > div { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { grid-area: 3 / 1 / 4 / -1; align-self: center; width: calc(min(100cqi, calc(30 * var(--pzh))) * var(--pz-fit, 1)); margin: 0 auto; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-pos { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read > :is(.endo-g:not(.wall-law), .endo-stress, .endo-red) { display: flex; align-items: baseline; gap: .5em; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read dt { color: var(--text-2); letter-spacing: .04em; text-transform: uppercase; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-g { grid-area: 1 / 1; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-area: 1 / 2; justify-self: end; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-more { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress { grid-area: 1 / 1 / 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 6px 12px; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > dt { flex: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > .endo-bar { grid-column: 1 / -1; display: block; width: 100%; height: 6px; margin: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .pz-inst { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto minmax(0, 1fr); align-items: baseline; gap: 6px 12px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) :is(.chart-side, .endo-read) { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read > div { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { grid-area: 3 / 1 / 4 / -1; align-self: center; width: calc(min(100cqi, calc(30 * var(--pzh))) * var(--pz-fit, 1)); margin: 0 auto; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-pos { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read > :is(.endo-g:not(.wall-law), .endo-stress, .endo-red) { display: flex; align-items: baseline; gap: .5em; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read dt { color: var(--text-2); letter-spacing: .04em; text-transform: uppercase; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-g { grid-area: 1 / 1; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-area: 1 / 2; justify-self: end; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-more { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress { grid-area: 1 / 1 / 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 6px 12px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > dt { flex: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > .endo-bar { grid-column: 1 / -1; display: block; width: 100%; height: 6px; margin: 0; }
 /* Abdomen: "7.5 L" and "● Grade 3" over the belly, drawn large. */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab, .ab-main) { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-read { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 6px; align-items: center; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol-l { grid-area: 1 / 1; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-big { justify-content: space-between; flex-wrap: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly { grid-area: 2 / 1; justify-self: center; width: calc(min(46cqi, calc(16 * var(--pzh))) * var(--pz-fit, 1)); height: auto; aspect-ratio: 1; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab-trend, .ab-iap, .ab-tiles) { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab, .ab-main) { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-read { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 6px; align-items: center; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol-l { grid-area: 1 / 1; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-big { justify-content: space-between; flex-wrap: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly { grid-area: 2 / 1; justify-self: center; width: calc(min(46cqi, calc(16 * var(--pzh))) * var(--pz-fit, 1)); height: auto; aspect-ratio: 1; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab-trend, .ab-iap, .ab-tiles) { display: none; }
 /* (The beat-by-beat trace's Smooth switch is the Explore pane's, not a slide's.) */
 .pz-tool .pt-smooth { display: none; }
 /* (Beside an instrument the tile column is a little wider, so every tile's name stays on one line.) */
@@ -4750,3 +4756,16 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { width: min(56cqi, 150px); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { width: min(30cqi, 96px); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 168px; }
+/* (A card with Show/Hide keeps its title centred like every other card: the pill sits at the right end, the same room kept at
+   the left, so the title is centred on the card.) */
+.pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-dh { position: relative; padding-inline: 64px; justify-content: center; text-align: center; }
+.pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-dh > .pz-fold { position: absolute; right: -2px; top: 50%; translate: 0 -50%; margin: 0; }
+/* (An instrument alone, or over a ladder, is the same screen at the card's full width.) */
+.pz:not(.stack):not(.low) .pz-data.has-tool > .pz-tool { --bs: var(--pz-sm); container-type: inline-size; }
+.pz:not(.stack):not(.low) .pz-data.has-tool:not(.pz-beside) > .pz-tool > .pz-ghost { display: none; }
+.pz:not(.stack):not(.low) .pz-data.has-tool:not(.pz-beside) .pz-tool[data-kind="doppler"] .dop-box { min-height: calc(40cqi * var(--pz-fit, 1) * var(--pz-dk, 1)); }
+/* (A Doppler over a ladder keeps its words' size too: the card's fit shortens its trace, the ladder zooms as before.) */
+.pz:not(.stack):not(.low) .pz-data.col.has-tool:not(.pz-beside) > .pz-tool[data-kind="doppler"] { zoom: 1; }
+/* (A card of tiles alone never zooms its words: they keep the card's two sizes on every slide. A ladder's card still zooms as a
+   whole, the ladder's own lettering with it.) */
+.pz:not(.stack):not(.low) .pz-data.col.tiles-only:not(.has-tool) > :is(.pz-tiles, .pz-dh) { zoom: 1; }

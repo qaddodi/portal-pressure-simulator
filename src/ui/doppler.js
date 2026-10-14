@@ -480,7 +480,10 @@ export function createDoppler({ onProbe }) {
     ctx.fillText(label, padL, 13);
     const lw = ctx.measureText(label).width;
     ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
-    ctx.fillText(`${mode === 'spectrum' ? 'PW' : 'PW + CD'}  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, padL + lw + 12, 13);
+    // (The settings drop from the end, sweep first, where the strip is too narrow for all of them beside the units.)
+    const parts = [mode === 'spectrum' ? 'PW' : 'PW + CD', 'θ 60°', 'SV 3 mm', `${sweepSeconds} s`], room = w - padR - (padL + lw + 12) - 6;
+    while (parts.length > 1 && ctx.measureText(parts.join('  ·  ')).width > room) parts.pop();
+    if (ctx.measureText(parts.join('  ·  ')).width <= room) ctx.fillText(parts.join('  ·  '), padL + lw + 12, 13);
     if (buf.length < 2) {
       tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = cssAlpha('--white', .55);
@@ -559,7 +562,8 @@ export function createDoppler({ onProbe }) {
     // Velocity scale on the right
     ctx.font = FONT(500, 12); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     // ticks: a labelled tick every 1, 2, 5, 10, 20, 50 ... cm/s (the first that gives at most five a side), a half tick between
-    const lab = [1, 2, 5, 10, 20, 50, 100, 200].find((x) => scale / x <= 5) || 100, minor = lab / 2;
+    // (and labels at least 18 px apart, so a short trace keeps a few readable ones rather than a stack)
+    const lab = [1, 2, 5, 10, 20, 50, 100, 200, 500].find((x) => scale / x <= 5 && x * pxPerV >= 18) || 500, minor = lab / 2;
     for (let k = -Math.ceil(scale / minor); k <= Math.ceil(scale / minor); k++) {
       const v = k * minor, y = padT + baseY - v * pxPerV;
       if (y < padT - 1 || y > padT + H + 1) continue;
