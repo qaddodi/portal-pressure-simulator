@@ -436,8 +436,8 @@ Edge tones used when you glow an id by hand: portal vessels follow their station
 
 | Key | Name | Unit | Rating (colour) |
 |---|---|---|---|
-| `hvpg` | HVPG (wedged − free) | mmHg | **amber ≥ 5 ("Raised"), red ≥ 10 ("CSPH")** |
-| `ppg` | PPG (portal − IVC) | mmHg | **amber ≥ 6 ("Raised"), red ≥ 12 ("High")** |
+| `hvpg` | HVPG (wedged − free) | mmHg | **amber ≥ 5 ("Mild"), red ≥ 10 ("CSPH")** |
+| `ppg` | PPG (portal − IVC) | mmHg | **amber ≥ 6 ("High"), red ≥ 12 ("Bleed risk")** |
 | `pv` | Portal vein pressure | mmHg | red > 10 |
 | `sin` | Sinusoidal pressure | mmHg | amber ≥ 9, red ≥ 12 |
 | `whvp` | WHVP (wedged hepatic vein) | mmHg | red > 10 |
@@ -456,9 +456,11 @@ Edge tones used when you glow an id by hand: portal vessels follow their station
 | `shunt` | Portal blood bypassing the liver | % | amber ≥ 20, red ≥ 50 |
 | `map` | Mean arterial pressure | mmHg | red < 65 |
 | `hr` | Heart rate | /min | slow < 60, fast > 100 |
-| `lsm` | Liver stiffness (FibroScan) | kPa | amber ≥ 10, gray zone 15–25, red ≥ 25 |
+| `lsm` | Liver stiffness (FibroScan) | kPa | amber ≥ 10 ("cACLD"), 15–25 ("Borderline"), red ≥ 25 ("CSPH") |
 | `salb` | Serum albumin | g/dL | amber < 3.5 |
 | `hb` | Hemoglobin | g/dL | amber < 12, red < 7 |
+
+Status words read in order: Normal, then High (or Low), then Severe; HVPG, PPG and stiffness use their guideline meaning instead (Mild/CSPH, High/Bleed risk, cACLD/Borderline/CSPH). The spleen is Normal or Large.
 
 Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; HVPG ≥ 12 high risk of variceal bleeding; PPG normal ≤ 5; Baveno VIII stiffness: < 10 kPa normal, ≤ 15 with platelets ≥ 150 rules CSPH out, 15–25 gray zone (ANTICIPATE ≥ 75% or spleen stiffness ≥ 55 kPa rules it in), ≥ 25 CSPH.
 

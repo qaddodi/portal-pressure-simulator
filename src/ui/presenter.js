@@ -19,13 +19,13 @@ import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { sinusoidSupported } from './sinusoid-view.js?v=808d5c3e35';
 import { NODES } from '../engine/topology.js?v=79f09b0d8a';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=6d0046681f';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=b865d1e321';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=2be0ead28a';
-import { createTools } from './presenter-tools.js?v=98316263da';
-import { openHandout } from './handout.js?v=c9bc56a73e';
+import { createTools } from './presenter-tools.js?v=7b87cc4de2';
+import { openHandout } from './handout.js?v=544720fbdd';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=ad58eb361d';
+import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=291487be4c';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 const nextFrame = frameFor('presenter');
@@ -652,7 +652,7 @@ function bigLadder() {
 function bigTiles() {
   const el = h('div', { class: 'pz-tiles' });
   let sig = '', parts = [], draw = null, goal = false;
-  // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "Raised" under a line that
+  // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "High" under a line that
   // says the target is reached.
   const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? (f.ppg < 12 ? ['ok', 'Target met'] : ['hi', 'Above target']) : rateOf(k, f));
   function build(ks, withRef) {

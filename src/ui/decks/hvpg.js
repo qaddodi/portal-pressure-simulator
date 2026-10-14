@@ -46,7 +46,7 @@ export const HVPG = {
       ask: ['After a variceal bleed, on carvedilol, the HVPG falls from 18 to 13 mmHg. Is that a response?', 'Yes: a fall of 20% or more protects against rebleeding even above 12. Before any bleed, a fall of 10% already predicts benefit.'],
     },
     {
-      id: 'grades', visual: 'scale', scale: { key: 'hvpg', max: 20, legend: true, low: 'Normal', marks: [[5, 'Portal\nhypertension', 'Raised'], [10, 'Clinically significant\nportal hypertension\n(CSPH)', 'CSPH'], [12, 'Varices\ncan bleed', 'Bleeding risk']] },
+      id: 'grades', visual: 'scale', scale: { key: 'hvpg', max: 20, legend: true, low: 'Normal', marks: [[5, 'Portal\nhypertension', 'Mild'], [10, 'Clinically significant\nportal hypertension\n(CSPH)', 'CSPH'], [12, 'Varices\ncan bleed', 'Bleed risk']] },
       of: [{ preset: 'healthy', name: 'Healthy' }, { preset: 'cirr-comp', name: 'Compensated cirrhosis' }, { id: 'hvpg', name: 'The patient' }, { preset: 'cirr-decomp', name: 'Decompensated cirrhosis' }],
       kicker: 'Thresholds', title: 'Four patients on the HVPG scale',
       line: 'A healthy liver, compensated cirrhosis, the patient\'s liver and decompensated cirrhosis, each placed by its HVPG.',

@@ -60,11 +60,11 @@
 
 import { CIRCULATION } from './decks/circulation.js?v=f992e1f34d';
 import { SITES } from './decks/sites.js?v=742e291503';
-import { HVPG } from './decks/hvpg.js?v=4b02189486';
+import { HVPG } from './decks/hvpg.js?v=86fe4aa24f';
 import { ASCITES } from './decks/ascites.js?v=06f3f72393';
 import { VARICES } from './decks/varices.js?v=2cc4fcacc8';
 import { TREATMENT } from './decks/treatment.js?v=528e3fa858';
-import { STIFFNESS } from './decks/stiffness.js?v=373db59835';
+import { STIFFNESS } from './decks/stiffness.js?v=f9dffeb21f';
 import { ONE_YEAR } from './decks/one-year.js?v=23784252a0';
 import { LOBULE } from './decks/lobule.js?v=8889ca494b';
 import { SHUNTS } from './decks/shunts.js?v=2d7fedbc1c';

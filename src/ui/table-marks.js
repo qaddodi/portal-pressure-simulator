@@ -6,28 +6,29 @@ export const NO_ASC = 150;   // mL: below it there is no ascites to tap (ultraso
 export const vSize = (v) => (v < 2.5 ? ['ok', 'None'] : v < 5 ? ['mid', 'Small'] : ['hi', 'Large']);
 
 export const RATE = {
-  hvpg: (v) => (v >= 10 ? ['hi', 'CSPH'] : v >= 5 ? ['mid', 'Raised'] : ['ok', 'Normal']),
-  ppg: (v) => (v >= 12 ? ['hi', 'High'] : v >= 6 ? ['mid', 'Raised'] : ['ok', 'Normal']),
-  pv: (v) => (v >= 15 ? ['hi', 'High'] : v > 10 ? ['mid', 'Raised'] : ['ok', 'Normal']),
-  sin: (v) => (v >= 12 ? ['hi', 'High'] : v >= 9 ? ['mid', 'Raised'] : ['ok', 'Normal']),
+  hvpg: (v) => (v >= 10 ? ['hi', 'CSPH'] : v >= 5 ? ['mid', 'Mild'] : ['ok', 'Normal']),
+  ppg: (v) => (v >= 12 ? ['hi', 'Bleed risk'] : v >= 6 ? ['mid', 'High'] : ['ok', 'Normal']),
+  pv: (v) => (v >= 15 ? ['hi', 'Severe'] : v > 10 ? ['mid', 'High'] : ['ok', 'Normal']),
+  sin: (v) => (v >= 12 ? ['hi', 'Severe'] : v >= 9 ? ['mid', 'High'] : ['ok', 'Normal']),
   saag: (v, f) => (f.asc < NO_ASC ? [null, 'No ascites'] : v >= 1.1 ? ['hi', 'Portal HTN'] : ['ok', 'Not portal']),
   // (Protein is neither good nor bad, except that below 1.5 g/dL it no longer guards against infection.)
   tp: (v, f) => (f.asc < NO_ASC ? [null, 'No ascites'] : v >= 2.5 ? ['info', 'High'] : v < 1.5 ? ['mid', 'SBP risk'] : ['info', 'Low']),
   asc: (v) => (v < NO_ASC ? ['ok', 'None'] : v < 1500 ? ['mid', 'Grade 1'] : v < 5000 ? ['hi', 'Grade 2'] : ['hi', 'Grade 3']),
   varix: vSize, gv: vSize,
-  spleen: (v) => (v > 16 ? ['hi', 'Large'] : v > 13 ? ['mid', 'Enlarged'] : ['ok', 'Normal']),
-  plt: (v) => (v < 100 ? ['hi', 'Low'] : v < 150 ? ['mid', 'Low'] : ['ok', 'Normal']),
+  spleen: (v) => (v > 16 ? ['hi', 'Large'] : v > 13 ? ['mid', 'Large'] : ['ok', 'Normal']),
+  plt: (v) => (v < 100 ? ['hi', 'Severe'] : v < 150 ? ['mid', 'Low'] : ['ok', 'Normal']),
   pvFlow: (v) => (v < 0 ? ['hi', 'Hepatofugal'] : [null, 'Hepatopetal']),
-  liver: (v) => (v <= 55 ? ['hi', 'Low'] : v <= 75 ? ['mid', 'Reduced'] : ['ok', 'Normal']),
+  liver: (v) => (v <= 55 ? ['hi', 'Severe'] : v <= 75 ? ['mid', 'Low'] : ['ok', 'Normal']),
   shunt: (v) => (v >= 0.3 ? ['hi', 'Large'] : v >= 0.1 ? ['mid', 'Moderate'] : ['ok', 'Small']),
   map: (v) => (v < 65 ? ['hi', 'Low'] : ['ok', 'Normal']),
-  // Liver stiffness (Baveno VIII): under 10 kPa normal, 15 to 25 the grey zone, 25 or more CSPH.
-  lsm: (v) => (v >= 25 ? ['hi', 'CSPH likely'] : v >= 15 ? ['mid', 'Gray zone'] : v >= 10 ? ['mid', 'Raised'] : ['ok', 'Normal']),
+  // Liver stiffness (Baveno VIII): under 10 kPa normal, 10 to 15 suggests cACLD, 15 to 25 borderline (the gray zone), 25 or more
+  // CSPH (all suggestive, not proof: the slides' words say "likely").
+  lsm: (v) => (v >= 25 ? ['hi', 'CSPH'] : v >= 15 ? ['mid', 'Borderline'] : v >= 10 ? ['mid', 'cACLD'] : ['ok', 'Normal']),
   ra: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
   salb: (v) => (v < 3.5 ? ['mid', 'Low'] : ['ok', 'Normal']),
   hr: (v) => [null, v < 60 ? 'Slow' : v > 100 ? 'Fast' : 'Normal'],
   ivc: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
-  hb: (v) => (v < 7 ? ['hi', 'Low'] : v < 12 ? ['mid', 'Below normal'] : ['ok', 'Normal']),
+  hb: (v) => (v < 7 ? ['hi', 'Severe'] : v < 12 ? ['mid', 'Low'] : ['ok', 'Normal']),
 };
 // Each tile: its name (n: a short one for a narrow tile, three in a row on a tablet or phone), what it is, the unit, the decimals (1 unless d), a scale (x) and which way is better
 // (−1 lower, 1 higher) for the colour of a change.

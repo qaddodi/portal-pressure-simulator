@@ -166,7 +166,7 @@ export function createEndoscopy({ onAction }) {
 // ── Varix wall cross-section (L3) ───────────────────
 // Scope's Wall mechanics tab: a cross-section of the esophagus with the varix in its wall, and Laplace's
 // law as readings in the same tiles and meter as the scope view.
-const WALL_SEV = { ok: 'Low', caution: 'Raised', danger: 'Near tear', critical: 'Past tear' };
+const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near tear', critical: 'Past tear' };
 export function createVarixWall() {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'varixwall' });
   const box = h('div', { class: 'chart-box square' });
