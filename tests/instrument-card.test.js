@@ -7,9 +7,10 @@ import { readFileSync } from 'node:fs';
 const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
-test('only an instrument beside tiles or a ladder, on a wide screen with the teaching card, gets its own card', () => {
+test('every slide with an instrument, on a wide screen with the teaching card, gets its own card (tiles or not)', () => {
   assert.match(js, /const split = cardOn && !!t && splitOk\(\);/);
-  assert.match(js, /const splitOk = \(\) => \{[^}]*has-tool[^}]*!d\.classList\.contains\('tool-only'\)/);
+  assert.match(js, /const splitOk = \(\) => \{[^}]*has-tool'\); \};/);
+  assert.doesNotMatch(js, /const splitOk = [^\n]*tool-only/);
   // (a phone and a phone on its side have no teaching card panel, cardOn: the instrument stays in the data card there)
   assert.match(js, /const cardOn = TEXT_CARD && !p && !\(W > H && H <= 500\);/);
 });
@@ -30,4 +31,30 @@ test('its class does not clash with the instruments\' own pz-inst', () => {
   assert.match(js, /class: 'pz-data pz-icard has-tool stage-blocker pz-hide'/);
   assert.match(css, /\.pz-data\.pz-icard \{ right: auto; \}/);
   assert.doesNotMatch(css, /\.pz-data\.pz-inst\b/);
+});
+
+const tools = readFileSync(new URL('../src/ui/presenter-tools.js', import.meta.url), 'utf8');
+const fibro = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
+
+test('the instrument card holds only the picture: every instrument\'s readings go to the data card', () => {
+  // (Doppler report, scope and wall readings, the abdomen's numbers with the belly left behind, FibroScan's kPa as words.)
+  assert.match(tools, /doppler: \{ sel: '\.dop-report', wrap: 'dop' \}/);
+  assert.match(tools, /scope: \{ sel: '\.chart-side' \}/);
+  assert.match(tools, /wall: \{ sel: '\.chart-side' \}/);
+  assert.match(tools, /abdomen: \{ sel: '\.ab-read', wrap: 'ab', inner: 'ab-main', keep: '\.ab-belly' \}/);
+  assert.match(tools, /fibroscan: \{ read: true \}/);
+  assert.match(tools, /mv\(ghostEl, reads\)/);
+  // (the readings sit under the data card's header, and come back whole when the split ends or the tool changes)
+  assert.match(js, /ui\.data\.insertBefore\(rd, ui\.data\.querySelector\('\.pz-dh'\)\.nextSibling\)/);
+  assert.match(js, /ui\.tools\.split\(on\);/);
+  assert.match(tools, /if \(!inst\) \{ this\.hide\(\); return; \}\n\s*unpart\(\);/);
+  assert.match(tools, /hide\(\) \{ unpart\(\);/);
+  // (the canvas leaves its reading out while the words show it; a covered quiz reading stays covered there)
+  assert.match(fibro, /const bare = readEl\.isConnected/);
+  assert.match(css, /\.pz-reads\.ask \.fs-v \{ opacity: 0; \}/);
+});
+
+test('a chart with no readings and no tiles: the data card keeps its place unseen, the chart bottom right', () => {
+  assert.match(js, /ui\.data\.classList\.toggle\('pz-void', on && rd\.hidden && ui\.data\.classList\.contains\('tool-only'\)\)/);
+  assert.match(css, /\.pz-data\.pz-void \{ visibility: hidden; \}/);
 });

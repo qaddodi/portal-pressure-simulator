@@ -89,6 +89,10 @@ export function createFibroScan() {
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
   const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
   const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
+  // The reading as words, for a slide that puts it in the data card (presenter-tools.js): while it is on the page the
+  // canvas leaves it out and gives the map the room.
+  const valEl = h('b', {}, '—');
+  const readEl = h('div', { class: 'fs-read' }, h('span', { class: 'fs-k' }, 'Liver stiffness, median'), h('span', { class: 'fs-v' }, valEl, h('small', {}, 'kPa')));
   const off = document.createElement('canvas'), octx = off.getContext('2d');
   let N = 0, img = null, cap = 300, ema = 0;
   let model = 10, running = false, shown = null, last = 0;
@@ -105,23 +109,27 @@ export function createFibroScan() {
     ctx.clearRect(0, 0, w, hh);
     rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.fillStyle = th.panel; ctx.fill(); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
     // A short, wide panel (a phone's presenter card) puts the reading beside the map rather than over it.
-    const pad = 14, narrow = w < 380, side = hh < 200 && w > hh * 2.2;
+    const bare = readEl.isConnected, pad = 14, narrow = w < 380, side = !bare && hh < 200 && w > hh * 2.2;
     // Readout
-    ctx.textAlign = 'left'; ctx.fillStyle = th.tick; ctx.font = FONT(600, 10);
-    ctx.fillText('LIVER STIFFNESS · MEDIAN', pad, 24);
-    const big = Math.round(side ? clamp(hh * 0.24, 26, 40) : clamp(Math.min(w * 0.13, hh * 0.13), 30, 52));
-    ctx.fillStyle = th.orange; ctx.font = FONT(600, big);
+    const big = bare ? 0 : Math.round(side ? clamp(hh * 0.24, 26, 40) : clamp(Math.min(w * 0.13, hh * 0.13), 30, 52));
     const txt = shown.toFixed(1); if (cv.dataset.reading !== txt) cv.dataset.reading = txt;
-    fibroReading.txt = txt; fibroReading.cv = cv; fibroReading.show?.(txt); ctx.fillText(txt, pad, 28 + big);
-    const tw = ctx.measureText(txt).width;
-    ctx.fillStyle = th.tick; ctx.font = FONT(500, 14); ctx.fillText('kPa', pad + tw + 6, 28 + big);
+    fibroReading.txt = txt; fibroReading.cv = cv; fibroReading.show?.(txt);
+    if (valEl.textContent !== txt) valEl.textContent = txt;
+    let tw = 0;
+    if (!bare) {
+      ctx.textAlign = 'left'; ctx.fillStyle = th.tick; ctx.font = FONT(600, 10);
+      ctx.fillText('LIVER STIFFNESS · MEDIAN', pad, 24);
+      ctx.fillStyle = th.orange; ctx.font = FONT(600, big); ctx.fillText(txt, pad, 28 + big);
+      tw = ctx.measureText(txt).width;
+      ctx.fillStyle = th.tick; ctx.font = FONT(500, 14); ctx.fillText('kPa', pad + tw + 6, 28 + big);
+    }
     // Live badge and caption
     ctx.textAlign = 'right'; ctx.font = FONT(600, 10); ctx.fillStyle = th.tick;
     ctx.fillText(narrow ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model', w - pad, 24);
     const pulse = 0.55 + 0.45 * Math.sin(t * 3), lw = ctx.measureText(narrow ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model').width;
     ctx.fillStyle = cssAlpha('--fibroscan-live', pulse); ctx.beginPath(); ctx.arc(w - pad - lw - 9, 21, 3, 0, 7); ctx.fill();
     // Map
-    const top = side ? 44 : 56 + big, bot = hh - (side ? 22 : 36), ph = bot - top, ax = side ? pad + Math.max(tw + 34, 96) + 22 : pad + 22, ex = ax + 6, ew = w - pad - ex; // bottom room keeps the tick row inside the canvas on a phone
+    const top = side || bare ? 44 : 56 + big, bot = hh - (side ? 22 : 36), ph = bot - top, ax = side ? pad + Math.max(tw + 34, 96) + 22 : pad + 22, ex = ax + 6, ew = w - pad - ex; // bottom room keeps the tick row inside the canvas on a phone
     if (ph < 50 || ew < 60) return;
     // Sample the map at about half the screen pixels (smooth, never blocky); drop the cap if frames run long.
     const want = clamp(Math.round(Math.max(ew, ph) * (w / cv.clientWidth || 1) * 0.75), 140, cap);
@@ -159,5 +167,5 @@ export function createFibroScan() {
     if (!running && cv.offsetParent !== null) { running = true; nextFrame(loop); }
   }
   const offRun = store.on('running', (on) => { if (on && !running && cv.offsetParent !== null) { running = true; nextFrame(loop); } });
-  return { id: 'fibroscan', label: 'FibroScan', el, update, dispose: offRun };
+  return { id: 'fibroscan', label: 'FibroScan', el, readEl, update, dispose: offRun };
 }

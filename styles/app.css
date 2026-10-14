@@ -4420,11 +4420,23 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-data.col.pz-even > .pz-tiles { margin-bottom: auto; }
 .pz-data.pz-icard > * { flex: none; }
 .pz-data.pz-icard.pz-hide { transform: translateY(14px); }
-.pz-data.pz-icard { container-type: inline-size; }
-/* (Wide enough: a Doppler's spectrum and its readings, and an endoscope's view and its grade, side by side.) */
-@container (min-width: 460px) {
-  .pz-icard .pz-tool .dop-main { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: center; column-gap: 20px; }
-}
+/* (Only the picture stands here: its readings are in the data card, so the Doppler's spectrum, the wall and the belly take the card.) */
+.pz-icard .pz-tool .dop-main { grid-template-columns: minmax(0, 1fr); }
+.pz-icard .pz-tool[data-kind="wall"] .pz-inst { justify-content: center; }
+.pz-icard .pz-tool[data-kind="wall"] .endo-stage { width: min(100%, calc(40 * var(--pzh)), 30vw); }
+.pz-icard .pz-tool .ab-main { display: flex; justify-content: center; }
+.pz-icard .pz-tool .ab-belly { width: clamp(120px, calc(24 * var(--pzh)), 260px); height: clamp(120px, calc(24 * var(--pzh)), 260px); border-width: 3px; }
+.pz-icard .pz-tool.ask[data-kind="fibroscan"]::after { opacity: 0; }
+/* The instrument's readings in the data card (presenter-tools.js part), centred when they are all it holds. */
+.pz-data.pz-void { visibility: hidden; }
+.pz-data.col.pz-even.tool-only > .pz-reads { margin-block: auto; }
+.pz-reads .fs-read { display: flex; flex-direction: column; gap: .2em; }
+.pz-reads .fs-k { font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
+.pz-reads .fs-v { display: inline-flex; align-items: baseline; gap: .3em; transition: opacity .32s var(--ease); }
+.pz-reads .fs-v b { font: 600 var(--s-big)/1 var(--font-ui); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--text); }
+.pz-reads .fs-v small { font-size: var(--fs-12); color: var(--text-3); }
+.pz-reads.ask .fs-v { opacity: 0; }
+.pz-reads.pz-tool::after { display: none; }   /* (the canvas's quiz cover is the instrument card's, never over these words) */
 .pzt-r { min-width: 0; hyphens: auto; overflow-wrap: break-word; }
 .pz.stack .pzt-r { font-size: var(--s-cap); }
 /* Phone: every data card's tiles kept short and laid out alike: the name on top, then the value and its unit with the

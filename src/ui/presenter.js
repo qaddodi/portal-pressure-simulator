@@ -22,7 +22,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=253e379d38';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=76545fa3cf';
-import { createTools } from './presenter-tools.js?v=2f8574d5fc';
+import { createTools } from './presenter-tools.js?v=0da168ec24';
 import { openHandout } from './handout.js?v=d13e9350bf';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=20ffefba17';
@@ -1644,7 +1644,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
       data.dataset.tool = ui.tools.sig(s.tool);
       ui.dhT.textContent = ui.dhT.dataset.full = cardTitle(s);
-      ui.dhT.dataset.split = lad ? cardTitle(s) : s.dataTitle || 'The patient';   // (the instrument in its own card takes its name with it)
+      ui.dhT.dataset.split = lad ? cardTitle(s) : s.dataTitle || (s.data ? 'The patient' : 'The readings');   // (the instrument in its own card takes its name with it)
       ui.ihT.textContent = s.tool ? ui.tools.title(s.tool) : '';
       ui.dhL.hidden = !lad;
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
@@ -2093,14 +2093,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
   // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
   let frameL = 0, colT = 0;
-  // The instrument card's part: an instrument beside tiles or a ladder, on a slide in view (or easing between two).
-  const splitOk = () => { const d = ui.data; return !d.hidden && !('gone' in d.dataset) && d.classList.contains('has-tool') && !d.classList.contains('tool-only'); };
-  // The instrument goes to its own card, or back to the data card (under its header), once per change.
+  // The instrument card's part: any slide with an instrument, in view (or easing between two) (Mohammad, 14 Oct).
+  const splitOk = () => { const d = ui.data; return !d.hidden && !('gone' in d.dataset) && d.classList.contains('has-tool'); };
+  // The instrument's picture goes to its own card and its readings stay in the data card, under its header, with any tiles
+  // or ladder; or the whole instrument goes back to the data card. A chart has no readings: with no tiles either, the data
+  // card keeps its place unseen (pz-void), so the instrument card still stands at the bottom right.
   function placeTool(on) {
-    const el = ui.tools.el, home = on ? ui.inst : ui.data, nm = on ? ui.dhT.dataset.split : ui.dhT.dataset.full;
+    const el = ui.tools.el, rd = ui.tools.reads, home = on ? ui.inst : ui.data, nm = on ? ui.dhT.dataset.split : ui.dhT.dataset.full;
     if (nm != null && ui.dhT.textContent !== nm) ui.dhT.textContent = nm;
-    if (el.parentElement === home) return;
-    if (on) home.append(el); else home.insertBefore(el, home.querySelector('.pz-dh').nextSibling);
+    const moved = el.parentElement !== home;
+    if (moved) {
+      if (on) { home.append(el); ui.data.insertBefore(rd, ui.data.querySelector('.pz-dh').nextSibling); }
+      else { rd.remove(); home.insertBefore(el, home.querySelector('.pz-dh').nextSibling); }
+    }
+    ui.tools.split(on);
+    ui.data.classList.toggle('pz-void', on && rd.hidden && ui.data.classList.contains('tool-only'));
+    if (!moved) return;
     fitDone.delete(ui.data); fitDone.delete(ui.inst);
     if (!on) ui.inst.removeAttribute('style');
     syncInst();

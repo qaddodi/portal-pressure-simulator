@@ -26,7 +26,7 @@ import { h, fmt, clamp } from './util.js?v=abb277f29f';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=180c87ed56';
 import { EDGES } from '../engine/topology.js?v=79f09b0d8a';
 import { createDoppler } from './doppler.js?v=ba11286bde';
-import { createFibroScan } from './fibroscan.js?v=956ba3fe53';
+import { createFibroScan } from './fibroscan.js?v=2ce582fba1';
 import { createPressureTime } from './pressure-time.js?v=4ee01c7b38';
 import { createFlowTime } from './flow-time.js?v=9327f117b5';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=8941d99433';
@@ -46,11 +46,43 @@ const TITLE = {
   flowtime: () => 'Portal pressure and flow over time',
 };
 const READS = new Set(['doppler', 'fibroscan', 'scope']);
+// On a laptop or tablet held sideways the instrument stands in its own card with only its picture; its readings join the
+// data card (Mohammad, 14 Oct; presenter.js placeTool). Per kind: the readings' nodes (sel), the instrument's own classes and
+// inner block they sit in there (wrap, inner: its CSS still applies), a picture inside them that stays (keep), or a DOM
+// reading in place of one drawn on the canvas (read). A chart has no parts: it is all picture.
+const PARTS = {
+  doppler: { sel: '.dop-report', wrap: 'dop' },
+  scope: { sel: '.chart-side' },
+  wall: { sel: '.chart-side' },
+  abdomen: { sel: '.ab-read', wrap: 'ab', inner: 'ab-main', keep: '.ab-belly' },
+  fibroscan: { read: true },
+};
 const noop = () => {};
 
 export function createTools({ host, stage }) {
   const ghostEl = h('div', { class: 'pz-ghost', 'aria-live': 'polite' });
   const box = h('div', { class: 'pz-tool' });
+  const reads = h('div', { class: 'pz-tool pz-reads', hidden: true });
+  let apart = false, moved = [];   // ([node, its parent, its next sibling], to put back in reverse)
+  function unpart() {
+    for (const [n, p, nx] of moved.reverse()) { if (p) p.insertBefore(n, nx?.parentNode === p ? nx : null); else n.remove(); }
+    moved = []; reads.replaceChildren(); reads.hidden = true;
+  }
+  function part() {
+    unpart();
+    const p = apart && cur && PARTS[kind];
+    reads.dataset.kind = kind || ''; reads.classList.toggle('ask', box.classList.contains('ask'));
+    if (!p) return;
+    const mv = (n, to, before = null) => { if (!n) return; moved.push([n, n.parentNode, n.nextSibling]); to.insertBefore(n, before); };
+    const shell = h('div', { class: `pz-inst ${p.wrap || ''}` }), into = p.inner ? h('div', { class: p.inner }) : shell;
+    if (into !== shell) shell.append(into);
+    reads.append(shell);
+    if (p.keep) { const pic = cur.el.querySelector(p.keep), m = cur.el.querySelector(`.${p.inner}`); if (m) mv(pic, m, m.firstChild); }
+    if (p.sel) mv(cur.el.querySelector(p.sel), into);
+    if (p.read && cur.readEl) mv(cur.readEl, into);
+    mv(ghostEl, reads);
+    reads.hidden = false;
+  }
   // A chart drawn in its own units (a viewBox) shrinks its letters with the card: its smallest words (13 units) are kept
   // 11.5 px or more on the screen, the chart's letters all grown by the same factor (--svk), up to half again.
   const svk = () => { for (const sv of box.querySelectorAll('svg[viewBox]')) { const w = +sv.getAttribute('viewBox').split(/[\s,]+/)[2], r = sv.getBoundingClientRect().width;
@@ -81,6 +113,7 @@ export function createTools({ host, stage }) {
     show(t, { quiz = false, stateKey = null, chain = [], trail = null, reveal = 1 } = {}) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
+      unpart();
       if (k !== 'doppler') stage?.pinDoppler?.(null);
       stage?.setScanProbe?.(k === 'fibroscan', { covered: quiz && READS.has(t.kind) });   // (the probe on the skin over the liver, where the reading comes from)
       if (k === 'doppler') {
@@ -98,7 +131,11 @@ export function createTools({ host, stage }) {
       if (k === 'talk') inst.set(chain);
       else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines });
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update(f)); }
+      part();
     },
+    /** The readings' half (in the data card while split); split(true) moves the readings there, split(false) back. */
+    reads,
+    split(on) { if (apart === !!on) return; apart = !!on; part(); },
     /** The flow-time chart drawn up to k (0 to 1) of its time-lapse, with its series (trail) once it is computed. */
     progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); },
     /** The earlier reading, faint beside the live one ({ label, value }), or null. Eases in and out. */
@@ -106,7 +143,7 @@ export function createTools({ host, stage }) {
       ghostEl.classList.toggle('on', !!g);
       if (g) ghostEl.replaceChildren(h('span', {}, g.label), h('b', {}, g.value));
     },
-    hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; delete box.dataset.kind; },
+    hide() { unpart(); stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
     dispose() {
       if (probe0 !== undefined) host.send({ type: 'probe', id: probe0 }); probe0 = undefined; lastSt = null; this.hide();
