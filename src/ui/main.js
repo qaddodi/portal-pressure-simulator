@@ -10,7 +10,7 @@ import { createInspector } from './inspector.js?v=6ac06a4419';
 import { createDock, CUTOFFS } from './dock.js?v=e0857bd543';
 import { setHvpgStage } from './hvpg-proc.js?v=fbf6a8cd45';
 import { createWhy } from './why.js?v=373574189f';
-import { createTimeline, LAPSES } from './timeline.js?v=8867c562d2';
+import { createTimeline, LAPSES } from './timeline.js?v=ce771d13de';
 import { createCompare } from './compare.js?v=e0a7c1c3c4';
 import { createCard } from './card.js?v=7b25c1e269';
 import { createChart } from './chart.js?v=3963069d91';
@@ -118,7 +118,7 @@ async function main() {
   setHvpgStage(stage);
   compare = createCompare();
   timeline = createTimeline({
-    root: $('#timeline'), onWhy: (m, el) => why.open(m, el),
+    root: $('#timeline'),
     onPlay: () => host.send({ type: 'run', running: !store.get().running }),
     onSpeed: (v, lapse) => setSpeed(v, lapse),
     onJump: (d) => host.send(d === 'event' ? { type: 'advance', untilEvent: true } : { type: 'advance', days: d }),

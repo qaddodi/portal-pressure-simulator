@@ -1174,19 +1174,19 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .tl-pin { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
 @media (hover: hover) { .tl-pin:hover { border-color: var(--border-strong); background: var(--surface-2); } }
 .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
-.tl-pop { display: flex; flex-direction: column; gap: 2px; width: min(360px, calc(calc(100vw / var(--vz)) - 24px)); max-height: 360px; overflow: auto; }
-.tl-pop-row { padding: 6px 8px 7px; border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 4px; }
+.tl-pop { display: flex; flex-direction: column; gap: 0; width: min(320px, calc(calc(100vw / var(--vz)) - 24px)); max-height: 360px; overflow: auto; }
+.tl-pop-row { padding: 4px 6px 5px; border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 2px; }
 .tl-pop-row:last-child { border-bottom: 0; }
-.tl-pop-head { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-14); }
+.tl-pop-head { display: flex; align-items: baseline; gap: 6px; font-size: var(--fs-14); line-height: 1.25; }
 .tl-pop-head b { font-weight: 600; flex: 1; min-width: 0; }
 .tl-pop-head .when { font-size: var(--fs-12); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tl-dot { width: 9px; height: 9px; flex: none; border-radius: 2px; background: var(--text); transform: translateY(1px); }
 .tl-dot.change { transform: rotate(45deg); }
 .tl-dot.start { border-radius: 50%; background: var(--text-2); }
 .tl-dot.jump { background: var(--accent); }
-.tl-pop-d { font-size: var(--fs-12); color: var(--text-2); line-height: 1.35; }
-.tl-pop .btn-row { gap: 6px; }
-.tl-pop .btn.sm { height: 24px; padding: 0 9px; font-size: var(--fs-12); }
+.tl-pop-d { font-size: var(--fs-12); color: var(--text-2); line-height: 1.3; }
+.tl-pop .btn-row { gap: 4px; }
+.tl-pop .btn.sm { height: 22px; padding: 0 8px; font-size: var(--fs-12); }
 .stage-fit { position: absolute; right: 10px; bottom: 10px; z-index: var(--z-hud); width: 32px; height: 32px; background: var(--glass); box-shadow: var(--shadow-1), inset 0 0 0 1px var(--hairline); }
 /* Turns the circuit upright; it only means something in the circuit view, and sits above Fit. */
 .stage-rotate { display: none; position: absolute; right: 10px; bottom: 50px; z-index: var(--z-hud); width: 32px; height: 32px; background: var(--glass); box-shadow: var(--shadow-1), inset 0 0 0 1px var(--hairline); }

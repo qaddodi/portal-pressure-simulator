@@ -11,3 +11,7 @@ test('the History menu has no Copy action or header', () => {
   assert.doesNotMatch(open, /Copy|clipboard|tl-pop-top/);
   assert.match(open, /tl-pop tl-history/);
 });
+
+test('timeline menus have no Why? button', () => {
+  assert.doesNotMatch(src, /Why\?'|onWhy|EVENT_WHY/);
+});

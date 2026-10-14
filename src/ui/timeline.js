@@ -7,7 +7,7 @@
 // Every change the learner makes is a marker (◆) carrying a full snapshot of the model; clicking
 // one goes back to that moment (the model, its clock and its remodeling), and later markers stay
 // ahead, faded, until something new happens. Threshold events (▲) are markers too, with their
-// detail and a Why?. Jumps (+1 wk / +1 mo / +6 mo) advance the disease clock in one step. "Compare
+// detail. Jumps (+1 wk / +1 mo / +6 mo) advance the disease clock in one step. "Compare
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
@@ -19,7 +19,6 @@ import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('timeline');
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
-export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
 /** One-to-two-word tags shown beside each event marker on the strip (full title stays in the tooltip and History). */
 export const EVENT_TAG = { HEPATOFUGAL_PV: 'PV Reversed', SV_REVERSAL: 'SV Reversed', SMV_REVERSAL: 'SMV Reversed', INTRAHEPATIC_REVERSAL: 'IHPV Reversed', PV_STASIS: 'PV Stasis', CSPH: 'CSPH', BLEED_RISK: 'HVPG ≥ 12', VARIX_LARGE: 'Large Varices', RED_WALE: 'Red Wale', VARIX_RUPTURE: 'Varix Rupture', BLEED_STOPPED: 'Bleed Stopped', ASCITES_FORMING: 'Ascites', TENSE_ASCITES: 'Tense Ascites', HYPERDYNAMIC: 'Hyperdynamic', HIGH_SHUNT: 'High Shunt', LIVER_HYPOPERFUSION: 'Liver Hypoperf.', CAUDATE: 'Caudate Spared', RA_HIGH: 'High RAP', SPLENOMEGALY: 'Splenomegaly', SHOCK_2: 'Shock II', SHOCK_3: 'Shock III' };
 export const eventTag = (id) => EVENT_TAG[id] || (id?.startsWith('COLL_') ? 'Collat. Recruited' : '');
@@ -42,7 +41,7 @@ export const fmtClock = (t, day) => {
   return day > 0 ? `Day ${day} · ${tt}` : tt;
 };
 
-export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart, canRevert = () => true, scenarioLabel }) {
+export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRevert = () => true, scenarioLabel }) {
   let entries = [], cursor = -1, seq = 0, baseline = null, pending = null, lastEv = {};
   const listeners = [];
   const absT = (e) => e.day * 86400 + e.t;
@@ -171,7 +170,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       const now = performance.now();
       if (lastEv[ev.id] && now - lastEv[ev.id] < 30000 && ev.severity !== 'critical') continue;
       lastEv[ev.id] = now;
-      push({ kind: 'event', label: ev.title, detail: ev.detail, sev: ev.severity, why: EVENT_WHY[ev.id] || (ev.id.startsWith('COLL_') ? 'shunt' : null), t: ev.t, day: ev.day, evId: ev.id });
+      push({ kind: 'event', label: ev.title, detail: ev.detail, sev: ev.severity, t: ev.t, day: ev.day, evId: ev.id });
       sortEntries();
       announce(`${ev.title}. ${ev.detail || ''}`);
       pulseLatest();
@@ -462,7 +461,6 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       const acts = [];
       if (e.snap && canRevert()) acts.push(h('button', { class: 'btn sm', onclick: () => { closePopover(); goTo(i); } }, icon('undo'), i === liveIndex() && cursor < 0 ? 'Back to this moment' : 'Go back here'));
       if (e.frame) acts.push(h('button', { class: 'btn sm', onclick: () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Comparing with ${fmtClock(e.t, e.day)}: ${e.label}.`); } }, svgIcon('camera', 'mi-ic'), 'Compare with now'));
-      if (e.why) acts.push(h('button', { class: 'btn sm', onclick: (ev) => onWhy(e.why, ev.currentTarget) }, svgIcon('bulb', 'mi-ic'), 'Why?'));
       const future = cursor >= 0 && i > cursor;
       return h('div', { class: `tl-pop-row${future ? ' future' : ''}` },
         h('div', { class: 'tl-pop-head' }, h('i', { class: `tl-dot ${e.kind}`, style: { background: e.kind === 'event' ? SEV[e.sev] || SEV.info : '' } }), h('b', {}, e.kind === 'start' ? `Patient: ${e.label}` : e.label), h('span', { class: 'when' }, e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day))),
