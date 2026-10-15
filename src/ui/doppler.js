@@ -10,7 +10,7 @@ import { FONT } from './charts.js?v=50bfa51457';
 import { logAction, shownVel, store } from './store.js?v=bb8c70114d';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=5023b91828';
 import { frameFor } from './frame.js?v=0db47e99bf';
-import { windowIndexFor } from './dopplerWindow.js?v=fce3147a4c';
+import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -438,7 +438,6 @@ export function createDoppler({ onProbe }) {
   let img = null, off = null, octx = null;
   let floor = null, noiseAt = 0, nx = 0, ny = 0;
   let ringKey = '', lastCol = null, jit = 0, lineGain = 0, spk = null;
-  const STEPS = [8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 80, 100, 120, 150, 200, 300];
   const cc = [0, 0, 0, 0], sc = [0, 0, 0];   // scratch: one pixel's colour
   const A_SIG = 10 ** 2.8;          // signal power over the noise floor (≈ 28 dB)
   const FLOOR_DB = 4.5, RANGE_DB = 30;  // log compression: the grey map spans 4.5–34.5 dB
@@ -651,7 +650,7 @@ export function createDoppler({ onProbe }) {
     const k = dopplerK(EDGES[EI[probe]]);
     pos *= k * gf; neg *= k * gf;
     const need = Math.max(pos, neg, 8) / 0.85;
-    const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
+    const target = scaleFor(Math.max(pos, neg));
     const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.88 : neg > 0 && pos < neg * 0.08 ? 0.12 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.12, 0.88);
     const tbF = Math.round(tbRaw * 10) / 10;
     const fits = scale != null && need <= scale && (pos >= neg) === (baseF >= 0.5 || baseF == null);
