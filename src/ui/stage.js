@@ -11,7 +11,7 @@ import { createLobuleZoom } from './lobule-zoom.js?v=7f8c57bd88';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
-import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=9d3f9164af';
+import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=0bd8cdeedf';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
@@ -2632,9 +2632,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.
     const reachOf = (it) => Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18 + (heat ? 30 : 0)) / 2) * 2;
     const key = `${geometryVersion}|${heat}|` + items.map((it) => it.row).join(',');
-    if (key !== vBinKey || items.some((it) => reachOf(it) > (vBinReach.get(it.row) || 0))) {
+    const grew = key === vBinKey && items.some((it) => reachOf(it) > (vBinReach.get(it.row) || 0));
+    if (key !== vBinKey || grew) {
       vBinKey = key;
-      vBinReach = new Map(items.map((it) => [it.row, reachOf(it)]));
+      // A vessel that outgrows its reach gets a quarter more room than it needs: a widening vein (a congested IVC easing
+      // in over a slide) was re-binned and its geometry uploaded again at every 2 px of growth, about 4 MB each time, a
+      // hundred times in one slide change. (The reach only says which cells list a vessel; the drawing is unchanged.)
+      vBinReach = new Map(items.map((it) => [it.row, grew ? Math.max(vBinReach.get(it.row) || 0, Math.ceil(reachOf(it) * 1.25 / 2) * 2) : reachOf(it)]));
       const J = veinJoins(items), smooth = smoothRunOn(items);
       for (const it of items) if (it.kind === 'v') { it.obj.glPts = smooth.get(it.row) || it.pts; }
       veins.setGeometry(binVeins(items.map((it) => ({ id: it.row, pts: smooth.get(it.row) || it.pts, reach: vBinReach.get(it.row) })), J));
@@ -3910,7 +3914,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const k of [...resMade.keys()]) if (!want.includes(k)) resPaint(k, SITE_DEF[k], null);
     for (const [k, el] of made) if (!want.includes(k)) { made.delete(k); el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); }, 500); }
     if (!F || !want.length) return;
-    const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, t = easeInOut(morph);
+    const { width: W, height: H } = stageBox(), t = easeInOut(morph);   // (the cached box: reading the wrap's each model frame forced a layout)
     const x0 = pzInset('--pz-l') + 8, x1 = W - pzInset('--pz-r') - 8, y0 = pzInset('--pz-t') + 8, y1 = H - pzInset('--pz-b') - 8;
     for (const k of want) {
       const d = SITE_DEF[k];
@@ -3945,7 +3949,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // its point unless the top is covered (decided once, so it never jumps).
       el.classList.toggle('off', x < x0 || x > x1 || y < y0 || y > y1 || (!!d.res && (ratio == null || t < 0.5)));
       if (el._below == null && el.offsetHeight) { el._below = d.below ? y + 18 + el.offsetHeight < y1 : y - 18 - el.offsetHeight < y0; el.dataset.at = el._below ? 'ahead' : ''; }
-      const half = el.offsetWidth / 2, cx = clamp(x, Math.min(x0 + half, (x0 + x1) / 2), Math.max(x1 - half, (x0 + x1) / 2));
+      // (Its width read again only when its words or classes change: a read after each frame's new number forced a layout.)
+      const wk = `${el.className}|${el.textContent}|${W}|${labelBase()}|${labelFonts}`;
+      if (el._wk !== wk || !el._half) { el._wk = wk; el._half = el.offsetWidth / 2; }
+      const half = el._half, cx = clamp(x, Math.min(x0 + half, (x0 + x1) / 2), Math.max(x1 - half, (x0 + x1) / 2));
       el.style.setProperty('--ax', `${(x - cx).toFixed(1)}px`);
       el._glass?.(x - cx);
       el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`;

@@ -1784,7 +1784,7 @@ button.finding { cursor: pointer; }
 .pz-table .asc .none { color: var(--text-3); }
 .pz-table .pz-foot { position: sticky; left: 0; bottom: 0; padding: .7em 1em .8em; border-top: 1px solid var(--border); background: var(--surface); }
 /* (A long table's rows sit closer, so its legend fits under it; the legend stays pinned at the bottom if it still would not.) */
-.pz-table:has(tbody tr:nth-child(7)) tbody :is(th, td) { padding-block: .36em; }
+.pz-table.long tbody :is(th, td) { padding-block: .36em; }
 .pz-foot { margin: 0; font: 500 var(--s-cap)/1.4 var(--font-ui); color: var(--text-3); }
 /* Counter, progress, controls, notes, black screen. */
 .pz-table td.note { font-size: .8em; color: var(--text-2); }
@@ -3705,7 +3705,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 @media (max-width: 380px) { .topbar #viewSeg button { padding: 6px 3px; } }
 /* Phone: one view-switcher size in every view (with or without the Sinusoid tab), so the row never changes size. */
 @media (max-width: 720px) { .topbar #viewSeg button { font-size: 12px; letter-spacing: -.01em; }
-  .topbar #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) button { padding-left: 3px; padding-right: 3px; }
+  .topbar #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) > button:where([data-view]) { padding-left: 3px; padding-right: 3px; }
   #app:not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-scale { width: 64px; }
   #app:not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-num { font-size: 11px; } }
 /* Lobule on a narrow phone: four views leave the lens about 55-80 px, too little for its title, numbers and scale (the numbers
@@ -4580,7 +4580,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace .endo-chip dt { white-space: normal; }
 .instrument-workspace .endo-num small { white-space: nowrap; font: 500 12px var(--font-ui); letter-spacing: 0; color: var(--text-3); }
 .instrument-workspace .endo-grade { gap: 2px 8px; font-size: var(--fs-14); }
-.instrument-workspace .endo-grade:has(b:empty) span { font: 600 20px/1.05 var(--font-ui); letter-spacing: -.02em; }
+.instrument-workspace .endo-grade b:empty + span { font: 600 20px/1.05 var(--font-ui); letter-spacing: -.02em; }
 .instrument-workspace .endo-grade b { font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
 .instrument-workspace .endo-stress-v { font-size: var(--fs-14); }
 .instrument-workspace .endo-bar { margin-top: 0; }
@@ -5176,7 +5176,7 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 @media (max-width: 767px) {
   .app.thumb .view-pill:not([hidden]) { left: calc(env(safe-area-inset-left) + 8px); }
   .view-pill #viewSeg button { padding: 0 9px; font-size: 13px; letter-spacing: -.01em; }
-  .view-pill #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) button { padding: 0 6px; }
+  .view-pill #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) > button:where([data-view]) { padding: 0 6px; }
   .app.dock-open .view-pill { display: none !important; }
 }
 /* One card or menu at a time above the thumb dock, each a solid piece that comes and goes whole: it rises a little

@@ -1965,7 +1965,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const showCut = (k) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); e.stopPropagation?.(); cutLine.replaceChildren(h('b', {}, `${COLS[k] || k}: `), ...withArrows(CUT[k] + '.')); } };
     const cutTh = (k, label, cut) => h('th', { class: 'num', title: cut || null, ...(cut ? { tabindex: '0', onclick: showCut(k), onkeydown: showCut(k) } : {}) }, label);
     const go1 = (r) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); go(r.i); } };
-    return h('div', { class: 'pz-table' }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--asc-w': '0px' } },
+    // (long: seven rows or more; a class, not :has(), which made every table cell part of each restyle the page did)
+    return h('div', { class: rows.length >= 7 ? 'pz-table long' : 'pz-table' }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--asc-w': '0px' } },
       h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => cutTh(k, COLS[k] || k, CUT[k])),
         ascCols ? [cutTh('saag', h('abbr', { title: 'Serum−ascites albumin gradient' }, 'SAAG'), CUT.saag), cutTh('tp', h('abbr', { title: 'Ascites protein' }, 'Prot.'), CUT.tp)] : null,
         notes.map((x) => h('th', {}, x)))),
@@ -2110,6 +2111,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (!el || el.hidden) continue;
       const sig = fitSig(el);
       if (fitDone.get(el) === sig) continue;
+      const was = parseFloat(el.style.getPropertyValue('--pz-fit')) || 1;
       el.style.removeProperty('--pz-fit'); el.style.removeProperty('--pz-z');
       // (A tablet's narrow data card: its own grid changes, which a container query on the card cannot do.)
       if (el.classList.contains('pz-data')) el.classList.toggle('pz-narrow', el.offsetWidth > 0 && el.offsetWidth < 420);
@@ -2140,6 +2142,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         if (o.v <= 1 && o.h <= 1) break;
         k = Math.max(0.5, k * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
         el.style.setProperty('--pz-fit', k.toFixed(3));
+      }
+      // (A fit within a hair of the last one keeps the last one, when the card still fits with it: a phone's words had flipped
+      // between 0.850 and 0.851 with every pass, moving the card a pixel and restyling the whole page about twice a second.)
+      if (was !== k && Math.abs(was - k) < 0.01) {
+        if (was < 1) el.style.setProperty('--pz-fit', was.toFixed(3)); else el.style.removeProperty('--pz-fit');
+        const o = overflowOf(el);
+        if (o.v > 1 || o.h > 1) { if (k < 1) el.style.setProperty('--pz-fit', k.toFixed(3)); else el.style.removeProperty('--pz-fit'); }
       }
       // (Parts whose words keep their size (styles/app.css: zoom var(--pz-z)) let the fit shorten only their pictures; when even
       // the shortest pictures leave the card too full, a large text setting, the words then zoom down too, to half at most.)
