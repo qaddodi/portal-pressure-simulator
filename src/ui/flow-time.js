@@ -18,7 +18,7 @@ export const MINUTES = { from: -10, rise: 30, end: 40 };
 // The lines a chart can plot (fingerprint keys): name, unit, decimals, colour and a scale on the model's value.
 // A chart's lines are [lower, upper]: the lower a pressure on a scale from zero, the upper on its own tight scale.
 export const LINE = {
-  pv: ['Portal pressure', 'mmHg', 1, '--tr-pv'], pvFlow: ['Portal flow', 'L/min', 2, '--tr-hv'],
+  pv: ['Portal pressure', 'mmHg', 1, '--tr-pv'], pvFlow: ['Portal flow', 'L/min', 1, '--tr-hv'],
   sin: ['Sinusoids', 'mmHg', 1, '--tr-wedge'], asc: ['Ascites', 'L', 1, '--tr-hv', 0.001],
   hvpg: ['HVPG', 'mmHg', 1, '--tr-wedge'], varix: ['Varix', 'mm', 1, '--tr-var'],
 };

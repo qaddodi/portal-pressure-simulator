@@ -108,10 +108,11 @@ export function createHvpgProcedure() {
     if (cam === 'route' && want === 'route') sg.cathFollow?.();
     const v = values(), ph = phase(), pulse = 0.5 + 0.5 * Math.sin(t / 170);
     const labels = [];
-    if (ph === 'free') labels.push({ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(pAt(t, v), 1), unit: 'mmHg', cls: 'free' });
+    // (A reading is the mean, as a monitor's number is: the trace wavers with the breath and the beat, the number holds.)
+    if (ph === 'free') labels.push({ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(v.fhvp, 1), unit: 'mmHg', cls: 'free' });
     if (ph === 'wedge') {
       labels.push({ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(v.fhvp, 1), unit: 'mmHg', cls: 'free' });
-      if (t >= T.callout) labels.push({ key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(pAt(t, v), 1), unit: 'mmHg', cls: 'wedge' });
+      if (t >= T.callout) labels.push({ key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(v.whvp, 1), unit: 'mmHg', cls: 'wedge' });
     }
     // Both readings stay; a bracket joins them and gives the difference.
     if (ph === 'result' && t < T.back) {
@@ -271,8 +272,9 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
   }
   if (ph === 'idle') label = 'Ready';
   else if (ph === 'enter') label = 'Catheter advancing';
-  else if (ph === 'free') { label = 'FHVP'; num = fmt(pAt(t, v), 1); col = C.free; }
-  else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; num = fmt(pAt(t, v), 1); col = C.wedge; }
+  // (The monitor's number is the mean, as the callout on the figure reads it; it follows the trace only while the balloon is still changing it.)
+  else if (ph === 'free') { label = 'FHVP'; num = fmt(v.fhvp, 1); col = C.free; }
+  else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; num = fmt(t < T.callout ? pAt(t, v) : v.whvp, 1); col = C.wedge; }
   else if (running && t < T.sum) { label = 'WHVP'; num = fmt(v.whvp, 1); col = C.wedge; }
   else { label = 'HVPG'; num = fmt(v.hvpg, 1); col = C[sevOf(v.hvpg)]; }
   ctx.font = FONT(600, 12); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);

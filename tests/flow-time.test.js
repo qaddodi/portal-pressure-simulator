@@ -97,3 +97,8 @@ test('the ascites time-lapse charts sinusoids and ascites, one point a day', asy
   assert.ok(Math.abs(ser.flow.at(-1) - after.fp.asc / 1000) < 1e-9, 'ascites in litres');
   assert.ok(ser.flow.at(-1) > ser.flow[0] && ser.pv.at(-1) > ser.pv[0], 'both rise');
 });
+
+test('the chart prints portal flow as the figure does, to one decimal (review #55: Circulation 10 read 1.4 beside 1.41)', () => {
+  // (The figure's flow callouts use util.js fmtFlow: one decimal.)
+  assert.equal(LINE.pvFlow[2], 1);
+});
