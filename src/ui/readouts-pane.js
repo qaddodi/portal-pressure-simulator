@@ -52,8 +52,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   const byId = Object.fromEntries(vitals.map((v) => [v.id, v]));
   const el = h('div', { class: 'dock-pane', 'data-pane': 'readouts' },
     groups.map(([g, label]) => section(g, label, tiles.filter((t) => t.group === g).map(tile))),
-    section('systemic', 'Systemic', SYSTEMIC.map(([id, name, short]) => vital(byId[id], name, short))),
-    h('p', { class: 'ctl-sub' }, 'Each bar shows where a reading sits between its clinical cut-offs. Tap a readout to see what drives it.'));
+    section('systemic', 'Systemic', SYSTEMIC.map(([id, name, short]) => vital(byId[id], name, short))));
 
   function trendOf(x, v, now) {
     const hs = x.hist;

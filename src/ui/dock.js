@@ -9,10 +9,10 @@ import { createProfile } from './charts.js?v=1307fd60a0';
 import { createPressureTime } from './pressure-time.js?v=cbe2b6fc02';
 import { createFibroScan } from './fibroscan.js?v=774a8d1efe';
 import { createHvpgProcedure } from './hvpg-proc.js?v=8787d0bf18';
-import { createDoppler } from './doppler.js?v=ffeb5be1e0';
+import { createDoppler } from './doppler.js?v=f912816347';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=babd4569e5';
-import { createReadoutsPane } from './readouts-pane.js?v=4f067ea910';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=d5796b1f1a';
+import { createReadoutsPane } from './readouts-pane.js?v=74897072b6';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('dock');
 
@@ -409,6 +409,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     endoSub = v; endoPane.dataset.sub = v;
     for (const b of endoSwitch.children) b.setAttribute('aria-pressed', String(b.dataset.view === v));
     if (frame) nextFrame(() => (v === 'wall' ? wall : endoscopy).update(frame));
+    fitHeight();
   }
   endoPane.prepend(endoSwitch); endoPane.append(wall.el); endoPane.dataset.sub = endoSub;
   const comparison = h('div', { class: 'workspace-comparison', hidden: true });
@@ -458,11 +459,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // A tab whose picture keeps its own shape (Ascites has none to stretch; HVPG and FibroScan are boxes of a fixed
   // aspect) has nothing to fill a tall card with, so its card is only as tall as its content: the height eases to
   // fit, and eases back for any other tab. A sheet the learner has resized keeps their height, and when the content would not fit even the full card its picture shrinks as it always did.
-  const FIT = ['abdomen', 'hvpg', 'fibroscan'];
-  const fitView = (id) => byId[id].el.firstElementChild;
+  // Doppler, the scope view and Readouts fit too: on a Mac the card ends under its content instead of running empty to the
+  // play bar (the Wall mechanics view keeps the full card). The scope's view is its second child, after the Scope view / Wall switch.
+  const FIT = ['abdomen', 'hvpg', 'fibroscan', 'doppler', 'endoscopy', 'readouts'];
+  const fitView = (id) => (id === 'endoscopy' ? endoscopy.el : byId[id].el.firstElementChild);
   let fitTimer = 0;
   function fitHeight() {
-    const id = open.length === 1 && FIT.includes(open[0]) && state === 'open' ? open[0] : null;
+    const id = open.length === 1 && FIT.includes(open[0]) && state === 'open' && !(open[0] === 'endoscopy' && endoSub === 'wall') ? open[0] : null;
     for (const o of FIT) if (o !== id) fitView(o).classList.remove('nat');
     const view = id ? fitView(id) : null;
     // Over the thumb dock (a phone, an upright iPad) the card keeps its height whatever the tab: nothing fits there.
@@ -478,7 +481,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     let need = 0;
     if (fits) {
       const pcs = getComputedStyle(view.parentElement);
-      const measure = () => Math.ceil(workspace.offsetHeight - body.clientHeight + parseFloat(pcs.paddingTop) + parseFloat(pcs.paddingBottom) + view.offsetHeight);
+      // (everything the pane shows, stacked: the view, and on Scope the switch above it)
+      const kids = [...view.parentElement.children].filter((c) => c.offsetHeight > 0);
+      const measure = () => Math.ceil(workspace.offsetHeight - body.clientHeight + parseFloat(pcs.paddingTop) + parseFloat(pcs.paddingBottom)
+        + kids.reduce((a, c) => a + c.offsetHeight, 0) + (parseFloat(pcs.rowGap) || 0) * (kids.length - 1));
       need = measure();
       // too tall for the card (a short window): leave it to scale as it always did
       if (need > full + 1 && id !== 'abdomen') { view.classList.remove('nat'); fits = false; }

@@ -39,13 +39,11 @@ export function createEndoscopy({ onAction }) {
   const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
   const stats = h('dl', { class: 'endo-read' },
     item('endo-chip', h('dt', {}, 'Bands', h('span', { class: 'endo-dt-x' }, ' placed')), bands),
-    item('endo-g', h('dt', {}, 'Grade'), grade),
+    h('div', { class: 'endo-g', title: 'F1 small and straight, F2 enlarged and tortuous, F3 large and beaded.' }, h('dt', {}, 'Grade'), grade),
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
     item('endo-tile', h('dt', {}, 'Wall', h('span', { class: 'endo-dt-x' }, ' thickness')), wall),
     item('endo-chip endo-red', h('dt', {}, 'Stigmata'), red));
-  const side = h('div', { class: 'chart-side' }, stats,
-    bandBtn,
-    h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded.'));
+  const side = h('div', { class: 'chart-side' }, stats, bandBtn);
   el.append(stage, side);
   const set = (node, v) => { if (node.textContent !== v) node.textContent = v; };
   function update(f) {
@@ -357,16 +355,16 @@ function iapDial() {
   return { el, set };
 }
 export function createAbdomen({ onAction }) {
-  // The stepper for serum albumin and the litres to drain: its value is shown beside it, not between − and +.
+  // The stepper for serum albumin: − value +, the value between the buttons, the same control as the litres to drain.
   const stepper = (label, unit, min, max, stepBy, dp, start, onSet) => {
     let v = start;
-    const out = h('output', { class: 'ab-out' });
-    const paint = () => { out.textContent = `${v.toFixed(dp)} ${unit}`; minus.disabled = v <= min; plus.disabled = v >= max; };
+    const out = h('output', { class: 'ab-dp-l' });
+    const paint = () => { out.replaceChildren(v.toFixed(dp), h('small', {}, unit)); minus.disabled = v <= min; plus.disabled = v >= max; };
     const go = (d) => { v = +clamp(v + d, min, max).toFixed(dp); paint(); onSet(v); };
-    const minus = h('button', { class: 'ab-sb', 'aria-label': `${label}: less`, onclick: () => go(-stepBy) }, '−');
-    const plus = h('button', { class: 'ab-sb', 'aria-label': `${label}: more`, onclick: () => go(stepBy) }, '+');
+    const minus = h('button', { class: 'ab-dp-sb', 'aria-label': `${label}: less`, onclick: () => go(-stepBy) }, '−');
+    const plus = h('button', { class: 'ab-dp-sb', 'aria-label': `${label}: more`, onclick: () => go(stepBy) }, '+');
     paint();
-    return { out, el: h('div', { class: 'ab-step', role: 'group', 'aria-label': label }, minus, plus), get: () => v, set: (x) => { v = x; paint(); } };
+    return { out, el: h('div', { class: 'ab-dp-vol ab-sa', role: 'group', 'aria-label': label }, minus, out, plus), get: () => v, set: (x) => { if (x !== v) { v = x; paint(); } } };
   };
   // A switch row: the whole row is the tap target, the switch sits at its right edge.
   const toggle = (ic, title, sub, tip, onclick) => h('button', { class: 'ab-row ab-tg', role: 'switch', 'aria-checked': 'false', title: tip, onclick },
@@ -399,12 +397,11 @@ export function createAbdomen({ onAction }) {
   }
   paintVol();
   // Diuretics drives the same parameter as the Treatments chip.
-  const diu = toggle('pill', h('b', {}, 'Diuretics'), h('small', {}, 'Spironolactone 100 : furosemide 40 mg · 5 : 2'),
+  const diu = toggle('pill', h('b', {}, 'Diuretics'), h('small', {}, 'Spironolactone 100 mg + furosemide 40 mg'),
     'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites. Keep the 100 : 40 mg ratio (5 : 2).',
     () => updateParams((p) => { p.diuretics = !p.diuretics; return p; }, { label: 'Diuretics' }));
   // Serum albumin is a patient input that drives ascites (oncotic pull back into the vessels) and the SAAG.
   const sa = stepper('Serum albumin', 'g/dL', 1.5, 5, 0.1, 1, 4, (v) => updateParams((p) => { p.albumin = v; return p; }, { label: 'Serum albumin' }));
-  sa.out.classList.add('ab-wide');
   // Volume, grade and daily change, with a small belly that fills with the fluid.
   const numEl = h('span', {}, '—'), gradeEl = h('span', { class: 'ab-grade' }), trendEl = h('div', { class: 'ab-trend' });
   const bigEl = h('b', {}, numEl, h('small', {}, 'L'));   // (the volume, coloured by its grade like the Ascites tile)
@@ -450,7 +447,7 @@ export function createAbdomen({ onAction }) {
     h('div', { class: 'ab-iap' }, h('div', { class: 'ab-kv' }, h('span', {}, 'Abdominal pressure'), h('span', { class: 'ab-v' }, iapNum, iapWord)), iapBar),
     tiles);
   const ctl = h('div', { class: 'ab-ctl' },
-    h('div', { class: 'ab-row' }, icon('drop'), h('span', { class: 'ab-txt' }, h('b', {}, 'Serum albumin')), h('span', { class: 'ab-end' }, sa.out, sa.el)),
+    h('div', { class: 'ab-row' }, icon('drop'), h('span', { class: 'ab-txt' }, h('b', {}, 'Serum albumin')), h('span', { class: 'ab-end' }, sa.el)),
     diu);
   const el = h('div', { class: 'ab', 'data-pane': 'abdomen' }, h('div', { class: 'ab-main' }, read, ctl));
   // Every frame calls this, but a pane the learner is scrolling must not be touched when nothing changed: on a phone,

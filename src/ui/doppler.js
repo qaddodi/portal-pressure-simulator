@@ -133,7 +133,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // A stent segment's tile is a button (the name inside the term; its ::after covers the whole tile, so a tap anywhere on it samples there).
     const btn = seg && pickGate ? h('button', { type: 'button', class: 'dop-seg', 'aria-pressed': 'false', title: `Sample the stent at its ${k.toLowerCase()} end` }, k) : null;
     btn?.addEventListener('click', () => pickSeg(seg));
-    const wrap = h('div', {}, h('dt', {}, btn || k), dd); statEls[k] = { dd, wrap, btn }; return wrap;
+    // (the Peak tile is named Max: the highest point of the last 3 s, beside the big reading, which is the spectrum's peak averaged over time)
+    const wrap = h('div', k === 'Peak' ? { title: 'Highest velocity in the last 3 s' } : {}, h('dt', {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn }; return wrap;
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },

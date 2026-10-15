@@ -5285,11 +5285,11 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn { grid-row: 2; grid-column: 1; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .ctl-sub { display: none; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-column: 1; grid-row: 3; display: flex; flex-wrap: nowrap; gap: 5px; }
-  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { flex: 1 1 0; min-width: 0; min-height: 52px; padding: 6px 2px; gap: 2px; border-radius: 12px; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { flex: 1 1 0; min-width: 0; min-height: 52px; padding: 6px 7px; gap: 2px; border-radius: var(--r-control); }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-grade span, .endo-more) { left: 7px; right: 7px; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div::after { height: 10px; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-grade span, .endo-more) { bottom: 5px; }
   #app.thumb .endo-stage { --stage-min: 110px; justify-content: flex-end; }
-  #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dt { letter-spacing: .02em; }
   /* Wall mechanics: the cross-section the card's width (its height the room left), the stress tile and the four tiles in one row
      under it; the note under them only at Full. */
   #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(110px, 1fr) auto auto; gap: 10px; }
@@ -5343,3 +5343,63 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 .dock-pane.swipe-peer { display: flex; flex-direction: column; gap: 16px; animation: none; }
 .dock-body:has(.swipe-peer) .dock-pane.active { animation: none; }
 .instrument-workspace .dock-body:has(.swipe-peer) > :is(.dock-pane.active, .swipe-peer) { grid-area: 1 / 1; }
+
+/* ── Tests card on a laptop or tablet (the card at the side) ─────────────────────────────────────────────
+   Fitted to its content: Doppler, the scope view and Readouts join Ascites, HVPG and FibroScan (dock.js fitHeight
+   sets .nat on the view while it measures). The pictures then take their own size: the spectrum its 1.6 shape, the
+   scope's circle the card's width (at most 560 px); a window too short for that keeps the full card as before. */
+.instrument-workspace.float-ui .dock-pane > .instrument-view.nat .dop-main { flex: none; }
+/* (the scope view fitted is always one column: picture, tiles, button; its pane is no longer tall enough for the aspect test that picks it) */
+.instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; gap: 14px; }
+.instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .endo-stage { grid-column: 1; grid-row: 1; }
+.instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .endo-read { grid-column: 1; grid-row: 2; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .endo-read > div { grid-column: span 2; }
+.instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .endo-read > :nth-child(n + 4) { grid-column: span 3; }
+.instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .chart-side > .btn { grid-row: 3; }
+@container tpane (min-width: 450px) {
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .endo-read { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) .endo-read > :is(div, :nth-child(n + 4)) { grid-column: span 1; }
+}
+.instrument-workspace.float-ui .dock-pane > .instrument-view.nat .endo-stage { container-type: inline-size; min-height: 0; }
+.instrument-workspace.float-ui .dock-pane > .instrument-view.nat .endo-stage > .chart-box.square { width: min(100cqw, 560px); }
+/* Doppler: the reading, the flow's direction and the waveform's name in the monitor's top strip, as on a slide's data card
+   and the phone's Tests card (doppler.js reads --dop-ov); under the monitor the normal range, the tiles and the one-line note. */
+#app .instrument-workspace.side .instrument-view.dop .dop-main { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto auto; row-gap: 0; gap: 0; }
+#app .instrument-workspace.side .instrument-view.dop .dop-box { --dop-ov: 1; grid-area: 1 / 1 / 3 / 2; }
+#app .instrument-workspace.side .instrument-view.dop .dop-report { grid-area: 1 / 1 / 6 / 2; display: grid; grid-template-rows: subgrid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; column-gap: calc(.6em * var(--dop-k, 1)); row-gap: 0; margin: 0; padding: 0 52px 0 12px; min-width: 0; }
+#app .instrument-workspace.side .instrument-view.dop .dop-velrow { display: contents; }
+#app .instrument-workspace.side .instrument-view.dop :is(.dop-vel, .dop-dir, .dop-pattern) { grid-row: 1; align-self: start; position: relative; z-index: 1; padding-top: 8px; margin: 0; white-space: nowrap; pointer-events: none; color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }
+#app .instrument-workspace.side .instrument-view.dop .dop-vel { grid-column: 1; }
+#app .instrument-workspace.side .instrument-view.dop .dop-dir { grid-column: 2; font-size: calc(var(--fs-14) * var(--dop-k, 1)); gap: calc(.45em * var(--dop-k, 1)); padding-top: calc(8px + .3em); }
+#app .instrument-workspace.side .instrument-view.dop .dop-dir:is([data-sev="danger"], [data-sev="critical"]) { color: color-mix(in srgb, var(--danger) 70%, var(--white)); }
+#app .instrument-workspace.side .instrument-view.dop .dop-pattern { grid-column: 3; justify-self: start; font-size: calc(var(--fs-14) * var(--dop-k, 1)); padding-top: calc(8px + .3em); color: rgb(var(--white-rgb) / .8); }
+#app .instrument-workspace.side .instrument-view.dop .dop-pattern::before { content: '·'; margin-right: .45em; color: rgb(var(--white-rgb) / .6); }
+#app .instrument-workspace.side .instrument-view.dop .dop-vel b { font-size: calc(var(--fs-20) * var(--dop-k, 1)); color: var(--white); }
+#app .instrument-workspace.side .instrument-view.dop .dop-vel small { font-size: calc(var(--fs-12) * var(--dop-k, 1)); color: rgb(var(--white-rgb) / .6); }
+#app .instrument-workspace.side .instrument-view.dop .dop-range { grid-row: 3; grid-column: 1 / -1; margin: 12px -52px 0 -12px; }
+#app .instrument-workspace.side .instrument-view.dop .dop-stats { grid-row: 4; grid-column: 1 / -1; margin: 12px -52px 0 -12px; }
+#app .instrument-workspace.side .instrument-view.dop .dop-note { grid-row: 5; grid-column: 1 / -1; margin: 12px -52px 0 -12px; font-size: var(--fs-14); color: var(--text-2); }
+#app .instrument-workspace.side .instrument-view.dop .dop-note:empty { display: none; }
+
+/* ── Tests card tiles: one style on every tab, the Readouts tiles': the name in sentence case over the value, both left
+   aligned, on the same flat tile. (A highlighted tile keeps its own edge: Doppler's chosen stent third, the stigmata.) */
+.instrument-workspace .dop-stats > div:not([hidden]) { padding: 6px 8px 5px; border-radius: var(--r-control); justify-content: flex-start; gap: 1px; }
+.instrument-workspace .dop-stats dt,
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dt { font: 500 var(--fs-12)/1.4 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-2); text-align: left; }
+.instrument-workspace .dop-stats dd { font: 600 var(--fs-20)/1.25 var(--font-ui); letter-spacing: -.015em; }
+.instrument-workspace .dop-stats dd small { font-size: var(--fs-12); font-weight: 500; letter-spacing: 0; color: var(--text-3); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { align-items: flex-start; justify-content: flex-start; text-align: left; gap: 1px; padding: 8px 10px 7px; border-radius: var(--r-control); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-read dd, .endo-chip-v, .endo-grade) { text-align: left; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-num, .endo-chip-v, .endo-grade b, .endo-grade b:empty + span) { font: 600 min(var(--fs-20), 21cqi)/1.25 var(--font-ui); letter-spacing: -.015em; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-grade span, .endo-more) { left: 10px; right: 10px; bottom: 7px; text-align: left; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade b:empty + span { font-size: min(var(--fs-20), 21cqi); }
+.instrument-workspace .ab-tile dt { color: var(--text-2); }
+
+/* Readouts: three tiles to a row (each group is three, so the groups line up), with the short names (MAP, RA pressure)
+   where a third of the card is narrow; two to a row on a phone. */
+.rp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@container (max-width: 519px) { .rp-tiles .metric .k .k-l { display: none; } .rp-tiles .metric .k .k-s { display: inline; } }
+@container (max-width: 399px) { .rp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rp-tiles .metric .k .k-l { display: inline; } .rp-tiles .metric .k .k-s { display: none; } }
+
+/* Ascites: serum albumin's stepper is the drain's (− value +), a little wider for its unit. */
+.ab-dp-vol.ab-sa { width: 132px; flex: none; }
