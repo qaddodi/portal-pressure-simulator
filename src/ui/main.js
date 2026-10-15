@@ -1227,6 +1227,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   let start = null, swallow = false;
   // Controls keep their own gestures. With `anywhere` (a phone sheet), a vertical drag from any other spot on the
   // card moves it too; a sideways one is left alone, and content scrolled away from its top scrolls back first.
+  const FIELDS = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]), select, textarea, [role="slider"], [contenteditable]';
   const CONTROLS = 'button, a, input, select, textarea, label, [role="tab"], [role="slider"], [contenteditable]';
   const scroller = (t) => { for (let n = t; n && n !== el; n = n.parentElement) { if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return n; } return null; };
   el.addEventListener('pointerdown', (e) => {
@@ -1234,7 +1235,8 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     const own = e.target === handle || !!e.target.closest(drag);
     // A tab in the head is most of the head on a phone: a vertical drag from it moves the sheet, a tap picks the tab.
     const headTab = own && thumb() && !!e.target.closest('[role="tab"]');
-    if (e.target !== handle && e.target.closest(CONTROLS) && !headTab) return;
+    // (Over the thumb dock buttons and tabs carry the pull too, so Treat moves from anywhere; a tap still clicks.)
+    if (e.target !== handle && e.target.closest(thumb() && anywhere ? FIELDS : CONTROLS) && !headTab) return;
     if (!own && !(anywhere && isPhone())) return;
     const r = el.getBoundingClientRect(), mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat);
     start = { id: e.pointerId, x: e.clientX, y: e.clientY, h: r.height, H: room() || app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own || headTab, sc: own ? null : scroller(e.target) };
@@ -1257,7 +1259,14 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     else el.style.translate = `${start.tx + dx}px ${start.ty + dy}px`;
   });
   // Once the sheet follows the finger, the page must not scroll under it, and the lift is not a tap.
-  el.addEventListener('touchmove', (e) => { if (start?.moved && e.cancelable) e.preventDefault(); }, { passive: false });
+  // (iOS hands a pull on scrollable content to the page and cancels the pointer before it has moved 6 px: a pull down
+  // from anywhere on a thumb card, with its content at the top, is claimed here at once, so it always moves the card.)
+  el.addEventListener('touchmove', (e) => {
+    if (!start || !e.cancelable) return;
+    if (start.moved) { e.preventDefault(); return; }
+    const t = e.touches[0], dx = t.clientX - start.x, dy = t.clientY - start.y;
+    if (thumb() && dy > 0 && dy >= Math.abs(dx) && !(start.sc && start.sc.scrollTop > 0)) e.preventDefault();
+  }, { passive: false });
   el.addEventListener('click', (e) => { if (swallow) { swallow = false; e.stopPropagation(); e.preventDefault(); } }, true);
   const end = (e) => {
     if (!start || (e && e.pointerId !== start.id)) return;
