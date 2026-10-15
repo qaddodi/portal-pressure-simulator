@@ -263,7 +263,8 @@ export function createCore(post) {
       paramsDirty = true;
       if (reqId) post({ type: 'prerolled', reqId });
     },
-    probe({ id }) { probe = id; },
+    // (The samples already taken belong to the old vessel: they go out under its name first, so the new one's record starts clean.)
+    probe({ id }) { if (id !== probe && samples?.t.length) frame(); probe = id; },
     beat({ on }) { if (beat !== !!on) { beat = !!on; frameDirty = true; } },
     snapshot({ reqId }) { post({ type: 'snapshot', reqId, snap: eng.snapshot() }); },
     restore({ snap }) { morph = null; relaxUntil = 0; eng.restore(snap); lapse = null; paramsDirty = true; },

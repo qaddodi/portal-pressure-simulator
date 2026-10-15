@@ -16,20 +16,20 @@ import { store, replaceParams } from './store.js?v=3b659e1968';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=7bea6ad65a';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=adf162f586';
+import { sinusoidSupported } from './sinusoid-view.js?v=a5eac75e3a';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=1783175fa3';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=6d746bfb36';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=8787d0bf18';
-import { createTools } from './presenter-tools.js?v=8da8dbabd2';
-import { openHandout } from './handout.js?v=d8ac570635';
+import { createHvpgMonitor } from './hvpg-proc.js?v=4a7ffc7ec0';
+import { createTools } from './presenter-tools.js?v=8292d4e67d';
+import { openHandout } from './handout.js?v=da53c94d56';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=525d14632b';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { createFigureKey } from './figure-key.js?v=7c8a04f933';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=cad0ea7853';
+import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=9144eb7640';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -974,7 +974,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=1687d085d1', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=c51d9ad27d', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -986,7 +986,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=b3c10ff1ea');
+      const { createCore } = await import('../worker-core.js?v=dc20f61e3b');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

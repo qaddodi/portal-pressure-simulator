@@ -81,9 +81,9 @@ export const ENDOSCOPY = {
       ask: ['What hemoglobin is the target in variceal bleeding?', '7 to 8 g/dL (restrictive transfusion).'],
     },
     {
-      id: 'band', params: { drugs: { octreotide: false } }, action: BANDS, cam: 'gej', labels: ['VAR', 'LGV'], mark: { edges: ['C1a'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope', open: true },
+      id: 'band', action: BANDS, cam: 'gej', labels: ['VAR', 'LGV'], mark: { edges: ['C1a'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: true,
-      kicker: 'Endoscopy', site: 'sin', title: 'After banding, the pressure is unchanged',
+      kicker: 'Endoscopy', site: 'sin', title: 'After banding, the pressure stays high',
       line: 'The ligated columns thrombose and shrink. With that outflow closed, the HVPG may rise slightly.',
       notes: 'Banding is repeated every 2 to 4 weeks until the varices are gone, then the esophagus is checked 3 to 6 months later and every 6 to 12 months after that. It treats the varix, not the pressure: new varices form unless the pressure is lowered too, so a non-selective beta-blocker is added for secondary prophylaxis. Post-banding ulcers can bleed a week or two later. In patients at high risk (Child–Pugh C under 14 points, or B over 7 with active bleeding at endoscopy), a pre-emptive TIPS within 72 hours improves survival.',
       ask: ['Why combine banding with a beta-blocker after a bleed?', 'Banding removes the varices, not the high pressure that makes new ones; the beta-blocker lowers it.'],

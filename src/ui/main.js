@@ -1,25 +1,25 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=8171c1b34a';
+import { startHost, host } from './host.js?v=c9f5782a5c';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=f78797203e';
+import { createStage } from './stage.js?v=7acc69d92d';
 import { createCreditPlacer } from './credit.js?v=e4d16bda70';
-import { sinusoidSupported } from './sinusoid-view.js?v=adf162f586';
+import { sinusoidSupported } from './sinusoid-view.js?v=a5eac75e3a';
 import { createInspector } from './inspector.js?v=4979577c0c';
-import { createDock, CUTOFFS } from './dock.js?v=64e9239f6c';
-import { setHvpgStage } from './hvpg-proc.js?v=8787d0bf18';
-import { createWhy } from './why.js?v=00efae4848';
-import { createTimeline, LAPSES } from './timeline.js?v=e745ac9532';
+import { createDock, CUTOFFS } from './dock.js?v=0b7e9c950e';
+import { setHvpgStage } from './hvpg-proc.js?v=4a7ffc7ec0';
+import { createWhy } from './why.js?v=72d7c21cce';
+import { createTimeline, LAPSES } from './timeline.js?v=ee82558d31';
 import { createCompare } from './compare.js?v=8b89c031cc';
 import { createCard } from './card.js?v=d62c5692bb';
 import { createChart } from './chart.js?v=9e6e250c3c';
-import { createMenu } from './menu.js?v=b7fa999370';
+import { createMenu } from './menu.js?v=826d1797d6';
 import { caption } from './a11y.js?v=4dc7459ab3';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=cf3eae56c7';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=cad0ea7853';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=9144eb7640';
 import { EDGES, PORTAL_TERRITORY, dopplerK } from '../engine/topology.js?v=4044766e96';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=7bea6ad65a';
 import { TEXT_STEPS } from './type-scale.js?v=0bd8cdeedf';
@@ -137,7 +137,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=d41868e0b3'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=78120de10c'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

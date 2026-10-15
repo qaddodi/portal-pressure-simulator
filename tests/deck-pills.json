@@ -233,7 +233,7 @@
   "{hvpg}"
  ],
  "one-year/doppler": [
-  "(a value)"
+  "{<15 cm/s}"
  ],
  "one-year/belly": [
   "{spleen}"
@@ -338,13 +338,13 @@
  ],
  "doppler/probe": [
   "portal vein",
-  "{15 cm/s}"
+  "{>=15 cm/s}"
  ],
  "doppler/meal": [
   "(a value)"
  ],
  "doppler/slow": [
-  "{15 cm/s}"
+  "{<15 cm/s}"
  ],
  "doppler/clot": [
   "superior mesenteric vein"
@@ -361,7 +361,8 @@
   "sinusoids"
  ],
  "doppler/tips": [
-  "{90 cm/s}"
+  "{<90 cm/s}",
+  "{>190 cm/s}"
  ],
  "endoscopy/grow": [
   "varices",

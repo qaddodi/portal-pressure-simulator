@@ -6,11 +6,12 @@
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=7bea6ad65a';
-import { FONT } from './charts.js?v=1307fd60a0';
+import { FONT } from './charts.js?v=2f40c1a293';
 import { logAction, shownVel, store } from './store.js?v=3b659e1968';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=62e22c9d9f';
 import { frameFor } from './frame.js?v=0db47e99bf';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
+import { velNormal } from './velNormal.js?v=cc0ceba6e3';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -187,7 +188,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
   function ingest(f) {
     frame = f;
-    if (f.probe !== probe) { buf = []; wl = null; tOff = 0; synth = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
+    if (f.probe !== probe) { buf = []; wl = null; tOff = 0; synth = null; scale = null; steady.probe = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
     // A new spot along a stent is a new recording, as a new vessel is: the trace starts over and finds its own scale.
     const g = isStentProbe() ? gateOf() : '';
     if (g !== gateNow) { gateNow = g; buf = []; wl = null; synth = null; scale = null; steady.probe = null; }
@@ -215,9 +216,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
 
   // ── Reading ───────────────────────────────────────
+  // (Nothing until 1.5 s of this vessel is recorded: a pattern judged from part of a beat is a wrong one, a red "To-and-fro" for a moment.)
+  const SETTLE = 1.5;
   function reading() {
     if (buf.length < 4) return null;
     const tNow = buf[buf.length - 1][0];
+    if (tNow - buf[0][0] < SETTLE) return null;
     let sum = 0, n = 0, vmax = -Infinity, vmin = Infinity;
     for (let i = buf.length - 1; i >= 0 && buf[i][0] >= tNow - 3; i--) {
       const v = buf[i][1]; sum += v; n++;
@@ -242,8 +246,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const effInvert = () => invert;
   const pol = () => (!meta().away !== !effInvert() ? -1 : 1);
 
+  // A vessel's usual range: with a TIPS or DIPS in, the main portal vein's is 30 cm/s and up (velNormal.js), so fast flow is not flagged.
+  const normalOf = (p) => (p.id === 'PV_TRUNK' && frame?.D ? velNormal(EI.PV_TRUNK, frame) : null) || p.normal;
   function interpret(r) {
-    const p = meta();
+    const p = meta(), normal = normalOf(p);
     const a = Math.abs(r.mean);
     const swing = r.vmaxMean - r.vminMean;
     const big = Math.max(Math.abs(r.vmaxMean), Math.abs(r.vminMean));
@@ -269,13 +275,13 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (a < 9 && !reverses) { dir = 'Stasis'; sev = 'danger'; }
       else if (reverses && Math.abs(r.mean) < swing * 0.35) { dir = 'To-and-fro'; sev = 'danger'; }
       else if (r.mean < 0) { dir = 'Hepatofugal'; sev = 'critical'; }
-      else { dir = 'Hepatopetal'; sev = a < p.normal[0] ? 'caution' : 'ok'; }
+      else { dir = 'Hepatopetal'; sev = a < normal[0] ? 'caution' : 'ok'; }
       pattern = pi > 0.5 ? 'Pulsatile' : pi > 0.15 ? 'Phasic' : 'Monophasic';
       note = dir === 'Hepatofugal' ? 'Flow runs away from the liver: portal blood is leaving through collaterals.'
         : dir === 'To-and-fro' ? 'Flow swings both ways each cycle, on the way to reversal.'
         : dir === 'Stasis' ? 'Almost no net flow: a setting for portal vein thrombosis.'
         : pattern === 'Pulsatile' ? 'A pulsatile portal vein suggests right-heart pressure transmitted back (heart failure, tricuspid regurgitation).'
-        : a < p.normal[0] ? 'Toward the liver but slow: typical of portal hypertension.'
+        : a < normal[0] ? (stent ? `Slower than expected with a ${stent}: it suggests the stent is narrowing.` : 'Toward the liver but slow: typical of portal hypertension.')
         : pattern === 'Monophasic' ? 'Normal: toward the liver, steady.'
         : 'Normal: toward the liver with gentle phasicity.';
       // Flow toward the liver in a branch that a working stent would reverse: the stent no longer draws it, as when it narrows.
@@ -326,9 +332,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // when the mean falls outside (reversed flow reaches below zero). The marker eases there with CSS.
   // (expected: a reading the stent explains, as a branch running back toward a TIPS, is not flagged out of range.)
   function updateGauge(p, mean, expected = false) {
-    if (!p.normal) { rangeEl.hidden = true; velEl.dataset.out = 'false'; return; }
-    const [n0, n1] = p.normal;
-    const hi = Math.max(Math.round(n1 * 1.7), Math.ceil(mean * 1.1));
+    const normal = normalOf(p);
+    if (!normal) { rangeEl.hidden = true; velEl.dataset.out = 'false'; return; }
+    // (A range with no ceiling, the portal vein with a stent in, runs its band to the gauge's end and names only its floor.)
+    const [n0, n1] = normal, open = !Number.isFinite(n1);
+    const hi = Math.max(Math.round((open ? 2 * n0 : n1) * 1.7), Math.ceil(mean * 1.1));
     const lo = Math.min(0, Math.floor(mean * 1.1));
     const pos = (v) => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
     rangeEl.hidden = false;
@@ -336,8 +344,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
     bandEl.style.left = `${pos(n0)}%`; bandEl.style.width = `${pos(n1) - pos(n0)}%`;
     markEl.style.left = `${pos(mean)}%`;
     gZero.style.left = `${pos(0)}%`; gLo.style.left = `${pos(n0)}%`; gHi.style.left = `${pos(n1)}%`;
-    set2(gLo, String(n0)); set2(gHi, `${n1} cm/s`);
-    rangeEl.title = `Usual ${n0}–${n1} cm/s`;
+    gHi.hidden = open;
+    set2(gLo, open ? `${n0} cm/s` : String(n0)); set2(gHi, open ? '' : `${n1} cm/s`);
+    rangeEl.title = open ? `Usual ${n0} cm/s or more` : `Usual ${n0}–${n1} cm/s`;
   }
   // A slide's own state (its fingerprint's network, presenter dataTo → tools.pin): the probed vessel's velocity as the scanner reads it.
   let pinAt = null;
