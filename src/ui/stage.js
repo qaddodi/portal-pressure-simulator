@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, GLIDE_MS } from './util.js?v=0e70eb01ff';
-import { createLobuleZoom } from './lobule-zoom.js?v=3288659c78';
+import { createLobuleZoom } from './lobule-zoom.js?v=73b29ae3c1';
 import { runFlick, FLICK } from './flick.js?v=773d9728fe';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -16,7 +16,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=bdca5fc56f';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=736f59781d';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame, setSaver as setFrameSaver, saver, SAVER_MS } from './frame.js?v=5ad4028792';
 import { portalSplit } from './table-marks.js?v=f709ae0429';
@@ -2837,7 +2837,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const m = CTM;
     const T = [vdpr * m.a, vdpr * m.b, vdpr * m.c, vdpr * m.d, vdpr * (m.e - wrapRect.left), vdpr * (m.f - wrapRect.top)];
     const key = T.map((v) => v.toFixed(3)).join(',') + `|${vCanvas.width}x${vCanvas.height}`;
+    const now = performance.now();
+    if (key !== viewSeen) { viewSeen = key; viewAt = now; }
     if (!veinsDirty && key === veinsDrawKey) {
+      veinsStale = false;
       if (!veinsRows.size) return false;
       // Only some vessels' attributes changed: their cells alone are drawn again (the same picture as a whole redraw).
       const rows = [...veinsRows];
@@ -2845,11 +2848,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (veins.drawRows(T, vLook, bloodLook(), rows, fullComposite)) return true;
     }
     if (key !== veinsDrawKey && plateOn()) schedulePlateView();
-    veinsDirty = false; veinsDrawKey = key; veinsRows.clear();
     glM = [m.a, m.b, m.c, m.d, m.e - wrapRect.left, m.f - wrapRect.top];
+    // A view on the move (a drag, pinch, wheel or glide: it changed in the last 100 ms): the vessel layer as last drawn is
+    // re-projected to it, one composite pass instead of the vessel pass over every cell at full size, which ran on every
+    // frame of a drag. The layer is drawn again once the view holds still, after 300 ms of motion, or once the zoom has
+    // changed by a quarter (it would soften); nothing else may have changed meanwhile.
+    const sc = Math.hypot(T[0], T[1]), drawnSc = veinsDrawT ? Math.hypot(veinsDrawT[0], veinsDrawT[1]) : 0;
+    if (!veinsDirty && veinsDrawT && now - viewAt < 100 && now - veinsDrawnAt < 300 && sc < drawnSc * 1.25 && sc > drawnSc * 0.8 && key.split('|')[1] === veinsDrawKey.split('|')[1]) {
+      if (veins.view(T, vLook, bloodLook())) { veinsStale = true; return true; }
+    }
+    veinsDirty = false; veinsStale = false; veinsDrawKey = key; veinsDrawT = T; veinsDrawnAt = now; veinsRows.clear();
     veins.draw(T, vLook, bloodLook());
     return true;
   }
+  // The view as last seen by drawVeins and since when; the transform and time the vessel layer was last drawn at; whether
+  // the picture shows that layer re-projected to a newer view (it is drawn again once the view holds still).
+  let viewSeen = '', viewAt = 0, veinsDrawT = null, veinsDrawnAt = 0, veinsStale = false;
   function clearJoins() {
     for (const x of Object.values(E)) if (x.joinKey) { x.joinKey = ''; for (const g of x.groups) g.removeAttribute('mask'); }
   }
@@ -5910,7 +5924,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active);
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { sleep(); return; }
+    if (still && !veinsDirty && !veinsStale && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);

@@ -665,6 +665,8 @@ uniform vec4 fluidRect;
 uniform vec4 fluidS;                   // ascites: floor, height, ripple amplitude, ripple phase (world units, radians)
 uniform vec4 fluidInk;                 // its straw color (straight) and opacity at depth; a = 0: none
 uniform mat3 inv;                      // device pixels → world
+uniform int reproj;                    // 1: the view moved since the vessel layer was drawn (see view())
+uniform mat3 layerM;                   // world → device pixels of the vessel layer as drawn
 uniform float H;                       // canvas height, device pixels
 uniform float pxW;                     // world units per device pixel
 uniform int blood;                     // 1: draw the blood
@@ -933,13 +935,22 @@ void main() {
     }
   }
 
-  vec4 v = texelFetch(base, ip, 0);
-  uvec4 g = texelFetch(gbuf, ip, 0);
+  // The vessel layer's pixel for this one: the same, or while the view moves, where this point of the world lay when the
+  // layer was drawn (nothing past its edges).
+  ivec2 vp = ip;
+  bool inL = true;
+  if (reproj == 1) {
+    vec2 d = (layerM * vec3(w, 1.0)).xy;
+    vp = ivec2(floor(vec2(d.x, H - d.y)));
+    inL = all(greaterThanEqual(vp, ivec2(0))) && all(lessThan(vp, textureSize(base, 0)));
+  }
+  vec4 v = inL ? texelFetch(base, vp, 0) : vec4(0.0);
+  uvec4 g = inL ? texelFetch(gbuf, vp, 0) : uvec4(0u);
   float vis = g.x > 0u ? clamp(float(g.w) / 65535.0 / max(v.a, 1e-3), 0.0, 1.0) : 0.0;
   if ((blood == 1 || dyeOn == 1 || chev == 1 || origin == 1) && (vis > 0.005 || (dyeOn == 1 && g.x > 0u)) && v.a > 0.01) {
     vec3 col = v.rgb / v.a;
     // This lumen, and near a join the one it joins, cross-faded by its share.
-    uvec4 g2 = texelFetch(gbuf2, ip, 0);
+    uvec4 g2 = texelFetch(gbuf2, vp, 0);
     float b = g2.x > 0u ? float(g2.w) / 65535.0 : 0.0;
     int id1 = int(g.x) - 1, id2 = int(g2.x) - 1;
     float s1 = float(g.y) / 16.0 - S_OFF, y1 = float(g.z) / 32767.5 - 1.0;
@@ -1184,7 +1195,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let fboW = 0, fboH = 0, baseM = null, dyeAny = false, wasBleeding = false;
   // fboOK: the vessel layer holds a whole draw of the current geometry, radii and organ covers, at baseM, so a redraw of
   // some of its cells (drawRows) leaves it exactly as a whole draw would. Cleared by anything else the vessel pass reads.
-  let fboOK = false;
+  let fboOK = false, viewM = null;
   function ensureFBO() {
     if (fboW === canvas.width && fboH === canvas.height) return;
     fboW = canvas.width; fboH = canvas.height; fboOK = false;
@@ -1372,7 +1383,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
       gl.clearBufferuiv(gl.COLOR, 1, [0, 0, 0, 0]);
       gl.clearBufferuiv(gl.COLOR, 2, [0, 0, 0, 0]);
-      baseM = m;
+      baseM = m; viewM = null;
       vesselPass(m, look, vao, nCells);
       fboOK = true;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -1387,7 +1398,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
      * cannot stand in for draw() or would cover most of the cells anyway: the caller then calls draw().
      */
     drawRows(m, look, blood, rows, full = false) {
-      if (!fboOK || lost || fboW !== canvas.width || fboH !== canvas.height || !baseM || m.some((v, i) => v !== baseM[i])) return false;
+      if (viewM || !fboOK || lost || fboW !== canvas.width || fboH !== canvas.height || !baseM || m.some((v, i) => v !== baseM[i])) return false;
       const { mark, k } = cellsOfRows(rows);
       if (k > nCells * 0.6) return false;
       if (k) {
@@ -1404,6 +1415,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       this.composite(look, blood, full);
       return true;
     },
+    /**
+     * The picture at transform `m` (a pan, zoom or glide under way) from the vessel layer as last drawn, re-projected:
+     * one composite pass instead of the vessel pass over every cell. The vessels move with the view at once; past the
+     * layer's edges there are none, and zooming in they soften, until the caller draws the layer again (draw()) once the
+     * view holds still. Returns false when there is no layer of this size to re-project (the caller then draws).
+     */
+    view(m, look, blood) {
+      if (!fboOK || lost || fboW !== canvas.width || fboH !== canvas.height || !baseM) return false;
+      viewM = m;
+      this.composite(look, blood, true);
+      return true;
+    },
     /** Cells redrawn by drawRows so far, and the cells of the whole layer (for the checks). */
     get partCells() { return partCells; },
     get nCells() { return nCells; },
@@ -1414,6 +1437,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
      */
     composite(look, blood = {}, full = false) {
       if (!baseM || fboW !== canvas.width || fboH !== canvas.height) return;
+      // While the view moves (view()), the picture is at viewM and the vessel layer, drawn at baseM, is re-projected.
+      const reproj = !!viewM && viewM.some((v, i) => v !== baseM[i]);
+      if (reproj) full = true;
       // A bleed sprays outside the vessels: the whole picture is repainted while it lasts, and once after.
       const bleeding = !!blood.bleed?.length;
       if (bleeding || wasBleeding) full = true;
@@ -1422,7 +1448,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       cathWas = !!cath;
       // The organ outlines (over the vessels) are a layer redrawn when they or the view change, with one whole repaint
       // then and once after they go. Under the catheter's passes they are drawn last, as before, over it.
-      const m = baseM;
+      const m = reproj ? viewM : baseM;
       const hard = hasHard(), glow = hasSoft(), layer = hard && !cath;
       const vk = `${lineVer}|${m.join(',')}|${canvas.width}x${canvas.height}`;
       if (layer) {
@@ -1452,6 +1478,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         gl.uniform1f(U.cell, CELL);
       }
       gl.uniformMatrix3fv(U.inv, false, new Float32Array([ia, ib, 0, ic, id, 0, ie, iff, 1]));
+      gl.uniform1i(U.reproj, reproj ? 1 : 0);
+      gl.uniformMatrix3fv(U.layerM, false, new Float32Array([baseM[0], baseM[1], 0, baseM[2], baseM[3], 0, baseM[4], baseM[5], 1]));
       gl.uniform1f(U.H, canvas.height);
       gl.uniform1f(U.pxW, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
       const pm = (look.plate ? (plates[0] ? 1 : 0) | (plates[1] ? 2 : 0) : 0);

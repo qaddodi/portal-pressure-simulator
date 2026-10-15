@@ -3,7 +3,8 @@
 // figure and the lobule redraw only those vessels' cells instead of the whole layer at a Retina size. Here a small
 // scene of crossing, joined vessels in three tiers is drawn whole, a few vessels are recoloured (one hovered, one
 // faded), and the partial redraw must match a fresh whole draw pixel for pixel, cover fewer cells than the whole
-// layer, and refuse (so the caller draws everything) once anything else the vessel pass reads has changed.
+// layer, and refuse (so the caller draws everything) once anything else the vessel pass reads has changed. While the view
+// moves, the layer re-projected to it (view()) must show what a fresh draw there would.
 //
 //   node tests/e2e/veins-rows.mjs [dir]
 
@@ -57,6 +58,8 @@ try {
     };
     const blood = { on: false };
     const m = [1, 0, 0, 1, 0, 0];
+    // (The two pictures compared pixel by pixel: how many differ, by how much at most, and where.)
+    const px = async (url) => { const im = new Image(); im.src = url; await im.decode(); const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const x = c.getContext('2d'); x.drawImage(im, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
     g.draw(m, look, blood);
     const before = g.snapshot();
     // The pulse: a branch's colour moves (by its join with the trunk); a crossing vessel's too, and it is hovered; the
@@ -75,14 +78,29 @@ try {
     // Refusals: another transform, new radii.
     const okMoved = g.drawRows([1.2, 0, 0, 1.2, 0, 0], look, blood, [0]);
     g.draw(m, look, blood);
+    // A view on the move: the layer re-projected to a pan of whole pixels shows what a fresh draw there shows (to within
+    // the dither of a level, which stays with the layer's pixels, in each picture), apart from the strip the pan uncovers; and while it is
+    // re-projected, a partial redraw is refused (the layer is not at the picture's transform).
+    const pan = [1, 0, 0, 1, 37, -21];
+    const okView = g.view(pan, look, blood), viewed = g.snapshot(), okRowsMoving = g.drawRows(pan, look, blood, [1]);
+    g.draw(pan, look, blood);
+    const fresh = g.snapshot();
+    const V1 = await px(viewed), V2 = await px(fresh);
+    let off = 0, offMax = 0;
+    for (let i = 0; i < V1.length; i += 4) {
+      const x = (i / 4) % cv.width, y = Math.floor(i / 4 / cv.width);
+      if (x < 37 + 1 || y >= cv.height - 21 - 1) continue;   // the uncovered strips (left, bottom)
+      // (Compared premultiplied, as drawn: the PNG's straight colour of a faint pixel magnifies a level of alpha.)
+      const d = Math.max(Math.abs(V1[i + 3] - V2[i + 3]), ...[0, 1, 2].map((k) => Math.abs(V1[i + k] * V1[i + 3] - V2[i + k] * V2[i + 3]) / 255));
+      if (d > 3) { off++; offMax = Math.max(offMax, d); }
+    }
+    g.draw(m, look, blood);
     g.setRadii(1, Array(N_SAMPLES).fill(11));
     const okRadii = g.drawRows(m, look, blood, [1]);
-    // (The two pictures compared pixel by pixel: how many differ, by how much at most, and where.)
-    const px = async (url) => { const im = new Image(); im.src = url; await im.decode(); const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const x = c.getContext('2d'); x.drawImage(im, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
     const A = await px(partial), B = await px(whole); let nd = 0, md = 0, bx = [1e9, 1e9, 0, 0];
     for (let i = 0; i < A.length; i += 4) { const d = Math.max(...[0, 1, 2, 3].map((k) => Math.abs(A[i + k] - B[i + k]))); if (d) { nd++; md = Math.max(md, d); const x = (i / 4) % cv.width, y = Math.floor(i / 4 / cv.width); bx = [Math.min(bx[0], x), Math.min(bx[1], y), Math.max(bx[2], x), Math.max(bx[3], y)]; } }
     const diff = { pixels: nd, most: md, box: bx };
-    return { diff, okRows, okNone, okMoved, okRadii, same: partial === whole, changed: partial !== before, noneSame: none === whole, noneCells, cells, nCells: g.nCells };
+    return { okView, okRowsMoving, off, offMax, diff, okRows, okNone, okMoved, okRadii, same: partial === whole, changed: partial !== before, noneSame: none === whole, noneCells, cells, nCells: g.nCells };
   });
   if (r.skip) console.log(`skipped: ${r.skip}`);
   else {
@@ -94,6 +112,10 @@ try {
     if (!r.okNone || r.noneCells || !r.noneSame) fail('a redraw of no rows changed something');
     if (r.okMoved) fail('drawRows accepted a different transform');
     if (r.okRadii) fail('drawRows accepted a change of radii');
+    console.log(`re-projected pan: ${r.off} pixels off a fresh draw (most ${r.offMax.toFixed(1)} levels)`);
+    if (!r.okView) fail('view() refused a layer it could re-project');
+    if (r.off) fail(`the re-projected view differs from a fresh draw in ${r.off} pixels (by up to ${r.offMax.toFixed(1)} levels)`);
+    if (r.okRowsMoving) fail('drawRows accepted a redraw while the view was re-projected');
   }
 } finally {
   await browser.close();

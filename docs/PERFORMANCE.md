@@ -13,6 +13,11 @@
   re-composites the vessel cells. Below about 40 frames a second the figure steps to 30, and further down as before;
   Battery saver keeps 15. The level is remembered as `pps.q` (the old `pps.quality` is dropped, so a level a device once
   fell to does not stay).
+- **A drag, pinch, wheel or glide moves the drawn vessels** instead of redrawing them every frame: the last vessel layer is
+  re-projected to the new view in the composite pass (`veins-gl.js` `view`), and drawn again once the view holds still
+  (100 ms), after 300 ms of motion, or once the zoom has changed by a quarter. Drag in the test browser: vessel cells
+  drawn 102,300 → 36,070 while it drew three times the frames; wheel zoom 46,500 → 17,050. Past the layer's edges the
+  vessels appear when it is redrawn; zooming in they soften slightly until then.
 - **The canvas no longer shrinks for keeping its pace.** The resolution governor judged drawn frames against 21 ms, so the
   blood's own 30-a-second pace read as slow and a playing figure dropped to 0.6 of its resolution within seconds. It now
   judges against the pace in force.
