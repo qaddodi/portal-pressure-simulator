@@ -358,7 +358,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => window.pps.stage.lobuleLensFade() === null, null, { timeout: 15000 });
   });
 
-  if (device === 'desktop') await check(device, 'lobule: leaving after a close zoom gives back its large bitmaps, and a drain rasterizes the organs once', async (page) => {
+  if (device === 'desktop') await check(device, 'lobule: a Fit glide redraws its bitmap once, leaving after a close zoom gives back its large bitmaps, and a drain rasterizes the organs once', async (page) => {
     await open(page, '?preset=healthy');
     await page.evaluate(() => window.pps.store.set({ lobule: true }));
     await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 60000 });
@@ -366,6 +366,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     for (let i = 0; i < 5; i++) { await page.evaluate(() => document.querySelector('#zoomIn').click()); await page.waitForTimeout(700); }
     await page.waitForFunction((t) => window.pps.stage.lobuleMem(true).tiles > t, landed.tiles, { timeout: 30000 }).catch(() => {});
     const zoomed = await page.evaluate(() => window.pps.stage.lobuleMem(true));
+    // A glide (here Fit, from about 2.5×) keeps the lobule's bitmap at the scale it had and redraws it once, as it lands: redrawn at each
+    // √2 step on the way (up to 3600 px square, tens of ms each), the glide stuttered.
+    const d0 = await page.evaluate(() => window.pps.stage.lobuleMem(true).worldDraws);
+    await page.evaluate(() => document.querySelector('#zoomFit').click());
+    await page.waitForTimeout(3000);
+    const glideDraws = (await page.evaluate(() => window.pps.stage.lobuleMem(true).worldDraws)) - d0;
+    if (glideDraws > 1) throw new Error(`the lobule's bitmap was redrawn ${glideDraws} times during one Fit glide (once, when it lands, is enough)`);
+    for (let i = 0; i < 5; i++) { await page.evaluate(() => document.querySelector('#zoomIn').click()); await page.waitForTimeout(700); }
+    await page.waitForTimeout(1500);
     await page.evaluate(() => window.pps.store.set({ lobule: false }));
     await page.waitForFunction(() => window.pps.stage.lobuleSettled() && !window.pps.stage.lobuleOpen(), null, { timeout: 60000 });
     await page.waitForTimeout(500);

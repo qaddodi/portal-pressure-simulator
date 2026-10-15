@@ -291,7 +291,7 @@ export function createLobuleZoom({ host }) {
     if (!geo) return;
     if (!rawK) rawK = kFit;
     rawK = Math.max(kFit * 0.5, rawK * f);   // as the anatomy: the unresisted scale stops at half the framing
-    stopInertia(); cancelFrame(glide); rubber = true; atFit = false;
+    stopInertia(); cancelFrame(glide); gliding = false; rubber = true; atFit = false;
     const F0 = fitV();
     if (rawK >= kFit) { rawK = 0; rubber = false; Object.assign(V, F0); atFit = true; viewChanged(); return; }
     // The stretch shrinks about the middle of the free space, not the fingers: the lobule stays where its framing puts it, so zooming
@@ -338,7 +338,7 @@ export function createLobuleZoom({ host }) {
     clampV(); viewChanged();
   }
   // A short glide between framings (the buttons, Fit, a card opening).
-  let glide = 0;
+  let glide = 0, gliding = false;
   // A presenter's glide (focusOn): the labels ease out, are not laid out on the way, and ease back in where it lands.
   let camMove = false, camInT = 0, camUntil = 0, camHeld = false;   // (camHeld: aim's hold, which only focusOn or leaving lets go)
   function camSettle() {
@@ -349,7 +349,7 @@ export function createLobuleZoom({ host }) {
   }
   function glideTo(to, ms = 260, cam = false, aim = null) {
     stopInertia();
-    cancelFrame(glide);
+    cancelFrame(glide); gliding = false;
     camAim = aim;   // (any other glide, or a hand on the lobule, replaces the presenter's)
     const from = { ...V }, t0 = performance.now();
     // (Lite mode: the presenter's camera jumps, and the lobule fades in at its new framing.)
@@ -360,8 +360,9 @@ export function createLobuleZoom({ host }) {
       const k = from.k * Math.pow(to.k / from.k, e), a = (k - from.k) / ((to.k - from.k) || 1);
       V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? e : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? e : a);
       viewChanged();
-      if (u < 1) glide = nextFrame(step); else { camAim = null; camSettle(); }
+      if (u < 1) glide = nextFrame(step); else { gliding = false; camAim = null; camSettle(); viewChanged(); }   // (landed: drawn once more at the sharpness the new zoom wants)
     };
+    gliding = true;
     glide = nextFrame(step);
   }
   let outHandler = null;
@@ -434,7 +435,7 @@ export function createLobuleZoom({ host }) {
     ev.preventDefault();
     if (wheelMute) { const now = performance.now(); if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     stopInertia();
-    cancelFrame(glide);   // a button's glide never fights the hand
+    cancelFrame(glide); gliding = false;   // a button's glide never fights the hand
     const u = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? el.clientHeight : 1, dx = ev.deltaX * u, dy = ev.deltaY * u, now = performance.now();
     if (now - wheelAt > 250 || Math.sign(dy) !== wheelDir) wheelOutOK = V.k <= kFit * 1.001;
     wheelDir = Math.sign(dy);   // only a gesture that begins at the framing may carry on out to the anatomy
@@ -472,7 +473,7 @@ export function createLobuleZoom({ host }) {
     stopInertia();
     if (ev.isPrimary) touches.clear();
     touches.set(ev.pointerId, local(ev));
-    cancelFrame(glide);
+    cancelFrame(glide); gliding = false;
     // Captured, so a drag keeps going over the labels, the card or past the edge.
     try { el.setPointerCapture(ev.pointerId); } catch { /* gone */ }
     if (touches.size === 2) {
@@ -500,7 +501,7 @@ export function createLobuleZoom({ host }) {
         if (V.k > kFit * 1.001) { V.x += p[0] - drag.p[0]; V.y += p[1] - drag.p[1]; clampV(); viewChanged(); el.classList.add('lz-drag'); }
         else if (geo) {   // at its framing there is nowhere to go: the lobule follows the hand on a rubber band and springs back on release
           const F0 = fitV(), o = drag.o || (drag.o = [0, 0]), Lx = 0.4 * (el.clientWidth || 800), Ly = 0.4 * (el.clientHeight || 600);   // near-free travel, easing toward 40% of the view
-          cancelFrame(glide); rubber = true; o[0] += p[0] - drag.p[0]; o[1] += p[1] - drag.p[1];
+          cancelFrame(glide); gliding = false; rubber = true; o[0] += p[0] - drag.p[0]; o[1] += p[1] - drag.p[1];
           V.x = F0.x + Lx * Math.tanh(o[0] / Lx); V.y = F0.y + Ly * Math.tanh(o[1] / Ly); atFit = false; viewChanged(); el.classList.add('lz-drag');
         }
         drag.p = p;
@@ -1507,11 +1508,33 @@ export function createLobuleZoom({ host }) {
   const fsLast = {};
   const fsQ = (k, x) => { const v = x || 0, o = fsLast[k]; return o !== undefined && Math.abs(v - o) < 0.09 ? o : (fsLast[k] = Math.round(v * 8) / 8); };
   const fieldState = () => { const m = model || (F ? lobuleState(F, store.get()) : null); return m ? { su: fsQ('su', m.septU), pre: fsQ('pre', m.fibPre), post: fsQ('post', m.fibPost), sin: fsQ('sin', m.fibSin), cong: fsQ('cong', m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
-  function fieldTile(cs, dark, rd) {
+  // later: the open lobule asks (#27). A tissue state that changes mid-animation (a time-lapse, a slide's morph) needs new tiles, each
+  // tens of ms to draw: the open lobule keeps showing the last state's tile (its quiet surround changes slowly) while the new one is
+  // drawn between frames, then redraws with it.
+  let tileLater = null, tileLast = null;
+  function fieldTile(cs, dark, rd, later = false) {
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const cell = v('--og-liver-1'), gap = v('--og-liver-2'), cvc = v('--vein-systemic'), pvc = v('--vein-portal');
     const fs = fieldState();
     const key = [dark, cell, gap, cvc, pvc, Object.values(fs).join(',')].join('|');
+    if (later && tileLast && tileLast.key !== key && tileLast.dark === dark) {
+      const ts = tileSets.get(key), ready = ts && (ts.find((q) => q.R >= rd) || ts[ts.length - 1]);
+      if (!ready?.cv) {
+        if (!tileLater) {
+          tileLater = setTimeout(() => {
+            tileLater = null;
+            if (fade <= 0) return;
+            const t = fieldTile(getComputedStyle(host), isDark(), rd);
+            quietTile(t, stageBg(getComputedStyle(host), isDark()));
+            tissueKey = ''; drawVersion++; if (!raf) raf = nextFrame(loop);
+          }, 0);
+        }
+        const old = tileSets.get(tileLast.key);
+        const t = old && (old.find((q) => q.R >= rd && q.cv) || [...old].reverse().find((q) => q.cv));
+        if (t) return t;
+      }
+    }
+    if (later) tileLast = { key, dark };
     let tiles = tileSets.get(key);
     if (!tiles) {
       tiles = [6, 12, 24, 48, 96, 192, 384].map((R) => ({ R, cv: null })); tileSets.set(key, tiles);
@@ -2041,6 +2064,7 @@ export function createLobuleZoom({ host }) {
   const triplet = (cs, n) => { const k = cs.getPropertyValue(n).trim().split(/[\s,/]+/).map(Number); return k.length >= 3 && k.every(Number.isFinite) ? k.slice(0, 3).map((v) => v / 255) : [0, 0, 0]; };
 
   // ── Tissue: plates, collagen, zones, congestion (repainted only when the model changes it) ──
+  let worldSc = 0, worldGeo = null, surRd = 0, worldDraws = 0;
   function paintTissue(W, H, dpr, dark, cs, flatVessels) {
     const m = model, G = geo;
     const q = (v) => Math.round(v * 2) / 2;
@@ -2048,7 +2072,10 @@ export function createLobuleZoom({ host }) {
     // the screen's), redrawn only when the tissue's state changes; panning and zooming just place it.
     // Pressure colors enter only coarsely (they move every frame while the model glides).
     const qi = (s) => s.replace(/\d+/g, (n) => (n >> 4) << 4);
-    const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), 3600 / (2.6 * G.R));
+    // (#27) Mid-glide (+, −, Fit, a presenter's camera) the bitmap keeps the scale it was drawn at and is only placed larger or smaller:
+    // redrawing it at each √2 step (up to 3600 px square) stalled the glide. It is drawn sharp once the glide lands.
+    let sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), 3600 / (2.6 * G.R));
+    if (gliding && worldSc && worldCv.width && worldGeo === G) sc = worldSc;
     const wk = [G.W, G.H, sc.toFixed(3), dark, qi(inkOf(m.mode, 'pv')), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), q(m.cong), m.hide, zonesOn, cs.getPropertyValue('--bg')].join('|');
     const key = [W, H, dpr, wk, flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
     if (key === tissueKey) return;
@@ -2066,11 +2093,15 @@ export function createLobuleZoom({ host }) {
     {
       c.setTransform(1, 0, 0, 1, 0, 0);
       const [sx, sy] = toScreen([cx, cy]), rd = R * V.k * dpr;
-      fieldFill(c, quietTile(fieldTile(cs, dark, rd * 0.55), shadeOf(rgb01(bg), dark)), sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
+      // (Mid-glide, the tile it had is stretched rather than a larger one drawn; a new tissue state's tiles are built between frames, see fieldTile.)
+      const want = gliding && surRd ? surRd : rd * 0.55;
+      if (!gliding) surRd = rd * 0.55;
+      fieldFill(c, quietTile(fieldTile(cs, dark, want, true), shadeOf(rgb01(bg), dark)), sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
     }
     const B = 1.3 * R, bx = cx - B, by = cy - B;
     if (wk !== worldKey) {
       worldKey = wk;
+      worldSc = sc; worldGeo = G; worldDraws++;
       const n = Math.ceil(2 * B * sc);
       if (worldCv.width !== n || worldCv.height !== n) { worldCv.width = n; worldCv.height = n; }
       const w = worldCv.getContext('2d');
@@ -2741,7 +2772,7 @@ export function createLobuleZoom({ host }) {
     /** For the checks: bytes held in the lobule's bitmaps (its canvases, world bitmap and field tiles). */
     memBytes(detail = false) {
       const b = (cv) => (cv ? cv.width * cv.height * 4 : 0);
-      const d = { canvases: b(tissue) + b(glCv) + b(fx) + b(field), world: b(worldCv), tiles: 0 };
+      const d = { canvases: b(tissue) + b(glCv) + b(fx) + b(field), world: b(worldCv), tiles: 0, worldDraws, tileSets: tileSets.size };
       for (const tiles of tileSets.values()) for (const q of tiles) d.tiles += b(q.cv) + b(q.quiet?.cv) + b(q.liverQ?.cv);
       return detail ? d : d.canvases + d.world + d.tiles;
     },
