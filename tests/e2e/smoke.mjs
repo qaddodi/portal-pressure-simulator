@@ -737,36 +737,57 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // beside it had it hop between two spots every few seconds. And on a lobule slide it keeps off the lobule (it had sat on the
   // hepatocytes: its art test looked at the anatomy hidden under the lobule).
   if (device === 'phone') await check(device, 'The credit holds its spot while numbers tick, and keeps off the lobule', async (page) => {
+    // (on an upright iPad: an iPhone carries the credit in the teaching card's foot, so the figure's credit is a tablet's and a laptop's)
     const restore = await instantMotionOn(page);
-    const shown = () => page.waitForFunction(() => { const c = document.querySelector('.stage-credit'); return c.matches('.placed:not(.moving):not(.covered)') && !document.querySelector('#app.pz-moving'); }, null, { timeout: 60000 });
-    await gotoSlide(page, server.url, 'circuit', 6);
-    await quiet(page); await shown();
+    const shown = () => page.waitForFunction(() => { const c = document.querySelector('.stage-credit'); return c.matches('.placed:not(.moving), .covered') && !document.querySelector('#app.pz-moving'); }, null, { timeout: 60000 });
+    await gotoSlide(page, server.url, 'circuit', 6);   // (reached at the phone's size, then turned into an iPad: a slide reached at 3x iPad size outran the wait)
+    await page.setViewportSize({ width: 1024, height: 1366 });
+    await page.waitForTimeout(1000); await quiet(page); await shown();
     await page.evaluate(() => { const c = document.querySelector('.stage-credit'); window.__moves = []; let last = ''; const tick = () => { const k = (c.matches('.moving, .covered') ? 'hidden ' : '') + c.style.getPropertyValue('--cx') + ',' + c.style.getPropertyValue('--cy'); if (k !== last) { if (last) window.__moves.push(k); last = k; } window.__mt = requestAnimationFrame(tick); }; tick(); });
     await page.waitForTimeout(12000);
     const moves = await page.evaluate(() => { cancelAnimationFrame(window.__mt); return window.__moves; });
-    if (moves.length) throw new Error(`Circuit 7: the credit moved ${moves.length} times in 12 s with nothing but the numbers changing (${moves.slice(0, 4).join(' | ')})`);
+    if (moves.length) { await page.setViewportSize({ width: 390, height: 844 }); await restore(); throw new Error(`Circuit 7: the credit moved ${moves.length} times in 12 s with nothing but the numbers changing (${moves.slice(0, 4).join(' | ')})`); }
     await gotoSlide(page, server.url, 'lobule', 1);
     await page.waitForFunction(() => window.pps.stage.lobuleSettled() && window.pps.stage.lobuleRing(), null, { timeout: 60000 });
     await quiet(page); await shown();
     const on = await page.evaluate(() => {
+      if (document.querySelector('.stage-credit.covered')) return null;   // (hidden: nowhere bare)
       const ring = window.pps.stage.lobuleRing(), r = document.querySelector('.stage-credit').getBoundingClientRect();
       const inside = ([x, y]) => { let o = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) o = !o; } return o; };
       const pts = []; for (let u = 0; u <= 1; u += 0.25) for (const v of [0, 0.5, 1]) pts.push([r.left + u * r.width, r.top + v * r.height]);
       return pts.some(inside) ? `${Math.round(r.left)},${Math.round(r.top)}` : null;
     });
-    if (on) throw new Error(`Lobule 2: the credit sits on the lobule at ${on}`);
+    await page.setViewportSize({ width: 390, height: 844 });
     await restore();
+    if (on) throw new Error(`Lobule 2: the credit sits on the lobule at ${on}`);
   });
 
-  // The credit only on bare figure, at 12 px (15 Oct): on a phone it had been scaled to about 9 px and judged a third too big,
-  // so on Treatment 2 it passed over the bare strip under the data card and sat across a vessel.
-  if (device === 'phone') await check(device, 'The credit is 12 px and sits only on bare figure (Treatment 2)', async (page) => {
+  // The credit at 12 px (15 Oct). An iPhone carries it as one line at the teaching card's foot, whole and clear of the words, the key
+  // and the pill (on the figure it had been scaled to about 9 px and, on Treatment 2, sat across a vessel). A tablet keeps it on the
+  // figure, only on bare figure (or hidden where nothing is bare).
+  if (device === 'phone') await check(device, 'The credit is 12 px: in the iPhone card foot, on bare figure on an iPad (Treatment 2)', async (page) => {
     const restore = await instantMotionOn(page);
     await gotoSlide(page, server.url, 'treatment', 1);
     await quiet(page);
-    await page.waitForFunction(() => document.querySelector('.stage-credit').matches('.placed:not(.moving)') && !document.querySelector('#app.pz-moving'), null, { timeout: 60000 });
-    await page.waitForTimeout(2000);
-    const bad = await page.evaluate(() => {
+    const phone = await page.evaluate(() => {
+      const out = [], c = document.querySelector('.pz-shade .pz-cred'), st = document.querySelector('.stage-credit');
+      if (getComputedStyle(st).display !== 'none') out.push('the figure credit still shows on an iPhone slide');
+      if (!c || !c.offsetWidth) return [...out, 'no credit at the card foot'];
+      const cs = getComputedStyle(c), r = c.getBoundingClientRect(), sh = document.querySelector('.pz-shade').getBoundingClientRect();
+      if (parseFloat(cs.fontSize) < 12) out.push(`text ${cs.fontSize}`);
+      if (c.scrollWidth > c.clientWidth + 1 || r.left < sh.left || r.right > sh.right || r.bottom > sh.bottom) out.push('cut off or outside the card');
+      for (const s of ['.pz-text', '.pz-bar', '.pz-fk:not([hidden])']) for (const e of document.querySelectorAll(s)) {
+        const q = e.getBoundingClientRect(), w = Math.min(q.right, r.left + c.scrollWidth) - Math.max(q.left, r.left), h = Math.min(q.bottom, r.bottom) - Math.max(q.top, r.top);
+        if (q.width && w > 0 && h > 0) out.push(`overlaps ${s}`);
+      }
+      return out;
+    });
+    if (phone.length) { await restore(); throw new Error(`Treatment 2 on an iPhone: ${phone.join('; ')}`); }
+    await page.setViewportSize({ width: 1024, height: 1366 });
+    await page.waitForTimeout(1500); await quiet(page);
+    await page.waitForFunction(() => document.querySelector('.stage-credit').matches('.placed:not(.moving), .covered'), null, { timeout: 60000 });
+    await page.waitForTimeout(1500);
+    const pad = await page.evaluate(() => {
       const cr = document.querySelector('.stage-credit'), cs = getComputedStyle(cr), out = [];
       const px = parseFloat(cs.fontSize) * (cs.scale === 'none' ? 1 : parseFloat(cs.scale));
       if (px < 12) out.push(`text ${px.toFixed(1)} px`);
@@ -777,8 +798,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (on.size) out.push(`sits on ${[...on].join(' and ')} at ${b.left | 0},${b.top | 0}`);
       return out;
     });
+    await page.setViewportSize({ width: 390, height: 844 });
     await restore();
-    if (bad.length) throw new Error(`Treatment 2: the credit ${bad.join('; ')}`);
+    if (pad.length) throw new Error(`Treatment 2 on an upright iPad: the credit ${pad.join('; ')}`);
   });
 
   // Turning an iPad mid-slide (review #52): the data card never shows over the words' card on the way, and turned upright it

@@ -2982,7 +2982,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     bar.addEventListener('focusin', wake);
     const blackEl = h('div', { class: 'pz-black', 'aria-hidden': 'true', onclick: () => toggleBlack(false) });
     // The shade sits under the corner credit (both at figure level, the credit later), the slide over both.
-    const shade = h('div', { class: 'pz-shade' });
+    // (An iPhone's credit: one 12 px line at the teaching card's foot, the same on every slide; styles/app.css .pz-cred.)
+    const shade = h('div', { class: 'pz-shade' }, h('span', { class: 'pz-cred', 'aria-hidden': 'true' }, wrap.querySelector('.stage-credit')?.textContent.trim() || ''));
     // What the figure frames itself clear of: the words, the glass and its shadow.
     const safe = h('div', { class: 'pz-safe', 'aria-hidden': 'true', hidden: true });
     const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));

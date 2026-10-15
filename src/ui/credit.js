@@ -299,7 +299,7 @@ export function createCreditPlacer(credit) {
   };
   function check() {
     raf = 0;
-    if (moving || !credit.isConnected || !wrap.offsetParent) return;
+    if (moving || !credit.isConnected || !wrap.offsetParent || !credit.offsetParent) return;   // (not shown: an iPhone slide carries it in the teaching card)
     // A slide change (the presenter's pz-moving): out of sight until the cards are in and the camera has settled; it then
     // appears at once at its final spot.
     if (app?.classList.contains('pz-moving')) { credit.classList.add('moving'); changedAt = 0; lastSig = ''; kept = ''; fresh = true; return; }

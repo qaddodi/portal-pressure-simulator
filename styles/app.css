@@ -2018,6 +2018,16 @@ button.finding { cursor: pointer; }
 .pz.stack.tab .pz-bar { right: calc(15% + 13px); }   /* (the pill sits inside the teaching card, at its lower right corner) */
 /* (An upright tablet's teaching card stands 12 px clear of the progress line at the screen's foot: card, words and pill 8 px higher than a phone's.) */
 .pz-shade.stack.tab { bottom: calc(16px + var(--pz-sb)); }
+/* An iPhone's credit is not on the figure (no bare spot at 12 px on most slides, 15 Oct): it is one 12 px line at the foot of the
+   teaching card, in the same place on every slide. The words, the key and the pill stand 20 px higher to leave its row.
+   (A short phone, 600 px tall or less, has no room for the row: there it stays on bare figure, or hidden where nothing is bare.) */
+.pz-cred { display: none; }
+@media (min-height: 601px) {
+  .pz-shade.stack:not(.tab) .pz-cred { display: block; position: absolute; left: 11px; right: 11px; bottom: 6px; font: 500 12px/17px var(--font-ui); letter-spacing: .01em; white-space: nowrap; color: var(--text-3); pointer-events: none; user-select: none; }   /* (its ink starts at the words' 21 px; --text-3: quieter than the words, over 4.5:1 in both themes) */
+  .pz.stack:not(.tab) { --pz-sb: calc(env(safe-area-inset-bottom, 0px) + 20px); }
+  :root.iphone-app .pz.stack:not(.tab) { --pz-sb: 20px; }
+  .app.presenting:has(.pz-shade.stack:not(.tab)) .stage-credit { display: none; }
+}
 .pz.stack.tab .pz-text { bottom: calc(max(26px, 65px - var(--pz-lh)) + 8px + var(--pz-sb)); }
 .pz.stack.tab .pz-bar { bottom: calc(29px + var(--pz-sb)); }
 .pz.stack .pz-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }   /* (a phone stacks the six site ladders in one column, each a full-width row, so the readings need no tilted names) */
