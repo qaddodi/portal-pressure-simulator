@@ -3,8 +3,8 @@
 
 import { startHost, host } from './host.js?v=ff070ac951';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bb8c70114d';
-import { createStage } from './stage.js?v=992931a80b';
-import { createCreditPlacer } from './credit.js?v=c87ad9d9c3';
+import { createStage } from './stage.js?v=1f1c131b5e';
+import { createCreditPlacer } from './credit.js?v=408850b3a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=f559b019f2';
 import { createInspector } from './inspector.js?v=a506c7409e';
 import { createDock, CUTOFFS } from './dock.js?v=458aca5943';
@@ -12,7 +12,7 @@ import { setHvpgStage } from './hvpg-proc.js?v=45c21080e4';
 import { createWhy } from './why.js?v=073ec078e4';
 import { createTimeline, LAPSES } from './timeline.js?v=66ed5e3ca8';
 import { createCompare } from './compare.js?v=82a3afd145';
-import { createCard } from './card.js?v=2a99c88852';
+import { createCard } from './card.js?v=80096572fe';
 import { createChart } from './chart.js?v=8eebcabce2';
 import { createMenu, ROLES } from './menu.js?v=544fbb9fab';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=6502f69206'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=acfcac93f2'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -1259,7 +1259,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
 }
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
-// (right), and Treat, Tests, History, View and More sit in a tab row at the foot of the dock, under the play bar,
+// (right), and Treat, Tests, History, Layers and More sit in a tab row at the foot of the dock, under the play bar,
 // in reach of a thumb. The sheets open above the dock, so the tab row and HVPG and PPG never move or hide.
 // Off a phone and an upright tablet (Mac, iPad landscape, a phone sideways) nothing changes.
 // An iPhone opened from the Home Screen has no browser bars: class `iphone-app` lets the phone's teaching card sit at the screen's edge
@@ -1273,6 +1273,11 @@ function syncThumb() {
   const on = thumbOn();
   if (app.classList.contains('thumb') !== on) app.classList.toggle('thumb', on);
   document.documentElement.classList.toggle('thumb-ui', on);   // (the menus and sheets live outside #app)
+  // The view switch (Circuit, Anatomy, Lobule, Sinusoid) leaves the top bar for a pill at the left, just above the dock,
+  // level with Fit. (The sinusoid view hides the dock: there it stays in the top bar.)
+  const pill = $('#viewPill'), seg = $('#viewSeg'), inPill = on && !app.classList.contains('sin-focus');
+  if (inPill !== (seg.parentElement === pill)) (inPill ? pill : $('#stageTop .sb-left')).append(seg);
+  if (pill.hidden === inPill) pill.hidden = !inPill;
 }
 function wireThumbBar() {
   const tab = (id, ic, label, onclick) => h('button', { class: 'nb-tab', type: 'button', 'data-tab': id, onclick }, svgIcon(ic), h('span', { class: 'nb-l' }, label));
@@ -1290,10 +1295,10 @@ function wireThumbBar() {
   const badge = h('span', { class: 'nb-badge', 'aria-hidden': 'true' });
   const hist = tab('history', 'clock', 'History', menuTab((a) => timeline.openHistory(a)));
   hist.append(badge);
-  const view = tab('view', 'layers', 'View', menuTab(openViewMenu));
+  const layers = tab('layers', 'layers', 'Layers', menuTab(openLayersMenu));
   const more = tab('more', 'more', 'More', menuTab(openMoreMenu));
-  for (const b of [hist, view, more]) b.setAttribute('aria-haspopup', 'dialog');
-  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, view, more));
+  for (const b of [hist, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
+  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, layers, more));
   // The tabs follow the cards they open (and History's count), however those were opened or closed.
   const sync = () => {
     const t = String(treatOpen()), i = String(app.classList.contains('dock-open'));
@@ -1310,13 +1315,10 @@ function wireThumbBar() {
   thumbMQ.addEventListener?.('change', syncThumb);
   syncThumb(); sync();
 }
-// View: the figure (Circuit, Anatomy, Lobule) and what is drawn on it, in one menu.
-function openViewMenu(anchor) {
-  const sin = app.classList.contains('sin-focus');
-  const views = $$('#viewSeg button').filter((b) => !b.hidden && !(sin && (b.dataset.view === 'circuit' || b.dataset.view === 'anatomic')));
-  const seg = h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': 'View' },
-    views.map((b) => h('button', { 'aria-pressed': b.getAttribute('aria-pressed'), onclick: () => { closePopover(); b.click(); } }, b.textContent)));
-  popover(anchor, [h('div', { class: 'menu-title' }, 'View'), seg, h('div', { class: 'menu-sep' }), ...(store.get().lobule ? lobuleLayerItems() : bloodItems())],
+// Layers: what is drawn on the figure (the moving blood and what it shows, or the lobule's layers). The view itself
+// is switched in the pill above the dock.
+function openLayersMenu(anchor) {
+  popover(anchor, [h('div', { class: 'menu-title' }, 'Layers'), ...(store.get().lobule ? lobuleLayerItems() : bloodItems())],
     { cls: 'blood-pop', place: 'above', align: 'center' });
 }
 function openMoreMenu(anchor) {

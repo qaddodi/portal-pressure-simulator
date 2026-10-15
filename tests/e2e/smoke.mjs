@@ -67,21 +67,19 @@ async function runCheck(device, name, fn, tries = RETRIES) {
   }
   await ctx.close();
 }
-// An upright phone has the thumb dock: Treat, Tests and Settings, and the Blood and Layers menus (in View), are reached from
-// the dock's tab row instead of the top bar.
-const THUMB = { '#tabInstruments': 'tests', '#btnTreat': 'treat', '#btnBlood': 'view', '#btnLobuleLayers': 'view', '#btnSettings': 'more' };
+// An upright phone has the thumb dock: Treat, Tests and Settings, and the Blood and lobule Layers menus (in Layers), are
+// reached from the dock's tab row instead of the top bar.
+const THUMB = { '#tabInstruments': 'tests', '#btnTreat': 'treat', '#btnBlood': 'layers', '#btnLobuleLayers': 'layers', '#btnSettings': 'more' };
 async function tapTool(page, sel) {
   const tab = THUMB[sel];
   if (!tab || !(await page.evaluate(() => document.querySelector('#app').classList.contains('thumb')))) return page.click(sel);
   await page.click(`#thumbBar [data-tab="${tab}"]`);
   if (sel === '#btnSettings') await page.click('.menu .menu-item:has-text("Settings")');
 }
-// A view by its switch: the top bar's, or on an upright phone the one in the dock's View menu.
+// A view by its switch: in the top bar, or on an upright phone in the pill just above the dock.
 async function pickView(page, v) {
   if (!(await page.evaluate(() => document.querySelector('#app').classList.contains('thumb')))) return page.click(`#viewSeg [data-view="${v}"]`, { force: true });
-  const label = await page.evaluate((v) => document.querySelector(`#viewSeg [data-view="${v}"]`).textContent, v);
-  await page.click('#thumbBar [data-tab="view"]');
-  await page.locator('.menu .seg button', { hasText: label }).click();
+  await page.click(`#viewPill [data-view="${v}"]`);
 }
 const shot = (page, name) => (shots ? page.screenshot({ path: `${shots}/${name}.png` }) : null);
 const open = async (page, q = '') => {
@@ -1796,7 +1794,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(400);
     if (await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D) !== d0) throw new Error('paused blood kept moving');
     // The Blood menu (streaks, chevrons; what the figure shows), the Blood origin lens, dye.
-    const fits = await page.evaluate(() => { const el = document.querySelector('#app.thumb #thumbBar [data-tab="view"]') || document.querySelector('#btnBlood'), r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
+    const fits = await page.evaluate(() => { const el = document.querySelector('#app.thumb #thumbBar [data-tab="layers"]') || document.querySelector('#btnBlood'), r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
     if (!fits) throw new Error('Blood button is clipped');
     await tapTool(page, '#btnBlood');
     const opts = await page.$$eval('.blood-pop .lens-opt .lens-t', (els) => els.map((e) => e.textContent));
@@ -2005,11 +2003,18 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(800);
     if (!(await page.evaluate(() => document.querySelector('#app').classList.contains('thumb')))) throw new Error('an upright phone has no thumb dock');
     const tabs = await page.$$eval('#thumbBar .nb-tab', (els) => els.filter((e) => e.offsetParent).map((e) => e.querySelector('.nb-l').textContent));
-    if (tabs.join('|') !== 'Treat|Tests|History|View|More') throw new Error(`the tab row reads ${tabs.join(', ')}`);
-    const shown = await page.evaluate(() => ['.top-right', '#viewSeg', '#btnBlood', '.tl-hist', '#zoomIn'].filter((q) => document.querySelector(q)?.offsetParent));
+    if (tabs.join('|') !== 'Treat|Tests|History|Layers|More') throw new Error(`the tab row reads ${tabs.join(', ')}`);
+    const shown = await page.evaluate(() => ['.top-right', '.topbar #viewSeg', '#btnBlood', '.tl-hist', '#zoomIn'].filter((q) => document.querySelector(q)?.offsetParent));
     if (shown.length) throw new Error(`still shown outside the tab row: ${shown.join(', ')}`);
     const row = await page.evaluate(() => { const a = document.querySelector('.tb-id').getBoundingClientRect(), b = document.querySelector('#btnLayers').getBoundingClientRect(); return Math.abs(a.top - b.top) < 8 && a.right <= b.left && b.right <= innerWidth; });
     if (!row) throw new Error('the patient and the key are not one row inside the screen');
+    // The view switch is a pill at the left, just above the dock, level with Fit, and switches the view.
+    const pill = await page.evaluate(() => { const p = document.querySelector('#viewPill').getBoundingClientRect(), f = document.querySelector('#zoomFit').getBoundingClientRect(), d = document.querySelector('#vdock').getBoundingClientRect();
+      return { left: p.left < innerWidth / 2 && p.left >= 0, level: Math.abs((p.top + p.bottom) / 2 - (f.top + f.bottom) / 2) < 4, above: p.bottom <= d.top - 4, clear: p.right <= f.left - 4, seg: !!document.querySelector('#viewPill #viewSeg') }; });
+    for (const [k, msg] of Object.entries({ seg: 'the view switch is not in the pill', left: 'the view pill is not at the left', level: 'the view pill is not level with Fit', above: 'the view pill is not above the dock', clear: 'the view pill runs into Fit' })) if (!pill[k]) throw new Error(msg);
+    await page.click('#viewPill [data-view="circuit"]');
+    await page.waitForFunction(() => window.pps.store.get().view === 'circuit');
+    await page.click('#viewPill [data-view="anatomic"]');
     const dockTop = await page.evaluate(() => document.querySelector('#thumbBar').getBoundingClientRect().top);
     const above = (sel) => page.evaluate(([sel, top]) => { const r = document.querySelector(sel).getBoundingClientRect(), d = document.querySelector('#vdock').getBoundingClientRect(); return r.height > 40 && r.bottom <= d.top + 1 && Math.abs(document.querySelector('#thumbBar').getBoundingClientRect().top - top) < 1; }, [sel, dockTop]);
     for (const [tab, sel] of [['tests', '#dock'], ['treat', '#treatCard']]) {
@@ -2022,7 +2027,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (await page.evaluate(() => document.querySelector('#app').classList.contains('dock-open'))) throw new Error('Tests stayed open under Treat');
     await page.click('#thumbBar [data-tab="treat"]');
     await page.waitForSelector('#treatCard', { state: 'hidden' });
-    for (const tab of ['history', 'view', 'more']) {
+    for (const tab of ['history', 'layers', 'more']) {
       await page.click(`#thumbBar [data-tab="${tab}"]`);
       await page.waitForSelector('.menu.as-sheet:not(.leaving)');
       await page.waitForFunction(() => !document.querySelector('.menu.as-sheet:not(.leaving)').getAnimations().length);   // (risen in full)

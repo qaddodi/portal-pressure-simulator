@@ -266,6 +266,9 @@ export function createLobuleZoom({ host }) {
       const hr = el.getBoundingClientRect(), q = zp && zp.offsetHeight ? zp.getBoundingClientRect() : null;
       if (q && q.top - hr.top < H / 2) t = Math.max(t, q.bottom - hr.top + 14);
     }
+    // The view pill above the thumb dock (phone, upright tablet) keeps the labels above it.
+    const vp = document.getElementById('viewPill');
+    if (vp && !vp.hidden && vp.offsetHeight) b = Math.min(b, vp.getBoundingClientRect().top - el.getBoundingClientRect().top - 6);
     // The bottom stays above the vitals dock. With no room left, layoutLabels hides the labels rather than set them under it.
     return { l, t, r: Math.max(l + 80, r), b };
   }

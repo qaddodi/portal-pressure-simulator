@@ -5127,7 +5127,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 
 /* ── The thumb dock (15 Oct) ───────────────────────────────────────
    A phone, or a tablet held upright, in Patients (class .thumb, main.js): the top bar keeps two corner chips,
-   the patient on the left and the Colored-by key on the right. Treat, Tests, History, View and More sit in a tab
+   the patient on the left and the Colored-by key on the right. Treat, Tests, History, Layers and More sit in a tab
    row at the foot of the dock, under the play bar, in reach of a thumb. The cards and menus open above the dock,
    so the tab row, HVPG and PPG never move or hide. Pinch zooms; only Fit stays of the zoom buttons. */
 .thumb-bar { display: none; }
@@ -5143,7 +5143,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .nb-badge:empty { display: none; }
 .nb-badge { position: absolute; top: 3px; left: calc(50% + 5px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--text); color: var(--stage-bg); font: 600 var(--fs-12)/16px var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
 /* What moved to the tab row leaves the top bar and the play bar. */
-.app.thumb :is(.top-right, #viewSeg, #btnBlood, #btnLobuleLayers, .tl-hist, #zoomIn, #zoomOut) { display: none !important; }
+.app.thumb :is(.top-right, .topbar #viewSeg, #btnBlood, #btnLobuleLayers, .tl-hist, #zoomIn, #zoomOut) { display: none !important; }
 .app.thumb .topbar .tb-id { flex: 0 1 auto; min-width: 0; }
 .app.thumb .topbar .stage-bar.top { flex: 1 1 auto; order: 0; justify-content: flex-end; }
 .app.thumb .topbar .sb-left { display: none; }
@@ -5177,6 +5177,26 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .app.thumb .vdock .narrator { padding: 6px 10px; border-radius: var(--r-card); background: var(--glass); }
 .app.thumb:is(.dock-open, .panel-open) .vdock .vd-status, .app.thumb:has(#treatCard:not([hidden])) .vdock .vd-status,
 html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock .vd-status { opacity: 0; visibility: hidden; }
+/* The view switch as a compact pill at the left, just above the dock, level with Fit (main.js syncThumb moves it here).
+   It counts as part of the dock's edge (data-safe), so the figure frames above it, and it steps aside with Fit. */
+.view-pill { display: none; }
+.app.thumb .view-pill:not([hidden]) { position: absolute; z-index: var(--z-hud); display: flex; padding: 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
+  left: calc(env(safe-area-inset-left) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); translate: 0 calc(-1 * var(--sheet-h, 0px)); transition: opacity .25s var(--ease), translate .2s var(--ease); }
+.view-pill.under-sheet { bottom: max(calc(var(--bot-occ, 120px) + 8px), var(--sheet-h, 0px)); translate: none; }
+.app.stage-busy .view-pill { opacity: .28; }
+/* While a card or menu sits on the dock, the view pill and Fit fade back (still counted where they are, so the figure
+   does not move for a menu). */
+.app.thumb :is(.view-pill, .zoom-pill) { transition: opacity .2s var(--ease), translate .2s var(--ease); }
+.app.thumb:is(.dock-open, .panel-open) :is(.view-pill, .zoom-pill), .app.thumb:has(#treatCard:not([hidden])) :is(.view-pill, .zoom-pill),
+html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-pill) { opacity: 0; pointer-events: none; }
+.view-pill #viewSeg { display: flex; padding: 0; gap: 2px; background: transparent; border-radius: 0; }
+.view-pill #viewSeg button { height: 36px; padding: 0 12px; border-radius: calc(var(--r-sheet) - 3px); font-size: var(--fs-14); }
+@media (max-width: 767px) {
+  .app.thumb .view-pill:not([hidden]) { left: calc(env(safe-area-inset-left) + 8px); }
+  .view-pill #viewSeg button { padding: 0 9px; font-size: 13px; letter-spacing: -.01em; }
+  .view-pill #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) button { padding: 0 6px; }
+  .app.dock-open .view-pill { display: none !important; }
+}
 /* One card or menu at a time above the thumb dock, each a solid piece that comes and goes whole: it rises a little
    out of the dock as it fades in and sinks back as it fades out, never sliding across the dock, and one opened while
    another is still going out waits until that one has gone (--enter-delay, set by util.js enterAfterGone). */
