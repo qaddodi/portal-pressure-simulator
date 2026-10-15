@@ -136,10 +136,11 @@ const barFit = (page) => page.evaluate(() => {
       const t = [...g.querySelectorAll('text, .lb-bg')].find((t) => { const q = t.getBoundingClientRect(); return q.width > 1 && q.left < b.right && q.right > b.left && q.top < b.bottom && q.bottom > b.top; });
       if (t) return `the pill covers the label ${g.dataset.key} ("${g.textContent.trim().slice(0, 30)}")`;
     }
-    const first = [...host.querySelectorAll(':scope > *, :scope > .pz-ph > *')].find((el) => el.getBoundingClientRect().height && !el.matches('.pz-ph'));
+    const first = [...host.querySelectorAll(':scope > *, :scope > .pz-ph > *')].find((el) => el.getBoundingClientRect().height && !el.matches('.pz-ph, .pz-site'));   // (the site tag, a small kicker over the title since 505b732, belongs to it)
     const pad = parseFloat(getComputedStyle(host).paddingTop) + parseFloat(getComputedStyle(host).borderTopWidth);
     if (first && !first.matches('.pz-h, .pz-dtitle, h1')) return `the card starts with ${first.className || first.tagName.toLowerCase()}, not its title`;
-    if (first && first.getBoundingClientRect().top - h.top > pad + 2) return `the card's title starts ${Math.round(first.getBoundingClientRect().top - h.top - pad)} px below its top`;
+    const lead = first?.previousElementSibling?.matches('.pz-site') ? first.previousElementSibling : first;   // (a site tag over the title starts the card)
+    if (lead && lead.getBoundingClientRect().top - h.top > pad + 2) return `the card's title starts ${Math.round(lead.getBoundingClientRect().top - h.top - pad)} px below its top`;
   }
   // (A phone's words sit on a glass pane rising from the bottom: the title keeps at least the pane's side gap (14 px) below its top
   // edge, also once a chart under the words has arrived and grown them.)
@@ -195,7 +196,8 @@ if (DECK_IDS.length < 15) throw new Error(`only ${DECK_IDS.length} deck ids read
 // Waits for the slide to settle (up to 10 s) and returns the last reading.
 const barSettle = async (page) => {
   let r = null;
-  for (let t = 0; t < 40 && r !== 'ok'; t++) { r = await barFit(page); if (r !== 'ok') await page.waitForTimeout(250); }
+  // (A case card waits for a tap before its slide goes on (59a379e), so it is tapped away as a person would.)
+  for (let t = 0; t < 40 && r !== 'ok'; t++) { await page.evaluate(() => document.querySelector('.pz-case.on')?.click()); r = await barFit(page); if (r !== 'ok') await page.waitForTimeout(250); }
   return r;
 };
 
