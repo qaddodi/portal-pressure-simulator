@@ -847,9 +847,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } }));
     await page.waitForSelector('.action-card:not([hidden])');
     await page.waitForTimeout(300);
-    await page.click('.ac-close');
-    await page.waitForTimeout(300);
-    if (!(await page.$eval('.action-card', (c) => c.hidden))) throw new Error('close should dismiss the card');
+    // (A phone card has no X: a pull closes it, as above. a571c9c)
+    if (thumb) { if (await page.locator('.ac-close').isVisible()) throw new Error('the phone card still shows an X'); } else {
+      await page.click('.ac-close');
+      await page.waitForTimeout(300);
+      if (!(await page.$eval('.action-card', (c) => c.hidden))) throw new Error('close should dismiss the card');
+    }
 
   });
   await check(device, 'a vessel\'s card never covers that vessel (every vessel, each window size)', async (page) => {
