@@ -7,6 +7,7 @@ export const fitIssues = () => {
   const vis = (el) => { if (!el || el.hidden) return null; const st = getComputedStyle(el); if (st.display === 'none' || st.visibility === 'hidden' || +st.opacity < 0.5) return null; const r = el.getBoundingClientRect(); return r.width ? r : null; };
   // Hidden by the card itself: under a see-through ancestor, or wholly outside an ancestor that clips.
   const hidden = (c, card) => { const q = c.getBoundingClientRect(); for (let a = c.parentElement; a && a !== card; a = a.parentElement) { const cs = getComputedStyle(a); if (+cs.opacity < 0.05) return true; if (/(hidden|clip|auto|scroll)/.test(cs.overflowX + cs.overflowY)) { const r = a.getBoundingClientRect(); if (q.top >= r.bottom - 1 || q.bottom <= r.top + 1 || q.left >= r.right - 1 || q.right <= r.left + 1) return true; } } return false; };
+  const seenAll = (e) => { for (let a = e; a && a !== document.body; a = a.parentElement) { const cs = getComputedStyle(a); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.1 || +(a.getAttribute?.('opacity') ?? 1) < 0.1) return false; } return true; };
   const out = [], text = vis(document.querySelector('.pz-text')), bar = vis(document.querySelector('.pz-bar')), data = document.querySelector('.pz-data'), dr = vis(data);
   // (judged by what is drawn, not the card's box: the last line is meant to run beside the pill, clear of it)
   const inked = (el) => { const rs = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n; (n = w.nextNode());) if (n.textContent.trim() && !n.parentElement.closest('.sr-only, [aria-hidden="true"]')) { const g = document.createRange(); g.selectNodeContents(n); rs.push(...g.getClientRects()); } for (const e of el.querySelectorAll('svg, button, img, canvas')) rs.push(e.getBoundingClientRect()); return rs.filter((q) => q.width && q.height); };
@@ -38,9 +39,31 @@ export const fitIssues = () => {
     if (fk && (fk.left < sh.left || fk.right > sh.right || fk.bottom > sh.bottom || fk.top < sh.top)) out.push('colour key outside the teaching card');
     if (fk && inked(document.querySelector('.pz-text')).some((q) => Math.min(q.right, fk.right) - Math.max(q.left, fk.left) > 1 && Math.min(q.bottom, fk.bottom) - Math.max(q.top, fk.top) > 1)) out.push('slide words run under the colour key');
     if (bar && (bar.left < sh.left || bar.right > sh.right || bar.bottom > sh.bottom)) out.push('controls pill outside the teaching card');
+    // No figure label tucks under the teaching card's glass, which reaches 16 px above its words (SMALL BOWEL on PVT 5, STOMACH on Variceal bleed 3).
+    if (sh && +getComputedStyle(document.querySelector('.pz-shade')).opacity > 0.9) for (const t of document.querySelectorAll('#stageView g.lb text')) {
+      const q = t.getBoundingClientRect();
+      if (q.width && t.textContent.trim() && seenAll(t) && q.bottom > sh.top + 1 && q.top < sh.bottom && q.right > sh.left && q.left < sh.right) { out.push(`label "${t.textContent.trim().slice(0, 20)}" under the teaching card's glass (${Math.round(q.bottom)} vs ${Math.round(sh.top)})`); break; }
+    }
     if (sh.left < 1 || sh.right > innerWidth - 1 || sh.bottom > innerHeight - 1) out.push('teaching card touches the screen edge');
     if (db && db.width && !data.classList.contains('pz-hide') && db.bottom > sh.top - 4) out.push(`data card runs into the teaching card (${Math.round(db.bottom)} vs ${Math.round(sh.top)})`);
   }
+  // The six site ladders (Sites 10): their words 12 px or more on the screen (the card had zoomed itself to half, the subtitles
+  // 10.2 px), each station name over its column of readings, and every row whole in the card (375 x 667 cut the last one off).
+  const grid = document.querySelector(':is(.pz.stack, .pz.low) .pz-grid'), gr = grid && vis(grid);
+  if (gr) {
+    const panel = grid.closest('.pz-panel');
+    if (panel && panel.scrollHeight > panel.clientHeight + 1) out.push(`site rows cut off (${panel.scrollHeight} of ${panel.clientHeight} px)`);
+    const k = gr.height / grid.offsetHeight || 1;   // (its zoom on the screen)
+    for (const e of grid.querySelectorAll('.pz-kick, .pz-cell-t, .pz-cell-pill, .pz-grid-head span')) { const fs = parseFloat(getComputedStyle(e).fontSize) * k; if (e.getBoundingClientRect().width && fs < 11.95) { out.push(`site row word "${e.textContent.trim().slice(0, 16)}" ${fs.toFixed(1)} px`); break; } }
+    const head = [...grid.querySelectorAll('.pz-grid-head > div')].find((d) => d.getBoundingClientRect().width), cell = grid.querySelector('.pz-cell');
+    const vs = cell ? [...cell.querySelectorAll('.pzs-v')].map((v) => v.getBoundingClientRect()) : [], hs = head ? [...head.children].map((h) => h.getBoundingClientRect()) : [];
+    if (!head || vs.length !== 5) out.push('site rows have no names or readings');
+    else hs.forEach((h, i) => { const d = (h.left + h.right) / 2 - (vs[i].left + vs[i].right) / 2; if (Math.abs(d) > 4) out.push(`"${head.children[i].textContent}" ${Math.round(d)} px off its readings`); });
+  }
+  // The FibroScan probe's own kPa screen stays whole on screen (Stiffness 4: "14.7 kPa" ran off the phone's left edge), unless a
+  // card covers the probe's body and it fades out.
+  const sp = document.querySelector('.scan-probe:not(.off):not(.head-off) .sp-screen'), spr = sp && vis(sp.closest('.scan-probe')) && sp.getBoundingClientRect();
+  if (spr && spr.width && (spr.left < 0 || spr.right > innerWidth || spr.top < 0 || spr.bottom > innerHeight)) out.push(`FibroScan probe reading off screen (${Math.round(spr.left)},${Math.round(spr.top)})`);
   // No slide words, card or legend chip under the preview badge (a slim tab at the top centre, 13 px tall, added only to
   // /preview/). (An organ's name the camera leaves at the screen's edge is the figure, not a chip; it is not judged.)
   const seen = (e) => { for (let a = e; a; a = a.parentElement) { const cs = getComputedStyle(a); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return false; } return true; };

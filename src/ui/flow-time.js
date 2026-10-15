@@ -12,6 +12,7 @@ const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
 const fmt = (v, d) => v.toFixed(d), clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const FT_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 
 // Minutes on the teaching clock: fasting from `from` to 0, the rise over `rise`, the state reached held to `end`.
 export const MINUTES = { from: -10, rise: 30, end: 40 };
@@ -119,7 +120,7 @@ export function createFlowTime() {
           right ? [sv('tspan', { class: 'pft-u' }, `${k.unit} `), sv('tspan', {}, k.name)] : [sv('tspan', {}, k.name), sv('tspan', { class: 'pft-u' }, ` ${k.unit}`)])); });
     const mins = [], step = meal ? 10 : niceStep(ax().end / Math.max(2, Math.min(4, Math.floor((R - L) / (4 * f)))));
     for (let m = ax().from; m <= ax().end + 1e-9; m += step) mins.push(m);
-    const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img' },
+    const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${G.f.toFixed(2)}px` },
       grid(ser.fScale, lf.Y, R + 6, 'start', lf.c), grid(ser.pScale, lp.Y, L - 6, 'end', lp.c), legend,
       sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
       mins.map((m) => sv('text', { class: 'pft-tk', x: X(m), y: B + 1.25 * f, 'text-anchor': 'middle' }, m > 0 ? `+${m}` : m < 0 ? `−${-m}` : '0')),
@@ -163,7 +164,13 @@ export function createFlowTime() {
     if (shown !== goal) raf = nextFrame(tick);
   }
   // The chart's size: the box the card gives it (its height is set in CSS, shorter as the card fits), in its small type.
-  const size = () => { const f = parseFloat(getComputedStyle(el).fontSize) || 12; return [Math.max(160, el.clientWidth || 420), Math.max(8 * f, el.clientHeight || 260), f]; };
+  // (The card zooms its contents to its own scale, a Mac's data card to 0.8 and an iPad's lower: the chart's type is set larger
+  // by as much, so its words are never under 12 px on the screen; they were 9.6 px on a Mac and 8 px on an iPad held sideways.)
+  const size = () => {
+    const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
+    const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? FT_MIN / z : 0);
+    return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 260), f];
+  };
   const make = () => { const [w, hh, f] = size(); G = geo(w, hh, f); return build(); };
   // Redrawn at once when the box changes size (a new card width, the card fitting itself): the same lines, the new geometry.
   let lastSz = '';

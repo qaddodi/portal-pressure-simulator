@@ -22,7 +22,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=07e997d398';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=67608d2e9e';
-import { createTools } from './presenter-tools.js?v=fd5beacb35';
+import { createTools } from './presenter-tools.js?v=c885ace93c';
 import { openHandout } from './handout.js?v=8ccca89fa3';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=f709ae0429';
@@ -368,7 +368,11 @@ const fitNow = (c) => {
     const fs = {};
     // (The screen's matrix carries the card's zoom: a data card whose words zoom down past its fit's last step, --pz-z, has its
     // chart's words drawn that much smaller too.)
-    const wz = parseFloat(host.style?.getPropertyValue('--pz-z')) || 1;
+    let wz = parseFloat(host.style?.getPropertyValue('--pz-z')) || 1;
+    // (A phone's site ladders zoom with their card, --pz-fit, as its words do: read through the matrix alone, the fit's own zoom made
+    // their lettering larger in the chart's units, the strips taller, and the card stayed zoomed to half for good.)
+    const cellGrid = svg.closest(':is(.pz.stack, .pz.low) .pz-cell')?.parentElement;
+    if (cellGrid) wz *= parseFloat(getComputedStyle(cellGrid).zoom) || 1;
     for (const r of ROLE_NAMES) { pr.style.fontSize = `var(--ch-${r}, var(--s-${r}))`; fs[r] = parseFloat(getComputedStyle(pr).fontSize) * k * wz; }
     pr.remove();
     if (c.fs && ROLE_NAMES.every((r) => Math.abs(c.fs[r] - fs[r]) < 0.01 * fs[r]) && Math.abs(c.w - box.width) + Math.abs(c.h - box.height) < 1) return;
@@ -497,19 +501,22 @@ function bigLadder() {
     const nameW = Math.max(...RUNGS.map(([, a]) => est(a, c, 0.7))), tilt = nameW > 70 - 6;
     const ang = !tilt ? 0 : 1.1 * c <= 49.5 ? 45 : 90, kc = c;
     S.ky = ang === 45 ? 0.71 * nameW + 0.9 * c : ang ? nameW + 0.6 * c : 0.8 * c + 1; S.ky2 = S.ky;
-    S.ny = S.ky2 + 0.3 * c + 0.55 * v + 3; S.vy = S.ny + 0.36 * v;
+    S.ny = S.ky2 + 0.3 * c + 0.55 * v + 3;
+    // (A phone's site-ladder cell, upright or sideways, writes no names: the rows share one row of names over them, laddersGrid's .pz-grid-head.)
+    const bare = !!strip.closest(':is(.pz.stack, .pz.low) .pz-cell');
+    if (bare) { S.ky2 = -0.35 * c + 1; S.ny = 0.55 * v + 4; }
+    S.vy = S.ny + 0.36 * v;
     numW.clear(); lineKey = '';
     // The unit sits after the last reading when it fits there, else at the end of the HVPG row (under the last stations).
     const inline = XS(4) + est('20', v, 0.62) / 2 + 8 + est('mmHg', c, 0.68) <= S.W - 1;
     S.hvpg = S.ny + 0.5 * v + 6 + 1.05 * c; S.ppg = S.hvpg + 1.45 * c; S.H = S.ppg + 0.6 * c + 3;
     // (A phone's site-ladder cell hides the brackets, its kicker carries the HVPG: the strip ends under its readings.)
-    const bare = !!strip.closest('.pz.stack .pz-cell');
     if (bare) S.H = S.ny + 0.5 * v + 4;
-    unit.style.display = bare && !inline ? 'none' : '';
+    unit.style.display = bare ? 'none' : '';   // (a site row has no room for it beside its last reading, where a block's hatching may sit)
     strip.setAttribute('viewBox', `0 0 ${S.W} ${S.H.toFixed(1)}`);
     conns.forEach((cn) => { const y0 = S.ky2 + 0.35 * c; cn.band.setAttribute('y', y0.toFixed(1)); cn.band.setAttribute('height', (S.ny + 0.5 * v - y0).toFixed(1)); });
     spts.forEach((p, i) => {
-      p.v.setAttribute('y', S.vy.toFixed(1)); fsOf(p.v, v); fsOf(p.k, kc);
+      p.v.setAttribute('y', S.vy.toFixed(1)); fsOf(p.v, v); fsOf(p.k, kc); p.k.style.display = bare ? 'none' : '';
       const x = ang === 45 ? XS(i) - 0.3 * kc : ang ? XS(i) + 0.36 * kc : XS(i);
       p.k.setAttribute('x', x.toFixed(1)); p.k.setAttribute('y', S.ky.toFixed(1)); p.k.setAttribute('text-anchor', ang ? 'start' : 'middle');
       if (ang) p.k.setAttribute('transform', `rotate(-${ang} ${x.toFixed(1)} ${S.ky.toFixed(1)})`); else p.k.removeAttribute('transform');
@@ -600,7 +607,8 @@ function bigLadder() {
       // test reads it at the box's width, so the choice of plot or strip does not depend on the previous pass.)
       const fw = box.width ? Math.min(1, (el.getScreenCTM?.()?.a || 0) * W / box.width) || 1 : 1;
       const PHw = W * box.height / box.width - (yTop + rows + (nameRows > 1 ? 1.15 * c : 0)) * fw;
-      if (cell && box.height > 0 && PHw < 48) { for (const x of cell.parentElement.children) x.classList.toggle('strip', x.classList.contains('pz-cell')); PH = 48; }
+      // (A cell its grid leaves no height at all, a phone held sideways, has no room for a plot either: it had drawn nothing.)
+      if (cell && box.width > 0 && (box.height <= 0 || PHw < 48)) { for (const x of cell.parentElement.children) x.classList.toggle('strip', x.classList.contains('pz-cell')); PH = 48; }
       // (Too short for a readable plot: the card shows the compact strip instead, until a resize or the next slide.)
       if (own && box.height > 0 && PHw < 48) el.closest('.pz-data')?.classList.add('strip');
       if (own) PH = Math.max(12, PH);
@@ -1915,6 +1923,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (At a large text size a phone's strips take a row each: five readings no longer fit half its width.)
     const big = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) >= 1.3;
     const grid = h('div', { class: 'pz-grid' + (big ? ' big' : '') });
+    // (A phone: the five station names once, over the six rows of readings, each over its column of the strips below: the
+    // strip's stations stand at 28 + 70 i of its 360 units, and the head is as wide as a cell's strip. Hidden on wider screens.)
+    // (Three copies: a phone held sideways shows the rows in three columns, each under its own names.)
+    const names = () => h('div', {}, RUNGS.map(([, a], i) => h('span', { style: `left: ${((28 + 70 * i) / 3.6).toFixed(3)}%` }, a)));
+    grid.append(h('div', { class: 'pz-grid-head', 'aria-hidden': 'true' }, names(), names(), names()));
     for (const r of rowsOf(s)) {
       if (!r.f) continue;
       const L = bigLadder(); L.setBase(base); L.set(r.f, { block: r.block });   // (a block on a station, the heart's RA, is hatched on its node)

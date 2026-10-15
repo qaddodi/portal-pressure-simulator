@@ -26,7 +26,7 @@ export function offScale(roles) {
   const areas = [];
   const fig = document.querySelector('#stageView');
   if (fig) areas.push({ root: fig, name: 'figure', skip: '.pz, .float-ui, .stage-credit, .tool-card, .zoom-pill, .vdock, .sb-banner', sizes: (el) => { const host = el.closest('.sv, .lz-host') || fig; return roles.map((r) => probe(host, `calc(var(--t-${r}) * var(--label-scale, 1) * ${el.closest('.lz-zone') ? 'var(--zk, 1)' : 1})`)); } });
-  for (const pz of document.querySelectorAll('.pz')) areas.push({ root: pz, name: 'slide', skip: 'svg, .pz-bar, .pz-tool, .pzj, .pz-deck, .pz-outline svg', sizes: (el) => { const host = el.closest('.pz-table, .pz-text, .pz-panel, .pz-data.col') || pz; return [...roles.map((r) => probe(host, `var(--s-${r})`)),
+  for (const pz of document.querySelectorAll('.pz')) areas.push({ root: pz, name: 'slide', skip: 'svg, .pz-bar, .pz-tool, .pzj, .pz-deck, .pz-outline svg', sizes: (el) => { const host = el.closest('.pz-table, .pz-grid, .pz-text, .pz-panel, .pz-data.col') || pz; return [...roles.map((r) => probe(host, `var(--s-${r})`)),
     // (A long title in the teaching card is the big role at the title's step, --pz-tk, as the title itself: presenter.js layout.)
     ...(host.matches('.pz-text') ? [probe(host, 'calc(var(--s-big) * var(--pz-tk, 1))')] : []),
     // (A stacked data card's smallest words stay 11.5 px on the screen at its smaller steps, --pz-dk: app.css .pz-data.col.)
@@ -38,11 +38,12 @@ export function offScale(roles) {
       const el = n.parentElement;
       if (!n.textContent.trim() || !el || el.closest(a.skip) || (a.name === 'figure' && el.closest('.pz')) || !shown(el)) continue;
       const fs = parseFloat(getComputedStyle(el).fontSize);
-      const key = el.closest('.sv, .lz-host, .lz-zone, .pz-table, .pz-text, .pz-panel, .pz-data.col') || a.root;
+      const key = el.closest('.sv, .lz-host, .lz-zone, .pz-table, .pz-grid, .pz-text, .pz-panel, .pz-data.col') || a.root;   // (a phone's site rows letter at their own roles, as the summary table does)
       if (!cache.has(key)) cache.set(key, a.sizes(el));
       const ok = cache.get(key);
       const what = `${a.name} ${el.tagName.toLowerCase()}.${[...el.classList].join('.')} "${n.textContent.trim().slice(0, 16)}" ${fs.toFixed(1)}px`;
-      if (fs < 10.95) out.push(`${what} under 11 px`);
+      // (Figure text is never under 12 px, the floor for captions on a phone too; slide cards keep their own 11 px floor.)
+      if (fs < (a.name === 'figure' ? 11.95 : 10.95)) out.push(`${what} under ${a.name === 'figure' ? 12 : 11} px`);
       else if (!ok.some((v) => Math.abs(v - fs) < 0.6)) out.push(`${what} off the scale (${ok.map((v) => v.toFixed(1)).join(' ')})`);
     }
   }

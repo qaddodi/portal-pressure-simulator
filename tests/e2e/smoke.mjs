@@ -1392,6 +1392,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (back > 0) throw new Error(`${at1}: the chart lost points (${rec[back - 1]} to ${rec[back]})`);
       if (steps < 5) throw new Error(`${at1}: the chart grew in only ${steps} step(s) while the slide played (${rec.slice(0, 40).join(',')})`);
       if (full[0] !== full[2] || full[1] < 30) throw new Error(`${at1}: the chart ends with ${full[0]} of its ${full[2]} points (${full[1]} on its line)`);
+      // Its words are 12 px or more on the screen, the card's own zoom included (they were 9.6 px on a Mac, 8 px on an iPad held sideways).
+      const small = await page.evaluate(() => { const svg = document.querySelector('.pz-data:not(.pz-hide) .pz-flowtime svg:last-child'), k = svg.getScreenCTM().a;
+        return [...svg.querySelectorAll('text')].filter((t) => t.textContent.trim()).map((t) => [t.textContent.trim(), parseFloat(getComputedStyle(t).fontSize) * k]).filter(([, px]) => px < 11.95).map(([s, px]) => `"${s}" ${px.toFixed(1)} px`); });
+      if (small.length) throw new Error(`${at1}: the chart's words under 12 px: ${small.slice(0, 4).join(', ')}`);
     }
   });
 

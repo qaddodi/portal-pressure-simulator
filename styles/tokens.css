@@ -139,8 +139,8 @@
   /* Figure and slide text: six roles, each growing with the screen's short side from a phone (390 px) to a
      laptop (900 px and up). Figure labels multiply them by the text size setting (--label-scale; a presentation
      adds its projector size), slide cards by --sk. src/ui/type-scale.js mirrors these for the SVG labels;
-     tests/e2e/type-scale.mjs fails on any figure or slide text off this scale or under 11 px. */
-  --t-cap: clamp(11px, calc(11px + (100vmin - 390px) * .00196), 12px);   /* units, ticks, organ and zone captions */
+     tests/e2e/type-scale.mjs fails on any figure or slide text off this scale, figure text under 12 px or slide text under 11 px. */
+  --t-cap: 12px;   /* units, ticks, organ and zone captions: 12 px on every screen, the floor for any figure text (it was 11 px on a phone) */
   --t-lab: clamp(12px, calc(12px + (100vmin - 390px) * .00392), 14px);   /* names, chips, kickers */
   --t-body: clamp(14px, calc(14px + (100vmin - 390px) * .00392), 16px);  /* slide lines, card text */
   --t-val: clamp(16px, calc(16px + (100vmin - 390px) * .01176), 22px);   /* readings in pills, tiles' small values */

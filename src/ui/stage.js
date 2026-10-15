@@ -12,7 +12,7 @@ import { createLobuleZoom } from './lobule-zoom.js?v=b14c2c5495';
 import { runFlick, FLICK } from './flick.js?v=773d9728fe';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
-import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=0bd8cdeedf';
+import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
@@ -4035,8 +4035,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // line. Screen-space, at the liver's outline. Each tap (three a second) sends one shear wavefront: a soft arc that spreads and fades as
   // it crosses the liver. The true speed goes with √kPa (about 2.2× from 5 to 25 kPa); on screen it is exaggerated to
   // roughly linear in kPa (5× from 5 to 25) so the difference reads at a glance, easing to a new speed when the reading changes.
-  const scan = { on: false, el: null, raf: 0, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, cover: false, leaving: false, headAt: 0 };   // k: the stiffness the callout shows, eased; cover: a quiz holds the reading back
-  const SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1 / 3, SCAN_N = 12, SCAN_HALF = 0.5, SCAN_GAP = 6;   // three pulses a second, so several fronts are in flight at once
+  const scan = { on: false, el: null, raf: 0, deg: 45, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, cover: false, leaving: false, headAt: 0 };   // k: the stiffness the callout shows, eased; cover: a quiz holds the reading back
+  const SCAN_EDGE = 8, SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1 / 3, SCAN_N = 12, SCAN_HALF = 0.5, SCAN_GAP = 6;   // three pulses a second, so several fronts are in flight at once
   const scanSpeed = () => 35 * (clamp(F?.metrics?.lsm ?? 5, 4, 40) / 5) ** 1.3;   // px/s, steeper than linear: 35 at 5 kPa (clearly slow), 240 at 25 (7x), 520 from 40
   function scanArc(r) {
     const [cx, cy] = SCAN_TIP, h = SCAN_HALF * (0.75 + 0.25 * Math.min(1, r / 50));   // the front widens a little with depth
@@ -4048,9 +4048,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function scanHead() {
     const tip = scan.el && scanTipLocal();
     if (!tip) return;
-    const wr = wrap.getBoundingClientRect(), c = Math.SQRT1_2, ax = tip.tx, ay = tip.y;
+    const wr = wrap.getBoundingClientRect(), a = scan.deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), ax = tip.tx, ay = tip.y;
     const xs = [], ys = [];
-    for (const [u, v] of [[-92, -13], [-92, 13], [-2, -13], [-2, 13]]) { xs.push(ax + (u - v) * c); ys.push(ay + (u + v) * c); }
+    for (const [u, v] of [[-92, -13], [-92, 13], [-2, -13], [-2, 13]]) { xs.push(ax + u * c - v * sn); ys.push(ay + u * sn + v * c); }
     const x0 = Math.min(...xs) + wr.left, x1 = Math.max(...xs) + wr.left, y0 = Math.min(...ys) + wr.top, y1 = Math.max(...ys) + wr.top;
     let hit = false;
     for (const el of document.querySelectorAll('.pz-text.stage-blocker, .pz-data.stage-blocker, .pz-panel.stage-blocker')) {
@@ -4108,6 +4108,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (sv.textContent !== txt) sv.textContent = txt;
   }
   fibroReading.show = scanShow;
+  function scanTurn(tx) {
+    let deg = 45;
+    while (deg < 80 && tx - 92 * Math.cos(deg * Math.PI / 180) - 13 * Math.sin(deg * Math.PI / 180) < SCAN_EDGE) deg += 5;
+    if (deg !== scan.deg) { scan.deg = deg; scan.el.style.setProperty('--sp-turn', `${deg}deg`); }
+  }
   function scanPaint() {
     if (!scan.el) {
       const el = document.createElement('div');
@@ -4119,7 +4124,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         + '<path class="sp-cable" d="M-26 48 C-18 48 -14 48 -8 48"/><g class="sp-head"><rect class="sp-body" x="-10" y="35" width="68" height="26" rx="11"/>'
         + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/><rect class="sp-screen" x="-3" y="39.5" width="54" height="17" rx="4"/>'
         + '<text class="sp-read" x="24" y="52.3" text-anchor="middle"><tspan class="sp-val">5.0</tspan><tspan class="sp-unit" dx="2">kPa</tspan></text></g></svg>';   // (constant markup; the screen on the body shows the live stiffness)
-      sites.el.append(el); scan.el = el;
+      sites.el.append(el); scan.el = el; scan.deg = 45;
+      const t0 = scanTipLocal(); if (t0) scanTurn(t0.tx);   // (turned before it first shows, so it fades in at its angle rather than swinging to it)
       void el.offsetWidth; el.classList.remove('cath-pre');
       if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = scan.nextTap = Infinity; }
       if (!scan.raf) { scan.last = 0; scan.raf = nextFrame(scanTick); }
@@ -4127,6 +4133,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const tip = scanTipLocal(), wr = wrap.getBoundingClientRect();
     if (!tip) { scan.el.classList.add('off'); return; }
     const { tx, y } = tip, x = tx - SCAN_TIP[0];
+    // Turned 45° down-right, the probe's body and its kPa screen reach 75 px left of the tip; where the liver sits near the
+    // screen's left edge (a phone), the probe stands steeper, up to 80°, so its reading stays whole on screen.
+    scanTurn(tx);
     scan.el.classList.toggle('off', tx < -30 || tx > wr.width + 30 || y < -30 || y > wr.height + 30);
     scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
@@ -5009,9 +5018,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const pzInset = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   function readBlockers() {
     const wr = stageBox();
-    return [...document.querySelectorAll('.stage-blocker:not([hidden])')].map((el) => {
-      // A closed card can stay in place, invisible (the patient chart does): it hides nothing.
-      if (getComputedStyle(el).visibility === 'hidden') return null;
+    // (The teaching card's glass, .pz-shade, too: on a phone it reaches 16 px above the words, and a label kept off only the words
+    // tucked its top under the glass, SMALL BOWEL on PVT 5 and STOMACH on Variceal bleed 3.)
+    return [...document.querySelectorAll('.stage-blocker:not([hidden]), .pz-shade')].map((el) => {
+      // A closed card can stay in place, invisible (the patient chart does): it hides nothing. (So does a glass with no words on it.)
+      if (getComputedStyle(el).visibility === 'hidden' || (el.classList.contains('pz-shade') && (el.style.opacity === '0' || el.classList.contains('pz-leave')))) return null;
       const r = el.getBoundingClientRect();
       return r.width ? { x0: r.left - wr.left - 4, y0: r.top - wr.top - 4, x1: r.right - wr.left + 4, y1: r.bottom - wr.top + 4 } : null;
     }).filter(Boolean);
