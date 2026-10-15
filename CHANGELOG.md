@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Language selection removed (for now).** Settings no longer has a Language menu, and the Spanish, French,
+  Portuguese and Arabic interface strings are gone with it, so the app is English only. A language saved in the browser
+  is cleared on load, and a shared link with `?lang=` simply opens in English. Language selection may come back later.
+  Test: `tests/no-language.test.js`.
 - **Student role removed (for now).** Settings no longer has "I am a…" (Student or Instructor), and the role is gone from
   the app's internals, so everyone gets what Instructor had: every lens in Colored by, pressure values on the figure, the
   full play bar and History, all procedures in Treat, and Advanced physiology in Settings. "Always show HVPG" is on unless

@@ -2444,8 +2444,6 @@ button.finding { cursor: pointer; }
 [data-site="post"] { --site: color-mix(in srgb, var(--tour-portal) 20%, var(--tour-sys)); }
 [data-site="cardiac"] { --site: var(--tour-sys); }
 .stage-view.in-lobule .big-overlay { display: none; }
-/* Right-to-left: English content inside an Arabic interface keeps its own direction. */
-[dir="rtl"] p, [dir="rtl"] .d, [dir="rtl"] .t, [dir="rtl"] li { unicode-bidi: plaintext; }
 
 /* ── 2.1 visual language: quiet anatomy, vivid vessels ──────────────────────────
    Organs are calm, flat silhouettes: a light tint of their own hue and a hairline, lit only by a

@@ -15,7 +15,6 @@ import { createCompare } from './compare.js?v=22a7ef98ae';
 import { createCard } from './card.js?v=1d57619fbd';
 import { createChart } from './chart.js?v=329f465056';
 import { createMenu } from './menu.js?v=41ad574a81';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=10cd63fb4a';
 import { caption } from './a11y.js?v=f3bee6b24b';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
@@ -88,10 +87,11 @@ const presenter = {
 
 async function main() {
   applyTheme(readLS('pps.theme'));
-  applyI18n();
   startLMS();
   // The Student role was removed (to come back later): an old saved role is dropped, everyone gets the full app.
   try { localStorage.removeItem('pps.role'); } catch { /* storage unavailable */ }
+  // Language selection was removed too (English only, to come back later): drop an old saved choice.
+  try { localStorage.removeItem('pps.lang'); } catch { /* storage unavailable */ }
   const kind = await startHost();
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
   app.dataset.engine = kind;
@@ -229,7 +229,6 @@ async function main() {
   }
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
   setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); }), 3000);
-  addEventListener('pps:lang', () => mainMenu.render());
 }
 // Deep links, for an LMS or a syllabus: ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.
@@ -387,7 +386,7 @@ async function share() {
 // ── Restart & reset ─────────────────────────────────
 // Restart: the current patient from its first moment .
 // Reset: everything back to a fresh start, as on a first visit but keeping the preferences
-// (theme, language, progress): the page reloads without its links or state.
+// (theme, progress): the page reloads without its links or state.
 async function restartPatient() {
   closePopover();
   store.set({ compareSnap: null, compareView: 'B', selection: null, details: null });
@@ -747,8 +746,8 @@ function openSettings(anchor, withSearch = false) {
   popover(anchor, [
     // (From the thumb dock's Settings tab, Search heads the sheet: the dock has no More menu.)
     ...(withSearch ? [menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } })] : []),
-    h('div', { class: 'menu-title' }, t('menu.appearance')),
-    h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['soft', t('menu.soft')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
+    h('div', { class: 'menu-title' }, 'Appearance'),
+    h('div', { class: 'seg full menu-seg' }, [['light', 'Light'], ['dark', 'Dark'], ['soft', 'Soft'], ['system', 'System']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     fullscreenControl(),
     ...(talk ? presenterSettings() : []),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
@@ -756,9 +755,7 @@ function openSettings(anchor, withSearch = false) {
     h('div', { class: 'menu-title' }, 'Interface zoom'),
     uiZoomControl(),
     ...(talk ? [] : [
-      h('div', { class: 'menu-title' }, t('menu.language')),
-      (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); }); return sel; })(),
-      h('div', { class: 'menu-title' }, t('menu.access')),
+      h('div', { class: 'menu-title' }, 'Accessibility'),
       menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass behind cards and labels. Off: solid cards and glowing labels, lighter on a hot device', (on) => {
         try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch { /* storage unavailable */ }
         document.documentElement.toggleAttribute('data-noglass', !on);
@@ -775,7 +772,7 @@ function openSettings(anchor, withSearch = false) {
       h('div', { class: 'menu-sep' }),
       menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } }),
       h('div', { class: 'menu-sep' }),
-      menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() })]),
+      menuItem('Reset everything…', { icon: 'reset', onClick: () => resetEverything() })]),
   ], withSearch ? { place: 'above', align: 'end', cls: 'app-menu' } : { align: 'start', cls: 'app-menu' });
 }
 // While presenting: no extra settings for now (panel width and high contrast were taken out of slides).
@@ -854,12 +851,12 @@ function uiZoomControl() {
 }
 function openHelpMenu(anchor) {
   popover(anchor, [
-    h('div', { class: 'menu-title' }, t('menu.help')),
-    menuItem(t('menu.guide'), { icon: 'book', onClick: () => { closePopover(); openHelp(); } }),
-    menuItem(t('menu.shortcuts'), { icon: 'grid', kb: '?', onClick: () => { closePopover(); openHelp('keys'); } }),
-    menuItem(t('menu.about'), { icon: 'info', onClick: () => { closePopover(); openAbout(); } }),
-    menuItem(t('menu.refs'), { icon: 'case', onClick: () => { closePopover(); openAbout('refs'); } }),
-    menuItem(t('menu.privacy'), { icon: 'lock', onClick: () => { closePopover(); openPrivacy(); } }),
+    h('div', { class: 'menu-title' }, 'Help'),
+    menuItem('Guide', { icon: 'book', onClick: () => { closePopover(); openHelp(); } }),
+    menuItem('Keyboard shortcuts', { icon: 'grid', kb: '?', onClick: () => { closePopover(); openHelp('keys'); } }),
+    menuItem('About the model', { icon: 'info', onClick: () => { closePopover(); openAbout(); } }),
+    menuItem('References', { icon: 'case', onClick: () => { closePopover(); openAbout('refs'); } }),
+    menuItem('Privacy', { icon: 'lock', onClick: () => { closePopover(); openPrivacy(); } }),
     h('div', { class: 'menu-sep' }),
     h('a', { class: 'menu-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener', onclick: () => closePopover() },
       h('span', {}, 'Created by ', h('b', {}, AUTHOR)), h('span', { class: 'mc-link' }, 'All my tools ', icon('chev-right'))),
@@ -1569,14 +1566,14 @@ function openAbout(section) {
       h('li', {}, 'Guyton AC. Venous return and the systemic filling pressure.')),
     h('h3', {}, 'Licenses'),
     h('p', { class: 'sub' }, '© 2026 Mohammad Almeqdadi. All rights reserved. Fonts: Inter, JetBrains Mono and Source Serif 4 under the SIL Open Font License, served from this site. Anatomy, pathology art and icons were drawn for this project.'),
-    h('p', { class: 'disclaimer' }, t('app.disclaimer'))), { wide: true, sub: `Version ${APP_VERSION}` });
+    h('p', { class: 'disclaimer' }, 'Educational simulation. Simplified model with illustrative values; not for diagnosis or treatment decisions.')), { wide: true, sub: `Version ${APP_VERSION}` });
   scrollToSection(section);
 }
 function openPrivacy() {
   const keys = (() => { try { return Object.keys(localStorage).filter((k) => k.startsWith('pps.')); } catch { return []; } })();
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
-    h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme, language) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
+    h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));

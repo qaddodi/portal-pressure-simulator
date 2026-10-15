@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 
 const read = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
-const files = [...readdirSync(new URL('../src/ui/', import.meta.url)).filter((f) => f.endsWith('.js')).map((f) => '../src/ui/' + f), '../styles/app.css', '../src/i18n/i18n.js'];
+const files = [...readdirSync(new URL('../src/ui/', import.meta.url)).filter((f) => f.endsWith('.js')).map((f) => '../src/ui/' + f), '../styles/app.css'];
 
 test('no code or style reads a role or a Student mode', () => {
   for (const f of files) {

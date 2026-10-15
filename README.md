@@ -121,8 +121,7 @@ sits, each with its pressure profile).
 - **Privacy.** No trackers, no third-party requests (fonts are self-hosted), nothing stored off
   the device. See [docs/PRIVACY.md](docs/PRIVACY.md).
 - **Offline.** Installable PWA; works on poor exam-hall Wi-Fi once loaded.
-- **Languages.** The interface shell is available in English, Spanish, French, Portuguese and
-  Arabic (right-to-left); presentation text is English for now.
+- **Language.** English only for now; language selection may come back later.
 - **Versioned content.** A class taught on content version 2.0 behaves the same all term.
 
 ## What's inside
@@ -132,7 +131,6 @@ sits, each with its pressure profile).
 | `src/engine/` | The model, with no DOM: topology, physiology (tube law, compliance, Frank–Starling), implicit solver, reflexes, hepatic arterial buffer, collaterals, varices, ascites, bleeding, two clocks, metrics, events, "Why?" attribution, presets and drugs |
 | `src/worker-core.js`, `src/worker.js` | Simulation host (Web Worker, main-thread fallback): frames at 30 Hz, snapshots, pre-roll and counterfactual replays |
 | `src/ui/` | Stage (GPU figure and moving blood over the SVG scene, labels, anatomy⇄circuit morph, semantic zoom), action card, timeline, chart, instruments, presenter, LMS bridge, accessibility |
-| `src/i18n/` | Interface strings per language |
 | `styles/` | Design tokens (light and dark) and layout |
 | `fonts/`, `brand/` | Self-hosted fonts (SIL OFL); brand mark, lockup and app icons |
 | `scripts/` | Cache stamping, SCORM packaging |
