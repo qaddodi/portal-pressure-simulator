@@ -683,7 +683,7 @@ Script file (`*.pps-script.json`):
 
 ## 14. Case cards
 
-A **case card** opens a new patient with a short clinical case. When the talk moves forward onto a slide that brings in a new patient, a centred frosted-glass card (the same glass as the other cards) covers the figure. It holds a small **Case** pill and the case text, nothing else (no numbers, no site tag). Behind the card the new patient loads at the wide view; **Next, a tap on the card or a swipe** lifts the card, and the slide then goes on as usual: one eased zoom to its framing, then the teaching card and data card come in. A tap, Next or swipe *while the patient is still loading* only lifts the card and lands on that same slide; it never skips ahead.
+A **case card** opens a new patient with a short clinical case. When the talk moves forward onto a slide that brings in a new patient, a centred frosted-glass card (the same glass as the other cards) covers the figure. It holds a small **Case** pill and the case text, nothing else (no numbers, no site tag). Behind the card the new patient loads and the camera glides, once, straight to the framing of the slide that follows (the lobule included); **Next, a tap on the card or a swipe** lifts the card, and the teaching card and data card come in with no further camera move. A tap, Next or swipe *while the patient is still loading* only lifts the card and lands on that same slide; it never skips ahead.
 
 ### Adding one
 
@@ -722,5 +722,5 @@ No new code is needed: the presenter reads `vignette` itself (`caseRun` in `src/
 ### Checking one
 
 * Count the characters: under 220, spaces included. `tests/case-card.test.js` does it for every deck.
-* Read it against the slide's tiles and figure on the preview: Present menu, pick the deck, step to the slide with Right arrow or Next; the card appears, the figure behind it shows the new patient at the wide view, and Next lifts it.
+* Read it against the slide's tiles and figure on the preview: Present menu, pick the deck, step to the slide with Right arrow or Next; the card appears, the figure behind it shows the new patient already at the slide's framing, and Next lifts it.
 * Stepping back onto the slide must show no card.

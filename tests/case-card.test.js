@@ -38,6 +38,20 @@ test('Next lifts an open case card before it changes the slide', () => {
   assert.match(src, /s\.vignette && ui && !booting && !rev && !lap && to > lastAt && \(si !== shownState \|\| liveOff\)/);
 });
 
+test('behind the case card the camera glides once, to the slide\'s own framing; the tap makes no second move', () => {
+  const run = src.slice(src.indexOf('async function caseRun('), src.indexOf('function caseShut('));
+  // Loading the patient behind the card moves no camera (no zoom out to the fit first), and the card does not wait for the tap itself.
+  assert.doesNotMatch(run, /camera\(/);
+  assert.doesNotMatch(run, /lifted\)/);
+  // The slide's own camera move runs with the card still up; the card lifts only once it has landed, just before the slide's cards come in.
+  assert.match(src, /await settleRun\(\);\s*if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\); \}/);
+  assert.match(src, /if \(later\) \{ if \(!await morphTo\(st, cut\)\) return; shownState = own \? -1 : si; \}\s*await caseEnd\(cut\); if \(cut\(\)\) return;\s*bare = false; layout\(\); cardsIn\(\);/);
+  const gl = src.indexOf("await until(() => cut() || !stage.gliding(), 1500)");
+  assert.ok(gl > 0 && gl < src.indexOf('await caseEnd(cut); if (cut()) return;\n      bare = false'));
+  // A move cut short, or one that ends otherwise, never leaves the card up.
+  assert.match(src, /stage\.holdHome\(false\); caseShut\(\);/);
+});
+
 test('the case card is cards glass, enters and leaves whole, never resizing', () => {
   const rule = css.match(/\.pz-case \{[^}]*\}/)[0];
   assert.match(rule, /backdrop-filter: blur\(16px\) saturate\(1\.15\)/);

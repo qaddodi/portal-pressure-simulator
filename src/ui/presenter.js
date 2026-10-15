@@ -1397,7 +1397,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
 
   // ── The case card ──
   // (caseLift: set while a case card is up; Next, a swipe on or a tap on the card lifts it rather than changing the slide.)
-  let caseLift = null;
+  // The card goes up first and the new patient loads behind it. The slide then goes on as usual behind the card: its words are
+  // fitted unseen and the camera glides once to the slide's own framing, so after the tap there is no second move (see caseEnd).
+  let caseLift = null, caseCard = null;
   async function caseRun(s, si, st, cut) {
     const c = ui.vcase, ms = reduce.matches ? 0 : 450;
     c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, h('i'), 'Case'), h('p', { class: 'pz-case-p' }, s.vignette));
@@ -1407,27 +1409,34 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     for (let k = 2.5; k > 1.2 && c.scrollHeight > c.clientHeight + 1; k -= 0.1) c.style.setProperty('--case-k', k.toFixed(1));
     c.classList.add('on');
     // Lifting works from the moment the card is up: a tap/Next/swipe while the patient still loads behind it is remembered, and the card lifts once loading ends (into this same slide, never the next).
-    let lifted = false;
-    caseLift = () => { lifted = true; };
-    try {
-      await wait(ms);
-      if (cut()) return false;
-      // Behind the card: out of the liver, the new patient eased in, the figure at its wide framing.
-      await toAnatomy(null); if (cut()) return false;
-      liveOff = false; shownState = -1;
-      if (!await morphTo(st, cut, reduce.matches ? 0 : 1200)) return false;
-      shownState = si;
-      if (view.classList.contains('pz-out')) figureIn(); else loading(false);
-      await camera('fit', s, cut);
-      if (cut()) return false;
-      if (!lifted) await until(() => cut() || lifted, 864e5);
-      return !cut();
-    } finally {
-      caseLift = null;
-      c.classList.remove('on');
-      await wait(ms);
-      if (!c.classList.contains('on')) c.hidden = true;
-    }
+    const card = caseCard = { c, ms, lifted: false };
+    caseLift = () => { card.lifted = true; };
+    await wait(ms);
+    if (cut()) return false;
+    // Behind the card: out of the liver, the new patient eased in.
+    await toAnatomy(null); if (cut()) return false;
+    liveOff = false; shownState = -1;
+    if (!await morphTo(st, cut, reduce.matches ? 0 : 1200)) return false;
+    shownState = si;
+    if (view.classList.contains('pz-out')) figureIn(); else loading(false);
+    return !cut();
+  }
+  // The card leaves: no longer a case card for Next to lift; it fades out and is hidden once it has.
+  function caseShut() {
+    const card = caseCard;
+    if (!card) return 0;
+    caseCard = null; caseLift = null;
+    card.c.classList.remove('on');
+    setTimeout(() => { if (!card.c.classList.contains('on')) card.c.hidden = true; }, card.ms);
+    return card.ms;
+  }
+  // Once the slide is ready behind the card (patient in, camera landed): waits for the tap, then lifts the card whole before the slide's cards come in.
+  async function caseEnd(cut) {
+    const card = caseCard;
+    if (!card) return;
+    if (!card.lifted) await until(() => cut() || card.lifted, 864e5);
+    if (cut()) return;
+    await wait(caseShut());
   }
 
   // ── Slides ──
@@ -1485,7 +1494,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     stage.holdHome(true);
     creditHolds++; clearTimeout(creditT); app.classList.add('pz-moving');
     try { await transitionRun(to, rev); } finally {
-      stage.holdHome(false); if (bare) { bare = false; layout(); cardsIn(); }
+      stage.holdHome(false); caseShut(); if (bare) { bare = false; layout(); cardsIn(); }
       creditHolds--; clearTimeout(creditT);
       creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 120);   // (the cards come in after the one camera move; src/ui/credit.js then waits for any card still sliding)
     }
@@ -1541,7 +1550,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A table shows at once, its rows' cells "…" until each patient is in.)
     if (s.visual && s.visual !== 'table') { await Promise.all(rowIdx(s).map(stateReady)); if (cut()) return; }
     // A new patient's case (s.vignette), going forward: a centred glass card covers the figure while the patient loads behind it
-    // at the wide framing; Next lifts it, and the slide then goes on as usual (one zoom to its framing, then its cards).
+    // (it stays up while the camera glides, once, to the slide's own framing; Next lifts it, and the slide's cards then come in with no further move).
     const skipCase = noCase; noCase = false;
     if (!skipCase && s.vignette && ui && !booting && !rev && !lap && to > lastAt && (si !== shownState || liveOff)) { if (!await caseRun(s, si, st, cut)) return; }
     // A new patient, or the same one changed: the figure fades out, the state changes unseen, it fades back in.
@@ -1578,7 +1587,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first.)
     if (bare) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
     await settleRun();
-    if (!bare) cardsIn();
+    if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn(); }
     if (cut()) return;
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual && !q) app.dataset.lit = slideTargets(s).lit.join(' ');
@@ -1597,6 +1606,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (cut()) return;
       // The camera is still: the patient changes now, unhurried, and the cards come in only once it has.
       if (later) { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; }
+      await caseEnd(cut); if (cut()) return;
       bare = false; layout(); cardsIn();
       // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
       await wait(60); await until(() => cut() || !cardsEntering(), 1200);
