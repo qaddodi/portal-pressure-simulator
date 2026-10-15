@@ -3,22 +3,22 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=0b72305f30';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=162c8bf8d6';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=ec83805fb9';
 import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, GLIDE_MS } from './util.js?v=0e70eb01ff';
-import { createLobuleZoom } from './lobule-zoom.js?v=d411f33f21';
-import { runFlick, FLICK } from './flick.js?v=773d9728fe';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=e387ad7347';
+import { createLobuleZoom } from './lobule-zoom.js?v=2391f12a2b';
+import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=191c4f4858';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=a513d566e7';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
-import { frameFor, cancelFrame, setSaver as setFrameSaver, saver, SAVER_MS } from './frame.js?v=5ad4028792';
+import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
 import { portalSplit } from './table-marks.js?v=f709ae0429';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 const nextFrame = frameFor('stage');
@@ -1785,12 +1785,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Out of the lobule view by zooming out: the view hands the dive back to the scrub, which carries on reversing it.
 
   // ── Detail ────────────────────────────────────────
-  // Adaptive detail: when the device cannot keep up (frames arriving slower than ~22 a second
-  // while the model runs), the moving blood steps down (fewer frames, fewer pixels) and steps
-  // back up once there is headroom. The level a device settles on is remembered.
+  // Adaptive detail: the moving blood is drawn on every frame the screen offers (fps 0: 60, 120 or more a second; a frame
+  // of it only re-composites the vessel cells). When the device cannot keep up (frames arriving slower than ~22 a second
+  // while the model runs), the moving blood steps down (fewer frames, fewer pixels) and steps back up once there is
+  // headroom. The level a device settles on is remembered.
   // The last step is only for a software renderer (WebGL drawn on the CPU), where it starts: there
   // every frame costs CPU the rest of the page needs.
-  const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }];
+  const QUALITY = [{ fps: 0, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }];
+  const paceOf = (q) => (QUALITY[q].fps ? 1000 / QUALITY[q].fps : 0);   // (ms between drawn frames of the blood; 0: every frame)
   const SOFTWARE = !!veins?.software;
   const Q_MAX = SOFTWARE ? 3 : 2;
   // Settings › Battery saver: the blood moves at 15 frames a second at a lower resolution (quality step 2 at least).
@@ -4111,8 +4113,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Under an open lobule the probe is covered: it looks again four times a second instead of every frame (leaving the
     // lobule uncovers it gradually, so it is moving again before it shows).
     if (lz?.isOpen()) { scan.last = 0; clearTimeout(scan.nap); scan.nap = setTimeout(() => { if (scan.on && !scan.raf) scan.raf = nextFrame(scanTick); }, 250); return; }
-    // Paced like the blood, 30 frames a second (15 in Battery saver), not the screen's 60 or 120.
-    if (scan.last && now - scan.last < (saver() ? SAVER_MS : GLIDE_MS)) { scan.raf = nextFrame(scanTick); return; }
+    // Drawn on every frame the screen offers, like the blood (15 a second in Battery saver).
+    if (scan.last && now - scan.last < paceMs()) { scan.raf = nextFrame(scanTick); return; }
     const dt = scan.last && !reduceMotion.matches ? Math.min(0.1, (now - scan.last) / 1000) : 0; scan.last = now;
     const target = scanSpeed();
     scan.v = scan.v ? scan.v + (target - scan.v) * (1 - Math.exp(-dt / 0.6)) : target;   // ease to a new kPa
@@ -5854,19 +5856,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let pendingRes = 0;
   let flowGate = lastT;
   function animate(now) {
-    // High-refresh screens need not redraw the blood at their refresh rate. Elapsed time is kept
-    // intact so speeds and transitions stay correct.
+    // The blood moves by elapsed time, so speeds and transitions are the same at any frame rate.
     if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; lastRaf = 0; sleep(); return; }
     governQuality(now);
     if (pendingRes) { dynRes = pendingRes; pendingRes = 0; resizeCanvas(); }
     // The dive magnifies the figure as it stands (a compositor scale): nothing under it is redrawn until it lands.
     if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw) { lastT = flowGate = now; nextFrame(animate); return; }
-    const interval = 1000 / QUALITY[quality].fps;
+    const interval = paceOf(quality);
     // A pan or zoom redraws at once (the picture must stay under the pointer); only the model's
-    // own motion is paced.
+    // own motion is paced, and only on a lower step (see QUALITY).
     const viewMoved = viewVersion !== drawnView;
-    if (!viewMoved && !forceDraw && now - flowGate < interval) { nextFrame(animate); return; }
-    flowGate = now - ((now - flowGate) % interval);
+    if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { nextFrame(animate); return; }
+    flowGate = interval ? now - ((now - flowGate) % interval) : now;
     const dt = Math.min(0.1, (now - lastT) / 1000);
     lastT = now;
     // Fully inside the lobule, the plate is covered (a pending redraw waits for the frame it can show in): the loop sleeps
@@ -5903,7 +5904,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The vessel layer is redrawn only when something in it changed; the blood every frame.
     if (glowSync) syncVeins(easeInOut(morph));
     olStep(now);
-    if (!drawVeins() && veins && !veins.lost && vLook && F) veins.composite(vLook, bloodLook(), fluidMoved);
+    if (drawVeins()) noteDraw('stage');
+    else if (veins && !veins.lost && vLook && F) { veins.composite(vLook, bloodLook(), fluidMoved); noteDraw('stage'); }
     drawnView = viewVersion;
     governRes(now, viewMoved || st.running);
     lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM; lastAnim = anim || bolus.active || dyeShown;

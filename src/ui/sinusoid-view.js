@@ -19,13 +19,13 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp, GLIDE_MS } from './util.js?v=0e70eb01ff';
-import { pressureColor } from './colormap.js?v=162c8bf8d6';
+import { h, fmt, clamp, lerp } from './util.js?v=e387ad7347';
+import { pressureColor } from './colormap.js?v=ec83805fb9';
 import { isPaused } from './clock.js?v=af6de95a7c';
 import { store } from './store.js?v=3b659e1968';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=c449aa59c2';
-import { frameFor, noteDraw, saver, SAVER_MS } from './frame.js?v=5ad4028792';
+import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -651,8 +651,8 @@ export function createSinusoidView({ host }) {
     parts.push(S.act > 0.4 ? 'The stellate cell is activated: no vitamin A droplets, contracted, laying down collagen.' : 'The stellate cell is quiescent, full of vitamin A droplets.');
     return parts.join(' ');
   }
-  // Paced to 30 frames a second like the lobule's flow (15 in Battery saver), not the screen's 60 or 120; the zoom from
-  // the lobule draws every frame, in step with it. Paused and settled, the loop stops asking for frames, as the figure
+  // Drawn on every frame the screen offers, like the lobule's flow (15 a second in Battery saver); the zoom from the
+  // lobule draws every frame, in step with it. Paused and settled, the loop stops asking for frames, as the figure
   // does: a new model, the zoom, the store (Play) wake it, and it looks again four times a second in case a change came
   // by a path that does not.
   let lastPaint = 0, sleepT = 0;
@@ -661,7 +661,7 @@ export function createSinusoidView({ host }) {
   function loop(now) {
     raf = 0;
     if (shown <= 0 || !model) return;
-    if (!dive && !drewNow && now - lastPaint < (saver() ? SAVER_MS : GLIDE_MS)) { raf = nextFrame(loop); return; }
+    if (!dive && !drewNow && now - lastPaint < paceMs()) { raf = nextFrame(loop); return; }
     lastPaint = now;
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     // (While the zoom runs, place() has already drawn this frame in step with the lobule.)

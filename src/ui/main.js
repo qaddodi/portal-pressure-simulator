@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=0f6d345282';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=5aec40666a';
-import { createCreditPlacer } from './credit.js?v=fe944f94a6';
-import { sinusoidSupported } from './sinusoid-view.js?v=44e154296f';
-import { createInspector } from './inspector.js?v=5739f23abe';
-import { createDock, CUTOFFS } from './dock.js?v=7a692d1fe6';
-import { setHvpgStage } from './hvpg-proc.js?v=352fa4d8a5';
-import { createWhy } from './why.js?v=b73cf4b950';
-import { createTimeline, LAPSES } from './timeline.js?v=b2d9faa795';
-import { createCompare } from './compare.js?v=489948f404';
-import { createCard } from './card.js?v=48d3eb4ee6';
-import { createChart } from './chart.js?v=d50bc22bd4';
-import { createMenu } from './menu.js?v=53383ce667';
-import { caption } from './a11y.js?v=cb8b6362ff';
+import { createStage } from './stage.js?v=61d94a1a9b';
+import { createCreditPlacer } from './credit.js?v=f9b1bca442';
+import { sinusoidSupported } from './sinusoid-view.js?v=7117686e39';
+import { createInspector } from './inspector.js?v=3e6fa85bd0';
+import { createDock, CUTOFFS } from './dock.js?v=4b3699df08';
+import { setHvpgStage } from './hvpg-proc.js?v=3699a77ad6';
+import { createWhy } from './why.js?v=79b7992637';
+import { createTimeline, LAPSES } from './timeline.js?v=b8bb2e227f';
+import { createCompare } from './compare.js?v=9ec14ef778';
+import { createCard } from './card.js?v=00709a865b';
+import { createChart } from './chart.js?v=503fcce935';
+import { createMenu } from './menu.js?v=f8afed30cc';
+import { caption } from './a11y.js?v=5be217ba8e';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=1c182437c6';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=162c8bf8d6';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=f84a878db7';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=ec83805fb9';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=0e70eb01ff';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=e387ad7347';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,11 +33,11 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0cc56a7b0a';
-import { initTopbarMotion } from './topbar-motion.js?v=7ae64b43da';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=c75ad21d13';
+import { initTopbarMotion } from './topbar-motion.js?v=f095540bb8';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=6ebaeb46c8';
-import { frameFor, perf as framePerf } from './frame.js?v=5ad4028792';
+import { frameFor, perf as framePerf } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=4245389102'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d9efef3bd6'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -147,7 +147,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=580db2657f'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=b0aa1a3272'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),

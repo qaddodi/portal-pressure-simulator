@@ -5,11 +5,11 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha, GLIDE_MS } from './util.js?v=0e70eb01ff';
-import { FONT } from './charts.js?v=890f0ee420';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=e387ad7347';
+import { FONT } from './charts.js?v=eed250ce0a';
 import { logAction, shownVel, store } from './store.js?v=3b659e1968';
-import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=8f2e695614';
-import { frameFor, noteDraw, saver, SAVER_MS } from './frame.js?v=5ad4028792';
+import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=64bf6fd650';
+import { frameFor, noteDraw, paceMs } from './frame.js?v=5efaa2bcc9';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
 const nextFrame = frameFor('doppler');
@@ -896,9 +896,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function loop(now) {
     raf = 0;
     if (!frame || !cv.isConnected || !cv.offsetParent) return;
-    // The running trace is drawn 30 times a second (15 in Battery saver), like the figure's blood and FibroScan: it drew at the screen's
-    // 60 or 120, which looks the same and costs twice or more. A change while paused draws at once.
-    if (live() && !labBusy && now - paintAt < (saver() ? SAVER_MS : GLIDE_MS)) { raf = nextFrame(loop); return; }
+    // The running trace scrolls on every frame the screen offers (15 a second in Battery saver). Its samples are the model's,
+    // whatever the frame rate: each frame adds only the columns its elapsed time covers. A change while paused draws at once.
+    if (live() && !labBusy && now - paintAt < paceMs()) { raf = nextFrame(loop); return; }
     paintAt = now;
     draw(now);
     noteDraw('doppler');

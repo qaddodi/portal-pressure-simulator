@@ -1,5 +1,5 @@
 // DOM & formatting helpers.
-import { saver } from './frame.js?v=5ad4028792';
+import { saver } from './frame.js?v=5efaa2bcc9';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
@@ -469,9 +469,6 @@ export function enhanceRanges(root = document) {
  * so a chart's line, dots, labels and axis glide rather than jump when the model changes. The
  * Pressure card and the lobule's pressure ladder share it. step(target) → { v, moving }.
  */
-/** Steady motion (the flow, a glide toward values that keep moving) is drawn at most 30 times a second, whatever the
- * screen's refresh rate: a little under 33 ms, so a frame lands on the screen's next refresh, not the one after. */
-export const GLIDE_MS = 1000 / 30 - 4;
 export function createEaser(tau = 0.3) {
   let v = null, last = 0;
   return {

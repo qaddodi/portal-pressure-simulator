@@ -2,10 +2,10 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=0b72305f30';
-import { pressureColor } from './colormap.js?v=162c8bf8d6';
+import { pressureColor } from './colormap.js?v=ec83805fb9';
 import { store, hiddenNow } from './store.js?v=3b659e1968';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop, GLIDE_MS } from './util.js?v=0e70eb01ff';
-import { frameFor, cancelFrame } from './frame.js?v=5ad4028792';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=e387ad7347';
+import { frameFor, cancelFrame, paceMs } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -80,10 +80,10 @@ export function createProfile() {
     F = { ...Fraw, P: shown };
     draw();
     cancelFrame(easeRaf);
-    // Model frames arrive about ten times a second; the glide runs between them, 30 frames a second however fast the
-    // screen refreshes (the pressures never quite settle while the model runs, so this glide never stops).
+    // Model frames arrive about ten times a second; the glide runs between them on every frame the screen offers
+    // (15 a second in Battery saver; the pressures never quite settle while the model runs, so this glide never stops).
     const at = performance.now();
-    const next = (t) => { if (t - at < GLIDE_MS) { easeRaf = nextFrame(next); return; } if (cv.isConnected && cv.offsetParent) ease(); };
+    const next = (t) => { if (t - at < paceMs()) { easeRaf = nextFrame(next); return; } if (cv.isConnected && cv.offsetParent) ease(); };
     if (moving || pillMoving) easeRaf = nextFrame(next);
   }
   let predict = null; // { on, values: Map(station → P), done }

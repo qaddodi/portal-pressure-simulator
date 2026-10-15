@@ -71,9 +71,10 @@ try {
     if (climbing(col('nodes'), Math.max(200, rows[0].nodes * 0.05))) fail(`${view}: page nodes keep climbing`);
     if (climbing(col('listeners'), 50)) fail(`${view}: listeners keep climbing`);
   }
-  // Heat and battery: a view with nothing changing draws nothing and stops asking for frames, as the figure does; one
-  // that plays draws at 30 frames a second (15 in Battery saver), not the screen's 60 or 120. (FibroScan computed its
-  // map every screen refresh; the paused lobule and sinusoid asked for about 45 frames a second with nothing to draw.)
+  // Heat and battery: a view with nothing changing draws nothing and stops asking for frames, as the figure does. One
+  // that plays draws at most once per frame the screen offers (the owner's choice, 15 Oct: motion at the display's own
+  // 60 or 120); in Battery saver at most 15 a second. (The paused lobule and sinusoid asked for about 45 frames a second
+  // with nothing to draw.)
   // pps.perf: callbacks per second per surface (`surfaces`) and frames each really drew (`drawn`), over the last second.
   {
     const run = (on) => page.evaluate((v) => window.pps.host.send({ type: 'run', running: v }), on);
@@ -81,13 +82,21 @@ try {
     // may draw only a few frames a second: a playing view must still draw, and never more often than its pace.)
     const rate = async (tag, settle = 3000) => {
       await page.waitForTimeout(settle);
-      const t = () => page.evaluate((g) => { const p = window.pps.perf; return { at: performance.now(), asks: p.totals.asks[g] || 0, drawn: p.totals.drawn[g] || 0, stage: p.totals.asks.stage || 0 }; }, tag);
+      const t = () => page.evaluate((g) => { const p = window.pps.perf; return { at: performance.now(), asks: p.totals.asks[g] || 0, drawn: p.totals.drawn[g] || 0, stage: p.totals.asks.stage || 0, screen: p.totals.frames }; }, tag);
       const a = await t();
       await page.waitForTimeout(3000);
       const b = await t(), s = (b.at - a.at) / 1000, per = (k) => Math.round((b[k] - a[k]) / s * 10) / 10;
-      return { asks: per('asks'), drawn: per('drawn'), stage: per('stage'), frames: b.drawn - a.drawn };
+      return { asks: per('asks'), drawn: per('drawn'), stage: per('stage'), screen: per('screen'), frames: b.drawn - a.drawn, screenFrames: b.screen - a.screen };
     };
-    const busy = (what, r, max) => { console.log(`${what.padEnd(26)} asks ${r.asks}/s, draws ${r.drawn}/s (draws at most ${max})`); if (r.drawn > max) fail(`${what}: draws ${r.drawn} frames a second (at most ${max})`); if (r.frames < 1) fail(`${what}: drew nothing in 3 s, so it no longer moves`); };
+    // max: a number of draws a second, or 'screen': at most one draw per frame the browser ran (never twice in one frame).
+    // every: outside Battery saver it draws on (nearly) every frame it asks for, so no pacing of its own came back. (Not the
+    // lobule: on a software-GL runner it draws about 9 a second, whatever the screen.)
+    const busy = (what, r, max, every = false) => {
+      console.log(`${what.padEnd(26)} asks ${r.asks}/s, draws ${r.drawn}/s of ${r.screen} screen frames/s (draws at most ${max === 'screen' ? 'one a frame' : max})`);
+      if (max === 'screen' ? r.frames > r.screenFrames : r.drawn > max) fail(`${what}: draws ${r.drawn} frames a second (at most ${max === 'screen' ? `${r.screen}, one a frame` : max})`);
+      if (r.frames < 1) fail(`${what}: drew nothing in 3 s, so it no longer moves`);
+      if (every && max === 'screen' && r.drawn < r.asks * 0.9) fail(`${what}: asks for ${r.asks} frames a second but draws only ${r.drawn}: it paces itself`);
+    };
     // Paused, a view first finishes easing (on a software-GL runner a frame can take half a second, so that may take a
     // while); then, over 3 s, it must draw nothing and ask for at most its four safety looks a second (the figure under the
     // lobule: four for its blood and four for a FibroScan probe).
@@ -118,21 +127,21 @@ try {
     };
     for (const saverOn of [false, true]) {
       await page.evaluate((on) => window.pps.stage.setSaver(on), saverOn);
-      const cap = saverOn ? 17 : 33, tag = saverOn ? ' (saver)' : '';
+      const cap = saverOn ? 17 : 'screen', tag = saverOn ? ' (saver)' : '';
       await page.evaluate(() => document.querySelector('#viewSeg [data-view="anatomic"]').click());
       await page.evaluate(() => window.pps.dock.show('fibroscan', { reveal: true }));
-      await run(true); busy(`FibroScan, playing${tag}`, await rate('fibroscan'), cap);
+      await run(true); busy(`FibroScan, playing${tag}`, await rate('fibroscan'), cap, true);
       await run(false); await still(`FibroScan, paused${tag}`, 'fibroscan');
-      // The Doppler's running trace: 30 a second too (it drew at the screen's rate).
+      // The Doppler's running trace: the same.
       await page.evaluate(() => window.pps.dock.show('doppler', { reveal: true }));
-      await run(true); busy(`Doppler, playing${tag}`, await rate('doppler'), cap);
+      await run(true); busy(`Doppler, playing${tag}`, await rate('doppler'), cap, true);
       await run(false);
       await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
       await run(true); busy(`lobule, playing${tag}`, await rate('lobule-zoom', 5000), cap);
       await run(false); await still(`lobule, paused${tag}`, 'lobule-zoom', true);
       if (await page.evaluate(() => !document.querySelector('#viewSeg [data-view="sinusoid"]').hidden)) {
         await page.evaluate(() => document.querySelector('#viewSeg [data-view="sinusoid"]').click());
-        await run(true); busy(`sinusoid, playing${tag}`, await rate('sinusoid-view', 5000), cap);
+        await run(true); busy(`sinusoid, playing${tag}`, await rate('sinusoid-view', 5000), cap, true);
         await run(false); await still(`sinusoid, paused${tag}`, 'sinusoid-view');
         await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
       } else console.log('sinusoid: no WebGL2 here, not checked');

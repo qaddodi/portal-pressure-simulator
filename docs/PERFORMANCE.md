@@ -18,9 +18,9 @@ What changed:
   pass over just the vessel tiles that reads that buffer and draws the parcels, the dye and any
   bleed; the canvas keeps everything else (`preserveDrawingBuffer`). The per-frame CPU work is a
   few floats per vessel.
-- **Adaptive detail.** A governor watches frame pacing while the model runs; below ~22 frames a
-  second the moving blood steps down (24 then 15 redraws a second, fewer pixels) and steps back
-  up with headroom. The level is remembered per device (`pps.quality`). The stage exposes
+- **Adaptive detail.** The moving blood is drawn on every display frame. A governor watches frame
+  pacing while the model runs; below ~22 frames a second the moving blood steps down (24 then 15
+  redraws a second, fewer pixels) and steps back up with headroom. The level is remembered per device (`pps.quality`). The stage exposes
   `data-veins` and `data-quality` for diagnosis.
 - **Software rendering.** Where the browser has no usable GPU and draws WebGL on the CPU
   (SwiftShader, llvmpipe), the stage starts and stays at a fourth step, 8 frames a second at half
@@ -41,7 +41,7 @@ The simulation timestep and physiological equations are unchanged by the perform
 
 - Running model frames are still published approximately ten times per second. Explicit actions publish immediately, including while paused.
 - Paused and hidden pages stop the simulation timer. Returning to the page resumes without integrating time spent hidden. Long jobs already in progress finish in command order.
-- Flow drawing is capped at approximately 30 frames per second, independent of display refresh rate. Elapsed time still controls flow speed and anatomy/circuit transitions.
+- Motion (the blood and flow, the lobule and sinusoid, the Doppler sweep, the FibroScan map, chart glides) is drawn on every frame the display offers: 60, 120 or more a second. Elapsed time controls every speed and transition, so a faster display shows the same motion in more steps; the model's samples and the simulation clock do not depend on the frame rate. Battery saver (off by default) paces motion to 15 frames a second (`paceMs()` in `src/ui/frame.js`).
 - SVG labels retain their text elements when only values, widths or colors change. The vessel-density grid used for label placement is cached until geometry, visibility or the viewport transform changes. Label positions themselves are still evaluated to preserve collision handling.
 - Preset preparation, time jumps, prerolls and counterfactuals yield between batches. Commands remain serialized and timer ticks do not run inside partially completed jobs. A batch targets 8 ms, but an individual solver/day operation can exceed that budget. This is cooperative scheduling, not a hard latency guarantee.
 - A timed-out worker is terminated before fallback. The app element exposes `data-engine="worker"` or `data-engine="main"` for diagnosis.

@@ -4,11 +4,11 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, fitCanvas, clamp, cssAlpha, GLIDE_MS } from './util.js?v=0e70eb01ff';
-import { FONT } from './charts.js?v=890f0ee420';
+import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=e387ad7347';
+import { FONT } from './charts.js?v=eed250ce0a';
 import { simTime, isPaused, fibroReading } from './clock.js?v=af6de95a7c';
 import { store } from './store.js?v=3b659e1968';
-import { frameFor, noteDraw, saver, SAVER_MS } from './frame.js?v=5ad4028792';
+import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
@@ -173,13 +173,12 @@ export function createFibroScan() {
     ctx.font = FONT(600, big); ctx.strokeText(reading, ux - uw - 5, RY); ctx.fillText(reading, ux - uw - 5, RY);
   }
   // Runs only while the pane is on screen; update() restarts it when the tab is shown again.
-  // The map is computed pixel by pixel, so while it plays it is drawn 30 times a second (15 in Battery saver), like the
-  // lobule's flow, not at the screen's 60 or 120: the speckle drifts slowly, so it looks the same at a fraction of the work.
+  // While it plays the map is drawn on every frame the screen offers (15 a second in Battery saver), like the lobule's flow.
   let lastPaint = -1e9;
   function loop(now) {
     if (!cv.isConnected || cv.offsetParent === null || document.hidden) { running = false; return; }
     const hold = REDUCED || isPaused();
-    if (hold || now - lastPaint >= (saver() ? SAVER_MS : GLIDE_MS)) { paint(now); lastPaint = now; noteDraw('fibroscan'); }   // (paused: always drawn, so a change shows)
+    if (hold || now - lastPaint >= paceMs()) { paint(now); lastPaint = now; noteDraw('fibroscan'); }   // (paused: always drawn, so a change shows)
     if (hold) { running = false; return; }   // paused: hold this frame; resume restarts the loop
     nextFrame(loop);
   }

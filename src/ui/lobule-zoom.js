@@ -19,17 +19,17 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=773d9728fe';
+import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { store } from './store.js?v=3b659e1968';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=aa67f75cf8';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01, GLIDE_MS } from './util.js?v=0e70eb01ff';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=162c8bf8d6';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=d3b27f8085';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=e387ad7347';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=ec83805fb9';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=191c4f4858';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=a513d566e7';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=44e154296f';
-import { frameFor, cancelFrame, noteDraw, saver, SAVER_MS } from './frame.js?v=5ad4028792';
+import { createSinusoidView } from './sinusoid-view.js?v=7117686e39';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -389,7 +389,6 @@ export function createLobuleZoom({ host }) {
   // A new text size: the labels glide to their new places instead of jumping.
   let easeT = 0;
   addEventListener('pps:labelscale', () => { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(() => labels.classList.remove('lz-ease'), 450); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
-  const PACE_MS = GLIDE_MS;
   let pacedVer = -1, viewVer = 0;   // viewVer: a pan, zoom, resize or label change, drawn without waiting
   const viewChanged = () => { drawVersion++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
@@ -854,8 +853,9 @@ export function createLobuleZoom({ host }) {
   let glideAt = 0;
   function glideP(now) {
     if (!F || fade <= 0 || !model) return;
-    // Paced like the flow (30 a second): the model's pressures never quite settle while it runs, so this glide never stops.
-    if (now - glideAt < PACE_MS) { easeRaf = nextFrame(glideP); return; }
+    // Paced like the flow (every frame; 15 a second in Battery saver): the model's pressures never quite settle while it
+    // runs, so this glide never stops.
+    if (now - glideAt < paceMs()) { easeRaf = nextFrame(glideP); return; }
     glideAt = now;
     const eased = easeP.step(F.Pf || F.P);
     const inks = model.inks;
@@ -1395,10 +1395,9 @@ export function createLobuleZoom({ host }) {
     if (fade <= 0 || !model) return;
     const soft = !!gl?.software;
     if (soft && now - lastPaint < 110) { raf = nextFrame(loop); return; }
-    // The flow alone is paced to 30 frames a second, like the anatomy's blood (not the screen's 60 or 120): it looks the
-    // same and halves the work or more, which kept a laptop busy and warm. A pan, zoom or any other change draws at once.
-    // (Battery saver: 15 frames a second.)
-    const paced = !soft && viewVer === pacedVer, pace = saver() ? SAVER_MS : PACE_MS;
+    // The flow is drawn on every frame the screen offers, like the anatomy's blood. Battery saver alone paces it, to 15 a
+    // second; a pan, zoom or any other change draws at once even then.
+    const pace = paceMs(), paced = !soft && pace > 0 && viewVer === pacedVer;
     if (paced && now - lastPaint < pace) { raf = nextFrame(loop); return; }
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; lastPaint = now;
     const st = store.get(), moving = st.running && !reduce.matches;
@@ -1412,7 +1411,7 @@ export function createLobuleZoom({ host }) {
     if (drew && prevDrew && !soft && dt < 0.1) {
       // Hysteresis: a sustained trend of about a second before the scale moves, and then not more than once a second.
       gapAvg += (dt * 1000 - gapAvg) * 0.1;
-      const aim = pace + 4;   // (the frame the pacing aims for: 33 ms, or 67 ms in Battery saver)
+      const aim = pace + 4;   // (the frame the pacing aims for: 67 ms in Battery saver; unpaced, the 21 ms below)
       slowMs = gapAvg > (paced ? aim * 1.23 : 21) ? slowMs + dt * 1000 : 0; fastMs = gapAvg < (paced ? aim * 1.035 : 14.5) ? fastMs + dt * 1000 : 0;
       if (now - resCheck > 1000) {
         if (slowMs > 1000 && lzRes > 0.6) { lzRes = Math.max(0.6, lzRes - 0.1); resCheck = now; slowMs = 0; idleDrawn = ''; }

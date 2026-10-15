@@ -2,16 +2,16 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { pressureColor } from './colormap.js?v=162c8bf8d6';
-import { verbEnabled } from './actions.js?v=1c182437c6';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=0e70eb01ff';
+import { pressureColor } from './colormap.js?v=ec83805fb9';
+import { verbEnabled } from './actions.js?v=f84a878db7';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=e387ad7347';
 import { simTime, isPaused } from './clock.js?v=af6de95a7c';
-import { createEndoGL } from './endo-gl.js?v=3ff04e53a0';
-import { renderEndo } from './endo-render.js?v=b83bebc441';
-import { FONT } from './charts.js?v=890f0ee420';
+import { createEndoGL } from './endo-gl.js?v=9c6f94577c';
+import { renderEndo } from './endo-render.js?v=00dd0c3285';
+import { FONT } from './charts.js?v=eed250ce0a';
 import { store, updateParams, varicesPresent } from './store.js?v=3b659e1968';
 import { balanceHold } from './balance-hold.js?v=ea4d9121d2';
-import { frameFor, cancelFrame } from './frame.js?v=5ad4028792';
+import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('instruments');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
