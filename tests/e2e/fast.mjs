@@ -51,7 +51,9 @@ export async function gotoSlide(page, url, deck, i) {
   shownDeck.set(page, deck);
   // (the count changes at once; the slide has arrived when the presenter is no longer moving to it)
   // (A time-lapse is sped to its end, as Next does: a long one, two years of a growing spleen, outran the wait on a slow runner.)
-  await page.waitForFunction((k) => { if (Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) !== k) return false; window.pps.presenter.skipLapse?.(); return !window.pps.presenter.busy() && !document.querySelector('.pz-load.on, .pz-cover'); }, i + 1, { timeout: 60000, polling: 50 });
+  // (A case card waits for a tap before the slide goes on, so it is tapped away as a person would: without that the wait ran out
+  // on every case slide reached from the slide before.)
+  await page.waitForFunction((k) => { if (Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) !== k) return false; window.pps.presenter.skipLapse?.(); document.querySelector('.pz-case.on')?.click(); return !window.pps.presenter.busy() && !document.querySelector('.pz-load.on, .pz-cover'); }, i + 1, { timeout: 60000, polling: 50 });
 }
 
 // Waits until the slide has stopped moving: no loading cover, no camera glide, no finite animation running, and the

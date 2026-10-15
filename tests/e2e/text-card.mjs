@@ -1,6 +1,6 @@
 // Presenter words' card check: on a laptop or tablet the words' card is only as tall as its words (padding equal above and
 // below them), its top level with the data card's place at the top right, and clear of the controls' pill. The data card either
-// stacks under the words' card (same left edge and width, a gap at least the cards' margin from the screen's edge, above the
+// stacks under the words' card (same left edge and width, a gap 0.6 of the cards' margin from the screen's edge, above the
 // controls) or, when the pair would not fit, sits at the top right; the two never overlap. Lists the slides in each place.
 //
 //   DECKS=doppler DEVS=mac,ipad node tests/e2e/text-card.mjs
@@ -44,7 +44,8 @@ for (const dev of devs) {
           if (da.classList.contains('col')) {
             where = 'stacked';
             if (Math.abs(d.left - s.left) > 1.5 || Math.abs(d.right - s.right) > 1.5) err.push(`stacked card not in the words' column (${Math.round(d.left)}-${Math.round(d.right)} vs ${Math.round(s.left)}-${Math.round(s.right)})`);
-            if (d.top - s.bottom < Math.max(m, 28) - 1) err.push(`gap ${Math.round(d.top - s.bottom)} under ${Math.round(Math.max(m, 28))}`);
+            // (The gap is 0.6 of the margin, presenter.js layout(), since a77f314 and audit/card-layout-recs.md; it was the margin itself before.)
+            if (Math.abs(d.top - s.bottom - Math.round(0.6 * m)) > 1.5) err.push(`gap ${Math.round(d.top - s.bottom)}, not ${Math.round(0.6 * m)} (0.6 of the ${Math.round(m)} margin)`);
             if (q && q.left < d.right && q.right > d.left && d.bottom > q.top - 1) err.push('stacked card runs into the controls');
             if (d.bottom > innerHeight - m + 1) err.push('stacked card past the bottom');
             if (+getComputedStyle(da).getPropertyValue('--pz-fit') && +getComputedStyle(da).getPropertyValue('--pz-fit') < 0.97) err.push('stacked card shrunk to fit');
