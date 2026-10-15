@@ -2052,10 +2052,10 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-pillclr { margin-bottom: calc(var(--pz-reach, 32px) / var(--pz-fit, 1)); }   /* (in the card's own px: its contents are zoomed by --pz-fit) */   /* (a box keeps its full width and ends just above the pill) */
 .pz.stack .pz-stk:has(> .pz-pillgap) { flex-wrap: wrap; overflow: visible; }
 .pz.stack .pz-bar.idle { opacity: 1; pointer-events: auto; transform: none; }
-/* (The phone's pill is kept small: 38 px tall, the count and the two buttons close together; Mohammad, 15 Oct.) */
-.pz.stack .pz-bar .ib { width: 38px; min-width: 0; height: 38px; }
+/* (The phone's pill looks small, 38 px tall with the count and the two buttons close together (Mohammad, 15 Oct), but every button keeps its 44 px tap box: a negative margin pulls the box's spare 3 to 4 px over the pill's own edge.) */
+.pz.stack .pz-bar .ib { width: 44px; min-width: 0; height: 44px; margin: -4px -3px; }
 .pz.stack .pz-bar .ib svg { width: 18px; height: 18px; }
-.pz.stack .pz-bar button.pzb-n { min-width: 3.4em; min-height: 38px; padding: 0 4px; font-size: calc(var(--s-body) * .9); }
+.pz.stack .pz-bar button.pzb-n { min-width: 3.4em; min-height: 44px; margin-block: -4px; padding: 0 4px; font-size: calc(var(--s-body) * .9); }
 .pz.stack .pz-kick .pz-sec { flex: none; }
 @media (max-width: 359px) { .pz.stack .pz-kick .pz-sec { display: none; } }
 .pz.stack .pz-kick .pz-kw { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2353,7 +2353,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-table td.note { min-width: 6.5em; }
 /* The count opens the slide list; a running time-lapse shows that Next skips it. */
 .pz-bar button.pzb-n { border: 0; background: none; border-radius: var(--r-control); min-height: 40px; padding: 0 10px; font-weight: 500; cursor: pointer; transition: background-color .25s var(--ease), color .25s var(--ease); }
-.pz.stack .pz-bar button.pzb-n { min-height: 38px; }
+.pz.stack .pz-bar button.pzb-n { min-height: 44px; }
 .pz-bar button.pzb-n[aria-expanded="true"] { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
 @media (hover: hover) { .pz-bar button.pzb-n:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); } }
 .pz-bar .pzb-next.skipping:not(:disabled) { background: var(--accent-soft); }

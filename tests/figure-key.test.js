@@ -53,5 +53,5 @@ test('the key lives on the figure, not in the teaching card, and never takes a t
 
 test("the phone's nav pill is compact", () => {
   assert.match(css, /\.pz\.stack \.pz-bar \{[^}]*height: 38px;/);
-  assert.match(css, /\.pz\.stack \.pz-bar \.ib \{ width: 38px;/);
+  assert.match(css, /\.pz\.stack \.pz-bar \.ib \{ width: 44px;[^}]*margin: -4px -3px;/);   // (looks small, keeps its 44 px tap box)
 });
