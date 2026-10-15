@@ -2105,7 +2105,14 @@ button.finding { cursor: pointer; }
    at a larger one, so the row stays the height of its 34 px buttons and the card's words keep their larger size; the label role
    under 360 px. Its roles are its own, not the slide words' 1.7x, which would not fit four across.) */
 .pz.stack .pz-ab { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
-@media (max-width: 359px) { .pz.stack .pz-abb { font-size: var(--s-lab); } }
+.pz.stack .pz-text > .pz-ab { zoom: min(1, max(var(--pz-fit, 1), calc(7 / 6 / var(--ts, 1)))); }   /* (a larger text size: the buttons, the label role, never read smaller on the screen than at the usual size's 14 px) */
+@media (max-width: 359px) {
+  /* (a 320 px card fitted smaller keeps its buttons at 12 px on the screen (they had been 9.6): the row zooms no smaller than
+     that, and its height is set to what it was at the card's zoom, so the card, the figure above it and the credit stay put) */
+  .pz.stack .pz-text > .pz-ab { --abz: max(var(--pz-fit, 1), calc(1 / var(--ts, 1))); zoom: var(--abz); padding: calc(3px * var(--pz-fit, 1) / var(--abz)) 3px; }
+  .pz.stack .pz-abb { font-size: var(--s-lab); min-height: calc(34px * var(--pz-fit, 1) / var(--abz)); padding-block: 0; }
+  .pz.stack .pz-text > .pz-ab.pz-pillclr { margin-bottom: calc((var(--pz-reach, 32px) + var(--pz-fkrow, 0px)) / var(--abz)); }   /* (its gap above the pill in its own zoom) */
+}
 /* A what-if slider: the same frosted pill as the treatment buttons, its name, the track between its two ends, and the value. */
 .pz-wi { display: flex; align-items: center; gap: .5em .9em; flex-wrap: wrap; padding: .45em 1.05em; width: min(100%, 34em); box-sizing: border-box; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; font: 600 var(--s-lab)/1.15 var(--font-ui); color: var(--text); }
 .pzi-l { display: flex; flex-direction: column; gap: .1em; white-space: nowrap; }
