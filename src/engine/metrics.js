@@ -6,7 +6,11 @@ import { tenthGap } from './gap.js?v=3a5947c552';
 
 const STENTS = new Set(['TIPS', 'DIPS']);   // the stents from the portal side: their flow is part arterial (see computeMetrics)
 
-function varixGrade(d) {
+// The grades judge the number every readout prints (a diameter to 0.1 mm, a volume to 0.1 L), so "5.0 mm" is never Small
+// and "5.0 L" never Grade 2.
+const tenth = (v) => Math.round(+v.toFixed(1) * 10) / 10;
+export function varixGrade(d0) {
+  const d = Number.isFinite(d0) ? tenth(d0) : d0;
   if (d < 2.5) return { code: '—', label: 'None' };
   if (d < 5) return { code: 'F1', label: 'Small' };
   if (d < 10) return { code: 'F2', label: 'Large' };
