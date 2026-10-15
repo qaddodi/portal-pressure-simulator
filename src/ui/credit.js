@@ -249,7 +249,7 @@ export function createCreditPlacer(credit) {
   let kept = '', keptBlocked = [], searches = 0;
   // (tier: the art test the spot was found under (null: the least covered spot, or the plain one); fresh: the next look picks
   // anew instead of keeping the spot (after a slide change or a resize); resized: when the screen last changed size)
-  let tier = null, fresh = true, resizedAt = -1e9;
+  let tier = null, fresh = true, resizedAt = -1e9, stuck = '';   // (stuck: the slide it was hidden on for want of a bare spot)
   const measure = (busy) => {
     const key = innerWidth + 'x' + innerHeight;
     if (key !== sizeKey) {
@@ -259,7 +259,10 @@ export function createCreditPlacer(credit) {
         c.className = 'stage-credit' + (b ? ' busy' : '') + (b === 'tight' ? ' tight' : '');
         Object.assign(c.style, { visibility: 'hidden', transition: 'none', translate: 'none', top: '0', left: '0', bottom: 'auto' });
         wrap.append(c);
-        size[b] = { w: c.offsetWidth, h: c.offsetHeight };
+        // (Its size as drawn: on a phone it is scaled down from its bottom left corner, and its box at that scale had been
+        // taken a third too big, so a strip of figure it fits in was passed over and it sat on a vessel: Treatment 2.)
+        const k = c.getBoundingClientRect(), wk = wrap.getBoundingClientRect();
+        size[b] = { w: k.width, h: k.height, ox: k.left - wk.left - wrap.clientLeft, oy: k.top - wk.top - wrap.clientTop };
         if (b) {
           // The notch's side margins (a phone held sideways) and the home indicator's strip at the bottom, kept clear like a card.
           c.style.padding = '0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)';
@@ -287,8 +290,9 @@ export function createCreditPlacer(credit) {
   const place = (c, p, tight = false) => {
     credit.classList.toggle('tight', tight);
     curTight = tight;
-    credit.style.setProperty('--cx', `${Math.round(p.x)}px`);
-    credit.style.setProperty('--cy', `${Math.round(p.y)}px`);
+    const z = size[tight ? 'tight' : credit.classList.contains('busy')] || {};   // (p: where its drawn box goes)
+    credit.style.setProperty('--cx', `${Math.round(p.x - (z.ox || 0))}px`);
+    credit.style.setProperty('--cy', `${Math.round(p.y - (z.oy || 0))}px`);
     cur = c; pos = p;
     credit.classList.add('placed');
     credit.classList.remove('moving', 'covered');
@@ -356,46 +360,30 @@ export function createCreditPlacer(credit) {
       const z = curTight ? measure('tight') : { w, h }, bx = { l: pos.x, t: pos.y, r: pos.x + z.w, b: pos.y + z.h };
       const inside = bx.l >= fig.l && bx.r <= fig.r && bx.t >= fig.t + Math.min(opt.inset, 12) && bx.b <= fig.b - 4;
       const clear = !obs.some((o) => hit({ l: bx.l - opt.gap, t: bx.t - opt.gap, r: bx.r + opt.gap, b: bx.b + opt.gap }, o));
-      if (inside && clear && (!tier || !art(bx, tier))) { kept = look; keptBlocked = []; return; }
+      if (inside && clear && tier && !art(bx, tier)) { kept = look; keptBlocked = []; return; }
     }
-    fresh = false; searches++;
-    let spots = freeSpots(fig, obs, w, h, opt), tight = false;
-    const covered = CORNERS.filter((k) => !spots[k]);
+    // (Hidden on a slide for want of a bare spot: it stays hidden through that slide's picks and steps, never flickering back as
+    // a number or a card shifts, until the next slide or a resize looks afresh.)
+    const slide = app?.classList.contains('presenting') ? `${document.title}|${document.querySelector('.pzb-n')?.textContent}` : '';
+    if (stuck && !fresh && slide && stuck === slide) { kept = look; keptBlocked = []; return; }
+    stuck = ''; fresh = false; searches++;
+    const covered = CORNERS.filter((k) => !freeSpots(fig, obs, w, h, opt)[k]);
     for (const k of covered) blocked[k] = now;
-    // (Spots clear of the organs' art too, found the same way (stepping in along the edge if need be), where there are any;
-    // else the plain spots, so the credit always shows.)
-    // (The strictest look first: 18 px clear of organs and vessels; then 8 px clear of both; then clear of the vessels only (over an
-    // organ's plain fill), 8 px and then 2 px; at each step on one line, then on two. The plain spots last, so the credit still shows.)
-    let bare = null, found = null;
-    find: for (const t of [{ pad: 18 }, { pad: 8 }, { pad: 8, org: false }, { pad: 2, org: false }]) {
+    // Only bare figure: never on an organ or a vessel, nor on a card or label (Mohammad, 14 Oct; and 15 Oct: it had been put over
+    // a vessel where nothing bare was free). The strictest look first, 18 px clear of the art, then 8 and then 4; at each step on
+    // one line, then on two. With no bare spot anywhere it stays hidden.
+    let spots = null, tight = false, found = null;
+    find: for (const t of [{ pad: 18 }, { pad: 8 }, { pad: 4 }]) {
       for (const two of [false, true]) {
         const z = two ? measure('tight') : { w, h }, b = freeSpots(fig, obs, z.w, z.h, { ...opt, avoid: (box) => art(box, t) });
-        if (CORNERS.some((k) => b[k])) { bare = b; tight = two; found = t; break find; }
-      }
-    }
-    // (Nowhere bare: the free spot with the least art under it, on one line or on two, whichever covers less; with the usual gap
-    // from the cards and labels, else with a narrow one, where an open card leaves only a strip of figure.)
-    if (!bare) {
-      for (const gap of [opt.gap, 4]) {
-        const o = { ...opt, gap }, one = leastCovered(fig, obs, w, h, o, art.cover), z = measure('tight'), two = leastCovered(fig, obs, z.w, z.h, o, art.cover);
-        if (Number.isFinite(one.cover) || Number.isFinite(two.cover)) {
-          tight = !(one.cover <= two.cover);
-          bare = tight ? two.spots : one.spots;
-          break;
-        }
+        if (CORNERS.some((k) => b[k])) { spots = b; tight = two; found = t; break find; }
       }
     }
     // (A slide on a laptop or tablet: one spot, the figure's top right, whenever it is free; a phone keeps the corner order.)
-    const pref = app?.classList.contains('presenting') && document.querySelector('.pz:not(.stack)') ? 'tr' : null, pool = bare || spots;
-    if (pool === bare) spots = bare;
+    const pref = app?.classList.contains('presenting') && document.querySelector('.pz:not(.stack)') ? 'tr' : null;
     tier = found;
-    let c = pref && pool[pref] ? pref : pickCorner(pool, cur, blocked);
-    if (!c) {
-      // Not on one line: try it on two, before giving the figure up as covered.
-      const t = measure('tight'), tspots = freeSpots(fig, obs, t.w, t.h, opt), tc = pickCorner(tspots, cur, blocked);
-      if (tc) { spots = tspots; c = tc; tight = true; tier = null; }
-    }
-    if (!c) { credit.classList.add('covered'); return; }
+    const c = !spots ? null : pref && spots[pref] ? pref : pickCorner(spots, cur, blocked);
+    if (!c) { credit.classList.add('covered'); stuck = slide; kept = look; keptBlocked = covered; return; }
     const p = spots[c];
     if (c === cur && tight === curTight && !credit.classList.contains('moving') && !credit.classList.contains('covered') && Math.abs(p.x - pos.x) <= 4 && Math.abs(p.y - pos.y) <= 4) {
       // A nudge of a few pixels (its own size easing to the busy size) is taken in place.

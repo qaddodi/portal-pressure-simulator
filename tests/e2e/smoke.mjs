@@ -758,6 +758,29 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await restore();
   });
 
+  // The credit only on bare figure, at 12 px (15 Oct): on a phone it had been scaled to about 9 px and judged a third too big,
+  // so on Treatment 2 it passed over the bare strip under the data card and sat across a vessel.
+  if (device === 'phone') await check(device, 'The credit is 12 px and sits only on bare figure (Treatment 2)', async (page) => {
+    const restore = await instantMotionOn(page);
+    await gotoSlide(page, server.url, 'treatment', 1);
+    await quiet(page);
+    await page.waitForFunction(() => document.querySelector('.stage-credit').matches('.placed:not(.moving)') && !document.querySelector('#app.pz-moving'), null, { timeout: 60000 });
+    await page.waitForTimeout(2000);
+    const bad = await page.evaluate(() => {
+      const cr = document.querySelector('.stage-credit'), cs = getComputedStyle(cr), out = [];
+      const px = parseFloat(cs.fontSize) * (cs.scale === 'none' ? 1 : parseFloat(cs.scale));
+      if (px < 12) out.push(`text ${px.toFixed(1)} px`);
+      if (cr.classList.contains('covered')) return out;   // (hidden where nothing is bare: allowed)
+      // (the figure's vessels and organs under its drawn box, sampled every 3 px; the GPU figure's vessels are their hit strokes)
+      const b = cr.getBoundingClientRect(), on = new Set();
+      for (let x = b.left; x <= b.right; x += 3) for (let y = b.top; y <= b.bottom; y += 3) for (const e of document.elementsFromPoint(x, y)) if (e.matches('.v-hit, .v-lumen, .v-strand, g.organ *, #labels .lb *')) on.add(e.matches('#labels .lb *') ? 'a label' : e.matches('g.organ *') ? 'an organ' : 'a vessel');
+      if (on.size) out.push(`sits on ${[...on].join(' and ')} at ${b.left | 0},${b.top | 0}`);
+      return out;
+    });
+    await restore();
+    if (bad.length) throw new Error(`Treatment 2: the credit ${bad.join('; ')}`);
+  });
+
   // Turning an iPad mid-slide (review #52): the data card never shows over the words' card on the way, and turned upright it
   // leaves the stacked place under the words (it had stayed there for good, hidden behind them, when its fade-out ran slow).
   if (device === 'phone') await check(device, 'Turning an iPad mid-slide keeps the data card off the words', async (page) => {

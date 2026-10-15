@@ -50,10 +50,17 @@ test('credit keeps the bottom-left corner on a bare figure', () => {
   assert.equal(pickCorner(s, null), 'bl');
 });
 
-test('copyright credit shrinks while a card sits beneath it', () => {
-  assert.match(css, /\.stage-credit\.busy \{ scale: \.875; \}/);
-  assert.match(css, /\.stage-credit \{[^}]*scale: \.875/);
-  assert.match(css, /\.stage-credit\.busy \{ scale: \.75; \}/);
+test('copyright credit is 12 px everywhere: never scaled below the 12 px floor (15 Oct)', () => {
+  assert.match(css, /\.stage-credit \{[^}]*font-size: var\(--fs-12\)/);
+  assert.doesNotMatch(css, /\.stage-credit[^{]*\{[^}]*\bscale:/);
+});
+
+test('the credit goes only on bare figure: no fallback over the art, hidden where nothing is bare (15 Oct)', () => {
+  const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  const body = src.slice(src.indexOf('export function createCreditPlacer'));
+  assert.doesNotMatch(body, /leastCovered\(|org: false/);
+  assert.match(body, /\{ pad: 18 \}, \{ pad: 8 \}, \{ pad: 4 \}/);
+  assert.match(body, /size\[b\] = \{ w: k\.width, h: k\.height/);   // its size as drawn
 });
 
 test('credit rides above a card at the bottom, clear of it', () => {
