@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=e387ad7347';
-import { createLobuleZoom } from './lobule-zoom.js?v=651fa34181';
+import { createLobuleZoom } from './lobule-zoom.js?v=1e7db51370';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -16,7 +16,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=a513d566e7';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=54c213bd5c';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
 import { portalSplit } from './table-marks.js?v=f709ae0429';
@@ -2439,6 +2439,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const binMemo = new Map();
   let binShown = null;
   let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
+  const veinsRows = new Set();   // vessel rows whose attributes changed since the vessel layer was drawn (only those, while veinsDirty is false)
   let plateDim = null, plateSat = 1, netA = 1;
   // A lens switch crossfades every vessel from the colors it showed to the new lens's (no one-frame recolor).
   let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
@@ -2811,9 +2812,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The vessel layer is drawn again only when what it is drawn from changed: a running model sends a frame about ten
     // times a second, and in a steady state most of them leave every vessel's colour, width and fade exactly as they were.
     const lookSig = JSON.stringify(vLook, (k, v) => (k === 'fluid' ? undefined : v)) + plateOn();
-    if (tubesNew || lookSig !== tubesLook || tubesChanged) {
+    // Most of those that do change only a few vessels' colours (the pulse), and the vessel layer then redraws only those
+    // vessels' cells (veinsRows; see drawVeins): a whole redraw at a Retina size is the heaviest thing the figure draws.
+    if (tubesNew || lookSig !== tubesLook || !tubesShown || tubesShown.length !== tubeData.length) {
       veinsDirty = true; tubesLook = lookSig;
       if (tubesChanged) tubesShown = tubeData.slice();
+    } else if (tubesChanged) {
+      const W = TUBE_TEXELS * 4;
+      for (let o = 0; o < tubeData.length; o += W) {
+        for (let i = o; i < o + W; i++) if (tubeData[i] !== tubesShown[i]) { veinsRows.add(o / W); tubesShown.set(tubeData.subarray(o, o + W), o); break; }
+      }
     }
     tubesNew = false;
     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
@@ -2821,15 +2829,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   /** Redraws the vessel layer (and the picture) if anything in it changed; true when it did. */
   let glM = null;   // the world → stage transform (CSS px) the vessels were last drawn in (for the tests)
-  function drawVeins() {
+  function drawVeins(fullComposite = false) {
     if (!veins || veins.lost || !vLook || !F) return false;
     if (!CTM) refreshCTM();
     const m = CTM;
     const T = [vdpr * m.a, vdpr * m.b, vdpr * m.c, vdpr * m.d, vdpr * (m.e - wrapRect.left), vdpr * (m.f - wrapRect.top)];
     const key = T.map((v) => v.toFixed(3)).join(',') + `|${vCanvas.width}x${vCanvas.height}`;
-    if (!veinsDirty && key === veinsDrawKey) return false;
+    if (!veinsDirty && key === veinsDrawKey) {
+      if (!veinsRows.size) return false;
+      // Only some vessels' attributes changed: their cells alone are drawn again (the same picture as a whole redraw).
+      const rows = [...veinsRows];
+      veinsRows.clear();
+      if (veins.drawRows(T, vLook, bloodLook(), rows, fullComposite)) return true;
+    }
     if (key !== veinsDrawKey && plateOn()) schedulePlateView();
-    veinsDirty = false; veinsDrawKey = key;
+    veinsDirty = false; veinsDrawKey = key; veinsRows.clear();
     glM = [m.a, m.b, m.c, m.d, m.e - wrapRect.left, m.f - wrapRect.top];
     veins.draw(T, vLook, bloodLook());
     return true;
@@ -5868,7 +5882,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The vessel layer is redrawn only when something in it changed; the blood every frame.
     if (glowSync) syncVeins(easeInOut(morph));
     olStep(now);
-    if (drawVeins()) noteDraw('stage');
+    if (drawVeins(fluidMoved)) noteDraw('stage');
     else if (veins && !veins.lost && vLook && F) { veins.composite(vLook, bloodLook(), fluidMoved); noteDraw('stage'); }
     drawnView = viewVersion;
     lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM; lastAnim = anim || bolus.active || dyeShown;

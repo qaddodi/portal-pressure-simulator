@@ -18,6 +18,10 @@ What changed:
   pass over just the vessel tiles that reads that buffer and draws the parcels, the dye and any
   bleed; the canvas keeps everything else (`preserveDrawingBuffer`). The per-frame CPU work is a
   few floats per vessel.
+- **Only the vessels that changed are redrawn.** When a model frame changes only some vessels'
+  attributes (the pulse moving a few colours), `drawRows` in `veins-gl.js` redraws only those
+  vessels' cells, to the same picture pixel for pixel; anything else the vessel pass reads (view,
+  size, look, a vessel's shape) still redraws the whole layer. Checked by `npm run smoke:rows`.
 - **Full detail, always.** Outside Battery saver the figure, the lobule and the FibroScan never
   lower their own resolution or frame rate: no governor steps them down when frames run long, and
   zooming in keeps every pixel. Levels older builds stored (`pps.quality`, `pps.q`) are removed at
