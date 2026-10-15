@@ -2104,6 +2104,45 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const after = await box();
     if (Math.abs(after.top - before.top) > 1) throw new Error(`switching tab moved the card's top edge by ${after.top - before.top} px`);
   });
+  // From Full a pull down settles the Tests card at Half, however fast (a flick included); only a second pull closes it. After the
+  // finger lifts, every frame the card's slide and its cut are the same length (one value, --sink), so the part that would pass
+  // the tab row is never drawn: on iOS a transform animated beside a clip-path ran ahead of it and showed over the tab row.
+  if (device === 'phone') await check(device, 'thumb dock: a fast pull from Full settles at Half, a second pull closes, and the slide never outruns its cut', async (page) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await open(page, '?preset=cirr-decomp');
+    await page.waitForTimeout(800);
+    await page.click('#thumbBar [data-tab="tests"]');
+    await page.waitForTimeout(900);
+    const halfH = await page.evaluate(() => document.querySelector('#dock').getBoundingClientRect().height);
+    await page.click('#dock .sheet-grab');
+    await page.waitForTimeout(600);
+    const fullH = await page.evaluate(() => document.querySelector('#dock').getBoundingClientRect().height);
+    await page.evaluate(() => {
+      window.__bad = [];
+      const tick = () => { const c = document.querySelector('#dock'), cs = getComputedStyle(c);
+        if (c.offsetParent) {
+          const ty = parseFloat(cs.translate.split(' ')[1]) || 0, cut = parseFloat((cs.clipPath.match(/inset\(([^)]*)\)/)?.[1] || '').split(/\s+/)[2]) || 0;
+          if (Math.abs(ty - cut) > 0.5) window.__bad.push(`slide ${ty} vs cut ${cut}`);
+        }
+        window.__sinkRaf = requestAnimationFrame(tick); };
+      tick();
+    });
+    const flick = async () => {
+      const g = await page.evaluate(() => { const r = document.querySelector('#dock .sheet-grab').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+      await page.mouse.move(g[0], g[1]); await page.mouse.down();
+      for (let i = 1; i <= 4; i++) await page.mouse.move(g[0], g[1] + 8 + 60 * i);
+      await page.mouse.up();
+      await page.waitForTimeout(700);
+    };
+    await flick();
+    const st = await page.evaluate(() => ({ open: document.querySelector('#app').classList.contains('dock-open'), h: document.querySelector('#dock').getBoundingClientRect().height }));
+    if (!st.open) throw new Error('a fast pull from Full closed the Tests card instead of settling at Half');
+    if (Math.abs(st.h - halfH) > Math.abs(st.h - fullH)) throw new Error(`a pull from Full settled at ${st.h} px, not Half (${halfH}; Full ${fullH})`);
+    await flick();
+    if (await page.evaluate(() => document.querySelector('#app').classList.contains('dock-open'))) throw new Error('a second pull, from Half, did not close the Tests card');
+    const bad = await page.evaluate(() => { cancelAnimationFrame(window.__sinkRaf); return [...new Set(window.__bad)].slice(0, 3); });
+    if (bad.length) throw new Error(`the card's slide and cut came apart: ${bad.join('; ')}`);
+  });
   // The Doppler tab of a phone's Tests card: the Peak, Trough, Pulsatility and CI tiles are on top of the play bar at Half and at Full
   // (the play bar once covered the card's bottom edge), and the one-line note under them shows only at Full.
   if (device === 'phone') await check(device, 'thumb dock: Doppler tiles show at Half and Full, the note only at Full', async (page) => {

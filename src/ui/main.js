@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=ff070ac951';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bb8c70114d';
-import { createStage } from './stage.js?v=6bdb8697dd';
+import { createStage } from './stage.js?v=49b5de606d';
 import { createCreditPlacer } from './credit.js?v=122c73335a';
-import { sinusoidSupported } from './sinusoid-view.js?v=bd5a61fe6a';
-import { createInspector } from './inspector.js?v=9fe58e508f';
-import { createDock, CUTOFFS } from './dock.js?v=d088c0d121';
-import { setHvpgStage } from './hvpg-proc.js?v=a404bb8855';
-import { createWhy } from './why.js?v=7aaabb2e4f';
-import { createTimeline, LAPSES } from './timeline.js?v=3d523b75b7';
-import { createCompare } from './compare.js?v=03b08ff80d';
-import { createCard } from './card.js?v=45afc388f1';
-import { createChart } from './chart.js?v=1908a07509';
-import { createMenu, ROLES } from './menu.js?v=35c01a1fbe';
+import { sinusoidSupported } from './sinusoid-view.js?v=aef067f525';
+import { createInspector } from './inspector.js?v=97fe69ccc9';
+import { createDock, CUTOFFS } from './dock.js?v=5d9cde9537';
+import { setHvpgStage } from './hvpg-proc.js?v=10836deae5';
+import { createWhy } from './why.js?v=d7371d7a2a';
+import { createTimeline, LAPSES } from './timeline.js?v=8962b72fd8';
+import { createCompare } from './compare.js?v=33558f1c0e';
+import { createCard } from './card.js?v=2e9ce4583d';
+import { createChart } from './chart.js?v=c0767662ef';
+import { createMenu, ROLES } from './menu.js?v=15d8360d0f';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';
-import { caption } from './a11y.js?v=79624da370';
+import { caption } from './a11y.js?v=7af6f005f3';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=0c832884d4';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=d87318c4aa';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=0f537e3cc0';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=17a57bfe02';
 import { EDGES, PORTAL_TERRITORY, dopplerK } from '../engine/topology.js?v=1825cbda55';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge } from './util.js?v=623bcb8d4f';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=5df92c06c3';
 import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=eaefbca02b';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=f0f22b95b0';
 import { initTopbarMotion } from './topbar-motion.js?v=40e62f18bf';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=6ebaeb46c8';
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=12f35064d6'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=a02757a4b4'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -147,7 +147,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=6328c10de0'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=c6594a37e0'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1238,6 +1238,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     // (Over the thumb dock buttons and tabs carry the pull too, so Treat moves from anywhere; a tap still clicks.)
     if (e.target !== handle && e.target.closest(thumb() && anywhere ? FIELDS : CONTROLS) && !headTab) return;
     if (!own && !(anywhere && isPhone())) return;
+    stopSink(el);
     const r = el.getBoundingClientRect(), mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat);
     start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: r.height, H: room() || app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own || headTab, sc: own ? null : scroller(e.target) };
   });
@@ -1253,9 +1254,10 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     }
     el.classList.add('dragging');
     start.dy = dy;
-    // Over the thumb dock a pull down slides the card down behind the tab row (clipped at its resting bottom edge).
-    if (thumb() && dy > 0) { el.style.height = ''; el.style.translate = `0 ${dy}px`; el.style.clipPath = `inset(-40px -40px ${dy}px -40px)`; }
-    else if (isPhone()) { el.style.translate = ''; el.style.clipPath = ''; el.style.height = `${Math.max(60, start.h - dy)}px`; }
+    // Over the thumb dock a pull down slides the card down behind the tab row (--sink: moved and cut at its resting
+    // bottom edge in one value, styles/app.css).
+    if (thumb() && dy > 0) { el.style.height = ''; el.style.setProperty('--sink', `${dy}px`); }
+    else if (isPhone()) { el.style.removeProperty('--sink'); el.style.height = `${Math.max(60, start.h - dy)}px`; }
     else el.style.translate = `${start.tx + dx}px ${start.ty + dy}px`;
   });
   // Once the sheet follows the finger, the page must not scroll under it, and the lift is not a tap.
@@ -1275,23 +1277,19 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     if (s0.moved) { swallow = true; setTimeout(() => { swallow = false; }, 350); }
     if (!s0.moved || !isPhone()) return;
     if (thumb() && s0.dy > 0) {
-      el.style.transition = 'translate .22s var(--ease), clip-path .22s var(--ease)';
-      // From Full a pull settles at Half; only a pull past Half's own close point, or a fast flick down, closes it.
+      // (15 Oct, Mohammad) From Full a pull down always settles at Half, however fast; only a second pull, from Half,
+      // closes the card: past a short way down or a quick flick. A short pull eases back where it was.
       const S = stops(), fromFull = size === S.length - 1 && S.length > 1;
-      const halfH = fromFull ? Math.min(natural(), S[half()] * (room() || app.clientHeight)) : s0.h;
       const flick = s0.dy / Math.max(1, performance.now() - s0.t0) > 0.9 && s0.dy > 40;
-      const gone = flick || s0.dy > (s0.h - halfH) + Math.min(90, halfH * 0.3);
-      if (!gone && fromFull && s0.dy > 40) {
-        size = half(); el.style.transition = 'translate .22s var(--ease), clip-path .22s var(--ease), height .22s var(--ease)';
-        apply(); el.style.translate = ''; el.style.clipPath = '';
-        setTimeout(() => { el.style.transition = ''; }, 240);
+      if (fromFull) {
+        if (s0.dy > 40) { size = half(); el.style.transition = 'height .22s var(--ease)'; apply(); setTimeout(() => { el.style.transition = ''; }, 240); }
+        sinkTo(el, 0);
         return;
       }
-      el.style.translate = gone ? '0 100%' : ''; el.style.clipPath = gone ? 'inset(-40px -40px 100% -40px)' : '';
-      setTimeout(() => {
-        if (gone) { el.dataset.swiped = '1'; onClose(); delete el.dataset.swiped; }
-        el.style.transition = ''; el.style.translate = ''; el.style.clipPath = '';
-      }, 230);
+      const gone = flick || s0.dy > Math.min(90, s0.h * 0.3);
+      if (!gone) { sinkTo(el, 0); return; }
+      // Sinks out of sight behind the tab row, then closes (already gone, so the close plays nothing of its own).
+      sinkTo(el, el.offsetHeight, 220, () => { el.dataset.swiped = '1'; onClose(); delete el.dataset.swiped; el.style.removeProperty('--sink'); });
       return;
     }
     const frac = el.getBoundingClientRect().height / s0.H, S = stops();
@@ -1303,7 +1301,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   // (Opening sizes the sheet at once: its height eases only for a change while it is open, so it never comes in
   // at the last size it had and shrinks into place, and the figure frames once.)
-  return { open: () => { if (isPhone()) { size = half(); el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { el.style.translate = ''; el.style.height = ''; el.style.clipPath = ''; } };
+  return { open: () => { if (isPhone()) { size = half(); el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { stopSink(el); el.style.removeProperty('--sink'); el.style.translate = ''; el.style.height = ''; el.style.clipPath = ''; } };
 }
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key

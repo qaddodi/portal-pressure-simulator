@@ -247,6 +247,23 @@ export function closePopover() {
   openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
   openMenu = null;
 }
+/** Over the thumb dock a card slides down behind the tab row by --sink (styles/app.css: it moves the card and cuts it at
+ *  its resting bottom edge together). This eases --sink to px frame by frame, so the move and the cut stay in step on
+ *  iOS too, then calls done. A new drag stops it (stopSink). */
+const sinking = new WeakMap();
+export function stopSink(el) { cancelAnimationFrame(sinking.get(el)); sinking.delete(el); }
+export function sinkTo(el, px, ms = 220, done) {
+  stopSink(el);
+  const from = parseFloat(el.style.getPropertyValue('--sink')) || 0, t0 = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / ms), v = from + (px - from) * (1 - (1 - k) ** 3);
+    if (k < 1) { el.style.setProperty('--sink', `${v}px`); sinking.set(el, requestAnimationFrame(step)); return; }
+    sinking.delete(el);
+    if (px) el.style.setProperty('--sink', `${px}px`); else el.style.removeProperty('--sink');
+    done?.();
+  };
+  sinking.set(el, requestAnimationFrame(step));
+}
 /** A phone's bottom sheet follows a vertical drag from anywhere on it and closes past a short pull (or a quick
  *  flick) down; a short one eases back. Content scrolled away from its top scrolls back first, a sideways drag
  *  and a slider keep their own gestures, and taps work as normal. onClose closes it; the sheet is already
@@ -254,7 +271,7 @@ export function closePopover() {
 export function swipeSheet(panel, onClose) {
   let s = null;
   // Over the thumb dock the sheet slides down behind the tab row: what passes below its resting bottom edge is clipped.
-  const tuck = (d) => { if (document.documentElement.classList.contains('thumb-ui')) panel.style.clipPath = d ? `inset(-40px -40px ${d} -40px)` : ''; };
+  const thumbUi = () => document.documentElement.classList.contains('thumb-ui');
   const scroller = (t) => {
     for (let n = t; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return n;
     return null;
@@ -276,20 +293,27 @@ export function swipeSheet(panel, onClose) {
       if (Math.hypot(dx, dy) < 8) return;
       if (!down) { s = null; return; }
       s.on = true; s.y = t.clientY; s.t = performance.now();
-      panel.style.transition = 'none'; panel.style.animation = 'none';
+      panel.style.transition = 'none'; panel.style.animation = 'none'; stopSink(panel);
     }
     if (e.cancelable) e.preventDefault();
     s.dy = Math.max(0, t.clientY - s.y);
-    panel.style.transform = `translateY(${s.dy}px)`;
-    tuck(`${s.dy}px`);
+    if (thumbUi()) panel.style.setProperty('--sink', `${s.dy}px`);
+    else panel.style.transform = `translateY(${s.dy}px)`;
   }, { passive: false });
   const end = () => {
     const s0 = s; s = null;
     if (!s0?.on) return;
     const flick = s0.dy > 30 && s0.dy / Math.max(1, performance.now() - s0.t) > 0.6;
-    panel.style.transition = 'transform .22s var(--ease), clip-path .22s var(--ease)';
-    if (flick || s0.dy > Math.min(90, panel.offsetHeight * 0.3)) { panel.style.transform = 'translateY(100%)'; tuck('100%'); panel.dataset.swiped = '1'; onClose(); }
-    else { panel.style.transform = ''; tuck(''); setTimeout(() => { if (!s) panel.style.transition = ''; }, 240); }
+    const gone = flick || s0.dy > Math.min(90, panel.offsetHeight * 0.3);
+    // (Over the thumb dock it sinks behind the tab row: the move and the cut in one value, never one ahead of the other.)
+    if (thumbUi()) {
+      panel.style.transition = '';
+      if (gone) { sinkTo(panel, panel.offsetHeight); panel.dataset.swiped = '1'; onClose(); } else sinkTo(panel, 0);
+      return;
+    }
+    panel.style.transition = 'transform .22s var(--ease)';
+    if (gone) { panel.style.transform = 'translateY(100%)'; panel.dataset.swiped = '1'; onClose(); }
+    else { panel.style.transform = ''; setTimeout(() => { if (!s) panel.style.transition = ''; }, 240); }
   };
   panel.addEventListener('touchend', end);
   panel.addEventListener('touchcancel', end);

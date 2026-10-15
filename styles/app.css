@@ -5208,9 +5208,13 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 /* (15 Oct, Mohammad) Every card and sheet sits on the tab row's top edge, covering the play bar, and rises out from
    behind the tab row and sinks back behind it, Tests included: it slides by its own height while the part below its
    resting bottom edge is clipped (clip-path is in the card's own moved coordinates, so the cut stays on that edge). */
-@keyframes thumbIn { from { transform: translateY(100%); clip-path: inset(-40px -40px 100% -40px); } }
-@keyframes thumbOut { to { transform: translateY(100%); clip-path: inset(-40px -40px 100% -40px); } }
-.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)), html.thumb-ui .menu { clip-path: inset(-40px -40px 0 -40px); }
+/* The slide and the cut are one value, --sink, so they always move together: iOS runs an animated transform on its own
+   layer, ahead of a clip-path animated beside it, and the card showed over the tab row while it closed (15 Oct). */
+@property --sink { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
+@keyframes thumbIn { from { --sink: 100%; } }
+@keyframes thumbOut { to { --sink: 100%; } }
+.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui), html.thumb-ui .menu { translate: 0 var(--sink, 0px); }
+.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)), html.thumb-ui .menu { clip-path: inset(-40px -40px var(--sink, 0px) -40px); }
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
 @media (prefers-reduced-motion: no-preference) {
   #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn .26s var(--ease) var(--enter-delay, 0ms) backwards; }
