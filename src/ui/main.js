@@ -3,23 +3,23 @@
 
 import { startHost, host } from './host.js?v=68494ae205';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=7acc69d92d';
+import { createStage } from './stage.js?v=eb83e7afe8';
 import { createCreditPlacer } from './credit.js?v=e4d16bda70';
-import { sinusoidSupported } from './sinusoid-view.js?v=a5eac75e3a';
+import { sinusoidSupported } from './sinusoid-view.js?v=7d68f09a24';
 import { createInspector } from './inspector.js?v=4979577c0c';
-import { createDock, CUTOFFS } from './dock.js?v=0b7e9c950e';
-import { setHvpgStage } from './hvpg-proc.js?v=4a7ffc7ec0';
+import { createDock, CUTOFFS } from './dock.js?v=74df3b699f';
+import { setHvpgStage } from './hvpg-proc.js?v=65fde3869c';
 import { createWhy } from './why.js?v=82cda16d03';
 import { createTimeline, LAPSES } from './timeline.js?v=ca7637708c';
 import { createCompare } from './compare.js?v=8b89c031cc';
 import { createCard } from './card.js?v=d62c5692bb';
 import { createChart } from './chart.js?v=9e6e250c3c';
-import { createMenu } from './menu.js?v=f950b0c820';
+import { createMenu } from './menu.js?v=809015b40b';
 import { caption } from './a11y.js?v=4dc7459ab3';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=cf3eae56c7';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=9144eb7640';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=be593fa5d5';
 import { EDGES, PORTAL_TERRITORY, dopplerK } from '../engine/topology.js?v=4044766e96';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=7bea6ad65a';
 import { TEXT_STEPS } from './type-scale.js?v=0bd8cdeedf';
@@ -137,7 +137,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=eb3ef5ab97'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=66cb54d06b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

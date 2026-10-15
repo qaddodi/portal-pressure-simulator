@@ -3,11 +3,12 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=0b72305f30';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=9144eb7640';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=be593fa5d5';
+import { STATION_VESSEL } from './velNormal.js?v=e1e1d30c3a';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=7bea6ad65a';
-import { createLobuleZoom } from './lobule-zoom.js?v=00435e925b';
+import { createLobuleZoom } from './lobule-zoom.js?v=958152e3f7';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -4796,7 +4797,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   // Flow layer: blood entering the station (L/min) and its change; velocity layer: the fastest
-  // mean velocity in a vessel at the station (cm/s). Other layers read pressure.
+  // velocity in a vessel at the station as the Doppler reads it (peak, cm/s). Other layers read pressure.
   function layerRuns(f, id, compact) {
     const lm = layerMode();
     if (lm !== 'flow' && lm !== 'velocity') return null;
@@ -4818,14 +4819,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (x.e.kind === 'liver') { bed = true; continue; }
       if (x.g.classList.contains('coll-ghost') || x.e.id === 'TIPS' || x.e.id === 'DIPS') continue;   // the TIPS and DIPS shunts have their own velocity label
       tubes++;
-      const v = Math.abs(edgeVel(f, EI[x.e.id]));
+      const v = Math.abs(edgeVel(f, EI[x.e.id])) * dopplerK(x.e);
       if (bestK < 0 || v > best) { best = v; bestK = EI[x.e.id]; }
     }
+    // (A station named for a vessel reads that vessel, so "Portal v." is the portal vein the Doppler samples, not a faster
+    // collateral or tributary joining it.)
+    const own = STATION_VESSEL[id], ox = own && Object.values(E).find((x) => x.e.id === own && x.vis);
+    if (ox) { bestK = EI[own]; best = Math.abs(edgeVel(f, bestK)) * dopplerK(EDGES[bestK]); }
+    if (bestK >= 0) best = shownVelOf(EDGES[bestK].id, f, best);
     // A microvascular bed has no single velocity; a station whose only vessels are closed
     // collaterals carries no flow at all (not stasis in an open vessel).
     if (!tubes) return { runs: [{ ...unit, t: bed ? 'microcirculation' : 'collaterals closed', gap: 0 }], color: 'var(--lens-neutral)' };
     const runs = [{ ...big, t: fmt(best, 0) }, { ...unit, t: 'cm/s' }];
-    if (best < 5) runs.push({ t: 'stasis', size: 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
+    // (Named as the Doppler names it: under 1 cm/s no flow, under 9 stasis.)
+    if (best < 9) runs.push({ t: best < 1 ? 'no flow' : 'stasis', size: 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
     return { runs, color: velColorOf(f, bestK, store.get().healthy) };
   }
 
@@ -4880,6 +4887,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!e || now - e.t > 3000) { emas.set(key, { v: x, t: now, n: 1 }); return x; }
     e.n++; e.v += (x - e.v) * Math.max(1 / e.n, 1 - Math.exp(-(now - e.t) / 1000 / tau)); e.t = now;   // (a plain average until tau has passed: the first beats do not set it)
     return e.v;
+  }
+  // A vessel's velocity as a callout shows it (cm/s, Doppler peak; now: the live reading): the Doppler's own number while
+  // it samples that vessel, else on a slide the slide's own velocity while the model agrees, else a mean over a few beats.
+  // So a station's callout and the monitor beside it read one number.
+  function shownVelOf(id, f, now) {
+    const dop = shownVel.get(id);
+    if (dop && !dop.seg && performance.now() - dop.t < 1000) return dop.v;
+    const at = pinned()?.at, k = EI[id];
+    const fixed = at && Math.abs(edgeVel(at, k)) * dopplerK(EDGES[k]);
+    return Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + id, now, 6);
   }
   // A TIPS or DIPS shunt's callout: the velocity through it (cm/s), as Doppler reads it (its own mean while it is on that shunt).
   function velItem(sid, f) {

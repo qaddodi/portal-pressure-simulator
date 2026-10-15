@@ -6,12 +6,12 @@
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=7bea6ad65a';
-import { FONT } from './charts.js?v=2f40c1a293';
+import { FONT } from './charts.js?v=e50a914b04';
 import { logAction, shownVel, store } from './store.js?v=3b659e1968';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=62e22c9d9f';
 import { frameFor } from './frame.js?v=0db47e99bf';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
-import { velNormal } from './velNormal.js?v=cc0ceba6e3';
+import { velNormal } from './velNormal.js?v=e1e1d30c3a';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

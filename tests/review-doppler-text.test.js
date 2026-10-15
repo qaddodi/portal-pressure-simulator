@@ -105,3 +105,23 @@ test('with a TIPS in, a fast main portal vein is normal: no ceiling, never colou
   assert.match(src, /const normalOf = \(p\) => \(p\.id === 'PV_TRUNK' && frame\?\.D \? velNormal\(EI\.PV_TRUNK, frame\) : null\) \|\| p\.normal;/);
   assert.doesNotMatch(src.slice(src.indexOf('function interpret'), src.indexOf('function setStat')), /p\.normal\[/);
 });
+
+// A station's velocity callout and the Doppler monitor beside it read one number: the callout is a Doppler (peak)
+// velocity, of the vessel the station is named for, and while the Doppler samples that vessel it shows the monitor's
+// own number (TIPS Doppler 5 read "Portal v. 18 cm/s", the lumen mean, beside a monitor at 34).
+test('velocity callouts read the named vessel as the Doppler reads it, and its monitor\'s number', async () => {
+  const { STATION_VESSEL } = await import('../src/ui/velNormal.js');
+  const { EDGES } = await import('../src/engine/topology.js');
+  for (const [n, id] of Object.entries(STATION_VESSEL)) {
+    const e = EDGES.find((x) => x.id === id);
+    assert.ok(e && (e.from === n || e.to === n), `${n} names ${id}, a vessel at that station`);
+  }
+  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const runs = src.slice(src.indexOf('function layerRuns'), src.indexOf('function shortenItem'));
+  assert.match(runs, /Math\.abs\(edgeVel\(f, EI\[x\.e\.id\]\)\) \* dopplerK\(x\.e\)/, 'peak, as the Doppler reads it');
+  assert.match(runs, /STATION_VESSEL\[id\]/);
+  assert.match(runs, /best = shownVelOf\(EDGES\[bestK\]\.id, f, best\)/);
+  const own = src.slice(src.indexOf('function shownVelOf'), src.indexOf('function velItem'));
+  assert.match(own, /shownVel\.get\(id\)/, 'the monitor\'s own number while it samples that vessel');
+  assert.equal(STATION_VESSEL.CONF, 'PV_TRUNK', '"Portal v." is the portal vein, not the left gastric or a cavernoma');
+});

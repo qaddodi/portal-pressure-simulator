@@ -10,6 +10,9 @@ export const DOPPLER_NORMAL = {
   PV_TRUNK: [15, 40], PVH_R: [12, 35], PVH_L: [12, 35], SMV_CONF: [10, 30], SV_CONF: [10, 30], V_SPL: [10, 30],
   RHV_IVC: [10, 40], MHV_IVC: [10, 40], LHV_IVC: [10, 40], IVCS_RA: [10, 50], TIPS: [90, 190], DIPS: [90, 190],
 };
+// The vessel a station's name means: the velocity layer's callout at that station reads it (stage.js layerRuns), so
+// "Portal v." is the portal vein the Doppler samples, not a faster collateral or tributary joining it there.
+export const STATION_VESSEL = { CONF: 'PV_TRUNK', SMV: 'SMV_CONF', SV: 'SV_CONF', LPV: 'PVH_L', RPV: 'PVH_R', RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC', IVCS: 'IVCS_RA' };
 export const STENT_PV_NORMAL = [30, Infinity];
 const area = (d) => { const D = Math.max(0.5, d) / 10; return (Math.PI * D * D) / 4; };
 // The Doppler's reading of vessel k in frame f (Q and D per edge; the smoothed Qf when the frame has it).
