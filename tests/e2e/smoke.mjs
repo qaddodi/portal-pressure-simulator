@@ -983,9 +983,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const c = document.querySelector('.action-card'), r = c.getBoundingClientRect(), sv = document.querySelector('#stageView').getBoundingClientRect(), sc = c.querySelector('.ac-scroll');
       const link = c.querySelector('.ac-foot.in-head .link');
       // The figure fills the screen; the sheet rises from the bottom edge, over the vitals dock.
-      // (Over the thumb dock it sits on the tab row's top edge instead, with the play bar stepped aside: a571c9c.)
+      // (Over the thumb dock it sits 8 px above the tab row instead, with the play bar stepped aside: a571c9c, 15 Oct.)
       const nb = document.querySelector('#app.thumb #thumbBar')?.getBoundingClientRect();
-      return { covers: nb ? Math.abs(r.bottom - nb.top) <= 1 : r.bottom <= sv.bottom && r.bottom >= sv.bottom - 40 && r.top < document.querySelector('#vdock').getBoundingClientRect().top, peek: c.classList.contains('peek'), docked: c.classList.contains('docked'), top: r.top - sv.top, h: r.height, stageH: sv.height, scrolls: sc.scrollHeight - sc.clientHeight, links: !!link && link.getBoundingClientRect().height > 0, foot: getComputedStyle(c.querySelector('.ac-foot.at-foot')).display !== 'none' };
+      return { covers: nb ? Math.abs(nb.top - r.bottom - 8) <= 1 : r.bottom <= sv.bottom && r.bottom >= sv.bottom - 40 && r.top < document.querySelector('#vdock').getBoundingClientRect().top, peek: c.classList.contains('peek'), docked: c.classList.contains('docked'), top: r.top - sv.top, h: r.height, stageH: sv.height, scrolls: sc.scrollHeight - sc.clientHeight, links: !!link && link.getBoundingClientRect().height > 0, foot: getComputedStyle(c.querySelector('.ac-foot.at-foot')).display !== 'none' };
     });
     const swipe = async (dy) => {
       const box = await (await page.$('.ac-top')).boundingBox();
@@ -2614,6 +2614,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           await page.waitForTimeout(900);
           if (tab === 'tests') await page.evaluate(() => { const d = document.querySelector('#dock'); if (d.dataset.state !== 'full') document.querySelector('#dock .sheet-grab')?.click(); });
           await page.waitForTimeout(600);
+          // (a busy machine can still be fading the play bar's half out: give it up to 3 s to finish)
+          await page.waitForFunction(() => +getComputedStyle(document.querySelector('#nbViews')).opacity <= 0.05, null, { timeout: 3000, polling: 50 }).catch(() => {});
           const shows = await page.evaluate(() => { const b = document.querySelector('#viewSeg [data-view="circuit"]'), q = b.getBoundingClientRect(), hit = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2);
             return +getComputedStyle(document.querySelector('#nbViews')).opacity > 0.05 || (!!hit && b.contains(hit)); });
           if (shows) throw new Error(`${at}: the view switch shows over the open ${tab} card`);
@@ -2662,6 +2664,34 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }
     }
   });
+  // An upright iPad: Treat opens lined up with the bar's edges, 8 px above the tab row, which is then a rounded piece of its own
+  // (15 Oct: it had sat at the screen's right margin, overhanging the bar, and flush on a square-cornered tab row).
+  if (device === 'desktop') await check(device, 'thumb dock on an upright iPad: Treat and Tests line up with the bar, 8 px above the rounded tab row, every Tests tab name whole', async (page) => {
+    for (const [w, ht] of [[768, 1024], [820, 1180], [1024, 1366]]) {
+      await page.setViewportSize({ width: w, height: ht });
+      await open(page, '?preset=cirr-decomp');
+      await page.waitForFunction(() => !document.querySelector('#boot:not(.done)'), null, { timeout: 30000 });
+      await page.click('#thumbBar [data-tab="treat"]');
+      await page.waitForFunction(() => { const c = document.querySelector('#treatCard'); return !c.hidden && !c.getAnimations().length; });
+      await page.waitForTimeout(400);
+      const v = await page.evaluate(() => { const c = document.querySelector('#treatCard').getBoundingClientRect(), t = document.querySelector('#thumbBar'), n = t.getBoundingClientRect(), cs = getComputedStyle(t);
+        return { l: c.left - n.left, r: n.right - c.right, gap: n.top - c.bottom, round: parseFloat(cs.borderTopLeftRadius) > 4 && parseFloat(cs.borderTopRightRadius) > 4 }; });
+      if (Math.abs(v.l) > 1 || Math.abs(v.r) > 1) throw new Error(`${w}x${ht}: Treat is ${Math.round(v.l)} px in from the bar's left and ${Math.round(v.r)} px from its right, not lined up`);
+      if (Math.abs(v.gap - 8) > 1) throw new Error(`${w}x${ht}: Treat ends ${Math.round(v.gap)} px above the tab row, not 8`);
+      if (!v.round) throw new Error(`${w}x${ht}: the tab row keeps square top corners under the open card`);
+      // Tests too: lined up with the bar, 8 px above it, and every tab's name whole (Readouts, not "Reado…").
+      await page.click('#thumbBar [data-tab="tests"]');
+      await page.waitForFunction(() => { const c = document.querySelector('#dock'); return document.querySelector('#app').classList.contains('dock-open') && document.querySelector('#treatCard').hidden && !c.getAnimations().length; });
+      await page.waitForTimeout(400);
+      const t = await page.evaluate(() => { const c = document.querySelector('#dock').getBoundingClientRect(), n = document.querySelector('#thumbBar').getBoundingClientRect();
+        const cut = [...document.querySelectorAll('#dock .ws-tabs .instr-tab')].filter((b) => b.offsetParent).map((b) => { const l = b.querySelector('.it-t b'), sp = [...l.children].find((k) => getComputedStyle(k).display !== 'none'), r = document.createRange(); r.selectNodeContents(sp);
+          const q = r.getBoundingClientRect(), box = l.getBoundingClientRect(); return l.scrollWidth > l.clientWidth + 0.5 || q.right > box.right + 0.5 || q.left < box.left - 0.5 ? sp.textContent : null; }).filter(Boolean);
+        return { l: c.left - n.left, r: n.right - c.right, gap: n.top - c.bottom, cut }; });
+      if (Math.abs(t.l) > 1 || Math.abs(t.r) > 1) throw new Error(`${w}x${ht}: Tests is ${Math.round(t.l)} px in from the bar's left and ${Math.round(t.r)} px from its right, not lined up`);
+      if (Math.abs(t.gap - 8) > 1) throw new Error(`${w}x${ht}: Tests ends ${Math.round(t.gap)} px above the tab row, not 8`);
+      if (t.cut.length) throw new Error(`${w}x${ht}: Tests tab names cut short: ${t.cut.join(', ')}`);
+    }
+  });
   // The thumb dock (an upright phone): the top bar is two chips, the patient and the key; the view switch is the dock's first
   // line, above the play row (never between the play row and the tabs); Treat, Tests, History, Layers and Settings
   // sit in the dock's tab row, and every card or menu they open sits above the dock, so the tab row never moves or hides.
@@ -2691,7 +2721,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await pickView(page, 'anatomic');
     await page.waitForFunction(() => window.pps.store.get().view === 'anatomic');
     const dockTop = await page.evaluate(() => document.querySelector('#thumbBar').getBoundingClientRect().top);
-    const above = (sel) => page.evaluate(([sel, top]) => { const r = document.querySelector(sel).getBoundingClientRect(), d = document.querySelector('#vdock').getBoundingClientRect(); const n = document.querySelector('#thumbBar').getBoundingClientRect(); return r.height > 40 && r.bottom > d.top && Math.abs(r.bottom - n.top) <= 1 && Math.abs(document.querySelector('#thumbBar').getBoundingClientRect().top - top) < 1; }, [sel, dockTop]);
+    const above = (sel) => page.evaluate(([sel, top]) => { const r = document.querySelector(sel).getBoundingClientRect(), d = document.querySelector('#vdock').getBoundingClientRect(); const n = document.querySelector('#thumbBar').getBoundingClientRect(); return r.height > 40 && r.bottom > d.top && Math.abs(n.top - r.bottom - 8) <= 1 && Math.abs(document.querySelector('#thumbBar').getBoundingClientRect().top - top) < 1; }, [sel, dockTop]);
     for (const [tab, sel] of [['tests', '#dock'], ['treat', '#treatCard']]) {
       await page.click(`#thumbBar [data-tab="${tab}"]`);
       await page.waitForTimeout(800);
@@ -2797,10 +2827,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const fullH = await page.evaluate(() => document.querySelector('#dock').getBoundingClientRect().height);
     await page.evaluate(() => {
       window.__bad = [];
+      const cutLine = (cp) => { const i = cp.indexOf('polygon('); if (i < 0) return ''; const t = cp.slice(i + 8, cp.lastIndexOf(')')), pts = []; let d = 0, cur = '';
+        for (const ch of t) { if (ch === '(') d++; if (ch === ')') d--; if (ch === ',' && !d) { pts.push(cur.trim()); cur = ''; } else cur += ch; } pts.push(cur.trim());
+        const p = pts[7] || ''; let k = 0, sp = -1; for (let j = 0; j < p.length && sp < 0; j++) { if (p[j] === '(') k++; else if (p[j] === ')') k--; else if (p[j] === ' ' && !k) sp = j; } return sp < 0 ? '' : p.slice(sp + 1); };   // (the cut's y, from the card's top: the end of its straight run, where the right corner's arc meets it)
+      // (a length, a percentage of the card's height, or a calc() of them with max()/min(), as a computed cut reads)
+      const px = (v, el) => Function(`return ${String(v).trim().replace(/calc\(/g, '(').replace(/(max|min)\(/g, 'Math.$1(').replace(/(-?[\d.]+)%/g, `($1 / 100 * ${el.offsetHeight})`).replace(/(-?[\d.]+)px/g, '$1')}`)() || 0;
       const tick = () => { const c = document.querySelector('#dock'), cs = getComputedStyle(c);
         if (c.offsetParent) {
-          const ty = parseFloat(cs.translate.split(' ')[1]) || 0, cut = parseFloat((cs.clipPath.match(/inset\(([^)]*)\)/)?.[1] || '').split(/\s+/)[2]) || 0;
-          if (Math.abs(ty - cut) > 0.5) window.__bad.push(`slide ${ty} vs cut ${cut}`);
+          const ty = px(cs.translate.split(' ')[1] || '0', c), cut = c.offsetHeight - px(cutLine(cs.clipPath), c) + 8;
+          if (Math.abs(ty - cut) > 0.5) window.__bad.push(`slide ${ty} vs cut ${cut} (the line 8 px under the card's edge)`);
         }
         window.__sinkRaf = requestAnimationFrame(tick); };
       tick();
@@ -2875,7 +2910,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // Every phone card and sheet, driven by real touches (the path iOS takes), at the Home Screen app's height and Safari's: a short
   // pull eases back, a pull from Full (slow or a flick) settles at Half, a pull or flick from Half closes, and a new touch while the
   // card is still easing (back, to Half, or away) takes it over. Every frame, every card's slide equals its cut and nothing of a
-  // card is drawn on the tab row or below it.
+  // card is drawn on the tab row or below it (the cut is the tab row's top, 8 px under the card's resting edge).
   for (const H of [844, 664]) if (device === 'phone') await check(device, `thumb dock: every card and sheet pulls, flicks and closes by touch behind the tab row (${H} px)`, async (page) => {
     await page.setViewportSize({ width: 390, height: H });
     await open(page, '?preset=cirr-decomp');
@@ -2885,13 +2920,17 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
     await page.evaluate(() => {
       window.__bad = [];
-      const px = (v, el) => (String(v).trim().endsWith('%') ? parseFloat(v) / 100 * el.offsetHeight : parseFloat(v) || 0);
+      const cutLine = (cp) => { const i = cp.indexOf('polygon('); if (i < 0) return ''; const t = cp.slice(i + 8, cp.lastIndexOf(')')), pts = []; let d = 0, cur = '';
+        for (const ch of t) { if (ch === '(') d++; if (ch === ')') d--; if (ch === ',' && !d) { pts.push(cur.trim()); cur = ''; } else cur += ch; } pts.push(cur.trim());
+        const p = pts[7] || ''; let k = 0, sp = -1; for (let j = 0; j < p.length && sp < 0; j++) { if (p[j] === '(') k++; else if (p[j] === ')') k--; else if (p[j] === ' ' && !k) sp = j; } return sp < 0 ? '' : p.slice(sp + 1); };   // (the cut's y, from the card's top: the end of its straight run, where the right corner's arc meets it)
+      // (a length, a percentage of the card's height, or a calc() of them with max()/min(), as a computed cut reads)
+      const px = (v, el) => Function(`return ${String(v).trim().replace(/calc\(/g, '(').replace(/(max|min)\(/g, 'Math.$1(').replace(/(-?[\d.]+)%/g, `($1 / 100 * ${el.offsetHeight})`).replace(/(-?[\d.]+)px/g, '$1')}`)() || 0;
       const tick = () => {
         const b = document.querySelector('#thumbBar').getBoundingClientRect();
         for (const f of [0.1, 0.5, 0.9]) for (const y of [b.top + 4, b.bottom + 3, innerHeight - 1]) { const e = document.elementFromPoint(b.left + b.width * f, y); const c = e?.closest('#treatCard, #dock, #panel, .menu, .action-card'); if (c) window.__bad.push(`${c.id || c.className} on the tab row`); }
         for (const c of document.querySelectorAll('#treatCard:not([hidden]), #app.dock-open #dock, #app.panel-open #panel, .menu.as-sheet, .action-card.docked:not([hidden])')) {
-          const cs = getComputedStyle(c), cut = (cs.clipPath.match(/inset\(([^)]*)\)/)?.[1] || '').split(/\s+/)[2];
-          if (Math.abs(px(cs.translate.split(' ')[1], c) - px(cut, c)) > 0.5) window.__bad.push(`${c.id || c.className}: slide ${cs.translate} vs cut ${cut}`);
+          const cs = getComputedStyle(c), cut = cutLine(cs.clipPath), ty = px(cs.translate.split(' ')[1] || '0', c);
+          if (Math.abs(ty - (c.offsetHeight - px(cut, c) + 8)) > 0.5) window.__bad.push(`${c.id || c.className}: slide ${cs.translate} vs cut ${cut} (the line 8 px under the card's edge)`);
         }
         window.__raf = requestAnimationFrame(tick);
       };
@@ -2924,12 +2963,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const st = await page.evaluate((sel) => { const c = document.querySelector(sel), r = c?.getBoundingClientRect(); return c ? `top ${Math.round(r.top)}, height ${Math.round(r.height)}, sink ${c.style.getPropertyValue('--sink') || 0}` : 'gone'; }, sel);
       throw new Error(`${what}: the card is ${want ? 'closed' : 'still open'} (${st})`);
     };
-    // A vessel's and an organ's card: whole, on the tab row's top edge, with the play bar stepped aside; it closes behind the tab row.
+    // A vessel's and an organ's card: whole, 8 px above the tab row, with the play bar stepped aside; it closes behind its own edge.
     for (const sel of [{ type: 'edge', id: 'SV_MID' }, { type: 'organ', id: 'liver' }, { type: 'organ', id: 'spleen' }]) {
       await page.evaluate((s) => window.pps.store.set({ selection: s }), sel);
       await page.waitForFunction(() => { const c = document.querySelector('.action-card'); return !c.hidden && !c.getAnimations().length; });
       const v = await page.evaluate(() => { const c = document.querySelector('.action-card').getBoundingClientRect(), t = document.querySelector('#thumbBar').getBoundingClientRect(); return { gap: Math.round(t.top - c.bottom), top: Math.round(c.top), bar: [...document.querySelectorAll('#vdock > :not(.thumb-bar):not(.vd-status)')].some((e) => +getComputedStyle(e).opacity > 0.05) }; });
-      if (Math.abs(v.gap) > 1) throw new Error(`the ${sel.id} card ends ${v.gap} px above the tab row, not on it`);
+      if (Math.abs(v.gap - 8) > 1) throw new Error(`the ${sel.id} card ends ${v.gap} px above the tab row, not 8`);
       if (v.top < 60) throw new Error(`the ${sel.id} card runs up to ${v.top} px`);
       if (v.bar) throw new Error(`the play bar shows over the ${sel.id} card`);
       // (Fit is in the Layers tab's menu and the view switch is the dock's first line, under the card, so nothing floats over the figure above it.)

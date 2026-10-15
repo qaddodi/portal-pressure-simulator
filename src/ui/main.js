@@ -1054,9 +1054,15 @@ function wireFloating() {
     // The cards and sheets sit on the tab row's top edge, over the play bar (which they cover), and slide away behind
     // the tab row: --nb-occ from the app's bottom (the cards), --thumb-occ from the screen's (the menu sheets).
     const nbR = thumb && vd.offsetHeight ? $('#thumbBar').getBoundingClientRect() : null;
-    const nbOcc = px(nbR && nbR.height ? app.getBoundingClientRect().bottom - nbR.top : 0);
+    // (8 px clear of it: the tab row is its own rounded piece while a card is up, 15 Oct.) The cards also take the tab row's
+    // left and right edges on a tablet (--nb-l, --nb-r), so Treat lines up with the bar instead of the screen's margin.
+    const ar = app.getBoundingClientRect();
+    const nbOcc = px(nbR && nbR.height ? ar.bottom - nbR.top + 8 : 0);
     if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); }
-    const occ = px(nbR && nbR.height ? (innerHeight - nbR.top) / uiScale() : 0);
+    const nbL = px(nbR && nbR.height ? nbR.left - ar.left : 0), nbRt = px(nbR && nbR.height ? ar.right - nbR.right : 0);
+    if (pubVals.nbL !== nbL) { pubVals.nbL = nbL; app.style.setProperty('--nb-l', nbL); }
+    if (pubVals.nbR !== nbRt) { pubVals.nbR = nbRt; app.style.setProperty('--nb-r', nbRt); }
+    const occ = px(nbR && nbR.height ? (innerHeight - nbR.top) / uiScale() + 8 : 0);
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); }
     // (and the top bar's foot, so a tall sheet stops under the view switch and leaves it in reach)
     const topOcc = px(thumb ? tb.getBoundingClientRect().bottom / uiScale() : 0);

@@ -4056,6 +4056,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ws-tabs.compact { gap: 2px; }
 .ws-tabs.compact .instr-tab, .ws-tabs.compact .instr-tab[aria-selected="true"] { gap: 4px; padding: 0 4px; }
 .ws-tabs.compact .instr-tab[aria-selected="true"]::before { left: 4px; right: 4px; }
+/* (Side by side, icon then name, each tab starts from its own name's width and the spare room is shared evenly, so a
+   long name (Readouts) shows whole beside a short one (HVPG) instead of every tab taking an equal, too-narrow share.) */
+.ws-tabs.compact:not(.narrow) .instr-tab { flex: 1 1 auto; }
 .ws-tabs.compact .instr-tab:first-child { margin-left: 0; }
 /* Narrower still: the name under its icon. */
 .ws-tabs.narrow .instr-tab, .ws-tabs.narrow .instr-tab[aria-selected="true"] { flex-direction: column; gap: 2px; height: 44px; padding: 0 2px; font-size: 12px; }
@@ -5273,11 +5276,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
      card moves it, up to Full and down to Half or closed. The button stays for the keyboard (Half/Full), seen only on focus,
      and never takes a touch, so the head under it gets the tap or the drag. */
   .app.thumb :is(.panel-grab, .sheet-grab) { pointer-events: none; }
-  html.thumb-ui .menu.as-sheet { left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--thumb-occ, 0px); max-height: calc(100dvh - var(--thumb-occ, 0px) - max(72px, var(--thumb-top, 0px) + 8px)); padding-bottom: 10px; border-radius: var(--r-sheet); }
+  html.thumb-ui .menu.as-sheet { box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--thumb-occ, 0px); max-height: calc(100dvh - var(--thumb-occ, 0px) - max(72px, var(--thumb-top, 0px) + 8px)); padding-bottom: 10px; border-radius: var(--r-sheet); }
 }
 /* A tablet held upright: Treat opens above the dock, at the right, instead of under the top bar. */
 @media (min-width: 768px) {
-  .app.thumb .treat-card { top: auto; bottom: var(--nb-occ, calc(var(--vdock-h) + var(--gap) + 8px)); }
+  .app.thumb .treat-card { top: auto; bottom: var(--nb-occ, calc(var(--vdock-h) + var(--gap) + 8px)); left: var(--nb-l, auto); right: var(--nb-r, var(--gap)); width: auto; }
+  .app.thumb .instrument-workspace.float-ui:not(.side) { bottom: var(--nb-occ) !important; left: var(--nb-l) !important; right: var(--nb-r) !important; width: auto !important; transform: none !important; }
 }
 /* The sinusoid view hides the dock: its history, play, settings and search come back to the top bar, after the key. */
 #app.thumb.sin-focus .top-right { display: flex !important; margin-left: auto; }
@@ -5294,13 +5298,15 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* (15 Oct, Mohammad) Every card and sheet sits on the tab row's top edge, covering the play bar, and rises out from
    behind the tab row and sinks back behind it, Tests included: it slides by its own height while the part below its
    resting bottom edge is clipped (clip-path is in the card's own moved coordinates, so the cut stays on that edge). */
+/* (The cut is the tab row's top line, 8 px under the card's resting edge, and only across the card's own width: its shadow
+   falls whole into the gap and beside the tab row, with no seam.) */
 /* The slide and the cut are one value, --sink, so they always move together: iOS runs an animated transform on its own
    layer, ahead of a clip-path animated beside it, and the card showed over the tab row while it closed (15 Oct). */
 @property --sink { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
 @keyframes thumbIn { from { --sink: 100%; } }
 @keyframes thumbOut { to { --sink: 100%; } }
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui), html.thumb-ui .menu { translate: 0 var(--sink, 0px); }
-.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)), html.thumb-ui .menu { clip-path: inset(-40px -40px var(--sink, 0px) -40px); }
+.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)), html.thumb-ui .menu { clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% - var(--sink, 0px) + 8px), var(--r-sheet) calc(100% - var(--sink, 0px) + 8px), calc(var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), 0 calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px)); }
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
 @media (prefers-reduced-motion: no-preference) {
   #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn .26s var(--ease) var(--enter-delay, 0ms) backwards; }
@@ -5313,17 +5319,19 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    shows in their place; the tab row has its own opaque face and stays on top throughout. */
 .app.thumb .vdock:not(.mini) { z-index: calc(var(--z-panel) + 20); background: transparent; box-shadow: none; }
 .app.thumb .vdock:not(.mini)::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); pointer-events: none; transition: opacity .2s var(--ease); }
-.app.thumb .vdock:not(.mini) .thumb-bar { position: relative; border-radius: 0 0 var(--r-sheet) var(--r-sheet); background: linear-gradient(var(--glass), var(--glass)), var(--stage-bg); box-shadow: inset 1px 0 0 var(--hairline), inset -1px 0 0 var(--hairline), inset 0 -1px 0 var(--hairline); transition: box-shadow .2s var(--ease); }
+.app.thumb .vdock:not(.mini) .thumb-bar { position: relative; border-radius: 0 0 var(--r-sheet) var(--r-sheet); background: linear-gradient(var(--glass), var(--glass)), var(--stage-bg); box-shadow: inset 1px 0 0 var(--hairline), inset -1px 0 0 var(--hairline), inset 0 -1px 0 var(--hairline); transition: box-shadow .2s var(--ease), border-radius .2s var(--ease); }
 .app.thumb .vdock:not(.mini) > :not(.thumb-bar) { transition: opacity .2s var(--ease); }
 /* (Below the tab row, down to the screen's edge, is part of it too: a card sliding away is gone once it passes the tab row's top.) */
-.app.thumb .vdock:not(.mini) .thumb-bar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: calc(env(safe-area-inset-bottom) + 16px); background: var(--stage-bg); pointer-events: none; opacity: 0; transition: opacity 0s linear .32s; }
-/* (Only while a card or menu is up, or still sinking away: at rest the figure shows under the dock, with no flat band.) */
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar::after, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden])) .vdock:not(.mini) .thumb-bar::after, html.thumb-ui:has(body > .menu) .app.thumb .vdock:not(.mini) .thumb-bar::after { opacity: 1; transition: none; }
+/* (No flat band under the tab row: a card is cut at the tab row's top line, 8 px under its resting foot, so nothing of it
+   is ever drawn lower, and the figure shows under the dock. The cut follows the tab row's rounded top corners and leaves
+   the sides open, so the card's shadow falls past those corners like any other shadow, with no straight edge or square
+   corner in it; a menu, drawn above the whole app, still casts nothing on the tab row itself.) */
 .app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini)::before, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini)::before, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini)::before { opacity: 0; }
 /* (The dock's parts are named, not "> :not(.thumb-bar)": a :has() rule whose last part names nothing restyled the whole app
    (3,500 elements) on every node a model tick wrote anywhere in it, 30–60% of the CPU while a slide sat still.) */
 .app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > :is(.nb-views, .stage-bar, .readouts), .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) > :is(.nb-views, .stage-bar, .readouts), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) > :is(.nb-views, .stage-bar, .readouts) { opacity: 0; pointer-events: none; }
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) .thumb-bar, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar { box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
+/* (Open, the tab row's top hairline is its edge ring on the outer edge, as on a card: its own top border goes, with 1 px more padding, so no fill shows above the line.) */
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) .thumb-bar, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar { border-radius: var(--r-sheet); border-top-width: 0; padding-top: 4px; box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
 
 /* While a card covers the play bar, the bar's empty top row must not catch taps meant for the card's bottom edge (the Doppler's stent tiles sit there): only the tab row takes touches. */
 .app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini), .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) { pointer-events: none; }
@@ -5336,7 +5344,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .app.thumb:not(.dock-open) .action-card.docked {
     left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--nb-occ, calc(var(--vdock-h) + 14px));
     border-radius: var(--r-sheet); height: auto; max-height: min(46%, 400px, calc(100% - var(--top-safe, 0px) - var(--nb-occ, var(--vdock-h)) - 22px));
-    translate: 0 var(--sink, 0px); clip-path: inset(-40px -40px var(--sink, 0px) -40px);
+    translate: 0 var(--sink, 0px); clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% - var(--sink, 0px) + 8px), var(--r-sheet) calc(100% - var(--sink, 0px) + 8px), calc(var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), 0 calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px));
   }
   .app.thumb.panel-open .action-card.docked { visibility: hidden; transition: visibility 0s linear .26s; }
   /* No X on a phone card: a pull down puts it away (card.js wireSheet), as the others. */
