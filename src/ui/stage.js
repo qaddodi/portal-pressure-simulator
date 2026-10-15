@@ -1947,7 +1947,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (firstFit || !F || !(morphTarget === 1 || patientReady)) return;
     firstFit = true;
     nextFrame(() => {
-      if (morphTarget === 0 && !userMoved) { vt = homeAt = vtTarget = defaultVT(false); applyVT(); CTM = null; }
+      // (Set outright, so a glide still under way (a refit as the bars came in) stops here: left running it never landed,
+      // stayed 'gliding' for good, and the zoom-out spring and the pans' bounds waited on it, so a pinch out stayed stuck.)
+      if (morphTarget === 0 && !userMoved) { cancelFrame(vtAnim); vtGliding = false; vt = homeAt = vtTarget = defaultVT(false); applyVT(); CTM = null; }
       showFigure();
     });
   }
@@ -5973,6 +5975,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     ev.preventDefault();
     const now = performance.now();
     if (wheelMute) { if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
+    // The hand takes over from any camera glide (as a press does): the glide would overwrite each step of the scroll or pinch.
+    if (vtGliding) { cancelFrame(vtAnim); vtGliding = false; camSettle(); }
     stopGlide(); userMoved = true;
     const dx = wheelPx(ev, ev.deltaX), dy = wheelPx(ev, ev.deltaY);
     if (ev.ctrlKey || ev.metaKey) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -50, 50) * 0.01), true); settleSoon(); return; }
@@ -5982,7 +5986,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       wheelKind = pad ? 'pad' : 'wheel';
     }
     wheelAt = now;
-    if (wheelKind === 'wheel' || lobuleOn) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -120, 120) * 0.0015)); return; }
+    if (wheelKind === 'wheel' || lobuleOn) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -120, 120) * 0.0015)); if (!lobuleOn) settleSoon(); return; }   // (out past the whole figure, it springs back once the wheel stops, as a pinch does)
     if (scrubS > 0) return;   // panning is locked onto the lobule while the dive is under the fingers
     const s = vbScale();
     const u0 = unsoftPan(vt);
@@ -6492,7 +6496,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     // The zoom buttons zoom about the middle of the free space; in the lobule they drive its own view.
     zoomIn: () => { if (lobuleOn) { lz.zoomBy(1.4); return; } handsOff(); const c = freeCentre(); animZoomAt(c[0], c[1], 1.4); },
-    zoomOut: () => { if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.zoomBy(1 / 1.4); return; } handsOff(); const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4); },
+    zoomOut: () => {
+      if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.zoomBy(1 / 1.4); return; }
+      handsOff();
+      // The last step out lands on the whole figure, centred (the circuit: its whole map), as the lobule's − stops at its framing.
+      // (It used to shrink past it to 0.6× about the middle and stay there: a small figure off to one side that nothing put back.)
+      const circuit = morphTarget === 1, d = defaultVT(circuit), whole = circuit ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : d, lo = whole.k < d.k ? whole : d;
+      const base = vtGliding && vtTarget ? vtTarget : vt;
+      if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; if (!sameView(lo, base)) animateVT(lo, 260); return; }
+      const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);
+    },
     fit, refit,
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */

@@ -577,6 +577,38 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (back !== home) throw new Error(`the anatomy came back at ${back}, not at its framing ${home}`);
   });
 
+  // Zooming out never leaves the figure small: the first pinch out after the page opens (on a large Mac window a refit glide
+  // used to be cut off as the figure appeared, stay 'gliding' for good and stop the spring back, so the figure stayed small and
+  // off to one side), a mouse wheel, and the − button all end on the whole figure, the same framing Fit gives.
+  if (device === 'desktop') await check(device, 'zooming out ends on the whole figure: pinch, wheel and the − button, from a fresh page', async (page) => {
+    await page.setViewportSize({ width: 1908, height: 1175 });
+    await open(page);
+    const key = () => page.evaluate(() => window.pps.stage.cameraKey());
+    const steady = async () => { let a = await key(), same = 0; for (let i = 0; i < 80 && same < 4; i++) { await page.waitForTimeout(300); const c = await key(); same = c === a ? same + 1 : 0; a = c; } return a; };
+    await page.waitForFunction(() => window.ppsFigureReady, null, { timeout: 45000 });
+    const restore = await instantMotionOn(page);
+    await steady();
+    const out = (n, ctrl) => page.evaluate(([n, ctrl]) => new Promise((done) => {
+      const x = innerWidth / 2, y = innerHeight / 2, el = document.elementFromPoint(x, y);
+      let i = 0; const tick = () => { el.dispatchEvent(new WheelEvent('wheel', { deltaY: ctrl ? 6 : 100, ctrlKey: ctrl, clientX: x, clientY: y, bubbles: true, cancelable: true })); if (++i < n) setTimeout(tick, 16); else done(); };
+      tick();
+    }), [n, ctrl]);
+    // (the first thing done on the page: a pinch out, no Fit before it)
+    await out(60, true);
+    const pinched = await steady();
+    await page.click('#zoomFit');
+    const whole = await steady();
+    if (pinched !== whole) throw new Error(`a pinch out on a fresh page stayed at ${pinched}, not the whole figure ${whole}`);
+    await page.mouse.move(954, 587);
+    for (let i = 0; i < 8; i++) await page.mouse.wheel(0, 200);
+    let k = await steady();
+    if (k !== whole) throw new Error(`a mouse wheel out stayed at ${k}, not the whole figure ${whole}`);
+    for (let i = 0; i < 4; i++) await page.click('#zoomOut');
+    k = await steady();
+    if (k !== whole) throw new Error(`the − button stayed at ${k}, not the whole figure ${whole}`);
+    await restore();
+  });
+
   // Fit always brings the figure back to its framing, whatever the hand did just before it: a Mac trackpad's scroll still coming in
   // (its momentum runs on for a second after the fingers lift, and used to cancel the lobule's Fit and carry the anatomy off it again),
   // a mouse flick still gliding, a pinch or the − button past the framing, or a resize. In the anatomy, the circuit and the lobule.
@@ -612,7 +644,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       document.querySelector('#zoomFit').click();
     });
     const expect = async (what, ref) => { const k = await steady(); if (process.env.SMOKE_FIT_LOG) console.log(what, k); if (k !== ref) throw new Error(`${what}: Fit left the view at ${k}, not at its framing ${ref}`); };
-    const zoomIn = async (n = 2) => { for (let i = 0; i < n; i++) await page.click('#zoomIn'); await steady(); };
+    // (zoomed in for certain before the next step: on a slow renderer a reading taken before the zoom's glide began looked settled)
+    const zoomIn = async (n = 2) => { const k0 = await key(); for (let i = 0; i < n; i++) await page.click('#zoomIn'); for (let i = 0; i < 100 && (await key()) === k0; i++) await page.waitForTimeout(100); await steady(); };
     // (the figure's WebGL canvases are not shown: a software renderer then draws several frames a second instead of one)
     const restore = await instantMotionOn(page);
     await steady();
@@ -3214,7 +3247,8 @@ if (process.env.SMOKE_MATCH) { const match = new RegExp(process.env.SMOKE_MATCH,
 // (times measured on CI runners; checks not listed count as 45 s, a deck walk as 3 min).
 const MEASURED = {
   'pan and pinch: marks and labels stay locked to the figure': 150000,
-  'Fit always re-frames the figure after a zoom, pan, flick, scroll or resize': 300000,   // (about 5 minutes here, on a software renderer)
+  'Fit always re-frames the figure after a zoom, pan, flick, scroll or resize': 300000,
+  'zooming out ends on the whole figure: pinch, wheel and the − button, from a fresh page': 90000,   // (about 5 minutes here, on a software renderer)
   'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text': 90000,   // (one device pixel per pixel on a phone: about 65 s here)
   'presenter: lobule labels never touch, leaders never cross': 140000,
   'lobule: the sinusoid reading and its lesion pointer point at the middle of a sinusoid': 150000,
