@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=ff070ac951';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bb8c70114d';
-import { createStage } from './stage.js?v=da343f7c4d';
+import { createStage } from './stage.js?v=c9959b22ba';
 import { createCreditPlacer } from './credit.js?v=122c73335a';
-import { sinusoidSupported } from './sinusoid-view.js?v=aef067f525';
-import { createInspector } from './inspector.js?v=97fe69ccc9';
-import { createDock, CUTOFFS } from './dock.js?v=b1fcfc0d30';
-import { setHvpgStage } from './hvpg-proc.js?v=10836deae5';
-import { createWhy } from './why.js?v=d7371d7a2a';
-import { createTimeline, LAPSES } from './timeline.js?v=4cabf767c5';
-import { createCompare } from './compare.js?v=33558f1c0e';
-import { createCard } from './card.js?v=2e9ce4583d';
-import { createChart } from './chart.js?v=c0767662ef';
-import { createMenu, ROLES } from './menu.js?v=15d8360d0f';
+import { sinusoidSupported } from './sinusoid-view.js?v=dbe400f022';
+import { createInspector } from './inspector.js?v=8afcc0256b';
+import { createDock, CUTOFFS } from './dock.js?v=3133a28e09';
+import { setHvpgStage } from './hvpg-proc.js?v=a80bb6d34c';
+import { createWhy } from './why.js?v=0d29c22e59';
+import { createTimeline, LAPSES } from './timeline.js?v=e600d3b661';
+import { createCompare } from './compare.js?v=396204ef23';
+import { createCard } from './card.js?v=bf0d1eefc1';
+import { createChart } from './chart.js?v=e812a85469';
+import { createMenu, ROLES } from './menu.js?v=a8266f95b6';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=dfea434d32';
-import { caption } from './a11y.js?v=af5e1cd018';
+import { caption } from './a11y.js?v=128924d00d';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=0f537e3cc0';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=17a57bfe02';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=b3b329328c';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=919e3bce93';
 import { EDGES, PORTAL_TERRITORY, dopplerK } from '../engine/topology.js?v=1825cbda55';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=5df92c06c3';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=f7459cca3c';
 import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=f0f22b95b0';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=9217103bc0';
 import { initTopbarMotion } from './topbar-motion.js?v=40e62f18bf';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=6ebaeb46c8';
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=439247d5b4'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=6a10d5929b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -147,7 +147,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=c6594a37e0'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=f92e6d5d00'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -317,7 +317,7 @@ function onFrame(f) {
   const txt = f.day > 0 ? `Day ${f.day}` : `${fmt(f.t, 0)} s`;
   if (txt !== lastClockTxt) { lastClockTxt = txt; stageClock.textContent = txt; }
   if (tipInfo) hoverInfo(tipInfo);   // the readings popup stays live with the sim
-  updateBleedBanner(f);
+  syncBleeding(f);
   if (projector) updateProjector(f);
   if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', caption(f)); }
 }
@@ -457,7 +457,7 @@ function renderPaintHint() {
 function zoomLobule() { store.set({ lobule: true, sinusoid: false }); }
 
 // ── Figure header: view, color, legend; banners ─────
-let bleedEl, tipEl, stageClock;
+let tipEl, stageClock;
 function buildHud() {
   // Moving blood: chevrons are remembered per device; ?blood=chevrons turns them on for a link.
   let saved = null;
@@ -480,7 +480,6 @@ function buildHud() {
   syncBloodBtn();
   renderLegend();
   store.on('colorMode', () => { $('#colorModeLabel').textContent = COLOR_MODES[store.get().colorMode]; });
-  bleedEl = $('#bleedPill');
   enhanceRanges();
   tipEl = h('div', { class: 'hover-tip', 'aria-hidden': 'true' });
   view.append(tipEl);
@@ -655,19 +654,14 @@ function openLayers(anchor) {
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This view shows anatomy only until you measure.') : null,
   ], { cls: 'layers-pop' });
 }
-// Active bleeding is a state, not an alarm: a steady status in the figure header.
-let lastBleed = '';
-function updateBleedBanner(f) {
-  const b = f.metrics.bleeding;
-  const txt = b ? `${b.site === 'GV' ? 'Gastric' : 'Variceal'} bleed · ${Math.round(b.rate)} mL/min` : '';
-  if (txt === lastBleed) return;
-  const changed = !!txt !== !!lastBleed;
-  lastBleed = txt;
-  bleedEl.hidden = !b;
-  app.classList.toggle('bleeding', !!b);
-  bleedEl.replaceChildren(h('span', { class: 'bp-dot' }), txt);
-  bleedEl.title = b ? `${b.site === 'GV' ? 'Gastric' : 'Esophageal'} variceal bleeding: ${Math.round(b.rate)} mL/min, ${Math.round(f.metrics.blood.lost)} mL lost so far` : '';
-  if (changed) redraw();
+// Active bleeding is a state, not an alarm: the app only notes it (the figure shows the blood itself).
+let lastBleed = false;
+function syncBleeding(f) {
+  const on = !!f.metrics.bleeding;
+  if (on === lastBleed) return;
+  lastBleed = on;
+  app.classList.toggle('bleeding', on);
+  redraw();
 }
 let tipInfo = null;
 function hoverInfo(info) {

@@ -1,7 +1,7 @@
 // Perceptually uniform pressure colormap interpolated in OKLab (blueprint §5.3).
 // Every ramp's stops are colour tokens (--ramp-* in styles/tokens.css); the tables are built on first use.
 
-import { cssRamp, cssRGB } from './util.js?v=5df92c06c3';
+import { cssRamp, cssRGB } from './util.js?v=f7459cca3c';
 import { velPos, velNormal, dopplerVel } from './velNormal.js?v=429b935751';
 // The scale shows absolute mean venous pressure at a vessel. Its ticks are plain numbers: no
 // value on it is a clinical threshold (HVPG and other gradients are separate measurements).

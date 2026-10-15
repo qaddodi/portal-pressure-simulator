@@ -75,28 +75,9 @@ export function uiScale() {
   return w ? b.getBoundingClientRect().width / w || 1 : 1;
 }
 
-// Messages go to a quiet line in the status row above the timeline, never over the figure.
-// When that line is not on screen they show as a card at the top instead.
-let noteTimer = 0;
-function inlineNote(msg, kind) {
-  const row = document.getElementById('vdStatus');
-  if (!row?.closest('.vdock')?.offsetParent) return false;
-  let n = row.querySelector('.vd-note');
-  if (!n) {
-    n = h('span', { class: 'vd-note', role: 'status' });
-    n.addEventListener('click', () => { clearTimeout(noteTimer); n.hidden = true; row.classList.remove('noting'); });
-    row.append(n);
-  }
-  n.className = 'vd-note ' + kind; n.textContent = msg; n.title = msg; n.hidden = false;
-  row.classList.add('noting');
-  clearTimeout(noteTimer);
-  noteTimer = setTimeout(() => { n.hidden = true; row.classList.remove('noting'); }, 4200);
-  return true;
-}
-
+// Messages show as a card at the top, below the bars, never over the bottom bar.
 export function toast(msg, kind = '') {
   if (!msg) return;
-  if (inlineNote(msg, kind)) return;
   const wrap = document.getElementById('toasts');
   // One message at a time reads calmer than a growing stack.
   while (wrap.children.length >= 2) wrap.firstChild.remove();

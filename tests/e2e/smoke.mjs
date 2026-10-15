@@ -2247,19 +2247,18 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         }
         for (let i = 1; i < r.tiles.length; i++) if (r.tiles[i].l < r.tiles[i - 1].r - 0.5 && r.tiles[i].t < r.tiles[i - 1].b - 0.5 && r.tiles[i].b > r.tiles[i - 1].t + 0.5) throw new Error(`${where}: readouts "${r.tiles[i - 1].id}" and "${r.tiles[i].id}" overlap`);
         if (r.tiles.some((t) => t.r > r.strip.r + 0.5)) throw new Error(`${where}: a readout runs out of the strip`);
-        // The rest of the bar: the play row's parts stay inside the bar, never overlap, and the buttons are touch-sized. No event pill or narrator line floats above it.
+        // The rest of the bar: the play row's parts stay inside the bar, never overlap, and the buttons are touch-sized. No pill floats above it.
         const bar = await page.evaluate(() => {
           const dock = document.querySelector('#vdock').getBoundingClientRect();
           const parts = ['.tl-split', '.tl-time', '.tl-ff', '.tl-hist', '.tl-pin'].map((q) => [q, document.querySelector(q)])
             .filter(([, e]) => e && e.offsetWidth && !e.closest('[hidden]') && getComputedStyle(e).opacity !== '0')
-            .map(([q, e]) => { const b = e.getBoundingClientRect(); return { q, l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width, h: b.height, st: !!e.closest('.vd-status') }; });
-          // With the thumb dock (phone, upright iPad) the status line floats just above the bar instead of inside it.
-          return { dock: { l: dock.left, r: dock.right, t: dock.top, b: dock.bottom }, parts, floaters: document.querySelectorAll('.tl-latest, .narrator').length, thumb: document.querySelector('#app').classList.contains('thumb') };
+            .map(([q, e]) => { const b = e.getBoundingClientRect(); return { q, l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width, h: b.height }; });
+          return { dock: { l: dock.left, r: dock.right, t: dock.top, b: dock.bottom }, parts, floaters: document.querySelectorAll('.tl-latest, .narrator, .bleed-pill, .vd-note, #vdStatus').length, thumb: document.querySelector('#app').classList.contains('thumb') };
         });
-        if (bar.floaters) throw new Error(`${where}: an event pill or narrator line is back above the timeline`);
+        if (bar.floaters) throw new Error(`${where}: a pill (event, narrator, bleed or note) is back above the timeline`);
         for (const p of bar.parts) {
-          const box = bar.thumb && p.st ? { ...bar.dock, t: bar.dock.t - 60, b: bar.dock.t } : bar.dock;
-          if (p.l < box.l - 0.5 || p.r > box.r + 0.5 || p.t < box.t - 0.5 || p.b > box.b + 0.5) throw new Error(`${where}: ${p.q} sticks out of the bottom bar${box === bar.dock ? '' : ' (or the room just above it)'}`);
+          const box = bar.dock;
+          if (p.l < box.l - 0.5 || p.r > box.r + 0.5 || p.t < box.t - 0.5 || p.b > box.b + 0.5) throw new Error(`${where}: ${p.q} sticks out of the bottom bar`);
           if (/tl-(ff|hist|pin)/.test(p.q) && (p.w < 35.5 || p.h < 35.5)) throw new Error(`${where}: ${p.q} is smaller than a 36 px button`);
         }
         for (let i = 0; i < bar.parts.length; i++) for (let j = i + 1; j < bar.parts.length; j++) { const a = bar.parts[i], c = bar.parts[j]; if (a.l < c.r - 0.5 && c.l < a.r - 0.5 && a.t < c.b - 0.5 && c.t < a.b - 0.5) throw new Error(`${where}: ${a.q} overlaps ${c.q}`); }

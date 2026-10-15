@@ -97,10 +97,6 @@ svg { flex: none; }
 .sb-center { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: center; gap: 8px; }
 .sb-banner { display: flex; min-width: 0; justify-content: center; align-items: center; gap: 8px; }
 .sb-banner:empty { display: none; }
-/* Active bleeding: a steady status, not a flashing alarm */
-.bleed-pill { flex: none; display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; padding: 4px 12px 4px 8px; border-radius: var(--r-card); font-size: var(--fs-14); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  color: color-mix(in srgb, var(--critical) 82%, var(--text)); background: color-mix(in srgb, var(--critical) 9%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--critical) 28%, transparent); }
-.bp-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--critical); flex: none; }
 .stage-view { position: relative; flex: 1; min-height: 0; touch-action: none; overflow: hidden; }
 /* Interface zoom (Settings) scales the page; the figure undoes it and keeps its own zoom, while the
    controls floating on it scale with the rest. */
@@ -2604,7 +2600,6 @@ button.finding { cursor: pointer; }
 .pt-n,
 #labels text,
 .tl-pop .when,
-.bleed-pill { font-variant-numeric: tabular-nums; }
 
 /* ── Live instrument workspace ─────────────────────
    Instruments share the figure column, independent of the patient panel. No floating windows
@@ -3346,9 +3341,7 @@ button.finding { cursor: pointer; }
 .sb-center.float-ui:has(.sb-banner:empty) { display: none; }
 .sb-center .sb-banner { padding: 4px 4px 4px 12px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
 
-/* Active bleeding: a status line in the vitals dock, where the numbers are. */
 .vdock { grid-template-areas: "st st" "tl ro"; }
-.vdock .bleed-pill { grid-area: st; justify-self: start; margin: 8px 12px 0; }
 .vdock:has(.readouts.all) { grid-template-areas: "st" "ro" "tl"; }
 @media (max-width: 1099px) { .vdock { grid-template-areas: "st" "ro" "tl"; } }
 
@@ -3645,19 +3638,12 @@ input[type="range"] { touch-action: none; }
   .tl-pin { height: 38px; }
   .metric .k { font-size: var(--fs-12); }
 }
-/* The status row above the play bar: an active bleed or a passing note. */
-.vdock .vd-status { grid-area: st; display: flex; align-items: center; gap: 8px; min-width: 0; margin: 8px 12px 0; }
-.vdock .vd-status:not(:has(> :not([hidden]))) { display: none; }
-.vdock .vd-status .bleed-pill { margin: 0; }
 .vdock .tl-time { font-size: var(--fs-14); color: var(--text); min-width: 0; }
 .timeline .tl-restart { display: none; }
 @media (max-width: 1599px) { .vdock .tl-pin span { display: none; } .vdock .tl-pin { padding: 0 8px; } }
-@media (max-width: 767px) { .vdock .vd-status { margin: 6px 8px 0; } }
 @media (min-width: 768px) { .tl-phone-only { display: none !important; } }
 @media (max-width: 767px) {
   .vdock .tl-pin { display: none; }
-  .vdock .vd-status > * { flex: 0 1 auto; min-width: 0; }
-  .vdock .vd-status .bleed-pill { font-size: var(--fs-12); padding: 4px 10px 4px 8px; }
   .readouts:not(.all) .metric .v { font-size: var(--fs-16); }
   .metric .v .unit { margin-left: 2px; }
 }
@@ -3675,7 +3661,6 @@ input[type="range"] { touch-action: none; }
 }
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .vdock .readouts:not(.all) .metric .v .unit { display: none; }
-  .vdock .vd-status { margin-top: 4px; }
 }
 
 /* Text is not selectable anywhere, with a mouse or a finger: a drag or a long press highlights
@@ -3966,16 +3951,11 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
   .instrument-workspace .dock-body.pair .dock-pane[data-pane="profile"] .chart-side .sub { display: none; }
 }
 
-/* A passing message shows for a few seconds in the status row. */
-.vdock .vd-note { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-14); line-height: 1.35; font-weight: 600; color: var(--text); cursor: pointer; animation: fadeDown .22s var(--ease); }
-.vdock .vd-note.bad { color: var(--danger); }
-.vdock .vd-note[hidden] { display: none; }
-@media (max-width: 767px) { .vdock .vd-note { font-size: var(--fs-12); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; } }
 /* Phone: while the figure is panned or zoomed (and three seconds after), the vitals dock folds to one line
    (play, clock) and the top bar's second row (view, colour legend) slides away (main.js figureFocus).
    The dock keeps its place at the bottom; only its top comes down. */
 .vdock.mini { grid-template-columns: auto; grid-template-areas: "tl"; right: auto; width: max-content; }   /* a small pill in the lower-left corner: the lower-right is the zoom controls' */
-.vdock.mini .vd-status, .vdock.mini .readouts { display: none; }
+.vdock.mini .readouts { display: none; }
 .vdock.mini .stage-bar.bottom { height: 54px; min-height: 54px; padding: 0 12px 0 4px; }
 .app.figure-focus .zoom-pill { transition: opacity .25s var(--ease), translate .2s var(--ease), bottom .2s var(--ease), font-size .3s var(--ease); }
 /* The credit is never animated: no glide, no fade, no scale ease. When it must move it vanishes at once, stays hidden until the
@@ -4702,10 +4682,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 }
 
 /* ── The bottom bar, one quiet design on every size ───────────────────────────────────────────────
-   Two rows. The info line shows only an active bleed or a passing note (it is hidden otherwise); the play row is the speed/play pill, the
+   One row: the play row is the speed/play pill, the
    scrubber with its time beside it, then jump-ahead, History and Compare as matching quiet icon buttons (History's count is a
    badge). Every line is one line high at all times, so nothing wraps and the bar does not shift as the numbers change. */
-.vdock .vd-status { flex-wrap: nowrap; min-height: 28px; margin: 6px 12px 0; }
 /* The play row's three right-hand buttons: the same quiet 36 px icon button. */
 .vdock .tl-jumps { gap: 0; }
 .vdock :is(.tl-ff, .tl-hist, .tl-pin) { position: relative; flex: none; width: 36px; height: 36px; min-width: 0; padding: 0; gap: 0; justify-content: center; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text-2); }
@@ -5047,9 +5026,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    Collapsed, the dock is one row on every device: play, the clock, jump, History and Compare packed
    together, then HVPG and PPG (dock.js PRIMARY; every readout is in Tests > Readouts). From a tablet up
    the dock is a fixed, centred width that fits that row, so it never shifts as the clock or values change;
-   the status row above it (a bleed, a passing note) never widens it. */
+   nothing floats above it. */
 .vdock:not(.mini) { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "st st" "tl ro"; }
-.vdock .vd-status { contain: inline-size; }
 .vdock:not(.mini) .readouts { width: auto; border-left: 1px solid var(--hairline); border-bottom: 0; }
 @media (min-width: 768px) {
   .vdock:not(.mini) { width: min(calc(100% - 2 * var(--gap)), 640px); grid-template-columns: minmax(0, 1fr) auto; }
@@ -5128,12 +5106,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 #app.thumb.sin-focus .topbar .sb-left { display: flex; }
 #app.thumb.sin-focus #viewSeg { display: flex !important; }
 #app.thumb.sin-focus .top-right { display: flex !important; }
-/* The status row (a bleed, a passing note) floats just above the thumb dock instead of growing it, so the
-   dock, and the cards that sit on it, never move when an event comes and goes; while a card sits on the dock it steps aside. */
-.app.thumb .vdock .vd-status { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); margin: 0; pointer-events: none; transition: opacity .2s var(--ease), visibility .2s; }
-.app.thumb .vdock .vd-status > * { pointer-events: auto; box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
-.app.thumb:is(.dock-open, .panel-open) .vdock .vd-status, .app.thumb:has(#treatCard:not([hidden])) .vdock .vd-status,
-html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock .vd-status { opacity: 0; visibility: hidden; }
 /* The view switch as a compact pill at the left, just above the dock, level with Fit (main.js syncThumb moves it here).
    It counts as part of the dock's edge (data-safe), so the figure frames above it, and it steps aside with Fit. */
 .view-pill { display: none; }
@@ -5180,11 +5152,11 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 .app.thumb .vdock:not(.mini) { z-index: calc(var(--z-panel) + 20); background: transparent; box-shadow: none; }
 .app.thumb .vdock:not(.mini)::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); pointer-events: none; transition: opacity .2s var(--ease); }
 .app.thumb .vdock:not(.mini) .thumb-bar { position: relative; border-radius: 0 0 var(--r-sheet) var(--r-sheet); background: linear-gradient(var(--glass), var(--glass)), var(--stage-bg); box-shadow: inset 1px 0 0 var(--hairline), inset -1px 0 0 var(--hairline), inset 0 -1px 0 var(--hairline); transition: box-shadow .2s var(--ease); }
-.app.thumb .vdock:not(.mini) > :not(.thumb-bar):not(.vd-status) { transition: opacity .2s var(--ease); }
+.app.thumb .vdock:not(.mini) > :not(.thumb-bar) { transition: opacity .2s var(--ease); }
 /* (Below the tab row, down to the screen's edge, is part of it too: a card sliding away is gone once it passes the tab row's top.) */
 .app.thumb .vdock:not(.mini) .thumb-bar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: calc(env(safe-area-inset-bottom) + 16px); background: var(--stage-bg); pointer-events: none; }
 .app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini)::before, .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini)::before, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini)::before { opacity: 0; }
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > :not(.thumb-bar):not(.vd-status), .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) > :not(.thumb-bar):not(.vd-status), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) > :not(.thumb-bar):not(.vd-status) { opacity: 0; pointer-events: none; }
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > :not(.thumb-bar), .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) > :not(.thumb-bar), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) > :not(.thumb-bar) { opacity: 0; pointer-events: none; }
 .app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar, .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) .thumb-bar, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar { box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
 
 /* While a card covers the play bar, the bar's empty top row must not catch taps meant for the card's bottom edge (the Doppler's stent tiles sit there): only the tab row takes touches. */

@@ -3,16 +3,16 @@
 
 import { store, hiddenNow } from './store.js?v=bb8c70114d';
 import { EDGES } from '../engine/topology.js?v=1825cbda55';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=5df92c06c3';
-import { lobuleFlows } from './lobule-model.js?v=8137730684';
-import { createProfile } from './charts.js?v=6dfd61e159';
-import { createPressureTime } from './pressure-time.js?v=99453ef259';
-import { createFibroScan } from './fibroscan.js?v=4f071f8d0c';
-import { createHvpgProcedure } from './hvpg-proc.js?v=10836deae5';
-import { createDoppler } from './doppler.js?v=cba3de4cea';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=f7459cca3c';
+import { lobuleFlows } from './lobule-model.js?v=387ac07d78';
+import { createProfile } from './charts.js?v=d058fc9b9c';
+import { createPressureTime } from './pressure-time.js?v=174687f682';
+import { createFibroScan } from './fibroscan.js?v=cbeb549066';
+import { createHvpgProcedure } from './hvpg-proc.js?v=a80bb6d34c';
+import { createDoppler } from './doppler.js?v=f639975cef';
 import { ownsSideways } from './swipe.js?v=22a6f38036';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=47984b04bc';
-import { createReadoutsPane } from './readouts-pane.js?v=f49b1cc435';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=1386e068bf';
+import { createReadoutsPane } from './readouts-pane.js?v=bcc6cb40b4';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('dock');
 

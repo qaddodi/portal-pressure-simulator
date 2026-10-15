@@ -1,5 +1,5 @@
 // The bottom bar is one slim row: the key readouts are HVPG and PPG only, the strip no longer opens
-// (every readout is in Tests > Readouts), and no event pill or narrator line floats above the timeline.
+// (every readout is in Tests > Readouts), and no pill (event, narrator, bleed or passing note) floats above the timeline.
 // (dock.js and main.js need a DOM to import, so they are read as text.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,10 +25,10 @@ test('tapping the bar\'s HVPG or PPG does nothing: a plain div, no click handler
   assert.match(css, /\.metric\.inert:hover \{ background: transparent; \}/);
 });
 
-test('no event pill or narrator line floats above the timeline (History keeps the events)', () => {
-  const js = read('../src/ui/timeline.js') + read('../src/ui/main.js');
+test('no pill (event, narrator, bleed or passing note) floats above the timeline (History keeps the events)', () => {
+  const js = read('../src/ui/timeline.js') + read('../src/ui/main.js') + read('../src/ui/util.js');
   const css = read('../styles/app.css'), html = read('../index.html');
-  for (const name of ['tl-latest', 'narrator', 'nr-why', 'tl-ld', 'pps:event']) {
+  for (const name of ['tl-latest', 'narrator', 'nr-why', 'tl-ld', 'pps:event', 'bleed-pill', 'bleedPill', 'bp-dot', 'vd-note', 'vd-status', 'vdStatus', 'inlineNote']) {
     assert.ok(!js.includes(name), `a script still uses ${name}`);
     assert.ok(!css.includes(name), `app.css still styles ${name}`);
     assert.ok(!html.includes(name), `index.html still has ${name}`);
