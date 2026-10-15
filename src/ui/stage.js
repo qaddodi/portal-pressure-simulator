@@ -6727,6 +6727,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cameraMoves: (clear) => (clear ? camMoves.splice(0) : [...camMoves]),
     /** The transform the GPU last drew the figure in, as [a, b, c, d, e, f] from world to stage px (null: not drawn on the GPU). */
     glMatrix: () => (veins && !veins.lost && wrap.classList.contains('gl-on') ? glM : null),
+    /** For the checks: the vessel canvas as it stands, then after a whole redraw of the vessel layer (PNG data URLs; equal
+     *  when the partial redraws and re-projections left nothing stale), or null without the GPU figure or while moving. */
+    veinsCheck() {
+      if (!veins || veins.lost || !vLook || !F || veinsStale) return null;
+      const now = veins.snapshot();
+      veinsDirty = true; drawVeins();
+      return { now, whole: veins.snapshot() };
+    },
     cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !chainOut && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
     /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
     riseTo, holdHome,
@@ -6741,6 +6749,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
     /** Where the sinusoid's reading and lesion pointer meet their sinusoid (see lobule-zoom sinAnchor). */
     lobuleSinAnchor: () => lz?.sinAnchor() ?? null,
+    lobuleGlCheck: () => lz?.glCheck() ?? null,
     /** The lobule's outline in client px while it fills the view (see lobule-zoom ring), else null. */
     lobuleRing: () => (lobuleOn && diveT >= 1 ? lz?.ring() ?? null : null),
     /** Where a station's callout attaches, in client px (for the checks). */
