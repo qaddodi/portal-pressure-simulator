@@ -2884,7 +2884,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       c.width = W; c.height = H;
       c.getContext('2d').drawImage(img, 0, 0, W, H);
       veins.setPlate(slot, c, rect);
-      c.width = c.height = 0;
+      // (Its memory is given back a moment later, not at once: Chrome copies a canvas into a texture on the GPU after the call
+      // returns, and a canvas emptied right away left the texture blank, so the organs vanished at a Retina size.)
+      setTimeout(() => { c.width = c.height = 0; }, 1000);
       return true;
     } finally { URL.revokeObjectURL(url); }
   }
@@ -3727,7 +3729,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         c.width = R[2]; c.height = R[3];
         const x = c.getContext('2d'); x.translate(-R[0], -R[1]); x.fill(new Path2D(d));
         veins.setFluidMask(c, R);
-        c.width = c.height = 0;
+        setTimeout(() => { c.width = c.height = 0; }, 1000);   // (later, as the plate's: see rasterPlate)
       }
     }
     organG.bowel.setAttribute('transform', `translate(0 ${(-bulge / 34 * 26).toFixed(1)})`);
