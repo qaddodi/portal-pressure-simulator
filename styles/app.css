@@ -5123,6 +5123,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .app.thumb .view-pill:not([hidden]) { position: absolute; z-index: var(--z-hud); display: flex; padding: 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
   left: calc(env(safe-area-inset-left) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); translate: 0 calc(-1 * var(--sheet-h, 0px)); transition: opacity .25s var(--ease), translate .2s var(--ease); }
 .view-pill.under-sheet { bottom: max(calc(var(--bot-occ, 120px) + 8px), var(--sheet-h, 0px)); translate: none; }
+.app.thumb .view-pill.under-sheet:not([hidden]) { bottom: max(calc(var(--bot-occ, 120px) + 8px), var(--sheet-h, 0px)); translate: none; }   /* (just above a vessel's card, level with Fit; the rule above lost to the thumb dock's own) */
 .app.stage-busy .view-pill { opacity: .28; }
 /* While a card or menu sits on the dock, the view pill and Fit fade back (still counted where they are, so the figure
    does not move for a menu). */
@@ -5166,13 +5167,32 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 .app.thumb .vdock:not(.mini) > :not(.thumb-bar) { transition: opacity .2s var(--ease); }
 /* (Below the tab row, down to the screen's edge, is part of it too: a card sliding away is gone once it passes the tab row's top.) */
 .app.thumb .vdock:not(.mini) .thumb-bar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: calc(env(safe-area-inset-bottom) + 16px); background: var(--stage-bg); pointer-events: none; }
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini)::before, .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini)::before, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini)::before { opacity: 0; }
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > :not(.thumb-bar), .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) > :not(.thumb-bar), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) > :not(.thumb-bar) { opacity: 0; pointer-events: none; }
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar, .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) .thumb-bar, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar { box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini)::before, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini)::before, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini)::before { opacity: 0; }
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > :not(.thumb-bar), .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) > :not(.thumb-bar), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) > :not(.thumb-bar) { opacity: 0; pointer-events: none; }
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) .thumb-bar, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar { box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
 
 /* While a card covers the play bar, the bar's empty top row must not catch taps meant for the card's bottom edge (the Doppler's stent tiles sit there): only the tab row takes touches. */
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini), .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) { pointer-events: none; }
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar, .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) .thumb-bar, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar { pointer-events: auto; }
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini), .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) { pointer-events: none; }
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) .thumb-bar, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar { pointer-events: auto; }
+
+/* (15 Oct, Mohammad) A vessel's or organ's card on a phone is one of these cards too: it sits whole on the tab row's top
+   edge (the play bar steps aside, above), rises from behind the tab row and sinks back behind it, and stays out of the
+   way while Details is up over it. */
+@media (max-width: 767px) {
+  .app.thumb:not(.dock-open) .action-card.docked {
+    left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--nb-occ, calc(var(--vdock-h) + 14px));
+    border-radius: var(--r-sheet); height: auto; max-height: min(46%, 400px, calc(100% - var(--top-safe, 0px) - var(--nb-occ, var(--vdock-h)) - 22px));
+    translate: 0 var(--sink, 0px); clip-path: inset(-40px -40px var(--sink, 0px) -40px);
+  }
+  .app.thumb.panel-open .action-card.docked { visibility: hidden; transition: visibility 0s linear .26s; }
+  /* No X on a phone card: a pull down puts it away (card.js wireSheet), as the others. */
+  .app.thumb .action-card.docked .ac-close { display: none; }
+  .app.thumb .action-card.docked .ac-top { grid-template-columns: minmax(0, 1fr) auto; }
+}
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  .app.thumb:not(.dock-open) .action-card.docked { animation: thumbIn .26s var(--ease) var(--enter-delay, 0ms) backwards; }
+  .app.thumb:not(.dock-open) .action-card.docked.ac-leaving { animation: thumbOut .18s var(--ease) forwards; }
+}
 
 /* ── History beside Treat and Tests (15 Oct) ───────────────────────
    History left the play bar: on a Mac, an iPad held sideways and a phone held sideways it is a top-bar button

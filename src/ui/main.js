@@ -3,25 +3,25 @@
 
 import { startHost, host } from './host.js?v=8171c1b34a';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=943e8ec4f0';
+import { createStage } from './stage.js?v=4cb5c4dc2f';
 import { createCreditPlacer } from './credit.js?v=122c73335a';
-import { sinusoidSupported } from './sinusoid-view.js?v=7a4340ff69';
-import { createInspector } from './inspector.js?v=acf0d74219';
-import { createDock, CUTOFFS } from './dock.js?v=9d5b6fdbfe';
-import { setHvpgStage } from './hvpg-proc.js?v=e1608bc3c5';
-import { createWhy } from './why.js?v=8e26fee6e9';
-import { createTimeline, LAPSES } from './timeline.js?v=ebca29adfe';
-import { createCompare } from './compare.js?v=26a4c43934';
-import { createCard } from './card.js?v=ec033de868';
-import { createChart } from './chart.js?v=6139139e07';
-import { createMenu } from './menu.js?v=1515c1ca4f';
-import { caption } from './a11y.js?v=a789c11573';
+import { sinusoidSupported } from './sinusoid-view.js?v=adf162f586';
+import { createInspector } from './inspector.js?v=4979577c0c';
+import { createDock, CUTOFFS } from './dock.js?v=9bae9f0378';
+import { setHvpgStage } from './hvpg-proc.js?v=8787d0bf18';
+import { createWhy } from './why.js?v=00efae4848';
+import { createTimeline, LAPSES } from './timeline.js?v=e745ac9532';
+import { createCompare } from './compare.js?v=8b89c031cc';
+import { createCard } from './card.js?v=3247e0ba86';
+import { createChart } from './chart.js?v=9e6e250c3c';
+import { createMenu } from './menu.js?v=b7fa999370';
+import { caption } from './a11y.js?v=4dc7459ab3';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=8c63ee912e';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=26e1deced2';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=cf3eae56c7';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=cad0ea7853';
 import { EDGES, PORTAL_TERRITORY, dopplerK } from '../engine/topology.js?v=4044766e96';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=f7459cca3c';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=7bea6ad65a';
 import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -32,7 +32,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=9217103bc0';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=51156a8cb3';
 import { initTopbarMotion } from './topbar-motion.js?v=40e62f18bf';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=6ebaeb46c8';
@@ -137,7 +137,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=77dacadb65'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=9236565c3a'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -145,7 +145,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=81f70310da'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=21acac422b'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1155,7 +1155,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   if (fit) el.addEventListener('click', (e) => { if (size === half() && e.target.closest('[role="tab"]')) nextFrame(apply); });
   apply();
   handle.addEventListener('click', () => { if (!isPhone() || !active()) return; size = (size + 1) % stops().length; apply(); });
-  let start = null, swallow = false;
+  let start = null, swallow = 0;
   // Controls keep their own gestures. With `anywhere` (a phone sheet), a vertical drag from any other spot on the
   // card moves it too; a sideways one is left alone, and content scrolled away from its top scrolls back first.
   const FIELDS = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]), select, textarea, [role="slider"], [contenteditable]';
@@ -1169,9 +1169,8 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     // (Over the thumb dock buttons and tabs carry the pull too, so Treat moves from anywhere; a tap still clicks.)
     if (e.target !== handle && e.target.closest(thumb() && anywhere ? FIELDS : CONTROLS) && !headTab) return;
     if (!own && !(anywhere && isPhone())) return;
-    stopSink(el);
     const r = el.getBoundingClientRect(), mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat);
-    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: r.height, H: room() || app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own || headTab, sc: own ? null : scroller(e.target) };
+    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: r.height, H: room() || app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false, base: 0, loose: !own || headTab, sc: own ? null : scroller(e.target) };
     // (Half's height, as apply() sets it: the content's own height when that is less)
     if (thumb() && size === stops().length - 1 && stops().length > 1) { start.full = true; start.half = Math.min(r.height, natural(), stops()[half()] * room()); }
   });
@@ -1183,16 +1182,19 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
       const sc = start.sc;
       if (start.loose && (Math.abs(dx) > Math.abs(dy) || (sc && (sc.scrollTop > 0 || (dy < 0 && size === stops().length - 1))))) { start = null; return; }
       start.moved = true;
+      // (Caught while it is still easing: the pull takes it over from where it is, without a jump. A tap leaves it easing.)
+      start.base = thumb() && !start.full ? parseFloat(el.style.getPropertyValue('--sink')) || 0 : 0;
+      stopSink(el);
       el.setPointerCapture?.(e.pointerId);   // (only once it moves: captured at once, a tap's click would land on the sheet, not the grabber)
     }
     el.classList.add('dragging');
-    start.dy = dy;
+    start.dy = dy + start.base;
     // Over the thumb dock a pull down slides the card down behind the tab row (--sink: moved and cut at its resting
     // bottom edge in one value, styles/app.css).
     // From Full a pull down shrinks the card the way a pull up grew it (15 Oct, Mohammad): its foot stays on the tab row and
     // its top follows the finger, slowing past Half, where it settles.
     if (thumb() && dy > 0 && start.full) { el.style.removeProperty('--sink'); const lo = start.half, h = start.h - dy; el.style.height = `${Math.max(60, h >= lo ? h : lo - (lo - h) * 0.25)}px`; }
-    else if (thumb() && dy > 0) { el.style.height = ''; el.style.setProperty('--sink', `${dy}px`); }
+    else if (thumb() && start.dy > 0) { el.style.height = ''; el.style.setProperty('--sink', `${start.dy}px`); }
     else if (isPhone()) { el.style.removeProperty('--sink'); el.style.height = `${Math.max(60, start.h - dy)}px`; }
     else el.style.translate = `${start.tx + dx}px ${start.ty + dy}px`;
   });
@@ -1205,12 +1207,13 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     const t = e.touches[0], dx = t.clientX - start.x, dy = t.clientY - start.y;
     if (thumb() && dy > 0 && dy >= Math.abs(dx) && !(start.sc && start.sc.scrollTop > 0)) e.preventDefault();
   }, { passive: false });
-  el.addEventListener('click', (e) => { if (swallow) { swallow = false; e.stopPropagation(); e.preventDefault(); } }, true);
+  // (The click a drag's release makes is not a tap: swallowed if it comes within 350 ms, timed by the clock, not a timer a busy page runs late.)
+  el.addEventListener('click', (e) => { if (performance.now() < swallow) { swallow = 0; e.stopPropagation(); e.preventDefault(); } }, true);
   const end = (e) => {
     if (!start || (e && e.pointerId !== start.id)) return;
     const s0 = start; start = null;
     el.classList.remove('dragging');
-    if (s0.moved) { swallow = true; setTimeout(() => { swallow = false; }, 350); }
+    if (s0.moved) swallow = performance.now() + 350;
     if (!s0.moved || !isPhone()) return;
     if (thumb() && s0.dy > 0) {
       // (15 Oct, Mohammad) From Full a pull down always settles at Half, however fast; only a second pull, from Half,
@@ -1270,6 +1273,7 @@ function wireThumbBar() {
   // and the new one comes in once it has gone), and a second tap on the same tab closes its own.
   const clear = (keep) => {
     closePopover();
+    if (store.get().selection) store.set({ selection: null });   // (a vessel's or organ's card goes too)
     if (keep !== 'treat') closeTreat();
     if (keep !== 'tests' && app.classList.contains('dock-open')) setPanelTab('chart');
     if (panelShown()) closePanel();

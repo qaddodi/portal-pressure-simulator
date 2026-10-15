@@ -232,18 +232,26 @@ export function closePopover() {
  *  its resting bottom edge together). This eases --sink to px frame by frame, so the move and the cut stay in step on
  *  iOS too, then calls done. A new drag stops it (stopSink). */
 const sinking = new WeakMap();
-export function stopSink(el) { cancelAnimationFrame(sinking.get(el)); sinking.delete(el); }
+export function stopSink(el) { const a = sinking.get(el); if (a) { cancelAnimationFrame(a.raf); clearTimeout(a.timer); } sinking.delete(el); }
 export function sinkTo(el, px, ms = 220, done) {
   stopSink(el);
-  const from = parseFloat(el.style.getPropertyValue('--sink')) || 0, t0 = performance.now();
-  const step = (now) => {
-    const k = Math.min(1, (now - t0) / ms), v = from + (px - from) * (1 - (1 - k) ** 3);
-    if (k < 1) { el.style.setProperty('--sink', `${v}px`); sinking.set(el, requestAnimationFrame(step)); return; }
-    sinking.delete(el);
+  const from = parseFloat(el.style.getPropertyValue('--sink')) || 0, t0 = performance.now(), a = {};
+  const finish = () => {
+    if (sinking.get(el) !== a) return;
+    stopSink(el);
     if (px) el.style.setProperty('--sink', `${px}px`); else el.style.removeProperty('--sink');
     done?.();
   };
-  sinking.set(el, requestAnimationFrame(step));
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / ms);
+    if (k >= 1) { finish(); return; }
+    el.style.setProperty('--sink', `${from + (px - from) * (1 - (1 - k) ** 3)}px`);
+    a.raf = requestAnimationFrame(step);
+  };
+  // (A page whose frames stall, in the background or a busy browser, still lands and closes on time.)
+  a.timer = setTimeout(finish, ms + 120);
+  sinking.set(el, a);
+  a.raf = requestAnimationFrame(step);
 }
 /** A phone's bottom sheet follows a vertical drag from anywhere on it and closes past a short pull (or a quick
  *  flick) down; a short one eases back. Content scrolled away from its top scrolls back first, a sideways drag
@@ -273,7 +281,8 @@ export function swipeSheet(panel, onClose) {
       if (down && e.cancelable) e.preventDefault();
       if (Math.hypot(dx, dy) < 8) return;
       if (!down) { s = null; return; }
-      s.on = true; s.y = t.clientY; s.t = performance.now();
+      // (Caught while it is still easing back: the pull carries on from where the sheet is, without a jump.)
+      s.on = true; s.y = t.clientY - (parseFloat(panel.style.getPropertyValue('--sink')) || 0); s.t = performance.now();
       panel.style.transition = 'none'; panel.style.animation = 'none'; stopSink(panel);
     }
     if (e.cancelable) e.preventDefault();

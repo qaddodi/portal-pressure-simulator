@@ -4,8 +4,8 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=3b659e1968';
-import { h, icon, svgIcon, clamp, infoButton } from './util.js?v=f7459cca3c';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=8c63ee912e';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink } from './util.js?v=7bea6ad65a';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=cf3eae56c7';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -72,6 +72,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   let closeTimer = 0, stopSheetGesture = () => {};
   function hide() {
     stopSheetGesture();
+    if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; el.style.removeProperty('--sink'); }   // (pulled away: already out of sight behind the tab row)
     if (!el.hidden && !el.classList.contains('ac-leaving')) {
       if (isDocked() && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
         el.classList.add('ac-leaving');
@@ -162,24 +163,41 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // Track swipes outside the header too; release all listeners on close or selection change.
+  // Over the thumb dock (an upright phone) the card follows the finger down behind the tab row (--sink, as the other
+  // cards there) and, let go past a short pull or flicked, sinks out of sight and closes; a short pull eases back.
   function wireSheet(top) {
-    let y0 = null;
+    let y0 = null, t0 = 0, dy = 0;
+    const thumb = () => document.documentElement.classList.contains('thumb-ui');
     const stop = () => {
       y0 = null;
+      removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
-      removeEventListener('pointercancel', stop);
+      removeEventListener('pointercancel', cancel);
+    };
+    const move = (e) => {
+      dy = Math.max(0, e.clientY - y0);
+      if (thumb()) el.style.setProperty('--sink', `${dy}px`);
+    };
+    const settle = (gone) => {
+      if (!thumb()) { if (gone) store.set({ selection: null }); return; }
+      if (!gone) { sinkTo(el, 0); return; }
+      sinkTo(el, el.offsetHeight, 220, () => { if (el.hidden) return; el.dataset.swiped = '1'; store.set({ selection: null }); if (!el.hidden) { delete el.dataset.swiped; el.style.removeProperty('--sink'); } });
     };
     const up = (e) => {
-      const dy = e.clientY - y0;
+      dy = Math.max(0, e.clientY - y0);
+      const flick = dy > 30 && dy / Math.max(1, performance.now() - t0) > 0.6;
       stop();
-      if (dy > 40) store.set({ selection: null });
+      settle(flick || dy > 40);
     };
-    stopSheetGesture = stop;
+    const cancel = () => { stop(); settle(false); };
+    stopSheetGesture = () => { if (y0 != null) stop(); stopSink(el); el.style.removeProperty('--sink'); };
     top.addEventListener('pointerdown', (e) => {
       if (!isDocked() || !e.isPrimary || e.button !== 0 || e.target.closest('.ac-close, .ac-foot')) return;
-      y0 = e.clientY;
+      y0 = e.clientY - (parseFloat(el.style.getPropertyValue('--sink')) || 0); t0 = performance.now(); dy = 0;
+      stopSink(el);
+      addEventListener('pointermove', move);
       addEventListener('pointerup', up);
-      addEventListener('pointercancel', stop);
+      addEventListener('pointercancel', cancel);
     });
   }
 

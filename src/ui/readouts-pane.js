@@ -4,7 +4,7 @@
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js?v=3b659e1968';
-import { h, fmt, clamp } from './util.js?v=f7459cca3c';
+import { h, fmt, clamp } from './util.js?v=7bea6ad65a';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };

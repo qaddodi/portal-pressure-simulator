@@ -5,9 +5,9 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=3b659e1968';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=f7459cca3c';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=7bea6ad65a';
 import { SNAPSHOTS } from './snapshots.js?v=0f6fae1c74';
-import { pressureColor } from './colormap.js?v=26e1deced2';
+import { pressureColor } from './colormap.js?v=cad0ea7853';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('menu');
 
