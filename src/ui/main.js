@@ -7,13 +7,13 @@ import { createStage } from './stage.js?v=2a4f952693';
 import { createCreditPlacer } from './credit.js?v=2439c0276f';
 import { sinusoidSupported } from './sinusoid-view.js?v=efa967e240';
 import { createInspector } from './inspector.js?v=ba3ee0100f';
-import { createDock, CUTOFFS } from './dock.js?v=e854a84015';
+import { createDock, CUTOFFS } from './dock.js?v=98effc350f';
 import { setHvpgStage } from './hvpg-proc.js?v=8ec4a787a7';
 import { createWhy } from './why.js?v=714afe2d3c';
-import { createTimeline, LAPSES } from './timeline.js?v=f2e79a31c4';
-import { createCompare } from './compare.js?v=885d47a7d1';
+import { createTimeline, LAPSES } from './timeline.js?v=d7dcf55fa4';
+import { createCompare } from './compare.js?v=6453795037';
 import { createCard } from './card.js?v=e09d1b1ee9';
-import { createChart } from './chart.js?v=d1869c5d2c';
+import { createChart } from './chart.js?v=0899ef78c1';
 import { createMenu } from './menu.js?v=bcfc118d45';
 import { caption } from './a11y.js?v=a077a58afc';
 import { startLMS } from './lms.js?v=284ef81e94';
@@ -1079,7 +1079,9 @@ function wireFloating() {
   dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the instruments' }), drag: '.dock-head', anywhere: true, onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, down = null, moved = false;
-  const busy = (ms) => { app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
+  // (Adding a class it already has still counts as a change to the page's observers: every pointer move of a drag or
+  // pinch woke four of them and laid the page out again, review #31. So the class is added only when it is missing.)
+  const busy = (ms) => { if (!app.classList.contains('stage-busy')) app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
   // On a phone the same gestures also give the figure more room: the vitals dock folds to a small pill in the
   // lower-left corner (play and clock; the zoom buttons take the lower right) and the top bar's second row (view, colour legend) slides away, while the figure moves and
   // for three seconds after. A tap anywhere, or an event on the timeline, brings them back at once.
@@ -1089,7 +1091,8 @@ function wireFloating() {
     clearTimeout(focusT);
     // (The thumb dock stays put: its tab row is how the tools are reached, and it is slim already.)
     if (!isPhone() || app.classList.contains('thumb') || $('#strip').classList.contains('all') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    app.classList.add('figure-focus'); foldDock(true);
+    if (!app.classList.contains('figure-focus')) app.classList.add('figure-focus');
+    foldDock(true);
     if (ms) focusT = setTimeout(unfocus, ms);
   };
   // The dock folds to one line and opens again as an ease, never a jump: its old content fades out, the box

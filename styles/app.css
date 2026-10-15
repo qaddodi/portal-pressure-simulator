@@ -3973,7 +3973,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 
 /* Treat's Drugs / Fluids / Procedures tabs reuse the Tests card's tab row (.instr-tabs); the pane under it needs no extra top gap. */
 .treat-card .instr-tab { flex: 1 1 0; }
-.treat-pane { padding-top: 4px; }
+.treat-pane { padding-top: 4px; display: grid; }
+.treat-pane > * { grid-area: 1 / 1; align-self: start; }
+.treat-pane > .tp-off { visibility: hidden; }
 
 /* A plain bordered card */
 .sp { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); display: flex; flex-direction: column; gap: 12px; animation: lift .38s var(--ease) both; }

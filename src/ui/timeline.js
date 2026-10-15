@@ -99,6 +99,8 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
     if (f) e.frame = captureFrame(f, snap.params);
     sortEntries();
     render(true);
+    // (The History card repaints too: the row now has its day and its go-back and compare buttons, review #22.)
+    for (const fn of listeners) fn();
   }
   function truncateFuture() {
     if (cursor < 0) return;

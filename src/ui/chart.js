@@ -134,11 +134,13 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
     const panes = [['drugs', 'pill', 'Drugs', drugs], ['fluids', 'drop', 'Fluids', fluids], ['procs', 'band', 'Procedures', procs]];
     const tabs = h('div', { class: 'instr-tabs treat-tabs', role: 'tablist', 'aria-label': 'Treatments' });
-    const body = h('div', { class: 'treat-pane' });
+    // All three panes share one grid cell, the others hidden but still laid out, so the card is as tall as the tallest
+    // tab on every tab and never changes height when a tab is picked (review #20).
+    const body = h('div', { class: 'treat-pane' }, panes.map((x) => x[3]));
     const show = (id) => {
       treatTab = id;
       for (const b of tabs.children) b.setAttribute('aria-selected', String(b.dataset.tab === id));
-      body.replaceChildren(panes.find((x) => x[0] === id)[3]);
+      for (const [pid, , , el] of panes) { const off = pid !== id; el.classList.toggle('tp-off', off); el.inert = off; el.setAttribute('aria-hidden', String(off)); }
     };
     for (const [id, ic, label] of panes) tabs.append(h('button', { class: 'instr-tab', role: 'tab', 'data-tab': id, 'aria-selected': 'false', onclick: () => show(id) }, svgIcon(ic), h('span', {}, label)));
     show(treatTab);

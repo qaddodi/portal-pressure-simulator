@@ -33,14 +33,15 @@ export function createCompare() {
       h('div', { class: 'cmp-states' }, card('a', 'T', A.names ? nA : `Then · ${A.when}`, A.label, describe(A.changes)), nowCard),
       tableEl,
       h('p', { class: 'ctl-sub', style: { margin: 0 } }, 'Switch the figure between then, now and the change in the figure header. The pressure profile overlays then as a dotted line.'));
+    // (Filled now, before the section is on the page: while paused no frame comes to fill it, review #22.)
     const f = store.get().frame;
-    if (f) update(f);
+    if (f) update(f, true);
     return el;
   }
 
-  function update(f) {
+  function update(f, building = false) {
     const st = store.get();
-    if (!tableEl?.isConnected || !st.compareSnap) return;
+    if (!tableEl || (!building && !tableEl.isConnected) || !st.compareSnap) return;
     const A = st.compareSnap.metrics, B = f.metrics;
     const maxRel = Math.max(...ROWS.map(([, g]) => { const a = g(A), b = g(B, true); return Math.abs(b - a) / Math.max(Math.abs(a), 1); }), 1e-6);
     const rows = ROWS.map(([lab, g, d, u]) => {

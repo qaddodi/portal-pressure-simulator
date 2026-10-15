@@ -353,10 +353,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // A phone's Tests card (over the thumb dock): a sideways drag on the card pages between the tabs. The open pane follows
   // the finger with the next (or previous) tab's pane beside it; on release it eases to whichever is nearer, or on to the
   // next one after a quick flick. A vertical pull stays the sheet's (it closes or resizes the card).
-  let sw = null;
+  let sw = null, settle = null;   // settle: the last swipe's switch, while its panes are still easing
   const paneFor = (id) => (panes.find((p) => p.id === id) || panes.find((p) => tabOf(p.id) === id))?.el;
   const clearSwipe = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; e.classList.remove('swipe-peer'); } };
   body.addEventListener('touchstart', (e) => {
+    // A second swipe before the first has settled finishes the first at once, so it starts from the new tab (review #21).
+    settle?.();
     sw = e.touches.length === 1 && app.classList.contains('thumb') && open.length === 1 && !ownsSideways(e.target, { stop: body })
       ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0 } : null;
   }, { passive: true });
@@ -384,10 +386,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
     s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';
     if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;
-    setTimeout(() => {
+    const done = () => {
+      clearTimeout(timer); settle = null;
       clearSwipe([s.cur, s.nb]);
       if (go) { pick(TABS[s.j]); tabEls[TABS[s.j]].b.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); }
-    }, 250);
+    };
+    const timer = setTimeout(done, 250);
+    settle = done;
   };
   body.addEventListener('touchend', endSwipe, { passive: true });
   body.addEventListener('touchcancel', endSwipe, { passive: true });
