@@ -50,7 +50,8 @@ test('#13: the engine grades judge the printed diameter and volume (Endoscopy, A
   assert.ok(Object.is(shownOf(-0.04, 1), 0));
   assert.equal(shownOf(9.96, 1), 10);
   assert.equal(shownOf(74.6, 0), 75);
-  // The Patients readouts pass the printed value to their words.
+  // The Patients readouts pass the printed value to their words (and import the helper that gives it).
+  for (const f of ['dock.js', 'readouts-pane.js']) assert.match(read(`../src/ui/${f}`), /^import \{[^}]*\bshownOf\b[^}]*\} from '\.\/util\.js/m, f);
   assert.match(read('../src/ui/dock.js'), /vs = shownOf\(v, t\.d\)[^\n]*\n[^\n]*\(vs, \.\.\.a\);\n\s*sev = t\.st\(vs, \.\.\.a\);/);
   assert.match(read('../src/ui/readouts-pane.js'), /t\.s\(vs, m\);\n\s*sev = t\.st\(vs, m\);/);
   assert.match(read('../src/ui/presenter.js'), /ratedShown\(p\.k, f\)/);

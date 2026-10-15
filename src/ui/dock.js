@@ -3,7 +3,7 @@
 
 import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=95b4244720';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf } from './util.js?v=95b4244720';
 import { lobuleFlows } from './lobule-model.js?v=a1e0dba613';
 import { createProfile } from './charts.js?v=468a99e8ff';
 import { createPressureTime } from './pressure-time.js?v=3d47ff1a83';
@@ -12,7 +12,7 @@ import { createHvpgProcedure } from './hvpg-proc.js?v=ec96bfaf79';
 import { createDoppler } from './doppler.js?v=74bf23d08f';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=d0d57b9001';
-import { createReadoutsPane } from './readouts-pane.js?v=d8a578bb17';
+import { createReadoutsPane } from './readouts-pane.js?v=1858229cdc';
 import { frameFor } from './frame.js?v=5ad4028792';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 const nextFrame = frameFor('dock');
