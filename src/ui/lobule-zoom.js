@@ -912,6 +912,13 @@ export function createLobuleZoom({ host }) {
   // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays
   // on its vessel while that is comfortably in view, and otherwise moves to the one in view nearest
   // the middle of the free space (so it does not jump about).
+  // A presenter slide that lights lobule terms fades every other label and zone name out (app.css, --lit-o: 0): those take no room.
+  const LIT_OK = ['triad', 'arteriole', 'ductule', 'sinusoid', 'central', 'lymph', 'zone1', 'zone3'].map((t) => `lobule:${t}`);
+  const faded = (target) => {
+    const app = document.querySelector('.app'), lit = app?.dataset.lit;
+    if (!app?.classList.contains('presenting') || !lit || !/(^| )(lobule|sinusoid):/.test(lit)) return false;
+    return !(LIT_OK.includes(target) && lit.split(' ').includes(target));
+  };
   const named = (k) => !!document.querySelector('.app')?.dataset.lit?.split(' ').includes(`lobule:${LZ_TARGET[k]}`);
   const pick = { triad: 3, lt: null, sin: null, geo: null };
   // A sinusoid's reading sits half way from the portal tract to the central vein: along the middle generation's
@@ -1041,7 +1048,7 @@ export function createLobuleZoom({ host }) {
       const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
       const box = { l: x - w / 2 - 6, r: x + w / 2 + 6, t: y - hh / 2 - 6, b: y + hh / 2 + 6 };
       const cost = placed.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 100 : 0) + (crosses(a, [x, y], o) ? 1e5 : 0), 0)
-        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e4 : 0) + keep.reduce((c, q) => { const d = into(q, box); return c + (d > 0 ? 1e6 + d * 1e3 : 0); }, 0) + hex.share(box) * INSIDE_COST + cards.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 400 : 0), 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 - (prev ? 60 : 0);
+        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e6 : 0), 0) + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e4 : 0) + keep.reduce((c, q) => { const d = into(q, box); return c + (d > 0 ? 1e6 + d * 1e3 : 0); }, 0) + hex.share(box) * INSIDE_COST + cards.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 400 : 0), 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 + Math.max(0, Math.hypot(x - a[0], y - a[1]) - w / 2 - 110) * 30 - (prev ? 60 : 0);
       if (!best || cost < best.cost) best = { x, y, box, cost };
     }
     placed.push(best.box); callPrev = { at: call.at, dx: best.x - a[0], dy: best.y - a[1] }; callCost = best.cost;
@@ -1080,7 +1087,8 @@ export function createLobuleZoom({ host }) {
       }
       z.style.left = `${zx}px`; z.style.top = `${zy}px`;
       const w = z.offsetWidth || 92, hh = z.offsetHeight || 36;
-      boxes.push({ l: zx - w / 2 - hx, r: zx + w / 2 + hx, t: zy - hh / 2 - hy, b: zy + hh / 2 + hy });
+      // (A zone the slide's words leave unlit fades out: its spot is free for the labels.)
+      if (!faded(`lobule:zone${i + 1}`)) boxes.push({ l: zx - w / 2 - hx, r: zx + w / 2 + hx, t: zy - hh / 2 - hy, b: zy + hh / 2 + hy });
     });
     return boxes;
   }
@@ -1183,6 +1191,7 @@ export function createLobuleZoom({ host }) {
       const L = labs[k];
       if (!L) continue;
       if ((k === 'lymph' && !lymphOn) || ((k === 'ha' || k === 'bd') && !named(k))) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
+      if (faded(`lobule:${LZ_TARGET[k] || k}`)) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       L.el.hidden = false;
       L.el.classList.remove('stack');
       shown.push([k, L]);
@@ -1253,6 +1262,8 @@ export function createLobuleZoom({ host }) {
           const d = (r0 + 10) * r + Math.min(w / 2 / Math.max(Math.abs(c), 1e-6), hh / 2 / Math.max(Math.abs(sn), 1e-6));
           candidates.push([a[0] + c * d, a[1] + sn * d]);
         }
+        // And a coarse grid over the whole free space, a last resort that still finds the one clear band on a short phone figure.
+        for (let gx = 0; gx <= 6; gx++) for (let gy = 0; gy <= 6; gy++) candidates.push([fr.l + (fr.r - fr.l) * gx / 6, fr.t + (fr.b - fr.t) * gy / 6]);
         // Snug against each label already placed (above, below or beside it), so a tight gap between two is found.
         for (const o of pl) candidates.push([preferred[0], o.b + hh / 2 + hy], [preferred[0], o.t - hh / 2 - hy], [o.r + w / 2 + hx, preferred[1]], [o.l - w / 2 - hx, preferred[1]]);
         let best = null;
@@ -1293,27 +1304,49 @@ export function createLobuleZoom({ host }) {
         if (sol.total < 1e5 && items.length > 5) break;   // (up to five labels, 120 orders at most: the shortest leaders win, not just the first clear order)
       }
     }
-    // The pill pushed a label off the screen or onto another: the labels are placed first instead and the pill finds
-    // a clear spot among them, kept when it finds one (a label never hidden by the slide's pill).
-    // The pill pushed a label off the screen or onto another: the vessel labels (central vein, sinusoids, portal tract)
-    // are placed first instead, then the pill clear of them, then the optional labels in what is left. Kept when the
-    // pill finds a clear spot (a vessel label is never hidden by the slide's pill, and the pill never sits on a label).
-    if (callLead && sol.total >= 1e5 && !rough) {
-      const keepCall = { lead: callLead, prev: callPrev, cost: callCost, left: callEl.style.left, top: callEl.style.top, line: ['x1', 'y1', 'x2', 'y2'].map((k) => callLine.getAttribute(k)) };
-      const core = items.filter((it) => CORE.includes(it.k)), rest = items.filter((it) => !CORE.includes(it.k));
-      let s1 = solve(core, pre, []);
-      for (const order of perms(core)) { if (s1.total < 1e5) break; const t = solve(order, pre, []); if (t.total < s1.total) s1 = t; }
-      const pl2 = s1.pl.slice();
-      const lead2 = placeCall(fr, pl2, cards, s1.ld, crosses, ring, hex, keep, into);
-      const s3 = solve(rest, pl2, [...s1.ld, lead2]);
-      const s2 = { res: [...s1.res, ...s3.res], total: s1.total + s3.total };
-      const outs = (s) => s.res.filter((r) => r.out && CORE.includes(r.k)).length;
-      if (callCost < 1e6 && (outs(s2) < outs(sol) || (outs(s2) === outs(sol) && s2.total < sol.total))) { sol = s2; callLead = lead2; }
-      else {
-        callPrev = keepCall.prev; callCost = keepCall.cost;
-        callEl.style.left = keepCall.left; callEl.style.top = keepCall.top;
-        ['x1', 'y1', 'x2', 'y2'].forEach((k, i) => callLine.setAttribute(k, keepCall.line[i]));
+    // A vessel label hidden or crowded: two more layouts are tried, and the one hiding the fewest vessel labels (central
+    // vein, sinusoids, portal tract, and any the slide names), then crowding least, is kept. First, the vessel labels
+    // placed before the slide's pill, the pill clear of them and their leaders, the optional labels in what is left.
+    // Second, as the sinusoids are everywhere, another sinusoid in view for its label, when the one picked leaves none
+    // (a crowded phone band once dropped the Sinusoids label on a slide about the sinusoids). The pill is never left on a label.
+    const isCore = (k) => CORE.includes(k) || named(k), outs = (s) => s.res.filter((r) => r.out && isCore(r.k)).length;
+    const better = (p, q) => outs(p) < outs(q) || (outs(p) === outs(q) && p.total < q.total);
+    if (sol.total >= 1e5 && !rough) {
+      const shown = { lead: callLead, prev: callPrev, cost: callCost, left: callEl.style.left, top: callEl.style.top, line: ['x1', 'y1', 'x2', 'y2'].map((k) => callLine.getAttribute(k)) };
+      let won = null;
+      const core = items.filter((it) => isCore(it.k)), rest = items.filter((it) => !isCore(it.k));
+      const coreFirst = () => {
+        let s1 = solve(core, pre, []);
+        for (const order of perms(core)) { if (s1.total < 1e5) break; const t = solve(order, pre, []); if (t.total < s1.total) s1 = t; }
+        const pl2 = s1.pl.slice();
+        const lead2 = placeCall(fr, pl2, cards, s1.ld, crosses, ring, hex, keep, into);
+        if (callLead && callCost >= 1e6) return null;
+        const s3 = solve(rest, pl2, lead2 ? [...s1.ld, lead2] : s1.ld);
+        return { res: [...s1.res, ...s3.res], total: s1.total + s3.total, lead: lead2, call: { prev: callPrev, cost: callCost, left: callEl.style.left, top: callEl.style.top, line: ['x1', 'y1', 'x2', 'y2'].map((k) => callLine.getAttribute(k)) } };
+      };
+      const pillFirst = () => {
+        let s2 = solve(items, base, shown.lead ? [shown.lead] : []);
+        for (const order of items.length <= 5 ? perms(items) : []) { if (s2.total < 1e5) break; const t = solve(order, base, shown.lead ? [shown.lead] : []); if (t.total < s2.total) s2 = t; }
+        return { ...s2, lead: shown.lead, call: shown };
+      };
+      if (callLead) { const c = coreFirst(); if (c && better(c, sol)) { sol = c; won = c; } }
+      const sinIt = items.find((it) => it.k === 'sin' && !it.edge);
+      if (sinIt && sol.res.some((r) => r.k === 'sin' && r.out)) {
+        const g = geo, cx = (fr.l + fr.r) / 2, cy = (fr.t + fr.b) / 2, a0 = sinIt.a;
+        const cands = [...g.L1, ...g.L2, ...g.L0].map((t) => [t, toScreen(sinAt(t))]).filter(([, [x, y]]) => x > fr.l + 30 && x < fr.r - 30 && y > fr.t + 30 && y < fr.b - 30)
+          .sort((p, q) => Math.hypot(p[1][0] - cx, p[1][1] - cy) - Math.hypot(q[1][0] - cx, q[1][1] - cy)).slice(0, 30);
+        let winA = a0;
+        for (const [t, a] of cands) {
+          sinIt.a = a;
+          for (const s2 of [pillFirst(), callLead ? coreFirst() : null]) if (s2 && better(s2, sol)) { sol = s2; won = s2; winA = a; pick.sin = t.id; }
+          if (outs(sol) === 0) break;
+        }
+        sinIt.a = winA;
       }
+      const c = won ? won.call : shown;
+      if (won) callLead = won.lead;
+      callPrev = c.prev; callCost = c.cost; callEl.style.left = c.left; callEl.style.top = c.top;
+      ['x1', 'y1', 'x2', 'y2'].forEach((k, i) => callLine.setAttribute(k, c.line[i]));
     }
     for (const { k, x, y, out } of sol.res) {
       const { L, w, hh, a, edge } = items.find((it) => it.k === k);

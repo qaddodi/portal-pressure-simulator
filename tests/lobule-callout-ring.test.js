@@ -38,11 +38,15 @@ test('lobule labels are pinned beside what they name and never cover the central
   assert.match(js, /L\.el\.classList\.toggle\('edge'/, 'a label whose structure is off screen waits at the edge');
   assert.match(js, /if \(best\.cost >= 1e6\) \{ res\.push\(\{ k, out: true \}\)/, 'a label with no clear spot is left out, never stacked on another');
   assert.match(js, /let callLead = placeCall\(/, 'the slide\'s pointer pill is placed before the labels');
-  assert.match(js, /if \(callLead && sol\.total >= 1e5 && !rough\)/, 'when the pill would hide or crowd a label, the labels go first');
-  assert.match(js, /const CORE = \['cv', 'sin', 'triad'\]/, 'the vessel labels are the ones the pill never hides');
-  assert.match(js, /placeCall\(fr, pl2, cards, s1\.ld,/, 'the pill is placed clear of the vessel labels and their leaders');
-  assert.match(js, /solve\(rest, pl2, \[\.\.\.s1\.ld, lead2\]\)/, 'the optional labels then fit around both');
-  assert.match(js, /callCost < 1e6 && \(outs\(s2\) < outs\(sol\)/, 'kept only when the pill is clear, preferring fewer hidden vessel labels');
+  assert.match(js, /if \(sol\.total >= 1e5 && !rough\)/, 'when a label is hidden or crowded, other layouts are tried');
+  assert.match(js, /const isCore = \(k\) => CORE\.includes\(k\) \|\| named\(k\)/, 'a label the slide names counts as a vessel label');
+  assert.match(js, /const better = \(p, q\) => outs\(p\) < outs\(q\)/, 'the layout hiding fewest vessel labels wins');
+  assert.match(js, /placeCall\(fr, pl2, cards, s1\.ld,/, 'the pill can be placed after the vessel labels, clear of their leaders');
+  assert.match(js, /if \(callLead && callCost >= 1e6\) return null/, 'never with the pill on a label');
+  assert.match(js, /sinIt\.a = winA/, 'another sinusoid takes the label when the first leaves no room');
+  assert.match(js, /if \(!faded\(`lobule:zone\$\{i \+ 1\}`\)\) boxes\.push/, 'a faded zone name takes no room');
+  assert.match(js, /\(crosses\(p, q, box\) \? 1e6 : 0\)/, 'no label leader runs behind the pill');
+  assert.match(js, /- w \/ 2 - 110\) \* 30/, 'the pill stays near its target');
   assert.match(js, /hit\(box, c\) \? 1e6/, 'a label never sits on a card');
   assert.match(js, /Math\.max\(0, lead - 3 \* hh\) \* 60/, 'long leaders cost steeply');
 });
@@ -54,4 +58,9 @@ test('resistance callouts in the lobule are one short word, so they never crowd 
     const src = readFileSync(new URL(f, dir), 'utf8');
     for (const m of src.matchAll(/callout: \{ at: '\w+', label: '([^']*)' \}/g)) if (/resist/i.test(m[1])) assert.equal(m[1], 'Resistance', `${f}: "${m[1]}"`);
   }
+});
+
+test('the credit keeps clear of the lobule pill\'s ring', () => {
+  const js = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  assert.match(js, /\.lz-call, \.lz-call-r\.on,/);
 });

@@ -139,7 +139,7 @@ export function labelRects(wr, wrap) {
   }
   // The measuring callouts (the catheter's WHVP and FHVP, the slide's site readings) and the lobule and sinusoid views' labels, names and
   // resistance pills (the figure key must never cover one), likewise.
-  for (const el of document.querySelectorAll('.cath-labels .cath-label, .lz-lab, .lz-zone, .lz-call, .sv-region, .sv-legend')) {
+  for (const el of document.querySelectorAll('.cath-labels .cath-label, .lz-lab, .lz-zone, .lz-call, .lz-call-r.on, .sv-region, .sv-legend')) {
     let o = 1;
     for (let q = el; q && q !== wrap && o > 0.01; q = q.parentElement) o *= own(q);
     if (o <= 0.01) continue;
