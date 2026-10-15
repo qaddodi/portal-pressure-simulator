@@ -1785,17 +1785,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Out of the lobule view by zooming out: the view hands the dive back to the scrub, which carries on reversing it.
 
   // ── Detail ────────────────────────────────────────
-  // Adaptive detail: when the device cannot keep up (frames arriving slower than ~22 a second
-  // while the model runs), the moving blood steps down (fewer frames, fewer pixels) and steps
-  // back up once there is headroom. The level a device settles on is remembered.
+  // Adaptive detail: the moving blood is drawn at the screen's own rate (60 or 120 a second: a frame of it only
+  // re-composites the vessel cells, the vessel layer itself is redrawn only where something changed). When the device
+  // cannot keep up at that rate (frames well under 40 a second) it steps to 30 a second, and further down (fewer frames,
+  // fewer pixels) below ~22; it steps back up once there is headroom. The level a device settles on is remembered.
   // The last step is only for a software renderer (WebGL drawn on the CPU), where it starts: there
   // every frame costs CPU the rest of the page needs.
-  const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }];
+  const QUALITY = [{ fps: 120, res: 1 }, { fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }];
   const SOFTWARE = !!veins?.software;
-  const Q_MAX = SOFTWARE ? 3 : 2;
-  // Settings › Battery saver: the blood moves at 15 frames a second at a lower resolution (quality step 2 at least).
-  let qFloor = (() => { try { return localStorage.getItem('pps.saver') === '1' ? 2 : 0; } catch { return 0; } })();
-  let quality = SOFTWARE ? 3 : Math.max(qFloor, (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })());
+  const Q_MAX = SOFTWARE ? 4 : 3, Q_SAVER = 3;
+  // Settings › Battery saver: the blood moves at 15 frames a second at a lower resolution (quality step Q_SAVER at least).
+  // (The level is kept under 'pps.q': the old 'pps.quality' counted from a 30-a-second top step, and a level a device once
+  // stepped down to, in a slow moment, stayed for good.)
+  let qFloor = (() => { try { return localStorage.getItem('pps.saver') === '1' ? Q_SAVER : 0; } catch { return 0; } })();
+  let quality = SOFTWARE ? Q_MAX : Math.max(qFloor, (() => { try { localStorage.removeItem('pps.quality'); return clamp(parseInt(localStorage.getItem('pps.q'), 10) || 0, 0, Q_MAX); } catch { return 0; } })());
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
@@ -5830,27 +5833,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!st.running || reduceMotion.matches) return false;
     return bloodOn() || (chevOn() && !cath.st) || fluidLook.ripple || (!!F?.bleed?.active && morph < 0.5);
   }
-  let lastRaf = 0, gapEMA = 16, qCheck = 0, qGood = 0, drawnView = -1;
+  let lastRaf = 0, gapEMA = 16, qCheck = 0, qGood = 0, drawnView = -1, topFailed = -Infinity;
   function governQuality(now) {
     // (The first frame after the loop slept is not a sample: the gap is the sleep, not a slow frame.)
     const gap = lastRaf ? now - lastRaf : 0;
     lastRaf = now;
-    if (!gap || SOFTWARE || !store.get().running || gap > 500) return;   // software: stays at its step; idle or just resumed: nothing to learn
+    // (Nor while the page is still starting up: the first seconds' long frames are the start, not the device's pace, and a
+    // step down taken then was remembered.)
+    if (!gap || SOFTWARE || !store.get().running || gap > 500 || now < 8000) return;   // software: stays at its step; idle or just resumed: nothing to learn
     gapEMA += (Math.min(gap, 250) - gapEMA) * 0.05;
     if (now - qCheck < 2000) return;
     qCheck = now;
     let next = quality;
-    if (gapEMA > 45 && quality < Q_MAX) { next = quality + 1; qGood = 0; }
-    else if (gapEMA < 22 && quality > qFloor) { if (++qGood >= 3) { next = quality - 1; qGood = 0; } }
+    // At the screen's rate, a frame gap over 24 ms (under ~40 a second) steps down to 30 a second; that step goes back up
+    // only once the screen's frames come on time again, and not within 15 s of the last try (no seesaw).
+    const slow = quality === 0 ? 24 : 45, good = quality === 1 ? 18 : 22;
+    if (gapEMA > slow && quality < Q_MAX) { next = quality + 1; qGood = 0; if (quality === 0) topFailed = now; }
+    else if (gapEMA < good && quality > qFloor && (quality !== 1 || now - topFailed > 15000)) { if (++qGood >= 3) { next = quality - 1; qGood = 0; } }
     else qGood = 0;
     if (next === quality) return;
     quality = next;
     wrap.dataset.quality = String(quality);
-    try { localStorage.setItem('pps.quality', String(quality)); } catch { /* storage unavailable */ }
+    try { localStorage.setItem('pps.q', String(quality)); } catch { /* storage unavailable */ }
     resizeCanvas();
   }
-  // The vessel canvas follows the frame time: when frames that redraw it arrive late (over 21 ms) it is drawn at a
-  // smaller size, a step at a time and not more than twice a second; it grows back once frames fit in 15.5 ms.
+  // The vessel canvas follows the frame time: when frames that redraw it arrive late (over 21 ms, or a quarter later than
+  // the blood's pace when that is slower) it is drawn at a smaller size, a step at a time and not more than once a second;
+  // it grows back once frames come on time. (Judged against 21 ms alone, the blood's own 30-a-second pace read as slow:
+  // a playing figure shrank to 0.6 of its resolution within seconds on any device.)
   let resGap = 16.7, resCheck = 0, slowMs = 0, fastMs = 0, resPrev = 0;
   function governRes(now, drawing) {
     const gap = resPrev ? now - resPrev : 16.7;
@@ -5858,7 +5868,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (SOFTWARE || !drawing || gap > 100 || now < 4000) return;   // not while the page is still starting up
     resGap += (gap - resGap) * 0.1;
     // Hysteresis: a sustained trend (a second to shrink, two and a half to grow back), and a change at most once a second.
-    slowMs = resGap > 21 ? slowMs + gap : 0; fastMs = resGap < 14.5 ? fastMs + gap : 0;
+    const pace = 1000 / QUALITY[quality].fps;
+    slowMs = resGap > Math.max(21, pace * 1.25) ? slowMs + gap : 0; fastMs = resGap < Math.max(14.5, pace * 1.05) ? fastMs + gap : 0;
     if (now - resCheck < 1000) return;
     let n = dynRes;
     if (slowMs > 1000 && dynRes > 0.6) n = Math.max(0.6, dynRes - 0.1);
@@ -6594,10 +6605,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
     setSaver(on) {
-      try { localStorage.setItem('pps.saver', on ? '1' : '0'); if (!on) localStorage.removeItem('pps.quality'); } catch { /* storage unavailable */ }
-      qFloor = on ? 2 : 0;
+      try { localStorage.setItem('pps.saver', on ? '1' : '0'); if (!on) localStorage.removeItem('pps.q'); } catch { /* storage unavailable */ }
+      qFloor = on ? Q_SAVER : 0;
       setFrameSaver(on);   // (the lobule, the sinusoid and the FibroScan read it each frame)
-      if (!SOFTWARE) { quality = on ? Math.max(quality, 2) : 0; wrap.dataset.quality = String(quality); resizeCanvas(); }
+      if (!SOFTWARE) { quality = on ? Math.max(quality, Q_SAVER) : 0; wrap.dataset.quality = String(quality); resizeCanvas(); }
     },
     labelScale: () => labelScale,
     labelEff: () => labelScale * deskK(),   // what the figure shows outside a presentation (a desktop's baseline included)
