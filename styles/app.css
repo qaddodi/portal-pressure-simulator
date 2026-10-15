@@ -5127,7 +5127,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 
 /* ── The thumb dock (15 Oct) ───────────────────────────────────────
    A phone, or a tablet held upright, in Patients (class .thumb, main.js): the top bar keeps two corner chips,
-   the patient on the left and the Colored-by key on the right. Treat, Tests, History, Layers and More sit in a tab
+   the patient on the left and the Colored-by key on the right. Treat, Tests, History, Layers and Settings sit in a tab
    row at the foot of the dock, under the play bar, in reach of a thumb. The cards and menus open above the dock,
    so the tab row, HVPG and PPG never move or hide. Pinch zooms; only Fit stays of the zoom buttons. */
 .thumb-bar { display: none; }

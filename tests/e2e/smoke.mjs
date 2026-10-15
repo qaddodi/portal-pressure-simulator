@@ -69,12 +69,11 @@ async function runCheck(device, name, fn, tries = RETRIES) {
 }
 // An upright phone has the thumb dock: Treat, Tests and Settings, and the Blood and lobule Layers menus (in Layers), are
 // reached from the dock's tab row instead of the top bar.
-const THUMB = { '#tabInstruments': 'tests', '#btnTreat': 'treat', '#btnBlood': 'layers', '#btnLobuleLayers': 'layers', '#btnSettings': 'more' };
+const THUMB = { '#tabInstruments': 'tests', '#btnTreat': 'treat', '#btnBlood': 'layers', '#btnLobuleLayers': 'layers', '#btnSettings': 'settings' };
 async function tapTool(page, sel) {
   const tab = THUMB[sel];
   if (!tab || !(await page.evaluate(() => document.querySelector('#app').classList.contains('thumb')))) return page.click(sel);
   await page.click(`#thumbBar [data-tab="${tab}"]`);
-  if (sel === '#btnSettings') await page.click('.menu .menu-item:has-text("Settings")');
 }
 // A view by its switch: in the top bar, or on an upright phone in the pill just above the dock.
 async function pickView(page, v) {
@@ -2030,7 +2029,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (await page.evaluate(() => document.querySelector('#app').classList.contains('dock-open'))) throw new Error('Tests stayed open under Treat');
     await page.click('#thumbBar [data-tab="treat"]');
     await page.waitForSelector('#treatCard', { state: 'hidden' });
-    for (const tab of ['history', 'layers', 'more']) {
+    for (const tab of ['history', 'layers', 'settings']) {
       await page.click(`#thumbBar [data-tab="${tab}"]`);
       await page.waitForSelector('.menu.as-sheet:not(.leaving)');
       await page.waitForFunction(() => !document.querySelector('.menu.as-sheet:not(.leaving)').getAnimations().length);   // (risen in full)
@@ -2038,6 +2037,16 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.keyboard.press('Escape');
       await page.waitForTimeout(300);
     }
+    // Switching straight from one tab's sheet to another's: only one sheet at a time, and it too sits above the dock.
+    await page.click('#thumbBar [data-tab="history"]');
+    await page.waitForSelector('.menu.as-sheet:not(.leaving)');
+    await page.click('#thumbBar [data-tab="settings"]');
+    if (await page.locator('.menu.as-sheet:not(.leaving)').count() !== 1) throw new Error('two sheets open at once');
+    await page.waitForFunction(() => !document.querySelector('.menu.as-sheet:not(.leaving)').getAnimations().length);
+    if (!(await above('.menu.as-sheet:not(.leaving)'))) throw new Error('Settings, opened from History, does not sit above the dock');
+    if (!(await page.locator('.menu.as-sheet:not(.leaving) .menu-item:has-text("Search")').count())) throw new Error('Search is not in Settings');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
     await page.evaluate(() => window.pps.store.set({ role: 'student' }));
   });
   // A Tests card over the thumb dock has two heights, Half and Full, at any phone height (Safari's bars leave about 660 px): pulled

@@ -22,7 +22,7 @@ import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL 
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=bfb913f66a';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=cf2e7a4226';
 import { EDGES, PORTAL_TERRITORY, dopplerK } from '../engine/topology.js?v=1825cbda55';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, markGone, enterAfterGone, enhanceRanges, systemEdge } from './util.js?v=c2539421b5';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge } from './util.js?v=c2539421b5';
 import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -803,11 +803,13 @@ function roleControl() {
 }
 // Two menus with one job each: Settings (how the simulator looks and reads) and Help (how to
 // use it, what it is, and who made it). The role is chosen in Settings.
-function openSettings(anchor) {
+function openSettings(anchor, withSearch = false) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
   // While presenting, only what changes how the talk looks: appearance, full screen, text size, interface zoom.
   const talk = presenter.active();
   popover(anchor, [
+    // (From the thumb dock's Settings tab, Search heads the sheet: the dock has no More menu.)
+    ...(withSearch ? [menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } })] : []),
     ...(talk ? [] : [h('div', { class: 'menu-title' }, t('menu.role')), roleControl()]),
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['soft', t('menu.soft')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
@@ -839,7 +841,7 @@ function openSettings(anchor) {
         menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } })] : []),
       h('div', { class: 'menu-sep' }),
       menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() })]),
-  ], { align: 'start', cls: 'app-menu' });
+  ], withSearch ? { place: 'above', align: 'end', cls: 'app-menu' } : { align: 'start', cls: 'app-menu' });
 }
 // While presenting: no extra settings for now (panel width and high contrast were taken out of slides).
 function presenterSettings() { return []; }
@@ -1097,7 +1099,9 @@ function wireFloating() {
     };
     let changed = false;
     for (const k in vars) if (pubVals[k] !== vars[k]) { pubVals[k] = vars[k]; app.style.setProperty(k, vars[k]); changed = true; }
-    const occ = px(thumb ? vdock + 14 : 0);   // (a phone's menu sheets open above the thumb dock, 8 px clear of it like the cards)
+    // (A phone's menu sheets open above the thumb dock, 8 px clear of its top edge like the cards. Measured from the
+    // screen's bottom, since the sheets are fixed to it and the dock sits above the home indicator's safe area.)
+    const occ = px(thumb && vd.offsetHeight ? (innerHeight - vd.getBoundingClientRect().top) / uiScale() + 8 : 0);
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); }
     const sig = `${app.className}|${tb.className}|${tb.dataset.fit}`;
     if (changed || sig !== pubSig) { pubSig = sig; dispatchEvent(new Event('pps:occ')); }
@@ -1264,7 +1268,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
 }
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
-// (right), and Treat, Tests, History, Layers and More sit in a tab row at the foot of the dock, under the play bar,
+// (right), and Treat, Tests, History, Layers and Settings sit in a tab row at the foot of the dock, under the play bar,
 // in reach of a thumb. The sheets open above the dock, so the tab row and HVPG and PPG never move or hide.
 // Off a phone and an upright tablet (Mac, iPad landscape, a phone sideways) nothing changes.
 // An iPhone opened from the Home Screen has no browser bars: class `iphone-app` lets the phone's teaching card sit at the screen's edge
@@ -1301,7 +1305,7 @@ function wireThumbBar() {
   const hist = tab('history', 'clock', 'History', menuTab((a) => timeline.openHistory(a)));
   hist.append(badge);
   const layers = tab('layers', 'layers', 'Layers', menuTab(openLayersMenu));
-  const more = tab('more', 'more', 'More', menuTab(openMoreMenu));
+  const more = tab('settings', 'gear', 'Settings', menuTab((a) => openSettings(a, true)));
   for (const b of [hist, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
   $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, layers, more));
   // The tabs follow the cards they open (and History's count), however those were opened or closed.
@@ -1325,12 +1329,6 @@ function wireThumbBar() {
 function openLayersMenu(anchor) {
   popover(anchor, [h('div', { class: 'menu-title' }, 'Layers'), ...(store.get().lobule ? lobuleLayerItems() : bloodItems())],
     { cls: 'blood-pop', place: 'above', align: 'center' });
-}
-function openMoreMenu(anchor) {
-  popover(anchor, [
-    menuItem('Settings', { icon: 'gear', onClick: () => { closePopover(); openSettings(anchor); } }),
-    menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } }),
-  ], { place: 'above', align: 'end' });
 }
 // ── Treat card ──────────────────────────────────────
 let treatOff = null;
