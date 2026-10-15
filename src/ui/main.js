@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=ff070ac951';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bb8c70114d';
-import { createStage } from './stage.js?v=1f1c131b5e';
+import { createStage } from './stage.js?v=6cc991d018';
 import { createCreditPlacer } from './credit.js?v=408850b3a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=f559b019f2';
 import { createInspector } from './inspector.js?v=a506c7409e';
@@ -825,6 +825,7 @@ function openSettings(anchor) {
         try { localStorage.setItem('pps.noGlass', on ? '1' : '0'); } catch { /* storage unavailable */ }
         document.documentElement.toggleAttribute('data-noglass', on);
       }),
+      menuToggle((() => { try { return localStorage.getItem('pps.saver') === '1'; } catch { return false; } })(), 'activity', 'Battery saver', 'The blood moves at 15 frames a second at a lower resolution, so the device runs cooler', (on) => stage.setSaver(on)),
       menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }

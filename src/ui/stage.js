@@ -1093,6 +1093,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Zoomed far in, the vessels fill the screen and the vessel shader runs on most of its pixels: the picture is
   // drawn at a lower resolution there (in steps, so the canvas is not resized on every wheel notch).
   let drawOnce = false;   // draw the vessels once through the dive's freeze: the camera moved while hidden
+  let stageWake = () => {};   // set once the frame loop exists: anything that may need a redraw calls it
   let zoomRes = 1, dynRes = 1, resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
   const applyVT = () => {
     const zr = vt.k > 4 ? 0.65 : vt.k > 2.5 ? 0.8 : 1;
@@ -1100,7 +1101,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})${deg ? ` rotate(${deg.toFixed(3)} ${CIRC_C[0]} ${CIRC_C[1]})` : ''}`);
     worldOver?.setAttribute('transform', world.getAttribute('transform'));
     syncSemantic();
-    CTM = null; viewVersion++;
+    CTM = null; viewVersion++; stageWake();
     // (After the new camera is set: the resize redraws the picture at once, in it.)
     if (zr !== zoomRes) { zoomRes = zr; if (resizeReady) resizeCanvas(); }
     if (!viewRaf) viewRaf = nextFrame(syncView);
@@ -1759,7 +1760,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }];
   const SOFTWARE = !!veins?.software;
   const Q_MAX = SOFTWARE ? 3 : 2;
-  let quality = SOFTWARE ? 3 : (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })();
+  // Settings › Battery saver: the blood moves at 15 frames a second at a lower resolution (quality step 2 at least).
+  let qFloor = (() => { try { return localStorage.getItem('pps.saver') === '1' ? 2 : 0; } catch { return 0; } })();
+  let quality = SOFTWARE ? 3 : Math.max(qFloor, (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })());
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
@@ -1774,7 +1777,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res * zoomRes * dynRes;
     vCanvas.width = Math.max(1, Math.round(r.width * vdpr)); vCanvas.height = Math.max(1, Math.round(r.height * vdpr));
     wrap.classList.toggle('compact', r.height < 600);
-    CTM = null; forceDraw = true;
+    CTM = null; forceDraw = true; stageWake();
     // Resizing clears the canvas, and the organs (the plate) and vessels drawn on it with it: draw
     // them again in the same task. A pinch or a layout change can land after this frame's draw
     // (Safari delivers touches outside the frame loop), and the figure would vanish for a frame.
@@ -1976,6 +1979,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let homeHeld = 0;
   function holdHome(on) { homeHeld = Math.max(0, homeHeld + (on ? 1 : -1)); }
   function update(f) {
+    stageWake();
     inUpdate = true;
     try { updateInner(f); } finally { inUpdate = false; }
     if (plateRedraw) { plateRedraw = false; drawVeins(); }
@@ -5630,7 +5634,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     qCheck = now;
     let next = quality;
     if (gapEMA > 45 && quality < Q_MAX) { next = quality + 1; qGood = 0; }
-    else if (gapEMA < 22 && quality > 0) { if (++qGood >= 3) { next = quality - 1; qGood = 0; } }
+    else if (gapEMA < 22 && quality > qFloor) { if (++qGood >= 3) { next = quality - 1; qGood = 0; } }
     else qGood = 0;
     if (next === quality) return;
     quality = next;
@@ -5659,7 +5663,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function animate(now) {
     // High-refresh screens need not redraw the blood at their refresh rate. Elapsed time is kept
     // intact so speeds and transitions stay correct.
-    if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; lastRaf = 0; nextFrame(animate); return; }
+    if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; lastRaf = 0; sleep(); return; }
     governQuality(now);
     if (pendingRes) { dynRes = pendingRes; pendingRes = 0; resizeCanvas(); }
     // The dive magnifies the figure as it stands (a compositor scale): nothing under it is redrawn until it lands.
@@ -5679,7 +5683,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const still = (!st.running || reduceMotion.matches) && !bolus.active;
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { nextFrame(animate); return; }
+    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
@@ -5704,6 +5708,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     nextFrame(animate);
   }
   nextFrame(animate);
+  // Nothing to draw: the loop stops asking for frames (so the screen can idle) until something changes, and looks
+  // again a few times a second in case a change came by a path that does not wake it.
+  let sleeping = false, sleepTimer = 0;
+  function sleep() { sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 250); }
+  function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); nextFrame(animate); }
+  stageWake = wake;
+  store.on('*', wake);
+  document.addEventListener('visibilitychange', wake);
+  new MutationObserver(wake).observe(wrap, { attributes: true, attributeFilter: ['class'] });
+  if (appEl) new MutationObserver(wake).observe(appEl, { attributes: true, attributeFilter: ['class'] });
 
   // Opaque organ shapes (anatomy), as canvas paths; built once, band widths read from the CSS.
   let organCovers = null;
@@ -6337,6 +6351,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelStats: () => ({ ...stats }),
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
+    setSaver(on) {
+      try { localStorage.setItem('pps.saver', on ? '1' : '0'); if (!on) localStorage.removeItem('pps.quality'); } catch { /* storage unavailable */ }
+      qFloor = on ? 2 : 0;
+      if (!SOFTWARE) { quality = on ? Math.max(quality, 2) : 0; wrap.dataset.quality = String(quality); resizeCanvas(); }
+    },
     labelScale: () => labelScale,
     labelEff: () => labelScale * deskK(),   // what the figure shows outside a presentation (a desktop's baseline included)
     /** The HVPG catheter: null removes it; else { u (0..1 of the way in), balloon, column (0..1), columnColor, ring, pulse,
