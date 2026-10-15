@@ -64,6 +64,12 @@ export const fitIssues = () => {
   // card covers the probe's body and it fades out.
   const sp = document.querySelector('.scan-probe:not(.off):not(.head-off) .sp-screen'), spr = sp && vis(sp.closest('.scan-probe')) && sp.getBoundingClientRect();
   if (spr && spr.width && (spr.left < 0 || spr.right > innerWidth || spr.top < 0 || spr.bottom > innerHeight)) out.push(`FibroScan probe reading off screen (${Math.round(spr.left)},${Math.round(spr.top)})`);
+  // The six levels' names stay inside their rail, tilted or not (a phone on its side: "Pre-hepatic" ran past the card's left edge).
+  for (const rl of document.querySelectorAll('.pz-rail')) {
+    if (!vis(rl)) continue;
+    const R = rl.getBoundingClientRect();
+    for (const n of rl.querySelectorAll('.n')) { const q = n.getBoundingClientRect(); if (q.width && (q.left < R.left - 1 || q.right > R.right + 1)) { out.push(`level name "${n.textContent}" outside its rail (${Math.round(q.left)} vs ${Math.round(R.left)})`); break; } }
+  }
   // No slide words, card or legend chip under the preview badge (a slim tab at the top centre, 13 px tall, added only to
   // /preview/). (An organ's name the camera leaves at the screen's edge is the figure, not a chip; it is not judged.)
   const seen = (e) => { for (let a = e; a; a = a.parentElement) { const cs = getComputedStyle(a); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return false; } return true; };

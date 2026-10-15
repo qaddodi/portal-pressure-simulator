@@ -21,7 +21,7 @@ export const DOPPLER = {
     {
       id: 'probe', terms: ['pv'], preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       kicker: 'Doppler', title: 'The probe measures portal velocity',
-      eq: [mi('Q') + mo('=') + '<mover><mi>v</mi><mo>¯</mo></mover>' + mo('×') + mi('A'), 'Q flow · v̄ mean velocity · A cross-sectional area of the vein'],
+      eq: [mi('Q') + mo('=') + mi('\u{1D463}\u0304') + mo('×') + mi('A'), 'Q flow · v̄ mean velocity · A cross-sectional area of the vein'],
       line: 'Echoes from moving red cells are plotted as velocity over time. Flow toward the probe, which in the portal vein means toward the liver, is drawn above the baseline. Normal flow is steady and hepatopetal, at {>=15 cm/s} or more.',
       notes: 'The probe sends ultrasound into the vein and reads the frequency shift of the echoes from moving red cells. The spectrum plots velocity against time: above the baseline is flow toward the probe, which for the portal vein is toward the liver. Normal portal flow is hepatopetal, monophasic with gentle respiratory phasicity, with a velocity of 15 cm/s or more, usually 20 to 40 cm/s, as this monitor reads it. Velocity times the cross-sectional area gives flow, about 1 L a minute in health. The angle of insonation should be under 60 degrees, or the velocity is misread.',
       ask: ['Which way does normal portal flow run, and how fast?', 'Toward the liver (hepatopetal), at 15 cm/s or more, usually 20 to 40 cm/s.'],
