@@ -3306,8 +3306,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // The readings over the figure (the Circuit deck's resistors, a slide's measuring sites, the HVPG catheter's callouts) on a phone and
   // an iPad: every resistor with a ratio shows, whole on screen and clear of the slide's cards, and no figure label prints on any reading.
   await check(device, 'presenter: resistance readings and callouts show, clear of the cards and the figure labels', async (page) => {
-    const sizes = device === 'desktop' ? [[820, 1180], [1180, 820], [1440, 900]] : [[390, 844], [375, 667]];
-    const slides = [...Array.from({ length: 11 }, (_, i) => ['circuit', i]), ['hvpg', 2], ['right-heart', 4], ['ncph', 3]];
+    const sizes = device === 'desktop' ? [[820, 1180], [1180, 820], [1440, 900]] : [[390, 844], [375, 667], [320, 568]];
+    // (Plus every other slide with a reading on the figure, and every slide whose words a 320 px phone had fitted under 12 px.)
+    const more = 'hvpg 4,5,8,10;right-heart 3,5,7;shunts 2,5,6,8,9;stiffness 7;treatment 10;two-inflows 8;lobule 8;ncph 4;one-year 3,6;outflow 6,8;prehepatic 3,6;doppler 2,8;sites 3,8';
+    const slides = [...Array.from({ length: 11 }, (_, i) => ['circuit', i]), ['hvpg', 2],
+      ...more.split(';').flatMap((x) => { const [d, n] = x.split(' '); return n.split(',').map((k) => [d, k - 1]); })];
     const out = [];
     for (const [w, hgt] of sizes) {
       await page.setViewportSize({ width: w, height: hgt });
@@ -3317,20 +3320,28 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       for (const [id, k] of slides) {
         if (deck !== id) { await page.evaluate(([d, n]) => window.pps.presenter.start(d, n), [id, k]); deck = id; }
         else await page.evaluate((n) => window.pps.presenter.go(n), k);
-        await page.waitForFunction((n) => { window.pps.presenter.skipLapse?.(); document.querySelector('.pz-case.on')?.click(); return Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === n + 1 && !window.pps.presenter.busy() && !document.querySelector('.pz-load.on, .pz-cover'); }, k, { timeout: 60000, polling: 100 });
+        await page.waitForFunction((n) => { window.pps.presenter.skipLapse?.(); document.querySelector('.pz-case.on')?.click(); return Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === n + 1 && !window.pps.presenter.busy() && !document.querySelector('.pz-load.on, .pz-cover'); }, k, { timeout: 60000, polling: 100 })
+          .catch((e) => { throw new Error(`${w}x${hgt} ${id} ${k + 1}: the slide never arrived`, { cause: e }); });
         await quiet(page); await page.waitForTimeout(600);
         out.push(...await page.evaluate((at) => {
           const bad = [], rect = (e) => e.getBoundingClientRect(), hit = (a, b, m = 1) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > m && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > m;
           const shown = (e) => { const st = getComputedStyle(e); return st.display !== 'none' && st.visibility !== 'hidden' && rect(e).width > 1; };
+          // A phone keeps the figure a fixed share of its height between the data card and the words' glass (presenter.js FIG_MIN).
+          const sh = document.querySelector('.pz-shade.stack'), dc = document.querySelector('.pz-data');
+          if (sh && dc && shown(dc) && !dc.classList.contains('pz-hide') && +getComputedStyle(sh).opacity > 0.5) {
+            const room = rect(sh).top - rect(dc).bottom, need = Math.round(Math.max(170, 0.3 * innerHeight)) - 2;
+            if (room < need) bad.push(`${at}: the cards leave ${Math.round(room)} px of figure (at least ${Math.round(need + 2)})`);
+          }
+          // A phone's words never fit below 12 px (their body size times the card's fit).
+          const tx = document.querySelector('.pz-text'), ln = tx && shown(tx) && tx.querySelector('.pz-line');
+          if (sh && ln) { const px = parseFloat(getComputedStyle(ln).fontSize) * (parseFloat(tx.style.getPropertyValue('--pz-fit')) || 1) * (parseFloat(tx.style.getPropertyValue('--pz-z')) || 1); if (px < 11.95) bad.push(`${at}: the words are ${px.toFixed(1)} px`); }
           const cards = [...document.querySelectorAll('.stage-blocker:not([hidden])')].filter((e) => shown(e) && +getComputedStyle(e).opacity > 0.5 && !e.classList.contains('pz-hide'));
           const texts = [...document.querySelectorAll('#labels .lb:not(.lb-off)')].filter((g) => +getComputedStyle(g).opacity > 0.05)
             .flatMap((g) => [...g.querySelectorAll('text')].map((t) => [t.textContent.trim().slice(0, 18), rect(t)]).filter(([, r]) => r.width > 1));
           for (const el of document.querySelectorAll('.cath-label')) {
             if (el.closest('[hidden]') || el.classList.contains('cath-pre') || el.classList.contains('cath-out') || el.classList.contains('in-sum') || !shown(el)) continue;
             const name = `${el.querySelector('small')?.textContent} ${el.querySelector('b')?.textContent}`.trim(), res = el.classList.contains('res');
-            // (Hidden is right only where the cards leave almost no figure: a 667 px phone's Circuit slide 2 leaves about 100 px.)
-            const room = (() => { const t = document.querySelector('.pz-text'), d = document.querySelector('.pz-data'); return t && d && shown(d) ? rect(t).top - rect(d).bottom : innerHeight; })();
-            if (res && el.classList.contains('off')) { if (el.querySelector('b').textContent && room > 160) bad.push(`${at}: "${name}" is hidden`); continue; }
+            if (res && el.classList.contains('off')) { if (el.querySelector('b').textContent) bad.push(`${at}: "${name}" is hidden`); continue; }
             if (el.classList.contains('off')) continue;
             const r = rect(el);
             if (r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1) bad.push(`${at}: "${name}" runs off screen`);

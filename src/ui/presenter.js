@@ -2128,7 +2128,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // shrank the card while a phone's tool folded, and the shrunk fit then stuck.)
       // (A line's glyphs or a pinned button reaching a pixel or two past its part is not overflow: counted, it shrank every
       // phone instrument card by the fit loop's full eight steps, its words to 0.86.)
-      const clip = s.maxHeight !== 'none' ? 0 : Math.max(0, c.scrollHeight - c.clientHeight - 3);
+      // (A card's header grows with its words; only its Show chip's tap area reaches past it, and that is no overflow: counted,
+      // it shrank a phone's folded data card to half, its chip to 19 px.)
+      const clip = s.maxHeight !== 'none' || c.classList.contains('pz-dh') ? 0 : Math.max(0, c.scrollHeight - c.clientHeight - 3);
       used += Math.max(c.getBoundingClientRect().height, side && (c.classList.contains('pz-tool') || c.classList.contains('pz-ladder')) ? side.getBoundingClientRect().height : 0) / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
       n++;
     }
@@ -2276,6 +2278,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // of the fit. Placed only after it, the words were fitted to the last slide's key and kept that fit: Circulation slide 2
     // on an iPhone came in at 0.814 and took 0.847 on the next refit, or the other way round.)
     if (phone()) placeBar();
+    // A phone keeps a fixed share of its height for the figure between the data card and the words (FIG_MIN), so the readings a
+    // slide teaches always have room to show: the words' card is capped to what is left (their fit then sets them a little
+    // smaller), decided once per slide and size, so it never changes while the slide is in view. (Capped only at 62 % before:
+    // with a tall data card, a 667 px iPhone kept 24 to 70 px of figure on a dozen slides and Circuit 2 hid its R liver.)
+    const phoneCap = p ? phoneTextCap(lockKey, H, k) : null;
+    if (phoneCap != null) ui.text.style.maxHeight = `${phoneCap.toFixed(1)}px`;
     fitCards(ui.text);
     let t = r(ui.text);
     const sl = ui.shade.offsetLeft * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style;
@@ -2358,7 +2366,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dd.style.top = below ? `${(y / k).toFixed(1)}px` : '';
     dd.style.maxHeight = below ? `${((foot - y) / k).toFixed(1)}px` : '';
     // (A phone: the data card ends 8 px short of the teaching card (16 px above the words), however much it holds: an opened instrument had grown over the words.)
-    if (p && t) { const cs = getComputedStyle(dd), room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8); if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
+    // (And leaves the figure its share: FIG_MIN between the two cards.)
+    if (p && t) { const cs = getComputedStyle(dd), room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8 - (phoneCap != null && !dd.classList.contains('tool-open') ? FIG_MIN(H) / k : 0)); if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
     if (!p && !below && ui.fk.dataset.empty == null && !ui.bar.hidden) {
       const f = ui.fk, was = f.hidden; f.hidden = false; const q = f.getBoundingClientRect(); f.hidden = was;
@@ -2388,7 +2397,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const lvl = cardOn && t ? (d && !below ? d.top - wr.top : off(dd) ? Math.max(sl, (H - t.height - 2 * pad) / 2) : top0 + shift) + pad : null;
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
     if (lvl != null) ts.marginBlock = '0';
-    ts.maxHeight = lvl != null ? `${((H - lvl - pad - sl) / k).toFixed(1)}px` : '';   // (one margin at the bottom too)
+    ts.maxHeight = lvl != null ? `${((H - lvl - pad - sl) / k).toFixed(1)}px` : phoneCap != null ? `${phoneCap.toFixed(1)}px` : '';   // (one margin at the bottom too)
     if (t) t = r(ui.text);   // (always: the words may already stand there, and the glass is sized to where they are)
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
@@ -2414,6 +2423,48 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!dock.drag) dockPaint();
     placeBar();
     dispatchEvent(new Event('pps:occ'));
+  }
+  // The figure's share of a phone's height (between the data card and the words' glass), and the words' cap that keeps it.
+  // Where the figure's share, the data card and the words at 12 px or more cannot all fit, the data card folds to its header
+  // behind Show (the button that already folds a phone's instrument): the card takes its folded size at once, never easing in view.
+  const FIG_MIN = (H) => Math.round(Math.max(170, 0.3 * H));
+  let phoneLock = null;
+  function phoneTextCap(key, H, k) {
+    const dd = ui.data, ds = dd.style, gone = dd.hidden || 'gone' in dd.dataset;
+    if (key && phoneLock?.key === key) { dd.classList.toggle('pz-folds', phoneLock.fold); return phoneLock.cap; }
+    dd.classList.remove('pz-folds');
+    const natural = (el, st) => {   // (as it stands unfitted and uncapped)
+      const sv = [st.maxHeight, st.getPropertyValue('--pz-fit'), st.getPropertyValue('--pz-z')];
+      st.maxHeight = 'none'; st.removeProperty('--pz-fit'); st.removeProperty('--pz-z');
+      const v = el.offsetHeight * k;
+      st.maxHeight = sv[0]; if (sv[1]) st.setProperty('--pz-fit', sv[1]); if (sv[2]) st.setProperty('--pz-z', sv[2]);
+      return v;
+    };
+    const ts = ui.text.style, was = ts.maxHeight;
+    ts.maxHeight = '';
+    const css = getComputedStyle(ui.text), own = parseFloat(css.maxHeight) * (css.maxHeight.endsWith('%') ? H / 100 : 1), foot = (parseFloat(css.bottom) || 0) * k;
+    ts.maxHeight = was;
+    // (The words zoom down to fit (--pz-fit) but never below 12 px: their body size sets how far.)
+    const line = ui.text.querySelector('.pz-line, p'), body = line ? parseFloat(getComputedStyle(line).fontSize) : 0;
+    const words = natural(ui.text, ts) * Math.min(1, body > 12 ? 12 / body : 1) + 4;
+    // (The words' glass starts 16 px above them; the data card stands 8 px from the top. A tall data card takes at most
+    // 45 % of what the two cards share, its own fit doing the rest.)
+    const both = H - foot - 16 - 8 - FIG_MIN(H), share = (h) => Math.min(h, 0.45 * both);
+    let data = gone ? 0 : share(natural(dd, ds)), fold = false;
+    if (!gone && both - data < words && dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip)')) {
+      dd.classList.add('pz-folds');
+      const folded = share(natural(dd, ds));
+      if (folded < data - 1) {
+        data = folded; fold = true;
+        // (Each such slide comes in folded, whatever an earlier slide's Show left open.)
+        const b = dd.querySelector('.pz-dh > .pz-fold');
+        dd.classList.remove('tool-open'); if (b) { b.textContent = 'Show'; b.setAttribute('aria-expanded', 'false'); }
+      } else dd.classList.remove('pz-folds');
+    }
+    // (Words at 12 px win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card.)
+    const cap = Math.max(120, Math.min(H - foot - 16 - 16 - data, Math.max(Math.min(Number.isFinite(own) ? own : 0.62 * H, both - data), words))) / k;
+    if (key) phoneLock = { key, cap, fold };
+    return cap;
   }
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
   // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
