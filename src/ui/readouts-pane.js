@@ -4,7 +4,7 @@
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js?v=3b659e1968';
-import { h, fmt, clamp } from './util.js?v=a2cde2ac82';
+import { h, fmt, clamp } from './util.js?v=95b4244720';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
@@ -77,8 +77,9 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       if (v == null) { setText(x.val, '?'); s = 'Not measured'; sev = 'none'; x.hist.length = 0; }
       else {
         setText(x.val, fmt(v, t.d));
-        s = measured ? 'Measured' : t.s(v, m);
-        sev = t.st(v, m);
+        const vs = shownOf(v, t.d);   // (the word judges the number shown)
+        s = measured ? 'Measured' : t.s(vs, m);
+        sev = t.st(vs, m);
         const w = pos(t, v), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
         const fl = Math.min(w, o) / 100, fw = Math.abs(w - o) / 100;
         if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
@@ -119,7 +120,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   function summary(f) {
     const m = f.metrics, hidden = hiddenNow();
     let n = 0;
-    for (const t of tiles) { const v = readoutValue(t, m, hidden); if (v != null && !hidden?.has(t.hideKey) && t.st(v, m) !== 'ok') n++; }
+    for (const t of tiles) { const v = readoutValue(t, m, hidden); if (v != null && !hidden?.has(t.hideKey) && t.st(shownOf(v, t.d), m) !== 'ok') n++; }
     return n ? `${n} abnormal` : 'All normal';
   }
 

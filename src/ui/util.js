@@ -45,6 +45,8 @@ export function fmt(v, d = 1) {
   // A value that rounds to zero has no sign ("−0" reads as an error).
   return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−');
 }
+/** A value as fmt prints it, as a number, for the word beside it: a tile never reads "5.0 L · Grade 2". (−0 reads as 0.) */
+export const shownOf = (v, d = 1) => (Number.isFinite(v) ? +v.toFixed(d) + 0 : v);
 /** A flow rate in L/min to one decimal. A small but real flow reads "< 0.1" rather than 0.0, so
  *  a trickle through a collateral never looks like none. */
 export function fmtFlow(v) {

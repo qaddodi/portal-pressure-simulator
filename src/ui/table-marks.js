@@ -17,7 +17,8 @@ export const RATE = {
   varix: vSize, gv: vSize,
   spleen: (v) => (v > 16 ? ['hi', 'Large'] : v > 13 ? ['mid', 'Large'] : ['ok', 'Normal']),
   plt: (v) => (v < 100 ? ['hi', 'Severe'] : v < 150 ? ['mid', 'Low'] : ['ok', 'Normal']),
-  pvFlow: (v) => (v < 0 ? ['hi', 'Hepatofugal'] : [null, 'Hepatopetal']),
+  // (A flow that reads 0.0 is no flow, as with a clotted portal vein: it has no direction.)
+  pvFlow: (v) => (v < 0 ? ['hi', 'Hepatofugal'] : v === 0 ? ['hi', 'No flow'] : [null, 'Hepatopetal']),
   // Main portal vein velocity on Doppler: 15 cm/s or more normal, slower is slow, under 9 stasis, below zero reversed.
   pvVel: (v) => (v < 0 ? ['hi', 'Reversed'] : v < 9 ? ['hi', 'Stasis'] : v < 15 ? ['mid', 'Slow'] : ['ok', 'Normal']),
   liver: (v) => (v <= 55 ? ['hi', 'Severe'] : v <= 75 ? ['mid', 'Low'] : ['ok', 'Normal']),
@@ -62,6 +63,14 @@ export const TILE = {
   hb: { t: 'Hemoglobin', n: 'Hb', s: 'Blood', u: 'g/dL', better: 1 },
 };
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
+// A value as its tile prints it (the tile's scale and decimals), back in the model's units: a tile's word judges the number it
+// shows, so "5.0 L" is Grade 3 and "2.5 mm" Small, never the unrounded 4.98 L or 2.49 mm behind them.
+export const tileShown = (k, v) => {
+  if (v == null || !Number.isFinite(v)) return v;
+  const x = TILE[k]?.x ?? 1;
+  return +(+(v * x).toFixed(TILE[k]?.d ?? 1) / x).toPrecision(12) || 0;   // (−0 reads as 0: no flow has no direction)
+};
+export const rateShown = (k, f) => (f && f[k] != null ? rateOf(k, { ...f, [k]: tileShown(k, f[k]) }) : rateOf(k, f));
 // Each tile's scale bar, in the units the tile shows: [from, to, the cut-offs between its coloured bands]. The bands take their
 // colour from the tile's own rating, so the bar and the status word always agree. (No bar where nothing is rated: WHVP, FHVP.)
 export const SCALE = {

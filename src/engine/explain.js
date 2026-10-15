@@ -2,8 +2,8 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=4c87046dfe';
-import { computeMetrics } from './metrics.js?v=8f55fbfcde';
+import { Engine } from './engine.js?v=0c83d935cb';
+import { computeMetrics } from './metrics.js?v=2819639c8b';
 import { defaultParams, DRUGS } from './scenario.js?v=6ebaeb46c8';
 import { EDGES, dMinOf } from './topology.js?v=4044766e96';
 
@@ -85,8 +85,11 @@ export function explain(eng, metricId) {
     scratch.params.catheter = { vein: null, wedged: false };
     if (mutate) mutate(scratch);
     scratch.settleQuick(); scratch.settleQuick();
-    return def.get(computeMetrics(scratch));
+    const m = computeMetrics(scratch);
+    if (!mutate) now = m;
+    return def.get(m);
   };
+  let now = null;   // (the metrics the sentence reads, so the formula under it shows the same numbers)
   const current = at(null);
   const base = def.get(healthyMetrics());
   const contributions = [];
@@ -97,7 +100,7 @@ export function explain(eng, metricId) {
   contributions.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
   const total = current - base;
   const sentence = buildSentence(def, current, base, contributions);
-  return { metricId, label: def.label, unit: def.unit, digits: def.digits, current, base, total, contributions, sentence, formula: formula(eng, metricId) };
+  return { metricId, label: def.label, unit: def.unit, digits: def.digits, current, base, total, contributions, sentence, formula: formula(eng, metricId, now) };
 }
 
 function fmt(v, d) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d); }
@@ -116,9 +119,13 @@ function buildSentence(def, cur, base, cs) {
   return s + '.';
 }
 
-function formula(eng, id) {
+// Each reading gets its own line: HVPG and PPG are the differences of their two readings, as the sentence above reads them
+// (m: the same settled metrics), and portal pressure is the flow through the liver times its resistance.
+export function formula(eng, id, m = null) {
   const P = eng.P, ni = eng.ni, Q = eng.Q, ei = eng.ei;
   const wu = (dp, q) => (q > 1e-6 ? dp / (q * 0.06) : Infinity);
+  if (m && id === 'hvpg') return `HVPG = WHVP − FHVP = ${m.whvp.toFixed(1)} − ${m.fhvp.toFixed(1)} = ${m.hvpg.toFixed(1)} mmHg  (normal under 5)`;
+  if (m && id === 'ppg') return `PPG = portal vein − IVC = ${m.pv.toFixed(1)} − ${m.ivc.toFixed(1)} = ${m.ppg.toFixed(1)} mmHg  (normal under 6)`;
   if (id === 'pv' || id === 'hvpg' || id === 'ppg') {
     const q = Q[ei.SIN_RR] + Q[ei.SIN_LL];
     const dp = P[ni.CONF] - P[ni.RHV];

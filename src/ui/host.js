@@ -19,7 +19,7 @@ export const WORKER_WAIT = 15000;
 export async function startHost() {
   let w;
   try {
-    w = new Worker(new URL('../worker.js?v=0fba0ce522', import.meta.url), { type: 'module' });
+    w = new Worker(new URL('../worker.js?v=30c146b981', import.meta.url), { type: 'module' });
     await new Promise((resolve, reject) => {
       // A worker that cannot start fails at once (onerror); the timeout only catches one that never answers. It is long, so
       // a slow first load (the worker's modules arrive one round trip after another) still gets the worker, not the main
@@ -35,7 +35,7 @@ export async function startHost() {
     // engine alive, or let its late frames reach the fallback's subscribers.
     if (w) { w.onmessage = null; w.onerror = null; w.terminate(); }
     console.warn('Web Worker unavailable, running engine on main thread.', err);
-    const { createCore } = await import('../worker-core.js?v=14704fb280');
+    const { createCore } = await import('../worker-core.js?v=73149ac725');
     const core = createCore((m) => setTimeout(() => dispatch(m), 0));
     impl = { post: (m) => core.handle(structuredClone(m)), kind: 'main' };
     impl.post({ type: 'init' });

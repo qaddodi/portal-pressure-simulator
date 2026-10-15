@@ -14,22 +14,22 @@
 
 import { store, replaceParams } from './store.js?v=3b659e1968';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=a2cde2ac82';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=95b4244720';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=efa967e240';
+import { sinusoidSupported } from './sinusoid-view.js?v=dcd064306b';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=07e997d398';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=8ec4a787a7';
-import { createTools } from './presenter-tools.js?v=5619a18336';
-import { openHandout } from './handout.js?v=3f47d58b5e';
+import { createHvpgMonitor } from './hvpg-proc.js?v=ec96bfaf79';
+import { createTools } from './presenter-tools.js?v=7291af5493';
+import { openHandout } from './handout.js?v=8ccca89fa3';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=525d14632b';
+import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=f709ae0429';
 import { frameFor, cancelFrame } from './frame.js?v=5ad4028792';
 import { createFigureKey } from './figure-key.js?v=54e4d71341';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=3a5c342615';
+import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=34b03c4df4';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -165,7 +165,7 @@ const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc'
 // A reading with no station of its own (a size: the spleen, the varices) takes its status colour, as its card
 // shows it, on its pill and on its organ's outline; neutral while it is normal.
 const BY_RATE = new Set(['spleen', 'varix', 'gv']), RATE_TONE = { hi: '--danger', mid: '--caution' };
-const rateTone = (k, fp) => RATE_TONE[rateOf(k, fp)[0]] || null;
+const rateTone = (k, fp) => RATE_TONE[rateShown(k, fp)[0]] || null;   // (judged as its pill prints it)
 const valTone = (k, fp) => (BY_RATE.has(k) ? rateTone(k, fp) : VAL_TONE[k]);
 // A slide's terms: { words: target } (terms: ['pv', 'ra'] takes each target's own words). A word every slide uses the
 // same way needs no listing: the cavernoma is always a pill that lights its collaterals.
@@ -712,6 +712,8 @@ function bigTiles() {
   // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "High" under a line that
   // says the target is reached.
   const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? (f.ppg < 12 ? ['ok', 'Target met'] : ['hi', 'Above target']) : rateOf(k, f));
+  // (A tile's word judges the number it prints: 4.98 L shows "5.0 L", so it reads Grade 3.)
+  const ratedShown = (k, f) => (f[k] != null ? rated(k, { ...f, [k]: tileShown(k, f[k]) }) : rated(k, f));
   // Where a value sits on its tile's bar, 0 to 100 (shown units, held inside the bar).
   const at = (k, v) => { const [a, b] = SCALE[k], x = TILE[k]?.x ?? 1; return Math.min(100, Math.max(0, ((v * x - a) / (b - a)) * 100)); };
   function build(ks, withRef) {
@@ -734,7 +736,7 @@ function bigTiles() {
     el.replaceChildren(...parts.map((p) => p.tile));
     el.dataset.n = String(parts.length);
     draw = tweener((f) => parts.forEach((p) => {
-      const [cls, word] = rated(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
+      const [cls, word] = ratedShown(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
       p.v.textContent = none ? '—' : tileVal(p.k, f[p.k]);
       p.u.hidden = none || !p.T.u;
       p.r.textContent = word;
@@ -985,7 +987,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=0fba0ce522', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=30c146b981', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -998,7 +1000,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=14704fb280');
+        const { createCore } = await import('../worker-core.js?v=73149ac725');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

@@ -3,16 +3,16 @@
 
 import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=a2cde2ac82';
-import { lobuleFlows } from './lobule-model.js?v=228bc1be60';
-import { createProfile } from './charts.js?v=04f09b5d23';
-import { createPressureTime } from './pressure-time.js?v=6b5845ccdd';
-import { createFibroScan } from './fibroscan.js?v=9c9996ad19';
-import { createHvpgProcedure } from './hvpg-proc.js?v=8ec4a787a7';
-import { createDoppler } from './doppler.js?v=6fff7eaf02';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=95b4244720';
+import { lobuleFlows } from './lobule-model.js?v=a1e0dba613';
+import { createProfile } from './charts.js?v=468a99e8ff';
+import { createPressureTime } from './pressure-time.js?v=3d47ff1a83';
+import { createFibroScan } from './fibroscan.js?v=e176bb77cd';
+import { createHvpgProcedure } from './hvpg-proc.js?v=ec96bfaf79';
+import { createDoppler } from './doppler.js?v=74bf23d08f';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=56dd51fde6';
-import { createReadoutsPane } from './readouts-pane.js?v=5930c8ec96';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=d0d57b9001';
+import { createReadoutsPane } from './readouts-pane.js?v=d8a578bb17';
 import { frameFor } from './frame.js?v=5ad4028792';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 const nextFrame = frameFor('dock');
@@ -216,9 +216,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       } else {
         const txt = fmt(v, t.d);
         setText(x.val, txt);
-        const a = lz ? [f, st0] : [m];
-        s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(v, ...a);
-        sev = t.st(v, ...a);
+        const a = lz ? [f, st0] : [m], vs = shownOf(v, t.d);   // (the word judges the number shown: "5.0 L" is Grade 3)
+        s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(vs, ...a);
+        sev = t.st(vs, ...a);
         const w = pos(t, v), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
         const fl = Math.min(w, o) / 100, fw = Math.abs(w - o) / 100;
         if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }

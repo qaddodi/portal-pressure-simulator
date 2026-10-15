@@ -13,7 +13,8 @@ function varixGrade(d) {
   return { code: 'F3', label: 'Large, coil-shaped' };
 }
 
-function ascitesGrade(V) {
+export function ascitesGrade(V0) {
+  const V = Number.isFinite(V0) ? Math.round(+(V0 / 1000).toFixed(1) * 10) * 100 : V0;
   if (V < 150) return { grade: 0, label: 'None' };
   if (V < 1500) return { grade: 1, label: 'Grade 1 (ultrasound only)' };
   if (V < 5000) return { grade: 2, label: 'Grade 2 (moderate)' };

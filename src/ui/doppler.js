@@ -5,10 +5,10 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=a2cde2ac82';
-import { FONT } from './charts.js?v=04f09b5d23';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=95b4244720';
+import { FONT } from './charts.js?v=468a99e8ff';
 import { logAction, shownVel, store } from './store.js?v=3b659e1968';
-import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=bc36ed68e2';
+import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=27df280e6b';
 import { frameFor } from './frame.js?v=5ad4028792';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
@@ -248,8 +248,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
 
   // A vessel's usual range: with a TIPS or DIPS in, the main portal vein's is 30 cm/s and up (velNormal.js), so fast flow is not flagged.
   const normalOf = (p) => (p.id === 'PV_TRUNK' && frame?.D ? velNormal(EI.PV_TRUNK, frame) : null) || p.normal;
-  function interpret(r) {
-    const p = meta(), normal = normalOf(p);
+  // A stent is judged at its gate, as its reading, trace and tiles show it: a 90% narrowing's jet is flow, not an occlusion,
+  // although the open stent around it barely moves (g, the gate's factor; open, the open stent's mean for its segment tiles).
+  function interpret(r0, g = 1) {
+    const p = meta(), normal = normalOf(p), open = Math.abs(r0.mean);
+    const r = g === 1 ? r0 : { mean: r0.mean * g, vmax: r0.vmax * g, vmin: r0.vmin * g, vmaxMean: r0.vmaxMean * g, vminMean: r0.vminMean * g };
     const a = Math.abs(r.mean);
     const swing = r.vmaxMean - r.vminMean;
     const big = Math.max(Math.abs(r.vmaxMean), Math.abs(r.vminMean));
@@ -304,7 +307,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       note = 'The hepatic artery buffers falling portal inflow by dilating (the hepatic arterial buffer response).';
     } else if (p.kind === 'tips') {
       dir = a < 2 ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = a < 2 || r.mean < 0 ? 'critical' : a < 90 || a > 190 ? 'caution' : 'ok';
-      const jet = Math.max(...stentReads(a));   // the fastest segment: a narrowing's jet
+      const jet = Math.max(a, ...stentReads(open));   // the fastest segment: a narrowing's jet
       pattern = a < 2 ? 'Occluded' : a < 90 ? (jet > 190 ? 'Low velocity, jet' : 'Low velocity') : jet > 190 ? 'High velocity' : 'Patent';
       if (sev === 'ok' && jet > 190) sev = 'caution';
       note = a < 2 ? 'No flow in the stent: occluded.' : 'Stent velocities under 90 or over 190 cm/s, or a change of more than 50 cm/s from the baseline scan, suggest stenosis.';
@@ -382,7 +385,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       return;
     }
     const p = meta();
-    const it = interpret(r);
+    const it = interpret(r, gateFactor());
     const set = (e, t) => { if (e.textContent !== t) e.textContent = t; };
     set(dirEl, it.dir); dirEl.dataset.sev = it.sev;
     // (In a slide's top strip the reading is signed as the trace is drawn, the scanner's way: a hepatic vein's forward flow runs away from the
@@ -617,15 +620,24 @@ export function createDoppler({ onProbe, pickGate = true }) {
     stripKey = key;
     const cs = getComputedStyle(report), have = report.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     rng ||= document.createRange();
-    const k0 = +report.style.getPropertyValue('--dop-k') || 1;
-    for (let i = 0, k = k0; i < 3; i++) {
+    if (have <= 0) return;
+    // (The pattern word gives way first: where the strip would have to shrink below PAT_K to keep it, it is left out and the
+    // reading and direction keep a readable size. Never cut mid-word.)
+    if (patternEl.hidden) patternEl.hidden = false;
+    const k = fitK(+report.style.getPropertyValue('--dop-k') || 1, have);
+    if (k < PAT_K && patternEl.textContent) { patternEl.hidden = true; fitK(k, have); }
+  }
+  const PAT_K = 0.9;
+  function fitK(k, have) {
+    for (let i = 0; i < 3; i++) {
       const nat = stripRect().width;
-      if (!(nat > 0) || have <= 0) return;
+      if (!(nat > 0)) return k;
       const fit = Math.max(0.75, Math.min(1, Math.floor(k * (have / nat) * 0.98 * 100) / 100));
-      if (nat <= have && (fit - k < 0.05 || k >= 1)) return;   // fits, and would not grow by a clear step
-      if (fit === k) return;
+      if (nat <= have && (fit - k < 0.05 || k >= 1)) return k;   // fits, and would not grow by a clear step
+      if (fit === k) return k;
       k = fit; report.style.setProperty('--dop-k', String(k));
     }
+    return k;
   }
 
   // The strip's own words (the reading, direction and pattern), measured together: a phone's Tests card keeps the gauge and tiles
@@ -638,7 +650,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (!q.width) continue;
       l = Math.min(l, q.left); r = Math.max(r, q.right); b = Math.max(b, e.getBoundingClientRect().bottom);
     }
-    return { width: r > l ? r - l + (patternEl.textContent ? 14 : 0) : 0, bottom: b };
+    return { width: r > l ? r - l + (patternEl.textContent && !patternEl.hidden ? 14 : 0) : 0, bottom: b };
   }
 
   function draw(now = performance.now()) {
@@ -656,7 +668,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (ovOn) {
       const k0 = stripKey; fitStrip();
       if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4; if (ovKey !== ovLast || t > ovTop || t < ovTop - 4) ovTop = t; }
-    } else ovTop = 26;
+    } else {
+      ovTop = 26;
+      if (patternEl.hidden) { patternEl.hidden = false; stripKey = ''; }   // (off the strip the pattern always shows)
+    }
     ovLast = ovKey;
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
@@ -772,7 +787,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
       ctx.fillStyle = cssAlpha('--white', .55); ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
       if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = cssAlpha('--white', .78); ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
     }
-    ctx.fillStyle = cssAlpha('--white', .5); ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
+    // The scale's unit: top right, or, when the reading fills the top strip, bottom right under the scale, clear of its words
+    // (the bottom strip's settings stop short of the scale's margin).
+    ctx.fillStyle = cssAlpha('--white', .5); ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, ovOn ? yLab : 13);
     if (waves && meta().kind === 'hepatic') {
       // The hepatic vein's waves named at their peaks (a presenter slide asks for it): the a-wave reversal on the
       // atrial side of the baseline, then the S, v and D forward waves of the same beat. One beat is named at a time.
