@@ -17,7 +17,7 @@ import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
 import { instantMotionOn, quiet } from './fast.mjs';
 import { checkCharts, checkLadderBrackets, LADDER_SIZES, checkStrip, checkStripSlides, stripSlides, checkStripGaps } from './chart-text.mjs';
-import { checkPhoneFit } from './phone-fit.mjs';
+import { checkPhoneFit, fitIssues } from './phone-fit.mjs';
 import { checkTypeScale } from './type-scale.mjs';
 import { TEXT_MIN, TEXT_MAX } from '../../src/ui/type-scale.js';
 import { checkChartText, chartTypeSlides } from './chart-type.mjs';
@@ -1749,19 +1749,34 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         else await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [deck, n - 1]);
         await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !document.querySelector('.pz-cover, .pz-load.on'), n, { timeout: 60000 });
         await page.waitForTimeout(3500);   // (longer than the old bar's idle fade)
-        const out = await page.evaluate(() => {
+        // (An upright iPad has used the phone's layout since 1f25c95: the teaching card at the bottom holds the phone's pill (count,
+        // settings, exit) at its lower right, and the words keep clear of it as on a phone: phone-fit.mjs judges them.)
+        const upright = size.height > size.width;
+        const out = await page.evaluate((upright) => {
           const o = [], bar = document.querySelector('.pz-bar'), b = bar.getBoundingClientRect();
           const vis = (el) => { if (!el || el.hidden || el.classList.contains('pz-hide')) return null; const st = getComputedStyle(el); if (st.display === 'none' || +st.opacity < 0.5) return null; const r = el.getBoundingClientRect(); return r.width ? r : null; };
           if (+getComputedStyle(bar).opacity < 0.9) o.push('the pill hides');
-          if (innerWidth - b.right > 50 || innerHeight - b.bottom > 20 || b.left < innerWidth / 2) o.push(`the pill is not at the lower right (${Math.round(b.left)},${Math.round(b.top)})`);
           const kids = [...bar.children].map((c) => c.getAttribute('aria-label') || c.textContent.trim());
-          if (kids.length !== 5 || !/^Slide \d+ of/.test(kids[1]) || kids[3] !== 'Settings') o.push(`the pill holds ${kids.join(', ')}`);
           if (document.querySelector('.pz-count')) o.push('a second count shows');
+          if (upright) {
+            const sh = document.querySelector('.pz.stack') && vis(document.querySelector('.pz-shade'));
+            // (A slide with no words, a summary table, has no teaching card: the pill then keeps to the lower right of the column.)
+            if (!sh) { if (b.left < innerWidth / 2 || innerHeight - b.bottom > 60) o.push(`the pill is not at the lower right (${Math.round(b.left)},${Math.round(b.top)})`); }
+            else if (sh.right - b.right < 0 || sh.right - b.right > 30 || sh.bottom - b.bottom < 0 || sh.bottom - b.bottom > 30 || b.left < (sh.left + sh.right) / 2) o.push(`the pill is not at the teaching card's lower right (${Math.round(b.left)},${Math.round(b.top)} to ${Math.round(b.right)},${Math.round(b.bottom)}; card ${sh ? [sh.left, sh.top, sh.right, sh.bottom].map(Math.round).join(',') : 'none'})`);
+            if (kids.length !== 3 || !/^Slide \d+ of/.test(kids[0]) || kids[1] !== 'Settings') o.push(`the pill holds ${kids.join(', ')}`);
+            return o;
+          }
+          // (One margin from the right and the bottom, the cards' own margin (--pz-cm, since a77f314: 37 px at 1440 wide), not a fixed 20 px.)
+          const pr = document.createElement('div'); pr.style.cssText = 'position:absolute;visibility:hidden;width:var(--pz-cm)'; bar.parentElement.append(pr);
+          const cm = pr.getBoundingClientRect().width; pr.remove();
+          if (Math.abs(innerWidth - b.right - cm) > 2 || Math.abs(innerHeight - b.bottom - cm) > 2 || b.left < innerWidth / 2) o.push(`the pill is not at the lower right, one margin (${Math.round(cm)} px) in (${Math.round(b.left)},${Math.round(b.top)} to ${Math.round(b.right)},${Math.round(b.bottom)})`);
+          if (kids.length !== 5 || !/^Slide \d+ of/.test(kids[1]) || kids[3] !== 'Settings') o.push(`the pill holds ${kids.join(', ')}`);
           if (!['none', 'normal'].includes(getComputedStyle(bar, '::before').content) || [...bar.children][0].getBoundingClientRect().left - b.left > 4) o.push('a mark shows before the back button');   // (the app's status-pill dot once did)
           for (const s of ['.pz-text', '.pz-data', '.pz-panel', '.stage-credit']) { const q = vis(document.querySelector(s)), g = s === '.stage-credit' ? 4 : 0;
             if (q && Math.min(q.right, b.right) - Math.max(q.left, b.left) > -g && Math.min(q.bottom, b.bottom) - Math.max(q.top, b.top) > -g) o.push(`the pill touches ${s}`); }
           return o;
-        });
+        }, upright);
+        if (upright) out.push(...await page.evaluate(fitIssues));
         for (const x of out) bad.push(`${deck} ${n} at ${size.width}x${size.height}: ${x}`);
       }
     }
