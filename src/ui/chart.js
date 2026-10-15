@@ -5,11 +5,11 @@
 //   Changes                              Treat card, closed until opened: what has been set, with values
 //   Advanced physiology                  side panel, from Settings (instructor)
 
-import { store, updateParams } from './store.js?v=32c330eb0b';
+import { store, updateParams } from './store.js?v=bb8c70114d';
 import { h, icon, svgIcon, toast } from './util.js?v=abb277f29f';
 import { DRUGS } from '../engine/scenario.js?v=6ebaeb46c8';
-import { activeInterventions } from './inspector.js?v=b3fd97699e';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=a9d7409ff3';
+import { activeInterventions } from './inspector.js?v=469701c0b0';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=72145fa3a1';
 
 
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, timeline, pinned }) {

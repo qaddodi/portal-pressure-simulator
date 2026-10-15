@@ -14,7 +14,8 @@
 //   labels                   the stations named on the anatomy (none when absent)
 //   tint                     ['imv']: TARGETS keys whose station label takes its colour though the line never names it
 //   layers                   ['zones']: the lobule's zone bands on (a lobule slide shows none otherwise)
-//   mark                     { edges, label }: a ring and a callout on the figure (hidden until a quiz is answered)
+//   mark                     { edges, label, seg? }: a ring and a callout on the figure (hidden until a quiz is answered); on a stent,
+//                            seg ('proximal' | 'mid' | 'distal' | 'site', the third holding its narrowing) lights and points at that third only
 //   eq                       [MathML, legend?]: an equation under the title (see mi, mo, sub and frac)
 //   kicker, site, title, line, causes
 //                            the words (site: a level of ladder.js SITES; it colours the kicker). The title stands alone without
@@ -27,7 +28,7 @@
 //                            brackets: { hvpg | ppg: 'misleads' | 'works' } colours the ladder's bracket red or green, its number in it;
 //                            block: a station ('pv' | 'whvp' | 'fhvp' | 'ivc' | 'ra') carrying the block itself, hatched on its node)
 //   tool                     an instrument in the data card, reading the live model (presenter-tools.js): { kind: 'doppler',
-//                            vessel }, { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
+//                            vessel, gate? } (gate: on a stent, the third it samples, 'proximal' | 'mid' (default) | 'distal' | 'site'), { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
 //                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section); title? names the card; waves: true
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
 //                            (on a phone it folds away behind a Show button; open: true keeps it open there and folds the tiles instead)
@@ -48,7 +49,8 @@
 //                            (SAAG × protein) or 'walls'; of: the rows, slide ids or { id | preset, name, title, note, blank: [columns] }
 //   compare                  [{ label, params, own? }]: buttons that switch the live model between treatments in real
 //                            time (params: each option's full set of the switched keys; own: the slide's own state);
-//                            or [{ label, lens, own? }]: buttons that switch the figure's lens, the model untouched
+//                            or [{ label, lens, own? }]: buttons that switch the figure's lens, the model untouched;
+//                            or [{ label, gate, own? }]: buttons that move a stent Doppler's gate (see tool), the model untouched
 //   quiz                     quiz mode (Q) asks this before the answer shows (the camera waits at the whole figure)
 //   caveat                   one short sentence in small print under the line, where the model differs from patients
 //   notes, ask               speaker notes, and [question, expected answer] for the room
@@ -71,7 +73,7 @@ import { STIFFNESS } from './decks/stiffness.js?v=a6c522cc89';
 import { ONE_YEAR } from './decks/one-year.js?v=6dc4ebe0ee';
 import { LOBULE } from './decks/lobule.js?v=46cadf140b';
 import { SHUNTS } from './decks/shunts.js?v=ba8e038cb0';
-import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=5fff8dace0';
+import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=b48b283560';
 import { TAP } from './decks/tap.js?v=04459c913c';
 import { CIRCUIT } from './decks/circuit.js?v=766499377a';
 import { DOPPLER } from './decks/doppler.js?v=02b6d4d3a8';

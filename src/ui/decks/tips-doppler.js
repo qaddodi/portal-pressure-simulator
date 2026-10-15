@@ -3,19 +3,25 @@
 // Branch directions checked (14 Oct 2026) against the UT Southwestern and University of Washington TIPS Doppler protocols,
 // McNaughton and Abu-Yousef (RadioGraphics 2011) and Nicolas et al. (World J Hepatol 2017): with a working TIPS every
 // segment flows toward the stent; the right portal vein is hepatopetal only between the bifurcation and the stent.
+// Stent velocities (15 Oct 2026): 90–190 cm/s at each of the three points sampled (portal end, mid stent, hepatic vein end;
+// Feldstein et al., Radiology 1996; Kanterman et al., AJR 1997), with a change of more than 50 cm/s from the baseline
+// study. Mitchell et al. (Abdom Radiol 2025, patent shunts at venography) found mean peaks of 141 (8 mm) and 147 (10 mm)
+// cm/s at the portal end, 185 and 149 mid stent, and 172 and 141 at the hepatic vein end, often highest mid stent in 8 mm
+// stents. Neither Baveno VIII nor AASLD 2024 gives Doppler cut-offs. Narrowings form mostly at the hepatic vein end or in the
+// hepatic vein beyond it, less often within the stent or at its portal end (Darcy, AJR 2012).
 
 export const TIPS_DOPPLER = {
   id: 'tips-doppler', level: 'advanced', title: 'Doppler ultrasound of TIPS', minutes: 10,
   objectives: [
-    'Describe the Doppler of a working TIPS: the stent velocity and the flow in each portal branch',
+    'Describe the Doppler of a working TIPS: the proximal, mid and distal stent velocities and the flow in each portal branch',
     'Explain why the intrahepatic portal branches flow toward the stent',
-    'Recognize the Doppler signs of TIPS stenosis, including a hepatopetal left portal vein',
+    'Recognize the Doppler signs of TIPS stenosis wherever it forms along the stent, including a hepatopetal left portal vein',
     'Read the figure colored by velocity, flow, direction, congestion and blood origin',
   ],
   summary: 'Doppler of a TIPS, from the scan before the stent to a working stent and a narrowed one, with the vessels colored by velocity, flow, direction, congestion and blood origin.',
   checks: [
-    ['With a working TIPS, which way does the left portal vein flow?', 'Toward the stent, away from the liver (hepatofugal).'],
-    ['Which velocities suggest stenosis?', 'A stent velocity under 90 or over 190 cm/s, a change of more than 50 cm/s from the baseline study, or a main portal vein under 30 cm/s.'],
+    ['Which velocities suggest stenosis?', 'A velocity under 90 or over 190 cm/s at the proximal, mid or distal stent, a change of more than 50 cm/s from the baseline study, or a main portal vein under 30 cm/s.'],
+    ['Why is the stent sampled at three points?', 'A narrowing speeds up flow only where it sits. The rest of the stent runs slow, so a single sample can miss the jet.'],
     ['A follow-up scan shows hepatopetal flow in the left portal vein. Why is that a concern?', 'With a working TIPS it should flow toward the stent. Flow toward the liver suggests the stent is narrowing.'],
     ['What confirms a suspected stenosis?', 'TIPS venography with a portosystemic pressure gradient, followed by angioplasty or a new stent if it is narrowed.'],
   ],
@@ -53,11 +59,14 @@ export const TIPS_DOPPLER = {
       ask: ['When is the baseline TIPS Doppler done?', 'In the first weeks after the stent is placed; every later scan is compared with it.'],
     },
     {
-      id: 'jet', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS' },
-      kicker: 'A working TIPS', title: 'Flow in a working stent is fast',
-      line: 'Blood speeds up as it enters the stent, which is narrower than the portal vein. Colored by velocity, a working stent shows in the normal colour. The Doppler reports it at the proximal, mid and distal stent. A velocity under {<90 cm/s} or over {>190 cm/s} at any of them suggests narrowing.',
-      notes: 'The stent is sampled at its portal end, in the middle and at its hepatic vein end. Flow runs from the portal vein toward the heart along its whole length, typically at 90 to 190 cm/s. A velocity outside that range, or a change of more than 50 cm/s from the baseline study, suggests stenosis. These cut-offs come from bare stents; covered stents narrow far less often, so the change from the baseline study counts for more.',
-      ask: ['Where along the stent is the velocity measured?', 'At the portal end, in the middle and at the hepatic vein end.'],
+      // The gate moves along the stent with the buttons; its third glows in the Doppler's green.
+      id: 'jet', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'mid' },
+      compare: [{ label: 'Proximal', gate: 'proximal' }, { label: 'Mid', gate: 'mid', own: true }, { label: 'Distal', gate: 'distal' }],
+      kicker: 'A working TIPS', title: 'The stent is sampled at three points',
+      line: 'The Doppler reads the stent at its portal end (proximal), in the middle (mid) and at its hepatic vein end (distal). In a working stent each reads 90 to 190 cm/s, and a velocity under {<90 cm/s} or over {>190 cm/s} at any of them suggests narrowing.',
+      caveat: 'In the model the open stent is one even tube, so all three read the same; in patients they often differ by a few tens of cm/s.',
+      notes: 'Blood speeds up as it enters the stent, which is narrower than the portal vein, and runs from the portal vein toward the heart along its whole length. Each of the three points normally reads 90 to 190 cm/s. In patent shunts confirmed at venography, mean peaks were about 140 cm/s at the portal end, 150 to 185 cm/s mid stent and 140 to 170 cm/s at the hepatic vein end, often highest mid stent in 8 mm stents (Mitchell et al., 2025). A velocity outside 90 to 190 cm/s, or a change of more than 50 cm/s from the baseline study, suggests stenosis. These cut-offs come from bare stents; covered stents narrow far less often, so the change from the baseline study counts for more. Tap Proximal, Mid or Distal to move the Doppler gate; that third of the stent glows green.',
+      ask: ['Where along the stent is the velocity measured?', 'At the portal end (proximal), in the middle (mid) and at the hepatic vein end (distal).'],
     },
     {
       id: 'mpv', cam: 'portal', lens: 'velocity', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'before' },
@@ -82,13 +91,25 @@ export const TIPS_DOPPLER = {
       ask: ['Why is the right portal vein hepatopetal before the stent but hepatofugal beyond it?', 'Every segment flows toward the stent, and the stent starts in the right portal vein.'],
     },
     {
+      // A 60 % pinch in the distal third (stenosisSite unset: distal), sampled there: the jet runs over 190 cm/s, the rest under 90.
       id: 'narrow', params: { stenosis: { TIPS: 0.6 } }, days: 180, cam: 'liver', lens: 'velocity',
-      mark: { edges: ['TIPS'], label: 'Narrowed stent' }, tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg'], key: ['ppg'], delta: 'stent',
-      kicker: 'TIPS stenosis', title: 'A narrowed stent runs slow',
-      line: 'Six months later, fluid reappears around the liver on ultrasound. The proximal and mid stent have slowed under {<90 cm/s}, the distal stent runs over {>190 cm/s} through the narrowing, and the PPG is back to {ppg}.',
-      caveat: 'The model draws the narrowing as one short pinch at the hepatic vein end, where it usually forms; the proximal and mid readings share one velocity.',
-      notes: 'Stenosis usually develops at the hepatic vein end of the stent, or in the hepatic vein beyond it. Along most of the stent the velocity falls, often under 90 cm/s, while a short jet at the narrowing itself can run over 190 cm/s. The gradient rises again and what the stent treated returns: ascites, or varices that can bleed. The tiles compare with the working stent.',
+      mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'distal' }, data: 'tiles', tiles: ['ppg'], key: ['ppg'], delta: 'stent',
+      compare: [{ label: 'Proximal', gate: 'proximal' }, { label: 'Mid', gate: 'mid' }, { label: 'Distal', gate: 'distal', own: true }],
+      kicker: 'TIPS stenosis', title: 'A narrowed stent runs slow, with a jet',
+      line: 'Six months later, fluid reappears around the liver on ultrasound. At the narrowing, in the distal stent, a jet runs over {>190 cm/s}, the proximal and mid stent have slowed under {<90 cm/s}, and the PPG is back to {ppg}.',
+      caveat: 'The model draws the narrowing as one short pinch, about 1 cm long; in patients it can be longer or lie in the hepatic vein beyond the stent.',
+      notes: 'Stenosis usually develops at the hepatic vein end of the stent, or in the hepatic vein beyond it. Along most of the stent the velocity falls, often under 90 cm/s, while a short jet at the narrowing itself can run over 190 cm/s. That is why all three points are sampled: a gate away from the narrowing reads only the slow flow. The gradient rises again and what the stent treated returns: ascites, or varices that can bleed. The tiles compare with the working stent. Tap Proximal, Mid or Distal to move the gate along the stent.',
       ask: ['Where does a TIPS usually narrow?', 'At its hepatic vein end, or in the hepatic vein beyond it.'],
+    },
+    {
+      // The same 60 % pinch moved along the stent with the buttons: the flow is the same wherever it sits, and the gate follows it.
+      id: 'where', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'site' },
+      compare: [{ label: 'Proximal', params: { stenosisSite: { TIPS: 'proximal' } } }, { label: 'Mid', params: { stenosisSite: { TIPS: 'mid' } } },
+        { label: 'Distal', own: true, params: { stenosisSite: { TIPS: 'distal' } } }],
+      kicker: 'TIPS stenosis', title: 'The jet shows where the stent narrows',
+      line: 'Most narrowings form at the hepatic vein end, but some form mid stent or at the portal end. Wherever it sits, the jet runs over {>190 cm/s} only at the narrowing, and the other two points read under {<90 cm/s}.',
+      notes: 'A narrowing at the hepatic vein end often reflects intimal hyperplasia where the stent meets the hepatic vein, or a stent that stops short of the cava. Within the stent, pseudointimal hyperplasia or a kink can narrow it, and at the portal end the stent can be too short or angled against the vein wall. The Doppler finds the site by its jet: the fastest of the three readings, with slow flow on either side. The Doppler card lists all three, so read them together and against the baseline study. Tap Proximal, Mid or Distal to move the narrowing; the gate follows it.',
+      ask: ['A TIPS reads 60 cm/s proximally, 240 cm/s mid stent and 65 cm/s distally. Where is the narrowing?', 'Mid stent, where the jet is.'],
     },
     {
       id: 'warn', cam: 'liver', lens: 'direction', labels: ['LPV'], terms: ['lpv'], tool: { kind: 'doppler', vessel: 'PVH_L' },
@@ -107,7 +128,7 @@ export const TIPS_DOPPLER = {
       ask: ['A TIPS patient rebleeds and the main portal vein has slowed since the baseline study. What do you suspect?', 'Stenosis of the stent.'],
     },
     {
-      id: 'fix', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS' },
+      id: 'fix', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'site' },
       data: 'tiles', tiles: ['ppg'], key: ['ppg'],
       compare: [{ label: 'Narrowed', own: true, params: { stenosis: { TIPS: 0.6 } } }, { label: 'Dilated', params: { stenosis: { TIPS: 0 } } }],
       kicker: 'TIPS stenosis', title: 'Venography confirms it, and the stent is reopened',
@@ -118,11 +139,11 @@ export const TIPS_DOPPLER = {
     {
       id: 'summary', visual: 'table', cols: ['ppg'], asc: false, vs: 'first', note: ['Stent', 'Left portal vein'], rowHead: 'Scan',
       of: [{ id: 'before', kicker: 'Reference', title: 'Before TIPS', note: ['No stent', 'Toward the liver'], ref: true },
-        { id: 'stent', title: 'Working TIPS', note: ['90 to 190 cm/s', 'Toward the stent'] },
-        { id: 'narrow', title: 'Stenosed TIPS', note: ['Under 90 or over 190 cm/s', 'Toward the liver again'] }],
+        { id: 'stent', title: 'Working TIPS', note: ['90 to 190 cm/s at each point', 'Toward the stent'] },
+        { id: 'narrow', title: 'Stenosed TIPS', note: ['Over 190 cm/s at the narrowing, under 90 elsewhere', 'Toward the liver again'] }],
       kicker: 'Summary', title: 'Doppler after TIPS',
-      line: 'With a working TIPS, every branch flows toward the stent. A slow or fast stent, a main portal vein under 30 cm/s or a left portal vein that turns hepatopetal suggests stenosis.',
-      notes: 'Read every TIPS Doppler against the baseline study. In a working stent the velocity sits between 90 and 190 cm/s, the main portal vein is faster than before, and the intrahepatic branches flow toward the stent. Stenosis shows as a stent velocity outside that range or a change of more than 50 cm/s, a main portal vein under 30 cm/s, and branches that turn back toward the liver.',
+      line: 'With a working TIPS, every branch flows toward the stent. A slow or fast reading at any of the three points, a main portal vein under 30 cm/s or a left portal vein that turns hepatopetal suggests stenosis.',
+      notes: 'Read every TIPS Doppler against the baseline study. In a working stent the velocity sits between 90 and 190 cm/s at the proximal, mid and distal stent, the main portal vein is faster than before, and the intrahepatic branches flow toward the stent. Stenosis shows as a velocity outside that range at any point or a change of more than 50 cm/s, a main portal vein under 30 cm/s, and branches that turn back toward the liver.',
       ask: ['Name three Doppler signs of TIPS stenosis.', 'A stent velocity under 90 or over 190 cm/s (or a change of more than 50 cm/s), a main portal vein under 30 cm/s, and hepatopetal flow in the intrahepatic branches.'],
     },
   ],

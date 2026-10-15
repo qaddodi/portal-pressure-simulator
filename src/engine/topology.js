@@ -218,6 +218,10 @@ export const dopplerK = (e) => (e?.kind === 'shunt' ? 2 : 1 / 0.57);
 export const STENT_SITES = { proximal: 1 / 6, mid: 0.5, distal: 5 / 6 };
 export const isStent = (e) => e?.kind === 'shunt' && (e.shunt === 'tips' || e.shunt === 'dips' || e.shunt === 'custom');
 export const stentSite = (p, id) => (STENT_SITES[p?.stenosisSite?.[id]] != null ? p.stenosisSite[id] : 'distal');
+// The thirds of a stent the Doppler gate samples and a slide can highlight (0–1 along its drawn path, from its portal end).
+export const STENT_SPANS = { proximal: [0, 1 / 3], mid: [1 / 3, 2 / 3], distal: [2 / 3, 1] };
+// The segment a Doppler gate names: 'site' follows the stent's narrowing (stentSite); anything else unknown is the mid stent.
+export const stentGate = (gate, p, id) => (gate === 'site' ? stentSite(p, id) : STENT_SPANS[gate] ? gate : 'mid');
 // A stent's velocity at its proximal, mid and distal segments (cm/s), as TIPS Doppler reports it. The same flow
 // passes every point, so velocity goes with 1 / diameter²: v is the velocity in the open stent, and the segment
 // holding a narrowing s (0..1 of the diameter) runs at v / (1 − s)².

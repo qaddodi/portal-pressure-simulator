@@ -21,15 +21,15 @@
 // covered until the answer. Each instrument is made once per presentation and kept, so a trace that keeps recording
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
-import { store } from './store.js?v=32c330eb0b';
+import { store } from './store.js?v=bb8c70114d';
 import { h, fmt, clamp } from './util.js?v=abb277f29f';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
-import { EDGES } from '../engine/topology.js?v=a8aa8a6b13';
-import { createDoppler } from './doppler.js?v=2507fcc0c9';
-import { createFibroScan } from './fibroscan.js?v=15969800e5';
-import { createPressureTime } from './pressure-time.js?v=48914c85c6';
+import { EDGES } from '../engine/topology.js?v=1825cbda55';
+import { createDoppler } from './doppler.js?v=bbcc8378cf';
+import { createFibroScan } from './fibroscan.js?v=db718cea49';
+import { createPressureTime } from './pressure-time.js?v=25f419d574';
 import { createFlowTime } from './flow-time.js?v=109a17e443';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=111f24a1be';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=53b854d939';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('presenter-tools');
 
@@ -57,7 +57,7 @@ export function createTools({ host, stage }) {
     if (!w || !r) continue; const k = Math.min(2, Math.max(1, 12 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) sv.style.setProperty('--svk', k.toFixed(2)); } };
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => nextFrame(svk)).observe(box);
   const made = {};
-  let cur = null, kind = null, probe0, lastSt = null, lastSlide = null;
+  let cur = null, kind = null, probe0, gate0, lastSt = null, lastSlide = null;
   function make(k) {
     if (made[k]) return made[k];
     const inst = k === 'doppler' ? createDoppler({ onProbe: noop }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
@@ -84,8 +84,10 @@ export function createTools({ host, stage }) {
       if (k !== 'doppler') stage?.pinDoppler?.(null);
       stage?.setScanProbe?.(k === 'fibroscan', { covered: quiz && READS.has(t.kind) });   // (the probe on the skin over the liver, where the reading comes from)
       if (k === 'doppler') {
-        if (probe0 === undefined) probe0 = store.get().frame?.probe ?? null;
+        if (probe0 === undefined) { probe0 = store.get().frame?.probe ?? null; gate0 = store.get().dopGate; }
         host.send({ type: 'probe', id: t.vessel || 'PV_TRUNK' });
+        // (On a stent, the slide's gate: proximal, mid, distal, or 'site', the third that holds its narrowing.)
+        if (store.get().dopGate !== (t.gate || 'mid')) store.set({ dopGate: t.gate || 'mid' });
         stage?.pinDoppler?.(t.vessel || 'PV_TRUNK');
       }
       inst.setWaves?.(!!t.waves);
@@ -113,7 +115,7 @@ export function createTools({ host, stage }) {
     hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; lastSlide = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
     dispose() {
-      if (probe0 !== undefined) host.send({ type: 'probe', id: probe0 }); probe0 = undefined; lastSt = null; lastSlide = null; this.hide();
+      if (probe0 !== undefined) { host.send({ type: 'probe', id: probe0 }); store.set({ dopGate: gate0 || 'mid' }); } probe0 = undefined; lastSt = null; lastSlide = null; this.hide();
       // Each presentation builds its own tools: let go of this one's instruments (and the endoscopy's GL context).
       offFrame();
       for (const k of Object.keys(made)) { made[k]?.dispose?.(); delete made[k]; }

@@ -73,7 +73,8 @@ void main() {
 //   8: a stretch recolored (the HVPG's wedged vein): color (rgb), amount (0 none)
 //   9: that stretch along the vessel (0–1): from, to; its soft edge (world); hover (0–1: the lumen a little brighter)
 //  10: glow (a hovered, focused or highlighted vessel): color (rgb), amount (0 none)
-//  11: the glow's fade at the start, at the end (world; 0: runs on into the next glowing vessel); 1: its own color;
+//  11: the glow's fade at the start, at the end (world; 0: runs on into the next glowing vessel; both −(1 + u): only the
+//      stretch between the two u glows, 0–1 along the vessel); 1: its own color;
 //      its width (× the usual, 0 or 1 usual; at most 1.3: 15.6 past the wall, inside the vessel's cells)
 const FS = `#version 300 es
 precision highp float;
@@ -314,6 +315,11 @@ void main() {
       vec4 ge = T(sid[s], 11);
       float e = sd[s] - swall[s], Lh = max(T(sid[s], 5).z, 1.0);
       float ends = (ge.x > 0.0 ? smoothstep(0.0, ge.x, sv[s] * Lh) : 1.0) * (ge.y > 0.0 ? smoothstep(0.0, ge.y, (1.0 - sv[s]) * Lh) : 1.0);
+      // A stretch (a stent's third): its two ends come as −(1 + u) along the vessel; the glow fades in and out over a few units there.
+      if (ge.x < 0.0) {
+        float x = sv[s] * Lh, a = (-ge.x - 1.0) * Lh, b = (-ge.y - 1.0) * Lh, w = min(6.0, 0.08 * Lh);
+        ends = (a > 0.5 ? smoothstep(a - w, a + w, x) : 1.0) * (b < Lh - 0.5 ? 1.0 - smoothstep(b - w, b + w, x) : 1.0);
+      }
       float fall = 1.0 - smoothstep(0.0, 12.0 * clamp(ge.w, 0.5, 1.3), e);
       float gv = min(0.9, 0.6 * gc.a) * sa[s] * smoothstep(-0.6, 0.6, e) * fall * ends;
       // None inside another lit vessel's lumen (the cava's two lengths, lit together): each band ends at the

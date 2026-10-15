@@ -1,13 +1,13 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES } from '../engine/topology.js?v=a8aa8a6b13';
+import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate } from '../engine/topology.js?v=1825cbda55';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=0b72305f30';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=66a06a1ccb';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=32c330eb0b';
-import { fibroReading } from './clock.js?v=50e12cafd1';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=0477992605';
+import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=bb8c70114d';
+import { fibroReading } from './clock.js?v=1e94fe4662';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=abb277f29f';
-import { createLobuleZoom } from './lobule-zoom.js?v=ca93d2e3cd';
+import { createLobuleZoom } from './lobule-zoom.js?v=e58103cf5b';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -15,7 +15,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=9d3f9164af
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=544c590951';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b857964437';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { portalSplit } from './table-marks.js?v=525d14632b';
@@ -1001,11 +1001,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The glow and hover eases step at the display's rate, but the vessels are redrawn at the paced rate (animate): an
   // ease only marks the tubes stale, and the paced frame rebuilds and uploads them once.
   let glowSync = false;
-  /** list: [{ id, col (a CSS colour, or null), amt (strength, 1 by default), wide (band width ×, ≤ 1.3), at (ms to wait before easing in) }] */
+  /** list: [{ id, col (a CSS colour, or null), amt (strength, 1 by default), wide (band width ×, ≤ 1.3), at (ms to wait before easing in),
+   *  span ([from, to] along the vessel, 0–1: only that stretch glows, as a stent's third) }] */
   function setGlowSrc(src, list) {
     glow.src.set(src, new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, g])));
     const want = new Map();
     for (const k of GLOW_RANK) for (const [id, g] of glow.src.get(k) || []) want.set(id, g);
+    // (The Doppler's gate on a stent outranks a slide's or a mark's glow on it: the third it samples is the one that shows.)
+    for (const [id, g] of glow.src.get('dop') || []) if (g.span) want.set(id, g);
     // Which ends fade: an end that meets another vessel glowing in the same colour runs on into it (even where a third colour also joins, as the IMV joins the splenic vein); one that meets
     // another colour fades over a few units, so the two meet softly; a free end fades over a third of the vessel.
     const nodes = new Map();
@@ -1015,12 +1018,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const len = Math.max(1, geo[id]?.len || 60), key = g.col ?? '';
       const endOf = (n) => { const t = nodes.get(n); return t.length < 2 ? 0.35 * len : t.filter((v) => v === key).length > 1 ? 0 : Math.min(0.3 * len, 16); };
       let l = glow.lit.get(id);
-      if (!l) { l = { v: 0, to: 0, col: g.col, from: null, cu: 1, end: null }; glow.lit.set(id, l); }
+      if (!l) { l = { v: 0, to: 0, col: g.col, from: null, cu: 1, end: null, span: null }; glow.lit.set(id, l); }
       if (!l.to) l.start = now + (g.at || 0);
       if (l.col !== g.col) { l.from = l.v > 0 && l.col && l.rgb ? l.rgb : null; l.cu = l.from ? 0 : 1; l.col = g.col; }
       l.to = 1; l.amt = g.amt ?? 1; l.wide = g.wide || 1; l.dur = (g.dur || 450) / 1000;
       l.endT = [endOf(E[id].e.from), endOf(E[id].e.to)];
       if (!l.end || l.v <= 0) l.end = [...l.endT];
+      // A stretch eases along the vessel to its new place (a whole vessel is the stretch 0–1).
+      l.spanT = g.span ? [...g.span] : [0, 1];
+      if (!l.span || l.v <= 0) l.span = [...l.spanT];
     }
     for (const [id, l] of glow.lit) if (!want.has(id)) l.to = 0;
     if (!glow.raf) { glow.t = now; glow.raf = nextFrame(glowStep); }
@@ -1034,20 +1040,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       l.v = l.to > l.v ? Math.min(1, l.v + k) : Math.max(0, l.v - k);
       l.cu = Math.min(1, l.cu + k);
       for (const i of [0, 1]) { const d = l.endT[i] - l.end[i]; l.end[i] = Math.abs(d) < 0.5 ? l.endT[i] : l.end[i] + d * Math.min(1, k * 2); }
+      for (const i of [0, 1]) { const d = l.spanT[i] - l.span[i]; l.span[i] = Math.abs(d) < 0.003 ? l.spanT[i] : l.span[i] + d * Math.min(1, k * 1.5); }
       if (l.v <= 0 && !l.to) glow.lit.delete(id);
-      else if (l.v !== l.to || l.cu < 1 || l.end[0] !== l.endT[0] || l.end[1] !== l.endT[1]) moving = true;
+      else if (l.v !== l.to || l.cu < 1 || l.end[0] !== l.endT[0] || l.end[1] !== l.endT[1] || l.span[0] !== l.spanT[0] || l.span[1] !== l.spanT[1]) moving = true;
     }
     glowSync = true;
     glow.raf = moving ? nextFrame(glowStep) : 0;
   }
-  // The Doppler's vessel glows in the Doppler's green while its instrument is open.
-  const dop = { id: null, want: null, pin: null };
+  // The Doppler's vessel glows in the Doppler's green while its instrument is open; on a stent, only the third its gate samples.
+  const dop = { id: null, want: null, pin: null, key: '' };
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
-    if (id === dop.id) return;
-    dop.id = id;
-    setGlowSrc('dop', id ? [{ id, col: 'var(--doppler)', amt: 1.1, wide: 0.8, dur: 360 }] : []);
+    const st = store.get(), seg = id && isStent(EDGES[EI[id]]) ? stentGate(st.dopGate, st.params, id) : '';
+    const key = `${id}|${seg}`;
+    if (key === dop.key) return;
+    dop.id = id; dop.key = key;
+    setGlowSrc('dop', id ? [{ id, col: 'var(--doppler)', amt: 1.1, wide: 0.8, dur: 360, span: seg ? STENT_SPANS[seg] : null }] : []);
   }
   // A presenter slide's glows (glow: [...] and its terms' vessels), each in its station's colour. Slide, focus and
   // Doppler glows are a slim, soft band (smaller than a hover's), so they mark the vessel without swamping it.
@@ -2172,6 +2181,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     updateNodesCircuit(f);
     updateOverlays(f, p, gain, t);
     updateFocus();
+    dopApply();
     updateBridges(t);
     updateLabels(f);
     updateOrgans(f, p, t);
@@ -2709,7 +2719,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const v = l ? easeInOut(Math.max(0, l.v)) * l.amt : 0;
         if (v > 0) {
           if (l.col) { const c = toRGB(l.col, cs); l.rgb = l.from && l.cu < 1 ? mix3(l.from, c, easeInOut(l.cu)) : c; }
-          tubeData.set([...(l.col ? l.rgb : [0, 0, 0]), v, lend[0], lend[1], l.col ? 0 : 1, l.wide], o + 40);
+          // (A stretch is sent as its two ends along the vessel, each as −(1 + u): the shader fades the glow in and out there.)
+          const part = kind === 'v' && la && la.span && (la.span[0] > 0.002 || la.span[1] < 0.998);
+          tubeData.set([...(l.col ? l.rgb : [0, 0, 0]), v, part ? -1 - la.span[0] : lend[0], part ? -1 - la.span[1] : lend[1], l.col ? 0 : 1, l.wide], o + 40);
         } else tubeData.fill(0, o + 40, o + 48);
       }
     }
@@ -3419,17 +3431,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function updateFocus() {
     const foc = store.get().focus;
     // A presenter slide can hold several marks, each of a kind (block, treat, note), each in its colour.
-    const kindOf = new Map();
-    for (const m of foc ? foc.marks || [foc] : []) for (const id of m.edges || []) if (!kindOf.has(id)) kindOf.set(id, m.kind || '');
+    // (A mark's seg on a stent lights only that third of it; several marks on one stent light the stretch that spans them.)
+    const kindOf = new Map(), spanOf = new Map();
+    for (const m of foc ? foc.marks || [foc] : []) for (const id of m.edges || []) {
+      if (!kindOf.has(id)) kindOf.set(id, m.kind || '');
+      const sp = m.seg && isStent(EDGES[EI[id]]) ? STENT_SPANS[stentGate(m.seg, store.get().params, id)] : [0, 1], was = spanOf.get(id);
+      spanOf.set(id, was ? [Math.min(was[0], sp[0]), Math.max(was[1], sp[1])] : sp);
+    }
     const ids = [...kindOf.keys()].filter((id) => E[id]?.vis);
     const presenting = !!store.get().presenting;
-    const key = ids.map((id) => id + kindOf.get(id)).join(',') + '|' + presenting;
+    const key = ids.map((id) => id + kindOf.get(id) + spanOf.get(id).join('-')).join(',') + '|' + presenting;
     if (focusKey === key) return;
     focusKey = key;
     // The glow (setGlowSrc): the accent; on a slide a block is the danger red, a treatment the accent, and a note
     // only a pointer (its vessel glows in its station's colour, the slide's glow).
     const col = (k) => (!presenting || k === 'treat' ? 'var(--accent)' : k === 'note' ? null : 'var(--danger)');
-    setGlowSrc('focus', ids.filter((id) => col(kindOf.get(id))).map((id) => ({ id, col: col(kindOf.get(id)), amt: 1, wide: 0.75, dur: 600 })));
+    setGlowSrc('focus', ids.filter((id) => col(kindOf.get(id))).map((id) => ({ id, col: col(kindOf.get(id)), amt: 1, wide: 0.75, dur: 600, span: spanOf.get(id)[1] - spanOf.get(id)[0] < 1 ? spanOf.get(id) : null })));
   }
 
   function isReversed(e, f) {
@@ -4842,10 +4859,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const fixed = at && Math.abs(edgeVel(at, EI[sid])) * dopplerK(EDGES[EI[sid]]);   // (the slide's own velocity, as its tiles read the slide)
     const live = Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + sid, now, 6);
     const vel = dop && performance.now() - dop.t < 1000 ? dop.v : live;
-    it.lines = [[{ ...it.lines[0][0], t: sid }, { t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4 }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }]];
+    // (Read by the Doppler at one third of the stent, the callout names it: "TIPS distal".)
+    const seg = dop && performance.now() - dop.t < 1000 && dop.seg ? ` ${dop.seg}` : '';
+    it.lines = [[{ ...it.lines[0][0], t: sid + seg }, { t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4 }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }]];
     it.key = `n:${sid}`; it.src = ['vel', sid]; it.node = undefined; it.sel = false; it.swatch = null;
     it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-    it.label = `${sid}: ${fmt(vel, 0)} centimeters per second`;
+    it.label = `${sid}${seg}: ${fmt(vel, 0)} centimeters per second`;
     return it;
   }
   // The FibroScan probe's callout: the live stiffness, beside the waves, in their orange. A fixed width (the digits are tabular
@@ -5371,7 +5390,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const foc = st.focus;
     (foc ? foc.marks || [foc] : []).forEach((m, i) => {
       if (!m.edges?.length || !E[m.edges[0]]?.vis || (i && !m.label)) return;
-      const [x, y] = pointAt(geo[m.edges[0]].cur, 0.5);
+      // (A mark on one third of a stent points at that third.)
+      const segAt = m.seg && isStent(EDGES[EI[m.edges[0]]]) ? STENT_SITES[stentGate(m.seg, f.viewParams || st.params, m.edges[0])] : 0.5;
+      const [x, y] = pointAt(geo[m.edges[0]].cur, segAt);
       const [ax, ay] = worldToLocal(x, y);
       const it = { key: i || m.kind ? `focus${i}${m.kind || ''}` : 'focus', mk: m.kind, cls: 'focus' + (m.kind ? ` k-${m.kind}` : ''), lines: [[{ t: m.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4, ax, ay };
       it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);

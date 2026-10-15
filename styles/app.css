@@ -2888,6 +2888,8 @@ button.finding { cursor: pointer; }
 .dop-mode[aria-pressed="false"] i { opacity: .35; }
 .dop-tint:disabled { opacity: .4; cursor: default; }
 .dop-vessel { min-width: 0; max-width: 220px; flex: 0 1 220px; height: 34px; font-weight: 600; }
+.dop-gate { min-width: 0; flex: 0 1 112px; height: 34px; font-weight: 600; }
+.dop-gate[hidden] { display: none; }
 .dop-tint { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-2); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
 .dop-tint i { width: 14px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--dop-chip-toward) 50%, var(--dop-chip-away) 50%); opacity: .35; transition: opacity var(--t-fast); }
 .dop-tint[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }
@@ -4641,6 +4643,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .dop-range[data-out="true"] .dop-mark { background: var(--caution); }
 .dop-vel b { transition: color .3s var(--ease); }
 .dop-vel[data-out="true"] b { color: var(--caution); }
+/* A stent's three segments: one outside 90–190 cm/s reads in the caution colour; the gated one is underlined in the Doppler's green. */
+.dop-stats > div[data-out="true"] dd { color: var(--caution); }
+.dop-stats > div.on dt { color: var(--text); box-shadow: inset 0 -2px 0 var(--doppler); width: fit-content; }
+.instrument-workspace .dop-stats > div.on { border-color: var(--doppler); }
+.instrument-workspace .dop-stats > div.on dt { box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .dop-vel b { transition: none; } }
 .dop-ticks { position: relative; height: 14px; margin-top: 6px; font-size: 11px; line-height: 14px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .dop-ticks > span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; transition: left .4s var(--ease); }

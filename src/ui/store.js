@@ -40,6 +40,7 @@ const state = {
   hvpgMeasured: false,        // Explore: the HVPG catheter procedure has run for this patient (the live HVPG shows)
   showHvpg: (() => { try { return localStorage.getItem('pps.showHvpg') === '1'; } catch { return false; } })(),   // Settings: show the HVPG without measuring it
   presenting: false,          // a Presenter script or the tour is running
+  dopGate: 'mid',             // where along a stent the Doppler samples: proximal | mid | distal | site (its narrowing)
 };
 
 // The Doppler's last mean per vessel (cm/s, with when it was read), so the figure's callout shows the same number.

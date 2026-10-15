@@ -12,23 +12,23 @@
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen,
 // Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=32c330eb0b';
+import { store, replaceParams } from './store.js?v=bb8c70114d';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=abb277f29f';
 import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
-import { sinusoidSupported } from './sinusoid-view.js?v=953343a334';
-import { NODES } from '../engine/topology.js?v=a8aa8a6b13';
+import { sinusoidSupported } from './sinusoid-view.js?v=1b935c6ae8';
+import { NODES } from '../engine/topology.js?v=1825cbda55';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=27c248d840';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=9e028090f6';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=cc7de39fbd';
-import { createTools } from './presenter-tools.js?v=86c18d4c7f';
-import { openHandout } from './handout.js?v=6481d9ad1b';
+import { createHvpgMonitor } from './hvpg-proc.js?v=b9fcd74786';
+import { createTools } from './presenter-tools.js?v=21ae537c04';
+import { openHandout } from './handout.js?v=62f887453a';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=525d14632b';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=66a06a1ccb';
+import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=0477992605';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -72,6 +72,7 @@ export const slideLens = (s, q = false) => (!q && !s?.visual && LENS_KEY[s?.lens
 // Pressure's key shows only on a slide with lens buttons, so its card keeps one height as the buttons switch lens.
 const PRESSURE_KEY = ['pressure', () => gradientCss('to right', 30), 'Low', 'High'];
 const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
+const gateButtons = (s) => !!s.compare?.some((o) => o.gate);
 function lensKey(k, fixed = false) {
   const [name, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY;
   const dot = (v) => h('i', { class: 'pz-lens-dot', style: { background: `var(${v})` } });
@@ -971,7 +972,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=eeaaa4cd2c', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=4925d2a964', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -983,7 +984,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=1f9a533e2a');
+      const { createCore } = await import('../worker-core.js?v=78f59b6fc0');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1279,6 +1280,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     ui?.text.querySelectorAll('.pz-abb').forEach((b, j) => b.setAttribute('aria-pressed', String(j === k)));
     if (s.compare[k].lens) { lensPick(s.compare[k].lens); return; }
+    // A gate button ({ label, gate }): the Doppler samples that third of the stent; the model is untouched.
+    if (s.compare[k].gate) { store.set({ dopGate: s.compare[k].gate }); return; }
     liveSet(s, i, s.compare[k].params);
   }
   // A lens button ({ label, lens }): the figure crossfades to that lens and the key under the line follows; the model is untouched.
@@ -1593,7 +1596,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!s.visual) {
       // The slide's marks, labels, the stations its terms name (in their colours) and its glows (see slideTargets).
       const tg = q ? null : slideTargets(s);
-      let marks = q ? [] : (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block', free: !!m.free }));
+      let marks = q ? [] : (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block', free: !!m.free, ...(m.seg ? { seg: m.seg } : {}) }));
       // A note mark is a pointer: its vessel glows in its station's colour. Where a station label on the slide already
       // names that vessel, the pointer would only repeat it, so it goes (the glow stays).
       if (tg) {
@@ -1742,7 +1745,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         ? [h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
         : [(({ site, name } = siteTag(deck, s) || {}) => site ? h('span', { class: 'pz-site', 'data-site': site }, h('i'), name) : null)(), h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, slideLens(s) !== 'pressure' || lensButtons(s) ? lensKey(slideLens(s), lensButtons(s)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
-          s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : 'Switch treatment on the live model' },
+          s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,
           s.column ? wedgeColumn() : null,

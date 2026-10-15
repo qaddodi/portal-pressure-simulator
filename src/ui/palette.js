@@ -2,9 +2,9 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=32c330eb0b';
+import { store, updateParams } from './store.js?v=bb8c70114d';
 import { h, svgIcon, toast } from './util.js?v=abb277f29f';
-import { EDGES } from '../engine/topology.js?v=a8aa8a6b13';
+import { EDGES } from '../engine/topology.js?v=1825cbda55';
 import { DRUGS } from '../engine/scenario.js?v=6ebaeb46c8';
 import { HIDDEN_EDGES } from './anatomy.js?v=0b72305f30';
 

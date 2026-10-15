@@ -4,10 +4,10 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES, dopplerK, stentSegments, stentSite } from '../engine/topology.js?v=a8aa8a6b13';
+import { EDGES, dopplerK, stentSegments, stentSite, stentGate } from '../engine/topology.js?v=1825cbda55';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=abb277f29f';
-import { FONT } from './charts.js?v=e9ade349ca';
-import { logAction, shownVel, store } from './store.js?v=32c330eb0b';
+import { FONT } from './charts.js?v=af450128b8';
+import { logAction, shownVel, store } from './store.js?v=bb8c70114d';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=6d60af9a8d';
 import { frameFor } from './frame.js?v=0db47e99bf';
 import { windowIndexFor } from './dopplerWindow.js?v=fce3147a4c';
@@ -49,6 +49,12 @@ export function createDoppler({ onProbe }) {
   const probeSel = h('select', { class: 'select dop-vessel', 'aria-label': 'Vessel' },
     PROBES.map((p) => h('option', { value: p.id, title: EDGES[EI[p.id]].label }, p.short)));
   probeSel.addEventListener('change', () => onProbe(probeSel.value));
+  // A stent's sample gate: where along it the trace and the reading come from (store.dopGate, shared with the figure, whose
+  // stent glows in the Doppler's green over that third). Shown only on a stent.
+  const SEGS = [['proximal', 'Proximal'], ['mid', 'Mid'], ['distal', 'Distal']];
+  const gateSel = h('select', { class: 'select dop-gate', 'aria-label': 'Where along the stent', title: 'Where along the stent the Doppler samples', hidden: true },
+    SEGS.map(([v, t]) => h('option', { value: v }, t)));
+  gateSel.addEventListener('change', () => { store.set({ dopGate: gateSel.value }); logAction('gate', 'doppler', gateSel.value); });
   // Display mode: a pill that cycles Spectrum → Direction → Power → Directional Power → Variance,
   // like Invert. The colour maps live in dopplerColor.js; the trace is drawn through them.
   let mode = 'spectrum';
@@ -125,7 +131,7 @@ export function createDoppler({ onProbe }) {
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
-    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
+    h('div', { class: 'dop-head' }, probeSel, gateSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
 
   // ── Samples ───────────────────────────────────────
   let buf = [];
@@ -217,6 +223,11 @@ export function createDoppler({ onProbe }) {
     const prm = store.get().params, s = 1 - (1 - (prm?.stenosis?.[probe] || 0)) * (1 - (prm?.thrombus?.[probe] || 0));
     return stentSegments(v, s, stentSite(prm, probe));
   };
+  // The gated segment of a stent, and how much faster it runs than the open stent (1 elsewhere, and on any other vessel).
+  const isStentProbe = () => meta().kind === 'tips';
+  const gateOf = () => stentGate(store.get().dopGate, store.get().params, probe);
+  let gf = 1;
+  const gateFactor = () => (isStentProbe() ? stentReads(1)[SEGS.findIndex(([v]) => v === gateOf())] || 1 : 1);
   // +1 when the vessel's forward flow is drawn above the baseline, −1 when below
   const effInvert = () => invert;
   const pol = () => (!meta().away !== !effInvert() ? -1 : 1);
@@ -364,10 +375,13 @@ export function createDoppler({ onProbe }) {
     // (While it agrees, the slide's own velocity in this vessel, as its tiles and callouts read the slide: one number on every screen.)
     const fixed = ovOn ? pinnedVel() : NaN;
     if (Number.isFinite(fixed) && Math.abs(Math.abs(mean) - fixed) < Math.max(4, fixed * 0.12)) mean = (mean < 0 ? -1 : 1) * fixed;
+    // (A stent reads at its gate: the segment holding a narrowing runs faster than the open stent around it.)
+    const open = Math.abs(mean);
+    gf = gateFactor(); mean *= gf;
     const drawn = ovOn ? mean * pol() : mean;
     set(velEl.firstChild, num(drawn, Math.abs(drawn) < 10 ? 1 : 0));
-    shownVel.set(probe, { v: Math.abs(mean), t: performance.now() });
-    updateGauge(p, r.mean, it.expected);
+    shownVel.set(probe, { v: Math.abs(mean), t: performance.now(), seg: isStentProbe() ? gateOf() : null });
+    updateGauge(p, r.mean * gf, it.expected);
     set(patternEl, it.pattern);
     // peak: the extreme farthest from zero, whichever the direction
     const [pk, tr] = Math.abs(r.vmax) >= Math.abs(r.vmin) ? [r.vmax, r.vmin] : [r.vmin, r.vmax];
@@ -386,8 +400,17 @@ export function createDoppler({ onProbe }) {
     const isStent = p.kind === 'tips';
     statEls.Trough.wrap.hidden = statEls.Pulsatility.wrap.hidden = isStent;
     for (const k of ['Proximal', 'Mid', 'Distal']) statEls[k].wrap.hidden = !isStent;
+    gateSel.hidden = !isStent;
     if (isStent) {
-      stentReads(Math.abs(mean)).forEach((v, i) => setStat(statEls[['Proximal', 'Mid', 'Distal'][i]].dd, num(v), 'cm/s'));
+      // Each segment against the usual 90–190 cm/s, the gated one marked.
+      const at = gateOf();
+      if (gateSel.value !== at) gateSel.value = at;
+      stentReads(open).forEach((v, i) => {
+        const [seg, name] = SEGS[i], w = statEls[name].wrap, out = String(v < p.normal[0] || v > p.normal[1]);
+        setStat(statEls[name].dd, num(v), 'cm/s');
+        if (w.dataset.out !== out) w.dataset.out = out;
+        w.classList.toggle('on', seg === at);
+      });
     }
     set(noteEl, it.note);
     const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
@@ -446,7 +469,7 @@ export function createDoppler({ onProbe }) {
     let lo = 0, hi = n - 1;
     while (hi - lo > 1) { const m = (lo + hi) >> 1; if (buf[m][0] <= t) lo = m; else hi = m; }
     const [ta, va] = buf[lo], [tb, vb] = buf[hi];
-    return g.pol * (tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va);
+    return g.pol * gf * (tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va);
   }
 
   // The noise floor: a screen-sized texture made once per size and shown at a new random offset
@@ -602,7 +625,7 @@ export function createDoppler({ onProbe }) {
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
     if (w < 60 || hh < 60) return;
     if (pickNext) pickWindow();
-    const label = probe ? EDGES[EI[probe]].label : '';
+    const label = probe ? EDGES[EI[probe]].label + (isStentProbe() ? ` · ${SEGS.find(([v]) => v === gateOf())[1]}` : '') : '';
     ctx.font = FONT(600, 12); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(label, padL, yLab);
     const lw = ctx.measureText(label).width;
@@ -624,8 +647,9 @@ export function createDoppler({ onProbe }) {
     let pos = 0, neg = 0;
     const sgn = pol();
     for (const [t, v0] of buf) if (t >= tNow - sweepSeconds && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
+    gf = gateFactor();
     const k = dopplerK(EDGES[EI[probe]]);
-    pos *= k; neg *= k;
+    pos *= k * gf; neg *= k * gf;
     const need = Math.max(pos, neg, 8) / 0.85;
     const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
     const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.88 : neg > 0 && pos < neg * 0.08 ? 0.12 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.12, 0.88);

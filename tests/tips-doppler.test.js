@@ -86,3 +86,23 @@ test('a stent narrows at a short pinch in the segment its card names', async () 
   c.setParams(deepMerge(c.params, { thrombus: { [id]: 1 } })); c.settle();
   assert.equal(c.Q[c.ei[id]], 0, 'an occluded stent carries nothing');
 });
+
+test('the Doppler gate reads one third of a stent, and slides name gates and segments the code knows', async () => {
+  const { stentGate, STENT_SPANS, stentSegments } = await import('../src/engine/topology.js');
+  assert.equal(stentGate(undefined, {}, 'TIPS'), 'mid', 'mid stent by default');
+  assert.equal(stentGate('site', {}, 'TIPS'), 'distal', "'site' follows the narrowing, distal by default");
+  assert.equal(stentGate('site', { stenosisSite: { TIPS: 'proximal' } }, 'TIPS'), 'proximal');
+  for (const [k, [a, b]] of Object.entries(STENT_SPANS)) assert.ok(a < b && a >= 0 && b <= 1, k);
+  const ok = new Set(['proximal', 'mid', 'distal', 'site']);
+  for (const s of TIPS_DOPPLER.slides) {
+    if (s.tool?.gate) assert.ok(ok.has(s.tool.gate), `${s.id}: gate ${s.tool.gate}`);
+    for (const m of s.marks || (s.mark ? [s.mark] : [])) if (m.seg) assert.ok(ok.has(m.seg), `${s.id}: seg ${m.seg}`);
+    for (const o of s.compare || []) if (o.gate) assert.ok(ok.has(o.gate) && s.tool?.kind === 'doppler', `${s.id}: compare gate`);
+  }
+  // Moving the narrowing along the stent (the 'where' slide): the jet moves with it, and only that third runs over 190 cm/s.
+  const e = run('narrow'), v = vel(e, 'TIPS'), s0 = slide('narrow').params.stenosis.TIPS;
+  for (const o of slide('where').compare) {
+    const site = o.params.stenosisSite.TIPS, reads = stentSegments(v, s0, site);
+    reads.forEach((r, i) => assert.ok(['proximal', 'mid', 'distal'][i] === site ? r > 190 : r < 90, `${site}: ${reads}`));
+  }
+});
