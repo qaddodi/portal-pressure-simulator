@@ -2064,6 +2064,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     for (const [tab, sel] of [['treat', '#treatCard'], ['tests', '#dock']]) {
       await page.click(`#thumbBar [data-tab="${tab}"]`);
       await page.waitForTimeout(900);
+      if (await page.evaluate(() => getComputedStyle(document.querySelector('#stageBottom')).opacity !== '0')) throw new Error(`the play bar still shows over the ${tab} card`);
       const pt = await page.evaluate((sel) => { const c = document.querySelector(sel), b = [...c.querySelectorAll('button')].find((x) => { const r = x.getBoundingClientRect(); return r.height && !x.closest('[role="tablist"], .card-head, .dock-head, .tc-head') && r.top > c.getBoundingClientRect().top + 80 && r.bottom < document.querySelector('#thumbBar').getBoundingClientRect().top; }); const r = (b || c).getBoundingClientRect(); return [r.x + r.width / 2, r.y + Math.min(r.height / 2, 20)]; }, sel);
       await page.mouse.move(pt[0], pt[1]); await page.mouse.down();
       for (let i = 1; i <= 30; i++) await page.mouse.move(pt[0], pt[1] + 6 * i);
