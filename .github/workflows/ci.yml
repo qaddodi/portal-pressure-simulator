@@ -181,8 +181,6 @@ jobs:
       - uses: ./.github/actions/setup-browser
       - name: Nothing piles up while a view is left alone
         run: npm run smoke:idle
-      - name: A redraw of only the vessels that changed matches a whole redraw (and nothing stale in the app)
-        run: npm run smoke:veins
 
   # The look (organ tones and light, vessels, lobule) against tests/visual, one device per runner;
   # on a failure the current pictures and diffs are kept as an artifact.

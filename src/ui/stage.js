@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, GLIDE_MS } from './util.js?v=0e70eb01ff';
-import { createLobuleZoom } from './lobule-zoom.js?v=e2cc846805';
+import { createLobuleZoom } from './lobule-zoom.js?v=d411f33f21';
 import { runFlick, FLICK } from './flick.js?v=773d9728fe';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -16,7 +16,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=736f59781d';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=191c4f4858';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame, setSaver as setFrameSaver, saver, SAVER_MS } from './frame.js?v=5ad4028792';
 import { portalSplit } from './table-marks.js?v=f709ae0429';
@@ -1785,20 +1785,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Out of the lobule view by zooming out: the view hands the dive back to the scrub, which carries on reversing it.
 
   // ── Detail ────────────────────────────────────────
-  // Adaptive detail: the moving blood is drawn at the screen's own rate (60 or 120 a second: a frame of it only
-  // re-composites the vessel cells, the vessel layer itself is redrawn only where something changed). When the device
-  // cannot keep up at that rate (frames well under 40 a second) it steps to 30 a second, and further down (fewer frames,
-  // fewer pixels) below ~22; it steps back up once there is headroom. The level a device settles on is remembered.
+  // Adaptive detail: when the device cannot keep up (frames arriving slower than ~22 a second
+  // while the model runs), the moving blood steps down (fewer frames, fewer pixels) and steps
+  // back up once there is headroom. The level a device settles on is remembered.
   // The last step is only for a software renderer (WebGL drawn on the CPU), where it starts: there
   // every frame costs CPU the rest of the page needs.
-  const QUALITY = [{ fps: 120, res: 1 }, { fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }];
+  const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }];
   const SOFTWARE = !!veins?.software;
-  const Q_MAX = SOFTWARE ? 4 : 3, Q_SAVER = 3;
-  // Settings › Battery saver: the blood moves at 15 frames a second at a lower resolution (quality step Q_SAVER at least).
-  // (The level is kept under 'pps.q': the old 'pps.quality' counted from a 30-a-second top step, and a level a device once
-  // stepped down to, in a slow moment, stayed for good.)
-  let qFloor = (() => { try { return localStorage.getItem('pps.saver') === '1' ? Q_SAVER : 0; } catch { return 0; } })();
-  let quality = SOFTWARE ? Q_MAX : Math.max(qFloor, (() => { try { localStorage.removeItem('pps.quality'); return clamp(parseInt(localStorage.getItem('pps.q'), 10) || 0, 0, Q_MAX); } catch { return 0; } })());
+  const Q_MAX = SOFTWARE ? 3 : 2;
+  // Settings › Battery saver: the blood moves at 15 frames a second at a lower resolution (quality step 2 at least).
+  let qFloor = (() => { try { return localStorage.getItem('pps.saver') === '1' ? 2 : 0; } catch { return 0; } })();
+  let quality = SOFTWARE ? 3 : Math.max(qFloor, (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })());
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
@@ -2444,7 +2441,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const binMemo = new Map();
   let binShown = null;
   let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
-  const veinsRows = new Set();   // vessel rows whose attributes changed since the vessel layer was drawn (only those, while veinsDirty is false)
   let plateDim = null, plateSat = 1, netA = 1;
   // A lens switch crossfades every vessel from the colors it showed to the new lens's (no one-frame recolor).
   let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
@@ -2815,15 +2811,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The vessel layer is drawn again only when what it is drawn from changed: a running model sends a frame about ten
     // times a second, and in a steady state most of them leave every vessel's colour, width and fade exactly as they were.
     const lookSig = JSON.stringify(vLook, (k, v) => (k === 'fluid' ? undefined : v)) + plateOn();
-    // Most of those that do change only a few vessels' colours (the pulse), and the vessel layer then redraws only those
-    // vessels' cells (veinsRows; see drawVeins): a whole redraw at a Retina size is the heaviest thing the figure draws.
-    if (tubesNew || lookSig !== tubesLook || !tubesShown || tubesShown.length !== tubeData.length) {
+    if (tubesNew || lookSig !== tubesLook || !tubesShown || tubesShown.length !== tubeData.length || tubeData.some((v, i) => v !== tubesShown[i])) {
       veinsDirty = true; tubesLook = lookSig; tubesShown = tubeData.slice();
-    } else {
-      const W = TUBE_TEXELS * 4;
-      for (let o = 0; o < tubeData.length; o += W) {
-        for (let i = o; i < o + W; i++) if (tubeData[i] !== tubesShown[i]) { veinsRows.add(o / W); tubesShown.set(tubeData.subarray(o, o + W), o); break; }
-      }
     }
     tubesNew = false;
     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
@@ -2831,39 +2820,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   /** Redraws the vessel layer (and the picture) if anything in it changed; true when it did. */
   let glM = null;   // the world → stage transform (CSS px) the vessels were last drawn in (for the tests)
-  function drawVeins(fullComposite = false) {
+  function drawVeins() {
     if (!veins || veins.lost || !vLook || !F) return false;
     if (!CTM) refreshCTM();
     const m = CTM;
     const T = [vdpr * m.a, vdpr * m.b, vdpr * m.c, vdpr * m.d, vdpr * (m.e - wrapRect.left), vdpr * (m.f - wrapRect.top)];
     const key = T.map((v) => v.toFixed(3)).join(',') + `|${vCanvas.width}x${vCanvas.height}`;
-    const now = performance.now();
-    if (key !== viewSeen) { viewSeen = key; viewAt = now; }
-    if (!veinsDirty && key === veinsDrawKey) {
-      veinsStale = false;
-      if (!veinsRows.size) return false;
-      // Only some vessels' attributes changed: their cells alone are drawn again (the same picture as a whole redraw).
-      const rows = [...veinsRows];
-      veinsRows.clear();
-      if (veins.drawRows(T, vLook, bloodLook(), rows, fullComposite)) return true;
-    }
+    if (!veinsDirty && key === veinsDrawKey) return false;
     if (key !== veinsDrawKey && plateOn()) schedulePlateView();
+    veinsDirty = false; veinsDrawKey = key;
     glM = [m.a, m.b, m.c, m.d, m.e - wrapRect.left, m.f - wrapRect.top];
-    // A view on the move (a drag, pinch, wheel or glide: it changed in the last 100 ms): the vessel layer as last drawn is
-    // re-projected to it, one composite pass instead of the vessel pass over every cell at full size, which ran on every
-    // frame of a drag. The layer is drawn again once the view holds still, after 300 ms of motion, or once the zoom has
-    // changed by a quarter (it would soften); nothing else may have changed meanwhile.
-    const sc = Math.hypot(T[0], T[1]), drawnSc = veinsDrawT ? Math.hypot(veinsDrawT[0], veinsDrawT[1]) : 0;
-    if (!veinsDirty && veinsDrawT && now - viewAt < 100 && now - veinsDrawnAt < 300 && sc < drawnSc * 1.25 && sc > drawnSc * 0.8 && key.split('|')[1] === veinsDrawKey.split('|')[1]) {
-      if (veins.view(T, vLook, bloodLook())) { veinsStale = true; return true; }
-    }
-    veinsDirty = false; veinsStale = false; veinsDrawKey = key; veinsDrawT = T; veinsDrawnAt = now; veinsRows.clear();
     veins.draw(T, vLook, bloodLook());
     return true;
   }
-  // The view as last seen by drawVeins and since when; the transform and time the vessel layer was last drawn at; whether
-  // the picture shows that layer re-projected to a newer view (it is drawn again once the view holds still).
-  let viewSeen = '', viewAt = 0, veinsDrawT = null, veinsDrawnAt = 0, veinsStale = false;
   function clearJoins() {
     for (const x of Object.values(E)) if (x.joinKey) { x.joinKey = ''; for (const g of x.groups) g.removeAttribute('mask'); }
   }
@@ -5847,34 +5816,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!st.running || reduceMotion.matches) return false;
     return bloodOn() || (chevOn() && !cath.st) || fluidLook.ripple || (!!F?.bleed?.active && morph < 0.5);
   }
-  let lastRaf = 0, gapEMA = 16, qCheck = 0, qGood = 0, drawnView = -1, topFailed = -Infinity;
+  let lastRaf = 0, gapEMA = 16, qCheck = 0, qGood = 0, drawnView = -1;
   function governQuality(now) {
     // (The first frame after the loop slept is not a sample: the gap is the sleep, not a slow frame.)
     const gap = lastRaf ? now - lastRaf : 0;
     lastRaf = now;
-    // (Nor while the page is still starting up: the first seconds' long frames are the start, not the device's pace, and a
-    // step down taken then was remembered.)
-    if (!gap || SOFTWARE || !store.get().running || gap > 500 || now < 8000) return;   // software: stays at its step; idle or just resumed: nothing to learn
+    if (!gap || SOFTWARE || !store.get().running || gap > 500) return;   // software: stays at its step; idle or just resumed: nothing to learn
     gapEMA += (Math.min(gap, 250) - gapEMA) * 0.05;
     if (now - qCheck < 2000) return;
     qCheck = now;
     let next = quality;
-    // At the screen's rate, a frame gap over 24 ms (under ~40 a second) steps down to 30 a second; that step goes back up
-    // only once the screen's frames come on time again, and not within 15 s of the last try (no seesaw).
-    const slow = quality === 0 ? 24 : 45, good = quality === 1 ? 18 : 22;
-    if (gapEMA > slow && quality < Q_MAX) { next = quality + 1; qGood = 0; if (quality === 0) topFailed = now; }
-    else if (gapEMA < good && quality > qFloor && (quality !== 1 || now - topFailed > 15000)) { if (++qGood >= 3) { next = quality - 1; qGood = 0; } }
+    if (gapEMA > 45 && quality < Q_MAX) { next = quality + 1; qGood = 0; }
+    else if (gapEMA < 22 && quality > qFloor) { if (++qGood >= 3) { next = quality - 1; qGood = 0; } }
     else qGood = 0;
     if (next === quality) return;
     quality = next;
     wrap.dataset.quality = String(quality);
-    try { localStorage.setItem('pps.q', String(quality)); } catch { /* storage unavailable */ }
+    try { localStorage.setItem('pps.quality', String(quality)); } catch { /* storage unavailable */ }
     resizeCanvas();
   }
-  // The vessel canvas follows the frame time: when frames that redraw it arrive late (over 21 ms, or a quarter later than
-  // the blood's pace when that is slower) it is drawn at a smaller size, a step at a time and not more than once a second;
-  // it grows back once frames come on time. (Judged against 21 ms alone, the blood's own 30-a-second pace read as slow:
-  // a playing figure shrank to 0.6 of its resolution within seconds on any device.)
+  // The vessel canvas follows the frame time: when frames that redraw it arrive late (over 21 ms) it is drawn at a
+  // smaller size, a step at a time and not more than twice a second; it grows back once frames fit in 15.5 ms.
   let resGap = 16.7, resCheck = 0, slowMs = 0, fastMs = 0, resPrev = 0;
   function governRes(now, drawing) {
     const gap = resPrev ? now - resPrev : 16.7;
@@ -5882,8 +5844,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (SOFTWARE || !drawing || gap > 100 || now < 4000) return;   // not while the page is still starting up
     resGap += (gap - resGap) * 0.1;
     // Hysteresis: a sustained trend (a second to shrink, two and a half to grow back), and a change at most once a second.
-    const pace = 1000 / QUALITY[quality].fps;
-    slowMs = resGap > Math.max(21, pace * 1.25) ? slowMs + gap : 0; fastMs = resGap < Math.max(14.5, pace * 1.05) ? fastMs + gap : 0;
+    slowMs = resGap > 21 ? slowMs + gap : 0; fastMs = resGap < 14.5 ? fastMs + gap : 0;
     if (now - resCheck < 1000) return;
     let n = dynRes;
     if (slowMs > 1000 && dynRes > 0.6) n = Math.max(0.6, dynRes - 0.1);
@@ -5924,7 +5885,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active);
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !veinsStale && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { sleep(); return; }
+    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
@@ -5942,7 +5903,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The vessel layer is redrawn only when something in it changed; the blood every frame.
     if (glowSync) syncVeins(easeInOut(morph));
     olStep(now);
-    if (!drawVeins(fluidMoved) && veins && !veins.lost && vLook && F) veins.composite(vLook, bloodLook(), fluidMoved);
+    if (!drawVeins() && veins && !veins.lost && vLook && F) veins.composite(vLook, bloodLook(), fluidMoved);
     drawnView = viewVersion;
     governRes(now, viewMoved || st.running);
     lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM; lastAnim = anim || bolus.active || dyeShown;
@@ -6180,15 +6141,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Safari on a Mac can report a trackpad pinch as gesture events instead of Ctrl + wheel. Left alone they magnified the
   // whole page, so the figure sat out of view and Fit (which frames the figure inside the page) could not bring it back.
   // The page never zooms: a pinch that comes with no Ctrl + wheel of its own is passed on as one, to the anatomy or the lobule.
+  // On an iPhone or iPad a two-finger pinch sends these gesture events too, alongside the touches the figure (or the lobule)
+  // already follows: passed on as well, each pinch was applied twice, a zoom about the gesture's centre on top of the
+  // fingers' own, so the figure jumped between the two, zoomed in the wrong place and sprang back. While a finger is down,
+  // the touches alone move the figure; the gesture events only keep the page from zooming.
   let gScale = 1, gWheel = false;
+  const touchesDown = new Set();
+  addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') touchesDown.add(e.pointerId); }, { capture: true, passive: true });
+  for (const t of ['pointerup', 'pointercancel']) addEventListener(t, (e) => touchesDown.delete(e.pointerId), { capture: true, passive: true });
   wrap.addEventListener('wheel', (e) => { if (e.isTrusted && e.ctrlKey) gWheel = true; }, { capture: true, passive: true });
   wrap.addEventListener('gesturestart', (e) => { e.preventDefault(); gScale = 1; gWheel = false; }, { passive: false });
   wrap.addEventListener('gesturechange', (e) => {
     e.preventDefault();
     const r = e.scale / gScale, t = e.target, x = e.clientX, y = e.clientY;
     gScale = e.scale;
-    if (!(r > 0) || r === 1) return;
-    nextFrame(() => { if (!gWheel && t.isConnected) t.dispatchEvent(new WheelEvent('wheel', { deltaY: -Math.log(r) / 0.01, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); });
+    if (!(r > 0) || r === 1 || touchesDown.size) return;
+    nextFrame(() => { if (!gWheel && !touchesDown.size && t.isConnected) t.dispatchEvent(new WheelEvent('wheel', { deltaY: -Math.log(r) / 0.01, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); });
   }, { passive: false });
   wrap.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
 
@@ -6619,10 +6587,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
     setSaver(on) {
-      try { localStorage.setItem('pps.saver', on ? '1' : '0'); if (!on) localStorage.removeItem('pps.q'); } catch { /* storage unavailable */ }
-      qFloor = on ? Q_SAVER : 0;
+      try { localStorage.setItem('pps.saver', on ? '1' : '0'); if (!on) localStorage.removeItem('pps.quality'); } catch { /* storage unavailable */ }
+      qFloor = on ? 2 : 0;
       setFrameSaver(on);   // (the lobule, the sinusoid and the FibroScan read it each frame)
-      if (!SOFTWARE) { quality = on ? Math.max(quality, Q_SAVER) : 0; wrap.dataset.quality = String(quality); resizeCanvas(); }
+      if (!SOFTWARE) { quality = on ? Math.max(quality, 2) : 0; wrap.dataset.quality = String(quality); resizeCanvas(); }
     },
     labelScale: () => labelScale,
     labelEff: () => labelScale * deskK(),   // what the figure shows outside a presentation (a desktop's baseline included)
@@ -6727,14 +6695,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cameraMoves: (clear) => (clear ? camMoves.splice(0) : [...camMoves]),
     /** The transform the GPU last drew the figure in, as [a, b, c, d, e, f] from world to stage px (null: not drawn on the GPU). */
     glMatrix: () => (veins && !veins.lost && wrap.classList.contains('gl-on') ? glM : null),
-    /** For the checks: the vessel canvas as it stands, then after a whole redraw of the vessel layer (PNG data URLs; equal
-     *  when the partial redraws and re-projections left nothing stale), or null without the GPU figure or while moving. */
-    veinsCheck() {
-      if (!veins || veins.lost || !vLook || !F || veinsStale) return null;
-      const now = veins.snapshot();
-      veinsDirty = true; drawVeins();
-      return { now, whole: veins.snapshot() };
-    },
     cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !chainOut && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
     /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
     riseTo, holdHome,
@@ -6749,7 +6709,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
     /** Where the sinusoid's reading and lesion pointer meet their sinusoid (see lobule-zoom sinAnchor). */
     lobuleSinAnchor: () => lz?.sinAnchor() ?? null,
-    lobuleGlCheck: () => lz?.glCheck() ?? null,
     /** The lobule's outline in client px while it fills the view (see lobule-zoom ring), else null. */
     lobuleRing: () => (lobuleOn && diveT >= 1 ? lz?.ring() ?? null : null),
     /** Where a station's callout attaches, in client px (for the checks). */
