@@ -3840,8 +3840,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .lens-opt .mt-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgb(var(--black-rgb) / .25); transition: transform .2s var(--ease); }
 .lens-opt.on .mt-sw { background: var(--accent); box-shadow: none; }
 .lens-opt.on .mt-sw::after { transform: translateX(12px); }
-.lens-hint { cursor: default; border-style: dashed; }
-@media (hover: hover) { .lens-hint:hover { background: var(--surface); } }
 @media (prefers-reduced-motion: reduce) { .lens-opt .mt-sw, .lens-opt .mt-sw::after { transition: none; } }
 .blood-pop .menu-title { text-align: center; }
 
@@ -4020,17 +4018,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* A plain bordered card */
 .sp { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); display: flex; flex-direction: column; gap: 12px; animation: lift .38s var(--ease) both; }
 .sp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-/* ── Student mode: a calmer, simpler screen ───────────────────────
-   The timeline keeps play/pause, the scrubber and the clock; the readouts keep HVPG and PPG
-   (dock.js); the figure keeps names (stage.js); tiles do not flash. Explore only. */
-#app[data-role="student"][data-mode="explore"] :is(.tl-speed, .tl-ff, .tl-jumps, .tl-hist, .tl-pin) { display: none; }
-#app[data-role="student"][data-mode="explore"] .readouts .ro-more { display: none; }
-#app[data-role="student"] .metric.flash { animation: none; }
-.order-more { grid-column: 1 / -1; justify-content: center; color: var(--text-2); }
-.order-btn.ob-hidden { display: none; }
-.order-btn.ob-extra:not(.ob-hidden) { animation: obIn .3s var(--ease); }
-@keyframes obIn { from { opacity: 0; transform: translateY(-3px); } }
-@media (prefers-reduced-motion: reduce) { .order-btn.ob-extra:not(.ob-hidden) { animation: none; } }
 
 /* ── The final assessment (exam.js) ── */
 @media print {
@@ -5099,7 +5086,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .vdock:not(.mini) .readouts { width: auto; border-left: 1px solid var(--hairline); border-bottom: 0; }
 @media (min-width: 768px) {
   .vdock:not(.mini) { width: min(calc(100% - 2 * var(--gap)), 640px); grid-template-columns: minmax(0, 1fr) auto; }
-  #app[data-role="student"][data-mode="explore"] .vdock:not(.mini) { width: min(calc(100% - 2 * var(--gap)), 440px); }
   .vdock:not(.mini) .readouts { width: 274px; }   /* the strip is a size container, so it needs a set width */
   .vdock:not(.mini) .readouts .metric.primary { flex: 0 0 128px; width: 128px; }
 }
@@ -5168,8 +5154,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @media (min-width: 768px) {
   .app.thumb .treat-card { top: auto; bottom: var(--nb-occ, calc(var(--vdock-h) + var(--gap) + 8px)); }
 }
-/* A student's play bar has no History; nor has the tab row. */
-#app[data-role="student"][data-mode="explore"] .nb-tab[data-tab="history"] { display: none; }
 /* The sinusoid view hides the dock: its way back (Lobule, in the view switch) stays in the top bar. */
 #app.thumb.sin-focus .topbar .sb-left { display: flex; }
 #app.thumb.sin-focus #viewSeg { display: flex !important; }
@@ -5235,7 +5219,6 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
    History left the play bar: on a Mac, an iPad held sideways and a phone held sideways it is a top-bar button
    beside Treat and Tests (its card opens in Treat's place on the right); upright, it is a tab in the thumb dock. */
 .vdock .tl-hist { display: none !important; }
-#app[data-role="student"][data-mode="explore"] #btnHistory { display: none; }
 .tb-act .tb-hc:empty { display: none; }
 .tb-act .tb-hc { min-width: 18px; height: 18px; margin-left: -2px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); font: 600 var(--fs-12)/18px var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
 .topbar[data-fit="2"] .tb-act .tb-hc, .topbar[data-fit="3"] .tb-act .tb-hc { display: none; }

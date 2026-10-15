@@ -3,12 +3,12 @@
 //
 //   [Compared with A]                    side panel, when a moment is pinned
 //   Changes                              Treat card, closed until opened: what has been set, with values
-//   Advanced physiology                  side panel, from Settings (instructor)
+//   Advanced physiology                  side panel, from Settings
 
 import { store, updateParams } from './store.js?v=bb8c70114d';
 import { h, icon, svgIcon, toast } from './util.js?v=f7459cca3c';
 import { DRUGS } from '../engine/scenario.js?v=6ebaeb46c8';
-import { activeInterventions } from './inspector.js?v=8afcc0256b';
+import { activeInterventions } from './inspector.js?v=b43a2cd03e';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=b3b329328c';
 
 
@@ -130,15 +130,6 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       })(),
       proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
-    // Student mode shows the common procedures first; the rest wait behind "More procedures".
-    if ((store.get().role || 'student') === 'student') {
-      const COMMON = ['Band ligation', 'TIPS', 'Paracentesis'];
-      const rest = [...procs.children].filter((b) => !COMMON.includes(b.querySelector('.ob-t')?.textContent));
-      const more = h('button', { class: 'order-btn order-more', 'aria-expanded': 'false', title: 'Balloon tamponade, DIPS, surgical shunts, BRTO, spleen' }, h('span', { class: 'ob-t' }, 'More procedures'));
-      more.addEventListener('click', () => { const on = more.getAttribute('aria-expanded') !== 'true'; more.setAttribute('aria-expanded', String(on)); for (const b of rest) b.classList.toggle('ob-hidden', !on); more.querySelector('.ob-t').textContent = on ? 'Fewer procedures' : 'More procedures'; });
-      for (const b of rest) { b.classList.add('ob-extra', 'ob-hidden'); procs.append(b); }
-      procs.insertBefore(more, rest[0] || null);
-    }
     // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
     const panes = [['drugs', 'pill', 'Drugs', drugs], ['fluids', 'drop', 'Fluids', fluids], ['procs', 'band', 'Procedures', procs]];
     const tabs = h('div', { class: 'instr-tabs treat-tabs', role: 'tablist', 'aria-label': 'Treatments' });

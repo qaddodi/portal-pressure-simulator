@@ -3,19 +3,19 @@
 
 import { startHost, host } from './host.js?v=ff070ac951';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bb8c70114d';
-import { createStage } from './stage.js?v=426d3f7955';
+import { createStage } from './stage.js?v=fd0d4bc1b9';
 import { createCreditPlacer } from './credit.js?v=122c73335a';
 import { sinusoidSupported } from './sinusoid-view.js?v=dbe400f022';
-import { createInspector } from './inspector.js?v=8afcc0256b';
-import { createDock, CUTOFFS } from './dock.js?v=c969df60ab';
+import { createInspector } from './inspector.js?v=b43a2cd03e';
+import { createDock, CUTOFFS } from './dock.js?v=2d00125aba';
 import { setHvpgStage } from './hvpg-proc.js?v=a80bb6d34c';
 import { createWhy } from './why.js?v=0d29c22e59';
-import { createTimeline, LAPSES } from './timeline.js?v=e600d3b661';
-import { createCompare } from './compare.js?v=396204ef23';
+import { createTimeline, LAPSES } from './timeline.js?v=dbde30f36d';
+import { createCompare } from './compare.js?v=940b17cf07';
 import { createCard } from './card.js?v=bf0d1eefc1';
-import { createChart } from './chart.js?v=e812a85469';
-import { createMenu, ROLES } from './menu.js?v=a8266f95b6';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=dfea434d32';
+import { createChart } from './chart.js?v=e55cea422b';
+import { createMenu } from './menu.js?v=74b8023bf2';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=10cd63fb4a';
 import { caption } from './a11y.js?v=128924d00d';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
@@ -90,10 +90,8 @@ async function main() {
   applyTheme(readLS('pps.theme'));
   applyI18n();
   startLMS();
-  // Two roles (Student, Instructor); the old Researcher role is now Instructor.
-  store.set({ role: readLS('pps.role') === 'student' || !readLS('pps.role') ? 'student' : 'instructor' });
-  // Student mode shows the HVPG without measuring it first, unless Settings says otherwise.
-  if (readLS('pps.showHvpg') == null) store.set({ showHvpg: store.get().role === 'student' });
+  // The Student role was removed (to come back later): an old saved role is dropped, everyone gets the full app.
+  try { localStorage.removeItem('pps.role'); } catch { /* storage unavailable */ }
   const kind = await startHost();
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
   app.dataset.engine = kind;
@@ -207,8 +205,6 @@ async function main() {
   };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
-  store.on('role', (r) => { mainMenu.render(); try { localStorage.setItem('pps.role', r); } catch { /* storage unavailable */ } if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); });
-  app.dataset.role = store.get().role;
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
   store.on('focus', redraw);
@@ -391,7 +387,7 @@ async function share() {
 // ── Restart & reset ─────────────────────────────────
 // Restart: the current patient from its first moment .
 // Reset: everything back to a fresh start, as on a first visit but keeping the preferences
-// (theme, language, role, progress): the page reloads without its links or state.
+// (theme, language, progress): the page reloads without its links or state.
 async function restartPatient() {
   closePopover();
   store.set({ compareSnap: null, compareView: 'B', selection: null, details: null });
@@ -597,9 +593,7 @@ function bloodItems() {
     toggle(!!b.keyChevrons, 'chevrons', 'Key chevrons only', 'Only on the portal inflow, liver, hepatic veins and open collaterals', (on) => setBlood({ keyChevrons: on })),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Show on the figure'),
-    // A student's figure keeps to names (stage.js, the quiet rule), so the switch would do nothing there.
-    st.role === 'student' && st.mode === 'explore' ? h('div', { class: 'lens lens-opt lens-hint' }, svgIcon('tag', 'bo-ic'), h('span', { class: 'lens-t' }, 'Pressure values'), h('span', { class: 'lens-d' }, 'Tap a vessel to see its pressure'))
-      : layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
+    layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
     layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
     layer('labels', 'liver', 'Organ names'),
     h('div', { class: 'menu-sep' }),
@@ -632,13 +626,7 @@ function lobuleLayerItems() {
     menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Lymph forming in the space of Disse and draining to the portal tract', (on) => set({ lymph: on })),
   ];
 }
-// Students see the five core lenses; Congestion, Velocity and Origin are instructor extras
-// (the current lens always stays listed).
-const STUDENT_HIDDEN = ['heat', 'velocity', 'origin'];
-function lensKeys() {
-  const st = store.get();
-  return Object.keys(LENSES).filter((k) => st.role !== 'student' || k === st.colorMode || !STUDENT_HIDDEN.includes(k));
-}
+function lensKeys() { return Object.keys(LENSES); }
 function openLayers(anchor) {
   const s0 = store.get();
   const cur = store.get().colorMode;
@@ -750,21 +738,8 @@ function wireTopbar() {
     const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
   }
 }
-// The role ("I am a…") in Settings: choosing one sets store.role, and the 'role' listener saves it
-// and redraws the cards, the chart and Home.
-function roleControl() {
-  const cur = () => store.get().role || 'student';
-  const seg = h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': t('menu.role') }, ROLES.map(([v, l]) => h('button', { 'data-role': v, onclick: () => { store.set({ role: v }); paint(); } }, l)));
-  const note = h('small', { class: 'mm-role-note' });
-  function paint() {
-    seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.role === cur())));
-    note.textContent = ROLES.find(([v]) => v === cur())?.[2] || '';
-  }
-  paint();
-  return h('div', { class: 'mm-role' }, seg, note);
-}
 // Two menus with one job each: Settings (how the simulator looks and reads) and Help (how to
-// use it, what it is, and who made it). The role is chosen in Settings.
+// use it, what it is, and who made it).
 function openSettings(anchor, withSearch = false) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
   // While presenting, only what changes how the talk looks: appearance, full screen, text size, interface zoom.
@@ -772,7 +747,6 @@ function openSettings(anchor, withSearch = false) {
   popover(anchor, [
     // (From the thumb dock's Settings tab, Search heads the sheet: the dock has no More menu.)
     ...(withSearch ? [menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } })] : []),
-    ...(talk ? [] : [h('div', { class: 'menu-title' }, t('menu.role')), roleControl()]),
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['soft', t('menu.soft')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     fullscreenControl(),
@@ -798,8 +772,8 @@ function openSettings(anchor, withSearch = false) {
       }),
       // Debug toggles stay out of the sheet; ?debug in the address brings them back.
       ...(new URLSearchParams(location.search).has('debug') ? [h('div', { class: 'menu-title' }, 'Debug'), ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on)))] : []),
-      ...(store.get().role === 'instructor' ? [h('div', { class: 'menu-sep' }),
-        menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } })] : []),
+      h('div', { class: 'menu-sep' }),
+      menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } }),
       h('div', { class: 'menu-sep' }),
       menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() })]),
   ], withSearch ? { place: 'above', align: 'end', cls: 'app-menu' } : { align: 'start', cls: 'app-menu' });
@@ -1594,7 +1568,7 @@ function openPrivacy() {
   const keys = (() => { try { return Object.keys(localStorage).filter((k) => k.startsWith('pps.')); } catch { return []; } })();
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
-    h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme, language, role) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
+    h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme, language) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));

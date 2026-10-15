@@ -2,9 +2,14 @@
 
 ## Unreleased
 
+- **Student role removed (for now).** Settings no longer has "I am a…" (Student or Instructor), and the role is gone from
+  the app's internals, so everyone gets what Instructor had: every lens in Colored by, pressure values on the figure, the
+  full play bar and History, all procedures in Treat, and Advanced physiology in Settings. The HVPG stays hidden until it
+  is measured unless "Always show HVPG" is on. A role saved in the browser is cleared on load. A simpler student mode may
+  come back later. Test: `tests/no-role.test.js`.
 - **No Patient button.** The top bar is Treat, Tests, Settings and Search. The abnormal-results list and its badge
   are gone (the readouts and instruments already show the numbers). What has been changed, with undo and Clear all, sits
-  closed under the orders in the Treat card. Advanced physiology opens from Settings, for instructors only. Tapping a
+  closed under the orders in the Treat card. Advanced physiology opens from Settings. Tapping a
   vessel's details still opens the side panel.
 - **One type scale for the figure and slides.** Figure labels and slide cards now use six text roles (caption, label,
   body, value, big value, title) instead of about 18 loose sizes. Each grows smoothly with the screen (phone 11/12/14/16/20/28 px

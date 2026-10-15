@@ -4848,10 +4848,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const one = mode === 'inline';   // one line, no box, on every screen (as on a phone)
     const lines = [[{ t: name, size: 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
     const sel = st.selection?.type === 'node' && st.selection.id === id;
-    // Student mode (Explore) keeps the figure to names: a station shows its number once tapped.
-    const quiet = st.role === 'student' && st.mode === 'explore' && !st.presenting && !sel;
-    const lr = isImaging() || quiet ? null : layerRuns(f, id, compact);
-    const pr = quiet ? null : lr ? lr.runs : pressureRuns(P, id, compact);
+    const lr = isImaging() ? null : layerRuns(f, id, compact);
+    const pr = lr ? lr.runs : pressureRuns(P, id, compact);
     if (pr && one) lines[0].push(...pr.map((r, i) => (i ? r : { ...r, gap: 4 })));
     else if (pr) lines.push(pr);
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
@@ -5013,7 +5011,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     refreshCTM();
     const st = store.get(), sig = labelSig(f), b = stageBox();
     const key = [[CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join(), b.width, b.height, morph, rotU, labelFonts, document.documentElement.dataset.theme,
-      pzInset('--pz-l'), pzInset('--pz-t'), st.role, st.mode, !!st.compareSnap, st.compareView, JSON.stringify(blockerBoxes), sig].join('|');
+      pzInset('--pz-l'), pzInset('--pz-t'), st.mode, !!st.compareSnap, st.compareView, JSON.stringify(blockerBoxes), sig].join('|');
     if (!force && key === labelKey && refreshValues(f)) { stats.skips++; stats.ms += performance.now() - t0; }
     else {
       const sc = CTM.sc, th = Math.atan2(CTM.b, CTM.a);
@@ -5543,8 +5541,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function stepBlood(dt) {
     const st = store.get(), b = st.blood || {};
     const moving = st.running && !reduceMotion.matches;
-    // Student mode (Explore) runs the blood a little slower: calmer, still the same direction and pattern.
-    const speed = (st.clock === 'hemo' ? clamp(Math.sqrt(st.speed), 0.5, 2) : 0.8) * (st.role === 'student' && st.mode === 'explore' ? 0.7 : 1);
+    const speed = st.clock === 'hemo' ? clamp(Math.sqrt(st.speed), 0.5, 2) : 0.8;
     const Qf = F.Qf || F.Q;
     if (moving) bloodClock = (bloodClock + dt) % 10000;
     // Reversed flow (against the healthy direction, as the Direction lens has it) eases in and out.

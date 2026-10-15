@@ -1930,7 +1930,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.keyboard.press('Escape');
     await page.waitForSelector('.action-card', { state: 'hidden' });
     // Framed in the free space: the lobule's bottom corner is above the vitals dock (every readout is in Tests > Readouts).
-    await page.evaluate(() => window.pps.store.set({ role: 'instructor' }));
     {
       const clear = await page.waitForFunction(() => {
         const dock = document.querySelector('#vdock').getBoundingClientRect().top, labs = [...document.querySelectorAll('.lz-lab:not([hidden])')];
@@ -2005,20 +2004,17 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-treat`);
     await page.keyboard.press('Escape');
     await page.waitForSelector('#treatCard', { state: 'hidden' });
-    // Advanced physiology: only an instructor finds it, in Settings; it opens in the side panel.
-    await page.evaluate(() => window.pps.store.set({ role: 'instructor' }));
+    // Advanced physiology: in Settings; it opens in the side panel.
     await tapTool(page, '#btnSettings');
     await page.locator('.menu-item', { hasText: 'Advanced physiology' }).click();
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('panel-open') && document.querySelector('#panelTitle').textContent.includes('Advanced physiology'));
     if (!(await page.$('#panel .adv-body input[type="range"]'))) throw new Error('advanced physiology has no controls');
     await page.click('#panelClose');
-    await page.evaluate(() => window.pps.store.set({ role: 'student' }));
   });
   // The thumb dock (an upright phone): the top bar is two chips, the patient and the key; Treat, Tests, History, View and More
   // sit in the dock's tab row, and every card or menu they open sits above the dock, so the tab row never moves or hides.
   if (device === 'phone') await check(device, 'thumb dock: two chips on top; the tab row opens every card and menu above the dock', async (page) => {
     await open(page, '?preset=cirr-decomp');
-    await page.evaluate(() => window.pps.store.set({ role: 'instructor' }));
     await page.waitForTimeout(800);
     if (!(await page.evaluate(() => document.querySelector('#app').classList.contains('thumb')))) throw new Error('an upright phone has no thumb dock');
     const tabs = await page.$$eval('#thumbBar .nb-tab', (els) => els.filter((e) => e.offsetParent).map((e) => e.querySelector('.nb-l').textContent));
@@ -2064,7 +2060,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(await page.locator('.menu.as-sheet:not(.leaving) .menu-item:has-text("Search")').count())) throw new Error('Search is not in Settings');
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
-    await page.evaluate(() => window.pps.store.set({ role: 'student' }));
   });
   // No card is ever drawn over the tab row: sampled every frame while Treat and Tests open, are pulled down from a button
   // in their content (which closes them), and while Tests closes from its tab. A pull from a button on Treat closes it.
@@ -2212,7 +2207,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // History sits beside Treat and Tests in a laptop's top bar (not in the play bar) and opens as a card on the right, in Treat's place.
   if (device === 'desktop') await check(device, 'History: a top-bar button beside Tests, its card on the right in Treat\'s place', async (page) => {
     await open(page, '?preset=cirr-decomp');
-    await page.evaluate(() => window.pps.store.set({ role: 'instructor' }));
     await page.waitForTimeout(800);
     if (await page.evaluate(() => !!document.querySelector('.vdock .tl-hist')?.offsetParent)) throw new Error('History is still in the play bar');
     const order = await page.$$eval('.top-right > button', (els) => els.filter((e) => e.offsetParent).map((e) => e.id));
@@ -2228,7 +2222,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForSelector('#treatCard', { state: 'hidden' });
     await page.keyboard.press('Escape');
     await page.waitForSelector('#historyCard', { state: 'hidden' });
-    await page.evaluate(() => window.pps.store.set({ role: 'student' }));
   });
   // Nothing that floats over the figure may cover another floating piece, or leave the screen, at the
   // sizes the owner tests on (laptop, iPad both ways, iPhone both ways), in Explore, with the
@@ -2252,7 +2245,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const seen = [];
       for (const q of ['?preset=cirr-decomp', '?preset=healthy']) {
         await open(page, q);
-        await page.evaluate(() => window.pps.store.set({ role: 'instructor' }));
         await page.waitForTimeout(900);
         const r = await read();
         const where = `${w}x${hgt} ${q}`;

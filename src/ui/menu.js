@@ -16,9 +16,6 @@ const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoida
 const GROUP_WHERE = { Normal: 'No added resistance', Prehepatic: 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', Posthepatic: 'Hepatic veins and IVC', Cardiac: 'The right heart' };
 const LEVEL_N = { foundation: 1, core: 2, advanced: 3 };
 
-// Who is using the simulator (chosen in Settings): Student sees a simpler Explore; Instructor adds the physiology knobs.
-export const ROLES = [['student', 'Student', 'A simpler set of controls, with the HVPG shown from the start.'], ['instructor', 'Instructor', 'All controls, including the physiology settings and resistances.']];
-
 const NS = 'http://www.w3.org/2000/svg';
 const sv = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
 // A patient's pressure profile from the gut to the right atrium (a hydraulic grade line): blood runs

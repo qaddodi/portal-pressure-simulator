@@ -128,7 +128,7 @@ export function readoutValue(t, m, hidden) {
 const ALIAS = { flow: 'profile', perfusion: 'profile', chart: 'profile' };
 
 export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
-  // One app-wide relayout for a burst of changes (a mode change also changes the role and the lobule): every resize
+  // One app-wide relayout for a burst of changes (a mode change also changes the lobule): every resize
   // listener (the figure, the timeline, the presenter) runs once, not once per key.
   let rzT = 0;
   const resizeSoon = () => { clearTimeout(rzT); rzT = setTimeout(() => dispatchEvent(new Event('resize')), 30); };
@@ -162,10 +162,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, label), h('div', { class: 'ro-tiles' }, ts.map((t) => tile(t, false)))));
   }
   // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
-  // Student mode has no "all readouts" chevron (CSS).
   const syncLobule = () => { const on = !!store.get().lobule, pri = on ? LOBULE_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
   // A paused model sends no frames: fill the tiles from the last one at once (no dashes).
-  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
+  for (const k of ['lobule', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
   syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');

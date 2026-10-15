@@ -350,7 +350,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   store.on('details', render);
   store.on('locked', render);
   document.addEventListener('pps:rerender-panel', render);
-  for (const k of ['presetId', 'role', 'mode', 'allowedVerbs', 'hiddenReadouts', 'showHvpg']) store.on(k, () => { if (!store.get().details) render(); });
+  for (const k of ['presetId', 'mode', 'allowedVerbs', 'hiddenReadouts', 'showHvpg']) store.on(k, () => { if (!store.get().details) render(); });
   store.on('params', () => { const p = store.get().params; for (const s of syncers) s._sync(p); });
   if (!chart) render();
   return {

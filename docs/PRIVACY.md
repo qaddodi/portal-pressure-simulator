@@ -7,7 +7,7 @@ Portal Pressure Simulator runs entirely in the browser.
 - **No accounts, no server storage.** There is no backend. The publisher receives no personal
   data.
 - **What stays on the device** (browser `localStorage`, keys starting with `pps.`): preferences
-  (theme, units, language, role) and presenter scripts. *Menu › Privacy* lists what is stored and
+  (theme, units, language) and presenter scripts. *Menu › Privacy* lists what is stored and
   clears it.
 - **What leaves the device**, only by the user's action: shared links and script files (which
   contain the model state or a script). Inside an LMS (SCORM) no score is reported.
