@@ -4991,3 +4991,26 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* (Where the bar's ring marks where the value started, the "from" words fold away: the bar takes the place of the change
    line, so a tile is no taller than it was before the bar and the data card never grows for it.) */
 .pz .pz-data .pz-tiles .pz-tile:has(.pzb-was:not([hidden])) .pzt-d { display: none; }
+
+/* Readouts tab (Tests): every readout the bottom bar used to carry, in its groups. The tiles are the bar's own (.metric),
+   set on a soft panel with the full names and "Not measured" spelled out, since the pane has the room. */
+.instrument-view[data-pane="readouts"] { display: flex; flex-direction: column; align-items: stretch; gap: 16px; }
+.rp-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rp-cap { margin: 0; font-size: var(--fs-12); font-weight: 600; color: var(--text-3); letter-spacing: .02em; line-height: 16px; }
+.rp-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.rp-tiles .metric { padding: 8px 10px 7px; background: var(--surface-2); border-radius: var(--r-control); }
+@media (hover: hover) { .rp-tiles .metric:hover { background: var(--surface-3); } }
+.rp-tiles .metric .k .k-l { display: inline; }
+.rp-tiles .metric .k .k-s { display: none; }
+.rp-tiles .metric .tr { display: inline; }
+.rp-tiles .metric .status.unmeas { font-size: var(--fs-12); }
+.rp-tiles .metric .status.unmeas::after { content: none; }
+.rp-tiles .metric[data-sev="danger"] .val, .rp-tiles .metric[data-sev="critical"] .val { color: color-mix(in srgb, var(--critical) 80%, var(--text)); }
+.rp-tiles .rp-vital { padding-bottom: 8px; }
+/* A narrow card (a phone's sheet) fits three tiles across, as the bar did, with the short names where a long one would be cut. */
+@container (max-width: 440px) {
+  .rp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .rp-tiles .metric { padding: 7px 8px 6px; }
+  .rp-tiles .rp-vital .k .k-l { display: none; }
+  .rp-tiles .rp-vital .k .k-s { display: inline; }
+}

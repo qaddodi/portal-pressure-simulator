@@ -11,6 +11,7 @@ import { createFibroScan } from './fibroscan.js?v=15969800e5';
 import { createHvpgProcedure } from './hvpg-proc.js?v=cc7de39fbd';
 import { createDoppler } from './doppler.js?v=2507fcc0c9';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=1eb0ca3a2a';
+import { createReadoutsPane } from './readouts-pane.js?v=f55ef53604';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('dock');
 
@@ -343,11 +344,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const endoscopy = createEndoscopy({ onAction });
   wall.el.className = 'instrument-view wall-view';
   const pressure = { ...profile, id: 'profile', label: 'Pressure' };
+  // Every readout the bottom bar used to carry, live, in its own tab.
+  const readouts = createReadoutsPane({ tiles: TILES, groups: GROUPS, vitals: VITALS, readoutValue, onWhy, show });
   const instruments = [
     pressure, createPressureTime({ marks }),
     // On a sheet (phone, portrait tablet) the procedure folds the card down so the anatomy shows it.
     createHvpgProcedure(),
-    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(),
+    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(), readouts,
   ];
   const panes = instruments.map((p) => {
     p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');
@@ -367,11 +370,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     endoscopy: ['endoscope', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
     fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 0)} kPa`],
+    readouts: ['grid', (f) => readouts.summary(f)],
   };
-  const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan' };
+  const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan', readouts: 'Readouts' };
   // Narrow cards use these shorter names so all six tabs always fit without scrolling.
   const TINY = { endoscopy: 'Scope', fibroscan: 'Fibro' };
-  const ORDER = ['profile', 'scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan'];
+  const ORDER = ['profile', 'scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan', 'readouts'];
   // Pressure (along the circuit) and Over time (the same pressures through time) share one tab with a
   // small switch inside it; 'scope' stays a pane of its own, so the Presenter still reaches it.
   const TABS = ORDER.filter((id) => id !== 'scope');
@@ -415,7 +419,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const pickHint = h('div', { class: 'instr-hint', hidden: true }, 'Pick a second instrument to show with ', h('b'), '.');
   const tabsBox = tabs;
   // The row never scrolls: a wide card shows every full name, a narrower one the short names over their icons.
-  const fitTabs = () => { const w = tabs.clientWidth; if (w) { tabs.classList.toggle('compact', w < 620); tabs.classList.toggle('narrow', w < 470); } };
+  const fitTabs = () => { const w = tabs.clientWidth; if (w) { tabs.classList.toggle('compact', w < 720); tabs.classList.toggle('narrow', w < 520); } };
   if (typeof ResizeObserver === 'function') new ResizeObserver(fitTabs).observe(tabs);
   fitTabs();
   head.after(tabsBox, pickHint);
