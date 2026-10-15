@@ -5,6 +5,7 @@
 
 import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { h, fmt, clamp } from './util.js?v=7bea6ad65a';
+import { vitalReading } from './vital-read.js?v=e902fb66cd';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
@@ -93,10 +94,10 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
         x.cmp.className = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
         x.st.hidden = true;
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
-      // A new band must hold for a moment before the tile takes it, so a value on a cut-off does not flicker.
+      // A new band must hold for a moment before the tile takes it, so a value on a cut-off does not flicker (paused: at once).
       if (sev !== x.sev) {
         if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }
-        if (!x.sev || sev === 'none' || now - x.sevSince > 1500) {
+        if (!x.sev || sev === 'none' || !st0.running || now - x.sevSince > 1500) {
           if (x.sev && RANKS[sev] > RANKS[x.sev]) { tileEl.classList.remove('flash'); void tileEl.offsetWidth; tileEl.classList.add('flash'); }
           tileEl.dataset.sev = sev; x.sev = sev;
         }
@@ -107,8 +108,9 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
     }
     for (const x of vitEls) {
       const hid = hidden?.has(x.v.hideKey);
-      setText(x.val, hid ? '?' : fmt(x.v.v(m), x.v.d));
-      const sev = !hid && x.v.bad(m) ? 'danger' : 'ok';
+      const r = vitalReading(x, m, st0.running, now);
+      setText(x.val, hid ? '?' : fmt(r.v, x.v.d));
+      const sev = !hid && r.bad ? 'danger' : 'ok';
       if (x.el.dataset.sev !== sev) x.el.dataset.sev = sev;
     }
   }

@@ -5,15 +5,16 @@ import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=7bea6ad65a';
 import { lobuleFlows } from './lobule-model.js?v=48e121fc65';
-import { createProfile } from './charts.js?v=e50a914b04';
-import { createPressureTime } from './pressure-time.js?v=4067994a30';
-import { createFibroScan } from './fibroscan.js?v=6ec97a897f';
-import { createHvpgProcedure } from './hvpg-proc.js?v=65fde3869c';
-import { createDoppler } from './doppler.js?v=b215201a11';
+import { createProfile } from './charts.js?v=58931c479a';
+import { createPressureTime } from './pressure-time.js?v=b2328d6552';
+import { createFibroScan } from './fibroscan.js?v=557d93b263';
+import { createHvpgProcedure } from './hvpg-proc.js?v=e6a4ae8fb2';
+import { createDoppler } from './doppler.js?v=8eba36b387';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=77002d8c95';
-import { createReadoutsPane } from './readouts-pane.js?v=74897072b6';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=8f9fbe95b7';
+import { createReadoutsPane } from './readouts-pane.js?v=0e9ee93fb2';
 import { frameFor } from './frame.js?v=0db47e99bf';
+import { vitalReading } from './vital-read.js?v=e902fb66cd';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -100,11 +101,11 @@ export const CUTOFFS = [
 
 // Systemic circulation: a compact obstruction at the end of the strip.
 export const VITALS = [
-  { id: 'map', k: 'MAP', title: 'Mean arterial pressure', why: 'map', v: (m) => m.map, d: 0, u: 'mmHg', bad: (m) => m.map < 65 },
-  { id: 'hr', k: 'HR', title: 'Heart rate', why: 'hr', v: (m) => m.hr, d: 0, u: '/min', bad: (m) => m.hr > 110 },
-  { id: 'co', k: 'CO', title: 'Cardiac output', why: 'co', v: (m) => m.co, d: 1, u: 'L/min', bad: (m) => m.co > 6.5 },
-  { id: 'ra', k: 'RA', title: 'Right atrial pressure', why: 'ra', hideKey: 'ra', v: (m) => m.ra, d: 1, u: 'mmHg', bad: (m) => m.ra > 10 },
-  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: null, v: (m) => m.blood.hb, d: 1, u: 'g/dL', bad: (m) => m.blood.hb < 7 },
+  { id: 'map', k: 'MAP', title: 'Mean arterial pressure', why: 'map', v: (m) => m.vitals?.map ?? m.map, d: 0, u: 'mmHg', cut: 65, low: true, hys: 2 },
+  { id: 'hr', k: 'HR', title: 'Heart rate', why: 'hr', v: (m) => m.vitals?.hr ?? m.hr, d: 0, u: '/min', cut: 110, hys: 3 },
+  { id: 'co', k: 'CO', title: 'Cardiac output', why: 'co', v: (m) => m.vitals?.co ?? m.co, d: 1, u: 'L/min', cut: 6.5, hys: 0.2 },
+  { id: 'ra', k: 'RA', title: 'Right atrial pressure', why: 'ra', hideKey: 'ra', v: (m) => m.vitals?.ra ?? m.ra, d: 1, u: 'mmHg', cut: 10, hys: 0.5 },
+  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: null, v: (m) => m.blood.hb, d: 1, u: 'g/dL', cut: 7, low: true, hys: 0.2 },
 ];
 
 // The key readouts: collapsed, the bar shows only the two gradients (HVPG and the portosystemic
@@ -165,6 +166,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const syncLobule = () => { const on = !!store.get().lobule, pri = on ? LOBULE_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
   // A paused model sends no frames: fill the tiles from the last one at once (no dashes).
   for (const k of ['lobule', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
+  // (A measurement, the Always show HVPG switch or a new patient's hidden readouts change what the tiles show: repaint
+  // them from the last frame now, or a paused model keeps showing "Not measured" or the last patient's band until Play.)
+  for (const k of ['hvpgMeasured', 'showHvpg', 'hiddenReadouts', 'lastHVPG', 'presetId']) store.on(k, () => { if (frame) update(frame); });
   syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
@@ -231,10 +235,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         x.st.hidden = true;
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
       // A new band must hold for a moment before the tile takes it, so a value hovering on a
-      // cut-off does not flicker between two colors.
+      // cut-off does not flicker between two colors. (A paused model sends no more frames: it takes the band at once.)
       if (sev !== x.sev) {
         if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }
-        if (!x.sev || sev === 'none' || now - x.sevSince > 1500) {
+        if (!x.sev || sev === 'none' || !st0.running || now - x.sevSince > 1500) {
           // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
           const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
           if (x.sev && RANKS[sev] > RANKS[x.sev]) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
@@ -247,9 +251,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     }
     for (const x of vitEls) {
       const hid = hidden?.has(x.v.hideKey);
-      const txt = hid ? '?' : fmt(x.v.v(m), x.v.d);
-      setText(x.val, txt);
-      x.el.classList.toggle('bad', !hid && x.v.bad(m));
+      const r = vitalReading(x, m, st0.running, now);
+      setText(x.val, hid ? '?' : fmt(r.v, x.v.d));
+      x.el.classList.toggle('bad', !hid && r.bad);
     }
   }
 

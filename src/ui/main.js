@@ -1,26 +1,27 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=68494ae205';
+import { startHost, host } from './host.js?v=82eaf5f1bb';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=f04441e78b';
+import { createStage } from './stage.js?v=ed64ef6f84';
 import { createCreditPlacer } from './credit.js?v=e4d16bda70';
-import { sinusoidSupported } from './sinusoid-view.js?v=7d68f09a24';
-import { createInspector } from './inspector.js?v=4979577c0c';
-import { createDock, CUTOFFS } from './dock.js?v=74df3b699f';
-import { setHvpgStage } from './hvpg-proc.js?v=65fde3869c';
-import { createWhy } from './why.js?v=82cda16d03';
-import { createTimeline, LAPSES } from './timeline.js?v=ca7637708c';
-import { createCompare } from './compare.js?v=8b89c031cc';
-import { createCard } from './card.js?v=d62c5692bb';
-import { createChart } from './chart.js?v=9e6e250c3c';
-import { createMenu } from './menu.js?v=809015b40b';
+import { sinusoidSupported } from './sinusoid-view.js?v=998a8332f7';
+import { createInspector } from './inspector.js?v=d1085ce6ba';
+import { createDock, CUTOFFS } from './dock.js?v=2f004bbe73';
+import { setHvpgStage } from './hvpg-proc.js?v=e6a4ae8fb2';
+import { createWhy } from './why.js?v=0570a5ec8d';
+import { createTimeline, LAPSES } from './timeline.js?v=4595b22c3a';
+import { createCompare } from './compare.js?v=c6ca755402';
+import { createCard } from './card.js?v=d95ae6175f';
+import { createChart } from './chart.js?v=e74d551af9';
+import { createMenu } from './menu.js?v=aa648baf3a';
 import { caption } from './a11y.js?v=4dc7459ab3';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=cf3eae56c7';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=be593fa5d5';
-import { EDGES, PORTAL_TERRITORY, dopplerK } from '../engine/topology.js?v=4044766e96';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=a7a1848152';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=816d3f5e4b';
+import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
+import { dopplerVel } from './velNormal.js?v=181dda5594';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=7bea6ad65a';
 import { TEXT_STEPS } from './type-scale.js?v=0bd8cdeedf';
 
@@ -137,7 +138,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=66cb54d06b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=0efe8548ed'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -658,8 +659,7 @@ function hoverInfo(info) {
   // A long press (info.peek) shows the readings on any screen, above the finger; hovering only where there is a pointer.
   if (!info || !f || tool !== 'select' || store.get().shunting || (isPhone() && !info.peek) || store.get().imaging) { tipEl.classList.remove('on'); tipPlace = ''; return; }
   const e = EDGES[EI[info.id]], k = EI[info.id];
-  const D = Math.max(0.5, f.D[k]) / 10;
-  const v = f.Q[k] / (Math.PI * D * D / 4) * dopplerK(e);   // as Doppler reads it (peak), like the callouts
+  const v = dopplerVel(f, k);   // as Doppler reads it (peak), like the callouts and Details
   const liver = e.kind === 'liver', b = liver ? bedStats(e, f) : null;
   const vals = [edgeValue(e, f, 'pressure', null).v, fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06),
     ...(liver ? [fmt(b.dp, 1), b.r == null ? '—' : fmt(b.r, 1)] : [fmt(v, 1), fmt(f.D[k], 1)])].map(String);

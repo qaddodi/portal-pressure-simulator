@@ -14,9 +14,15 @@ export const DOPPLER_NORMAL = {
 // "Portal v." is the portal vein the Doppler samples, not a faster collateral or tributary joining it there.
 export const STATION_VESSEL = { CONF: 'PV_TRUNK', SMV: 'SMV_CONF', SV: 'SV_CONF', LPV: 'PVH_L', RPV: 'PVH_R', RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC', IVCS: 'IVCS_RA' };
 export const STENT_PV_NORMAL = [30, Infinity];
-const area = (d) => { const D = Math.max(0.5, d) / 10; return (Math.PI * D * D) / 4; };
-// The Doppler's reading of vessel k in frame f (Q and D per edge; the smoothed Qf when the frame has it).
-export const dopplerVel = (f, k) => ((f.Qf ? f.Qf[k] : f.Q[k]) / area(f.D[k])) * dopplerK(EDGES[k]);
+// The lumen the probe sees (cm²): a lumped bundle (the jejunal and ileal veins) is drawn at one vein's width d but its
+// flow reaches the probe through a wider trunk vd, as the engine's own velocity reads it (engine.js velocity).
+const area = (k, d) => { const e = EDGES[k], D = Math.max(0.5, d * (e?.vd ? e.vd / e.d : 1)) / 10; return (Math.PI * D * D) / 4; };
+// The mean velocity across the lumen (cm/s, signed) of vessel k in frame f (Q and D per edge; the smoothed Qf when
+// the frame has it). Every velocity on screen (Details, the hover tip, the figure's labels and colours, the Doppler)
+// comes from here, so one vessel reads one number everywhere.
+export const meanVel = (f, k) => (f.Qf ? f.Qf[k] : f.Q[k]) / area(k, f.D[k]);
+// The Doppler's reading (peak, see dopplerK).
+export const dopplerVel = (f, k) => meanVel(f, k) * dopplerK(EDGES[k]);
 
 let refOf = null, ref = null;
 function healthyVel(healthy, k) {

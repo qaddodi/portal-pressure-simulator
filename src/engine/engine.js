@@ -7,7 +7,7 @@ import {
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
 import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=6ebaeb46c8';
-import { detectEvents } from './events.js?v=f8e91bcbd8';
+import { detectEvents } from './events.js?v=4e5f47b6c6';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -119,7 +119,7 @@ export class Engine {
     this.rng = makeRng(seed);
     this.baro = 1; this.MAPf = 93; this.habr = 1;
     // Display filters start over from the new state (a non-finite run must not leak into the next patient).
-    this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined;
+    this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null;
     this.hr = HR_REST;
     this.slow = {
       d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, dMinOf(EDGES[k])])),
@@ -140,7 +140,7 @@ export class Engine {
     this.valsalva = { until: -1, start: -1 };
     this.pi = { vmax: -Infinity, vmin: Infinity, cycleStart: 0, value: 0, lastPh: 0 };
     this.flows = { ascitesRate: 0, hepLymph: 0, splLymph: 0 };
-    this.evState = {};
+    this.evState = {}; this.evAvg = null;
     this.newEvents = [];
     this.eventLog = [];
     this.quiet = false;
@@ -201,7 +201,7 @@ export class Engine {
     this.t = 0;
     this.eventLog = [];
     this.newEvents = [];
-    this.evState = {};
+    this.evState = {}; this.evAvg = null;
     detectEvents(this, true);
     this.newEvents = [];
     return params;
@@ -533,6 +533,13 @@ export class Engine {
     for (let i = 0; i < this.N; i++) this.Pf[i] += (this.P[i] - this.Pf[i]) * ap;
     this.COf = (this.COf ?? this.Qheart) + (this.Qheart - (this.COf ?? this.Qheart)) * Math.min(1, dt / 2);
     this.MAPf += (this.P[this.ni.AO] - this.MAPf) * (dt / (2 + dt));
+    // The vitals as the bar and Readouts show them, averaged over two breaths at every step: breathing swings the
+    // cardiac output 5.6 to 7.1 and the MAP 91 to 96 in decompensated cirrhosis, and a screen's frames sample that too
+    // sparsely to average it out themselves.
+    // (Two 4 s stages: one leaves the output wandering ±0.07 L/min, right across its 6.5 cut-off in that patient.)
+    const vNow = [this.COf * 0.06, this.MAPf, this.hr, this.P[this.ni.RA]], av4 = Math.min(1, dt / 4);
+    if (!this.vitM || !this.vitM.every(Number.isFinite)) { this.vitM = vNow; this.vitM1 = [...vNow]; }
+    else for (let i = 0; i < 4; i++) { this.vitM1[i] += (vNow[i] - this.vitM1[i]) * av4; this.vitM[i] += (this.vitM1[i] - this.vitM[i]) * av4; }
     const def = this.volumeDeficit();
     const bt = clamp(1 + 4 * (93 - this.MAPf) / 93, 0.5, 2.5);
     this.baro += (bt - this.baro) * Math.min(0.25, dt / (15 + dt));
@@ -988,12 +995,13 @@ export class Engine {
     this.V.set(c.V); this.P.set(c.P); if (c.Q) this.Q.set(c.Q);
     Object.assign(this, { t: c.t, day: c.day, baro: c.baro, MAPf: c.MAPf, habr: c.habr, hr: c.hr, slow: c.slow, blood: c.blood,
       bleed: c.bleed, infusions: c.infusions, bands: c.bands, iap: c.iap, valsalva: c.valsalva || { until: -1, start: -1 }, evState: c.evState || {} });
+    this.evAvg = null;   // (the events' breath average, events.js, starts over from the restored state)
     this.rng.setState(c.rng);
     // A snapshot from before the bleeding reflexes: the volume it holds is the patient's own.
     if (!(this.blood.ref > 0)) Object.assign(this.blood, { ref: this.bloodVolume(), inf0: this.blood.infused || 0, shift: 0 });
     this.Pf = Float64Array.from(this.P);
     this.Qf = Float64Array.from(this.Q);
-    this.pvQm = this.pvVm = undefined;
+    this.pvQm = this.pvVm = undefined; this.vitM = null;
     this._drug = this.drugEffects();
     this.computeExt(this.t);
     this.computeG(this.P);

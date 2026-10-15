@@ -7,7 +7,7 @@
 
 import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=7bea6ad65a';
-import { FONT as FONT0, FONT } from './charts.js?v=e50a914b04';
+import { FONT as FONT0, FONT } from './charts.js?v=58931c479a';
 import { frameFor } from './frame.js?v=0db47e99bf';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 const nextFrame = frameFor('pressure-time');
@@ -32,7 +32,7 @@ const FINE_S = 22, COARSE_S = 140, BIN = 0.25;
 // HVPG cut-offs: above normal, clinically significant (Baveno), and 12, below which varices rarely bleed.
 const LIMITS = [[5, ''], [10, 'CSPH 10'], [12, 'Can bleed 12']];
 const sevOf = (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger');
-const wordOf = (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : v < 12 ? 'CSPH' : 'CSPH · can bleed');
+const wordOf = (v) => (v < 5 ? 'Normal' : v < 10 ? 'Mild' : v < 12 ? 'CSPH' : 'CSPH · can bleed');
 const nice = (span, n = 4) => { const raw = Math.max(1e-6, span / n); const p = Math.pow(10, Math.floor(Math.log10(raw))); const r = raw / p; return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * p; };
 
 export function createPressureTime({ marks = () => [] } = {}) {

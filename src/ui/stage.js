@@ -3,12 +3,12 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=0b72305f30';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=be593fa5d5';
-import { STATION_VESSEL } from './velNormal.js?v=e1e1d30c3a';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=816d3f5e4b';
+import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=7bea6ad65a';
-import { createLobuleZoom } from './lobule-zoom.js?v=958152e3f7';
+import { createLobuleZoom } from './lobule-zoom.js?v=e1d14ae397';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -4759,12 +4759,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get();
     return isImaging() ? 'neutral' : st.compareSnap && st.compareView === 'D' ? 'delta' : st.colorMode;
   }
-  // Mean velocity in a vessel, cm/s (flow mL/s over lumen area).
-  function edgeVel(f, k) {
-    const q = f.Qf ? f.Qf[k] : f.Q[k];
-    const D = Math.max(0.5, f.D[k]) / 10;
-    return q / ((Math.PI * D * D) / 4);
-  }
+  // Mean velocity in a vessel, cm/s (flow mL/s over the lumen the probe sees: velNormal.js, shared with every readout).
+  const edgeVel = meanVel;
   // Blood entering a node per minute (L/min), from every model vessel.
   function throughput(Q, id) {
     let sum = 0;

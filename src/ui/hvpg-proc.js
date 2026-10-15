@@ -9,8 +9,8 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, fitCanvas, clamp, icon, cssVar } from './util.js?v=7bea6ad65a';
-import { FONT } from './charts.js?v=e50a914b04';
-import { pressureColor } from './colormap.js?v=be593fa5d5';
+import { FONT } from './charts.js?v=58931c479a';
+import { pressureColor } from './colormap.js?v=816d3f5e4b';
 import { store, logAction } from './store.js?v=3b659e1968';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -35,7 +35,7 @@ const STEPS = [
 const C = Object.defineProperties({}, Object.fromEntries(Object.entries({ bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
   free: '--mon-free', wedge: '--mon-wedge', ok: '--mon-ok', caution: '--mon-caution', danger: '--mon-alarm' }).map(([k, n]) => [k, { get: () => cssVar(n) }])));
 const sevOf = (v) => (v >= 10 ? 'danger' : v >= 5 ? 'caution' : 'ok');
-const sevWord = (v) => (v >= 10 ? 'Clinically significant portal hypertension (CSPH)' : v >= 5 ? 'Subclinical' : 'Normal');
+const sevWord = (v) => (v >= 10 ? 'Clinically significant portal hypertension (CSPH)' : v >= 5 ? 'Mild portal hypertension' : 'Normal');
 
 export function createHvpgProcedure() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'HVPG measurement: catheter pressure tracing' });

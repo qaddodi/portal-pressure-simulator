@@ -2,7 +2,7 @@
 // Every ramp's stops are colour tokens (--ramp-* in styles/tokens.css); the tables are built on first use.
 
 import { cssRamp, cssRGB } from './util.js?v=7bea6ad65a';
-import { velPos, velNormal, dopplerVel } from './velNormal.js?v=e1e1d30c3a';
+import { velPos, velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
 // The scale shows absolute mean venous pressure at a vessel. Its ticks are plain numbers: no
 // value on it is a clinical threshold (HVPG and other gradients are separate measurements).
 export const PRESSURE_TICKS = [0, 10, 20, 30];

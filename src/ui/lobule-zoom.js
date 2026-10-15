@@ -24,11 +24,11 @@ import { store } from './store.js?v=3b659e1968';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=48e121fc65';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01, GLIDE_MS } from './util.js?v=7bea6ad65a';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=be593fa5d5';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=816d3f5e4b';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=777700c024';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=7d68f09a24';
+import { createSinusoidView } from './sinusoid-view.js?v=998a8332f7';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('lobule-zoom');
 

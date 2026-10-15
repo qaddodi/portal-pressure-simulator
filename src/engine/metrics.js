@@ -2,6 +2,7 @@
 
 import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=4044766e96';
 import { clamp } from './physiology.js?v=6fc3ec393a';
+import { tenthGap } from './gap.js?v=3a5947c552';
 
 function varixGrade(d) {
   if (d < 2.5) return { code: '—', label: 'None' };
@@ -69,14 +70,16 @@ export function computeMetrics(eng) {
 
   return {
     t: eng.t, day: eng.day,
-    hvpg: hv.hvpg, whvp: hv.whvp, fhvp: hv.fhvp,
+    // (The gradients are the difference of the two readings as every screen shows them, at one decimal: WHVP 16.6 and
+    // FHVP 4.9 read HVPG 11.7 in Tests, Over time, the figure's bracket and the bottom bar alike, never 11.6.)
+    hvpg: tenthGap(hv.whvp, hv.fhvp, hv.hvpg), whvp: hv.whvp, fhvp: hv.fhvp,
     // Liver stiffness (transient elastography, kPa), an estimate from the model. It rises with the sinusoidal
     // gradient (about 20 kPa at an HVPG of 10), flattens above an HVPG of 12 where fibrosis is already
     // advanced, and with congestion at about 2 kPa per mmHg of free hepatic vein pressure above normal
     // (heart failure and hepatic outflow block stiffen the liver too).
     lsm: 5 + 2.2 * Math.max(0, Math.min(hv.hvpg, 12) - 3) + 0.8 * Math.max(0, hv.hvpg - 12) + 2 * Math.max(0, hv.fhvp - 6),
     measured,
-    ppg: P[ni.CONF] - P[ni.IVCS],
+    ppg: tenthGap(P[ni.CONF], P[ni.IVCS], P[ni.CONF] - P[ni.IVCS]),
     pv: P[ni.CONF],
     pvh: P[ni.PVH],
     sv: P[ni.SV],
@@ -85,6 +88,8 @@ export function computeMetrics(eng) {
     pvVel: eng.dopplerVelocity('PV_TRUNK'),
     pvFlowMean: (eng.pvQm ?? qf('PV_TRUNK')) * 0.06,
     pvVelMean: eng.pvVm ?? eng.dopplerVelocity('PV_TRUNK'),
+    // (the vitals over a breath, engine.js controllers: what the bar and Readouts show)
+    vitals: { co: eng.vitM?.[0] ?? co, map: eng.vitM?.[1] ?? map, hr: eng.vitM?.[2] ?? eng.hr, ra: eng.vitM?.[3] ?? ra },
     pvPI: p.pulsatile || eng.beat ? eng.pi.value : null,
     hepaticFlow: hepFlow * 0.06,
     liverPerfPct: (hepFlow / eng.baseHepFlow) * 100,

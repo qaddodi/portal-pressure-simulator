@@ -1,6 +1,7 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
-import { EDGES, NODES, dMinOf, dopplerK } from '../engine/topology.js?v=4044766e96';
+import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
+import { dopplerVel } from './velNormal.js?v=181dda5594';
 import { DRUGS } from '../engine/scenario.js?v=6ebaeb46c8';
 import { store, updateParams, isLocked, hiddenNow } from './store.js?v=3b659e1968';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=7bea6ad65a';
@@ -248,17 +249,19 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
       if (dirEl._c !== cls[1]) { dirEl.replaceChildren(h('span', { class: 'pill ' + cls[0] }, cls[1])); dirEl._c = cls[1]; }
       return null;
     }]);
-    const R = (f) => { const q = f.Q[k]; const dp = f.P[NI[e.from]] - f.P[NI[e.to]]; return Math.abs(q) > 1e-3 ? `${fmt(dp / (q * 0.06), 2)} WU` : '∞'; };
+    // (The smoothed pressures and flows, as the vessel card and the figure read them: the raw ones swing with each beat.)
+    const P = (f) => f.Pf || f.P, Q = (f) => f.Qf || f.Q;
+    const R = (f) => { const q = Q(f)[k]; const dp = P(f)[NI[e.from]] - P(f)[NI[e.to]]; return Math.abs(q) > 1e-3 ? `${fmt(dp / (q * 0.06), 2)} WU` : '∞'; };
     const els = [
       selectionHead(kicker, e.label, dirEl),
       h('div', { class: 'p-body' },
         section('live', 'Live values', null, null,
           h('div', { class: 'stat-grid' },
-            stat(`In · ${fromN.label}`, (f) => fp(f.P[NI[e.from]]).join(' '), true),
-            stat(`Out · ${toN.label}`, (f) => fp(f.P[NI[e.to]]).join(' '), true),
-            stat('Pressure drop', (f) => `${fmt(f.P[NI[e.from]] - f.P[NI[e.to]], 1)} mmHg`),
-            stat('Flow', (f) => ff(f.Q[k] * 0.06).join(' ')),
-            stat('Velocity', (f) => { const D = Math.max(0.5, f.D[k]) / 10; return `${fmt(Math.abs(f.Q[k]) / (Math.PI * D * D / 4) * dopplerK(e), 1)} cm/s`; }),   // Doppler (peak), like the callouts
+            stat(`In · ${fromN.label}`, (f) => fp(P(f)[NI[e.from]]).join(' '), true),
+            stat(`Out · ${toN.label}`, (f) => fp(P(f)[NI[e.to]]).join(' '), true),
+            stat('Pressure drop', (f) => `${fmt(P(f)[NI[e.from]] - P(f)[NI[e.to]], 1)} mmHg`),
+            stat('Flow', (f) => ff(Q(f)[k] * 0.06).join(' ')),
+            stat('Velocity', (f) => `${fmt(Math.abs(dopplerVel(f, k)), 1)} cm/s`),   // Doppler (peak), like the callouts
             stat('Diameter', (f) => `${fmt(f.D[k], 1)} mm`),
             stat('Resistance', R),
             isColl ? stat('Recruitment', (f) => `${Math.round(clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1) * 100)} %`) : stat('Healthy flow', () => { const q = store.get().healthy?.Q?.[k]; return q != null ? `${fmtFlow(q * 0.06)} L/min` : '—'; })),
@@ -281,7 +284,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
       h('div', { class: 'p-body' },
         section('live', 'Live values', null, null,
           h('div', { class: 'stat-grid' },
-            stat('Pressure', (f) => fp(f.P[NI[id]]).join(' ')),
+            stat('Pressure', (f) => fp((f.Pf || f.P)[NI[id]]).join(' ')),
             stat('Healthy', () => { const v = store.get().healthy?.P?.[NI[id]]; return v != null ? `${fmt(v, 1)} mmHg` : '—'; }),
             stat('External pressure (Δ)', (f) => `${fmt(f.ext[NI[id]], 1)} mmHg`),
             stat('Transmural', (f) => `${fmt(f.P[NI[id]] - f.ext[NI[id]], 1)} mmHg`)),
@@ -292,10 +295,10 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   }
 
   const ORGAN_ABOUT = {
-    liver: ['Organ', 'Liver', 'Blood crosses three resistances in series: portal venules (presinusoidal), sinusoids and central veins (postsinusoidal). Cirrhosis raises sinusoidal resistance; schistosomiasis blocks the portal tracts; sinusoidal obstruction syndrome the central veins. The hepatic artery buffers falls in portal flow.', [['Sinusoids (R)', (f) => fp(f.P[NI.SIN_R]).join(' ')], ['HVPG', (f) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : `${fmt(f.metrics.hvpg, 1)} mmHg`)], ['Liver perfusion', (f) => `${Math.round(f.metrics.liverPerfPct)} %`], ['Hepatic artery flow', (f) => `${fmtFlow(f.metrics.arterialIn)} L/min`]], 'hvpg'],
-    heart: ['Organ', 'Right heart', 'The right atrium is where both cavae end. Its pressure is the floor of the whole venous system: a failing right ventricle or tricuspid regurgitation raises every pressure upstream, including the hepatic veins, so the HVPG stays normal.', [['Right atrium', (f) => fp(f.P[NI.RA]).join(' ')], ['Cardiac output', (f) => `${fmtFlow(f.metrics.co)} L/min`], ['MAP', (f) => `${fmt(f.metrics.map, 0)} mmHg`], ['Heart rate', (f) => `${fmt(f.metrics.hr, 0)} /min`]], 'ra'],
-    varices: ['Collateral bed', 'Esophageal varices', 'Submucosal veins of the lower esophagus fed by the left gastric (coronary) vein and draining to the azygos. Wall tension follows Laplace: T = ΔP · r / w, so large thin-walled varices rupture.', [['Pressure', (f) => fp(f.P[NI.VAR]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.varix.d, 1)} mm`], ['Wall tension', (f) => `${Math.round(f.metrics.varix.ratio * 100)} % of rupture`], ['Grade', (f) => f.metrics.varix.grade.code]], 'varix'],
-    gastric: ['Collateral bed', 'Fundal varices', 'Fed by the short and posterior gastric veins, often draining through a gastrorenal shunt to the left renal vein. They bleed at lower pressures than esophageal varices; BRTO occludes the shunt.', [['Pressure', (f) => fp(f.P[NI.GV]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.gastricVarix.d, 1)} mm`], ['Wall tension', (f) => `${Math.round(f.metrics.gastricVarix.ratio * 100)} % of rupture`]], 'varix'],
+    liver: ['Organ', 'Liver', 'Blood crosses three resistances in series: portal venules (presinusoidal), sinusoids and central veins (postsinusoidal). Cirrhosis raises sinusoidal resistance; schistosomiasis blocks the portal tracts; sinusoidal obstruction syndrome the central veins. The hepatic artery buffers falls in portal flow.', [['Sinusoids (R)', (f) => fp((f.Pf || f.P)[NI.SIN_R]).join(' ')], ['HVPG', (f) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : `${fmt(f.metrics.hvpg, 1)} mmHg`)], ['Liver perfusion', (f) => `${Math.round(f.metrics.liverPerfPct)} %`], ['Hepatic artery flow', (f) => `${fmtFlow(f.metrics.arterialIn)} L/min`]], 'hvpg'],
+    heart: ['Organ', 'Right heart', 'The right atrium is where both cavae end. Its pressure is the floor of the whole venous system: a failing right ventricle or tricuspid regurgitation raises every pressure upstream, including the hepatic veins, so the HVPG stays normal.', [['Right atrium', (f) => fp((f.Pf || f.P)[NI.RA]).join(' ')], ['Cardiac output', (f) => `${fmtFlow(f.metrics.co)} L/min`], ['MAP', (f) => `${fmt(f.metrics.map, 0)} mmHg`], ['Heart rate', (f) => `${fmt(f.metrics.hr, 0)} /min`]], 'ra'],
+    varices: ['Collateral bed', 'Esophageal varices', 'Submucosal veins of the lower esophagus fed by the left gastric (coronary) vein and draining to the azygos. Wall tension follows Laplace: T = ΔP · r / w, so large thin-walled varices rupture.', [['Pressure', (f) => fp((f.Pf || f.P)[NI.VAR]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.varix.d, 1)} mm`], ['Wall tension', (f) => `${Math.round(f.metrics.varix.ratio * 100)} % of rupture`], ['Grade', (f) => f.metrics.varix.grade.code]], 'varix'],
+    gastric: ['Collateral bed', 'Fundal varices', 'Fed by the short and posterior gastric veins, often draining through a gastrorenal shunt to the left renal vein. They bleed at lower pressures than esophageal varices; BRTO occludes the shunt.', [['Pressure', (f) => fp((f.Pf || f.P)[NI.GV]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.gastricVarix.d, 1)} mm`], ['Wall tension', (f) => `${Math.round(f.metrics.gastricVarix.ratio * 100)} % of rupture`]], 'varix'],
     spleen: ['Organ', 'Spleen', 'Portal hypertension congests and enlarges the spleen, which sequesters platelets. Splenic vein thrombosis isolates it: sinistral portal hypertension with fundal varices.', [['Length', (f) => `${fmt(f.metrics.spleen.length, 1)} cm`], ['Platelets (illustrative)', (f) => `${Math.round(f.metrics.spleen.platelets)} ×10⁹/L`]], 'spleen'],
     abdomen: ['Peritoneum', 'Abdomen & ascites', 'Ascites forms when filtration from the sinusoids and gut capillaries outpaces lymph drainage (Starling). Sinusoidal pressure and albumin decide the balance; intra-abdominal pressure rises as it accumulates.', [['Ascites', (f) => `${fmt(f.metrics.ascites.volume / 1000, 2)} L`], ['Formation', (f) => `${fmt(liveBalance(f.metrics.ascites.ratePerDay), 0)} mL/day`], ['IAP', (f) => `${fmt(f.metrics.ascites.iap, 1)} mmHg`], ['Hepatic lymph', (f) => `${fmt(f.metrics.ascites.hepLymph, 1)} mL/min`]], 'ascites'],
   };

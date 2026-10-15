@@ -6,12 +6,12 @@
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=7bea6ad65a';
-import { FONT } from './charts.js?v=e50a914b04';
+import { FONT } from './charts.js?v=58931c479a';
 import { logAction, shownVel, store } from './store.js?v=3b659e1968';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=62e22c9d9f';
 import { frameFor } from './frame.js?v=0db47e99bf';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
-import { velNormal } from './velNormal.js?v=e1e1d30c3a';
+import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -354,8 +354,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function pinnedVel() {
     const k = EI[probe];
     if (!pinAt || k == null) return NaN;
-    const D = Math.max(0.5, pinAt.D[k]) / 10;
-    return Math.abs(pinAt.Q[k] / ((Math.PI * D * D) / 4)) * dopplerK(EDGES[k]);
+    return Math.abs(dopplerVel({ Q: pinAt.Q, D: pinAt.D }, k));
   }
   const set2 = (e, t) => { if (e.textContent !== t) e.textContent = t; };
 
