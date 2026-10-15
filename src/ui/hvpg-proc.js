@@ -260,14 +260,16 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
   const x = 14, y = 10, W = w - 28, H = hh - 18;
   const narrow = W < 300;
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-  ctx.fillStyle = C.text; ctx.font = FONT(600, 10);
-  ctx.fillText(narrow ? 'CATHETER TIP · mmHg' : 'CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', x, y + 13);
+  // (Every word on the monitor at 12 px or more; the header takes the longest form that clears the big reading.)
   const { big } = traceRoom(W, H);
+  ctx.font = FONT(700, big); const room = W - ctx.measureText('88.8').width - 12;
+  ctx.fillStyle = C.text; ctx.font = FONT(600, 12);
+  ctx.fillText(['CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', 'CATHETER TIP PRESSURE · mmHg', 'CATHETER TIP · mmHg'].find((s, i, a) => i === a.length - 1 || ctx.measureText(s).width <= room), x, y + 13);
   let label, num = '', col = C.text;
   if (ph === 'abort') {
     ctx.font = FONT(600, 12); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 32);
     ctx.textAlign = 'center'; ctx.font = FONT(600, 12); ctx.fillText(narrow ? 'Unable to cannulate hepatic vein' : 'Unable to cannulate hepatic vein: procedure aborted', w / 2, hh / 2 + 8);
-    ctx.fillStyle = C.text; ctx.font = FONT(500, 11); ctx.fillText('HVPG not measurable', w / 2, hh / 2 + 28);
+    ctx.fillStyle = C.text; ctx.font = FONT(500, 12); ctx.fillText('HVPG not measurable', w / 2, hh / 2 + 28);
     return;
   }
   if (ph === 'idle') label = 'Ready';
@@ -284,13 +286,13 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
   const ymax = Math.max(15, Math.ceil((Math.max(v.whvp, v.fhvp) + 5) / 5) * 5);
   const Y = (p) => bot - (clamp(p, 0, ymax) / ymax) * (bot - top);
   const X = (tt) => L + k01(tt, T.free - 300, T.back) * (R - L);
-  ctx.lineWidth = 1; ctx.font = FONT(500, 9.5); ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 1; ctx.font = FONT(500, 12); ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   for (let p = 0; p <= ymax; p += 5) {
     ctx.strokeStyle = p ? C.grid : C.line; ctx.beginPath(); ctx.moveTo(L, Math.round(Y(p)) + 0.5); ctx.lineTo(R, Math.round(Y(p)) + 0.5); ctx.stroke();
     if (p % 10 === 0 || ymax <= 20) ctx.fillText(String(p), L - 5, Y(p));
   }
   if (ph === 'idle' || ph === 'enter') {
-    ctx.textAlign = 'center'; ctx.fillStyle = C.text; ctx.font = FONT(500, 11);
+    ctx.textAlign = 'center'; ctx.fillStyle = C.text; ctx.font = FONT(500, 12);
     ctx.fillText(blocked && t >= TB.probe0 ? 'Probing the ostium: the vein will not take the catheter…' : ph === 'idle' ? 'The tracing starts once the tip is in the hepatic vein.' : 'Waiting for the hepatic vein…', (L + R) / 2, (top + bot) / 2);
     return;
   }
@@ -305,29 +307,32 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
   seg(T.free - 300, T.inflate, C.free);
   seg(T.inflate, T.back, C.wedge);
   if (t < T.back) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tNow), Y(pAt(tNow, v)), 2.6, 0, Math.PI * 2); ctx.fill(); }
-  const level = (p, colr, txt) => {
+  // (Each level's name and number at the right, centred on its line; the two pairs kept 28 px apart so they never touch.)
+  const both = ph === 'result', sep = both ? Math.max(0, 28 - (Y(v.fhvp) - Y(v.whvp))) / 2 : 0;
+  const yf = Math.min(Y(v.fhvp) + sep, hh - 12), yw = Math.min(Y(v.whvp) - sep, yf - 28);   // (the lower pair kept off the monitor's foot)
+  const level = (p, colr, txt, ly) => {
     ctx.save(); ctx.strokeStyle = colr; ctx.globalAlpha = 0.75; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(L, Y(p)); ctx.lineTo(R, Y(p)); ctx.stroke(); ctx.restore();
-    if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, 10); ctx.textAlign = 'left'; ctx.fillText(txt, R + 6, Y(p) - 6); ctx.font = FONT(700, 11); ctx.fillText(fmt(p, 1), R + 6, Y(p) + 7); }
+    if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, 12); ctx.textAlign = 'left'; ctx.fillText(txt, R + 6, ly - 7); ctx.font = FONT(700, 12); ctx.fillText(fmt(p, 1), R + 6, ly + 7); }
   };
-  if (t >= T.inflate) level(v.fhvp, C.free, 'FHVP');
+  if (t >= T.inflate) level(v.fhvp, C.free, 'FHVP', yf);
   if (ph === 'result') {
-    level(v.whvp, C.wedge, 'WHVP');
+    level(v.whvp, C.wedge, 'WHVP', yw);
     const a = ease(k01(t, T.sum - 400, T.sum + 200)), xa = L + (R - L) * 0.9, y1 = Y(v.fhvp), y2 = Y(v.fhvp + (v.whvp - v.fhvp) * a), col2 = C[sevOf(v.hvpg)];
     ctx.strokeStyle = col2; ctx.fillStyle = col2; ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.moveTo(xa, y1); ctx.lineTo(xa, y2); ctx.stroke();
     if (Math.abs(y1 - y2) > 10) for (const [yy, d] of [[y1, 1], [y2, -1]]) { ctx.beginPath(); ctx.moveTo(xa, yy); ctx.lineTo(xa - 4, yy - 6 * d); ctx.lineTo(xa + 4, yy - 6 * d); ctx.closePath(); ctx.fill(); }
     if (a > 0.6) {
       ctx.save(); ctx.globalAlpha = ease(k01(t, T.sum, T.sum + 450));
-      const txt = `HVPG ${fmt(v.hvpg, 1)}`; ctx.font = FONT(700, 11.5);
+      const txt = `HVPG ${fmt(v.hvpg, 1)}`; ctx.font = FONT(700, 12);
       const tw = ctx.measureText(txt).width + 12, lx = xa - tw - 6, ly = (y1 + y2) / 2;
       ctx.fillStyle = C.bg; rrect(ctx, lx, ly - 9, tw, 18, 9); ctx.fill(); ctx.strokeStyle = col2; ctx.lineWidth = 1; ctx.stroke();
       ctx.fillStyle = col2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx + 6, ly + 0.5);
       ctx.restore();
     }
   }
-  ctx.fillStyle = C.text; ctx.font = FONT(500, 9); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  ctx.fillText('balloon up', X(T.inflate), bot + 13);
+  ctx.fillStyle = C.text; ctx.font = FONT(500, 12); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('balloon up', X(T.inflate), bot + 15);
   ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(X(T.inflate), bot); ctx.lineTo(X(T.inflate), bot + 4); ctx.stroke();
 }
 

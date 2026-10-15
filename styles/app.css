@@ -2016,6 +2016,10 @@ button.finding { cursor: pointer; }
 .pz.stack.tab .pz-data { left: 15%; right: 15%; }
 .pz.stack.tab .pz-panel { width: 70%; }
 .pz.stack.tab .pz-bar { right: calc(15% + 13px); }   /* (the pill sits inside the teaching card, at its lower right corner) */
+/* (An upright tablet's teaching card stands 12 px clear of the progress line at the screen's foot: card, words and pill 8 px higher than a phone's.) */
+.pz-shade.stack.tab { bottom: calc(16px + var(--pz-sb)); }
+.pz.stack.tab .pz-text { bottom: calc(max(26px, 65px - var(--pz-lh)) + 8px + var(--pz-sb)); }
+.pz.stack.tab .pz-bar { bottom: calc(29px + var(--pz-sb)); }
 .pz.stack .pz-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }   /* (a phone stacks the six site ladders in one column, each a full-width row, so the readings need no tilted names) */
 .pz.stack .pz-panel.fill { height: fit-content; }
 .pz.stack .pz-panel.fill .pz-grid { flex: none; }   /* (the six ladders keep their height; the card scrolls instead of the charts spilling out of their cells) */
@@ -4726,6 +4730,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   /* On a phone the handle sits in the card's bottom edge (3px bar, 3px from the edge), clear of the tiles above it. */
   .pz.stack .pz-data { padding-bottom: 10px; }
   .pz.stack .pz-grip { bottom: 3px; height: 3px; width: 34px; }
+  .pz.stack.tab .pz-data { padding-bottom: 16px; } .pz.stack.tab .pz-grip { bottom: 8px; }   /* (an upright tablet's handle 8 px inside the card's edge) */
   .pz:not(.stack) .pz-grip { left: 7px; bottom: auto; top: 50%; width: 4px; height: 38px; translate: 0 -50%; }
   .pz:not(.stack) .pz-data.under .pz-grip, .pz:not(.stack) .pz-data.col .pz-grip { left: auto; right: 4px; width: 3px; }   /* (in the card's edge, clear of the tiles beside an instrument) */
 }
