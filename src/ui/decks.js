@@ -64,14 +64,14 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=d7903a8961';
-import { SITES } from './decks/sites.js?v=1b12780f7f';
-import { HVPG } from './decks/hvpg.js?v=92f7c3d332';
+import { SITES } from './decks/sites.js?v=7de115e6a2';
+import { HVPG } from './decks/hvpg.js?v=62ea5c820b';
 import { ASCITES } from './decks/ascites.js?v=42e3bc8fc3';
 import { VARICES } from './decks/varices.js?v=4637c20f67';
 import { TREATMENT } from './decks/treatment.js?v=088c0a2ca9';
 import { STIFFNESS } from './decks/stiffness.js?v=a6c522cc89';
 import { ONE_YEAR } from './decks/one-year.js?v=6dc4ebe0ee';
-import { LOBULE } from './decks/lobule.js?v=46cadf140b';
+import { LOBULE } from './decks/lobule.js?v=b05c05a2ff';
 import { SHUNTS } from './decks/shunts.js?v=ba8e038cb0';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=b48b283560';
 import { TAP } from './decks/tap.js?v=04459c913c';
@@ -84,8 +84,8 @@ import { BLEED } from './decks/variceal-bleed.js?v=6c69d5144f';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=5cbc352bff';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=85211432b5';
 import { SPLEEN } from './decks/spleen.js?v=e0e0eaf929';
-import { NCPH } from './decks/ncph.js?v=2f96a638f9';
-import { OUTFLOW } from './decks/outflow.js?v=60f888a2d6';
+import { NCPH } from './decks/ncph.js?v=516acbd224';
+import { OUTFLOW } from './decks/outflow.js?v=41257fe3b1';
 import { RECOMPENSATION } from './decks/recompensation.js?v=8f8797a2ce';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).

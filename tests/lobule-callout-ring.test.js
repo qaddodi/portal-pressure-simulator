@@ -37,5 +37,17 @@ test('lobule labels are pinned beside what they name and never cover the central
   assert.match(js, /lead \* 8/, 'short leaders are preferred');
   assert.match(js, /L\.el\.classList\.toggle\('edge'/, 'a label whose structure is off screen waits at the edge');
   assert.match(js, /if \(best\.cost >= 1e6\) \{ res\.push\(\{ k, out: true \}\)/, 'a label with no clear spot is left out, never stacked on another');
-  assert.match(js, /const callLead = placeCall\(/, 'the slide\'s pointer pill is placed before the labels');
+  assert.match(js, /let callLead = placeCall\(/, 'the slide\'s pointer pill is placed before the labels');
+  assert.match(js, /if \(callLead && sol\.total >= 1e5 && !rough\)/, 'when the pill would hide or crowd a label, the labels go first');
+  assert.match(js, /placeCall\(fr, pl2, cards, s2\.ld,/, 'and the pill is placed clear of the labels and their leaders');
+  assert.match(js, /callCost < 1e6 && s2\.total < sol\.total/, 'that layout is kept only when the pill itself is clear');
+});
+
+test('resistance callouts in the lobule are one short word, so they never crowd the vessel labels', async () => {
+  const { readdirSync } = await import('node:fs');
+  const dir = new URL('../src/ui/decks/', import.meta.url);
+  for (const f of readdirSync(dir)) {
+    const src = readFileSync(new URL(f, dir), 'utf8');
+    for (const m of src.matchAll(/callout: \{ at: '\w+', label: '([^']*)' \}/g)) if (/resist/i.test(m[1])) assert.equal(m[1], 'Resistance', `${f}: "${m[1]}"`);
+  }
 });

@@ -38,7 +38,7 @@ export const SITES = {
       ask: ['Why is HVPG normal when the portal pressure is about 20 mmHg?', 'The wedge reads the sinusoids, which lie downstream of the clot and are at normal pressure.'],
     },
     {
-      id: 'presin', lens: 'drop', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', data: 'ladder', key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Resistance: portal venules' }, rail: true, quiz: 'Where is the problem?',
+      id: 'presin', lens: 'drop', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', data: 'ladder', key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Resistance' }, rail: true, quiz: 'Where is the problem?',
       kicker: 'Intrahepatic · presinusoidal', site: 'presin', title: 'Schistosomiasis',
       vignette: 'A 26-year-old man who grew up in the Nile Delta presents with hematemesis. EGD shows large esophageal varices. His spleen is enlarged, his liver tests are normal, and there is no ascites.',
       line: 'Eggs lodge in the portal venules and cause periportal fibrosis. The resistance is upstream of the sinusoids, so HVPG stays near normal. With the vessels colored by pressure drop, the large drop sits in the portal venules.',
@@ -47,7 +47,7 @@ export const SITES = {
       ask: ['A patient bleeds from varices. Doppler shows an open portal vein; the HVPG is 3 mmHg and the free hepatic and right atrial pressures are normal. Where does the resistance lie?', 'Presinusoidal, in the portal tracts (schistosomiasis or porto-sinusoidal vascular disorder): the wedge reads normal sinusoids, and the normal free and atrial pressures rule out an outflow or cardiac cause.'],
     },
     {
-      id: 'sin', lens: 'drop', terms: { sinusoids: 'lobule:sinusoid' }, preset: 'cirr-decomp', cam: 'lobule:sinusoid', callout: { at: 'sin', label: 'Resistance: sinusoids' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the problem?',
+      id: 'sin', lens: 'drop', terms: { sinusoids: 'lobule:sinusoid' }, preset: 'cirr-decomp', cam: 'lobule:sinusoid', callout: { at: 'sin', label: 'Resistance' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Intrahepatic · sinusoidal', site: 'sin', title: 'Cirrhosis',
       vignette: 'A 58-year-old man with alcohol-associated cirrhosis has ascites despite spironolactone and furosemide. His albumin is 2.8 g/dL, his platelets are 57,000/µL, and EGD shows large esophageal varices.',
       line: 'Fibrosis, nodules and stellate cell contraction narrow the sinusoids. The wedged pressure reflects sinusoidal pressure, so HVPG rises with portal pressure. With the vessels colored by pressure drop, the large drop moves into the sinusoids.',
@@ -56,7 +56,7 @@ export const SITES = {
       ask: ['Why does the wedged pressure track the portal pressure in cirrhosis?', 'The resistance lies in the sinusoids the wedge reads, so the wedged pressure rises with the portal pressure.'],
     },
     {
-      id: 'postsin', lens: 'drop', terms: { 'central veins': 'lobule:central', sinusoids: 'lobule:sinusoid' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance: central veins' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the problem?',
+      id: 'postsin', lens: 'drop', terms: { 'central veins': 'lobule:central', sinusoids: 'lobule:sinusoid' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Intrahepatic · postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome',
       vignette: 'A 45-year-old woman, 21 days after myeloablative conditioning for allogeneic HSCT, has tender hepatomegaly, a 4% weight gain and new ascites. Her bilirubin is 2.1 mg/dL.',
       line: 'Damaged endothelium raises resistance in the sinusoids and small central veins, upstream of the catheter tip, so the wedged pressure and HVPG rise. With the vessels colored by pressure drop, the large drop sits at the central veins.',

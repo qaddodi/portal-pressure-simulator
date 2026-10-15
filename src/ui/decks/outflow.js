@@ -55,7 +55,7 @@ export const OUTFLOW = {
       ask: ['Why can a standard TIPS not be placed when all three hepatic veins are clotted?', 'It needs a hepatic vein to start from; the stent goes from the IVC instead.'],
     },
     {
-      id: 'sos', preset: 'sos', params: { fibrosis: { R: { post: 32 }, L: { post: 32 } } }, cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance: central veins' }, terms: { 'central veins': 'lobule:central' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'],
+      id: 'sos', preset: 'sos', params: { fibrosis: { R: { post: 32 }, L: { post: 32 } } }, cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance' }, terms: { 'central veins': 'lobule:central' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'],
       kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'Chemotherapy injures the sinusoid lining',
       vignette: 'A 52-year-old man with AML, three weeks after busulfan and cyclophosphamide conditioning for HSCT, has RUQ pain, a 6% weight gain and new ascites. His bilirubin is 2.6 mg/dL.',
       line: 'Debris from the injured lining raises resistance in the central veins, and within weeks the liver swells and ascites collects.',

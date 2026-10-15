@@ -972,7 +972,7 @@ export function createLobuleZoom({ host }) {
   }
   const hitKind = (key) => (key === 'ha' || key === 'bd' ? { part: key, tri: pick.triad } : key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
-  let callPrev = null;
+  let callPrev = null, callCost = 0;
   // The ring on the spot: its centre and radius on screen (null while the spot is out of view), and how far from the ring's
   // centre everything else keeps (the radius, half its 4 px stroke and a small gap), so no label or pill ever touches it.
   const RING_STROKE = 4, RING_GAP = 8;
@@ -1043,7 +1043,7 @@ export function createLobuleZoom({ host }) {
         + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e4 : 0) + keep.reduce((c, q) => { const d = into(q, box); return c + (d > 0 ? 1e6 + d * 1e3 : 0); }, 0) + hex.share(box) * INSIDE_COST + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 - (prev ? 60 : 0);
       if (!best || cost < best.cost) best = { x, y, box, cost };
     }
-    placed.push(best.box); callPrev = { at: call.at, dx: best.x - a[0], dy: best.y - a[1] };
+    placed.push(best.box); callPrev = { at: call.at, dx: best.x - a[0], dy: best.y - a[1] }; callCost = best.cost;
     callEl.style.left = `${best.x - w / 2}px`; callEl.style.top = `${best.y - hh / 2}px`;
     // The leader starts on the ring's edge (not at its centre) and runs to the pill.
     const dl = Math.hypot(best.x - a[0], best.y - a[1]) || 1, e0 = rr / dl;
@@ -1214,8 +1214,9 @@ export function createLobuleZoom({ host }) {
     }
     const ring = callRingAt(fr), hex = hexOf();
     // The slide's pointer pill is placed first (it is the slide's point): the labels then keep clear of it and its leader.
-    const callLead = placeCall(fr, placed, cards, [], crosses, ring, hex, keep, into);
-    const base = placed.slice();
+    const pre = placed.slice();
+    let callLead = placeCall(fr, placed, cards, [], crosses, ring, hex, keep, into);
+    let base = placed.slice();
     // A label that finds no spot clear of the others, the pill, the cards and the structures is left out rather than
     // stacked: leaving one out costs more than any clear spot, and more still for a label the slide's words name.
     const drop = (k) => (named(k) ? 2e7 : 1e7);
@@ -1289,6 +1290,21 @@ export function createLobuleZoom({ host }) {
         const s2 = solve(order);
         if (s2.total < sol.total) sol = s2;
         if (sol.total < 1e5 && items.length > 5) break;   // (up to five labels, 120 orders at most: the shortest leaders win, not just the first clear order)
+      }
+    }
+    // The pill pushed a label off the screen or onto another: the labels are placed first instead and the pill finds
+    // a clear spot among them, kept when it finds one (a label never hidden by the slide's pill).
+    if (callLead && sol.total >= 1e5 && !rough) {
+      const keepCall = { lead: callLead, prev: callPrev, cost: callCost, left: callEl.style.left, top: callEl.style.top, line: ['x1', 'y1', 'x2', 'y2'].map((k) => callLine.getAttribute(k)) };
+      base = pre; const lead0 = callLead; callLead = null;
+      const s2 = solve(items);
+      const pl2 = s2.pl.slice();
+      const lead2 = placeCall(fr, pl2, cards, s2.ld, crosses, ring, hex, keep, into);
+      if (callCost < 1e6 && s2.total < sol.total) { sol = s2; callLead = lead2; }
+      else {
+        callLead = lead0; callPrev = keepCall.prev; callCost = keepCall.cost;
+        callEl.style.left = keepCall.left; callEl.style.top = keepCall.top;
+        ['x1', 'y1', 'x2', 'y2'].forEach((k, i) => callLine.setAttribute(k, keepCall.line[i]));
       }
     }
     for (const { k, x, y, out } of sol.res) {
