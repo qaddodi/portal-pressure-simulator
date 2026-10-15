@@ -2416,21 +2416,32 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (was && was !== box) was.classList.remove('pz-pillclr');
     box?.classList.add('pz-pillclr');
   }
-  // A phone's docked colour key and the nav pill never overlap: when the key is too wide for the room left of the pill, it takes its own
-  // row just above the pill's row (fk-up; the words end above it), shrunk to the card's width if even that is too narrow. One line, always.
+  // A phone's docked colour key and the nav pill never overlap. It sits on one line beside the pill when it fits; else on two lines
+  // beside it (fk-two, as tall as the pill's row); else on its own row just above the pill's row (fk-up; a 320 px phone), one line,
+  // shrunk to the card's width if even that is too narrow. The words end above whatever the key takes (--pz-fkrow).
   function fitKey() {
-    const fk = ui.fk, root = ui.root;
+    const fk = ui.fk, root = ui.root, set = (two, up) => { root.classList.toggle('fk-two', two); root.classList.toggle('fk-up', up); };
     const on = phone() && !ui.text.hidden && fk.dataset.empty == null;
-    if (!on) { root.classList.remove('fk-up'); fk.style.removeProperty('--pz-fk-s'); return; }
-    const was = fk.hidden; fk.hidden = false;
+    fk.style.removeProperty('--pz-fk-s');
+    if (!on) { set(false, false); return; }
+    const was = fk.hidden; fk.hidden = false; set(false, false);
     const wr = restRect(root), k = wr.width / (root.clientWidth || wr.width) || 1;
-    const w = fk.offsetWidth, hgt = fk.offsetHeight, l = parseFloat(getComputedStyle(fk).left) || 21;
+    const w = fk.offsetWidth, h1 = fk.offsetHeight, l = parseFloat(getComputedStyle(fk).left) || 21;
+    const bar = ui.bar.getBoundingClientRect(), barH = bar.height / k;
+    const room = (bar.left - wr.left) / k - l - 8, full = root.clientWidth - 2 * l;
+    let row = 0;
+    if (w > room) {
+      fk.style.setProperty('--pz-fk-room', `${Math.floor(room)}px`); set(true, false);
+      const w2 = fk.scrollWidth, h2 = fk.offsetHeight;
+      if (w2 <= room + .5 && h2 <= Math.max(barH + 6, h1 * 2.3)) row = Math.max(0, h2 - barH) + 2;
+      else {
+        set(false, true);
+        if (w > full) fk.style.setProperty('--pz-fk-s', String(Math.max(.5, full / w).toFixed(3)));
+        row = Math.ceil(h1 * Math.min(1, full / w || 1)) + 12;
+      }
+    }
     fk.hidden = was;
-    const room = (ui.bar.getBoundingClientRect().left - wr.left) / k - l - 8, full = root.clientWidth - 2 * l;
-    const up = w > room;
-    root.classList.toggle('fk-up', up);
-    if (up && w > full) fk.style.setProperty('--pz-fk-s', String(Math.max(.5, full / w).toFixed(3))); else fk.style.removeProperty('--pz-fk-s');
-    ui.text.style.setProperty('--pz-fkrow', up ? `${Math.ceil(hgt * Math.min(1, full / w || 1)) + 12}px` : '0px');
+    ui.text.style.setProperty('--pz-fkrow', `${row}px`);
   }
   function paintChrome() {
     if (!ui) return;
