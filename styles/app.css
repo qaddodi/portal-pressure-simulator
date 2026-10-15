@@ -5218,3 +5218,10 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 .tb-act .tb-hc { min-width: 18px; height: 18px; margin-left: -2px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); font: 600 var(--fs-12)/18px var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
 .topbar[data-fit="2"] .tb-act .tb-hc, .topbar[data-fit="3"] .tb-act .tb-hc { display: none; }
 .history-card .tl-pop.tl-history { width: auto; max-height: none; overflow: visible; padding: 2px 0 6px; }
+
+/* Settings › "Frosted glass" off (html[data-noglass]): no live blur anywhere, which spares the GPU re-blurring the
+   moving figure every frame. Cards turn solid; the figure's label pills glow in their own colour instead. */
+:root[data-noglass] *, :root[data-noglass] *::before, :root[data-noglass] *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+:root[data-noglass] :is(.lb-glass, .sv-legend, .pz-fk, .toast) { background: var(--surface); }
+:root[data-noglass] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .cl-glass) { background: var(--surface); }
+:root[data-noglass] :is(.lz-lab, .lz-zone, .sv-region)::before { background: color-mix(in srgb, var(--term-c, var(--accent)) 22%, var(--surface)); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)), 0 0 10px 1px color-mix(in srgb, var(--term-c, var(--accent)) 55%, transparent); }

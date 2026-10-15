@@ -821,6 +821,10 @@ function openSettings(anchor) {
       h('div', { class: 'menu-title' }, t('menu.language')),
       (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); }); return sel; })(),
       h('div', { class: 'menu-title' }, t('menu.access')),
+      menuToggle(document.documentElement.hasAttribute('data-noglass'), 'layers', 'Solid cards (cooler device)', 'Turns off the frosted glass: cards are solid and figure labels glow', (on) => {
+        try { localStorage.setItem('pps.noGlass', on ? '1' : '0'); } catch { /* storage unavailable */ }
+        document.documentElement.toggleAttribute('data-noglass', on);
+      }),
       menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
