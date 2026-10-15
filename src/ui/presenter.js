@@ -23,7 +23,7 @@ import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.j
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=4a7ffc7ec0';
 import { createTools } from './presenter-tools.js?v=8292d4e67d';
-import { openHandout } from './handout.js?v=3e06529c25';
+import { openHandout } from './handout.js?v=b7b0c68f6c';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=525d14632b';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
@@ -1031,6 +1031,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // ── Slide states ──
   // stateOf[i]: the slide whose model state slide i shows (itself, or the last one before it that changed the model).
   const changes = (s) => !!(s.preset || s.params || s.action || s.days);
+  const stepOf = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && (s.tool.lines || true) } : {});
   function prepare() {
     const key = deck.mine ? null : deck.id;
     stateOf = []; let last = 0;
@@ -1042,7 +1043,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const hit = key && cache.get(key);
     if (hit) { states = hit.states; waiters = []; return; }
     const mine = []; states = mine; waiters = [];
-    const c = getCalc(), steps = [...slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && (s.tool.lines || true) } : {})), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days }))];
+    const c = getCalc(), steps = [...slides.map(stepOf), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days }))];
     const presetAt = []; let pid = store.get().presetId;
     slides.forEach((s, i) => { if (s.preset) pid = s.preset; presetAt[i] = pid; });
     extra.forEach((o, k) => { presetAt[slides.length + k] = o.preset; });
@@ -1060,6 +1061,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       });
       if (key) cache.set(key, { states: mine });
     })();
+  }
+  // Each slide's numbers for the printed notes (handout.js): the deck computed as presenting it computes it, or the states
+  // it was last presented with, so the values in the handout's words are the ones its slides show.
+  async function deckNumbers(d) {
+    const sl = d.mine ? d.slides : withOverview(d).slides, own = []; let last = 0;
+    sl.forEach((s, i) => { if (changes(s) || i === 0) last = i; own[i] = last; });
+    let st = !d.mine && cache.get(d.id)?.states;
+    if (!st) {
+      st = [];
+      const first = sl[0]?.preset ? null : (await host.request('snapshot')).snap;
+      await getCalc().sequence(sl.map(stepOf), first, (m) => { st[m.i] = { fp: m.fp }; });
+    }
+    return sl.map((_, i) => st[own[i]]?.fp ?? null);
   }
   const stateReady = (i) => (states[i] ? Promise.resolve(states[i]) : new Promise((res) => waiters.push({ i, res })));
 
@@ -3005,8 +3019,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
 
   // What the unified menu (menu.js) lists and does: the presentations, this device's scripts and their actions.
-  const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), start, shareDeck, notes: openHandout,
-    scriptNotes: (s) => openHandout(fromScript(s)), newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null });
+  const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), start, shareDeck, notes: (d) => openHandout(d, deckNumbers(d)),
+    scriptNotes: (s) => { const d = fromScript(s); openHandout(d, deckNumbers(d)); }, newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null });
 
   return { start, stop, library, readLink, active: () => !!deck,
     // Where the show is (for the preview pill's reload): the deck and the slide on screen, or the one it is moving to.

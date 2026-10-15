@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handoutHTML } from '../src/ui/handout.js';
-import { DECKS } from '../src/ui/decks.js';
+import { handoutHTML, lineText } from '../src/ui/handout.js';
+import { DECKS, withOverview } from '../src/ui/decks.js';
+import { TILE } from '../src/ui/table-marks.js';
 
 test('the notes handout has a row per slide with its notes and question, for every deck', () => {
   for (const d of DECKS) {
@@ -17,4 +18,20 @@ test('the notes handout has a row per slide with its notes and question, for eve
 test('the handout escapes a script\'s own text', () => {
   const html = handoutHTML({ title: '<b>x</b>', mine: true, slides: [{ title: 'a<script>', notes: '"n"', ask: ['q&', 'a'] }] });
   assert.ok(!html.includes('<script>') && html.includes('a&lt;script&gt;') && html.includes('q&amp;'));
+});
+
+// Print notes print what the slide shows: every value and pointer in a line is filled in (121 values and 22 pointers
+// printed raw, "an HVPG of hvpg", until 15 Oct).
+test('the handout prints each line\'s values and words, never a raw placeholder', () => {
+  const fp = Object.fromEntries(Object.keys(TILE).map((k) => [k, 7.25]));   // (any finite number: the check is that every token is read)
+  for (const d of DECKS) {
+    const slides = withOverview(d).slides, ids = new Set(slides.map((s) => s.id));
+    for (const s of slides) for (const m of (s.line || '').matchAll(/\{(\w+)@([\w-]+)\}/g)) assert.ok(ids.has(m[2]), `${d.id}/${s.id}: {${m[1]}@${m[2]}} names no slide`);
+    const html = handoutHTML(d, 'figs/', slides.map(() => fp));
+    const text = html.slice(html.indexOf('</style>')).replace(/<[^>]+>/g, '');
+    for (const bad of ['{', '}', '](', '—']) assert.ok(!text.includes(bad), `${d.id}: "${bad}" in ${text.slice(Math.max(0, text.indexOf(bad) - 60), text.indexOf(bad) + 20)}`);
+  }
+  assert.equal(lineText('An HVPG of {hvpg} in the [portal vein](pv), under {<15 cm/s}; {6 to 8 g}; before {ppg@a}.', { hvpg: 11.64 }, (id) => (id === 'a' ? { ppg: 4.25 } : null)),
+    'An HVPG of 11.6 mmHg in the portal vein, under 15 cm/s; 6 to 8 g; before 4.3 mmHg.');
+  assert.equal(lineText('{asc} and {plt} and {shunt}', { asc: 4300, plt: 92.4, shunt: 0.715 }), '4.3 L and 92 ×10⁹/L and 72%');
 });
