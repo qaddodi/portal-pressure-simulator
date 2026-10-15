@@ -1058,6 +1058,9 @@ function wireFloating() {
     if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); }
     const occ = px(nbR && nbR.height ? (innerHeight - nbR.top) / uiScale() : 0);
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); }
+    // (and the top bar's foot, so a tall sheet stops under the view switch and leaves it in reach)
+    const topOcc = px(thumb ? tb.getBoundingClientRect().bottom / uiScale() : 0);
+    if (pubVals.topOcc !== topOcc) { pubVals.topOcc = topOcc; document.documentElement.style.setProperty('--thumb-top', topOcc); }
     const sig = `${app.className}|${tb.className}|${tb.dataset.fit}`;
     if (changed || sig !== pubSig) { pubSig = sig; dispatchEvent(new Event('pps:occ')); }
   };
@@ -1281,7 +1284,7 @@ function syncThumb() {
   const on = thumbOn();
   if (app.classList.contains('thumb') !== on) app.classList.toggle('thumb', on);
   document.documentElement.classList.toggle('thumb-ui', on);   // (the menus and sheets live outside #app)
-  // (The view switch lives in the View tab's menu; the sinusoid view hides the dock, so there it shows in the top bar.)
+  // (The view switch stays in the top bar: on a phone on its own line under the patient and the key, styles/app.css.)
 }
 function wireThumbBar() {
   const tab = (id, ic, label, onclick) => h('button', { class: 'nb-tab', type: 'button', 'data-tab': id, onclick }, svgIcon(ic), h('span', { class: 'nb-l' }, label));
@@ -1300,10 +1303,10 @@ function wireThumbBar() {
   const badge = h('span', { class: 'nb-badge', 'aria-hidden': 'true' });
   const hist = tab('history', 'clock', 'History', menuTab((a) => timeline.openHistory(a)));
   hist.append(badge);
-  const views = tab('view', 'layers', 'View', menuTab(openViewMenu));
+  const layers = tab('layers', 'layers', 'Layers', menuTab(openLayersMenu));
   const more = tab('settings', 'gear', 'Settings', menuTab((a) => openSettings(a, true)));
-  for (const b of [hist, views, more]) b.setAttribute('aria-haspopup', 'dialog');
-  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, views, more));
+  for (const b of [hist, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
+  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, layers, more));
   // The tabs follow the cards they open (and History's count), however those were opened or closed.
   const sync = () => {
     const t = String(treatOpen()), i = String(app.classList.contains('dock-open'));
@@ -1320,24 +1323,19 @@ function wireThumbBar() {
   thumbMQ.addEventListener?.('change', syncThumb);
   syncThumb(); sync();
 }
-// View (15 Oct, option 2): the view switch, Fit and the circuit's turn upright, then the layers (the moving blood and
-// what it shows, or the lobule's layers). Nothing of these floats over the figure above the dock any more.
-// Changing the view, fitting or turning closes the menu, so the figure is seen moving; the layers switch in place.
-function openViewMenu(anchor) {
+// Layers: Fit and the circuit's turn upright, then what is drawn on the figure (the moving blood and what it shows, or the
+// lobule's layers). The view switch itself stays in the top bar, one tap away (15 Oct, Mohammad). Fitting or turning
+// closes the menu, so the figure is seen moving; the layers switch in place.
+function openLayersMenu(anchor) {
   const act = (fn) => () => { closePopover(); fn(); };
-  const seg = h('div', { class: 'seg full menu-seg view-seg', role: 'group', 'aria-label': 'View' },
-    [...$$('#viewSeg button')].filter((b) => !b.hidden).map((src) => {
-      const on = src.getAttribute('aria-pressed') === 'true';
-      return h('button', { 'aria-pressed': String(on), 'data-view': src.dataset.view, onclick: on ? null : act(() => src.click()) }, src.textContent);
-    }));
   const st = store.get(), circuit = !st.lobule && st.view === 'circuit';
   popover(anchor, [
-    h('div', { class: 'menu-title' }, 'View'), seg,
+    h('div', { class: 'menu-title' }, 'Layers'),
     menuItem('Fit to screen', { icon: 'fit', onClick: act(() => $('#zoomFit').click()) }),
     circuit ? menuItem('Turn upright', { icon: 'rotate', checked: stage.circuitRotated(), onClick: act(() => $('#rotateCircuit').click()) }) : null,
     h('div', { class: 'menu-sep' }),
     ...(st.lobule ? lobuleLayerItems() : bloodItems())],
-  { cls: 'blood-pop view-pop', place: 'above', align: 'center' });
+  { cls: 'blood-pop layers-pop', place: 'above', align: 'center' });
 }
 // ── Treat card ──────────────────────────────────────
 let treatOff = null;

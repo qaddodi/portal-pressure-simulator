@@ -5171,10 +5171,47 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .nb-badge:empty { display: none; }
 .nb-badge { position: absolute; top: 3px; left: calc(50% + 5px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--text); color: var(--stage-bg); font: 600 var(--fs-12)/16px var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
 /* What moved to the tab row leaves the top bar and the play bar. */
-.app.thumb :is(.top-right, .topbar #viewSeg, #btnBlood, #btnLobuleLayers, .tl-hist, #zoomIn, #zoomOut) { display: none !important; }
+.app.thumb :is(.top-right, #btnBlood, #btnLobuleLayers, .tl-hist, #zoomIn, #zoomOut) { display: none !important; }
 .app.thumb .topbar .tb-id { flex: 0 1 auto; min-width: 0; }
-.app.thumb .topbar .stage-bar.top { flex: 1 1 auto; order: 0; justify-content: flex-end; }
-.app.thumb .topbar .sb-left { display: none; }
+/* The view switch (Circuit, Anatomy, Lobule, Sinusoid) stays in the top bar, one tap away in every view (15 Oct, Mohammad:
+   "it should remain outside and accessible"). An upright tablet has it between the patient and the key, as on a Mac; a phone
+   gives it its own centred line under those two chips, so the play bar and tab row stay as slim as they are. (The top bar's
+   own box steps aside, display: contents, so the switch and the key order themselves in the bar's row.) */
+.app.thumb .topbar .stage-bar.top { display: contents; }
+.app.thumb .topbar .sb-left { display: flex; order: 1; flex: 1 0 auto; justify-content: center; }   /* (never squeezed under a neighbour: it takes the next line instead) */
+.app.thumb .topbar .sb-right { order: 2; margin-left: auto; }
+.app.thumb .topbar #viewSeg { flex: none; }
+/* The patient's name gives way (it ellipses) before the key or the switch is pushed off its row. */
+.app.thumb .topbar .tb-id { min-width: 0; }
+.app.thumb .topbar .tb-id .menu-btn { flex: 0 1 auto; min-width: 0; }
+.app.thumb .topbar .tb-id .scenario-v { min-width: 0; }
+.app.thumb .topbar .sb-right { flex: none; }
+/* An upright tablet keeps that one row in every view, the Sinusoid button too (the lobule) on a 768-820 px iPad. (The
+   sinusoid view, with its settings back in the bar, may take two.) */
+@media (min-width: 768px) {
+  #app.thumb:not(.sin-focus) .topbar { flex-wrap: nowrap; }
+}
+/* A phone: a grid, so the patient and the key always share the first line (the name ellipses on a narrow phone), and the
+   switch has the second to itself, centred. In the sinusoid view the switch (Lobule, Sinusoid) shares it with history, play,
+   settings and search; below 360 px those take a third line. */
+@media (max-width: 767px) {
+  .app.thumb .topbar { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto; grid-template-areas: "id . key" "views views views"; align-items: center; gap: 6px 0; }
+  .app.thumb .topbar .tb-id { grid-area: id; }
+  .app.thumb .topbar .sb-right { grid-area: key; margin-left: 8px; }   /* (the gap the two chips had; the grid's own column gaps would be two) */
+  .app.thumb .topbar .sb-left { grid-area: views; }
+  #app.thumb.sin-focus .topbar { grid-template-areas: "id . key" "views views tr"; }
+  #app.thumb.sin-focus .topbar .sb-left { justify-content: flex-start; }
+  #app.thumb.sin-focus .topbar .top-right { grid-area: tr; justify-self: end; margin-left: 8px; }
+  .app.thumb .topbar #viewSeg { height: 40px; padding: 3px; }
+  .app.thumb .topbar #viewSeg button { height: 34px; padding: 0 12px; font-size: var(--fs-14); letter-spacing: 0; }
+  .app.thumb .topbar #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) > button:where([data-view]) { padding: 0 10px; }
+}
+@media (max-width: 380px) {
+  .app.thumb .topbar #viewSeg button, .app.thumb .topbar #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) > button:where([data-view]) { padding: 0 7px; font-size: 13px; }
+}
+@media (max-width: 359px) {
+  #app.thumb.sin-focus .topbar { grid-template-areas: "id . key" "views views views" "tr tr tr"; }
+}
 /* A phone: the cards (Tests, Treat, Details) and the menus sit above the dock, inset like it, round on every corner. */
 @media (max-width: 767px) {
   .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) {
@@ -5186,23 +5223,19 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
      card moves it, up to Full and down to Half or closed. The button stays for the keyboard (Half/Full), seen only on focus,
      and never takes a touch, so the head under it gets the tap or the drag. */
   .app.thumb :is(.panel-grab, .sheet-grab) { pointer-events: none; }
-  html.thumb-ui .menu.as-sheet { left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--thumb-occ, 0px); max-height: calc(100dvh - var(--thumb-occ, 0px) - 72px); padding-bottom: 10px; border-radius: var(--r-sheet); }
+  html.thumb-ui .menu.as-sheet { left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--thumb-occ, 0px); max-height: calc(100dvh - var(--thumb-occ, 0px) - max(72px, var(--thumb-top, 0px) + 8px)); padding-bottom: 10px; border-radius: var(--r-sheet); }
 }
 /* A tablet held upright: Treat opens above the dock, at the right, instead of under the top bar. */
 @media (min-width: 768px) {
   .app.thumb .treat-card { top: auto; bottom: var(--nb-occ, calc(var(--vdock-h) + var(--gap) + 8px)); }
 }
-/* The sinusoid view hides the dock: its way back (Lobule, in the view switch) stays in the top bar. */
-#app.thumb.sin-focus .topbar .sb-left { display: flex; }
-#app.thumb.sin-focus #viewSeg { display: flex !important; }
-#app.thumb.sin-focus .top-right { display: flex !important; }
-/* The view switch, Fit and the circuit's turn upright live in the View tab's menu (15 Oct, option 2), so nothing floats
-   over the figure above the dock. The sinusoid view hides the dock: there the zoom group (+, − back to the lobule, Fit)
-   stays at the bottom right. */
+/* The sinusoid view hides the dock: its history, play, settings and search come back to the top bar after the key (on a
+   phone, on the switch's line: see the grid above). */
+#app.thumb.sin-focus .top-right { display: flex !important; order: 4; margin-left: auto; }
+/* Fit and the circuit's turn upright live in the Layers tab's menu (15 Oct, option 2), so nothing floats over the figure
+   above the dock. The sinusoid view hides the dock: there the zoom group (+, − back to the lobule, Fit) stays at the bottom right. */
 .app.thumb:not(.sin-focus) .zoom-pill { display: none !important; }
 #app.thumb.sin-focus .zoom-pill :is(#zoomIn, #zoomOut) { display: inline-grid !important; }
-.view-pop .view-seg { margin: 2px 8px 6px; }
-.view-pop .view-seg button { flex: 1 1 0; min-width: 0; }
 /* One card or menu at a time above the thumb dock, each a solid piece that comes and goes whole: it rises a little
    out of the dock as it fades in and sinks back as it fades out, never sliding across the dock, and one opened while
    another is still going out waits until that one has gone (--enter-delay, set by util.js enterAfterGone). */
