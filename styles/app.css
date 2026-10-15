@@ -2055,7 +2055,7 @@ button.finding { cursor: pointer; }
 /* (The phone's pill looks small, 38 px tall with the count and the two buttons close together (Mohammad, 15 Oct), but every button keeps its 44 px tap box: a negative margin pulls the box's spare 3 to 4 px over the pill's own edge.) */
 .pz.stack .pz-bar .ib { width: 44px; min-width: 0; height: 44px; margin: -4px -3px; }
 .pz.stack .pz-bar .ib svg { width: 18px; height: 18px; }
-.pz.stack .pz-bar button.pzb-n { min-width: 3.4em; min-height: 44px; margin-block: -4px; padding: 0 4px; font-size: calc(var(--s-body) * .9); }
+.pz.stack .pz-bar button.pzb-n { min-width: 5em; min-height: 44px; margin-block: -4px; padding: 0 4px; font-size: calc(var(--s-body) * .9); font-variant-numeric: tabular-nums; }   /* (room for "10 / 13": the pill keeps one width on every slide) */
 .pz.stack .pz-kick .pz-sec { flex: none; }
 @media (max-width: 359px) { .pz.stack .pz-kick .pz-sec { display: none; } }
 .pz.stack .pz-kick .pz-kw { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
