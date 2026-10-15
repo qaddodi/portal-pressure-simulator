@@ -4270,6 +4270,71 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .ab-sb:hover:not(:disabled) { background: var(--surface-2); }
   .ab-drain:hover:not(:disabled) { filter: brightness(1.07); }
 }
+/* The Ascites tab's centre row: the pressure dial hugging the belly's left side, the drain on its right, the belly centred
+   between two equal sides. --ab-bw (the belly's size) is what the row's width leaves after two sides of 104 px, no more than
+   the dial's room beside it allows, capped, and on a sheet also by its height. Unregistered, so its cqi resolve against the
+   row (.ab-vol) wherever it is used. A slide shows neither the dial nor the drain (its bar and the belly stay as they were). */
+.ab-dial-box, .ab-dp { display: none; }
+.dock-pane > .instrument-view.ab .ab-iap { display: none; }
+.dock-pane > .instrument-view.ab .ab-vol { --ab-bw: clamp(96px, min(100cqi - 208px, 45.5cqi - 14px, 250px), 250px); --ab-dw: calc(var(--ab-bw) * 76 / 128);
+  container-type: inline-size; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); column-gap: 8px; align-items: center; justify-items: stretch; }
+.instrument-workspace.float-ui .dock-pane > .instrument-view.ab .ab-vol { --ab-bw: clamp(96px, min(100cqi - 208px, 45.5cqi - 14px, 44cqh, 250px), 250px); }
+.instrument-workspace .dock-pane > .instrument-view.ab .ab-vol > .ab-gauge { grid-column: 2; position: relative; width: auto; justify-self: center; }
+.instrument-workspace .dock-pane > .instrument-view.ab .ab-vol > .ab-gauge > .ab-belly.ab-belly { width: var(--ab-bw); height: var(--ab-bw); }
+.dock-pane > .instrument-view.ab .ab-dial-box { display: block; position: absolute; top: 50%; right: calc(100% + 6px); width: var(--ab-dw); transform: translateY(-50%); }
+.ab-dial { display: block; width: 100%; height: auto; overflow: visible; }
+.ab-dial-band { fill: none; stroke-width: 7; opacity: .2; }
+.ab-dial-live { fill: none; stroke-width: 7; transition: stroke-dasharray .6s var(--ease); }
+.ab-dial :is(.ab-dial-band, .ab-dial-live)[data-sev="ok"] { stroke: var(--ok); }
+.ab-dial :is(.ab-dial-band, .ab-dial-live)[data-sev="caution"] { stroke: var(--caution); }
+.ab-dial :is(.ab-dial-band, .ab-dial-live)[data-sev="danger"] { stroke: var(--danger); }
+.ab-dial-tick { stroke: var(--text-3); stroke-width: 1.2; stroke-linecap: round; }
+.ab-dial-tl { fill: var(--text-3); font: 600 8.5px var(--font-ui); text-anchor: middle; font-variant-numeric: tabular-nums; }
+.ab-dial-knob { transform-box: view-box; transform-origin: 64px 64px; transition: transform .6s var(--ease); }
+.ab-dial-knob line { stroke: var(--text-2); stroke-width: 2; stroke-linecap: round; }
+.ab-dial-knob circle { fill: var(--surface); stroke: var(--ok); stroke-width: 2.6; transition: stroke .3s var(--ease); }
+.ab-dial[data-sev="caution"] .ab-dial-knob circle { stroke: var(--caution); }
+.ab-dial[data-sev="danger"] .ab-dial-knob circle { stroke: var(--danger); }
+.ab-dial text:not(.ab-dial-tl) { text-anchor: middle; font-family: var(--font-ui); }
+.ab-dial-k { fill: var(--text-3); font-size: 8.5px; font-weight: 600; letter-spacing: .12em; }
+.ab-dial-n { fill: var(--text); font-size: 25px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ab-dial-u { fill: var(--text-3); font-size: 8.5px; font-weight: 500; }
+.ab-dial-w { fill: var(--ok); font-size: 9px; font-weight: 650; transition: fill .3s var(--ease); }
+.ab-dial[data-sev="caution"] .ab-dial-w { fill: var(--caution); }
+.ab-dial[data-sev="danger"] .ab-dial-w { fill: var(--danger); }
+/* The drain: its label level with the dial's, then litres, albumin and the button, as wide as the dial at most. */
+.dock-pane > .instrument-view.ab .ab-dp { display: grid; grid-column: 3; justify-self: start; align-content: center; gap: 5px; width: 100%; max-width: max(116px, var(--ab-dw)); min-width: 0; }
+.ab-dp-k { text-align: center; color: var(--text-3); font: 600 11px/1.2 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; }
+.ab-dp-vol { display: flex; align-items: center; height: 32px; border-radius: var(--r-control); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); overflow: hidden; }
+.ab-dp-sb { flex: none; width: 28px; height: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font: 500 19px/1 var(--font-ui); cursor: pointer; touch-action: manipulation; outline-offset: -3px; transition: background var(--t-fast); }
+.ab-dp-sb:active:not(:disabled) { background: var(--surface-3); }
+.ab-dp-sb:disabled { color: var(--text-3); opacity: .45; cursor: not-allowed; }
+.ab-dp-l { flex: 1; min-width: 0; text-align: center; font: 650 16px/1 var(--font-ui); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ab-dp-l small { margin-left: 2px; font-size: 11px; font-weight: 500; color: var(--text-3); }
+.ab-dp-alb { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; height: 34px; padding: 0 6px 0 8px; border: 0; border-radius: var(--r-control); background: var(--surface-2);
+  text-align: left; cursor: pointer; touch-action: manipulation; transition: box-shadow .25s var(--ease); }
+.ab-dp-alb.ab-warn { box-shadow: inset 0 0 0 1px var(--caution); }
+.ab-dp-at { display: grid; min-width: 0; line-height: 1.15; }
+.ab-dp-at b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 12px/1.15 var(--font-ui); color: var(--text); }
+.ab-dp-at small { white-space: nowrap; font: 500 11px/1.15 var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; transition: color .25s var(--ease); }
+.ab-dp-at small.ab-warn { color: var(--caution); font-weight: 600; }
+.ab-dp-alb .switch-vis { position: relative; flex: none; width: 30px; height: 18px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: background .2s var(--ease), box-shadow .2s var(--ease); }
+.ab-dp-alb .switch-vis i { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgb(var(--black-rgb) / .3); transition: transform .22s var(--ease); }
+.ab-dp-alb[aria-checked="true"] .switch-vis { background: var(--accent); box-shadow: inset 0 0 0 1px transparent; }
+.ab-dp-alb[aria-checked="true"] .switch-vis i { transform: translateX(12px); }
+.ab-dp .ab-drain { width: 100%; min-width: 0; height: 34px; padding: 0 8px; }
+@container (max-width: 300px) {   /* (a 320 px phone: the drain column is about 84 px) */
+  .ab-dp-alb { gap: 3px; padding: 0 4px 0 6px; }
+  .ab-dp-at b { font-size: 11px; }
+  .ab-dp-alb .switch-vis { width: 26px; height: 16px; }
+  .ab-dp-alb .switch-vis i { width: 12px; height: 12px; }
+  .ab-dp-alb[aria-checked="true"] .switch-vis i { transform: translateX(10px); }
+  .ab-dp-sb { width: 24px; }
+}
+@media (hover: hover) {
+  .ab-dp-sb:hover:not(:disabled) { background: var(--surface-2); }
+  .ab-dp-alb:hover { background: var(--surface-3); }
+}
 @media (prefers-reduced-motion: reduce) { .ab :is(*, *::before) { transition: none; } }
 /* In a sheet the Ascites view grows with the sheet's height, as the charts in the other panes do: a taller sheet (swiped up on a
    phone, or a larger panel on a computer) gives bigger readings, belly, lab tiles and rows; the folded sheet keeps the sizes above. */

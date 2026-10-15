@@ -2646,7 +2646,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const two = getComputedStyle(view.querySelector('.ab-main')).gridTemplateColumns.split(' ').length > 1;
           const read = view.querySelector('.ab-read');
           const ref = two ? R(read).right - parseFloat(getComputedStyle(read).paddingRight) : inner;
-          rows = [...['.ab-ctl > .ab-row', '.ab-drain'].flatMap((q) => [...view.querySelectorAll(q)].map((e) => [e, inner])),
+          // (the drain sits in the belly's row, which is centred and reaches the edge as one block)
+          rows = [...['.ab-ctl > .ab-row'].flatMap((q) => [...view.querySelectorAll(q)].map((e) => [e, inner])),
             ...['.ab-vol', '.ab-iap', '.ab-tiles'].flatMap((q) => [...view.querySelectorAll(q)].map((e) => [e, ref]))];
         } else {
           // a picture's box and the notes beside or under it; side by side, the right-most reaches the edge
