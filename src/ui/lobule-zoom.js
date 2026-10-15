@@ -19,7 +19,7 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=c5132b373e';
+import { runFlick, FLICK } from './flick.js?v=773d9728fe';
 import { store } from './store.js?v=3b659e1968';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=228bc1be60';
@@ -28,8 +28,8 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=333df74000';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=8d5db3a81a';
-import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
+import { createSinusoidView } from './sinusoid-view.js?v=efa967e240';
+import { frameFor, cancelFrame, noteDraw, saver, SAVER_MS } from './frame.js?v=5ad4028792';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -581,7 +581,7 @@ export function createLobuleZoom({ host }) {
   const binCache = new Map();
   // Any change may show in the lobule, except these, which never do (the model's frame arrives through update()).
   const UNSEEN = new Set(['frame', 'historyTick', 'details', 'found', 'presetLoading', 'presetList', 'lastHVPG', 'speed', 'lapse', 'tool', 'hiddenReadouts', 'hiddenEvents', 'booted']);
-  store.on('*', (keys) => { if (!Array.isArray(keys) || keys.some((k) => !UNSEEN.has(k))) drawVersion++; });
+  store.on('*', (keys) => { if (!Array.isArray(keys) || keys.some((k) => !UNSEEN.has(k))) { drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); } });
   let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
   const worldCv = document.createElement('canvas');   // the lobule's tissue in world space (see paintTissue)
   const tubeData = new Float32Array(MAXT * TUBE_TEXELS * 4), flowData = new Float32Array(MAXT * FLOW_TEXELS * 4);
@@ -1376,28 +1376,40 @@ export function createLobuleZoom({ host }) {
     if (soft && now - lastPaint < 110) { raf = nextFrame(loop); return; }
     // The flow alone is paced to 30 frames a second, like the anatomy's blood (not the screen's 60 or 120): it looks the
     // same and halves the work or more, which kept a laptop busy and warm. A pan, zoom or any other change draws at once.
-    const paced = !soft && viewVer === pacedVer;
-    if (paced && now - lastPaint < PACE_MS) { raf = nextFrame(loop); return; }
+    // (Battery saver: 15 frames a second.)
+    const paced = !soft && viewVer === pacedVer, pace = saver() ? SAVER_MS : PACE_MS;
+    if (paced && now - lastPaint < pace) { raf = nextFrame(loop); return; }
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; lastPaint = now;
     const st = store.get(), moving = st.running && !reduce.matches;
     if (moving) clock = (clock + dt) % 10000;
     rzMoving = easeRadii(dt);
     if (rzMoving) drawVersion++;   // a caliber still easing: redraw this frame
     const drew = draw(moving ? dt : 0);
+    if (drew) noteDraw('lobule-zoom');
     // Resolution follows the frame time: when frames that redraw arrive late the lobule is drawn smaller (a step at a
     // time, not more often than every half second) and it grows back once there is room.
     if (drew && prevDrew && !soft && dt < 0.1) {
       // Hysteresis: a sustained trend of about a second before the scale moves, and then not more than once a second.
       gapAvg += (dt * 1000 - gapAvg) * 0.1;
-      slowMs = gapAvg > (paced ? 41 : 21) ? slowMs + dt * 1000 : 0; fastMs = gapAvg < (paced ? 34.5 : 14.5) ? fastMs + dt * 1000 : 0;
+      const aim = pace + 4;   // (the frame the pacing aims for: 33 ms, or 67 ms in Battery saver)
+      slowMs = gapAvg > (paced ? aim * 1.23 : 21) ? slowMs + dt * 1000 : 0; fastMs = gapAvg < (paced ? aim * 1.035 : 14.5) ? fastMs + dt * 1000 : 0;
       if (now - resCheck > 1000) {
         if (slowMs > 1000 && lzRes > 0.6) { lzRes = Math.max(0.6, lzRes - 0.1); resCheck = now; slowMs = 0; idleDrawn = ''; }
         else if (fastMs > 2500 && lzRes < 1) { lzRes = Math.min(1, lzRes + 0.1); resCheck = now; fastMs = 0; idleDrawn = ''; }
       }
     }
     prevDrew = drew; pacedVer = viewVer;
+    // Paused and settled (nothing drawn, nothing easing): the loop stops asking for frames, as the figure does, so the
+    // screen can idle. Every change wakes it (update, a pan or zoom, a glide, the store, a label size, the dive), and it
+    // looks again four times a second in case a change came by a path that does not.
+    if (!drew && !moving && !rzMoving && (flowA === 0 || flowA === 1)) {
+      last = 0; prevDrew = false;   // (on waking, the first frame steps nothing: no jump in the flow)
+      clearTimeout(sleepT); sleepT = setTimeout(() => { if (!raf && fade > 0) raf = nextFrame(loop); }, 250);
+      return;
+    }
     raf = nextFrame(loop);
   }
+  let sleepT = 0;
   // The flow marks (shimmer and chevrons) fade out as the dive starts and back in once the lobule has landed, over about
   // 0.3 s each way. Ordinary panning and zooming inside the lobule view leave them alone.
   let flowA = 1, flowT = 0;
@@ -1423,7 +1435,7 @@ export function createLobuleZoom({ host }) {
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     ensureGeo(W, H);
-    const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzRes;   // (Battery saver: one pixel per CSS pixel)
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion, flowA.toFixed(2)].join('|');

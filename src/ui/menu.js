@@ -8,7 +8,7 @@ import { store } from './store.js?v=3b659e1968';
 import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=a2cde2ac82';
 import { SNAPSHOTS } from './snapshots.js?v=01db65d6d0';
 import { pressureColor } from './colormap.js?v=3a5c342615';
-import { frameFor } from './frame.js?v=0db47e99bf';
+import { frameFor } from './frame.js?v=5ad4028792';
 const nextFrame = frameFor('menu');
 
 // Where each group's resistance sits along the pathway from the gut to the heart.

@@ -71,6 +71,71 @@ try {
     if (climbing(col('nodes'), Math.max(200, rows[0].nodes * 0.05))) fail(`${view}: page nodes keep climbing`);
     if (climbing(col('listeners'), 50)) fail(`${view}: listeners keep climbing`);
   }
+  // Heat and battery: a view with nothing changing draws nothing and stops asking for frames, as the figure does; one
+  // that plays draws at 30 frames a second (15 in Battery saver), not the screen's 60 or 120. (FibroScan computed its
+  // map every screen refresh; the paused lobule and sinusoid asked for about 45 frames a second with nothing to draw.)
+  // pps.perf: callbacks per second per surface (`surfaces`) and frames each really drew (`drawn`), over the last second.
+  {
+    const run = (on) => page.evaluate((v) => window.pps.host.send({ type: 'run', running: v }), on);
+    // Callbacks and frames drawn per second for `tag` over 3 s, once the view has settled. (A slow software-GL runner
+    // may draw only a few frames a second: a playing view must still draw, and never more often than its pace.)
+    const rate = async (tag, settle = 3000) => {
+      await page.waitForTimeout(settle);
+      const t = () => page.evaluate((g) => { const p = window.pps.perf; return { at: performance.now(), asks: p.totals.asks[g] || 0, drawn: p.totals.drawn[g] || 0, stage: p.totals.asks.stage || 0 }; }, tag);
+      const a = await t();
+      await page.waitForTimeout(3000);
+      const b = await t(), s = (b.at - a.at) / 1000, per = (k) => Math.round((b[k] - a[k]) / s * 10) / 10;
+      return { asks: per('asks'), drawn: per('drawn'), stage: per('stage'), frames: b.drawn - a.drawn };
+    };
+    const busy = (what, r, max) => { console.log(`${what.padEnd(26)} asks ${r.asks}/s, draws ${r.drawn}/s (draws at most ${max})`); if (r.drawn > max) fail(`${what}: draws ${r.drawn} frames a second (at most ${max})`); if (r.frames < 1) fail(`${what}: drew nothing in 3 s, so it no longer moves`); };
+    // Paused, a view first finishes easing (on a software-GL runner a frame can take half a second, so that may take a
+    // while); then, over 3 s, it must draw nothing and ask for at most its four safety looks a second (the figure under the
+    // lobule: four for its blood and four for a FibroScan probe).
+    const quiet = (r, figure) => r.drawn === 0 && r.asks <= 6 && (!figure || r.stage <= 10);
+    const still = async (what, tag, figure = false) => {
+      let r = await rate(tag, 1000);
+      for (let t0 = Date.now(); !quiet(r, figure) && Date.now() - t0 < 40000;) r = await rate(tag, 0);
+      console.log(`${what.padEnd(26)} asks ${r.asks}/s, draws ${r.drawn}/s${figure ? `, figure asks ${r.stage}/s` : ''} (nothing changes)`);
+      if (r.drawn > 0 || r.asks > 6) fail(`${what}: nothing changes, but it still asks for ${r.asks} frames a second and draws ${r.drawn}`);
+      if (figure && r.stage > 10) fail(`${what}: the figure under it asks for ${r.stage} frames a second`);
+      // Asleep, a change still shows: the theme flipped by hand (no store change, so only its own look wakes it) is drawn.
+      if (tag !== 'fibroscan') {
+        const n = () => page.evaluate((g) => window.pps.perf.totals.drawn[g] || 0, tag), n0 = await n();
+        const orig = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+        await page.evaluate(() => { const d = document.documentElement, dark = d.dataset.theme === 'dark' || (!d.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches); d.setAttribute('data-theme', dark ? 'light' : 'dark'); });
+        await page.waitForTimeout(2500);
+        const n1 = await n();
+        await page.evaluate((o) => { const d = document.documentElement; if (o) d.setAttribute('data-theme', o); else d.removeAttribute('data-theme'); }, orig);
+        await page.waitForTimeout(2500);
+        console.log(`${what.padEnd(26)} theme flipped: drew ${n1 - n0} frame(s)`);
+        if (n1 === n0) fail(`${what}: asleep, it did not redraw for a new theme`);
+      }
+      // Asleep, it wakes on Play: it must move again.
+      await run(true);
+      const w = await rate(tag, 1500);
+      console.log(`${what.padEnd(26)} then Play: draws ${w.drawn}/s`);
+      if (w.frames < 1) fail(`${what}: after a pause, Play does not start it moving again`);
+    };
+    for (const saverOn of [false, true]) {
+      await page.evaluate((on) => window.pps.stage.setSaver(on), saverOn);
+      const cap = saverOn ? 17 : 33, tag = saverOn ? ' (saver)' : '';
+      await page.evaluate(() => document.querySelector('#viewSeg [data-view="anatomic"]').click());
+      await page.evaluate(() => window.pps.dock.show('fibroscan', { reveal: true }));
+      await run(true); busy(`FibroScan, playing${tag}`, await rate('fibroscan'), cap);
+      await run(false); await still(`FibroScan, paused${tag}`, 'fibroscan');
+      await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
+      await run(true); busy(`lobule, playing${tag}`, await rate('lobule-zoom', 5000), cap);
+      await run(false); await still(`lobule, paused${tag}`, 'lobule-zoom', true);
+      if (await page.evaluate(() => !document.querySelector('#viewSeg [data-view="sinusoid"]').hidden)) {
+        await page.evaluate(() => document.querySelector('#viewSeg [data-view="sinusoid"]').click());
+        await run(true); busy(`sinusoid, playing${tag}`, await rate('sinusoid-view', 5000), cap);
+        await run(false); await still(`sinusoid, paused${tag}`, 'sinusoid-view');
+        await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
+      } else console.log('sinusoid: no WebGL2 here, not checked');
+    }
+    await page.evaluate(() => window.pps.stage.setSaver(false));
+    await run(true);
+  }
   // A phone on a slide left alone: its cards hold still. (Circuit slide 7's words had flipped between two fits, 0.850 and
   // 0.851, on every layout pass, moving the cards a pixel and restyling the whole page about twice a second; a slide
   // change took minutes on a slowed phone.) Nothing on the app's or the cards' inline style may change over 4 s.

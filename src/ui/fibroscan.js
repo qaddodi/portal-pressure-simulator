@@ -4,11 +4,11 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=a2cde2ac82';
-import { FONT } from './charts.js?v=5952366f09';
+import { h, fitCanvas, clamp, cssAlpha, GLIDE_MS } from './util.js?v=a2cde2ac82';
+import { FONT } from './charts.js?v=04f09b5d23';
 import { simTime, isPaused, fibroReading } from './clock.js?v=af6de95a7c';
 import { store } from './store.js?v=3b659e1968';
-import { frameFor } from './frame.js?v=0db47e99bf';
+import { frameFor, noteDraw, saver, SAVER_MS } from './frame.js?v=5ad4028792';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
@@ -118,7 +118,9 @@ export function createFibroScan() {
     const ex = 0, top = 0, ew = w, ph = hh, bot = hh;
     if (ph < 50 || ew < 60) return;
     // Sample the map at about half the screen pixels (smooth, never blocky); drop the cap if frames run long.
-    const want = clamp(Math.round(Math.max(ew, ph) * (w / cv.clientWidth || 1) * 0.75), 140, cap);
+    // (Battery saver: a third of them.)
+    const lo = saver();
+    const want = clamp(Math.round(Math.max(ew, ph) * (w / cv.clientWidth || 1) * (lo ? 0.5 : 0.75)), lo ? 100 : 140, lo ? Math.min(cap, 200) : cap);
     if (want !== N) { N = want; off.width = off.height = N; img = octx.createImageData(N, N); }
     const t0p = performance.now();
     drawElastogram(octx, img, N, c, t);
@@ -159,10 +161,14 @@ export function createFibroScan() {
     ctx.font = FONT(600, big); ctx.strokeText(reading, ux - uw - 5, RY); ctx.fillText(reading, ux - uw - 5, RY);
   }
   // Runs only while the pane is on screen; update() restarts it when the tab is shown again.
+  // The map is computed pixel by pixel, so while it plays it is drawn 30 times a second (15 in Battery saver), like the
+  // lobule's flow, not at the screen's 60 or 120: the speckle drifts slowly, so it looks the same at a fraction of the work.
+  let lastPaint = -1e9;
   function loop(now) {
     if (!cv.isConnected || cv.offsetParent === null || document.hidden) { running = false; return; }
-    paint(now);
-    if (REDUCED || isPaused()) { running = false; return; }   // paused: hold this frame; resume restarts the loop
+    const hold = REDUCED || isPaused();
+    if (hold || now - lastPaint >= (saver() ? SAVER_MS : GLIDE_MS)) { paint(now); lastPaint = now; noteDraw('fibroscan'); }   // (paused: always drawn, so a change shows)
+    if (hold) { running = false; return; }   // paused: hold this frame; resume restarts the loop
     nextFrame(loop);
   }
   let pinned = null;   // (the slide's settled stiffness, the tiles' and words' number; the live value swings with each beat)

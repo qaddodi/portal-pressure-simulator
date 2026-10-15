@@ -7,9 +7,9 @@ import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf 
 import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=a2cde2ac82';
-import { createLobuleZoom } from './lobule-zoom.js?v=67cf80eba9';
-import { runFlick, FLICK } from './flick.js?v=c5132b373e';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, GLIDE_MS } from './util.js?v=a2cde2ac82';
+import { createLobuleZoom } from './lobule-zoom.js?v=129fa09962';
+import { runFlick, FLICK } from './flick.js?v=773d9728fe';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=0bd8cdeedf';
@@ -18,7 +18,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=333df74000';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
-import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
+import { frameFor, cancelFrame, setSaver as setFrameSaver, saver, SAVER_MS } from './frame.js?v=5ad4028792';
 import { portalSplit } from './table-marks.js?v=525d14632b';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 const nextFrame = frameFor('stage');
@@ -4029,6 +4029,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function scanTick(now) {
     scan.raf = 0;
     if (!scan.on || !scan.el) return;
+    // Under an open lobule the probe is covered: it looks again four times a second instead of every frame (leaving the
+    // lobule uncovers it gradually, so it is moving again before it shows).
+    if (lz?.isOpen()) { scan.last = 0; clearTimeout(scan.nap); scan.nap = setTimeout(() => { if (scan.on && !scan.raf) scan.raf = nextFrame(scanTick); }, 250); return; }
+    // Paced like the blood, 30 frames a second (15 in Battery saver), not the screen's 60 or 120.
+    if (scan.last && now - scan.last < (saver() ? SAVER_MS : GLIDE_MS)) { scan.raf = nextFrame(scanTick); return; }
     const dt = scan.last && !reduceMotion.matches ? Math.min(0.1, (now - scan.last) / 1000) : 0; scan.last = now;
     const target = scanSpeed();
     scan.v = scan.v ? scan.v + (target - scan.v) * (1 - Math.exp(-dt / 0.6)) : target;   // ease to a new kPa
@@ -5754,8 +5759,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     flowGate = now - ((now - flowGate) % interval);
     const dt = Math.min(0.1, (now - lastT) / 1000);
     lastT = now;
-    // Fully inside the lobule, the plate is covered (a pending redraw waits for the frame it can show in).
-    if (lz?.isOpen() || lz?.covers()) { nextFrame(animate); return; }
+    // Fully inside the lobule, the plate is covered (a pending redraw waits for the frame it can show in): the loop sleeps
+    // there, and leaving the lobule (a store change) wakes it. While the lobule only covers it on the way in or out, it keeps looking.
+    if (lz?.isOpen()) { sleep(); return; }
+    if (lz?.covers()) { nextFrame(animate); return; }
     forceDraw = false; drawOnce = false;
     const st = store.get();
     // Running, the figure moves by itself only through the blood (streaks, chevrons, a dye bolus), a bleed's spray and
@@ -6465,6 +6472,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setSaver(on) {
       try { localStorage.setItem('pps.saver', on ? '1' : '0'); if (!on) localStorage.removeItem('pps.quality'); } catch { /* storage unavailable */ }
       qFloor = on ? 2 : 0;
+      setFrameSaver(on);   // (the lobule, the sinusoid and the FibroScan read it each frame)
       if (!SOFTWARE) { quality = on ? Math.max(quality, 2) : 0; wrap.dataset.quality = String(quality); resizeCanvas(); }
     },
     labelScale: () => labelScale,

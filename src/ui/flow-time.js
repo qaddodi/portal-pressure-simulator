@@ -7,7 +7,7 @@
 // (straight between days). The lines draw from left to right as the time-lapse plays, easing after its clock.
 // The same chart plots a disease time-lapse (clock 'days'): two of the slide's own readings, one point per model day from
 // day 0 to its last, drawn as it plays (Ascites builds: ascites over sinusoidal pressure; varices: varix over HVPG).
-import { frameFor } from './frame.js?v=0db47e99bf';
+import { frameFor } from './frame.js?v=5ad4028792';
 const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)

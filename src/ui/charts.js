@@ -5,7 +5,7 @@ import { PROFILE_PATHS, SHORT } from './anatomy.js?v=0b72305f30';
 import { pressureColor } from './colormap.js?v=3a5c342615';
 import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop, GLIDE_MS } from './util.js?v=a2cde2ac82';
-import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
+import { frameFor, cancelFrame } from './frame.js?v=5ad4028792';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

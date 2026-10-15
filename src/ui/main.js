@@ -3,18 +3,18 @@
 
 import { startHost, host } from './host.js?v=290f29a9c8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=c6abee8afb';
-import { createCreditPlacer } from './credit.js?v=b14449d723';
-import { sinusoidSupported } from './sinusoid-view.js?v=8d5db3a81a';
-import { createInspector } from './inspector.js?v=d8b081e13f';
-import { createDock, CUTOFFS } from './dock.js?v=f25b58e0b2';
-import { setHvpgStage } from './hvpg-proc.js?v=bc758bb776';
+import { createStage } from './stage.js?v=2a4f952693';
+import { createCreditPlacer } from './credit.js?v=2439c0276f';
+import { sinusoidSupported } from './sinusoid-view.js?v=efa967e240';
+import { createInspector } from './inspector.js?v=ba3ee0100f';
+import { createDock, CUTOFFS } from './dock.js?v=e854a84015';
+import { setHvpgStage } from './hvpg-proc.js?v=8ec4a787a7';
 import { createWhy } from './why.js?v=714afe2d3c';
-import { createTimeline, LAPSES } from './timeline.js?v=a02638d021';
-import { createCompare } from './compare.js?v=b31554ebe3';
-import { createCard } from './card.js?v=66adec30b1';
-import { createChart } from './chart.js?v=afc1cb9bcf';
-import { createMenu } from './menu.js?v=986747eeab';
+import { createTimeline, LAPSES } from './timeline.js?v=f2e79a31c4';
+import { createCompare } from './compare.js?v=885d47a7d1';
+import { createCard } from './card.js?v=e09d1b1ee9';
+import { createChart } from './chart.js?v=d1869c5d2c';
+import { createMenu } from './menu.js?v=bcfc118d45';
 import { caption } from './a11y.js?v=a077a58afc';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
@@ -34,10 +34,10 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=b94494ccbc';
-import { initTopbarMotion } from './topbar-motion.js?v=40e62f18bf';
+import { initTopbarMotion } from './topbar-motion.js?v=7ae64b43da';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=6ebaeb46c8';
-import { frameFor, perf as framePerf } from './frame.js?v=0db47e99bf';
+import { frameFor, perf as framePerf } from './frame.js?v=5ad4028792';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=0e4880c063'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d099132f06'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -765,7 +765,7 @@ function openSettings(anchor, withSearch = false) {
         try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch { /* storage unavailable */ }
         document.documentElement.toggleAttribute('data-noglass', !on);
       }),
-      menuToggle((() => { try { return localStorage.getItem('pps.saver') === '1'; } catch { return false; } })(), 'activity', 'Battery saver', 'The blood moves at 15 frames a second at a lower resolution, so the device runs cooler', (on) => stage.setSaver(on)),
+      menuToggle((() => { try { return localStorage.getItem('pps.saver') === '1'; } catch { return false; } })(), 'activity', 'Battery saver', 'The blood, the lobule, the sinusoid and the FibroScan move at 15 frames a second at a lower resolution, so the device runs cooler', (on) => stage.setSaver(on)),
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
         document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');

@@ -19,12 +19,13 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=a2cde2ac82';
+import { h, fmt, clamp, lerp, GLIDE_MS } from './util.js?v=a2cde2ac82';
 import { pressureColor } from './colormap.js?v=3a5c342615';
 import { isPaused } from './clock.js?v=af6de95a7c';
+import { store } from './store.js?v=3b659e1968';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=2a600a94b0';
-import { frameFor } from './frame.js?v=0db47e99bf';
+import { frameFor, noteDraw, saver, SAVER_MS } from './frame.js?v=5ad4028792';
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -582,8 +583,9 @@ export function createSinusoidView({ host }) {
   }
 
   // ── The frame ──
-  let lastKey = '', descKey = '', gpuKey = '';
+  let lastKey = '', descKey = '', gpuKey = '', settled = false;   // settled: paused, nothing easing, the same picture as last frame
   function draw(dt, run = true, paint = true) {
+    settled = false;
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     ensureGeo(W, H);
@@ -593,7 +595,7 @@ export function createSinusoidView({ host }) {
     if (go < 0.002) go = 0;
     if (run && dt > 0 && go > 0) stepMovers(dt * go);
     if (!paint) return;
-    const dpr = Math.min(2, devicePixelRatio || 1);
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1);   // (Battery saver: one pixel per CSS pixel)
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
@@ -632,7 +634,7 @@ export function createSinusoidView({ host }) {
       const n = sprites();
       // Paused and settled (nothing eases, no zoom): the same picture as last frame, so the two full-screen passes are skipped.
       const gk = go === 0 && !dive ? canvas.width + 'x' + canvas.height + '|' + n + '|' + JSON.stringify(u) : '';
-      if (!gk || gk !== gpuKey) gpu.draw(u, pts, n);
+      if (!gk || gk !== gpuKey) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); } else settled = !fenFade;
       gpuKey = gk;
     }
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
@@ -648,13 +650,23 @@ export function createSinusoidView({ host }) {
     parts.push(S.act > 0.4 ? 'The stellate cell is activated: no vitamin A droplets, contracted, laying down collagen.' : 'The stellate cell is quiescent, full of vitamin A droplets.');
     return parts.join(' ');
   }
+  // Paced to 30 frames a second like the lobule's flow (15 in Battery saver), not the screen's 60 or 120; the zoom from
+  // the lobule draws every frame, in step with it. Paused and settled, the loop stops asking for frames, as the figure
+  // does: a new model, the zoom, the store (Play) wake it, and it looks again four times a second in case a change came
+  // by a path that does not.
+  let lastPaint = 0, sleepT = 0;
+  const wake = () => { if (shown > 0 && !raf && model) raf = nextFrame(loop); };
+  store.on('*', wake);
   function loop(now) {
     raf = 0;
     if (shown <= 0 || !model) return;
+    if (!dive && !drewNow && now - lastPaint < (saver() ? SAVER_MS : GLIDE_MS)) { raf = nextFrame(loop); return; }
+    lastPaint = now;
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     // (While the zoom runs, place() has already drawn this frame in step with the lobule.)
     draw(dt, !reduce.matches, !drewNow);   // (the wall's traffic eases to a stop while the clock is paused, and picks up again on resume)
     drewNow = false;
+    if (settled && go === 0 && isPaused()) { last = 0; clearTimeout(sleepT); sleepT = setTimeout(wake, 250); return; }   // (on waking, the first frame steps nothing)
     raf = nextFrame(loop);
   }
 

@@ -6,7 +6,7 @@ import { DRUGS } from '../engine/scenario.js?v=6ebaeb46c8';
 import { store, updateParams, isLocked, hiddenNow } from './store.js?v=3b659e1968';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=a2cde2ac82';
 import { liveBalance } from './balance-hold.js?v=ea4d9121d2';
-import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
+import { frameFor, cancelFrame } from './frame.js?v=5ad4028792';
 const nextFrame = frameFor('inspector');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
