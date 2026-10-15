@@ -2724,7 +2724,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (Math.abs(v.gap) > 1) throw new Error(`the ${sel.id} card ends ${v.gap} px above the tab row, not on it`);
       if (v.top < 60) throw new Error(`the ${sel.id} card runs up to ${v.top} px`);
       if (v.bar) throw new Error(`the play bar shows over the ${sel.id} card`);
-      // (Fit is in the Layers tab's menu and the view switch in the top bar, so nothing floats over the figure above the card.)
+      // (Fit is in the Layers tab's menu and the view switch on its own line in the tab row, so nothing floats over the figure above the card.)
       if (await page.evaluate(() => !!document.querySelector('#zoomPill')?.offsetParent || !document.querySelector('#thumbBar').contains(document.querySelector('#viewSeg')))) throw new Error(`Fit floats above the ${sel.id} card, or the view switch left the dock`);
       if (await page.evaluate(() => getComputedStyle(document.querySelector('.action-card .ac-close')).display !== 'none')) throw new Error(`the ${sel.id} card has an X`);
       await pull('.action-card .ac-top', 160, { hold: 100 });   // (no X: a pull down puts it away)
