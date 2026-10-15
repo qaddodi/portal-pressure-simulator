@@ -365,7 +365,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (lk && lk === lastLayout && placedFor) return;
     lastLayout = lk;
     const a = stage.anchorFor(normalizeSel(selRef) || selRef);
-    if (!a) return;
     // Once placed, the card stays put while its controls are used (the drawn structure shifting as values change must not
     // move it); only the leader follows. A resize, a new selection or a moved panel places it afresh (placedFor reset).
     // Sizes come from ResizeObservers: measuring here, after the frame's DOM writes, would force
@@ -376,10 +375,18 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // cards on the right leave free (published on #app by main.js).
     const css = (k) => parseFloat(appStyle.getPropertyValue(k)) || 0;
     const top = css('--top-safe') + 8, bottom = H - (css('--bot-occ') || 0) - 8, right = W - css('--right-occ') - 8;
-    // ...unless it no longer fits there (placed before the dock published its height, or the card grew).
+    // Nothing drawn to point at (a vessel this view leaves out, picked from Search): no leader, and the card keeps clear of the cards on the right.
+    if (!a) {
+      leader.replaceChildren();
+      const x = pinned ? Math.min(pinned.x, Math.max(8, right - w)) : Math.max(8, right - w), y = pinned ? clamp(pinned.y, top, Math.max(top, bottom - hh)) : top;
+      if (!pinned || x !== pinned.x || y !== pinned.y) { pinned = { x, y }; placedFor = ''; el.style.left = x + 'px'; el.style.top = y + 'px'; fitAbovePill(); }
+      return;
+    }
+    // ...unless it no longer fits there (placed before the dock published its height, the card grew, or
+    // Tests, Treat or History opened on the right over it: then it moves left, clear of them).
     // A zoom or pan can bring the vessel under a pinned card: then it moves (gliding) to a clear spot.
     // (A card that has no clear spot left, zoomed right in, stays where it is rather than hunting for one.)
-    const fits = pinned && pinned.y >= top - 1 && pinned.y + hh <= Math.max(bottom, top + hh) + 1;
+    const fits = pinned && pinned.y >= top - 1 && pinned.y + hh <= Math.max(bottom, top + hh) + 1 && pinned.x + w <= Math.max(right, 8 + w) + 1;
     const clear = fits && (a.r == null || !coverCount(vesselPoints(a), pinned.x, pinned.y, w, hh, a.r + 4));
     if (placedFor && pinned && clear) { drawLeader(pinned.x, pinned.y, w, hh, a); return; }
     // Beside the structure, clear of the whole vessel; failing that, in the empty margin beside the figure

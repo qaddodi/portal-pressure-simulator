@@ -3984,6 +3984,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     el._shRaf = requestAnimationFrame(step);
   }
   const siteLive = (f, live, tol) => Number.isFinite(live) ? (Number.isFinite(f) && Math.abs(live - f) < tol ? f : live) : f;
+  // Where a reading stands on the stage (its CSS translate worked out here, so placing it reads no layout), pointer included:
+  // the figure's labels keep clear of it (layoutLabels). d: its SITE_DEF entry, or null for the catheter's readings.
+  function calloutBox(el, d, cx, y, half, h) {
+    const w = 2 * half, low = el.classList.contains('low');
+    let bx = cx - half, by;
+    if (d?.res) {
+      const i = d.res === 'gut' ? 2 : d.res === 'coll' ? 1 : 0;
+      if (low) { by = i === 2 ? y + h + 18 : y + 10; if (i === 0) bx = cx - w - 10; else if (i === 1) bx = cx + 10; }
+      else by = y - (i + 1) * h - 12 - 6 * i;
+      return { x0: bx, y0: by, x1: bx + w, y1: by + h };
+    }
+    const ahead = el.dataset.at === 'ahead' && !el.classList.contains('above');
+    return ahead ? { x0: bx, y0: y, x1: bx + w, y1: y + 18 + h } : { x0: bx, y0: y - 18 - h, x1: bx + w, y1: y };
+  }
   function sitesPaint() {
     const want = sites.list || [], made = sites.made;
     for (const k of [...resMade.keys()]) if (!want.includes(k)) resPaint(k, SITE_DEF[k], null);
@@ -3994,6 +4008,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (A wider screen's colour key stands on the nav pill at the lower right (presenter.js): one box, kept clear of every callout;
     // read at most twice a second, not each model frame.)
     const ko = keyPillBox();
+    // The resistors' readings stand as one group (side by side under an upright circuit, stacked above a level one, the gut's
+    // the farthest out): where the group's box would reach under the slide's cards, the whole group moves into the free space.
+    let resDy = 0;
+    const ra0 = want.some((k) => SITE_DEF[k]?.res) ? resAt() : null;
+    if (ra0) {
+      const rh = Math.max(0, ...[...made].filter(([k]) => SITE_DEF[k]?.res).map(([, el]) => el._h || 0));
+      const gut = want.includes('rGut') && resRatio('gut') != null, coll = want.includes('rColl') && resRatio('coll') != null;
+      if (rh && ra0.up) resDy = Math.min(0, y1 - (ra0.y + (gut ? 2 * rh + 18 : rh + 10)));
+      else if (rh) resDy = Math.max(0, y0 - (ra0.y - (gut ? 3 * rh + 24 : coll ? 2 * rh + 18 : rh + 12)));
+    }
     for (const k of want) {
       const d = SITE_DEF[k];
       if (!d || (d.node && !NODE_POS[d.node])) continue;
@@ -4022,15 +4046,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (v != null && b.textContent !== v) b.textContent = v;
       const ra = d.res ? resAt() : null;
       if (ra) el.classList.toggle('low', ra.up);
-      const [x, y] = ra ? [ra.x, ra.y] : worldToLocal(...nodePos(d.node, t));
+      const [x, y] = ra ? [ra.x, ra.y + resDy] : worldToLocal(...nodePos(d.node, t));
       // Off the free space (or a resistor with nothing to show, or out of the circuit), the reading waits hidden; above
       // its point unless the top is covered (decided once, so it never jumps).
       el.classList.toggle('off', x < x0 || x > x1 || y < y0 || y > y1 || (!!d.res && (ratio == null || t < 0.5)));
       if (el._below == null && el.offsetHeight) { el._below = d.below ? y + 18 + el.offsetHeight < y1 : y - 18 - el.offsetHeight < y0; el.dataset.at = el._below ? 'ahead' : ''; }
       // (Its width read again only when its words or classes change: a read after each frame's new number forced a layout.)
       const wk = `${el.className}|${el.textContent}|${W}|${labelBase()}|${labelFonts}`;
-      if (el._wk !== wk || !el._half) { el._wk = wk; el._half = el.offsetWidth / 2; }
+      if (el._wk !== wk || !el._half) { el._wk = wk; el._half = el.offsetWidth / 2; el._h = el.offsetHeight; }
       const half = el._half, cx = clamp(x, Math.min(x0 + half, (x0 + x1) / 2), Math.max(x1 - half, (x0 + x1) / 2));
+      el._box = el.classList.contains('off') ? null : calloutBox(el, d, cx, y, half, el._h || 0);
       el.style.setProperty('--ax', `${(x - cx).toFixed(1)}px`);
       el._glass?.(x - cx);
       el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`;
@@ -4044,7 +4069,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (r.l - dx >= x0 && Math.abs(x - (cx - dx)) < half - 16) {
             el.style.setProperty('--ax', `${(x - cx + dx).toFixed(1)}px`); el._glass?.(x - cx + dx);
             el.style.transform = `translate(${(cx - dx).toFixed(1)}px, ${y.toFixed(1)}px)`;
-          } else if (!el._below && r.t - dy >= y0 - 8) el.style.transform = `translate(${cx.toFixed(1)}px, ${(y - dy).toFixed(1)}px)`;
+            if (el._box) el._box = { ...el._box, x0: el._box.x0 - dx, x1: el._box.x1 - dx };
+          } else if (!el._below && r.t - dy >= y0 - 8) { el.style.transform = `translate(${cx.toFixed(1)}px, ${(y - dy).toFixed(1)}px)`; if (el._box) el._box = { ...el._box, y0: el._box.y0 - dy, y1: el._box.y1 - dy }; }
         }
       }
     }
@@ -4463,6 +4489,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el.style.setProperty('--ax', `${(x + dx - cx).toFixed(1)}px`);
       el._glass(x + dx - cx);
       el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
+      el._box = calloutBox(el, null, cx, cy, half, h);
     }
     live.forEach(([el, l]) => {
       if (!l || l.at !== 'sum') return;
@@ -4490,6 +4517,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       let x = best ? best.x : clamp(cx0, xMin, xMax), y = clamp(best ? best.y : yUp, top, yMax);   // (room on the left for a leader)
       [x, y] = cathGlide(box, x, y, (A.tip[0] + A.ahead[0]) / 2, (A.tip[1] + A.ahead[1]) / 2);
       box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      el._box = { x0: x, y0: y, x1: x + bw, y1: y + bh };
       // The bracket, from the middle of one reading to the middle of the other.
       const ys = R.map((q) => q[1] + q[3] / 2), path = box.querySelector('.cath-brace path');
       box.querySelector('.cath-brace').setAttribute('height', bh);
@@ -5049,6 +5077,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   addEventListener('resize', staleBlockers);
   const appStyle = document.getElementById('app')?.style;
   const pzInset = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
+  // The readings drawn over the figure (a slide's measuring sites and resistors, the HVPG catheter's callouts): the figure's
+  // labels keep clear of them. Their boxes are worked out where they are placed (calloutBox), so this reads no layout.
+  function calloutBoxes() {
+    const out = [];
+    for (const el of sites.made.values()) if (el._box && !el.classList.contains('cath-pre')) out.push(el._box);
+    if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) out.push(el._box);
+    return out;
+  }
+  // What the labels' slots depend on: which readings show and how big they are (where they stand follows the camera, which
+  // the labels' own key already holds). A new or resized reading lays the labels out afresh, so one under it moves aside.
+  const calloutSig = () => [...sites.made.values(), ...(cath.made && !cath.labels.hidden ? cath.made.values() : [])]
+    .map((el) => el._box ? `${el.className}:${Math.round(el._box.x1 - el._box.x0)}x${Math.round(el._box.y1 - el._box.y0)}` : '').join('|');
   function readBlockers() {
     const wr = stageBox();
     // (The teaching card's glass, .pz-shade, too: on a phone it reaches 16 px above the words, and a label kept off only the words
@@ -5159,12 +5199,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     refreshCTM();
     const st = store.get(), sig = labelSig(f), b = stageBox();
     const key = [[CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join(), b.width, b.height, morph, rotU, labelFonts, document.documentElement.dataset.theme,
-      pzInset('--pz-l'), pzInset('--pz-t'), st.mode, !!st.compareSnap, st.compareView, JSON.stringify(blockerBoxes), sig].join('|');
+      pzInset('--pz-l'), pzInset('--pz-t'), st.mode, !!st.compareSnap, st.compareView, JSON.stringify(blockerBoxes), sig,
+      calloutBoxes().map((b) => [b.x0, b.y0].map((v) => Math.round(v / 8)).join()).join(';')].join('|');
     if (!force && key === labelKey && refreshValues(f)) { stats.skips++; stats.ms += performance.now() - t0; }
     else {
       const sc = CTM.sc, th = Math.atan2(CTM.b, CTM.a);
-      const solve = !solvedFor || solvedFor.sig !== sig || Math.abs(Math.log(sc / solvedFor.sc)) > SOLVE_ZOOM || Math.abs(th - solvedFor.th) > SOLVE_TURN;
-      if (solve || layoutLabels(f, false) === false) { layoutLabels(f, true); solvedFor = { sig, sc, th }; }
+      const csig = calloutSig();
+      const solve = !solvedFor || solvedFor.sig !== sig || solvedFor.csig !== csig || Math.abs(Math.log(sc / solvedFor.sc)) > SOLVE_ZOOM || Math.abs(th - solvedFor.th) > SOLVE_TURN;
+      if (solve || layoutLabels(f, false) === false) { layoutLabels(f, true); solvedFor = { sig, sc, th, csig }; }
       labelKey = key; stats.layouts++; stats.ms += performance.now() - t0;
     }
     if (sites.list) sitesPaint();
@@ -5272,8 +5314,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Floating panels over the figure (notifications, hint cards, banners): a label under one is hidden.
     // Their boxes are read before this frame's SVG changes (see updateInner), while layout is clean.
     const blockers = blockerBoxes || readBlockers();
-    const obstacles = [...blockers];   // what can hide a label this frame
-    const placed = [];
+    const callouts = calloutBoxes();
+    const obstacles = [...blockers, ...callouts];   // what can hide a label this frame
+    const placed = solve ? callouts.map((b) => ({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3 })) : [];
     let stale = false;
     const prevSol = labelSol, nextSol = solve ? new Map() : labelSol;
     // Stenosis clamps and their percentages are drawn on the figure; keep labels off them.
@@ -5491,13 +5534,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           it.rot = true;
           if (solve) placed.push(zoneAt((a + b) / 2, (ay0 + by) / 2));
           const zr = zoneAt(Math.max(it.h / 2 + 8, (a + b) / 2), (ay0 + by) / 2);
-          if (within(zr, { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }) && !blockers.some((o) => hits(zr, o))) { out.push(it); obstacles.push(zr); }
+          if (within(zr, { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }) && !blockers.some((o) => hits(zr, o)) && !callouts.some((o) => hits(zr, o))) { out.push(it); obstacles.push(zr); }
           continue;
         }
         if (b - a > it.w + 6) {
           if (solve) placed.push(zoneAt((a + b) / 2, by));
           const zr = zoneAt((a + b) / 2, Math.max(14, by));
-          if (within(zr, { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }) && !blockers.some((o) => hits(zr, o))) { out.push(it); obstacles.push(zr); }
+          if (within(zr, { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }) && !blockers.some((o) => hits(zr, o)) && !callouts.some((o) => hits(zr, o))) { out.push(it); obstacles.push(zr); }
         }
       }
       buildLines();
@@ -5583,7 +5626,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (cx || cy) { it.x += cx; it.y += cy; if (Math.hypot(cx, cy) > 2) it.leader = true; }
       if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; labelVis.set(it.key, false); continue; }
       if (it.sel) { it.hide = false; continue; }
-      const r = rectOf(it), was = labelVis.get(it.key) !== false, m = was ? 0 : 10;
+      const r = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), was = labelVis.get(it.key) !== false, m = was ? 0 : 10;   // (a turned caption: its box turned too)
       it.hide = !hits(r, stage) || obstacles.some((o) => hits(r, { x0: o.x0 - m, y0: o.y0 - m, x1: o.x1 + m, y1: o.y1 + m }));
       labelVis.set(it.key, !it.hide);
     }

@@ -2914,6 +2914,35 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (bad.length) throw new Error(`${w}×${hgt} ${q}${act ? ' + ' + act : ''}: ${bad.join('; ')}`);
     }
   });
+  // A vessel's or organ's card open first, then Tests, Treat or History opened over it (Mac, iPad): the card moves clear of them,
+  // with its leader, never left under one (it used to stay put, hidden under the Tests card with its dashed line still pointing at it).
+  if (device === 'desktop') await check(device, 'an open vessel card moves clear of Tests, Treat and History', async (page) => {
+    const out = [];
+    for (const [w, hgt] of [[1440, 900], [1280, 800], [1024, 768], [1180, 820], [820, 1180]]) {
+      await page.setViewportSize({ width: w, height: hgt });
+      for (const sel of [{ type: 'edge', id: 'PV_TRUNK' }, { type: 'edge', id: 'V_SPL' }, { type: 'organ', id: 'liver' }]) for (const [btn, card] of [['#tabInstruments', '#dock'], ['#btnTreat', '#treatCard'], ['#btnHistory', '#historyCard']]) {
+        await open(page, '?preset=cirr-decomp');
+        await page.evaluate((s) => window.pps.store.set({ selection: s }), sel);
+        await page.waitForSelector('.action-card:not([hidden])'); await page.waitForTimeout(700);
+        await page.evaluate((b) => document.querySelector(b).click(), btn);   // (the top bar's buttons, as a click; History has no tab of its own)
+        await page.waitForSelector(`${card}:not([hidden])`).catch((e) => { throw new Error(`${w}x${hgt} ${sel.id}: ${btn} opened no ${card}`, { cause: e }); });
+        await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && ['panel', 'treatCard', 'historyCard', 'dock'].includes(a.effect?.target?.id)), null, { timeout: 60000 });
+        let bad = null;
+        for (let i = 0; i < 20; i++) {
+          await page.waitForTimeout(150);
+          bad = await page.evaluate((cs) => {
+            const a = document.querySelector('.action-card:not([hidden])'), c = document.querySelector(cs);
+            if (!a) return null;
+            const A = a.getBoundingClientRect(), C = c.getBoundingClientRect();
+            return Math.min(A.right, C.right) - Math.max(A.left, C.left) > 1 && Math.min(A.bottom, C.bottom) - Math.max(A.top, C.top) > 1 ? `${Math.round(Math.min(A.right, C.right) - Math.max(A.left, C.left))} px` : null;
+          }, card);
+          if (!bad) break;
+        }
+        if (bad) out.push(`${w}x${hgt} ${sel.id} + ${btn}: the card is ${bad} under ${card}`);
+      }
+    }
+    if (out.length) throw new Error(out.join('; '));
+  });
   // The corner credit never sits on or touches a card, a sheet, a bar or a slide's panels, in every mode and on every
   // slide of a deck; it may fade out only when no figure is left (src/ui/credit.js).
   await check(device, 'corner credit never touches a card', async (page) => {
@@ -3064,6 +3093,47 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));
       }
     }
+  });
+  // The readings over the figure (the Circuit deck's resistors, a slide's measuring sites, the HVPG catheter's callouts) on a phone and
+  // an iPad: every resistor with a ratio shows, whole on screen and clear of the slide's cards, and no figure label prints on any reading.
+  await check(device, 'presenter: resistance readings and callouts show, clear of the cards and the figure labels', async (page) => {
+    const sizes = device === 'desktop' ? [[820, 1180], [1180, 820], [1440, 900]] : [[390, 844], [375, 667]];
+    const slides = [...Array.from({ length: 11 }, (_, i) => ['circuit', i]), ['hvpg', 2], ['right-heart', 4], ['ncph', 3]];
+    const out = [];
+    for (const [w, hgt] of sizes) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await open(page);
+      const restore = await instantMotionOn(page);
+      let deck = null;
+      for (const [id, k] of slides) {
+        if (deck !== id) { await page.evaluate(([d, n]) => window.pps.presenter.start(d, n), [id, k]); deck = id; }
+        else await page.evaluate((n) => window.pps.presenter.go(n), k);
+        await page.waitForFunction((n) => { window.pps.presenter.skipLapse?.(); document.querySelector('.pz-case.on')?.click(); return Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === n + 1 && !window.pps.presenter.busy() && !document.querySelector('.pz-load.on, .pz-cover'); }, k, { timeout: 60000, polling: 100 });
+        await quiet(page); await page.waitForTimeout(600);
+        out.push(...await page.evaluate((at) => {
+          const bad = [], rect = (e) => e.getBoundingClientRect(), hit = (a, b, m = 1) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > m && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > m;
+          const shown = (e) => { const st = getComputedStyle(e); return st.display !== 'none' && st.visibility !== 'hidden' && rect(e).width > 1; };
+          const cards = [...document.querySelectorAll('.stage-blocker:not([hidden])')].filter((e) => shown(e) && +getComputedStyle(e).opacity > 0.5 && !e.classList.contains('pz-hide'));
+          const texts = [...document.querySelectorAll('#labels .lb:not(.lb-off)')].filter((g) => +getComputedStyle(g).opacity > 0.05)
+            .flatMap((g) => [...g.querySelectorAll('text')].map((t) => [t.textContent.trim().slice(0, 18), rect(t)]).filter(([, r]) => r.width > 1));
+          for (const el of document.querySelectorAll('.cath-label')) {
+            if (el.closest('[hidden]') || el.classList.contains('cath-pre') || el.classList.contains('cath-out') || el.classList.contains('in-sum') || !shown(el)) continue;
+            const name = `${el.querySelector('small')?.textContent} ${el.querySelector('b')?.textContent}`.trim(), res = el.classList.contains('res');
+            // (Hidden is right only where the cards leave almost no figure: a 667 px phone's Circuit slide 2 leaves about 100 px.)
+            const room = (() => { const t = document.querySelector('.pz-text'), d = document.querySelector('.pz-data'); return t && d && shown(d) ? rect(t).top - rect(d).bottom : innerHeight; })();
+            if (res && el.classList.contains('off')) { if (el.querySelector('b').textContent && room > 160) bad.push(`${at}: "${name}" is hidden`); continue; }
+            if (el.classList.contains('off')) continue;
+            const r = rect(el);
+            if (r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1) bad.push(`${at}: "${name}" runs off screen`);
+            if (res) for (const c of cards) if (hit(r, rect(c))) bad.push(`${at}: "${name}" is under ${c.className.split(' ')[0]}`);
+            for (const [t, q] of texts) if (hit(r, q, 1.5)) bad.push(`${at}: the "${t}" label prints on "${name}"`);
+          }
+          return bad;
+        }, `${w}x${hgt} ${id} ${k + 1}`));
+      }
+      await restore();
+    }
+    if (out.length) throw new Error([...new Set(out)].join('; '));
   });
   // Scale and tick labels: the numbers under the lens pill's colour scale (and the other tick rows) never overlap, in any view,
   // lens or width; a scale too narrow for its numbers drops the ones between its ends first (styles: .lg-scale container queries).
