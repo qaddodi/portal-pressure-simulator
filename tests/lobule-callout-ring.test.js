@@ -39,8 +39,12 @@ test('lobule labels are pinned beside what they name and never cover the central
   assert.match(js, /if \(best\.cost >= 1e6\) \{ res\.push\(\{ k, out: true \}\)/, 'a label with no clear spot is left out, never stacked on another');
   assert.match(js, /let callLead = placeCall\(/, 'the slide\'s pointer pill is placed before the labels');
   assert.match(js, /if \(callLead && sol\.total >= 1e5 && !rough\)/, 'when the pill would hide or crowd a label, the labels go first');
-  assert.match(js, /placeCall\(fr, pl2, cards, s2\.ld,/, 'and the pill is placed clear of the labels and their leaders');
-  assert.match(js, /callCost < 1e6 && s2\.total < sol\.total/, 'that layout is kept only when the pill itself is clear');
+  assert.match(js, /const CORE = \['cv', 'sin', 'triad'\]/, 'the vessel labels are the ones the pill never hides');
+  assert.match(js, /placeCall\(fr, pl2, cards, s1\.ld,/, 'the pill is placed clear of the vessel labels and their leaders');
+  assert.match(js, /solve\(rest, pl2, \[\.\.\.s1\.ld, lead2\]\)/, 'the optional labels then fit around both');
+  assert.match(js, /callCost < 1e6 && \(outs\(s2\) < outs\(sol\)/, 'kept only when the pill is clear, preferring fewer hidden vessel labels');
+  assert.match(js, /hit\(box, c\) \? 1e6/, 'a label never sits on a card');
+  assert.match(js, /Math\.max\(0, lead - 3 \* hh\) \* 60/, 'long leaders cost steeply');
 });
 
 test('resistance callouts in the lobule are one short word, so they never crowd the vessel labels', async () => {

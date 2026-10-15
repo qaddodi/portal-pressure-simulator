@@ -973,6 +973,7 @@ export function createLobuleZoom({ host }) {
   const hitKind = (key) => (key === 'ha' || key === 'bd' ? { part: key, tri: pick.triad } : key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
   let callPrev = null, callCost = 0;
+  const CORE = ['cv', 'sin', 'triad'];   // the vessel labels: never left out for the slide's pill
   // The ring on the spot: its centre and radius on screen (null while the spot is out of view), and how far from the ring's
   // centre everything else keeps (the radius, half its 4 px stroke and a small gap), so no label or pill ever touches it.
   const RING_STROKE = 4, RING_GAP = 8;
@@ -1040,7 +1041,7 @@ export function createLobuleZoom({ host }) {
       const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
       const box = { l: x - w / 2 - 6, r: x + w / 2 + 6, t: y - hh / 2 - 6, b: y + hh / 2 + 6 };
       const cost = placed.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 100 : 0) + (crosses(a, [x, y], o) ? 1e5 : 0), 0)
-        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e4 : 0) + keep.reduce((c, q) => { const d = into(q, box); return c + (d > 0 ? 1e6 + d * 1e3 : 0); }, 0) + hex.share(box) * INSIDE_COST + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 - (prev ? 60 : 0);
+        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e4 : 0) + keep.reduce((c, q) => { const d = into(q, box); return c + (d > 0 ? 1e6 + d * 1e3 : 0); }, 0) + hex.share(box) * INSIDE_COST + cards.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 400 : 0), 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 - (prev ? 60 : 0);
       if (!best || cost < best.cost) best = { x, y, box, cost };
     }
     placed.push(best.box); callPrev = { at: call.at, dx: best.x - a[0], dy: best.y - a[1] }; callCost = best.cost;
@@ -1220,8 +1221,8 @@ export function createLobuleZoom({ host }) {
     // A label that finds no spot clear of the others, the pill, the cards and the structures is left out rather than
     // stacked: leaving one out costs more than any clear spot, and more still for a label the slide's words name.
     const drop = (k) => (named(k) ? 2e7 : 1e7);
-    const solve = (order) => {
-      const pl = base.slice(), ld = callLead ? [callLead] : [], res = [];
+    const solve = (order, pl0 = base, ld0 = callLead ? [callLead] : []) => {
+      const pl = pl0.slice(), ld = ld0.slice(), res = [];
       let total = 0;
       for (const { k, w, hh, a, edge } of order) {
         const pad = 8 + 4 * lk, step = hh + 12;
@@ -1231,7 +1232,7 @@ export function createLobuleZoom({ host }) {
             const along = Math.abs(edge[0] - fr.l) < 40 + w || Math.abs(edge[0] - fr.r) < 40 + w ? [0, n * step] : [n * (w / 2 + 12), 0];
             const x = clamp(edge[0] + along[0], fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(edge[1] + along[1], fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
             const box = { l: x - w / 2 - hx, r: x + w / 2 + hx, t: y - hh / 2 - hy, b: y + hh / 2 + hy };
-            const cost = pl.reduce((sum, o) => sum + (hit(box, o) ? 1e6 + overlap(box, o) * 100 : 0), 0) + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0) + Math.abs(n) * 10;
+            const cost = pl.reduce((sum, o) => sum + (hit(box, o) ? 1e6 + overlap(box, o) * 100 : 0), 0) + cards.reduce((sum, c) => sum + (hit(box, c) ? 1e6 + overlap(box, c) * 400 : 0), 0) + Math.abs(n) * 10;
             if (!best || cost < best.cost) best = { x, y, box, cost };
           }
           if (best.cost >= 1e6) { res.push({ k, out: true }); total += drop(k); continue; }
@@ -1266,11 +1267,11 @@ export function createLobuleZoom({ host }) {
               + (crosses(a, [x, y], other) ? 1e5 : 0), 0)
             + ld.reduce((sum, [p, q]) => sum + (crosses(p, q, box) ? 1e5 : 0) + (cut(p, q, a, [x, y]) ? 1e5 : 0), 0)
             + Math.max(0, 16 - lead) * 40
-            + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0)
+            + cards.reduce((sum, c) => sum + (hit(box, c) ? 1e6 + overlap(box, c) * 400 : 0), 0)
             + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e3 : 0)
             + keep.reduce((sum, q) => { const d = into(q, box); return sum + (d > 0 ? 1e6 + d * 1e3 : 0); }, 0)
             + (into({ x: a[0], y: a[1], r: 10 }, box) > 0 ? 1e6 : 0)
-            + lead * 8 + Math.hypot(x - preferred[0], y - preferred[1]) * 0.5;
+            + lead * 8 + Math.max(0, lead - 3 * hh) * 60 + Math.hypot(x - preferred[0], y - preferred[1]) * 0.5;
           if (!best || cost < best.cost) best = { x, y, box, cost };
         }
         if (best.cost >= 1e6) { res.push({ k, out: true }); total += drop(k); continue; }
@@ -1279,13 +1280,13 @@ export function createLobuleZoom({ host }) {
       }
       return { res, total, pl, ld };
     };
+    const perms = (xs) => (xs.length <= 1 ? [xs] : xs.flatMap((x, i) => perms([...xs.slice(0, i), ...xs.slice(i + 1)]).map((r) => [x, ...r])));
     let sol = solve(items);
     // (Mid-pinch, the first order is kept; the full search runs once the hand lets go.)
     rough = sol.total >= 1e5 && handOn();
     if (rough) { clearTimeout(followT); followT = setTimeout(followEnd, 140); }
     if (sol.total >= 1e5 && !rough) {
       // Every order of up to six labels (720 at most, only while a clash remains: a few milliseconds).
-      const perms = (xs) => (xs.length <= 1 ? [xs] : xs.flatMap((x, i) => perms([...xs.slice(0, i), ...xs.slice(i + 1)]).map((r) => [x, ...r])));
       for (const order of perms(items)) {
         const s2 = solve(order);
         if (s2.total < sol.total) sol = s2;
@@ -1294,15 +1295,22 @@ export function createLobuleZoom({ host }) {
     }
     // The pill pushed a label off the screen or onto another: the labels are placed first instead and the pill finds
     // a clear spot among them, kept when it finds one (a label never hidden by the slide's pill).
+    // The pill pushed a label off the screen or onto another: the vessel labels (central vein, sinusoids, portal tract)
+    // are placed first instead, then the pill clear of them, then the optional labels in what is left. Kept when the
+    // pill finds a clear spot (a vessel label is never hidden by the slide's pill, and the pill never sits on a label).
     if (callLead && sol.total >= 1e5 && !rough) {
       const keepCall = { lead: callLead, prev: callPrev, cost: callCost, left: callEl.style.left, top: callEl.style.top, line: ['x1', 'y1', 'x2', 'y2'].map((k) => callLine.getAttribute(k)) };
-      base = pre; const lead0 = callLead; callLead = null;
-      const s2 = solve(items);
-      const pl2 = s2.pl.slice();
-      const lead2 = placeCall(fr, pl2, cards, s2.ld, crosses, ring, hex, keep, into);
-      if (callCost < 1e6 && s2.total < sol.total) { sol = s2; callLead = lead2; }
+      const core = items.filter((it) => CORE.includes(it.k)), rest = items.filter((it) => !CORE.includes(it.k));
+      let s1 = solve(core, pre, []);
+      for (const order of perms(core)) { if (s1.total < 1e5) break; const t = solve(order, pre, []); if (t.total < s1.total) s1 = t; }
+      const pl2 = s1.pl.slice();
+      const lead2 = placeCall(fr, pl2, cards, s1.ld, crosses, ring, hex, keep, into);
+      const s3 = solve(rest, pl2, [...s1.ld, lead2]);
+      const s2 = { res: [...s1.res, ...s3.res], total: s1.total + s3.total };
+      const outs = (s) => s.res.filter((r) => r.out && CORE.includes(r.k)).length;
+      if (callCost < 1e6 && (outs(s2) < outs(sol) || (outs(s2) === outs(sol) && s2.total < sol.total))) { sol = s2; callLead = lead2; }
       else {
-        callLead = lead0; callPrev = keepCall.prev; callCost = keepCall.cost;
+        callPrev = keepCall.prev; callCost = keepCall.cost;
         callEl.style.left = keepCall.left; callEl.style.top = keepCall.top;
         ['x1', 'y1', 'x2', 'y2'].forEach((k, i) => callLine.setAttribute(k, keepCall.line[i]));
       }
