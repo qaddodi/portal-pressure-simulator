@@ -2600,7 +2600,7 @@ button.finding { cursor: pointer; }
 .pb-n,
 .pt-n,
 #labels text,
-.tl-pop .when,
+.tl-pop .when { font-variant-numeric: tabular-nums; }
 
 /* ── Live instrument workspace ─────────────────────
    Instruments share the figure column, independent of the patient panel. No floating windows

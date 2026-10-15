@@ -43,3 +43,10 @@ test('from a tablet up the dock is a fixed, centred width (no shifting as the cl
   assert.match(slim, /\.vdock:not\(\.mini\) \{ width: min\(calc\(100% - 2 \* var\(--gap\)\), 640px\)/);
   assert.match(slim, /\.metric\.primary \{ flex: 0 0 128px; width: 128px; \}/);
 });
+
+// A selector list whose last rule was deleted ends in a comma and swallows the next rule (it once gave the
+// clock and the HVPG/PPG tiles a box), so no comma may be followed by a blank line or a comment.
+test('app.css has no selector list left dangling by a deleted rule', () => {
+  const css = read('../styles/app.css');
+  for (const m of css.matchAll(/,[ \t]*\n[ \t]*(\n|\/\*)/g)) assert.fail(`a selector list ends in a comma at line ${css.slice(0, m.index).split('\n').length}`);
+});
