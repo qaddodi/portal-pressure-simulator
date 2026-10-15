@@ -27,7 +27,7 @@ import { openHandout } from './handout.js?v=62f887453a';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=525d14632b';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
-import { createFigureKey } from './figure-key.js?v=673b5a9e97';
+import { createFigureKey } from './figure-key.js?v=28e5a6ff33';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=d87318c4aa';
 const nextFrame = frameFor('presenter');
@@ -1295,6 +1295,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       ui.fk.classList.toggle('grad', !!k && typeof (LENS_KEY[k] || PRESSURE_KEY)[1] === 'function');
       { const [nm, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY; ui.fk.setAttribute('aria-label', `Vessels colored by ${nm}${typeof bar === 'function' ? `, ${lo} to ${hi}` : ''}`); }
     });
+    clearPill();   // (the words make room for the docked key's row, or give it back)
   }
   // A lens button ({ label, lens }): the figure crossfades to that lens and the key under the line follows; the model is untouched.
   function lensPick(l) {
@@ -2404,7 +2405,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (phone() && !text.hidden) {
       const shown = (c) => c.getBoundingClientRect().height > 0, last = [...text.children].filter(shown).at(-1);   // (an svg has no offsetHeight)
       const tail = last;
-      if (tail?.matches('p, h1, li, .pz-stk')) end = tail; else box = last || null;
+      // (A colour key docked at the words' bottom-left (figure-key.js) takes a row of its own beside the pill: the words end above it.)
+      if (tail?.matches('p, h1, li, .pz-stk') && ui.fk.dataset.empty != null) end = tail; else box = last || null;
       const wr = restRect(ui.root), k = wr.width / (ui.root.clientWidth || wr.width) || 1, reach = restRect(text).top + text.offsetHeight * k - ui.bar.getBoundingClientRect().top;
       text.style.setProperty('--pz-reach', `${Math.max(0, Math.ceil(reach / k) + 3)}px`);
     }

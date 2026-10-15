@@ -5249,3 +5249,6 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 /* The figure key: a small pill, its name with the colour scale under it (no "None" or "Large" words; a key of named swatches keeps its names). */
 .pz-fk.grad, .pz-fk.grad.col { flex-direction: column; align-items: center; gap: .2em; padding: .28em .7em .34em; border-radius: calc(var(--r-card) + 2px); font-size: max(10px, calc(var(--s-cap) * .78)); }
 .pz-fk.grad .pz-lens-bar { width: 4em; height: .5em; }
+/* A phone's colour key sits at the words' bottom-left corner, on the nav pill's row (figure-key.js fades it in once the cards have landed). */
+.pz.stack .pz-fk { left: 21px; top: auto; bottom: calc(26px + var(--pz-sb)); translate: none; z-index: 1; }
+.pz.stack.tab .pz-fk { left: calc(15% + 13px); }

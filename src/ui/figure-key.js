@@ -103,6 +103,12 @@ export function createFigureKey({ el, wrap, app, order, left = () => 0 }) {
     if (empty() || !wrap.offsetParent) return;
     // A slide change: out of sight until the cards are in and the camera has settled.
     if (app.classList.contains('pz-moving')) { if (on || pos) off(); return; }
+    // A phone (the stacked layout): the key does not float on the figure; the stylesheet docks it at the words' bottom-left corner, opposite the
+    // nav pill, and the words keep clear of that row (presenter.js clearPill). It only fades in once the cards have landed.
+    if (el.parentElement?.classList.contains('stack')) {
+      if (!on) { clearTimeout(hideT); el.classList.remove('col'); el.hidden = false; void el.offsetWidth; el.classList.add('on'); on = true; pos = { dock: true }; dispatchEvent(new Event('pps:occ')); }
+      return;
+    }
     const wm = document.getElementById('world')?.getScreenCTM(), wk = wm ? [wm.a, wm.d, wm.e, wm.f].map((v) => v.toFixed(2)).join(',') : '';
     if (wk !== worldKey) { worldKey = wk; worldAt = performance.now(); }
     if (performance.now() - worldAt < 250) { clearTimeout(waitT); waitT = setTimeout(soon, 260); return; }
