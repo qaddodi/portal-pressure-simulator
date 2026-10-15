@@ -3924,6 +3924,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!F || !want.length) return;
     const { width: W, height: H } = stageBox(), t = easeInOut(morph);   // (the cached box: reading the wrap's each model frame forced a layout)
     const x0 = pzInset('--pz-l') + 8, x1 = W - pzInset('--pz-r') - 8, y0 = pzInset('--pz-t') + 8, y1 = H - pzInset('--pz-b') - 8;
+    // (A wider screen's colour key stands on the nav pill at the lower right (presenter.js): one box, kept clear of every callout;
+    // read at most twice a second, not each model frame.)
+    const ko = keyPillBox();
     for (const k of want) {
       const d = SITE_DEF[k];
       if (!d || (d.node && !NODE_POS[d.node])) continue;
@@ -3964,7 +3967,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el.style.setProperty('--ax', `${(x - cx).toFixed(1)}px`);
       el._glass?.(x - cx);
       el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      // Over the key or the nav pill: the callout steps left, its pointer still on its point; with no room there, a callout above
+      // its point rises just clear of them. (Its height and its top's offset from its point are read with its width.)
+      if (el._kt == null || el._kw !== wk) { el._kw = wk; const q = el.getBoundingClientRect(), wb = stageBox(); el._kt = q.top - wb.top - y; el._kh = q.height; }
+      if (ko && !el.classList.contains('off')) {
+        const r = { l: cx - half, r: cx + half, t: y + el._kt, b: y + el._kt + el._kh };
+        if (r.r > ko.l - 8 && r.l < ko.r + 8 && r.b > ko.t - 8 && r.t < ko.b + 8) {
+          const dx = r.r - (ko.l - 8), dy = r.b - (ko.t - 8);
+          if (r.l - dx >= x0 && Math.abs(x - (cx - dx)) < half - 16) {
+            el.style.setProperty('--ax', `${(x - cx + dx).toFixed(1)}px`); el._glass?.(x - cx + dx);
+            el.style.transform = `translate(${(cx - dx).toFixed(1)}px, ${y.toFixed(1)}px)`;
+          } else if (!el._below && r.t - dy >= y0 - 8) el.style.transform = `translate(${cx.toFixed(1)}px, ${(y - dy).toFixed(1)}px)`;
+        }
+      }
     }
+  }
+  let kpAt = -1e9, kpBox = null;
+  function keyPillBox() {
+    const now = performance.now();
+    if (now - kpAt < 500) return kpBox;
+    kpAt = now; kpBox = null;
+    const wb = stageBox();
+    for (const q of document.querySelectorAll('.pz:not(.stack) .pz-fk:not([hidden]):not([data-empty]), .pz-bar.pzb-pill')) {
+      const r = q.getBoundingClientRect();
+      if (!r.width) continue;
+      const o = { l: r.left - wb.left, t: r.top - wb.top, r: r.right - wb.left, b: r.bottom - wb.top };
+      kpBox = kpBox ? { l: Math.min(kpBox.l, o.l), t: Math.min(kpBox.t, o.t), r: Math.max(kpBox.r, o.r), b: Math.max(kpBox.b, o.b) } : o;
+    }
+    return kpBox;
   }
   // The FibroScan probe (the Presenter's stiffness slides): a transducer on the skin at the top left of the right
   // lobe, angled 45° down toward the portal vein, with a shear wave easing out from its tip into the liver along that
