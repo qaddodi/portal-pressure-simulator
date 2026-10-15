@@ -11,5 +11,5 @@ test('the timeline row has no event track', () => {
     assert.ok(!js.includes(cls), `timeline.js still builds ${cls}`);
     assert.ok(!css.includes(`.${cls}`), `app.css still styles ${cls}`);
   }
-  for (const cls of ['tl-time', 'tl-hist', 'tl-latest', 'tl-split']) assert.ok(js.includes(cls), `the row lost ${cls}`);
+  for (const cls of ['tl-time', 'tl-hist', 'tl-split']) assert.ok(js.includes(cls), `the row lost ${cls}`);
 });

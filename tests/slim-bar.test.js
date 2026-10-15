@@ -1,5 +1,5 @@
 // The bottom bar is one slim row: the key readouts are HVPG and PPG only, the strip no longer opens
-// (every readout is in Tests > Readouts), and the narrator line is off unless Settings turns it on.
+// (every readout is in Tests > Readouts), and no event pill or narrator line floats above the timeline.
 // (dock.js and main.js need a DOM to import, so they are read as text.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,8 +25,16 @@ test('tapping the bar\'s HVPG or PPG does nothing: a plain div, no click handler
   assert.match(css, /\.metric\.inert:hover \{ background: transparent; \}/);
 });
 
-test('the narrator is off by default for both roles', () => {
-  assert.match(read('../src/ui/main.js'), /NARRATOR_DEFAULT = \{ student: false, instructor: false \}/);
+test('no event pill or narrator line floats above the timeline (History keeps the events)', () => {
+  const js = read('../src/ui/timeline.js') + read('../src/ui/main.js');
+  const css = read('../styles/app.css'), html = read('../index.html');
+  for (const name of ['tl-latest', 'narrator', 'nr-why', 'tl-ld', 'pps:event']) {
+    assert.ok(!js.includes(name), `a script still uses ${name}`);
+    assert.ok(!css.includes(name), `app.css still styles ${name}`);
+    assert.ok(!html.includes(name), `index.html still has ${name}`);
+  }
+  assert.match(read('../src/ui/timeline.js'), /kind: 'event'/);   // events are still recorded for History
+  assert.match(read('../src/ui/timeline.js'), /tl-hist/);
 });
 
 test('from a tablet up the dock is a fixed, centred width (no shifting as the clock runs)', () => {

@@ -1,7 +1,7 @@
 // The timeline: time, history, events and comparison in one row under the figure (there is no event
-// track: History is the list of what has happened, and the latest event is named above the clock).
+// track and no floating event pill: History is the list of what has happened).
 //
-//  ▶ 1×  Day 142 · 0:14  ● Large varices   [jump ahead] History 5  Compare
+//  ▶ 1×  Day 142 · 0:14   [jump ahead] History 5  Compare
 //
 // Every change the learner makes is an entry carrying a full snapshot of the model; History goes
 // back to that moment (the model, its clock and its remodeling), and later entries stay ahead,
@@ -66,15 +66,9 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
   // The full clock, and a short one (just the day) for a phone's play bar.
   const timeLong = h('span', { class: 'tl-t-long' }, '0:00'), timeShort = h('span', { class: 'tl-t-short', 'aria-hidden': 'true' }, '0:00');
   const timeEl = h('span', { class: 'tl-time', 'aria-live': 'off' }, timeLong, timeShort);
-  // The latest event, named beside the clock; a click opens it like its marker.
-  const latestEl = h('button', { class: 'tl-latest', hidden: true });
-  latestEl.addEventListener('click', (e) => { const i = latestEventIndex(); if (i >= 0) openMarker(e.currentTarget, [i]); });
-  latestEl.addEventListener('transitionend', (e) => { if (e.propertyName === 'opacity' && latestEl.classList.contains('stale')) latestEl.hidden = true; });
   const histCount = h('span', { class: 'tl-hc' });
   const histBtn = h('button', { class: 'tl-hist', 'aria-haspopup': 'dialog', 'aria-label': 'History', title: 'History: every change and event, with a way back to each' }, svgIcon('clock', 'mi-ic'), h('span', { class: 'tl-hl' }, 'History'), histCount);
   histBtn.addEventListener('click', (e) => openHistory(e.currentTarget));
-  // The latest event sits in the dock's status row (with the bleed), above the play bar, on every screen.
-  (document.getElementById('vdStatus') || root).append(latestEl);
   const ffBtn = h('button', { class: 'ib tl-ff', 'aria-label': 'Jump ahead', 'aria-haspopup': 'menu', title: 'Fast forward' }, icon('ffwd'));
   ffBtn.addEventListener('click', (e) => popover(e.currentTarget, [
     h('div', { class: 'menu-title' }, 'Jump ahead'),
@@ -160,7 +154,6 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
       push({ kind: 'event', label: ev.title, detail: ev.detail, sev: ev.severity, t: ev.t, day: ev.day, evId: ev.id });
       sortEntries();
       announce(`${ev.title}. ${ev.detail || ''}`);
-      dispatchEvent(new Event('pps:event'));   // a phone's folded dock opens for it (main.js)
     }
   }
   async function jump(days, long) {
@@ -225,43 +218,13 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
   }
 
   // ── Rendering ─────────────────────────────────────
-  // The latest-event chip and the History count follow the entries; the chip also fades about
-  // 20 s of model time after its event, so a light check runs at most once a second.
+  // The History count follows the entries, so a light check runs at most once a second.
   let lastRenderKey = '', lastRenderAt = 0;
   function render(force) {
     const key = `${entries.length}|${cursor}`;
     const t = performance.now();
     if (!force && key === lastRenderKey && t - lastRenderAt < 1000) return;
     lastRenderKey = key; lastRenderAt = t;
-    paintLatest();
-  }
-  function latestEventIndex() {
-    const end = cursor >= 0 ? cursor : entries.length - 1;
-    for (let i = end; i >= 0; i--) if (entries[i].kind === 'event') return i;
-    return -1;
-  }
-  let lastLatest = null;
-  function paintLatest() {
-    const i = latestEventIndex(), e = entries[i];
-    const k = e ? `${e.id}` : '';
-    if (k !== lastLatest) {
-      lastLatest = k;
-      latestEl.hidden = !e;
-      latestEl.classList.remove('stale');
-      if (e) {
-        latestEl.style.setProperty('--sev', SEV[e.sev] || SEV.info);
-        latestEl.replaceChildren(h('i', { class: 'tl-ld', 'aria-hidden': 'true' }), h('span', {}, e.label), h('small', {}, e.kind === 'start' ? '' : fmtClock(e.t, e.day)));
-        latestEl.setAttribute('aria-label', `Latest event at ${fmtClock(e.t, e.day)}: ${e.label}`);
-        latestEl.title = `${fmtClock(e.t, e.day)} · ${e.label}${e.detail ? `\n${e.detail}` : ''}`;
-      }
-    }
-    // After about 20 s of model time the chip fades away (History keeps the event); live only.
-    const f = frameNow();
-    const stale = !!e && cursor < 0 && !!f && f.day * 86400 + f.t - absT(e) > 20;
-    if (stale !== latestEl.classList.contains('stale')) {
-      latestEl.classList.toggle('stale', stale);
-      if (!stale) latestEl.hidden = !e;
-    }
     const n = entries.filter((x) => x.kind !== 'start').length;
     if (histCount.textContent !== (n ? String(n) : '')) histCount.textContent = n ? String(n) : '';
   }
@@ -274,9 +237,6 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
   function historyBody() { return h('div', { class: 'tl-pop tl-history' }, historyRows()); }
   function openHistory(anchor) {
     popover(anchor, h('div', { class: 'tl-pop tl-history' }, historyRows()), { place: 'above', align: 'end' });
-  }
-  function openMarker(anchor, items) {
-    popover(anchor, h('div', { class: 'tl-pop' }, markerRows(items)), { place: 'above', align: 'center' });
   }
   function markerRows(items) {
     return items.slice().reverse().map((i) => {

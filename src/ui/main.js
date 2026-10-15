@@ -10,13 +10,13 @@ import { createInspector } from './inspector.js?v=97fe69ccc9';
 import { createDock, CUTOFFS } from './dock.js?v=b1fcfc0d30';
 import { setHvpgStage } from './hvpg-proc.js?v=10836deae5';
 import { createWhy } from './why.js?v=d7371d7a2a';
-import { createTimeline, LAPSES } from './timeline.js?v=8962b72fd8';
+import { createTimeline, LAPSES } from './timeline.js?v=4cabf767c5';
 import { createCompare } from './compare.js?v=33558f1c0e';
 import { createCard } from './card.js?v=2e9ce4583d';
 import { createChart } from './chart.js?v=c0767662ef';
 import { createMenu, ROLES } from './menu.js?v=15d8360d0f';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';
-import { caption } from './a11y.js?v=7af6f005f3';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=dfea434d32';
+import { caption } from './a11y.js?v=af5e1cd018';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=0f537e3cc0';
@@ -207,10 +207,7 @@ async function main() {
   };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
-  store.on('role', (r) => { mainMenu.render(); try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
-  $('#narratorWhy').addEventListener('click', (e) => why.open('pv', e.currentTarget));
-  // Where the caption is clamped to two lines, a tap shows the rest (and a second tap folds it again).
-  $('#narratorText').addEventListener('click', () => $('#narrator').classList.toggle('full'));
+  store.on('role', (r) => { mainMenu.render(); try { localStorage.setItem('pps.role', r); } catch { /* storage unavailable */ } if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); });
   app.dataset.role = store.get().role;
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
@@ -323,36 +320,7 @@ function onFrame(f) {
   updateBleedBanner(f);
   if (projector) updateProjector(f);
   if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', caption(f)); }
-  narrate(f, now);
 }
-
-// Narrator (blueprint E1): the patient's reading as one live line above the timeline, refreshed on
-// events and changes (at most twice a second otherwise). Off by default for both roles, so the bottom
-// bar stays one slim row (the tiles say the same); the Settings toggle turns it on until the role changes.
-const NARRATOR_DEFAULT = { student: false, instructor: false };
-let lastNarr = 0, narrPref;
-const narratorOn = () => { const v = narrPref === undefined ? (narrPref = readLS('pps.narrator')) : narrPref; return v ? v === '1' : NARRATOR_DEFAULT[store.get().role || 'student'] !== false; };
-function narrate(f, now = performance.now(), force = false) {
-  const el = $('#narrator');
-  const on = narratorOn() && !presenter.active();
-  // The caption eases in rather than popping.
-  if (!on) { el.hidden = true; el.classList.remove('quiet'); }
-  else {
-    if (el.hidden) { el.classList.add('quiet'); el.hidden = false; force = true; nextFrame(() => nextFrame(() => el.classList.remove('quiet'))); }
-    else el.classList.remove('quiet');
-  }
-  if (!on || (!force && !f?.events?.length && !f?.params && now - lastNarr < 500) || !f) return;
-  lastNarr = now;
-  const txt = caption(f), t = $('#narratorText');
-  if (el.title !== txt) { el.title = txt; t.replaceChildren(h('span', { class: 'nr-s' }, txt.slice(0, txt.length - caption(f, { scenario: false }).length)), caption(f, { scenario: false })); }
-  $('#narratorWhy').hidden = !!store.get().hiddenReadouts?.has('pv');
-}
-function setNarrator(on) {
-  narrPref = on ? '1' : '0';
-  try { localStorage.setItem('pps.narrator', narrPref); } catch { /* storage unavailable */ }
-  narrate(store.get().frame, performance.now(), true);
-}
-
 
 // ── Scenarios & share ───────────────────────────────
 // The corner credit stays on the figure while the menu's popover is open: src/ui/credit.js finds it a spot clear of the
@@ -828,7 +796,6 @@ function openSettings(anchor, withSearch = false) {
         document.documentElement.toggleAttribute('data-noglass', !on);
       }),
       menuToggle((() => { try { return localStorage.getItem('pps.saver') === '1'; } catch { return false; } })(), 'activity', 'Battery saver', 'The blood moves at 15 frames a second at a lower resolution, so the device runs cooler', (on) => stage.setSaver(on)),
-      menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
         document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
@@ -1188,7 +1155,6 @@ function wireFloating() {
   view.addEventListener('wheel', () => { busy(800); figureFocus(3000); }, { passive: true });
   $('#vdock').addEventListener('pointerdown', (e) => { if (!(vdockEl.classList.contains('mini') && e.target.closest('.play'))) unfocus(); });   // (play and pause work from the folded pill without opening it)
   $('#topbar').addEventListener('pointerdown', unfocus);
-  addEventListener('pps:event', unfocus);
 }
 // Phone: the chart and Treat are bottom sheets with three heights; a drag on the handle (or the
 // head) moves between them, and below the lowest closes the sheet. Wider: the head drags the card
