@@ -1,8 +1,8 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
-import { NODES } from '../engine/topology.js?v=1825cbda55';
+import { NODES } from '../engine/topology.js?v=c164acf7d0';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=0b72305f30';
-import { pressureColor } from './colormap.js?v=919e3bce93';
+import { pressureColor } from './colormap.js?v=797c55e040';
 import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop, GLIDE_MS } from './util.js?v=f7459cca3c';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';

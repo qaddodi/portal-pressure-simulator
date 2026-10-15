@@ -4,9 +4,9 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES, dopplerK, stentSegments, stentSite, stentGate } from '../engine/topology.js?v=1825cbda55';
+import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=c164acf7d0';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=f7459cca3c';
-import { FONT } from './charts.js?v=0192a5d27f';
+import { FONT } from './charts.js?v=e812b8ab42';
 import { logAction, shownVel, store } from './store.js?v=3b659e1968';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=7dba457602';
 import { frameFor } from './frame.js?v=0db47e99bf';
@@ -14,6 +14,8 @@ import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
+// What the Doppler calls a vessel: a stent also names its course ("TIPS RPV → RHV"), read from where the model connects it.
+const probeName = (p) => (p.kind === 'tips' ? `${p.short} ${stentCourse(EDGES[EI[p.id]])}` : p.short);
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
 // Positive velocity is the vessel's physiological direction (for a collateral: portal → systemic).
 // The trace is drawn as the scanner shows it, relative to the transducer: flow toward the probe
@@ -47,7 +49,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let sweepIndex = 0;
   let sweepSeconds = SWEEP_SECONDS[sweepIndex];
   const probeSel = h('select', { class: 'select dop-vessel', 'aria-label': 'Vessel' },
-    PROBES.map((p) => h('option', { value: p.id, title: EDGES[EI[p.id]].label }, p.short)));
+    PROBES.map((p) => h('option', { value: p.id, title: EDGES[EI[p.id]].label }, probeName(p))));
   probeSel.addEventListener('change', () => onProbe(probeSel.value));
   // A stent's sample gate: where along it the trace and the reading come from (store.dopGate, shared with the figure, whose
   // stent glows in the Doppler's green over that third). Chosen by tapping the Proximal, Mid or Distal tile under the trace
@@ -644,7 +646,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
     if (w < 60 || hh < 60) return;
     if (pickNext) pickWindow();
-    const label = probe ? EDGES[EI[probe]].label + (isStentProbe() ? ` · ${SEGS.find(([v]) => v === gateOf())[1]}` : '') : '';
+    const label = probe ? probeName(meta()) + (isStentProbe() ? ` · ${SEGS.find(([v]) => v === gateOf())[1]}` : '') : '';
     ctx.font = FONT(600, 12); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(label, padL, yLab);
     const lw = ctx.measureText(label).width;
