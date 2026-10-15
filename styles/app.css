@@ -1589,14 +1589,19 @@ button.finding { cursor: pointer; }
 /* (one line each, centred under its bar, all on one baseline; the size follows the column width so the longest name, Postsinusoidal, always fits) */
 .pz-rail .n { display: block; max-width: none; font-size: min(1em, calc((100cqw - 25px) / 6 / 7.9)); font-weight: 600; line-height: 1.15; white-space: nowrap; color: var(--text-3); }
 .pz-rail.all .n, .pz-rail li.on .n { color: var(--text); font-weight: 600; }
-/* (too narrow for flat names: tilt them 45° up from under the bar's centre) */
+/* (too narrow for flat names: tilt them 60° up from under the bar's centre, at the roles' own caption size, 12 px: the slide's
+   own caption would not fit under six bars.) */
 @container (max-width: 470px) {
+  .pz-rail ol { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
   .pz-rail li { position: relative; min-height: 6.4em; }
-  .pz-rail .n { position: absolute; top: 1.1em; right: 50%; font-size: min(1em, 13px); transform-origin: 100% 0; rotate: -45deg; }
+  .pz-rail .n { position: absolute; top: 1.1em; right: 50%; font-size: var(--s-cap); transform-origin: 100% 0; rotate: -60deg; }
 }
-/* (a phone on its side: the rail letters at the roles' own sizes, as the summary table does; its tilted names at the caption's 12 px, on the scale and clear of the screen's left edge) */
-.pz.low .pz-rail { --pk: 1; --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
-.pz.low .pz-rail { --rp: 2.4em; } .pz.low .pz-rail li { min-height: 9.2em; } .pz.low .pz-rail .n { rotate: -60deg; }   /* (a steeper tilt and room on the left, so the first name, Pre-hepatic, stays inside the card; room below for the longest, Postsinusoidal) */
+/* (A phone on its side: the bars at the Mac size, and the
+   Liver bracket's word is the body role at its own size, not the slide words' 1.4x, so it does not outweigh them.) */
+.pz.low .pz-rail li > i { height: calc(var(--t-cap) * var(--ts, 1) * .75); border-radius: calc(var(--t-cap) * var(--ts, 1) * .375); }   /* (the Mac's 9 px bars, not the 1.4x slide words' 11 px) */
+.pz.low .pz-rail-liver { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
+.pz.low .pz-rail-liver span { font-size: var(--s-body); }
+.pz.low .pz-rail .n { right: 100%; translate: 50% 0; top: calc(1.1em + 2px); }   /* (each name's lower-left end at its bar's left edge, so the first stays inside the card; 6 px under the bars) */
 /* The data card: the pressure ladder and its tiles. */
 .pz-data { position: absolute; right: var(--pz-cm); top: var(--pz-cm); width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); max-height: calc(100% - 2 * var(--pz-cm)); --pz-gap: clamp(8px, calc(1.6 * var(--pzh) / var(--vz)), 20px); display: flex; flex-direction: column; gap: var(--pz-gap); padding: clamp(14px, calc(2.1 * var(--pzh) / var(--vz)), 28px); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--border); border-radius: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); box-shadow: var(--shadow-3); transition: opacity .32s var(--ease), transform .32s var(--ease); }
 .pz-data.pz-hide { opacity: 0; transform: translateX(18px); }

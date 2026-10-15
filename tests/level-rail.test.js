@@ -13,10 +13,10 @@ test('rail names carry no vessel text or soft hyphens', () => {
   assert.ok(!block.includes("class: 'p'"));
 });
 
-test('rail names stay on one line, sized to their column, and tilt 45° when the card is narrow', () => {
+test('rail names stay on one line, sized to their column, and tilt 60° when the card is narrow (45° ran Pre-hepatic past the card edge)', () => {
   const n = css.split('\n').find((l) => l.startsWith('.pz-rail .n {'));
   assert.ok(n.includes('white-space: nowrap') && n.includes('cqw'));
-  assert.match(css, /@container \(max-width: \d+px\)\s*\{[^@]*rotate: -45deg/);
+  assert.match(css, /@container \(max-width: \d+px\)\s*\{[^@]*rotate: -60deg/);
 });
 
 test('the rail marks the block with the phone ladder block (hatched, outlined) wrapped round the whole bar', () => {
