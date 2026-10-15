@@ -2032,6 +2032,33 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
     await page.evaluate(() => window.pps.store.set({ role: 'student' }));
   });
+  // A Tests card over the thumb dock has two heights, Half and Full, at any phone height (Safari's bars leave about 660 px): pulled
+  // up from its tabs it stays at Full instead of snapping back, the grabber toggles Half and Full, and a tab keeps the height.
+  if (device === 'phone') await check(device, 'thumb dock: the Tests card pulls up to Full and stays, and keeps its height across tabs', async (page) => {
+    await page.setViewportSize({ width: 390, height: 664 });
+    await open(page, '?preset=cirr-decomp');
+    await page.waitForTimeout(800);
+    await page.click('#thumbBar [data-tab="tests"]');
+    await page.waitForTimeout(900);
+    const box = () => page.evaluate(() => { const r = document.querySelector('#dock').getBoundingClientRect(); return { top: r.top, h: r.height }; });
+    const full = await page.evaluate(() => { const a = document.querySelector('#app'), v = (k) => parseFloat(a.style.getPropertyValue(k)) || 0; return a.clientHeight - v('--top-safe') - v('--vdock-h') - 22; });
+    const half = (await box()).h;
+    if (half > full * 0.75 || half < full * 0.5) throw new Error(`Half is ${half} px of ${full}`);
+    const tab = await page.evaluate(() => { const r = document.querySelectorAll('#dock [role=tab]')[2].getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+    await page.mouse.move(tab[0], tab[1]); await page.mouse.down();
+    for (let i = 1; i <= 60; i++) await page.mouse.move(tab[0], tab[1] - 5 * i);   // (small steps: a mouse is not captured until the sheet moves)
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    if (Math.abs((await box()).h - full) > 2) throw new Error(`pulled up, the card settled at ${(await box()).h} px, not ${full}`);
+    await page.click('#dock .sheet-grab');
+    await page.waitForTimeout(600);
+    if (Math.abs((await box()).h - half) > 2) throw new Error('the grabber does not return the card to Half');
+    const before = await box();
+    await page.evaluate(() => document.querySelector('#dock [data-instrument="abdomen"]').click());
+    await page.waitForTimeout(800);
+    const after = await box();
+    if (Math.abs(after.top - before.top) > 1) throw new Error(`switching tab moved the card's top edge by ${after.top - before.top} px`);
+  });
   // History sits beside Treat and Tests in a laptop's top bar (not in the play bar) and opens as a card on the right, in Treat's place.
   if (device === 'desktop') await check(device, 'History: a top-bar button beside Tests, its card on the right in Treat\'s place', async (page) => {
     await open(page, '?preset=cirr-decomp');

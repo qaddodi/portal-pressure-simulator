@@ -419,8 +419,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const id = open.length === 1 && FIT.includes(open[0]) && state === 'open' ? open[0] : null;
     for (const o of FIT) if (o !== id) fitView(o).classList.remove('nat');
     const view = id ? fitView(id) : null;
-    // On a phone HVPG and FibroScan fill the sheet by design; only Ascites fits there.
-    let fits = !!view && !sidewaysMQ.matches && (isSide() || heightRatio == null) && (id === 'abdomen' || matchMedia('(min-width: 768px)').matches);
+    // Over the thumb dock (a phone, an upright iPad) the card keeps its height whatever the tab: nothing fits there.
+    let fits = !!view && !sidewaysMQ.matches && (isSide() || heightRatio == null) && matchMedia('(min-width: 768px)').matches && !document.getElementById('app')?.classList.contains('thumb');
     if (view) view.classList.toggle('nat', fits);   // nat: the view at its natural height, to measure it
     fits = fits && view.offsetHeight > 0;
     const on = workspace.classList.contains('fit');

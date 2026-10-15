@@ -5154,6 +5154,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
     border-radius: var(--r-sheet) !important; padding-bottom: 0; max-height: calc(100% - var(--top-safe) - var(--vdock-h) - 22px);
   }
   .app.thumb .instrument-workspace .dock-pane { padding-bottom: 16px; }
+  /* A visible grabber on the top edge: a tap toggles Half and Full, a drag (or one from the head's tabs) moves the sheet. */
+  .app.thumb :is(.panel-grab, .sheet-grab) { opacity: 1; width: 72px; height: 14px; }
+  .app.thumb :is(.panel-grab, .sheet-grab)::before { top: 5px; width: 36px; }
   html.thumb-ui .menu.as-sheet { left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--thumb-occ, 0px); max-height: calc(100dvh - var(--thumb-occ, 0px) - 72px); padding-bottom: 10px; border-radius: var(--r-sheet); }
 }
 /* A tablet held upright: Treat opens above the dock, at the right, instead of under the top bar. */

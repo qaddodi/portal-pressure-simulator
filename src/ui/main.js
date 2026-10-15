@@ -7,7 +7,7 @@ import { createStage } from './stage.js?v=992931a80b';
 import { createCreditPlacer } from './credit.js?v=c87ad9d9c3';
 import { sinusoidSupported } from './sinusoid-view.js?v=f559b019f2';
 import { createInspector } from './inspector.js?v=a506c7409e';
-import { createDock, CUTOFFS } from './dock.js?v=488b397f11';
+import { createDock, CUTOFFS } from './dock.js?v=458aca5943';
 import { setHvpgStage } from './hvpg-proc.js?v=45c21080e4';
 import { createWhy } from './why.js?v=073ec078e4';
 import { createTimeline, LAPSES } from './timeline.js?v=66ed5e3ca8';
@@ -1179,8 +1179,16 @@ function wireFloating() {
 // head) moves between them, and below the lowest closes the sheet. Wider: the head drags the card
 // aside, and it returns to its place when it closes.
 // fit: the scrolling body's selector; at the middle stop the sheet is only as tall as its content.
+// Over the thumb dock (an upright phone) a sheet has two heights, Half and Full, as shares of the room between the
+// top bar and the dock: the release is measured against that same room, so it lands where the finger left it.
+// The grabber toggles them, and a vertical drag on the head's tabs moves the sheet (a tap still picks the tab).
 function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {
-  const SIZES = [0.32, 0.56, 0.9];
+  const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1];
+  const thumb = () => app.classList.contains('thumb') && isPhone();
+  const stops = () => (thumb() ? THUMB : SIZES);
+  const half = () => stops().length - 2;
+  // The room a thumb sheet may fill: the CSS cap (100% - top bar - dock - 22 px, styles/app.css thumb block).
+  const room = () => (thumb() ? app.clientHeight - (parseFloat(app.style.getPropertyValue('--top-safe')) || 0) - (parseFloat(app.style.getPropertyValue('--vdock-h')) || 0) - 22 : 0);
   let size = 1;
   el.prepend(handle);
   const natural = () => {
@@ -1191,15 +1199,15 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     return [...el.children].reduce((a, c) => a + (c.matches(fit) ? inner(c) : c.offsetHeight), 0) + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
   };
   const apply = () => {
-    const need = size === 1 ? natural() : Infinity;
-    // Over the thumb dock the stops are shares of the room above the dock, not of the whole screen.
-    const room = app.classList.contains('thumb') ? app.clientHeight - (parseFloat(app.style.getPropertyValue('--vdock-h')) || 0) - 14 : 0;
-    el.style.setProperty('--sheet-size', need < SIZES[1] * (room || app.clientHeight) ? `${Math.ceil(need)}px` : room ? `${Math.round(SIZES[size] * room)}px` : `${Math.round(SIZES[size] * 100)}%`);
+    const S = stops(), r = room();
+    size = Math.min(size, S.length - 1);   // (a phone turned upright or sideways changes the stops)
+    const need = size === half() ? natural() : Infinity;
+    el.style.setProperty('--sheet-size', need < S[half()] * (r || app.clientHeight) ? `${Math.ceil(need)}px` : r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`);
   };
   // A new tab refits the sheet to its content (the height eases).
-  if (fit) el.addEventListener('click', (e) => { if (size === 1 && e.target.closest('[role="tab"]')) nextFrame(apply); });
+  if (fit) el.addEventListener('click', (e) => { if (size === half() && e.target.closest('[role="tab"]')) nextFrame(apply); });
   apply();
-  handle.addEventListener('click', () => { if (!isPhone() || !active()) return; size = (size + 1) % SIZES.length; apply(); });
+  handle.addEventListener('click', () => { if (!isPhone() || !active()) return; size = (size + 1) % stops().length; apply(); });
   let start = null, swallow = false;
   // Controls keep their own gestures. With `anywhere` (a phone sheet), a vertical drag from any other spot on the
   // card moves it too; a sideways one is left alone, and content scrolled away from its top scrolls back first.
@@ -1208,11 +1216,12 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   el.addEventListener('pointerdown', (e) => {
     if (start || !active() || (e.pointerType === 'mouse' && e.button !== 0)) return;
     const own = e.target === handle || !!e.target.closest(drag);
-    if (e.target !== handle && e.target.closest(CONTROLS)) return;
+    // A tab in the head is most of the head on a phone: a vertical drag from it moves the sheet, a tap picks the tab.
+    const headTab = own && thumb() && !!e.target.closest('[role="tab"]');
+    if (e.target !== handle && e.target.closest(CONTROLS) && !headTab) return;
     if (!own && !(anywhere && isPhone())) return;
     const r = el.getBoundingClientRect(), mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat);
-    start = { id: e.pointerId, x: e.clientX, y: e.clientY, h: r.height, H: app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own, sc: own ? null : scroller(e.target) };
-    if (own) el.setPointerCapture?.(e.pointerId);
+    start = { id: e.pointerId, x: e.clientX, y: e.clientY, h: r.height, H: room() || app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own || headTab, sc: own ? null : scroller(e.target) };
   });
   el.addEventListener('pointermove', (e) => {
     if (!start || e.pointerId !== start.id) return;
@@ -1220,9 +1229,9 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     if (!start.moved) {
       if (Math.hypot(dx, dy) < 6) return;
       const sc = start.sc;
-      if (start.loose && (Math.abs(dx) > Math.abs(dy) || (sc && (sc.scrollTop > 0 || (dy < 0 && size === SIZES.length - 1))))) { start = null; return; }
+      if (start.loose && (Math.abs(dx) > Math.abs(dy) || (sc && (sc.scrollTop > 0 || (dy < 0 && size === stops().length - 1))))) { start = null; return; }
       start.moved = true;
-      if (start.loose) el.setPointerCapture?.(e.pointerId);
+      el.setPointerCapture?.(e.pointerId);   // (only once it moves: captured at once, a tap's click would land on the sheet, not the grabber)
     }
     el.classList.add('dragging');
     if (isPhone()) el.style.height = `${Math.max(60, start.h - dy)}px`;
@@ -1237,16 +1246,16 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     el.classList.remove('dragging');
     if (s0.moved) { swallow = true; setTimeout(() => { swallow = false; }, 350); }
     if (!s0.moved || !isPhone()) return;
-    const frac = el.getBoundingClientRect().height / s0.H;
+    const frac = el.getBoundingClientRect().height / s0.H, S = stops();
     el.style.height = '';
-    if (frac < SIZES[0] * 0.7) { onClose(); return; }
-    size = SIZES.reduce((best, v, i) => (Math.abs(v - frac) < Math.abs(SIZES[best] - frac) ? i : best), 0);
+    if (frac < (thumb() ? 0.4 : SIZES[0] * 0.7)) { onClose(); return; }
+    size = S.reduce((best, v, i) => (Math.abs(v - frac) < Math.abs(S[best] - frac) ? i : best), 0);
     apply();
   };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   // (Opening sizes the sheet at once: its height eases only for a change while it is open, so it never comes in
   // at the last size it had and shrinks into place, and the figure frames once.)
-  return { open: () => { if (isPhone()) { size = 1; el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { el.style.translate = ''; el.style.height = ''; } };
+  return { open: () => { if (isPhone()) { size = half(); el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { el.style.translate = ''; el.style.height = ''; } };
 }
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
