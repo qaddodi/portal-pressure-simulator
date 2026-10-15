@@ -2071,7 +2071,7 @@ button.finding { cursor: pointer; }
    44 px tall; the words end that much less a line above the bottom, so only their last line meets it (see clearPill). */
 .pz-pillgap { display: none; }
 .pz.stack .pz-pillgap { display: inline-block; width: calc((var(--pz-pill-w, 160px) + 4px) / var(--pz-fit, 1)); height: calc(var(--pz-reach, 32px) / var(--pz-fit, 1)); vertical-align: bottom; }   /* (as tall as the pill reaches into the words, so its line is the only one it meets) */
-.pz.stack .pz-pillclr { margin-bottom: calc(var(--pz-reach, 32px) / var(--pz-fit, 1)); }   /* (in the card's own px: its contents are zoomed by --pz-fit) */   /* (a box keeps its full width and ends just above the pill) */
+.pz.stack .pz-pillclr { margin-bottom: calc((var(--pz-reach, 32px) + var(--pz-fkrow, 0px)) / var(--pz-fit, 1)); }   /* (in the card's own px: its contents are zoomed by --pz-fit) */   /* (a box keeps its full width and ends just above the pill) */
 .pz.stack .pz-stk:has(> .pz-pillgap) { flex-wrap: wrap; overflow: visible; }
 .pz.stack .pz-bar.idle { opacity: 1; pointer-events: auto; transform: none; }
 /* (The phone's pill looks small, 38 px tall with the count and the two buttons close together (Mohammad, 15 Oct), but every button keeps its 44 px tap box: a negative margin pulls the box's spare 3 to 4 px over the pill's own edge.) */
@@ -2100,7 +2100,12 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data.tiles-only .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
 .pz.stack .pz-tiles[data-n="4"], .pz.stack .pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* (four in a row cannot hold their numbers on a phone) */
 .pz.stack .pz-lapse { font-size: var(--s-body); }
-.pz.stack .pz-abb { font-size: min(var(--s-lab), 3.9vw); min-height: 34px; padding: .4em .6em; flex: 0 1 auto; min-width: 0; white-space: nowrap; }   /* (a row of four, like the lens buttons, stays on one line at any phone width) */
+.pz.stack .pz-abb { font-size: min(var(--s-body), max(var(--s-lab), var(--t-body))); min-height: 34px; padding: .4em .6em; flex: 0 1 auto; min-width: 0; white-space: nowrap; }
+/* (A row of four, like the lens buttons, on one line: the body role's own size (14 px) at the usual text size, the label role's
+   at a larger one, so the row stays the height of its 34 px buttons and the card's words keep their larger size; the label role
+   under 360 px. Its roles are its own, not the slide words' 1.7x, which would not fit four across.) */
+.pz.stack .pz-ab { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
+@media (max-width: 359px) { .pz.stack .pz-abb { font-size: var(--s-lab); } }
 /* A what-if slider: the same frosted pill as the treatment buttons, its name, the track between its two ends, and the value. */
 .pz-wi { display: flex; align-items: center; gap: .5em .9em; flex-wrap: wrap; padding: .45em 1.05em; width: min(100%, 34em); box-sizing: border-box; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; font: 600 var(--s-lab)/1.15 var(--font-ui); color: var(--text); }
 .pzi-l { display: flex; flex-direction: column; gap: .1em; white-space: nowrap; }
@@ -2134,7 +2139,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pzc-hint { display: none; }
 .pz.stack .pzc-a > p { padding-left: calc(1.8em + .8em + .2em); }
 @media (prefers-reduced-motion: reduce) { .pzc-a, .pzc-a > p { transition: none; } }
-.pz.stack .pz-ab { gap: 2px; padding: 3px; justify-content: center; flex-wrap: nowrap; }/* A title that would run past two lines in the side pane steps down a size. */
+.pz.stack .pz-ab { gap: 2px; padding: 3px; justify-content: center; flex-wrap: wrap; }/* A title that would run past two lines in the side pane steps down a size. */
 .pz:not(.stack) .pz-text .pz-h.long { font-size: var(--s-big); }
 .pz.pz-card:not(.stack) .pz-text .pz-h.long { font-size: calc(var(--s-big) * var(--pz-tk, 1)); }   /* (a long title gives way too when the cards stack) */
 /* A slide's instrument (tool) in the data card: the instrument as the app draws it, without its controls. */

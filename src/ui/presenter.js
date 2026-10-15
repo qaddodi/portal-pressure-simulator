@@ -2584,8 +2584,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const w = fk.offsetWidth, h1 = fk.offsetHeight, l = parseFloat(getComputedStyle(fk).left) || 21;
     const bar = ui.bar.getBoundingClientRect(), barH = bar.height / k;
     const room = (bar.left - wr.left) / k - l - 8, full = root.clientWidth - 2 * l;
-    let row = 0;
-    if (w > room) {
+    let row;
+    // (Beside the pill on one line, a key taller than the pill's row (a larger text size: its name over its scale) reaches above
+    // it: the words end 8 px above the key, not 3 px above the pill (Circulation 3 at 150 %: the buttons sat on the key).)
+    if (w <= room) row = Math.max(0, Math.ceil((bar.top - fk.getBoundingClientRect().top) / k + 5));
+    else {
       fk.style.setProperty('--pz-fk-room', `${Math.floor(room)}px`); set(true, false);
       const w2 = fk.scrollWidth, h2 = fk.offsetHeight;
       if (w2 <= room + .5 && h2 <= Math.max(barH + 6, h1 * 2.3)) row = Math.max(0, h2 - barH) + 2;

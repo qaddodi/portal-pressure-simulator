@@ -1952,6 +1952,30 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   }
 
+  // A larger text size reads larger on a phone: Circulation 3 at 150 % keeps its words bigger on the screen than at 100 %, its
+  // four colour buttons at a role size, 8 px or more above the colour key, and the organ names the figure shows at 100 % (KIDNEY
+  // had gone when the buttons grew and the card with them).
+  if (device === 'desktop') await check(device, 'presenter: Circulation 3 at 150 % text keeps larger words, the colour key clear and the organ names, on a phone', async () => {
+    const look = async (step) => {
+      const ctx = await fastContext(browser, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+      await ctx.addInitScript((s) => { try { localStorage.setItem('pps.labelScale', String(s)); localStorage.setItem('pps.labelScaleV', '2'); } catch { /* */ } }, step);
+      const page = await ctx.newPage();
+      await gotoSlide(page, server.url, 'circulation', 2); await quiet(page); await page.waitForTimeout(800);
+      const r = await page.evaluate(() => {
+        const t = document.querySelector('.pz-text'), a = t.querySelector('.pz-ab').getBoundingClientRect(), k = document.querySelector('.pz-fk').getBoundingClientRect();
+        const names = [...document.querySelectorAll('#stageView g.lb text')].filter((x) => { const g = x.closest('g.lb'); return getComputedStyle(g).display !== 'none' && +getComputedStyle(g).opacity > 0.1; }).map((x) => x.textContent.trim()).filter((s) => /^[A-Z]+$/.test(s));
+        return { words: parseFloat(getComputedStyle(t.querySelector('.pz-line')).fontSize) * (parseFloat(t.style.getPropertyValue('--pz-fit')) || 1), gap: k.top - a.bottom, names };
+      });
+      await ctx.close();
+      return r;
+    };
+    const one = await look(1), big = await look(1.5), bad = [];
+    if (!(big.words > one.words * 1.05)) bad.push(`words ${big.words.toFixed(1)} px at 150 %, ${one.words.toFixed(1)} px at 100 %`);
+    for (const [s, r] of [['100', one], ['150', big]]) if (r.gap < 7.5) bad.push(`colour buttons ${r.gap.toFixed(1)} px above the key at ${s} %`);
+    if (!big.names.includes('KIDNEY')) bad.push(`KIDNEY gone at 150 % (shown: ${big.names.join(', ')})`);
+    if (bad.length) throw new Error(bad.join('; '));
+  });
+
   // Every choice in a slide's row of treatment buttons stays in view, whole, with no sideways scrolling, at 11 px or more
   // (a phone once cut Terlipressin off the right edge), at three phone widths, a phone on its side and an upright iPad.
   if (device === 'desktop') await check(device, 'presenter: every choice button on every slide fits on screen, at phones, sideways and iPad', async (page) => {
