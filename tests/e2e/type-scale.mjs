@@ -62,9 +62,10 @@ export function offScale(roles) {
 }
 
 const settle = (page) => page.waitForTimeout(1600);
-export async function checkTypeScale(browser, url, log = console.log) {
+// (only: one size's name, as smoke.mjs runs each size as a check of its own)
+export async function checkTypeScale(browser, url, log = console.log, only = null) {
   const bad = [];
-  for (const size of SIZES.filter((s) => !process.env.TS_SIZES || process.env.TS_SIZES.split(',').includes(s.name))) {
+  for (const size of SIZES.filter((s) => (!process.env.TS_SIZES || process.env.TS_SIZES.split(',').includes(s.name)) && (!only || s.name === only))) {
     const { name, ...opts } = size;
     const steps = name === 'phone' ? TEXT_STEPS : name === 'phone sideways' ? [1] : [1, 2];
     const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block', reducedMotion: 'reduce' });

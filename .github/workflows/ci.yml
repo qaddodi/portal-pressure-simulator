@@ -35,89 +35,102 @@ jobs:
         run: npm run build
 
   # The source site and the production build (what Pages serves, and the SCORM package), each on
-  # a desktop and a phone, desktop in twenty shares and phone in sixteen: seventy-two runners, one check at a time on each (a runner is
+  # a desktop and a phone, desktop in twenty-eight shares and phone in fourteen: eighty-four runners, one check at a time on each (a runner is
   # too small to run several browsers at once). A check that only timed out gets one more try.
   browser-checks:
     name: browser-checks (${{ matrix.site }}, ${{ matrix.device }} ${{ matrix.shard }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 25   # (a runner under load takes up to 25 minutes over the same share; Pages has the same limit)
+    timeout-minutes: 40   # (as checks.yml: a share is about 24 minutes by measured times, and a runner under load takes longer)
     strategy:
       fail-fast: false
       matrix:
-        # Desktop in twenty shares (the longest single checks take 11 to 15 minutes on a runner, so a share must not hold more than one plus a little); phone in sixteen, since it also walks every slide of all decks.
+        # Desktop in twenty-eight shares and phone in fourteen, as checks.yml: about 24 minutes a share by each check's own time on a
+        # runner (tests/e2e/check-times.json; SMOKE_PLAN=1 npm run smoke prints them).
         include:
-          - { site: source, device: desktop, shard: '1/20' }
-          - { site: source, device: desktop, shard: '2/20' }
-          - { site: source, device: desktop, shard: '3/20' }
-          - { site: source, device: desktop, shard: '4/20' }
-          - { site: source, device: desktop, shard: '5/20' }
-          - { site: source, device: desktop, shard: '6/20' }
-          - { site: source, device: desktop, shard: '7/20' }
-          - { site: source, device: desktop, shard: '8/20' }
-          - { site: source, device: desktop, shard: '9/20' }
-          - { site: source, device: desktop, shard: '10/20' }
-          - { site: source, device: desktop, shard: '11/20' }
-          - { site: source, device: desktop, shard: '12/20' }
-          - { site: source, device: desktop, shard: '13/20' }
-          - { site: source, device: desktop, shard: '14/20' }
-          - { site: source, device: desktop, shard: '15/20' }
-          - { site: source, device: desktop, shard: '16/20' }
-          - { site: source, device: desktop, shard: '17/20' }
-          - { site: source, device: desktop, shard: '18/20' }
-          - { site: source, device: desktop, shard: '19/20' }
-          - { site: source, device: desktop, shard: '20/20' }
-          - { site: source, device: phone, shard: '1/16' }
-          - { site: source, device: phone, shard: '2/16' }
-          - { site: source, device: phone, shard: '3/16' }
-          - { site: source, device: phone, shard: '4/16' }
-          - { site: source, device: phone, shard: '5/16' }
-          - { site: source, device: phone, shard: '6/16' }
-          - { site: source, device: phone, shard: '7/16' }
-          - { site: source, device: phone, shard: '8/16' }
-          - { site: source, device: phone, shard: '9/16' }
-          - { site: source, device: phone, shard: '10/16' }
-          - { site: source, device: phone, shard: '11/16' }
-          - { site: source, device: phone, shard: '12/16' }
-          - { site: source, device: phone, shard: '13/16' }
-          - { site: source, device: phone, shard: '14/16' }
-          - { site: source, device: phone, shard: '15/16' }
-          - { site: source, device: phone, shard: '16/16' }
-          - { site: build, device: desktop, shard: '1/20' }
-          - { site: build, device: desktop, shard: '2/20' }
-          - { site: build, device: desktop, shard: '3/20' }
-          - { site: build, device: desktop, shard: '4/20' }
-          - { site: build, device: desktop, shard: '5/20' }
-          - { site: build, device: desktop, shard: '6/20' }
-          - { site: build, device: desktop, shard: '7/20' }
-          - { site: build, device: desktop, shard: '8/20' }
-          - { site: build, device: desktop, shard: '9/20' }
-          - { site: build, device: desktop, shard: '10/20' }
-          - { site: build, device: desktop, shard: '11/20' }
-          - { site: build, device: desktop, shard: '12/20' }
-          - { site: build, device: desktop, shard: '13/20' }
-          - { site: build, device: desktop, shard: '14/20' }
-          - { site: build, device: desktop, shard: '15/20' }
-          - { site: build, device: desktop, shard: '16/20' }
-          - { site: build, device: desktop, shard: '17/20' }
-          - { site: build, device: desktop, shard: '18/20' }
-          - { site: build, device: desktop, shard: '19/20' }
-          - { site: build, device: desktop, shard: '20/20' }
-          - { site: build, device: phone, shard: '1/16' }
-          - { site: build, device: phone, shard: '2/16' }
-          - { site: build, device: phone, shard: '3/16' }
-          - { site: build, device: phone, shard: '4/16' }
-          - { site: build, device: phone, shard: '5/16' }
-          - { site: build, device: phone, shard: '6/16' }
-          - { site: build, device: phone, shard: '7/16' }
-          - { site: build, device: phone, shard: '8/16' }
-          - { site: build, device: phone, shard: '9/16' }
-          - { site: build, device: phone, shard: '10/16' }
-          - { site: build, device: phone, shard: '11/16' }
-          - { site: build, device: phone, shard: '12/16' }
-          - { site: build, device: phone, shard: '13/16' }
-          - { site: build, device: phone, shard: '14/16' }
-          - { site: build, device: phone, shard: '15/16' }
-          - { site: build, device: phone, shard: '16/16' }
+          - { site: source, device: desktop, shard: '1/28' }
+          - { site: source, device: desktop, shard: '2/28' }
+          - { site: source, device: desktop, shard: '3/28' }
+          - { site: source, device: desktop, shard: '4/28' }
+          - { site: source, device: desktop, shard: '5/28' }
+          - { site: source, device: desktop, shard: '6/28' }
+          - { site: source, device: desktop, shard: '7/28' }
+          - { site: source, device: desktop, shard: '8/28' }
+          - { site: source, device: desktop, shard: '9/28' }
+          - { site: source, device: desktop, shard: '10/28' }
+          - { site: source, device: desktop, shard: '11/28' }
+          - { site: source, device: desktop, shard: '12/28' }
+          - { site: source, device: desktop, shard: '13/28' }
+          - { site: source, device: desktop, shard: '14/28' }
+          - { site: source, device: desktop, shard: '15/28' }
+          - { site: source, device: desktop, shard: '16/28' }
+          - { site: source, device: desktop, shard: '17/28' }
+          - { site: source, device: desktop, shard: '18/28' }
+          - { site: source, device: desktop, shard: '19/28' }
+          - { site: source, device: desktop, shard: '20/28' }
+          - { site: source, device: desktop, shard: '21/28' }
+          - { site: source, device: desktop, shard: '22/28' }
+          - { site: source, device: desktop, shard: '23/28' }
+          - { site: source, device: desktop, shard: '24/28' }
+          - { site: source, device: desktop, shard: '25/28' }
+          - { site: source, device: desktop, shard: '26/28' }
+          - { site: source, device: desktop, shard: '27/28' }
+          - { site: source, device: desktop, shard: '28/28' }
+          - { site: source, device: phone, shard: '1/14' }
+          - { site: source, device: phone, shard: '2/14' }
+          - { site: source, device: phone, shard: '3/14' }
+          - { site: source, device: phone, shard: '4/14' }
+          - { site: source, device: phone, shard: '5/14' }
+          - { site: source, device: phone, shard: '6/14' }
+          - { site: source, device: phone, shard: '7/14' }
+          - { site: source, device: phone, shard: '8/14' }
+          - { site: source, device: phone, shard: '9/14' }
+          - { site: source, device: phone, shard: '10/14' }
+          - { site: source, device: phone, shard: '11/14' }
+          - { site: source, device: phone, shard: '12/14' }
+          - { site: source, device: phone, shard: '13/14' }
+          - { site: source, device: phone, shard: '14/14' }
+          - { site: build, device: desktop, shard: '1/28' }
+          - { site: build, device: desktop, shard: '2/28' }
+          - { site: build, device: desktop, shard: '3/28' }
+          - { site: build, device: desktop, shard: '4/28' }
+          - { site: build, device: desktop, shard: '5/28' }
+          - { site: build, device: desktop, shard: '6/28' }
+          - { site: build, device: desktop, shard: '7/28' }
+          - { site: build, device: desktop, shard: '8/28' }
+          - { site: build, device: desktop, shard: '9/28' }
+          - { site: build, device: desktop, shard: '10/28' }
+          - { site: build, device: desktop, shard: '11/28' }
+          - { site: build, device: desktop, shard: '12/28' }
+          - { site: build, device: desktop, shard: '13/28' }
+          - { site: build, device: desktop, shard: '14/28' }
+          - { site: build, device: desktop, shard: '15/28' }
+          - { site: build, device: desktop, shard: '16/28' }
+          - { site: build, device: desktop, shard: '17/28' }
+          - { site: build, device: desktop, shard: '18/28' }
+          - { site: build, device: desktop, shard: '19/28' }
+          - { site: build, device: desktop, shard: '20/28' }
+          - { site: build, device: desktop, shard: '21/28' }
+          - { site: build, device: desktop, shard: '22/28' }
+          - { site: build, device: desktop, shard: '23/28' }
+          - { site: build, device: desktop, shard: '24/28' }
+          - { site: build, device: desktop, shard: '25/28' }
+          - { site: build, device: desktop, shard: '26/28' }
+          - { site: build, device: desktop, shard: '27/28' }
+          - { site: build, device: desktop, shard: '28/28' }
+          - { site: build, device: phone, shard: '1/14' }
+          - { site: build, device: phone, shard: '2/14' }
+          - { site: build, device: phone, shard: '3/14' }
+          - { site: build, device: phone, shard: '4/14' }
+          - { site: build, device: phone, shard: '5/14' }
+          - { site: build, device: phone, shard: '6/14' }
+          - { site: build, device: phone, shard: '7/14' }
+          - { site: build, device: phone, shard: '8/14' }
+          - { site: build, device: phone, shard: '9/14' }
+          - { site: build, device: phone, shard: '10/14' }
+          - { site: build, device: phone, shard: '11/14' }
+          - { site: build, device: phone, shard: '12/14' }
+          - { site: build, device: phone, shard: '13/14' }
+          - { site: build, device: phone, shard: '14/14' }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser

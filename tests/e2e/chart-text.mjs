@@ -73,9 +73,10 @@ const settle = (page) => page.waitForFunction(() => {
   return !document.getAnimations().some((a) => a.playState === 'running' && isFinite(a.effect?.getTiming().iterations));
 }, null, { timeout: 20000, polling: 200 }).catch(() => {});
 
-export async function checkCharts(browser, url, log = console.log) {
+// (only: one size's name, as smoke.mjs runs each size as a check of its own)
+export async function checkCharts(browser, url, log = console.log, only = null) {
   const slides = (await chartSlides()).filter((s) => !process.env.DECKS || process.env.DECKS.split(',').includes(s.deck)), bad = [];
-  for (const size of SIZES) {
+  for (const size of SIZES.filter((s) => !only || s.name === only)) {
     const { name, ...opts } = size;
     const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
     const page = await ctx.newPage();

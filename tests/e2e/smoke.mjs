@@ -16,9 +16,9 @@ import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
 import { instantMotionOn, quiet } from './fast.mjs';
-import { checkCharts, checkLadderBrackets, LADDER_SIZES, checkStrip, checkStripSlides, stripSlides, checkStripGaps } from './chart-text.mjs';
-import { checkPhoneFit, fitIssues } from './phone-fit.mjs';
-import { checkTypeScale } from './type-scale.mjs';
+import { SIZES as CHART_SIZES_ALL, checkCharts, checkLadderBrackets, LADDER_SIZES, checkStrip, checkStripSlides, stripSlides, checkStripGaps } from './chart-text.mjs';
+import { checkPhoneFit, fitIssues, PHONES } from './phone-fit.mjs';
+import { checkTypeScale, SIZES as TYPE_SIZES } from './type-scale.mjs';
 import { TEXT_MIN, TEXT_MAX } from '../../src/ui/type-scale.js';
 import { checkChartText, chartTypeSlides } from './chart-type.mjs';
 
@@ -29,6 +29,7 @@ const server = await serve(dir);
 const browser = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
 let failed = 0;
 
+const TYPE_SCALE_SIZES = TYPE_SIZES.map((s) => s.name), CHART_TEXT_SIZES = CHART_SIZES_ALL.map((s) => s.name);
 const DEVICES = {
   desktop: { viewport: { width: 1440, height: 900 } },
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
@@ -1183,16 +1184,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
-  await check(device, 'presenter: the controls never glide between slides, and keep their size and spacing, first and last included', async (page) => {
-    // Each slide of two decks, at each size (the desktop run also tries an upright iPad). The bar's size and the spacing of its
-    // controls are the same on every slide (Next turning into Finish moved them once). A bar centred at the bottom keeps one
-    // spot, and so does a phone's pill; every frame in which it shows is at that spot, never elsewhere.
-    // Once each slide is in, the controls' icons and count may not cover any of the card's words or its table, and a phone's
-    // pill keeps clear of them (see barFit). (A phone's bar once stayed where the slide before had it, over the summary card's table.)
-    // Three decks are walked from the start (endoscopy: its data card sits at the top); one more only over its last slides, the summary card among them.
-    const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
-    const runs = [['circulation', 0], ['lobule', 0], ['endoscopy', 0], ['hvpg', -2]];
-    for (const size of sizes) for (const [deck, from] of runs) {
+  // Each slide of two decks, at each size (the desktop run also tries an upright iPad). The bar's size and the spacing of its
+  // controls are the same on every slide (Next turning into Finish moved them once). A bar centred at the bottom keeps one
+  // spot, and so does a phone's pill; every frame in which it shows is at that spot, never elsewhere.
+  // Once each slide is in, the controls' icons and count may not cover any of the card's words or its table, and a phone's
+  // pill keeps clear of them (see barFit). (A phone's bar once stayed where the slide before had it, over the summary card's table.)
+  // Three decks are walked from the start (endoscopy: its data card sits at the top); one more only over its last slides, the summary card among them.
+  // (One check per deck and size: in one piece it took 26 minutes on a desktop runner, longer than a share should hold.)
+  for (const size of device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null]) for (const [deck, from] of [['circulation', 0], ['lobule', 0], ['endoscopy', 0], ['hvpg', -2]]) await check(device, `presenter: the controls never glide between slides, and keep their size and spacing, first and last included: ${deck}${size ? ' on an upright iPad' : ''}`, async (page) => {
+    {
       if (size) await page.setViewportSize(size);
       await open(page);
       await page.evaluate(([id, at]) => window.pps.presenter.start(id, at), [deck, from]);
@@ -1520,9 +1520,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }).filter(Boolean);
     return bad.length ? bad.join('; ') : 'ok';
   };
-  for (const [deck, { at: sinAt, n: count }] of SV_DECKS) await check(device, `presenter: on every sinusoid slide of ${deck} no direction arrow shows without its name`, async (page) => {
-    const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }, { width: 1180, height: 820 }] : [null];
-    for (const size of sizes) {
+  // (One check per deck and size: ascites at three sizes took 18 minutes in one piece.)
+  for (const [deck, { at: sinAt, n: count }] of SV_DECKS) for (const size of device === 'desktop' ? [null, { width: 820, height: 1180 }, { width: 1180, height: 820 }] : [null]) await check(device, `presenter: on every sinusoid slide of ${deck}${size ? ` at ${size.width}x${size.height}` : ''} no direction arrow shows without its name`, async (page) => {
+    {
       if (size) await page.setViewportSize(size);
       await open(page);
       await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
@@ -1732,8 +1732,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   // Every chart slide (scales, ladders, the SAAG map, the walls) at two phones, an upright iPad and a desktop: no two
   // pieces of text touch and no text crosses a rule line (tests/e2e/chart-text.mjs). Run once, from the desktop run.
-  if (device === 'desktop') await check(device, 'presenter: chart text never overlaps or crosses a line, at every size', async () => {
-    const bad = [...await checkCharts(browser, server.url, () => {}), ...await checkStrip(browser, server.url, () => {})];
+  // (One check per size, and the strip's own: in one piece it took 18 minutes on a desktop runner.)
+  if (device === 'desktop') for (const size of CHART_TEXT_SIZES) await check(device, `presenter: chart text never overlaps or crosses a line, ${size}`, async () => {
+    const bad = await checkCharts(browser, server.url, () => {}, size);
+    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+  });
+  if (device === 'desktop') await check(device, 'presenter: the pressure strip\'s text never overlaps or crosses a line, light and dark', async () => {
+    const bad = await checkStrip(browser, server.url, () => {});
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });
 
@@ -1767,12 +1772,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   if (device === 'desktop') {
     const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
     for (const d of DECKS) {
-      const n = withOverview(d).slides.length, name = `presenter: ${d.id}'s slides keep their words off the controls pill and readings inside their card, at phones`;
-      STRIP_SLIDES.set(name, n * 0.3);   // (about 25 s a slide over its six sizes)
-      await check(device, name, async () => {
-        const bad = await checkPhoneFit(browser, server.url, d.id, n);
-        if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
-      });
+      // (One check per deck upright and one sideways: in one piece a deck took up to 14 minutes on a runner.)
+      for (const [way, sizes] of [['upright', PHONES.filter((s) => s.height > s.width)], ['sideways', PHONES.filter((s) => s.width > s.height)]]) {
+        const name = `presenter: ${d.id}'s slides keep their words off the controls pill and readings inside their card, at phones ${way}`;
+        STRIP_SLIDES.set(name, withOverview(d).slides.length * 0.15);
+        await check(device, name, async () => {
+          const bad = await checkPhoneFit(browser, server.url, d.id, withOverview(d).slides.length, () => {}, sizes);
+          if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+        });
+      }
     }
   }
 
@@ -1855,8 +1863,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   // Figure labels and slide cards keep to the six-role type scale at every text size step, never under 11 px, units never
   // above their readings, on a phone, an upright iPad and a desktop (tests/e2e/type-scale.mjs). Run once, from the desktop run.
-  if (device === 'desktop') await check(device, 'type scale: figure and slide text on the six roles at every text size', async () => {
-    const bad = await checkTypeScale(browser, server.url, () => {});
+  // (One check per size: in one piece it took 22 minutes on a desktop runner.)
+  if (device === 'desktop') for (const size of TYPE_SCALE_SIZES) await check(device, `type scale: figure and slide text on the six roles at every text size, ${size}`, async () => {
+    const bad = await checkTypeScale(browser, server.url, () => {}, size);
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });
 
@@ -3364,8 +3373,11 @@ const SLOW = ['responsive instrument workspace', 'pressure over time and Doppler
 const weight = (name) => { const i = SLOW.indexOf(name); return i < 0 ? 0 : SLOW.length - i; };
 queue.sort((a, b) => weight(b[1]) - weight(a[1]));
 if (process.env.SMOKE_MATCH) { const match = new RegExp(process.env.SMOKE_MATCH, 'i'); for (let i = queue.length - 1; i >= 0; i--) if (!match.test(queue[i][1])) queue.splice(i, 1); }
-// Shards are filled by expected time, longest first, each check going to the least-loaded share
-// (times measured on CI runners; checks not listed count as 45 s, a deck walk as 3 min).
+// Shards are filled by expected time, longest first, each check going to the least-loaded share.
+// The times are each check's own on CI runners (tests/e2e/check-times.json, seconds, by device and name: a failing check counted
+// with its retry, as it costs that much until it is fixed); refresh them with node scripts/check-times.mjs <job logs>.
+// (15 Oct: shares planned from estimates ran 40+ minutes where 23 were expected, and nine hit the time limit.)
+// A check not in that file falls back to the older estimates below (checks not listed count as 45 s, a deck walk as 3 min).
 const MEASURED = {
   'pan and pinch: marks and labels stay locked to the figure': 150000,
   'Fit always re-frames the figure after a zoom, pan, flick, scroll or resize': 300000,
@@ -3385,18 +3397,19 @@ const MEASURED = {
   'type scale: figure and slide text on the six roles at every text size': 880000,   // (a desktop CI runner took 14.6 minutes over it)
   'presenter: chart text never overlaps or crosses a line, at every size': 600000,   // (a desktop CI runner took 11.5 minutes over it)
   'presenter: every choice button on every slide fits on screen, at phones, sideways and iPad': 420000,   // (five sizes over eleven slides, about 7 minutes on a CI runner)
-  'presenter: the controls never glide between slides, and keep their size and spacing, first and last included': 780000,   // (a phone CI runner took 10 minutes, a desktop one 12.7)
 };
+const TIMES = JSON.parse(readFileSync(new URL('./check-times.json', import.meta.url), 'utf8'));
+const expectedOf = ([device, name]) => (TIMES[`${device} ${name}`] ?? 0) * 1000 || expected(name);
 const expected = (name) => MEASURED[name] ?? (STRIP_SLIDES.has(name) ? STRIP_SLIDES.get(name) * 2 * 42000 : null) ?? (CHART_SLIDES.has(name) ? CHART_SLIDES.get(name) * 125000 : null) ?? (/^presenter: on every slide of /.test(name) ? 180000 : 45000);
 const [shard, shards] = (process.env.SMOKE_SHARD || '1/1').split('/').map(Number);
 const load = Array(shards).fill(0);
 const owner = new Map();
-for (const item of [...queue].sort((a, b) => expected(b[1]) - expected(a[1]))) {
+for (const item of [...queue].sort((a, b) => expectedOf(b) - expectedOf(a))) {
   const k = load.indexOf(Math.min(...load));
-  load[k] += expected(item[1]);
+  load[k] += expectedOf(item);
   owner.set(item, k);
 }
-if (process.env.SMOKE_PLAN) { console.log(`${queue.length} checks; expected minutes per share: ${load.map((v) => Math.round(v / 6000) / 10).join(' ')}`); if (process.env.SMOKE_PLAN === 'list') for (const [item, k] of owner) console.log(`${k + 1}/${shards} ${Math.round(expected(item[1]) / 6000) / 10} ${item[1]}`);
+if (process.env.SMOKE_PLAN) { console.log(`${queue.length} checks; expected minutes per share: ${load.map((v) => Math.round(v / 6000) / 10).join(' ')}`); if (process.env.SMOKE_PLAN === 'list') for (const [item, k] of owner) console.log(`${k + 1}/${shards} ${Math.round(expectedOf(item) / 6000) / 10} ${item[1]}`);
   process.exit(0); }   // (SMOKE_PLAN=1: only print how the shares divide; =list also names the checks of each share)
 for (let i = queue.length - 1; i >= 0; i--) if (owner.get(queue[i]) !== shard - 1) queue.splice(i, 1);
 const WORKERS = Number(process.env.SMOKE_WORKERS) || 4;

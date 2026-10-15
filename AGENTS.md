@@ -37,7 +37,7 @@ Loop for every change (fast previews first, full tests before merge):
 4. When the owner is happy, run the full `npm run check` (lint, unit, build, smoke, smoke:dist),
    fix anything it finds, and recommend any tests worth adding for the new behaviour.
    The full CI (`ci.yml`) also runs every check on pull requests and on `main`, split over
-   parallel runners (source site and build, desktop in twenty shares and phone in sixteen, plus the visual
+   parallel runners (source site and build, desktop in twenty-eight shares and phone in fourteen, plus the visual
    check per device). A browser check that failed only by timing out gets one more try
    (`SMOKE_RETRIES`); any other failure counts at once.
    Visual references (`tests/visual/`): every preview push compares the look (job `visual` in

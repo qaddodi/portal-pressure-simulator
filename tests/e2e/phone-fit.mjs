@@ -53,9 +53,9 @@ export const fitIssues = () => {
   }
   return out;
 };
-export async function checkPhoneFit(browser, url, deck, slides, log = () => {}) {
+export async function checkPhoneFit(browser, url, deck, slides, log = () => {}, sizes = PHONES) {
   const bad = [];
-  for (const size of PHONES) {
+  for (const size of sizes) {
     // (one page per size; each slide reached directly, its motion instant: tests/e2e/fast.mjs)
     const ctx = await fastContext(browser, { viewport: size, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
     const page = await ctx.newPage();
