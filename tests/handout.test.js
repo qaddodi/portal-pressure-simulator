@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handoutHTML, lineText } from '../src/ui/handout.js';
+import { existsSync, readdirSync } from 'node:fs';
+import { handoutHTML, lineText, NO_FIGURE } from '../src/ui/handout.js';
 import { DECKS, withOverview } from '../src/ui/decks.js';
 import { TILE } from '../src/ui/table-marks.js';
 
@@ -37,4 +38,20 @@ test('the handout prints each line\'s values and words, never a raw placeholder'
   assert.equal(lineText('An HVPG of {hvpg} in the [portal vein](pv), under {<15 cm/s}; {6 to 8 g}; before {ppg@a}.', { hvpg: 11.64 }, (id) => (id === 'a' ? { ppg: 4.25 } : null)),
     'An HVPG of 11.6 mmHg in the portal vein, under 15 cm/s; 6 to 8 g; before 4.3 mmHg.');
   assert.equal(lineText('{asc} and {plt} and {shunt}', { asc: 4300, plt: 92.4, shunt: 0.715 }), '4.3 L and 92 ×10⁹/L and 72%');
+});
+test('every slide of every deck prints its figure, except the outline and the quick check', () => {
+  const dir = new URL('../brand/handout/', import.meta.url), want = new Set();
+  for (const d of DECKS) {
+    const slides = withOverview(d).slides, html = handoutHTML(d, 'figs/');
+    for (const s of slides) {
+      if (NO_FIGURE.has(s.visual)) continue;
+      want.add(`${d.id}/${s.id}.webp`);
+      assert.ok(html.includes(`src="figs/${d.id}/${s.id}.webp"`), `${d.id}/${s.id}: no figure slot`);
+      assert.ok(existsSync(new URL(`${d.id}/${s.id}.webp`, dir)), `${d.id}/${s.id}: no figure; run node scripts/handout-figures.mjs ${d.id}`);
+    }
+    assert.equal((html.match(/<figure>/g) || []).length, slides.filter((s) => !NO_FIGURE.has(s.visual)).length, d.id);
+  }
+  // (a figure no slide prints is a renamed or removed slide's: its deck's figures want drawing again)
+  const have = readdirSync(dir).flatMap((d) => readdirSync(new URL(`${d}/`, dir)).map((f) => `${d}/${f}`));
+  assert.deepEqual(have.filter((f) => !want.has(f)), []);
 });
