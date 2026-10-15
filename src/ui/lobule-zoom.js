@@ -1070,16 +1070,44 @@ export function createLobuleZoom({ host }) {
     });
     return boxes;
   }
+  // The layout the labels were last placed for ({ b: everything but the view, k, x, y }), which a pan carries them from.
+  let follow = null, followT = 0, rough = false;
+  const handOn = () => touches.size > 0 || !!cancelFlick || (wheelKind === 'pad' && performance.now() - wheelAt < 250);
+  // The hand let go (or paused): place the labels again for where the view now is.
+  function followEnd() { if (handOn()) { followT = setTimeout(followEnd, 140); return; } if (labels.style.transform || rough) { rough = false; layoutKey = ''; viewChanged(); } }
+  // Writes the pan's shift into the labels' and leaders' own positions and drops the shared shift, so they glide on from where they are seen.
+  function bakeFollow() {
+    clearTimeout(followT);
+    const m = /translate3d\(([-\d.e]+)px, ([-\d.e]+)px/.exec(labels.style.transform);
+    labels.style.transform = leaders.style.transform = '';
+    if (!m) return false;
+    const dx = +m[1], dy = +m[2];
+    if (!dx && !dy) return false;
+    for (const e of labels.children) if (e.style.left) { e.style.left = `${parseFloat(e.style.left) + dx}px`; e.style.top = `${parseFloat(e.style.top) + dy}px`; }
+    for (const e of leaders.children) for (const [a, d] of [['x1', dx], ['x2', dx], ['cx', dx], ['y1', dy], ['y2', dy], ['cy', dy]]) { const v = e.getAttribute(a); if (v != null) e.setAttribute(a, +v + d); }
+    return true;
+  }
   function layoutLabels() {
     // Laid out where the presenter's glide lands (see camSettle), or once its time is up if the hand cut it short.
     if (camMove) { if (performance.now() >= camUntil) camSettle(); return; }
-    const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.lk).join('|')}|${zonesOn}|${lymphOn}|${named('ha')}${named('bd')}|${call ? call.at + call.label : ''}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
+    const fr0 = freeRect(), g = geo, bKey = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.lk).join('|')}|${zonesOn}|${lymphOn}|${named('ha')}${named('bd')}|${call ? call.at + call.label : ''}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`,
+      key = `${bKey}|${V.k},${V.x},${V.y}`;
     if (key === layoutKey) return;
+    // While a hand pans the lobule (a drag, its flick, a trackpad scroll), the labels ride with the picture as one
+    // layer: placing them again every frame (measuring each, then trying hundreds of spots and orders) is what made
+    // panning lag on a phone. They are placed again, gliding to their new spots, once the hand lets go.
+    if (follow && bKey === follow.b && V.k === follow.k && handOn()) {
+      const t = `translate3d(${V.x - follow.x}px, ${V.y - follow.y}px, 0)`;
+      labels.style.transform = leaders.style.transform = t;
+      clearTimeout(followT); followT = setTimeout(followEnd, 140);
+      return;
+    }
+    const baked = bakeFollow();
     // A label that moves while the view holds still (a term lit, a value's width changed) glides to its new spot;
     // while the view itself pans or zooms, the labels follow it at once.
     const vKey = `${g.W}x${g.H}|${V.k},${V.x},${V.y}`;
-    if (layoutKey && vKey === layoutV) { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(() => labels.classList.remove('lz-ease'), 450); }
-    layoutKey = key; layoutV = vKey;
+    if ((layoutKey && vKey === layoutV) || baked) { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(() => labels.classList.remove('lz-ease'), 450); }
+    layoutKey = key; layoutV = vKey; follow = { b: bKey, k: V.k, x: V.x, y: V.y };
     pickAnchors(fr0);
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
     // Every label has a leader to what it names, ending at the label's centre, behind the text halo.
@@ -1201,7 +1229,10 @@ export function createLobuleZoom({ host }) {
       return { res, total, pl, ld };
     };
     let sol = solve(items);
-    if (sol.total >= 1e5) {
+    // (Mid-pinch, the first order is kept; the full search runs once the hand lets go.)
+    rough = sol.total >= 1e5 && handOn();
+    if (rough) { clearTimeout(followT); followT = setTimeout(followEnd, 140); }
+    if (sol.total >= 1e5 && !rough) {
       // Every order of up to six labels (720 at most, only while a clash remains: a few milliseconds).
       const perms = (xs) => (xs.length <= 1 ? [xs] : xs.flatMap((x, i) => perms([...xs.slice(0, i), ...xs.slice(i + 1)]).map((r) => [x, ...r])));
       for (const order of perms(items)) {
