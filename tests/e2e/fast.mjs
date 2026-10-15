@@ -75,3 +75,25 @@ export async function quiet(page, { still = 250, timeout = 8000 } = {}) {
     return now - q.t >= still;
   }, still, { timeout, polling: 50 }).then(() => true, () => false);
 }
+
+// In the page: a wider screen's colour key (Mac, iPad, a phone held sideways) stands on top of the nav pill, right-aligned with it and a
+// small gap above it (Mohammad, 15 Oct), whole on screen, and no card or figure label (station values, organ names, callouts, lobule
+// and sinusoid names) sits under the key or the pill. [] when right (or no key is shown).
+export function keyIssues() {
+  const fk = document.querySelector('.pz:not(.stack) .pz-fk.on:not([hidden])'), bar = document.querySelector('.pz-bar.pzb-pill');
+  if (!fk || !bar || bar.hidden || +getComputedStyle(fk).opacity < 0.5) return [];
+  const k = fk.getBoundingClientRect(), b = bar.getBoundingClientRect(), out = [];
+  if (Math.abs(k.right - b.right) > 1) out.push(`key not right-aligned with the nav pill (${Math.round(k.right)} vs ${Math.round(b.right)})`);
+  if (b.top - k.bottom < 4 || b.top - k.bottom > 12) out.push(`key not just above the nav pill (gap ${Math.round(b.top - k.bottom)})`);
+  if (k.left < 0 || k.top < 0) out.push('key off screen');
+  const over = (q, p = 0) => q.width > 1 && q.height > 1 && Math.min(q.right, k.right) - Math.max(q.left, k.left) > p && Math.min(q.bottom, k.bottom) - Math.max(q.top, k.top) > p;
+  const near = (q) => q.width > 1 && q.height > 1 && [k, b].some((r) => Math.min(q.right, r.right) - Math.max(q.left, r.left) > 1 && Math.min(q.bottom, r.bottom) - Math.max(q.top, r.top) > 1);
+  const shown = (e) => { for (let a = e; a && a !== document.body; a = a.parentElement) { const cs = getComputedStyle(a); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return false; } return true; };
+  for (const c of document.querySelectorAll('.pz-text, .pz-data, .pz-panel, .pz-case.on')) if (!c.hidden && !('gone' in c.dataset) && !c.classList.contains('pz-hide') && shown(c) && over(c.getBoundingClientRect(), 1)) out.push(`key under ${c.className.split(' ')[0]}`);
+  for (const g of document.querySelectorAll('#labels .lb:not(.lb-off)')) {
+    if (!shown(g)) continue;
+    if ([...g.querySelectorAll('text')].some((t) => t.textContent.trim() && near(t.getBoundingClientRect()))) { out.push(`label "${g.textContent.trim().slice(0, 20)}" under the key or pill`); break; }
+  }
+  for (const e of document.querySelectorAll('.cath-labels .cath-label, .lz-lab, .lz-zone, .lz-call, .sv-region')) if (shown(e) && near(e.getBoundingClientRect())) { out.push(`"${e.textContent.trim().slice(0, 20)}" under the key or pill`); break; }
+  return out;
+}

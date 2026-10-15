@@ -5206,7 +5206,7 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 /* Settings › "Frosted glass" off (html[data-noglass]): no live blur anywhere, which spares the GPU re-blurring the
    moving figure every frame. Cards turn solid; the figure's label pills glow in their own colour instead. */
 :root[data-noglass] *, :root[data-noglass] *::before, :root[data-noglass] *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
-:root[data-noglass] :is(.lb-glass, .sv-legend, .pz-fk, .toast) { background: var(--surface); }
+:root[data-noglass] :is(.lb-glass, .sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast) { background: var(--surface); }
 :root[data-noglass] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .cl-glass) { background: var(--surface); }
 /* (Settings › Blur effect off.) Labels lose their pill and glow in their own colour instead. The lit lobule and sinusoid names: the
    text glows in the term's colour, faded in and out with the pill's own --pill-o. */
@@ -5226,6 +5226,11 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 /* The figure key: a small pill, its name with the colour scale under it (no "None" or "Large" words; a key of named swatches keeps its names). */
 .pz-fk.grad, .pz-fk.grad.col { flex-direction: column; align-items: center; gap: .2em; padding: .28em .7em .34em; border-radius: calc(var(--r-card) + 2px); font-size: max(10px, calc(var(--s-cap) * .78)); }
 .pz-fk.grad .pz-lens-bar { width: 4em; height: .5em; }
+/* A wider screen's colour key (Mac, iPad, a phone held sideways) sits right on top of the nav pill at the lower right: right-aligned with it,
+   a small gap above it, the pill's own glass and corners (Mohammad, 15 Oct). Its own width; it moves with the pill. */
+.pz:not(.stack) .pz-fk { left: auto; top: auto; right: var(--pz-cm); bottom: calc(max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) + 44px + 8px); translate: none; border-radius: var(--r-sheet); background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz:not(.stack) .pz-fk { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@media (prefers-reduced-transparency: reduce) { .pz:not(.stack) .pz-fk { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* A phone's colour key sits at the words' bottom-left corner, on the nav pill's row (figure-key.js fades it in once the cards have landed). */
 .pz.stack .pz-fk { left: 21px; top: auto; bottom: calc(26px + var(--pz-sb)); translate: none; z-index: 1; }
 .pz.stack.tab .pz-fk { left: calc(15% + 13px); }

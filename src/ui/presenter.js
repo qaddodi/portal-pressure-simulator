@@ -27,7 +27,7 @@ import { openHandout } from './handout.js?v=d8ac570635';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=525d14632b';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
-import { createFigureKey } from './figure-key.js?v=28e5a6ff33';
+import { createFigureKey } from './figure-key.js?v=7c8a04f933';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=cad0ea7853';
 const nextFrame = frameFor('presenter');
@@ -2271,6 +2271,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dd.style.maxHeight = below ? `${((foot - y) / k).toFixed(1)}px` : '';
     // (A phone: the data card ends 8 px short of the teaching card (16 px above the words), however much it holds: an opened instrument had grown over the words.)
     if (p && t) { const cs = getComputedStyle(dd), room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8); if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
+    // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
+    if (!p && !below && ui.fk.dataset.empty == null && !ui.bar.hidden) {
+      const f = ui.fk, was = f.hidden; f.hidden = false; const q = f.getBoundingClientRect(); f.hidden = was;
+      const cs = getComputedStyle(dd), room = Math.floor((q.top - wr.top) / k - (parseFloat(cs.top) || 0) - 8);
+      if (q.width && room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`;
+    }
     if (below !== isCol) { void dd.offsetWidth; dd.style.transition = ''; }
     fitCards(ui.data, ui.panel);
     // The stacked pair shorter than the screen is centred top to bottom as one (equal room above and below, never closer than one margin
@@ -2340,6 +2346,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       obs.push(dk = { l: x * k, t: d.offsetTop * k, r: (x + d.offsetWidth) * k, b: (d.offsetTop + d.offsetHeight) * k });
     }
     if (!ui.bar.hidden && ui.bar.offsetWidth) { const q = ui.bar.getBoundingClientRect(); obs.push(pill = { l: q.left - wr.left, t: q.top - wr.top, r: q.right - wr.left, b: q.bottom - wr.top }); }
+    // (The colour key stands on the pill: the two are one obstacle. Measured where it will show, even before it fades in.)
+    if (pill && ui.fk.dataset.empty == null) {
+      const f = ui.fk, was = f.hidden; f.hidden = false; const q = f.getBoundingClientRect(); f.hidden = was;
+      if (q.width) { pill.t = Math.min(pill.t, q.top - wr.top); pill.l = Math.min(pill.l, q.left - wr.left); }
+    }
     // Each obstacle splits a rectangle it overlaps into the open parts left, right, above and below it.
     const split = (q, o) => (o.r <= q.l || o.l >= q.r || o.b <= q.t || o.t >= q.b ? [q]
       : [{ ...q, r: o.l - G }, { ...q, l: o.r + G }, { ...q, b: o.t - G }, { ...q, t: o.b + G }].filter((x) => x.r - x.l > 0 && x.b - x.t > 0));
@@ -2779,14 +2790,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));
     const jump = h('nav', { class: 'pz-jump stage-blocker', hidden: true, 'aria-label': 'Slides' });
     const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, 'aria-live': 'polite', onclick: () => { if (performance.now() - caseDragAt > 400) caseLift?.(); } });
-    // The slide's colour key, small on the figure (src/ui/figure-key.js places it; its words are set by figKey).
-    const fk = h('div', { class: 'pz-fk', role: 'img', hidden: true, 'data-empty': '' });
+    // The slide's colour key, small on the figure (src/ui/figure-key.js fades it in; its words are set by figKey). The figure's labels keep clear of it (stage-blocker).
+    const fk = h('div', { class: 'pz-fk stage-blocker', role: 'img', hidden: true, 'data-empty': '' });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, panel, vcase, prog, bar, jump, blackEl);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
-    const figKey = createFigureKey({ el: fk, wrap, app, order: () => (phone() ? ['bl', 'br', 'tl', 'tr'] : ['bl', 'tl', 'br', 'tr']), left: () => frameL });
+    const figKey = createFigureKey({ el: fk, app });
     return { root, shade, safe, load, text, data, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.

@@ -1,12 +1,13 @@
 // Presenter words' card check: on a laptop or tablet the words' card is only as tall as its words (padding equal above and
 // below them), its top level with the data card's place at the top right, and clear of the controls' pill. The data card either
 // stacks under the words' card (same left edge and width, a gap 0.6 of the cards' margin from the screen's edge, above the
-// controls) or, when the pair would not fit, sits at the top right; the two never overlap. Lists the slides in each place.
+// controls) or, when the pair would not fit, sits at the top right; the two never overlap. Lists the slides in each place. A colour
+// key stands on top of the controls' pill with nothing under either (fast.mjs keyIssues).
 //
 //   DECKS=doppler DEVS=mac,ipad node tests/e2e/text-card.mjs
 import { chromium } from 'playwright';
 import { serve } from '../../scripts/serve.mjs';
-import { fastContext, gotoSlide, quiet } from './fast.mjs';
+import { fastContext, gotoSlide, keyIssues, quiet } from './fast.mjs';
 const ROOT = new URL('../..', import.meta.url).pathname;
 const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
 const only = process.env.DECKS ? process.env.DECKS.split(',') : null;
@@ -14,6 +15,8 @@ const decks = DECKS.map((d) => d.id).filter((id) => !only || only.includes(id));
 const SIZES = {
   mac: { viewport: { width: 1280, height: 800 } },
   desktop: { viewport: { width: 1440, height: 900 } },
+  small: { viewport: { width: 1024, height: 768 } },
+  wide: { viewport: { width: 1920, height: 1080 } },
   ipad: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   ipadL: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
 };
@@ -65,6 +68,10 @@ for (const dev of devs) {
       });
       let res = await check();
       if (res?.err.length) { await page.waitForTimeout(2500); await quiet(page); res = await check(); }   // (a slow machine: a slide or chart may still be landing)
+      // (The colour key on top of the nav pill, nothing under either: fast.mjs keyIssues.)
+      let ki = await page.evaluate(keyIssues);
+      if (ki.length) { await page.waitForTimeout(1500); await quiet(page); ki = await page.evaluate(keyIssues); }
+      if (ki.length) { fails++; console.log(`FAIL ${dev} ${deck} ${i}/${n} ${ki.join('; ')}`); }
       if (res) {
         seen++;
         if (res.err.length) { fails++; console.log(`FAIL ${dev} ${deck} ${i}/${n} ${res.err.join('; ')}`); }

@@ -1,7 +1,7 @@
 // Phone slide fit, on every slide of one deck at three phone widths upright and sideways: the slide's words stay clear
 // of the controls pill (back, count, next): no drawn word under it, and every reading in the numbers card (tiles, and an instrument such as the
 // Doppler, opened if it is folded) sits inside the card. Content the card hides (a folded instrument) is not judged.
-import { fastContext, gotoSlide, quiet } from './fast.mjs';
+import { fastContext, gotoSlide, keyIssues, quiet } from './fast.mjs';
 export const PHONES = [{ width: 375, height: 667 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 667, height: 375 }, { width: 844, height: 390 }, { width: 932, height: 430 }];
 export const fitIssues = () => {
   const vis = (el) => { if (!el || el.hidden) return null; const st = getComputedStyle(el); if (st.display === 'none' || st.visibility === 'hidden' || +st.opacity < 0.5) return null; const r = el.getBoundingClientRect(); return r.width ? r : null; };
@@ -62,7 +62,7 @@ export async function checkPhoneFit(browser, url, deck, slides, log = () => {}) 
     for (let i = 0, again = 1; i < slides; i++) try {
       await gotoSlide(page, url, deck, i); await quiet(page);
       if (await page.evaluate(() => { const b = document.querySelector('.pz-data:not(.pz-hide):not(.tool-open) .pz-fold'); if (b && b.offsetWidth) { b.click(); return true; } return false; })) await quiet(page);
-      const c = await page.evaluate(fitIssues);
+      const c = [...await page.evaluate(fitIssues), ...await page.evaluate(keyIssues)];   // (sideways, the key stands on the pill: fast.mjs)
       if (c.length) bad.push(`${deck} slide ${i + 1} at ${size.width}x${size.height}: ${c.join('; ')}`); else log(`ok ${size.width}x${size.height} ${deck} ${i + 1}`);
     } catch (e) {
       // (a page that reloaded mid-slide, as a runner's page now and then does: once more from a fresh load, then it counts)
