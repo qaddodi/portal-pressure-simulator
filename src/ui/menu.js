@@ -13,7 +13,6 @@ const nextFrame = frameFor('menu');
 
 // Where each group's resistance sits along the pathway from the gut to the heart.
 const GROUP_WHERE = { Normal: 'No added resistance', Prehepatic: 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', Posthepatic: 'Hepatic veins and IVC', Cardiac: 'The right heart' };
-const LEVEL_N = { foundation: 1, core: 2, advanced: 3 };
 
 const NS = 'http://www.w3.org/2000/svg';
 const sv = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
@@ -87,11 +86,12 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   const outside = (e) => { if (el && !el.contains(e.target) && !pv?.contains(e.target) && !anchor.contains(e.target)) close(); };
 
   // ── Rows ──
-  const dots = (lv, levels) => h('span', { class: 'um-lv', title: levels[lv] || '', 'aria-label': levels[lv] || '' }, [1, 2, 3].map((n) => h('i', { class: n <= (LEVEL_N[lv] || 0) ? 'on' : '' })));
+  // A deck's level as a short muted word (Foundation, Core, Advanced), not a row of pips.
+  const levelWord = (lv, levels) => h('span', { class: 'um-m um-lv' }, levels[lv] || '');
   function deckRow(d, lib, script) {
     const row = h('button', { class: 'um-row', 'data-k': (script ? 's:' : 'd:') + d.id, 'aria-current': lib.current() === d.id ? 'true' : null, onclick: () => { close(); lib.start(d.id); } },
       svgIcon('play', 'um-play'), h('span', { class: 'um-t' }, script ? d.title : d.short || d.title),
-      script ? h('span', { class: 'um-m' }, `${(d.steps || d.deck.slides).length} slides`) : dots(d.level, lib.levels),
+      script ? h('span', { class: 'um-m' }, `${(d.steps || d.deck.slides).length} slides`) : levelWord(d.level, lib.levels),
       script ? null : h('span', { class: 'um-m' }, `${d.minutes} min`));
     row.dataset.find = fold([d.title, d.short, script ? 'script' : ''].join(' ')); row.dataset.more = fold(d.summary);
     const info = h('button', { class: 'um-info', 'aria-label': `About ${d.short || d.title}`, 'aria-expanded': 'false', onclick: () => toggleInline(li, () => (script ? scriptPreview(d, lib) : deckPreview(d, lib)), info) }, icon('info'));

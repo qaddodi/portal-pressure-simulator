@@ -3210,9 +3210,7 @@ button.finding { cursor: pointer; }
 .um-play { width: var(--ic-s); height: var(--ic-s); margin: 0 -2px; flex: none; color: var(--text-3); fill: currentColor; stroke: none; transition: color .12s var(--ease); }
 .um-row.pv-on .um-play, .um-row[aria-current="true"] .um-play { color: var(--accent); }
 @media (hover: hover) { .um-row:hover .um-play { color: var(--accent); } }
-.um-lv { display: inline-flex; gap: 3px; flex: none; }
-.um-lv i { width: 5px; height: 5px; border-radius: 50%; background: var(--border); }
-.um-lv i.on { background: var(--text-2); }
+.um-row .um-lv { min-width: 0; text-align: right; }
 .um-m { flex: none; min-width: 44px; text-align: right; font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .um-check { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: var(--accent); stroke-width: 2.2; fill: none; }
 .um-info { display: none; flex: none; width: 36px; height: 36px; align-items: center; justify-content: center; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text-3); cursor: pointer; }
@@ -4324,8 +4322,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .endo-chip { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 8px; min-width: 0; padding: 4px 10px; border-radius: var(--r-control); border: 1px solid var(--hairline); transition: border-color .3s var(--ease), background .3s var(--ease); }
 .endo-chip dt { white-space: nowrap; }
 .endo-chip-v { margin-left: auto !important; font-size: var(--fs-14); font-weight: 600; color: var(--text); text-align: right; min-width: 0; }
-.endo-chip[data-on="true"] { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--accent-soft); }
-.endo-chip.endo-red[data-on="true"] { border-color: color-mix(in srgb, var(--danger) 45%, transparent); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+/* A chip that is on keeps its fill and gains a 3px edge drawn inside it (856bf8e), so the tile never changes size. */
+.endo-chip[data-on="true"] { border-color: transparent; box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); }
+.endo-chip.endo-red[data-on="true"] { box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--danger) 55%, transparent); }
 @media (prefers-reduced-motion: reduce) { .endo-bar i, .endo-chip, .endo-grade :is(b, span), .endo-chip-v { transition: none; } }
 /* In a narrow card the chips each take a line, so a long red-sign reading still fits; beside the view on a
    phone, the wall-stress reading goes under its name. */
@@ -4384,8 +4383,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade b:empty + span::after { content: none; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-more { position: absolute; left: 4px; right: 4px; bottom: 8px; font-size: 0; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-more:not(:empty)::after { content: 'Cherry spots'; font: 500 min(11px, 15cqi)/1.2 var(--font-ui); color: var(--text-2); white-space: nowrap; }
-.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-chip[data-on="true"] { background: var(--accent-soft); }
-.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-chip.endo-red[data-on="true"] { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 /* One column (the Tests card on a laptop, a portrait card): the tiles span the card, five in a row when it is wide
    enough, otherwise three and two (the last two each take half the row, never a lone narrow tile). */
 @container ((max-aspect-ratio: 4 / 5) or style(--one-col: 1)) {
@@ -4601,7 +4598,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .dop-range[hidden] { display: none; }
 .dop-track { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); }
 .dop-band { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--ok); opacity: .45; transition: left .4s var(--ease), width .4s var(--ease); }
-.dop-mark { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--text); border: 3px solid var(--surface, var(--bg)); box-sizing: border-box; transition: left .4s var(--ease), background-color .3s var(--ease); }
+/* Where the reading sits on the usual range: a short upright tick, not a dot. */
+.dop-mark { position: absolute; top: 50%; width: 4px; height: 18px; margin: -9px 0 0 -2px; border-radius: 2px; background: var(--text); box-shadow: 0 0 0 2px var(--surface, var(--bg)); box-sizing: border-box; transition: left .4s var(--ease), background-color .3s var(--ease); }
 .dop-range[data-out="true"] .dop-mark { background: var(--caution); }
 .dop-vel b { transition: color .3s var(--ease); }
 .dop-vel[data-out="true"] b { color: var(--caution); }
