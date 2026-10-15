@@ -35,15 +35,26 @@ test('at every card width the dial fits beside the belly and the drain keeps at 
   }
 });
 
-test('the belly\'s daily balance never flashes: it holds its hundred until 100 mL/day past it, reads Steady at zero, and fades between values', () => {
-  assert.ok(js.includes('if (rateShown != null && Math.abs(r - rateShown) <= 100) return;'));
-  assert.ok(js.includes('rateAvg + (raw - rateAvg) * (1 - Math.exp(-dt / 6000))'), 'the beat-to-beat swing is averaged out first');
-  assert.ok(js.includes("b === 0 ? ['steady', '', 'Steady']"));
-  assert.doesNotMatch(js, /setText\(rateEl, r100 === 0 \? ''/, 'never blanked');
-  assert.ok(css.includes('.ab .ab-belly > .ab-big > .ab-rate.ab-rate-out { opacity: 0; }'));
-  // the rule itself: a rate wobbling round ±50 keeps one label
-  let shown = null; const seen = new Set();
-  const paint = (r) => { if (shown != null && Math.abs(r - shown) <= 100) return; shown = Math.round(r / 100) * 100; };
-  for (let i = 0; i < 200; i++) { paint(50 + 15 * Math.sin(i)); seen.add(shown); }
-  assert.equal(seen.size, 1);
+test('the belly\'s daily balance never flashes: averaged, held until 100 mL/day past the shown hundred, changed at most every 1.5 s', async () => {
+  const { balanceHold } = await import('../src/ui/balance-hold.js');
+  assert.ok(js.includes("b === 0 ? ['steady', '', 'Steady']"), 'zero reads Steady, never blank');
+  assert.doesNotMatch(js, /setText\(rateEl, r100 === 0 \? ''/);
+  assert.ok(css.includes('.ab .ab-belly > .ab-big > .ab-rate.ab-rate-out { opacity: .15; }'), 'a change dips the line, never hides it');
+  // 60 frames a second for 20 s of each case; count how often the shown value changes
+  const run = (rate) => { const hd = balanceHold(); const changes = []; for (let f = 0; f <= 1200; f++) { const t = f * 1000 / 60; if (hd.step(rate(t), t) != null) changes.push(t); } return changes; };
+  const gaps = (c) => c.slice(1).map((t, i) => t - c[i]);
+  // beat-to-beat wobble round ±50 (the old flashing): one label, set once
+  assert.equal(run((t) => 50 + 120 * Math.sin(t / 130)).length, 1);
+  assert.equal(run((t) => -40 + 300 * Math.sin(t / 70)).length, 1);
+  // a big swing every breath on diuretics (2200 to 1500): settles, few changes, never faster than the hold
+  const breath = run((t) => -1850 + 350 * Math.sin(t / 640));
+  assert.ok(breath.length <= 4, `${breath.length} changes`);
+  // time running fast: the balance sweeps from -2200 to +2000 in 10 s; the line follows but never faster than every 1.5 s
+  const sweep = run((t) => Math.min(2000, -2200 + 0.42 * t));
+  assert.ok(sweep.length > 3);
+  for (const g of gaps(sweep)) assert.ok(g >= 1500 - 1e-6, `changed after ${g.toFixed(0)} ms`);
+  // paused (a constant rate): set once, then still
+  assert.equal(run(() => 2000).length, 1);
+  // a broken reading counts as zero, not NaN on screen
+  const hd = balanceHold(); assert.equal(hd.step(NaN, 0), 0);
 });

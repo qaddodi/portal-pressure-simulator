@@ -13,7 +13,7 @@
 import { store, replaceParams, onParamChange } from './store.js?v=3b659e1968';
 import { host } from './host.js?v=b17315cc47';
 import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=f7459cca3c';
-import { activeInterventions } from './inspector.js?v=be4148fdc2';
+import { activeInterventions } from './inspector.js?v=b35b7e841e';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('timeline');
 

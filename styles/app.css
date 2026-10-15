@@ -4978,7 +4978,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-grade { font-size: clamp(10px, 11cqi, 34px) !important; }
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-rate { font-size: clamp(9px, 8.5cqi, 28px) !important; }
 .ab .ab-belly > .ab-big > .ab-rate { display: inline-flex; align-items: baseline; justify-content: center; gap: .3em; transition: opacity .16s var(--ease); }
-.ab .ab-belly > .ab-big > .ab-rate.ab-rate-out { opacity: 0; }
+.ab .ab-belly > .ab-big > .ab-rate.ab-rate-out { opacity: .15; }
 .ab-rate-a { font-style: normal; font-size: .72em; transition: color .3s var(--ease); }
 .ab-rate-a:empty { display: none; }
 .ab .ab-belly > .ab-big > .ab-rate[data-dir="steady"] { color: var(--text-3) !important; }

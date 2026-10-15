@@ -8,7 +8,7 @@
 import { store, updateParams } from './store.js?v=3b659e1968';
 import { h, icon, svgIcon, toast } from './util.js?v=f7459cca3c';
 import { DRUGS } from '../engine/scenario.js?v=6ebaeb46c8';
-import { activeInterventions } from './inspector.js?v=be4148fdc2';
+import { activeInterventions } from './inspector.js?v=b35b7e841e';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=a22b8955bd';
 
 

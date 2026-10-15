@@ -10,6 +10,7 @@ import { createEndoGL } from './endo-gl.js?v=0ac52fac3c';
 import { renderEndo } from './endo-render.js?v=3470882d74';
 import { FONT } from './charts.js?v=e812b8ab42';
 import { store, updateParams, varicesPresent } from './store.js?v=3b659e1968';
+import { balanceHold } from './balance-hold.js?v=ea4d9121d2';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('instruments');
 
@@ -385,30 +386,20 @@ export function createAbdomen({ onAction }) {
   const bigEl = h('b', {}, numEl, h('small', {}, 'L'));   // (the volume, coloured by its grade like the Ascites tile)
   const bellyFill = h('i', { class: 'ab-belly-fill' });
   // The litres sit inside the belly and the grade under it, so the reading and the picture stay one object.
-  // The daily balance: always on its line, never appearing or going. Averaged over a few seconds, it keeps the shown hundred until the rate is
-  // 100 mL/day past it (a rate hovering at ±50 used to flash between a number and nothing), reads "Steady" at zero, and
-  // fades out and back in when it changes: amber with ▲ while fluid builds up, teal with ▼ while it goes.
+  // The daily balance: always on its line, never appearing or going, through balanceHold (below). When the shown value
+  // changes the line dips and comes back with the new value: amber with ▲ while fluid builds up, teal with ▼ while it goes.
   const rateArrow = h('i', { class: 'ab-rate-a', 'aria-hidden': 'true' }), rateTxt = h('span');
   const rateEl = h('span', { class: 'ab-rate', 'data-dir': 'steady' }, rateArrow, rateTxt);
-  let rateShown = null, rateTimer = 0, rateAvg = null, rateT = 0;
+  const rateHold = balanceHold();
+  let rateTimer = 0;
   const rateLabel = (b) => (b === 0 ? ['steady', '', 'Steady'] : b > 0 ? ['up', '▲', `${fmt(b, 0)} mL/day`] : ['down', '▼', `${fmt(-b, 0)} mL/day`]);
   function paintRate(raw) {
-    // The model's rate swings with every breath and beat (2200 to 1500 mL/day within a second on diuretics): average it
-    // over about 6 s of the screen's own time first, so only a real change in the balance moves the line.
-    if (!Number.isFinite(raw)) raw = 0;
-    const now = performance.now(), dt = rateAvg == null ? Infinity : Math.min(now - rateT, 2000);
-    rateT = now;
-    rateAvg = rateAvg == null ? raw : rateAvg + (raw - rateAvg) * (1 - Math.exp(-dt / 6000));
-    const r = rateAvg;
-    if (rateShown != null && Math.abs(r - rateShown) <= 100) return;
-    const b = Math.round(r / 100) * 100;
-    if (b === rateShown) return;
-    const first = rateShown == null;
-    rateShown = b;
+    const b = rateHold.step(raw, performance.now());
+    if (b == null) return;
     const [dir, arrow, txt] = rateLabel(b);
     const apply = () => { rateTimer = 0; rateEl.dataset.dir = dir; rateArrow.textContent = arrow; rateTxt.textContent = txt; rateEl.classList.remove('ab-rate-out'); };
+    if (!rateTxt.textContent) { apply(); return; }   // (the first reading: no fade)
     clearTimeout(rateTimer);
-    if (first) { apply(); return; }
     rateEl.classList.add('ab-rate-out');
     rateTimer = setTimeout(apply, 160);
   }
