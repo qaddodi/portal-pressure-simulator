@@ -56,8 +56,8 @@ function equation([ml, legend]) {
   if (legend) box.append(h('p', { class: 'pz-eqk' }, legend));
   return box;
 }
-// A slide's lens (decks.js lens): what the vessel colours show on that slide, with a key under its line, "Colored by
-// velocity" and the two ends, as the legend does in Explore. (Learner-facing words say "colored by", never "lens".)
+// A slide's lens (decks.js lens): what the vessel colours show on that slide, with a key under its line, its name ("Velocity")
+// and the two ends, as the legend does in Explore. (Learner-facing words say "colored by", never "lens".)
 // Pressure is the default and needs no key.
 const LENS_KEY = {
   velocity: ['velocity', [['--vel-slow', 'Slow'], ['--vel-normal', 'Normal'], ['--vel-fast', 'Fast']]],
@@ -75,7 +75,7 @@ const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
 function lensKey(k, fixed = false) {
   const [name, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY;
   const dot = (v) => h('i', { class: 'pz-lens-dot', style: { background: `var(${v})` } });
-  return h('p', { class: 'pz-lens' + (fixed ? ' pz-lens-fix' : ''), 'data-lens': k }, h('b', {}, `Colored by ${name}`),
+  return h('p', { class: 'pz-lens' + (fixed ? ' pz-lens-fix' : ''), 'data-lens': k }, h('b', {}, name[0].toUpperCase() + name.slice(1)),
     // (Each swatch stays on one line with its words: "Low ▬▬ High" as one piece, a dot with its name.)
     ...(typeof bar === 'function' ? [h('span', { class: 'pz-lens-k' }, h('span', {}, lo), h('i', { class: 'pz-lens-bar', style: { background: bar() } }), h('span', {}, hi))]
       : bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, dot(v), h('span', {}, t)))));
