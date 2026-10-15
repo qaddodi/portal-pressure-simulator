@@ -9,8 +9,8 @@ import { createProfile } from './charts.js?v=42f2fd7fbc';
 import { createPressureTime } from './pressure-time.js?v=ddccfd4596';
 import { createFibroScan } from './fibroscan.js?v=5683199fd4';
 import { createHvpgProcedure } from './hvpg-proc.js?v=a404bb8855';
-import { createDoppler } from './doppler.js?v=6dd4e18f38';
-import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
+import { createDoppler } from './doppler.js?v=ad8460601b';
+import { ownsSideways } from './swipe.js?v=22a6f38036';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b343fe6aba';
 import { createReadoutsPane } from './readouts-pane.js?v=0ee0901273';
 import { frameFor } from './frame.js?v=0db47e99bf';
@@ -347,29 +347,47 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // over a tab row. The title and its quiet status show only while the tabs are hidden (the folded peek state).
   closeBtn.before(tabsBox);
   head.after(pickHint);
-  // A phone's Tests card (over the thumb dock): a quick sideways swipe on the card moves to the next or previous tab, and
-  // the new pane slides in from that side. A vertical pull stays the sheet's (it closes or resizes the card).
+  // A phone's Tests card (over the thumb dock): a sideways drag on the card pages between the tabs. The open pane follows
+  // the finger with the next (or previous) tab's pane beside it; on release it eases to whichever is nearer, or on to the
+  // next one after a quick flick. A vertical pull stays the sheet's (it closes or resizes the card).
   let sw = null;
+  const paneFor = (id) => (panes.find((p) => p.id === id) || panes.find((p) => tabOf(p.id) === id))?.el;
+  const clearSwipe = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; e.classList.remove('swipe-peer'); } };
   body.addEventListener('touchstart', (e) => {
-    sw = e.touches.length === 1 && app.classList.contains('thumb') && !ownsSideways(e.target, { stop: body })
-      ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now() } : null;
+    sw = e.touches.length === 1 && app.classList.contains('thumb') && open.length === 1 && !ownsSideways(e.target, { stop: body })
+      ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0 } : null;
   }, { passive: true });
-  body.addEventListener('touchend', (e) => {
+  body.addEventListener('touchmove', (e) => {
     if (!sw) return;
-    const t = e.changedTouches[0], d = swipeDir(t.clientX - sw.x, t.clientY - sw.y, performance.now() - sw.t);
-    sw = null;
-    if (!d) return;
-    const i = TABS.indexOf(tabOf(open[0])), j = i + d;
-    if (j < 0 || j >= TABS.length) return;
-    pick(TABS[j]);
-    const pane = body.querySelector('.dock-pane.active');
-    if (!pane) return;
-    pane.classList.remove('swipe-l', 'swipe-r'); void pane.offsetWidth;
-    pane.classList.add(d > 0 ? 'swipe-l' : 'swipe-r');
-    pane.addEventListener('animationend', () => pane.classList.remove('swipe-l', 'swipe-r'), { once: true });
-    tabEls[TABS[j]].b.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
-  }, { passive: true });
-  body.addEventListener('touchcancel', () => { sw = null; }, { passive: true });
+    const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+    if (!sw.on) {
+      if (Math.hypot(dx, dy) < 8) return;
+      if (Math.abs(dx) < Math.abs(dy) * 1.2) { sw = null; return; }   // (vertical: the sheet's, or the pane's scroll)
+      sw.on = true; sw.cur = body.querySelector('.dock-pane.active'); sw.i = TABS.indexOf(tabOf(open[0])); sw.w = body.clientWidth;
+    }
+    if (e.cancelable) e.preventDefault();
+    const d = dx < 0 ? 1 : -1, j = sw.i + d;
+    const nb = j >= 0 && j < TABS.length ? paneFor(TABS[j]) : null;
+    if (nb !== sw.nb) { clearSwipe([sw.nb]); sw.nb = nb; sw.j = j; if (nb) nb.classList.add('swipe-peer'); }
+    sw.dx = nb ? dx : dx / 3;   // (past the first or last tab it gives a little and springs back)
+    sw.cur.style.transform = `translateX(${sw.dx}px)`;
+    if (nb) nb.style.transform = `translateX(${sw.dx + d * sw.w}px)`;
+  }, { passive: false });
+  const endSwipe = () => {
+    const s = sw; sw = null;
+    if (!s?.on) return;
+    const ms = performance.now() - s.t, go = s.nb && (Math.abs(s.dx) > s.w * 0.35 || (Math.abs(s.dx) > 40 && Math.abs(s.dx) / ms > 0.4));
+    const d = s.dx < 0 ? 1 : -1, ease = 'transform .24s var(--ease)';
+    s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
+    s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';
+    if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;
+    setTimeout(() => {
+      clearSwipe([s.cur, s.nb]);
+      if (go) { pick(TABS[s.j]); tabEls[TABS[s.j]].b.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); }
+    }, 250);
+  };
+  body.addEventListener('touchend', endSwipe, { passive: true });
+  body.addEventListener('touchcancel', endSwipe, { passive: true });
   // The switch inside the Pressure tab: the chart along the circuit, or the same pressures over time.
   const pressureSwitch = (own) => h('div', { class: 'pressure-switch', role: 'group', 'aria-label': 'Pressure view' },
     [['profile', 'Along the circuit'], ['scope', 'Over time']].map(([id, label]) => h('button', {

@@ -117,7 +117,7 @@ export function createDoppler({ onProbe }) {
 
   // The report
   const dirEl = h('b', { class: 'dop-dir' }, '—');
-  const velEl = h('span', { class: 'dop-vel' }, h('b', {}, '—'), h('small', {}, 'cm/s', h('span', { class: 'dop-mean' }, ' mean')));
+  const velEl = h('span', { class: 'dop-vel' }, h('b', {}, '—'), h('small', {}, 'cm/s', h('span', { class: 'dop-mean' })));
   // Normal-range gauge: a track with the usual band shaded and a marker for the current mean.
   const bandEl = h('i', { class: 'dop-band' });
   const markEl = h('i', { class: 'dop-mark' });
@@ -413,7 +413,7 @@ export function createDoppler({ onProbe }) {
       });
     }
     set(noteEl, it.note);
-    const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
+    const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
     if (cv.getAttribute('aria-label') !== aria) cv.setAttribute('aria-label', aria);
   }
 

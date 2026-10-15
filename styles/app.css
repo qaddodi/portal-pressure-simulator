@@ -5312,10 +5312,7 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
   #app.thumb .instrument-view.dop .dop-stats { grid-row: 4; grid-column: 1 / -1; margin: 8px -42px 0 -2px; }
   #app.thumb .instrument-view.dop .dop-note { display: none; }
 }
-/* (Tests card on a phone) a swiped-to tab's pane eases in from the side it came from. */
-@keyframes swipeInL { from { transform: translateX(28%); opacity: 0; } }
-@keyframes swipeInR { from { transform: translateX(-28%); opacity: 0; } }
-@media (prefers-reduced-motion: no-preference) {
-  .dock-pane.swipe-l { animation: swipeInL .26s var(--ease); }
-  .dock-pane.swipe-r { animation: swipeInR .26s var(--ease); }
-}
+/* (Tests card on a phone) the neighbouring tab's pane, shown beside the open one while a sideways drag pages between them. */
+.dock-pane.swipe-peer { display: flex; flex-direction: column; gap: 16px; animation: none; }
+.dock-body:has(.swipe-peer) .dock-pane.active { animation: none; }
+.instrument-workspace .dock-body:has(.swipe-peer) > :is(.dock-pane.active, .swipe-peer) { grid-area: 1 / 1; }
