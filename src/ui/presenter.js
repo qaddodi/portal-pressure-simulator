@@ -2871,7 +2871,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return { root, shade, safe, load, text, data, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
-  let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: landing back on a slide after a reload, its case card is not replayed)
+  let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)
   function coverUp() {
     booting = true;
     clearTimeout(coverT); coverT = setTimeout(() => coverDown(true), 12000);   // (never left up)
@@ -2909,8 +2909,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       lobuleLayers: st.lobuleLayers, running: st.running, speed: st.speed, lapse: st.lapse, clock: st.clock, hvpgMeasured: st.hvpgMeasured, lastHVPG: st.lastHVPG,
       labelK: stage.labelScale(), cam: stage.cameraState() };
   }
-  async function start(id, at = 0, { resume = false } = {}) {
-    noCase = resume;
+  async function start(id, at = 0) {
+    // (The slide a start lands on never plays its case card: it was skipped only while the start's cover was up, and the cover
+    // gives up after 12 s, so on a slow machine a deep link sat on a case card waiting for a tap no one knew to give.)
+    noCase = true;
     const want0 = Math.max(0, (parseInt(at, 10) || 0));
     const d = typeof id === 'object' ? id : all().find((x) => x.id === (ALIAS[id] || id));
     if (!d?.slides?.length) { toast('That presentation could not be found.'); return; }

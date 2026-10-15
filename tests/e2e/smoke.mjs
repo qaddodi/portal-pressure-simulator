@@ -1321,6 +1321,20 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // "▲ X from Y" must add up: the value shown is Y plus the change, to the last digit shown.
   const badDelta = (tiles) => tiles.filter((t) => t.dd != null && t.from != null && Math.abs(t.val - t.from - t.dd) > 1e-6).map((t) => `${t.k} ${t.v} reads "${t.d}"`).join('; ');
 
+  // The slide a presentation starts on never waits on its case card, even on a machine slow enough that the start's cover
+  // gives up (12 s) before the slide arrives: it once waited there for a tap, and every check that started a deck on the slide
+  // before a time-lapse (Varices 2, a case) timed out. Here the cover gives up at once.
+  if (device === 'desktop') await check(device, 'presenter: a start on a case slide lands on it, with no case card, however slow the start', async (page) => {
+    await open(page);
+    await page.evaluate(() => { const st = window.setTimeout; window.setTimeout = (f, ms, ...a) => st(f, ms === 12000 ? 0 : ms, ...a); });
+    await page.evaluate(() => window.pps.presenter.start('varices', 0));
+    await page.waitForFunction(() => window.pps.presenter.probe()?.i === 0, null, { timeout: 60000 });
+    await page.evaluate(() => window.pps.presenter.start('varices', 1));
+    const came = await page.waitForFunction(() => window.pps.presenter.probe()?.i === 1, null, { timeout: 60000, polling: 250 }).then(() => true, () => false);
+    if (!came) throw new Error(`Varices slide 2 never arrived (a case card up: ${await page.evaluate(() => !!document.querySelector('.pz-case.on'))})`);
+    if (await page.evaluate(() => !!document.querySelector('.pz-case.on'))) throw new Error('Varices slide 2 landed under its case card');
+  });
+
   // A time-lapse slide's card shows the state the time-lapse plays from on its first frames (not its end, nor the slide before),
   // climbs from there with no snap back, ends on the slide's state, and every change line adds up.
   if (device === 'desktop') for (const deck of DECK_IDS) await check(device, `presenter: ${deck}'s time-lapse cards start from the model's start state and climb without a snap`, async (page) => {
