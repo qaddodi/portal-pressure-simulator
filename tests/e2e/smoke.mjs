@@ -1087,7 +1087,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // lists the presentations and no error is thrown. (chart.js used to throw on a bad pps.chartOpen3 before anything drew.)
   if (device === 'desktop') await check(device, 'damaged saved settings do not stop the app from starting', async (page) => {
     await page.addInitScript(() => {
-      const bad = { 'pps.chartOpen3': '{', 'pps.scripts': '{"id":1}', 'pps.instruments': '[', 'pps.blood2': '"x"', 'pps.theme': 'nope', 'pps.labelScale': 'big', 'pps.quality': 'x', 'pps.uiZoom': 'x', 'pps.labels': '7' };
+      const bad = { 'pps.chartOpen3': '{', 'pps.scripts': '{"id":1}', 'pps.instruments': '[', 'pps.blood2': '"x"', 'pps.theme': 'nope', 'pps.labelScale': 'big', 'pps.quality': 'x', 'pps.q': 'x', 'pps.uiZoom': 'x', 'pps.labels': '7' };
       try { for (const [k, v] of Object.entries(bad)) localStorage.setItem(k, v); } catch { /* no storage on this frame */ }
     });
     await open(page, '?home=present');
