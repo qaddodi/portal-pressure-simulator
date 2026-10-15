@@ -18,13 +18,13 @@ test('the lesion leader starts on the ring\'s edge, and labels keep clear of the
   assert.match(js, /callLine\.setAttribute\('x1', a\[0\] \+ \(best\.x - a\[0\]\) \* e0\)/, 'leader start is offset by the ring radius');
   assert.doesNotMatch(js, /callLine\.setAttribute\('x1', a\[0\]\); callLine/, 'leader no longer starts at the ring centre');
   assert.match(js, /ringDepth\(ring, box\) > 0 \? 1e6/, 'labels pay the full clash cost for touching the ring');
-  assert.match(js, /ringDepth\(ring, box\) \* 1e4/, 'the pill keeps off the ring too');
+  assert.match(js, /\(ringDepth\(ring, box\) > 0 \? 1e6 \+ ringDepth\(ring, box\) \* 1e4 : 0\)/, 'the pill pays the full clash cost for touching the ring too');
 });
 
 test('the pointer pill prefers spots outside the lobule, falling back inside only when there is no room', () => {
   const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   assert.match(js, /const hexOf = \(\) =>/, 'the lobule outline on screen is measured each layout');
-  assert.match(js, /ringDepth\(ring, box\) \* 1e4 \+ hex\.share\(box\) \* INSIDE_COST/, 'the pill prefers outside');
+  assert.match(js, /\+ hex\.share\(box\) \* INSIDE_COST \+ cards\.reduce/, 'the pill prefers outside');
   const cost = Number(js.match(/INSIDE_COST = (\d+)/)?.[1]);
   assert.ok(cost > 0 && cost * 6 < 1e5, 'the inside cost stays well below the clash costs, so it never causes overlaps');
 });
@@ -36,4 +36,6 @@ test('lobule labels are pinned beside what they name and never cover the central
   assert.match(js, /into\(\{ x: a\[0\], y: a\[1\], r: 10 \}, box\) > 0 \? 1e6/, 'a label never covers the spot it names');
   assert.match(js, /lead \* 8/, 'short leaders are preferred');
   assert.match(js, /L\.el\.classList\.toggle\('edge'/, 'a label whose structure is off screen waits at the edge');
+  assert.match(js, /if \(best\.cost >= 1e6\) \{ res\.push\(\{ k, out: true \}\)/, 'a label with no clear spot is left out, never stacked on another');
+  assert.match(js, /const callLead = placeCall\(/, 'the slide\'s pointer pill is placed before the labels');
 });

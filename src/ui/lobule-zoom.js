@@ -1015,11 +1015,11 @@ export function createLobuleZoom({ host }) {
     const dx = Math.max(b.l - ring.a[0], 0, ring.a[0] - b.r), dy = Math.max(b.t - ring.a[1], 0, ring.a[1] - b.b);
     return Math.max(0, ring.clear - Math.hypot(dx, dy));
   };
-  function placeCall(fr, placed, cards, leads, crosses, ring, hex) {
+  function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep = [], into = () => 0) {
     if (!callEl.isConnected) { labels.append(callEl); leaders.append(callLine, callRing); }
     const on = !!ring;
     for (const e of [callEl, callLine, callRing]) e.classList.toggle('on', on);
-    if (!on) return;
+    if (!on) return null;
     const { a, rr } = ring;
     // Never wider than the free space: a long line wraps instead of running off the screen.
     const fit = `${Math.max(120, Math.round(fr.r - fr.l - 20))}px`;
@@ -1037,7 +1037,7 @@ export function createLobuleZoom({ host }) {
       const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
       const box = { l: x - w / 2 - 6, r: x + w / 2 + 6, t: y - hh / 2 - 6, b: y + hh / 2 + 6 };
       const cost = placed.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 100 : 0) + (crosses(a, [x, y], o) ? 1e5 : 0), 0)
-        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + ringDepth(ring, box) * 1e4 + hex.share(box) * INSIDE_COST + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 - (prev ? 60 : 0);
+        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e4 : 0) + keep.reduce((c, q) => { const d = into(q, box); return c + (d > 0 ? 1e6 + d * 1e3 : 0); }, 0) + hex.share(box) * INSIDE_COST + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 - (prev ? 60 : 0);
       if (!best || cost < best.cost) best = { x, y, box, cost };
     }
     placed.push(best.box); callPrev = { at: call.at, dx: best.x - a[0], dy: best.y - a[1] };
@@ -1046,6 +1046,7 @@ export function createLobuleZoom({ host }) {
     const dl = Math.hypot(best.x - a[0], best.y - a[1]) || 1, e0 = rr / dl;
     callLine.setAttribute('x1', a[0] + (best.x - a[0]) * e0); callLine.setAttribute('y1', a[1] + (best.y - a[1]) * e0); callLine.setAttribute('x2', best.x); callLine.setAttribute('y2', best.y);
     callRing.setAttribute('cx', a[0]); callRing.setAttribute('cy', a[1]); callRing.setAttribute('r', rr);
+    return [[a[0] + (best.x - a[0]) * e0, a[1] + (best.y - a[1]) * e0], [best.x, best.y]];
   }
   // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
   // zone's color, on the radius to the flat bottom edge, so each name runs along its band. The three elements are made
@@ -1171,7 +1172,6 @@ export function createLobuleZoom({ host }) {
     // Two leaders never cross each other either (a shared end, two labels on one spot, is not a crossing).
     const side = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
     const cut = (p, q, r, t) => side(p, q, r) * side(p, q, t) < 0 && side(r, t, p) * side(r, t, q) < 0;
-    const leads = [];
     // Measured first; then placed one at a time, in a few orders, keeping the order that leaves no label on another
     // and no leader under another label (or the fewest), so an early label never blocks a later one's only clear spot.
     const items = [], shown = [];
@@ -1209,9 +1209,15 @@ export function createLobuleZoom({ host }) {
       }
       items.push({ k, L, w, hh, a, edge });
     }
-    const base = placed.slice(), ring = callRingAt(fr), hex = hexOf();
+    const ring = callRingAt(fr), hex = hexOf();
+    // The slide's pointer pill is placed first (it is the slide's point): the labels then keep clear of it and its leader.
+    const callLead = placeCall(fr, placed, cards, [], crosses, ring, hex, keep, into);
+    const base = placed.slice();
+    // A label that finds no spot clear of the others, the pill, the cards and the structures is left out rather than
+    // stacked: leaving one out costs more than any clear spot, and more still for a label the slide's words name.
+    const drop = (k) => (named(k) ? 2e7 : 1e7);
     const solve = (order) => {
-      const pl = base.slice(), ld = [], res = [];
+      const pl = base.slice(), ld = callLead ? [callLead] : [], res = [];
       let total = 0;
       for (const { k, w, hh, a, edge } of order) {
         const pad = 8 + 4 * lk, step = hh + 12;
@@ -1224,6 +1230,7 @@ export function createLobuleZoom({ host }) {
             const cost = pl.reduce((sum, o) => sum + (hit(box, o) ? 1e6 + overlap(box, o) * 100 : 0), 0) + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0) + Math.abs(n) * 10;
             if (!best || cost < best.cost) best = { x, y, box, cost };
           }
+          if (best.cost >= 1e6) { res.push({ k, out: true }); total += drop(k); continue; }
           pl.push(best.box); res.push({ k, ...best }); total += best.cost;
           continue;
         }
@@ -1262,6 +1269,7 @@ export function createLobuleZoom({ host }) {
             + lead * 8 + Math.hypot(x - preferred[0], y - preferred[1]) * 0.5;
           if (!best || cost < best.cost) best = { x, y, box, cost };
         }
+        if (best.cost >= 1e6) { res.push({ k, out: true }); total += drop(k); continue; }
         pl.push(best.box); ld.push([a, [best.x, best.y]]); res.push({ k, ...best });
         total += best.cost;
       }
@@ -1280,9 +1288,9 @@ export function createLobuleZoom({ host }) {
         if (sol.total < 1e5 && items.length > 5) break;   // (up to five labels, 120 orders at most: the shortest leaders win, not just the first clear order)
       }
     }
-    placed.splice(0, placed.length, ...sol.pl); leads.push(...sol.ld);
-    for (const { k, x, y } of sol.res) {
+    for (const { k, x, y, out } of sol.res) {
       const { L, w, hh, a, edge } = items.find((it) => it.k === k);
+      if (out) { L.el.hidden = true; L.el.classList.remove('edge'); L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
       L.el.classList.remove('left');
       if (edge) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
@@ -1291,7 +1299,6 @@ export function createLobuleZoom({ host }) {
       L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
     }
-    placeCall(fr, placed, cards, leads, crosses, ring, hex);
   }
 
   // ── Frame loop ──
