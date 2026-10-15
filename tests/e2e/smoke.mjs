@@ -1168,6 +1168,36 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (bad.length) throw new Error(`Doppler slide ${n}: ${bad.slice(0, 3).join('; ')}`);
     }
   });
+  // The Doppler monitor's top strip beside a tile (TIPS Doppler's narrowed stent, Mac and iPad sizes): every word whole inside the monitor,
+  // the pattern ("High velocity") never dropped or cut to an ellipsis, the type never under 0.8 of its size. (It was hidden on a
+  // 1440 x 900 Mac, and printed cut at "Low velocity, je…".)
+  if (device === 'desktop') await check(device, 'presenter: the Doppler strip beside a tile keeps every word whole inside the monitor', async (page) => {
+    const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+    const deck = withOverview(DECKS.find((d) => d.id === 'tips-doppler'));
+    for (const [w, h] of [[1440, 900], [1024, 768]]) {
+      await page.setViewportSize({ width: w, height: h });
+      for (const id of ['narrow', 'where']) {
+        await open(page, `?script=tips-doppler&slide=${deck.slides.findIndex((s) => s.id === id) + 1}`);
+        await page.waitForFunction(() => document.querySelector('.pz-data:not(.pz-hide) .dop-pattern')?.textContent.trim() && document.querySelector('.pz-data:not(.pz-hide) .dop-pattern').closest('.dop-report').style.getPropertyValue('--dop-k'), null, { timeout: 60000 });
+        // (a short window folds the instrument behind Show: opened, as a presenter would)
+        if (await page.evaluate(() => { const f = document.querySelector('.pz-data:not(.pz-hide) .pz-fold'); if (f?.getClientRects().length && f.getAttribute('aria-expanded') === 'false') { f.click(); return true; } return false; })) await page.waitForTimeout(1500);
+        await page.waitForTimeout(800);
+        const bad = await page.evaluate(() => {
+          const rep = document.querySelector('.pz-data:not(.pz-hide) .dop-report'), mon = rep.closest('.dop-main').querySelector('.dop-box').getBoundingClientRect(), out = [];
+          const k = +rep.style.getPropertyValue('--dop-k');
+          if (k < 0.8) out.push(`type at ${k}`);
+          for (const e of rep.querySelectorAll('.dop-vel, .dop-dir, .dop-pattern')) {
+            if (e.hidden || !e.getClientRects().length) { out.push(`"${e.textContent}" hidden`); continue; }
+            const g = document.createRange(); g.selectNodeContents(e); const q = g.getBoundingClientRect();
+            if (q.right > mon.right - 3 || q.left < mon.left) out.push(`"${e.textContent}" runs ${Math.round(q.right - mon.right + 3)} px past the monitor`);
+            if (e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflow !== 'visible') out.push(`"${e.textContent}" cut to an ellipsis`);
+          }
+          return out;
+        });
+        if (bad.length) throw new Error(`${w} x ${h}, TIPS Doppler ${id}: ${bad.join('; ')}`);
+      }
+    }
+  });
   // A phone's top bar keeps the lens scale 40 px wide: its numbers never run into each other (0, 10, 20 and 30 once did).
   if (device === 'phone') await check(device, 'phone top bar: the lens scale numbers never run into each other', async (page) => {
     for (const width of [390, 375]) {

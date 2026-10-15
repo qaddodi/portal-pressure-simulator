@@ -4946,7 +4946,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] { --dop-free: calc(var(--pz-num) + 1.25 * var(--bs) + 12px); }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-main { grid-template-rows: minmax(0, 1fr); }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-box { --dop-ov: 1; grid-area: 1 / 1 / 2 / -1; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { grid-area: 1 / 1 / 2 / -1; align-self: start; position: relative; z-index: 1; display: flex; flex-direction: row; flex-wrap: nowrap; align-items: baseline; gap: 0 calc(.6em * var(--dop-k, 1)); white-space: nowrap; overflow: hidden; min-width: 0; padding: 8px 52px 0 12px; pointer-events: none; color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { grid-area: 1 / 1 / 2 / -1; align-self: start; position: relative; z-index: 1; display: flex; flex-direction: row; flex-wrap: nowrap; align-items: baseline; gap: 0 calc(.6em * var(--dop-k, 1)); white-space: nowrap; overflow: hidden; min-width: 0; padding: 8px 12px 0 12px; pointer-events: none; color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { display: contents; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel { order: 0; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel small { color: rgb(var(--white-rgb) / .6); }
@@ -5023,6 +5023,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab-rate[data-dir="down"] .ab-rate-a { color: var(--vel-normal); }
 /* (The Doppler strip's pattern word gives way first, with an ellipsis, so the strip never shrinks its type below three quarters.) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report > .dop-pattern { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* (Where even the direction's short form at 0.9 cannot hold the pattern beside the reading, doppler.js sets .dop-wrap: the pattern takes a
+   line of its own under the reading, whole, in the top strip. The monitor keeps its size; the trace starts under the strip.) */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report.dop-wrap { flex-wrap: wrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report.dop-wrap .dop-pattern { flex: 0 0 100%; }
+#app .instrument-workspace .instrument-view.dop .dop-report.dop-wrap .dop-pattern { grid-row: 2; grid-column: 1 / -1; padding-top: 2px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report.dop-wrap .dop-pattern::before, #app .instrument-workspace .instrument-view.dop .dop-report.dop-wrap .dop-pattern::before { content: none; }
 /* (Beside an instrument a tile's number and unit sit closer, so "−0.6 L/min" keeps clear of the tile's edge.) */
 .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-vu { gap: 0 .12em; }
 /* (The beat-by-beat lanes never get too flat to tell the lines apart.) */
@@ -5374,7 +5380,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
      (doppler.js reads --dop-ov); the gauge and the tiles under the monitor. */
   #app.thumb .instrument-view.dop .dop-main { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto auto; row-gap: 0; }
   #app.thumb .instrument-view.dop .dop-box { --dop-ov: 1; grid-area: 1 / 1 / 3 / 2; min-height: 130px !important; }
-  #app.thumb .instrument-view.dop .dop-report { grid-area: 1 / 1 / 6 / 2; display: grid; grid-template-rows: subgrid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; column-gap: calc(.6em * var(--dop-k, 1)); margin-inline: -10px; padding: 0 52px 0 12px; min-width: 0; }
+  #app.thumb .instrument-view.dop .dop-report { grid-area: 1 / 1 / 6 / 2; display: grid; grid-template-rows: subgrid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; column-gap: calc(.6em * var(--dop-k, 1)); margin-inline: -10px; padding: 0 12px 0 12px; min-width: 0; }
   #app.thumb .instrument-view.dop .dop-velrow { display: contents; }
   #app.thumb .instrument-view.dop :is(.dop-vel, .dop-dir, .dop-pattern) { grid-row: 1; align-self: start; position: relative; z-index: 1; padding-top: 8px; margin: 0; white-space: nowrap; pointer-events: none; color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }
   #app.thumb .instrument-view.dop .dop-vel { grid-column: 1; }
@@ -5384,11 +5390,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   #app.thumb .instrument-view.dop .dop-pattern::before { content: '·'; margin-right: .45em; color: rgb(var(--white-rgb) / .6); }
   #app.thumb .instrument-view.dop .dop-vel b { font-size: calc(var(--fs-20) * var(--dop-k, 1)); color: var(--white); }
   #app.thumb .instrument-view.dop .dop-vel small { font-size: calc(var(--fs-12) * var(--dop-k, 1)); color: rgb(var(--white-rgb) / .6); }
-  #app.thumb .instrument-view.dop .dop-range { grid-row: 3; grid-column: 1 / -1; margin: 8px -42px 0 -2px; }
+  #app.thumb .instrument-view.dop .dop-range { grid-row: 3; grid-column: 1 / -1; margin: 8px -2px 0 -2px; }
   /* (A short phone's half sheet has no room for the range bar under the monitor's 130 px floor: it ran over the monitor's bottom
      labels on a 375 x 667 phone. It goes, as the note does at Half; the tiles keep the readings, and Full shows it.) */
   @media (max-height: 700px) { #app.thumb .instrument-workspace.sheet-half .instrument-view.dop .dop-range { display: none; } }
-  #app.thumb .instrument-view.dop .dop-stats { grid-row: 4; grid-column: 1 / -1; margin: 8px -42px 0 -2px; }
+  #app.thumb .instrument-view.dop .dop-stats { grid-row: 4; grid-column: 1 / -1; margin: 8px -2px 0 -2px; }
   /* The one-line reading of the pattern is under the tiles only at Full (it is dropped at Half to keep the monitor's room). */
   #app.thumb .instrument-view.dop .dop-note { display: none; grid-row: 5; grid-column: 1 / -1; margin: 8px -2px 0; font-size: var(--fs-14); color: var(--text-2); }
   #app.thumb .instrument-workspace:not(.sheet-half) .instrument-view.dop .dop-report > .dop-note:not(:empty) { display: block; }
@@ -5420,7 +5426,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    and the phone's Tests card (doppler.js reads --dop-ov); under the monitor the normal range, the tiles and the one-line note. */
 #app .instrument-workspace.side .instrument-view.dop .dop-main { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto auto; row-gap: 0; gap: 0; }
 #app .instrument-workspace.side .instrument-view.dop .dop-box { --dop-ov: 1; grid-area: 1 / 1 / 3 / 2; }
-#app .instrument-workspace.side .instrument-view.dop .dop-report { grid-area: 1 / 1 / 6 / 2; display: grid; grid-template-rows: subgrid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; column-gap: calc(.6em * var(--dop-k, 1)); row-gap: 0; margin: 0; padding: 0 52px 0 12px; min-width: 0; }
+#app .instrument-workspace.side .instrument-view.dop .dop-report { grid-area: 1 / 1 / 6 / 2; display: grid; grid-template-rows: subgrid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; column-gap: calc(.6em * var(--dop-k, 1)); row-gap: 0; margin: 0; padding: 0 12px 0 12px; min-width: 0; }
 #app .instrument-workspace.side .instrument-view.dop .dop-velrow { display: contents; }
 #app .instrument-workspace.side .instrument-view.dop :is(.dop-vel, .dop-dir, .dop-pattern) { grid-row: 1; align-self: start; position: relative; z-index: 1; padding-top: 8px; margin: 0; white-space: nowrap; pointer-events: none; color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }
 #app .instrument-workspace.side .instrument-view.dop .dop-vel { grid-column: 1; }
@@ -5430,9 +5436,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 #app .instrument-workspace.side .instrument-view.dop .dop-pattern::before { content: '·'; margin-right: .45em; color: rgb(var(--white-rgb) / .6); }
 #app .instrument-workspace.side .instrument-view.dop .dop-vel b { font-size: calc(var(--fs-20) * var(--dop-k, 1)); color: var(--white); }
 #app .instrument-workspace.side .instrument-view.dop .dop-vel small { font-size: calc(var(--fs-12) * var(--dop-k, 1)); color: rgb(var(--white-rgb) / .6); }
-#app .instrument-workspace.side .instrument-view.dop .dop-range { grid-row: 3; grid-column: 1 / -1; margin: 12px -52px 0 -12px; }
-#app .instrument-workspace.side .instrument-view.dop .dop-stats { grid-row: 4; grid-column: 1 / -1; margin: 12px -52px 0 -12px; }
-#app .instrument-workspace.side .instrument-view.dop .dop-note { grid-row: 5; grid-column: 1 / -1; margin: 12px -52px 0 -12px; font-size: var(--fs-14); color: var(--text-2); }
+#app .instrument-workspace.side .instrument-view.dop .dop-range { grid-row: 3; grid-column: 1 / -1; margin: 12px -12px 0 -12px; }
+#app .instrument-workspace.side .instrument-view.dop .dop-stats { grid-row: 4; grid-column: 1 / -1; margin: 12px -12px 0 -12px; }
+#app .instrument-workspace.side .instrument-view.dop .dop-note { grid-row: 5; grid-column: 1 / -1; margin: 12px -12px 0 -12px; font-size: var(--fs-14); color: var(--text-2); }
 #app .instrument-workspace.side .instrument-view.dop .dop-note:empty { display: none; }
 
 /* ── Tests card tiles: one style on every tab, the Readouts tiles': the name in sentence case over the value, both left

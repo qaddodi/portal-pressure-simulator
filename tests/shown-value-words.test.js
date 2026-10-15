@@ -78,10 +78,16 @@ test('#16: "Why?" for PPG and HVPG shows its own formula, adding up to the numbe
   assert.match(explain(e, 'pv').formula, /^ΔP\(portal → hepatic vein\)/);
 });
 
-test('#45: on a slide the scale unit leaves the top strip, and the pattern word gives way before the strip gets small', () => {
-  const src = read('../src/ui/doppler.js');
+test('#45: on a slide the scale unit leaves the top strip, and the strip fits by fixed steps without cutting or dropping a word', () => {
+  const src = read('../src/ui/doppler.js'), css = read('../styles/app.css');
   assert.match(src, /ctx\.fillText\('cm\/s', w - 6, ovOn \? yLab : 13\)/);
-  assert.match(src, /if \(k < PAT_K && patternEl\.textContent\) \{ patternEl\.hidden = true; fitK\(k, have\); \}/);
-  assert.match(src, /const PAT_K = 0\.9;/);
-  assert.match(src, /if \(patternEl\.hidden\) \{ patternEl\.hidden = false; stripKey = ''; \}/);
+  // (the pattern, "High velocity" on a narrowed stent, is never hidden: its last step is a line of its own under the reading)
+  assert.doesNotMatch(src, /patternEl\.hidden = true/);
+  assert.match(src, /const STEPS = \[\[1, false, false\], \[0\.9, false, false\], \[0\.9, true, false\], \[1, false, true\], \[0\.9, false, true\], \[0\.9, true, true\], \[0\.8, true, true\]\];/);
+  assert.match(src, /'Portal → hepatic vein': 'PV → HV'/);
+  // (the strip's right side is free once "cm/s" moved to the bottom strip)
+  assert.match(css, /\.pz-tool\[data-kind="doppler"\] \.dop-report \{ grid-area: 1 \/ 1 \/ 2 \/ -1;[^}]*padding: 8px 12px 0 12px;/);
+  // (the pattern sits inside .dop-velrow, so the wrap rules use a descendant selector: a child one never matched)
+  assert.match(css, /\.dop-report\.dop-wrap \.dop-pattern \{ flex: 0 0 100%; \}/);
+  assert.match(css, /#app \.instrument-workspace \.instrument-view\.dop \.dop-report\.dop-wrap \.dop-pattern \{ grid-row: 2; grid-column: 1 \/ -1;/);
 });

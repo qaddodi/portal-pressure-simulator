@@ -138,6 +138,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const wrap = h('div', k === 'Peak' ? { title: 'Highest velocity in the last 3 s' } : {}, h('dt', {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn }; return wrap;
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
+  // The top strip's fitting steps (see fitStrip): [type scale, the direction's short form, the pattern on its own line].
+  let stripKey = '', stripStep = 0, dirFull = '—', rng = null;
+  const STEPS = [[1, false, false], [0.9, false, false], [0.9, true, false], [1, false, true], [0.9, false, true], [0.9, true, true], [0.8, true, true]];
+  const SHORT_DIR = { 'Portal → hepatic vein': 'PV → HV', 'Portal → IVC': 'PV → IVC', 'Portal → systemic': 'PV → systemic', 'Systemic → portal': 'Systemic → PV', 'Toward the heart': 'To the heart', 'Not available during time lapse': 'Paused in time lapse' };
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
     h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
 
@@ -378,7 +382,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function updateReport() {
     const r = reading();
     if (!r) {
-      dirEl.textContent = frame?.clock === 'disease' ? 'Not available during time lapse' : 'Acquiring…'; dirEl.dataset.sev = '';
+      setDir(frame?.clock === 'disease' ? 'Not available during time lapse' : 'Acquiring…'); dirEl.dataset.sev = '';
       rangeEl.hidden = true; velEl.dataset.out = 'false'; velEl.hidden = false;
       for (const e of [velEl.firstChild, patternEl, noteEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
       for (const k in statEls) setStat(statEls[k].dd, '—');
@@ -387,7 +391,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const p = meta();
     const it = interpret(r, gateFactor());
     const set = (e, t) => { if (e.textContent !== t) e.textContent = t; };
-    set(dirEl, it.dir); dirEl.dataset.sev = it.sev;
+    setDir(it.dir); dirEl.dataset.sev = it.sev;
     // (In a slide's top strip the reading is signed as the trace is drawn, the scanner's way: a hepatic vein's forward flow runs away from the
     // probe, below the baseline, so it reads "−18 · Toward the heart", and the sign, the words and the drawing agree.)
     // (And steady: the 3 s mean swings a few percent with the beat and breath, so a slide's strip, and the callout that copies it, read a
@@ -609,35 +613,48 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
   }
 
-  // The top strip stays on one line: the gaps and type scale together (--dop-k) to the room there is. Measured only when its
-  // words or width change, from the words' own extent (a range, not scrollWidth, which Safari counts without the end padding),
-  // in one read: everything in the strip scales with k, so k × room ÷ width is the fit. It grows back only by a clear step, so
-  // a reading that changes by a digit does not resize the strip (and the trace under it) every second.
-  let stripKey = '', rng = null;
+  // The top strip fits its words by fixed steps, never by cutting or dropping one: the type at full size, then at 0.9 (the gaps
+  // and type scale together, --dop-k), then the direction's short form (clinical shorthand, "PV → HV"), and only then the pattern
+  // ("High velocity") on a line of its own under the reading, whole. The card and monitor keep their size; the trace starts under
+  // the strip. Measured only when its words or width change; a bigger step is taken back only with room to spare, so a reading
+  // that changes by a digit does not move the strip (and the trace under it) back and forth.
+  function setDir(t) {
+    dirFull = t;
+    const s = STEPS[stripStep][1] ? SHORT_DIR[t] || t : t;
+    if (dirEl.textContent !== s) dirEl.textContent = s;
+  }
+  function stripStepSet(i) {
+    const [k, short, wrap] = STEPS[i];
+    stripStep = i;
+    if (report.style.getPropertyValue('--dop-k') !== String(k)) report.style.setProperty('--dop-k', String(k));
+    report.classList.toggle('dop-wrap', wrap);
+    const s = short ? SHORT_DIR[dirFull] || dirFull : dirFull;
+    if (dirEl.textContent !== s) dirEl.textContent = s;
+  }
+  function stripFits(i, have, spare) {
+    const wrap = STEPS[i][2], box = (e) => { if (e.hidden || !e.textContent) return null; rng.selectNodeContents(e); const q = rng.getBoundingClientRect(); return q.width ? q : null; };
+    const v = box(velEl), d = box(dirEl), p = box(patternEl), line = [v, d, wrap ? null : p].filter(Boolean);
+    if (!line.length) return true;
+    // (the union of the line's words, the dot before the pattern included; 14 px for its end, which Safari's ranges leave out)
+    const w = Math.max(...line.map((q) => q.right)) - Math.min(...line.map((q) => q.left)) + (p && !wrap ? 14 : 0);
+    return w + spare <= have && (!wrap || !p || p.width + 14 + spare <= have);
+  }
   function fitStrip() {
-    const key = `${report.clientWidth}|${dirEl.textContent}|${velEl.hidden ? '' : velEl.textContent}|${patternEl.textContent}`;
+    const key = `${report.clientWidth}|${box.clientWidth}|${dirFull}|${velEl.hidden ? '' : velEl.textContent}|${patternEl.textContent}`;
     if (key === stripKey) return;
     stripKey = key;
-    const cs = getComputedStyle(report), have = report.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    // (the room is the monitor's, 12 px in from its right edge, where the report is wider than the monitor: a phone held sideways)
+    const cs = getComputedStyle(report), rr = report.getBoundingClientRect(), br = box.getBoundingClientRect();
+    const sc = rr.width / (report.offsetWidth || 1) || 1;   // (screen px per layout px: a card still easing in is scaled)
+    const have = Math.min(report.clientWidth - parseFloat(cs.paddingRight), (br.right - rr.left) / sc - 12) - parseFloat(cs.paddingLeft);
     rng ||= document.createRange();
     if (have <= 0) return;
-    // (The pattern word gives way first: where the strip would have to shrink below PAT_K to keep it, it is left out and the
-    // reading and direction keep a readable size. Never cut mid-word.)
     if (patternEl.hidden) patternEl.hidden = false;
-    const k = fitK(+report.style.getPropertyValue('--dop-k') || 1, have);
-    if (k < PAT_K && patternEl.textContent) { patternEl.hidden = true; fitK(k, have); }
-  }
-  const PAT_K = 0.9;
-  function fitK(k, have) {
-    for (let i = 0; i < 3; i++) {
-      const nat = stripRect().width;
-      if (!(nat > 0)) return k;
-      const fit = Math.max(0.75, Math.min(1, Math.floor(k * (have / nat) * 0.98 * 100) / 100));
-      if (nat <= have && (fit - k < 0.05 || k >= 1)) return k;   // fits, and would not grow by a clear step
-      if (fit === k) return k;
-      k = fit; report.style.setProperty('--dop-k', String(k));
+    const was = stripStep;
+    for (let i = 0; i < STEPS.length; i++) {
+      stripStepSet(i);
+      if (stripFits(i, have * sc, i < was ? 6 : 0)) return;   // (the words are measured on screen)
     }
-    return k;
   }
 
   // The strip's own words (the reading, direction and pattern), measured together: a phone's Tests card keeps the gauge and tiles
@@ -670,7 +687,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4; if (ovKey !== ovLast || t > ovTop || t < ovTop - 4) ovTop = t; }
     } else {
       ovTop = 26;
-      if (patternEl.hidden) { patternEl.hidden = false; stripKey = ''; }   // (off the strip the pattern always shows)
+      if (stripStep) { stripStepSet(0); stripKey = ''; }   // (off the strip the words are always whole and full size)
     }
     ovLast = ovKey;
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
