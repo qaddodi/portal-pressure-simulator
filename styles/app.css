@@ -5296,9 +5296,9 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
   #app.thumb .instrument-workspace.sheet-half [data-pane="hvpg"] > .chart-side { display: none; }
   /* Doppler: the reading, the flow's direction and the waveform's name in the monitor's top strip, as on a slide's data card
      (doppler.js reads --dop-ov); the gauge and the tiles under the monitor. */
-  #app.thumb .instrument-view.dop .dop-main { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; row-gap: 0; }
+  #app.thumb .instrument-view.dop .dop-main { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto auto; row-gap: 0; }
   #app.thumb .instrument-view.dop .dop-box { --dop-ov: 1; grid-area: 1 / 1 / 3 / 2; min-height: 130px !important; }
-  #app.thumb .instrument-view.dop .dop-report { grid-area: 1 / 1 / 5 / 2; display: grid; grid-template-rows: subgrid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; column-gap: calc(.6em * var(--dop-k, 1)); margin-inline: -10px; padding: 0 52px 0 12px; min-width: 0; }
+  #app.thumb .instrument-view.dop .dop-report { grid-area: 1 / 1 / 6 / 2; display: grid; grid-template-rows: subgrid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; column-gap: calc(.6em * var(--dop-k, 1)); margin-inline: -10px; padding: 0 52px 0 12px; min-width: 0; }
   #app.thumb .instrument-view.dop .dop-velrow { display: contents; }
   #app.thumb .instrument-view.dop :is(.dop-vel, .dop-dir, .dop-pattern) { grid-row: 1; align-self: start; position: relative; z-index: 1; padding-top: 8px; margin: 0; white-space: nowrap; pointer-events: none; color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }
   #app.thumb .instrument-view.dop .dop-vel { grid-column: 1; }
@@ -5310,7 +5310,9 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
   #app.thumb .instrument-view.dop .dop-vel small { font-size: calc(var(--fs-12) * var(--dop-k, 1)); color: rgb(var(--white-rgb) / .6); }
   #app.thumb .instrument-view.dop .dop-range { grid-row: 3; grid-column: 1 / -1; margin: 8px -42px 0 -2px; }
   #app.thumb .instrument-view.dop .dop-stats { grid-row: 4; grid-column: 1 / -1; margin: 8px -42px 0 -2px; }
-  #app.thumb .instrument-view.dop .dop-note { display: none; }
+  /* The one-line reading of the pattern is under the tiles only at Full (it is dropped at Half to keep the monitor's room). */
+  #app.thumb .instrument-view.dop .dop-note { display: none; grid-row: 5; grid-column: 1 / -1; margin: 8px -2px 0; font-size: var(--fs-14); color: var(--text-2); }
+  #app.thumb .instrument-workspace:not(.sheet-half) .instrument-view.dop .dop-report > .dop-note:not(:empty) { display: block; }
 }
 /* (Tests card on a phone) the neighbouring tab's pane, shown beside the open one while a sideways drag pages between them. */
 .dock-pane.swipe-peer { display: flex; flex-direction: column; gap: 16px; animation: none; }

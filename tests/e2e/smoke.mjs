@@ -2104,6 +2104,32 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const after = await box();
     if (Math.abs(after.top - before.top) > 1) throw new Error(`switching tab moved the card's top edge by ${after.top - before.top} px`);
   });
+  // The Doppler tab of a phone's Tests card: the Peak, Trough, Pulsatility and CI tiles are on top of the play bar at Half and at Full
+  // (the play bar once covered the card's bottom edge), and the one-line note under them shows only at Full.
+  if (device === 'phone') await check(device, 'thumb dock: Doppler tiles show at Half and Full, the note only at Full', async (page) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await open(page, '?preset=cirr-decomp');
+    await page.waitForTimeout(800);
+    await page.click('#thumbBar [data-tab="tests"]');
+    await page.waitForTimeout(900);
+    await page.evaluate(() => document.querySelector('#dock [data-instrument="doppler"]').click());
+    await page.waitForFunction(() => document.querySelector('#dock .dop-stats > div:not([hidden]) dd')?.textContent.trim(), null, { timeout: 60000 });
+    const look = () => page.evaluate(() => {
+      const tiles = [...document.querySelectorAll('#dock .dop-stats > div:not([hidden])')], note = document.querySelector('#dock .dop-note');
+      // (the play bar's parts and the tab row are what could be drawn over a tile: each must be clear of it or invisible)
+      const over = (t) => { const a = t.getBoundingClientRect(); return [...document.querySelectorAll('.vdock > *')].some((e) => { const r = e.getBoundingClientRect(); return +getComputedStyle(e).opacity > 0.05 && r.width && r.top < a.bottom && r.bottom > a.top; }); };
+      return { n: tiles.length, covered: tiles.filter(over).length, note: note.textContent.trim() && getComputedStyle(note).display !== 'none' };
+    });
+    await page.waitForTimeout(600);
+    let v = await look();
+    if (v.n < 4 || v.covered) throw new Error(`at Half ${v.n} Doppler tiles, ${v.covered} covered`);
+    if (v.note) throw new Error('the Doppler note shows at Half');
+    await page.click('#dock .sheet-grab');
+    await page.waitForTimeout(900);
+    v = await look();
+    if (v.n < 4 || v.covered) throw new Error(`at Full ${v.n} Doppler tiles, ${v.covered} covered`);
+    if (!v.note) throw new Error('the Doppler note is missing at Full');
+  });
   // History sits beside Treat and Tests in a laptop's top bar (not in the play bar) and opens as a card on the right, in Treat's place.
   if (device === 'desktop') await check(device, 'History: a top-bar button beside Tests, its card on the right in Treat\'s place', async (page) => {
     await open(page, '?preset=cirr-decomp');
