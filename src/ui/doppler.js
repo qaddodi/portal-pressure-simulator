@@ -635,6 +635,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const wrap = STEPS[i][2], box = (e) => { if (e.hidden || !e.textContent) return null; rng.selectNodeContents(e); const q = rng.getBoundingClientRect(); return q.width ? q : null; };
     const v = box(velEl), d = box(dirEl), p = box(patternEl), line = [v, d, wrap ? null : p].filter(Boolean);
     if (!line.length) return true;
+    // (one row: with the pattern on its own line the strip may wrap, and the direction must not go down with it)
+    if (wrap && v && d && (d.top >= v.bottom - 2 || d.left < v.right)) return false;
     // (the union of the line's words, the dot before the pattern included; 14 px for its end, which Safari's ranges leave out)
     const w = Math.max(...line.map((q) => q.right)) - Math.min(...line.map((q) => q.left)) + (p && !wrap ? 14 : 0);
     return w + spare <= have && (!wrap || !p || p.width + 14 + spare <= have);

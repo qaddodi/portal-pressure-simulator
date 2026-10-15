@@ -1202,7 +1202,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   if (device === 'desktop') await check(device, 'presenter: the Doppler strip beside a tile keeps every word whole inside the monitor', async (page) => {
     const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
     const deck = withOverview(DECKS.find((d) => d.id === 'tips-doppler'));
-    for (const [w, h] of [[1440, 900], [1024, 768]]) {
+    for (const [w, h] of [[1440, 900], [1280, 800], [1024, 768]]) {
       await page.setViewportSize({ width: w, height: h });
       for (const id of ['narrow', 'where']) {
         await open(page, `?script=tips-doppler&slide=${deck.slides.findIndex((s) => s.id === id) + 1}`);
@@ -1214,6 +1214,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const rep = document.querySelector('.pz-data:not(.pz-hide) .dop-report'), mon = rep.closest('.dop-main').querySelector('.dop-box').getBoundingClientRect(), out = [];
           const k = +rep.style.getPropertyValue('--dop-k');
           if (k < 0.8) out.push(`type at ${k}`);
+          // (the reading and the direction share the strip's first line; only the pattern may take a line of its own)
+          const v = rep.querySelector('.dop-vel').getBoundingClientRect(), d = rep.querySelector('.dop-dir').getBoundingClientRect();
+          if (d.top >= v.bottom - 2) out.push(`"${rep.querySelector('.dop-dir').textContent}" dropped under the reading`);
           for (const e of rep.querySelectorAll('.dop-vel, .dop-dir, .dop-pattern')) {
             if (e.hidden || !e.getClientRects().length) { out.push(`"${e.textContent}" hidden`); continue; }
             const g = document.createRange(); g.selectNodeContents(e); const q = g.getBoundingClientRect();
