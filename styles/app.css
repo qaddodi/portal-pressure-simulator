@@ -4930,8 +4930,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) > .pz-strip { width: 100%; }   /* (the strip at the card's full width, its words in one row: squeezed by the fit, it stood its labels on end and grew taller) */
 /* (Shown on a wide screen: the unit goes in the header, so it never drops to the brackets' row away from its readings; the drop
    lines are solid hairlines, not rows of dots.) */
-.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) .pzs-u { display: none; }
-.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) .pz-dh > span:first-child::after { content: ' (mmHg)'; text-transform: none; letter-spacing: normal; }
+.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) .pzs-u, .pz.stack .pz-data:not(.tiles-only):not(.tool-only) > .pz-strip .pzs-u { display: none; }
+.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) .pz-dh > span:first-child::after,
+.pz.stack .pz-data:not(.tiles-only):not(.tool-only):has(> .pz-strip) .pz-dh > span:first-child::after { content: ' (mmHg)'; text-transform: none; letter-spacing: normal; }   /* (a phone's strip too: its unit had sat alone on a line at the right) */
 /* (Folded, the tile at the card's full width keeps its scale bar 12 px from its sides and 8 px under its numbers, as drawn.) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds:not(.has-tool):not(.tool-open) > .pz-tiles .pz-tile:has(.pzt-bar) { padding-inline: calc(13px / var(--pz-z, 1)); padding-bottom: calc(10px / var(--pz-z, 1)); }
 /* (An instrument alone, or over a ladder, is the same screen at the card's full width.) */

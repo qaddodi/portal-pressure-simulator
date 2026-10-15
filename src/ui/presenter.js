@@ -379,6 +379,13 @@ const fitNow = (c) => {
     c.fs = fs; c.w = box.width; c.h = box.height; lay(fs, box);
   }
 };
+// A vertical hairline's x, in a chart's units, moved to whole device pixels so its 1 px stroke draws crisp, not smeared over two.
+const snapX = (svg, x) => {
+  const m = svg.getScreenCTM?.(), d = Math.round(globalThis.devicePixelRatio || 1) || 1;
+  if (!m || !m.a) return x;
+  const L = Math.round((m.a * x + m.e) * d - d / 2);
+  return ((L + d / 2) / d - m.e) / m.a;
+};
 const est = (t, px, w = 0.6) => String(t).length * px * w;   // (a run's width: Inter averages about 0.6 em a character, 0.66 bold capitals)
 function fitChart(svg, lay) {
   const c = { svg, lay, fs: null };
@@ -508,7 +515,7 @@ function bigLadder() {
     S.vy = S.ny + 0.36 * v;
     numW.clear(); lineKey = '';
     // (In a wide card's shown strip the falls' shading keeps a clear 8 px or more from the readings either side: 2 was tight beside big digits.)
-    bandPad = strip.closest('.pz:not(.stack):not(.low) .pz-data.pz-folds') ? 11 : 2;
+    bandPad = strip.closest('.pz:not(.stack):not(.low) .pz-data.pz-folds, .pz.stack .pz-data') ? 11 : 2;   // (a phone's card strip too, not a site cell's)
     // The unit sits after the last reading when it fits there, else at the end of the HVPG row (under the last stations).
     const inline = XS(4) + est('20', v, 0.62) / 2 + 8 + est('mmHg', c, 0.68) <= S.W - 1;
     S.hvpg = S.ny + 0.5 * v + 6 + 1.05 * c; S.ppg = S.hvpg + 1.45 * c; S.H = S.ppg + 0.6 * c + 3;
@@ -516,7 +523,7 @@ function bigLadder() {
     if (bare) S.H = S.ny + 0.5 * v + 4;
     unit.style.display = bare ? 'none' : '';   // (a site row has no room for it beside its last reading, where a block's hatching may sit)
     // (With its unit in the header, a wide card's shown strip centres its readings: the room kept for the unit sat empty on the right.)
-    const dx = bandPad > 2 ? -(S.W - XS(4) - XS(0)) / 2 - 4 : 0;   // (and 4 more: the first reading has two digits, the last one)
+    const dx = strip.closest('.pz.stack .pz-data') ? -(S.W - XS(4) - XS(0)) / 2 : strip.closest('.pz:not(.stack):not(.low) .pz-data.pz-folds') ? -(S.W - XS(4) - XS(0)) / 2 - 4 : 0;   // (and 4 more: the first reading has two digits, the last one)
     strip.setAttribute('viewBox', `${dx.toFixed(1)} 0 ${S.W} ${S.H.toFixed(1)}`);
     conns.forEach((cn) => { const y0 = S.ky2 + 0.35 * c; cn.band.setAttribute('y', y0.toFixed(1)); cn.band.setAttribute('height', (S.ny + 0.5 * v - y0).toFixed(1)); });
     spts.forEach((p, i) => {
@@ -672,7 +679,7 @@ function bigLadder() {
       const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v);
       b.g.setAttribute('opacity', ok ? 1 : 0);
       if (!ok) return;
-      b.lead.setAttribute('d', `M${b.x0} ${(b.by ?? b.row) - 6}V${(Y(hi) + 12).toFixed(1)}M${b.x1} ${(b.by ?? b.row) - 6}V${(Y(lo) + 12).toFixed(1)}`);
+      b.lead.setAttribute('d', `M${snapX(el, b.x0).toFixed(2)} ${(b.by ?? b.row) - 6}V${(Y(hi) + 12).toFixed(1)}M${snapX(el, b.x1).toFixed(2)} ${(b.by ?? b.row) - 6}V${(Y(lo) + 12).toFixed(1)}`);
       const say = verdict[b.name.toLowerCase()];
       b.g.dataset.rate = rate;
       b.g.classList.toggle('says', !!say);
@@ -688,7 +695,7 @@ function bigLadder() {
       const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v), [rate] = rateOf(k, { [k]: v });
       b.g.setAttribute('opacity', ok ? 1 : 0);
       if (!ok) return;
-      b.lead.setAttribute('d', `M${b.x0} ${b.row - 5}V${S.ny + 0.5 * S.v + 2}M${b.x1} ${b.row - 5}V${S.ny + 0.5 * S.v + 2}`);
+      b.lead.setAttribute('d', `M${snapX(strip, b.x0).toFixed(2)} ${b.row - 5}V${S.ny + 0.5 * S.v + 2}M${snapX(strip, b.x1).toFixed(2)} ${b.row - 5}V${S.ny + 0.5 * S.v + 2}`);
       b.g.dataset.rate = rate || 'ok';
       const num = ' ' + fmt(v, 0);
       b.t[0].textContent = b.name; b.t[1].textContent = num;
