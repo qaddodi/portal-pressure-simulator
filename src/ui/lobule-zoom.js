@@ -408,6 +408,12 @@ export function createLobuleZoom({ host }) {
     const to = { ...V }; Object.assign(V, saved);
     return to;
   }
+  // Glides the view, at its zoom, to bring a world point to the middle of the free space.
+  function centreOn(w) {
+    const f = freeRect(), saved = { ...V };
+    Object.assign(V, { k: V.k, x: (f.l + f.r) / 2 - w[0] * V.k, y: (f.t + f.b) / 2 - w[1] * V.k }); clampV();
+    const to = { ...V }; Object.assign(V, saved); glideTo(to, 380);
+  }
   function fitView() { if (sinTo) return; atFit = true; const F0 = fitV(); kFit = F0.k; glideTo(F0); }
 
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
@@ -497,7 +503,8 @@ export function createLobuleZoom({ host }) {
   el.addEventListener('pointerup', (ev) => {
     if (down && touches.size <= 1 && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8 && performance.now() - down.t < 600 && onScene(ev)) {
       const w = down.label ? anchorOf(down.label) : toWorld(local(ev));
-      select(down.label ? hitKind(down.label) : hit(w[0], w[1]), w);
+      if (down.label && labs[down.label]?.el.classList.contains('edge')) centreOn(w);
+      else select(down.label ? hitKind(down.label) : hit(w[0], w[1]), w);
     }
     down = null;
   });
@@ -873,7 +880,7 @@ export function createLobuleZoom({ host }) {
     let L = labs[key];
     if (!L) {
       L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), line: s('line', { class: 'leader', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), dotEl: s('circle', { class: 'leader-dot', r: 3, 'data-target': `lobule:${LZ_TARGET[key] || key}` }) };
-      L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); select(hitKind(key), [q[0], q[1]]); });
+      L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); if (L.el.classList.contains('edge')) centreOn(q); else select(hitKind(key), [q[0], q[1]]); });
       labels.append(L.el); leaders.append(L.line, L.dotEl);
     }
     const txt = `${name}|${v}|${u}|${d}|${col}`;
@@ -953,7 +960,9 @@ export function createLobuleZoom({ host }) {
     };
     // Framed to fit, the default pick stays wherever its vessel is in view (a lobule that fills a phone's width has its corners at the edge).
     const keep = atFit ? 4 : 36;
-    if (!inside(C[pick.triad], keep)) { const i = best([0, 1, 2, 3, 4, 5], (i) => C[i], [[g.cx, g.cy]]); if (i != null) pick.triad = i; }
+    // (A triad hard against the screen's side leaves its label no room beside it, only a long leader: another in view takes it.)
+    const side = (p) => { const [x] = toScreen(p); return Math.min(x - fr.l, fr.r - x) < 60; };
+    if (!inside(C[pick.triad], keep) || (side(C[pick.triad]) && C.some((q) => inside(q, 72) && !side(q)))) { const i = best([0, 1, 2, 3, 4, 5], (i) => C[i], [[g.cx, g.cy]]); if (i != null) pick.triad = i; }
     // The sinusoid's reading points at the middle of a sinusoid: a middle-generation one (half way from the portal tract
     // to the central vein), the outer or inner generation only when none of those is in view.
     if (!inside(sinAt(sinTube()), keep) || (sinTube().lvl !== 1 && best(g.L1, sinAt, [], 44))) { const av = [[g.cx, g.cy], C[pick.triad]], t = best(g.L1, sinAt, av) || best(g.L1, sinAt, av, 44) || best([...g.L0, ...g.L2], sinAt, av); if (t) pick.sin = t.id; }
@@ -1130,10 +1139,15 @@ export function createLobuleZoom({ host }) {
       const r = c.getBoundingClientRect();
       if (r.width && getComputedStyle(c).visibility !== 'hidden') cards.push({ l: r.left - hr.left - 6, r: r.right - hr.left + 6, t: r.top - hr.top - 6, b: r.bottom - hr.top + 6 });
     }
-    const marks = ['triad', 'cv', ...(lymphOn ? ['lymph'] : [])].map((k) => {
-      const [x, y] = toScreen(anchorOf(k)), r = Math.max(12, g.rcv0 * 1.3 * V.k);
-      return { k, l: x - r, r: x + r, t: y - r, b: y + r };
-    });
+    // What no label may cover: the central vein, every portal tract (venule, arteriole, ductule and lymphatic) and the
+    // spot each label names, each a disc on screen. A label is pinned just beside what it names, on a short leader, clear of them all.
+    const keep = [[g.cx, g.cy, g.rcv0 * 1.7], ...g.lobules[0].corners.map(([x, y]) => [x, y, (g.rt || 6) * 2.4])]
+      .map(([x, y, r]) => { const [sx, sy] = toScreen([x, y]); return { x: sx, y: sy, r: Math.max(14, r * V.k) }; });
+    const ownR = (k, a) => {
+      const d = keep.find((q) => Math.hypot(q.x - a[0], q.y - a[1]) < q.r);
+      return d ? d.r + Math.hypot(d.x - a[0], d.y - a[1]) : 10;
+    };
+    const into = (q, b) => Math.max(0, q.r - Math.hypot(Math.max(b.l - q.x, 0, q.x - b.r), Math.max(b.t - q.y, 0, q.y - b.b)));
     // The letters' halo reaches past each label's box, more so at larger text: the margins grow with it.
     // Each box also takes in the label's pill (it reaches 4×5 px past the text at --label-k 1) and half the gap kept
     // between two labels, so no two pills ever touch.
@@ -1178,32 +1192,57 @@ export function createLobuleZoom({ host }) {
       const [w, hh] = sizes[i];
       const a = toScreen(anchorOf(k));
       const outside = k === 'lymph' ? a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H : a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 4 || a[1] > fr.b + 4;
-      L.el.hidden = outside || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
+      // What it names has left the screen: the label waits at the free space's edge, pointing the way (a tap brings it back into view).
+      const chip = outside && k !== 'lymph';
+      L.el.hidden = (outside && !chip) || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
+      L.el.classList.toggle('edge', chip && !L.el.hidden);
       if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
-      items.push({ k, L, w, hh, a });
+      let edge = null;
+      if (chip) {
+        const mx = (fr.l + fr.r) / 2, my = (fr.t + fr.b) / 2, dx = a[0] - mx, dy = a[1] - my, pad = 10;
+        const sx = (fr.r - fr.l) / 2 - w / 2 - pad, sy = (fr.b - fr.t) / 2 - hh / 2 - pad;
+        const f = Math.min(sx / Math.max(Math.abs(dx), 1e-6), sy / Math.max(Math.abs(dy), 1e-6));
+        const ang = Math.atan2(dy, dx), c = Math.cos(ang), sn = Math.sin(ang);
+        edge = [mx + dx * f, my + dy * f];
+        L.el.style.setProperty('--edge-a', `${ang}rad`);
+        L.el.style.setProperty('--edge-r', `${Math.min(w / 2 / Math.max(Math.abs(c), 1e-6), hh / 2 / Math.max(Math.abs(sn), 1e-6)) + 7}px`);
+      }
+      items.push({ k, L, w, hh, a, edge });
     }
     const base = placed.slice(), ring = callRingAt(fr), hex = hexOf();
     const solve = (order) => {
       const pl = base.slice(), ld = [], res = [];
       let total = 0;
-      for (const { k, w, hh, a } of order) {
+      for (const { k, w, hh, a, edge } of order) {
         const pad = 8 + 4 * lk, step = hh + 12;
+        if (edge) {   // an edge chip slides along its edge only as far as it needs to clear the others
+          let best = null;
+          for (const n of [0, -1, 1, -2, 2, -3, 3]) {
+            const along = Math.abs(edge[0] - fr.l) < 40 + w || Math.abs(edge[0] - fr.r) < 40 + w ? [0, n * step] : [n * (w / 2 + 12), 0];
+            const x = clamp(edge[0] + along[0], fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(edge[1] + along[1], fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
+            const box = { l: x - w / 2 - hx, r: x + w / 2 + hx, t: y - hh / 2 - hy, b: y + hh / 2 + hy };
+            const cost = pl.reduce((sum, o) => sum + (hit(box, o) ? 1e6 + overlap(box, o) * 100 : 0), 0) + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0) + Math.abs(n) * 10;
+            if (!best || cost < best.cost) best = { x, y, box, cost };
+          }
+          pl.push(best.box); res.push({ k, ...best }); total += best.cost;
+          continue;
+        }
         const preferred = k === 'cv' ? [a[0], a[1] - g.rcv0 * V.k - hh / 2 - 12]
           : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : k === 'ha' ? [a[0] - w / 2 - 14, a[1] - hh / 2 - 10] : k === 'bd' ? [a[0] + w / 2 + 14, a[1] - hh / 2 - 10] : k === 'lymph' ? [a[0], a[1] - hh / 2 - 14] : a;
         // Steps in proportion to the label, so larger text searches proportionally farther (above, below, beside, diagonally).
         const candidates = [preferred];
         for (const dx of [0, -(w / 2 + 12), w / 2 + 12, -(w + 24), w + 24])
           for (const n of [0, -1, 1, -2, 2, -3, 3]) if (dx || n) candidates.push([preferred[0] + dx, preferred[1] + n * step]);
-        // And all round what it names, at a few distances, so a crowded side still leaves a free spot near it.
+        // And all round what it names, just clear of it and a little farther, so a crowded side still leaves a free spot near it.
+        const r0 = ownR(k, a);
         for (const r of [1, 1.6, 2.4]) for (let i = 0; i < 16; i++) {
-          const t = (i / 16) * Math.PI * 2;
-          candidates.push([a[0] + Math.cos(t) * (w / 2 + 18) * r, a[1] + Math.sin(t) * (hh / 2 + 18) * r]);
+          const t = (i / 16) * Math.PI * 2, c = Math.cos(t), sn = Math.sin(t);
+          candidates.push([a[0] + c * (w / 2 + 18) * r, a[1] + sn * (hh / 2 + 18) * r]);
+          const d = (r0 + 10) * r + Math.min(w / 2 / Math.max(Math.abs(c), 1e-6), hh / 2 / Math.max(Math.abs(sn), 1e-6));
+          candidates.push([a[0] + c * d, a[1] + sn * d]);
         }
-        // Just beyond the lobule's rim, all round: the labels sit outside it whenever there is room.
-        for (const c of hex.outside(a, w, hh)) candidates.push(c);
         // Snug against each label already placed (above, below or beside it), so a tight gap between two is found.
         for (const o of pl) candidates.push([preferred[0], o.b + hh / 2 + hy], [preferred[0], o.t - hh / 2 - hy], [o.r + w / 2 + hx, preferred[1]], [o.l - w / 2 - hx, preferred[1]]);
-        const own = marks.filter((m) => m.k !== k);
         let best = null;
         for (const [px, py] of candidates) {
           const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad);
@@ -1217,10 +1256,10 @@ export function createLobuleZoom({ host }) {
             + ld.reduce((sum, [p, q]) => sum + (crosses(p, q, box) ? 1e5 : 0) + (cut(p, q, a, [x, y]) ? 1e5 : 0), 0)
             + Math.max(0, 16 - lead) * 40
             + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0)
-            + hex.share(box) * INSIDE_COST
             + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e3 : 0)
-            + own.reduce((sum, m) => sum + overlap(box, m) * 40, 0)
-            + Math.hypot(x - preferred[0], y - preferred[1]);
+            + keep.reduce((sum, q) => { const d = into(q, box); return sum + (d > 0 ? 1e6 + d * 1e3 : 0); }, 0)
+            + (into({ x: a[0], y: a[1], r: 10 }, box) > 0 ? 1e6 : 0)
+            + lead * 8 + Math.hypot(x - preferred[0], y - preferred[1]) * 0.5;
           if (!best || cost < best.cost) best = { x, y, box, cost };
         }
         pl.push(best.box); ld.push([a, [best.x, best.y]]); res.push({ k, ...best });
@@ -1238,14 +1277,15 @@ export function createLobuleZoom({ host }) {
       for (const order of perms(items)) {
         const s2 = solve(order);
         if (s2.total < sol.total) sol = s2;
-        if (sol.total < 1e5) break;
+        if (sol.total < 1e5 && items.length > 5) break;   // (up to five labels, 120 orders at most: the shortest leaders win, not just the first clear order)
       }
     }
     placed.splice(0, placed.length, ...sol.pl); leads.push(...sol.ld);
     for (const { k, x, y } of sol.res) {
-      const { L, w, hh, a } = items.find((it) => it.k === k);
+      const { L, w, hh, a, edge } = items.find((it) => it.k === k);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
       L.el.classList.remove('left');
+      if (edge) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       L.line.style.display = L.dotEl.style.display = '';
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]);
       L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);

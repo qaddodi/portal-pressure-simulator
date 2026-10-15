@@ -3452,6 +3452,8 @@ button.finding { cursor: pointer; }
 .lz-lab.left .v { justify-content: flex-end; }
 .lz-lab .v b { font-weight: 650; color: var(--text); }
 .lz-lab small { font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--text-3); }
+/* A label whose structure is off screen waits at the edge with a small arrow pointing the way (lobule-zoom.js layoutLabels). */
+.lz-lab.edge .n::before { content: ""; position: absolute; left: 50%; top: 50%; width: 9px; height: 10px; background: var(--text-2); clip-path: polygon(0 0, 100% 50%, 0 100%); transform: translate(-50%, -50%) rotate(var(--edge-a, 0rad)) translateX(var(--edge-r, 40px)); pointer-events: none; }
 .lz-lab .d { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 650; color: var(--text-2); margin-left: 4px; }
 .lz-lab .n-short { display: none; }
 .lz-lab.stack .v { display: grid; grid-template-columns: auto auto; justify-content: center; align-items: baseline; column-gap: 2.5px; }   /* (a grid: the label is only as wide as its longer line, not as wide as both readings side by side) */

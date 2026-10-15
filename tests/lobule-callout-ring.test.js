@@ -21,12 +21,19 @@ test('the lesion leader starts on the ring\'s edge, and labels keep clear of the
   assert.match(js, /ringDepth\(ring, box\) \* 1e4/, 'the pill keeps off the ring too');
 });
 
-test('lobule labels and the pointer pill prefer spots outside the lobule, falling back inside only when there is no room', () => {
+test('the pointer pill prefers spots outside the lobule, falling back inside only when there is no room', () => {
   const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   assert.match(js, /const hexOf = \(\) =>/, 'the lobule outline on screen is measured each layout');
-  assert.match(js, /for \(const c of hex\.outside\(a, w, hh\)\) candidates\.push\(c\)/, 'labels try spots just beyond the rim');
-  assert.match(js, /hex\.share\(box\) \* INSIDE_COST/, 'a label inside the lobule pays a soft cost (never above a clash)');
-  assert.match(js, /ringDepth\(ring, box\) \* 1e4 \+ hex\.share\(box\) \* INSIDE_COST/, 'the pill prefers outside too');
+  assert.match(js, /ringDepth\(ring, box\) \* 1e4 \+ hex\.share\(box\) \* INSIDE_COST/, 'the pill prefers outside');
   const cost = Number(js.match(/INSIDE_COST = (\d+)/)?.[1]);
   assert.ok(cost > 0 && cost * 6 < 1e5, 'the inside cost stays well below the clash costs, so it never causes overlaps');
+});
+
+test('lobule labels are pinned beside what they name and never cover the central vein, a portal tract or their own spot', () => {
+  const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  assert.match(js, /const keep = \[\[g\.cx, g\.cy, g\.rcv0 \* 1\.7\], \.\.\.g\.lobules\[0\]\.corners\.map/, 'the central vein and every portal tract are kept clear');
+  assert.match(js, /keep\.reduce\(\(sum, q\) => \{ const d = into\(q, box\); return sum \+ \(d > 0 \? 1e6/, 'covering one costs as much as a clash');
+  assert.match(js, /into\(\{ x: a\[0\], y: a\[1\], r: 10 \}, box\) > 0 \? 1e6/, 'a label never covers the spot it names');
+  assert.match(js, /lead \* 8/, 'short leaders are preferred');
+  assert.match(js, /L\.el\.classList\.toggle\('edge'/, 'a label whose structure is off screen waits at the edge');
 });
