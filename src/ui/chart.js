@@ -15,7 +15,8 @@ import { verbEnabled, DRUG_NOTE } from './actions.js?v=a7a1848152';
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, timeline, pinned }) {
   let controls = () => [];
   // Changes starts closed in the Treat card so the card does not grow with every order.
-  const open = new Set(JSON.parse(safeGet('pps.chartOpen3') || '[]'));
+  // A damaged saved value (not JSON, or not a list) starts closed rather than stopping the app.
+  const open = new Set((() => { try { const v = JSON.parse(safeGet('pps.chartOpen3') || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch { return []; } })());
   let live = [];
 
   function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }

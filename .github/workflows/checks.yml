@@ -28,7 +28,7 @@ jobs:
   # Split over thirty-six runners (desktop in twenty shares, phone in sixteen), filled by measured time, one check at a time per runner:
   # a runner is too small to run several browsers at once.
   browser-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Covers the install (capped at 4 minutes below) plus the checks. SMOKE_PLAN=1 npm run smoke prints each share's expected
     # minutes: about 23 for desktop and 15 for phone on 15 Oct, and a slow runner takes longer, so the old 25-minute limit cut
     # almost every share off mid-check and every run ended red without a result. A newer push still cancels a run at once.
@@ -80,15 +80,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
-      # Pages serves the repository root, so the browser checks run against it. The
-      # production-build pass (npm run smoke:dist, for the SCORM package) stays in npm run check.
+      # Pages serves the production build (pages.yml builds each copy), so the browser checks run against
+      # that build, as shipped. ci.yml checks the source site as well on pull requests and main.
+      - name: Production build
+        run: npm run build
       - name: Browser checks
         env:
           SHOTS: workspace-shots
           SMOKE_DEVICE: ${{ matrix.device }}
           SMOKE_SHARD: ${{ matrix.shard }}
           SMOKE_WORKERS: 1
-        run: npm run smoke
+        run: npm run smoke:dist
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -99,7 +101,7 @@ jobs:
 
   # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
   webkit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -119,7 +121,7 @@ jobs:
   # which redraws the drifted views on these same machines and commits them.
   visual:
     name: visual (${{ matrix.device }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false

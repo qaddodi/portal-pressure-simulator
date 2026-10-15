@@ -14,12 +14,17 @@ function dispatch(msg) {
   (handlers.get(msg.type) || []).forEach((fn) => fn(msg));
 }
 
+export const WORKER_WAIT = 15000;
+
 export async function startHost() {
   let w;
   try {
     w = new Worker(new URL('../worker.js?v=c5e0994932', import.meta.url), { type: 'module' });
     await new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error('worker timeout')), 4000);
+      // A worker that cannot start fails at once (onerror); the timeout only catches one that never answers. It is long, so
+      // a slow first load (the worker's modules arrive one round trip after another) still gets the worker, not the main
+      // thread for the whole session.
+      const t = setTimeout(() => reject(new Error('worker timeout')), WORKER_WAIT);
       w.onmessage = (e) => { clearTimeout(t); w.onmessage = (ev) => dispatch(ev.data); dispatch(e.data); resolve(); };
       w.onerror = (e) => { clearTimeout(t); reject(e); };
       w.postMessage({ type: 'init' });

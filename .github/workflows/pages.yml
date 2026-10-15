@@ -32,7 +32,7 @@ jobs:
   # Quick checks gate the deploy (about a minute end to end), so a preview is never held up by
   # the browser tests.
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: validate-${{ github.ref }}
       cancel-in-progress: ${{ github.ref_name != 'main' }}
@@ -52,7 +52,7 @@ jobs:
   deploy:
     needs: validate
     if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: pages
       # Queue, never cancel: a deploy that is publishing finishes, and only the newest waiting one runs next.

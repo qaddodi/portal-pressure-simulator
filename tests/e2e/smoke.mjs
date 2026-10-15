@@ -945,6 +945,42 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.locator('.action-card').waitFor({ state: 'hidden' });
   });
 
+  // A damaged saved setting (half-written JSON, the wrong type, an unknown name) is ignored: the app still starts, the menu
+  // lists the presentations and no error is thrown. (chart.js used to throw on a bad pps.chartOpen3 before anything drew.)
+  if (device === 'desktop') await check(device, 'damaged saved settings do not stop the app from starting', async (page) => {
+    await page.addInitScript(() => {
+      const bad = { 'pps.chartOpen3': '{', 'pps.scripts': '{"id":1}', 'pps.instruments': '[', 'pps.blood2': '"x"', 'pps.theme': 'nope', 'pps.labelScale': 'big', 'pps.quality': 'x', 'pps.uiZoom': 'x', 'pps.labels': '7' };
+      try { for (const [k, v] of Object.entries(bad)) localStorage.setItem(k, v); } catch { /* no storage on this frame */ }
+    });
+    await open(page, '?home=present');
+    await page.waitForSelector('.umenu .um-row[data-k="d:hvpg"]');
+    const t1 = await page.evaluate(() => window.pps.store.get().frame.t);
+    await page.waitForTimeout(600);
+    if (!(await page.evaluate((t) => window.pps.store.get().frame.t > t, t1))) throw new Error('the model clock did not advance');
+    if (await page.evaluate(() => document.documentElement.getAttribute('data-theme'))) throw new Error('an unknown saved theme was applied');
+  });
+
+  // A page left open across an update: its presentation engine's files no longer load (here the worker never answers and
+  // its main-thread fallback fails). The show ends with a word, not a cover held up for ever. (The source site only: the
+  // build bundles the engine under hashed names.)
+  if (device === 'desktop' && dir === '.') await check(device, 'a presentation whose engine cannot load ends with a word instead of hanging', async (page) => {
+    await open(page);
+    await page.route(/\/worker\.js\?/, (r) => r.fulfill({ contentType: 'text/javascript', body: '' }));
+    await page.route(/\/worker-core\.js\?/, (r) => r.fulfill({ contentType: 'text/javascript', body: 'throw new Error("gone");' }));
+    await page.evaluate(() => window.pps.presenter.start('circulation', 0));
+    await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting') && /could not be prepared/.test(document.getElementById('toasts').textContent), null, { timeout: 45000 });
+  });
+
+  // A slow first load: the engine worker's files arrive late (here 6 s), and the engine still runs in the worker, not on the
+  // main thread for the whole session.
+  // (worker.js?v=… on the source site, assets/worker-<hash>.js in the build)
+  if (device === 'desktop') await check(device, 'a slow first load still runs the engine in its worker', async (page) => {
+    await page.route(/\/worker(-\w+)?\.js(\?|$)/, async (r) => { await new Promise((res) => setTimeout(res, 6000)); await r.continue(); });
+    await open(page);
+    const kind = await page.evaluate(() => document.querySelector('#app').dataset.engine);
+    if (kind !== 'worker') throw new Error(`the engine runs in ${kind}, not its worker`);
+  });
+
   await check(device, 'menu, palette, presenter, instruments', async (page) => {
     // ?home=present opens the one menu: both columns side by side, or a bottom sheet on a phone.
     await open(page, '?home=present');

@@ -102,7 +102,9 @@ const SCOPE = 'pps@' + new URL(self.registration.scope).pathname + '@';
 const CACHE = SCOPE + '${version}';
 const FILES = ${JSON.stringify(['./', ...cached])};
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
-self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE && (k.startsWith(SCOPE) || !k.startsWith('pps@'))).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
+// The previous version's cache is kept (keys() lists caches oldest first): a tab left open across an update still finds
+// its own hashed files (the server has only the new ones), so it can start a presentation; any older cache goes.
+self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => { const prev = ks.filter((k) => k !== CACHE && k.startsWith(SCOPE)).at(-1); return Promise.all(ks.filter((k) => k !== CACHE && k !== prev && (k.startsWith(SCOPE) || !k.startsWith('pps@'))).map((k) => caches.delete(k))); }).then(() => self.clients.claim())); });
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;

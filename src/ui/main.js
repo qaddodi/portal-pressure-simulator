@@ -1,7 +1,7 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=82eaf5f1bb';
+import { startHost, host } from './host.js?v=9228eed00c';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
 import { createStage } from './stage.js?v=ed64ef6f84';
 import { createCreditPlacer } from './credit.js?v=e4d16bda70';
@@ -9,11 +9,11 @@ import { sinusoidSupported } from './sinusoid-view.js?v=998a8332f7';
 import { createInspector } from './inspector.js?v=d1085ce6ba';
 import { createDock, CUTOFFS } from './dock.js?v=2f004bbe73';
 import { setHvpgStage } from './hvpg-proc.js?v=e6a4ae8fb2';
-import { createWhy } from './why.js?v=0570a5ec8d';
-import { createTimeline, LAPSES } from './timeline.js?v=4595b22c3a';
+import { createWhy } from './why.js?v=f63606bbc5';
+import { createTimeline, LAPSES } from './timeline.js?v=7cfdcd42d4';
 import { createCompare } from './compare.js?v=c6ca755402';
 import { createCard } from './card.js?v=d95ae6175f';
-import { createChart } from './chart.js?v=e74d551af9';
+import { createChart } from './chart.js?v=d6d51e6c2b';
 import { createMenu } from './menu.js?v=aa648baf3a';
 import { caption } from './a11y.js?v=4dc7459ab3';
 import { startLMS } from './lms.js?v=284ef81e94';
@@ -87,7 +87,8 @@ const presenter = {
 };
 
 async function main() {
-  applyTheme(readLS('pps.theme'));
+  const savedTheme = readLS('pps.theme');
+  applyTheme(['dark', 'light', 'soft'].includes(savedTheme) ? savedTheme : null);   // an unknown saved theme falls back to the device's
   startLMS();
   // The Student role was removed (to come back later): an old saved role is dropped, everyone gets the full app.
   try { localStorage.removeItem('pps.role'); } catch { /* storage unavailable */ }
@@ -138,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=0efe8548ed'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=f0ead7caf0'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

@@ -37,7 +37,7 @@ Loop for every change (fast previews first, full tests before merge):
 4. When the owner is happy, run the full `npm run check` (lint, unit, build, smoke, smoke:dist),
    fix anything it finds, and recommend any tests worth adding for the new behaviour.
    The full CI (`ci.yml`) also runs every check on pull requests and on `main`, split over
-   parallel runners (source site and build, desktop and phone, two shares each, plus the visual
+   parallel runners (source site and build, desktop in twenty shares and phone in sixteen, plus the visual
    check per device). A browser check that failed only by timing out gets one more try
    (`SMOKE_RETRIES`); any other failure counts at once.
    Visual references (`tests/visual/`): every preview push compares the look (job `visual` in
@@ -50,7 +50,7 @@ Loop for every change (fast previews first, full tests before merge):
 5. Merge to `main` only when the owner says so. That also resets `/preview/` to match `main`.
    If the branch is already merged, restart it from the latest `main` before more work.
 
-Pages serves each copy as its production build (`npm run build` → `dist/`: bundled, minified, hashed), built in the deploy job of `pages.yml`; the repository root still runs as is for `npm start` and the browser checks.
+Pages serves each copy as its production build (`npm run build` → `dist/`: bundled, minified, hashed), built in the deploy job of `pages.yml`; the repository root still runs as is for `npm start`. The preview's browser checks (`checks.yml`) test that build, as shipped; `ci.yml` tests both the source and the build. Workflows pin `ubuntu-24.04`, so a new runner image (and new visual references) is a deliberate change.
 
 ## Pages setup and troubleshooting
 

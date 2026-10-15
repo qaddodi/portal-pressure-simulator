@@ -18,7 +18,7 @@ concurrency:
 # its own runner at the same time, so the run takes as long as the slowest share.
 jobs:
   quick:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -34,12 +34,12 @@ jobs:
       - name: Production build
         run: npm run build
 
-  # The build-free site (what Pages serves) and the production build (the SCORM package), each on
+  # The source site and the production build (what Pages serves, and the SCORM package), each on
   # a desktop and a phone, desktop in twenty shares and phone in sixteen: seventy-two runners, one check at a time on each (a runner is
   # too small to run several browsers at once). A check that only timed out gets one more try.
   browser-checks:
     name: browser-checks (${{ matrix.site }}, ${{ matrix.device }} ${{ matrix.shard }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25   # (a runner under load takes up to 25 minutes over the same share; Pages has the same limit)
     strategy:
       fail-fast: false
@@ -145,7 +145,7 @@ jobs:
 
   # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
   webkit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -161,7 +161,7 @@ jobs:
 
   # Left alone for two minutes, the anatomy and the lobule do not pile up memory, page nodes or listeners.
   idle:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -173,7 +173,7 @@ jobs:
   # on a failure the current pictures and diffs are kept as an artifact.
   visual:
     name: visual (${{ matrix.device }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false

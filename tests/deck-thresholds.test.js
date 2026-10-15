@@ -4,23 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
-import { createCore } from '../src/worker-core.js';
+import { deckStates } from './deck-states.js';
 
 const DIR = new URL('../src/ui/decks/', import.meta.url);
-const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
-const changes = (s) => MODEL.some((k) => s[k]);
-
-async function deckStates(d) {
-  const fps = [];
-  const core = createCore((m) => { if (m.type === 'seqStep') fps[m.i] = m.fp; });
-  const steps = d.slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse } : {}));
-  core.handle({ type: 'run', running: false });   // (no live clock left ticking once the test ends)
-  await core.handle({ type: 'sequence', steps, reqId: 1 });
-  core.dispose();
-  let last = fps[0];
-  return d.slides.map((s, i) => (last = changes(s) || i === 0 ? fps[i] : last));
-}
-
 // Slides whose claim is in a neighbouring sentence, checked by hand.
 const KNOWN = {
   'endoscopy/grow': (f) => f.hvpg >= 10,

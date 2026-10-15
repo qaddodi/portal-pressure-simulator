@@ -33,7 +33,8 @@ import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=816d3f5e
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
-const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
+// Only well-formed scripts: a damaged saved value is ignored rather than stopping the library.
+const readMine = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v.filter((x) => x && typeof x === 'object' && x.id) : []; } catch { return []; } };
 const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* storage unavailable */ } };
 const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
@@ -965,7 +966,10 @@ function wallsVisual() {
 // states, so the live figure keeps running while a presentation is prepared.
 function makeCalc() {
   const pending = new Map();
-  let seq = 1, post = null, kill = () => {};
+  let seq = 1, post = null, kill = () => {}, broken = false;
+  // Every waiting request settles with an error: a page left open across an update can no longer load the engine (its
+  // stamped files are gone from the cache and the server), and the presenter says so instead of waiting for ever.
+  const fail = (message) => { broken = true; for (const [reqId, p] of pending) p.done({ type: 'error', reqId, message }); pending.clear(); };
   const onMsg = (m) => {
     const p = pending.get(m.reqId);
     if (!p) return;
@@ -976,27 +980,34 @@ function makeCalc() {
     try {
       const w = new Worker(new URL('../worker.js?v=c5e0994932', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
-        const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
+        const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
         w.onerror = (e) => { clearTimeout(t); rej(e); };
         w.postMessage({ type: 'visibility', visible: false });
         w.postMessage({ type: 'run', running: false });
         w.postMessage({ type: 'presets', reqId: 0 });
       });
-      w.onmessage = (e) => onMsg(e.data); w.onerror = null;
+      w.onmessage = (e) => onMsg(e.data); w.onerror = (e) => { e.preventDefault?.(); fail('the engine stopped'); };
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=f966392d8b');
-      const core = createCore((m) => setTimeout(() => onMsg(m), 0));
-      core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
-      post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
+      try {
+        const { createCore } = await import('../worker-core.js?v=f966392d8b');
+        const core = createCore((m) => setTimeout(() => onMsg(m), 0));
+        core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
+        post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
+      } catch { fail('the engine could not load'); }
     }
   })();
-  const send = async (msg, entry) => { await ready; pending.set(msg.reqId, entry); post(msg); };
+  const send = async (msg, entry) => {
+    await ready;
+    if (broken) { entry.done({ type: 'error', reqId: msg.reqId, message: 'the engine is unavailable' }); return; }
+    pending.set(msg.reqId, entry); post(msg);
+  };
   return {
     request: (type, payload = {}) => new Promise((done) => send({ type, reqId: seq++, ...payload }, { done })),
     sequence: (steps, base, step) => new Promise((done) => send({ type: 'sequence', reqId: seq++, steps, base }, { done, step })),
     kill: () => kill(),
+    get broken() { return broken; },
   };
 }
 
@@ -1051,7 +1062,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     (async () => {
       const first = slides[0]?.preset ? null : (await host.request('snapshot')).snap;
       if (!base) c.request('presetMetrics', { ids: ['healthy'] }).then((m) => { base = m.result?.healthy || null; if (deck === deckNow) ui?.ladder.setBase(base); });
-      await c.sequence(steps, first, (m) => {
+      const end = await c.sequence(steps, first, (m) => {
         const st = { snap: m.snap, params: m.params, fp: m.fp, trail: m.trail, presetId: presetAt[m.i] };
         if (m.start) st.start = { ...m.start, presetId: presetAt[m.i] };
         mine[m.i] = st;
@@ -1059,7 +1070,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         for (const w of waiters.filter((x) => x.i === m.i)) w.res(st);
         waiters = waiters.filter((x) => x.i !== m.i);
       });
-      if (key) cache.set(key, { states: mine });
+      if (end?.type !== 'error') { if (key) cache.set(key, { states: mine }); return; }
+      // The slides could not be computed (most often a page left open across an update): the next try starts a fresh
+      // engine, and the show ends with a word rather than holding its cover up for ever.
+      if (c.broken) { c.kill(); if (calc === c) calc = null; }
+      if (states !== mine || deck !== deckNow) return;
+      stop();
+      toast('This presentation could not be prepared. Reload the page to present it.');
     })();
   }
   // Each slide's numbers for the printed notes (handout.js): the deck computed as presenting it computes it, or the states
