@@ -20,7 +20,8 @@ export function chartFaults(sel) {
   const pz = document.querySelector('.pz'), roles = ['cap', 'lab', 'body', 'val', 'big'].map((r) => { const p = document.createElement('span'); p.style.cssText = `position:absolute;visibility:hidden;font-size:var(--s-${r})`; pz.append(p); const v = parseFloat(getComputedStyle(p).fontSize); p.remove(); return v; });
   // (A data card's charts draw at the card's own sizes where it sets them, --ch-cap and --ch-lab: the tiles' small size and
   // one and a half times it; past the fit's last step its words zoom, --pz-z.)
-  const cardRoles = (svg) => { const d = svg.closest('.pz-data'); if (!d) return []; return ['cap', 'lab'].map((r) => { const p = document.createElement('span'); p.style.cssText = `position:absolute;visibility:hidden;font-size:var(--ch-${r}, 0px)`; d.append(p); const v = parseFloat(getComputedStyle(p).fontSize); p.remove(); return v; }).filter((v) => v > 0); };
+  // (A phone's stacked data card sets its own, larger roles, --s-cap and --s-lab at 1.15 times the slide's, 1.3 on a tablet: styles/app.css.)
+  const cardRoles = (svg) => { const d = svg.closest('.pz-data'); if (!d) return []; return ['ch-cap', 'ch-lab', 's-cap', 's-lab'].map((r) => { const p = document.createElement('span'); p.style.cssText = `position:absolute;visibility:hidden;font-size:var(--${r}, 0px)`; d.append(p); const v = parseFloat(getComputedStyle(p).fontSize); p.remove(); return v; }).filter((v) => v > 0); };
   const out = [];
   for (const svg of charts) {
     // (A card too full for its screen zooms its contents down, --pz-fit: the roles are read at that zoom; 11 px stays the floor.)
