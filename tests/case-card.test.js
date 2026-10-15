@@ -106,3 +106,20 @@ test('the case card follows a finger and a fling lifts it like a tap, also durin
   assert.match(src, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;/);
   assert.match(src, /for \(const k of \['transform', 'transition', 'opacity'\]\) c\.style\.removeProperty\(k\);/);
 });
+
+test('a flung case card glides off and fades over a visible time, and is hidden only after its flight', async () => {
+  const { caseFlight, FLIGHT_MIN, FLIGHT_MAX } = await import('../src/ui/swipe.js');
+  // A slow let-go halfway out (the iPhone report: it popped out of existence) still takes a visible flight.
+  assert.ok(caseFlight(373, 0.05) >= 380 && caseFlight(373, 0.05) <= FLIGHT_MAX);
+  assert.ok(caseFlight(373, 0) >= FLIGHT_MIN);
+  assert.ok(caseFlight(200, 5) >= FLIGHT_MIN);   // a hard flick too
+  assert.ok(caseFlight(NaN, NaN) >= FLIGHT_MIN);
+  const fly = src.slice(src.indexOf('function caseFly('), src.indexOf('function caseBack('));
+  // Both the move and the fade are transitions of the flight's length (never 'none'), ending at nothing; reduced motion still fades.
+  assert.match(fly, /transform \$\{ms\}ms cubic-bezier\([^`]*opacity \$\{ms\}ms/);
+  assert.match(fly, /reduce\.matches \? `opacity \$\{ms\}ms linear`/);
+  assert.match(fly, /c\.style\.opacity = '0'/);
+  assert.doesNotMatch(fly, /'none'|hidden|caseShut/);
+  // The card is hidden only once the flight has run (caseShut waits for card.flown).
+  assert.match(src, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;\s*setTimeout\(\(\) => \{ if \(!card\.c\.classList\.contains\('on'\)\) card\.c\.hidden = true; \}, ms\);/);
+});

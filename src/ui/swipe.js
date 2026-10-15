@@ -43,3 +43,12 @@ export function caseFling(dx, vx, w) {
   if (Math.abs(dx) >= FLING_MIN && v * s >= FLING_V) return s;
   return 0;
 }
+
+/** How long (ms) a flung case card takes to travel the `left` px still to go at the finger's `vx` px/ms: long enough to be
+ *  seen leaving and fading (a slow let-go never pops), short enough that a hard flick still feels thrown. */
+export const FLIGHT_MIN = 380, FLIGHT_MAX = 600;
+export function caseFlight(left, vx) {
+  const v = Math.max(Math.abs(Number.isFinite(vx) ? vx : 0), 0.8);
+  const t = (1.6 * left) / v;
+  return Number.isFinite(t) ? Math.round(Math.min(FLIGHT_MAX, Math.max(FLIGHT_MIN, t))) : FLIGHT_MAX;
+}

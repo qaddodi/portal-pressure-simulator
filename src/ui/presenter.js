@@ -15,7 +15,7 @@
 import { store, replaceParams } from './store.js?v=3b659e1968';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=f7459cca3c';
-import { swipeDir, ownsSideways, caseFling } from './swipe.js?v=2c6c8a5c76';
+import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
 import { sinusoidSupported } from './sinusoid-view.js?v=aabae9b935';
 import { NODES } from '../engine/topology.js?v=c164acf7d0';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
@@ -1437,11 +1437,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // Swiped: the card flies off sideways from where the finger let go and lifts as a tap does (during the glide behind it
   // too: the glide runs on and the slide's cards still wait for it to land). Too short a drag springs it back with an ease.
+  // (It carries on from where the finger let go at the finger's own speed, then eases out as it fades to nothing; a slow
+  // let-go still takes long enough to be seen leaving, never a pop. The card is hidden only once the flight is over.)
   function caseFly(card, dir, v) {
-    const c = card.c, dist = innerWidth / 2 + c.offsetWidth, left = Math.max(0, dist - Math.abs(card.dx || 0));
-    const ms = reduce.matches ? 0 : Math.round(clamp(left / Math.max(Math.abs(v), 1.4), 180, 320));
-    c.style.transition = ms ? `transform ${ms}ms cubic-bezier(.25,.7,.4,1), opacity ${ms}ms linear` : 'none';
-    c.style.transform = `translateX(${dir * dist}px) rotate(${dir * 10}deg)`;
+    const c = card.c, dist = innerWidth / 2 + c.offsetWidth, left = Math.max(1, dist - Math.abs(card.dx || 0));
+    // (With reduced motion it only fades where it was let go.)
+    const ms = reduce.matches ? 300 : caseFlight(left, v);
+    const slope = (Math.abs(v) * ms) / left;   // the finger's speed as the curve's starting slope
+    c.style.transition = reduce.matches ? `opacity ${ms}ms linear`
+      : `transform ${ms}ms cubic-bezier(.33,${clamp(0.33 * slope, 0.12, 0.9).toFixed(2)},.45,1), opacity ${ms}ms cubic-bezier(.4,0,.6,1)`;
+    if (!reduce.matches) c.style.transform = `translateX(${dir * dist}px) rotate(${dir * 10}deg)`;
     c.style.opacity = '0';
     card.flown = performance.now() + ms; card.lifted = true;
   }
