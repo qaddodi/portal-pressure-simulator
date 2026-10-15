@@ -7,7 +7,7 @@ import { createStage } from './stage.js?v=a334996c4e';
 import { createCreditPlacer } from './credit.js?v=7bbccaaa8c';
 import { sinusoidSupported } from './sinusoid-view.js?v=953343a334';
 import { createInspector } from './inspector.js?v=b3fd97699e';
-import { createDock, CUTOFFS } from './dock.js?v=3661473ff8';
+import { createDock, CUTOFFS } from './dock.js?v=cf98903b6f';
 import { setHvpgStage } from './hvpg-proc.js?v=cc7de39fbd';
 import { createWhy } from './why.js?v=e21c8d10e2';
 import { createTimeline, LAPSES } from './timeline.js?v=43f2d29da1';
@@ -326,9 +326,9 @@ function onFrame(f) {
 }
 
 // Narrator (blueprint E1): the patient's reading as one live line above the timeline, refreshed on
-// events and changes (at most twice a second otherwise). On by default for both roles; the Settings
-// toggle overrides it until the role changes.
-const NARRATOR_DEFAULT = { student: true, instructor: true };
+// events and changes (at most twice a second otherwise). Off by default for both roles, so the bottom
+// bar stays one slim row (the tiles say the same); the Settings toggle turns it on until the role changes.
+const NARRATOR_DEFAULT = { student: false, instructor: false };
 let lastNarr = 0, narrPref;
 const narratorOn = () => { const v = narrPref === undefined ? (narrPref = readLS('pps.narrator')) : narrPref; return v ? v === '1' : NARRATOR_DEFAULT[store.get().role || 'student'] !== false; };
 function narrate(f, now = performance.now(), force = false) {

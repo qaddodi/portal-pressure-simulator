@@ -79,7 +79,8 @@ export const LOBULE_TILES = [
     st: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'danger' : r >= 1.5 ? 'caution' : 'ok'; },
     s: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'Overflow' : r >= 1.5 ? 'High' : 'Normal'; } },
 ];
-export const LOBULE_PRIMARY = new Set(LOBULE_TILES.map((t) => t.id));
+// Collapsed, the lobule view keeps its two key flows: through the sinusoids and in from the portal venule.
+export const LOBULE_PRIMARY = new Set(['lz-sin', 'lz-pv']);
 
 // A group whose readouts share a unit names it once, in its caption, so the tiles stay narrow.
 export const GROUPS = [['pressure', 'Pressure'], ['flow', 'Flow'], ['effects', 'Consequences']];
@@ -105,15 +106,9 @@ export const VITALS = [
   { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: null, v: (m) => m.blood.hb, d: 1, u: 'g/dL', bad: (m) => m.blood.hb < 7 },
 ];
 
-// The key readouts: the only ones on a phone until the strip is expanded.
-// Collapsed, the strip shows the pressures (HVPG, the portosystemic gradient, portal pressure) and,
-// where there is room (not on a phone), portal flow: where the pressure sends the blood.
-export const PRIMARY = new Set(['hvpg', 'ppg', 'pv', 'pvflow']);
-const STUDENT_PRIMARY = new Set(['hvpg', 'ppg']);
-// Side by side (1100 px and up) the play bar keeps only the width its controls need, and the
-// freed width shows two more key readouts: the consequences a learner watches.
-export const WIDE_PRIMARY = new Set(['varix', 'ascites']);
-const wideMq = typeof matchMedia === 'function' ? matchMedia('(min-width: 1100px)') : null;
+// The key readouts: collapsed, the bar shows only the two gradients (HVPG and the portosystemic
+// gradient) on every device; the rest open with the chevron.
+export const PRIMARY = new Set(['hvpg', 'ppg']);
 
 // A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the
 // bar's range), so the heartbeat and breathing never make it flicker.
@@ -161,17 +156,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, label), h('div', { class: 'ro-tiles' }, ts.map((t) => tile(t, false)))));
   }
   // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
-  // Student mode keeps the two gradients (HVPG, PPG) and no "all readouts" chevron (CSS).
-  const syncLobule = () => {
-    const st = store.get(), on = !!st.lobule, student = st.role === 'student' && st.mode === 'explore';
-    const pri = on ? LOBULE_PRIMARY : student ? STUDENT_PRIMARY : PRIMARY, wide = !on && !student && !!wideMq?.matches;
-    strip.classList.toggle('lob', on);
-    for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id) || (wide && WIDE_PRIMARY.has(x.t.id)));
-  };
+  // Student mode has no "all readouts" chevron (CSS).
+  const syncLobule = () => { const on = !!store.get().lobule, pri = on ? LOBULE_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
   // A paused model sends no frames: fill the tiles from the last one at once (no dashes).
-  const resync = () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); };
-  for (const k of ['lobule', 'role', 'mode']) store.on(k, resync);
-  wideMq?.addEventListener?.('change', resync);
+  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
   syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
@@ -181,82 +169,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   });
   row.append(h('div', { class: 'ro-group ro-systemic', 'data-group': 'systemic', role: 'group', 'aria-label': 'Systemic' },
     h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
-  const moreBtn = h('button', { class: 'ib ro-more', 'aria-expanded': 'false', 'aria-label': 'Show all readouts', title: 'All readouts' }, svgIcon('chev-down'));
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  // Tiles, captions and vitals glide to their new spots when the strip re-flows (FLIP, by translate only, so no text is
-  // ever scaled): positions are taken against the strip's own top, which the height animation moves, and anything that was
-  // not on screen before fades in.
-  const gliding = new WeakMap();
-  const glide = (mutate, animate) => {
-    const els = animate && !reduce.matches && strip.animate ? [...strip.querySelectorAll('.metric, .ro-cap, .vital')] : [];
-    const rel = (el) => { const r = el.getBoundingClientRect(), s0 = strip.getBoundingClientRect(); return r.width || r.height ? { x: r.left - s0.left, y: r.top - s0.top } : null; };
-    const before = els.map(rel);
-    mutate();
-    els.forEach((el) => gliding.get(el)?.cancel());
-    els.forEach((el, i) => {
-      const a = rel(el), b = before[i];
-      if (!a) return;
-      const kf = b ? ((b.x - a.x) || (b.y - a.y) ? { translate: [`${b.x - a.x}px ${b.y - a.y}px`, '0px 0px'] } : null) : { opacity: [0, 1] };
-      if (!kf) return;
-      const an = el.animate(kf, { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' });
-      gliding.set(el, an);
-    });
-  };
-  // Open or close the rest of the readouts; the strip grows upward from the bottom edge, so its height
-  // animates between the two sizes.
-  const setAll = (on, animate) => {
-    if (strip.classList.contains('all') === on) return;
-    const h0 = strip.offsetHeight;
-    glide(() => strip.classList.toggle('all', on), animate);
-    moreBtn.setAttribute('aria-expanded', String(on));
-    moreBtn.setAttribute('aria-label', on ? 'Show fewer readouts' : 'Show all readouts');
-    const h1 = strip.offsetHeight;
-    if (animate && !reduce.matches && h0 !== h1 && strip.animate) {
-      strip.animate({ height: [`${h0}px`, `${h1}px`] }, { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = () => dispatchEvent(new Event('resize'));
-      strip.style.overflow = 'hidden'; setTimeout(() => { strip.style.overflow = ''; }, 300);
-    }
-    resizeSoon();
-  };
-  moreBtn.addEventListener('click', () => setAll(!strip.classList.contains('all'), true));
-  // Drag the strip up to open it, down to close it (touch only; where the chevron is shown). It follows
-  // the finger, then settles open or closed by speed or by how far it got.
-  let flick = null;
-  const sizes = () => { const h = strip.offsetHeight, was = strip.classList.contains('all'); strip.classList.toggle('all', !was); const o = strip.offsetHeight; strip.classList.toggle('all', was); return was ? [o, h] : [h, o]; };
-  strip.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' || getComputedStyle(moreBtn).display === 'none') return;
-    flick = { id: e.pointerId, y: e.clientY, t: performance.now(), on: false, v: 0, ly: e.clientY, lt: performance.now() };
-  });
-  strip.addEventListener('pointermove', (e) => {
-    if (!flick || e.pointerId !== flick.id) return;
-    const dy = e.clientY - flick.y, now = performance.now();
-    if (!flick.on) {
-      if (Math.abs(dy) < 8) return;
-      flick.on = true; flick.wasAll = strip.classList.contains('all');
-      [flick.lo, flick.hi] = sizes();
-      glide(() => strip.classList.add('all'), true); strip.style.overflow = 'hidden';
-      try { strip.setPointerCapture(e.pointerId); } catch {}
-    }
-    e.stopPropagation();
-    flick.h = Math.max(flick.lo, Math.min(flick.hi, (flick.wasAll ? flick.hi : flick.lo) - dy));
-    strip.style.height = `${flick.h}px`;
-    if (now - flick.lt > 30) { flick.v = (e.clientY - flick.ly) / (now - flick.lt); flick.ly = e.clientY; flick.lt = now; }
-  });
-  const endFlick = () => {
-    const f = flick; flick = null;
-    if (!f || !f.on) return;
-    const open = Math.abs(f.v) > 0.3 ? f.v < 0 : f.h > (f.lo + f.hi) / 2, to = open ? f.hi : f.lo;
-    const finish = () => { strip.style.height = ''; strip.style.overflow = ''; if (strip.classList.contains('all') !== open) glide(() => strip.classList.toggle('all', open), true); moreBtn.setAttribute('aria-expanded', String(open)); moreBtn.setAttribute('aria-label', open ? 'Show fewer readouts' : 'Show all readouts'); dispatchEvent(new Event('resize')); };
-    if (reduce.matches || !strip.animate) return finish();
-    const an = strip.animate({ height: [`${f.h}px`, `${to}px`] }, { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
-    strip.style.height = `${to}px`; an.onfinish = finish; an.oncancel = finish;
-  };
-  strip.addEventListener('pointerup', endFlick); strip.addEventListener('pointercancel', endFlick);
-  row.append(moreBtn);
-  // A phone held sideways has no room for every readout: it keeps the four key ones.
-  const sideways = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
-  const foldAll = () => { if (sideways.matches && strip.classList.contains('all')) { strip.classList.remove('all'); moreBtn.setAttribute('aria-expanded', 'false'); dispatchEvent(new Event('resize')); } };
-  sideways.addEventListener('change', foldAll);
-  new MutationObserver(foldAll).observe(strip, { attributes: true, attributeFilter: ['class'] });
+  // The bar keeps only the key readouts; every readout lives in Tests > Readouts (readouts-pane.js), so the
+  // strip no longer opens.
 
   function trendOf(x, v, now) {
     const hs = x.hist;

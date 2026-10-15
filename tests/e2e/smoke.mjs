@@ -1896,17 +1896,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(await page.locator('.action-card input[aria-label^="Fibrosis"]').count())) throw new Error('no fibrosis slider on the sinusoid card');
     await page.keyboard.press('Escape');
     await page.waitForSelector('.action-card', { state: 'hidden' });
-    // Framed in the free space: the lobule's bottom corner is above the vitals dock, also with every readout open
-    // (the More readouts button is for instructors; Student mode keeps just HVPG and PPG).
+    // Framed in the free space: the lobule's bottom corner is above the vitals dock (every readout is in Tests > Readouts).
     await page.evaluate(() => window.pps.store.set({ role: 'instructor' }));
-    for (const all of [false, true]) {
-      if (all) await page.click('#strip .ro-more');
+    {
       const clear = await page.waitForFunction(() => {
         const dock = document.querySelector('#vdock').getBoundingClientRect().top, labs = [...document.querySelectorAll('.lz-lab:not([hidden])')];
         return labs.every((l) => l.getBoundingClientRect().bottom <= dock + 1);
       }, null, { timeout: 15000 }).then(() => true, () => false);
-      if (!clear) throw new Error(`a lobule label sits under the dock${all ? ' with every readout open' : ''}`);
-      if (all) { await page.click('#strip .ro-more'); await page.waitForTimeout(400); }
+      if (!clear) throw new Error('a lobule label sits under the dock');
     }
     // The zoom buttons work in the lobule: in, out, and Fit back to the framing.
     if (device === 'desktop') {
@@ -2035,7 +2032,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (w < 768 && hgt > 500) {
           if (new Set(r.tiles.map((t) => Math.round(t.t))).size > 1) throw new Error(`${where}: the readouts do not line up (tops ${r.tiles.map((t) => Math.round(t.t))})`);
           if (new Set(r.tiles.map((t) => Math.round(t.h))).size > 1) throw new Error(`${where}: the readouts differ in height`);
-          for (const t of r.tiles) { const v = t.parts.find((p) => p.q === 'v'), s = t.parts.find((p) => p.q === 's'); if (Math.abs(v.l - s.l) > 1) throw new Error(`${where}: the rating of "${t.id}" is not under its value`); }
+          for (const t of r.tiles) { const v = t.parts.find((p) => p.q === 'v'), s = t.parts.find((p) => p.q === 's') || t.parts.find((p) => p.q === 'rb'); if (Math.abs(v.l - s.l) > 1) throw new Error(`${where}: the rating of "${t.id}" is not under its value`); }
         }
         seen.push({ q, tiles: r.tiles.map((t) => [t.id, Math.round(t.l), Math.round(t.t), Math.round(t.w), Math.round(t.h)].join(':')).join(' '), strip: Math.round(r.strip.h) });
       }
@@ -2045,16 +2042,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   await check(device, 'floating pieces never overlap', async (page) => {
     const sizes = device === 'desktop' ? [[1440, 900], [1180, 820], [820, 1180]] : [[390, 844], [844, 390]];
-    const states = [['?preset=cirr-decomp', null], ['?preset=cirr-decomp', 'measure'], ['?preset=cirr-decomp', 'both'], ['?preset=cirr-decomp', 'card'], ['?preset=cirr-decomp', 'lobule'], ['?preset=cirr-decomp', 'lobule-all']];
+    const states = [['?preset=cirr-decomp', null], ['?preset=cirr-decomp', 'measure'], ['?preset=cirr-decomp', 'both'], ['?preset=cirr-decomp', 'card'], ['?preset=cirr-decomp', 'lobule']];
     for (const [w, hgt] of sizes) for (const [q, act] of states) {
       await page.setViewportSize({ width: w, height: hgt });
       await open(page, q);
       if (act === 'measure' || act === 'both') { await page.click('#tabInstruments'); await page.waitForSelector('#dockBody .dock-pane.active'); }
       if (act === 'both') await page.evaluate(() => window.pps.details({ type: 'edge', id: 'PV_TRUNK' }));
-      if (act === 'lobule' || act === 'lobule-all') {
+      if (act === 'lobule') {
         await page.evaluate(() => window.pps.store.set({ lobule: true }));
         await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 15000 });
-        if (act === 'lobule-all') await page.evaluate(() => document.querySelector('#strip .ro-more').click());   // hidden on a phone held sideways
         await page.waitForTimeout(600);
       }
       if (act === 'card') { await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } })); await page.waitForSelector('.action-card:not([hidden])'); }
@@ -2340,7 +2336,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const surfaces = [
       ['explore', null], ['menu', '#btnMenu'], ['blood', '#btnBlood'], ['colors', '#btnLayers'],
       ['treat', '#btnTreat'], ['measure', '#tabInstruments'], ['search', '#btnPalette'],
-      ['vessel card', { type: 'edge', id: 'PV_TRUNK' }], ['liver card', { type: 'organ', id: 'liver' }], ['all readouts', '#strip .ro-more'],
+      ['vessel card', { type: 'edge', id: 'PV_TRUNK' }], ['liver card', { type: 'organ', id: 'liver' }],
       ['help', '?'], ['menu from a link', 'home'],
     ];
     const bad = new Set();
