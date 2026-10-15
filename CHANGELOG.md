@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Bottom bar rearranged (option 2).** On an upright phone or tablet the bottom is two bands instead of three: the
+  view switch and Fit no longer float above the dock. A **View** tab replaces Layers and holds the views (Circuit,
+  Anatomy, Lobule, Sinusoid), Fit to screen, Turn upright (circuit) and, under them, the layers of the current view.
+  The play row is one slim line: play, speed, clock and jump, then the two key readings as plain numbers (no bars or
+  rating words; their colour still shows normal, raised or high). A Mac or an iPad held sideways gets the same slim
+  bar, with Compare labelled. The sinusoid view keeps its zoom buttons (+, − back to the lobule, Fit) at the bottom
+  right. Present is unchanged. Tests: smoke "slim play line" and the thumb dock checks.
 - **Language selection removed (for now).** Settings no longer has a Language menu, and the Spanish, French,
   Portuguese and Arabic interface strings are gone with it, so the app is English only. A language saved in the browser
   is cleared on load, and a shared link with `?lang=` simply opens in English. Language selection may come back later.

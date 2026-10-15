@@ -5158,27 +5158,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 #app.thumb.sin-focus .topbar .sb-left { display: flex; }
 #app.thumb.sin-focus #viewSeg { display: flex !important; }
 #app.thumb.sin-focus .top-right { display: flex !important; }
-/* The view switch as a compact pill at the left, just above the dock, level with Fit (main.js syncThumb moves it here).
-   It counts as part of the dock's edge (data-safe), so the figure frames above it, and it steps aside with Fit. */
-.view-pill { display: none; }
-.app.thumb .view-pill:not([hidden]) { position: absolute; z-index: var(--z-hud); display: flex; padding: 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
-  left: calc(env(safe-area-inset-left) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); translate: 0 calc(-1 * var(--sheet-h, 0px)); transition: opacity .25s var(--ease), translate .2s var(--ease); }
-.view-pill.under-sheet { bottom: max(calc(var(--bot-occ, 120px) + 8px), var(--sheet-h, 0px)); translate: none; }
-.app.thumb .view-pill.under-sheet:not([hidden]) { bottom: max(calc(var(--bot-occ, 120px) + 8px), var(--sheet-h, 0px)); translate: none; }   /* (just above a vessel's card, level with Fit; the rule above lost to the thumb dock's own) */
-.app.stage-busy .view-pill { opacity: .28; }
-/* While a card or menu sits on the dock, the view pill and Fit fade back (still counted where they are, so the figure
-   does not move for a menu). */
-.app.thumb :is(.view-pill, .zoom-pill) { transition: opacity .2s var(--ease), translate .2s var(--ease); }
-.app.thumb:is(.dock-open, .panel-open) :is(.view-pill, .zoom-pill), .app.thumb:has(#treatCard:not([hidden])) :is(.view-pill, .zoom-pill),
-html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-pill) { opacity: 0; pointer-events: none; }
-.view-pill #viewSeg { display: flex; padding: 0; gap: 2px; background: transparent; border-radius: 0; }
-.view-pill #viewSeg button { height: 36px; padding: 0 12px; border-radius: calc(var(--r-sheet) - 3px); font-size: var(--fs-14); }
-@media (max-width: 767px) {
-  .app.thumb .view-pill:not([hidden]) { left: calc(env(safe-area-inset-left) + 8px); }
-  .view-pill #viewSeg button { padding: 0 9px; font-size: 13px; letter-spacing: -.01em; }
-  .view-pill #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) > button:where([data-view]) { padding: 0 6px; }
-  .app.dock-open .view-pill { display: none !important; }
-}
+/* The view switch, Fit and the circuit's turn upright live in the View tab's menu (15 Oct, option 2), so nothing floats
+   over the figure above the dock. The sinusoid view hides the dock: there the zoom group (+, − back to the lobule, Fit)
+   stays at the bottom right. */
+.app.thumb:not(.sin-focus) .zoom-pill { display: none !important; }
+#app.thumb.sin-focus .zoom-pill :is(#zoomIn, #zoomOut) { display: inline-grid !important; }
+.view-pop .view-seg { margin: 2px 8px 6px; }
+.view-pop .view-seg button { flex: 1 1 0; min-width: 0; }
 /* One card or menu at a time above the thumb dock, each a solid piece that comes and goes whole: it rises a little
    out of the dock as it fades in and sinks back as it fades out, never sliding across the dock, and one opened while
    another is still going out waits until that one has gone (--enter-delay, set by util.js enterAfterGone). */
@@ -5412,3 +5398,48 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 
 /* Ascites: serum albumin's stepper is the drain's (− value +), a little wider for its unit. */
 .ab-dp-vol.ab-sa { width: 132px; flex: none; }
+
+/* ── The slim play line (15 Oct, option 2) ───────────────────────────
+   One row: play, speed, the clock and jump at the left, the two key readings at the right as plain numbers, with no bars
+   and no rating words (Tests > Readouts has the rest). On an upright phone or tablet it sits on the tab row; on a Mac or
+   an iPad held sideways it is the whole bar. The colour of a number still says normal, raised or high. */
+.app.thumb .vdock .stage-bar.bottom { height: 46px; min-height: 46px; }
+.app.thumb .vdock .readouts:not(.all) .ro-group { padding: 0 2px; justify-content: center; }
+.app.thumb .vdock .readouts:not(.all) .metric { flex-direction: row; flex-wrap: nowrap; align-items: baseline; justify-content: flex-end; gap: 0 5px; padding: 0 6px; }
+.app.thumb .vdock .readouts:not(.all) .metric :is(.rb, .s, .tr) { display: none; }
+.app.thumb .vdock .readouts:not(.all) .metric .k { flex: 0 1 auto; min-width: 0; }
+.app.thumb .vdock .readouts:not(.all) .metric .v { flex: none; font-size: var(--fs-20); }
+.app.thumb .vdock .readouts:not(.all) .metric .v .unit { display: none; }
+.app.thumb .vdock .readouts:not(.all) .ro-group + .ro-group::before { display: none; }
+.app.thumb .vdock .readouts { border-left: 0; }
+.app.thumb .vdock .readouts:not(.all) { width: auto; container-type: normal; }   /* (sized by its two numbers) */
+.app.thumb .vdock .readouts:not(.all) :is(.ro-tiles, .metric) { flex: none; }
+.app.thumb .vdock .readouts:not(.all) .metric { width: max-content; }
+.app.thumb .vdock .readouts:not(.all) .metric .k { flex: none; overflow: visible; }
+.app.thumb .vdock .timeline .tl-jumps { margin-left: 0; }
+/* A narrow phone (iPhone SE, 375 px and less): a little less room around the numbers so both fit. */
+@media (max-width: 380px) {
+  .app.thumb .vdock .timeline { gap: 4px; }
+  .app.thumb .vdock .readouts:not(.all) .metric { padding: 0 3px; gap: 0 4px; }
+  .app.thumb .vdock .readouts:not(.all) .metric .v { font-size: 18px; }
+}
+@media (min-width: 1100px) {
+  .app:not(.thumb):not(.presenting) .vdock { width: max-content; max-width: calc(100% - 2 * var(--gap)); }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) :is(.ro-tiles, .metric) { flex: none; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric { width: max-content; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric :is(.k, .v) { flex: none; overflow: visible; }
+  .app:not(.thumb):not(.presenting) .vdock .tl-pin span { display: inline; }
+  .app:not(.thumb):not(.presenting) .vdock .tl-pin { width: auto; height: 34px; padding: 0 10px; gap: 6px; margin-left: 4px; border: 1px solid var(--border); color: var(--text); font-weight: 600; }
+  .app:not(.thumb):not(.presenting) .vdock .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric :is(.v, .unit) { overflow: visible; }
+  .app:not(.thumb):not(.presenting) .vdock .stage-bar.bottom { height: 52px; min-height: 52px; padding-right: 4px; }
+  .app:not(.thumb):not(.presenting) .vdock .timeline .tl-jumps { margin-left: 0; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) { width: auto; padding: 0 8px 0 6px; container-type: normal; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .ro-group { padding: 0 2px; justify-content: center; flex: none; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric { flex: none; flex-direction: row; align-items: baseline; gap: 0 6px; padding: 4px 10px; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric :is(.rb, .s, .tr) { display: none; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .ro-tiles { gap: 6px; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric .k { font-weight: 600; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric .v { font-size: var(--fs-20); }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .ro-group + .ro-group::before { display: none; }
+}

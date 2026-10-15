@@ -3,8 +3,8 @@
 
 import { startHost, host } from './host.js?v=8171c1b34a';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=34e3bed5bb';
-import { createCreditPlacer } from './credit.js?v=0f92fd9b57';
+import { createStage } from './stage.js?v=24ddf1287e';
+import { createCreditPlacer } from './credit.js?v=e4d16bda70';
 import { sinusoidSupported } from './sinusoid-view.js?v=adf162f586';
 import { createInspector } from './inspector.js?v=4979577c0c';
 import { createDock, CUTOFFS } from './dock.js?v=64e9239f6c';
@@ -12,7 +12,7 @@ import { setHvpgStage } from './hvpg-proc.js?v=8787d0bf18';
 import { createWhy } from './why.js?v=00efae4848';
 import { createTimeline, LAPSES } from './timeline.js?v=e745ac9532';
 import { createCompare } from './compare.js?v=8b89c031cc';
-import { createCard } from './card.js?v=3247e0ba86';
+import { createCard } from './card.js?v=d62c5692bb';
 import { createChart } from './chart.js?v=9e6e250c3c';
 import { createMenu } from './menu.js?v=b7fa999370';
 import { caption } from './a11y.js?v=4dc7459ab3';
@@ -1261,11 +1261,7 @@ function syncThumb() {
   const on = thumbOn();
   if (app.classList.contains('thumb') !== on) app.classList.toggle('thumb', on);
   document.documentElement.classList.toggle('thumb-ui', on);   // (the menus and sheets live outside #app)
-  // The view switch (Circuit, Anatomy, Lobule, Sinusoid) leaves the top bar for a pill at the left, just above the dock,
-  // level with Fit. (The sinusoid view hides the dock: there it stays in the top bar.)
-  const pill = $('#viewPill'), seg = $('#viewSeg'), inPill = on && !app.classList.contains('sin-focus');
-  if (inPill !== (seg.parentElement === pill)) (inPill ? pill : $('#stageTop .sb-left')).append(seg);
-  if (pill.hidden === inPill) pill.hidden = !inPill;
+  // (The view switch lives in the View tab's menu; the sinusoid view hides the dock, so there it shows in the top bar.)
 }
 function wireThumbBar() {
   const tab = (id, ic, label, onclick) => h('button', { class: 'nb-tab', type: 'button', 'data-tab': id, onclick }, svgIcon(ic), h('span', { class: 'nb-l' }, label));
@@ -1284,10 +1280,10 @@ function wireThumbBar() {
   const badge = h('span', { class: 'nb-badge', 'aria-hidden': 'true' });
   const hist = tab('history', 'clock', 'History', menuTab((a) => timeline.openHistory(a)));
   hist.append(badge);
-  const layers = tab('layers', 'layers', 'Layers', menuTab(openLayersMenu));
+  const views = tab('view', 'layers', 'View', menuTab(openViewMenu));
   const more = tab('settings', 'gear', 'Settings', menuTab((a) => openSettings(a, true)));
-  for (const b of [hist, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
-  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, layers, more));
+  for (const b of [hist, views, more]) b.setAttribute('aria-haspopup', 'dialog');
+  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, views, more));
   // The tabs follow the cards they open (and History's count), however those were opened or closed.
   const sync = () => {
     const t = String(treatOpen()), i = String(app.classList.contains('dock-open'));
@@ -1304,11 +1300,24 @@ function wireThumbBar() {
   thumbMQ.addEventListener?.('change', syncThumb);
   syncThumb(); sync();
 }
-// Layers: what is drawn on the figure (the moving blood and what it shows, or the lobule's layers). The view itself
-// is switched in the pill above the dock.
-function openLayersMenu(anchor) {
-  popover(anchor, [h('div', { class: 'menu-title' }, 'Layers'), ...(store.get().lobule ? lobuleLayerItems() : bloodItems())],
-    { cls: 'blood-pop', place: 'above', align: 'center' });
+// View (15 Oct, option 2): the view switch, Fit and the circuit's turn upright, then the layers (the moving blood and
+// what it shows, or the lobule's layers). Nothing of these floats over the figure above the dock any more.
+// Changing the view, fitting or turning closes the menu, so the figure is seen moving; the layers switch in place.
+function openViewMenu(anchor) {
+  const act = (fn) => () => { closePopover(); fn(); };
+  const seg = h('div', { class: 'seg full menu-seg view-seg', role: 'group', 'aria-label': 'View' },
+    [...$$('#viewSeg button')].filter((b) => !b.hidden).map((src) => {
+      const on = src.getAttribute('aria-pressed') === 'true';
+      return h('button', { 'aria-pressed': String(on), 'data-view': src.dataset.view, onclick: on ? null : act(() => src.click()) }, src.textContent);
+    }));
+  const st = store.get(), circuit = !st.lobule && st.view === 'circuit';
+  popover(anchor, [
+    h('div', { class: 'menu-title' }, 'View'), seg,
+    menuItem('Fit to screen', { icon: 'fit', onClick: act(() => $('#zoomFit').click()) }),
+    circuit ? menuItem('Turn upright', { icon: 'rotate', checked: stage.circuitRotated(), onClick: act(() => $('#rotateCircuit').click()) }) : null,
+    h('div', { class: 'menu-sep' }),
+    ...(st.lobule ? lobuleLayerItems() : bloodItems())],
+  { cls: 'blood-pop view-pop', place: 'above', align: 'center' });
 }
 // ── Treat card ──────────────────────────────────────
 let treatOff = null;

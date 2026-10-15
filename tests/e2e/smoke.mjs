@@ -67,18 +67,26 @@ async function runCheck(device, name, fn, tries = RETRIES) {
   }
   await ctx.close();
 }
-// An upright phone has the thumb dock: Treat, Tests and Settings, and the Blood and lobule Layers menus (in Layers), are
+// An upright phone has the thumb dock: Treat, Tests and Settings, and the Blood and lobule Layers menus (in View), are
 // reached from the dock's tab row instead of the top bar.
-const THUMB = { '#tabInstruments': 'tests', '#btnTreat': 'treat', '#btnBlood': 'layers', '#btnLobuleLayers': 'layers', '#btnSettings': 'settings' };
+const THUMB = { '#tabInstruments': 'tests', '#btnTreat': 'treat', '#btnBlood': 'view', '#btnLobuleLayers': 'view', '#btnSettings': 'settings' };
 async function tapTool(page, sel) {
   const tab = THUMB[sel];
   if (!tab || !(await page.evaluate(() => document.querySelector('#app').classList.contains('thumb')))) return page.click(sel);
   await page.click(`#thumbBar [data-tab="${tab}"]`);
 }
-// A view by its switch: in the top bar, or on an upright phone in the pill just above the dock.
+// A view by its switch: in the top bar, or on an upright phone in the View tab's menu (the sinusoid view keeps it in the top bar).
 async function pickView(page, v) {
-  if (!(await page.evaluate(() => document.querySelector('#app').classList.contains('thumb')))) return page.click(`#viewSeg [data-view="${v}"]`, { force: true });
-  await page.click(`#viewPill [data-view="${v}"]`);
+  if (!(await page.evaluate(() => document.querySelector('#app').matches('.thumb:not(.sin-focus)')))) return page.click(`#viewSeg [data-view="${v}"]`, { force: true });
+  await page.click('#thumbBar [data-tab="view"]');
+  await page.click(`.view-pop:not(.leaving) [data-view="${v}"]`);
+}
+// The circuit's turn upright: the button on the figure, or on an upright phone the item in the View tab's menu.
+async function turnCircuit(page) {
+  if (!(await page.evaluate(() => document.querySelector('#app').matches('.thumb:not(.sin-focus)')))) return page.click('#rotateCircuit');
+  await page.click('#thumbBar [data-tab="view"]');
+  await page.click('.view-pop:not(.leaving) .menu-item:has-text("Turn upright")');
+  await page.waitForSelector('.view-pop', { state: 'detached' });
 }
 const shot = (page, name) => (shots ? page.screenshot({ path: `${shots}/${name}.png` }) : null);
 const open = async (page, q = '') => {
@@ -331,8 +339,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const shown = await page.evaluate(() => ['#zoomIn', '#zoomOut', '#zoomFit'].map((s) => !document.querySelector(s).disabled));
     if (!(sin.w > 0)) throw new Error('the zoom pill is gone in the sinusoid view');
     if (shown.join() !== 'false,true,true') throw new Error(`in the sinusoid the plus should rest and the minus and fit stay active, got ${shown}`);
+    if (!(await page.evaluate(() => ['#zoomIn', '#zoomOut', '#zoomFit'].every((q) => document.querySelector(q).offsetParent)))) throw new Error('the sinusoid view does not show all three zoom buttons (+, − and Fit)');
     if (sin.r > sin.vw || sin.b > sin.vh || sin.r < sin.vw - 40 || sin.b < sin.vh - 140) throw new Error(`the zoom pill is not at the bottom right in the sinusoid: ${JSON.stringify(sin)} (lobule: ${JSON.stringify(lob)})`);
-    await page.evaluate(() => [...document.querySelectorAll('#zoomOut, #zoomFit')].find((b) => b.offsetParent && !b.disabled).click());   // (the phone layout shows Fit alone)
+    await page.evaluate(() => [...document.querySelectorAll('#zoomOut, #zoomFit')].find((b) => b.offsetParent && !b.disabled).click());
     await page.waitForFunction(() => !document.querySelector('#app').classList.contains('sin-focus') && window.pps.store.get().lobule && !window.pps.store.get().sinusoid, null, { timeout: 30000 });
   });
 
@@ -717,9 +726,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const ratio = () => { const s = document.querySelector('#stage'); return s.viewBox.baseVal.height / s.viewBox.baseVal.width; };
     const until = (fn, msg) => page.waitForFunction(fn, null, { timeout: 30000 }).catch((e) => { throw new Error(msg, { cause: e }); });
     // A phone held upright opens the circuit upright; turn it wide first.
-    if (device === 'phone') { await until(`(${ratio})() > 1`, 'circuit did not open upright on a phone'); await page.click('#rotateCircuit'); }
+    if (device === 'phone') { await until(`(${ratio})() > 1`, 'circuit did not open upright on a phone'); await turnCircuit(page); }
     await until(`(${ratio})() < 1`, 'circuit did not open wide');
-    await page.click('#rotateCircuit');
+    await turnCircuit(page);
     await until(`(${ratio})() > 1`, 'circuit did not turn tall');
     // Zoomed in, turning back keeps the zoom.
     // The zoom glides: read it once it holds still (a software renderer draws a frame a second or two apart).
@@ -728,12 +737,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => { window.pps.stage.zoomIn(); window.pps.stage.zoomIn(); });
     await page.waitForFunction((k0) => window.pps.stage.zoomLevel() > k0 * 1.5, k0, { timeout: 60000 });
     const kIn = await steady();
-    await page.click('#rotateCircuit');
+    await turnCircuit(page);
     await until(`(${ratio})() < 1`, 'circuit did not turn back to wide');
     let kAfter = await steady();
     for (let i = 0; i < 8 && Math.abs(kAfter - kIn) / kIn > 0.05; i++) kAfter = await steady();   // a loaded runner can read mid-glide; a real reset stays reset
     if (Math.abs(kAfter - kIn) / kIn > 0.05) throw new Error(`turning reset the zoom (${kIn.toFixed(2)} → ${kAfter.toFixed(2)})`);
-    await page.evaluate(() => window.pps.stage.fit()); await page.click('#rotateCircuit');
+    await page.evaluate(() => window.pps.stage.fit()); await turnCircuit(page);
     await until(`(${ratio})() > 1`, 'circuit did not turn tall again');
     if ((await page.$eval('#rotateCircuit', (b) => b.getAttribute('aria-pressed'))) !== 'true') throw new Error('turn button is not pressed');
     await shot(page, `${device}-circuit-upright`);
@@ -803,7 +812,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const c = document.querySelector('.action-card'), r = c.getBoundingClientRect(), sv = document.querySelector('#stageView').getBoundingClientRect(), sc = c.querySelector('.ac-scroll');
       const link = c.querySelector('.ac-foot.in-head .link');
       // The figure fills the screen; the sheet rises from the bottom edge, over the vitals dock.
-      return { covers: r.bottom <= sv.bottom && r.bottom >= sv.bottom - 40 && r.top < document.querySelector('#vdock').getBoundingClientRect().top, peek: c.classList.contains('peek'), docked: c.classList.contains('docked'), top: r.top - sv.top, h: r.height, stageH: sv.height, scrolls: sc.scrollHeight - sc.clientHeight, links: !!link && link.getBoundingClientRect().height > 0, foot: getComputedStyle(c.querySelector('.ac-foot.at-foot')).display !== 'none' };
+      // (Over the thumb dock it sits on the tab row's top edge instead, with the play bar stepped aside: a571c9c.)
+      const nb = document.querySelector('#app.thumb #thumbBar')?.getBoundingClientRect();
+      return { covers: nb ? Math.abs(r.bottom - nb.top) <= 1 : r.bottom <= sv.bottom && r.bottom >= sv.bottom - 40 && r.top < document.querySelector('#vdock').getBoundingClientRect().top, peek: c.classList.contains('peek'), docked: c.classList.contains('docked'), top: r.top - sv.top, h: r.height, stageH: sv.height, scrolls: sc.scrollHeight - sc.clientHeight, links: !!link && link.getBoundingClientRect().height > 0, foot: getComputedStyle(c.querySelector('.ac-foot.at-foot')).display !== 'none' };
     });
     const swipe = async (dy) => {
       const box = await (await page.$('.ac-top')).boundingBox();
@@ -827,7 +838,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       return { bottom: r.bottom, visible: cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity > 0 };
     });
     const cardTop = await page.$eval('.action-card', (el) => el.getBoundingClientRect().top);
-    if (!zoom.visible || zoom.bottom > cardTop) throw new Error('zoom and Fit should remain visible above the card');
+    // (An upright phone keeps Fit in the View tab's menu: nothing floats over the figure.)
+    const thumb = await page.evaluate(() => document.querySelector('#app').classList.contains('thumb'));
+    if (thumb ? zoom.visible : !zoom.visible || zoom.bottom > cardTop) throw new Error(thumb ? 'the zoom buttons float over the figure on an upright phone' : 'zoom and Fit should remain visible above the card');
     if (await page.$('.ac-grab')) throw new Error('the compact card should have no handle or intermediate heights');
     await swipe(70);
     if (!(await page.$eval('.action-card', (c) => c.hidden))) throw new Error('one swipe down should close the card');
@@ -1924,7 +1937,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(400);
     if (await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D) !== d0) throw new Error('paused blood kept moving');
     // The Blood menu (streaks, chevrons; what the figure shows), the Blood origin lens, dye.
-    const fits = await page.evaluate(() => { const el = document.querySelector('#app.thumb #thumbBar [data-tab="layers"]') || document.querySelector('#btnBlood'), r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
+    const fits = await page.evaluate(() => { const el = document.querySelector('#app.thumb #thumbBar [data-tab="view"]') || document.querySelector('#btnBlood'), r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
     if (!fits) throw new Error('Blood button is clipped');
     await tapTool(page, '#btnBlood');
     const opts = await page.$$eval('.blood-pop .lens-opt .lens-t', (els) => els.map((e) => e.textContent));
@@ -2122,25 +2135,60 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(await page.$('#panel .adv-body input[type="range"]'))) throw new Error('advanced physiology has no controls');
     await page.click('#panelClose');
   });
-  // The thumb dock (an upright phone): the top bar is two chips, the patient and the key; Treat, Tests, History, Layers and Settings
+  // The slim play line (15 Oct, option 2): play, speed, clock and jump, then the two key readings as plain numbers on the
+  // same row, with no bars or rating words, all inside the bar and not overlapping, on a narrow and a tall phone, a Mac and
+  // an iPad held sideways, in the anatomy and the lobule (whose readings are longer).
+  await check(device, 'slim play line: one row, the readings as plain numbers, nothing clipped or overlapping', async (page) => {
+    for (const [w, ht] of device === 'phone' ? [[375, 667], [390, 844]] : [[1440, 900], [1180, 820]]) {
+      await page.setViewportSize({ width: w, height: ht });
+      await open(page, '?preset=cirr-decomp');
+      for (const lob of [false, true]) {
+        if (lob) { await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click()); await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 }); }
+        await page.waitForTimeout(900);
+        const r = await page.evaluate(() => {
+          const bar = document.querySelector('#stageBottom').getBoundingClientRect(), d = document.querySelector('#vdock').getBoundingClientRect();
+          const tiles = [...document.querySelectorAll('#strip .metric')].filter((m) => m.offsetParent);
+          const parts = [...document.querySelectorAll('#timeline > *, #timeline .tl-left, #strip .metric :is(.k, .val, .unit, .tr)')].filter((e) => e.offsetParent && e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility !== 'hidden');
+          const boxes = parts.map((e) => ({ q: e.className, ...e.getBoundingClientRect().toJSON() }));
+          const flat = boxes.filter((b) => !/tl-left/.test(b.q)).sort((a, b) => a.left - b.left);
+          const lap = flat.find((b, i) => i && b.left < flat[i - 1].right - 0.5 && !(String(flat[i - 1].q).includes('tl-left')));
+          return { n: tiles.length, bars: tiles.some((m) => m.querySelector('.rb')?.offsetParent || m.querySelector('.s')?.offsetParent),
+            out: boxes.filter((b) => b.left < d.left - 0.5 || b.right > d.right + 0.5 || b.right > innerWidth).map((b) => b.q),
+            off: boxes.filter((b) => b.top < bar.top - 2 || b.bottom > bar.bottom + 2).map((b) => b.q), lap: lap ? lap.q : '' };
+        });
+        const at = `${w}x${ht}${lob ? ' lobule' : ''}`;
+        if (r.n < 2) throw new Error(`${at}: the play line shows ${r.n} readings, not two`);
+        if (r.bars) throw new Error(`${at}: the readings still have bars or rating words`);
+        if (r.out.length) throw new Error(`${at}: outside the bar or the screen: ${r.out.join(', ')}`);
+        if (r.off.length) throw new Error(`${at}: not on the play line's row: ${r.off.join(', ')}`);
+        if (r.lap) throw new Error(`${at}: ${r.lap} overlaps its neighbour on the play line`);
+      }
+    }
+  });
+  // The thumb dock (an upright phone): the top bar is two chips, the patient and the key; Treat, Tests, History, View and Settings
   // sit in the dock's tab row, and every card or menu they open sits above the dock, so the tab row never moves or hides.
   if (device === 'phone') await check(device, 'thumb dock: two chips on top; the tab row opens every card and menu above the dock', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.waitForTimeout(800);
     if (!(await page.evaluate(() => document.querySelector('#app').classList.contains('thumb')))) throw new Error('an upright phone has no thumb dock');
     const tabs = await page.$$eval('#thumbBar .nb-tab', (els) => els.filter((e) => e.offsetParent).map((e) => e.querySelector('.nb-l').textContent));
-    if (tabs.join('|') !== 'Treat|Tests|History|Layers|Settings') throw new Error(`the tab row reads ${tabs.join(', ')}`);
+    if (tabs.join('|') !== 'Treat|Tests|History|View|Settings') throw new Error(`the tab row reads ${tabs.join(', ')}`);
     const shown = await page.evaluate(() => ['.top-right', '.topbar #viewSeg', '#btnBlood', '.tl-hist', '#zoomIn'].filter((q) => document.querySelector(q)?.offsetParent));
     if (shown.length) throw new Error(`still shown outside the tab row: ${shown.join(', ')}`);
     const row = await page.evaluate(() => { const a = document.querySelector('.tb-id').getBoundingClientRect(), b = document.querySelector('#btnLayers').getBoundingClientRect(); return Math.abs(a.top - b.top) < 8 && a.right <= b.left && b.right <= innerWidth; });
     if (!row) throw new Error('the patient and the key are not one row inside the screen');
-    // The view switch is a pill at the left, just above the dock, level with Fit, and switches the view.
-    const pill = await page.evaluate(() => { const p = document.querySelector('#viewPill').getBoundingClientRect(), f = document.querySelector('#zoomFit').getBoundingClientRect(), d = document.querySelector('#vdock').getBoundingClientRect();
-      return { left: p.left < innerWidth / 2 && p.left >= 0, level: Math.abs((p.top + p.bottom) / 2 - (f.top + f.bottom) / 2) < 4, above: p.bottom <= d.top - 4, clear: p.right <= f.left - 4, seg: !!document.querySelector('#viewPill #viewSeg') }; });
-    for (const [k, msg] of Object.entries({ seg: 'the view switch is not in the pill', left: 'the view pill is not at the left', level: 'the view pill is not level with Fit', above: 'the view pill is not above the dock', clear: 'the view pill runs into Fit' })) if (!pill[k]) throw new Error(msg);
-    await page.click('#viewPill [data-view="circuit"]');
+    // Nothing floats over the figure above the dock: the view switch and Fit are in the View tab's menu, and switch the view.
+    if (await page.evaluate(() => ['#zoomPill', '#zoomFit', '#viewSeg'].some((q) => document.querySelector(q)?.offsetParent))) throw new Error('the zoom buttons or the view switch still float over the figure');
+    await pickView(page, 'circuit');
     await page.waitForFunction(() => window.pps.store.get().view === 'circuit');
-    await page.click('#viewPill [data-view="anatomic"]');
+    await page.waitForSelector('.view-pop', { state: 'detached' });
+    await page.click('#thumbBar [data-tab="view"]');
+    if (!(await page.locator('.view-pop:not(.leaving) .menu-item:has-text("Fit to screen")').count())) throw new Error('Fit is not in the View menu');
+    if (!(await page.locator('.view-pop:not(.leaving) .menu-item:has-text("Turn upright")').count())) throw new Error('the circuit view has no Turn upright in the View menu');
+    if (!(await page.locator('.view-pop:not(.leaving) .lens-opt:has-text("Streaks")').count())) throw new Error('the blood layers are not in the View menu');
+    await page.click('.view-pop:not(.leaving) [data-view="anatomic"]');
+    await page.waitForFunction(() => window.pps.store.get().view === 'anatomic');
+    await page.waitForSelector('.view-pop', { state: 'detached' });
     const dockTop = await page.evaluate(() => document.querySelector('#thumbBar').getBoundingClientRect().top);
     const above = (sel) => page.evaluate(([sel, top]) => { const r = document.querySelector(sel).getBoundingClientRect(), d = document.querySelector('#vdock').getBoundingClientRect(); const n = document.querySelector('#thumbBar').getBoundingClientRect(); return r.height > 40 && r.bottom > d.top && Math.abs(r.bottom - n.top) <= 1 && Math.abs(document.querySelector('#thumbBar').getBoundingClientRect().top - top) < 1; }, [sel, dockTop]);
     for (const [tab, sel] of [['tests', '#dock'], ['treat', '#treatCard']]) {
@@ -2153,7 +2201,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (await page.evaluate(() => document.querySelector('#app').classList.contains('dock-open'))) throw new Error('Tests stayed open under Treat');
     await page.click('#thumbBar [data-tab="treat"]');
     await page.waitForSelector('#treatCard', { state: 'hidden' });
-    for (const tab of ['history', 'layers', 'settings']) {
+    for (const tab of ['history', 'view', 'settings']) {
       await page.click(`#thumbBar [data-tab="${tab}"]`);
       await page.waitForSelector('.menu.as-sheet:not(.leaving)');
       await page.waitForFunction(() => !document.querySelector('.menu.as-sheet:not(.leaving)').getAnimations().length);   // (risen in full)
@@ -2348,7 +2396,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       };
       tick();
     });
-    const CARDS = [['tests', '#dock', true], ['treat', '#treatCard', true], ['details', '#panel', true], ['history', '.menu.as-sheet:not(.leaving)', false], ['layers', '.menu.as-sheet:not(.leaving)', false], ['settings', '.menu.as-sheet:not(.leaving)', false]];
+    const CARDS = [['tests', '#dock', true], ['treat', '#treatCard', true], ['details', '#panel', true], ['history', '.menu.as-sheet:not(.leaving)', false], ['view', '.menu.as-sheet:not(.leaving)', false], ['settings', '.menu.as-sheet:not(.leaving)', false]];
     const isOpen = (sel) => page.evaluate((sel) => { const c = document.querySelector(sel); return !!c && !c.hidden && (c.id !== 'dock' || document.querySelector('#app').classList.contains('dock-open')) && (c.id !== 'panel' || document.querySelector('#app').classList.contains('panel-open')); }, sel);
     const height = (sel) => page.evaluate((sel) => document.querySelector(sel).getBoundingClientRect().height, sel);
     const openIt = async (tab, sel) => {
@@ -2383,8 +2431,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (Math.abs(v.gap) > 1) throw new Error(`the ${sel.id} card ends ${v.gap} px above the tab row, not on it`);
       if (v.top < 60) throw new Error(`the ${sel.id} card runs up to ${v.top} px`);
       if (v.bar) throw new Error(`the play bar shows over the ${sel.id} card`);
-      const pill = await page.evaluate(() => { const c = document.querySelector('.action-card').getBoundingClientRect(), p = document.querySelector('#viewPill').getBoundingClientRect(); return Math.round(c.top - p.bottom); });
-      if (pill < 0 || pill > 16) throw new Error(`the view switch sits ${pill} px above the ${sel.id} card, not just above it`);
+      // (Option 2: the view switch and Fit are in the View tab's menu, so nothing floats over the figure above the card.)
+      if (await page.evaluate(() => ['#zoomPill', '#viewSeg'].some((q) => document.querySelector(q)?.offsetParent))) throw new Error(`the view switch or Fit floats above the ${sel.id} card`);
       if (await page.evaluate(() => getComputedStyle(document.querySelector('.action-card .ac-close')).display !== 'none')) throw new Error(`the ${sel.id} card has an X`);
       await pull('.action-card .ac-top', 160, { hold: 100 });   // (no X: a pull down puts it away)
       await page.waitForFunction(() => document.querySelector('.action-card').hidden, null, { timeout: 10000 })

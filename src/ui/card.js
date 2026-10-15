@@ -51,10 +51,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   function liftButtons(px) {
     if (px === liftedBy) return;
     liftedBy = px;
-    lift ||= [...dockHost.querySelectorAll('.zoom-pill, .view-pill, .stage-clock')];
+    lift ||= [...dockHost.querySelectorAll('.zoom-pill, .stage-clock')];
     for (const b of lift) b.style.setProperty('--sheet-h', px);
-    // Keep the zoom and Fit pill (and the view pill beside it) above the card; hide only if it would reach the top bar.
-    for (const pill of lift.filter((b) => b.matches('.zoom-pill, .view-pill'))) {
+    // Keep the zoom and Fit pill above the card; hide only if it would reach the top bar.
+    for (const pill of lift.filter((b) => b.matches('.zoom-pill'))) {
       pill.classList.toggle('under-sheet', isDocked() && parseFloat(px) > 0);
       pill.classList.remove('no-room');
     }
