@@ -345,6 +345,46 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => !document.querySelector('#app').classList.contains('sin-focus') && window.pps.store.get().lobule && !window.pps.store.get().sinusoid, null, { timeout: 30000 });
   });
 
+  await check(device, 'lobule: a Sinusoid tap during the dive goes on into the sinusoid, and Colored by crossfades', async (page) => {
+    await open(page, '?preset=healthy');
+    // Tapped while the dive is still on its way (the lobule not yet shown): it used to be dropped.
+    await page.evaluate(() => { window.pps.store.set({ lobule: true }); document.querySelector('#viewSeg [data-view="sinusoid"]').click(); });
+    await page.waitForFunction(() => window.pps.stage.sinusoidOpen(), null, { timeout: 60000 }).catch(() => { throw new Error('a Sinusoid tap during the dive into the lobule was ignored'); });
+    await page.evaluate(() => window.pps.store.set({ sinusoid: false }));
+    await page.waitForFunction(() => !window.pps.stage.sinBusy() && !window.pps.stage.sinusoidOpen() && window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
+    // "Colored by" fades over 300 ms in the lobule, as in the anatomy (it switched at once).
+    const fade = await page.evaluate(() => { const s = window.pps.store; s.set({ colorMode: s.get().colorMode === 'flow' ? 'pressure' : 'flow' }); return window.pps.stage.lobuleLensFade(); });
+    if (fade === null) throw new Error('changing Colored by in the lobule switched the colours at once instead of crossfading');
+    await page.waitForFunction(() => window.pps.stage.lobuleLensFade() === null, null, { timeout: 15000 });
+  });
+
+  if (device === 'desktop') await check(device, 'lobule: leaving after a close zoom gives back its large bitmaps, and a drain rasterizes the organs once', async (page) => {
+    await open(page, '?preset=healthy');
+    await page.evaluate(() => window.pps.store.set({ lobule: true }));
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 60000 });
+    const landed = await page.evaluate(() => window.pps.stage.lobuleMem(true));
+    for (let i = 0; i < 5; i++) { await page.evaluate(() => document.querySelector('#zoomIn').click()); await page.waitForTimeout(700); }
+    await page.waitForFunction((t) => window.pps.stage.lobuleMem(true).tiles > t, landed.tiles, { timeout: 30000 }).catch(() => {});
+    const zoomed = await page.evaluate(() => window.pps.stage.lobuleMem(true));
+    await page.evaluate(() => window.pps.store.set({ lobule: false }));
+    await page.waitForFunction(() => window.pps.stage.lobuleSettled() && !window.pps.stage.lobuleOpen(), null, { timeout: 60000 });
+    await page.waitForTimeout(500);
+    const left = await page.evaluate(() => window.pps.stage.lobuleMem(true));
+    const MB = (o) => JSON.stringify(Object.fromEntries(Object.entries(o).map(([k, v]) => [k, +(v / 1e6).toFixed(1)])));
+    if (left.canvases > 0 || left.tiles > Math.max(landed.tiles, 1) * 1.05 || left.world > Math.max(landed.world, 1) * 1.05) throw new Error(`after a close zoom the anatomy still holds the lobule's bitmaps: landed ${MB(landed)}, zoomed ${MB(zoomed)}, after leaving ${MB(left)} (MB)`);
+    // Ascites drained: the fluid eases down over a second or two; the organs' raster waits for it to settle (it was redone at every step).
+    await page.evaluate(() => window.pps.loadPreset('cirr-decomp'));
+    await page.waitForFunction(() => (window.pps.store.get().frame?.slow?.ascites || 0) > 800, null, { timeout: 60000 });
+    await page.evaluate(() => window.pps.store.set({ running: false }));
+    await page.waitForTimeout(4000);
+    await page.evaluate(() => { window.__svg = 0; const c = URL.createObjectURL; URL.createObjectURL = function (b) { if (b?.type === 'image/svg+xml') window.__svg++; return c.call(this, b); }; });
+    await page.evaluate(() => window.pps.host.send({ type: 'action', action: { kind: 'paracentesis', mL: 6000, albumin: true } }));
+    await page.evaluate(() => window.pps.store.set({ running: true })); await page.waitForTimeout(1500); await page.evaluate(() => window.pps.store.set({ running: false }));
+    await page.waitForTimeout(9000);
+    const n = await page.evaluate(() => window.__svg);
+    if (n > 2) throw new Error(`draining the ascites rasterized the organ plate ${n} times while the fluid eased (once, plus the view's sharper copy, is enough)`);
+  });
+
   await check(device, 'lobule: the flow chevrons show when Chevrons is on (and go when it is off)', async (page) => {
     await open(page, '?preset=healthy');
     await page.evaluate(() => { const s = window.pps.store; s.set({ blood: { ...s.get().blood, chevrons: true } }); window.pps.host.send({ type: 'run', running: false }); });

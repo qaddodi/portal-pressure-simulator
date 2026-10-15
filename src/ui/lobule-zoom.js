@@ -2618,6 +2618,12 @@ export function createLobuleZoom({ host }) {
     if (on && from === 0 && sinChain?.now != null && sinChain.now >= t0) step(sinChain.now); else sinRaf = nextFrame(step);
   }
   store.on('sinusoid', (on) => diveSinusoid(!!on));
+  // (Checked when the zoom lands and when the lobule is fully in, whichever comes last: a slow frame can do both at once.)
+  function sinOnLanding() {
+    if (diveScaled || !sinPending || fade <= 0.98) return;
+    sinPending = false;
+    nextFrame(() => { const st = store.get(); if (st.lobule && !st.sinusoid && fade > 0.98) store.set({ sinusoid: true }); });
+  }
   store.on('lobule', (on) => { if (!on) sinPending = false; if (!on && store.get().sinusoid) { quietSin = true; store.set({ sinusoid: false }); quietSin = false; } });
 
   const api = {
@@ -2631,6 +2637,7 @@ export function createLobuleZoom({ host }) {
       // The tissue first, then its labels and card (and on the way out, those go first).
       applyChrome();
       el.classList.toggle('on', fade > 0.98);
+      if (fade > 0.98 && was <= 0.98) sinOnLanding();
       el.setAttribute('aria-hidden', String(fade < 0.98));
       // Entering: the lobule is framed.
       // (Its flow marks start faded and ease in once it has landed: left at full from an earlier visit, they made every frame of the
@@ -2678,7 +2685,7 @@ export function createLobuleZoom({ host }) {
       diveScaled = k < 0.9999; if (!diveScaled) diveDrawn = false;
       if (!diveScaled && fade <= 0) { staged = ''; if (relLater) { relLater = false; release(); } }   // the dive is over with the lobule unseen
       // Landed with a Sinusoid tap waiting (made during the dive): on into the sinusoid now.
-      if (!diveScaled && sinPending && fade > 0.98) { sinPending = false; nextFrame(() => { const st = store.get(); if (st.lobule && !st.sinusoid && fade > 0.98) store.set({ sinusoid: true }); }); }
+      sinOnLanding();
       // Scaled down, the tissue's own page fill would show as a pale card; a soft round mask keeps only the lobule and its rim.
       const r = geo ? geo.R * V.k : 0, mask = k >= 0.9999 || !r ? '' : `radial-gradient(circle at ${x.toFixed(1)}px ${y.toFixed(1)}px, #000 ${(r * 1.02).toFixed(1)}px, transparent ${(r * 1.2).toFixed(1)}px)`;   // colour-exempt: a mask
       for (const e of [tissue, glCv, fx, leaders, labels]) {
