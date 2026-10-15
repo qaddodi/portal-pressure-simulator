@@ -123,9 +123,10 @@ export function createSinusoidView({ host }) {
     // (--pz-l, --pz-r, --pz-t, --pz-b: the room a presenter slide's text, data and bar take; the credit line, just above
     // the dock or the bar, is kept clear.)
     const t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8 + (cssN('--pz-t') ? 0 : 40);
-    const cr = document.querySelector('.stage-credit')?.getBoundingClientRect(), ht = host.getBoundingClientRect().top;
-    const b = Math.min(H - cssN('--pz-b') - 34, cr?.height && cr.top - ht > H / 2 ? cr.top - ht - 8 : H - 34), l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
-    return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
+    // (A fixed strip, not the credit's current spot: the credit keeps clear of this view's labels, so a view sized to wherever
+    // the credit sat moved the labels, which moved the credit, which resized the view, about once a second for good.)
+    const b = H - cssN('--pz-b') - 34, l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
+    return { l: Math.round(l), t: Math.round(t), r: Math.round(Math.max(l + 80, r)), b: Math.round(Math.max(t + 80, b)) };
   }
   // The stretch is laid out once per stage size. It runs along the stage's longer side: across on a
   // landscape screen, down on a portrait one (where every label still reads level).

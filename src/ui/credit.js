@@ -229,6 +229,9 @@ export function createCreditPlacer(credit) {
   const blocked = {};   // corner -> when a card last covered it
   let cur = null, curTight = false, pos = null, moving = false, changedAt = 0, lastSig = '', raf = 0, waitT = 0, moveT = 0, size = null, sizeKey = '';
   let worldKey = '', worldAt = 0, camT = 0;   // (the figure's camera: its last transform and when it last changed)
+  // (kept: the last look that left the credit where it was, what it saw, and the corners it found covered; searches: how many
+  // looks ran the full spot search, for the checks)
+  let kept = '', keptBlocked = [], searches = 0;
   const measure = (busy) => {
     const key = innerWidth + 'x' + innerHeight;
     if (key !== sizeKey) {
@@ -277,7 +280,7 @@ export function createCreditPlacer(credit) {
     if (moving || !credit.isConnected || !wrap.offsetParent) return;
     // A slide change (the presenter's pz-moving): out of sight until the cards are in and the camera has settled; it then
     // appears at once at its final spot.
-    if (app?.classList.contains('pz-moving')) { credit.classList.add('moving'); changedAt = 0; lastSig = ''; return; }
+    if (app?.classList.contains('pz-moving')) { credit.classList.add('moving'); changedAt = 0; lastSig = ''; kept = ''; return; }
     // A pan or a zoom under way: the art under every spot moves with the camera, and sampling it again on each look
     // (thousands of point-in-shape tests over the vessels) made panning and zooming lag. A placed credit keeps its spot
     // until the camera has rested a moment, then looks once.
@@ -312,9 +315,16 @@ export function createCreditPlacer(credit) {
     changedAt = 0; lastSig = sig;
     // (One margin with the cards: the credit's edge lines up with the presenter's cards, the screen's margin.)
     const shade = document.querySelector('.pz-shade'), sr = shade && getComputedStyle(shade).opacity !== '0' ? shade.getBoundingClientRect() : null;
+    // Nothing it looks at changed since a look that left it in place (the same cards, labels, camera, size and slide layout):
+    // that look's answer holds, so the spot search over the art is not run again. (The poll and every transition ended
+    // re-ran it, about 7% of a slowed phone's time on a slide sitting still.) The corners it found covered stay covered.
+    const look = `${sig}|${wk}|${busy}|${sr ? Math.round(sr.left) : ''}|${!!(app?.classList.contains('presenting') && document.querySelector('.pz:not(.stack)'))}|${credit.className}`;
+    if (look === kept && !settling) { for (const k of keptBlocked) blocked[k] = now; return; }
+    kept = ''; searches++;
     const opt = { gap: wr.width < 768 ? 12 : 24, inset: sr?.width ? Math.max(12, Math.round(sr.left - wr.left - fig.l)) : wr.width < 768 ? 12 : 24 };   // (a clear gap from every card: 24 px on a laptop or tablet)
     let spots = freeSpots(fig, obs, w, h, opt), tight = false;
-    for (const k of CORNERS) if (!spots[k]) blocked[k] = now;
+    const covered = CORNERS.filter((k) => !spots[k]);
+    for (const k of covered) blocked[k] = now;
     // (Spots clear of the organs' art too, found the same way (stepping in along the edge if need be), where there are any;
     // else the plain spots, so the credit always shows.)
     // (The strictest look first: 18 px clear of organs and vessels; then 8 px clear of both; then clear of the vessels only (over an
@@ -353,6 +363,7 @@ export function createCreditPlacer(credit) {
     if (c === cur && tight === curTight && !credit.classList.contains('moving') && !credit.classList.contains('covered') && Math.abs(p.x - pos.x) <= 4 && Math.abs(p.y - pos.y) <= 4) {
       // A nudge of a few pixels (its own size easing to the busy size) is taken in place.
       if (p.x !== pos.x || p.y !== pos.y) place(c, p, tight);
+      kept = look; keptBlocked = covered;
       return;
     }
     if (!pos || credit.classList.contains('covered') || credit.classList.contains('moving')) { place(c, p, tight); return; }
@@ -373,5 +384,5 @@ export function createCreditPlacer(credit) {
   // Cards open, close and resize in many ways; a light poll catches the ones no event announces.
   setInterval(() => { if (!document.hidden) soon(); }, 1000);
   soon();
-  return { refresh: soon, corner: () => cur };
+  return { refresh: soon, corner: () => cur, searches: () => searches };
 }

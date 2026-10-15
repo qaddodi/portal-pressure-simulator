@@ -142,3 +142,10 @@ test('with art all round, the credit takes the gap between two cards', () => {
   assert.ok(at.y >= 330 + 12 && at.y + 13 <= 420 - 12, `y ${at.y} is not in the strip`);
   assert.ok(at.y >= 350 && at.y + 13 <= 400, 'and clear of the art');
 });
+
+test('the sinusoid view keeps a fixed strip for the credit instead of sizing itself to the credit\'s spot', () => {
+  // (The credit keeps clear of the view's labels; a view that followed the credit moved the labels, which moved the credit,
+  // about once a second for good.)
+  const view = readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(view, /stage-credit/);
+});

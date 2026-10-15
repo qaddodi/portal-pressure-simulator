@@ -3,9 +3,9 @@
 
 import { startHost, host } from './host.js?v=9228eed00c';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=ed64ef6f84';
-import { createCreditPlacer } from './credit.js?v=e4d16bda70';
-import { sinusoidSupported } from './sinusoid-view.js?v=998a8332f7';
+import { createStage } from './stage.js?v=21864b133c';
+import { createCreditPlacer } from './credit.js?v=b14449d723';
+import { sinusoidSupported } from './sinusoid-view.js?v=d3e796bce7';
 import { createInspector } from './inspector.js?v=d1085ce6ba';
 import { createDock, CUTOFFS } from './dock.js?v=2f004bbe73';
 import { setHvpgStage } from './hvpg-proc.js?v=e6a4ae8fb2';
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=36cd9ecc0b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=60593b9a9a'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -214,7 +214,7 @@ async function main() {
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); } };
+  window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, get credit() { return creditPlacer; } };
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare(), back = new URLSearchParams(location.search).has('back');

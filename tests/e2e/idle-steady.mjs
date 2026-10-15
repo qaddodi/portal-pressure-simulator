@@ -97,6 +97,49 @@ try {
     if (rs > RESTYLE_BUDGET) fail(`phone, Circuit slide 7: left alone, it restyles ${Math.round(rs)} elements a second`);
     await pctx.close();
   }
+  // The sinusoid view sitting still holds still: its zoom and the corner credit stay put, paused or playing, and the credit
+  // does not search for a spot again. (The view
+  // was sized to sit above the credit's spot while the credit kept clear of the view's labels, so each moved the other
+  // about once a second for good on a 13-inch Mac.)
+  {
+    const sctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+    const sp = await sctx.newPage();
+    sp.setDefaultTimeout(120000);
+    sp.on('pageerror', (e) => errors.push(e.message));
+    await sp.goto(server.url + '?preset=cirr-decomp');
+    await sp.waitForFunction(() => window.pps?.store.get().frame);
+    await sp.evaluate(() => window.pps.store.set({ lobule: true }));
+    await sp.waitForFunction(() => window.pps.stage.lobuleOpen());
+    await sp.waitForTimeout(3000);
+    await sp.evaluate(() => window.pps.store.set({ sinusoid: true }));
+    await sp.waitForFunction(() => window.pps.stage.sinusoidOpen() && document.querySelectorAll('.sv-region').length);
+    await sp.waitForTimeout(8000);
+    for (const running of [false, true]) {
+      await sp.evaluate((r) => window.pps.host.send({ type: 'run', running: r }), running);
+      await sp.waitForTimeout(3000);
+      const searched = await sp.evaluate(() => window.pps.credit?.searches());
+      // (The credit's spot and how far the view's labels travel; a pixel of label drift is allowed.)
+      const { spots, drift } = await sp.evaluate(() => new Promise((done) => {
+        const spots = new Set(), lo = [], hi = [];
+        let n = 0;
+        const t = setInterval(() => {
+          const c = document.querySelector('.stage-credit'), r = c.getBoundingClientRect();
+          spots.add(c.matches('.moving, .covered') ? 'hidden' : `${Math.round(r.left)},${Math.round(r.top)}`);
+          [...document.querySelectorAll('.sv-region')].forEach((e, i) => { const y = e.getBoundingClientRect().top; lo[i] = Math.min(lo[i] ?? y, y); hi[i] = Math.max(hi[i] ?? y, y); });
+          if (++n >= 30) { clearInterval(t); done({ spots: [...spots], drift: Math.max(0, ...hi.map((y, i) => y - lo[i])) }); }
+        }, 200);
+      }));
+      const how = running ? 'playing' : 'paused';
+      console.log(`sinusoid ${how}: credit at ${spots.join(' / ')}, the view's labels moved ${drift.toFixed(1)} px in 6 s`);
+      if (spots.length > 1 || drift > 2) fail(`sinusoid view ${how}: the view's zoom or the credit keeps moving while nothing changes (credit ${spots.join(' / ')}, labels ${drift.toFixed(0)} px)`);
+      // The credit looks again on every transition and once a second; with nothing moved it keeps its answer instead of
+      // searching the art again (that search had cost about 7% of a slowed phone's time on a slide sitting still).
+      const searches = (await sp.evaluate(() => window.pps.credit?.searches())) - searched;
+      console.log(`sinusoid ${how}: the corner credit searched for a spot ${searches} time(s) in 6 s`);
+      if (!(searches <= 1)) fail(`sinusoid view ${how}: the corner credit searched for a new spot ${searches} times while nothing moved`);
+    }
+    await sctx.close();
+  }
   if (errors.length) fail(`page errors: ${errors.slice(0, 3).join(' | ')}`);
 } finally {
   await browser.close();
