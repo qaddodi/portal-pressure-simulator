@@ -219,15 +219,19 @@ test('T16 blood volume is conserved without bleeding or infusion', () => {
 });
 
 test('T17 determinism: same seed & actions → identical state', () => {
-  const run = () => {
+  // Bleeding on, over varices past their limit (cirr-decomp), so the seeded rupture draws run every step and every day.
+  const run = (seed) => {
     const e = preset('cirr-decomp');
-    e.setParams({ ...e.params, seed: 42 });
-    e.rng = e.rng.constructor === Function ? e.rng : e.rng;
+    e.setParams({ ...e.params, seed, bleeding: true });
+    assert.ok(M(e).varix.ratio > 1 || M(e).gastricVarix.ratio > 1, 'a varix is over its limit, so the RNG is drawn');
+    const s0 = JSON.stringify(e.rng.state());
     for (let i = 0; i < 500; i++) e.step(0.02);
-    e.advanceDays(30);
-    return JSON.stringify(Array.from(e.P));
+    e.advanceDays(30, { silent: true });
+    assert.notEqual(JSON.stringify(e.rng.state()), s0, 'the RNG was used');
+    return JSON.stringify({ P: Array.from(e.P), bleed: e.bleed, rng: e.rng.state() });
   };
-  assert.equal(run(), run());
+  assert.equal(run(42), run(42));
+  assert.notEqual(run(42), run(7), 'a different seed gives a different run');
 });
 
 test('T18 stability at slider extremes', () => {
@@ -273,16 +277,18 @@ test('Wedged catheter reads sinusoidal pressure', () => {
 });
 
 test('Varices never rupture on their own unless bleeding is switched on', () => {
-  const off = preset('cirr-hepatofugal');
+  const off = preset('cirr-decomp');
   patch(off, { deterministicRupture: true });
   off.advanceDays(60, { silent: true });
   for (let i = 0; i < 200; i++) off.step(0.5);
   assert.ok(!off.bleed.active, 'no spontaneous bleed by default');
-  const on = preset('cirr-hepatofugal');
+  // Switched on, over varices past their limit (cirr-decomp, ratio about 1.6), the varix tears.
+  const on = preset('cirr-decomp');
+  assert.ok(M(on).varix.ratio > 1 || M(on).gastricVarix.ratio > 1, 'cirr-decomp has a varix over its limit');
   patch(on, { bleeding: true, deterministicRupture: true });
   on.advanceDays(60, { silent: true });
   for (let i = 0; i < 200; i++) on.step(0.5);
-  if (M(on).varix.ratio > 1 || M(on).gastricVarix.ratio > 1 || on.bleed.total > 0) assert.ok(on.bleed.active || on.bleed.total > 0, 'switched on, a varix over the limit tears');
+  assert.ok(on.bleed.active || on.bleed.total > 0, 'switched on, a varix over the limit tears');
 });
 
 test('Ascitic protein: cirrhosis low (< 2.5), outflow block high (≥ 2.5), SAAG ≥ 1.1 in both', () => {

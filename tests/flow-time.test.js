@@ -9,8 +9,8 @@ async function mealTrail() {
   const meal = CIRCULATION.slides.find((s) => s.id === 'flow');
   const msgs = [], core = createCore((m) => msgs.push(m));
   core.handle({ type: 'init' });
-  core.handle({ type: 'sequence', reqId: 1, steps: [{ preset: 'healthy' }, { days: meal.days, ramp: meal.ramp, fine: true, trail: true }] });
-  for (let t = 0; !msgs.some((m) => m.type === 'sequence') && t < 1500; t++) await new Promise((r) => setTimeout(r, 20));
+  await core.handle({ type: 'sequence', reqId: 1, steps: [{ preset: 'healthy' }, { days: meal.days, ramp: meal.ramp, fine: true, trail: true }] });   // (settles once the sequence has run)
+  assert.ok(msgs.some((m) => m.type === 'sequence'), 'the sequence finished');
   core.dispose();
   const steps = msgs.filter((m) => m.type === 'seqStep');
   return { meal, before: steps[0], after: steps[1] };
@@ -65,14 +65,29 @@ test('time-lapse charts plot every day of the lapse', async () => {
     for (const k of s.tool.lines || []) assert.ok(LINE[k], `${d} ${s.id}: ${k} has a line`);
     if (s.tool.clock === 'days') assert.ok(s.tool.lines.every((k) => (s.tiles || []).includes(k)), `${d} ${s.id}: plots its card's tiles`);
   }
+  // Each charted lapse run as the presenter runs its deck: the trail holds one point a day, fasting or day 0 included.
+  const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
+  for (const deck of new Set(charted.map(({ d }) => d))) {
+    const dk = decks.flatMap((m) => Object.values(m)).find((x) => x?.slides && x.id === deck);
+    const steps = dk.slides.map((s) => (MODEL.some((k) => s[k]) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && (s.tool.lines || true) } : {}));
+    const trails = [], core = createCore((m) => { if (m.type === 'seqStep') trails[m.i] = m.trail; });
+    core.handle({ type: 'run', running: false });
+    await core.handle({ type: 'sequence', reqId: 1, steps });
+    core.dispose();
+    for (const { d, s } of charted.filter((c) => c.d === deck)) {
+      const tr = trails[dk.slides.indexOf(s)];
+      assert.ok(Array.isArray(tr), `${d} ${s.id}: the lapse kept a trail`);
+      assert.equal(tr.length, s.days + 1, `${d} ${s.id}: one point a day`);
+    }
+  }
 });
 
 test('the ascites time-lapse charts sinusoids and ascites, one point a day', async () => {
   const { ASCITES } = await import('../src/ui/decks/ascites.js');
   const s = ASCITES.slides.find((x) => x.id === 'fill'), msgs = [], core = createCore((m) => msgs.push(m));
   core.handle({ type: 'init' });
-  core.handle({ type: 'sequence', reqId: 1, steps: [{ preset: 'csph' }, { days: s.days, ramp: s.ramp, fine: true, trail: s.tool.lines }] });
-  for (let t = 0; !msgs.some((m) => m.type === 'sequence') && t < 3000; t++) await new Promise((r) => setTimeout(r, 20));
+  await core.handle({ type: 'sequence', reqId: 1, steps: [{ preset: 'csph' }, { days: s.days, ramp: s.ramp, fine: true, trail: s.tool.lines }] });   // (settles once the sequence has run)
+  assert.ok(msgs.some((m) => m.type === 'sequence'), 'the sequence finished');
   core.dispose();
   const after = msgs.filter((m) => m.type === 'seqStep')[1], tr = after.trail;
   assert.equal(tr.length, s.days + 1);

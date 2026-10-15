@@ -108,5 +108,6 @@ test('every patient loads with its gradients agreeing', () => {
     const e = new Engine(); e.loadPreset(p.id);
     const m = computeMetrics(e);
     assert.equal(m.hvpg, r1(r1(m.whvp) - r1(m.fhvp)), p.id);
+    assert.equal(r1(m.ppg), r1(r1(m.pv) - r1(m.ivc)), `${p.id} PPG`);
   }
 });
