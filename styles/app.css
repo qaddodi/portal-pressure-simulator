@@ -5283,13 +5283,13 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade::before, #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-chip-v::before { top: 5px; right: 5px; }
   #app.thumb .endo-stage { --stage-min: 110px; justify-content: flex-end; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dt { letter-spacing: .02em; }
-  /* HVPG: the monitor the card's full width, the readings over it, Measure HVPG centred under it; the steps and words under
+  /* HVPG: the monitor the card's full width, the readings over it with Measure HVPG at their right (15 Oct, always in view); the steps and words under
      the monitor only at Full. */
-  #app.thumb [data-pane="hvpg"] > .hvpg-bar { display: contents; }
-  #app.thumb [data-pane="hvpg"] .hvpg-kv { order: 0; flex: none; }
+  #app.thumb [data-pane="hvpg"] > .hvpg-bar { order: 0; flex: none; flex-wrap: nowrap; gap: 10px; }
+  #app.thumb [data-pane="hvpg"] .hvpg-kv { order: 0; flex: 1 1 auto; min-width: 0; gap: 12px; }
   #app.thumb [data-pane="hvpg"] > .hvpg-box { order: 1; width: auto; max-width: none; aspect-ratio: auto; flex: 1 1 0 !important; min-height: 130px !important; max-height: none; margin-inline: -10px; }
   #app.thumb [data-pane="hvpg"] > .hvpg-box > canvas { width: 100%; height: 100%; }
-  #app.thumb [data-pane="hvpg"] .hvpg-bar > .btn { order: 2; align-self: center; justify-self: center; }
+  #app.thumb [data-pane="hvpg"] .hvpg-bar > .btn { order: 1; margin-left: auto; min-height: 36px; padding-inline: 12px; }
   #app.thumb [data-pane="hvpg"] > .chart-side { order: 3; }
   #app.thumb .instrument-workspace.sheet-half [data-pane="hvpg"] > .chart-side { display: none; }
   /* Doppler: the reading, the flow's direction and the waveform's name in the monitor's top strip, as on a slide's data card
