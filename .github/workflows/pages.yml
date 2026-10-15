@@ -27,6 +27,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write   # (the deploy deletes its site artifact once Pages has it)
 
 jobs:
   # Quick checks gate the deploy (about a minute end to end), so a preview is never held up by
