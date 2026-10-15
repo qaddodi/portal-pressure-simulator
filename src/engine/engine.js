@@ -7,7 +7,7 @@ import {
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
 import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=6ebaeb46c8';
-import { detectEvents } from './events.js?v=6fd94071f0';
+import { detectEvents } from './events.js?v=f8e91bcbd8';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -43,6 +43,16 @@ const pinchResistance = (wall, kq, s) => {
 };
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
+// Compensation for blood loss, calibrated to the ATLS hemorrhage classes (ATLS 10th ed., 2018): under 15 % lost the
+// vital signs barely change, 15–30 % raises the heart rate with the pressure held, 30–40 % brings hypotension, and over
+// 40 % is severe shock. Two reflexes the arterial baroreflex alone misses:
+// - the venous reservoir: sympathetic venoconstriction (mostly splanchnic and skin veins) moves unstressed blood into
+//   the stressed volume, so most of a moderate loss is made up from it (Gelman 2008, Anesthesiology 108:735);
+//   k: share of the deficit refilled, max: reservoir limit (mL), tau: seconds; cirrhotic vasoplegia (vascular
+//   hyporeactivity to vasoconstrictors) blunts it by up to `cirr`;
+// - the volume afferent (cardiopulmonary receptors and the narrowing pulse pressure): drives the sympathetic tone
+//   per fraction of the patient's own volume lost, before the mean pressure falls.
+export const RESERVOIR = { k: 0.72, max: 1700, tau: 20, cirr: 0.5, afferent: 1.5, chrono: 0.4 };
 const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
 // Protein in lymph and ascites (Kedem–Katchalsky sieving per bed, then a peritoneal mass balance).
 // From the literature: the sinusoidal reflection coefficient for albumin, low in a fenestrated liver (lymph
@@ -121,7 +131,10 @@ export class Engine {
       ascites: 0,
       ascAlb: null, ascGlob: null,   // ascitic albumin and globulin, g/dL (null: no fluid yet)
     };
-    this.blood = { rbc: BLOOD_BASE * HCT_BASE, lost: 0, infused: 0 };
+    // ref: the patient's own blood volume (the reflexes measure a loss against it), inf0: infused when it was set,
+    // shift: blood the venous reservoir has moved into the circulation (counted out of bloodVolume, which is the
+    // whole volume).
+    this.blood = { rbc: BLOOD_BASE * HCT_BASE, lost: 0, infused: 0, ref: BLOOD_BASE, inf0: 0, shift: 0 };
     this.bleed = { active: false, site: null, G: 0, clot: 0, total: 0 };
     this.infusions = [];
     this.valsalva = { until: -1, start: -1 };
@@ -183,6 +196,7 @@ export class Engine {
     // Day steps relax only roughly; start from a true equilibrium so a before/after comparison
     // (e.g. closing a shunt) shows the intervention, not leftover relaxation.
     this.settle();
+    this.blood.ref = this.bloodVolume(); this.blood.inf0 = this.blood.infused;
     this.day = 0;
     this.t = 0;
     this.eventLog = [];
@@ -220,7 +234,7 @@ export class Engine {
   bloodVolume() {
     let s = 0;
     for (let i = 0; i < this.N; i++) s += this.V[i] - this.Vbase[i];
-    return BLOOD_BASE + s;
+    return BLOOD_BASE + s - (this.blood.shift || 0);
   }
   viscosity() { return clamp(1 + 1.6 * (this.hct() - HCT_BASE), 0.5, 1.6); }
 
@@ -230,7 +244,14 @@ export class Engine {
     // in the 70s to 80s in decompensated disease, as at the bedside. It sets the rate only, not the
     // pump capacity, so pressures and flows are unchanged.
     const symp = 1 + 1.4 * (1 - this.slow.splTone);
-    const hr = clamp(HR_REST * symp * d.hr * (1 + 0.9 * (b - 1) * d.baroHr), 38, 170);
+    // Volume afferent (see RESERVOIR): the heart rate climbs with the fraction lost before the mean pressure falls.
+    const vol = RESERVOIR.afferent * this.volumeDeficit() / (this.blood.ref || BLOOD_BASE);
+    // A reflex speeding the heart adds beats to the resting rate rather than scaling it, and cirrhosis blunts it (lower
+    // baroreflex sensitivity and chronotropic incompetence, Møller & Henriksen 2010, Heart 96:1088), by up to `chrono`
+    // with the vasodilation; slowing (a high pressure) scales the rate as before.
+    const reflex = (0.9 * (b - 1) + vol) * d.baroHr;
+    const blunt = 1 - RESERVOIR.chrono * clamp((1 - this.slow.splTone) / 0.45, 0, 1);
+    const hr = clamp(HR_REST * d.hr * (reflex > 0 ? symp + reflex * blunt : symp * (1 + reflex)), 38, 170);
     const contr = p.contractility * d.contr * clamp(1 + 0.35 * (b - 1), 0.6, 1.6);
     const cap = contr * Math.pow(hr / (HR_REST * symp), 0.6) * (1 - 0.3 * p.tr);
     return { hr, cap };
@@ -512,13 +533,30 @@ export class Engine {
     for (let i = 0; i < this.N; i++) this.Pf[i] += (this.P[i] - this.Pf[i]) * ap;
     this.COf = (this.COf ?? this.Qheart) + (this.Qheart - (this.COf ?? this.Qheart)) * Math.min(1, dt / 2);
     this.MAPf += (this.P[this.ni.AO] - this.MAPf) * (dt / (2 + dt));
+    const def = this.volumeDeficit();
     const bt = clamp(1 + 4 * (93 - this.MAPf) / 93, 0.5, 2.5);
     this.baro += (bt - this.baro) * Math.min(0.25, dt / (15 + dt));
     const Qp = this.portalInflow();
     const kh = 2.0 * (1 - 0.5 * p.cirrhosis) * p.habrStrength;
     const ht = 1 + kh * clamp((this.Qpref - Qp) / this.Qpref, 0, 1);
     this.habr += (ht - this.habr) * Math.min(0.3, dt / (10 + dt));
+    // Venous reservoir (see RESERVOIR): eases toward its share of the deficit, a soft limit at max, and gives the
+    // blood back as the volume is replaced.
+    const R = RESERVOIR, vaso = clamp((1 - this.slow.splTone) / 0.45, 0, 1);
+    const want = R.k * (1 - R.cirr * vaso) * def, target = want / Math.pow(1 + Math.pow(want / R.max, 4), 0.25);
+    const ds = (target - (this.blood.shift || 0)) * Math.min(1, dt / R.tau);
+    if (Math.abs(ds) > 1e-9) {
+      this.blood.shift = (this.blood.shift || 0) + ds;
+      for (const id of ['UPPV', 'LOWV']) {
+        const i = this.ni[id], [Pk, Ps] = this.nodeK[i];
+        this.V[i] += ds / 2;
+        this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i], Pk, Ps);
+      }
+    }
   }
+
+  /** Blood volume missing against the patient's own (mL, never negative): what the bleeding reflexes respond to. */
+  volumeDeficit() { return Math.max(0, (this.blood.ref ?? BLOOD_BASE) - this.bloodVolume()); }
 
   portalInflow() {
     return Math.max(0, this.Q[this.ei.PRE_R]) + Math.max(0, this.Q[this.ei.PRE_L]);
@@ -774,7 +812,9 @@ export class Engine {
     const [Pk, Ps] = this.nodeK[i];
     this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i], Pk, Ps);
     this.blood.rbc += mL * hct;
+    // Silent plasma is the body's own volume changing (the chronic plasma expansion): the reflexes reset to it.
     if (!silentPlasma) this.blood.infused += mL;
+    else this.blood.ref = (this.blood.ref ?? BLOOD_BASE) + mL;
   }
 
   infuse(kind) {
@@ -949,6 +989,8 @@ export class Engine {
     Object.assign(this, { t: c.t, day: c.day, baro: c.baro, MAPf: c.MAPf, habr: c.habr, hr: c.hr, slow: c.slow, blood: c.blood,
       bleed: c.bleed, infusions: c.infusions, bands: c.bands, iap: c.iap, valsalva: c.valsalva || { until: -1, start: -1 }, evState: c.evState || {} });
     this.rng.setState(c.rng);
+    // A snapshot from before the bleeding reflexes: the volume it holds is the patient's own.
+    if (!(this.blood.ref > 0)) Object.assign(this.blood, { ref: this.bloodVolume(), inf0: this.blood.infused || 0, shift: 0 });
     this.Pf = Float64Array.from(this.P);
     this.Qf = Float64Array.from(this.Q);
     this.pvQm = this.pvVm = undefined;

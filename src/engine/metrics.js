@@ -53,7 +53,9 @@ export function computeMetrics(eng) {
   const map = eng.MAPf;
   const ra = P[ni.RA];
   const bv = eng.bloodVolume();
-  const lossPct = clamp((5000 + eng.blood.infused - bv) / 5000 * 100, -50, 100);
+  // Share of the patient's own volume lost (ATLS class), counting what was drawn, not what was given back since.
+  const b = eng.blood, ref = b.ref || 5000;
+  const lossPct = clamp((ref + b.infused - (b.inf0 || 0) - bv) / ref * 100, -50, 100);
   const shock = eng.blood.lost > 0 ? (lossPct >= 40 ? 4 : lossPct >= 30 ? 3 : lossPct >= 15 ? 2 : 1) : 0;
   const hct = eng.hct();
   const heIdx = shuntFraction * (0.6 + 0.8 * p.cirrhosis);

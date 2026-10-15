@@ -6,7 +6,7 @@
 
 import { store } from './store.js?v=3b659e1968';
 import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=7bea6ad65a';
-import { SNAPSHOTS } from './snapshots.js?v=0f6fae1c74';
+import { SNAPSHOTS } from './snapshots.js?v=c33287671c';
 import { pressureColor } from './colormap.js?v=9144eb7640';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('menu');

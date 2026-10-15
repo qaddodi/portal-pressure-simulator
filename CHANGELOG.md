@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Blood loss gives realistic vital signs (ATLS classes).** A 500 mL bleed in a healthy adult used to drop the mean
+  pressure from 93 to 76 and a litre left almost no circulation. Two reflexes now compensate: the venous reservoir
+  (sympathetic venoconstriction moves unstressed blood back into circulation, Gelman 2008) and a volume afferent that
+  speeds the heart before the pressure falls. Healthy, MAP/HR: 500 mL 91/74, 1000 mL 87/92, 1500 mL 79/119, 2000 mL
+  62/168 (ATLS 10th ed.: class I, II, III, IV). Cirrhosis has less reserve and a blunted heart rate; carvedilol blunts
+  it more. The shock class now counts the patient's own blood volume (the plasma expansion of cirrhosis no longer reads
+  as a negative loss). The variceal bleed talk tears a little wider (0.35) so its "Shock before anemia" slide is a class
+  II loss. Test: `tests/bleed.test.js`.
 - **Bottom bar rearranged (option 2).** On an upright phone or tablet the bottom is two bands instead of three: the
   view switch and Fit no longer float above the dock. A **View** tab replaces Layers and holds the views (Circuit,
   Anatomy, Lobule, Sinusoid), Fit to screen, Turn upright (circuit) and, under them, the layers of the current view.

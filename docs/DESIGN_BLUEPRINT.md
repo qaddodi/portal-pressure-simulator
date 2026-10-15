@@ -594,7 +594,8 @@ clamp d ∈ [d_min, d_max]
   settings makes lessons reproducible by rupturing exactly when T > T_crit.
 - **Once ruptured:** a new edge `VAR → GI lumen (sink)` opens with a resistance scaled to the tear size.
   Blood volume drains, **MAP and portal pressure fall** (tamponade physiology), and the baroreflex
-  kicks in. Bleeding can stop spontaneously if P_var falls below a clotting threshold. It can
+  kicks in, helped by the venous reservoir and a volume afferent (`RESERVOIR` in engine.js), so the vital signs follow
+  the ATLS hemorrhage classes. Bleeding can stop spontaneously if P_var falls below a clotting threshold. It can
   **rebleed** if pressure recovers, for example from **over-transfusion**. That's a key teaching loop.
 
 ### 7.6 Two clocks
