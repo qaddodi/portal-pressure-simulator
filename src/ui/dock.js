@@ -310,7 +310,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const closeBtn = h('button', { class: 'ib card-close workspace-close', 'aria-label': 'Close Tests', title: 'Close (Esc)', onclick: close }, svgIcon('close'));
   const divider = h('div', { class: 'workspace-divider', role: 'separator', tabindex: '0', 'aria-label': 'Instruments size' }, h('span'));
   workspace.prepend(divider);
-  head.classList.add('card-head');
+  head.classList.add('card-head', 'tabbed');
   head.append(titleEl, live, closeBtn);
   // The tabs: one per instrument, with its live reading.
   const tabEls = {};
@@ -333,10 +333,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const pickHint = h('div', { class: 'instr-hint', hidden: true }, 'Pick a second instrument to show with ', h('b'), '.');
   const tabsBox = tabs;
   // The row never scrolls: a wide card shows every full name, a narrower one the short names over their icons.
-  const fitTabs = () => { const w = tabs.clientWidth; if (w) { tabs.classList.toggle('compact', w < 720); tabs.classList.toggle('narrow', w < 520); } };
+  // Tightest (a phone's sheet, beside the close button): only the open tab keeps its name, the others are icons.
+  const fitTabs = () => { const w = tabs.clientWidth; if (w) { tabs.classList.toggle('compact', w < 780); tabs.classList.toggle('narrow', w < 520); tabs.classList.toggle('tight', w < 420); } };
   if (typeof ResizeObserver === 'function') new ResizeObserver(fitTabs).observe(tabs);
   fitTabs();
-  head.after(tabsBox, pickHint);
+  // The tabs sit in the head itself, with the close button at the row's end: one slim row instead of a title row
+  // over a tab row. The title and its quiet status show only while the tabs are hidden (the folded peek state).
+  closeBtn.before(tabsBox);
+  head.after(pickHint);
   // The switch inside the Pressure tab: the chart along the circuit, or the same pressures over time.
   const pressureSwitch = (own) => h('div', { class: 'pressure-switch', role: 'group', 'aria-label': 'Pressure view' },
     [['profile', 'Along the circuit'], ['scope', 'Over time']].map(([id, label]) => h('button', {

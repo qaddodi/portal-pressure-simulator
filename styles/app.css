@@ -5085,3 +5085,21 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .vdock:not(.mini) .readouts .metric .v .unit { display: none; }
   .vdock:not(.mini) .readouts .metric .rb { margin: 2px 0 0; }
 }
+
+/* ── Tests: one slim head row ─────────────────────────────────────
+   The tabs sit in the card's head with the close button at the row's end (no "Tests" title row above them).
+   The title and its quiet status come back only in the folded peek state, where the tabs are hidden. On the
+   tightest card (a phone's sheet) only the open tab shows its name beside its icon; the others are icons that
+   share the rest of the row, and the name eases open on the tab you pick. */
+.instrument-workspace .dock-head.tabbed.card-head { flex-direction: row !important; flex-wrap: nowrap !important; align-items: center; justify-content: flex-start; gap: 4px; min-height: 0; height: auto !important; padding: 6px 6px 6px 10px !important; }
+.instrument-workspace .dock-head.tabbed:has(> .instr-tabs:not([hidden])) > :is(.dock-title, .workspace-live) { display: none; }
+.instrument-workspace .dock-head.tabbed > .dock-title { flex: 1 1 auto; }
+.instrument-workspace .dock-head.tabbed > .instr-tabs { flex: 1 1 auto; min-width: 0; margin: 0; }
+.instrument-workspace .dock-head.tabbed .card-close.card-close { position: static; transform: none; flex: none; width: 36px; height: 36px; margin-left: auto; }
+.instrument-workspace .dock-head .ws-tabs.tight .instr-tab, .instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] { flex: 1 1 auto; flex-direction: row; gap: 0; height: 34px; min-width: 0; padding: 0 8px; }
+.instrument-workspace .dock-head .ws-tabs.tight .it-t { max-width: 0; margin-left: 0; opacity: 0; overflow: hidden; transition: max-width .24s var(--ease), margin-left .24s var(--ease), opacity .18s var(--ease); }
+.instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] .it-t { max-width: 96px; margin-left: 5px; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .instrument-workspace .dock-head .ws-tabs.tight .it-t { transition: none; } }
+@media (min-width: 1024px) and (pointer: fine) {
+  .instrument-workspace .dock-head.tabbed.card-head { padding: 8px 8px 2px 16px !important; }
+}
