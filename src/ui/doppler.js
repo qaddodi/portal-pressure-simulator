@@ -43,18 +43,17 @@ const KEEP = 16;                 // Retain enough samples for the 12 s sweep and
 const MINUS = '−';
 const num = (v, d = 0) => (v < 0 ? MINUS : '') + fmt(Math.abs(v), d);
 
-export function createDoppler({ onProbe }) {
+export function createDoppler({ onProbe, pickGate = true }) {
   let sweepIndex = 0;
   let sweepSeconds = SWEEP_SECONDS[sweepIndex];
   const probeSel = h('select', { class: 'select dop-vessel', 'aria-label': 'Vessel' },
     PROBES.map((p) => h('option', { value: p.id, title: EDGES[EI[p.id]].label }, p.short)));
   probeSel.addEventListener('change', () => onProbe(probeSel.value));
   // A stent's sample gate: where along it the trace and the reading come from (store.dopGate, shared with the figure, whose
-  // stent glows in the Doppler's green over that third). Shown only on a stent.
+  // stent glows in the Doppler's green over that third). Chosen by tapping the Proximal, Mid or Distal tile under the trace
+  // (real buttons, in the dock; a slide's own buttons set it in Present, where the tiles are plain).
   const SEGS = [['proximal', 'Proximal'], ['mid', 'Mid'], ['distal', 'Distal']];
-  const gateSel = h('select', { class: 'select dop-gate', 'aria-label': 'Where along the stent', title: 'Where along the stent the Doppler samples', hidden: true },
-    SEGS.map(([v, t]) => h('option', { value: v }, t)));
-  gateSel.addEventListener('change', () => { store.set({ dopGate: gateSel.value }); logAction('gate', 'doppler', gateSel.value); });
+  const pickSeg = (seg) => { if (store.get().dopGate !== seg) store.set({ dopGate: seg }); logAction('gate', 'doppler', seg); };
   // Display mode: a pill that cycles Spectrum → Direction → Power → Directional Power → Variance,
   // like Invert. The colour maps live in dopplerColor.js; the trace is drawn through them.
   let mode = 'spectrum';
@@ -127,11 +126,16 @@ export function createDoppler({ onProbe }) {
   const noteEl = h('p', { class: 'dop-note' });
   const statEls = {};
   const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI', 'Proximal', 'Mid', 'Distal'].map((k) => {
-    const dd = h('dd', {}, '—'); const wrap = h('div', {}, h('dt', {}, k), dd); statEls[k] = { dd, wrap }; return wrap;
+    const dd = h('dd', {}, '—');
+    const seg = SEGS.find(([, name]) => name === k)?.[0];
+    // A stent segment's tile is a button (the name inside the term; its ::after covers the whole tile, so a tap anywhere on it samples there).
+    const btn = seg && pickGate ? h('button', { type: 'button', class: 'dop-seg', 'aria-pressed': 'false', title: `Sample the stent at its ${k.toLowerCase()} end` }, k) : null;
+    btn?.addEventListener('click', () => pickSeg(seg));
+    const wrap = h('div', {}, h('dt', {}, btn || k), dd); statEls[k] = { dd, wrap, btn }; return wrap;
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
-    h('div', { class: 'dop-head' }, probeSel, gateSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
+    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
 
   // ── Samples ───────────────────────────────────────
   let buf = [];
@@ -400,16 +404,20 @@ export function createDoppler({ onProbe }) {
     const isStent = p.kind === 'tips';
     statEls.Trough.wrap.hidden = statEls.Pulsatility.wrap.hidden = isStent;
     for (const k of ['Proximal', 'Mid', 'Distal']) statEls[k].wrap.hidden = !isStent;
-    gateSel.hidden = !isStent;
     if (isStent) {
       // Each segment against the usual 90–190 cm/s, the gated one marked.
       const at = gateOf();
-      if (gateSel.value !== at) gateSel.value = at;
       stentReads(open).forEach((v, i) => {
         const [seg, name] = SEGS[i], w = statEls[name].wrap, out = String(v < p.normal[0] || v > p.normal[1]);
         setStat(statEls[name].dd, num(v), 'cm/s');
         if (w.dataset.out !== out) w.dataset.out = out;
         w.classList.toggle('on', seg === at);
+        const b = statEls[name].btn;
+        if (b) {
+          const on = String(seg === at), label = `${name}, ${num(v)} centimeters per second${seg === at ? ', sampling here' : ''}. Activate to sample here.`;
+          if (b.getAttribute('aria-pressed') !== on) b.setAttribute('aria-pressed', on);
+          if (b.getAttribute('aria-label') !== label) b.setAttribute('aria-label', label);
+        }
       });
     }
     set(noteEl, it.note);

@@ -2143,6 +2143,29 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const bad = await page.evaluate(() => { cancelAnimationFrame(window.__sinkRaf); return [...new Set(window.__bad)].slice(0, 3); });
     if (bad.length) throw new Error(`the card's slide and cut came apart: ${bad.join('; ')}`);
   });
+
+  // A stent's Proximal, Mid and Distal tiles under the Doppler trace are the sample-spot buttons (no dropdown); a tap or Enter moves the gate.
+  await check(device, 'Doppler stent tiles pick the sample spot', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.waitForTimeout(800);
+    await page.evaluate(() => window.pps.updateParams((p) => { p.tips.on = true; return p; }, { label: 'TIPS' }));
+    if (device === 'phone') { await page.click('#thumbBar [data-tab="tests"]'); await page.waitForTimeout(900); await page.evaluate(() => document.querySelector('#dock [data-instrument="doppler"]').click()); }
+    else await page.evaluate(() => window.pps.dock.show('doppler'));
+    await page.waitForTimeout(1200);
+    await page.selectOption('#pane-doppler .dop-vessel', 'TIPS');
+    await page.waitForFunction(() => window.pps.store.get().frame.probe === 'TIPS' && document.querySelector('#pane-doppler .dop-seg').closest('div').offsetParent, null, { timeout: 30000 });
+    if (await page.$('#pane-doppler .dop-gate')) throw new Error('the stent Doppler still has a separate spot dropdown');
+    const tap = (sel) => (device === 'phone' ? page.tap(sel) : page.click(sel));
+    for (const seg of ['proximal', 'distal', 'mid']) {
+      await tap(`#pane-doppler .dop-seg[title*="${seg}"]`);
+      await page.waitForFunction((x) => window.pps.store.get().dopGate === x && document.querySelector(`#pane-doppler .dop-seg[title*="${x}"]`).getAttribute('aria-pressed') === 'true', seg, { timeout: 8000 });
+    }
+    await page.focus('#pane-doppler .dop-seg[title*="distal"]');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => window.pps.store.get().dopGate === 'distal', null, { timeout: 8000 });
+    await page.waitForTimeout(400);
+    await shot(page, `${device}-doppler-stent-tiles`);
+  });
   // The Doppler tab of a phone's Tests card: the Peak, Trough, Pulsatility and CI tiles are on top of the play bar at Half and at Full
   // (the play bar once covered the card's bottom edge), and the one-line note under them shows only at Full.
   if (device === 'phone') await check(device, 'thumb dock: Doppler tiles show at Half and Full, the note only at Full', async (page) => {

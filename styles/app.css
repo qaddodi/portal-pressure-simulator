@@ -2897,8 +2897,12 @@ button.finding { cursor: pointer; }
 .dop-mode[aria-pressed="false"] i { opacity: .35; }
 .dop-tint:disabled { opacity: .4; cursor: default; }
 .dop-vessel { min-width: 0; max-width: 220px; flex: 0 1 220px; height: 34px; font-weight: 600; }
-.dop-gate { min-width: 0; flex: 0 1 112px; height: 34px; font-weight: 600; }
-.dop-gate[hidden] { display: none; }
+/* A stent segment's tile is a button: its name is the button, stretched (::after) over the whole tile. */
+.dop-stats > div:has(> dt > .dop-seg) { position: relative; cursor: pointer; }
+.dop-seg { all: unset; box-sizing: border-box; touch-action: manipulation; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; cursor: pointer; }
+.dop-seg::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.dop-seg:focus-visible { outline: none; }
+.dop-seg:focus-visible::after { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
 .dop-tint { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-2); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
 .dop-tint i { width: 14px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--dop-chip-toward) 50%, var(--dop-chip-away) 50%); opacity: .35; transition: opacity var(--t-fast); }
 .dop-tint[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }

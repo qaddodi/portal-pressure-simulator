@@ -25,7 +25,7 @@ import { store } from './store.js?v=bb8c70114d';
 import { h, fmt, clamp } from './util.js?v=5df92c06c3';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { EDGES } from '../engine/topology.js?v=1825cbda55';
-import { createDoppler } from './doppler.js?v=ee07311d23';
+import { createDoppler } from './doppler.js?v=cba3de4cea';
 import { createFibroScan } from './fibroscan.js?v=4f071f8d0c';
 import { createPressureTime } from './pressure-time.js?v=99453ef259';
 import { createFlowTime } from './flow-time.js?v=109a17e443';
@@ -60,7 +60,7 @@ export function createTools({ host, stage }) {
   let cur = null, kind = null, probe0, gate0, lastSt = null, lastSlide = null;
   function make(k) {
     if (made[k]) return made[k];
-    const inst = k === 'doppler' ? createDoppler({ onProbe: noop }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
+    const inst = k === 'doppler' ? createDoppler({ onProbe: noop, pickGate: false }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
       : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'wall' ? createVarixWall() : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : k === 'flowtime' ? createFlowTime() : null;
     if (inst) { inst.el.classList.remove('dock-pane'); inst.el.classList.add('pz-inst'); }
     return (made[k] = inst);
