@@ -5199,7 +5199,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .app.thumb .vdock:not(.mini) { grid-template-areas: "st st" "tl ro" "nb nb"; }
 .nb-tab { position: relative; flex: 1 1 0; min-width: 0; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; border: 0; border-radius: calc(var(--r-sheet) - 6px); background: none; color: var(--text-2); font: 600 var(--fs-12)/1 var(--font-ui); cursor: pointer; transition: background .18s var(--ease), color .18s var(--ease); -webkit-tap-highlight-color: transparent; }
 .nb-tab > svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.nb-l { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nb-l { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.25; }   /* (a line as tall as the letters: line-height 1 clipped the descenders of y and g) */
 @media (hover: hover) { .nb-tab:hover { color: var(--text); } }
 .nb-tab:is([aria-pressed="true"], [aria-expanded="true"]) { color: var(--text); background: var(--surface-2); }
 .nb-tab:is([aria-pressed="true"], [aria-expanded="true"]) > svg { stroke: var(--accent); }
@@ -5211,23 +5211,23 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .app.thumb .topbar .tb-id { flex: 0 1 auto; min-width: 0; }
 .app.thumb .topbar .stage-bar.top { flex: 1 1 auto; order: 0; justify-content: flex-end; }
 .app.thumb .topbar .sb-left { display: none; }
-/* The view switch (Circuit, Anatomy, Lobule, Sinusoid) lives in the thumb dock, on its own line just above the tabs (15 Oct,
-   Mohammad: "can we put it down below"; main.js syncThumb moves it there). It is part of the tab row's opaque block, so a
-   card or menu rises from behind it and stops on its top edge: the switch stays one tap away with Treat, Tests, History or
-   any card open. The sinusoid view hides the dock: there Lobule and Sinusoid sit in a pill at the bottom left, level with
-   the zoom group (+, − back to the lobule, Fit) at the bottom right. */
+/* The view switch (Circuit, Anatomy, Lobule, Sinusoid) is the thumb dock's first line, above the play row (15 Oct, Mohammad:
+   "can we put it down below"; main.js syncThumb moves it there). One slim line, the selected view in a soft pill as in the
+   top-bar switch, no track or box. It is part of the play bar's half of the dock: a card or menu covers it as it covers the
+   play row, and it comes back with them. The sinusoid view hides the dock: there Lobule and Sinusoid sit in a pill at the
+   bottom left, level with the zoom group (+, − back to the lobule, Fit) at the bottom right. */
 .nb-views, .sin-views { display: none; }
-.app.thumb .thumb-bar { flex-wrap: wrap; }
-.app.thumb .nb-views { display: flex; flex: 1 1 100%; justify-content: center; padding: 3px 0 1px; }
-.app.thumb .nb-views #viewSeg, .app.thumb .sin-views #viewSeg { display: flex; gap: 2px; padding: 3px; border-radius: calc(var(--r-sheet) - 4px); background: var(--surface-2); }
-.app.thumb .nb-views #viewSeg { width: 100%; max-width: 440px; height: 38px; }
-.app.thumb :is(.nb-views, .sin-views) #viewSeg button { flex: 1 1 0; min-width: 0; height: 32px; padding: 0 6px; border-radius: calc(var(--r-sheet) - 7px); font-size: var(--fs-14); letter-spacing: 0; white-space: nowrap; }
-#app.thumb.sin-focus .sin-views { display: flex; position: absolute; z-index: var(--z-hud); padding: 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
+.app.thumb .vdock:not(.mini) > .nb-views { grid-area: st; display: flex; justify-content: center; min-width: 0; padding: 7px 6px 3px; }   /* (6 px clear of the dock's 1 px edge line) */
+.app.thumb .nb-views #viewSeg { display: flex; justify-content: center; gap: 4px; min-width: 0; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.app.thumb :is(.nb-views, .sin-views) #viewSeg button { position: relative; flex: 0 1 auto; min-width: 0; min-height: 0; height: 29px; padding: 0 14px; border-radius: 999px; font-size: var(--fs-12); font-weight: 600; letter-spacing: 0; white-space: nowrap; }
+/* (The painted pill is 29 px; the touch reaches 7 px past it above and below, unseen.) */
+.app.thumb :is(.nb-views, .sin-views) #viewSeg button::after { content: ""; position: absolute; inset: -7px 0; }
+.app.thumb :is(.nb-views, .sin-views) #viewSeg button[aria-pressed="true"] { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; color: var(--text); }
+@media (max-width: 359px) { .app.thumb .nb-views #viewSeg { gap: 0; } .app.thumb .nb-views #viewSeg button { padding: 0 10px; } }
+.app.thumb .sin-views #viewSeg { display: flex; gap: 2px; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
+#app.thumb.sin-focus .sin-views { display: flex; position: absolute; z-index: var(--z-hud); padding: 6.5px 5px;   /* (as tall as the zoom group beside it, 42 px) */ border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
   left: calc(env(safe-area-inset-left) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); }
-.app.thumb .sin-views #viewSeg { height: 36px; padding: 0; background: transparent; }
-.app.thumb .sin-views #viewSeg button { flex: none; height: 36px; padding: 0 12px; border-radius: calc(var(--r-sheet) - 3px); }
 @media (max-width: 767px) { #app.thumb.sin-focus .sin-views { left: calc(env(safe-area-inset-left) + 8px); } }
-@media (max-width: 380px) { .app.thumb .nb-views #viewSeg button { padding: 0 3px; font-size: 13px; } }
 /* A phone: the cards (Tests, Treat, Details) and the menus sit above the dock, inset like it, round on every corner. */
 @media (max-width: 767px) {
   .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) {
@@ -5282,11 +5282,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .app.thumb .vdock:not(.mini) .thumb-bar { position: relative; border-radius: 0 0 var(--r-sheet) var(--r-sheet); background: linear-gradient(var(--glass), var(--glass)), var(--stage-bg); box-shadow: inset 1px 0 0 var(--hairline), inset -1px 0 0 var(--hairline), inset 0 -1px 0 var(--hairline); transition: box-shadow .2s var(--ease); }
 .app.thumb .vdock:not(.mini) > :not(.thumb-bar) { transition: opacity .2s var(--ease); }
 /* (Below the tab row, down to the screen's edge, is part of it too: a card sliding away is gone once it passes the tab row's top.) */
-.app.thumb .vdock:not(.mini) .thumb-bar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: calc(env(safe-area-inset-bottom) + 16px); background: var(--stage-bg); pointer-events: none; }
+.app.thumb .vdock:not(.mini) .thumb-bar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: calc(env(safe-area-inset-bottom) + 16px); background: var(--stage-bg); pointer-events: none; opacity: 0; transition: opacity 0s linear .32s; }
+/* (Only while a card or menu is up, or still sinking away: at rest the figure shows under the dock, with no flat band.) */
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar::after, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden])) .vdock:not(.mini) .thumb-bar::after, html.thumb-ui:has(body > .menu) .app.thumb .vdock:not(.mini) .thumb-bar::after { opacity: 1; transition: none; }
 .app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini)::before, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini)::before, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini)::before { opacity: 0; }
 /* (The dock's parts are named, not "> :not(.thumb-bar)": a :has() rule whose last part names nothing restyled the whole app
    (3,500 elements) on every node a model tick wrote anywhere in it, 30–60% of the CPU while a slide sat still.) */
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > :is(.stage-bar, .readouts), .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) > :is(.stage-bar, .readouts), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) > :is(.stage-bar, .readouts) { opacity: 0; pointer-events: none; }
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > :is(.nb-views, .stage-bar, .readouts), .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) > :is(.nb-views, .stage-bar, .readouts), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) > :is(.nb-views, .stage-bar, .readouts) { opacity: 0; pointer-events: none; }
 .app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) .thumb-bar, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar { box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
 
 /* While a card covers the play bar, the bar's empty top row must not catch taps meant for the card's bottom edge (the Doppler's stent tiles sit there): only the tab row takes touches. */
@@ -5495,7 +5497,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    One row: play, speed, the clock and jump at the left, the two key readings at the right as plain numbers, with no bars
    and no rating words (Tests > Readouts has the rest). On an upright phone or tablet it sits on the tab row; on a Mac or
    an iPad held sideways it is the whole bar. The colour of a number still says normal, raised or high. */
-.app.thumb .vdock .stage-bar.bottom { height: 46px; min-height: 46px; }
+.app.thumb .vdock .stage-bar.bottom { height: 49px; min-height: 49px; padding-bottom: 3px; }   /* (6 px from the play box to the tab row's line, as from the switch to the box) */
 .app.thumb .vdock .readouts:not(.all) .ro-group { padding: 0 2px; justify-content: center; }
 .app.thumb .vdock .readouts:not(.all) .metric { flex-direction: row; flex-wrap: nowrap; align-items: baseline; justify-content: flex-end; gap: 0 5px; padding: 0 6px; }
 .app.thumb .vdock .readouts:not(.all) .metric :is(.rb, .s, .tr) { display: none; }
@@ -5509,11 +5511,27 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .app.thumb .vdock .readouts:not(.all) .metric { width: max-content; }
 .app.thumb .vdock .readouts:not(.all) .metric .k { flex: none; overflow: visible; }
 .app.thumb .vdock .timeline .tl-jumps { margin-left: 0; }
+/* A phone: the clock keeps only its own width (not the Mac's 64 px column), so the lobule's two readings fit whole. */
+@media (max-width: 767px) {
+  .app.thumb .vdock .timeline .tl-time { min-width: 0; margin-left: 6px; }
+  .app.thumb .vdock .readouts:not(.all) { padding-right: 6px; }
+}
 /* A narrow phone (iPhone SE, 375 px and less): a little less room around the numbers so both fit. */
 @media (max-width: 380px) {
   .app.thumb .vdock .timeline { gap: 4px; }
   .app.thumb .vdock .readouts:not(.all) .metric { padding: 0 3px; gap: 0 4px; }
   .app.thumb .vdock .readouts:not(.all) .metric .v { font-size: 18px; }
+}
+/* The smallest phones (320 px): the two readings and their names a step smaller, so the second one is not cut off. */
+@media (max-width: 359px) {
+  .app.thumb .vdock .timeline { gap: 2px; }
+  .app.thumb .vdock .timeline .tl-time { margin-left: 8px; margin-right: -1px; }   /* (the jump icon has room of its own inside its button) */
+  .app.thumb .vdock .readouts:not(.all) .ro-group { padding: 0; }
+  .app.thumb .vdock .timeline .tl-ff { width: 30px; }
+  .app.thumb .vdock .readouts:not(.all) { padding-right: 8px; }
+  .app.thumb .vdock .readouts:not(.all) .metric { padding: 0 1px; gap: 0 2px; }
+  .app.thumb .vdock .readouts:not(.all) .metric .k { font-size: 10px; letter-spacing: 0; }
+  .app.thumb .vdock .readouts:not(.all) .metric .v { font-size: 15px; }
 }
 @media (min-width: 1000px) {   /* (a Mac from 1024 px, an iPad held sideways) */
   .app:not(.thumb):not(.presenting) .vdock { width: max-content; max-width: calc(100% - 2 * var(--gap)); }

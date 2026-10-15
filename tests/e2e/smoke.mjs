@@ -2524,11 +2524,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const r = await page.evaluate((v) => {
         const b = document.querySelector(`#viewSeg [data-view="${v}"]`), q = b.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2;
         const hit = document.elementFromPoint(x, y);
-        return { x, y, h: q.height, why: `css ${getComputedStyle(b).height}, bar ${document.querySelector('#topbar').className} fit ${document.querySelector('#topbar').dataset.fit}, app ${document.querySelector('#app').className}`, shown: !!b.offsetParent, home: (() => { const a = document.querySelector('#app'), q = a.classList.contains('thumb') ? (a.classList.contains('sin-focus') ? '#sinViews' : '#thumbBar') : '#topbar'; return [q, document.querySelector(q).contains(b)]; })(), on: q.left >= 0 && q.right <= innerWidth && q.top >= 0 && q.bottom <= innerHeight, free: !!hit && b.contains(hit), over: hit ? `${hit.tagName}#${hit.id}.${hit.getAttribute('class')}` : 'nothing' };
+        return { x, y, h: q.height, why: `css ${getComputedStyle(b).height}, bar ${document.querySelector('#topbar').className} fit ${document.querySelector('#topbar').dataset.fit}, app ${document.querySelector('#app').className}`, shown: !!b.offsetParent, home: (() => { const a = document.querySelector('#app'), q = a.classList.contains('thumb') ? (a.classList.contains('sin-focus') ? '#sinViews' : '#nbViews') : '#topbar'; return [q, document.querySelector(q).contains(b)]; })(), on: q.left >= 0 && q.right <= innerWidth && q.top >= 0 && q.bottom <= innerHeight, free: !!hit && b.contains(hit), over: hit ? `${hit.tagName}#${hit.id}.${hit.getAttribute('class')}` : 'nothing' };
       }, v);
       if (!r.shown || !r.home[1]) throw new Error(`${at}: the ${v} button is not shown in ${r.home[0]}`);
       if (!r.on) throw new Error(`${at}: the ${v} button is off the screen`);
-      if (r.h < 32) throw new Error(`${at}: the ${v} button is ${Math.round(r.h)} px tall (${r.why})`);
+      if (r.h < 28) throw new Error(`${at}: the ${v} button is ${Math.round(r.h)} px tall (${r.why})`);
       if (!r.free) throw new Error(`${at}: the ${v} button is under ${r.over}`);
       if (device === 'phone') await page.touchscreen.tap(r.x, r.y); else await page.mouse.click(r.x, r.y);
       await page.waitForFunction((v) => { const st = window.pps.store.get(); return v === 'sinusoid' ? st.lobule && st.sinusoid : v === 'lobule' ? st.lobule && !st.sinusoid : !st.lobule && st.view === v; }, v, { timeout: 30000 })
@@ -2550,23 +2550,64 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }
       await tapView('anatomic', `${at} lobule`);
       if (!want('anatomic')(await page.evaluate(() => window.pps.store.get()))) throw new Error(`${at}: not back in the anatomy`);
-      // On the thumb dock, a card open above the tab row (Treat, then Tests pulled to full) leaves the switch in reach.
+      // On the thumb dock the switch is the dock's first line: a card open above the tab row (Treat, then Tests pulled to full)
+      // covers it as it covers the play row (it fades, and takes no tap); once the card is put away it is one tap again.
       if (await page.evaluate(() => document.querySelector('#app').classList.contains('thumb'))) {
         for (const tab of ['treat', 'tests']) {
           await page.click(`#thumbBar [data-tab="${tab}"]`);
           await page.waitForTimeout(900);
           if (tab === 'tests') await page.evaluate(() => { const d = document.querySelector('#dock'); if (d.dataset.state !== 'full') document.querySelector('#dock .sheet-grab')?.click(); });
           await page.waitForTimeout(600);
-          await tapView('circuit', `${at} ${tab} open`);
-          await tapView('anatomic', `${at} ${tab} open`);
+          const shows = await page.evaluate(() => { const b = document.querySelector('#viewSeg [data-view="circuit"]'), q = b.getBoundingClientRect(), hit = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2);
+            return +getComputedStyle(document.querySelector('#nbViews')).opacity > 0.05 || (!!hit && b.contains(hit)); });
+          if (shows) throw new Error(`${at}: the view switch shows over the open ${tab} card`);
           await page.click(`#thumbBar [data-tab="${tab}"]`);
           await page.waitForTimeout(700);
+          await tapView('circuit', `${at} ${tab} put away`);
+          await tapView('anatomic', `${at} ${tab} put away`);
         }
       }
     }
   });
-  // The thumb dock (an upright phone): the top bar is two chips, the patient and the key; the view switch has its own line in
-  // the dock, between the play row and the tabs; Treat, Tests, History, Layers and Settings
+  // The thumb dock's words sit whole (15 Oct, Mohammad's iPhone: the tab labels were cut off along the bar's foot, and the switch
+  // sat between the play row and the tabs): every tab label and switch label shows in full inside the dock, on every upright
+  // phone and tablet and in every view; the switch is the dock's first line, above the play row, and no taller than it.
+  await check(device, 'thumb dock: every tab and view label sits whole in the dock, the switch above the play row', async (page) => {
+    const sizes = device === 'phone' ? [[320, 568], [375, 667], [390, 844], [430, 932]] : [[768, 1024], [820, 1180], [1024, 1366]];
+    for (const [w, ht] of sizes) {
+      await page.setViewportSize({ width: w, height: ht });
+      await open(page, '?preset=cirr-decomp');
+      await page.waitForFunction(() => !document.querySelector('#boot:not(.done)'), null, { timeout: 30000 });
+      for (const v of ['anatomic', 'circuit', 'lobule']) {
+        if (v !== 'anatomic') { await pickView(page, v); await page.waitForTimeout(v === 'lobule' ? 2500 : 1200); }
+        const bad = await page.evaluate(() => {
+          const out = [], r = (e) => e.getBoundingClientRect(), d = r(document.querySelector('#vdock')), nb = r(document.querySelector('#thumbBar'));
+          if (!document.querySelector('#app').classList.contains('thumb')) return ['no thumb dock'];
+          if (d.bottom > innerHeight + 0.5) out.push(`the dock runs ${Math.round(d.bottom - innerHeight)} px off the screen`);
+          if (nb.bottom > d.bottom + 1) out.push(`the tab row runs ${Math.round(nb.bottom - d.bottom)} px below the dock`);
+          const words = [...document.querySelectorAll('#thumbBar .nb-tab .nb-l'), ...document.querySelectorAll('#viewSeg button')].filter((e) => e.offsetParent);
+          for (const e of words) {
+            const q = r(e), box = e.closest('#thumbBar') ? nb : d, name = e.textContent.trim();
+            // (the words' own box against the label's: a touch area drawn past a button's edge does not count as cut)
+            const t = document.createRange(); t.selectNodeContents(e); const tr = t.getBoundingClientRect();
+            if (e.scrollWidth > e.clientWidth + 1 || tr.left < q.left - 0.5 || tr.right > q.right + 0.5 || tr.top < q.top - 0.5 || tr.bottom > q.bottom + 0.5) out.push(`"${name}" is cut short (${Math.round(tr.width)}x${Math.round(tr.height)} words in ${Math.round(q.width)}x${Math.round(q.height)})`);
+            if (q.top < box.top - 0.5 || q.bottom > box.bottom + 0.5 || q.left < box.left - 0.5 || q.right > box.right + 0.5) out.push(`"${name}" runs outside its bar (${Math.round(q.top)}-${Math.round(q.bottom)} in ${Math.round(box.top)}-${Math.round(box.bottom)})`);
+            const hit = document.elementFromPoint(q.left + q.width / 2, q.bottom - 2);
+            if (!hit || !(e.closest('button').contains(hit))) out.push(`"${name}" has ${hit ? hit.tagName + '.' + hit.getAttribute('class') : 'nothing'} over its foot`);
+          }
+          for (const m of [...document.querySelectorAll('#strip .metric')].filter((e) => e.offsetParent)) { const q = r(m); if (q.right > d.right + 0.5 || q.left < d.left - 0.5) out.push(`the reading "${m.textContent.trim().slice(0, 24)}" runs out of the dock`); }
+          const vs = r(document.querySelector('#viewSeg')), p = r(document.querySelector('#stageBottom'));
+          if (!document.querySelector('#nbViews').contains(document.querySelector('#viewSeg'))) out.push('the switch is not in the dock');
+          else if (vs.bottom > p.top + 1) out.push(`the switch sits below the play row's top (${Math.round(vs.top)}-${Math.round(vs.bottom)} vs ${Math.round(p.top)})`);
+          if (vs.height > p.height + 0.5) out.push(`the switch is ${Math.round(vs.height)} px tall, taller than the play row (${Math.round(p.height)})`);
+          return out;
+        });
+        if (bad.length) throw new Error(`${w}x${ht} ${v}: ${bad.join('; ')}`);
+      }
+    }
+  });
+  // The thumb dock (an upright phone): the top bar is two chips, the patient and the key; the view switch is the dock's first
+  // line, above the play row (never between the play row and the tabs); Treat, Tests, History, Layers and Settings
   // sit in the dock's tab row, and every card or menu they open sits above the dock, so the tab row never moves or hides.
   if (device === 'phone') await check(device, 'thumb dock: two chips on top; the tab row opens every card and menu above the dock', async (page) => {
     await open(page, '?preset=cirr-decomp');
@@ -2578,10 +2619,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (shown.length) throw new Error(`still shown outside the tab row: ${shown.join(', ')}`);
     const row = await page.evaluate(() => { const a = document.querySelector('.tb-id').getBoundingClientRect(), b = document.querySelector('#btnLayers').getBoundingClientRect(); return Math.abs(a.top - b.top) < 8 && a.right <= b.left && b.right <= innerWidth; });
     if (!row) throw new Error('the patient and the key are not one row inside the screen');
-    // Nothing floats over the figure above the dock: Fit is in the Layers tab's menu; the view switch is in the dock, between the play row and the tabs.
+    // Nothing floats over the figure above the dock: Fit is in the Layers tab's menu; the view switch is the dock's first line, above the play row.
     if (await page.evaluate(() => ['#zoomPill', '#zoomFit'].some((q) => document.querySelector(q)?.offsetParent))) throw new Error('the zoom buttons still float over the figure');
-    const between = await page.evaluate(() => { const v = document.querySelector('#viewSeg').getBoundingClientRect(), p = document.querySelector('#stageBottom').getBoundingClientRect(), t = document.querySelector('#thumbBar .nb-tab').getBoundingClientRect(); return document.querySelector('#thumbBar').contains(document.querySelector('#viewSeg')) && v.height >= 32 && v.top >= p.bottom - 1 && v.bottom <= t.top + 1; });
-    if (!between) throw new Error('the view switch is not in the dock between the play row and the tabs');
+    const first = await page.evaluate(() => { const v = document.querySelector('#viewSeg').getBoundingClientRect(), p = document.querySelector('#stageBottom').getBoundingClientRect(), d = document.querySelector('#vdock').getBoundingClientRect(); return document.querySelector('#nbViews').contains(document.querySelector('#viewSeg')) && v.height >= 28 && v.top >= d.top - 1 && v.bottom <= p.top + 1; });
+    if (!first) throw new Error('the view switch is not the dock\'s first line, above the play row');
     await pickView(page, 'circuit');
     await page.waitForFunction(() => window.pps.store.get().view === 'circuit');
     await page.click('#thumbBar [data-tab="layers"]');
@@ -2835,8 +2876,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (Math.abs(v.gap) > 1) throw new Error(`the ${sel.id} card ends ${v.gap} px above the tab row, not on it`);
       if (v.top < 60) throw new Error(`the ${sel.id} card runs up to ${v.top} px`);
       if (v.bar) throw new Error(`the play bar shows over the ${sel.id} card`);
-      // (Fit is in the Layers tab's menu and the view switch on its own line in the tab row, so nothing floats over the figure above the card.)
-      if (await page.evaluate(() => !!document.querySelector('#zoomPill')?.offsetParent || !document.querySelector('#thumbBar').contains(document.querySelector('#viewSeg')))) throw new Error(`Fit floats above the ${sel.id} card, or the view switch left the dock`);
+      // (Fit is in the Layers tab's menu and the view switch is the dock's first line, under the card, so nothing floats over the figure above it.)
+      if (await page.evaluate(() => !!document.querySelector('#zoomPill')?.offsetParent || !document.querySelector('#nbViews').contains(document.querySelector('#viewSeg')))) throw new Error(`Fit floats above the ${sel.id} card, or the view switch left the dock`);
       if (await page.evaluate(() => getComputedStyle(document.querySelector('.action-card .ac-close')).display !== 'none')) throw new Error(`the ${sel.id} card has an X`);
       await pull('.action-card .ac-top', 160, { hold: 100 });   // (no X: a pull down puts it away)
       await page.waitForFunction(() => document.querySelector('.action-card').hidden, null, { timeout: 10000 })

@@ -2,13 +2,14 @@
 
 ## Unreleased
 
-- **The view switch is down in the bottom bar, one tap away.** On an upright phone or iPad the switch (Circuit, Anatomy,
-  Lobule, Sinusoid) has its own line in the dock, between the play row and the tabs. It belongs to the tab row's block,
-  so Treat, Tests, History and the other cards stop on its top edge and it stays tappable while they are open. The
-  sinusoid view, which hides the dock, puts Lobule and Sinusoid in a pill at the bottom left, level with +, − and Fit.
-  The top bar is two chips again (in the sinusoid view its buttons take a second row instead of squeezing the key). Mac,
-  iPad and phone held sideways keep the switch in the top bar. The View tab is called **Layers** again (Fit to screen,
-  Turn upright, the layers). Tests: smoke "view switch: one tap" (13 screen sizes, every view, Treat and Tests open).
+- **The view switch is the bottom bar's first line, one tap away.** On an upright phone or iPad the switch (Circuit,
+  Anatomy, Lobule, Sinusoid) is one slim line at the top of the dock, above the play row: small text, the selected view
+  in a soft pill, no box. A card covers it as it covers the play row. The tab labels sit whole on an iPhone again (the
+  switch had shared the tab row's line, which Safari sized too short), the flat band under the dock shows only while a
+  card is up, and on a 320 px phone both readings fit. The sinusoid view, which hides the dock, puts Lobule and Sinusoid
+  in a pill at the bottom left, level with +, − and Fit. The top bar is two chips again. Mac, iPad and phone held
+  sideways keep the switch in the top bar. The View tab is called **Layers** again (Fit to screen, Turn upright, the
+  layers). Tests: smoke "view switch: one tap" (13 screen sizes, every view) and "every tab and view label sits whole".
 - **Blood loss gives realistic vital signs (ATLS classes).** A 500 mL bleed in a healthy adult used to drop the mean
   pressure from 93 to 76 and a litre left almost no circulation. Two reflexes now compensate: the venous reservoir
   (sympathetic venoconstriction moves unstressed blood back into circulation, Gelman 2008) and a volume afferent that

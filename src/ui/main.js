@@ -1284,9 +1284,9 @@ function syncThumb() {
   const on = thumbOn();
   if (app.classList.contains('thumb') !== on) app.classList.toggle('thumb', on);
   document.documentElement.classList.toggle('thumb-ui', on);   // (the menus and sheets live outside #app)
-  // The view switch leaves the top bar for the thumb dock, a line just above the tabs (15 Oct, Mohammad: "down below"); the
-  // sinusoid view hides the dock, so there it sits in a pill at the bottom left, level with the zoom group. Off the thumb
-  // dock (a Mac, a tablet or phone held sideways) it is back in the top bar.
+  // The view switch leaves the top bar for the thumb dock, the dock's first line, above the play row (15 Oct, Mohammad: "down
+  // below"); the sinusoid view hides the dock, so there it sits in a pill at the bottom left, level with the zoom group. Off
+  // the thumb dock (a Mac, a tablet or phone held sideways) it is back in the top bar.
   const seg = $('#viewSeg'), home = !on ? $('#stageTop .sb-left') : app.classList.contains('sin-focus') ? $('#sinViews') : $('#nbViews');
   if (home && seg.parentElement !== home) home.append(seg);
 }
@@ -1310,7 +1310,8 @@ function wireThumbBar() {
   const layers = tab('layers', 'layers', 'Layers', menuTab(openLayersMenu));
   const more = tab('settings', 'gear', 'Settings', menuTab((a) => openSettings(a, true)));
   for (const b of [hist, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
-  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, h('div', { class: 'nb-views', id: 'nbViews' }), treat, tests, hist, layers, more));
+  $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews' }));
+  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, layers, more));
   $('#stageView').append(h('div', { class: 'sin-views float-ui stage-blocker', id: 'sinViews' }));
   // The tabs follow the cards they open (and History's count), however those were opened or closed.
   const sync = () => {
