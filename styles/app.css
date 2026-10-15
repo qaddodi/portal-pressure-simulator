@@ -5164,7 +5164,19 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .app.thumb .vdock .vd-status > * { pointer-events: auto; box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
 .app.thumb .vdock .vd-status .tl-latest { background: color-mix(in srgb, var(--sev) 14%, var(--surface)); box-shadow: var(--shadow-2), inset 0 0 0 1px color-mix(in srgb, var(--sev) 35%, transparent); }
 .app.thumb .vdock .narrator { padding: 6px 10px; border-radius: var(--r-card); background: var(--glass); }
-.app.thumb:is(.dock-open, .panel-open) .vdock .vd-status, .app.thumb:has(#treatCard:not([hidden])) .vdock .vd-status { opacity: 0; visibility: hidden; }
+.app.thumb:is(.dock-open, .panel-open) .vdock .vd-status, .app.thumb:has(#treatCard:not([hidden])) .vdock .vd-status,
+html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock .vd-status { opacity: 0; visibility: hidden; }
+/* One card or menu at a time above the thumb dock, each a solid piece that comes and goes whole: it rises a little
+   out of the dock as it fades in and sinks back as it fades out, never sliding across the dock, and one opened while
+   another is still going out waits until that one has gone (--enter-delay, set by util.js enterAfterGone). */
+@keyframes thumbIn { from { opacity: 0; transform: translateY(14px); } }
+@keyframes thumbOut { to { opacity: 0; transform: translateY(14px); } }
+.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
+@media (prefers-reduced-motion: no-preference) {
+  #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn .22s var(--ease) var(--enter-delay, 0ms) backwards; }
+  html.thumb-ui .menu, html.thumb-ui .menu.as-sheet { animation: thumbIn .22s var(--ease) var(--enter-delay, 0ms) backwards; }
+  html.thumb-ui .menu.leaving, html.thumb-ui .menu.as-sheet.leaving { animation: thumbOut .12s var(--ease) forwards; }
+}
 
 /* ── History beside Treat and Tests (15 Oct) ───────────────────────
    History left the play bar: on a Mac, an iPad held sideways and a phone held sideways it is a top-bar button

@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=ff070ac951';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bb8c70114d';
-import { createStage } from './stage.js?v=a9de1a9db2';
+import { createStage } from './stage.js?v=992931a80b';
 import { createCreditPlacer } from './credit.js?v=7bbccaaa8c';
-import { sinusoidSupported } from './sinusoid-view.js?v=1b935c6ae8';
-import { createInspector } from './inspector.js?v=469701c0b0';
-import { createDock, CUTOFFS } from './dock.js?v=d54b36f92c';
-import { setHvpgStage } from './hvpg-proc.js?v=b9fcd74786';
-import { createWhy } from './why.js?v=520df9d2c2';
-import { createTimeline, LAPSES } from './timeline.js?v=3fd1846c79';
-import { createCompare } from './compare.js?v=733f4090de';
-import { createCard } from './card.js?v=3766e6dc75';
-import { createChart } from './chart.js?v=ff3babe54b';
-import { createMenu, ROLES } from './menu.js?v=cba915cc85';
+import { sinusoidSupported } from './sinusoid-view.js?v=f559b019f2';
+import { createInspector } from './inspector.js?v=a506c7409e';
+import { createDock, CUTOFFS } from './dock.js?v=488b397f11';
+import { setHvpgStage } from './hvpg-proc.js?v=45c21080e4';
+import { createWhy } from './why.js?v=073ec078e4';
+import { createTimeline, LAPSES } from './timeline.js?v=66ed5e3ca8';
+import { createCompare } from './compare.js?v=82a3afd145';
+import { createCard } from './card.js?v=2a99c88852';
+import { createChart } from './chart.js?v=8eebcabce2';
+import { createMenu, ROLES } from './menu.js?v=544fbb9fab';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';
-import { caption } from './a11y.js?v=ddc54972b5';
+import { caption } from './a11y.js?v=7a1371b741';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=72145fa3a1';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=0477992605';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=bfb913f66a';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=cf2e7a4226';
 import { EDGES, PORTAL_TERRITORY, dopplerK } from '../engine/topology.js?v=1825cbda55';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=abb277f29f';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, markGone, enterAfterGone, enhanceRanges, systemEdge } from './util.js?v=c2539421b5';
 import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=4461c8e89f';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=b1f6f6eaa3';
 import { initTopbarMotion } from './topbar-motion.js?v=40e62f18bf';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=6ebaeb46c8';
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=cf8160320c'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=56381ab225'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -147,7 +147,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=be85625650'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=478b992c57'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -967,11 +967,12 @@ function leave(el) {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   el.classList.remove('card-leaving'); void el.offsetWidth;
   el.classList.add('card-leaving');
+  markGone(180);
   const done = (e) => { if (e && e.target !== el) return; el.classList.remove('card-leaving'); el.removeEventListener('animationend', done); };
   el.addEventListener('animationend', done);
   setTimeout(done, 400);
 }
-const arrive = (el) => el.classList.remove('card-leaving');
+const arrive = (el) => { el.classList.remove('card-leaving'); enterAfterGone(el); };
 function panelShown() { return !app.classList.contains('instrument-focus') && app.classList.contains('panel-open'); }
 // The figure re-fits to the space the open cards leave (once as the card starts, again when its sheet has settled).
 let refitT = 0;
@@ -986,7 +987,8 @@ function syncPanelToggle() {
 }
 /** Opens the patient chart; or the instruments when named. */
 function openPanel(tab = 'chart') {
-  if (tab === 'instruments') { setPanelTab('instruments'); if (isPhone()) { closePanel(); closeTreat(); } return; }
+  // (What it puts away on a phone goes first, so the instruments come in once it has gone.)
+  if (tab === 'instruments') { if (isPhone()) { closePanel(); closeTreat(); } setPanelTab('instruments'); return; }
   // The panel holds a selection's details, the advanced physiology or a pinned comparison; with none of them it stays shut.
   if (!store.get().details && !store.get().compareSnap) return;
   if (app.classList.contains('instrument-focus')) dock.setState('open');
@@ -1242,7 +1244,9 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     apply();
   };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
-  return { open: () => { if (isPhone()) { size = 1; apply(); } }, closed: () => { el.style.translate = ''; el.style.height = ''; } };
+  // (Opening sizes the sheet at once: its height eases only for a change while it is open, so it never comes in
+  // at the last size it had and shrinks into place, and the figure frames once.)
+  return { open: () => { if (isPhone()) { size = 1; el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { el.style.translate = ''; el.style.height = ''; } };
 }
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
@@ -1263,14 +1267,22 @@ function syncThumb() {
 }
 function wireThumbBar() {
   const tab = (id, ic, label, onclick) => h('button', { class: 'nb-tab', type: 'button', 'data-tab': id, onclick }, svgIcon(ic), h('span', { class: 'nb-l' }, label));
-  // Treat and Tests share the space above the dock on a phone: opening one puts the other away.
-  const treat = tab('treat', 'pill', 'Treat', () => { if (isPhone() && !treatOpen() && app.classList.contains('dock-open')) setPanelTab('chart'); $('#btnTreat').click(); });
-  const tests = tab('tests', 'gauge', 'Tests', () => { if (isPhone() && treatOpen() && !app.classList.contains('dock-open')) closeTreat(); $('#tabInstruments').click(); });
+  // One card or menu at a time above the dock: a tab first puts away whatever else is open (it plays its way out,
+  // and the new one comes in once it has gone), and a second tap on the same tab closes its own.
+  const clear = (keep) => {
+    closePopover();
+    if (keep !== 'treat') closeTreat();
+    if (keep !== 'tests' && app.classList.contains('dock-open')) setPanelTab('chart');
+    if (panelShown()) closePanel();
+  };
+  const treat = tab('treat', 'pill', 'Treat', () => { if (!treatOpen()) clear('treat'); $('#btnTreat').click(); });
+  const tests = tab('tests', 'gauge', 'Tests', () => { if (!app.classList.contains('dock-open')) clear('tests'); $('#tabInstruments').click(); });
+  const menuTab = (open) => (e) => { const a = e.currentTarget; if (a.getAttribute('aria-expanded') !== 'true') clear(); open(a); };
   const badge = h('span', { class: 'nb-badge', 'aria-hidden': 'true' });
-  const hist = tab('history', 'clock', 'History', (e) => timeline.openHistory(e.currentTarget));
+  const hist = tab('history', 'clock', 'History', menuTab((a) => timeline.openHistory(a)));
   hist.append(badge);
-  const view = tab('view', 'layers', 'View', (e) => openViewMenu(e.currentTarget));
-  const more = tab('more', 'more', 'More', (e) => openMoreMenu(e.currentTarget));
+  const view = tab('view', 'layers', 'View', menuTab(openViewMenu));
+  const more = tab('more', 'more', 'More', menuTab(openMoreMenu));
   for (const b of [hist, view, more]) b.setAttribute('aria-haspopup', 'dialog');
   $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, view, more));
   // The tabs follow the cards they open (and History's count), however those were opened or closed.

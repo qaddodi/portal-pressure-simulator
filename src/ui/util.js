@@ -192,6 +192,13 @@ export function tooltipFor(el, text, side = 'right') {
 /** Floating menu/popover anchored to an element. Closes on outside click, Escape or re-open. */
 let openMenu = null;
 const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
+// One card or menu at a time over the thumb dock: whatever opens while another is still playing its way out waits
+// until it has gone (--enter-delay, read by the thumb dock's entrance animations), so the two never overlap.
+let goneAt = 0;
+/** Notes that a card or menu is playing its way out for the next ms. */
+export function markGone(ms) { goneAt = Math.max(goneAt, performance.now() + ms); }
+/** Holds a card or menu that is about to come in until the one going out has gone. */
+export function enterAfterGone(el) { el.style.setProperty('--enter-delay', Math.round(Math.max(0, goneAt - performance.now())) + 'ms'); }
 // sheet: on a phone the menu rises as a bottom sheet (full width, its text wraps) instead of a tall
 // popover; pass false for a menu that lays itself out.
 /** The bottom of what is visible: above the on-screen keyboard on iOS, where innerHeight does not shrink. */
@@ -200,13 +207,16 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
   const asSheet = sheet && innerWidth < 768;
   const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : ''), role: 'dialog' }, content);
+  enterAfterGone(el);
   document.body.append(el);
   const put = () => {
     if (asSheet) return;
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
     const r = anchor.getBoundingClientRect(), z = uiScale(), mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
     let x = align === 'end' ? r.right - mr.width : align === 'center' ? r.left + r.width / 2 - mr.width / 2 : r.left;
-    let y = place === 'above' ? r.top - mr.height - 8 : r.bottom + 8;
+    // (A menu from the thumb dock's tab row opens above the whole dock, so it never covers the play bar or HVPG and PPG.)
+    const top = anchor.closest('.thumb-bar') ? Math.min(r.top, anchor.closest('.vdock').getBoundingClientRect().top - 6) : r.top;
+    let y = place === 'above' ? top - mr.height - 8 : r.bottom + 8;
     const vb = visibleBottom();
     if (y + mr.height > vb - 8) y = Math.max(8, r.top - mr.height - 8);
     el.style.left = clamp(x, 8, innerWidth - mr.width - 8) / z + 'px';
@@ -232,7 +242,7 @@ export function closePopover() {
   const el = openMenu.el;
   if (reduceMotionMQ.matches || !el.isConnected) el.remove();
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
-  else { el.classList.add('leaving'); el.inert = true; setTimeout(() => el.remove(), el.dataset.swiped ? 240 : 130); }
+  else { el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : 120); setTimeout(() => el.remove(), el.dataset.swiped ? 240 : 130); }
   openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
   openMenu = null;
 }
