@@ -8,7 +8,7 @@ const nextFrame = frameFor('credit');
 // a top corner drops below whatever covers it.
 export const CORNERS = ['bl', 'br', 'tl', 'tr'];
 
-const hit = (a, o) => a.l < o.r && a.r > o.l && a.t < o.b && a.b > o.t;
+export const hit = (a, o) => a.l < o.r && a.r > o.l && a.t < o.b && a.b > o.t;
 
 // Every free box over the whole figure on a coarse grid (clear of the cards by `gap`, and of the art by `avoid`).
 function wideSpots(fig, obs, w, h, gap, inset, avoid) {
@@ -115,13 +115,13 @@ export function pickCorner(spots, cur, blocked = {}) {
 }
 
 // What the credit keeps clear of. Chrome (the bars, the zoom pill, the figure's labels) is avoided but does not make the screen "busy".
-const OBSTACLES = '.stage-blocker:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .pz-shade';   // (the FibroScan probe's body carries its reading; it counts as chrome below)
-const CHROME = '#topbar, #vdock, #zoomPill, .stage-clock, .pz-bar, .scan-probe:not(.off) .sp-body';   // (the FibroScan probe: its body carries the reading)
+export const OBSTACLES = '.stage-blocker:not([hidden]), .pz-fk:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .pz-shade';   // (the FibroScan probe's body carries its reading; it counts as chrome below)
+export const CHROME = '#topbar, .pz-fk, #vdock, #zoomPill, .stage-clock, .pz-bar, .scan-probe:not(.off) .sp-body';   // (the FibroScan probe: its body carries the reading)
 
 // The figure's own labels (station values, organ captions) and measuring callouts: each one's text and pill, padded and snapped outward to a small
 // grid, so a label that jitters by a pixel as its number changes does not read as a move.
 const GRID = 8;
-function labelRects(wr, wrap) {
+export function labelRects(wr, wrap) {
   const out = [], seen = new Map();   // the shared ancestors' own opacity, read once per pass
   const own = (el) => { let v = seen.get(el); if (v === undefined) { const s = getComputedStyle(el); v = s.display === 'none' || s.visibility === 'hidden' ? 0 : +s.opacity; seen.set(el, v); } return v; };
   for (const g of document.querySelectorAll('#labels .lb:not(.lb-off)')) {
@@ -175,7 +175,7 @@ function shapePath(el) {
 }
 let organMemo = { key: '', test: null };
 // test(box, { pad, org, ves }): true when the box, grown by pad, touches the organs and/or the vessels.
-function organTest(wr) {
+export function organTest(wr) {
   const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2))].join('|');
   if (organMemo.key === key) return organMemo.test;
   const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, grids = { org: new Uint8Array(cols * rows), ves: new Uint8Array(cols * rows) };

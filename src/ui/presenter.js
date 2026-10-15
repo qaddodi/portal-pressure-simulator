@@ -27,6 +27,7 @@ import { openHandout } from './handout.js?v=62f887453a';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=525d14632b';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
+import { createFigureKey } from './figure-key.js?v=1327565fe0';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=cf2e7a4226';
 const nextFrame = frameFor('presenter');
@@ -73,13 +74,14 @@ export const slideLens = (s, q = false) => (!q && !s?.visual && LENS_KEY[s?.lens
 const PRESSURE_KEY = ['pressure', () => gradientCss('to right', 30), 'Low', 'High'];
 const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
 const gateButtons = (s) => !!s.compare?.some((o) => o.gate);
-function lensKey(k, fixed = false) {
+// The key's words and swatches, for the small pill on the figure (figure-key.js): the lens named, then its ends.
+function keyNodes(k) {
   const [name, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY;
   const dot = (v) => h('i', { class: 'pz-lens-dot', style: { background: `var(${v})` } });
-  return h('p', { class: 'pz-lens' + (fixed ? ' pz-lens-fix' : ''), 'data-lens': k }, h('b', {}, name[0].toUpperCase() + name.slice(1)),
-    // (Each swatch stays on one line with its words: "Low ▬▬ High" as one piece, a dot with its name.)
+  // (Each swatch stays on one line with its words: "Low ▬▬ High" as one piece, a dot with its name.)
+  return [h('b', {}, name[0].toUpperCase() + name.slice(1)),
     ...(typeof bar === 'function' ? [h('span', { class: 'pz-lens-k' }, h('span', {}, lo), h('i', { class: 'pz-lens-bar', style: { background: bar() } }), h('span', {}, hi))]
-      : bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, dot(v), h('span', {}, t)))));
+      : bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, dot(v), h('span', {}, t))))];
 }
 // A string with its disease names set in a pill (see diseases.js).
 const diseaseNodes = (t) => diseasePieces(t).map(([x, dz]) => (dz ? h('span', { class: 'pz-dz' }, x) : x));
@@ -1284,13 +1286,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (s.compare[k].gate) { store.set({ dopGate: s.compare[k].gate }); return; }
     liveSet(s, i, s.compare[k].params);
   }
+  // The slide's colour key on the figure (null: none); another lens fades the old key out, the new one in.
+  function paintKey(k) {
+    if (!ui) return;
+    ui.text.classList.toggle('pz-keyed', !!k);
+    ui.figKey.set(!!k, () => {
+      ui.fk.replaceChildren(...(k ? keyNodes(k) : []));
+      ui.fk.setAttribute('aria-label', `Vessels colored by ${(LENS_KEY[k] || PRESSURE_KEY)[0]}`);
+    });
+  }
   // A lens button ({ label, lens }): the figure crossfades to that lens and the key under the line follows; the model is untouched.
   function lensPick(l) {
     const lens = slideLens({ lens: l });
     if (store.get().colorMode !== lens) store.set({ colorMode: lens });
-    const key = lensKey(lens, true);
-    ui?.text.querySelector('.pz-lens')?.replaceWith(key);
-    if (ui?.text) fitLensKeys(ui.text);
+    paintKey(lens);
   }
   async function liveSet(s, i, patch) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
@@ -1729,7 +1738,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const { text, panel, data } = ui;
     text.classList.remove('pz-leave');   // (the panel's own is let go once its new content is in, so it never fades back in with the old)
     if (s.visual) {
-      text.hidden = true; text.replaceChildren();
+      text.hidden = true; text.replaceChildren(); paintKey(null);
       // A panel that was not there fades in (never pops): unhidden while still faded, then let go.
       if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void panel.offsetWidth; }
       panel.classList.toggle('fill', s.visual === 'ladders');
@@ -1744,7 +1753,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       text.replaceChildren(...(q
         ? [h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
         : [(({ site, name } = siteTag(deck, s) || {}) => site ? h('span', { class: 'pz-site', 'data-site': site }, h('i'), name) : null)(), h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
-          s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, slideLens(s) !== 'pressure' || lensButtons(s) ? lensKey(slideLens(s), lensButtons(s)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
+          s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,
@@ -1752,6 +1761,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), s.causes.join(', ')) : null]));
+      paintKey(!q && (slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null);
       const ttl = text.querySelector('.pz-h');
       if (ttl && !phone()) { const lh = parseFloat(getComputedStyle(ttl).lineHeight) || ttl.offsetHeight; if (ttl.offsetHeight > lh * 2.4) ttl.classList.add('long'); }
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
@@ -2041,19 +2051,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // An equation never runs past its card: one wider than its box is set smaller (--eq-k, the share of its size that fits).
   // (Measured at the card's final zoom; the math is a block of its own, so its box is the room the card gives it.)
-  // A colour key always keeps to one line: one wider than the card is set smaller (--lens-k), to 60% at most.
-  function fitLensKeys(el) {
-    for (const p of el.querySelectorAll('.pz-lens')) {
-      p.style.removeProperty('--lens-k');
-      let k = 1;
-      for (let n = 0; n < 4; n++) {
-        const w = p.clientWidth, over = p.scrollWidth - w;
-        if (!w || over <= 0.5) break;
-        k = Math.max(0.6, k * (w / (w + over)) * 0.99);
-        p.style.setProperty('--lens-k', k.toFixed(3));
-      }
-    }
-  }
   function fitEquations(el) {
     for (const box of el.querySelectorAll('.pz-eq')) {
       box.style.removeProperty('--eq-k');
@@ -2067,7 +2064,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
   }
   // (An equation typeset before the math font arrives is wider or narrower than it ends up: fitted again once the fonts are in.)
-  document.fonts?.ready.then(() => { for (const c of [ui?.text, ui?.data, ui?.panel]) if (c && !c.hidden) { fitEquations(c); fitLensKeys(c); } });
+  document.fonts?.ready.then(() => { for (const c of [ui?.text, ui?.data, ui?.panel]) if (c && !c.hidden) { fitEquations(c); } });
   function fitCards(...els) {
     for (const el of els) {
       if (!el || el.hidden) continue;
@@ -2095,7 +2092,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         }
       }
       fitHeads(el);
-      fitLensKeys(el);
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
       const all = el.querySelector('.pz-check'); all?.classList.add('pzc-all', 'pzc-still');
       let k = 1;
@@ -2117,7 +2113,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         el.style.setProperty('--pz-z', z.toFixed(3));
       }
       fitEquations(el);
-      fitLensKeys(el);
       // (Closed again with no transition, so the answers start hidden and the card rests at its closed height.)
       if (all) { all.classList.remove('pzc-all'); void all.offsetHeight; all.classList.remove('pzc-still'); }
       fitDone.set(el, fitSig(el));   // (as it rests once fitted: a folding part's height is part of it)
@@ -2674,12 +2669,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));
     const jump = h('nav', { class: 'pz-jump stage-blocker', hidden: true, 'aria-label': 'Slides' });
     const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, 'aria-live': 'polite', onclick: () => caseLift?.() });
-    const root = h('div', { class: 'pz' }, safe, veil, load, text, data, panel, vcase, prog, bar, jump, blackEl);
+    // The slide's colour key, small on the figure (src/ui/figure-key.js places it; its words are set by figKey).
+    const fk = h('div', { class: 'pz-fk', role: 'img', hidden: true, 'data-empty': '' });
+    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, panel, vcase, prog, bar, jump, blackEl);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
-    return { root, shade, safe, load, text, data, vcase, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
+    const figKey = createFigureKey({ el: fk, wrap, app, order: () => (phone() ? ['bl', 'br', 'tl', 'tr'] : ['bl', 'tl', 'br', 'tr']), left: () => frameL });
+    return { root, shade, safe, load, text, data, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: landing back on a slide after a reload, its case card is not replayed)
@@ -2769,7 +2767,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;
-    pillW = 0; ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
+    pillW = 0; ui?.tools.dispose(); ui?.figKey.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.setProjection(false);

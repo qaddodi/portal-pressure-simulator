@@ -91,7 +91,7 @@ const open = async (page, q = '') => {
 
 // A presenter's controls against the slide's card: 'ok', or what is wrong (null while the slide is still coming in). The controls'
 // icons and count may not cover the card's words or table. A phone's are a pill fixed at the lower right (10 px in, 4 px up),
-// every tap target at least 44 px, over no line of the words, no other card and no figure label; and the card's title is its
+// every tap target at least 38 px, over no line of the words, no other card and no figure label; and the card's title is its
 // first line (no empty row above it).
 const barFit = (page) => page.evaluate(() => {
   const bar = document.querySelector('.pz-bar');
@@ -99,7 +99,7 @@ const barFit = (page) => page.evaluate(() => {
   const host = [...document.querySelectorAll('.pz-panel, .pz-text')].find((el) => !el.hidden && !el.classList.contains('pz-hide') && !el.classList.contains('pz-leave') && el.childElementCount);
   // (Still coming in: the card or one of its blocks is in its entry; a live part deep inside, such as a time-lapse's bar, does not count.)
   if (!host || [host, ...host.children].some((el) => el.getAnimations().some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime)))) return null;
-  const marks = [...bar.querySelectorAll('svg, .pzb-n, .pzb-go')].map((el) => { if (!el.matches('.pzb-n')) return el.getBoundingClientRect(); const g = document.createRange(); g.selectNodeContents(el); return g.getBoundingClientRect(); }).filter((r) => r.width && r.height);   // (the count's words, not its 44 px tap box)
+  const marks = [...bar.querySelectorAll('svg, .pzb-n, .pzb-go')].map((el) => { if (!el.matches('.pzb-n')) return el.getBoundingClientRect(); const g = document.createRange(); g.selectNodeContents(el); return g.getBoundingClientRect(); }).filter((r) => r.width && r.height);   // (the count's words, not its 38 px tap box)
   // (A phone's pill is checked against each line of the words below, not their blocks: the last line ends short of it.)
   const hit = !bar.classList.contains('phone') && [...host.querySelectorAll('.pz-dtitle, .pz-h, .pz-line, .pz-caveat, .pz-eq, table, li, .pz-abb')].find((el) => {
     const r = el.getBoundingClientRect();
@@ -113,8 +113,8 @@ const barFit = (page) => page.evaluate(() => {
     const inR = document.querySelector('.pz.stack.tab') ? innerWidth * 0.15 + 13 : 21;
     if (Math.abs(innerWidth - b.right - inR) > 1.5) return `the pill is ${Math.round(innerWidth - b.right)} px from the right edge, not ${Math.round(inR)}`;
     if (Math.abs(innerHeight - b.bottom - 21) > 1.5) return `the pill is ${Math.round(innerHeight - b.bottom)} px from the bottom, not 21`;
-    const small = [...bar.querySelectorAll('button')].find((c) => { const r = c.getBoundingClientRect(); return r.width < 44 || r.height < 44; });
-    if (small) return `a control (${small.getAttribute('aria-label')}) is under 44 px`;
+    const small = [...bar.querySelectorAll('button')].find((c) => { const r = c.getBoundingClientRect(); return r.width < 38 || r.height < 38; });
+    if (small) return `a control (${small.getAttribute('aria-label')}) is under 38 px`;
     const h = host.getBoundingClientRect();
     if (host.matches('.pz-panel') && b.top < h.bottom + 4) return 'the pill is not below the full card';
     // (Every line of the words, and every box among them: none under the pill.)

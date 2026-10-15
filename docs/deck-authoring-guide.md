@@ -129,7 +129,7 @@ Typical "meal" lapse (used by several decks): `days: 8, ramp: { splanchnicTone: 
 
 ### 5.2 Lens (what the vessel colours show)
 
-`lens` picks what the figure's vessels are colored by on that slide, as the color menu does in Patients. Without it the slide shows pressure. The figure crossfades to the new colours while the old words leave, and the teaching card shows a small key under the line: the lens name ("Velocity", no "Colored by") and the two ends. Quiz questions and `visual` slides always show pressure. In learner-facing words say "colored by velocity", never "lens" (Mohammad, 14 Oct).
+`lens` picks what the figure's vessels are colored by on that slide, as the color menu does in Patients. Without it the slide shows pressure. The figure crossfades to the new colours while the old words leave, and a small key sits on the figure, not in the teaching card (src/ui/figure-key.js puts it on bare background, clear of vessels, cards and labels): the lens name ("Velocity", no "Colored by") and the two ends. Quiz questions and `visual` slides always show pressure. In learner-facing words say "colored by velocity", never "lens" (Mohammad, 14 Oct).
 
 | `lens` | Colours | Key |
 |---|---|---|
@@ -141,7 +141,7 @@ Typical "meal" lapse (used by several decks): `days: 8, ramp: { splanchnicTone: 
 | `'delta'` | higher or lower than healthy | Lower to Higher |
 | `'origin'` | where each vessel's blood comes from: SMV, IMV, spleen, hepatic artery, the rest systemic, mixed by flow at each junction | the five sources |
 
-A `compare` row can switch lenses instead of treatments: `compare: [{ label: 'Pressure', lens: 'pressure', own: true }, { label: 'Flow', lens: 'flow' }]`. Each button crossfades the figure to its lens and swaps the key, without touching the model; the key keeps room for two lines so the card stays one height (Circulation's lens slide).
+A `compare` row can switch lenses instead of treatments: `compare: [{ label: 'Pressure', lens: 'pressure', own: true }, { label: 'Flow', lens: 'flow' }]`. Each button crossfades the figure to its lens and swaps the key (it fades out and the new one in), without touching the model; the key is on the figure, so the card never changes height (Circulation's lens slide).
 
 Use it where the colour is the point of the slide (a reversed branch on `'direction'`, a fast stent on `'velocity'`), and say in the line what the colours show. The lens does not carry over: each slide sets its own.
 
