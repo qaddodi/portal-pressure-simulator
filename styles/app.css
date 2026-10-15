@@ -3751,14 +3751,14 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 /* Phone: one view-switcher size in every view (with or without the Sinusoid tab), so the row never changes size. */
 @media (max-width: 720px) { .topbar #viewSeg button { font-size: 12px; letter-spacing: -.01em; }
   .topbar #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) button { padding-left: 3px; padding-right: 3px; }
-  .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-scale { width: 64px; }
-  .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-num { font-size: 11px; } }
+  #app:not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-scale { width: 64px; }
+  #app:not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-num { font-size: 11px; } }
 /* Lobule on a narrow phone: four views leave the lens about 55-80 px, too little for its title, numbers and scale (the numbers
    landed on each other). It keeps just the colour scale, sized to the room that is left, with the chevron; the numbers are in the menu. */
 @media (max-width: 479px) {
-  #app:not(.sin-focus) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) :is(.lg-cap, .lg-num) { display: none; }
-  #app:not(.sin-focus) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-scale { width: clamp(12px, calc(100vw / var(--vz) - 341px), 56px); height: 16px; }
-  #app:not(.sin-focus) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .legend { gap: 0; }
+  #app:not(.sin-focus):not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) :is(.lg-cap, .lg-num) { display: none; }
+  #app:not(.sin-focus):not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-scale { width: clamp(12px, calc(100vw / var(--vz) - 341px), 56px); height: 16px; }
+  #app:not(.sin-focus):not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .legend { gap: 0; }
 }
 
 .chip-btn[hidden] { display: none; }
@@ -5103,3 +5103,52 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @media (min-width: 1024px) and (pointer: fine) {
   .instrument-workspace .dock-head.tabbed.card-head { padding: 8px 8px 2px 16px !important; }
 }
+
+/* ── The thumb dock (15 Oct) ───────────────────────────────────────
+   A phone, or a tablet held upright, in Patients (class .thumb, main.js): the top bar keeps two corner chips,
+   the patient on the left and the Colored-by key on the right. Treat, Tests, History, View and More sit in a tab
+   row at the foot of the dock, under the play bar, in reach of a thumb. The cards and menus open above the dock,
+   so the tab row, HVPG and PPG never move or hide. Pinch zooms; only Fit stays of the zoom buttons. */
+.thumb-bar { display: none; }
+.app.thumb .thumb-bar { grid-area: nb; display: flex; align-items: stretch; gap: 2px; padding: 3px 6px 4px; border-top: 1px solid var(--hairline); }
+.app.thumb .vdock:not(.mini) { grid-template-areas: "st st" "tl ro" "nb nb"; }
+.nb-tab { position: relative; flex: 1 1 0; min-width: 0; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; border: 0; border-radius: calc(var(--r-sheet) - 6px); background: none; color: var(--text-2); font: 600 var(--fs-12)/1 var(--font-ui); cursor: pointer; transition: background .18s var(--ease), color .18s var(--ease); -webkit-tap-highlight-color: transparent; }
+.nb-tab > svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.nb-l { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (hover: hover) { .nb-tab:hover { color: var(--text); } }
+.nb-tab:is([aria-pressed="true"], [aria-expanded="true"]) { color: var(--text); background: var(--surface-2); }
+.nb-tab:is([aria-pressed="true"], [aria-expanded="true"]) > svg { stroke: var(--accent); }
+.nb-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.nb-badge:empty { display: none; }
+.nb-badge { position: absolute; top: 3px; left: calc(50% + 5px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--text); color: var(--stage-bg); font: 600 var(--fs-12)/16px var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
+/* What moved to the tab row leaves the top bar and the play bar. */
+.app.thumb :is(.top-right, #viewSeg, #btnBlood, #btnLobuleLayers, .tl-hist, #zoomIn, #zoomOut) { display: none !important; }
+.app.thumb .topbar .tb-id { flex: 0 1 auto; min-width: 0; }
+.app.thumb .topbar .stage-bar.top { flex: 1 1 auto; order: 0; justify-content: flex-end; }
+.app.thumb .topbar .sb-left { display: none; }
+/* A phone: the cards (Tests, Treat, Details) and the menus sit above the dock, inset like it, round on every corner. */
+@media (max-width: 767px) {
+  .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) {
+    left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px) !important; bottom: calc(var(--vdock-h) + 14px) !important;
+    border-radius: var(--r-sheet) !important; padding-bottom: 0; max-height: calc(100% - var(--top-safe) - var(--vdock-h) - 22px);
+  }
+  .app.thumb .instrument-workspace .dock-pane { padding-bottom: 16px; }
+  html.thumb-ui .menu.as-sheet { left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--thumb-occ, 0px); max-height: calc(100dvh - var(--thumb-occ, 0px) - 72px); padding-bottom: 10px; border-radius: var(--r-sheet); }
+}
+/* A tablet held upright: Treat opens above the dock, at the right, instead of under the top bar. */
+@media (min-width: 768px) {
+  .app.thumb .treat-card { top: auto; bottom: calc(var(--vdock-h) + var(--gap) + 8px); }
+}
+/* A student's play bar has no History; nor has the tab row. */
+#app[data-role="student"][data-mode="explore"] .nb-tab[data-tab="history"] { display: none; }
+/* The sinusoid view hides the dock: its way back (Lobule, in the view switch) stays in the top bar. */
+#app.thumb.sin-focus .topbar .sb-left { display: flex; }
+#app.thumb.sin-focus #viewSeg { display: flex !important; }
+#app.thumb.sin-focus .top-right { display: flex !important; }
+/* The status row (a bleed, the latest event, the narrator) floats just above the thumb dock instead of growing it, so the
+   dock, and the cards that sit on it, never move when an event comes and goes; while a card sits on the dock it steps aside. */
+.app.thumb .vdock .vd-status { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); margin: 0; pointer-events: none; transition: opacity .2s var(--ease), visibility .2s; }
+.app.thumb .vdock .vd-status > * { pointer-events: auto; box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
+.app.thumb .vdock .vd-status .tl-latest { background: color-mix(in srgb, var(--sev) 14%, var(--surface)); box-shadow: var(--shadow-2), inset 0 0 0 1px color-mix(in srgb, var(--sev) 35%, transparent); }
+.app.thumb .vdock .narrator { padding: 6px 10px; border-radius: var(--r-card); background: var(--glass); }
+.app.thumb:is(.dock-open, .panel-open) .vdock .vd-status, .app.thumb:has(#treatCard:not([hidden])) .vdock .vd-status { opacity: 0; visibility: hidden; }

@@ -10,7 +10,7 @@ import { createInspector } from './inspector.js?v=b3fd97699e';
 import { createDock, CUTOFFS } from './dock.js?v=a147f5909e';
 import { setHvpgStage } from './hvpg-proc.js?v=cc7de39fbd';
 import { createWhy } from './why.js?v=e21c8d10e2';
-import { createTimeline, LAPSES } from './timeline.js?v=43f2d29da1';
+import { createTimeline, LAPSES } from './timeline.js?v=8d388a0ec7';
 import { createCompare } from './compare.js?v=1d9e08e29f';
 import { createCard } from './card.js?v=229f662cf0';
 import { createChart } from './chart.js?v=5847125aee';
@@ -170,6 +170,7 @@ async function main() {
   buildHud();
   wireTopbar();
   initTopbarMotion();
+  wireThumbBar();
   wireFloating();
   // iOS scrolls the whole page to reveal a focused field, which pushes the top bar up under the
   // status bar of an installed app; the page itself never scrolls, so put it back.
@@ -616,12 +617,13 @@ function menuToggle(checked, ic, label, sub, onChange) {
   b.addEventListener('click', () => { on = !on; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); onChange(on); });
   return b;
 }
-function openBlood(anchor) {
+function openBlood(anchor) { popover(anchor, bloodItems(), { cls: 'blood-pop' }); }
+function bloodItems() {
   const st = store.get(), b = st.blood || {};
   const flowOn = st.layers.flow !== false;
   const toggle = menuToggle;
   const layer = (key, ic, label, sub) => toggle(st.layers[key] !== false, ic, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
-  popover(anchor, [
+  return [
     h('div', { class: 'menu-title' }, 'Moving blood'),
     toggle(flowOn, 'streaks', 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
     toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Arrowheads moving with the flow; orange where it runs backwards', (on) => setBlood({ chevrons: on })),
@@ -636,7 +638,7 @@ function openBlood(anchor) {
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Labels'),
     labelLevelSeg(),
-  ], { cls: 'blood-pop' });
+  ];
 }
 // Which stations are labelled: the key ones (portal vein, the HVPG pair, what is abnormal; everything once
 // zoomed in), all of them at every zoom, or none.
@@ -653,14 +655,15 @@ function labelLevelSeg() {
   }));
 }
 // The Lobule view's layers, in the same kind of menu: the zone bands and the lymph.
-function openLobuleLayers(anchor) {
+function openLobuleLayers(anchor) { popover(anchor, lobuleLayerItems(), { cls: 'blood-pop' }); }
+function lobuleLayerItems() {
   const l = store.get().lobuleLayers || {};
   const set = (patch) => store.set({ lobuleLayers: { ...store.get().lobuleLayers, ...patch } });
-  popover(anchor, [
+  return [
     h('div', { class: 'menu-title' }, 'Show on the lobule'),
     menuToggle(!!l.zones, 'zones', 'Zones', 'Rappaport zones: 1 periportal (oxygen-rich) to 3 centrilobular', (on) => set({ zones: on })),
     menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Lymph forming in the space of Disse and draining to the portal tract', (on) => set({ lymph: on })),
-  ], { cls: 'blood-pop' });
+  ];
 }
 // Students see the five core lenses; Congestion, Velocity and Origin are instructor extras
 // (the current lens always stays listed).
@@ -1029,6 +1032,7 @@ function wireFloating() {
   let pubRaf = 0;
   const publish = () => {
     pubRaf = 0;
+    syncThumb();
     if ($('#vdock').dataset.folding === '1') return;   // the dock is gliding to a height already published
     const gap = isPhone() ? 8 : 12;
     // The dock's height, plus on an iPhone the home indicator's strip under it (the rules that use it add
@@ -1051,11 +1055,16 @@ function wireFloating() {
     let fit = 0;
     // A phone held sideways has the width for one row too, once the bar compacts.
     const steps = wide || matchMedia('(orientation: landscape)').matches ? 3 : 0;
-    for (; fit <= steps; fit++) {
-      tb.dataset.fit = String(fit);
-      if (need() <= avail - (fit < was ? 24 : 0)) break;
+    // With the thumb dock the bar is two corner chips, the patient and the key: always one row.
+    const thumb = app.classList.contains('thumb');
+    if (thumb) tb.dataset.fit = '0';
+    else {
+      for (; fit <= steps; fit++) {
+        tb.dataset.fit = String(fit);
+        if (need() <= avail - (fit < was ? 24 : 0)) break;
+      }
+      if (fit > steps) { tb.dataset.fit = String(steps); tb.classList.add('two-rows'); }
     }
-    if (fit > steps) { tb.dataset.fit = String(steps); tb.classList.add('two-rows'); }
     // Every box is read first and the custom properties written after, so the whole pass costs one layout
     // instead of one per write; a value is written only when it changed, and the occupancy is announced
     // (pps:occ: the cards and the credit place themselves again) only when something did change.
@@ -1066,7 +1075,8 @@ function wireFloating() {
     const tc = $('#treatCard'), treatOcc = wide && !tc.hidden ? tc.offsetWidth + gap : 0;
     const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? ws.offsetHeight + gap : 0;
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
-    const bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
+    // (With the thumb dock the sheet sits above the dock instead.)
+    const bot = isPhone() && sheet && !thumb ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
     // The patient chart is a bottom sheet on a phone, over the dock: the corner credit rides above it, unless the
     // sheet is so tall (nearly full screen) that there is no figure left to ride on.
     const pn = $('#panel'), lift = isPhone() && panelShown() && pn.offsetParent ? pn.offsetParent.clientHeight - pn.offsetTop + 8 : 0;
@@ -1078,6 +1088,8 @@ function wireFloating() {
     };
     let changed = false;
     for (const k in vars) if (pubVals[k] !== vars[k]) { pubVals[k] = vars[k]; app.style.setProperty(k, vars[k]); changed = true; }
+    const occ = px(thumb ? vdock + 14 : 0);   // (a phone's menu sheets open above the thumb dock, 8 px clear of it like the cards)
+    if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); }
     const sig = `${app.className}|${tb.className}|${tb.dataset.fit}`;
     if (changed || sig !== pubSig) { pubSig = sig; dispatchEvent(new Event('pps:occ')); }
   };
@@ -1106,7 +1118,8 @@ function wireFloating() {
   const unfocus = () => { clearTimeout(focusT); if (!app.classList.contains('figure-focus')) return; app.classList.remove('figure-focus'); foldDock(false); };
   const figureFocus = (ms) => {
     clearTimeout(focusT);
-    if (!isPhone() || $('#strip').classList.contains('all') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    // (The thumb dock stays put: its tab row is how the tools are reached, and it is slim already.)
+    if (!isPhone() || app.classList.contains('thumb') || $('#strip').classList.contains('all') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     app.classList.add('figure-focus'); foldDock(true);
     if (ms) focusT = setTimeout(unfocus, ms);
   };
@@ -1174,7 +1187,9 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   };
   const apply = () => {
     const need = size === 1 ? natural() : Infinity;
-    el.style.setProperty('--sheet-size', need < SIZES[1] * app.clientHeight ? `${Math.ceil(need)}px` : `${Math.round(SIZES[size] * 100)}%`);
+    // Over the thumb dock the stops are shares of the room above the dock, not of the whole screen.
+    const room = app.classList.contains('thumb') ? app.clientHeight - (parseFloat(app.style.getPropertyValue('--vdock-h')) || 0) - 14 : 0;
+    el.style.setProperty('--sheet-size', need < SIZES[1] * (room || app.clientHeight) ? `${Math.ceil(need)}px` : room ? `${Math.round(SIZES[size] * room)}px` : `${Math.round(SIZES[size] * 100)}%`);
   };
   // A new tab refits the sheet to its content (the height eases).
   if (fit) el.addEventListener('click', (e) => { if (size === 1 && e.target.closest('[role="tab"]')) nextFrame(apply); });
@@ -1225,6 +1240,59 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   return { open: () => { if (isPhone()) { size = 1; apply(); } }, closed: () => { el.style.translate = ''; el.style.height = ''; } };
+}
+// ── The thumb dock (15 Oct) ─────────────────────────
+// A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
+// (right), and Treat, Tests, History, View and More sit in a tab row at the foot of the dock, under the play bar,
+// in reach of a thumb. The sheets open above the dock, so the tab row and HVPG and PPG never move or hide.
+// Off a phone and an upright tablet (Mac, iPad landscape, a phone sideways) nothing changes.
+const thumbMQ = matchMedia('(max-width: 1100px) and (orientation: portrait)');
+const thumbOn = () => thumbMQ.matches && !app.classList.contains('presenting');
+function syncThumb() {
+  const on = thumbOn();
+  if (app.classList.contains('thumb') !== on) app.classList.toggle('thumb', on);
+  document.documentElement.classList.toggle('thumb-ui', on);   // (the menus and sheets live outside #app)
+}
+function wireThumbBar() {
+  const tab = (id, ic, label, onclick) => h('button', { class: 'nb-tab', type: 'button', 'data-tab': id, onclick }, svgIcon(ic), h('span', { class: 'nb-l' }, label));
+  // Treat and Tests share the space above the dock on a phone: opening one puts the other away.
+  const treat = tab('treat', 'pill', 'Treat', () => { if (isPhone() && !treatOpen() && app.classList.contains('dock-open')) setPanelTab('chart'); $('#btnTreat').click(); });
+  const tests = tab('tests', 'gauge', 'Tests', () => { if (isPhone() && treatOpen() && !app.classList.contains('dock-open')) closeTreat(); $('#tabInstruments').click(); });
+  const badge = h('span', { class: 'nb-badge', 'aria-hidden': 'true' });
+  const hist = tab('history', 'clock', 'History', (e) => timeline.openHistory(e.currentTarget));
+  hist.append(badge);
+  const view = tab('view', 'layers', 'View', (e) => openViewMenu(e.currentTarget));
+  const more = tab('more', 'more', 'More', (e) => openMoreMenu(e.currentTarget));
+  for (const b of [hist, view, more]) b.setAttribute('aria-haspopup', 'dialog');
+  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, view, more));
+  // The tabs follow the cards they open (and History's count), however those were opened or closed.
+  const sync = () => {
+    const t = String(treatOpen()), i = String(app.classList.contains('dock-open'));
+    if (treat.getAttribute('aria-pressed') !== t) treat.setAttribute('aria-pressed', t);
+    if (tests.getAttribute('aria-pressed') !== i) tests.setAttribute('aria-pressed', i);
+    const n = $('#timeline .tl-hc')?.textContent || '';
+    if (badge.textContent !== n) badge.textContent = n;
+  };
+  new MutationObserver(sync).observe(app, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(sync).observe($('#treatCard'), { attributes: true, attributeFilter: ['hidden'] });
+  new MutationObserver(sync).observe($('#timeline'), { subtree: true, characterData: true, childList: true });
+  thumbMQ.addEventListener?.('change', syncThumb);
+  syncThumb(); sync();
+}
+// View: the figure (Circuit, Anatomy, Lobule) and what is drawn on it, in one menu.
+function openViewMenu(anchor) {
+  const sin = app.classList.contains('sin-focus');
+  const views = $$('#viewSeg button').filter((b) => !b.hidden && !(sin && (b.dataset.view === 'circuit' || b.dataset.view === 'anatomic')));
+  const seg = h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': 'View' },
+    views.map((b) => h('button', { 'aria-pressed': b.getAttribute('aria-pressed'), onclick: () => { closePopover(); b.click(); } }, b.textContent)));
+  popover(anchor, [h('div', { class: 'menu-title' }, 'View'), seg, h('div', { class: 'menu-sep' }), ...(store.get().lobule ? lobuleLayerItems() : bloodItems())],
+    { cls: 'blood-pop', place: 'above', align: 'center' });
+}
+function openMoreMenu(anchor) {
+  popover(anchor, [
+    menuItem('Settings', { icon: 'gear', onClick: () => { closePopover(); openSettings(anchor); } }),
+    menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } }),
+  ], { place: 'above', align: 'end' });
 }
 // ── Treat card ──────────────────────────────────────
 let treatOff = null;

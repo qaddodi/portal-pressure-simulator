@@ -67,6 +67,22 @@ async function runCheck(device, name, fn, tries = RETRIES) {
   }
   await ctx.close();
 }
+// An upright phone has the thumb dock: Treat, Tests and Settings, and the Blood and Layers menus (in View), are reached from
+// the dock's tab row instead of the top bar.
+const THUMB = { '#tabInstruments': 'tests', '#btnTreat': 'treat', '#btnBlood': 'view', '#btnLobuleLayers': 'view', '#btnSettings': 'more' };
+async function tapTool(page, sel) {
+  const tab = THUMB[sel];
+  if (!tab || !(await page.evaluate(() => document.querySelector('#app').classList.contains('thumb')))) return page.click(sel);
+  await page.click(`#thumbBar [data-tab="${tab}"]`);
+  if (sel === '#btnSettings') await page.click('.menu .menu-item:has-text("Settings")');
+}
+// A view by its switch: the top bar's, or on an upright phone the one in the dock's View menu.
+async function pickView(page, v) {
+  if (!(await page.evaluate(() => document.querySelector('#app').classList.contains('thumb')))) return page.click(`#viewSeg [data-view="${v}"]`, { force: true });
+  const label = await page.evaluate((v) => document.querySelector(`#viewSeg [data-view="${v}"]`).textContent, v);
+  await page.click('#thumbBar [data-tab="view"]');
+  await page.locator('.menu .seg button', { hasText: label }).click();
+}
 const shot = (page, name) => (shots ? page.screenshot({ path: `${shots}/${name}.png` }) : null);
 const open = async (page, q = '') => {
   await page.goto(server.url + q);
@@ -522,16 +538,16 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await steady();
     await page.evaluate(() => window.pps.stage.fit());
     const home = await steady();
-    await page.click('#viewSeg [data-view="lobule"]', { force: true });
+    await pickView(page, 'lobule');
     await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
-    await page.click('#viewSeg [data-view="circuit"]', { force: true });
+    await pickView(page, 'circuit');
     const inCircuit = await steady();
     await page.evaluate(() => window.pps.stage.fit());
     const f1 = await steady();
     await page.evaluate(() => window.pps.stage.fit());
     const f2 = await steady();
     if (inCircuit !== f1 && inCircuit !== f2) throw new Error(`circuit opened at ${inCircuit}, not at a fit framing (${f1} / ${f2})`);
-    await page.click('#viewSeg [data-view="anatomic"]', { force: true });
+    await pickView(page, 'anatomic');
     const back = await steady();
     if (back !== home) throw new Error(`the anatomy came back at ${back}, not at its framing ${home}`);
   });
@@ -1780,9 +1796,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(400);
     if (await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D) !== d0) throw new Error('paused blood kept moving');
     // The Blood menu (streaks, chevrons; what the figure shows), the Blood origin lens, dye.
-    const fits = await page.$eval('#btnBlood', (el) => { const r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
+    const fits = await page.evaluate(() => { const el = document.querySelector('#app.thumb #thumbBar [data-tab="view"]') || document.querySelector('#btnBlood'), r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
     if (!fits) throw new Error('Blood button is clipped');
-    await page.click('#btnBlood');
+    await tapTool(page, '#btnBlood');
     const opts = await page.$$eval('.blood-pop .lens-opt .lens-t', (els) => els.map((e) => e.textContent));
     if (opts.join('|') !== 'Streaks|Chevrons|Key chevrons only|Pressure values|Potential collaterals|Organ names') throw new Error(`the Blood menu offers ${opts.join(', ')}`);
     await page.keyboard.press('Escape');
@@ -1859,7 +1875,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'liver lobule: GPU vessels, pressure drops, caption, cards, zones', async (page) => {
     await open(page, '?preset=cirr-decomp');
     // The lobule is a view of its own, beside Anatomy and Circuit.
-    await page.click('#viewSeg [data-view="lobule"]');
+    await pickView(page, 'lobule');
     await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 15000 });
     if (await page.getAttribute('#viewSeg [data-view="lobule"]', 'aria-pressed') !== 'true') throw new Error('the Lobule button is not shown as the current view');
     await page.waitForTimeout(900);
@@ -1933,7 +1949,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
     await page.waitForFunction(() => !window.pps.store.get().running);
     await page.waitForTimeout(1500);
-    await page.click('#btnLobuleLayers');
+    await tapTool(page, '#btnLobuleLayers');
     await page.click('.menu .lens-opt:has-text("Zones")');
     await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch((e) => { throw new Error('zones did not show', { cause: e }); });
     await page.click('.menu .lens-opt:has-text("Lymph")');
@@ -1947,7 +1963,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Leaving the lobule closes its card.
     await page.evaluate(() => document.querySelector('.lz-lab:not([hidden])').click());   // its value updates live, so it never holds still for a pointer click
     await page.waitForSelector('.action-card:not([hidden])');
-    await page.click('#viewSeg [data-view="anatomic"]', { force: true });
+    await pickView(page, 'anatomic');
     await page.waitForFunction(() => !window.pps.stage.lobuleOpen(), null, { timeout: 15000 });
     if (await page.evaluate(() => window.pps.store.get().selection?.type === 'lobule')) throw new Error('the lobule card stayed open after leaving');
   });
@@ -1960,7 +1976,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (await page.evaluate(() => document.querySelector('#app').classList.contains('panel-open'))) throw new Error('the side panel should start closed');
     // No Patient button and no abnormal-results list: the top bar is Treat, Tests, Settings and Search.
     if (await page.$('#btnInspector, #findBadge, #panel .finding')) throw new Error('the Patient button or its abnormal results are back');
-    await page.click('#btnTreat');
+    await tapTool(page, '#btnTreat');
     await page.waitForSelector('#treatCard:not([hidden]) .order-chip');
     await page.locator('#treatCard .order-chip', { hasText: 'Carvedilol' }).click();
     await page.waitForFunction(() => window.pps.store.get().params.drugs.carvedilol);
@@ -1974,11 +1990,46 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForSelector('#treatCard', { state: 'hidden' });
     // Advanced physiology: only an instructor finds it, in Settings; it opens in the side panel.
     await page.evaluate(() => window.pps.store.set({ role: 'instructor' }));
-    await page.click('#btnSettings');
+    await tapTool(page, '#btnSettings');
     await page.locator('.menu-item', { hasText: 'Advanced physiology' }).click();
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('panel-open') && document.querySelector('#panelTitle').textContent.includes('Advanced physiology'));
     if (!(await page.$('#panel .adv-body input[type="range"]'))) throw new Error('advanced physiology has no controls');
     await page.click('#panelClose');
+    await page.evaluate(() => window.pps.store.set({ role: 'student' }));
+  });
+  // The thumb dock (an upright phone): the top bar is two chips, the patient and the key; Treat, Tests, History, View and More
+  // sit in the dock's tab row, and every card or menu they open sits above the dock, so the tab row never moves or hides.
+  if (device === 'phone') await check(device, 'thumb dock: two chips on top; the tab row opens every card and menu above the dock', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.evaluate(() => window.pps.store.set({ role: 'instructor' }));
+    await page.waitForTimeout(800);
+    if (!(await page.evaluate(() => document.querySelector('#app').classList.contains('thumb')))) throw new Error('an upright phone has no thumb dock');
+    const tabs = await page.$$eval('#thumbBar .nb-tab', (els) => els.filter((e) => e.offsetParent).map((e) => e.querySelector('.nb-l').textContent));
+    if (tabs.join('|') !== 'Treat|Tests|History|View|More') throw new Error(`the tab row reads ${tabs.join(', ')}`);
+    const shown = await page.evaluate(() => ['.top-right', '#viewSeg', '#btnBlood', '.tl-hist', '#zoomIn'].filter((q) => document.querySelector(q)?.offsetParent));
+    if (shown.length) throw new Error(`still shown outside the tab row: ${shown.join(', ')}`);
+    const row = await page.evaluate(() => { const a = document.querySelector('.tb-id').getBoundingClientRect(), b = document.querySelector('#btnLayers').getBoundingClientRect(); return Math.abs(a.top - b.top) < 8 && a.right <= b.left && b.right <= innerWidth; });
+    if (!row) throw new Error('the patient and the key are not one row inside the screen');
+    const dockTop = await page.evaluate(() => document.querySelector('#thumbBar').getBoundingClientRect().top);
+    const above = (sel) => page.evaluate(([sel, top]) => { const r = document.querySelector(sel).getBoundingClientRect(), d = document.querySelector('#vdock').getBoundingClientRect(); return r.height > 40 && r.bottom <= d.top + 1 && Math.abs(document.querySelector('#thumbBar').getBoundingClientRect().top - top) < 1; }, [sel, dockTop]);
+    for (const [tab, sel] of [['tests', '#dock'], ['treat', '#treatCard']]) {
+      await page.click(`#thumbBar [data-tab="${tab}"]`);
+      await page.waitForTimeout(800);
+      await page.waitForFunction((sel) => !document.querySelector(sel).getAnimations().length, sel);
+      if (!(await above(sel))) throw new Error(`${tab} does not open above the dock, or the tab row moved`);
+      if (await page.getAttribute(`#thumbBar [data-tab="${tab}"]`, 'aria-pressed') !== 'true') throw new Error(`the ${tab} tab is not shown as open`);
+    }
+    if (await page.evaluate(() => document.querySelector('#app').classList.contains('dock-open'))) throw new Error('Tests stayed open under Treat');
+    await page.click('#thumbBar [data-tab="treat"]');
+    await page.waitForSelector('#treatCard', { state: 'hidden' });
+    for (const tab of ['history', 'view', 'more']) {
+      await page.click(`#thumbBar [data-tab="${tab}"]`);
+      await page.waitForSelector('.menu.as-sheet:not(.leaving)');
+      await page.waitForFunction(() => !document.querySelector('.menu.as-sheet:not(.leaving)').getAnimations().length);   // (risen in full)
+      if (!(await above('.menu.as-sheet:not(.leaving)'))) throw new Error(`${tab} does not open above the dock`);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+    }
     await page.evaluate(() => window.pps.store.set({ role: 'student' }));
   });
   // Nothing that floats over the figure may cover another floating piece, or leave the screen, at the
@@ -2046,7 +2097,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     for (const [w, hgt] of sizes) for (const [q, act] of states) {
       await page.setViewportSize({ width: w, height: hgt });
       await open(page, q);
-      if (act === 'measure' || act === 'both') { await page.click('#tabInstruments'); await page.waitForSelector('#dockBody .dock-pane.active'); }
+      if (act === 'measure' || act === 'both') { await tapTool(page, '#tabInstruments'); await page.waitForSelector('#dockBody .dock-pane.active'); }
       if (act === 'both') await page.evaluate(() => window.pps.details({ type: 'edge', id: 'PV_TRUNK' }));
       if (act === 'lobule') {
         await page.evaluate(() => window.pps.store.set({ lobule: true }));
@@ -2122,7 +2173,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const at = `${w}×${hgt}`;
       await open(page, '?preset=cirr-decomp'); await verify(`${at} explore`);
       await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } })); await verify(`${at} vessel card`);
-      await open(page, '?preset=cirr-decomp'); await page.click('#tabInstruments'); await verify(`${at} tests`);
+      await open(page, '?preset=cirr-decomp'); await tapTool(page, '#tabInstruments'); await verify(`${at} tests`);
       await page.evaluate(() => window.pps.details({ type: 'edge', id: 'PV_TRUNK' })); await verify(`${at} tests + details`);
       await open(page, '?script=circulation');
       for (let i = 0; i < 10; i++) { await verify(`${at} slide ${i + 1}`); await page.keyboard.press('ArrowRight'); }
@@ -2314,7 +2365,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.setViewportSize({ width: w, height: hgt });
       const at = `${w}×${hgt}`;
       await open(page, '?preset=cirr-comp');
-      await page.click('#tabInstruments'); await page.waitForSelector('#dockBody .dock-pane.active');
+      await tapTool(page, '#tabInstruments'); await page.waitForSelector('#dockBody .dock-pane.active');
       await page.evaluate(() => window.pps.dock.show('fibroscan', { reveal: true }));
       if (!(await settle(`${at} explore`, false, true))) throw new Error(`${at} explore: no probe on the figure ${JSON.stringify(await inspect())}`);
       await open(page, '?script=stiffness');
@@ -2379,7 +2430,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'tests card: every Ascites, HVPG and FibroScan row reaches the card\'s inner right edge', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 45000 });
-    await page.click('#tabInstruments');
+    await tapTool(page, '#tabInstruments');
     await page.waitForSelector('#dockBody .dock-pane.active');
     for (const id of ['abdomen', 'hvpg', 'fibroscan']) {
       await page.click(`.instr-tab[data-instrument="${id}"]`);
@@ -2419,7 +2470,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await open(page, '?preset=cirr-decomp');
     // Let the first frames (shader compiles on a software GPU) finish before the first tap.
     await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 45000 });
-    await page.click('#tabInstruments');
+    await tapTool(page, '#tabInstruments');
     await page.waitForSelector('#dockBody .dock-pane.active');
     await page.waitForTimeout(400);
     // The card slides in: measure where it settles, not where it is on the way.
@@ -2593,7 +2644,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 45000 });
     // Pulsatile is on by default, so compare with its value before the instrument opens, not with false.
     const pulsatileBefore = await page.evaluate(() => window.pps.store.get().params.pulsatile);
-    await page.click('#tabInstruments');
+    await tapTool(page, '#tabInstruments');
     // Settings › Always show HVPG is on by default; turn it off to check the unmeasured state.
     await page.evaluate(() => window.pps.store.set({ showHvpg: false }));
     await page.evaluate(() => window.pps.dock.show('scope'));

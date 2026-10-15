@@ -313,7 +313,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
   onParamChange(({ label, history }) => { if (history || pending) noteParamChange(label); });
 
   return {
-    reset, recordAction, addEvents, update, undo, redo, goTo, togglePin, jump,
+    reset, recordAction, addEvents, update, undo, redo, goTo, togglePin, jump, openHistory,
     entries: () => entries, cursor: () => cursor,
     onChange: (fn) => listeners.push(fn),
     save: () => ({ entries: entries.slice(), cursor, baseline: structuredClone(baseline) }),
