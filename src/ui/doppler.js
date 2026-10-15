@@ -141,7 +141,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
 
   // ── Samples ───────────────────────────────────────
   let buf = [];
-  let probe = null, frame = null;
+  let probe = null, frame = null, gateNow = '';
   // Time lapse (the disease clock) has no bedside samples: the model jumps a day at a time. The
   // trace keeps scrolling at bedside speed by replaying the last recorded beats (the template),
   // scaled so their mean eases to the vessel's current mean velocity. Synthetic times run on from
@@ -187,6 +187,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function ingest(f) {
     frame = f;
     if (f.probe !== probe) { buf = []; wl = null; tOff = 0; synth = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
+    // A new spot along a stent is a new recording, as a new vessel is: the trace starts over and finds its own scale.
+    const g = isStentProbe() ? gateOf() : '';
+    if (g !== gateNow) { gateNow = g; buf = []; wl = null; synth = null; scale = null; steady.probe = null; }
     const s = f.samples;
     if (f.clock === 'disease') {
       if (!synth && buf.length) synth = startSynth();
@@ -391,8 +394,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     set(patternEl, it.pattern);
     // peak: the extreme farthest from zero, whichever the direction
     const [pk, tr] = Math.abs(r.vmax) >= Math.abs(r.vmin) ? [r.vmax, r.vmin] : [r.vmin, r.vmax];
-    setStat(statEls.Peak.dd, num(pk), 'cm/s');
-    setStat(statEls.Trough.dd, num(tr), 'cm/s');
+    setStat(statEls.Peak.dd, num(pk * gf), 'cm/s');   // (a stent's peak at its gate)
+    setStat(statEls.Trough.dd, num(tr * gf), 'cm/s');
     setStat(statEls.Pulsatility.dd, fmt(it.pi, 2));
     // Congestion index (portal vein): cross-sectional area / mean velocity, about 0.07 cm·s in health, over 0.1 suggests portal hypertension
     const isPV = probe === 'PV_TRUNK';

@@ -40,3 +40,14 @@ test("a card's bottom edge is tappable: the play bar's empty row takes no touche
   assert.match(css, /\.app\.thumb:is\(\.dock-open, \.panel-open\) \.vdock:not\(\.mini\), [^{]*\{ pointer-events: none; \}/);
   assert.match(css, /\.vdock:not\(\.mini\) \.thumb-bar \{ pointer-events: auto; \}/);
 });
+
+test('a new spot along a stent starts a new recording with its own scale, and the peak tile reads that spot', () => {
+  assert.match(src, /if \(g !== gateNow\) \{ gateNow = g; buf = \[\]; wl = null; synth = null; scale = null; steady\.probe = null; \}/);
+  assert.match(src, /setStat\(statEls\.Peak\.dd, num\(pk \* gf\), 'cm\/s'\)/);
+});
+
+test("the figure's stent callout points at the third the Doppler samples", () => {
+  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  assert.match(stage, /if \(dop\.id === sid && dop\.seg && geo\[sid\]\?\.cur\?\.length > 1\) \[ax, ay\] = worldToLocal\(\.\.\.pointAt\(geo\[sid\]\.cur, STENT_SITES\[dop\.seg\]\)\);/);
+  assert.match(stage, /stentReady\(id, f\)\)\.join\(''\), dop\.key\]/);   // (a new gate lays the labels out again)
+});

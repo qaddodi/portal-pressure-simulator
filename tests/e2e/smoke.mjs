@@ -2189,10 +2189,19 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => window.pps.store.get().frame.probe === 'TIPS' && document.querySelector('#pane-doppler .dop-seg').closest('div').offsetParent, null, { timeout: 30000 });
     if (await page.$('#pane-doppler .dop-gate')) throw new Error('the stent Doppler still has a separate spot dropdown');
     const tap = (sel) => (device === 'phone' ? page.tap(sel) : page.click(sel));
+    // (The figure's TIPS callout points at the sampled third: its anchor dot moves along the stent with the gate.)
+    const dots = () => page.evaluate(() => [...document.querySelectorAll('circle.leader-dot')].map((c) => `${c.getAttribute('cx')},${c.getAttribute('cy')}`).join(' '));
+    const anchors = {};
     for (const seg of ['proximal', 'distal', 'mid']) {
       await tap(`#pane-doppler .dop-seg[title*="${seg}"]`);
       await page.waitForFunction((x) => window.pps.store.get().dopGate === x && document.querySelector(`#pane-doppler .dop-seg[title*="${x}"]`).getAttribute('aria-pressed') === 'true', seg, { timeout: 8000 });
+      if (device !== 'phone') {
+        await page.waitForFunction((x) => document.querySelector('[data-key="n:TIPS"]')?.textContent.includes(`TIPS ${x}`), seg, { timeout: 8000 });
+        await page.waitForTimeout(300);
+        anchors[seg] = await dots();
+      }
     }
+    if (device !== 'phone' && (anchors.proximal === anchors.distal || anchors.mid === anchors.distal)) throw new Error('the TIPS callout stays put when the Doppler gate moves along the stent');
     await page.focus('#pane-doppler .dop-seg[title*="distal"]');
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => window.pps.store.get().dopGate === 'distal', null, { timeout: 8000 });
