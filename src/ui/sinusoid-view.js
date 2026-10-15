@@ -24,7 +24,7 @@ import { pressureColor } from './colormap.js?v=34b03c4df4';
 import { isPaused } from './clock.js?v=af6de95a7c';
 import { store } from './store.js?v=3b659e1968';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=2a600a94b0';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=c449aa59c2';
 import { frameFor, noteDraw, saver, SAVER_MS } from './frame.js?v=5ad4028792';
 const nextFrame = frameFor('sinusoid-view');
 
@@ -104,6 +104,7 @@ export function createSinusoidView({ host }) {
   const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
   host.append(el);
   const gpu = createSinusoidGL(canvas);
+  glSupport = !!gpu;   // (answered by this view's own context: sinusoidSupported need not make a throwaway one)
 
   // The view is left only by the view switch (Lobule): the wheel and a pinch do nothing here.
   el.addEventListener('wheel', (ev) => ev.preventDefault(), { passive: false });

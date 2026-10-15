@@ -501,7 +501,11 @@ export function createSinusoidGL(canvas) {
     gl.bindVertexArray(null);
     return true;
   }
-  let ok = init();
+  // The shaders are compiled at the first idle moment after start-up, not during it (nothing shows the sinusoid that early), or at the
+  // first draw if that comes sooner.
+  let ok = null;
+  const ready = () => (ok === null ? (ok = init()) : ok);
+  if (window.requestIdleCallback) requestIdleCallback(ready, { timeout: 8000 }); else setTimeout(ready, 3000);
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); ok = false; });
   canvas.addEventListener('webglcontextrestored', () => { ok = init(); });
   const set = (U, k, v) => {
@@ -521,10 +525,10 @@ export function createSinusoidGL(canvas) {
     gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
   return {
-    get ok() { return ok; },
+    get ok() { return ready(); },
     /** u: uniforms by name; pts: Float32Array of (x, y, r, alpha, kind) × n. The tissue, the particles, then the cells over them. */
     draw(u, pts, n) {
-      if (!ok) return;
+      if (!ready()) return;
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.disable(gl.BLEND);

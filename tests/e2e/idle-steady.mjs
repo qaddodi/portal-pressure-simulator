@@ -123,6 +123,10 @@ try {
       await page.evaluate(() => window.pps.dock.show('fibroscan', { reveal: true }));
       await run(true); busy(`FibroScan, playing${tag}`, await rate('fibroscan'), cap);
       await run(false); await still(`FibroScan, paused${tag}`, 'fibroscan');
+      // The Doppler's running trace: 30 a second too (it drew at the screen's rate).
+      await page.evaluate(() => window.pps.dock.show('doppler', { reveal: true }));
+      await run(true); busy(`Doppler, playing${tag}`, await rate('doppler'), cap);
+      await run(false);
       await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
       await run(true); busy(`lobule, playing${tag}`, await rate('lobule-zoom', 5000), cap);
       await run(false); await still(`lobule, paused${tag}`, 'lobule-zoom', true);
