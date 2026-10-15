@@ -52,3 +52,13 @@ test('Ascites: serum albumin uses the drain\'s stepper, and the diuretic line is
   assert.match(instruments, /'Spironolactone 100 mg \+ furosemide 40 mg'/);
   assert.doesNotMatch(instruments, /5 : 2'\)/);
 });
+
+test('Ascites on the side card: the gauge, belly and Drain block are sized by the card\'s width, not its fitted height', () => {
+  const m = css.match(/#app:not\(\.thumb\) \.instrument-workspace\.float-ui\.side \.dock-pane > \.instrument-view\.ab \.ab-vol \{ --ab-bw: ([^;]+);/);
+  assert.ok(m, 'the side card has its own belly size');
+  assert.doesNotMatch(m[1], /cqh/, 'no height term: the fitted card follows the belly, so a height cap kept it at its old ~190 px');
+  const cap = Math.max(...[...m[1].matchAll(/(\d+)px\)/g)].map((x) => +x[1]));
+  assert.ok(cap >= 320, `the belly may grow past the old 250 px cap (now ${cap} px)`);
+  // the Drain controls grow with the belly, and the phone keeps its own sizes
+  assert.match(css, /#app:not\(\.thumb\) \.instrument-workspace\.side \.ab-dp :is\(\.ab-dp-vol, \.ab-dp-alb, \.ab-drain\) \{ height: clamp\(32px, calc\(var\(--ab-bw\) \* \.15\), 42px\); \}/);
+});

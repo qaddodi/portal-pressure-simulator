@@ -4291,6 +4291,15 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace.float-ui .ab :is(.ab-grade, .ab-trend, .ab-why) { font-size: var(--fs-14); }
 .instrument-workspace.float-ui .ab-tile { padding: clamp(6px, 1.6cqh, 12px) clamp(10px, 2cqh, 14px) clamp(7px, 1.7cqh, 13px); }
 .instrument-workspace.float-ui .ab-tile dd { font-size: clamp(17px, min(4.4cqh, 5cqw), 28px); }
+/* On the side card (laptop, tablet) the gauge, belly and Drain block span the card's width: the belly is sized by width alone
+   (not the fitted card's height, which only follows it), up to 340 px, and the dial and the Drain controls grow with it. */
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane > .instrument-view.ab .ab-vol { --ab-bw: clamp(150px, min(100cqi - 208px, 45.5cqi - 14px, 340px), 340px); }
+#app:not(.thumb) .instrument-workspace.side .ab-dp { gap: clamp(5px, calc(var(--ab-bw) * .03), 9px); }
+#app:not(.thumb) .instrument-workspace.side .ab-dp :is(.ab-dp-vol, .ab-dp-alb, .ab-drain) { height: clamp(32px, calc(var(--ab-bw) * .15), 42px); }
+#app:not(.thumb) .instrument-workspace.side .ab-dp .ab-dp-l { font-size: clamp(16px, calc(var(--ab-bw) * .075), 21px); }
+#app:not(.thumb) .instrument-workspace.side .ab-dp :is(.ab-dp-k, .ab-dp-l small, .ab-dp-at small) { font-size: clamp(11px, calc(var(--ab-bw) * .048), 13px); }
+#app:not(.thumb) .instrument-workspace.side .ab-dp :is(.ab-dp-at b, .ab-drain) { font-size: clamp(12px, calc(var(--ab-bw) * .056), 15px); }
+#app:not(.thumb) .instrument-workspace.side .ab-dp .ab-dp-sb { width: clamp(28px, calc(var(--ab-bw) * .13), 36px); font-size: clamp(19px, calc(var(--ab-bw) * .085), 23px); }
 
 /* Scope's readings: the grade leads with its status, wall stress is a meter toward the tear point, size and
    wall sit side by side, red signs and bands are chips. The position label sits on the view's dark rim. */
