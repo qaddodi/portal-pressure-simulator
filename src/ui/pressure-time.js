@@ -234,7 +234,12 @@ export function createPressureTime({ marks = () => [] } = {}) {
   }
   // The scroll loop runs only while the trace is on screen and moving; the next sample (ingest) wakes it.
   let ticking = false;
-  const live = () => frame?.running && range !== 'days' && cv.offsetParent && !document.hidden;
+  // On screen: kept by an observer, not read from cv.offsetParent, which forced a style and layout pass on every model frame
+  // (the dock's chart wakes with each sample, shown or not).
+  let seen = false;
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; wake(); }) : null;
+  io?.observe(cv);
+  const live = () => frame?.running && range !== 'days' && (io ? seen : cv.offsetParent) && !document.hidden;
   function tickLoop() {
     if (!live()) { ticking = false; return; }
     nextFrame(tickLoop);
@@ -603,7 +608,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
   // A new patient (or the same one restarted) starts with empty traces.
   function clear() { clearHemo(); days = []; redraw(); }
   function pin(fp) { pinned = fp || null; if (frame) redraw(); }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, dispose() { offs.forEach((off) => off()); frame = null; } };
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, dispose() { offs.forEach((off) => off()); io?.disconnect(); frame = null; } };
 }
 
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).

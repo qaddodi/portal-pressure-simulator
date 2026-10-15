@@ -7,7 +7,7 @@ import { createStage } from './stage.js?v=95b7dd867f';
 import { createCreditPlacer } from './credit.js?v=0f92fd9b57';
 import { sinusoidSupported } from './sinusoid-view.js?v=adf162f586';
 import { createInspector } from './inspector.js?v=4979577c0c';
-import { createDock, CUTOFFS } from './dock.js?v=c4e69330dc';
+import { createDock, CUTOFFS } from './dock.js?v=51ed1e9c6c';
 import { setHvpgStage } from './hvpg-proc.js?v=8787d0bf18';
 import { createWhy } from './why.js?v=00efae4848';
 import { createTimeline, LAPSES } from './timeline.js?v=e745ac9532';
@@ -137,7 +137,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=c946adf4f4'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=23eacacc94'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -1478,8 +1478,11 @@ function toggleProjector() {
 }
 function updateProjector(f) {
   if (!bigEl) return;
-  const hid = hiddenNow()?.has('trueHVPG');
-  bigEl.replaceChildren(h('small', {}, 'HVPG'), hid ? '—' : fmt(f.metrics.hvpg, 1), h('span', { class: 'unit' }, hid ? 'not measured' : 'mmHg'));
+  const hid = hiddenNow()?.has('trueHVPG'), v = hid ? '—' : fmt(f.metrics.hvpg, 1), u = hid ? 'not measured' : 'mmHg';
+  // Rebuilt only when it reads differently: new nodes on every model frame restyled the page each time.
+  if (bigEl.shown === v + u) return;
+  bigEl.shown = v + u;
+  bigEl.replaceChildren(h('small', {}, 'HVPG'), v, h('span', { class: 'unit' }, u));
 }
 
 // ── Phone & tablet ──────────────────────────────────
