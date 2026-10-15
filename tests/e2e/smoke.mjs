@@ -2049,6 +2049,33 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(300);
     await page.evaluate(() => window.pps.store.set({ role: 'student' }));
   });
+  // No card is ever drawn over the tab row: sampled every frame while Treat and Tests open, are pulled down from a button
+  // in their content (which closes them), and while Tests closes from its tab. A pull from a button on Treat closes it.
+  if (device === 'phone') await check(device, 'thumb dock: no card ever covers the tab row (open, drag, close); a pull from anywhere closes Treat', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.waitForTimeout(800);
+    await page.evaluate(() => {
+      window.__cover = [];
+      const tick = () => { const b = document.querySelector('#thumbBar'), r = b.getBoundingClientRect();
+        for (const f of [0.1, 0.5, 0.9]) { const e = document.elementFromPoint(r.left + r.width * f, r.top + 4); const c = e?.closest('#treatCard, #dock, #panel, .menu'); if (c) window.__cover.push(c.id || c.className); }
+        window.__coverRaf = requestAnimationFrame(tick); };
+      tick();
+    });
+    for (const [tab, sel] of [['treat', '#treatCard'], ['tests', '#dock']]) {
+      await page.click(`#thumbBar [data-tab="${tab}"]`);
+      await page.waitForTimeout(900);
+      const pt = await page.evaluate((sel) => { const c = document.querySelector(sel), b = [...c.querySelectorAll('button')].find((x) => { const r = x.getBoundingClientRect(); return r.height && !x.closest('[role="tablist"], .card-head, .dock-head, .tc-head') && r.top > c.getBoundingClientRect().top + 80 && r.bottom < document.querySelector('#thumbBar').getBoundingClientRect().top; }); const r = (b || c).getBoundingClientRect(); return [r.x + r.width / 2, r.y + Math.min(r.height / 2, 20)]; }, sel);
+      await page.mouse.move(pt[0], pt[1]); await page.mouse.down();
+      for (let i = 1; i <= 30; i++) await page.mouse.move(pt[0], pt[1] + 6 * i);
+      await page.mouse.up();
+      await page.waitForTimeout(700);
+      if (tab === 'treat' && await page.evaluate(() => !document.querySelector('#treatCard').hidden)) throw new Error('a pull down from a button on Treat did not close it');
+      if (tab === 'tests' && await page.evaluate(() => document.querySelector('#app').classList.contains('dock-open'))) await page.click('#thumbBar [data-tab="tests"]');
+      await page.waitForTimeout(700);
+    }
+    const cover = await page.evaluate(() => { cancelAnimationFrame(window.__coverRaf); return [...new Set(window.__cover)]; });
+    if (cover.length) throw new Error(`drawn over the tab row: ${cover.join(', ')}`);
+  });
   // A Tests card over the thumb dock has two heights, Half and Full, at any phone height (Safari's bars leave about 660 px): pulled
   // up from its tabs it stays at Full instead of snapping back, the grabber toggles Half and Full, and a tab keeps the height.
   if (device === 'phone') await check(device, 'thumb dock: the Tests card pulls up to Full and stays, and keeps its height across tabs', async (page) => {
