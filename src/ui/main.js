@@ -4,7 +4,7 @@
 import { startHost, host } from './host.js?v=ff070ac951';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bb8c70114d';
 import { createStage } from './stage.js?v=6cc991d018';
-import { createCreditPlacer } from './credit.js?v=408850b3a4';
+import { createCreditPlacer } from './credit.js?v=122c73335a';
 import { sinusoidSupported } from './sinusoid-view.js?v=f559b019f2';
 import { createInspector } from './inspector.js?v=a506c7409e';
 import { createDock, CUTOFFS } from './dock.js?v=13e51de497';
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=25351f3839'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=8b1648f08e'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -821,9 +821,9 @@ function openSettings(anchor) {
       h('div', { class: 'menu-title' }, t('menu.language')),
       (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); }); return sel; })(),
       h('div', { class: 'menu-title' }, t('menu.access')),
-      menuToggle(document.documentElement.hasAttribute('data-noglass'), 'layers', 'Solid cards (cooler device)', 'Turns off the frosted glass: cards are solid and figure labels glow', (on) => {
-        try { localStorage.setItem('pps.noGlass', on ? '1' : '0'); } catch { /* storage unavailable */ }
-        document.documentElement.toggleAttribute('data-noglass', on);
+      menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass behind cards and labels. Off: solid cards and glowing labels, lighter on a hot device', (on) => {
+        try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch { /* storage unavailable */ }
+        document.documentElement.toggleAttribute('data-noglass', !on);
       }),
       menuToggle((() => { try { return localStorage.getItem('pps.saver') === '1'; } catch { return false; } })(), 'activity', 'Battery saver', 'The blood moves at 15 frames a second at a lower resolution, so the device runs cooler', (on) => stage.setSaver(on)),
       menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),

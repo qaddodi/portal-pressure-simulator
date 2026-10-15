@@ -3,7 +3,7 @@
 // and on bare background where there is any, never over a vessel. It waits for the cards to land and the camera to rest, fades in
 // there, and never slides: a new spot (the figure moved, a card opened) is a fade out, then a fade in at the new place.
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
-import { OBSTACLES, hit, labelRects, organTest } from './credit.js?v=408850b3a4';
+import { OBSTACLES, hit, labelRects, organTest } from './credit.js?v=122c73335a';
 const nextFrame = frameFor('figkey');
 
 // The strictest look first: 10 px clear of organs and vessels; then 6; then clear of the vessels only (over an organ's plain
