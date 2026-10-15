@@ -3017,6 +3017,23 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(await page.evaluate(() => window.pps.store.get().frame.pulsing))) throw new Error('the heartbeat stopped when the instruments closed');
   });
 }
+// The endoscopic field is drawn once per state and then left as it is: the model's varix swells with every heartbeat,
+// and following each swell redrew the shaded field many times a second, which held a browser without a GPU's page for
+// minutes on every scope slide (15 Oct: the browser checks ran past their time limit). Over 8 s of a steady patient
+// with the heartbeat running, it is drawn again at most twice.
+check('desktop', 'endoscopy: a steady patient\'s field is not redrawn with every heartbeat', async (page) => {
+  // (One year on, slide 5: small varices, whose beat-by-beat swell crossed the field's steps.)
+  await open(page, '?script=one-year&slide=5');
+  const field = '.pz-data .pz-inst canvas';
+  await page.waitForFunction((sel) => { window.pps.presenter.skipLapse?.(); return !window.pps.presenter.busy() && !document.querySelector('.pz-cover') && +(document.querySelector(sel)?.dataset.renders || 0) > 0; }, field, { timeout: 90000, polling: 200 });
+  await page.waitForFunction(() => window.pps.store.get().frame.pulsing && !window.pps.presenter.probe()?.playing, null, { timeout: 60000 });
+  await page.waitForTimeout(4000);
+  const n0 = await page.$eval(field, (c) => +c.dataset.renders);
+  await page.waitForTimeout(8000);
+  const n1 = await page.$eval(field, (c) => +c.dataset.renders);
+  if (!(await page.evaluate(() => window.pps.store.get().frame.pulsing))) throw new Error('the heartbeat stopped');
+  if (n1 - n0 > 2) throw new Error(`the field was drawn ${n1 - n0} times in 8 s of a steady patient`);
+});
 // the slowest first, so they do not end up alone at the end (and shards share them out evenly)
 const SLOW = ['responsive instrument workspace', 'pressure over time and Doppler', 'action card is a compact sheet that keeps the vessel in view', 'circuit view, selection card, lenses'];
 const weight = (name) => { const i = SLOW.indexOf(name); return i < 0 ? 0 : SLOW.length - i; };

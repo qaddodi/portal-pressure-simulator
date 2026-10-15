@@ -32,7 +32,7 @@ Loop for every change (fast previews first, full tests before merge):
    screenshots outside the repo (the scratchpad).
 2. Commit and push to the preview branch. Check the "Pages (live site + preview)" deploy job
    finished (GitHub Actions tools), then tell the owner the preview URL. Do not wait for the
-   browser-check job; glance at it later and mention any failure, but it does not block testing.
+   browser checks (the "Checks" workflow); glance at it later and mention any failure, but it does not block testing.
 3. The owner tests on their devices and reports anything broken; repeat steps 1-2 quickly.
 4. When the owner is happy, run the full `npm run check` (lint, unit, build, smoke, smoke:dist),
    fix anything it finds, and recommend any tests worth adding for the new behaviour.
@@ -41,7 +41,7 @@ Loop for every change (fast previews first, full tests before merge):
    check per device). A browser check that failed only by timing out gets one more try
    (`SMOKE_RETRIES`); any other failure counts at once.
    Visual references (`tests/visual/`): every preview push compares the look (job `visual` in
-   the Pages run). A drift there is a warning with the diffs as an artifact; in `ci.yml` it blocks
+   `checks.yml`). A drift there is a warning with the diffs as an artifact; in `ci.yml` it blocks
    the merge. If your change is meant to alter a view, run the "Visual references" workflow on your
    branch right after pushing it (GitHub Actions API: run `visual-refs.yml` on the branch). It
    redraws only the drifted views on CI's machines and commits them as "Visual references redrawn
@@ -70,7 +70,8 @@ If a deploy fails:
   and the newest Pages run replaces it even when agents use different branches. Check
   `/preview/preview-info.txt` against your branch and commit before asking the owner to test.
 - Only one Pages deploy matters at a time (job `deploy`, `concurrency: pages`, newest wins).
-  The browser checks are grouped per branch, so another branch's push does not cancel them.
+  The browser, visual and WebKit checks run in their own workflow (`checks.yml`), so a deploy never
+  waits for them; a newer push to the same branch cancels the older push's checks at once.
   A `main` push replaces a branch preview with `main`, which is expected after a merge.
 
 Preview access depends on the current agent's environment. Some cloud sandboxes block

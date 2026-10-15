@@ -67,7 +67,8 @@ export function createEndoscopy({ onAction }) {
   // bleeding and the scope mask are drawn on top.
   const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
   const gl = createEndoGL(), glOut = document.createElement('canvas');
-  let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null }, glKey = '';
+  let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null;
+  const dark = matchMedia('(prefers-color-scheme: dark)');
   // An eased tween toward a target value: cur follows from -> to over dur ms after a delay.
   const tw = (v) => ({ v, from: v, to: v, t0: 0, dur: 1, delay: 0, cur: v });
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -82,23 +83,27 @@ export function createEndoscopy({ onAction }) {
   function draw(f, vx) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return; // hidden/reflowing canvas: wait for its measured size
-    ctx.clearRect(0, 0, w, hh);
     // The field fills the box.
     const cx = w / 2, cy = hh / 2, R = Math.min(w, hh) / 2 - 4;
-    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
     const bands = Math.round(f.bands || 0);
     // Banding deflates the banded columns only. The model's single varix size falls as bands go on,
     // so unbanded columns keep the size seen before the first band.
-    const gNow = clamp((vx.d - 2) / 10, 0, 1);
-    peak = bands > 0 ? Math.max(peak, gNow) : gNow;
-    const tg = peak, tv = bands > 0 ? 1 : clamp((vx.d - 2.5) / 1.0, 0, 1);
-    // Stigmata follow the modeled wall stress: they start below the red-wale threshold (70 % of the
-    // tear point) and are full near it. Unbanded columns keep what they showed before the first band.
-    const rNow = clamp((vx.ratio - 0.55) / 0.35, 0, 1);
-    peakRed = bands > 0 ? Math.max(peakRed, rNow) : rNow;
-    const tr = peakRed;
     last = { f, vx };
     const now = simTime() * 1000, dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now; // sim clock: frozen while paused
+    // The field shows the varix over the beat, not each beat's swell: the model's size and wall stress rise and fall with every
+    // heartbeat, and following them redrew the whole shaded field many times a second (a browser without a GPU spent a second on
+    // each redraw and its page stopped answering), while the comment above promises a steady view. Averaged over about a second.
+    const kb = 1 - Math.exp(-dt / 1.2);
+    if (!mv) mv = { d: vx.d, ratio: vx.ratio };
+    else { mv.d += (vx.d - mv.d) * kb; mv.ratio += (vx.ratio - mv.ratio) * kb; }
+    const gNow = clamp((mv.d - 2) / 10, 0, 1);
+    peak = bands > 0 ? Math.max(peak, gNow) : gNow;
+    const tg = peak, tv = bands > 0 ? 1 : clamp((mv.d - 2.5) / 1.0, 0, 1);
+    // Stigmata follow the modeled wall stress: they start below the red-wale threshold (70 % of the
+    // tear point) and are full near it. Unbanded columns keep what they showed before the first band.
+    const rNow = clamp((mv.ratio - 0.55) / 0.35, 0, 1);
+    peakRed = bands > 0 ? Math.max(peakRed, rNow) : rNow;
+    const tr = peakRed;
     // Targets: each column is deflated and knuckled once banded (the 4 bands fill columns in turn).
     const defT = [0, 0, 0, 0], knT = new Array(16).fill(0);
     for (let c = 0; c < 4; c++) {
@@ -126,12 +131,16 @@ export function createEndoscopy({ onAction }) {
     let img;
     if (gl) {
       // Drawn once per state and kept as a 2D bitmap: a steady field costs no shader pass or GPU readback.
-      const gk = [res, an.g, an.v, an.r, ...an.def.map((t) => t.cur), ...an.kn.map((t) => t.cur)].map((x) => Math.round(x * 32)).join('|');
+      // (Size, presence and stigmata redraw once they have moved a step and a half of 32 from the field shown, so a slow drift
+      // or the last of the beat's swell does not redraw it to and fro across one step; banding redraws at every step.)
+      held = [an.g, an.v, an.r].map((x, i) => (held && Math.abs(x * 32 - held[i]) < 1.5 ? held[i] : Math.round(x * 32)));
+      const gk = [res, ...held, ...[...an.def.map((t) => t.cur), ...an.kn.map((t) => t.cur)].map((x) => Math.round(x * 32))].join('|');
       if (gk !== glKey) {
         glKey = gk;
         gl.render(res, { grow: an.g, vis: an.v, red: an.r, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
         if (glOut.width !== res) glOut.width = glOut.height = res;
         glOut.getContext('2d').drawImage(gl.canvas, 0, 0);
+        cv.dataset.renders = String(+(cv.dataset.renders || 0) + 1);   // (read by the browser checks: a steady field is not redrawn)
       }
       img = glOut;
     } else {
@@ -141,6 +150,15 @@ export function createEndoscopy({ onAction }) {
       if (cache.key !== key) cache = { key, img: renderEndo(r2, { grow: gq, bands, vis: tv, red: Math.round(tr * 8) / 8 }) };
       img = cache.img;
     }
+    // Nothing on the field changed since the last paint (the same bitmap, size, balloon and theme, no bleeding): it is left
+    // as it is. It is asked for on every frame of the model, and a full repaint each time (a scaled bitmap and the rim) held
+    // a phone's or a browser without a GPU's main thread for most of every frame.
+    const bleeding = !!(f.bleed?.active && f.bleed.site === 'VAR'), root = document.documentElement;
+    const sig = [cv.width, cv.height, w, hh, gl ? glKey : cache.key, !!f.params?.balloonEso, root.getAttribute('data-theme'), root.className, dark.matches].join('|');
+    if (!bleeding && sig === painted) return;
+    painted = bleeding ? '' : sig;
+    ctx.clearRect(0, 0, w, hh);
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, cx - R, cy - R, 2 * R, 2 * R);
     if (f.params?.balloonEso) {

@@ -1,0 +1,146 @@
+name: Checks (browser, visual, WebKit)
+
+# Every browser, visual and WebKit check on each push to main and the integration branch, beside
+# pages.yml (which only lints, unit-tests and deploys, so a preview never waits for these).
+# On the integration branch a newer push cancels this workflow's older run at once, in GitHub itself
+# (the concurrency group below needs no runner), so the newest commit always gets the full suite and
+# old checks never hold the runners a newer deploy needs. On main every run goes to the end.
+
+on:
+  push:
+    branches: [main, claude/settings-topbar-icon-flvft1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # (main: a group of its own per run, so nothing on main is cancelled or dropped)
+  group: checks-${{ github.ref_name == 'main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
+
+jobs:
+  # The browser checks run alongside the deploy (pages.yml), not before it: a failure marks this run red
+  # (so it is seen) but the preview is already published for testing on devices.
+  # Split over thirty-six runners (desktop in twenty shares, phone in sixteen), filled by measured time, one check at a time per runner:
+  # a runner is too small to run several browsers at once.
+  browser-checks:
+    runs-on: ubuntu-latest
+    # Covers the install (capped at 4 minutes below) plus the checks. SMOKE_PLAN=1 npm run smoke prints each share's expected
+    # minutes: about 23 for desktop and 15 for phone on 15 Oct, and a slow runner takes longer, so the old 25-minute limit cut
+    # almost every share off mid-check and every run ended red without a result. A newer push still cancels a run at once.
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      # 14 shards + 2 visual + 1 WebKit = 17 of the account's ~20 runners, so pages.yml's lint and deploy always find one.
+      # (36 shards take three rounds at 14 at a time, as they did at 16: the run is no slower.)
+      max-parallel: 14
+      matrix:
+        # Desktop in twenty shares (the longest single checks take 11 to 15 minutes on a runner, so a share must not hold more than one plus a little); phone in sixteen, since it also walks every slide of all decks.
+        include:
+          - { device: desktop, shard: '1/20' }
+          - { device: desktop, shard: '2/20' }
+          - { device: desktop, shard: '3/20' }
+          - { device: desktop, shard: '4/20' }
+          - { device: desktop, shard: '5/20' }
+          - { device: desktop, shard: '6/20' }
+          - { device: desktop, shard: '7/20' }
+          - { device: desktop, shard: '8/20' }
+          - { device: desktop, shard: '9/20' }
+          - { device: desktop, shard: '10/20' }
+          - { device: desktop, shard: '11/20' }
+          - { device: desktop, shard: '12/20' }
+          - { device: desktop, shard: '13/20' }
+          - { device: desktop, shard: '14/20' }
+          - { device: desktop, shard: '15/20' }
+          - { device: desktop, shard: '16/20' }
+          - { device: desktop, shard: '17/20' }
+          - { device: desktop, shard: '18/20' }
+          - { device: desktop, shard: '19/20' }
+          - { device: desktop, shard: '20/20' }
+          - { device: phone, shard: '1/16' }
+          - { device: phone, shard: '2/16' }
+          - { device: phone, shard: '3/16' }
+          - { device: phone, shard: '4/16' }
+          - { device: phone, shard: '5/16' }
+          - { device: phone, shard: '6/16' }
+          - { device: phone, shard: '7/16' }
+          - { device: phone, shard: '8/16' }
+          - { device: phone, shard: '9/16' }
+          - { device: phone, shard: '10/16' }
+          - { device: phone, shard: '11/16' }
+          - { device: phone, shard: '12/16' }
+          - { device: phone, shard: '13/16' }
+          - { device: phone, shard: '14/16' }
+          - { device: phone, shard: '15/16' }
+          - { device: phone, shard: '16/16' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      # Pages serves the repository root, so the browser checks run against it. The
+      # production-build pass (npm run smoke:dist, for the SCORM package) stays in npm run check.
+      - name: Browser checks
+        env:
+          SHOTS: workspace-shots
+          SMOKE_DEVICE: ${{ matrix.device }}
+          SMOKE_SHARD: ${{ matrix.shard }}
+          SMOKE_WORKERS: 1
+        run: npm run smoke
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: workspace-browser-checks-${{ matrix.device }}-${{ strategy.job-index }}
+          path: workspace-shots/
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
+  webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: WebKit for Playwright
+        run: timeout 300 npx playwright install --with-deps webkit
+      - name: Presenter words keep one size (iPhone, WebKit)
+        run: npm run smoke:webkit
+
+  # The look against tests/visual on every preview push, so a drift shows up now, not at merge
+  # time. A drift is a warning here (the diffs are kept as an artifact) and blocks only in ci.yml.
+  # When the change to the look is intended, run the "Visual references" workflow on the branch,
+  # which redraws the drifted views on these same machines and commits them.
+  visual:
+    name: visual (${{ matrix.device }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [desktop, phone]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Visual regression
+        id: visual
+        continue-on-error: true
+        env:
+          VISUAL_DEVICE: ${{ matrix.device }}
+        shell: bash
+        run: npm run visual | tee visual.log
+      - name: Report drifted views
+        if: steps.visual.outcome == 'failure'
+        run: |
+          views=$(grep -o '^FAIL [^:]*' visual.log | cut -c6- | paste -sd' ' -)
+          echo "::warning title=Visual references drifted::$views. If intended, run the Visual references workflow on this branch; ci.yml blocks the merge until then."
+      - uses: actions/upload-artifact@v4
+        if: steps.visual.outcome == 'failure'
+        with:
+          name: visual-diff-${{ matrix.device }}
+          path: test-results/visual
+          if-no-files-found: ignore
+          retention-days: 1

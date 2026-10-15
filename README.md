@@ -52,7 +52,7 @@ npm run check        # all of the above, on the root site and on the build
 The browser checks need a Chromium for Playwright (`npx playwright install chromium`). CI
 (`.github/workflows/ci.yml`) runs lint, tests, the build, both smoke tests and the performance
 report on pull requests and on `main`; `.github/workflows/pages.yml` publishes the live site and
-the preview (see [AGENTS.md](AGENTS.md)).
+the preview, and `.github/workflows/checks.yml` runs the browser checks on those same pushes (see [AGENTS.md](AGENTS.md)).
 
 The acceptance tests are the model's validation targets (healthy ranges, HVPG in presinusoidal
 disease and heart failure, splenic-vein reversal, hepatofugal flow, TIPS outcomes, the rupture

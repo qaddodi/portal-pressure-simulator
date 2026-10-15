@@ -5,25 +5,18 @@ name: Pages (live site + preview)
 #   /preview/  the branch that triggered the run (a claude/** branch), or main again after a merge
 # Every run rebuilds both from scratch, so the newest run always wins: the deploy job shares one
 # concurrency group across branches. Lint and unit run for every push and gate the deploy.
-# On the integration branch a newer push cancels the older run's lint, browser, visual and WebKit
-# checks at once, so the newest push gets the runners and deploys fast (owner's rule). A preview
-# deploy that is already publishing is never cancelled (main included): the newest waiting one queues
-# behind it and older waiting ones are dropped, so a burst of pushes always ends with the newest commit
-# deployed. Every deploy rebuilds / from main's current tip, so a preview deploy never publishes a stale root.
-# On main started checks run to the end.
-# The deploy needs only lint and unit, and it goes first: the browser, visual and WebKit checks wait
-# for the deploy job (they still run and report red afterwards). Before, the deploy job queued behind
-# about forty check jobs for the account's runners and a push took 40 minutes to go live.
-# Only main and the integration branch run this workflow. Thread branches (other claude/**) used to
-# run lint and unit here too; those duplicate runs of the same commit took the account's runners while
-# the preview push sat queued. They get everything in ci.yml on a pull request.
-# The account runs about 20 jobs at once. An older run's ~40 check jobs used to take every slot, so a
-# newer push's lint job could not start (and its checks, which wait for its deploy, could not cancel
-# the old ones): pushes sat queued for 20-30 minutes. The browser shards now run at most 16 at a time
-# (+2 visual +1 WebKit), so a slot stays free for a newer push's lint and deploy; once that deploys,
-# its checks cancel the older run's checks through the concurrency groups below.
-# On top of that the lint job's first step cancels the older runs of the same branch (unless one is
-# publishing right now), so a new push never waits behind old checks.
+# This workflow only checks lint and unit, then deploys: two jobs, about two minutes. On the integration
+# branch a newer push cancels the older push's waiting lint. A preview deploy that is already publishing
+# is never cancelled (main included): the newest waiting one queues behind it and older waiting ones are
+# dropped, so a burst of pushes always ends with the newest commit deployed. Every deploy rebuilds /
+# from main's current tip, so a preview deploy never publishes a stale root.
+# The browser, visual and WebKit checks are in checks.yml, a separate workflow on the same pushes. A newer
+# push cancels the older push's checks run there as soon as it lands (workflow concurrency, no runner
+# needed), and those checks use at most 17 of the account's ~20 runners, so this workflow's lint and
+# deploy always find one. Before (15 Oct), the checks lived here: an older push's checks held every
+# runner, the newer push's lint could not start, and so it could neither deploy nor cancel them.
+# Only main and the integration branch run this workflow; thread branches get everything in ci.yml on a
+# pull request.
 
 on:
   push:
@@ -34,7 +27,6 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  actions: write
 
 jobs:
   # Quick checks gate the deploy (about a minute end to end), so a preview is never held up by
@@ -45,30 +37,7 @@ jobs:
       group: validate-${{ github.ref }}
       cancel-in-progress: ${{ github.ref_name != 'main' }}
     timeout-minutes: 5
-    permissions:
-      contents: read
-      actions: write
     steps:
-      # First thing, before any check can hold a runner: cancel the older runs of this branch whose
-      # deploy is not publishing right now, so their ~40 queued or running check jobs free the
-      # account's runners at once instead of only after this run's own deploy starts.
-      - name: Cancel older runs of this branch
-        if: ${{ github.ref_name != 'main' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          gh api "repos/$GH_REPO/actions/workflows/pages.yml/runs?branch=$GITHUB_REF_NAME&per_page=30" \
-            --jq '.workflow_runs[] | select(.id < ($ENV.GITHUB_RUN_ID|tonumber) and (.status=="in_progress" or .status=="queued" or .status=="waiting")) | .id' |
-          while read -r id; do
-            publishing=$(gh api "repos/$GH_REPO/actions/runs/$id/jobs" --jq '[.jobs[] | select(.name=="deploy" and .status=="in_progress")] | length')
-            if [ "$publishing" = "0" ]; then
-              echo "Cancelling run $id"
-              gh api -X POST "repos/$GH_REPO/actions/runs/$id/cancel" || true
-            else
-              echo "Run $id is publishing, left alone"
-            fi
-          done || true
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -77,144 +46,6 @@ jobs:
       - run: npm ci
       - name: Lint and unit tests
         run: npm run lint && npm test
-
-  # The browser checks run alongside the deploy, not before it: a failure marks the run red
-  # (so it is seen) but the preview is already published for testing on devices.
-  # Split over thirty-six runners (desktop in twenty shares, phone in sixteen), filled by measured time, one check at a time per runner:
-  # a runner is too small to run several browsers at once.
-  browser-checks:
-    needs: [validate, deploy]
-    if: ${{ !cancelled() && needs.validate.result == 'success' && (github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1') }}
-    runs-on: ubuntu-latest
-    concurrency:
-      group: browser-checks-${{ github.ref }}-${{ matrix.device }}-${{ matrix.shard }}
-      cancel-in-progress: ${{ github.ref_name != 'main' }}
-    # Covers the install (capped at 4 minutes below) plus the checks (SMOKE_PLAN=1 npm run smoke prints each share's expected
-    # minutes: 12 to 15 now, and a slow runner takes longer; at 15 minutes the shares were cut off mid-check and the run went red).
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      # Leaves one of the account's ~20 runners free for a newer push (see the top of this file).
-      max-parallel: 16
-      matrix:
-        # Desktop in twenty shares (the longest single checks take 11 to 15 minutes on a runner, so a share must not hold more than one plus a little); phone in sixteen, since it also walks every slide of all decks.
-        include:
-          - { device: desktop, shard: '1/20' }
-          - { device: desktop, shard: '2/20' }
-          - { device: desktop, shard: '3/20' }
-          - { device: desktop, shard: '4/20' }
-          - { device: desktop, shard: '5/20' }
-          - { device: desktop, shard: '6/20' }
-          - { device: desktop, shard: '7/20' }
-          - { device: desktop, shard: '8/20' }
-          - { device: desktop, shard: '9/20' }
-          - { device: desktop, shard: '10/20' }
-          - { device: desktop, shard: '11/20' }
-          - { device: desktop, shard: '12/20' }
-          - { device: desktop, shard: '13/20' }
-          - { device: desktop, shard: '14/20' }
-          - { device: desktop, shard: '15/20' }
-          - { device: desktop, shard: '16/20' }
-          - { device: desktop, shard: '17/20' }
-          - { device: desktop, shard: '18/20' }
-          - { device: desktop, shard: '19/20' }
-          - { device: desktop, shard: '20/20' }
-          - { device: phone, shard: '1/16' }
-          - { device: phone, shard: '2/16' }
-          - { device: phone, shard: '3/16' }
-          - { device: phone, shard: '4/16' }
-          - { device: phone, shard: '5/16' }
-          - { device: phone, shard: '6/16' }
-          - { device: phone, shard: '7/16' }
-          - { device: phone, shard: '8/16' }
-          - { device: phone, shard: '9/16' }
-          - { device: phone, shard: '10/16' }
-          - { device: phone, shard: '11/16' }
-          - { device: phone, shard: '12/16' }
-          - { device: phone, shard: '13/16' }
-          - { device: phone, shard: '14/16' }
-          - { device: phone, shard: '15/16' }
-          - { device: phone, shard: '16/16' }
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-browser
-      # Pages serves the repository root, so the browser checks run against it. The
-      # production-build pass (npm run smoke:dist, for the SCORM package) stays in npm run check.
-      - name: Browser checks
-        env:
-          SHOTS: workspace-shots
-          SMOKE_DEVICE: ${{ matrix.device }}
-          SMOKE_SHARD: ${{ matrix.shard }}
-          SMOKE_WORKERS: 1
-        run: npm run smoke
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: workspace-browser-checks-${{ matrix.device }}-${{ strategy.job-index }}
-          path: workspace-shots/
-          if-no-files-found: ignore
-          retention-days: 1
-
-  # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
-  webkit:
-    needs: [validate, deploy]
-    if: ${{ !cancelled() && needs.validate.result == 'success' && (github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1') }}
-    runs-on: ubuntu-latest
-    concurrency:
-      group: webkit-${{ github.ref }}
-      cancel-in-progress: ${{ github.ref_name != 'main' }}
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: WebKit for Playwright
-        run: timeout 300 npx playwright install --with-deps webkit
-      - name: Presenter words keep one size (iPhone, WebKit)
-        run: npm run smoke:webkit
-
-  # The look against tests/visual on every preview push, so a drift shows up now, not at merge
-  # time. A drift is a warning here (the diffs are kept as an artifact) and blocks only in ci.yml.
-  # When the change to the look is intended, run the "Visual references" workflow on the branch,
-  # which redraws the drifted views on these same machines and commits them.
-  visual:
-    name: visual (${{ matrix.device }})
-    needs: [validate, deploy]
-    if: ${{ !cancelled() && needs.validate.result == 'success' && (github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1') }}
-    runs-on: ubuntu-latest
-    concurrency:
-      group: visual-${{ github.ref }}-${{ matrix.device }}
-      cancel-in-progress: ${{ github.ref_name != 'main' }}
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        device: [desktop, phone]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-browser
-      - name: Visual regression
-        id: visual
-        continue-on-error: true
-        env:
-          VISUAL_DEVICE: ${{ matrix.device }}
-        shell: bash
-        run: npm run visual | tee visual.log
-      - name: Report drifted views
-        if: steps.visual.outcome == 'failure'
-        run: |
-          views=$(grep -o '^FAIL [^:]*' visual.log | cut -c6- | paste -sd' ' -)
-          echo "::warning title=Visual references drifted::$views. If intended, run the Visual references workflow on this branch; ci.yml blocks the merge until then."
-      - uses: actions/upload-artifact@v4
-        if: steps.visual.outcome == 'failure'
-        with:
-          name: visual-diff-${{ matrix.device }}
-          path: test-results/visual
-          if-no-files-found: ignore
-          retention-days: 1
 
   # Only main and the one integration branch publish. Other claude/** branches are still checked,
   # but their pushes no longer replace /preview/.
