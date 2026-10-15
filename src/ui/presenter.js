@@ -1769,6 +1769,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.classList.toggle('tool-only', !!s.tool && !s.data);
       data.classList.remove('strip');   // (a squashed ladder's strip lasts one slide)
       data.classList.toggle('pz-beside', (!!s.tool || lad) && !!s.data && tileKeys(s).length > 0);
+      data.toggleAttribute('data-beside', data.classList.contains('pz-beside'));
+      data.classList.remove('pz-folds');   // (Mac and iPad landscape: folded behind Show only when the pair would not fit, set in layout)
       data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: every instrument with tiles has them stacked beside it; its own readings fold to a short list under its picture)
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
       data.dataset.tool = ui.tools.sig(s.tool);
@@ -2167,6 +2169,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const top0 = cardOn && t ? sl : 0;   // (the cards' top: one margin from the top, as from the side)
     if (cardOn && t && !off(dd)) {
       gap = Math.round(0.6 * sl); cw = t.right - wr.left + pad - sl;
+      // (Folding the instrument behind Show is the last step, below: each new measure starts unfolded. It snaps while the card is
+      // measured, so the measure sees where it rests; a tap on Show or Hide then eases it.)
+      const canFold = dd.classList.contains('has-tool') && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead');
+      const setFolds = (on) => {
+        if (dd.classList.contains('pz-folds') === on) return;   // (unchanged: a pass mid-ease must not cut a Show or Hide short)
+        const tl = dd.querySelector(':scope > .pz-tool');
+        if (tl) tl.style.transition = 'none';
+        dd.classList.toggle('pz-folds', on); dd.classList.toggle('pz-beside', !on && dd.hasAttribute('data-beside'));
+        if (tl) { void tl.offsetHeight; tl.style.transition = ''; }
+      };
+      if (!lock && dd.classList.contains('pz-folds')) setFolds(false);
       const q = ui.bar.hidden || !ui.bar.offsetWidth ? null : ui.bar.getBoundingClientRect();
       foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl;
       let ch = colHeight(cw / k) * k, dk = 1;
@@ -2182,19 +2195,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const ladder = () => {
         for (const [s, bk] of DK) { if (below) break; step(s); below = title(bk); }   // (the data card's blocks a step or two smaller, the words a little: no further, or the words would squeeze)
       };
+      // The last step when even the smallest blocks leave the pair too tall: the instrument folds behind Show (as on a phone),
+      // its tiles in a row under the header at the card's full width, and the steps run again from full size.
+      // (Not for a slide whose instrument is its point (tool-lead), nor a card that holds only the instrument.)
       if (lock) {
         for (const [n, v] of lock.vars) if (v) ts.setProperty(n, v);
+        if (lock.folds) setFolds(true);
         t = r(ui.text); below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = colHeight(cw / k, dk) * k;
       } else {
         // (A title a step or two smaller at the one card width, then the steps below; the column never widens.)
         below = title(1);
         if (!below) ladder();
+        if (!below && canFold) { setFolds(true); ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); step(1); below = title(1); if (!below) ladder(); }
         // (Still too tall at the smallest step: the pair stays stacked at the one card width, the title and blocks at their
         // smallest steps; the data card is never moved to the top right, its own fit (fitCards) makes the rest fit its room.)
         if (!below) { put(TK[TK.length - 1], DK[DK.length - 1][1]); below = true; }
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
-      if (lockKey && !lock) textLock = { key: lockKey, below, dk, vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
+      if (lockKey && !lock) textLock = { key: lockKey, below, dk, folds: dd.classList.contains('pz-folds'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
     } else dd.style.removeProperty('--pz-dk');
     const isCol = dd.classList.contains('col');
     if (below !== isCol) {

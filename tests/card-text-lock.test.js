@@ -25,7 +25,7 @@ test('the teaching and data cards keep one width on every slide: the column neve
 test('one margin, padding, gap and card width, all from the body size', () => {
   assert.match(css, /--pz-cm: clamp\(16px, min\(calc\(2\.6vw \/ var\(--vz\)\), calc\(1\.8 \* var\(--pz-b\)\)\), 60px\)/);
   assert.match(css, /--pz-cp: clamp\(18px, calc\(1\.4 \* var\(--pz-b\)\), 40px\)/);
-  assert.match(css, /--pz-cw: min\(calc\(clamp\(340px, min\(calc\(34vw \/ var\(--vz\)\), calc\(23\.5 \* var\(--pz-b\)\)\), 640px\)/);
+  assert.match(css, /--pz-cw: min\(calc\(clamp\(340px, min\(calc\(38vw \/ var\(--vz\)\), calc\(23\.5 \* var\(--pz-b\)\)\), 640px\)/);
   assert.match(css, /\.pz\.pz-card:not\(\.stack\) \.pz-data \{ padding: var\(--pz-cp\); \}/, 'both cards share one padding');
   assert.match(css, /\.pz-bar\.pzb-pill \{[^}]*right: var\(--pz-cm\); bottom: max\(var\(--pz-cm\)/, 'the nav pill sits one margin from the right and the bottom');
   assert.match(js, /gap = Math\.round\(0\.6 \* sl\)/);
@@ -42,4 +42,14 @@ test('a tight slide shrinks in fixed steps and the data card never moves to the 
 
 test('a slide Doppler card lays its readings two across so labels and values never overlap', () => {
   assert.match(css, /\.pz:not\(\.stack\) \.pz-tool \.dop \.dop-report \.dop-stats \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+});
+
+// iPad landscape (15 Oct): when the smallest steps still leave the pair too tall, the instrument folds behind Show, as on a phone.
+test('a pair that does not fit at the smallest steps folds the instrument behind Show on a wide screen', () => {
+  assert.match(js, /if \(!below && canFold\) \{ setFolds\(true\);[^\n]*below = title\(1\); if \(!below\) ladder\(\); \}/);
+  assert.match(js, /canFold = dd\.classList\.contains\('has-tool'\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\)/);
+  assert.match(js, /if \(lock\.folds\) setFolds\(true\);/, 'the fold is part of the slide\'s locked layout');
+  assert.match(js, /folds: dd\.classList\.contains\('pz-folds'\)/);
+  assert.match(css, /\.pz:not\(\.stack\):not\(\.low\) \.pz-data\.pz-folds:not\(\.tool-open\) > \.pz-tool \{ max-height: 0; opacity: 0;/);
+  assert.match(css, /\.pz:not\(\.stack\):not\(\.low\) \.pz-data\.pz-folds \.pz-dh > \.pz-fold \{ display: inline-flex;/);
 });
