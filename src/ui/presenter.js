@@ -14,22 +14,22 @@
 
 import { store, replaceParams } from './store.js?v=3b659e1968';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=95b4244720';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=0e70eb01ff';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=d1643dae6f';
+import { sinusoidSupported } from './sinusoid-view.js?v=44e154296f';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=07e997d398';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=67608d2e9e';
-import { createTools } from './presenter-tools.js?v=c885ace93c';
+import { createHvpgMonitor } from './hvpg-proc.js?v=e4fee3f371';
+import { createTools } from './presenter-tools.js?v=ae81be6383';
 import { openHandout } from './handout.js?v=8ccca89fa3';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=f709ae0429';
 import { frameFor, cancelFrame } from './frame.js?v=5ad4028792';
 import { createFigureKey } from './figure-key.js?v=54e4d71341';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=34b03c4df4';
+import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=162c8bf8d6';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';

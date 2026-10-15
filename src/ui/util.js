@@ -1,4 +1,5 @@
 // DOM & formatting helpers.
+import { saver } from './frame.js?v=5ad4028792';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
@@ -397,7 +398,9 @@ export function fitCanvas(canvas) {
     const b = canvas.getBoundingClientRect(); r = { width: b.width, height: b.height };
     boxes.set(canvas, r); boxObserver.observe(canvas);
   }
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  // The instruments (Doppler, FibroScan, the HVPG tracing, scope, wall, charts) at the screen's own density, up to 3x: a 3x iPhone drew
+  // their words at 2x, slightly soft (#34). Battery saver keeps 2x.
+  const dpr = Math.min(saver() ? 2 : 3, window.devicePixelRatio || 1);
   const w = Math.max(1, Math.round(r.width * dpr)), hh = Math.max(1, Math.round(r.height * dpr));
   if (canvas.width !== w || canvas.height !== hh) { canvas.width = w; canvas.height = hh; }
   const ctx = canvas.getContext('2d');

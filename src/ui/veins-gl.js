@@ -27,7 +27,7 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=6c39f43ddf';
-import { cssRGB } from './util.js?v=95b4244720';
+import { cssRGB } from './util.js?v=0e70eb01ff';
 import { CELL, ENT_W, binVeins } from './veins-bin.js?v=99947f1c67';
 
 export { binVeins };
