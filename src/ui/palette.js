@@ -3,7 +3,7 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=3b659e1968';
-import { h, svgIcon, toast } from './util.js?v=7bea6ad65a';
+import { h, svgIcon, toast } from './util.js?v=a2cde2ac82';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=6ebaeb46c8';
 import { HIDDEN_EDGES } from './anatomy.js?v=0b72305f30';
@@ -114,7 +114,8 @@ export function createPalette({ ctx }) {
     try { it.c.run(it.num); } catch (e) { console.error(e); toast('That command did not run.', 'bad'); }
   }
   function open() {
-    ret = document.activeElement;
+    // (Ctrl K, or a click Safari does not focus: the Search button takes focus back, not the page.)
+    ret = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.getElementById('btnPalette');
     back.hidden = false; input.value = ''; sel = 0; renderList();
     setTimeout(() => input.focus(), 0);
   }

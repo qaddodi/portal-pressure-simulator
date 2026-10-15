@@ -1,28 +1,28 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=9228eed00c';
+import { startHost, host } from './host.js?v=290f29a9c8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=21864b133c';
+import { createStage } from './stage.js?v=64e1535033';
 import { createCreditPlacer } from './credit.js?v=b14449d723';
-import { sinusoidSupported } from './sinusoid-view.js?v=d3e796bce7';
-import { createInspector } from './inspector.js?v=d1085ce6ba';
-import { createDock, CUTOFFS } from './dock.js?v=2f004bbe73';
-import { setHvpgStage } from './hvpg-proc.js?v=e6a4ae8fb2';
-import { createWhy } from './why.js?v=f63606bbc5';
-import { createTimeline, LAPSES } from './timeline.js?v=7cfdcd42d4';
-import { createCompare } from './compare.js?v=c6ca755402';
-import { createCard } from './card.js?v=d95ae6175f';
-import { createChart } from './chart.js?v=d6d51e6c2b';
-import { createMenu } from './menu.js?v=aa648baf3a';
-import { caption } from './a11y.js?v=4dc7459ab3';
+import { sinusoidSupported } from './sinusoid-view.js?v=8d5db3a81a';
+import { createInspector } from './inspector.js?v=d8b081e13f';
+import { createDock, CUTOFFS } from './dock.js?v=f25b58e0b2';
+import { setHvpgStage } from './hvpg-proc.js?v=bc758bb776';
+import { createWhy } from './why.js?v=714afe2d3c';
+import { createTimeline, LAPSES } from './timeline.js?v=a02638d021';
+import { createCompare } from './compare.js?v=b31554ebe3';
+import { createCard } from './card.js?v=66adec30b1';
+import { createChart } from './chart.js?v=afc1cb9bcf';
+import { createMenu } from './menu.js?v=986747eeab';
+import { caption } from './a11y.js?v=a077a58afc';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=a7a1848152';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=816d3f5e4b';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=d47a365503';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=3a5c342615';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=7bea6ad65a';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=a2cde2ac82';
 import { TEXT_STEPS } from './type-scale.js?v=0bd8cdeedf';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=51156a8cb3';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=b94494ccbc';
 import { initTopbarMotion } from './topbar-motion.js?v=40e62f18bf';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=6ebaeb46c8';
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=60593b9a9a'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=32f5c46d90'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -147,7 +147,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=21acac422b'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=f2dc541b6d'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -220,7 +220,11 @@ async function main() {
   const shared = readShare(), back = new URLSearchParams(location.search).has('back');
   if (shared) await loadShared(shared, { quiet: back }); else timeline.reset();
   inspector.render();
-  if (!(await openDeepLink())) firstRun();
+  const deep = await openDeepLink();
+  if (!deep) firstRun();
+  // The default patient starts without loadPreset, so record what it came with: Treat > Changes then lists its
+  // settings under About this patient, not as changes nobody made, and Clear all keeps them (review #18).
+  if (!shared && !store.get().presetParams) store.set({ presetParams: { id: store.get().presetId, params: structuredClone(store.get().params) } });
   if (back) { const u = new URL(location.href); for (const k of ['back', 'script', 'slide']) u.searchParams.delete(k); u.hash = ''; history.replaceState(null, '', u.pathname + u.search); }   // (a later plain reload starts fresh)
   // Startup has decided who the patient is (a deep link, a shared link, or the default one): the figure may frame itself.
   store.set({ booted: true });
@@ -731,9 +735,9 @@ function wireTopbar() {
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
-  $('#btnTreat').addEventListener('click', () => (treatOpen() ? closeTreat() : openTreat()));
+  $('#btnTreat').addEventListener('click', () => (treatOpen() ? closeTreat({ focus: true }) : openTreat()));
   // History, beside Treat and Tests: its own card on the right (a phone held sideways keeps the menu sheet).
-  $('#btnHistory').addEventListener('click', (e) => (isPhone() ? timeline.openHistory(e.currentTarget) : historyOpen() ? closeHistory() : openHistory()));
+  $('#btnHistory').addEventListener('click', (e) => (isPhone() ? timeline.openHistory(e.currentTarget) : historyOpen() ? closeHistory({ focus: true }) : openHistory()));
   for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnTreat', 'bottom'], ['#zoomIn', 'left'], ['#zoomOut', 'left'], ['#zoomFit', 'left'], ['#rotateCircuit', 'left']]) {
     const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
   }
@@ -926,6 +930,15 @@ function syncPanelToggle() {
   refitStage();
   setTimeout(() => stage?.relayout(), 320);
 }
+// Closing a card from the keyboard or its own button hands focus back to what opened it, never to the page (review #24).
+// (Safari does not focus a clicked button, so the card's own button stands in for the opener.) A card put away because
+// another opens keeps focus where it is.
+function giveFocusBack(card, to) {
+  const a = document.activeElement;
+  if (a && a !== document.body && !card.contains(a)) return;
+  if (to?.isConnected && to.getClientRects().length) to.focus({ preventScroll: true });
+}
+let panelOpener = null;
 /** Opens the patient chart; or the instruments when named. */
 function openPanel(tab = 'chart') {
   // (What it puts away on a phone goes first, so the instruments come in once it has gone.)
@@ -935,12 +948,15 @@ function openPanel(tab = 'chart') {
   if (app.classList.contains('instrument-focus')) dock.setState('open');
   // A phone has room for one sheet at a time: the chart puts Treat and the instruments away.
   if (isPhone()) { closeTreat(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
+  const a = document.activeElement;
+  if (!panelShown() && a && a !== document.body && !$('#panel').contains(a)) panelOpener = a;
   arrive($('#panel'));
   app.classList.add('panel-open');
   panelSheet?.open();
   syncPanelToggle();
 }
-function closePanel() {
+function closePanel({ focus = false } = {}) {
+  if (focus) giveFocusBack($('#panel'), panelOpener);
   if (panelShown()) leave($('#panel'));
   app.classList.remove('panel-open'); panelSheet?.closed(); syncPanelToggle();
   // Once it has played out, what it showed is put away, so it never reopens on stale details.
@@ -1336,7 +1352,7 @@ function openTreat() {
   const body = h('div', { class: 'tc-body' }, pane, chart.treatChanges(sync));
   const grab = el.querySelector('.sheet-grab');
   el.replaceChildren(...[grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('pill'), h('span', {}, 'Treat')), count,
-    h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), tabs, body].filter(Boolean));
+    h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat({ focus: true }) }, icon('close'))), tabs, body].filter(Boolean));
   paintCount();
   treatOff?.();
   treatOff = store.on('params', () => { for (const fn of sync) fn(); });
@@ -1353,9 +1369,10 @@ function stashCards() {
   closePopover(); why?.close(); closeTreat(); closeHistory(); closePanel(); if (was.dock) setPanelTab('chart');
   return () => { if (was.panel) openPanel(); if (was.dock) openPanel('instruments'); if (was.treat) openTreat(); };
 }
-function closeTreat() {
+function closeTreat({ focus = false } = {}) {
   const el = $('#treatCard');
   if (el.hidden) return;
+  if (focus) giveFocusBack(el, $('#btnTreat'));
   leave(el);
   el.hidden = true;
   treatOff?.(); treatOff = null;
@@ -1375,7 +1392,7 @@ function openHistory() {
   const body = h('div', { class: 'tc-body' });
   const paint = () => { const top = body.scrollTop; body.replaceChildren(timeline.historyBody()); body.scrollTop = top; };
   el.replaceChildren(h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('clock'), h('span', {}, 'History')),
-    h('button', { class: 'ib card-close', 'aria-label': 'Close History', title: 'Close (Esc)', onclick: () => closeHistory() }, icon('close'))), body);
+    h('button', { class: 'ib card-close', 'aria-label': 'Close History', title: 'Close (Esc)', onclick: () => closeHistory({ focus: true }) }, icon('close'))), body);
   paint();
   // (A change or an event adds a row; the count beside the button moves with every entry, including a finished snapshot.)
   const mo = new MutationObserver(() => { if (historyOpen()) paint(); });
@@ -1388,9 +1405,10 @@ function openHistory() {
   $('#btnHistory').setAttribute('aria-expanded', 'true');
   refitStage();
 }
-function closeHistory() {
+function closeHistory({ focus = false } = {}) {
   const el = $('#historyCard');
   if (el.hidden) return;
+  if (focus) giveFocusBack(el, $('#btnHistory'));
   leave(el);
   el.hidden = true;
   historyOff?.(); historyOff = null;
@@ -1424,17 +1442,19 @@ function wireKeyboard() {
     }
     if (tag === 'input' || tag === 'select' || tag === 'textarea') { if (e.key === 'Escape') e.target.blur(); return; }
     if (e.key === 'Escape') {
-      closePopover();
+      // One Esc closes one thing: an open menu first, and only the menu (review #24).
+      if (popoverOpen()) { closePopover(); return; }
       if (isModalOpen()) closeModal();
       else if (mainMenu.isOpen()) mainMenu.close();
       else if (projector) toggleProjector();
       else if (app.classList.contains('instrument-focus')) dock.setState('open');
-      else if (treatOpen()) closeTreat();
-      else if (historyOpen()) closeHistory();
+      else if (treatOpen()) closeTreat({ focus: true });
+      else if (historyOpen()) closeHistory({ focus: true });
       else if (stage.isShunting()) stage.cancelShunt();
       else if (store.get().tool !== 'select') setTool('select');
+      else if (app.classList.contains('dock-open') && dock) dock.close();   // Tests (it hands focus back to its tab)
       else if (store.get().sinusoid && !store.get().selection) store.set({ sinusoid: false });
-      else if (panelShown() && !store.get().selection) closePanel();   // the patient chart (its close button says Esc)
+      else if (panelShown() && !store.get().selection) closePanel({ focus: true });   // the patient chart (its close button says Esc)
       else store.set({ selection: null });
       return;
     }
@@ -1465,7 +1485,7 @@ function wireKeyboard() {
     if (k === 'z') { settle(); return; }
     if (e.key === '?') { openHelp(); return; }
     if (k === 'i') { dock.toggle(); return; }
-    if (k === 't') { if (treatOpen()) closeTreat(); else openTreat(); return; }
+    if (k === 't') { if (treatOpen()) closeTreat({ focus: true }); else openTreat(); return; }
     if (k === 'p') { timeline.togglePin(); return; }
     if (k === 'j' && !store.get().imaging) { if (!e.repeat) injectDye({ hold: true }); return; }
   });
@@ -1514,8 +1534,8 @@ function wirePanel() {
     });
   });
   $('#tabInstruments').addEventListener('click', () => dock.toggle());
-  $('#panelClose').addEventListener('click', closePanel);
-  $('#panelScrim').addEventListener('click', closePanel);
+  $('#panelClose').addEventListener('click', () => closePanel({ focus: true }));
+  $('#panelScrim').addEventListener('click', () => closePanel());
   setPanelTab('chart');
   syncPanelToggle();
 }

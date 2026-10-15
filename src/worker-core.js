@@ -1,11 +1,11 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=fb810e7b7a';
+import { Engine } from './engine/engine.js?v=10061daf49';
 import { computeMetrics } from './engine/metrics.js?v=bead427420';
 import { tenthGap } from './engine/gap.js?v=3a5947c552';
 import { detectEvents } from './engine/events.js?v=4e5f47b6c6';
-import { explain } from './engine/explain.js?v=d37eeeab4a';
+import { explain } from './engine/explain.js?v=4e04f8e1c5';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=6ebaeb46c8';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
@@ -242,7 +242,7 @@ export function createCore(post) {
     // event log start fresh at day 0 afterwards.
     *advance({ days, untilEvent, restartClock }) {
       morph = null;
-      const n0 = eng.eventLog.length;
+      const n0 = eng.eventCount;   // (a count, not the log's length: the log is capped at 200)
       let done = 0;
       const max = untilEvent ? 730 : days;
       while (done < max) {
@@ -250,7 +250,7 @@ export function createCore(post) {
         const r = yield* eng.advanceDaySteps(step);
         done += step;
         if (r.ruptured) { clock = 'hemo'; break; }
-        if (untilEvent && eng.eventLog.length > n0) break;
+        if (untilEvent && eng.eventCount > n0) break;
       }
       if (restartClock) { eng.day = 0; eng.t = 0; eng.eventLog = []; eng.newEvents = []; }
       paramsDirty = true;

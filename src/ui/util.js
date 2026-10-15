@@ -215,6 +215,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   anchor.setAttribute('aria-expanded', 'true');
   return el;
 }
+export const popoverOpen = () => !!openMenu;
 /** Places the open menu again, after something it is anchored to has moved or resized. */
 export function repositionPopover() { if (openMenu) { openMenu.el.style.left = openMenu.el.style.top = '0px'; openMenu.put(); } }
 export function closePopover() {

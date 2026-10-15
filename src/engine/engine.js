@@ -143,6 +143,7 @@ export class Engine {
     this.evState = {}; this.evAvg = null;
     this.newEvents = [];
     this.eventLog = [];
+    this.eventCount = 0;   // every event ever pushed (the log keeps only the last 200)
     this.quiet = false;
     // Beat-to-beat waveform switched on by the UI while a waveform instrument is on screen,
     // without touching the patient's parameters (links and undo stay unchanged).
@@ -882,7 +883,7 @@ export class Engine {
   startValsalva(sec = 10) { this.valsalva = { start: this.t, until: this.t + sec }; }
 
   pushEvent(ev) {
-    const e = { ...ev, t: this.t, day: this.day, key: `${ev.id}-${this.eventLog.length}` };
+    const e = { ...ev, t: this.t, day: this.day, key: `${ev.id}-${this.eventCount++}` };
     this.newEvents.push(e);
     this.eventLog.push(e);
     if (this.eventLog.length > 200) this.eventLog.shift();
