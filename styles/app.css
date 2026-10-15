@@ -5227,6 +5227,9 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 /* A phone's colour key sits at the words' bottom-left corner, on the nav pill's row (figure-key.js fades it in once the cards have landed). */
 .pz.stack .pz-fk { left: 21px; top: auto; bottom: calc(26px + var(--pz-sb)); translate: none; z-index: 1; }
 .pz.stack.tab .pz-fk { left: calc(15% + 13px); }
+/* Too wide for the room beside the nav pill: its own row just above the pill's row, never under it (presenter.js fitKey), one line, shrunk to fit. */
+.pz.stack.fk-up .pz-fk { bottom: calc(65px + var(--pz-sb)); scale: var(--pz-fk-s, 1); transform-origin: 0 100%; }
+.pz.stack.fk-up .pz-pillclr { margin-bottom: calc((var(--pz-reach, 32px) + var(--pz-fkrow, 0px)) / var(--pz-fit, 1)); }
 
 /* ── Tests card on a phone (15 Oct, Mohammad) ─────────────────────
    The scope fills the card's width (its height the room left), the band button sits right under it, and the five

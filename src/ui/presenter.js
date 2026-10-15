@@ -2410,10 +2410,27 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const wr = restRect(ui.root), k = wr.width / (ui.root.clientWidth || wr.width) || 1, reach = restRect(text).top + text.offsetHeight * k - ui.bar.getBoundingClientRect().top;
       text.style.setProperty('--pz-reach', `${Math.max(0, Math.ceil(reach / k) + 3)}px`);
     }
+    fitKey();
     if (gap && gap.parentElement !== end) gap.remove();
     if (end && !end.querySelector(':scope > .pz-pillgap')) end.append(h('span', { class: 'pz-pillgap', 'aria-hidden': 'true' }));
     if (was && was !== box) was.classList.remove('pz-pillclr');
     box?.classList.add('pz-pillclr');
+  }
+  // A phone's docked colour key and the nav pill never overlap: when the key is too wide for the room left of the pill, it takes its own
+  // row just above the pill's row (fk-up; the words end above it), shrunk to the card's width if even that is too narrow. One line, always.
+  function fitKey() {
+    const fk = ui.fk, root = ui.root;
+    const on = phone() && !ui.text.hidden && fk.dataset.empty == null;
+    if (!on) { root.classList.remove('fk-up'); fk.style.removeProperty('--pz-fk-s'); return; }
+    const was = fk.hidden; fk.hidden = false;
+    const wr = restRect(root), k = wr.width / (root.clientWidth || wr.width) || 1;
+    const w = fk.offsetWidth, hgt = fk.offsetHeight, l = parseFloat(getComputedStyle(fk).left) || 21;
+    fk.hidden = was;
+    const room = (ui.bar.getBoundingClientRect().left - wr.left) / k - l - 8, full = root.clientWidth - 2 * l;
+    const up = w > room;
+    root.classList.toggle('fk-up', up);
+    if (up && w > full) fk.style.setProperty('--pz-fk-s', String(Math.max(.5, full / w).toFixed(3))); else fk.style.removeProperty('--pz-fk-s');
+    ui.text.style.setProperty('--pz-fkrow', up ? `${Math.ceil(hgt * Math.min(1, full / w || 1)) + 12}px` : '0px');
   }
   function paintChrome() {
     if (!ui) return;

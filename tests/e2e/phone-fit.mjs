@@ -32,6 +32,11 @@ export const fitIssues = () => {
   const sh = document.querySelector('.pz.stack') && text && vis(document.querySelector('.pz-shade'));
   if (sh) {
     if (text.left < sh.left - 1 || text.right > sh.right + 1 || text.top < sh.top + 4 || text.bottom > sh.bottom + 1) out.push('slide words outside the teaching card');
+    // The docked colour key never touches the nav pill, and stays whole inside the teaching card (15 Oct: the Origin key ran under the pill).
+    const fk = vis(document.querySelector('.pz.stack .pz-fk'));
+    if (fk && bar && Math.min(fk.right, bar.right) - Math.max(fk.left, bar.left) > -2 && Math.min(fk.bottom, bar.bottom) - Math.max(fk.top, bar.top) > -2) out.push(`colour key overlaps the nav pill (${Math.round(fk.right)} vs ${Math.round(bar.left)})`);
+    if (fk && (fk.left < sh.left || fk.right > sh.right || fk.bottom > sh.bottom || fk.top < sh.top)) out.push('colour key outside the teaching card');
+    if (fk && inked(document.querySelector('.pz-text')).some((q) => Math.min(q.right, fk.right) - Math.max(q.left, fk.left) > 1 && Math.min(q.bottom, fk.bottom) - Math.max(q.top, fk.top) > 1)) out.push('slide words run under the colour key');
     if (bar && (bar.left < sh.left || bar.right > sh.right || bar.bottom > sh.bottom)) out.push('controls pill outside the teaching card');
     if (sh.left < 1 || sh.right > innerWidth - 1 || sh.bottom > innerHeight - 1) out.push('teaching card touches the screen edge');
     if (db && db.width && !data.classList.contains('pz-hide') && db.bottom > sh.top - 4) out.push(`data card runs into the teaching card (${Math.round(db.bottom)} vs ${Math.round(sh.top)})`);
