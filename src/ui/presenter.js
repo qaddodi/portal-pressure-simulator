@@ -1611,8 +1611,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // measurement while the catheter drives the camera.)
     bare = !booting && !!ui && !ct;
     wordsIn(s, q, said, to, swap, lap, st);
-    // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first.)
-    if (bare) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
+    // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first. Behind a case
+    // card they also stay out until it is lifted, a catheter slide's included: its words would otherwise come in under the case.)
+    if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
     await settleRun();
     if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn(); }
     if (cut()) return;
@@ -1773,7 +1774,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function wordsIn(s, q, st, i, fresh = false, lap = false, now = st) {
     if (!ui) return;
     const { text, panel, data } = ui;
-    text.classList.remove('pz-leave');   // (the panel's own is let go once its new content is in, so it never fades back in with the old)
+    // (the panel's own is let go once its new content is in, so it never fades back in with the old; behind a case card the words
+    // stay out, never shown for a moment while they are fitted, until the card is lifted: cardsIn)
+    if (!caseCard) text.classList.remove('pz-leave');
     if (s.visual) {
       text.hidden = true; text.replaceChildren(); paintKey(null);
       // A panel that was not there fades in (never pops): unhidden while still faded, then let go.

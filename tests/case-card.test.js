@@ -123,3 +123,14 @@ test('a flung case card glides off and fades over a visible time, and is hidden 
   // The card is hidden only once the flight has run (caseShut waits for card.flown).
   assert.match(src, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;\s*setTimeout\(\(\) => \{ if \(!card\.c\.classList\.contains\('on'\)\) card\.c\.hidden = true; \}, ms\);/);
 });
+
+test('no slide card shows while a case card is up, a catheter slide included; they come in once it is lifted', () => {
+  // The words keep their leave state behind a case card (wordsIn never lets it go then), and every slide, bare or not
+  // (HVPG slide 2 is a catheter slide, whose words used to come in at once under the case), sets it while a case is up.
+  assert.match(src, /if \(!caseCard\) text\.classList\.remove\('pz-leave'\);/);
+  assert.doesNotMatch(src.slice(src.indexOf('function wordsIn('), src.indexOf('function wordsIn(') + 400), /^\s*text\.classList\.remove\('pz-leave'\);/m);
+  assert.match(src, /if \(bare \|\| caseCard\) \{ ui\.text\.classList\.add\('pz-leave'\); ui\.root\.dataset\.bare = ''; \}/);
+  // A non-bare slide brings its cards in only after caseEnd (the lift), and cardsIn is what lets the words go.
+  assert.match(src, /if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\); \}/);
+  assert.match(src, /function cardsIn\(\) \{ if \(ui\) \{ reFit\(\); if \(!bare\) \{ ui\.text\.classList\.remove\('pz-leave'\);/);
+});
