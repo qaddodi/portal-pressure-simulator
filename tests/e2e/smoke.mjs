@@ -319,7 +319,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (restarted) throw new Error(`a rebuilt sinusoid caption faded in again (${restarted}): the captions flash`);
   });
 
-  await check(device, 'sinusoid view: the zoom pill stays at the bottom right, with only its minus active, which steps back out to the lobule', async (page) => {
+  await check(device, 'sinusoid view: the zoom pill stays at the bottom right, with its plus resting and its minus and fit stepping back out to the lobule', async (page) => {
     await open(page, '?preset=healthy');
     await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
     await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
@@ -330,9 +330,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const sin = await pillBox();
     const shown = await page.evaluate(() => ['#zoomIn', '#zoomOut', '#zoomFit'].map((s) => !document.querySelector(s).disabled));
     if (!(sin.w > 0)) throw new Error('the zoom pill is gone in the sinusoid view');
-    if (shown.join() !== 'false,true,false') throw new Error(`in the sinusoid only the minus should be active, got ${shown}`);
+    if (shown.join() !== 'false,true,true') throw new Error(`in the sinusoid the plus should rest and the minus and fit stay active, got ${shown}`);
     if (sin.r > sin.vw || sin.b > sin.vh || sin.r < sin.vw - 40 || sin.b < sin.vh - 140) throw new Error(`the zoom pill is not at the bottom right in the sinusoid: ${JSON.stringify(sin)} (lobule: ${JSON.stringify(lob)})`);
-    await page.click('#zoomOut');
+    await page.evaluate(() => [...document.querySelectorAll('#zoomOut, #zoomFit')].find((b) => b.offsetParent && !b.disabled).click());   // (the phone layout shows Fit alone)
     await page.waitForFunction(() => !document.querySelector('#app').classList.contains('sin-focus') && window.pps.store.get().lobule && !window.pps.store.get().sinusoid, null, { timeout: 30000 });
   });
 

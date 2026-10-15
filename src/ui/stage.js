@@ -1296,8 +1296,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and liver (see defaultVT), which is not a fit: there Fit shows the entire map, and tapping it
   // again returns to the close-up, so the button always does something visible.
   const fit = () => {
-    // In the lobule view, Fit shows the whole lobule again (it never leaves the view).
-    if (lobuleOn) { lz.fitView(); return; }
+    // In the lobule view, Fit shows the whole lobule again (it never leaves the view). Inside the sinusoid it steps back out to the lobule.
+    if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.fitView(); return; }
     const circuit = morphTarget === 1, focus = defaultVT(circuit), whole = circuit ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : { k: 1, x: 0, y: 0 };
     const near = (a, b) => Math.abs(a.k - b.k) < 0.02 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
     // Judged from where a glide in progress is going, so a second tap toggles as expected.

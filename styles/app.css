@@ -1327,7 +1327,7 @@ button.finding { cursor: pointer; }
 .sv-region-hsc { color: var(--sv-hsc); }
 .sv-region-kup { font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--sv-kupffer); } .sv-region-kup > * { opacity: calc(.85 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
 .sv-region-hep { color: var(--sv-hepatocyte); }
-/* The sinusoid view is a focused mode: only the way back to the lobule and the pressure legend stay (no lens to pick). The zoom pill keeps its place at the bottom right: its minus steps back out to the lobule, its plus and fit rest (there is nothing closer or wider to go to). */
+/* The sinusoid view is a focused mode: only the way back to the lobule and the pressure legend stay (no lens to pick). The zoom pill keeps its place at the bottom right: its minus and fit step back out to the lobule, its plus rests (there is nothing closer to go to). */
 #zoomPill .ib:disabled { opacity: .35; pointer-events: none; }
 #app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #zoomPill #rotateCircuit, #vdock, #dock, #panel, #treatCard, #stageCenter) { display: none !important; }
 #app.sin-focus #btnLayers { pointer-events: none; cursor: default; }
