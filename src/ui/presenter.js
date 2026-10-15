@@ -70,7 +70,7 @@ const LENS_KEY = {
   origin: ['origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen'], ['--origin-artery', 'Artery'], ['--origin-systemic', 'Systemic']]],
 };
 export const slideLens = (s, q = false) => (!q && !s?.visual && LENS_KEY[s?.lens] ? s.lens : 'pressure');
-// Pressure's key shows only on a slide with lens buttons, so its card keeps one height as the buttons switch lens.
+// Pressure's key shows only on a slide with lens buttons (the default needs none).
 const PRESSURE_KEY = ['pressure', () => gradientCss('to right', 30), 'Low', 'High'];
 const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
 const gateButtons = (s) => !!s.compare?.some((o) => o.gate);
