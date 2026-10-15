@@ -45,3 +45,13 @@ test('the TIPS talk: slow portal vein before, a normal stent, then a slow stent 
   assert.equal(band(narrow, 'TIPS', healthy), 'slow');
   assert.equal(band(narrow, 'PV_TRUNK', healthy), 'slow', 'with a stent the main portal vein is slow under 30 cm/s');
 });
+
+test('the velocity keys name only the two ends, Slow and Fast, so they fit a phone', async () => {
+  const { readFileSync } = await import('node:fs');
+  const read = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
+  const legend = read('main.js').split('\n').find((l) => l.includes("scale(velocityCss('to right')"));
+  assert.match(legend, /\[\[0, 'Slow'\], \[100, 'Fast'\]\]/);
+  assert.doesNotMatch(legend, /Normal/);
+  const key = read('presenter.js').split('\n').find((l) => l.trim().startsWith("velocity: ['velocity'"));
+  assert.match(key, /'Slow'/); assert.match(key, /'Fast'/); assert.doesNotMatch(key, /Normal/);
+});

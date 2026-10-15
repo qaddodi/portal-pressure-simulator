@@ -3542,6 +3542,8 @@ button.finding { cursor: pointer; }
 .lg-scale { container-type: inline-size; }
 @container (max-width: 79px) { .lg-num:not(.start):not(.end) { display: none; } }
 @container (max-width: 47px) { .lg-num { display: none; } }
+/* A label marked opt (Congestion's 10) also goes where the bar is too short to keep it clear of the end label. */
+@container (max-width: 100px) { .lg-num.opt { display: none; } }
 
 /* Readouts: short names where the tiles are narrow. */
 .metric .k .k-s { display: none; }

@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=6a10d5929b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=7f2e535fd5'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -513,7 +513,7 @@ function renderLegend() {
   const el = $('#legend');
   const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: grad } }),
     ticks.map((p) => h('span', { class: 'lg-tick', style: { left: p + '%' } })),
-    nums.map(([p, t]) => h('span', { class: 'lg-num' + (p >= 99 ? ' end' : p <= 1 ? ' start' : ''), style: { left: p + '%' } }, t)));
+    nums.map(([p, t, opt]) => h('span', { class: 'lg-num' + (p >= 95 ? ' end' : p <= 1 ? ' start' : '') + (opt ? ' opt' : ''), style: { left: p + '%' } }, t)));
   // Where the full title is hidden (narrow screens), a two-word caption keeps the lens and its unit.
   const cap = (k, u) => h('div', { class: 'lg-cap', 'aria-hidden': 'true' }, k, h('small', {}, u));
   if (m === 'pressure' || m === 'drop') {
@@ -529,12 +529,12 @@ function renderLegend() {
     el.setAttribute('aria-label', 'Legend: flow volume from 0.02 to 6 liters per minute on a log scale, pale mint to deep blue; line width grows with flow');
   } else if (m === 'velocity') {
     el.replaceChildren(h('div', { class: 'lg-title' }, 'Velocity', h('small', {}, 'vs normal')), cap('Velocity', 'vs normal'),
-      scale(velocityCss('to right'), [[16.7, 'Slow'], [50, 'Normal'], [83.3, 'Fast']], [33.3, 66.7]));
+      scale(velocityCss('to right'), [[0, 'Slow'], [100, 'Fast']], [33.3, 66.7]));
     el.setAttribute('aria-label', 'Legend: each vessel\'s mean velocity against its normal range: a continuous scale from sand (slower than normal) through teal (normal) to violet (faster), stronger the further from normal; collaterals stay grey');
   } else if (m === 'heat') {
     const at = (v) => (v / HEAT_MAX) * 100;
     el.replaceChildren(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),
-      scale(heatCss('to right'), [[at(0), '0'], [at(5), '5'], [at(10), '10'], [at(15), '15+']], []));
+      scale(heatCss('to right'), [[at(0), '0'], [at(5), '5'], [at(10), '10', 1], [at(15), '15+']], []));
     el.setAttribute('aria-label', `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, grey to yellow to deep red, with a glow where congestion is highest`);
   } else if (m === 'direction') {
     el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), 'Reversed')));

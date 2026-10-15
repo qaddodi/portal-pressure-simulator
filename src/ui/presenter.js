@@ -61,7 +61,7 @@ function equation([ml, legend]) {
 // and the two ends, as the legend does in Explore. (Learner-facing words say "colored by", never "lens".)
 // Pressure is the default and needs no key.
 const LENS_KEY = {
-  velocity: ['velocity', [['--vel-slow', 'Slow'], ['--vel-normal', 'Normal'], ['--vel-fast', 'Fast']]],
+  velocity: ['velocity', [['--vel-slow', 'Slow'], ['--vel-fast', 'Fast']]],
   flow: ['flow volume', () => flowCss('to right'), 'Little', 'Much'],
   direction: ['direction', [['--flow-normal', 'Usual'], ['--flow-reversed', 'Reversed']]],
   heat: ['congestion', () => heatCss('to right'), 'None', 'Backed up'],
