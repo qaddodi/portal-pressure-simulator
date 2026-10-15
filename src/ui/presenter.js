@@ -1406,7 +1406,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     c.hidden = false; void c.offsetWidth;
     // The words run 2.5x the teaching card's; on a short or narrow screen they ease down just enough to fit the card's room (set before it enters, so nothing resizes on screen).
     c.style.removeProperty('--case-k');
-    for (let k = 2.5; k > 1.2 && c.scrollHeight > c.clientHeight + 1; k -= 0.1) c.style.setProperty('--case-k', k.toFixed(1));
+    for (let k = parseFloat(getComputedStyle(c).getPropertyValue('--case-max')) || 2.5; k > 1.2 && c.scrollHeight > c.clientHeight + 1; k -= 0.1) c.style.setProperty('--case-k', k.toFixed(1));
     c.classList.add('on');
     // Lifting works from the moment the card is up: a tap/Next/swipe while the patient still loads behind it is remembered, and the card lifts once loading ends (into this same slide, never the next).
     const card = caseCard = { c, ms, lifted: false };

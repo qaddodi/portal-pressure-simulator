@@ -1732,7 +1732,9 @@ button.finding { cursor: pointer; }
 @media (prefers-reduced-transparency: reduce) { .pz-case { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 @media (prefers-reduced-motion: reduce) { .pz-case { transform: none; } }
 .pz-case-tag { --site: var(--accent); align-self: center; font-size: calc(var(--s-body) * 1.15); }
-.pz-case-p { margin: 0; text-align: center; font: 500 calc(var(--s-body) * var(--case-k, 2.5))/1.25 var(--font-display); letter-spacing: -.01em; color: var(--text); text-wrap: pretty; }
+.pz-case { --case-max: 2.5; }
+.pz.stack .pz-case { --case-max: 2; }   /* (a phone: the case words a fifth smaller, so the card no longer fills the screen) */
+.pz-case-p { margin: 0; text-align: center; font: 500 calc(var(--s-body) * var(--case-k, var(--case-max)))/1.25 var(--font-display); letter-spacing: -.01em; color: var(--text); text-wrap: pretty; }
 .pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity .5s var(--ease); }
 .pz-veil.on { opacity: 1; }
 .pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); max-height: calc(100% - 2 * clamp(16px, calc(4 * var(--pzh) / var(--vz)), 56px)); overflow: clip; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4 * var(--pzh) / var(--vz)), 32px); padding: clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px) clamp(20px, calc(3vw / var(--vz)), 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6 * var(--pzh) / var(--vz)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: pz-in .55s var(--ease) both; transition: opacity .22s var(--ease), transform .22s var(--ease); }
@@ -2421,7 +2423,8 @@ button.finding { cursor: pointer; }
 .pz-outline ul { gap: .75em; }
 .pz-outline ul li { position: relative; padding-left: 1.7em; }
 .pz-outline ul li::before { content: ""; position: absolute; left: .3em; top: .28em; width: .32em; height: .6em; border: solid var(--accent); border-width: 0 .14em .14em 0; transform: rotate(45deg); }
-.pz.stack .pz-outline { --pzo-fs: var(--s-body); gap: 14px; }
+.pz.stack .pz-outline { --pzo-fs: calc(var(--s-body) * .85); gap: 14px; }   /* (a phone: the outline's words a little smaller) */
+.pz.stack .pz-panel[data-visual="outline"] .pz-dtitle { font-size: calc(var(--s-big) * .85); }
 .pz.stack .pzo-obj { padding: 12px 14px; border-radius: 14px; }
 .pz-panel[data-visual="outline"] { width: min(1180px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); }
 .app.pz-hi .pzl-lead { opacity: .85; }

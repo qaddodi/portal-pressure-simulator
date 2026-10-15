@@ -62,7 +62,11 @@ test('the case card is cards glass, enters and leaves whole, never resizing', ()
 
 test('the case text is 2.5x the teaching card body, and eases down only to fit the card before it enters', () => {
   const p = css.match(/\.pz-case-p \{[^}]*\}/)[0];
-  assert.match(p, /font: 500 calc\(var\(--s-body\) \* var\(--case-k, 2\.5\)\)/);
+  assert.match(p, /font: 500 calc\(var\(--s-body\) \* var\(--case-k, var\(--case-max\)\)\)/);
+  assert.match(css, /\.pz-case \{ --case-max: 2\.5; \}/);
+  // On a phone the words run a fifth smaller (2x), and the outline card's a little smaller too.
+  assert.match(css, /\.pz\.stack \.pz-case \{ --case-max: 2; \}/);
+  assert.match(css, /\.pz\.stack \.pz-outline \{ --pzo-fs: calc\(var\(--s-body\) \* \.85\)/);
   assert.match(src, /c\.scrollHeight > c\.clientHeight \+ 1; k -= 0\.1\) c\.style\.setProperty\('--case-k'[^\n]*\n\s*c\.classList\.add\('on'\)/);
 });
 
