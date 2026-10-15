@@ -2,7 +2,7 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=bb8c70114d';
+import { store, updateParams } from './store.js?v=3b659e1968';
 import { h, svgIcon, toast } from './util.js?v=f7459cca3c';
 import { EDGES } from '../engine/topology.js?v=1825cbda55';
 import { DRUGS } from '../engine/scenario.js?v=6ebaeb46c8';

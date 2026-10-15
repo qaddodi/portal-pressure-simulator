@@ -2,7 +2,7 @@
 
 import { EDGES, NODES, dMinOf, dopplerK } from '../engine/topology.js?v=1825cbda55';
 import { DRUGS } from '../engine/scenario.js?v=6ebaeb46c8';
-import { store, updateParams, isLocked, hiddenNow } from './store.js?v=bb8c70114d';
+import { store, updateParams, isLocked, hiddenNow } from './store.js?v=3b659e1968';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=f7459cca3c';
 import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('inspector');

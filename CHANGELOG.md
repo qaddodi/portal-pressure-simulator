@@ -4,8 +4,8 @@
 
 - **Student role removed (for now).** Settings no longer has "I am a…" (Student or Instructor), and the role is gone from
   the app's internals, so everyone gets what Instructor had: every lens in Colored by, pressure values on the figure, the
-  full play bar and History, all procedures in Treat, and Advanced physiology in Settings. The HVPG stays hidden until it
-  is measured unless "Always show HVPG" is on. A role saved in the browser is cleared on load. A simpler student mode may
+  full play bar and History, all procedures in Treat, and Advanced physiology in Settings. "Always show HVPG" is on unless
+  someone turned it off, so the HVPG still shows without measuring, as before. A role saved in the browser is cleared on load. A simpler student mode may
   come back later. Test: `tests/no-role.test.js`.
 - **No Patient button.** The top bar is Treat, Tests, Settings and Search. The abnormal-results list and its badge
   are gone (the readouts and instruments already show the numbers). What has been changed, with undo and Clear all, sits
