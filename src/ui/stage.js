@@ -6435,7 +6435,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     // The zoom buttons zoom about the middle of the free space; in the lobule they drive its own view.
     zoomIn: () => { if (lobuleOn) { lz.zoomBy(1.4); return; } const c = freeCentre(); animZoomAt(c[0], c[1], 1.4); },
-    zoomOut: () => { if (lobuleOn) { lz.zoomBy(1 / 1.4); return; } const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4); },
+    zoomOut: () => { if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.zoomBy(1 / 1.4); return; } const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4); },
     fit, refit,
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */

@@ -319,6 +319,23 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (restarted) throw new Error(`a rebuilt sinusoid caption faded in again (${restarted}): the captions flash`);
   });
 
+  await check(device, 'sinusoid view: the zoom pill stays at the bottom right, with only its minus active, which steps back out to the lobule', async (page) => {
+    await open(page, '?preset=healthy');
+    await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
+    const pillBox = () => page.evaluate(() => { const r = document.querySelector('#zoomPill').getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, vw: innerWidth, vh: innerHeight }; });
+    const lob = await pillBox();
+    await page.evaluate(() => window.pps.store.set({ sinusoid: true }));
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('sin-focus') && document.querySelector('.sv.on'), null, { timeout: 45000 });
+    const sin = await pillBox();
+    const shown = await page.evaluate(() => ['#zoomIn', '#zoomOut', '#zoomFit'].map((s) => !document.querySelector(s).disabled));
+    if (!(sin.w > 0)) throw new Error('the zoom pill is gone in the sinusoid view');
+    if (shown.join() !== 'false,true,false') throw new Error(`in the sinusoid only the minus should be active, got ${shown}`);
+    if (sin.r > sin.vw || sin.b > sin.vh || sin.r < sin.vw - 40 || sin.b < sin.vh - 140) throw new Error(`the zoom pill is not at the bottom right in the sinusoid: ${JSON.stringify(sin)} (lobule: ${JSON.stringify(lob)})`);
+    await page.click('#zoomOut');
+    await page.waitForFunction(() => !document.querySelector('#app').classList.contains('sin-focus') && window.pps.store.get().lobule && !window.pps.store.get().sinusoid, null, { timeout: 30000 });
+  });
+
   await check(device, 'lobule: the flow chevrons show when Chevrons is on (and go when it is off)', async (page) => {
     await open(page, '?preset=healthy');
     await page.evaluate(() => { const s = window.pps.store; s.set({ blood: { ...s.get().blood, chevrons: true } }); window.pps.host.send({ type: 'run', running: false }); });

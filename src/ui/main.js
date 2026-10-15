@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=ff070ac951';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bb8c70114d';
-import { createStage } from './stage.js?v=fdb40b5cbb';
+import { createStage } from './stage.js?v=2c39a88d49';
 import { createCreditPlacer } from './credit.js?v=122c73335a';
 import { sinusoidSupported } from './sinusoid-view.js?v=dbe400f022';
 import { createInspector } from './inspector.js?v=8afcc0256b';
@@ -182,7 +182,7 @@ async function main() {
   host.on('error', (m) => { console.error(m.message); toast('Engine error: see the console.', 'bad'); });
 
   // The Sinusoid button shows only in the Lobule view: it is one level further down.
-  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); $('#btnSinPlay').hidden = !(st.lobule && st.sinusoid); };
+  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); $('#btnSinPlay').hidden = !(st.lobule && st.sinusoid); const inSin = !!(st.lobule && st.sinusoid); $('#zoomIn').disabled = inSin; $('#zoomFit').disabled = inSin; $('#zoomOut').title = inSin ? 'Back out to the lobule' : 'Zoom out'; $('#zoomOut').setAttribute('aria-label', inSin ? 'Back out to the lobule' : 'Zoom out'); };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
   store.on('sinusoid', syncViewSeg);
