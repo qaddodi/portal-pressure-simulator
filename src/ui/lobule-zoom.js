@@ -2778,6 +2778,12 @@ export function createLobuleZoom({ host }) {
     },
     isOpen: () => fade > 0.98,
     isShown: () => fade > 0,
+    /** The lobule's outline in client px while the view is wholly the lobule (not the sinusoid), else null: the corner credit keeps off it. */
+    ring() {
+      if (!geo || fade <= 0.98 || sinU > 0 || sinTo) return null;
+      const r = host.getBoundingClientRect();
+      return geo.lobules[0].corners.map((p) => { const [x, y] = toScreen(p); return [x + r.left, y + r.top]; });
+    },
     setLobe,
   };
   return api;

@@ -13,7 +13,7 @@ export const hit = (a, o) => a.l < o.r && a.r > o.l && a.t < o.b && a.b > o.t;
 // Every free box over the whole figure on a coarse grid (clear of the cards by `gap`, and of the art by `avoid`).
 function wideSpots(fig, obs, w, h, gap, inset, avoid) {
   const big = fig.r - fig.l >= 768, sx = big ? 24 : 12, sy = big ? 16 : 8, out = [];
-  for (let y = fig.t; y + h <= fig.b; y += sy) {
+  for (let y = fig.t + inset; y + h <= fig.b - inset; y += sy) {   // (an inset from the top and bottom edges too: the credit had touched the screen's top, y = 2)
     for (let x = fig.l + inset; x + w <= fig.r - inset + 0.5; x += sx) {
       const box = { l: x - gap, t: y - gap, r: x + w + gap, b: y + h + gap };
       if (!obs.some((q) => hit(box, q)) && !avoid({ l: x, t: y, r: x + w, b: y + h })) out.push({ x, y });
@@ -115,8 +115,8 @@ export function pickCorner(spots, cur, blocked = {}) {
 }
 
 // What the credit keeps clear of. Chrome (the bars, the zoom pill, the figure's labels) is avoided but does not make the screen "busy".
-export const OBSTACLES = '.stage-blocker:not([hidden]), .pz-fk:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .pz-shade';   // (the FibroScan probe's body carries its reading; it counts as chrome below)
-export const CHROME = '#topbar, .pz-fk, #vdock, #zoomPill, .stage-clock, .pz-bar, .scan-probe:not(.off) .sp-body';   // (the FibroScan probe: its body carries the reading)
+export const OBSTACLES = '.stage-blocker:not([hidden]), .pz-fk:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .scan-probe:not(.off) .sp-body, .pz-shade, .pz-prog';   // (the FibroScan probe's body carries its reading; it counts as chrome below)
+export const CHROME = '#topbar, .pz-fk, #vdock, #zoomPill, .stage-clock, .pz-bar, .scan-probe:not(.off) .sp-body, .pz-prog';   // (.pz-prog: a slide's progress line along the bottom edge)   // (the FibroScan probe: its body carries the reading)
 
 // The figure's own labels (station values, organ captions) and measuring callouts: each one's text and pill, padded and snapped outward to a small
 // grid, so a label that jitters by a pixel as its number changes does not read as a move.
@@ -160,6 +160,9 @@ export function labelRects(wr, wrap) {
 const CELL = 6;
 const ORGANS = 'g.organ :is(path, circle, ellipse, rect, polygon):not(.org-shade)';
 const VESSELS = '#edges :is(.v-lumen, .v-lumenP, .v-strand), #world .v-hit';
+// (The ascites fluid and the flanks' outline count as organs' art, as drawn: their fill where they have one, their stroke where
+// they have one. A small phone in Patients had put the credit on the fluid.)
+const FLUID = '#ascites .ascites-fill, #ascites .ascites-line, path.flank';
 const num = (el, a) => parseFloat(el.getAttribute(a)) || 0;
 function shapePath(el) {
   const p = new Path2D(), tag = el.tagName.toLowerCase();
@@ -176,17 +179,19 @@ function shapePath(el) {
 }
 let organMemo = { key: '', test: null };
 // test(box, { pad, org, ves }): true when the box, grown by pad, touches the organs and/or the vessels.
-export function organTest(wr) {
-  const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2))].join('|');
+// ring: the lobule's outline (client px) while the lobule fills the view. Its art is then the lobule, not the anatomy hidden under it
+// (the credit had landed on the hepatocytes).
+export function organTest(wr, ring = null) {
+  const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2)), ring && ring.flat().map((v) => v.toFixed(1))].join('|');
   if (organMemo.key === key) return organMemo.test;
   const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, grids = { org: new Uint8Array(cols * rows), ves: new Uint8Array(cols * rows) };
   const cv = document.createElement('canvas');
   cv.width = cols; cv.height = rows;
   const ctx = cv.getContext('2d', { willReadFrequently: true });
   if (ctx) {
-    const paint = (sel, grid, vessel) => {
+    const paint = (sel, grid, vessel, asDrawn = false) => {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, cols, rows);
+      if (!asDrawn) ctx.clearRect(0, 0, cols, rows);   // (as drawn: added to the organs just painted)
       for (const el of document.querySelectorAll(sel)) {
         const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
         if (!m || !r.width) continue;   // (drawn as a bitmap plate, the shapes stay in place but hidden: they still count)
@@ -195,15 +200,25 @@ export function organTest(wr) {
         // One canvas pixel per cell: cell (i, j) covers wrap px [i * CELL, (i + 1) * CELL).
         ctx.setTransform(m.a / CELL, m.b / CELL, m.c / CELL, m.d / CELL, (m.e - wr.left) / CELL, (m.f - wr.top) / CELL);
         const path = shapePath(el);
-        if (!vessel || (cs.fill !== 'none' && !el.classList.contains('v-hit'))) ctx.fill(path);
+        if (asDrawn ? cs.fill !== 'none' : !vessel || (cs.fill !== 'none' && !el.classList.contains('v-hit'))) ctx.fill(path);
         const w = parseFloat(cs.strokeWidth) || 0;
-        if (w > 0 && (!vessel || cs.stroke !== 'none' || el.classList.contains('v-hit'))) { ctx.lineWidth = el.classList.contains('v-hit') ? w * 0.7 : w; ctx.lineCap = cs.strokeLinecap || 'butt'; ctx.lineJoin = cs.strokeLinejoin || 'miter'; ctx.stroke(path); }
+        if (w > 0 && (asDrawn ? cs.stroke !== 'none' : !vessel || cs.stroke !== 'none' || el.classList.contains('v-hit'))) { ctx.lineWidth = el.classList.contains('v-hit') ? w * 0.7 : w; ctx.lineCap = cs.strokeLinecap || 'butt'; ctx.lineJoin = cs.strokeLinejoin || 'miter'; ctx.stroke(path); }
       }
       const px = ctx.getImageData(0, 0, cols, rows).data;
       for (let k = 0; k < grid.length; k++) grid[k] = px[k * 4 + 3] > 0 ? 1 : 0;
     };
-    paint(ORGANS, grids.org, false);
-    paint(VESSELS, grids.ves, true);
+    if (ring) {
+      // The lobule: its outline filled (the portal tracts at its corners fall within the test's pad); nothing else is art.
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cols, rows); ctx.beginPath();
+      ring.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, (x - wr.left) / CELL, (y - wr.top) / CELL));
+      ctx.closePath(); ctx.fill();
+      const px = ctx.getImageData(0, 0, cols, rows).data;
+      for (let k = 0; k < grids.org.length; k++) grids.org[k] = px[k * 4 + 3] > 0 ? 1 : 0;
+    } else {
+      paint(ORGANS, grids.org, false);
+      paint(FLUID, grids.org, false, true);
+      paint(VESSELS, grids.ves, true);
+    }
   }
   // How much art a box covers: organ cells count 1, vessel cells 3.
   const cover = (box) => {
@@ -232,6 +247,9 @@ export function createCreditPlacer(credit) {
   // (kept: the last look that left the credit where it was, what it saw, and the corners it found covered; searches: how many
   // looks ran the full spot search, for the checks)
   let kept = '', keptBlocked = [], searches = 0;
+  // (tier: the art test the spot was found under (null: the least covered spot, or the plain one); fresh: the next look picks
+  // anew instead of keeping the spot (after a slide change or a resize); resized: when the screen last changed size)
+  let tier = null, fresh = true, resizedAt = -1e9;
   const measure = (busy) => {
     const key = innerWidth + 'x' + innerHeight;
     if (key !== sizeKey) {
@@ -243,10 +261,10 @@ export function createCreditPlacer(credit) {
         wrap.append(c);
         size[b] = { w: c.offsetWidth, h: c.offsetHeight };
         if (b) {
-          // The notch's side margins (a phone held sideways), kept clear like a card.
-          c.style.padding = '0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px)';
+          // The notch's side margins (a phone held sideways) and the home indicator's strip at the bottom, kept clear like a card.
+          c.style.padding = '0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)';
           const cs = getComputedStyle(c);
-          size.sl = parseFloat(cs.paddingLeft) || 0; size.sr = parseFloat(cs.paddingRight) || 0;
+          size.sl = parseFloat(cs.paddingLeft) || 0; size.sr = parseFloat(cs.paddingRight) || 0; size.sb = parseFloat(cs.paddingBottom) || 0;
         }
         c.remove();
       }
@@ -280,16 +298,24 @@ export function createCreditPlacer(credit) {
     if (moving || !credit.isConnected || !wrap.offsetParent) return;
     // A slide change (the presenter's pz-moving): out of sight until the cards are in and the camera has settled; it then
     // appears at once at its final spot.
-    if (app?.classList.contains('pz-moving')) { credit.classList.add('moving'); changedAt = 0; lastSig = ''; kept = ''; return; }
+    if (app?.classList.contains('pz-moving')) { credit.classList.add('moving'); changedAt = 0; lastSig = ''; kept = ''; fresh = true; return; }
+    // A resize or a turn: hidden at once, and placed once when the size has held a moment (it had hopped three times in 1.2 s
+    // as the cards and the figure followed the new size).
+    if (performance.now() - resizedAt < 400) { credit.classList.add('moving'); fresh = true; clearTimeout(camT); camT = setTimeout(soon, 420); return; }
+    // The dive into the lobule (or back out) under way: the credit holds still (and the look waits) until it has landed.
+    const dv = window.pps?.stage?.diveProgress?.() ?? 0;
+    if (pos && dv > 0 && dv < 1) { clearTimeout(camT); camT = setTimeout(soon, 150); return; }
     // A pan or a zoom under way: the art under every spot moves with the camera, and sampling it again on each look
     // (thousands of point-in-shape tests over the vessels) made panning and zooming lag. A placed credit keeps its spot
     // until the camera has rested a moment, then looks once.
-    const wm = document.getElementById('world')?.getScreenCTM(), wk = wm ? [wm.a, wm.d, wm.e, wm.f].map((v) => v.toFixed(2)).join(',') : '';
+    // (In the lobule its outline stands for the camera: the lobule pans and zooms on its own.)
+    const ring = window.pps?.stage?.lobuleRing?.() || null;
+    const wm = document.getElementById('world')?.getScreenCTM(), wk = (wm ? [wm.a, wm.d, wm.e, wm.f].map((v) => v.toFixed(2)).join(',') : '') + (ring ? '|' + ring.flat().map(Math.round).join(',') : '');
     if (wk !== worldKey) { worldKey = wk; worldAt = performance.now(); }
     if (pos && performance.now() - worldAt < 250) { clearTimeout(camT); camT = setTimeout(soon, 260); return; }
     const wr = wrap.getBoundingClientRect();
     let { w, h } = measure(false);
-    const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height };
+    const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height - Math.max(0, size.sb - Math.max(0, innerHeight - wr.bottom)) };   // (the home indicator's strip, where the figure reaches the screen's bottom)
     const els = [...document.querySelectorAll(OBSTACLES)], obs = [...els.map((el) => rectOf(el, wr)), ...labelRects(wr, wrap)].filter((o) => o && hit(o, fig));
     const busy = obs.some((o) => !o.chrome);
     credit.classList.toggle('busy', busy);
@@ -320,8 +346,19 @@ export function createCreditPlacer(credit) {
     // re-ran it, about 7% of a slowed phone's time on a slide sitting still.) The corners it found covered stay covered.
     const look = `${sig}|${wk}|${busy}|${sr ? Math.round(sr.left) : ''}|${!!(app?.classList.contains('presenting') && document.querySelector('.pz:not(.stack)'))}|${credit.className}`;
     if (look === kept && !settling) { for (const k of keptBlocked) blocked[k] = now; return; }
-    kept = ''; searches++;
+    kept = '';
     const opt = { gap: wr.width < 768 ? 12 : 24, inset: sr?.width ? Math.max(12, Math.round(sr.left - wr.left - fig.l)) : wr.width < 768 ? 12 : 24 };   // (a clear gap from every card: 24 px on a laptop or tablet)
+    const art = organTest(wr, ring);
+    // It holds its spot while that spot stays good: inside the figure, clear of every card and label by the gap, and as clear of the
+    // art as when it was chosen. A better spot freeing up is no reason to move (a label's live number changing width beside it
+    // had it hop between spots every few seconds; Circuit 7 on a phone). After a slide change or a resize it picks anew.
+    if (pos && !fresh && !credit.matches('.moving, .covered')) {
+      const z = curTight ? measure('tight') : { w, h }, bx = { l: pos.x, t: pos.y, r: pos.x + z.w, b: pos.y + z.h };
+      const inside = bx.l >= fig.l && bx.r <= fig.r && bx.t >= fig.t + Math.min(opt.inset, 12) && bx.b <= fig.b - 4;
+      const clear = !obs.some((o) => hit({ l: bx.l - opt.gap, t: bx.t - opt.gap, r: bx.r + opt.gap, b: bx.b + opt.gap }, o));
+      if (inside && clear && (!tier || !art(bx, tier))) { kept = look; keptBlocked = []; return; }
+    }
+    fresh = false; searches++;
     let spots = freeSpots(fig, obs, w, h, opt), tight = false;
     const covered = CORNERS.filter((k) => !spots[k]);
     for (const k of covered) blocked[k] = now;
@@ -329,12 +366,11 @@ export function createCreditPlacer(credit) {
     // else the plain spots, so the credit always shows.)
     // (The strictest look first: 18 px clear of organs and vessels; then 8 px clear of both; then clear of the vessels only (over an
     // organ's plain fill), 8 px and then 2 px; at each step on one line, then on two. The plain spots last, so the credit still shows.)
-    const art = organTest(wr);
-    let bare = null;
+    let bare = null, found = null;
     find: for (const t of [{ pad: 18 }, { pad: 8 }, { pad: 8, org: false }, { pad: 2, org: false }]) {
       for (const two of [false, true]) {
         const z = two ? measure('tight') : { w, h }, b = freeSpots(fig, obs, z.w, z.h, { ...opt, avoid: (box) => art(box, t) });
-        if (CORNERS.some((k) => b[k])) { bare = b; tight = two; break find; }
+        if (CORNERS.some((k) => b[k])) { bare = b; tight = two; found = t; break find; }
       }
     }
     // (Nowhere bare: the free spot with the least art under it, on one line or on two, whichever covers less; with the usual gap
@@ -352,11 +388,12 @@ export function createCreditPlacer(credit) {
     // (A slide on a laptop or tablet: one spot, the figure's top right, whenever it is free; a phone keeps the corner order.)
     const pref = app?.classList.contains('presenting') && document.querySelector('.pz:not(.stack)') ? 'tr' : null, pool = bare || spots;
     if (pool === bare) spots = bare;
+    tier = found;
     let c = pref && pool[pref] ? pref : pickCorner(pool, cur, blocked);
     if (!c) {
       // Not on one line: try it on two, before giving the figure up as covered.
       const t = measure('tight'), tspots = freeSpots(fig, obs, t.w, t.h, opt), tc = pickCorner(tspots, cur, blocked);
-      if (tc) { spots = tspots; c = tc; tight = true; }
+      if (tc) { spots = tspots; c = tc; tight = true; tier = null; }
     }
     if (!c) { credit.classList.add('covered'); return; }
     const p = spots[c];
@@ -374,7 +411,7 @@ export function createCreditPlacer(credit) {
     moveT = setTimeout(() => { moving = false; if (app?.classList.contains('pz-moving')) return soon(); place(c, p, tight); soon(); }, 80);
   }
   function soon() { if (!raf) raf = nextFrame(check); }
-  addEventListener('resize', soon);
+  addEventListener('resize', () => { resizedAt = performance.now(); soon(); });
   addEventListener('pps:occ', soon);
   // Readout bars ease on every value and never cover the figure: their transitions are not a reason to look again.
   const settled = (e) => { if (!e.target.classList?.contains('rb-fill')) soon(); };

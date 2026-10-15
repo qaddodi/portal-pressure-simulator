@@ -40,7 +40,7 @@ test('copyright credit is on the figure layer, placed by script, and never takes
 });
 
 // The placement itself: a free box nearest each corner, never within the gap of a card.
-const { freeSpots, pickCorner } = await import('../src/ui/credit.js');
+const { freeSpots, pickCorner, OBSTACLES } = await import('../src/ui/credit.js');
 const fig = { l: 0, t: 0, r: 390, b: 700 }, W = 200, H = 14;
 const clear = (s, obs) => obs.every((o) => s.x + W + 10 <= o.l || s.x - 10 >= o.r || s.y + H + 10 <= o.t || s.y - 10 >= o.b);
 
@@ -148,4 +148,26 @@ test('the sinusoid view keeps a fixed strip for the credit instead of sizing its
   // about once a second for good.)
   const view = readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
   assert.doesNotMatch(view, /stage-credit/);
+});
+
+test('the credit keeps its inset from the top and bottom edges in the whole-figure search too (it had touched the top, y = 2)', async () => {
+  const { leastCovered, CORNERS } = await import('../src/ui/credit.js');
+  const fig = { l: 0, t: 0, r: 1440, b: 900 }, inset = 24;
+  const { spots } = leastCovered(fig, [], 200, 14, { gap: 24, inset }, () => 0);
+  for (const c of CORNERS) {
+    assert.ok(spots[c], `no ${c} spot`);
+    assert.ok(spots[c].y >= inset && spots[c].y + 14 <= fig.b - inset, `${c} at y ${spots[c].y}, inside the ${inset} px inset`);
+  }
+  // (and the edge search with art to avoid, when nothing along the edges is bare)
+  const s = freeSpots(fig, [], 200, 14, { gap: 24, inset, avoid: (q) => q.l < 1300 && q.t > 40 });
+  for (const c of CORNERS) if (s[c]) assert.ok(s[c].y >= inset, `${c} at y ${s[c].y}`);
+});
+
+test('the credit holds its spot while it stays good, keeps off the lobule and the ascites, and clear of the home bar and progress line', () => {
+  const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(pos && !fresh && !credit\.matches\('\.moving, \.covered'\)\)/, 'a spot still good is kept');
+  assert.match(src, /organTest\(wr, ring\)/, 'the lobule is the art while it fills the view');
+  assert.match(src, /#ascites \.ascites-fill/, 'the ascites fluid counts as art');
+  assert.match(src, /safe-area-inset-bottom/, 'the home indicator strip is kept clear');
+  assert.match(OBSTACLES, /\.pz-prog/, 'the slide progress line is kept clear');
 });

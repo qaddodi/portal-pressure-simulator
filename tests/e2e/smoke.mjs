@@ -15,7 +15,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
-import { instantMotionOn, quiet } from './fast.mjs';
+import { instantMotionOn, quiet, gotoSlide } from './fast.mjs';
 import { SIZES as CHART_SIZES_ALL, checkCharts, checkLadderBrackets, LADDER_SIZES, checkStrip, checkStripSlides, stripSlides, checkStripGaps } from './chart-text.mjs';
 import { checkPhoneFit, fitIssues, PHONES } from './phone-fit.mjs';
 import { checkTypeScale, SIZES as TYPE_SIZES } from './type-scale.mjs';
@@ -730,6 +730,31 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await expect(`${view}, after a resize`, small);
       await page.setViewportSize(DEVICES.desktop.viewport);
     }
+    await restore();
+  });
+
+  // The corner credit holds its spot while it stays good (review, 15 Oct): on Circuit 7 a station's live number changing width
+  // beside it had it hop between two spots every few seconds. And on a lobule slide it keeps off the lobule (it had sat on the
+  // hepatocytes: its art test looked at the anatomy hidden under the lobule).
+  if (device === 'phone') await check(device, 'The credit holds its spot while numbers tick, and keeps off the lobule', async (page) => {
+    const restore = await instantMotionOn(page);
+    const shown = () => page.waitForFunction(() => { const c = document.querySelector('.stage-credit'); return c.matches('.placed:not(.moving):not(.covered)') && !document.querySelector('#app.pz-moving'); }, null, { timeout: 60000 });
+    await gotoSlide(page, server.url, 'circuit', 6);
+    await quiet(page); await shown();
+    await page.evaluate(() => { const c = document.querySelector('.stage-credit'); window.__moves = []; let last = ''; const tick = () => { const k = (c.matches('.moving, .covered') ? 'hidden ' : '') + c.style.getPropertyValue('--cx') + ',' + c.style.getPropertyValue('--cy'); if (k !== last) { if (last) window.__moves.push(k); last = k; } window.__mt = requestAnimationFrame(tick); }; tick(); });
+    await page.waitForTimeout(12000);
+    const moves = await page.evaluate(() => { cancelAnimationFrame(window.__mt); return window.__moves; });
+    if (moves.length) throw new Error(`Circuit 7: the credit moved ${moves.length} times in 12 s with nothing but the numbers changing (${moves.slice(0, 4).join(' | ')})`);
+    await gotoSlide(page, server.url, 'lobule', 1);
+    await page.waitForFunction(() => window.pps.stage.lobuleSettled() && window.pps.stage.lobuleRing(), null, { timeout: 60000 });
+    await quiet(page); await shown();
+    const on = await page.evaluate(() => {
+      const ring = window.pps.stage.lobuleRing(), r = document.querySelector('.stage-credit').getBoundingClientRect();
+      const inside = ([x, y]) => { let o = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) o = !o; } return o; };
+      const pts = []; for (let u = 0; u <= 1; u += 0.25) for (const v of [0, 0.5, 1]) pts.push([r.left + u * r.width, r.top + v * r.height]);
+      return pts.some(inside) ? `${Math.round(r.left)},${Math.round(r.top)}` : null;
+    });
+    if (on) throw new Error(`Lobule 2: the credit sits on the lobule at ${on}`);
     await restore();
   });
 
