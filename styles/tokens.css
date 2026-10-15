@@ -6,6 +6,7 @@
   --stage-bg: #FBFAF7;
   --surface: #FFFFFF;
   --surface-2: #F6F5F1;
+  --chip-warm: #F6DCD3;   /* (the warm the frosted nav pill takes from the figure: a Show chip on a card mixes it in to match) */
   --surface-3: #ECEAE4;
   --glass: rgba(255, 255, 255, .94); --frost: rgba(255, 255, 255, .38);
   --scrim: rgba(18, 20, 28, .38);

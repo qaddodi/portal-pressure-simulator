@@ -507,13 +507,17 @@ function bigLadder() {
     if (bare) { S.ky2 = -0.35 * c + 1; S.ny = 0.55 * v + 4; }
     S.vy = S.ny + 0.36 * v;
     numW.clear(); lineKey = '';
+    // (In a wide card's shown strip the falls' shading keeps a clear 8 px or more from the readings either side: 2 was tight beside big digits.)
+    bandPad = strip.closest('.pz:not(.stack):not(.low) .pz-data.pz-folds') ? 11 : 2;
     // The unit sits after the last reading when it fits there, else at the end of the HVPG row (under the last stations).
     const inline = XS(4) + est('20', v, 0.62) / 2 + 8 + est('mmHg', c, 0.68) <= S.W - 1;
     S.hvpg = S.ny + 0.5 * v + 6 + 1.05 * c; S.ppg = S.hvpg + 1.45 * c; S.H = S.ppg + 0.6 * c + 3;
     // (A phone's site-ladder cell hides the brackets, its kicker carries the HVPG: the strip ends under its readings.)
     if (bare) S.H = S.ny + 0.5 * v + 4;
     unit.style.display = bare ? 'none' : '';   // (a site row has no room for it beside its last reading, where a block's hatching may sit)
-    strip.setAttribute('viewBox', `0 0 ${S.W} ${S.H.toFixed(1)}`);
+    // (With its unit in the header, a wide card's shown strip centres its readings: the room kept for the unit sat empty on the right.)
+    const dx = bandPad > 2 ? -(S.W - XS(4) - XS(0)) / 2 - 4 : 0;   // (and 4 more: the first reading has two digits, the last one)
+    strip.setAttribute('viewBox', `${dx.toFixed(1)} 0 ${S.W} ${S.H.toFixed(1)}`);
     conns.forEach((cn) => { const y0 = S.ky2 + 0.35 * c; cn.band.setAttribute('y', y0.toFixed(1)); cn.band.setAttribute('height', (S.ny + 0.5 * v - y0).toFixed(1)); });
     spts.forEach((p, i) => {
       p.v.setAttribute('y', S.vy.toFixed(1)); fsOf(p.v, v); fsOf(p.k, kc); p.k.style.display = bare ? 'none' : '';
@@ -529,6 +533,7 @@ function bigLadder() {
   // The connecting line between readings: each end stops LINE_PAD short of the digits' own edge. A reading's width is
   // measured once per digit count (tabular figures, so any number of that length is as wide), or estimated while the strip is hidden.
   const LINE_PAD = 5, numW = new Map(), halves = [0, 0, 0, 0, 0];
+  let bandPad = 2;
   let lineKey = '', lineRaf = 0;
   const halfOf = (p) => {
     const t = p.v.textContent, n = t.length;
@@ -555,7 +560,7 @@ function bigLadder() {
       let moving = false;
       goal.forEach((g, i) => { const d = g - halves[i]; if (!halves[i] || Math.abs(d) < 0.05) halves[i] = g; else { halves[i] += d * 0.3; moving = true; } });
       // (The big fall's band spans its stretch of line, between the two readings, from the falls' row down past the line.)
-      conns.forEach((cn, i) => { const x = XS(i) + halves[i] + 2; cn.band.setAttribute('x', x.toFixed(1)); cn.band.setAttribute('width', Math.max(4, XS(i + 1) - halves[i + 1] - 2 - x).toFixed(1)); });
+      conns.forEach((cn, i) => { const x = XS(i) + halves[i] + bandPad; cn.band.setAttribute('x', x.toFixed(1)); cn.band.setAttribute('width', Math.max(4, XS(i + 1) - halves[i + 1] - bandPad - x).toFixed(1)); });
       sline.setAttribute('d', [0, 1, 2, 3].map((i) => `M${(XS(i) + halves[i] + LINE_PAD).toFixed(2)} ${S.ny}H${(XS(i + 1) - halves[i + 1] - LINE_PAD).toFixed(2)}`).join(''));
       placeNodeBlk();
       lineRaf = moving ? requestAnimationFrame(step) : 0;
@@ -619,7 +624,9 @@ function bigLadder() {
     H = nameY[1] + 0.25 * c + 6;
     el.setAttribute('viewBox', `0 0 ${W} ${H.toFixed(1)}`);
     for (const g of grid) { g.line.setAttribute('x1', gx.toFixed(1)); g.line.setAttribute('x2', W - 10); g.txt.setAttribute('x', tx.toFixed(1)); fsOf(g.txt, c); }
-    bands.forEach((b, i) => { b.r.setAttribute('x', (X(i) + 16).toFixed(1)); b.r.setAttribute('width', Math.max(4, step - 32).toFixed(1)); });
+    // (A fall's band keeps 8 px as drawn clear of the two-digit readings at its ends: at 16 units a WHVP of 23 ran 2 px into it.)
+    const bp = Math.max(16, est('20', l, 0.62) / 2 + 8 * (box?.width ? W / box.width : 1));
+    bands.forEach((b, i) => { b.r.setAttribute('x', (X(i) + bp).toFixed(1)); b.r.setAttribute('width', Math.max(4, step - 2 * bp).toFixed(1)); });
     pts.forEach((p, i) => {
       p.c.setAttribute('cx', X(i).toFixed(1)); p.v.setAttribute('x', X(i).toFixed(1)); fsOf(p.v, l);
       p.k.setAttribute('x', X(i).toFixed(1)); p.k.setAttribute('y', nameY[i % 2].toFixed(1)); fsOf(p.k, c);
@@ -2101,7 +2108,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const cs = getComputedStyle(el), z = el.offsetHeight ? el.getBoundingClientRect().height / el.offsetHeight : 1;
     let used = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0), n = 0;
     // (An instrument with its tiles beside it shares one row with them: the row is counted once, at its taller side.)
-    const rail = el.matches(RAIL), side = rail && el.querySelector(':scope > .pz-tiles');
+    // (Only while a tool or the plot shows beside the tiles: a card too short for its plot shows the strip in a row of its own,
+    // and the tiles then stand in their row alone, counted like any part; skipped, the card read as fitting with its strip below its end.)
+    const rail = el.matches(RAIL), pair = rail && [...el.querySelectorAll(':scope > :is(.pz-tool, .pz-ladder)')].some((c) => getComputedStyle(c).display !== 'none'), side = pair && el.querySelector(':scope > .pz-tiles');
     for (const c of el.children) {
       if (c === side) continue;
       const s = getComputedStyle(c);
@@ -2220,7 +2229,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
   }
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
-  let textLock = null;
+  let textLock = null, ladderFold = null;
   let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0;
   const fitWatch = () => {
     fitRO ||= new ResizeObserver(() => {
@@ -2271,7 +2280,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       gap = Math.round(0.6 * sl); cw = t.right - wr.left + pad - sl;
       // (Folding the instrument behind Show is the last step, below: each new measure starts unfolded. It snaps while the card is
       // measured, so the measure sees where it rests; a tap on Show or Hide then eases it.)
-      const canFold = dd.classList.contains('has-tool') && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead');
+      // (A ladder card with no instrument folds its plot the same way, its tiles keeping the readings, but only once its own fit has
+      // failed (ladderFold, below): its plot shrinks with the card where an instrument cannot. Treatment slide 2 at 200 % on a
+      // 1440x900 screen left the card 232 px, too short for the plot even at the card's smallest zoom.)
+      const canFold = (dd.classList.contains('has-tool') || (!dd.classList.contains('tiles-only') && ladderFold === lockKey)) && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead');
       const setFolds = (on) => {
         if (dd.classList.contains('pz-folds') === on) return;   // (unchanged: a pass mid-ease must not cut a Show or Hide short)
         const tl = dd.querySelector(':scope > .pz-tool');
@@ -2347,6 +2359,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (below !== isCol) { void dd.offsetWidth; dd.style.transition = ''; }
     fitCards(ui.data, ui.panel);
+    // (A ladder card still too full at its smallest zoom: laid out again, folded, for as long as the slide shows at this size.
+    // At 100 % text the card always fits by its own zoom, so it never folds there.)
+    if (below && lockKey && ladderFold !== lockKey && !dd.classList.contains('has-tool') && !dd.classList.contains('tiles-only') && !dd.classList.contains('tool-only')
+      && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-folds') && (({ v, h }) => v > 1 || h > 1)(overflowOf(dd))) { ladderFold = lockKey; textLock = null; layout(); return; }
     // The stacked pair shorter than the screen is centred top to bottom as one (equal room above and below, never closer than one margin
     // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
     let shift = 0;

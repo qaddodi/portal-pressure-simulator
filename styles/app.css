@@ -1630,7 +1630,7 @@ button.finding { cursor: pointer; }
 .pzl-bg[data-rate="mid"] { --c: var(--caution); } .pzl-bg[data-rate="hi"] { --c: var(--danger); }
 .pzl-br { fill: none; stroke: var(--c); stroke-width: 1.9; stroke-linecap: round; transition: stroke .4s var(--ease); }
 .pz-strip .pzl-br { stroke-width: 1.5; }
-.pzl-lead { fill: none; stroke: var(--c); stroke-width: 1.6; stroke-dasharray: 1 5; stroke-linecap: round; opacity: .6; transition: stroke .4s var(--ease); }
+.pzl-lead { fill: none; stroke: var(--c); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .6; transition: stroke .4s var(--ease); }
 .pzl-bk { fill: var(--c); font: 700 15px var(--font-ui); letter-spacing: .06em; transition: fill .4s var(--ease); }
 .pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
 .pz-tiles[data-n="0"] { display: none; }   /* (a ladder alone: its brackets give the HVPG and PPG) */
@@ -4906,8 +4906,29 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    (presenter.js layout, pz-folds), its tiles in a row at the card's full width; Show fades it in, Hide out. */
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh { position: relative; padding-inline: 64px; }
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { display: inline-flex; align-items: center; position: absolute; right: -2px; top: 50%; translate: 0 -50%; min-height: 24px; margin: 0; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--accent); font: inherit; letter-spacing: .05em; cursor: pointer; }
+/* (Show and Hide on a wide screen: the nav pill's frosted glass, ink text, 28 px tall as drawn whatever the header's zoom, a 44 px target.) */
+.pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14);
+  right: 0; min-height: calc(30px / var(--pz-z, 1)); padding: 0 calc(12px / var(--pz-z, 1)); color: var(--text); font-weight: 600; background: color-mix(in srgb, var(--pz-chip, color-mix(in srgb, var(--surface-2) 80%, var(--chip-warm))) 92%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 6px 16px -6px var(--pz-glass-drop), 0 1px 3px -1px var(--pz-glass-drop); }
+.pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold::before { content: ''; position: absolute; inset: calc(-8px / var(--pz-z, 1)) calc(-4px / var(--pz-z, 1)); }
+:root[data-theme="dark"] .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); --pz-chip: var(--surface-2); }
+:root[data-theme="soft"] .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { --pz-chip: var(--surface-2); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); --pz-chip: var(--surface-2); } }
+.app.pz-hi .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
 .pz:not(.stack):not(.low) .pz-data.pz-folds > .pz-tool { overflow: hidden; transition: opacity .26s var(--ease); }   /* (the card takes its new size at once, a solid object, never easing its size in view; the instrument fades in) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds:not(.tool-open) > .pz-tool { max-height: 0; opacity: 0; margin-bottom: calc(-1 * var(--pz-gap)); }
+/* (A ladder card folds its plot (or strip) and key the same way, at once: its tiles stay in a row under the header with the readings.
+   Shown, the plot takes the tiles' place, as a phone's lead instrument does: the room holds one or the other, never both squeezed.) */
+.pz:not(.stack):not(.low) .pz-data.pz-folds:not(.has-tool):not(.tool-open) > :is(.pz-ladder, .pz-strip), .pz:not(.stack):not(.low) .pz-data.pz-folds:not(.has-tool):not(.tool-open) .pz-lg { display: none; }
+.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) > .pz-tiles { display: none; }
+.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) > .pz-strip { width: 100%; }   /* (the strip at the card's full width, its words in one row: squeezed by the fit, it stood its labels on end and grew taller) */
+/* (Shown on a wide screen: the unit goes in the header, so it never drops to the brackets' row away from its readings; the drop
+   lines are solid hairlines, not rows of dots.) */
+.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) .pzs-u { display: none; }
+.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) .pz-dh > span:first-child::after { content: ' (mmHg)'; text-transform: none; letter-spacing: normal; }
+/* (Folded, the tile at the card's full width keeps its scale bar 12 px from its sides and 8 px under its numbers, as drawn.) */
+.pz:not(.stack):not(.low) .pz-data.pz-folds:not(.has-tool):not(.tool-open) > .pz-tiles .pz-tile:has(.pzt-bar) { padding-inline: calc(13px / var(--pz-z, 1)); padding-bottom: calc(10px / var(--pz-z, 1)); }
 /* (An instrument alone, or over a ladder, is the same screen at the card's full width.) */
 .pz:not(.stack):not(.low) .pz-data.has-tool > .pz-tool { --bs: var(--pz-sm); container-type: inline-size; }
 .pz:not(.stack):not(.low) .pz-data.has-tool:not(.pz-beside) > .pz-tool > .pz-ghost { display: none; }

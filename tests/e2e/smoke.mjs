@@ -15,7 +15,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { serve } from '../../scripts/serve.mjs';
-import { instantMotionOn, quiet, gotoSlide } from './fast.mjs';
+import { fastContext, gotoSlide, instantMotionOn, quiet } from './fast.mjs';
 import { SIZES as CHART_SIZES_ALL, checkCharts, checkLadderBrackets, LADDER_SIZES, checkStrip, checkStripSlides, stripSlides, checkStripGaps } from './chart-text.mjs';
 import { checkPhoneFit, fitIssues, PHONES } from './phone-fit.mjs';
 import { checkTypeScale, SIZES as TYPE_SIZES } from './type-scale.mjs';
@@ -1870,6 +1870,51 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // checkLadderBrackets alone for every size).
   if (device === 'desktop') await check(device, 'presenter: ladder HVPG/PPG brackets draw a line and their labels clash with nothing', async () => {
     const bad = await checkLadderBrackets(browser, server.url, () => {}, [LADDER_SIZES[0], LADDER_SIZES[2]]);
+    if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
+  });
+
+  // A Mac or iPad ladder card too tall for its room even at its smallest steps folds its plot behind Show, its tiles keeping the
+  // readings; shown, the plot takes the tiles' place. Folded or shown, every reading sits inside the card at 12 px or more, and
+  // at 100% text the card never folds. (Treatment slide 2 at 200% on a 1440x900 Mac: the strip ran below the card's end.)
+  if (device === 'desktop') await check(device, 'presenter: a ladder card too tall for its room folds whole, its readings inside it, never at 100% text', async () => {
+    const bad = [];
+    const inside = () => {
+      const dd = document.querySelector('.pz-data'), out = [];
+      if (!dd || dd.hidden) return ['no numbers card'];
+      const r = dd.getBoundingClientRect(), z = dd.offsetHeight ? r.height / dd.offsetHeight : 1;
+      const shown = (e) => { for (let a = e; a && a !== dd; a = a.parentElement) { const cs = getComputedStyle(a); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return false; } return true; };
+      const w = document.createTreeWalker(dd, NodeFilter.SHOW_TEXT);
+      for (let n; (n = w.nextNode());) {
+        const el = n.parentElement;
+        if (!n.textContent.trim() || el.closest('.sr-only, [aria-hidden="true"]') || !shown(el)) continue;
+        const g = document.createRange(); g.selectNodeContents(n);
+        const q = [...g.getClientRects()].find((x) => x.width && x.height);
+        if (!q) continue;
+        const word = n.textContent.trim().slice(0, 20);
+        if (q.left < r.left - 2 || q.right > r.right + 2 || q.top < r.top - 2 || q.bottom > r.bottom + 2) { out.push(`"${word}" outside the card (${Math.round(q.bottom)} vs ${Math.round(r.bottom)})`); break; }
+        // (drawn size: the font's size times the card's own zoom, and an SVG's scale for the ladder's labels)
+        const svg = el.closest('svg'), m = svg && svg.getScreenCTM && el.getScreenCTM ? el.getScreenCTM() : null;
+        const px = parseFloat(getComputedStyle(el).fontSize) * (m ? Math.hypot(m.b, m.d) : z);
+        // (the card's 12 px floor: its zoom stops at 11.5 px, a chart's lettering within 1% of that)
+        if (px < 11.4) { out.push(`"${word}" drawn at ${px.toFixed(1)} px`); break; }
+      }
+      return out;
+    };
+    for (const [w, h] of [[1440, 900], [1280, 800], [1180, 820]]) for (const k of [1, 2]) {
+      const ctx = await fastContext(browser, { viewport: { width: w, height: h } });
+      await ctx.addInitScript((k) => { localStorage.setItem('pps.labelScale', String(k)); localStorage.setItem('pps.labelScaleV', '2'); }, k);
+      const page = await ctx.newPage();
+      await gotoSlide(page, server.url, 'treatment', 1); await quiet(page);
+      const at = `treatment slide 2 at ${w}x${h} ${k * 100}%`;
+      const folds = await page.evaluate(() => document.querySelector('.pz-data')?.classList.contains('pz-folds'));
+      if (k === 1 && folds) bad.push(`${at}: the card folded at 100% text`);
+      for (const c of await page.evaluate(inside)) bad.push(`${at}${folds ? ', folded' : ''}: ${c}`);
+      if (folds) {
+        await page.click('.pz-data .pz-fold'); await quiet(page);
+        for (const c of await page.evaluate(inside)) bad.push(`${at}, shown: ${c}`);
+      }
+      await ctx.close();
+    }
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });
 
