@@ -2026,7 +2026,7 @@ button.finding { cursor: pointer; }
 .pz.stack.tab .pz-data { left: 15%; right: 15%; }
 .pz.stack.tab .pz-panel { width: 70%; }
 .pz.stack.tab .pz-bar { right: calc(15% + 13px); }   /* (the pill sits inside the teaching card, at its lower right corner) */
-.pz.stack .pz-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
+.pz.stack .pz-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }   /* (a phone stacks the six site ladders in one column, each a full-width row, so the readings need no tilted names) */
 .pz.stack .pz-panel.fill { height: fit-content; }
 .pz.stack .pz-panel.fill .pz-grid { flex: none; }   /* (the six ladders keep their height; the card scrolls instead of the charts spilling out of their cells) */
 .pz.stack .pz-panel.fill .pz-cell .pz-ladder { flex: none; }
