@@ -8,6 +8,7 @@ import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=e387ad7347';
 import { FONT } from './charts.js?v=eed250ce0a';
 import { simTime, isPaused, fibroReading } from './clock.js?v=af6de95a7c';
 import { store } from './store.js?v=3b659e1968';
+import { elastogramGL } from './fibroscan-gl.js?v=c1e9f0f60b';
 import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('fibroscan');
 
@@ -31,13 +32,13 @@ export const shearSpeed = (kpa) => Math.sqrt((kpa * 1000) / 3000);
 function noiseField(w, hh, cell, seed) {
   const r = rnd(seed), gw = Math.ceil(w / cell), gh = Math.ceil(hh / cell); // periodic: any coordinate wraps seamlessly
   const g = Array.from({ length: gw * gh }, r);
-  return (x, y) => {
+  return Object.assign((x, y) => {
     const fx = x / cell, fy = y / cell, fix = Math.floor(fx), fiy = Math.floor(fy);
     const tx = fx - fix, ty = fy - fiy, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
     const ix = ((fix % gw) + gw) % gw, iy = ((fiy % gh) + gh) % gh, jx = (ix + 1) % gw, jy = (iy + 1) % gh;
     const a = g[iy * gw + ix], b = g[iy * gw + jx], c = g[jy * gw + ix], d = g[jy * gw + jx];
     return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
-  };
+  }, { grid: g, gw, gh, cell });   // (the grid itself, for the GPU's copy of this field: fibroscan-gl.js)
 }
 
 const NB = 104; // the noise fields are laid out on this grid; the map is sampled at any resolution from it
@@ -77,6 +78,18 @@ function drawElastogram(ctx2, img, N, c, t) {
     d[i] = 20 + 220 * k; d[i + 1] = 10 + 126 * k; d[i + 2] = 8 + 64 * k; d[i + 3] = 255;
   }
   ctx2.putImageData(img, 0, 0);
+}
+
+/** For the checks: the map drawn on the CPU and on the GPU for the same moment, as RGBA pixel arrays (the GPU's null without WebGL2). */
+export function elastogramPair(N, c, t) {
+  const cv = Object.assign(document.createElement('canvas'), { width: N, height: N }), x = cv.getContext('2d', { willReadFrequently: true });
+  const img = x.createImageData(N, N);
+  drawElastogram(x, img, N, c, t);
+  const cpu = x.getImageData(0, 0, N, N).data;
+  const g = elastogramGL(fields(), NB, WAVE_T0, N, c, t);
+  if (!g) return { cpu, gpu: null };
+  x.clearRect(0, 0, N, N); x.drawImage(g, 0, 0, N, N, 0, 0, N, N);
+  return { cpu, gpu: x.getImageData(0, 0, N, N).data };
 }
 
 function rrect(ctx, x, y, w, h2, r) {
@@ -123,9 +136,10 @@ export function createFibroScan() {
     const lo = saver();
     const want = clamp(Math.round(Math.max(ew, ph) * (w / cv.clientWidth || 1) * (lo ? 0.5 : 0.75)), lo ? 100 : 140, lo ? Math.min(cap, 200) : cap);
     if (want !== N) { N = want; off.width = off.height = N; img = octx.createImageData(N, N); }
-    drawElastogram(octx, img, N, c, t);
+    // The map: on the GPU (the same formula and noise, a fraction of a millisecond), else pixel by pixel here.
+    const mapCv = elastogramGL(fields(), NB, WAVE_T0, N, c, t) || (drawElastogram(octx, img, N, c, t), off);
     ctx.save(); rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.clip();
-    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(off, 0, 0, N, N, ex, top, ew, ph);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(mapCv, 0, 0, N, N, ex, top, ew, ph);
     ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
     for (const d of [35, 75]) { const y = top + ((d - 30) / 60) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
     ctx.setLineDash([]);

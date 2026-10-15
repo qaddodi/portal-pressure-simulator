@@ -181,6 +181,19 @@ try {
     const back = await look();
     console.log(`GPU path, Battery saver     quality ${sv.q} (${sv.res}), off again ${back.q} (${back.res})`);
     if (sv.q !== '1' || back.q !== '0' || back.res !== '1.00') fail(`GPU path: Battery saver on/off gave quality ${sv.q} then ${back.q} (${back.res})`);
+    // The FibroScan map drawn on the GPU is the CPU's map: every pixel within one level of 255, at sizes, speeds and
+    // moments from the start to a day in (the GPU works in single precision; offsets are reduced on the CPU).
+    const eq = await gp.evaluate(async () => {
+      const mod = await import(new URL('src/ui/fibroscan.js', location.href).href);
+      return [[140, 1.3, 0.5], [300, 1.8, 12.3], [217, 3.2, 86400.77]].map(([N, c, t]) => {
+        const { cpu, gpu } = mod.elastogramPair(N, c, t);
+        if (!gpu) return { N, max: null };
+        let max = 0; for (let i = 0; i < cpu.length; i++) max = Math.max(max, Math.abs(cpu[i] - gpu[i]));
+        return { N, max };
+      });
+    });
+    console.log(`FibroScan map, GPU vs CPU   largest difference per channel: ${eq.map((r) => `${r.N} px ${r.max}`).join(', ')}`);
+    for (const r of eq) if (r.max == null || r.max > 1) fail(`FibroScan map at ${r.N} px: the GPU map differs from the CPU's by ${r.max} (or no GPU map)`);
     await gctx.close();
   }
   // A phone on a slide left alone: its cards hold still. (Circuit slide 7's words had flipped between two fits, 0.850 and
