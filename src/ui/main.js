@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=ff070ac951';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bb8c70114d';
-import { createStage } from './stage.js?v=6cc991d018';
+import { createStage } from './stage.js?v=6bdb8697dd';
 import { createCreditPlacer } from './credit.js?v=122c73335a';
-import { sinusoidSupported } from './sinusoid-view.js?v=f559b019f2';
-import { createInspector } from './inspector.js?v=a506c7409e';
-import { createDock, CUTOFFS } from './dock.js?v=13e51de497';
-import { setHvpgStage } from './hvpg-proc.js?v=45c21080e4';
-import { createWhy } from './why.js?v=073ec078e4';
-import { createTimeline, LAPSES } from './timeline.js?v=66ed5e3ca8';
-import { createCompare } from './compare.js?v=82a3afd145';
-import { createCard } from './card.js?v=80096572fe';
-import { createChart } from './chart.js?v=8eebcabce2';
-import { createMenu, ROLES } from './menu.js?v=544fbb9fab';
+import { sinusoidSupported } from './sinusoid-view.js?v=bd5a61fe6a';
+import { createInspector } from './inspector.js?v=9fe58e508f';
+import { createDock, CUTOFFS } from './dock.js?v=efe4cbc638';
+import { setHvpgStage } from './hvpg-proc.js?v=a404bb8855';
+import { createWhy } from './why.js?v=7aaabb2e4f';
+import { createTimeline, LAPSES } from './timeline.js?v=3d523b75b7';
+import { createCompare } from './compare.js?v=03b08ff80d';
+import { createCard } from './card.js?v=45afc388f1';
+import { createChart } from './chart.js?v=1908a07509';
+import { createMenu, ROLES } from './menu.js?v=35c01a1fbe';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=c3472c02c4';
-import { caption } from './a11y.js?v=7a1371b741';
+import { caption } from './a11y.js?v=79624da370';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=bfb913f66a';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=cf2e7a4226';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=0c832884d4';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=d87318c4aa';
 import { EDGES, PORTAL_TERRITORY, dopplerK } from '../engine/topology.js?v=1825cbda55';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge } from './util.js?v=c2539421b5';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge } from './util.js?v=623bcb8d4f';
 import { TEXT_STEPS } from './type-scale.js?v=9d3f9164af';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=b1f6f6eaa3';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=eaefbca02b';
 import { initTopbarMotion } from './topbar-motion.js?v=40e62f18bf';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=6ebaeb46c8';
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=686f0d27d6'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=e161360c54'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -147,7 +147,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=478b992c57'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=6328c10de0'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1101,7 +1101,12 @@ function wireFloating() {
     for (const k in vars) if (pubVals[k] !== vars[k]) { pubVals[k] = vars[k]; app.style.setProperty(k, vars[k]); changed = true; }
     // (A phone's menu sheets open above the thumb dock, 8 px clear of its top edge like the cards. Measured from the
     // screen's bottom, since the sheets are fixed to it and the dock sits above the home indicator's safe area.)
-    const occ = px(thumb && vd.offsetHeight ? (innerHeight - vd.getBoundingClientRect().top) / uiScale() + 8 : 0);
+    // The cards and sheets sit on the tab row's top edge, over the play bar (which they cover), and slide away behind
+    // the tab row: --nb-occ from the app's bottom (the cards), --thumb-occ from the screen's (the menu sheets).
+    const nbR = thumb && vd.offsetHeight ? $('#thumbBar').getBoundingClientRect() : null;
+    const nbOcc = px(nbR && nbR.height ? app.getBoundingClientRect().bottom - nbR.top : 0);
+    if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); }
+    const occ = px(nbR && nbR.height ? (innerHeight - nbR.top) / uiScale() : 0);
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); }
     const sig = `${app.className}|${tb.className}|${tb.dataset.fit}`;
     if (changed || sig !== pubSig) { pubSig = sig; dispatchEvent(new Event('pps:occ')); }
@@ -1196,8 +1201,8 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   const thumb = () => app.classList.contains('thumb') && isPhone();
   const stops = () => (thumb() ? THUMB : SIZES);
   const half = () => stops().length - 2;
-  // The room a thumb sheet may fill: the CSS cap (100% - top bar - dock - 22 px, styles/app.css thumb block).
-  const room = () => (thumb() ? app.clientHeight - (parseFloat(app.style.getPropertyValue('--top-safe')) || 0) - (parseFloat(app.style.getPropertyValue('--vdock-h')) || 0) - 22 : 0);
+  // The room a thumb sheet may fill: the CSS cap (100% - top bar - tab row - 22 px, styles/app.css thumb block).
+  const room = () => (thumb() ? app.clientHeight - (parseFloat(app.style.getPropertyValue('--top-safe')) || 0) - (parseFloat(app.style.getPropertyValue('--nb-occ')) || 0) - 22 : 0);
   let size = 1;
   el.prepend(handle);
   const natural = () => {

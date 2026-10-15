@@ -242,7 +242,8 @@ export function closePopover() {
   const el = openMenu.el;
   if (reduceMotionMQ.matches || !el.isConnected) el.remove();
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
-  else { el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : 120); setTimeout(() => el.remove(), el.dataset.swiped ? 240 : 130); }
+  // (Over the thumb dock it sinks behind the tab row, as the cards do: .2 s.)
+  else { const ms = document.documentElement.classList.contains('thumb-ui') ? 200 : 120; el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? 240 : ms + 10); }
   openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
   openMenu = null;
 }
@@ -252,6 +253,8 @@ export function closePopover() {
  *  sliding out of sight (data-swiped is set) so the close needs no animation of its own. */
 export function swipeSheet(panel, onClose) {
   let s = null;
+  // Over the thumb dock the sheet slides down behind the tab row: what passes below its resting bottom edge is clipped.
+  const tuck = (d) => { if (document.documentElement.classList.contains('thumb-ui')) panel.style.clipPath = d ? `inset(-40px -40px ${d} -40px)` : ''; };
   const scroller = (t) => {
     for (let n = t; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return n;
     return null;
@@ -278,14 +281,15 @@ export function swipeSheet(panel, onClose) {
     if (e.cancelable) e.preventDefault();
     s.dy = Math.max(0, t.clientY - s.y);
     panel.style.transform = `translateY(${s.dy}px)`;
+    tuck(`${s.dy}px`);
   }, { passive: false });
   const end = () => {
     const s0 = s; s = null;
     if (!s0?.on) return;
     const flick = s0.dy > 30 && s0.dy / Math.max(1, performance.now() - s0.t) > 0.6;
-    panel.style.transition = 'transform .22s var(--ease)';
-    if (flick || s0.dy > Math.min(90, panel.offsetHeight * 0.3)) { panel.style.transform = 'translateY(100%)'; panel.dataset.swiped = '1'; onClose(); }
-    else { panel.style.transform = ''; setTimeout(() => { if (!s) panel.style.transition = ''; }, 240); }
+    panel.style.transition = 'transform .22s var(--ease), clip-path .22s var(--ease)';
+    if (flick || s0.dy > Math.min(90, panel.offsetHeight * 0.3)) { panel.style.transform = 'translateY(100%)'; tuck('100%'); panel.dataset.swiped = '1'; onClose(); }
+    else { panel.style.transform = ''; tuck(''); setTimeout(() => { if (!s) panel.style.transition = ''; }, 240); }
   };
   panel.addEventListener('touchend', end);
   panel.addEventListener('touchcancel', end);

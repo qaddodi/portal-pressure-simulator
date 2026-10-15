@@ -5150,8 +5150,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* A phone: the cards (Tests, Treat, Details) and the menus sit above the dock, inset like it, round on every corner. */
 @media (max-width: 767px) {
   .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) {
-    left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px) !important; bottom: calc(var(--vdock-h) + 14px) !important;
-    border-radius: var(--r-sheet) !important; padding-bottom: 0; max-height: calc(100% - var(--top-safe) - var(--vdock-h) - 22px);
+    left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px) !important; bottom: var(--nb-occ, calc(var(--vdock-h) + 14px)) !important;
+    border-radius: var(--r-sheet) !important; padding-bottom: 0; max-height: calc(100% - var(--top-safe) - var(--nb-occ, var(--vdock-h)) - 22px);
   }
   .app.thumb .instrument-workspace .dock-pane { padding-bottom: 16px; }
   /* A visible grabber on the top edge: a tap toggles Half and Full, a drag (or one from the head's tabs) moves the sheet. */
@@ -5161,7 +5161,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 }
 /* A tablet held upright: Treat opens above the dock, at the right, instead of under the top bar. */
 @media (min-width: 768px) {
-  .app.thumb .treat-card { top: auto; bottom: calc(var(--vdock-h) + var(--gap) + 8px); }
+  .app.thumb .treat-card { top: auto; bottom: var(--nb-occ, calc(var(--vdock-h) + var(--gap) + 8px)); }
 }
 /* A student's play bar has no History; nor has the tab row. */
 #app[data-role="student"][data-mode="explore"] .nb-tab[data-tab="history"] { display: none; }
@@ -5200,13 +5200,17 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 /* One card or menu at a time above the thumb dock, each a solid piece that comes and goes whole: it rises a little
    out of the dock as it fades in and sinks back as it fades out, never sliding across the dock, and one opened while
    another is still going out waits until that one has gone (--enter-delay, set by util.js enterAfterGone). */
-@keyframes thumbIn { from { opacity: 0; transform: translateY(14px); } }
-@keyframes thumbOut { to { opacity: 0; transform: translateY(14px); } }
+/* (15 Oct, Mohammad) Every card and sheet sits on the tab row's top edge, covering the play bar, and rises out from
+   behind the tab row and sinks back behind it, Tests included: it slides by its own height while the part below its
+   resting bottom edge is clipped (clip-path is in the card's own moved coordinates, so the cut stays on that edge). */
+@keyframes thumbIn { from { transform: translateY(100%); clip-path: inset(-40px -40px 100% -40px); } }
+@keyframes thumbOut { to { transform: translateY(100%); clip-path: inset(-40px -40px 100% -40px); } }
+.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)), html.thumb-ui .menu { clip-path: inset(-40px -40px 0 -40px); }
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
 @media (prefers-reduced-motion: no-preference) {
-  #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn .22s var(--ease) var(--enter-delay, 0ms) backwards; }
-  html.thumb-ui .menu, html.thumb-ui .menu.as-sheet { animation: thumbIn .22s var(--ease) var(--enter-delay, 0ms) backwards; }
-  html.thumb-ui .menu.leaving, html.thumb-ui .menu.as-sheet.leaving { animation: thumbOut .12s var(--ease) forwards; }
+  #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn .26s var(--ease) var(--enter-delay, 0ms) backwards; }
+  html.thumb-ui .menu, html.thumb-ui .menu.as-sheet { animation: thumbIn .26s var(--ease) var(--enter-delay, 0ms) backwards; }
+  html.thumb-ui .menu.leaving, html.thumb-ui .menu.as-sheet.leaving { animation: thumbOut .18s var(--ease) forwards; }
 }
 
 /* ── History beside Treat and Tests (15 Oct) ───────────────────────

@@ -2018,12 +2018,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => window.pps.store.get().view === 'circuit');
     await page.click('#viewPill [data-view="anatomic"]');
     const dockTop = await page.evaluate(() => document.querySelector('#thumbBar').getBoundingClientRect().top);
-    const above = (sel) => page.evaluate(([sel, top]) => { const r = document.querySelector(sel).getBoundingClientRect(), d = document.querySelector('#vdock').getBoundingClientRect(); return r.height > 40 && r.bottom <= d.top + 1 && Math.abs(document.querySelector('#thumbBar').getBoundingClientRect().top - top) < 1; }, [sel, dockTop]);
+    const above = (sel) => page.evaluate(([sel, top]) => { const r = document.querySelector(sel).getBoundingClientRect(), d = document.querySelector('#vdock').getBoundingClientRect(); const n = document.querySelector('#thumbBar').getBoundingClientRect(); return r.height > 40 && r.bottom > d.top && Math.abs(r.bottom - n.top) <= 1 && Math.abs(document.querySelector('#thumbBar').getBoundingClientRect().top - top) < 1; }, [sel, dockTop]);
     for (const [tab, sel] of [['tests', '#dock'], ['treat', '#treatCard']]) {
       await page.click(`#thumbBar [data-tab="${tab}"]`);
       await page.waitForTimeout(800);
       await page.waitForFunction((sel) => !document.querySelector(sel).getAnimations().length, sel);
-      if (!(await above(sel))) throw new Error(`${tab} does not open above the dock, or the tab row moved`);
+      if (!(await above(sel))) throw new Error(`${tab} does not sit on the tab row over the play bar, or the tab row moved`);
       if (await page.getAttribute(`#thumbBar [data-tab="${tab}"]`, 'aria-pressed') !== 'true') throw new Error(`the ${tab} tab is not shown as open`);
     }
     if (await page.evaluate(() => document.querySelector('#app').classList.contains('dock-open'))) throw new Error('Tests stayed open under Treat');
@@ -2033,7 +2033,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.click(`#thumbBar [data-tab="${tab}"]`);
       await page.waitForSelector('.menu.as-sheet:not(.leaving)');
       await page.waitForFunction(() => !document.querySelector('.menu.as-sheet:not(.leaving)').getAnimations().length);   // (risen in full)
-      if (!(await above('.menu.as-sheet:not(.leaving)'))) throw new Error(`${tab} does not open above the dock`);
+      if (!(await above('.menu.as-sheet:not(.leaving)'))) throw new Error(`${tab} does not sit on the tab row over the play bar`);
       await page.keyboard.press('Escape');
       await page.waitForTimeout(300);
     }
@@ -2043,7 +2043,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.click('#thumbBar [data-tab="settings"]');
     if (await page.locator('.menu.as-sheet:not(.leaving)').count() !== 1) throw new Error('two sheets open at once');
     await page.waitForFunction(() => !document.querySelector('.menu.as-sheet:not(.leaving)').getAnimations().length);
-    if (!(await above('.menu.as-sheet:not(.leaving)'))) throw new Error('Settings, opened from History, does not sit above the dock');
+    if (!(await above('.menu.as-sheet:not(.leaving)'))) throw new Error('Settings, opened from History, does not sit on the tab row');
     if (!(await page.locator('.menu.as-sheet:not(.leaving) .menu-item:has-text("Search")').count())) throw new Error('Search is not in Settings');
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
@@ -2058,7 +2058,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.click('#thumbBar [data-tab="tests"]');
     await page.waitForTimeout(900);
     const box = () => page.evaluate(() => { const r = document.querySelector('#dock').getBoundingClientRect(); return { top: r.top, h: r.height }; });
-    const full = await page.evaluate(() => { const a = document.querySelector('#app'), v = (k) => parseFloat(a.style.getPropertyValue(k)) || 0; return a.clientHeight - v('--top-safe') - v('--vdock-h') - 22; });
+    const full = await page.evaluate(() => { const a = document.querySelector('#app'), v = (k) => parseFloat(a.style.getPropertyValue(k)) || 0; return a.clientHeight - v('--top-safe') - v('--nb-occ') - 22; });
     const half = (await box()).h;
     if (half > full * 0.75 || half < full * 0.5) throw new Error(`Half is ${half} px of ${full}`);
     const tab = await page.evaluate(() => { const r = document.querySelectorAll('#dock [role=tab]')[2].getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });

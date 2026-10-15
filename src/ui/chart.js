@@ -6,10 +6,10 @@
 //   Advanced physiology                  side panel, from Settings (instructor)
 
 import { store, updateParams } from './store.js?v=bb8c70114d';
-import { h, icon, svgIcon, toast } from './util.js?v=c2539421b5';
+import { h, icon, svgIcon, toast } from './util.js?v=623bcb8d4f';
 import { DRUGS } from '../engine/scenario.js?v=6ebaeb46c8';
-import { activeInterventions } from './inspector.js?v=a506c7409e';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=bfb913f66a';
+import { activeInterventions } from './inspector.js?v=9fe58e508f';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=0c832884d4';
 
 
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, timeline, pinned }) {
