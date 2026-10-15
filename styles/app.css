@@ -3612,6 +3612,25 @@ input[type="range"] { touch-action: none; }
 .tl-pop-row.future { opacity: .5; }
 .tl-history { max-height: min(320px, calc(45vh / var(--vz))); }
 .menu.as-sheet .tl-history { max-height: none; }
+/* History reads as a vertical timeline: a rail joins the markers, each marker sits on the first line
+   of its row, and the list scrolls inside soft top and bottom edges instead of being cut at the card's
+   edge. On a phone the list scrolls inside the sheet (the sheet still pulls down from the list's top). */
+.tl-pop.tl-history { width: min(360px, calc(calc(100vw / var(--vz)) - 24px)); padding: 10px 2px; overscroll-behavior: contain;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 12px, #000 calc(100% - 12px), transparent); }
+.menu.as-sheet .tl-pop.tl-history { max-height: calc(75dvh - 24px); overflow: auto; }
+.tl-history .tl-pop-row { position: relative; padding: 7px 6px 8px; border-bottom: 0; border-radius: var(--r-control); }
+.tl-history .tl-pop-row::before { content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: var(--border-strong); }
+.tl-history .tl-pop-row:first-child::before { top: 19px; }
+.tl-history .tl-pop-row:last-child::before { bottom: auto; height: 19px; }
+.tl-history .tl-pop-row:only-child::before { display: none; }
+.tl-history .tl-pop-head { align-items: start; }
+.tl-history .tl-pop-head b { padding-top: 3px; }
+.tl-history .tl-pop-head .when { padding-top: 4px; }
+.tl-history .tl-dot { position: relative; z-index: 1; width: 10px; height: 10px; margin-top: 7px; transform: none; }
+.tl-history .tl-dot.change { transform: rotate(45deg) scale(.9); }
+.tl-history .tl-pop-d { padding-left: 16px; }
+@media (hover: hover) { .tl-history .tl-pop-row:hover { background: var(--surface-2); } }
 /* Readouts */
 .metric .k { font-weight: 600; color: var(--text-2); }
 .metric[data-sev="ok"] .status { color: var(--text-3); font-weight: 500; }

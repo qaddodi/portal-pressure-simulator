@@ -28,3 +28,10 @@ test('every history row reserves the icon column and uses stroke icons', () => {
   assert.match(rows, /svgIcon\('rewind', 'mi-ic'\)/);
   assert.doesNotMatch(rows, /icon\('undo'\)/);
 });
+
+test('History is a vertical timeline that scrolls inside soft edges', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.tl-history \.tl-pop-row::before \{[^}]*position: absolute/);
+  assert.match(css, /\.tl-pop\.tl-history \{[^}]*mask-image: linear-gradient/);
+  assert.match(css, /\.menu\.as-sheet \.tl-pop\.tl-history \{[^}]*overflow: auto/);
+});
