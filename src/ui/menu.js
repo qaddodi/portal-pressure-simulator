@@ -11,7 +11,6 @@ import { pressureColor } from './colormap.js?v=797c55e040';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('menu');
 
-const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 // Where each group's resistance sits along the pathway from the gut to the heart.
 const GROUP_WHERE = { Normal: 'No added resistance', Prehepatic: 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', Posthepatic: 'Hepatic veins and IVC', Cardiac: 'The right heart' };
 const LEVEL_N = { foundation: 1, core: 2, advanced: 3 };
@@ -43,7 +42,7 @@ const one = (v) => v.toFixed(v < 10 ? 1 : 0);
 function patientPreview(p) {
   const s = SNAPSHOTS[p.id], fp = s?.fp;
   return h('div', { class: 'um-pv-in pt' },
-    h('span', { class: 'um-pv-meta' }, h('i', { class: 'um-dot', style: { background: GROUP_COLOR[p.group] || 'var(--text-3)' } }), `${p.group} · ${GROUP_WHERE[p.group] || ''}`),
+    h('span', { class: 'um-pv-meta' }, `${p.group} · ${GROUP_WHERE[p.group] || ''}`),
     h('h3', {}, p.label),
     s ? profile(s) : null,
     s ? h('span', { class: 'hp-facts' },
@@ -103,7 +102,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   }
   function patientRow(p, cur) {
     const row = h('button', { class: 'um-row', 'data-k': 'p:' + p.id, 'aria-current': p.id === cur ? 'true' : null, onclick: () => { close(); if (p.id !== store.get().presetId || store.get().mode !== 'explore') onPreset(p.id); } },
-      h('i', { class: 'um-dot', style: { background: GROUP_COLOR[p.group] || 'var(--text-3)' } }), h('span', { class: 'um-t' }, p.label), p.id === cur ? svgIcon('check', 'um-check') : null);
+      h('span', { class: 'um-t' }, p.label), p.id === cur ? svgIcon('check', 'um-check') : null);
     row.dataset.find = fold([p.label, p.group, GROUP_WHERE[p.group], p.id].join(' ')); row.dataset.more = fold(p.summary);
     hoverable(row, () => patientPreview(p), 'patients');
     return h('li', {}, row);

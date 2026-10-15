@@ -433,7 +433,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       if (over > 0) for (const e of es) e.y -= over;
       for (const e of es) {
         const yy = Math.max(lane.top + 4, e.y);
-        ctx.fillStyle = e.c; ctx.beginPath(); ctx.arc(L + plotW + 9, yy, 3.5, 0, 7); ctx.fill();
+        ctx.fillStyle = e.c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(L + plotW + 4, yy - 1.5, 10, 3, 1.5) : ctx.rect(L + plotW + 4, yy - 1.5, 10, 3); ctx.fill();   // (a short stroke in the trace's colour, not a dot)
         ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
         ctx.font = FONT(650, 12.5); ctx.fillStyle = text;
         const vt = fmt(e.v, 1);
@@ -482,7 +482,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       ctx.textAlign = 'left'; ctx.fillStyle = muted; ctx.font = FONT(600, 12); ctx.fillText(when, bx + padX, by + 18);
       crossRows.forEach((r, i) => {
         const yy = by + 18 + rowH * (i + 1);
-        ctx.fillStyle = r.c; ctx.beginPath(); ctx.arc(bx + padX + 3, yy - 4, 3, 0, 7); ctx.fill();
+        ctx.fillStyle = r.c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx + padX - 1, yy - 5.5, 9, 3, 1.5) : ctx.rect(bx + padX - 1, yy - 5.5, 9, 3); ctx.fill();
         ctx.fillStyle = muted; ctx.font = FONT(500, 12); ctx.fillText(r.label, bx + padX + 12, yy);
         ctx.fillStyle = text; ctx.font = FONT(650, 12); ctx.textAlign = 'right'; ctx.fillText(fmt(r.v, 1), bx + cw - padX, yy); ctx.textAlign = 'left';
       });

@@ -22,7 +22,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=bf255f926b';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=c6210d6407';
-import { createTools } from './presenter-tools.js?v=bee3f2c4ec';
+import { createTools } from './presenter-tools.js?v=f2a7eeba46';
 import { openHandout } from './handout.js?v=cd5fa799f3';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=525d14632b';
@@ -77,11 +77,11 @@ const gateButtons = (s) => !!s.compare?.some((o) => o.gate);
 // The key for the small pill on the figure (figure-key.js): the lens named, then its colour scale under it (a gradient has no end words; named swatches keep their names).
 function keyNodes(k) {
   const [name, bar] = LENS_KEY[k] || PRESSURE_KEY;
-  const dot = (v) => h('i', { class: 'pz-lens-dot', style: { background: `var(${v})` } });
-  // (Each swatch stays on one line with its words: "Low ▬▬ High" as one piece, a dot with its name.)
+  const sw = (v) => h('i', { class: 'pz-lens-sw', style: { background: `var(${v})` } });
+  // (Each swatch stays on one line with its words: "Low ▬▬ High" as one piece, a short stroke with its name.)
   return [h('b', {}, name[0].toUpperCase() + name.slice(1)),
     ...(typeof bar === 'function' ? [h('i', { class: 'pz-lens-bar', style: { background: bar() } })]
-      : bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, dot(v), h('span', {}, t))))];
+      : bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, sw(v), h('span', {}, t))))];
 }
 // A string with its disease names set in a pill (see diseases.js).
 const diseaseNodes = (t) => diseasePieces(t).map(([x, dz]) => (dz ? h('span', { class: 'pz-dz' }, x) : x));
@@ -1404,7 +1404,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let caseLift = null, caseCard = null;
   async function caseRun(s, si, st, cut) {
     const c = ui.vcase, ms = reduce.matches ? 0 : 450;
-    c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, h('i'), 'Case'), h('p', { class: 'pz-case-p' }, s.vignette));
+    c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, 'Case'), h('p', { class: 'pz-case-p' }, s.vignette));
     for (const k of ['transform', 'transition', 'opacity']) c.style.removeProperty(k);   // (a card flung off last time comes back whole)
     c.hidden = false; void c.offsetWidth;
     // The words run 2.5x the teaching card's; on a short or narrow screen they ease down just enough to fit the card's room (set before it enters, so nothing resizes on screen).
@@ -1789,7 +1789,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       text.hidden = false;
       text.replaceChildren(...(q
         ? [h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
-        : [(({ site, name } = siteTag(deck, s) || {}) => site ? h('span', { class: 'pz-site', 'data-site': site }, h('i'), name) : null)(), h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
+        : [(({ site, name } = siteTag(deck, s) || {}) => site ? h('span', { class: 'pz-site', 'data-site': site }, name) : null)(), h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
@@ -1877,7 +1877,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const L = bigLadder(); L.setBase(base); L.set(r.f, { block: r.block });   // (a block on a station, the heart's RA, is hatched on its node)
       // In quiz mode each ladder's site is hidden until a tap (D7): the room names the site from the ladder's shape.
       const cell = h('div', quiz ? { class: 'pz-cell q', role: 'button', tabindex: '0', 'aria-label': 'Show the site of this ladder', onclick: () => reveal(cell), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reveal(cell); } } } : { class: 'pz-cell' },
-        h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')),
+        h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')),
           h('span', { class: 'pz-cell-pill', 'data-rate': rateOf('hvpg', { hvpg: wholeGap(r.f.whvp, r.f.fhvp, r.f.hvpg) })[0] }, 'HVPG ', h('b', {}, fmt(wholeGap(r.f.whvp, r.f.fhvp, r.f.hvpg), 0)))),   // (as its ladder's bracket reads it: whole readings, their difference)
         h('div', { class: 'pz-cell-t' }, r.title), L.el, L.strip);
       grid.append(cell);
@@ -1968,7 +1968,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         notes.map((x) => h('th', {}, x)))),
       h('tbody', {}, rows.map((r, n) => h('tr', { ...(r.i >= 0 ? { tabindex: '0', onclick: go1(r), onkeydown: go1(r), 'aria-label': `${r.title}: go to this slide` } : { class: 'static' }),
           'data-arrived': r.k === arrived || (rel && n > 0 && (r.vs ? vsRow(r)?.k : rows[0].k) === arrived) ? '' : null },
-        h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')), h('span', { class: 'tw' }, h('span', { class: 'tn' }, nb(r.title)),
+        h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')), h('span', { class: 'tw' }, h('span', { class: 'tn' }, nb(r.title)),
           r.vs ? h('span', { class: 'vs' }, `vs ${vsName(r)}`) : null)),
         cols.map((k) => cell(k, r, n)),
         ascCols ? ascCells(r, n) : null,

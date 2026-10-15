@@ -6,7 +6,7 @@ import { EDGES } from '../engine/topology.js?v=c164acf7d0';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=f7459cca3c';
 import { lobuleFlows } from './lobule-model.js?v=1e9578e160';
 import { createProfile } from './charts.js?v=e812b8ab42';
-import { createPressureTime } from './pressure-time.js?v=8d0e207b64';
+import { createPressureTime } from './pressure-time.js?v=54d92938c6';
 import { createFibroScan } from './fibroscan.js?v=c7ea9144a5';
 import { createHvpgProcedure } from './hvpg-proc.js?v=c6210d6407';
 import { createDoppler } from './doppler.js?v=22151a9417';
@@ -21,7 +21,7 @@ const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
-// circulation. Each readout's status (dot, bar color and word) comes from a clinical cut-off,
+// circulation. Each readout's status (bar color and word) comes from a clinical cut-off,
 // listed in CUTOFFS below and in About the model: green is normal, amber borderline, red past a
 // clinical threshold, dark red past the highest one where a readout has one. `scale` and `ticks`
 // draw the bar under each value: where the value sits between the cut-offs.
@@ -532,7 +532,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     queueRefresh();
     onLayout?.();
   }
-  // Beside the name: the vessel the Doppler reads, with a green dot, the colour of its glow on the figure.
+  // Beside the name: the vessel the Doppler reads (its glow on the figure shows where).
   function paintTitle() {
     const probe = open.length === 1 && open[0] === 'doppler' && frame?.probe ? EDGES.find((e) => e.id === frame.probe)?.label : null;
     const txt = probe || '';

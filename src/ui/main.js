@@ -7,14 +7,14 @@ import { createStage } from './stage.js?v=4e9a28ccfc';
 import { createCreditPlacer } from './credit.js?v=122c73335a';
 import { sinusoidSupported } from './sinusoid-view.js?v=aabae9b935';
 import { createInspector } from './inspector.js?v=b35b7e841e';
-import { createDock, CUTOFFS } from './dock.js?v=e9ef4dc931';
+import { createDock, CUTOFFS } from './dock.js?v=de9ea3e17c';
 import { setHvpgStage } from './hvpg-proc.js?v=c6210d6407';
 import { createWhy } from './why.js?v=159596625d';
 import { createTimeline, LAPSES } from './timeline.js?v=b883a64b5a';
 import { createCompare } from './compare.js?v=d9bd834040';
 import { createCard } from './card.js?v=1d57619fbd';
 import { createChart } from './chart.js?v=5897943595';
-import { createMenu } from './menu.js?v=41ad574a81';
+import { createMenu } from './menu.js?v=9d12acffe8';
 import { caption } from './a11y.js?v=f3bee6b24b';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=f8168106ed';
@@ -137,7 +137,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=095f23233d'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=dc240ff9d5'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -675,7 +675,7 @@ function hoverInfo(info) {
     tipEl.style.setProperty('--acc', acc);
     // A lumped bed (the sinusoids) has no one diameter or velocity: its pressure drop and resistance instead.
     const rows = [r('Pressure', 'mmHg'), r('Flow', 'L/min'), ...(liver ? [r('Drop to central v.', 'mmHg'), r('Resistance', 'mmHg·min/L')] : [r('Velocity', 'cm/s'), r('Diameter', 'mm')])];
-    tipEl.replaceChildren(h('div', { class: 't' }, h('i', { class: 'dot' }), e.label),
+    tipEl.replaceChildren(h('div', { class: 't' }, e.label),
       h('div', { class: 'rows' }, ...rows), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
     tipVals = rows.map((row) => row.lastChild.firstChild);
     tipPlace = '';
@@ -1546,7 +1546,7 @@ function openAbout(section) {
     h('h3', {}, 'Status colors'),
     h('p', { class: 'sub' }, 'Every readout’s dot, bar and status word follow a clinical cut-off; the ticks on its bar mark the cut-offs below. A change (▲ / ▼) is drawn in neutral ink and appears only when a value keeps moving for several seconds, never for the heartbeat or breathing. Red means a threshold has been crossed.'),
     h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
-      h('thead', {}, h('tr', {}, ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High risk'].map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h' }, h('i', { class: 'dot', 'data-sev': ['', 'ok', 'caution', 'danger', 'critical'][i] }), x) : x)))),
+      h('thead', {}, h('tr', {}, ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High risk'].map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h', 'data-sev': ['', 'ok', 'caution', 'danger', 'critical'][i] }, x) : x)))),
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c) => h('td', {}, c))))))),
     h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥ 10 mmHg is clinically significant portal hypertension in cirrhosis. HVPG ≥ 20 mmHg matters as a prognostic finding when measured during an acute variceal bleed. 12 mmHg is not a bleeding threshold: varices can bleed below it, and it is only a usual post-TIPS target for the direct gradient.'),
     h('h3', {}, 'Reference review'),
