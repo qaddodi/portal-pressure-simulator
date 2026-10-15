@@ -1229,6 +1229,33 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }
     }
   });
+  // A phone held sideways: Tests > Doppler on a TIPS keeps its range bar and tiles under the monitor, never over it (the monitor's
+  // size-contained box gave the grid only its 100 px floor, and they were laid over its lower half), and its words inside it.
+  if (device === 'phone') await check(device, 'phone sideways: Tests > Doppler shows the monitor, range bar and tiles side by side, none over another', async (page) => {
+    for (const [w, h] of [[568, 320], [667, 375], [844, 390], [932, 430]]) {
+      await page.setViewportSize({ width: w, height: h });
+      await open(page, '?preset=cirr-decomp');
+      await page.evaluate(() => window.pps.updateParams({ tips: { on: true, d: 9 } }));
+      await page.evaluate(() => window.pps.dock.show('doppler'));
+      await page.waitForTimeout(800);
+      await page.evaluate(() => { const s = document.querySelector('#pane-doppler .dop-vessel'); s.value = 'TIPS'; s.dispatchEvent(new Event('change', { bubbles: true })); });
+      for (const seg of ['Proximal', 'Mid', 'Distal']) {
+        await page.evaluate((k) => [...document.querySelectorAll('#pane-doppler .dop-seg')].find((b) => b.textContent === k)?.click(), seg);
+        await page.waitForFunction(() => /\d/.test(document.querySelector('#pane-doppler .dop-vel b')?.textContent || ''), null, { timeout: 30000 });
+        await page.waitForTimeout(600);
+        const bad = await page.evaluate(() => {
+          const q = (s) => document.querySelector('#pane-doppler ' + s), cv = q('.dop-box canvas').getBoundingClientRect(), out = [];
+          for (const s of ['.dop-range', '.dop-stats', '.dop-note']) { const e = q(s); if (!e || !e.getClientRects().length || getComputedStyle(e).display === 'none') continue; const r = e.getBoundingClientRect(); if (r.height && r.top < cv.bottom - 1 && r.bottom > cv.top + 1 && r.left < cv.right - 1 && r.right > cv.left + 1) out.push(`${s} over the monitor by ${Math.round(Math.min(cv.bottom - r.top, cv.right - r.left))} px`); }
+          for (const s of ['.dop-vel', '.dop-dir', '.dop-pattern']) { const e = q(s); if (!e.textContent || e.hidden) continue; const g = document.createRange(); g.selectNodeContents(e); const r = g.getBoundingClientRect(); if (r.width && (r.right > cv.right - 3 || r.bottom > cv.bottom)) out.push(`"${e.textContent}" outside the monitor`); if (parseFloat(getComputedStyle(e).fontSize) < 12) out.push(`"${e.textContent}" under 12 px`); }
+          // (everything on screen at once: the monitor, the range bar and the tiles inside the card's visible height)
+          const pane = document.querySelector('#pane-doppler').getBoundingClientRect();
+          for (const s of ['.dop-box canvas', '.dop-stats']) { const r = q(s).getBoundingClientRect(); if (r.bottom > Math.min(pane.bottom, innerHeight) + 1) out.push(`${s} runs ${Math.round(r.bottom - Math.min(pane.bottom, innerHeight))} px below the card`); }
+          return out;
+        });
+        if (bad.length) throw new Error(`${w} x ${h}, ${seg}: ${bad.join('; ')}`);
+      }
+    }
+  });
   // A phone's top bar keeps the lens scale 40 px wide: its numbers never run into each other (0, 10, 20 and 30 once did).
   if (device === 'phone') await check(device, 'phone top bar: the lens scale numbers never run into each other', async (page) => {
     for (const width of [390, 375]) {

@@ -139,7 +139,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   // The top strip's fitting steps (see fitStrip): [type scale, the direction's short form, the pattern on its own line].
-  let stripKey = '', stripStep = 0, dirFull = '—', rng = null;
+  let stripKey = '', stripStep = 0, dirFull = '—', stripType = '', rng = null;
   const STEPS = [[1, false, false], [0.9, false, false], [0.9, true, false], [1, false, true], [0.9, false, true], [0.9, true, true], [0.8, true, true]];
   const SHORT_DIR = { 'Portal → hepatic vein': 'PV → HV', 'Portal → IVC': 'PV → IVC', 'Portal → systemic': 'PV → systemic', 'Systemic → portal': 'Systemic → PV', 'Toward the heart': 'To the heart', 'Not available during time lapse': 'Paused in time lapse' };
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
@@ -642,11 +642,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
     return w + spare <= have && (!wrap || !p || p.width + 14 + spare <= have);
   }
   function fitStrip() {
-    const key = `${report.clientWidth}|${box.clientWidth}|${dirFull}|${velEl.hidden ? '' : velEl.textContent}|${patternEl.textContent}`;
+    const key = `${report.clientWidth}|${cv.clientWidth}|${stripType}|${dirFull}|${velEl.hidden ? '' : velEl.textContent}|${patternEl.textContent}`;
     if (key === stripKey) return;
     stripKey = key;
-    // (the room is the monitor's, 12 px in from its right edge, where the report is wider than the monitor: a phone held sideways)
-    const cs = getComputedStyle(report), rr = report.getBoundingClientRect(), br = box.getBoundingClientRect();
+    // (the room is the monitor picture's, 12 px in from its right edge, where the report is wider than it: a phone held sideways)
+    const cs = getComputedStyle(report), rr = report.getBoundingClientRect(), br = cv.getBoundingClientRect();
     const sc = rr.width / (report.offsetWidth || 1) || 1;   // (screen px per layout px: a card still easing in is scaled)
     const have = Math.min(report.clientWidth - parseFloat(cs.paddingRight), (br.right - rr.left) / sc - 12) - parseFloat(cs.paddingLeft);
     rng ||= document.createRange();
@@ -683,7 +683,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // report, and the vessel and settings move to the bottom strip under the second ticks. Read again when the size changes.
     // (Its height is read only when the strip was refitted or the size changed, and it gives back room only by more than 4 px.)
     const ovKey = `${w}x${hh}`, tOv = performance.now();
-    if (ovKey !== ovLast || tOv - ovAt > 500) { ovAt = tOv; ovOn = getComputedStyle(cv).getPropertyValue('--dop-ov').trim() === '1'; }
+    if (ovKey !== ovLast || tOv - ovAt > 500) {
+      ovAt = tOv; const cs = getComputedStyle(cv); ovOn = cs.getPropertyValue('--dop-ov').trim() === '1';
+      // (the strip's type sizes, read with it: a slide's text scale can settle after the strip was fitted, which left it fitted too wide)
+      if (ovOn) stripType = ['--bs', '--pz-num', '--fs-12', '--fs-14', '--fs-20'].map((v) => cs.getPropertyValue(v).trim()).join();
+    }
     if (ovOn) {
       const k0 = stripKey; fitStrip();
       if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4; if (ovKey !== ovLast || t > ovTop || t < ovTop - 4) ovTop = t; }
@@ -808,7 +812,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
     // The scale's unit: top right, or, when the reading fills the top strip, bottom right under the scale, clear of its words
     // (the bottom strip's settings stop short of the scale's margin).
-    ctx.fillStyle = cssAlpha('--white', .5); ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, ovOn ? yLab : 13);
+    // (left out where a narrow monitor's bottom label would run into it: the strip's reading already names the unit)
+    ctx.fillStyle = cssAlpha('--white', .5); ctx.textAlign = 'right';
+    if (!ovOn || padL + lw + 8 <= w - 6 - ctx.measureText('cm/s').width) ctx.fillText('cm/s', w - 6, ovOn ? yLab : 13);
     if (waves && meta().kind === 'hepatic') {
       // The hepatic vein's waves named at their peaks (a presenter slide asks for it): the a-wave reversal on the
       // atrial side of the baseline, then the S, v and D forward waves of the same beat. One beat is named at a time.
