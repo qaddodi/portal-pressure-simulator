@@ -89,7 +89,8 @@ for (const [device, opts] of Object.entries(DEVICES).filter(([d]) => !process.en
       await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
       await page.waitForFunction(() => window.pps.store.get().running === false);
       await page.evaluate((l) => window.pps.store.set({ colorMode: l }), lens);
-      if (view !== 'anatomic') await page.click(`#viewSeg [data-view="${view}"]`, { force: true });
+      // The view switch is tucked into the View tab on a phone (thumb dock), so it is pressed directly.
+      if (view !== 'anatomic') await page.evaluate((v) => document.querySelector(`#viewSeg [data-view="${v}"]`).click(), view);
       if (view === 'lobule') await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
       await steady(page);
       await page.waitForTimeout(1500);   // the organ plate re-rasterizes after a change of lens
