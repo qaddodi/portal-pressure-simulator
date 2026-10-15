@@ -109,6 +109,8 @@ export const VITALS = [
 // The key readouts: collapsed, the bar shows only the two gradients (HVPG and the portosystemic
 // gradient) on every device; the rest open with the chevron.
 export const PRIMARY = new Set(['hvpg', 'ppg']);
+// The bar's two gradients do nothing when tapped for now (the handlers in tile() stay for when they return).
+const BAR_INERT = PRIMARY;
 
 // A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the
 // bar's range), so the heartbeat and breathing never make it flicker.
@@ -140,11 +142,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const val = h('span', { class: 'val' }, '—'), tr = h('span', { class: 'tr', 'aria-hidden': 'true' }), st = h('span', { class: 'status' }), cmp = h('span', { class: 'cmp' });
     const fill = h('i', { class: 'rb-fill' });
     const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, t.ticks.map((x) => h('i', { class: 'rb-tick', style: { left: pos(t, x) + '%' } })));
-    const el = h('button', { class: 'metric' + (PRIMARY.has(t.id) || LOBULE_PRIMARY.has(t.id) ? ' primary' : ''), 'data-id': t.id },
+    // The bar's HVPG and PPG are plain readouts for now: no tap action, button or focus stop (the Readouts tab's tiles still open "why").
+    const inert = BAR_INERT.has(t.id);
+    const el = h(inert ? 'div' : 'button', { class: 'metric' + (inert ? ' inert' : '') + (PRIMARY.has(t.id) || LOBULE_PRIMARY.has(t.id) ? ' primary' : ''), 'data-id': t.id, ...(inert ? { role: 'group' } : {}) },
       h('span', { class: 'k' }, t.ks ? [h('span', { class: 'k-l' }, t.k), h('span', { class: 'k-s' }, t.ks)] : t.k), h('span', { class: 'v' }, val, shared ? null : h('span', { class: 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null), tr), bar, h('span', { class: 's' }, st, cmp));
-    el.title = `${t.title || t.k}${t.pane ? '\nClick to open the Ascites view.' : t.why ? '\nClick for what is driving it.' : ''}`;
+    el.title = `${t.title || t.k}${inert ? '' : t.pane ? '\nClick to open the Ascites view.' : t.why ? '\nClick for what is driving it.' : ''}`;
     // Ascites opens its own instrument (amount, cause, tap, treatment) rather than a second popover.
-    if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
+    if (inert) { /* readout only */ }
+    else if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
     // HVPG not yet measured (Explore): the tile opens the catheter procedure instead.
     else if (t.why) el.addEventListener('click', () => (t.id === 'hvpg' && readoutValue(t, {}, hiddenNow()) == null ? show('hvpg', { reveal: true }) : onWhy(t.why, el)));
     tileEls[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };

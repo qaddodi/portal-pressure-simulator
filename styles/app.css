@@ -300,6 +300,8 @@ svg { flex: none; }
   display: flex; flex-direction: column; gap: 0; transition: background var(--t-fast);
 }
 @media (hover: hover) { .metric:hover { background: var(--surface-2); } }
+.metric.inert { cursor: default; }
+@media (hover: hover) { .metric.inert:hover { background: transparent; } }
 .metric .k { font-size: var(--fs-12); font-weight: 500; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
 .metric .v { font-size: var(--fs-20); font-weight: 600; letter-spacing: -.015em; white-space: nowrap; display: flex; align-items: baseline; line-height: 1.25; min-width: 0; overflow: hidden; }
 .metric .v .unit { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); margin-left: 3px; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }

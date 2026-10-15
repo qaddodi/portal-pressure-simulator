@@ -15,6 +15,16 @@ test('the bar keeps HVPG and PPG, two lobule flows, and no chevron', () => {
   assert.doesNotMatch(dock, /classList\.toggle\('all'/);
 });
 
+test('tapping the bar\'s HVPG or PPG does nothing: a plain div, no click handler, no hover or pointer', () => {
+  const dock = read('../src/ui/dock.js');
+  assert.match(dock, /const BAR_INERT = PRIMARY;/);
+  assert.match(dock, /h\(inert \? 'div' : 'button'/);
+  assert.match(dock, /if \(inert\) \{ \/\* readout only \*\/ \}\n\s+else if \(t\.pane\)/);
+  const css = read('../styles/app.css');
+  assert.match(css, /\.metric\.inert \{ cursor: default; \}/);
+  assert.match(css, /\.metric\.inert:hover \{ background: transparent; \}/);
+});
+
 test('the narrator is off by default for both roles', () => {
   assert.match(read('../src/ui/main.js'), /NARRATOR_DEFAULT = \{ student: false, instructor: false \}/);
 });
