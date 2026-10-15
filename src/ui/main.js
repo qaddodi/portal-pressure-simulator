@@ -4,7 +4,7 @@
 import { startHost, host } from './host.js?v=0f6d345282';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
 import { createStage } from './stage.js?v=bd71d51f0b';
-import { createCreditPlacer } from './credit.js?v=b779b30837';
+import { createCreditPlacer } from './credit.js?v=fe944f94a6';
 import { sinusoidSupported } from './sinusoid-view.js?v=44e154296f';
 import { createInspector } from './inspector.js?v=5739f23abe';
 import { createDock, CUTOFFS } from './dock.js?v=2e10c76356';
@@ -1284,7 +1284,11 @@ function syncThumb() {
   const on = thumbOn();
   if (app.classList.contains('thumb') !== on) app.classList.toggle('thumb', on);
   document.documentElement.classList.toggle('thumb-ui', on);   // (the menus and sheets live outside #app)
-  // (The view switch stays in the top bar: on a phone on its own line under the patient and the key, styles/app.css.)
+  // The view switch leaves the top bar for the thumb dock, a line just above the tabs (15 Oct, Mohammad: "down below"); the
+  // sinusoid view hides the dock, so there it sits in a pill at the bottom left, level with the zoom group. Off the thumb
+  // dock (a Mac, a tablet or phone held sideways) it is back in the top bar.
+  const seg = $('#viewSeg'), home = !on ? $('#stageTop .sb-left') : app.classList.contains('sin-focus') ? $('#sinViews') : $('#nbViews');
+  if (home && seg.parentElement !== home) home.append(seg);
 }
 function wireThumbBar() {
   const tab = (id, ic, label, onclick) => h('button', { class: 'nb-tab', type: 'button', 'data-tab': id, onclick }, svgIcon(ic), h('span', { class: 'nb-l' }, label));
@@ -1306,7 +1310,8 @@ function wireThumbBar() {
   const layers = tab('layers', 'layers', 'Layers', menuTab(openLayersMenu));
   const more = tab('settings', 'gear', 'Settings', menuTab((a) => openSettings(a, true)));
   for (const b of [hist, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
-  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, layers, more));
+  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, h('div', { class: 'nb-views', id: 'nbViews' }), treat, tests, hist, layers, more));
+  $('#stageView').append(h('div', { class: 'sin-views float-ui stage-blocker', id: 'sinViews' }));
   // The tabs follow the cards they open (and History's count), however those were opened or closed.
   const sync = () => {
     const t = String(treatOpen()), i = String(app.classList.contains('dock-open'));

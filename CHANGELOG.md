@@ -2,11 +2,13 @@
 
 ## Unreleased
 
-- **The view switch is back in the top bar, one tap away.** On an upright phone the switch (Circuit, Anatomy, Lobule,
-  Sinusoid) has its own centred line under the patient and the key; on an upright iPad it sits between them, as on a
-  Mac. The bottom bar is unchanged. The View tab is called **Layers** again and holds Fit to screen, Turn upright
-  (circuit) and the layers. In the sinusoid view a phone's second line holds Lobule and Sinusoid with history, play,
-  settings and search. Tests: smoke "view switch: one tap" (eleven screen sizes, every view, Treat and Tests open).
+- **The view switch is down in the bottom bar, one tap away.** On an upright phone or iPad the switch (Circuit, Anatomy,
+  Lobule, Sinusoid) has its own line in the dock, between the play row and the tabs. It belongs to the tab row's block,
+  so Treat, Tests, History and the other cards stop on its top edge and it stays tappable while they are open. The
+  sinusoid view, which hides the dock, puts Lobule and Sinusoid in a pill at the bottom left, level with +, − and Fit.
+  The top bar is two chips again (in the sinusoid view its buttons take a second row instead of squeezing the key). Mac,
+  iPad and phone held sideways keep the switch in the top bar. The View tab is called **Layers** again (Fit to screen,
+  Turn upright, the layers). Tests: smoke "view switch: one tap" (13 screen sizes, every view, Treat and Tests open).
 - **Blood loss gives realistic vital signs (ATLS classes).** A 500 mL bleed in a healthy adult used to drop the mean
   pressure from 93 to 76 and a litre left almost no circulation. Two reflexes now compensate: the venous reservoir
   (sympathetic venoconstriction moves unstressed blood back into circulation, Gelman 2008) and a volume afferent that
