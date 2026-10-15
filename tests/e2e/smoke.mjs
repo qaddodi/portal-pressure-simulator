@@ -1912,6 +1912,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (folds) {
         await page.click('.pz-data .pz-fold'); await quiet(page);
         for (const c of await page.evaluate(inside)) bad.push(`${at}, shown: ${c}`);
+        // (Text set back to 100% in Settings while the slide shows: the card lays out again and unfolds, as a fresh load does.)
+        await page.evaluate(() => window.pps.stage.setLabelScale(1)); await quiet(page);
+        if (await page.evaluate(() => document.querySelector('.pz-data')?.classList.contains('pz-folds'))) bad.push(`${at}: still folded after text went back to 100%`);
       }
       await ctx.close();
     }

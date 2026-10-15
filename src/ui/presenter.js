@@ -2267,8 +2267,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const off = (el) => el.hidden || (el === ui.data ? 'gone' in el.dataset : el.classList.contains('pz-hide'));   // (a card only easing out and back in for the next slide still counts, where it rests: the camera frames once)
     const r = (el) => (off(el) ? null : restBox(el));
     // The words' sizes settle once per slide, before its cards enter: a later pass (a reading ticking, the data card growing)
-    // keeps them, so the teaching card's text never changes size while it is in view.
-    const lockKey = shown ? `${shown.gen}:${shown.i}:${W.toFixed(0)}x${H.toFixed(0)}` : null, lock = lockKey && textLock?.key === lockKey ? textLock : null;
+    // keeps them, so the teaching card's text never changes size while it is in view. (A new text size in Settings is a new layout:
+    // kept, a card folded at 200% stayed folded back at 100%.)
+    const lockKey = shown ? `${shown.gen}:${shown.i}:${W.toFixed(0)}x${H.toFixed(0)}:${stage.labelScale()}` : null, lock = lockKey && textLock?.key === lockKey ? textLock : null;
     ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk');
     ui.text.style.maxHeight = '';   // (the last pass's cap would shrink the words to a room they no longer have)
     // (A phone's words keep clear of the pill and the colour key first: the room they leave (--pz-reach, --pz-fkrow) is part
