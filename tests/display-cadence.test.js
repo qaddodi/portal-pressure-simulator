@@ -33,3 +33,19 @@ test("the anatomy's top quality step draws the blood on every frame", () => {
   assert.ok(q, 'QUALITY table found');
   assert.match(q[1].trim(), /^\{ fps: 0, res: 1 \}/, 'the first (default) step is unpaced at full resolution');
 });
+
+// Outside Battery saver nothing lowers its own resolution or frame rate (the owner, 15 Oct: "0 drop in quality"): the
+// anatomy's frame-time governor, its zoom resolution and dynamic resolution, the lobule's resolution governor and the
+// FibroScan's shrinking map size are gone, and a level an older build stored is dropped.
+test('no surface steps its own resolution or frame rate down', () => {
+  const stage = readFileSync(new URL('stage.js', SRC), 'utf8');
+  for (const name of ['governQuality', 'governRes', 'dynRes', 'zoomRes']) assert.ok(!new RegExp(`\\b${name}\\b`).test(stage), `stage.js: ${name} is back`);
+  assert.ok(!/localStorage\.setItem\('pps\.(quality|q)'/.test(stage), 'stage.js stores a quality level again');
+  assert.match(stage, /removeItem\('pps\.quality'\)/, 'an old stored level is dropped');
+  assert.match(stage, /removeItem\('pps\.q'\)/, 'an old stored level is dropped');
+  assert.match(stage, /vdpr = Math\.min\(2, devicePixelRatio \|\| 1\) \* QUALITY\[quality\]\.res;/, 'the vessel canvas follows only the explicit step');
+  const lob = readFileSync(new URL('lobule-zoom.js', SRC), 'utf8');
+  assert.ok(!/\blzRes\b/.test(lob), 'lobule-zoom.js: its resolution governor is back');
+  const fib = readFileSync(new URL('fibroscan.js', SRC), 'utf8');
+  assert.ok(!/cap -= /.test(fib), 'fibroscan.js: the map shrinks itself again');
+});

@@ -615,7 +615,7 @@ export function createLobuleZoom({ host }) {
   // The landing's own pieces stay, so the next dive is still ready ahead; the idle preparation redraws a trimmed world bitmap at the framing.
   function trimCaches() {
     if (!geo) return;
-    const dpr = Math.min(2, devicePixelRatio || 1) * lzRes, k = kFit || V.k;
+    const dpr = Math.min(2, devicePixelRatio || 1), k = kFit || V.k;
     const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * k)) * 2) / 2), 3600 / (2.6 * geo.R)), n = Math.ceil(2.6 * geo.R * sc);
     if (worldCv.width > n) { free(worldCv); worldKey = ''; prepKey = ''; }
     // The field: the newest state's tiles only, and none above the largest the dive or the framed lobule draws.
@@ -1406,24 +1406,12 @@ export function createLobuleZoom({ host }) {
     if (rzMoving || lensFrom) drawVersion++;   // a caliber still easing, or the colours crossfading: redraw this frame
     const drew = draw(moving ? dt : 0);
     if (drew) noteDraw('lobule-zoom');
-    // Resolution follows the frame time: when frames that redraw arrive late the lobule is drawn smaller (a step at a
-    // time, not more often than every half second) and it grows back once there is room.
-    if (drew && prevDrew && !soft && dt < 0.1) {
-      // Hysteresis: a sustained trend of about a second before the scale moves, and then not more than once a second.
-      gapAvg += (dt * 1000 - gapAvg) * 0.1;
-      const aim = pace + 4;   // (the frame the pacing aims for: 67 ms in Battery saver; unpaced, the 21 ms below)
-      slowMs = gapAvg > (paced ? aim * 1.23 : 21) ? slowMs + dt * 1000 : 0; fastMs = gapAvg < (paced ? aim * 1.035 : 14.5) ? fastMs + dt * 1000 : 0;
-      if (now - resCheck > 1000) {
-        if (slowMs > 1000 && lzRes > 0.6) { lzRes = Math.max(0.6, lzRes - 0.1); resCheck = now; slowMs = 0; idleDrawn = ''; }
-        else if (fastMs > 2500 && lzRes < 1) { lzRes = Math.min(1, lzRes + 0.1); resCheck = now; fastMs = 0; idleDrawn = ''; }
-      }
-    }
-    prevDrew = drew; pacedVer = viewVer;
+    pacedVer = viewVer;
     // Paused and settled (nothing drawn, nothing easing): the loop stops asking for frames, as the figure does, so the
     // screen can idle. Every change wakes it (update, a pan or zoom, a glide, the store, a label size, the dive), and it
     // looks again four times a second in case a change came by a path that does not.
     if (!drew && !moving && !rzMoving && (flowA === 0 || flowA === 1)) {
-      last = 0; prevDrew = false;   // (on waking, the first frame steps nothing: no jump in the flow)
+      last = 0;   // (on waking, the first frame steps nothing: no jump in the flow)
       clearTimeout(sleepT); sleepT = setTimeout(() => { if (!raf && fade > 0) raf = nextFrame(loop); }, 250);
       return;
     }
@@ -1438,7 +1426,6 @@ export function createLobuleZoom({ host }) {
     const open = fade > 0.98 && !diveScaled && sinU === 0;
     flowA = open ? Math.min(1, flowA + dtm / 300) : Math.max(0, flowA - dtm / 300);
   }
-  let lzRes = 1, gapAvg = 16.7, resCheck = 0, prevDrew = false, slowMs = 0, fastMs = 0;
 
   // While the dive magnifies the lobule's layers (a compositor scale), they are drawn once and then left
   // alone: redrawing the WebGL vessels, the effects and the labels each frame, at full size, is what lagged.
@@ -1455,7 +1442,7 @@ export function createLobuleZoom({ host }) {
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     ensureGeo(W, H);
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzRes;   // (Battery saver: one pixel per CSS pixel)
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1);   // (Battery saver: one pixel per CSS pixel)
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion, flowA.toFixed(2)].join('|');
@@ -1760,7 +1747,7 @@ export function createLobuleZoom({ host }) {
     if (fade > 0 || !F) return [];
     const rect = host.getBoundingClientRect(), W = Math.round(rect.width), H = Math.round(rect.height);
     if (W < 2 || H < 2) return [];
-    const dark = isDark(), key = [W, H, dark, devicePixelRatio, lzRes, zonesOn, lymphOn, Object.values(fieldState()).join(',')].join('|');
+    const dark = isDark(), key = [W, H, dark, devicePixelRatio, zonesOn, lymphOn, Object.values(fieldState()).join(',')].join('|');
     if (key === prepKey) return [];
     let cs, land, bg;
     const q = [
@@ -1780,10 +1767,10 @@ export function createLobuleZoom({ host }) {
       model = lobuleState({ ...F, P: F.Pf || F.P }, st);
       const cv = (n, d) => cs.getPropertyValue(n).trim() || d;
       model.inks = { normal: cv('--flow-normal'), reversed: cv('--flow-reversed'), portal: cv('--vein-portal'), systemic: cv('--vein-systemic') };
-      const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
+      const dpr = Math.min(2, devicePixelRatio || 1);
       quietTile(fieldTile(cs, dark, geo.R * V.k * dpr * 0.55), bg);
     }, () => {
-      const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
+      const dpr = Math.min(2, devicePixelRatio || 1);
       paintTissue(W, H, dpr, dark, cs, !gl || gl.lost);
     }, () => { if (fade <= 0) { draw(0); release(); prepKey = key; } });
     return q;

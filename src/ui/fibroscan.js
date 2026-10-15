@@ -90,7 +90,8 @@ export function createFibroScan() {
   const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
   const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
   const off = document.createElement('canvas'), octx = off.getContext('2d');
-  let N = 0, img = null, cap = 300, ema = 0;
+  let N = 0, img = null;
+  const cap = 300;
   let model = 10, running = false, shown = null, last = 0;
   const sized = { w: 0, h: 0, cap: 11 };
 
@@ -117,16 +118,14 @@ export function createFibroScan() {
     const CAP = side ? 10 : sized.cap, m = Math.round(CAP * 0.7);
     const ex = 0, top = 0, ew = w, ph = hh, bot = hh;
     if (ph < 50 || ew < 60) return;
-    // Sample the map at about half the screen pixels (smooth, never blocky); drop the cap if frames run long.
-    // (Battery saver: a third of them.)
+    // Sample the map at about half the screen pixels (smooth, never blocky), always (it never shrinks itself when frames
+    // run long). (Battery saver: a third of them.)
     const lo = saver();
     const want = clamp(Math.round(Math.max(ew, ph) * (w / cv.clientWidth || 1) * (lo ? 0.5 : 0.75)), lo ? 100 : 140, lo ? Math.min(cap, 200) : cap);
     if (want !== N) { N = want; off.width = off.height = N; img = octx.createImageData(N, N); }
-    const t0p = performance.now();
     drawElastogram(octx, img, N, c, t);
     ctx.save(); rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.clip();
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(off, 0, 0, N, N, ex, top, ew, ph);
-    ema = ema * 0.9 + (performance.now() - t0p) * 0.1; if (ema > 14 && cap > 130) { cap -= 20; ema = 0; }
     ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
     for (const d of [35, 75]) { const y = top + ((d - 30) / 60) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
     ctx.setLineDash([]);

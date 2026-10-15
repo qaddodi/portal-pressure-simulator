@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=e387ad7347';
-import { createLobuleZoom } from './lobule-zoom.js?v=2391f12a2b';
+import { createLobuleZoom } from './lobule-zoom.js?v=d4c25e4676';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -1111,20 +1111,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // card) follows the artwork on the very next frame of a pan or zoom, not on the next model
   // update: a view change schedules one coalesced sync per animation frame.
   let viewRaf = 0, viewVersion = 0, CTM = null, wrapRect = null;
-  // Zoomed far in, the vessels fill the screen and the vessel shader runs on most of its pixels: the picture is
-  // drawn at a lower resolution there (in steps, so the canvas is not resized on every wheel notch).
   let drawOnce = false;   // draw the vessels once through the dive's freeze: the camera moved while hidden
   let stageWake = () => {};   // set once the frame loop exists: anything that may need a redraw calls it
-  let zoomRes = 1, dynRes = 1, resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
+  let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
   const applyVT = () => {
-    const zr = vt.k > 4 ? 0.65 : vt.k > 2.5 ? 0.8 : 1;
     const deg = rotDeg();
     world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})${deg ? ` rotate(${deg.toFixed(3)} ${CIRC_C[0]} ${CIRC_C[1]})` : ''}`);
     worldOver?.setAttribute('transform', world.getAttribute('transform'));
     syncSemantic();
     CTM = null; viewVersion++; stageWake();
-    // (After the new camera is set: the resize redraws the picture at once, in it.)
-    if (zr !== zoomRes) { zoomRes = zr; if (resizeReady) resizeCanvas(); }
     if (!viewRaf) viewRaf = nextFrame(syncView);
   };
   function syncView() {
@@ -1785,19 +1780,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Out of the lobule view by zooming out: the view hands the dive back to the scrub, which carries on reversing it.
 
   // ── Detail ────────────────────────────────────────
-  // Adaptive detail: the moving blood is drawn on every frame the screen offers (fps 0: 60, 120 or more a second; a frame
-  // of it only re-composites the vessel cells). When the device cannot keep up (frames arriving slower than ~22 a second
-  // while the model runs), the moving blood steps down (fewer frames, fewer pixels) and steps back up once there is
-  // headroom. The level a device settles on is remembered.
-  // The last step is only for a software renderer (WebGL drawn on the CPU), where it starts: there
-  // every frame costs CPU the rest of the page needs.
-  const QUALITY = [{ fps: 0, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }];
+  // Detail: the moving blood is drawn on every frame the screen offers (fps 0: 60, 120 or more a second; a frame of it
+  // only re-composites the vessel cells) at full resolution, whatever the device, the zoom or the frame time: the figure
+  // never steps itself down (the owner, 15 Oct: "0 drop in quality", "120hz persistently"). Only two steps lower it, each
+  // explicit: Settings › Battery saver (15 a second at 0.6 of the pixels), and a software renderer (WebGL drawn on the
+  // CPU, no usable GPU: 8 a second at half the pixels), where every frame costs CPU the rest of the page needs.
+  // (Levels a device once stepped down to were stored under 'pps.quality' and 'pps.q', and an old low one stuck, also on
+  // the live site, which shares this origin: both are dropped.)
+  const QUALITY = [{ fps: 0, res: 1 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }], Q_SAVER = 1, Q_SOFTWARE = 2;
   const paceOf = (q) => (QUALITY[q].fps ? 1000 / QUALITY[q].fps : 0);   // (ms between drawn frames of the blood; 0: every frame)
   const SOFTWARE = !!veins?.software;
-  const Q_MAX = SOFTWARE ? 3 : 2;
-  // Settings › Battery saver: the blood moves at 15 frames a second at a lower resolution (quality step 2 at least).
-  let qFloor = (() => { try { return localStorage.getItem('pps.saver') === '1' ? 2 : 0; } catch { return 0; } })();
-  let quality = SOFTWARE ? 3 : Math.max(qFloor, (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })());
+  try { localStorage.removeItem('pps.quality'); localStorage.removeItem('pps.q'); } catch { /* storage unavailable */ }
+  let quality = SOFTWARE ? Q_SOFTWARE : (() => { try { return localStorage.getItem('pps.saver') === '1' ? Q_SAVER : 0; } catch { return 0; } })();
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
@@ -1806,10 +1800,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (F) update(F);
   });
   wrap.dataset.quality = String(quality);
+  wrap.dataset.renderer = SOFTWARE ? 'software' : 'gpu';
   let vdpr = 1;
   function resizeCanvas() {
     const r = wrap.getBoundingClientRect();
-    vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res * zoomRes * dynRes;
+    vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res;
+    wrap.dataset.res = vdpr.toFixed(2);   // (the vessel canvas's pixels per CSS pixel, for diagnosis)
     vCanvas.width = Math.max(1, Math.round(r.width * vdpr)); vCanvas.height = Math.max(1, Math.round(r.height * vdpr));
     wrap.classList.toggle('compact', r.height < 600);
     CTM = null; forceDraw = true; stageWake();
@@ -5818,48 +5814,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!st.running || reduceMotion.matches) return false;
     return bloodOn() || (chevOn() && !cath.st) || fluidLook.ripple || (!!F?.bleed?.active && morph < 0.5);
   }
-  let lastRaf = 0, gapEMA = 16, qCheck = 0, qGood = 0, drawnView = -1;
-  function governQuality(now) {
-    // (The first frame after the loop slept is not a sample: the gap is the sleep, not a slow frame.)
-    const gap = lastRaf ? now - lastRaf : 0;
-    lastRaf = now;
-    if (!gap || SOFTWARE || !store.get().running || gap > 500) return;   // software: stays at its step; idle or just resumed: nothing to learn
-    gapEMA += (Math.min(gap, 250) - gapEMA) * 0.05;
-    if (now - qCheck < 2000) return;
-    qCheck = now;
-    let next = quality;
-    if (gapEMA > 45 && quality < Q_MAX) { next = quality + 1; qGood = 0; }
-    else if (gapEMA < 22 && quality > qFloor) { if (++qGood >= 3) { next = quality - 1; qGood = 0; } }
-    else qGood = 0;
-    if (next === quality) return;
-    quality = next;
-    wrap.dataset.quality = String(quality);
-    try { localStorage.setItem('pps.quality', String(quality)); } catch { /* storage unavailable */ }
-    resizeCanvas();
-  }
-  // The vessel canvas follows the frame time: when frames that redraw it arrive late (over 21 ms) it is drawn at a
-  // smaller size, a step at a time and not more than twice a second; it grows back once frames fit in 15.5 ms.
-  let resGap = 16.7, resCheck = 0, slowMs = 0, fastMs = 0, resPrev = 0;
-  function governRes(now, drawing) {
-    const gap = resPrev ? now - resPrev : 16.7;
-    resPrev = drawing ? now : 0;
-    if (SOFTWARE || !drawing || gap > 100 || now < 4000) return;   // not while the page is still starting up
-    resGap += (gap - resGap) * 0.1;
-    // Hysteresis: a sustained trend (a second to shrink, two and a half to grow back), and a change at most once a second.
-    slowMs = resGap > 21 ? slowMs + gap : 0; fastMs = resGap < 14.5 ? fastMs + gap : 0;
-    if (now - resCheck < 1000) return;
-    let n = dynRes;
-    if (slowMs > 1000 && dynRes > 0.6) n = Math.max(0.6, dynRes - 0.1);
-    else if (fastMs > 2500 && dynRes < 1) n = Math.min(1, dynRes + 0.1);
-    if (Math.abs(n - dynRes) > 0.01) { pendingRes = n; resCheck = now; slowMs = fastMs = 0; }   // applied at the start of the next frame, which then redraws
-  }
-  let pendingRes = 0;
+  let drawnView = -1;
   let flowGate = lastT;
   function animate(now) {
     // The blood moves by elapsed time, so speeds and transitions are the same at any frame rate.
-    if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; lastRaf = 0; sleep(); return; }
-    governQuality(now);
-    if (pendingRes) { dynRes = pendingRes; pendingRes = 0; resizeCanvas(); }
+    if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; sleep(); return; }
     // The dive magnifies the figure as it stands (a compositor scale): nothing under it is redrawn until it lands.
     if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw) { lastT = flowGate = now; nextFrame(animate); return; }
     const interval = paceOf(quality);
@@ -5907,7 +5866,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (drawVeins()) noteDraw('stage');
     else if (veins && !veins.lost && vLook && F) { veins.composite(vLook, bloodLook(), fluidMoved); noteDraw('stage'); }
     drawnView = viewVersion;
-    governRes(now, viewMoved || st.running);
     lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM; lastAnim = anim || bolus.active || dyeShown;
     nextFrame(animate);
   }
@@ -5915,7 +5873,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Nothing to draw: the loop stops asking for frames (so the screen can idle) until something changes, and looks
   // again a few times a second in case a change came by a path that does not wake it.
   let sleeping = false, sleepTimer = 0;
-  function sleep() { sleeping = true; lastRaf = 0; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 250); }
+  function sleep() { sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 250); }
   function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); nextFrame(animate); }
   stageWake = wake;
   store.on('*', wake);
@@ -6589,10 +6547,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
     setSaver(on) {
-      try { localStorage.setItem('pps.saver', on ? '1' : '0'); if (!on) localStorage.removeItem('pps.quality'); } catch { /* storage unavailable */ }
-      qFloor = on ? 2 : 0;
+      try { localStorage.setItem('pps.saver', on ? '1' : '0'); } catch { /* storage unavailable */ }
       setFrameSaver(on);   // (the lobule, the sinusoid and the FibroScan read it each frame)
-      if (!SOFTWARE) { quality = on ? Math.max(quality, 2) : 0; wrap.dataset.quality = String(quality); resizeCanvas(); }
+      if (!SOFTWARE) { quality = on ? Q_SAVER : 0; wrap.dataset.quality = String(quality); resizeCanvas(); }
     },
     labelScale: () => labelScale,
     labelEff: () => labelScale * deskK(),   // what the figure shows outside a presentation (a desktop's baseline included)

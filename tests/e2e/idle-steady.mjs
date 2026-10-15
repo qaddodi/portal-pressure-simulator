@@ -149,6 +149,40 @@ try {
     await page.evaluate(() => window.pps.stage.setSaver(false));
     await run(true);
   }
+  // Full detail by default (the owner, 15 Oct: "0 drop in quality"): on a GPU the figure never steps itself down, however
+  // slow the frames (this runner draws on the CPU, so its frames are slow: the old governor stepped down within seconds),
+  // and a low level an older build stored is dropped. Battery saver is the one explicit step. (The renderer reads as a
+  // GPU here, so the app takes its GPU path.)
+  {
+    const gctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block' });
+    await gctx.addInitScript(() => {
+      try { localStorage.setItem('pps.quality', '2'); localStorage.setItem('pps.q', '3'); } catch { /* storage unavailable */ }
+      for (const P of [WebGLRenderingContext.prototype, WebGL2RenderingContext.prototype]) {
+        const g = P.getParameter;
+        P.getParameter = function (q) { return q === 0x9246 || q === 0x1F01 ? 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2)' : g.call(this, q); };
+      }
+    });
+    const gp = await gctx.newPage();
+    gp.setDefaultTimeout(120000);
+    gp.on('pageerror', (e) => errors.push(e.message));
+    await gp.goto(server.url + '?preset=cirr-decomp');
+    await gp.waitForFunction(() => window.pps?.store?.get().frame);
+    await gp.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
+    const look = () => gp.evaluate(() => { const w = document.querySelector('[data-veins]'); return { q: w?.dataset.quality, res: w?.dataset.res, renderer: w?.dataset.renderer, stored: [localStorage.getItem('pps.quality'), localStorage.getItem('pps.q')] }; });
+    await gp.waitForTimeout(12000);
+    const d = await look();
+    console.log(`GPU path, playing 12 s      quality ${d.q}, ${d.res} px per CSS px, renderer ${d.renderer}, stored levels ${d.stored}`);
+    if (d.renderer !== 'gpu') fail(`GPU path: the renderer reads as ${d.renderer}`);
+    if (d.q !== '0' || d.res !== '1.00') fail(`GPU path: the figure stepped itself down (quality ${d.q}, ${d.res} px per CSS px)`);
+    if (d.stored.some((x) => x != null)) fail(`GPU path: an old stored quality level was kept (${d.stored})`);
+    await gp.evaluate(() => window.pps.stage.setSaver(true));
+    const sv = await look();
+    await gp.evaluate(() => window.pps.stage.setSaver(false));
+    const back = await look();
+    console.log(`GPU path, Battery saver     quality ${sv.q} (${sv.res}), off again ${back.q} (${back.res})`);
+    if (sv.q !== '1' || back.q !== '0' || back.res !== '1.00') fail(`GPU path: Battery saver on/off gave quality ${sv.q} then ${back.q} (${back.res})`);
+    await gctx.close();
+  }
   // A phone on a slide left alone: its cards hold still. (Circuit slide 7's words had flipped between two fits, 0.850 and
   // 0.851, on every layout pass, moving the cards a pixel and restyling the whole page about twice a second; a slide
   // change took minutes on a slowed phone.) Nothing on the app's or the cards' inline style may change over 4 s.
