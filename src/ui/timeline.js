@@ -265,11 +265,15 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
     const n = entries.filter((x) => x.kind !== 'start').length;
     if (histCount.textContent !== (n ? String(n) : '')) histCount.textContent = n ? String(n) : '';
   }
-  function openHistory(anchor) {
+  // The history rows, shared by the phone sheet and the History card on larger screens.
+  function historyRows() {
     const items = entries.map((_, i) => i);
-    const body = items.length > 1 ? markerRows(items)
+    return items.length > 1 ? markerRows(items)
       : [h('p', { class: 'tl-pop-empty' }, 'Nothing has happened yet. Change something on the figure, or jump ahead in time.')];
-    popover(anchor, h('div', { class: 'tl-pop tl-history' }, body), { place: 'above', align: 'end' });
+  }
+  function historyBody() { return h('div', { class: 'tl-pop tl-history' }, historyRows()); }
+  function openHistory(anchor) {
+    popover(anchor, h('div', { class: 'tl-pop tl-history' }, historyRows()), { place: 'above', align: 'end' });
   }
   function openMarker(anchor, items) {
     popover(anchor, h('div', { class: 'tl-pop' }, markerRows(items)), { place: 'above', align: 'center' });
@@ -313,7 +317,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
   onParamChange(({ label, history }) => { if (history || pending) noteParamChange(label); });
 
   return {
-    reset, recordAction, addEvents, update, undo, redo, goTo, togglePin, jump, openHistory,
+    reset, recordAction, addEvents, update, undo, redo, goTo, togglePin, jump, openHistory, historyBody,
     entries: () => entries, cursor: () => cursor,
     onChange: (fn) => listeners.push(fn),
     save: () => ({ entries: entries.slice(), cursor, baseline: structuredClone(baseline) }),

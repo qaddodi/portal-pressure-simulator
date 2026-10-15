@@ -10,7 +10,7 @@ import { createInspector } from './inspector.js?v=b3fd97699e';
 import { createDock, CUTOFFS } from './dock.js?v=a147f5909e';
 import { setHvpgStage } from './hvpg-proc.js?v=cc7de39fbd';
 import { createWhy } from './why.js?v=e21c8d10e2';
-import { createTimeline, LAPSES } from './timeline.js?v=8d388a0ec7';
+import { createTimeline, LAPSES } from './timeline.js?v=b4cd9309ed';
 import { createCompare } from './compare.js?v=1d9e08e29f';
 import { createCard } from './card.js?v=229f662cf0';
 import { createChart } from './chart.js?v=5847125aee';
@@ -782,6 +782,8 @@ function wireTopbar() {
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
   $('#btnTreat').addEventListener('click', () => (treatOpen() ? closeTreat() : openTreat()));
+  // History, beside Treat and Tests: its own card on the right (a phone held sideways keeps the menu sheet).
+  $('#btnHistory').addEventListener('click', (e) => (isPhone() ? timeline.openHistory(e.currentTarget) : historyOpen() ? closeHistory() : openHistory()));
   for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnTreat', 'bottom'], ['#zoomIn', 'left'], ['#zoomOut', 'left'], ['#zoomFit', 'left'], ['#rotateCircuit', 'left']]) {
     const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
   }
@@ -1072,7 +1074,7 @@ function wireFloating() {
     const ws = $('#dock'), wsOn = app.classList.contains('dock-open') && !app.classList.contains('instrument-focus');
     const panelOcc = wide && app.classList.contains('panel-open') ? $('#panel').offsetWidth + gap : 0;
     const instrOcc = wsOn && ws.classList.contains('side') ? ws.offsetWidth + gap : 0;
-    const tc = $('#treatCard'), treatOcc = wide && !tc.hidden ? tc.offsetWidth + gap : 0;
+    const tc = $('#treatCard'), hc = $('#historyCard'), treatOcc = wide && !tc.hidden ? tc.offsetWidth + gap : wide && !hc.hidden ? hc.offsetWidth + gap : 0;
     const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? ws.offsetHeight + gap : 0;
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
     // (With the thumb dock the sheet sits above the dock instead.)
@@ -1100,6 +1102,7 @@ function wireFloating() {
   for (const id of ['#topbar', '#vdock', '#dock', '#panel', '#treatCard', '.tb-id', '.top-right', '.topbar .sb-right', '#viewSeg']) ro.observe($(id));
   new MutationObserver(soon).observe(app, { attributes: true, attributeFilter: ['class'] });
   new MutationObserver(soon).observe($('#treatCard'), { attributes: true, attributeFilter: ['hidden'] });
+  new MutationObserver(soon).observe($('#historyCard'), { attributes: true, attributeFilter: ['hidden'] });
   new MutationObserver(soon).observe($('#dock'), { attributes: true, attributeFilter: ['class', 'data-state'] });
   addEventListener('resize', soon);
   // The corner credit finds a free spot on the figure (src/ui/credit.js).
@@ -1272,6 +1275,8 @@ function wireThumbBar() {
     if (tests.getAttribute('aria-pressed') !== i) tests.setAttribute('aria-pressed', i);
     const n = $('#timeline .tl-hc')?.textContent || '';
     if (badge.textContent !== n) badge.textContent = n;
+    const tb = $('#btnHistory .tb-hc');
+    if (tb && tb.textContent !== n) tb.textContent = n;
   };
   new MutationObserver(sync).observe(app, { attributes: true, attributeFilter: ['class'] });
   new MutationObserver(sync).observe($('#treatCard'), { attributes: true, attributeFilter: ['hidden'] });
@@ -1298,6 +1303,7 @@ function openMoreMenu(anchor) {
 let treatOff = null;
 const treatOpen = () => !$('#treatCard').hidden;
 function openTreat() {
+  closeHistory();
   const el = $('#treatCard');
   if (isPhone()) { closePanel(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
   closePopover();
@@ -1323,7 +1329,7 @@ function openTreat() {
 // Presenter puts every card, sheet and menu away (each fades out) and hands back a function that reopens them on exit.
 function stashCards() {
   const was = { panel: panelShown(), treat: !$('#treatCard').hidden, dock: app.classList.contains('dock-open') };
-  closePopover(); why?.close(); closeTreat(); closePanel(); if (was.dock) setPanelTab('chart');
+  closePopover(); why?.close(); closeTreat(); closeHistory(); closePanel(); if (was.dock) setPanelTab('chart');
   return () => { if (was.panel) openPanel(); if (was.dock) openPanel('instruments'); if (was.treat) openTreat(); };
 }
 function closeTreat() {
@@ -1334,6 +1340,40 @@ function closeTreat() {
   treatOff?.(); treatOff = null;
   treatSheet?.closed();
   $('#btnTreat').setAttribute('aria-expanded', 'false');
+  refitStage();
+  nextFrame(() => stage.relayout());
+}
+// ── History card (Mac and iPad landscape) ───────────
+// Every change and event, with a way back to each: the same list as the phone's History sheet, as a card in Treat's
+// place on the right (one or the other), kept current while it is open.
+let historyOff = null, historyPaint = null;
+const historyOpen = () => !$('#historyCard').hidden;
+function openHistory() {
+  closeTreat(); closePopover();
+  const el = $('#historyCard');
+  const body = h('div', { class: 'tc-body' });
+  const paint = () => { const top = body.scrollTop; body.replaceChildren(timeline.historyBody()); body.scrollTop = top; };
+  el.replaceChildren(h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('clock'), h('span', {}, 'History')),
+    h('button', { class: 'ib card-close', 'aria-label': 'Close History', title: 'Close (Esc)', onclick: () => closeHistory() }, icon('close'))), body);
+  paint();
+  // (A change or an event adds a row; the count beside the button moves with every entry, including a finished snapshot.)
+  const mo = new MutationObserver(() => { if (historyOpen()) paint(); });
+  mo.observe($('#timeline .tl-hc'), { characterData: true, childList: true, subtree: true });
+  if (!historyPaint) timeline.onChange(() => historyPaint?.());   // (registered once; it paints whichever card is open)
+  historyPaint = paint;
+  historyOff = () => { mo.disconnect(); historyPaint = () => {}; };
+  arrive(el);
+  el.hidden = false;
+  $('#btnHistory').setAttribute('aria-expanded', 'true');
+  refitStage();
+}
+function closeHistory() {
+  const el = $('#historyCard');
+  if (el.hidden) return;
+  leave(el);
+  el.hidden = true;
+  historyOff?.(); historyOff = null;
+  $('#btnHistory').setAttribute('aria-expanded', 'false');
   refitStage();
   nextFrame(() => stage.relayout());
 }
@@ -1369,6 +1409,7 @@ function wireKeyboard() {
       else if (projector) toggleProjector();
       else if (app.classList.contains('instrument-focus')) dock.setState('open');
       else if (treatOpen()) closeTreat();
+      else if (historyOpen()) closeHistory();
       else if (stage.isShunting()) stage.cancelShunt();
       else if (store.get().tool !== 'select') setTool('select');
       else if (store.get().sinusoid && !store.get().selection) store.set({ sinusoid: false });

@@ -2032,6 +2032,27 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
     await page.evaluate(() => window.pps.store.set({ role: 'student' }));
   });
+  // History sits beside Treat and Tests in a laptop's top bar (not in the play bar) and opens as a card on the right, in Treat's place.
+  if (device === 'desktop') await check(device, 'History: a top-bar button beside Tests, its card on the right in Treat\'s place', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.evaluate(() => window.pps.store.set({ role: 'instructor' }));
+    await page.waitForTimeout(800);
+    if (await page.evaluate(() => !!document.querySelector('.vdock .tl-hist')?.offsetParent)) throw new Error('History is still in the play bar');
+    const order = await page.$$eval('.top-right > button', (els) => els.filter((e) => e.offsetParent).map((e) => e.id));
+    if (order.indexOf('btnHistory') !== order.indexOf('tabInstruments') + 1) throw new Error(`History is not beside Tests: ${order.join(', ')}`);
+    await page.click('#btnHistory');
+    await page.waitForSelector('#historyCard:not([hidden]) .tl-pop-row');
+    const r = await page.evaluate(() => { const c = document.querySelector('#historyCard').getBoundingClientRect(); return innerWidth - c.right; });
+    if (r > 40) throw new Error(`the History card sits ${Math.round(r)} px from the right edge`);
+    await tapTool(page, '#btnTreat');
+    await page.waitForSelector('#treatCard:not([hidden])');
+    if (await page.evaluate(() => !document.querySelector('#historyCard').hidden)) throw new Error('History stayed open under Treat');
+    await page.click('#btnHistory');
+    await page.waitForSelector('#treatCard', { state: 'hidden' });
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('#historyCard', { state: 'hidden' });
+    await page.evaluate(() => window.pps.store.set({ role: 'student' }));
+  });
   // Nothing that floats over the figure may cover another floating piece, or leave the screen, at the
   // sizes the owner tests on (laptop, iPad both ways, iPhone both ways), in Explore, with the
   // instruments, and with the patient chart and the instruments together.
@@ -2071,11 +2092,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const dock = document.querySelector('#vdock').getBoundingClientRect();
           const parts = ['.narrator .nr-t', '.narrator .nr-why', '.tl-latest', '.tl-split', '.tl-time', '.tl-ff', '.tl-hist', '.tl-pin'].map((q) => [q, document.querySelector(q)])
             .filter(([, e]) => e && e.offsetWidth && !e.closest('[hidden]') && getComputedStyle(e).opacity !== '0')
-            .map(([q, e]) => { const b = e.getBoundingClientRect(); return { q, l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width, h: b.height, wrap: q === '.narrator .nr-t' && b.height > 26 }; });
-          return { dock: { l: dock.left, r: dock.right, t: dock.top, b: dock.bottom }, parts };
+            .map(([q, e]) => { const b = e.getBoundingClientRect(); return { q, l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width, h: b.height, wrap: q === '.narrator .nr-t' && b.height > 26, st: !!e.closest('.vd-status') }; });
+          // With the thumb dock (phone, upright iPad) the status line floats just above the bar instead of inside it.
+          return { dock: { l: dock.left, r: dock.right, t: dock.top, b: dock.bottom }, parts, thumb: document.querySelector('#app').classList.contains('thumb') };
         });
         for (const p of bar.parts) {
-          if (p.l < bar.dock.l - 0.5 || p.r > bar.dock.r + 0.5 || p.t < bar.dock.t - 0.5 || p.b > bar.dock.b + 0.5) throw new Error(`${where}: ${p.q} sticks out of the bottom bar`);
+          const box = bar.thumb && p.st ? { ...bar.dock, t: bar.dock.t - 60, b: bar.dock.t } : bar.dock;
+          if (p.l < box.l - 0.5 || p.r > box.r + 0.5 || p.t < box.t - 0.5 || p.b > box.b + 0.5) throw new Error(`${where}: ${p.q} sticks out of the bottom bar${box === bar.dock ? '' : ' (or the room just above it)'}`);
           if (p.wrap) throw new Error(`${where}: the info line wraps`);
           if (/tl-(ff|hist|pin)/.test(p.q) && (p.w < 35.5 || p.h < 35.5)) throw new Error(`${where}: ${p.q} is smaller than a 36 px button`);
         }

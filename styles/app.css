@@ -5154,3 +5154,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .app.thumb .vdock .vd-status .tl-latest { background: color-mix(in srgb, var(--sev) 14%, var(--surface)); box-shadow: var(--shadow-2), inset 0 0 0 1px color-mix(in srgb, var(--sev) 35%, transparent); }
 .app.thumb .vdock .narrator { padding: 6px 10px; border-radius: var(--r-card); background: var(--glass); }
 .app.thumb:is(.dock-open, .panel-open) .vdock .vd-status, .app.thumb:has(#treatCard:not([hidden])) .vdock .vd-status { opacity: 0; visibility: hidden; }
+
+/* ── History beside Treat and Tests (15 Oct) ───────────────────────
+   History left the play bar: on a Mac, an iPad held sideways and a phone held sideways it is a top-bar button
+   beside Treat and Tests (its card opens in Treat's place on the right); upright, it is a tab in the thumb dock. */
+.vdock .tl-hist { display: none !important; }
+#app[data-role="student"][data-mode="explore"] #btnHistory { display: none; }
+.tb-act .tb-hc:empty { display: none; }
+.tb-act .tb-hc { min-width: 18px; height: 18px; margin-left: -2px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); font: 600 var(--fs-12)/18px var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
+.topbar[data-fit="2"] .tb-act .tb-hc, .topbar[data-fit="3"] .tb-act .tb-hc { display: none; }
+.history-card .tl-pop.tl-history { width: auto; max-height: none; overflow: visible; padding: 2px 0 6px; }
