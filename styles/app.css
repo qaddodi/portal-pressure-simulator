@@ -5423,7 +5423,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .app.thumb .vdock .readouts:not(.all) .metric { padding: 0 3px; gap: 0 4px; }
   .app.thumb .vdock .readouts:not(.all) .metric .v { font-size: 18px; }
 }
-@media (min-width: 1100px) {
+@media (min-width: 1000px) {   /* (a Mac from 1024 px, an iPad held sideways) */
   .app:not(.thumb):not(.presenting) .vdock { width: max-content; max-width: calc(100% - 2 * var(--gap)); }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) :is(.ro-tiles, .metric) { flex: none; }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric { width: max-content; }

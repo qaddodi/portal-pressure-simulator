@@ -2139,7 +2139,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // same row, with no bars or rating words, all inside the bar and not overlapping, on a narrow and a tall phone, a Mac and
   // an iPad held sideways, in the anatomy and the lobule (whose readings are longer).
   await check(device, 'slim play line: one row, the readings as plain numbers, nothing clipped or overlapping', async (page) => {
-    for (const [w, ht] of device === 'phone' ? [[375, 667], [390, 844]] : [[1440, 900], [1180, 820]]) {
+    for (const [w, ht] of device === 'phone' ? [[375, 667], [390, 844]] : [[1024, 768], [1280, 800], [1440, 900], [1728, 1117], [1180, 820]]) {
       await page.setViewportSize({ width: w, height: ht });
       await open(page, '?preset=cirr-decomp');
       for (const lob of [false, true]) {
@@ -2154,7 +2154,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const lap = flat.find((b, i) => i && b.left < flat[i - 1].right - 0.5 && !(String(flat[i - 1].q).includes('tl-left')));
           return { n: tiles.length, bars: tiles.some((m) => m.querySelector('.rb')?.offsetParent || m.querySelector('.s')?.offsetParent),
             out: boxes.filter((b) => b.left < d.left - 0.5 || b.right > d.right + 0.5 || b.right > innerWidth).map((b) => b.q),
-            off: boxes.filter((b) => b.top < bar.top - 2 || b.bottom > bar.bottom + 2).map((b) => b.q), lap: lap ? lap.q : '' };
+            off: boxes.filter((b) => b.top < bar.top - 2 || b.bottom > bar.bottom + 2).map((b) => b.q), lap: lap ? lap.q : '',
+            dockH: d.height, tileH: Math.max(...tiles.map((m) => m.getBoundingClientRect().height)),
+            gap: Math.max(0, ...flat.map((b, i) => (i ? b.left - Math.max(...flat.slice(0, i).map((x) => x.right)) : 0))) };
         });
         const at = `${w}x${ht}${lob ? ' lobule' : ''}`;
         if (r.n < 2) throw new Error(`${at}: the play line shows ${r.n} readings, not two`);
@@ -2162,6 +2164,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (r.out.length) throw new Error(`${at}: outside the bar or the screen: ${r.out.join(', ')}`);
         if (r.off.length) throw new Error(`${at}: not on the play line's row: ${r.off.join(', ')}`);
         if (r.lap) throw new Error(`${at}: ${r.lap} overlaps its neighbour on the play line`);
+        // On a Mac or an iPad held sideways the bar is the play line alone: one row about the play button's height (not the
+        // three-line label, number, bar and rating it was), with no dead space between its parts (15 Oct, Mohammad: "can definitely be slimmer").
+        if (device !== 'phone') {
+          if (r.dockH > 60) throw new Error(`${at}: the bar is ${Math.round(r.dockH)} px tall, more than one slim row`);
+          if (r.tileH > 40) throw new Error(`${at}: a reading is ${Math.round(r.tileH)} px tall, more than one line`);
+          if (r.gap > 40) throw new Error(`${at}: a ${Math.round(r.gap)} px gap inside the bar`);
+        }
       }
     }
   });
