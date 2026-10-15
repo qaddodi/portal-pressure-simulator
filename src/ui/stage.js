@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=a8aa8a6b13';
+import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES } from '../engine/topology.js?v=a8aa8a6b13';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=0b72305f30';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=66a06a1ccb';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=32c330eb0b';
@@ -343,13 +343,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const ring = [...L, ...cap(n - 1, rOf(1), 1), ...R.reverse(), ...cap(0, rOf(0), -1)];
     return 'M' + ring.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' L') + ' Z';
   }
-  // Where along each vessel a stenosis sits (0–1, view-only: the model treats a vessel as one
-  // lumped segment, so this only places the drawing). Set where the learner pinched.
-  const stenosisAt = {};
+  // Where along each vessel a stenosis sits (0–1 of its drawn path). A stent's narrowing sits in the segment its card
+  // names (the model's short pinch, see engine.js); any other vessel is one lumped segment, drawn narrowed at its middle.
+  const stenosisAt = (id, p) => (isStent(EDGES[EI[id]]) ? STENT_SITES[stentSite(p, id)] : 0.5);
   // Lumen radius factor along a stenosed vessel: the diameter narrows by the stenosis fraction
   // (the model's resistance scales as 1/(1−s)⁴), with a smooth waist about 2.5 diameters long.
-  function waist(id, v, len, w) {
-    const u0 = stenosisAt[id] ?? 0.5;
+  function waist(id, v, len, w, p) {
+    const u0 = stenosisAt(id, p);
     const sig = Math.max(9, w * 1.25) / Math.max(1, len);
     return (u) => 1 - v * Math.exp(-(((u - u0) / sig) ** 2));
   }
@@ -2200,10 +2200,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // end stays inside the vein instead of bulging out of the far wall.
     const hostW = (i) => { const hs = SIDE_HOSTS[id]?.[i].filter((h) => E[h]?.vis).map((h) => E[h].width); return hs?.length ? clamp(Math.max(...hs), w * 0.4, w) : null; };
     const a = (!stroked && hostW(0)) || endW(x.e.from), b = (!stroked && hostW(1)) || endW(x.e.to);
-    const key = `${w.toFixed(1)},${a.toFixed(1)},${b.toFixed(1)}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + (stenosisAt[id] ?? 0.5) : ''}|${lastMorph}|${stroked}|${gpu}`;
+    const key = `${w.toFixed(1)},${a.toFixed(1)},${b.toFixed(1)}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + stenosisAt(id, p) : ''}|${lastMorph}|${stroked}|${gpu}`;
     if (key === x.shadeKey) return;
     x.shadeKey = key;
-    const f = sten ? waist(id, v, g.len, w) : null;
+    const f = sten ? waist(id, v, g.len, w, p) : null;
     x.rOf = (u) => {
       const r = u < 0.3 ? lerp(a, w, smooth(u / 0.3)) : u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) : w;
       return Math.max(0.35, (r / 2) * (f ? f(u) : 1));
@@ -3704,12 +3704,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // TIPS: a self-expanding metal stent over the lumen (two rails, a diamond lattice of struts,
   // radiopaque markers at both ends), so the shunt reads as a device, not a vessel.
-  function stentMesh(id) {
+  // A narrowed stent pinches with its lumen (the same waist, in the segment its card names).
+  function stentMesh(id, p) {
     const x = E[id], L = geo[id].len;
-    const R = x.width / 2 + (x.wallPx || 1) + 1.2;
-    const f = (d, side) => { const q = frameAt(id, d); return [q.x + q.nx * R * side, q.y + q.ny * R * side]; };
+    const v = isImaging() ? 0 : p.stenosis[id] || 0, wf = v > 0.01 ? waist(id, v, L, x.width, p) : null;
+    const R = (d) => (x.width / 2) * (wf ? wf(d / (L || 1)) : 1) + (x.wallPx || 1) + 1.2;
+    const f = (d, side) => { const q = frameAt(id, d), r = R(d); return [q.x + q.nx * r * side, q.y + q.ny * r * side]; };
     const P = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
-    const d0 = 2, d1 = L - 2, cell = Math.max(6, R * 1.7);
+    const d0 = 2, d1 = L - 2, cell = Math.max(6, R(d0) * 1.7);
     let rails = '', struts = '';
     for (const side of [1, -1]) {
       rails += 'M' + P(f(d0, side));
@@ -4429,7 +4431,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function overlayInputs(f, p, t) {
     const m = f.metrics;
     const lesions = [...Object.keys(p.stenosis), ...Object.keys(p.thrombus), ...Object.keys(p.occluded), 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...LIGATED.map((l) => l[1]), ...Object.keys(p.customShunts || {}), 'C3'];
-    return JSON.stringify([t.toFixed(3), isImaging(), findingHidden('clot'), p.stenosis, p.thrombus, p.occluded, p.splenicRx | 0, p.tips, p.dips, p.customShunts, p.balloonEso, p.balloonGas,
+    return JSON.stringify([t.toFixed(3), isImaging(), findingHidden('clot'), p.stenosis, p.stenosisSite, p.thrombus, p.occluded, p.splenicRx | 0, p.tips, p.dips, p.customShunts, p.balloonEso, p.balloonGas,
       // A vessel's width eases with its pressure for a long while after a change; held in steps,
       // so a clot or stent is not rebuilt several times a second for sub-pixel drift.
       lesions.map((id) => (E[id] ? [E[id].vis, hold(`w${id}`, E[id].width, 0.25), !!E[id].reveal] : 0)),
@@ -4457,7 +4459,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (clots) { thrombiKey = tk; ov.thrombi.innerHTML = ''; }
     for (const [id, v] of Object.entries(p.stenosis)) {
       if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
-      const [x, y, dx, dy] = pointAt(geo[id].cur, stenosisAt[id] ?? 0.5);
+      const [x, y, dx, dy] = pointAt(geo[id].cur, stenosisAt(id, p));
       const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
       const off = (E[id].width / 2) * (1 - v) + 3;
       for (const sgn of [1, -1]) {
@@ -4490,7 +4492,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     for (const id of ['TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...Object.keys(p.customShunts || {})]) {
       if (!E[id].vis || E[id].reveal) continue;
-      if (id === 'TIPS' || id === 'DIPS' || id.startsWith('X_')) stentMesh(id); else anastomoses(id);
+      if (id === 'TIPS' || id === 'DIPS' || id.startsWith('X_')) stentMesh(id, p); else anastomoses(id);
     }
     // The stump of the vessel each surgical shunt divides, a clear gap past where the shunt leaves it.
     for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis) ligature(vein);
@@ -4959,7 +4961,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function labelSig(f) {
     const st = store.get(), t = easeInOut(morph);
     const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
-    return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, JSON.stringify((f.viewParams || st.params).stenosis),
+    return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, JSON.stringify((f.viewParams || st.params).stenosis), JSON.stringify((f.viewParams || st.params).stenosisSite),
       isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, scan.on, scan.cover, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join('')].join('|');
   }
   // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
@@ -5095,7 +5097,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Stenosis clamps and their percentages are drawn on the figure; keep labels off them.
     if (solve && !isImaging()) for (const [id, v] of Object.entries((f.viewParams || st.params).stenosis)) {
       if (!(v > 0) || !E[id]?.vis) continue;
-      const [sx, sy] = worldToLocal(...pointAt(geo[id].cur, stenosisAt[id] ?? 0.5));
+      const [sx, sy] = worldToLocal(...pointAt(geo[id].cur, stenosisAt(id, f.viewParams || st.params)));
       placed.push({ x0: sx - 26, y0: sy - 22, x1: sx + 60, y1: sy + 22 });
     }
     const out = [];
