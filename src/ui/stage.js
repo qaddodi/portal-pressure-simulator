@@ -1795,7 +1795,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
-    vBinKey = ''; binShown = null; glOrgans = false; plateKey = '';
+    vBinKey = ''; binShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
     for (const x of Object.values(E)) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) { o.glRadKey = null; o.glRSent = null; }
     if (F) update(F);
   });
@@ -2793,7 +2793,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         } else tubeData.fill(0, o + 40, o + 48);
       }
     }
-    veins.setTubes(tubeData);
+    // (Uploaded only when some vessel's attributes changed: most model frames in a steady state change none.)
+    const tubesChanged = !tubesShown || tubesShown.length !== tubeData.length || tubeData.some((v, i) => v !== tubesShown[i]);
+    if (tubesChanged) veins.setTubes(tubeData);
     vLook = {
       shOff: [1.4, 2.8], light: LIGHT, reach: heat ? 40 : glow.lit.size ? 20 : 11, heat, organs: 1 - T0,
       casing: [...cssTriplet(cs, '--casing-rgb'), cssNum(cs, '--casing-a', 0.56)],
@@ -2809,8 +2811,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The vessel layer is drawn again only when what it is drawn from changed: a running model sends a frame about ten
     // times a second, and in a steady state most of them leave every vessel's colour, width and fade exactly as they were.
     const lookSig = JSON.stringify(vLook, (k, v) => (k === 'fluid' ? undefined : v)) + plateOn();
-    if (tubesNew || lookSig !== tubesLook || !tubesShown || tubesShown.length !== tubeData.length || tubeData.some((v, i) => v !== tubesShown[i])) {
-      veinsDirty = true; tubesLook = lookSig; tubesShown = tubeData.slice();
+    if (tubesNew || lookSig !== tubesLook || tubesChanged) {
+      veinsDirty = true; tubesLook = lookSig;
+      if (tubesChanged) tubesShown = tubeData.slice();
     }
     tubesNew = false;
     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
