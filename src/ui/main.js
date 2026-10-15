@@ -971,6 +971,7 @@ function readLS(k) { try { return localStorage.getItem(k); } catch { return null
 // Findings, Treat and Measure close the same way: the card plays its way out (CSS .card-leaving)
 // while the layout already treats it as closed.
 function leave(el) {
+  if (el.dataset.swiped) { delete el.dataset.swiped; return; }   // (swiped away: already slid out of sight behind the tab row)
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   el.classList.remove('card-leaving'); void el.offsetWidth;
   el.classList.add('card-leaving');
@@ -1124,8 +1125,8 @@ function wireFloating() {
   // The corner credit finds a free spot on the figure (src/ui/credit.js).
   creditPlacer = createCreditPlacer($('.stage-credit'));
   publish();
-  panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', onClose: closePanel });
-  treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat, fit: '.tc-body' });
+  panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', anywhere: true, onClose: closePanel });
+  treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', anywhere: true, onClose: closeTreat, fit: '.tc-body' });
   dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the instruments' }), drag: '.dock-head', anywhere: true, onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, down = null, moved = false;
@@ -1248,7 +1249,10 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
       el.setPointerCapture?.(e.pointerId);   // (only once it moves: captured at once, a tap's click would land on the sheet, not the grabber)
     }
     el.classList.add('dragging');
-    if (isPhone()) el.style.height = `${Math.max(60, start.h - dy)}px`;
+    start.dy = dy;
+    // Over the thumb dock a pull down slides the card down behind the tab row (clipped at its resting bottom edge).
+    if (thumb() && dy > 0) { el.style.height = ''; el.style.translate = `0 ${dy}px`; el.style.clipPath = `inset(-40px -40px ${dy}px -40px)`; }
+    else if (isPhone()) { el.style.translate = ''; el.style.clipPath = ''; el.style.height = `${Math.max(60, start.h - dy)}px`; }
     else el.style.translate = `${start.tx + dx}px ${start.ty + dy}px`;
   });
   // Once the sheet follows the finger, the page must not scroll under it, and the lift is not a tap.
@@ -1260,6 +1264,16 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     el.classList.remove('dragging');
     if (s0.moved) { swallow = true; setTimeout(() => { swallow = false; }, 350); }
     if (!s0.moved || !isPhone()) return;
+    if (thumb() && s0.dy > 0) {
+      el.style.transition = 'translate .22s var(--ease), clip-path .22s var(--ease)';
+      const gone = s0.dy > Math.min(90, s0.h * 0.3);
+      el.style.translate = gone ? '0 100%' : ''; el.style.clipPath = gone ? 'inset(-40px -40px 100% -40px)' : '';
+      setTimeout(() => {
+        if (gone) { el.dataset.swiped = '1'; onClose(); delete el.dataset.swiped; }
+        el.style.transition = ''; el.style.translate = ''; el.style.clipPath = '';
+      }, 230);
+      return;
+    }
     const frac = el.getBoundingClientRect().height / s0.H, S = stops();
     el.style.height = '';
     if (frac < (thumb() ? 0.4 : SIZES[0] * 0.7)) { onClose(); return; }
@@ -1269,7 +1283,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   // (Opening sizes the sheet at once: its height eases only for a change while it is open, so it never comes in
   // at the last size it had and shrinks into place, and the figure frames once.)
-  return { open: () => { if (isPhone()) { size = half(); el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { el.style.translate = ''; el.style.height = ''; } };
+  return { open: () => { if (isPhone()) { size = half(); el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { el.style.translate = ''; el.style.height = ''; el.style.clipPath = ''; } };
 }
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
