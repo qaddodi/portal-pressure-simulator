@@ -61,7 +61,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 | `causes` | string[] | none | Up to **4** short bullet items. |
 | `causesHead` | string | `'Causes'` | Heading of the causes list (e.g. `'Who gets it'`). |
 | `bold` | string[] | `[]` | Extra key terms to bold wherever the line names them (at most 3 bold terms a line are applied). |
-| `pill` | `false` | auto | `false`: no automatic value pill in the line. Without `{braces}` the first number with a unit becomes a pill. |
+| `pill` | `false` | auto | `false`: no automatic pill in the line (use it for a plain number such as an anatomical size). Without `{braces}` the first number with a unit becomes an outlined rule pill. |
 | `eq` | `[mathML, legend?]` | none | Equation under the title (MathML string plus an optional legend sentence). See helpers in section 11. |
 | `caveat` | string | none | One short sentence in small print under the line, where the model differs from patients ("The model builds the fluid from pressure and albumin; it does not model the kidneys."). |
 | `vignette` | string | none | A case card: a clinical case shown on a centred card when this slide brings in a new patient. At most 219 characters, and only on a slide with a `preset`. See section 14. |
@@ -206,13 +206,13 @@ Pointing at the resistor words `resistance` / `collaterals` / `gut arterioles` w
 
 `{pv}` in a `line` is replaced by the model's **live reading for that slide**, in a pill, rounded as the card shows it. Ladder slides (`data: 'ladder'`) round `pv`, `whvp`, `fhvp`, `ivc`, `ra` to whole mmHg. The pill takes the station colour where one exists (`pv`, `whvp`, `sin`, `fhvp`, `ivc`, `ra`); sizes (`spleen`, `varix`, `gv`) take their status colour (amber/red). Prefer a live token over a typed number so it cannot drift.
 
-Valid tokens (the tile keys, section 8.6): `hvpg ppg pv sin whvp fhvp saag tp asc varix gv spleen plt pvFlow pvVel liver shunt map hr lsm ra salb ivc hb`. `{ppg@before}` reads the value at another slide of the deck (here the slide with `id: 'before'`), for "the PPG falls from {ppg@before} to {ppg}". A typed `{8 mmHg}` also works but avoid it.
+Valid tokens (the tile keys, section 8.6): `hvpg ppg pv sin whvp fhvp saag tp asc varix gv spleen plt pvFlow pvVel liver shunt map hr lsm ra salb ivc hb`. `{ppg@before}` reads the value at another slide of the deck (here the slide with `id: 'before'`), for "the PPG falls from {ppg@before} to {ppg}". A typed `{6 to 8 g}` is drawn as an outlined rule pill, never as the patient: for the patient's number use a live token.
 
 ### 6.2 Cut-off pills: `{>=10 mmHg}`
 
 `{>=10 mmHg}` (also `>`, `<`, `<=`, `≥`, `≤`) renders an **outlined** pill with the comparison symbol dropped, so **write the words around it**: "above {>=5 mmHg}", "below {<12 mmHg}". A filled pill is *the patient*, an outlined pill is *the rule*.
 
-Automatic pills/bold: if a line has no `{braces}`, the first `number + unit` (mmHg, g/dL, mL/min, kPa, cm/s, mm, %) becomes a pill. Fixed key terms are auto-bold, at most 3 a line, first mention only: CSPH, SAAG, WHVP, FHVP, central vein, portal tracts, fenestrae, space of Disse, basement membrane, capillarization, wedged pressure, free pressure, sinusoidal pressure, caput medusae, gastrorenal shunt, stellate cells, encephalopathy, periportal fibrosis, intrahepatic resistance, hepatopetal, hepatofugal, cavernoma, a wave, pulsatility, reflection coefficient, Laplace, congestion index, gray zone, red wale marks. The slide's `key` tiles' words are bold too.
+Automatic pills/bold: if a line has no `{braces}`, the first `number + unit` (mmHg, g/dL, mL/min, kPa, cm/s, mm, %) becomes an outlined rule pill (a typed number is a rule or a published figure; only live values are filled). Give `pill: false` when it is neither, such as an anatomical size. Fixed key terms are auto-bold, at most 3 a line, first mention only: CSPH, SAAG, WHVP, FHVP, central vein, portal tracts, fenestrae, space of Disse, basement membrane, capillarization, wedged pressure, free pressure, sinusoidal pressure, caput medusae, gastrorenal shunt, stellate cells, encephalopathy, periportal fibrosis, intrahepatic resistance, hepatopetal, hepatofugal, cavernoma, a wave, pulsatility, reflection coefficient, Laplace, congestion index, gray zone, red wale marks. The slide's `key` tiles' words are bold too.
 
 ### 6.3 Term pills that point at the figure
 

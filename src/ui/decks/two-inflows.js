@@ -42,7 +42,7 @@ export const TWO_INFLOWS = {
       ask: ['Why does acute portal vein thrombosis rarely cause a liver infarct?', 'The hepatic artery dilates (the buffer response) and keeps the liver perfused.'],
     },
     {
-      id: 'switch', lens: 'flow', cam: 'portal', tool: HA('dual'), data: 'tiles', tiles: ['liver'], key: ['liver'], delta: 'dual',
+      id: 'switch', pill: false, lens: 'flow', cam: 'portal', tool: HA('dual'), data: 'tiles', tiles: ['liver'], key: ['liver'], delta: 'dual',
       compare: [{ label: 'Buffer on', own: true, params: { habrStrength: 1 } }, { label: 'Buffer off', params: { habrStrength: 0 } }],
       kicker: 'The buffer', site: 'pre', title: 'Without the buffer the liver loses far more blood',
       line: 'The liver adjusts its arterial inflow to portal flow, but it cannot adjust portal flow. With the buffer switched off, which cannot happen in a patient, liver blood flow falls to about 40% of normal. With the vessels colored by flow, the hepatic artery and the sinusoids thin when the buffer is off.',

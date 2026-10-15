@@ -78,7 +78,7 @@ export const TIPS_DOPPLER = {
     {
       id: 'left', cam: 'liver', lens: 'direction', labels: ['LPV'], terms: ['lpv'], tool: { kind: 'doppler', vessel: 'PVH_L' },
       kicker: 'A working TIPS', title: 'The left portal vein flows toward the stent',
-      line: 'With a working TIPS, every branch flows toward the stent. The [left portal vein](lpv) turns hepatofugal, drawn below the baseline and in the reversed colour.',
+      line: 'With a working TIPS, every branch flows toward the stent. The [left portal vein](lpv) turns hepatofugal, drawn below the baseline and in the reversed color.',
       notes: 'The stent is the easiest way out of the liver, so blood in the left portal vein, much of it hepatic arterial blood that has entered the sinusoids, runs back to the bifurcation and into the stent. Before the TIPS this branch flowed toward the liver. Here hepatofugal flow is the expected finding, a sign that the stent is working, not a sign of advanced disease. Colored by direction, reversed flow is orange.',
       ask: ['With a working TIPS, which way does the left portal vein flow?', 'Away from the liver, toward the stent (hepatofugal).'],
     },
@@ -87,7 +87,7 @@ export const TIPS_DOPPLER = {
       mark: { edges: ['PRE_R'], label: 'Hepatofugal beyond the stent', kind: 'note' },
       kicker: 'A working TIPS', title: 'The right portal vein runs into the stent',
       line: 'The [right portal vein](RPV) flows hepatopetal only in the short segment before the stent, and hepatofugal beyond it.',
-      notes: 'The stent starts in the right portal vein, close to the bifurcation. The Doppler here samples the short segment between the bifurcation and the stent, where blood flows toward the liver because it is on its way into the stent. Beyond the stent, the right portal branches drain back toward it, so they are hepatofugal like the left, drawn in the reversed colour. The rule is the same for every segment: flow runs toward the stent.',
+      notes: 'The stent starts in the right portal vein, close to the bifurcation. The Doppler here samples the short segment between the bifurcation and the stent, where blood flows toward the liver because it is on its way into the stent. Beyond the stent, the right portal branches drain back toward it, so they are hepatofugal like the left, drawn in the reversed color. The rule is the same for every segment: flow runs toward the stent.',
       ask: ['Why is the right portal vein hepatopetal before the stent but hepatofugal beyond it?', 'Every segment flows toward the stent, and the stent starts in the right portal vein.'],
     },
     {

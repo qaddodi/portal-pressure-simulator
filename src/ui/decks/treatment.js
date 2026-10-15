@@ -68,7 +68,7 @@ export const TREATMENT = {
     {
       id: 'after', days: 60, lapse: { seconds: 7 }, cam: 'fit', data: 'tiles', tiles: ['asc', 'sin', 'ppg'], key: ['asc'], delta: 'target',
       kicker: 'After TIPS', site: 'sin', title: 'Ascites after TIPS',
-      line: 'With the sinusoids decompressed, less lymph forms and the kidneys excrete more sodium. The PPG stays at {ppg}.',
+      line: 'With sinusoidal pressure lower, less lymph forms and the kidneys excrete more sodium. The PPG stays at {ppg}.',
       notes: 'In patients the ascites usually resolves over weeks to months after TIPS, with diuretics continued at first; the model clears it faster. Sodium excretion and kidney function improve as the effective blood volume recovers. In selected patients with recurrent ascites, TIPS improves survival compared with repeated paracentesis. The spleen may shrink a little, but low platelets often persist. The tiles compare with the patient before treatment.',
       ask: ['Name two benefits of TIPS besides stopping a bleed.', 'The ascites clears as the kidneys excrete sodium again, and the low gradient keeps varices from rebleeding.'],
     },

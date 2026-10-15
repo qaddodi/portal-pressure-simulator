@@ -4,6 +4,8 @@ import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v
 import { clamp } from './physiology.js?v=6fc3ec393a';
 import { tenthGap } from './gap.js?v=3a5947c552';
 
+const STENTS = new Set(['TIPS', 'DIPS']);   // the stents from the portal side: their flow is part arterial (see computeMetrics)
+
 function varixGrade(d) {
   if (d < 2.5) return { code: '—', label: 'None' };
   if (d < 5) return { code: 'F1', label: 'Small' };
@@ -29,15 +31,15 @@ export function computeMetrics(eng) {
   let shunted = 0;
   const collateralFlows = {};
   const portalIn = Math.max(0, qf('PRE_R')) + Math.max(0, qf('PRE_L'));
+  let stentQ = 0;
   for (const id of PORTOSYSTEMIC_EDGES) {
     const v = qf(id);
-    // The stent also drains arterial blood that recirculates through the sinusoids, so only the
-    // portal-trunk blood that no longer reaches the sinusoids counts as shunted portal blood.
-    shunted += id === 'TIPS'
-      ? clamp(Math.max(0, qf('PV_TRUNK')) - portalIn - Math.max(0, qf('C3')), 0, Math.max(0, v))
-      : Math.max(0, v);
+    if (STENTS.has(id)) stentQ += Math.max(0, v); else shunted += Math.max(0, v);
     collateralFlows[id] = v;
   }
+  // A stent (TIPS or DIPS) also drains arterial blood that recirculates through the sinusoids and back out by the
+  // portal branches, so only the portal-trunk blood that no longer reaches the sinusoids counts as shunted portal blood.
+  shunted += clamp(Math.max(0, qf('PV_TRUNK')) - portalIn - Math.max(0, qf('C3')), 0, stentQ);
   // Custom shunts the learner has made carry portal blood to systemic veins as well.
   for (const e of EDGES) if (e.shunt === 'custom' && eng.params.customShunts?.[e.id]) shunted += Math.max(0, qf(e.id));
   for (const e of EDGES) if (e.kind === 'collateral') collateralFlows[e.id] = qf(e.id);

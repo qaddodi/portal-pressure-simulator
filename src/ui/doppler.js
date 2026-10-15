@@ -376,7 +376,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const r = reading();
     if (!r) {
       dirEl.textContent = frame?.clock === 'disease' ? 'Not available during time lapse' : 'Acquiring…'; dirEl.dataset.sev = '';
-      rangeEl.hidden = true; velEl.dataset.out = 'false';
+      rangeEl.hidden = true; velEl.dataset.out = 'false'; velEl.hidden = false;
       for (const e of [velEl.firstChild, patternEl, noteEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
       for (const k in statEls) setStat(statEls[k].dd, '—');
       return;
@@ -398,6 +398,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     gf = gateFactor(); mean *= gf;
     const drawn = ovOn ? mean * pol() : mean;
     set(velEl.firstChild, num(drawn, Math.abs(drawn) < 10 ? 1 : 0));
+    // (No flow, as in an occluded stent or a clotted vein: the words say it, "No flow · No signal", with no "0.0 cm/s" beside them,
+    // and the figure's callout says "No flow" too.)
+    const none = it.dir === 'No flow';
+    if (velEl.hidden !== none) velEl.hidden = none;
     shownVel.set(probe, { v: Math.abs(mean), t: performance.now(), seg: isStentProbe() ? gateOf() : null });
     updateGauge(p, r.mean * gf, it.expected);
     set(patternEl, it.pattern);
@@ -608,7 +612,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // a reading that changes by a digit does not resize the strip (and the trace under it) every second.
   let stripKey = '', rng = null;
   function fitStrip() {
-    const key = `${report.clientWidth}|${dirEl.textContent}|${velEl.textContent}|${patternEl.textContent}`;
+    const key = `${report.clientWidth}|${dirEl.textContent}|${velEl.hidden ? '' : velEl.textContent}|${patternEl.textContent}`;
     if (key === stripKey) return;
     stripKey = key;
     const cs = getComputedStyle(report), have = report.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);

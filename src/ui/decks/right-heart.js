@@ -41,7 +41,7 @@ export const RIGHT_HEART = {
     {
       id: 'cath', cath: 'result', data: 'ladder', block: 'ra', key: ['ra', 'hvpg'],
       kicker: 'Heart failure', site: 'cardiac', title: 'Catheter readings in heart failure',
-      line: 'Every station from the portal vein to the atrium sits near 20 mmHg. The HVPG and the PPG are both normal.',
+      line: 'Every station from the portal vein to the atrium sits near {ra}. The HVPG and the PPG are both normal.',
       notes: 'The gradients subtract what the stations share, so a high right atrial pressure raises the wedged and the free readings together. Portal pressure is high, but collaterals do not open because the systemic veins they would drain into are just as high; varices are rare. The liver congests, stiffens and leaks a protein-rich ascites. Treating the heart (diuretics, and the cause) lowers every station.',
       ask: ['Portal vein 21 mmHg and HVPG 1 mmHg. Why so few varices?', 'The systemic veins are as high as the portal vein, so there is no gradient to open collaterals.'],
     },

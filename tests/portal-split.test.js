@@ -37,3 +37,13 @@ test('a new share eases over 0.8 s, and the callout keeps one size (fixed headli
   assert.match(css, /\.cath-label\.site\.split \.sp-h \{ width: 12\.6em;/);
   assert.match(css, /\.cath-label\.site\.split, \.app\.presenting \.cath-label\.site\.split \{[^}]*flex-direction: column;/);
 });
+
+test('a DIPS counts only the portal blood it takes, like a TIPS (review #36: it read 100%)', async () => {
+  const { Engine } = await import('../src/engine/engine.js');
+  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { deepMerge } = await import('../src/engine/scenario.js');
+  const share = (stent) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, { [stent]: { on: true } })); e.settle(); return computeMetrics(e).shuntFraction; };
+  const tips = share('tips'), dips = share('dips');
+  assert.ok(dips < 0.97, `DIPS shunts ${(dips * 100).toFixed(1)}% (arterial blood counted as portal)`);
+  assert.ok(Math.abs(dips - tips) < 0.03, `DIPS ${(dips * 100).toFixed(1)}% vs TIPS ${(tips * 100).toFixed(1)}%`);
+});

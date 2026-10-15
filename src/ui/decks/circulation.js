@@ -42,7 +42,7 @@ export const CIRCULATION = {
       ask: ['What is the normal portal pressure gradient?', '5 mmHg or less, because healthy sinusoids barely resist the flow.'],
     },
     {
-      id: 'lobule', terms: { 'portal venules': 'lobule:triad', 'hepatic arterioles': 'lobule:arteriole', sinusoids: 'lobule:sinusoid', 'central vein': 'lobule:central' }, cam: 'lobule:fit',
+      id: 'lobule', pill: false, terms: { 'portal venules': 'lobule:triad', 'hepatic arterioles': 'lobule:arteriole', sinusoids: 'lobule:sinusoid', 'central vein': 'lobule:central' }, cam: 'lobule:fit',
       kicker: 'Inside the liver', title: 'Blood crosses the lobule from its edge to the central vein',
       line: 'Each lobule is a hexagon about 1 mm across, with a portal tract at each corner, where portal venules and hepatic arterioles enter, and a central vein in the middle. Liver cells line the sinusoids in plates one cell thick.',
       notes: 'The classic lobule is a hexagon about a millimeter across, with a portal tract at its corners and a central vein (terminal hepatic venule) in the middle. Plates of liver cells, one cell thick, line the sinusoids. In the acinus, zone 1 lies near the portal tract and gets the most oxygen; zone 3, around the central vein, gets the least and is the first injured by congestion and low flow.',

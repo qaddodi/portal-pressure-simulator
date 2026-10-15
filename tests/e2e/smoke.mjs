@@ -1538,7 +1538,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.evaluate(([id, i]) => window.pps.presenter.start(id, i), [d, i]);
       await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover, .pz-load.on'), null, { timeout: 30000 }).catch(() => {});
       await quiet(page, { still: 400 });
-      const keys = [...(s.line || '').matchAll(/\{([^}]+)\}/g)].map((m) => m[1]).filter((k) => !/^[<>≥≤]/.test(k));
+      const keys = [...(s.line || '').matchAll(/\{([^}]+)\}/g)].map((m) => m[1]).filter((k) => !/^[<>≥≤\d]/.test(k));   // (cut-offs and typed numbers are outlined rule pills, not the patient's)
       const read = () => page.evaluate((keys) => {
         const num = (t) => { const m = /(-?\d+(?:\.\d+)?)/.exec(t || ''); return m ? +m[1] : null; };
         const v = {}, out0 = [];

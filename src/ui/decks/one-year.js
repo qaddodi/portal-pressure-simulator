@@ -21,7 +21,7 @@ export const ONE_YEAR = {
       id: 'd0', tick: 'Diagnosis, catheter', preset: 'cirr-comp', params: { cirrhosis: 0.5 }, cam: 'fit', data: 'tiles', tiles: ['hvpg', 'lsm', 'plt'],
       kicker: 'Day 0', site: 'sin', title: 'Cirrhosis found on a scan, without symptoms',
       vignette: 'A 56-year-old man with obesity and type 2 diabetes has a nodular liver on an ultrasound done for gallstones. He feels well, and his platelets are 159,000/µL.',
-      line: 'Over the next year we follow the patient, one test per slide. Only the fibrosis progresses, until carvedilol is started at the end.',
+      line: 'Over the next year, each slide shows one test in the same patient. Only the fibrosis progresses, until carvedilol is started at the end.',
       notes: 'One patient, one disease clock: each slide moves the same patient forward and shows one instrument. Fibrosis advances steadily in the model over the year; nothing else is changed until carvedilol at the end. At the start the stiffness and platelets sit in the gray zone, and the catheter decides.',
       ask: ['Which two bedside numbers does Baveno VIII use to rule out CSPH?', 'Liver stiffness and the platelet count.'],
     },

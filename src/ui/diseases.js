@@ -2,7 +2,7 @@
 // from this one list, so a new slide that names one gets the pill with no marking. Conditions and syndromes only:
 // the subject itself (portal hypertension) and findings with a tile of their own (ascites, varices) stay plain.
 export const DISEASES = ['cardiac cirrhosis', 'cirrhosis', 'cirrhotic', 'portal vein thrombosis', 'splenic vein thrombosis', 'PVT',
-  'non-?cirrhotic portal hypertension', 'NCPH', 'porto-?sinusoidal vascular disorder', 'PSVD', 'schistosomiasis', 'sinusoidal obstruction(?: syndrome)?', 'SOS',
+  'non-?cirrhotic portal hypertension', 'NCPH', 'porto-?sinusoidal vascular disorder', 'PSVD', 'schistosomiasis', 'sinusoidal obstruction(?: syndrome)?', 'SOS', 'IVC web',
   'hepatic artery thrombosis', 'HRS(?:-AKI)?', 'pancreatic cancer', 'liver cancer', 'Budd[–-]⁠?Chiari(?: syndrome)?',
   'right heart failure', 'heart failure', 'MASLD', 'hepatitis [BC]', 'alcohol-associated hepatitis', 'tricuspid regurgitation', 'constrictive pericarditis',
   'hepatorenal syndrome', 'spontaneous bacterial peritonitis', 'SBP', 'hepatic encephalopathy', 'congestive hepatopathy', 'nodular regenerative hyperplasia',

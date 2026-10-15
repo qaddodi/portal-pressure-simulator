@@ -77,7 +77,7 @@ export const DOPPLER = {
       kicker: 'Portal vein thrombosis', site: 'pvt', title: 'In chronic thrombosis flow goes around the clot',
       vignette: 'A 37-year-old man with a prothrombin gene mutation had severe abdominal pain 8 months ago that settled without a diagnosis. He now has a large spleen and esophageal varices.',
       line: 'There is no flow in the portal trunk, but the superior mesenteric vein still flows: its blood reaches the liver through a cavernoma, or leaves through portosystemic collaterals. With the vessels colored by flow, the cavernoma carries the blood the trunk no longer can.',
-      notes: 'Over weeks, small veins around the occluded trunk enlarge into a portal cavernoma: a tangle of serpiginous channels with slow, hepatopetal flow at the porta hepatis. The model does not draw a cavernoma, so here the flow continues in the superior mesenteric vein and leaves through portosystemic collaterals. Varices form even though the liver is normal.',
+      notes: 'Over weeks, small veins around the occluded trunk enlarge into a portal cavernoma: a tangle of serpiginous channels with slow, hepatopetal flow at the porta hepatis. The model draws the cavernoma beside the clotted trunk: about three quarters of the superior mesenteric blood reaches the liver through it, and the rest leaves through portosystemic collaterals. Varices form even though the liver is normal.',
       ask: ['What is a portal cavernoma?', 'A network of collateral veins that bypasses a chronically occluded portal vein.'],
     },
     {

@@ -27,7 +27,7 @@ export const LOBULE = {
       id: 'zones', terms: ['lobule:zone3'], cam: 'lobule', layers: ['zones'],
       kicker: 'The lobule', title: 'Zone 3 gets the least oxygen',
       line: 'Blood loses oxygen as it crosses the lobule, so zone 3 cells are closest to hypoxia. They are injured first by low flow, by congestion and by toxins activated there, such as acetaminophen.',
-      notes: 'The zones belong to Rappaport\'s acinus, the unit pathology texts use. In the acinus, zone 1 lies next to the portal tract and zone 3 around the central vein. Blood gives up oxygen as it runs, so zone 3 cells work closest to hypoxia; they also hold most of the cytochrome P450 enzymes. Zone 3 is the first injured by low flow (ischemic hepatitis), by congestion and by toxins activated there, such as paracetamol. Zone 1 is hit first by toxins that arrive directly, and is where periportal disease begins.',
+      notes: 'The zones belong to Rappaport\'s acinus, the unit pathology texts use. In the acinus, zone 1 lies next to the portal tract and zone 3 around the central vein. Blood gives up oxygen as it runs, so zone 3 cells work closest to hypoxia; they also hold most of the cytochrome P450 enzymes. Zone 3 is the first injured by low flow (ischemic hepatitis), by congestion and by toxins activated there, such as acetaminophen. Zone 1 is hit first by toxins that arrive directly, and is where periportal disease begins.',
       ask: ['Why is zone 3 the vulnerable zone?', 'It is last on the path, so it gets the least oxygen, and it is where many drugs are activated.'],
     },
     {

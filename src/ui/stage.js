@@ -4943,10 +4943,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const vel = dop && performance.now() - dop.t < 1000 ? dop.v : atGate;
     // (Read by the Doppler at one third of the stent, the callout names it: "TIPS distal".)
     const seg = gated ? ` ${gated}` : '';
-    it.lines = [[{ ...it.lines[0][0], t: sid + seg }, { t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4 }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }]];
+    // (An occluded stent reads "No flow", as the Doppler's strip does, not "0 cm/s": under 2 cm/s the Doppler calls a stent occluded.)
+    const none = Math.abs(vel) < 2;
+    it.lines = [[{ ...it.lines[0][0], t: sid + seg }, ...(none ? [{ t: 'No flow', size: 14, weight: 650, cls: 'lb-val', gap: 4 }]
+      : [{ t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4 }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }])]];
     it.key = `n:${sid}`; it.src = ['vel', sid]; it.node = undefined; it.sel = false; it.swatch = null;
     it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-    it.label = `${sid}${seg}: ${fmt(vel, 0)} centimeters per second`;
+    it.label = none ? `${sid}${seg}: no flow` : `${sid}${seg}: ${fmt(vel, 0)} centimeters per second`;
     return it;
   }
   // The FibroScan probe's callout: the live stiffness, beside the waves, in their orange. A fixed width (the digits are tabular
