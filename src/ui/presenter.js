@@ -18,7 +18,7 @@ import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } f
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
 import { sinusoidSupported } from './sinusoid-view.js?v=8d5db3a81a';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
+import { DISEASE_SRC, diseasePieces } from './diseases.js?v=843a63837e';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=7b31962ca1';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=bc758bb776';
@@ -219,12 +219,19 @@ function liveVal(k, s, fp) {
 }
 // A line, typeset (see above). Also: {pv} a live value, {>=10 mmHg} a cut-off (outlined), and a term that points
 // at the figure, [portal vein](pv) or through the slide's terms field, as a pill in its station's colour.
-function rich(t, s = {}, fp = null) {
+// The line's tokens, in the order they win where two start at one place: a [link](target), a {marked value}, a disease
+// name (so a term or bold word inside one, "portal vein" in "portal vein thrombosis", never takes its violet pill), a
+// slide term, a value with a unit, a key word, a first-mention term. Group 5 is the disease name.
+// (A group that never matches holds the place of an empty list, so each kind keeps its group number.)
+function lineRe(s = {}) {
   const keys = [...(s.key || []).map((k) => KEYWORDS[k]).filter(Boolean), ...(s.bold || []).map(esc)];
   const tl = termList(s), tw = tl.map(([w]) => w.replace(/(^|\|)([a-z])/g, (_, p, c) => `${p}[${c}${c.toUpperCase()}]`));   // (a term may open the sentence)
+  const re = new RegExp(String.raw`\[([^\]]+)\]\(([\w:]+)\)|\{([^}]+)\}([,.;:]?)|\b(${DISEASE_SRC})\b` + (tw.length ? `|\\b(${tw.join('|')})\\b` : '|((?!))') + `|(${VAL})([,.;:]?)` + (keys.length ? `|\\b(${keys.join('|')})\\b` : '|((?!))') + `|\\b(${TERMS.join('|')})\\b`, 'g');
+  return { re, tl };
+}
+function rich(t, s = {}, fp = null) {
+  const { re, tl } = lineRe(s);
   const marked = /\{[^}]+\}/.test(t);
-  // (A group that never matches holds the place of an empty list, so each kind keeps its group number.)
-  const re = new RegExp(String.raw`\[([^\]]+)\]\(([\w:]+)\)|\{([^}]+)\}([,.;:]?)` + (tw.length ? `|\\b(${tw.join('|')})\\b` : '|((?!))') + `|(${VAL})([,.;:]?)` + (keys.length ? `|\\b(${keys.join('|')})\\b` : '|((?!))') + `|\\b(${TERMS.join('|')})\\b|\\b(${DISEASE_SRC})\\b`, 'g');
   const out = [], seen = new Set(), seenT = new Set(); let at = 0, bold = 0, pills = 0, m;
   t = nb(t);
   // A pill keeps the word before it and the stop after it on its line (a no-break space, one unbreakable span).
@@ -234,7 +241,7 @@ function rich(t, s = {}, fp = null) {
   const termPill = (w, k) => { const tone = TARGETS[k].organ === 'spleen' ? (fp && rateTone('spleen', fp)) || '--text-2' : TARGETS[k].tone;   // (the spleen's word, as its outline)
     return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: ${toneVar(tone)}` }, w); };
   while ((m = re.exec(t))) {
-    const [all, lw, lk, mk, mkStop, tword, val, valStop, key, term, dz] = m, w = (key || term)?.toLowerCase().replace(/(?:s|ces)$/, '');
+    const [all, lw, lk, mk, mkStop, dz, tword, val, valStop, key, term] = m, w = (key || term)?.toLowerCase().replace(/(?:s|ces)$/, '');
     if (val && (marked || pills || s.pill === false)) continue;
     if (term && (seen.has(w) || bold >= 3)) continue;
     if (key && seen.has(w)) continue;
