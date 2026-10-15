@@ -1661,6 +1661,7 @@ button.finding { cursor: pointer; }
 /* Stacked under the words' card, it leaves the way that card does, toward the left edge (not away from it). */
 .pz-data.col:not(.under).pz-hide { transform: translateX(-18px); }
 .pz-data.col:not(.pz-hide) { transition-property: opacity, transform, top; transition-duration: .5s, .5s, .45s; transition-delay: .12s, .12s, 0s; }
+.pz.pz-turning .pz-data, .pz.pz-turning .pz-data .pz-tool, .pz.pz-turning .pz-data .pz-tiles { transition: none !important; }   /* (just after a resize or a turn: the data card takes its new place and size at once, never easing over the words; src/ui/presenter.js onResize) */
 .pz-data.under.tiles-only .pzt-v { font-size: var(--s-big); }
 /* Tiles alone, beside the words: the card is as wide as its tiles need (never wider than its old width). The tiles
    drop their size container, which would make them measure as zero wide; the number keeps a width for four characters

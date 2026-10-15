@@ -758,6 +758,34 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await restore();
   });
 
+  // Turning an iPad mid-slide (review #52): the data card never shows over the words' card on the way, and turned upright it
+  // leaves the stacked place under the words (it had stayed there for good, hidden behind them, when its fade-out ran slow).
+  if (device === 'phone') await check(device, 'Turning an iPad mid-slide keeps the data card off the words', async (page) => {
+    // (reached with motion instant, as the layout checks do, and an iPad held sideways; the turns then run with the page's own fades and glides)
+    const restore = await instantMotionOn(page);
+    await gotoSlide(page, server.url, 'hvpg', 4);
+    await page.setViewportSize({ width: 1366, height: 1024 });
+    await page.waitForTimeout(1000); await quiet(page);
+    await restore();
+    await page.evaluate(() => {
+      window.__ov = [];
+      const vis = (el) => el && !el.hidden && +getComputedStyle(el).opacity > 0.05 && el.getBoundingClientRect().width > 0;
+      const tick = () => {
+        const t = document.querySelector('.pz-text'), d = document.querySelector('.pz-data');
+        if (vis(t) && vis(d)) { const a = t.getBoundingClientRect(), b = d.getBoundingClientRect(); const ow = Math.min(a.right, b.right) - Math.max(a.left, b.left), oh = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top); if (ow > 4 && oh > 4) window.__ov.push(`${Math.round(ow)}x${Math.round(oh)} at ${innerWidth}x${innerHeight}`); }
+        window.__ovT = requestAnimationFrame(tick);
+      };
+      tick();
+    });
+    for (const [w, h] of [[1024, 1366], [1366, 1024], [1024, 1366]]) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.waitForTimeout(3000); await quiet(page);
+    }
+    const r = await page.evaluate(() => { cancelAnimationFrame(window.__ovT); const d = document.querySelector('.pz-data'); return { ov: window.__ov, col: d.classList.contains('col'), top: Math.round(d.getBoundingClientRect().top) }; });
+    if (r.ov.length) throw new Error(`the data card covered the words' card while turning (${r.ov.slice(0, 3).join(', ')})`);
+    if (r.col) throw new Error(`turned upright, the data card stayed stacked under the words (top ${r.top})`);
+  });
+
   // Turning the device while paused re-frames the figure for the new shape, with the Tests sheet open (review #19): the
   // refit used to run only on the model's frames, and a turned phone or iPad kept the old framing (the figure off screen
   // behind the sheet, or under the top bar). Judged against Fit's own framing for the new shape.

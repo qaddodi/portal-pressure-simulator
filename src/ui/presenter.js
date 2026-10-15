@@ -1850,8 +1850,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), s.causes.join(', ')) : null]));
       paintKey(!q && (slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null);
-      const ttl = text.querySelector('.pz-h');
-      if (ttl && !phone()) { const lh = parseFloat(getComputedStyle(ttl).lineHeight) || ttl.offsetHeight; if (ttl.offsetHeight > lh * 2.4) ttl.classList.add('long'); }
+      markLong(text, true);
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
     }
@@ -2318,11 +2317,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const isCol = dd.classList.contains('col');
     if (below !== isCol) {
       if (colT) below = isCol;   // (a move under way: the card moves once it has faded out)
-      else if (!dd.hidden && !reduce.matches && +getComputedStyle(dd).opacity > 0.05) {
+      // (Not after its fade (swapNow: it moves now, though a slow frame left it not quite faded; it had stayed stacked under the
+      // words for good when an iPad was turned upright), nor on a resize or a turn, where everything moves at once: faded there,
+      // it showed over the words' card for a moment while the words had already moved.)
+      else if (!swapNow && !ui.root.classList.contains('pz-turning') && !dd.hidden && !reduce.matches && +getComputedStyle(dd).opacity > 0.05) {
         below = isCol;
         if (!dd.classList.contains('pz-hide')) {
           dd.classList.add('pz-hide'); dd.dataset.colswap = '';
-          colT = setTimeout(() => { colT = 0; if (!ui) return; const mine = 'colswap' in ui.data.dataset; delete ui.data.dataset.colswap; layout(); if (mine) ui.data.classList.remove('pz-hide'); }, 340);
+          colT = setTimeout(() => { colT = 0; if (!ui) return; const mine = 'colswap' in ui.data.dataset; delete ui.data.dataset.colswap; swapNow = true; try { layout(); } finally { swapNow = false; } if (mine) ui.data.classList.remove('pz-hide'); }, 340);
         }
       }
     }
@@ -2391,7 +2393,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
   // in wrap px. The camera centres a slide's box in whichever of them shows it largest (stage boxVT).
-  let frameL = 0, colT = 0;
+  let frameL = 0, colT = 0, swapNow = false;
   // The stacked data card's fixed block sizes, largest first, and the smallest the words' title goes.
   const DK = [[0.9, 0.95], [0.8, 0.9], [0.7, 0.88], [0.6, 0.88]], TK = [1, 0.95, 0.9, 0.85, 0.8];   // (the data card's block size with the words' text size; the title's steps)
   // The data card's height at width w (page px) under the words: as it would stand there, at full size (unfitted).
@@ -2456,12 +2458,40 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     fitted.forEach(fitNow);
     setTimeout(() => document.documentElement.classList.remove('lad-swap'), 600);
   };
-  const onResize = () => {
+  // A title of three or more lines on a wider screen is set a size smaller (long). Judged at the title's full size; again after a
+  // resize or a turn, so a turned iPad sets its titles as a fresh load at that size does (turned sideways it had kept them big,
+  // and the data card under them shorter).
+  function markLong(text, asSet = false) {
+    const ttl = text.querySelector('.pz-h');
+    if (!ttl) return;
+    ttl.classList.remove('long');
+    if (phone()) return;
+    // (asSet: a slide just shown is judged with the words' step as it stands, as it always was)
+    const tk = asSet ? '' : text.style.getPropertyValue('--pz-tk'); if (tk) text.style.removeProperty('--pz-tk');
+    const lh = parseFloat(getComputedStyle(ttl).lineHeight) || ttl.offsetHeight;
+    if (ttl.offsetHeight > lh * 2.4) ttl.classList.add('long');
+    if (tk) text.style.setProperty('--pz-tk', tk);
+  }
+  // (The cards follow at once; the camera frames once, when the size has held for 250 ms: a turn fires several resizes, and a
+  // glide after each moved the camera two or three times.)
+  let reframeT = 0, turnT = 0;
+  const onResize = (e) => {
     if (!ui) return;
     clearTimeout(restrip); restrip = setTimeout(reStrip, 250);
     if (ui.data.hasAttribute('data-sin-tiles')) ui.data.classList.toggle('under', !shortSide.matches && phone());   // (turned on or off its side)
-    layout(); setLabels();
-    if (shown) reframe(400);
+    // (For 0.8 s after a resize or a turn the data card takes each new place at once, with no fade or glide: the words' card
+    // re-fits in steps as the size settles, and a data card easing after it passed over the words.)
+    const turn = e?.type === 'resize';
+    if (turn) { ui.root.classList.add('pz-turning'); clearTimeout(turnT); turnT = setTimeout(() => ui?.root.classList.remove('pz-turning'), 800); }
+    layout();
+    // (Judged once the cards have their new layout's classes, then laid out again if that changed the title.)
+    if (turn && !ui.text.hidden) { const was = !!ui.text.querySelector('.pz-h.long'); markLong(ui.text); if (was !== !!ui.text.querySelector('.pz-h.long')) { textLock = null; layout(); } }
+    setLabels();
+    if (!shown) return;
+    // (Another caller (a card's dock moving, its fit done) frames at once, unless a resize is still settling: then that one look covers both.)
+    if (!turn && !reframeT) { reframe(400); return; }
+    clearTimeout(reframeT);
+    reframeT = setTimeout(() => { reframeT = 0; if (ui && shown) reframe(400); }, 250);
   };
   // Projector-size labels on the figure, for the screen it is on (2 at 1080 lines).
   function setLabels() {
