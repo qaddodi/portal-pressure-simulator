@@ -19,7 +19,8 @@ test('the readings sit on the card\'s tile grid: two columns on a narrow card, t
 
 test('the order of the readings is grade, diameter, wall thickness, bands, stigmata', () => {
   const scope = src.slice(src.indexOf('const stats = h('), src.indexOf('const side = h('));
-  const dts = [...scope.matchAll(/h\('dt', \{\}, '([^']+)'\)/g)].map((m) => m[1].replace(/\\u00AD/, ''));
+  // (A name may carry a second part that only the slides show: the Tests card keeps the first word.)
+  const dts = [...scope.matchAll(/h\('dt', \{\}, '([^']+)'(?:, h\('span', \{ class: 'endo-dt-x' \}, '([^']+)'\))?\)/g)].map((m) => m[1] + (m[2] || ''));
   assert.deepEqual(dts, ['Bands placed', 'Grade', 'Diameter', 'Wall thickness', 'Stigmata']);
   assert.match(rule('.pz-tool[data-kind="scope"] .endo-read > .endo-g'), /order:\s*0/);
   assert.match(rule('.pz-tool[data-kind="scope"] .endo-read > .endo-chip'), /order:\s*1/);
@@ -40,4 +41,13 @@ test('a value is one line in a fixed shape, and the stigmata read as a short sig
 
 test('the phone layout keeps its own compact scope rules', () => {
   assert.match(rule('.pz.stack .pz-tool[data-kind="scope"] .endo-stage'), /width:\s*min\(40%, 24vh\)/);
+});
+
+test('the Tests card scope tiles are one fixed shape: centred, a size from the tile width, five across or three and two', () => {
+  const P = '.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view)';
+  assert.match(rule(`${P} .endo-read > div`), /container-type:\s*inline-size/);
+  assert.match(rule(`${P} .endo-read > div`), /text-align:\s*center/);
+  assert.match(css, /repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(rule(`${P} .chart-side > .btn`), /justify-self:\s*center/);
+  assert.match(rule(`${P} .endo-dt-x`), /display:\s*none/);
 });

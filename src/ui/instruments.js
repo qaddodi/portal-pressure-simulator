@@ -16,6 +16,8 @@ const nextFrame = frameFor('instruments');
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
 // ── Endoscopy ───────────────────────────────────────
+// The Tests card's grade tile has room for one short word under the code.
+const GRADE_SHORT = { 'Large, coil-shaped': 'Coil-shaped' };
 export function createEndoscopy({ onAction }) {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'endoscopy' });
   const box = h('div', { class: 'chart-box square' });
@@ -35,10 +37,10 @@ export function createEndoscopy({ onAction }) {
   red.append(redWord, redMore);
   const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
   const stats = h('dl', { class: 'endo-read' },
-    item('endo-chip', h('dt', {}, 'Bands placed'), bands),
+    item('endo-chip', h('dt', {}, 'Bands', h('span', { class: 'endo-dt-x' }, ' placed')), bands),
     item('endo-g', h('dt', {}, 'Grade'), grade),
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
-    item('endo-tile', h('dt', {}, 'Wall thickness'), wall),
+    item('endo-tile', h('dt', {}, 'Wall', h('span', { class: 'endo-dt-x' }, ' thickness')), wall),
     item('endo-chip endo-red', h('dt', {}, 'Stigmata'), red));
   const side = h('div', { class: 'chart-side' }, stats,
     bandBtn,
@@ -50,7 +52,7 @@ export function createEndoscopy({ onAction }) {
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
     const noVx = !varicesPresent(f, view === 'eso' ? 'VAR' : 'GV');
     bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
-    set(gradeCode, vx.grade.code === '—' ? '' : vx.grade.code); set(gradeLabel, vx.grade.label);   // no varices: the label alone
+    set(gradeCode, vx.grade.code === '—' ? '' : vx.grade.code); set(gradeLabel, vx.grade.label); gradeLabel.dataset.short = GRADE_SHORT[vx.grade.label] || vx.grade.label;   // no varices: the label alone
     grade.dataset.sev = vx.grade.code === 'F1' ? 'caution' : vx.grade.code === '—' ? 'ok' : 'danger';
     set(diam, `${fmt(vx.d, 1)} mm`); set(wall, `${fmt(vx.w, 1)} mm`);
     const redV = vx.d < 2.5 ? 'None' : vx.redWale ? 'Red wale, cherry spots' : 'None';

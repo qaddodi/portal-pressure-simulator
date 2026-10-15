@@ -4379,6 +4379,65 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* A tall card spaces the readings out instead of packing them. */
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read { gap: clamp(6px, 2.4cqh, 18px) 8px; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-chip { grid-column: 1 / -1; }
+/* Scope readings in the Tests card: five equal tiles with everything centred. Each tile keeps one size for
+   its name, value and small word, and its type size follows the tile's own width (never its text), so no value
+   can change a tile or overflow it. Name on top, value in the middle, one short word under it (grade size,
+   "cherry spots"); the dot for the state sits in the top right corner. */
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-self: center; width: 100%; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { position: relative; container-type: inline-size; grid-column: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; min-height: 80px; padding: 9px 6px; border: 0; border-radius: 14px; background: var(--surface-2); text-align: center; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div::after { content: ''; flex: none; height: 14px; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > .endo-red { grid-column: 1 / -1; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dt { margin: 0; font: 600 min(11px, 15cqi)/1.2 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; text-align: center; overflow-wrap: normal; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-dt-x { display: none; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dd { margin: 0; max-width: 100%; text-align: center; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-num, .endo-chip-v, .endo-grade b, .endo-grade b:empty + span) { font: 600 min(16px, 22cqi)/1.1 var(--font-ui); letter-spacing: -.02em; white-space: nowrap; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-num { display: block; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-num small { font-size: inherit; font-weight: inherit; color: inherit; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-chip-v { margin: 0 !important; text-align: center; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade { display: block; text-align: center; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade b { display: inline; color: var(--text); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade b:empty { display: none; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade span { position: absolute; left: 4px; right: 4px; bottom: 8px; display: block; font-size: 0; line-height: 1.2; color: var(--text-2); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade span::after { content: attr(data-short); font: 500 min(11px, 15cqi)/1.2 var(--font-ui); letter-spacing: 0; white-space: nowrap; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade b:empty + span { position: static; font-size: min(16px, 22cqi); color: var(--text); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade b:empty + span::after { content: none; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-more { position: absolute; left: 4px; right: 4px; bottom: 8px; font-size: 0; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-more:not(:empty)::after { content: 'Cherry spots'; font: 500 min(11px, 15cqi)/1.2 var(--font-ui); color: var(--text-2); white-space: nowrap; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade::before, .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-chip-v::before { position: absolute; top: 8px; right: 8px; width: 6px; height: 6px; margin: 0; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-chip[data-on="true"] { background: var(--accent-soft); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-chip.endo-red[data-on="true"] { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+/* One column (the Tests card on a laptop, a portrait card): the tiles span the card, five in a row when it is wide
+   enough, otherwise three and two (the last two each take half the row, never a lone narrow tile). */
+@container ((max-aspect-ratio: 4 / 5) or style(--one-col: 1)) {
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { grid-column: span 2; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > :nth-child(n + 4) { grid-column: span 3; }
+}
+@container (((max-aspect-ratio: 4 / 5) or style(--one-col: 1)) and (min-width: 450px)) {
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div, .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > :nth-child(n + 4) { grid-column: span 1; }
+}
+/* The button is as wide as its words need, centred; the note under it is centred too. */
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn { justify-self: center; width: auto; min-width: min(100%, 220px); max-width: 100%; padding-inline: 26px; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .ctl-sub { justify-self: center; text-align: center; max-width: 46ch; }
+/* The picture's square must never collapse in a short card (it did: 0 wide on a phone held sideways). */
+.instrument-workspace .endo-stage > .chart-box.square { max-width: none !important; max-height: none !important; }
+/* A short card (a phone held sideways): picture on the left, the five tiles two across on the right, the button under them. */
+@container tpane (max-height: 300px) and (min-width: 340px) {
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) { grid-template-columns: minmax(0, 1fr) minmax(0, 56%); grid-template-rows: minmax(auto, 1fr) auto; gap: 8px 14px; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-column: 2; grid-row: 1; gap: 6px; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { min-height: 38px; padding: 4px 6px; gap: 1px; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div::after, .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade b:not(:empty) + span, .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-more { display: none; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-pos { display: none; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) { margin-bottom: -10px; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > .endo-red { grid-column: 1 / -1; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > :nth-child(n + 4) { grid-column: auto; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > .endo-red { grid-column: 1 / -1; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade::before, .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-chip-v::before { top: 5px; right: 6px; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn { grid-column: 2; grid-row: 2; min-width: 0; width: 100%; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .ctl-sub { display: none; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { grid-column: 1; grid-row: 1 / span 2; }
+}
 .endo-num small { font-size: var(--fs-12); font-weight: 500; color: var(--text-2); }
 .wall-law { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .wall-formula { font: 650 var(--fs-16) var(--font-ui); letter-spacing: .02em; color: var(--text); }
