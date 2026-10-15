@@ -2057,7 +2057,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => {
       window.__cover = [];
       const tick = () => { const b = document.querySelector('#thumbBar'), r = b.getBoundingClientRect();
-        for (const f of [0.1, 0.5, 0.9]) { const e = document.elementFromPoint(r.left + r.width * f, r.top + 4); const c = e?.closest('#treatCard, #dock, #panel, .menu'); if (c) window.__cover.push(c.id || c.className); }
+        for (const f of [0.1, 0.5, 0.9]) for (const y of [r.top + 4, r.bottom + 3, innerHeight - 1]) { const e = document.elementFromPoint(r.left + r.width * f, y); const c = e?.closest('#treatCard, #dock, #panel, .menu'); if (c) window.__cover.push(c.id || c.className); }
         window.__coverRaf = requestAnimationFrame(tick); };
       tick();
     });
