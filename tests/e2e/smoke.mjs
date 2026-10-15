@@ -568,6 +568,65 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (back !== home) throw new Error(`the anatomy came back at ${back}, not at its framing ${home}`);
   });
 
+  // Fit always brings the figure back to its framing, whatever the hand did just before it: a Mac trackpad's scroll still coming in
+  // (its momentum runs on for a second after the fingers lift, and used to cancel the lobule's Fit and carry the anatomy off it again),
+  // a mouse flick still gliding, a pinch or the − button past the framing, or a resize. In the anatomy, the circuit and the lobule.
+  if (device === 'desktop') await check(device, 'Fit always re-frames the figure after a zoom, pan, flick, scroll or resize', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    const key = () => page.evaluate(() => (window.pps.store.get().lobule ? 'lobule ' + window.pps.stage.lobuleViewKey() : window.pps.stage.cameraKey()));
+    // (a software renderer can take a second a frame: settled means the camera holds over several readings)
+    const steady = async () => { let a = await key(), same = 0; for (let i = 0; i < 80 && same < 4; i++) { await page.waitForTimeout(300); const c = await key(); same = c === a ? same + 1 : 0; a = c; } return a; };
+    const fitKey = async () => { await page.click('#zoomFit'); return steady(); };
+    // A trackpad scroll (or, with ctrl, a pinch) at the middle of the figure: one event every 16 ms for `ms`, Fit pressed `fitAt` ms in.
+    // (It stops early if the page stalls between two events for longer than a real scroll ever pauses: that would be a new scroll.)
+    const scrollThenFit = (dx, dy, ms, fitAt, ctrl = false) => page.evaluate(([dx, dy, ms, fitAt, ctrl]) => new Promise((done) => {
+      const x = innerWidth * 0.55, y = innerHeight * 0.5, el = document.elementFromPoint(x, y), t0 = performance.now();
+      let last = t0, pressed = false;
+      const tick = () => {
+        const now = performance.now();
+        if (now - last > 200) { if (!pressed) document.querySelector('#zoomFit').click(); done(); return; }
+        last = now;
+        el.dispatchEvent(new WheelEvent('wheel', { deltaX: dx, deltaY: dy, deltaMode: 0, ctrlKey: ctrl, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+        if (!pressed && now - t0 >= fitAt) { pressed = true; document.querySelector('#zoomFit').click(); }
+        if (now - t0 < ms) setTimeout(tick, 16); else done();
+      };
+      tick();
+    }), [dx, dy, ms, fitAt, ctrl]);
+    // A quick mouse drag let go while still moving (a flick), then Fit at once.
+    const flickThenFit = () => page.evaluate(() => {
+      const x = innerWidth * 0.55, y = innerHeight * 0.5, el = document.elementFromPoint(x, y);
+      const ev = (type, i) => el.dispatchEvent(new PointerEvent(type, { pointerId: 1, isPrimary: true, pointerType: 'mouse', button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: x + i * 40, clientY: y + i * 12, bubbles: true, cancelable: true }));
+      const until = (t) => { while (performance.now() < t) { /* the moves come 12 ms apart */ } };
+      ev('pointerdown', 0);
+      for (let i = 1; i <= 6; i++) { until(performance.now() + 12); ev('pointermove', i); }
+      ev('pointerup', 6);
+      document.querySelector('#zoomFit').click();
+    });
+    const expect = async (what, ref) => { const k = await steady(); if (process.env.SMOKE_FIT_LOG) console.log(what, k); if (k !== ref) throw new Error(`${what}: Fit left the view at ${k}, not at its framing ${ref}`); };
+    const zoomIn = async (n = 2) => { for (let i = 0; i < n; i++) await page.click('#zoomIn'); await steady(); };
+    // (the figure's WebGL canvases are not shown: a software renderer then draws several frames a second instead of one)
+    const restore = await instantMotionOn(page);
+    await steady();
+    for (const view of ['anatomic', 'circuit', 'lobule']) {
+      await pickView(page, view);
+      if (view === 'lobule') await page.waitForFunction(() => window.pps.stage.lobuleSettled() && window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
+      await steady();
+      const ref = await fitKey();
+      await zoomIn(); await scrollThenFit(14, 10, 1400, 250); await expect(`${view}, zoomed in, a trackpad scroll still running`, ref);
+      if (view !== 'circuit') { await zoomIn(); await scrollThenFit(0, 20, 700, 350, true); await expect(`${view}, a pinch out still running`, ref); }
+      if (view !== 'lobule') { await zoomIn(); await flickThenFit(); await expect(`${view}, zoomed in, a flick still gliding`, ref); }
+      if (view !== 'anatomic') continue;
+      await scrollThenFit(14, 10, 1400, 250); await expect(`${view}, at its framing, a trackpad scroll still running`, ref);
+      for (let i = 0; i < 3; i++) await page.click('#zoomOut');
+      await page.click('#zoomFit'); await page.click('#zoomFit'); await expect(`${view}, after the − button and Fit twice`, ref);
+      await zoomIn(1); await page.setViewportSize({ width: 1100, height: 720 }); await steady();
+      const small = await fitKey(); await page.click('#zoomIn'); await page.click('#zoomFit');
+      await expect(`${view}, after a resize`, small);
+      await page.setViewportSize(DEVICES.desktop.viewport);
+    }
+    await restore();
+  });
+
   // Every way into or out of the lobule is one continuous zoom (to the lobule's normal framing; the sinusoid and a station are a second zoom from there): the camera's magnification (the plate's zoom plus the dive's)
   // moves steadily from the first frame to the last, in one direction, with no stop at an intermediate framing (the liver, the fit).
   // The presenter's slides are walked with the arrow keys, from the slide before a crossing to the one after it, and back.
@@ -3095,6 +3154,7 @@ if (process.env.SMOKE_MATCH) { const match = new RegExp(process.env.SMOKE_MATCH,
 // (times measured on CI runners; checks not listed count as 45 s, a deck walk as 3 min).
 const MEASURED = {
   'pan and pinch: marks and labels stay locked to the figure': 150000,
+  'Fit always re-frames the figure after a zoom, pan, flick, scroll or resize': 300000,   // (about 5 minutes here, on a software renderer)
   'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text': 90000,   // (one device pixel per pixel on a phone: about 65 s here)
   'presenter: lobule labels never touch, leaders never cross': 140000,
   'lobule: the sinusoid reading and its lesion pointer point at the middle of a sinusoid': 150000,

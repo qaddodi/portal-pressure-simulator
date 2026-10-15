@@ -7,7 +7,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf 
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=7bea6ad65a';
-import { createLobuleZoom } from './lobule-zoom.js?v=bd35054cda';
+import { createLobuleZoom } from './lobule-zoom.js?v=7f8c57bd88';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -1299,6 +1299,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const fit = () => {
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view). Inside the sinusoid it steps back out to the lobule.
     if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.fitView(); return; }
+    handsOff();
     const circuit = morphTarget === 1, focus = defaultVT(circuit), whole = circuit ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : { k: 1, x: 0, y: 0 };
     const near = (a, b) => Math.abs(a.k - b.k) < 0.02 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
     // Judged from where a glide in progress is going, so a second tap toggles as expected.
@@ -5931,10 +5932,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let wheelKind = null, wheelAt = 0, settleT = 0;
   const wheelPx = (ev, d) => d * (ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? stageBox().height : 1);
   const settleSoon = (ms = 220) => { clearTimeout(settleT); settleT = setTimeout(springBack, ms); };
+  // A Mac trackpad keeps sending scroll events for a second or more after the fingers lift (momentum). Pressed in that
+  // time, Fit (or a zoom button) used to glide to its framing and then the rest of the old scroll carried the figure off it
+  // again. The button wins: the scroll under way when it was pressed is ignored until it stops; a new one works as usual.
+  let wheelMute = false;
+  function handsOff() {
+    if (performance.now() - wheelAt < 250) wheelMute = true;
+    stopGlide(); clearTimeout(settleT); panFit = null;
+  }
   const onWheel = (ev) => {
     ev.preventDefault();
+    const now = performance.now();
+    if (wheelMute) { if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     stopGlide(); userMoved = true;
-    const dx = wheelPx(ev, ev.deltaX), dy = wheelPx(ev, ev.deltaY), now = performance.now();
+    const dx = wheelPx(ev, ev.deltaX), dy = wheelPx(ev, ev.deltaY);
     if (ev.ctrlKey || ev.metaKey) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -50, 50) * 0.01), true); settleSoon(); return; }
     if (now - wheelAt > 250) {
       panFit = null;
@@ -5951,6 +5962,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   svg.addEventListener('wheel', onWheel, { passive: false });
   labelSvg.addEventListener('wheel', onWheel, { passive: false });
+  // Safari on a Mac can report a trackpad pinch as gesture events instead of Ctrl + wheel. Left alone they magnified the
+  // whole page, so the figure sat out of view and Fit (which frames the figure inside the page) could not bring it back.
+  // The page never zooms: a pinch that comes with no Ctrl + wheel of its own is passed on as one, to the anatomy or the lobule.
+  let gScale = 1, gWheel = false;
+  wrap.addEventListener('wheel', (e) => { if (e.isTrusted && e.ctrlKey) gWheel = true; }, { capture: true, passive: true });
+  wrap.addEventListener('gesturestart', (e) => { e.preventDefault(); gScale = 1; gWheel = false; }, { passive: false });
+  wrap.addEventListener('gesturechange', (e) => {
+    e.preventDefault();
+    const r = e.scale / gScale, t = e.target, x = e.clientX, y = e.clientY;
+    gScale = e.scale;
+    if (!(r > 0) || r === 1) return;
+    nextFrame(() => { if (!gWheel && t.isConnected) t.dispatchEvent(new WheelEvent('wheel', { deltaY: -Math.log(r) / 0.01, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); });
+  }, { passive: false });
+  wrap.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
 
   // The figure never gets lost: past the zoom limits, or panned until its middle leaves the
   // view, it springs back once the gesture ends. During a pinch the limits stretch a little.
@@ -6437,8 +6462,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return null;
     },
     // The zoom buttons zoom about the middle of the free space; in the lobule they drive its own view.
-    zoomIn: () => { if (lobuleOn) { lz.zoomBy(1.4); return; } const c = freeCentre(); animZoomAt(c[0], c[1], 1.4); },
-    zoomOut: () => { if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.zoomBy(1 / 1.4); return; } const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4); },
+    zoomIn: () => { if (lobuleOn) { lz.zoomBy(1.4); return; } handsOff(); const c = freeCentre(); animZoomAt(c[0], c[1], 1.4); },
+    zoomOut: () => { if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.zoomBy(1 / 1.4); return; } handsOff(); const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4); },
     fit, refit,
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */

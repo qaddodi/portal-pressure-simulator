@@ -371,6 +371,7 @@ export function createLobuleZoom({ host }) {
   function zoomBy(factor) {
     if (!geo) return;
     if (sinTo) return;   // in the sinusoid: only the view switch goes back up to the lobule
+    handsOff();
     if (factor < 1 && V.k <= kFit * 1.001 && outHandler) { outHandler(factor, true); return; }
     const f = freeRect(), px = (f.l + f.r) / 2, py = (f.t + f.b) / 2;
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
@@ -417,14 +418,22 @@ export function createLobuleZoom({ host }) {
     Object.assign(V, { k: V.k, x: (f.l + f.r) / 2 - w[0] * V.k, y: (f.t + f.b) / 2 - w[1] * V.k }); clampV();
     const to = { ...V }; Object.assign(V, saved); glideTo(to, 380);
   }
-  function fitView() { if (sinTo) return; atFit = true; const F0 = fitV(); kFit = F0.k; glideTo(F0); }
+  function fitView() { if (sinTo) return; handsOff(); atFit = true; const F0 = fitV(); kFit = F0.k; glideTo(F0); }
+  // A button (Fit, + or −) wins over the scroll that was under way when it was pressed: a Mac trackpad's momentum goes on
+  // for a second or more after the fingers lift, and each of its events cancelled the button's glide (Fit did nothing).
+  // That scroll is ignored until it stops; a stretch or rubber band it left springs back as part of the glide.
+  function handsOff() {
+    if (performance.now() - wheelAt < 250) wheelMute = true;
+    clearTimeout(rubberT); clearTimeout(stretchT); rubber = false; rawK = 0;
+  }
 
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
   // As on the anatomy: a mouse wheel zooms about the pointer; a trackpad's two-finger scroll pans (once zoomed in)
   // and its pinch (ctrlKey) zooms; Ctrl/⌘ + wheel always zooms. A gesture is classified once, as it starts.
-  let wheelKind = null, wheelAt = 0, wheelOutOK = false, wheelDir = 0;
+  let wheelKind = null, wheelAt = 0, wheelOutOK = false, wheelDir = 0, wheelMute = false;
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
+    if (wheelMute) { const now = performance.now(); if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     stopInertia();
     cancelFrame(glide);   // a button's glide never fights the hand
     const u = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? el.clientHeight : 1, dx = ev.deltaX * u, dy = ev.deltaY * u, now = performance.now();
