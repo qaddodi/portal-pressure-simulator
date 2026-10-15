@@ -2,9 +2,12 @@ name: Checks (browser, visual, WebKit)
 
 # Every browser, visual and WebKit check on each push to main and the integration branch, beside
 # pages.yml (which only lints, unit-tests and deploys, so a preview never waits for these).
-# On the integration branch a newer push cancels this workflow's older run at once, in GitHub itself
-# (the concurrency group below needs no runner), so the newest commit always gets the full suite and
-# old checks never hold the runners a newer deploy needs. On main every run goes to the end.
+# On the integration branch a run that has started always finishes, so a full result arrives about every
+# 35-40 minutes on a recent commit even while pushes land every few minutes. Only the waiting run is
+# replaced: a newer push takes the place of the one queued behind the running run (GitHub's concurrency
+# group keeps one running and one waiting, with no runner needed), so at most one run holds runners and
+# old checks never pile up in front of a deploy. (15 Oct: cancelling the running run on every push meant
+# no run ever finished, so nobody saw a failure.) On main every run goes to the end.
 
 on:
   push:
@@ -17,7 +20,7 @@ permissions:
 concurrency:
   # (main: a group of its own per run, so nothing on main is cancelled or dropped)
   group: checks-${{ github.ref_name == 'main' && github.run_id || github.ref }}
-  cancel-in-progress: ${{ github.ref_name != 'main' }}
+  cancel-in-progress: false
 
 jobs:
   # The browser checks run alongside the deploy (pages.yml), not before it: a failure marks this run red

@@ -71,7 +71,8 @@ If a deploy fails:
   `/preview/preview-info.txt` against your branch and commit before asking the owner to test.
 - Only one Pages deploy matters at a time (job `deploy`, `concurrency: pages`, newest wins).
   The browser, visual and WebKit checks run in their own workflow (`checks.yml`), so a deploy never
-  waits for them; a newer push to the same branch cancels the older push's checks at once.
+  waits for them. A started checks run always finishes (about 35-40 minutes); a newer push replaces
+  only the run waiting behind it, so results arrive for a recent commit, not necessarily the newest.
   A `main` push replaces a branch preview with `main`, which is expected after a merge.
 
 Preview access depends on the current agent's environment. Some cloud sandboxes block

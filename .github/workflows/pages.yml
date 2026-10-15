@@ -10,10 +10,9 @@ name: Pages (live site + preview)
 # is never cancelled (main included): the newest waiting one queues behind it and older waiting ones are
 # dropped, so a burst of pushes always ends with the newest commit deployed. Every deploy rebuilds /
 # from main's current tip, so a preview deploy never publishes a stale root.
-# The browser, visual and WebKit checks are in checks.yml, a separate workflow on the same pushes. A newer
-# push cancels the older push's checks run there as soon as it lands (workflow concurrency, no runner
-# needed), and those checks use at most 17 of the account's ~20 runners, so this workflow's lint and
-# deploy always find one. Before (15 Oct), the checks lived here: an older push's checks held every
+# The browser, visual and WebKit checks are in checks.yml, a separate workflow on the same pushes. At most
+# one checks run per branch holds runners (a newer push replaces only the waiting one), and it uses at
+# most 17 of the account's ~20 runners, so this workflow's lint and deploy always find one. Before (15 Oct), the checks lived here: an older push's checks held every
 # runner, the newer push's lint could not start, and so it could neither deploy nor cancel them.
 # Only main and the integration branch run this workflow; thread branches get everything in ci.yml on a
 # pull request.
