@@ -2079,7 +2079,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data.tiles-only .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
 .pz.stack .pz-tiles[data-n="4"], .pz.stack .pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* (four in a row cannot hold their numbers on a phone) */
 .pz.stack .pz-lapse { font-size: var(--s-body); }
-.pz.stack .pz-abb { font-size: var(--s-lab); min-height: 34px; padding: .4em .7em; flex: none; }
+.pz.stack .pz-abb { font-size: min(var(--s-lab), 3.9vw); min-height: 34px; padding: .4em .6em; flex: 0 1 auto; min-width: 0; white-space: nowrap; }   /* (a row of four, like the lens buttons, stays on one line at any phone width) */
 /* A what-if slider: the same frosted pill as the treatment buttons, its name, the track between its two ends, and the value. */
 .pz-wi { display: flex; align-items: center; gap: .5em .9em; flex-wrap: wrap; padding: .45em 1.05em; width: min(100%, 34em); box-sizing: border-box; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; font: 600 var(--s-lab)/1.15 var(--font-ui); color: var(--text); }
 .pzi-l { display: flex; flex-direction: column; gap: .1em; white-space: nowrap; }
@@ -2113,7 +2113,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pzc-hint { display: none; }
 .pz.stack .pzc-a > p { padding-left: calc(1.8em + .8em + .2em); }
 @media (prefers-reduced-motion: reduce) { .pzc-a, .pzc-a > p { transition: none; } }
-.pz.stack .pz-ab { gap: 2px; padding: 3px; justify-content: center; }/* A title that would run past two lines in the side pane steps down a size. */
+.pz.stack .pz-ab { gap: 2px; padding: 3px; justify-content: center; flex-wrap: nowrap; }/* A title that would run past two lines in the side pane steps down a size. */
 .pz:not(.stack) .pz-text .pz-h.long { font-size: var(--s-big); }
 .pz.pz-card:not(.stack) .pz-text .pz-h.long { font-size: calc(var(--s-big) * var(--pz-tk, 1)); }   /* (a long title gives way too when the cards stack) */
 /* A slide's instrument (tool) in the data card: the instrument as the app draws it, without its controls. */

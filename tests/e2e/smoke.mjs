@@ -1518,7 +1518,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           if (b.scrollWidth > b.clientWidth + 1) return `"${b.textContent}" overflows its button`;
           if (fs < 11) return `"${b.textContent}" is ${fs}px`;
           return null;
-        }).filter(Boolean).concat(document.querySelector('.pz-ab').scrollWidth > document.querySelector('.pz-ab').clientWidth + 1 ? ['the row scrolls sideways'] : []));
+        }).filter(Boolean).concat(document.querySelector('.pz-ab').scrollWidth > document.querySelector('.pz-ab').clientWidth + 1 ? ['the row scrolls sideways'] : [],
+          new Set([...document.querySelectorAll('.pz-abb')].map((b) => Math.round(b.getBoundingClientRect().top))).size > 1 ? ['the buttons wrap to two rows'] : []));
         for (const o of out) bad.push(`${deck} ${n} at ${size.width}x${size.height}: ${o}`);
       }
     }
