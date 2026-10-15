@@ -48,6 +48,25 @@ function luminance(c) {
 }
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
+  // (#30) The stage's styles, as the model's frames read them (colours, the plate's theme, whether the figure shows): read live, each
+  // read made the browser bring its styles up to date in the middle of the frame. They are read once and kept until something that
+  // can change them happens: a class, style or theme attribute on the stage or any element above it, the system's light or dark
+  // setting, a resize, or a new text size.
+  let csSnap = null;
+  function wrapCS() {
+    if (!csSnap) {
+      const live = getComputedStyle(wrap), m = new Map();
+      csSnap = { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) m.set(n, (v = live.getPropertyValue(n))); return v; } };
+    }
+    return csSnap;
+  }
+  {
+    const drop = () => { csSnap = null; };
+    const mo = new MutationObserver(drop);
+    for (let el = wrap; el; el = el.parentElement) mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme'] });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drop);
+    addEventListener('resize', drop); addEventListener('pps:labelscale', drop);
+  }
   const svg = wrap.querySelector('#stage');
   const stageWrap = wrap.closest('.stage-wrap') || wrap;
   svg.setAttribute('viewBox', `0 0 ${VIEW.w} ${VIEW.h}`);
@@ -2618,7 +2637,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       glOrgans = true; tubesNew = true;
     }
     const items = glItems();
-    const cs = getComputedStyle(wrap);
+    const cs = wrapCS();
     const mode = layerMode(), heat = mode === 'heat';
     if (lensMode && mode !== lensMode && !reduceMotion.matches) { lensFrom = shownCol; lensT0 = performance.now(); }
     lensMode = mode;
@@ -2874,7 +2893,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // What the plate shows, in coarse steps: re-rasterize when it changes.
   let tintQ = 0;
   function plateStateKey() {
-    const cs = getComputedStyle(wrap);
+    const cs = wrapCS();
     // The tint in coarse steps, with some hysteresis: a pressure that wavers on a step boundary
     // while the model runs must not re-rasterize the plate over and over.
     const tq = (parseFloat(liverTint.style.opacity) || 0) * 40;
@@ -2885,17 +2904,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
   }
   // Hidden (the home page over the app), every organ would rasterize invisible: wait until the figure shows.
-  const figureHidden = () => getComputedStyle(wrap).visibility === 'hidden';
+  const figureHidden = () => wrapCS().getPropertyValue('visibility') === 'hidden';
   function platePoke() {
     // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
     if (lobuleOn && !lz?.isOpen()) return;
     if (lvMoving || fluidEasing() || !veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden()) return;
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
-    readFluidInk(getComputedStyle(wrap));
+    readFluidInk(wrapCS());
     // A theme switch: the old raster would keep the old background for a beat, so show the live
     // SVG plate (already in the new theme) at once and rasterize again without the throttle.
-    const theme = getComputedStyle(wrap).getPropertyValue('--stage-bg');
+    const theme = wrapCS().getPropertyValue('--stage-bg');
     const themed = plateTheme !== null && theme !== plateTheme;
     plateTheme = theme;
     if (themed && veins.hasPlate(0)) {
@@ -4272,7 +4291,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // On the GPU (veins-gl.js): the still column, the shaft and its shadow, the marker band and rounded tip,
   // the balloon behind the tip and the reading ripples, as tubes and discs in world units.
   function cathGL(st, r, tipD, rc) {
-    const V = [], draws = [], op = st.opacity ?? 1, cs = getComputedStyle(wrap);
+    const V = [], draws = [], op = st.opacity ?? 1, cs = wrapCS();
     const begin = () => V.length / 6;
     const tube = (a, b, rOf, mode, col, alpha, fade, ox = 0, oy = 0) => {
       const first = begin(), step = Math.max(rc * 0.6, 0.35);

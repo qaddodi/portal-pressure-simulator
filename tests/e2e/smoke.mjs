@@ -346,6 +346,22 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => !document.querySelector('#app').classList.contains('sin-focus') && window.pps.store.get().lobule && !window.pps.store.get().sinusoid, null, { timeout: 30000 });
   });
 
+  if (device === 'desktop') await check(device, 'playing, the model frames read the stage styles from a kept copy (no live style reads each frame)', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.waitForTimeout(4000);
+    // Each live read of the stage's computed style made the browser bring its styles up to date mid-frame (colours, the plate's
+    // theme, whether the figure shows): now read once and kept until a class, style, theme or size change.
+    const n = await page.evaluate(async () => {
+      const wrap = window.pps.stage.wrap || document.querySelector('.stage-view'), g = window.getComputedStyle;
+      let k = 0; window.getComputedStyle = function (el, ...a) { if (el === wrap) k++; return g.call(this, el, ...a); };
+      const f0 = window.pps.store.get().frame; await new Promise((r) => setTimeout(r, 3000));
+      window.getComputedStyle = g;
+      return { k, moved: window.pps.store.get().frame !== f0 };
+    });
+    if (!n.moved) throw new Error('the model did not run');
+    if (n.k > 4) throw new Error(`the stage's computed style was read ${n.k} times in 3 s of playing (kept, it is read again only after a change)`);
+  });
+
   await check(device, 'lobule: a Sinusoid tap during the dive goes on into the sinusoid, and Colored by crossfades', async (page) => {
     await open(page, '?preset=healthy');
     // Tapped while the dive is still on its way (the lobule not yet shown): it used to be dropped.
