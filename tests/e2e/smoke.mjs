@@ -684,6 +684,58 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => { window.pps.store.set({ selection: null }); document.querySelector('#rotateCircuit').click(); });
     await until(`(${ratio})() < 1`, 'circuit did not turn back to wide');
   });
+  // Scope's Wall mechanics tab (15 Oct): every tile's name on one line and never cut, values and units inside their tiles, the values
+  // of each row of tiles on one line, the name and value of the stress tile apart, and every tile inside the card (no scrolling) at
+  // Half and Full on phones down to an iPhone SE with Safari's toolbar, and at desktop and upright and sideways iPad sizes,
+  // with long and extreme readings.
+  await check(device, 'Wall mechanics tiles fit at every card size', async (page) => {
+    const sizes = device === 'phone' ? [[390, 844], [375, 667], [390, 664], [430, 932]] : [[1440, 900], [820, 1180], [1180, 820]];
+    const fit = () => page.evaluate(() => {
+      const v = document.querySelector('.wall-view'), pane = v.closest('.dock-pane'), pr = pane.getBoundingClientRect(), bad = [];
+      const tiles = [...v.querySelectorAll('.endo-read > div')].filter((d) => d.offsetWidth);
+      if (tiles.length !== 5) bad.push(`${tiles.length} tiles shown`);
+      for (const d of tiles) {
+        const dt = d.querySelector('dt'), q = d.getBoundingClientRect(), name = dt.textContent;
+        if (dt.scrollWidth > dt.clientWidth + 1) bad.push(`name cut: ${name}`);
+        if (dt.getBoundingClientRect().height > parseFloat(getComputedStyle(dt).lineHeight) * 1.5) bad.push(`name wraps: ${name}`);
+        for (const c of d.querySelectorAll('dd, .wall-big')) {
+          if (!c.offsetWidth) continue;
+          const r = c.getBoundingClientRect();
+          if (c.scrollWidth > c.clientWidth + 1 || r.right > q.right - 2 || r.bottom > q.bottom) bad.push(`value cut: ${name}`);
+        }
+        if (q.bottom > pr.bottom + 1) bad.push(`tile below the card: ${name}`);
+      }
+      if (pane.scrollHeight > pane.clientHeight + 4) bad.push(`card scrolls ${pane.scrollHeight - pane.clientHeight}px`);
+      const st = v.querySelector('.endo-stress'), g = document.createRange();
+      g.selectNodeContents(st.querySelector('dt'));
+      const sv = st.querySelector('.wall-big').getBoundingClientRect(), sn = g.getBoundingClientRect();
+      if (sn.bottom > sv.top + 1 && sn.right > sv.left - 4) bad.push('stress name meets its value');
+      const nums = tiles.filter((d) => d.classList.contains('endo-tile')).map((d) => d.querySelector('.endo-num > span').getBoundingClientRect());
+      const rows = [];
+      for (const n of nums) { const r = rows.find((x) => Math.abs(x[0].top - n.top) < 30); if (r) r.push(n); else rows.push([n]); }
+      for (const r of rows) { const b = r.map((n) => n.bottom); if (Math.max(...b) - Math.min(...b) > 0.5) bad.push(`values not level: ${b.map((x) => x.toFixed(1)).join('/')}`); }
+      return bad;
+    });
+    for (const [width, height] of sizes) {
+      await page.setViewportSize({ width, height });
+      await open(page, '?preset=budd-chiari');
+      await page.evaluate(() => window.pps.dock.show('varixwall', { reveal: true }));
+      await page.waitForTimeout(900);
+      for (const extreme of [false, true]) {
+        if (extreme) {
+          await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
+          await page.waitForTimeout(300);
+          await page.evaluate(() => { const v = document.querySelector('.wall-view'); ['188.8', '12.5', '10.4', '9999'].forEach((t, i) => { v.querySelectorAll('.endo-num > span')[i].textContent = t; }); v.querySelector('.wall-big > span').textContent = '1999'; });
+        }
+        for (const s of device === 'phone' ? ['half', 'full'] : ['card']) {
+          if (s !== 'card') { await page.evaluate((half) => { const d = document.getElementById('dock'); for (let i = 0; i < 3 && d.classList.contains('sheet-half') !== half; i++) d.querySelector('.sheet-grab').click(); }, s === 'half'); await page.waitForTimeout(700); }
+          const bad = await fit();
+          if (bad.length) throw new Error(`${width}x${height} ${s}${extreme ? ' (extreme readings)' : ''}: ${bad.join('; ')}`);
+        }
+      }
+    }
+  });
+
   if (device === 'phone') await check(device, 'action card is a compact sheet that keeps the vessel in view', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));

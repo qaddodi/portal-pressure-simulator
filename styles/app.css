@@ -4582,6 +4582,38 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* Two narrow tiles (the readings beside the view on a phone): the numbers step down rather than leave the box. */
 @container (max-width: 260px) { .instrument-workspace .endo-num, .instrument-workspace .endo-grade b, .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-chip-v:not([data-long]) { font-size: 18px; } .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read > div { padding: 6px 7px; } }
 
+/* Wall mechanics in the Tests card (15 Oct, Mohammad): the cross-section with Laplace's law as its caption, the wall stress
+   as one wide tile with its meter, and ΔP, r, w and the index as four equal tiles, all in the Readouts tiles' style (name in
+   title case, left aligned, the value under it with a smaller unit). Every name is one line: a narrow tile shows its short form
+   ("ΔP", "Index") rather than break a word, and sets the unit under the value; the tiles in a row have the same lines, so
+   their values share one line. */
+.wall-short { display: none; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-self: center; width: 100%; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read > div { container-type: inline-size; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 0; min-width: 0; min-height: 0; padding: 8px 10px 7px; border: 0; border-radius: var(--r-control); background: var(--surface-2); text-align: left; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read > .wall-law, .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stress-v, .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .wall-sev { display: none; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read dt { max-width: 100%; margin: 0; font: 600 12px/1.4 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read dd { margin: 0; max-width: 100%; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view :is(.endo-num, .endo-stress > .wall-big) { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: flex-start; gap: 0; font: 600 16px/20px var(--font-ui); letter-spacing: -.015em; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view :is(.endo-num, .endo-stress > .wall-big) small { margin-left: 0; font: 500 12px/16px var(--font-ui); letter-spacing: 0; color: var(--text-3); white-space: nowrap; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-num small:empty { display: none; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stress > .wall-big small { margin-left: 2px; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read > .endo-stress { grid-column: 1 / -1; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stress > .wall-big { overflow: hidden; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stress > .endo-bar { margin: 6px 0 2px; }
+/* A narrow tile: the short name, the unit under the value (the index keeps an empty line there, so its value stays level). */
+@container (max-width: 119px) {
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-tile .wall-long { display: none; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-tile .wall-short { display: inline; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-tile .endo-num { flex-direction: column; align-items: flex-start; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-tile .endo-num small:empty { display: block; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-tile .endo-num small:empty::before { content: '\00a0'; }
+}
+/* Under the picture (a tablet held upright, a laptop's one-column card) the four tiles take one row; beside it, two by two. */
+@container (max-aspect-ratio: 4 / 5) or style(--one-col: 1) { .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* A narrow stress tile drops "of tear point" ("169 %" stays), then "(model)" from its name. */
+@container (max-width: 230px) { .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .wall-of { display: none; } }
+@container (max-width: 160px) { .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stress .wall-long { display: none; } .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stress .wall-short { display: inline; } }
+
 /* Doppler report: direction and mean are the hero; the usual range is drawn as a band with a marker. */
 .dop .dop-dir { font-size: clamp(24px, 4.2vh, 32px); line-height: 1.1; gap: 10px; }
 .dop .dop-velrow { flex-wrap: nowrap; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 4px; }
@@ -5256,6 +5288,26 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-grade span, .endo-more) { bottom: 5px; }
   #app.thumb .endo-stage { --stage-min: 110px; justify-content: flex-end; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dt { letter-spacing: .02em; }
+  /* Wall mechanics: the cross-section the card's width (its height the room left), the stress tile and the four tiles in one row
+     under it; the note under them only at Full. */
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(110px, 1fr) auto auto; gap: 10px; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage { grid-column: 1; grid-row: 1; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh - 24px, var(--stage-min))); }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { grid-column: 1; grid-row: 2; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read > div { padding: 7px 8px 6px; }
+  #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .chart-side > .ctl-sub { grid-row: 3; text-align: center; }
+  #app.thumb .instrument-workspace.sheet-half .dock-pane[data-pane="endoscopy"] > .wall-view .chart-side > .ctl-sub { display: none; }
+  /* A short card (Half on a small phone, or with Safari's toolbar showing): the picture on the left, the tiles two by two on its
+     right, so every tile stays in view without scrolling; the caption keeps just the equation. */
+  @container tpane (max-height: 330px) and (min-width: 280px) {
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view { grid-template-columns: minmax(0, 1fr) minmax(0, 62%); grid-template-rows: minmax(0, 1fr) auto; gap: 8px 10px; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage { --stage-min: 90px; grid-row: 1 / span 2; justify-content: center; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh - 24px, var(--stage-min))); }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .wall-cap { display: none; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { grid-column: 2; grid-row: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); align-self: center; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .chart-side > .ctl-sub { display: none; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { gap: 5px; }
+  }
   /* HVPG: the monitor the card's full width, the readings over it with Measure HVPG at their right (15 Oct, always in view); the steps and words under
      the monitor only at Full. */
   #app.thumb [data-pane="hvpg"] > .hvpg-bar { order: 0; flex: none; flex-wrap: nowrap; gap: 10px; }

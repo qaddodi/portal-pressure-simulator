@@ -193,22 +193,25 @@ export function createVarixWall() {
   const box = h('div', { class: 'chart-box square' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Varix cross-section: transmural pressure stretches the varix wall' });
   box.append(cv);
-  const stage = h('div', { class: 'endo-stage' }, box, h('span', { class: 'endo-pos' }, 'Cross-section'));
+  const stage = h('div', { class: 'endo-stage' }, box, h('span', { class: 'endo-pos' }, h('span', { class: 'wall-cap' }, 'Laplace’s law: '), 'T = ΔP · r / w'));
   const dd = (cls) => h('dd', { class: cls });
   const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
   const stressTxt = dd('endo-stress-v'), stressFill = h('i'), stressBar = h('span', { class: 'endo-bar', 'aria-hidden': 'true' }, stressFill);
-  // Each number with its unit in smaller type, so a long reading still fits a narrow tile.
-  const num = (unit) => { const v = h('span'); const d = h('dd', { class: 'endo-num' }, v, unit ? h('small', {}, ' ' + unit) : ''); d.v = v; return d; };
+  // Each number with its unit in smaller type, so a long reading still fits a narrow tile. (Every reading has a unit line, an
+  // empty one for the index, so a narrow Tests card can set each unit under its value and the values still share a line.)
+  const num = (unit) => { const v = h('span'); const d = h('dd', { class: 'endo-num' }, v, h('small', {}, unit ? ' ' + unit : '')); d.v = v; return d; };
+  // A narrow tile in the Tests card shows a name's short form ("ΔP", "Index"), so a name never breaks inside a word (a slide keeps the long one).
+  const name = (long, short) => h('dt', {}, h('span', { class: 'wall-long' }, long), h('span', { class: 'wall-short' }, short));
   const ptm = num('mmHg'), rad = num('mm'), wal = num('mm'), idx = num('');
   // A slide's screen reads the stress as one number top left and its state top right (the pane keeps its sentence).
   const wPct = h('span'), wBig = h('b', { class: 'wall-big' }, wPct, h('small', {}, '%', h('span', { class: 'wall-of' }, ' of tear point'))), wSev = h('span', { class: 'wall-sev' });
   const stats = h('dl', { class: 'endo-read' },
     item('endo-g wall-law', h('dt', {}, 'Laplace’s law'), h('dd', { class: 'wall-formula' }, 'T = ΔP · r / w')),
-    item('endo-stress', h('dt', {}, 'Wall stress (model)'), stressTxt, wBig, wSev, stressBar),
-    item('endo-tile', h('dt', {}, 'Transmural ΔP'), ptm),
+    item('endo-stress', name('Wall stress (model)', 'Wall stress'), stressTxt, wBig, wSev, stressBar),
+    item('endo-tile', name('Transmural ΔP', 'ΔP'), ptm),
     item('endo-tile', h('dt', {}, 'Radius r'), rad),
     item('endo-tile', h('dt', {}, 'Wall w'), wal),
-    item('endo-tile', h('dt', {}, 'Stress index'), idx));
+    item('endo-tile', name('Stress index', 'Index'), idx));
   const side = h('div', { class: 'chart-side' }, stats,
     h('div', { class: 'ctl-sub' }, 'A wider varix, higher transmural pressure and a thinner wall all raise the stress. Remodeling enlarges the varix and thins its wall over months; a balloon raises the pressure outside it.'));
   el.append(stage, side);
@@ -287,9 +290,12 @@ export function createVarixWall() {
     ctx.strokeStyle = ink; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(cx + bx * i0, vy + by * i0); ctx.lineTo(cx + bx * (o0 + 6), vy + by * (o0 + 6)); ctx.stroke();
     for (const d of [i0, rr + lw / 2]) { ctx.beginPath(); ctx.moveTo(cx + bx * d - by * 3, vy + by * d + bx * 3); ctx.lineTo(cx + bx * d + by * 3, vy + by * d - bx * 3); ctx.stroke(); }
-    ctx.fillStyle = ink; ctx.font = FONT(600, fs); ctx.fillText('w', cx + bx * (o0 + 6 + fs * 0.6), vy + by * (o0 + 6 + fs * 0.6));
+    const wy = vy + by * (o0 + 6 + fs * 0.6);
+    ctx.fillStyle = ink; ctx.font = FONT(600, fs); ctx.fillText('w', cx + bx * (o0 + 6 + fs * 0.6), wy);
     ctx.fillStyle = cssVar('--text-3'); ctx.font = FONT(500, fs);
-    ctx.fillText('lumen', cx, cy + Rl * 0.35);
+    // (A small picture: "lumen" moves down clear of the w label, and is left out when the lumen has no room for both.)
+    const ly = Math.max(cy + Rl * 0.35, wy + fs * 1.3);
+    if (ly <= cy + Rl - fs * 0.6) ctx.fillText('lumen', cx, ly);
     ctx.fillText('muscle', cx, cy + R * 0.87);
   }
   return { id: 'varixwall', label: 'Varix wall', el, update, pin };
