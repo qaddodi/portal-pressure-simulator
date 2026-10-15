@@ -2102,7 +2102,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A card whose signature is unchanged keeps its fit without being measured again (measuring forces layouts mid-animation).
   // (A card holding the quick check grows as its answers ease open and shut; it was fitted with every answer open, so its own
   // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
-  const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${document.documentElement.style.cssText}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${el.textContent.replace(/\d/g, '0')}`;
+  const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${el.textContent.replace(/\d/g, '0')}`;
   const fitDone = new WeakMap();
   // A narrow summary table's column heads: 11 px, or as large as each column fits (down to 8), one size for the row.
   // (Only the phone and upright tablet layout reads --th-fs.)
@@ -2234,6 +2234,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const lockKey = shown ? `${shown.gen}:${shown.i}:${W.toFixed(0)}x${H.toFixed(0)}` : null, lock = lockKey && textLock?.key === lockKey ? textLock : null;
     ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk');
     ui.text.style.maxHeight = '';   // (the last pass's cap would shrink the words to a room they no longer have)
+    // (A phone's words keep clear of the pill and the colour key first: the room they leave (--pz-reach, --pz-fkrow) is part
+    // of the fit. Placed only after it, the words were fitted to the last slide's key and kept that fit: Circulation slide 2
+    // on an iPhone came in at 0.814 and took 0.847 on the next refit, or the other way round.)
+    if (phone()) placeBar();
     fitCards(ui.text);
     let t = r(ui.text);
     const sl = ui.shade.offsetLeft * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style;
@@ -2486,8 +2490,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const tail = last;
       // (A colour key docked at the words' bottom-left (figure-key.js) takes a row of its own beside the pill: the words end above it.)
       if (tail?.matches('p, h1, li, .pz-stk') && ui.fk.dataset.empty != null) end = tail; else box = last || null;
-      const wr = restRect(ui.root), k = wr.width / (ui.root.clientWidth || wr.width) || 1, reach = restRect(text).top + text.offsetHeight * k - ui.bar.getBoundingClientRect().top;
-      text.style.setProperty('--pz-reach', `${Math.max(0, Math.ceil(reach / k) + 3)}px`);
+      // (Read from the layout boxes where both rest, never from the screen: a card still easing in or out (pz-leave's 18 px
+      // slide) read 18 px more reach, and the words were fitted smaller for it, then grew once the card settled.)
+      const wr = restRect(ui.root), k = wr.width / (ui.root.clientWidth || wr.width) || 1, bar = ui.bar;
+      const reach = bar.offsetParent && bar.offsetParent === text.offsetParent ? text.offsetTop + text.offsetHeight - bar.offsetTop
+        : (restRect(text).top + text.offsetHeight * k - bar.getBoundingClientRect().top) / k;
+      text.style.setProperty('--pz-reach', `${Math.max(0, Math.ceil(reach) + 3)}px`);
     }
     fitKey();
     if (gap && gap.parentElement !== end) gap.remove();
