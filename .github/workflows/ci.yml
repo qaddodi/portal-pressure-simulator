@@ -182,6 +182,19 @@ jobs:
       - name: Nothing piles up while a view is left alone
         run: npm run smoke:idle
 
+  # Pan and pinch: the figure and the lobule follow the hand, and the moving picture is never undrawn or softer than a
+  # whole draw of the same view.
+  gesture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Nothing undrawn or soft while the view moves
+        run: npm run smoke:veins
+      - name: Pinch and pan follow the hand (phone, lobule, trackpad, Safari gesture events)
+        run: npm run smoke:gesture
+
   # The look (organ tones and light, vessels, lobule) against tests/visual, one device per runner;
   # on a failure the current pictures and diffs are kept as an artifact.
   visual:

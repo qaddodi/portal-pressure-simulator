@@ -2765,6 +2765,13 @@ export function createLobuleZoom({ host }) {
     isOpen: () => fade > 0.98,
     isShown: () => fade > 0,
     /** The lobule's outline in client px while the view is wholly the lobule (not the sinusoid), else null: the corner credit keeps off it. */
+    /** For the checks: the lobule's vessel canvas as it stands, then after a whole redraw at the same view (see stage veinsCheck). */
+    glCheck() {
+      if (!gl || gl.lost || fade <= 0.98) return null;
+      const now = gl.snapshot();
+      glDirty = true; idleDrawn = ''; draw(0);
+      return { now, whole: gl.snapshot() };
+    },
     ring() {
       if (!geo || fade <= 0.98 || sinU > 0 || sinTo) return null;
       const r = host.getBoundingClientRect();
