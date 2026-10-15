@@ -3,7 +3,7 @@
 // DIPS in, the main portal vein's floor is 30 cm/s, the follow-up scan's cut-off. Every other vein is compared with its
 // own healthy velocity, normal from two-thirds to one and a half times it, as no published range covers it. Collaterals
 // and the other shunts have no normal and stay neutral.
-import { EDGES, dopplerK } from '../engine/topology.js?v=c164acf7d0';
+import { EDGES, dopplerK } from '../engine/topology.js?v=4044766e96';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const DOPPLER_NORMAL = {

@@ -2,16 +2,16 @@
 // Instruments card (blueprint §9.1, §9.2).
 
 import { store, hiddenNow } from './store.js?v=3b659e1968';
-import { EDGES } from '../engine/topology.js?v=c164acf7d0';
+import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=f7459cca3c';
-import { lobuleFlows } from './lobule-model.js?v=1e9578e160';
-import { createProfile } from './charts.js?v=e812b8ab42';
-import { createPressureTime } from './pressure-time.js?v=54d92938c6';
-import { createFibroScan } from './fibroscan.js?v=c7ea9144a5';
-import { createHvpgProcedure } from './hvpg-proc.js?v=c6210d6407';
-import { createDoppler } from './doppler.js?v=22151a9417';
+import { lobuleFlows } from './lobule-model.js?v=98af78021e';
+import { createProfile } from './charts.js?v=d431108e34';
+import { createPressureTime } from './pressure-time.js?v=22fa6318f6';
+import { createFibroScan } from './fibroscan.js?v=b942c0e4e9';
+import { createHvpgProcedure } from './hvpg-proc.js?v=e1608bc3c5';
+import { createDoppler } from './doppler.js?v=95b96d7090';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=9443cfb4c0';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=df59e00988';
 import { createReadoutsPane } from './readouts-pane.js?v=0b29b2182e';
 import { frameFor } from './frame.js?v=0db47e99bf';
 const nextFrame = frameFor('dock');

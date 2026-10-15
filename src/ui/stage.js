@@ -1,13 +1,13 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate } from '../engine/topology.js?v=c164acf7d0';
+import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=0b72305f30';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=797c55e040';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=26e1deced2';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=f7459cca3c';
-import { createLobuleZoom } from './lobule-zoom.js?v=d7c75aad61';
+import { createLobuleZoom } from './lobule-zoom.js?v=4f913aaa68';
 import { runFlick, FLICK } from './flick.js?v=c5132b373e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -1049,6 +1049,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The Doppler's vessel glows in the Doppler's green while its instrument is open; on a stent, only the third its gate samples.
   const dop = { id: null, want: null, pin: null, key: '', seg: '' };
+  const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
@@ -4873,9 +4874,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const dop = shownVel.get(sid), at = pinned()?.at, now = Math.abs(edgeVel(f, EI[sid])) * dopplerK(EDGES[EI[sid]]);
     const fixed = at && Math.abs(edgeVel(at, EI[sid])) * dopplerK(EDGES[EI[sid]]);   // (the slide's own velocity, as its tiles read the slide)
     const live = Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + sid, now, 6);
-    const vel = dop && performance.now() - dop.t < 1000 ? dop.v : live;
+    // (Between Doppler reports, the callout reads the third the Doppler samples itself, so it never falls back to the open stent's number.)
+    const gated = dopGateOf(sid), p = f.viewParams || store.get().params;
+    const atGate = gated ? live * stentSegments(1, 1 - (1 - (p?.stenosis?.[sid] || 0)) * (1 - (p?.thrombus?.[sid] || 0)), stentSite(p, sid))[['proximal', 'mid', 'distal'].indexOf(gated)] : live;
+    const vel = dop && performance.now() - dop.t < 1000 ? dop.v : atGate;
     // (Read by the Doppler at one third of the stent, the callout names it: "TIPS distal".)
-    const seg = dop && performance.now() - dop.t < 1000 && dop.seg ? ` ${dop.seg}` : '';
+    const seg = gated ? ` ${gated}` : '';
     it.lines = [[{ ...it.lines[0][0], t: sid + seg }, { t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4 }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }]];
     it.key = `n:${sid}`; it.src = ['vel', sid]; it.node = undefined; it.sel = false; it.swatch = null;
     it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);

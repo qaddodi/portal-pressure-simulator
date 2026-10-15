@@ -229,4 +229,12 @@ export const stentGate = (gate, p, id) => (gate === 'site' ? stentSite(p, id) : 
 // A stent's velocity at its proximal, mid and distal segments (cm/s), as TIPS Doppler reports it. The same flow
 // passes every point, so velocity goes with 1 / diameter²: v is the velocity in the open stent, and the segment
 // holding a narrowing s (0..1 of the diameter) runs at v / (1 − s)².
-export const stentSegments = (v, s = 0, site = 'distal') => ['proximal', 'mid', 'distal'].map((k) => (k === site && s > 0 && s < 0.995 ? v / ((1 - s) * (1 - s)) : v));
+// A working stent still reads a little differently along its length, as on real scans: slowest at the portal end and fastest
+// mid stent (Mitchell et al., Abdom Radiol 2025: 141/185/172 cm/s in 8 mm and 147/149/141 in 10 mm patent stents), so
+// proximal 0.9×, mid 1×, distal 0.95×, well under the 50 cm/s change that suggests stenosis.
+// The spread fades out as a narrowing grows (gone by 30 %), so a narrowed stent reads its slow flow and its jet alone.
+export const STENT_GRADIENT = { proximal: 0.9, mid: 1, distal: 0.95 };
+export const stentSegments = (v, s = 0, site = 'distal') => {
+  const w = Math.max(0, 1 - Math.max(0, s) / 0.3);
+  return ['proximal', 'mid', 'distal'].map((k) => (k === site && s > 0 && s < 0.995 ? v / ((1 - s) * (1 - s)) : v) * (1 + (STENT_GRADIENT[k] - 1) * w));
+};

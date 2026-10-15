@@ -64,7 +64,7 @@ export const TIPS_DOPPLER = {
       compare: [{ label: 'Proximal', gate: 'proximal' }, { label: 'Mid', gate: 'mid', own: true }, { label: 'Distal', gate: 'distal' }],
       kicker: 'A working TIPS', title: 'The stent is sampled at three points',
       line: 'The Doppler reads the stent at its portal end (proximal), in the middle (mid) and at its hepatic vein end (distal). In a working stent each reads 90 to 190 cm/s, and a velocity under {<90 cm/s} or over {>190 cm/s} at any of them suggests narrowing.',
-      caveat: 'In the model the open stent is one even tube, so all three read the same; in patients they often differ by a few tens of cm/s.',
+      caveat: 'In the model the open stent reads about a tenth slower at its portal end than mid stent; in patients the three often differ by a few tens of cm/s.',
       notes: 'Blood speeds up as it enters the stent, which is narrower than the portal vein, and runs from the portal vein toward the heart along its whole length. Each of the three points normally reads 90 to 190 cm/s. In patent shunts confirmed at venography, mean peaks were about 140 cm/s at the portal end, 150 to 185 cm/s mid stent and 140 to 170 cm/s at the hepatic vein end, often highest mid stent in 8 mm stents (Mitchell et al., 2025). A velocity outside 90 to 190 cm/s, or a change of more than 50 cm/s from the baseline study, suggests stenosis. These cut-offs come from bare stents; covered stents narrow far less often, so the change from the baseline study counts for more. Tap Proximal, Mid or Distal to move the Doppler gate; that third of the stent glows green.',
       ask: ['Where along the stent is the velocity measured?', 'At the portal end (proximal), in the middle (mid) and at the hepatic vein end (distal).'],
     },

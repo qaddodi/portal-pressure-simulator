@@ -1,6 +1,6 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
-import { EDGES, NODES, dMinOf, dopplerK } from '../engine/topology.js?v=c164acf7d0';
+import { EDGES, NODES, dMinOf, dopplerK } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=6ebaeb46c8';
 import { store, updateParams, isLocked, hiddenNow } from './store.js?v=3b659e1968';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=f7459cca3c';

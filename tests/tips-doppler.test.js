@@ -57,7 +57,11 @@ test('the talk uses the lenses it teaches, and every lens is one the presenter k
 test('proximal, mid and distal stent velocities: the narrowed stent slows along its length and jets through its hepatic vein end', async () => {
   const { stentSegments } = await import('../src/engine/topology.js');
   const ok = run('stent'), [p0, m0, d0] = stentSegments(vel(ok, 'TIPS'), 0);
-  assert.ok(p0 === m0 && m0 === d0 && p0 >= 90 && p0 <= 190, `a working stent reads the same at all three points (${p0})`);
+  assert.ok(p0 < d0 && d0 < m0 && p0 >= 90 && m0 <= 190, `a working stent reads slowest at its portal end and fastest mid stent, all within 90–190 (${p0}, ${m0}, ${d0})`);
+  assert.ok(Math.abs(p0 / m0 - 0.9) < 1e-9 && Math.abs(d0 / m0 - 0.95) < 1e-9 && m0 - p0 < 50, 'a small spread, under the 50 cm/s stenosis cut-off');
+  // The spread fades out as a narrowing grows, and a mild one never makes a jump.
+  const [a, b, c] = stentSegments(100, 0.01, 'distal');
+  assert.ok(Math.abs(a - 90) < 1 && Math.abs(b - 100) < 1 && Math.abs(c - 95) < 2.5, `a 1 % pinch reads like the open stent (${a}, ${b}, ${c})`);
   const e = run('narrow'), [p, m, d] = stentSegments(vel(e, 'TIPS'), slide('narrow').params.stenosis.TIPS);
   assert.ok(p < 90 && m < 90, `proximal and mid slow under 90 (${p})`);
   assert.ok(d > 190, `the distal jet runs over 190 cm/s (${d})`);
