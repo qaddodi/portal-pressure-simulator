@@ -16,6 +16,7 @@
     "smoke:webkit": "node tests/e2e/words-steady.mjs",
     "smoke:idle": "node tests/e2e/idle-steady.mjs",
     "smoke:veins": "node tests/e2e/veins-gesture.mjs",
+    "smoke:rows": "node tests/e2e/veins-rows.mjs && node tests/e2e/veins-stale.mjs",
     "smoke:gesture": "node tests/e2e/pinch-pan.mjs",
     "smoke:frame": "node tests/e2e/frame-centre.mjs",
     "smoke:card": "node tests/e2e/text-card.mjs",
