@@ -74,13 +74,13 @@ export const slideLens = (s, q = false) => (!q && !s?.visual && LENS_KEY[s?.lens
 const PRESSURE_KEY = ['pressure', () => gradientCss('to right', 30), 'Low', 'High'];
 const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
 const gateButtons = (s) => !!s.compare?.some((o) => o.gate);
-// The key's words and swatches, for the small pill on the figure (figure-key.js): the lens named, then its ends.
+// The key for the small pill on the figure (figure-key.js): the lens named, then its colour scale under it (a gradient has no end words; named swatches keep their names).
 function keyNodes(k) {
-  const [name, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY;
+  const [name, bar] = LENS_KEY[k] || PRESSURE_KEY;
   const dot = (v) => h('i', { class: 'pz-lens-dot', style: { background: `var(${v})` } });
   // (Each swatch stays on one line with its words: "Low ▬▬ High" as one piece, a dot with its name.)
   return [h('b', {}, name[0].toUpperCase() + name.slice(1)),
-    ...(typeof bar === 'function' ? [h('span', { class: 'pz-lens-k' }, h('span', {}, lo), h('i', { class: 'pz-lens-bar', style: { background: bar() } }), h('span', {}, hi))]
+    ...(typeof bar === 'function' ? [h('i', { class: 'pz-lens-bar', style: { background: bar() } })]
       : bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, dot(v), h('span', {}, t))))];
 }
 // A string with its disease names set in a pill (see diseases.js).
@@ -1292,7 +1292,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.text.classList.toggle('pz-keyed', !!k);
     ui.figKey.set(!!k, () => {
       ui.fk.replaceChildren(...(k ? keyNodes(k) : []));
-      ui.fk.setAttribute('aria-label', `Vessels colored by ${(LENS_KEY[k] || PRESSURE_KEY)[0]}`);
+      ui.fk.classList.toggle('grad', !!k && typeof (LENS_KEY[k] || PRESSURE_KEY)[1] === 'function');
+      { const [nm, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY; ui.fk.setAttribute('aria-label', `Vessels colored by ${nm}${typeof bar === 'function' ? `, ${lo} to ${hi}` : ''}`); }
     });
   }
   // A lens button ({ label, lens }): the figure crossfades to that lens and the key under the line follows; the model is untouched.
