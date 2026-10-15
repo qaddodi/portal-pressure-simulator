@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, GLIDE_MS } from './util.js?v=95b4244720';
-import { createLobuleZoom } from './lobule-zoom.js?v=d477d9bffe';
+import { createLobuleZoom } from './lobule-zoom.js?v=2c082a0d08';
 import { runFlick, FLICK } from './flick.js?v=773d9728fe';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -1404,7 +1404,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // to the sinusoid's zoom (lobule-zoom.js sinChain), which eases out only; out, the other way round.
   // (diveClock: the dive's own start, span and ends, so the joint's moment is known exactly; riseAt: when the sinusoid finished
   // closing, the moment the rise that follows it begins, rather than when its callback happens to run.)
-  let chainIn = false, chainOut = false, chainFired = false, chainAt = 0, zShift = 0, diveClock = null, riseAt = null;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
+  let riseFast = false, chainIn = false, chainOut = false, chainFired = false, chainAt = 0, zShift = 0, diveClock = null, riseAt = null;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
   const RH = 24;   // a lobule's size on screen (px) as the liver's surface gives way to the field
   const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
@@ -1466,8 +1466,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const lt = LC + Math.log(Math.max(RH * 2, diveLand.r) / RH);
       // Eased in and out (smootherstep), one ease over the whole log scale: the anatomy's part and the field's run on at the same
       // speed where they meet. (Each part had its own rate, so the zoom sped up by a sixth or more, suddenly, a third of the way in.)
-      const TJ = chainIn ? 0.88 : chainOut ? 1 : 0.84, u = clamp(t / TJ, 0, 1);
-      const p = chainIn || chainOut ? u * u * (2 - u) : u * u * u * (u * (u * 6 - 15) + 10);
+      // (riseFast: a way out of the landed lobule moves from its first frame, as the rise into the sinusoid's chain does; the dive's
+      // ease starts at rest and held the lobule still for its first 120-160 ms. A reversal keeps the curve it was on, so nothing jumps.)
+      const fast = chainIn || chainOut || riseFast;
+      const TJ = chainIn ? 0.88 : chainOut || riseFast ? 1 : 0.84, u = clamp(t / TJ, 0, 1);
+      const p = fast ? u * u * (2 - u) : u * u * u * (u * (u * 6 - 15) + 10);
       // (at: the moment the dive reaches the joint, from its own clock: the sinusoid's zoom is timed from there, not from whenever the
       // frame that crossed it ran, which on a phone is a frame or more later and left the zoom slowed for a moment.)
       // (now: this frame's own moment, so the frame that crosses the joint already draws the sinusoid's first step, rather than holding
@@ -1508,6 +1511,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
+    const from0 = diveT;
     scrubS = 0; cancelFrame(scrubAnim); diveOut = !on;
     if (on) { riseBox = null; riseUsed = false; chainOut = false; chainFired = false; } else chainIn = false;
     if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
@@ -1515,6 +1519,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     logMove({ t: performance.now(), kind: on ? 'dive' : 'rise' });
     cancelFrame(lobAnim);
     if (on && diveT === 0) {
+      riseFast = false;
       if (chainIn && performance.now() - chainAt > 4000) chainIn = false;   // (asked for long ago and never begun)
       const w = diveTarget();
       if (w) {
@@ -1526,6 +1531,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       lz.prewarm(diveLand.r);
       lz.stage();   // the lobule is drawn now, for where it lands, and only then does the zoom start (its clock starts below)
     } else if (!on && diveT >= 1) {
+      riseFast = !chainOut;
       diveLand = lz.current();
       // The anatomy is covered by the lobule at this point: take it to its fit framing now, unseen, so the way out is one
       // continuous zoom from the lobule's fit to the anatomy's fit, with no correction after it lands.
@@ -1549,12 +1555,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
     // (Lite mode: no zoom, the figure fades in at the lobule or the anatomy.)
-    const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0;
+    // A reversal mid-way glides back from where it is, at the speed of the move it turns round (eased from rest, not at full speed at once).
+    const turn = from0 > 0 && from0 < 1, from = diveT, to = on ? 1 : 0;
+    const ms = reduceMotion.matches ? 0 : turn ? (on ? RISE_MS : DIVE_MS) : on ? DIVE_MS : RISE_MS;
     // Out from the sinusoid, the rise starts when its zoom ended, so the two run on as one.
     const t0 = !on && riseAt !== null ? Math.min(performance.now(), riseAt) : performance.now();
     riseAt = null; diveClock = [t0, ms * Math.abs(to - from) || 1, from, to];
     const step = (now) => {
-      const e = ms ? clamp((now - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1;
+      const e0 = ms ? clamp((now - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1, e = turn ? e0 * e0 * (3 - 2 * e0) : e0;
       diveT = from + (to - from) * e;
       // A frame that throws must not leave the anatomy stuck mid-zoom: the glide always goes on to its end.
       try { diveFrame(diveT); } catch (err) { if (e < 1) console.error(err); }
@@ -2863,7 +2871,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function platePoke() {
     // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
     if (lobuleOn && !lz?.isOpen()) return;
-    if (lvMoving || !veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden()) return;
+    if (lvMoving || fluidEasing() || !veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden()) return;
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
     readFluidInk(getComputedStyle(wrap));
@@ -2880,7 +2888,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), 400 - (performance.now() - lvStillAt));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
-      if (figureHidden() || lvMoving || (lobuleOn && !lz?.isOpen())) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
+      if (figureHidden() || lvMoving || fluidEasing() || (lobuleOn && !lz?.isOpen())) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
       const k = plateStateKey();
       if (k === plateKey && veins?.hasPlate(0)) return;   // it changed and changed back
       plateBusy = true; plateLast = performance.now();
@@ -3656,6 +3664,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the GPU the fluid is drawn over the plate (not in its raster), so no lens tints it; the SVG
   // copy stays for picking, the selection outline and exports.
   let bulgeQ = 0;
+  // The fluid still easing toward its volume by more than a step of the wall's bulge (a tap, a drain, diuretics): the organ plate,
+  // whose wall and bowel follow the bulge, is rasterized once it settles, not at every step on the way (each about 712 KB of SVG and
+  // an 8 MB upload, several times per ease). The slow creep of a running model stays within a step, so it never holds the plate.
+  const fluidEasing = () => ascTarget !== null && Math.abs(clamp(ascTarget / 8500, 0, 1) - clamp(ascShown / 8500, 0, 1)) * 34 > 0.5;
   let ascTarget = null, ascShown = 0, ascVel = 0, fluidMaskB = null, fluidMaskOf = null, fluidMaskOfB = null, fluidBandH = -1, fluidH = 0, fluidAmp = 0, fluidInkRGBA = [0.9, 0.75, 0.28, 0.4];
   const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false };
   const abdomenClipEl = defs.querySelector('#abdomenClip path');
@@ -3721,6 +3733,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (ascTarget === null) return false;
     let moved = false;
     if (ascShown !== ascTarget) {
+      // A large change shows the live drawing while it eases, as the liver's does: the wall and bowel move with the fluid, and the plate
+      // is rasterized once it settles (held under the plate, the wall would jump by the whole change when it landed).
+      const held = fluidEasing();
+      if (held && Math.abs(clamp(ascTarget / 8500, 0, 1) * 34 - bulgeQ) > 3 && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
       // A critically damped spring on the drawn scale (volume^0.6), so the fluid fills in from the pelvis and
       // drains out smoothly, starting and stopping gently, instead of jumping in or out of existence.
       const w = 4.2, h = Math.min(dt, 0.05), vs = Math.pow(ascShown, 0.6), vt = Math.pow(ascTarget, 0.6);
@@ -3728,7 +3744,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const nv = Math.max(0, vs + ascVel * h);
       if (Math.abs(nv - vt) < 0.2 && Math.abs(ascVel) < 0.5) { ascShown = ascTarget; ascVel = 0; }
       else ascShown = Math.pow(nv, 1 / 0.6);
-      drawAscites(); moved = true;
+      drawAscites(); moved = true;   // (its platePoke rasterizes once the fluid is within a step of its volume)
     }
     const run = st.running && !reduceMotion.matches;
     const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? 0.72 : 1);
@@ -6592,6 +6608,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; animateVT({ ...to }, ms); },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
+    lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
     /** Where the sinusoid's reading and lesion pointer meet their sinusoid (see lobule-zoom sinAnchor). */
     lobuleSinAnchor: () => lz?.sinAnchor() ?? null,
     /** Where a station's callout attaches, in client px (for the checks). */
