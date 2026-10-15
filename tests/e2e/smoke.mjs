@@ -1392,6 +1392,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   // A time-lapse slide's card shows the state the time-lapse plays from on its first frames (not its end, nor the slide before),
   // climbs from there with no snap back, ends on the slide's state, and every change line adds up.
+  // (A numbers-only card is held back until the days have run (cbb1919: the cards come in after the change settles), so it
+  // first shows after the end, never while held, and is not judged on its first frames.)
   if (device === 'desktop') for (const deck of DECK_IDS) await check(device, `presenter: ${deck}'s time-lapse cards start from the model's start state and climb without a snap`, async (page) => {
     await open(page);
     await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
@@ -1408,13 +1410,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         window.__lapT = setInterval(() => {
           if (!document.querySelector('.pzb-n')?.textContent.trim().startsWith(`${at + 1} `)) return;
           const p = window.pps.presenter.probe();
-          rec.push({ t: Math.round(performance.now()), i: p.i, playing: p.playing, start: p.start, end: p.end, n: p.keys.length, tiles: read(), done: !!document.querySelector('.pz-lapse.done') });
+          rec.push({ t: Math.round(performance.now()), i: p.i, playing: p.playing, start: p.start, end: p.end, n: p.keys.length, tiles: read(), done: !!document.querySelector('.pz-lapse.done'), held: 'hold' in (document.querySelector('.pz-data')?.dataset || {}) });
         }, 50);
       }, [at, TILES_JS]);
       await page.keyboard.press('ArrowRight');
       await page.waitForFunction((at) => window.__lapRec.some((r) => r.i === at && r.done && !r.playing), at, { timeout: 240000, polling: 500 })
         .catch(async () => { throw new Error(`${deck} slide ${at + 1}: the time-lapse never ended (last: ${JSON.stringify(await page.evaluate(() => [window.__lapRec.length, window.__lapRec.at(-1), document.querySelector('.pzb-n')?.textContent]))})`); });
       await page.waitForTimeout(1500);
+      // (A held card comes in once the end's ease and the cards' fit have run: up to 15 s on a slow machine.)
+      if (await page.evaluate(() => window.__lapRec.some((r) => r.held))) await page.waitForFunction(() => { const p = window.__lapRec.findLast((r) => r.start && r.end); return p && window.__lapRec.some((r) => !r.held && r.tiles.length === p.n); }, null, { timeout: 15000, polling: 250 }).catch(() => {});
       const rec = await page.evaluate(() => { clearInterval(window.__lapT); return window.__lapRec; });
       const p = rec.findLast((r) => r.start && r.end), at1 = `${deck} slide ${at + 1}`;
       if (!p) throw new Error(`${at1}: the slide never counted as shown (${rec.length} samples, ${JSON.stringify(rec.slice(-2))})`);
@@ -1422,7 +1426,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const full = rec.filter((r) => r.tiles.length === p.n);
       if (!full.length) throw new Error(`${at1}: the card never showed`);
       for (const r of full) { const bad = badDelta(r.tiles); if (bad) throw new Error(`${at1}: ${bad}`); }
-      const first = full[0].tiles, off = first.filter((x, j) => x.v !== p.start[j]);
+      const held = rec.some((r) => r.held), first = full[0].tiles, off = held ? [] : first.filter((x, j) => x.v !== p.start[j]);
+      if (held && (full[0].held || full[0].playing)) throw new Error(`${at1}: the held card showed before the days had run`);
       if (off.length) throw new Error(`${at1} opens on ${off.map((x) => `${x.k} ${x.v}`).join(', ')}, but the model starts at ${p.start.join(', ')}`);
       // No snap or reset: sample to sample, no tile moves back away from where the time-lapse ends by more than a small wobble
       // (two last digits and 15% of its whole change). (Not a speed limit: a slow machine samples sparsely.)
