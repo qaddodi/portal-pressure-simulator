@@ -1249,6 +1249,11 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
 // (right), and Treat, Tests, History, View and More sit in a tab row at the foot of the dock, under the play bar,
 // in reach of a thumb. The sheets open above the dock, so the tab row and HVPG and PPG never move or hide.
 // Off a phone and an upright tablet (Mac, iPad landscape, a phone sideways) nothing changes.
+// An iPhone opened from the Home Screen has no browser bars: class `iphone-app` lets the phone's teaching card sit at the screen's edge
+// with the screen's own bottom corners (styles/app.css, --pz-sb). Safari keeps the card above its bar as before.
+const appMQ = matchMedia('(display-mode: standalone)');
+const syncIphoneApp = () => document.documentElement.classList.toggle('iphone-app', /iPhone|iPod/.test(navigator.userAgent) && (appMQ.matches || navigator.standalone === true));
+syncIphoneApp(); appMQ.addEventListener?.('change', syncIphoneApp);
 const thumbMQ = matchMedia('(max-width: 1100px) and (orientation: portrait)');
 const thumbOn = () => thumbMQ.matches && !app.classList.contains('presenting');
 function syncThumb() {
