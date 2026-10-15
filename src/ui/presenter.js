@@ -15,7 +15,7 @@
 import { store, replaceParams } from './store.js?v=3b659e1968';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=f7459cca3c';
-import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
+import { swipeDir, ownsSideways, caseFling } from './swipe.js?v=2c6c8a5c76';
 import { sinusoidSupported } from './sinusoid-view.js?v=aabae9b935';
 import { NODES } from '../engine/topology.js?v=c164acf7d0';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=6e65d4fb57';
@@ -1405,6 +1405,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   async function caseRun(s, si, st, cut) {
     const c = ui.vcase, ms = reduce.matches ? 0 : 450;
     c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, h('i'), 'Case'), h('p', { class: 'pz-case-p' }, s.vignette));
+    for (const k of ['transform', 'transition', 'opacity']) c.style.removeProperty(k);   // (a card flung off last time comes back whole)
     c.hidden = false; void c.offsetWidth;
     // The words run 2.5x the teaching card's; on a short or narrow screen they ease down just enough to fit the card's room (set before it enters, so nothing resizes on screen).
     c.style.removeProperty('--case-k');
@@ -1424,13 +1425,32 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return !cut();
   }
   // The card leaves: no longer a case card for Next to lift; it fades out and is hidden once it has.
+  // A card already flung off waits only for the rest of its flight.
   function caseShut() {
     const card = caseCard;
     if (!card) return 0;
     caseCard = null; caseLift = null;
     card.c.classList.remove('on');
-    setTimeout(() => { if (!card.c.classList.contains('on')) card.c.hidden = true; }, card.ms);
-    return card.ms;
+    const ms = card.flown ? Math.max(0, Math.ceil(card.flown - performance.now())) : card.ms;
+    setTimeout(() => { if (!card.c.classList.contains('on')) card.c.hidden = true; }, ms);
+    return ms;
+  }
+  // Swiped: the card flies off sideways from where the finger let go and lifts as a tap does (during the glide behind it
+  // too: the glide runs on and the slide's cards still wait for it to land). Too short a drag springs it back with an ease.
+  function caseFly(card, dir, v) {
+    const c = card.c, dist = innerWidth / 2 + c.offsetWidth, left = Math.max(0, dist - Math.abs(card.dx || 0));
+    const ms = reduce.matches ? 0 : Math.round(clamp(left / Math.max(Math.abs(v), 1.4), 180, 320));
+    c.style.transition = ms ? `transform ${ms}ms cubic-bezier(.25,.7,.4,1), opacity ${ms}ms linear` : 'none';
+    c.style.transform = `translateX(${dir * dist}px) rotate(${dir * 10}deg)`;
+    c.style.opacity = '0';
+    card.flown = performance.now() + ms; card.lifted = true;
+  }
+  function caseBack(card) {
+    const c = card.c;
+    c.style.transition = 'transform .35s var(--ease), opacity .35s var(--ease)';
+    c.style.removeProperty('transform'); c.style.removeProperty('opacity');
+    card.dx = 0;
+    setTimeout(() => { if (!card.flown && !card.drag) c.style.removeProperty('transition'); }, 380);
   }
   // Once the slide is ready behind the card (patient in, camera landed): waits for the tap, then lifts the card whole before the slide's cards come in.
   async function caseEnd(cut) {
@@ -2541,9 +2561,50 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let sw = null;
   wrap.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
-    sw = deck && e.touches.length === 1 && !ownsSideways(e.target, { stop: wrap, cardSideways: ui && !ui.data.hidden && !phone() })
+    sw = deck && e.touches.length === 1 && !caseOn(e) && !ownsSideways(e.target, { stop: wrap, cardSideways: ui && !ui.data.hidden && !phone() })
       ? { x: t.clientX, y: t.clientY, t: performance.now() } : null;
   }, { passive: true, capture: true });
+
+  // ── The case card on a touch screen: it follows a finger sideways (tilting a little) and flies off when let go far enough
+  // out or flicked, either way (caseFling in src/ui/swipe.js); a shorter drag, or one carried back, springs back. A vertical
+  // move, a second finger or a cancelled touch leaves it where it was. The slide swipe above leaves the card's touches alone,
+  // and the click after a drag is swallowed. Touch events only, so a mouse on the Mac still just clicks. ──
+  let cd = null, caseDragAt = -1e9;
+  const caseOn = (e) => !!caseCard && !caseCard.flown && e.target.closest?.('.pz-case') === caseCard.c;
+  const caseLet = (fly) => {
+    const g = cd; cd = null;
+    if (!g?.on) return;
+    g.card.drag = false; caseDragAt = performance.now();
+    const p = g.pts, a = p[0], b = p[p.length - 1], v = b[1] - a[1] >= 16 ? (b[0] - a[0]) / (b[1] - a[1]) : 0;
+    const dir = fly ? caseFling(g.card.dx, v, g.card.c.offsetWidth) : 0;
+    if (dir) caseFly(g.card, dir, v); else caseBack(g.card);
+  };
+  wrap.addEventListener('touchstart', (e) => {
+    if (cd) { caseLet(false); return; }   // (a second finger: back it goes)
+    if (!deck || e.touches.length !== 1 || !caseOn(e)) return;
+    const t = e.touches[0];
+    cd = { card: caseCard, x: t.clientX, y: t.clientY, on: false, pts: [[t.clientX, performance.now()]] };
+  }, { passive: true, capture: true });
+  wrap.addEventListener('touchmove', (e) => {
+    if (!cd) return;
+    if (e.touches.length !== 1 || cd.card.flown) { caseLet(false); return; }
+    const t = e.touches[0], dx = t.clientX - cd.x, dy = t.clientY - cd.y, now = performance.now();
+    if (!cd.on) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) >= Math.abs(dx)) { cd = null; return; }   // up or down first: not a card drag
+      if (Math.abs(dx) < 8) return;
+      cd.on = true; cd.card.drag = true;
+      cd.card.c.style.transition = 'none';
+    }
+    if (e.cancelable) e.preventDefault();
+    cd.pts.push([t.clientX, now]);
+    while (cd.pts.length > 2 && now - cd.pts[0][1] > 100) cd.pts.shift();
+    const c = cd.card.c, w = c.offsetWidth || 1;
+    cd.card.dx = dx;
+    c.style.transform = `translateX(${dx}px) rotate(${(dx / w) * 6}deg)`;
+    c.style.opacity = String(1 - Math.min(0.5, Math.abs(dx) / w * 0.6));
+  }, { passive: false, capture: true });
+  wrap.addEventListener('touchend', (e) => { if (cd && !e.touches.length) caseLet(true); }, { passive: true, capture: true });
+  wrap.addEventListener('touchcancel', () => { if (cd) caseLet(false); }, { passive: true, capture: true });
   wrap.addEventListener('touchmove', (e) => {
     if (e.touches.length > 1) sw = null;
   }, { passive: true, capture: true });
@@ -2709,7 +2770,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const safe = h('div', { class: 'pz-safe', 'aria-hidden': 'true', hidden: true });
     const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));
     const jump = h('nav', { class: 'pz-jump stage-blocker', hidden: true, 'aria-label': 'Slides' });
-    const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, 'aria-live': 'polite', onclick: () => caseLift?.() });
+    const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, 'aria-live': 'polite', onclick: () => { if (performance.now() - caseDragAt > 400) caseLift?.(); } });
     // The slide's colour key, small on the figure (src/ui/figure-key.js places it; its words are set by figKey).
     const fk = h('div', { class: 'pz-fk', role: 'img', hidden: true, 'data-empty': '' });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, panel, vcase, prog, bar, jump, blackEl);

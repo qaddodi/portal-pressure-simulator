@@ -78,3 +78,31 @@ test('the Case pill and the case text are centred on the card', () => {
   assert.match(css, /\.pz-case-tag \{[^}]*align-self: center/);
   assert.match(css.match(/\.pz-case-p \{[^}]*\}/)[0], /text-align: center/);
 });
+
+test('a let-go case card flies off when far out or flicked, either way, and springs back otherwise', async () => {
+  const { caseFling } = await import('../src/ui/swipe.js');
+  const w = 360;
+  assert.equal(caseFling(-200, 0, w), -1);          // slow drag let go past a third: off to the left
+  assert.equal(caseFling(200, 0, w), 1);            // and to the right
+  assert.equal(caseFling(-60, -0.9, w), -1);        // quick flick from a short drag
+  assert.equal(caseFling(60, 0.9, w), 1);
+  assert.equal(caseFling(-60, 0, w), 0);            // short slow drag: back
+  assert.equal(caseFling(-10, -2, w), 0);           // a twitch on lift-off is not a flick
+  assert.equal(caseFling(-200, 0.6, w), 0);         // pulled far, carried back toward the middle: back
+  assert.equal(caseFling(0, 0, w), 0);
+  assert.equal(caseFling(NaN, 1, w), 0);
+  assert.equal(caseFling(100, 1, 0), 0);
+});
+
+test('the case card follows a finger and a fling lifts it like a tap, also during the glide behind it', () => {
+  // The slide swipe leaves touches on the card alone; the card's own drag is touch-only and swallows the click after it.
+  assert.match(src, /sw = deck && e\.touches\.length === 1 && !caseOn\(e\)/);
+  assert.match(src, /onclick: \(\) => \{ if \(performance\.now\(\) - caseDragAt > 400\) caseLift\?\.\(\); \}/);
+  const fly = src.slice(src.indexOf('function caseFly('), src.indexOf('function caseBack('));
+  // Flying off only marks the card lifted: no camera move, no slide change; caseEnd still waits for the glide to land.
+  assert.match(fly, /card\.lifted = true/);
+  assert.doesNotMatch(fly, /camera\(|go\(|next\(/);
+  // Once flown, Next/caseShut wait only for the rest of the flight, and the next case card comes back whole.
+  assert.match(src, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;/);
+  assert.match(src, /for \(const k of \['transform', 'transition', 'opacity'\]\) c\.style\.removeProperty\(k\);/);
+});
