@@ -1239,7 +1239,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     if (e.target !== handle && e.target.closest(thumb() && anywhere ? FIELDS : CONTROLS) && !headTab) return;
     if (!own && !(anywhere && isPhone())) return;
     const r = el.getBoundingClientRect(), mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat);
-    start = { id: e.pointerId, x: e.clientX, y: e.clientY, h: r.height, H: room() || app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own || headTab, sc: own ? null : scroller(e.target) };
+    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: r.height, H: room() || app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own || headTab, sc: own ? null : scroller(e.target) };
   });
   el.addEventListener('pointermove', (e) => {
     if (!start || e.pointerId !== start.id) return;
@@ -1276,7 +1276,17 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     if (!s0.moved || !isPhone()) return;
     if (thumb() && s0.dy > 0) {
       el.style.transition = 'translate .22s var(--ease), clip-path .22s var(--ease)';
-      const gone = s0.dy > Math.min(90, s0.h * 0.3);
+      // From Full a pull settles at Half; only a pull past Half's own close point, or a fast flick down, closes it.
+      const S = stops(), fromFull = size === S.length - 1 && S.length > 1;
+      const halfH = fromFull ? Math.min(natural(), S[half()] * (room() || app.clientHeight)) : s0.h;
+      const flick = s0.dy / Math.max(1, performance.now() - s0.t0) > 0.9 && s0.dy > 40;
+      const gone = flick || s0.dy > (s0.h - halfH) + Math.min(90, halfH * 0.3);
+      if (!gone && fromFull && s0.dy > 40) {
+        size = half(); el.style.transition = 'translate .22s var(--ease), clip-path .22s var(--ease), height .22s var(--ease)';
+        apply(); el.style.translate = ''; el.style.clipPath = '';
+        setTimeout(() => { el.style.transition = ''; }, 240);
+        return;
+      }
       el.style.translate = gone ? '0 100%' : ''; el.style.clipPath = gone ? 'inset(-40px -40px 100% -40px)' : '';
       setTimeout(() => {
         if (gone) { el.dataset.swiped = '1'; onClose(); delete el.dataset.swiped; }
