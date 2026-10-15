@@ -593,14 +593,26 @@ export function createDoppler({ onProbe }) {
     rng ||= document.createRange();
     const k0 = +report.style.getPropertyValue('--dop-k') || 1;
     for (let i = 0, k = k0; i < 3; i++) {
-      rng.selectNodeContents(report);
-      const nat = rng.getBoundingClientRect().width;
+      const nat = stripRect().width;
       if (!(nat > 0) || have <= 0) return;
       const fit = Math.max(0.75, Math.min(1, Math.floor(k * (have / nat) * 0.98 * 100) / 100));
       if (nat <= have && (fit - k < 0.05 || k >= 1)) return;   // fits, and would not grow by a clear step
       if (fit === k) return;
       k = fit; report.style.setProperty('--dop-k', String(k));
     }
+  }
+
+  // The strip's own words (the reading, direction and pattern), measured together: a phone's Tests card keeps the gauge and tiles
+  // in the same box under the monitor, so the box itself is not the strip.
+  function stripRect() {
+    let l = Infinity, r = -Infinity, b = -Infinity;
+    for (const e of [velEl, dirEl, patternEl]) {
+      rng.selectNodeContents(e);
+      const q = rng.getBoundingClientRect();
+      if (!q.width) continue;
+      l = Math.min(l, q.left); r = Math.max(r, q.right); b = Math.max(b, e.getBoundingClientRect().bottom);
+    }
+    return { width: r > l ? r - l + (patternEl.textContent ? 14 : 0) : 0, bottom: b };
   }
 
   function draw(now = performance.now()) {
@@ -617,7 +629,7 @@ export function createDoppler({ onProbe }) {
     if (ovKey !== ovLast || tOv - ovAt > 500) { ovAt = tOv; ovOn = getComputedStyle(cv).getPropertyValue('--dop-ov').trim() === '1'; }
     if (ovOn) {
       const k0 = stripKey; fitStrip();
-      if (ovKey !== ovLast || stripKey !== k0) { const t = Math.ceil(report.offsetHeight) + 4; if (ovKey !== ovLast || t > ovTop || t < ovTop - 4) ovTop = t; }
+      if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4; if (ovKey !== ovLast || t > ovTop || t < ovTop - 4) ovTop = t; }
     } else ovTop = 26;
     ovLast = ovKey;
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;

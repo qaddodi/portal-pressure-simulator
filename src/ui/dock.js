@@ -9,7 +9,8 @@ import { createProfile } from './charts.js?v=42f2fd7fbc';
 import { createPressureTime } from './pressure-time.js?v=ddccfd4596';
 import { createFibroScan } from './fibroscan.js?v=5683199fd4';
 import { createHvpgProcedure } from './hvpg-proc.js?v=a404bb8855';
-import { createDoppler } from './doppler.js?v=7e65661148';
+import { createDoppler } from './doppler.js?v=6dd4e18f38';
+import { swipeDir, ownsSideways } from './swipe.js?v=22a6f38036';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b343fe6aba';
 import { createReadoutsPane } from './readouts-pane.js?v=0ee0901273';
 import { frameFor } from './frame.js?v=0db47e99bf';
@@ -346,6 +347,29 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // over a tab row. The title and its quiet status show only while the tabs are hidden (the folded peek state).
   closeBtn.before(tabsBox);
   head.after(pickHint);
+  // A phone's Tests card (over the thumb dock): a quick sideways swipe on the card moves to the next or previous tab, and
+  // the new pane slides in from that side. A vertical pull stays the sheet's (it closes or resizes the card).
+  let sw = null;
+  body.addEventListener('touchstart', (e) => {
+    sw = e.touches.length === 1 && app.classList.contains('thumb') && !ownsSideways(e.target, { stop: body })
+      ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now() } : null;
+  }, { passive: true });
+  body.addEventListener('touchend', (e) => {
+    if (!sw) return;
+    const t = e.changedTouches[0], d = swipeDir(t.clientX - sw.x, t.clientY - sw.y, performance.now() - sw.t);
+    sw = null;
+    if (!d) return;
+    const i = TABS.indexOf(tabOf(open[0])), j = i + d;
+    if (j < 0 || j >= TABS.length) return;
+    pick(TABS[j]);
+    const pane = body.querySelector('.dock-pane.active');
+    if (!pane) return;
+    pane.classList.remove('swipe-l', 'swipe-r'); void pane.offsetWidth;
+    pane.classList.add(d > 0 ? 'swipe-l' : 'swipe-r');
+    pane.addEventListener('animationend', () => pane.classList.remove('swipe-l', 'swipe-r'), { once: true });
+    tabEls[TABS[j]].b.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, { passive: true });
+  body.addEventListener('touchcancel', () => { sw = null; }, { passive: true });
   // The switch inside the Pressure tab: the chart along the circuit, or the same pressures over time.
   const pressureSwitch = (own) => h('div', { class: 'pressure-switch', role: 'group', 'aria-label': 'Pressure view' },
     [['profile', 'Along the circuit'], ['scope', 'Over time']].map(([id, label]) => h('button', {
