@@ -385,7 +385,33 @@ export function createAbdomen({ onAction }) {
   const bigEl = h('b', {}, numEl, h('small', {}, 'L'));   // (the volume, coloured by its grade like the Ascites tile)
   const bellyFill = h('i', { class: 'ab-belly-fill' });
   // The litres sit inside the belly and the grade under it, so the reading and the picture stay one object.
-  const rateEl = h('span', { class: 'ab-rate' });
+  // The daily balance: always on its line, never appearing or going. Averaged over a few seconds, it keeps the shown hundred until the rate is
+  // 100 mL/day past it (a rate hovering at ±50 used to flash between a number and nothing), reads "Steady" at zero, and
+  // fades out and back in when it changes: amber with ▲ while fluid builds up, teal with ▼ while it goes.
+  const rateArrow = h('i', { class: 'ab-rate-a', 'aria-hidden': 'true' }), rateTxt = h('span');
+  const rateEl = h('span', { class: 'ab-rate', 'data-dir': 'steady' }, rateArrow, rateTxt);
+  let rateShown = null, rateTimer = 0, rateAvg = null, rateT = 0;
+  const rateLabel = (b) => (b === 0 ? ['steady', '', 'Steady'] : b > 0 ? ['up', '▲', `${fmt(b, 0)} mL/day`] : ['down', '▼', `${fmt(-b, 0)} mL/day`]);
+  function paintRate(raw) {
+    // The model's rate swings with every breath and beat (2200 to 1500 mL/day within a second on diuretics): average it
+    // over about 6 s of the screen's own time first, so only a real change in the balance moves the line.
+    if (!Number.isFinite(raw)) raw = 0;
+    const now = performance.now(), dt = rateAvg == null ? Infinity : Math.min(now - rateT, 2000);
+    rateT = now;
+    rateAvg = rateAvg == null ? raw : rateAvg + (raw - rateAvg) * (1 - Math.exp(-dt / 6000));
+    const r = rateAvg;
+    if (rateShown != null && Math.abs(r - rateShown) <= 100) return;
+    const b = Math.round(r / 100) * 100;
+    if (b === rateShown) return;
+    const first = rateShown == null;
+    rateShown = b;
+    const [dir, arrow, txt] = rateLabel(b);
+    const apply = () => { rateTimer = 0; rateEl.dataset.dir = dir; rateArrow.textContent = arrow; rateTxt.textContent = txt; rateEl.classList.remove('ab-rate-out'); };
+    clearTimeout(rateTimer);
+    if (first) { apply(); return; }
+    rateEl.classList.add('ab-rate-out');
+    rateTimer = setTimeout(apply, 160);
+  }
   const belly = h('div', { class: 'ab-belly' }, bellyFill, h('div', { class: 'ab-big' }, bigEl, gradeEl, rateEl));
   const gauge = h('div', { class: 'ab-gauge' }, belly);
   // Beside the belly in the Ascites tab: the pressure dial on its left, the drain on its right (both hidden on a slide).
@@ -426,8 +452,7 @@ export function createAbdomen({ onAction }) {
     diu.disabled = !(verbEnabled('drug:diuretics', 'drug:diuretics') || verbEnabled('drugs', 'drugs'));
     if (sa.get() !== p.albumin) sa.set(p.albumin);
     const r = a.ratePerDay, trend = Math.abs(r) < 20 ? 'steady' : r > 0 ? 'building up' : 'resolving';
-    const r100 = Math.round(r / 100) * 100;
-    setText(rateEl, r100 === 0 ? '' : `${r100 > 0 ? '+' : '−'}${fmt(Math.abs(r100), 0)} mL/day`);
+    paintRate(r);
     setText(trendEl, `${r > 0 ? '+' : ''}${fmt(r, 0)} mL a day · ${trend}`);
     const sev = iapSev(a.iap);
     dial.set(a.iap);

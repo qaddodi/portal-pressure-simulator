@@ -34,3 +34,16 @@ test('at every card width the dial fits beside the belly and the drain keeps at 
     assert.ok(side >= 84 - 0.01, `drain ${side.toFixed(1)} px at ${W}px`);
   }
 });
+
+test('the belly\'s daily balance never flashes: it holds its hundred until 100 mL/day past it, reads Steady at zero, and fades between values', () => {
+  assert.ok(js.includes('if (rateShown != null && Math.abs(r - rateShown) <= 100) return;'));
+  assert.ok(js.includes('rateAvg + (raw - rateAvg) * (1 - Math.exp(-dt / 6000))'), 'the beat-to-beat swing is averaged out first');
+  assert.ok(js.includes("b === 0 ? ['steady', '', 'Steady']"));
+  assert.doesNotMatch(js, /setText\(rateEl, r100 === 0 \? ''/, 'never blanked');
+  assert.ok(css.includes('.ab .ab-belly > .ab-big > .ab-rate.ab-rate-out { opacity: 0; }'));
+  // the rule itself: a rate wobbling round ±50 keeps one label
+  let shown = null; const seen = new Set();
+  const paint = (r) => { if (shown != null && Math.abs(r - shown) <= 100) return; shown = Math.round(r / 100) * 100; };
+  for (let i = 0; i < 200; i++) { paint(50 + 15 * Math.sin(i)); seen.add(shown); }
+  assert.equal(seen.size, 1);
+});
