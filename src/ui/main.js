@@ -1130,7 +1130,7 @@ function wireFloating() {
 // fit: the scrolling body's selector; at the middle stop the sheet is only as tall as its content.
 // Over the thumb dock (an upright phone) a sheet has two heights, Half and Full, as shares of the room between the
 // top bar and the dock: the release is measured against that same room, so it lands where the finger left it.
-// The grabber toggles them, and a vertical drag on the head's tabs moves the sheet (a tap still picks the tab).
+// No visible grabber over the thumb dock: a drag from anywhere moves the sheet (a tap on a tab still picks it); the hidden button toggles them from the keyboard.
 function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {
   const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1];
   const thumb = () => app.classList.contains('thumb') && isPhone();
@@ -1175,6 +1175,8 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     stopSink(el);
     const r = el.getBoundingClientRect(), mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat);
     start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: r.height, H: room() || app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own || headTab, sc: own ? null : scroller(e.target) };
+    // (Half's height, as apply() sets it: the content's own height when that is less)
+    if (thumb() && size === stops().length - 1 && stops().length > 1) { start.full = true; start.half = Math.min(r.height, natural(), stops()[half()] * room()); }
   });
   el.addEventListener('pointermove', (e) => {
     if (!start || e.pointerId !== start.id) return;
@@ -1190,7 +1192,10 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     start.dy = dy;
     // Over the thumb dock a pull down slides the card down behind the tab row (--sink: moved and cut at its resting
     // bottom edge in one value, styles/app.css).
-    if (thumb() && dy > 0) { el.style.height = ''; el.style.setProperty('--sink', `${dy}px`); }
+    // From Full a pull down shrinks the card the way a pull up grew it (15 Oct, Mohammad): its foot stays on the tab row and
+    // its top follows the finger, slowing past Half, where it settles.
+    if (thumb() && dy > 0 && start.full) { el.style.removeProperty('--sink'); const lo = start.half, h = start.h - dy; el.style.height = `${Math.max(60, h >= lo ? h : lo - (lo - h) * 0.25)}px`; }
+    else if (thumb() && dy > 0) { el.style.height = ''; el.style.setProperty('--sink', `${dy}px`); }
     else if (isPhone()) { el.style.removeProperty('--sink'); el.style.height = `${Math.max(60, start.h - dy)}px`; }
     else el.style.translate = `${start.tx + dx}px ${start.ty + dy}px`;
   });
@@ -1216,8 +1221,11 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
       const S = stops(), fromFull = size === S.length - 1 && S.length > 1;
       const flick = s0.dy / Math.max(1, performance.now() - s0.t0) > 0.9 && s0.dy > 40;
       if (fromFull) {
-        if (s0.dy > 40) { size = half(); el.style.transition = 'height .22s var(--ease)'; apply(); setTimeout(() => { el.style.transition = ''; }, 240); }
-        sinkTo(el, 0);
+        // (the card eases from where the finger left it: back to Full after a short pull, to Half otherwise)
+        if (s0.dy > 40) size = half();
+        el.style.transition = 'height .22s var(--ease)'; apply(); el.style.height = '';
+        setTimeout(() => { el.style.transition = ''; }, 240);
+        stopSink(el); el.style.removeProperty('--sink');
         return;
       }
       const gone = flick || s0.dy > Math.min(90, s0.h * 0.3);

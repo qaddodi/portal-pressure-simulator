@@ -5145,9 +5145,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
     border-radius: var(--r-sheet) !important; padding-bottom: 0; max-height: calc(100% - var(--top-safe) - var(--nb-occ, var(--vdock-h)) - 22px);
   }
   .app.thumb .instrument-workspace .dock-pane { padding-bottom: 16px; }
-  /* A visible grabber on the top edge: a tap toggles Half and Full, a drag (or one from the head's tabs) moves the sheet. */
-  .app.thumb :is(.panel-grab, .sheet-grab) { opacity: 1; width: 72px; height: 14px; }
-  .app.thumb :is(.panel-grab, .sheet-grab)::before { top: 5px; width: 36px; }
+  /* No grabber on the top edge (15 Oct, Mohammad: it covered the titles and the Tests tabs): a drag from anywhere on the
+     card moves it, up to Full and down to Half or closed. The button stays for the keyboard (Half/Full), seen only on focus,
+     and never takes a touch, so the head under it gets the tap or the drag. */
+  .app.thumb :is(.panel-grab, .sheet-grab) { pointer-events: none; }
   html.thumb-ui .menu.as-sheet { left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--thumb-occ, 0px); max-height: calc(100dvh - var(--thumb-occ, 0px) - 72px); padding-bottom: 10px; border-radius: var(--r-sheet); }
 }
 /* A tablet held upright: Treat opens above the dock, at the right, instead of under the top bar. */

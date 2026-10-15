@@ -2100,6 +2100,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const box = () => page.evaluate(() => { const r = document.querySelector('#dock').getBoundingClientRect(); return { top: r.top, h: r.height }; });
     const full = await page.evaluate(() => { const a = document.querySelector('#app'), v = (k) => parseFloat(a.style.getPropertyValue(k)) || 0; return a.clientHeight - v('--top-safe') - v('--nb-occ') - 22; });
     const half = (await box()).h;
+    // No grabber over the title or the tabs: the button is unseen and the head under it takes the touch.
+    const grab = await page.evaluate(() => { const g = document.querySelector('#dock .sheet-grab'), r = g.getBoundingClientRect(), cs = getComputedStyle(g); return { op: +cs.opacity, hit: document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === g }; });
+    if (grab.op > 0.01 || grab.hit) throw new Error(`the Tests card still shows a grabber over its head: ${JSON.stringify(grab)}`);
     if (half > full * 0.75 || half < full * 0.5) throw new Error(`Half is ${half} px of ${full}`);
     const tab = await page.evaluate(() => { const r = document.querySelectorAll('#dock [role=tab]')[2].getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
     await page.mouse.move(tab[0], tab[1]); await page.mouse.down();
@@ -2107,7 +2110,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.mouse.up();
     await page.waitForTimeout(600);
     if (Math.abs((await box()).h - full) > 2) throw new Error(`pulled up, the card settled at ${(await box()).h} px, not ${full}`);
-    await page.click('#dock .sheet-grab');
+    await page.$eval('#dock .sheet-grab', (b) => b.click());   // (the keyboard's Half/Full button: no touch reaches it)
     await page.waitForTimeout(600);
     if (Math.abs((await box()).h - half) > 2) throw new Error('the grabber does not return the card to Half');
     const before = await box();
@@ -2126,7 +2129,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.click('#thumbBar [data-tab="tests"]');
     await page.waitForTimeout(900);
     const halfH = await page.evaluate(() => document.querySelector('#dock').getBoundingClientRect().height);
-    await page.click('#dock .sheet-grab');
+    await page.$eval('#dock .sheet-grab', (b) => b.click());   // (the keyboard's Half/Full button: no touch reaches it)
     await page.waitForTimeout(600);
     const fullH = await page.evaluate(() => document.querySelector('#dock').getBoundingClientRect().height);
     await page.evaluate(() => {
@@ -2146,6 +2149,24 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.mouse.up();
       await page.waitForTimeout(700);
     };
+    // A slow pull from Full shrinks the card: its foot stays on the tab row and its top follows the finger (it never slides down).
+    {
+      const r0 = await page.evaluate(() => { const r = document.querySelector('#dock').getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; });
+      const x = 195, y = r0.top + 30;
+      await page.mouse.move(x, y); await page.mouse.down();
+      for (let i = 1; i <= 10; i++) await page.mouse.move(x, y + 8 * i);
+      await page.waitForTimeout(50);
+      const mid = await page.evaluate(() => { const c = document.querySelector('#dock'), r = c.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, ty: parseFloat(getComputedStyle(c).translate.split(' ')[1]) || 0 }; });
+      if (Math.abs(mid.bottom - r0.bottom) > 1 || Math.abs(mid.ty) > 0.5) throw new Error(`a pull from Full slid the card down instead of shrinking it: ${JSON.stringify({ r0, mid })}`);
+      if (Math.abs(mid.top - (r0.top + 80)) > 3) throw new Error(`the card's top did not follow the finger: ${mid.top - r0.top} px for 80`);
+      for (let i = 11; i <= 4 * 10 + 30; i++) await page.mouse.move(x, y + 8 * i);
+      await page.mouse.up();
+      await page.waitForTimeout(700);
+      const h = await page.evaluate(() => document.querySelector('#dock').getBoundingClientRect().height);
+      if (Math.abs(h - halfH) > 2) throw new Error(`released past Half, the card settled at ${h} px, not Half (${halfH})`);
+      await page.$eval('#dock .sheet-grab', (b) => b.click());
+      await page.waitForTimeout(600);
+    }
     await flick();
     const st = await page.evaluate(() => ({ open: document.querySelector('#app').classList.contains('dock-open'), h: document.querySelector('#dock').getBoundingClientRect().height }));
     if (!st.open) throw new Error('a fast pull from Full closed the Tests card instead of settling at Half');
@@ -2198,7 +2219,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     let v = await look();
     if (v.n < 4 || v.covered) throw new Error(`at Half ${v.n} Doppler tiles, ${v.covered} covered`);
     if (v.note) throw new Error('the Doppler note shows at Half');
-    await page.click('#dock .sheet-grab');
+    await page.$eval('#dock .sheet-grab', (b) => b.click());   // (the keyboard's Half/Full button: no touch reaches it)
     await page.waitForTimeout(900);
     v = await look();
     if (v.n < 4 || v.covered) throw new Error(`at Full ${v.n} Doppler tiles, ${v.covered} covered`);
