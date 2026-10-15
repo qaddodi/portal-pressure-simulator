@@ -5239,6 +5239,10 @@ html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb :is(.view-pill, .zoom-p
 .app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > :not(.thumb-bar):not(.vd-status), .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) > :not(.thumb-bar):not(.vd-status), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) > :not(.thumb-bar):not(.vd-status) { opacity: 0; pointer-events: none; }
 .app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar, .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) .thumb-bar, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar { box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
 
+/* While a card covers the play bar, the bar's empty top row must not catch taps meant for the card's bottom edge (the Doppler's stent tiles sit there): only the tab row takes touches. */
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini), .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) { pointer-events: none; }
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar, .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) .thumb-bar, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar { pointer-events: auto; }
+
 /* ── History beside Treat and Tests (15 Oct) ───────────────────────
    History left the play bar: on a Mac, an iPad held sideways and a phone held sideways it is a top-bar button
    beside Treat and Tests (its card opens in Treat's place on the right); upright, it is a tab in the thumb dock. */
