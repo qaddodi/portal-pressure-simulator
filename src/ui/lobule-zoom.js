@@ -26,7 +26,7 @@ import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=aa67f75cf8';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01, GLIDE_MS } from './util.js?v=0e70eb01ff';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=162c8bf8d6';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=191c4f4858';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=bdca5fc56f';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
 import { createSinusoidView } from './sinusoid-view.js?v=44e154296f';
 import { frameFor, cancelFrame, noteDraw, saver, SAVER_MS } from './frame.js?v=5ad4028792';
@@ -588,6 +588,10 @@ export function createLobuleZoom({ host }) {
   let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
   const worldCv = document.createElement('canvas');   // the lobule's tissue in world space (see paintTissue)
   const tubeData = new Float32Array(MAXT * TUBE_TEXELS * 4), flowData = new Float32Array(MAXT * FLOW_TEXELS * 4);
+  // The vessel attributes as last sent (tubeShown), the rows changed since the vessel layer was drawn (glRows), and the
+  // look it was drawn with (glLook): a redraw of only those rows' cells stands in for a whole one (veins-gl drawRows).
+  let tubeShown = null, glLook = '';
+  const glRows = new Set();
   let clock = 0, origins = null, originsF = null;
   const pc = (p) => (model?.hide ? tk('--lz-lumen-hidden') : pressureColor(p));
 
@@ -1983,7 +1987,7 @@ export function createLobuleZoom({ host }) {
       const lk = lensK(), inks = new Map(live.map((t) => [t.id, [tubeRGB(t, 0, lk), tubeRGB(t, 1, lk)]]));
       const ak = [m.mode, [...inks.values()].flat(2).map((x) => x.toFixed(3)).join(','), m.hide, origin, lymphOn, lyProt(m).toFixed(2), lyF(m).toFixed(2), [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
       if (ak !== attrKey) {
-        attrKey = ak; glDirty = true;
+        attrKey = ak;
         tubeData.fill(0);
         const art = rgb01(cs.getPropertyValue('--artery').trim()), grey = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
         const LY = lyInk(m, dark);   // lymph: clear, a faint green (paler than the bile duct), deeper with more protein
@@ -2006,6 +2010,11 @@ export function createLobuleZoom({ host }) {
           if (edge) tubeData.set([...edge, 0], o + 24);
         }
         g.setTubes(tubeData);
+        // The pulse moves only some vessels' colours: those vessels alone are drawn again (see the draw below).
+        if (!tubeShown) { tubeShown = tubeData.slice(); glDirty = true; }
+        else for (let o = 0, W = TUBE_TEXELS * 4; o < tubeData.length; o += W) {
+          for (let i = o; i < o + W; i++) if (tubeData[i] !== tubeShown[i]) { glRows.add(o / W); tubeShown.set(tubeData.subarray(o, o + W), o); break; }
+        }
       }
     }
     // Blood: each vessel's stream advances at a display speed from the model's flows.
@@ -2058,7 +2067,12 @@ export function createLobuleZoom({ host }) {
       netAlpha: 1, fx: true, tierAlpha: Array(MAX_TIERS).fill(1), tierGroup: Array(MAX_TIERS).fill(1),
     };
     const blood = { alpha: flowA, on: bloodOn && flowA > 0.002, chev: chev && flowA > 0.002, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], ...bloodColors() };
-    if (glDirty || dk !== drawKey) { glDirty = false; drawKey = dk; g.draw(T, look, blood); } else g.composite(look, blood);
+    // A whole redraw of the vessel layer is by far the heaviest thing the lobule draws (about 150 plain fills of the
+    // canvas); when only some vessels' attributes changed, only their cells are drawn again, to the same picture.
+    const lsig = JSON.stringify(look);
+    if (glDirty || dk !== drawKey || lsig !== glLook) { glDirty = false; drawKey = dk; glLook = lsig; glRows.clear(); g.draw(T, look, blood); }
+    else if (glRows.size) { const rows = [...glRows]; glRows.clear(); if (!g.drawRows(T, look, blood, rows)) g.draw(T, look, blood); }
+    else g.composite(look, blood);
   }
   const num = (cs, n, d) => { const v = parseFloat(cs.getPropertyValue(n)); return Number.isFinite(v) ? v : d; };
   const triplet = (cs, n) => { const k = cs.getPropertyValue(n).trim().split(/[\s,/]+/).map(Number); return k.length >= 3 && k.every(Number.isFinite) ? k.slice(0, 3).map((v) => v / 255) : [0, 0, 0]; };

@@ -103,6 +103,7 @@ uniform int fx;                        // 1: shading and shadows (off in the fig
 uniform int heat;                      // 1: congestion glow
 uniform float tierAlpha[${MAX_TIERS}];
 uniform int tierGroup[${MAX_TIERS}];   // 0 behind the organs, 1 the network, 2 lifted
+uniform int redraw;                    // 1: some cells drawn again over the last picture (drawRows), not cleared first: a pixel left empty is written empty
 layout(location=0) out vec4 outColor;
 layout(location=1) out uvec4 outFlow;  // the lumen in front: vessel row + 1, 16 × (arc length + S_OFF), across (0–65535), visibility
 layout(location=2) out uvec4 outFlow2; // near a join, the lumen it joins: row + 1, 16 × (arc + S_OFF), across, its share (0–65535)
@@ -193,7 +194,7 @@ void main() {
     float hs = clamp(dot(ps - a, ba) / L2, 0.0, 1.0);
     bs = min(bs, length(ps - a - ba * hs) - mix(rr.x, rr.y, mix(t0, t1, hs)));
   }
-  if (n == 0) discard;
+  if (n == 0) { if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); return; } discard; }
 
   // ── Junctions: which of these vessels are joined here, and how widely ──
   int jn = 0;
@@ -508,7 +509,7 @@ void main() {
     else accT = over(c, accT);
   }
   vec4 o = over(accT, over(accN * netAlpha, over(glow, accB)));
-  if (o.a < 0.002) discard;
+  if (o.a < 0.002) { if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); return; } discard; }
   // Dither by up to a level (triangular noise, fixed per pixel) before the 8-bit layer: the colour and
   // alpha of a soft gradient (the glow's falloff) would round at different places and draw thin stripes.
   uvec2 fc = uvec2(gl_FragCoord.xy);
@@ -1138,6 +1139,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(1, 1);
   gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 24, 8); gl.vertexAttribDivisor(2, 1);
   gl.bindVertexArray(null);
+  // Some of those cells, for a redraw of only the vessels that changed (see drawRows).
+  const partVAO = gl.createVertexArray(), partBuf = gl.createBuffer();
+  gl.bindVertexArray(partVAO);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, partBuf);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(1, 1);
+  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 24, 8); gl.vertexAttribDivisor(2, 1);
+  gl.bindVertexArray(null);
   // The ascites surface band: cells redrawn each frame while its ripple runs.
   const fluidBuf = gl.createBuffer(), fluidVAO = gl.createVertexArray();
   gl.bindVertexArray(fluidVAO);
@@ -1172,9 +1182,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   const fbo = gl.createFramebuffer();
   const baseTex = dataTex(gl), gTex = dataTex(gl), gTex2 = dataTex(gl);
   let fboW = 0, fboH = 0, baseM = null, dyeAny = false, wasBleeding = false;
+  // fboOK: the vessel layer holds a whole draw of the current geometry, radii and organ covers, at baseM, so a redraw of
+  // some of its cells (drawRows) leaves it exactly as a whole draw would. Cleared by anything else the vessel pass reads.
+  let fboOK = false;
   function ensureFBO() {
     if (fboW === canvas.width && fboH === canvas.height) return;
-    fboW = canvas.width; fboH = canvas.height;
+    fboW = canvas.width; fboH = canvas.height; fboOK = false;
     gl.bindTexture(gl.TEXTURE_2D, baseTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fboW, fboH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.bindTexture(gl.TEXTURE_2D, gTex);
@@ -1210,7 +1223,66 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.disable(gl.BLEND);
   }
 
-  let nCells = 0, lost = false, organRect = null;
+  let nCells = 0, lost = false, organRect = null, partCells = 0;
+  // The binned cells on the CPU, and (built when first asked) each vessel row's cells: a row's attributes can change
+  // only the pixels of the cells that list it, since each pixel is drawn from its own cell's list alone.
+  let cellsCPU = null, entCPU = null, rowCells = null;
+  function cellsOfRows(rows) {
+    if (!rowCells) {
+      rowCells = new Map();
+      for (let c = 0; c < nCells; c++) {
+        const s0 = cellsCPU[c * 6 + 2], n = cellsCPU[c * 6 + 3];
+        let prev = -1;
+        for (let e = s0; e < s0 + n; e++) {
+          const row = entCPU[e * 8 + 4];
+          if (row === prev) continue;   // (a cell's list is grouped by vessel)
+          prev = row;
+          let a = rowCells.get(row);
+          if (!a) rowCells.set(row, a = []);
+          if (a[a.length - 1] !== c) a.push(c);
+        }
+      }
+    }
+    const mark = new Uint8Array(nCells);
+    let k = 0;
+    for (const r of rows) for (const c of rowCells.get(r) || []) if (!mark[c]) { mark[c] = 1; k++; }
+    return { mark, k };
+  }
+  // The vessel pass over `count` cells of vertex array `va`, into the bound vessel framebuffer (draw() clears it first).
+  function vesselPass(m, look, va, count, redraw = false) {
+    gl.disable(gl.BLEND);
+    if (!count) return;
+    const M = new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
+    gl.useProgram(p);
+    gl.uniformMatrix3fv(u.world, false, M);
+    gl.uniform2f(u.size, canvas.width, canvas.height);
+    gl.uniform1f(u.cell, CELL);
+    gl.uniform1f(u.px, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
+    gl.uniform1f(u.reachU, look.reach);
+    gl.uniform2f(u.shOff, ...look.shOff);
+    gl.uniform4f(u.casing, ...look.casing);
+    gl.uniform4f(u.shadow, ...look.shadow);
+    gl.uniform4f(u.sheenInk, ...look.sheen);
+    gl.uniform4f(u.shadeInk, ...look.shade);
+    gl.uniform4f(u.ring, ...look.ring);
+    gl.uniform2f(u.light, ...look.light);
+    gl.uniform1f(u.netAlpha, look.netAlpha);
+    gl.uniform1i(u.fx, look.fx ? 1 : 0);
+    gl.uniform1i(u.heat, look.heat ? 1 : 0);
+    gl.uniform1i(u.redraw, redraw ? 1 : 0);
+    gl.uniform1fv(u.tierAlpha, look.tierAlpha);
+    gl.uniform1iv(u.tierGroup, look.tierGroup);
+    gl.uniform1i(u.useOrgan, look.organs > 0 && organRect ? 1 : 0);
+    gl.uniform1f(u.organK, +look.organs || 0);
+    if (organRect) gl.uniform4f(u.organRect, ...organRect);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, entTex); gl.uniform1i(u.ent, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, radTex); gl.uniform1i(u.rad, 1);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tubeTex); gl.uniform1i(u.tube, 2);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, organTex); gl.uniform1i(u.organ, 3);
+    gl.bindVertexArray(va);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
+    gl.bindVertexArray(null);
+  }
   const onLost = (e) => { e.preventDefault(); lost = true; };
   canvas.addEventListener('webglcontextlost', onLost);
   // A software renderer (no usable GPU: the browser draws on the CPU) is told apart so the stage
@@ -1232,12 +1304,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.bindBuffer(gl.ARRAY_BUFFER, cellBuf);
       gl.bufferData(gl.ARRAY_BUFFER, bins.cells, gl.STATIC_DRAW);
       nCells = bins.nCells;
+      cellsCPU = bins.cells; entCPU = bins.ent; rowCells = null; fboOK = false;
     },
     /** A vessel's lumen radius at each of its N_SAMPLES samples. */
     setRadii(row, r) {
       for (let i = 0; i < N_SAMPLES; i++) { radRow[i * 2] = r[i]; radRow[i * 2 + 1] = r[Math.min(N_SAMPLES - 1, i + 1)]; }
       gl.bindTexture(gl.TEXTURE_2D, radTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, N_SAMPLES, 1, gl.RG, gl.FLOAT, radRow);
+      fboOK = false;
     },
     /** Every vessel's attributes: nTubes × TUBE_TEXELS × 4 floats. */
     setTubes(data) {
@@ -1249,7 +1323,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.bindTexture(gl.TEXTURE_2D, organTex);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
-      organRect = rect;
+      organRect = rect; fboOK = false;
     },
     /** A plate raster (0: the whole plate, 1: a sharper one of the view) and the world rectangle it spans. */
     setPlate(slot, source, rect) {
@@ -1298,42 +1372,41 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
       gl.clearBufferuiv(gl.COLOR, 1, [0, 0, 0, 0]);
       gl.clearBufferuiv(gl.COLOR, 2, [0, 0, 0, 0]);
-      gl.disable(gl.BLEND);
       baseM = m;
-      if (nCells) {
-        const M = new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
-        gl.useProgram(p);
-        gl.uniformMatrix3fv(u.world, false, M);
-        gl.uniform2f(u.size, canvas.width, canvas.height);
-        gl.uniform1f(u.cell, CELL);
-        gl.uniform1f(u.px, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
-        gl.uniform1f(u.reachU, look.reach);
-        gl.uniform2f(u.shOff, ...look.shOff);
-        gl.uniform4f(u.casing, ...look.casing);
-        gl.uniform4f(u.shadow, ...look.shadow);
-        gl.uniform4f(u.sheenInk, ...look.sheen);
-        gl.uniform4f(u.shadeInk, ...look.shade);
-        gl.uniform4f(u.ring, ...look.ring);
-        gl.uniform2f(u.light, ...look.light);
-        gl.uniform1f(u.netAlpha, look.netAlpha);
-        gl.uniform1i(u.fx, look.fx ? 1 : 0);
-        gl.uniform1i(u.heat, look.heat ? 1 : 0);
-        gl.uniform1fv(u.tierAlpha, look.tierAlpha);
-        gl.uniform1iv(u.tierGroup, look.tierGroup);
-        gl.uniform1i(u.useOrgan, look.organs > 0 && organRect ? 1 : 0);
-        gl.uniform1f(u.organK, +look.organs || 0);
-        if (organRect) gl.uniform4f(u.organRect, ...organRect);
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, entTex); gl.uniform1i(u.ent, 0);
-        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, radTex); gl.uniform1i(u.rad, 1);
-        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tubeTex); gl.uniform1i(u.tube, 2);
-        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, organTex); gl.uniform1i(u.organ, 3);
-        gl.bindVertexArray(vao);
-        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nCells);
-        gl.bindVertexArray(null);
-      }
+      vesselPass(m, look, vao, nCells);
+      fboOK = true;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       this.composite(look, blood, true);
     },
+    /**
+     * Redraws only the cells that list the vessel rows given (their attributes changed: a colour, a fade), then the
+     * picture as a frame of the moving blood does. The vessel layer ends exactly as draw() would leave it: a pixel is
+     * drawn from its own cell's list alone, so a row can change only its own cells. Allowed only when nothing else the
+     * vessel pass reads changed since the last whole draw: transform `m` and size (checked here), geometry, radii and
+     * organ covers (each clears fboOK) and `look` (the caller checks it). `full`: as composite's. Returns false, drawing nothing, when it
+     * cannot stand in for draw() or would cover most of the cells anyway: the caller then calls draw().
+     */
+    drawRows(m, look, blood, rows, full = false) {
+      if (!fboOK || lost || fboW !== canvas.width || fboH !== canvas.height || !baseM || m.some((v, i) => v !== baseM[i])) return false;
+      const { mark, k } = cellsOfRows(rows);
+      if (k > nCells * 0.6) return false;
+      if (k) {
+        const sub = new Float32Array(k * 6);
+        for (let c = 0, j = 0; c < nCells; c++) if (mark[c]) { sub.set(cellsCPU.subarray(c * 6, c * 6 + 6), j); j += 6; }
+        gl.bindBuffer(gl.ARRAY_BUFFER, partBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, sub, gl.DYNAMIC_DRAW);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.viewport(0, 0, fboW, fboH);
+        vesselPass(m, look, partVAO, k, true);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      }
+      partCells += k;
+      this.composite(look, blood, full);
+      return true;
+    },
+    /** Cells redrawn by drawRows so far, and the cells of the whole layer (for the checks). */
+    get partCells() { return partCells; },
+    get nCells() { return nCells; },
     /**
      * The picture from the last vessel layer: plate, vessels, blood, dye, bleed. Cheap; runs
      * every animation frame. `blood`: { on, look, origin, clock, originCol, dyeCol, inkLight,
@@ -1456,7 +1529,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       if (cath.verts.byteLength <= cathCap) gl.bufferSubData(gl.ARRAY_BUFFER, 0, cath.verts);
       else { cathCap = cath.verts.byteLength * 2; gl.bufferData(gl.ARRAY_BUFFER, cathCap, gl.DYNAMIC_DRAW); gl.bufferSubData(gl.ARRAY_BUFFER, 0, cath.verts); }
     },
-    clear() { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = 0; baseM = null; },
+    clear() { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = 0; baseM = null; fboOK = false; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
     snapshot() { return canvas.toDataURL('image/png'); },
     /**
@@ -1470,7 +1543,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         if (t === baseTex) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
         else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, 1, 1, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
       }
-      fboW = fboH = 0; baseM = null;
+      fboW = fboH = 0; baseM = null; fboOK = false;
       freeLayer(lineLayer); freeLayer(glowLayer); lineKey = glowKey = '';
     },
     /**
@@ -1483,8 +1556,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       canvas.removeEventListener('webglcontextlost', onLost);
       if (!lost) {
         for (const t of [entTex, radTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, lineLayer.tex, glowLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
-        for (const b of [quad, cellBuf, fluidBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
-        for (const v of [vao, fluidVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
+        for (const b of [quad, cellBuf, partBuf, fluidBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
+        for (const v of [vao, partVAO, fluidVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
         for (const x of [prog, comp, compCell, cathP, lineP]) if (x) gl.deleteProgram(x.p);
         gl.deleteFramebuffer(fbo); gl.deleteFramebuffer(lineLayer.fbo); gl.deleteFramebuffer(glowLayer.fbo);
         if (lose) gl.getExtension('WEBGL_lose_context')?.loseContext();
