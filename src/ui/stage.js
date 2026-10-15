@@ -1044,7 +1044,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (l.v <= 0 && !l.to) glow.lit.delete(id);
       else if (l.v !== l.to || l.cu < 1 || l.end[0] !== l.endT[0] || l.end[1] !== l.endT[1] || l.span[0] !== l.spanT[0] || l.span[1] !== l.spanT[1]) moving = true;
     }
-    glowSync = true;
+    glowSync = true; stageWake();
     glow.raf = moving ? nextFrame(glowStep) : 0;
   }
   // The Doppler's vessel glows in the Doppler's green while its instrument is open; on a stent, only the third its gate samples.
@@ -1131,13 +1131,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   new ResizeObserver(() => { box = null; CTM = null; }).observe(wrap);
   addEventListener('resize', () => { box = null; CTM = null; });
   addEventListener('scroll', () => { box = null; CTM = null; }, true);
+  let ctmLast = null;
   function refreshCTM() {
     const b = stageBox(), vb = svg.viewBox.baseVal;
     const s = Math.min(b.sw / vb.width, b.sh / vb.height);
     const ox = b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy = b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s;
     // world → view box: translate(vt) · scale(k) · rotate(θ about the circuit's centre); then the view box → screen.
     const th = (rotDeg() * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th), sk = s * vt.k;
-    CTM = { a: sk * co, b: sk * si, c: -sk * si, d: sk * co, e: ox + s * vt.x + sk * (CIRC_C[0] - co * CIRC_C[0] + si * CIRC_C[1]), f: oy + s * vt.y + sk * (CIRC_C[1] - si * CIRC_C[0] - co * CIRC_C[1]), sc: sk };
+    const m = { a: sk * co, b: sk * si, c: -sk * si, d: sk * co, e: ox + s * vt.x + sk * (CIRC_C[0] - co * CIRC_C[0] + si * CIRC_C[1]), f: oy + s * vt.y + sk * (CIRC_C[1] - si * CIRC_C[0] - co * CIRC_C[1]), sc: sk };
+    // An unchanged view keeps the same object, so the frame loop (which compares it) sees that nothing moved.
+    CTM = ctmLast && ['a', 'b', 'c', 'd', 'e', 'f', 'sc'].every((k) => ctmLast[k] === m[k]) ? ctmLast : (ctmLast = m);
     wrapRect = b;
   }
   function worldToLocal(x, y) {
@@ -2557,6 +2560,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return joins;
   }
+  let tubesShown = null, tubesLook = '', tubesNew = true;
   function syncVeins(t) {
     if (!veins || veins.lost) return;
     glowSync = false;
@@ -2578,7 +2582,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const { p, w } of getOrganCovers()) { if (w) { mc.lineWidth = w; mc.stroke(p); } else solid.addPath(p); }
       mc.fill(solid);
       veins.setOrgans(c, [0, 0, VIEW.w, VIEW.h]);
-      glOrgans = true;
+      glOrgans = true; tubesNew = true;
     }
     const items = glItems();
     const cs = getComputedStyle(wrap);
@@ -2620,7 +2624,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const o = it.obj, R = eased.get(o) || o.glR0, k = R.join(',');
       if (o.glRSent === k) continue;
       o.glRSent = k; o.glR = R; o.glMaxR = Math.max(...R);
-      veins.setRadii(it.row, R);
+      veins.setRadii(it.row, R); tubesNew = true;
     }
     glRadDirty = false;
     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.
@@ -2632,6 +2636,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const J = veinJoins(items), smooth = smoothRunOn(items);
       for (const it of items) if (it.kind === 'v') { it.obj.glPts = smooth.get(it.row) || it.pts; }
       veins.setGeometry(binVeins(items.map((it) => ({ id: it.row, pts: smooth.get(it.row) || it.pts, reach: vBinReach.get(it.row) })), J));
+      tubesNew = true;
     }
     // Attributes, every frame.
     const T0 = easeInOut(morph), now = performance.now();
@@ -2744,7 +2749,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: fluidLook,
     };
     syncPlateLook();
-    veinsDirty = true;
+    // The vessel layer is drawn again only when what it is drawn from changed: a running model sends a frame about ten
+    // times a second, and in a steady state most of them leave every vessel's colour, width and fade exactly as they were.
+    const lookSig = JSON.stringify(vLook, (k, v) => (k === 'fluid' ? undefined : v)) + plateOn();
+    if (tubesNew || lookSig !== tubesLook || !tubesShown || tubesShown.length !== tubeData.length || tubeData.some((v, i) => v !== tubesShown[i])) {
+      veinsDirty = true; tubesLook = lookSig; tubesShown = tubeData.slice();
+    }
+    tubesNew = false;
     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
     if (!plateWas && plateOn()) drawVeins();
   }
@@ -4159,7 +4170,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (tk !== cath.tintKey) { cath.tintKey = tk; cathTint = tint; if (!inUpdate) syncVeins(easeInOut(morph)); }
     if (gpu) cathGL(st, r, tipD, rc);
     else cathSVG(st, r, tipD, rc * 2, Rf * 2);
-    cathVer++;
+    cathVer++; stageWake();
     cathLabels();
   }
   let cathVer = 0;
@@ -5623,12 +5634,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { on: bloodOn(), chev: chevOn() && !cath.st, look: b.look, origin: originOn(), clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), ...bloodColors() };
   }
 
-  let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null;
+  let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null, lastAnim = true;
+  // Whether the figure moves by itself while the model runs (see animate).
+  function figureMoves(st) {
+    if (!st.running || reduceMotion.matches) return false;
+    return bloodOn() || (chevOn() && !cath.st) || fluidLook.ripple || (!!F?.bleed?.active && morph < 0.5);
+  }
   let lastRaf = 0, gapEMA = 16, qCheck = 0, qGood = 0, drawnView = -1;
   function governQuality(now) {
-    const gap = lastRaf ? now - lastRaf : 16;
+    // (The first frame after the loop slept is not a sample: the gap is the sleep, not a slow frame.)
+    const gap = lastRaf ? now - lastRaf : 0;
     lastRaf = now;
-    if (SOFTWARE || !store.get().running || gap > 500) return;   // software: stays at its step; idle or just resumed: nothing to learn
+    if (!gap || SOFTWARE || !store.get().running || gap > 500) return;   // software: stays at its step; idle or just resumed: nothing to learn
     gapEMA += (Math.min(gap, 250) - gapEMA) * 0.05;
     if (now - qCheck < 2000) return;
     qCheck = now;
@@ -5680,10 +5697,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lz?.isOpen() || lz?.covers()) { nextFrame(animate); return; }
     forceDraw = false; drawOnce = false;
     const st = store.get();
-    const still = (!st.running || reduceMotion.matches) && !bolus.active;
+    // Running, the figure moves by itself only through the blood (streaks, chevrons, a dye bolus), a bleed's spray and
+    // the ascites' ripple. With none of them on screen, and none in the last frame drawn (it is drawn once more without
+    // them), a running model is drawn like a paused one: only when something on the figure changed.
+    const anim = figureMoves(st);
+    const still = (!st.running || reduceMotion.matches || (!anim && !lastAnim)) && !bolus.active && !dyeShown;
+    // A new model frame changes the figure only through the vessel layer (checked by syncVeins), or through the blood's
+    // own data (flow, origin streams) and a bleed, while those are shown.
+    const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active);
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { sleep(); return; }
+    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
@@ -5704,14 +5728,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!drawVeins() && veins && !veins.lost && vLook && F) veins.composite(vLook, bloodLook(), fluidMoved);
     drawnView = viewVersion;
     governRes(now, viewMoved || st.running);
-    lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM;
+    lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM; lastAnim = anim || bolus.active || dyeShown;
     nextFrame(animate);
   }
   nextFrame(animate);
   // Nothing to draw: the loop stops asking for frames (so the screen can idle) until something changes, and looks
   // again a few times a second in case a change came by a path that does not wake it.
   let sleeping = false, sleepTimer = 0;
-  function sleep() { sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 250); }
+  function sleep() { sleeping = true; lastRaf = 0; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 250); }
   function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); nextFrame(animate); }
   stageWake = wake;
   store.on('*', wake);
@@ -5812,7 +5836,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (nv <= 0 && !to) vh.amt.delete(id); else vh.amt.set(id, nv);
       if (nv !== to) moving = true;
     }
-    glowSync = true;
+    glowSync = true; stageWake();
     vh.raf = moving ? nextFrame(vhStep) : 0;
   }
 
