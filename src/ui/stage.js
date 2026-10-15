@@ -2003,14 +2003,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // ascites or spleen), and the figure stays hidden until it is framed, so it appears once, in place.
     firstFrame();
     prepLobule();
-    const now = performance.now();
-    // (Not while a move away from home is under way: its first frames still sit at home.)
-    if (homeAt && !homeHeld && morphTarget === 0 && !lobuleOn && diveT === 0 && now - homeCheck > 500 && sameView(vt, homeAt) && (!vtTarget || sameView(vtTarget, homeAt))) {
+    followHome();
+  }
+  // While the view is at home, home follows what is drawn and the space the cards leave: checked on the model's frames
+  // (at most every 500 ms) and once a resize or a turn of the device has settled, which needs no model frame (paused, a
+  // turned phone or iPad kept the old shape's framing: under the top bar, or off screen behind the Tests sheet).
+  // (Not while a move away from home is under way: its first frames still sit at home. A glide on its way home is retargeted.)
+  function followHome(now = performance.now()) {
+    if (homeResizeT) return;   // (a resize still settling: its own look comes once it has)
+    if (homeAt && !homeHeld && morphTarget === 0 && !lobuleOn && diveT === 0 && now - homeCheck > 500 && (sameView(vt, homeAt) || (vtGliding && sameView(vtTarget, homeAt))) && (!vtTarget || sameView(vtTarget, homeAt))) {
       homeCheck = now;
       const d = defaultVT(false);
       if (!sameView(d, homeAt)) { homeAt = d; animateVT(d, 400); }
     }
   }
+  // (The first look when the size has held for 200 ms: a turn fires several resizes, and a glide after each moved the camera
+  // two or three times. Then a look 0.5 s and 1.3 s after, and whenever a card or sheet announces a new place (pps:occ),
+  // each only if the view is still at home: a sheet or a card takes its new shape a moment after the turn, and the first
+  // look measured the space it left before it had. A slide is the presenter's to frame, on a resize too.)
+  let homeResizeT = 0, homeLateT = [], homeOccT = 0;
+  const lookHome = () => { if (!store.get().presenting) { homeCheck = 0; followHome(); } };
+  addEventListener('resize', () => {
+    clearTimeout(homeResizeT); homeLateT.forEach(clearTimeout);
+    homeResizeT = setTimeout(() => { homeResizeT = 0; lookHome(); homeLateT = [500, 1300].map((ms) => setTimeout(lookHome, ms)); }, 200);
+  });
+  addEventListener('pps:occ', () => { clearTimeout(homeOccT); homeOccT = setTimeout(lookHome, 150); });
+
   function updateInner(f) {
     // In the lobule, or diving into it (the anatomy is only magnified, then covered), the plate is left as it is
     // (reading the cards' boxes and restyling it each model frame stalled the zoom); it catches up on the way out.

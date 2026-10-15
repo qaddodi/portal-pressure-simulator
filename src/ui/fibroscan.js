@@ -154,9 +154,21 @@ export function createFibroScan() {
     tks.forEach((tm, i) => { const txt = tm === 0 ? '0 ms' : String(tm), bx = c0 + i * (c1 - c0) / (tks.length - 1); ctx.strokeText(txt, bx, by); ctx.fillText(txt, bx, by); });
     // The reading, inside the top right corner in the same white with a dark halo: the number big (about four times the label size, within the map's room), "kPa" small
     // beside it. Right aligned, so "kPa" never moves while the number eases.
-    const big = Math.round(Math.max(24, Math.min(CAP * 4, 72, ph * 0.3, ew * 0.28))), RM = Math.max(m * 2, Math.round(big * 0.4)), RY = RM + Math.round(big * 0.74);   // (RM: the reading's own margin from the map's top and right edges)
+    // (It stays in the top right and keeps clear of the "40" depth label: where the two would meet (a box about 900 px wide),
+    // the number steps smaller until a gap is left. Judged at the widest reading, "88.8", so its size never changes as the number eases.)
+    const ly = top + ph / 6 + TK * 0.35, lr = ex + m + tw('40') + CAP, lt = ly - TK * 0.8;   // (the "40" label's baseline, right edge plus a gap, and top)
+    ctx.font = FONT(500, Math.round(CAP * 1.4));
+    const uw = ctx.measureText('kPa').width;
+    let big = Math.round(Math.max(24, Math.min(CAP * 4, 72, ph * 0.3, ew * 0.28))), RM, RY;   // (RM: the reading's own margin from the map's top and right edges)
+    for (;;) {
+      RM = Math.max(m * 2, Math.round(big * 0.4)); RY = RM + Math.round(big * 0.74);
+      ctx.font = FONT(600, big);
+      const left = ex + ew - RM - uw - 5 - ctx.measureText('88.8').width - big * 0.08, below = RY + big * 0.08 < lt;   // (with the halo's half width)
+      if (below || left >= lr || big <= 14) break;
+      big -= 2;
+    }
     ctx.textAlign = 'right'; ctx.lineWidth = Math.max(3, big * 0.16);
-    ctx.font = FONT(500, Math.round(CAP * 1.4)); const ux = ex + ew - RM, uw = ctx.measureText('kPa').width;
+    ctx.font = FONT(500, Math.round(CAP * 1.4)); const ux = ex + ew - RM;
     ctx.strokeText('kPa', ux, RY); ctx.fillText('kPa', ux, RY);
     ctx.font = FONT(600, big); ctx.strokeText(reading, ux - uw - 5, RY); ctx.fillText(reading, ux - uw - 5, RY);
   }

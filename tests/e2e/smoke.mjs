@@ -709,6 +709,27 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await restore();
   });
 
+  // Turning the device while paused re-frames the figure for the new shape, with the Tests sheet open (review #19): the
+  // refit used to run only on the model's frames, and a turned phone or iPad kept the old framing (the figure off screen
+  // behind the sheet, or under the top bar). Judged against Fit's own framing for the new shape.
+  if (device === 'phone') await check(device, 'A turn while paused re-frames the figure for the new shape', async (page) => {
+    await open(page);
+    const key = () => page.evaluate(() => window.pps.stage.cameraKey());
+    const steady = async () => { let a = await key(), same = 0; for (let i = 0; i < 80 && same < 4; i++) { await page.waitForTimeout(300); const c = await key(); same = c === a ? same + 1 : 0; a = c; } return a; };
+    await page.waitForFunction(() => window.ppsFigureReady, null, { timeout: 45000 });
+    await tapTool(page, '#tabInstruments');
+    await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
+    await page.waitForFunction(() => !window.pps.store.get().running);
+    await steady();
+    for (const [w, h] of [[844, 390], [390, 844], [1366, 1024], [1024, 1366]]) {
+      await page.setViewportSize({ width: w, height: h });
+      const got = await steady();
+      await page.evaluate(() => window.pps.stage.refit());
+      const want = await steady();
+      if (got !== want) throw new Error(`turned to ${w}x${h} while paused, the camera stayed at ${got}, not the new shape's framing ${want}`);
+    }
+  });
+
   // Every way into or out of the lobule is one continuous zoom (to the lobule's normal framing; the sinusoid and a station are a second zoom from there): the camera's magnification (the plate's zoom plus the dive's)
   // moves steadily from the first frame to the last, in one direction, with no stop at an intermediate framing (the liver, the fit).
   // The presenter's slides are walked with the arrow keys, from the slide before a crossing to the one after it, and back.
