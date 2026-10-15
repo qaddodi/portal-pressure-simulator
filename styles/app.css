@@ -4977,7 +4977,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab .ab-belly > .ab-big > .ab-rate.ab-rate-out { opacity: .15; }
 .ab-rate-a { font-style: normal; font-size: .72em; transition: color .3s var(--ease); }
 .ab-rate-a:empty { display: none; }
-.ab .ab-belly > .ab-big > .ab-rate[data-dir="steady"] { color: var(--text-3) !important; }
+/* (The daily balance sits on a small card-coloured backing, so it reads on the fluid, on the empty belly and across the fluid line, in every theme.) */
+.ab .ab-belly > .ab-big > .ab-rate[data-dir] { padding: .06em .55em .1em; border-radius: 999px; background: color-mix(in srgb, var(--surface) 86%, transparent); text-shadow: none !important; }
+.ab .ab-belly > .ab-big > .ab-rate[data-dir="steady"] { color: var(--text-2) !important; }
 .ab .ab-belly > .ab-big > .ab-rate[data-dir="up"] { color: color-mix(in srgb, var(--caution) 55%, var(--text)) !important; }
 .ab .ab-belly > .ab-big > .ab-rate[data-dir="down"] { color: color-mix(in srgb, var(--vel-normal) 60%, var(--text)) !important; }
 .ab-rate[data-dir="up"] .ab-rate-a { color: var(--caution); }
