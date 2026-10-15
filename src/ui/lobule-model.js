@@ -5,7 +5,7 @@
 // One representative lobule stands for the whole liver, read from the right lobe (most of the
 // liver's flow).
 
-import { NODES, EDGES } from '../engine/topology.js?v=b3925862b9';
+import { NODES, EDGES } from '../engine/topology.js?v=a8aa8a6b13';
 import { clamp } from './util.js?v=abb277f29f';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

@@ -4,10 +4,10 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES, dopplerK, stentSegments } from '../engine/topology.js?v=b3925862b9';
+import { EDGES, dopplerK, stentSegments, stentSite } from '../engine/topology.js?v=a8aa8a6b13';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=abb277f29f';
-import { FONT } from './charts.js?v=14128dc81c';
-import { logAction, shownVel, store } from './store.js?v=14d67870c8';
+import { FONT } from './charts.js?v=e9ade349ca';
+import { logAction, shownVel, store } from './store.js?v=32c330eb0b';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=6d60af9a8d';
 import { frameFor } from './frame.js?v=0db47e99bf';
 import { windowIndexFor } from './dopplerWindow.js?v=fce3147a4c';
@@ -212,6 +212,11 @@ export function createDoppler({ onProbe }) {
     return { mean: k * sum / n, vmax: vmax * k, vmin: vmin * k, vmaxMean: vmax, vminMean: vmin };
   }
   const meta = () => PROBES.find((p) => p.id === probe) || PROBES[0];
+  // A stent's proximal, mid and distal velocities from the open stent's velocity v: the narrowed segment runs faster.
+  const stentReads = (v) => {
+    const prm = store.get().params, s = 1 - (1 - (prm?.stenosis?.[probe] || 0)) * (1 - (prm?.thrombus?.[probe] || 0));
+    return stentSegments(v, s, stentSite(prm, probe));
+  };
   // +1 when the vessel's forward flow is drawn above the baseline, −1 when below
   const effInvert = () => invert;
   const pol = () => (!meta().away !== !effInvert() ? -1 : 1);
@@ -272,7 +277,9 @@ export function createDoppler({ onProbe }) {
       note = 'The hepatic artery buffers falling portal inflow by dilating (the hepatic arterial buffer response).';
     } else if (p.kind === 'tips') {
       dir = a < 2 ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = a < 2 || r.mean < 0 ? 'critical' : a < 90 || a > 190 ? 'caution' : 'ok';
-      pattern = a < 2 ? 'Occluded' : a < 90 ? 'Low velocity' : a > 190 ? 'High velocity' : 'Patent';
+      const jet = Math.max(...stentReads(a));   // the fastest segment: a narrowing's jet
+      pattern = a < 2 ? 'Occluded' : a < 90 ? (jet > 190 ? 'Low velocity, jet' : 'Low velocity') : jet > 190 ? 'High velocity' : 'Patent';
+      if (sev === 'ok' && jet > 190) sev = 'caution';
       note = a < 2 ? 'No flow in the stent: occluded.' : 'Stent velocities under 90 or over 190 cm/s, or a change of more than 50 cm/s from the baseline scan, suggest stenosis.';
     } else if (p.kind === 'ivc') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
@@ -380,8 +387,7 @@ export function createDoppler({ onProbe }) {
     statEls.Trough.wrap.hidden = statEls.Pulsatility.wrap.hidden = isStent;
     for (const k of ['Proximal', 'Mid', 'Distal']) statEls[k].wrap.hidden = !isStent;
     if (isStent) {
-      const prm = store.get().params, s = 1 - (1 - (prm?.stenosis?.[probe] || 0)) * (1 - (prm?.thrombus?.[probe] || 0));
-      stentSegments(Math.abs(mean), s).forEach((v, i) => setStat(statEls[['Proximal', 'Mid', 'Distal'][i]].dd, num(v), 'cm/s'));
+      stentReads(Math.abs(mean)).forEach((v, i) => setStat(statEls[['Proximal', 'Mid', 'Distal'][i]].dd, num(v), 'cm/s'));
     }
     set(noteEl, it.note);
     const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;

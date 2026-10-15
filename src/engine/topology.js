@@ -211,7 +211,14 @@ export const SPLANCHNIC_ARTERIES = ['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA'];
 // portal vein (Moriyasu 1986), ≈ 0.5 × peak for laminar flow in a smooth stent. The usual Doppler
 // ranges (portal vein 15–40 cm/s, TIPS 90–190 cm/s) are peak velocities.
 export const dopplerK = (e) => (e?.kind === 'shunt' ? 2 : 1 / 0.57);
-// A stent's velocity at its portal end, middle and hepatic vein end (cm/s), as TIPS Doppler reports it. The same
-// flow passes every point, so velocity goes with 1 / diameter². The model's stent is one tube; a narrowing s
-// (0..1 of the diameter) is taken where it usually forms, at the hepatic vein end, so only that end speeds up.
-export const stentSegments = (v, s = 0) => [v, v, s > 0 && s < 0.995 ? v / ((1 - s) * (1 - s)) : v];
+// Stents: the TIPS, the DIPS and the shunts drawn with the stent tool. Each is sampled by Doppler at its portal end
+// (proximal), its middle and its systemic end (distal). A narrowing is a short pinch in one of those three
+// segments (params.stenosisSite, distal by default, where a TIPS usually narrows); the rest of the stent keeps its
+// diameter. The drawn path of a stent runs from its portal end, so STENT_SITES places the pinch along it (0–1).
+export const STENT_SITES = { proximal: 1 / 6, mid: 0.5, distal: 5 / 6 };
+export const isStent = (e) => e?.kind === 'shunt' && (e.shunt === 'tips' || e.shunt === 'dips' || e.shunt === 'custom');
+export const stentSite = (p, id) => (STENT_SITES[p?.stenosisSite?.[id]] != null ? p.stenosisSite[id] : 'distal');
+// A stent's velocity at its proximal, mid and distal segments (cm/s), as TIPS Doppler reports it. The same flow
+// passes every point, so velocity goes with 1 / diameter²: v is the velocity in the open stent, and the segment
+// holding a narrowing s (0..1 of the diameter) runs at v / (1 − s)².
+export const stentSegments = (v, s = 0, site = 'distal') => ['proximal', 'mid', 'distal'].map((k) => (k === site && s > 0 && s < 0.995 ? v / ((1 - s) * (1 - s)) : v));

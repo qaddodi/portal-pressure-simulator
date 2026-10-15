@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=b3925862b9';
+import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=a8aa8a6b13';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=a6c564d238';
-import { detectEvents } from './events.js?v=4599f7070c';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=6ebaeb46c8';
+import { detectEvents } from './events.js?v=c8cbcc3388';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -22,9 +22,24 @@ const TIPS_R = { tract: 0.12, kin: 5.96 };   // PRU; kin: mmHg per (mL/s ÷ mm²
 const DIPS_R = { tract: 0.07, kin: 5.96 };   // the caudate tract is a few centimetres, shorter than a TIPS tract
 // A stent in series with a parenchymal tract (which does not widen with the stent, so large stents plateau),
 // plus an entrance/exit loss ∝ Q² (lagged one step). Flow then splits against the sinusoids by resistance.
-const stentConductance = (tract, d, q, visc) => {
-  const A = Math.PI * d * d / 4;
-  return 1 / ((tract + 0.04 * Math.pow(10 / d, 4)) * visc + TIPS_R.kin * Math.abs(q) / (A * A));
+// A narrowing s (of the diameter) is a short pinch, PINCH of the stent's length (about 1 cm of an 8 cm TIPS), not the
+// whole stent: that piece's own resistance rises by (1 − s)⁻⁴, and the jet leaving it loses its speed in the wider
+// stent beyond (Borda–Carnot, ½ρ(v_jet − v)², with ½ρ = kin / K). So a mild pinch costs little, and a tight one
+// throttles the stent while the jet through it runs fast, as on Doppler.
+const PINCH = 0.125;
+const stentConductance = (tract, d, q, visc, s = 0) => {
+  const A = Math.PI * d * d / 4, wall = 0.04 * Math.pow(10 / d, 4) * visc, kq = TIPS_R.kin * Math.abs(q) / (A * A);
+  return 1 / (tract * visc + wall + kq + pinchResistance(wall, kq, s));
+};
+// A stent drawn with the stent tool has no parenchymal tract or entrance loss of its own (only the pinch's jet).
+const customConductance = (d, q, visc, s = 0) => {
+  const A = Math.PI * d * d / 4, wall = 0.05 * Math.pow(10 / d, 4) * visc;
+  return 1 / (wall + pinchResistance(wall, TIPS_R.kin * Math.abs(q) / (A * A), s));
+};
+const pinchResistance = (wall, kq, s) => {
+  if (!(s > 0)) return 0;
+  const a = (1 - s) * (1 - s);
+  return wall * PINCH * (stenosisFactor(s) - 1) + (kq / 1.5) * (1 / a - 1) * (1 / a - 1);
 };
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
@@ -329,15 +344,18 @@ export class Engine {
         }
         case 'shunt': {
           let g = 0;
-          if (e.shunt === 'ap') g = 0.5 * (0.05 * s * s * s + 0.1 * p.apShunt);
+          // Stents narrow at a short pinch (stentConductance); a surgical shunt narrows along its whole length.
+          const occ = this.occlusion(e.id), stent = e.shunt === 'tips' || e.shunt === 'dips' || e.shunt === 'custom';
+          if (stent && occ >= 0.995) g = 0;
+          else if (e.shunt === 'ap') g = 0.5 * (0.05 * s * s * s + 0.1 * p.apShunt);
           // Diameter grades both the shunt fraction and the portosystemic gradient.
-          else if (e.shunt === 'tips' && p.tips.on) g = stentConductance(TIPS_R.tract, p.tips.d, this.Q[k], visc);
-          else if (e.shunt === 'dips' && p.dips.on) g = stentConductance(DIPS_R.tract, p.dips.d, this.Q[k], visc);
+          else if (e.shunt === 'tips' && p.tips.on) g = stentConductance(TIPS_R.tract, p.tips.d, this.Q[k], visc, occ);
+          else if (e.shunt === 'dips' && p.dips.on) g = stentConductance(DIPS_R.tract, p.dips.d, this.Q[k], visc, occ);
           else if (e.shunt === 'portocaval' && p.portocaval) g = 1 / (0.03 * visc);
           else if (e.shunt === 'dsrs' && p.dsrs) g = 1 / (0.08 * visc);
           else if (e.shunt === 'mesocaval' && p.mesocaval) g = 1 / (0.08 * visc);
-          else if (e.shunt === 'custom' && p.customShunts?.[e.id]) g = 1 / (0.05 * Math.pow(10 / p.customShunts[e.id], 4) * visc);
-          if (g > 0) g /= Math.min(1e9, stenosisFactor(this.occlusion(e.id)));
+          else if (e.shunt === 'custom' && p.customShunts?.[e.id]) g = customConductance(p.customShunts[e.id], this.Q[k], visc, occ);
+          if (g > 0 && !stent) g /= Math.min(1e9, stenosisFactor(occ));
           this.G[k] = g;
           continue;
         }

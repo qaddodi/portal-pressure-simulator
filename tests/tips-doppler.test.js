@@ -54,11 +54,35 @@ test('the talk uses the lenses it teaches, and every lens is one the presenter k
   assert.equal(slide('warn').whatIf.param, 'stenosis.TIPS');
 });
 
-test('proximal, mid and distal stent velocities: the narrowed stent slows along its length and speeds up at its hepatic vein end', async () => {
+test('proximal, mid and distal stent velocities: the narrowed stent slows along its length and jets through its hepatic vein end', async () => {
   const { stentSegments } = await import('../src/engine/topology.js');
   const ok = run('stent'), [p0, m0, d0] = stentSegments(vel(ok, 'TIPS'), 0);
   assert.ok(p0 === m0 && m0 === d0 && p0 >= 90 && p0 <= 190, `a working stent reads the same at all three points (${p0})`);
   const e = run('narrow'), [p, m, d] = stentSegments(vel(e, 'TIPS'), slide('narrow').params.stenosis.TIPS);
   assert.ok(p < 90 && m < 90, `proximal and mid slow under 90 (${p})`);
-  assert.ok(d > 2.5 * p, `the distal stent speeds up through the narrowing (${d} vs ${p})`);
+  assert.ok(d > 190, `the distal jet runs over 190 cm/s (${d})`);
+});
+
+test('a stent narrows at a short pinch in the segment its card names', async () => {
+  const { stentSegments, stentSite } = await import('../src/engine/topology.js');
+  assert.equal(stentSite({}, 'TIPS'), 'distal', 'the hepatic vein end by default');
+  assert.equal(stentSite({ stenosisSite: { TIPS: 'nowhere' } }, 'TIPS'), 'distal');
+  const [p, m, d] = stentSegments(100, 0.5, 'proximal');
+  assert.ok(p === 400 && m === 100 && d === 100, 'only the narrowed segment speeds up');
+  // A short pinch costs far less than the old whole-stent narrowing: a mild one barely slows the stent.
+  const e = run('stent'), open = vel(e, 'TIPS');
+  e.setParams(deepMerge(e.params, { stenosis: { TIPS: 0.2 } })); e.settle();
+  assert.ok(vel(e, 'TIPS') > 0.85 * open, `a 20 % pinch keeps most of the flow (${vel(e, 'TIPS')} vs ${open})`);
+  // The model's flow does not depend on where the pinch sits; only the readings move.
+  const q = e.Q[e.ei.TIPS];
+  e.setParams(deepMerge(e.params, { stenosisSite: { TIPS: 'proximal' } })); e.settle();
+  assert.ok(Math.abs(e.Q[e.ei.TIPS] - q) < 1e-6 * Math.max(1, Math.abs(q)), 'same flow wherever the pinch sits');
+  // A shunt drawn with the stent tool narrows the same way, and a full occlusion closes it.
+  const c = run('stent'), id = 'X_SMV_IVCS';
+  c.setParams(deepMerge(c.params, { customShunts: { [id]: 10 } })); c.settle();
+  const q0 = c.Q[c.ei[id]];
+  c.setParams(deepMerge(c.params, { stenosis: { [id]: 0.6 } })); c.settle();
+  assert.ok(c.Q[c.ei[id]] > 0 && c.Q[c.ei[id]] < q0, `a pinched stent-tool shunt carries less (${c.Q[c.ei[id]]} vs ${q0})`);
+  c.setParams(deepMerge(c.params, { thrombus: { [id]: 1 } })); c.settle();
+  assert.equal(c.Q[c.ei[id]], 0, 'an occluded stent carries nothing');
 });

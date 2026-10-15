@@ -8,6 +8,7 @@ export function defaultParams() {
       L: { pre: 1, sin: 1, post: 1 },
     },
     stenosis: {},                 // edgeId → 0..1 lumen narrowing
+    stenosisSite: {},             // stent edgeId → 'proximal' | 'mid' | 'distal': the segment a stent's narrowing sits in (distal if unset)
     thrombus: {},                 // edgeId → 0..1 occlusion
     splenicRx: 0,                 // 0 none · 1 partial splenic artery embolization · 2 splenectomy
     splanchnicTone: 1,            // arteriolar resistance multiplier (<1 = vasodilated)
@@ -115,6 +116,7 @@ export function sanitizeParams(p) {
     for (const z of ['pre', 'sin', 'post']) out.fibrosis[lobe][z] = num(out.fibrosis[lobe][z], 1, 80, 1);
   }
   for (const k of ['stenosis', 'thrombus']) for (const id of Object.keys(out[k])) out[k][id] = num(out[k][id], 0, k === 'stenosis' ? 0.95 : 1, 0);
+  for (const id of Object.keys(out.stenosisSite)) if (!['proximal', 'mid', 'distal'].includes(out.stenosisSite[id])) delete out.stenosisSite[id];
   for (const k of ['tips', 'dips']) { out[k].on = !!out[k].on; out[k].d = num(out[k].d, 6, 12, 8); }
   for (const id of Object.keys(out.customShunts)) if (out.customShunts[id]) out.customShunts[id] = num(out.customShunts[id], 4, 16, 10);
   for (const k of Object.keys(out.drugs)) out.drugs[k] = !!out.drugs[k];
