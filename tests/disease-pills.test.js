@@ -48,7 +48,7 @@ test('in a line, a disease name keeps its pill over a term, bold word or value t
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   const fn = src.slice(src.indexOf('function lineRe('), src.indexOf('function rich('));
   assert.ok(fn.includes('|\\{([^}]+)\\}([,.;:]?)|\\b(${DISEASE_SRC})\\b` + (tw.length'),'the disease name is the third kind, before terms, values and key words');
-  assert.match(src, /const \[all, lw, lk, mk, mkStop, dz, tword, val, valStop, key, term\] = m/);
+  assert.match(src, /const \[all, lw, lk, mk, mkStop, dz, tword, val, valStop, key, term, lensBy, lensW\] = m/);
   // The same order on a line: the name wins where a term starts inside it.
   const re = new RegExp(String.raw`\[([^\]]+)\]\(([\w:]+)\)|\{([^}]+)\}([,.;:]?)|\b(${DISEASE_SRC})\b|\b([Pp]ortal vein)\b`, 'g');
   assert.deepEqual([...'Portal vein thrombosis narrows the portal vein.'.matchAll(re)].map((m) => (m[5] ? 'dz' : 'term')), ['dz', 'term']);
