@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { SIN_PERFUSION, sinStrandRadius } from '../src/ui/sin-perfusion.js';
+import { SIN_PERFUSION, sinStrandRadius, sinGlowIn } from '../src/ui/sin-perfusion.js';
 
 // Review G15 (16 Oct): the sinusoids' strands are drawn 60 % fainter and taper to a quarter of the sinusoid's width, over
 // a soft glow in their own colour (0.18, reaching 30), so the lobe tips read as tissue, not netting bulbs.
@@ -35,8 +35,8 @@ test('a strand meets the sinusoid at its own caliber and narrows to a quarter of
 test('the strands are faded, flagged and given their glow; only the sinusoids', () => {
   assert.match(stage, /const sinStrand = kind === 's' && SIN_EDGES\.has\(id\);/);
   assert.match(stage, /if \(sinStrand\) alpha \*= SIN_PERFUSION\.fade;/);
-  assert.match(stage, /\(sinStrand && alpha > 0 \? F_PERF : 0\)/);
-  assert.match(stage, /if \(sinStrand && alpha > 0\) tubeData\[o \+ 51\] = SIN_PERFUSION\.glow \* sinAlpha;/);
+  assert.match(stage, /\(sinGlow > 0 && alpha > 0 \? F_PERF : 0\)/);
+  assert.match(stage, /if \(sinGlow > 0 && alpha > 0\) tubeData\[o \+ 51\] = SIN_PERFUSION\.glow \* sinGlow \* sinAlpha;/);
   assert.match(stage, /if \(kind === 's' && SIN_EDGES\.has\(x\.e\.id\)\) \{ const w = x\.width; return \[`\$\{r\.toFixed\(2\)\}\|\$\{w\.toFixed\(2\)\}\|sin`, \(i\) => sinStrandRadius\(r, w, i \/ \(N_SAMPLES - 1\), o\.span\)\]; \}/);
   // The strands' cells reach as far as their glow, so it is never cut off square at a cell's edge.
   assert.match(stage, /it\.kind === 's' && SIN_EDGES\.has\(it\.x\.e\.id\) \? it\.obj\.glMaxR \+ \(it\.x\.wallPx \|\| 1\) \+ SIN_PERFUSION\.reach \+ 4 : 0/);
@@ -53,4 +53,13 @@ test('the shader draws the glow on the congestion glow path, from flags it alrea
   assert.match(vg, /vec4 o = over\(accT, over\(accN \* netAlpha, over\(glow, accB\)\)\);/);
   // The early exit leaves the glow's pixels to be drawn.
   assert.match(vg, /& \$\{F_PERF\}\) != 0 && sd\[s\] < \$\{SIN_PERFUSION\.reach\.toFixed\(1\)\} \+ 0\.1\) lit = true;/);
+});
+
+test('no glow in Anatomy or by origin (one constant tint there); it eases with a lens change', () => {
+  for (const m of ['neutral', 'origin', null]) assert.equal(sinGlowIn(m), 0, m);
+  for (const m of ['pressure', 'delta', 'heat', 'drop', 'flow', 'velocity', 'direction', 'oxygen']) assert.equal(sinGlowIn(m), 1, m);
+  assert.match(stage, /const sinGlow = sinStrand \? \(lensFrom \? lerp\(sinGlowIn\(lensPrev\), sinGlowIn\(mode\), easeInOut\(clamp\(\(now - lensT0\) \/ LENS_FADE, 0, 1\)\)\) : sinGlowIn\(mode\)\) : 0;/);
+  assert.match(stage, /lensFrom = shownCol; lensT0 = performance\.now\(\); lensPrev = lensMode;/);
+  // The strands stay faint and fine in every lens.
+  assert.match(stage, /if \(sinStrand\) alpha \*= SIN_PERFUSION\.fade;/);
 });

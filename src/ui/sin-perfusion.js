@@ -20,3 +20,7 @@ export function sinStrandRadius(rk, width, u, span) {
   const rt = Math.min(rk, Math.max(0.4, (SIN_PERFUSION.taper * width) / 2));
   return rk + (rt - rk) * Math.sin(Math.PI * v) ** 1.4;
 }
+
+/** Whether the strands' glow shows in a colour lens (1) or not (0): only in the data lenses, where it takes the strands'
+ *  colour. In Anatomy (neutral) and by origin the strands are one constant colour, and the glow would be a constant tint. */
+export const sinGlowIn = (mode) => (mode && mode !== 'neutral' && mode !== 'origin' ? 1 : 0);

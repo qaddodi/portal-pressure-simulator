@@ -35,7 +35,7 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=1f05278710';
 import { cssRGB } from './util.js?v=0140acc352';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=2bc0d36839';
-import { SIN_PERFUSION } from './sin-perfusion.js?v=640c956356';
+import { SIN_PERFUSION } from './sin-perfusion.js?v=63361a456d';
 
 export { binVeins };
 
