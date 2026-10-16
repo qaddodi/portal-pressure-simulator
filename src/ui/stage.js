@@ -1277,6 +1277,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { k: v.k * f, x: cx + ox + f * (v.x - cx), y: cy + oy + f * (v.y - cy) };
   }
   const circVB = () => (rotTarget ? VB_CIRC_R : VB_CIRC);
+  // The whole map keeps clear of the zoom pill (+, −, Fit), which stands in the figure's bottom right corner beside
+  // any card on the right. Where the map would run under it, the map rises at the same size until it ends 8 px above the
+  // pill, if the room under the top bars allows (shrinking it would also thin out its labels); only where it does not, the
+  // map shrinks just enough to end 8 px left of the pill (sweep, 16 Oct: the controls covered the Epigastric → SVC corner).
+  // (The whole map's drawn extent in world units, as #net's box with every collateral open: the same in every case, so the
+  // framing never moves as collaterals open.)
+  const ART_CIRC = [70, 30, 1330, 730];
+  function clearPill(v, vbArr) {
+    const pill = document.getElementById('zoomPill');
+    if (!pill) return v;
+    const p = pill.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+    if (!p.width || !p.height || !wr.width || !wr.height || pill.classList.contains('no-room') || getComputedStyle(pill).visibility === 'hidden') return v;
+    const [vx, vy, vw, vh] = vbArr, s0 = Math.min(wr.width / vw, wr.height / vh);
+    const ox = (wr.width - vw * s0) / 2 - vx * s0, oy = (wr.height - vh * s0) / 2 - vy * s0;
+    let [x0, y0, x1, y1] = ART_CIRC;
+    // (Turned upright, the map's box turns a quarter turn counter-clockwise about the circuit's centre.)
+    if (rotTarget) [x0, y0, x1, y1] = [CIRC_C[0] + (y0 - CIRC_C[1]), CIRC_C[1] - (x1 - CIRC_C[0]), CIRC_C[0] + (y1 - CIRC_C[1]), CIRC_C[1] - (x0 - CIRC_C[0])];
+    const ax0 = ox + s0 * (v.x + v.k * x0), ax1 = ox + s0 * (v.x + v.k * x1), ay0 = oy + s0 * (v.y + v.k * y0), ay1 = oy + s0 * (v.y + v.k * y1);
+    const g = 8, pl = p.left - wr.left - g, pt = p.top - wr.top - g, pr = p.right - wr.left + g, pb = p.bottom - wr.top + g;
+    if (ax1 <= pl || ax0 >= pr || ay1 <= pt || ay0 >= pb) return v;
+    const up = ay1 - pt, room = ay0 - safeInsets().t - g;
+    if (up <= room) return { k: v.k, x: v.x, y: v.y - up / s0 };
+    if (pl - ax0 < (ax1 - ax0) * 0.5) return v;
+    const f = (pl - ax0) / (ax1 - ax0), wx = (ax0 - ox) / s0, wy = ((ay0 + ay1) / 2 - oy) / s0;
+    return { k: v.k * f, x: wx - f * (wx - v.x), y: wy - f * (wy - v.y) };
+  }
+  // The whole map, in the space the cards leave and clear of the zoom pill.
+  const circWhole = () => clearPill(insetVT({ k: 1, x: 0, y: 0 }, circVB()), circVB());
   function defaultVT(circuit) {
     if (!circuit) {
       // Fit frames everything the plate draws: the heart and the veins above it, the organs, the
@@ -1305,12 +1333,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
     }
     // Turned upright, the map is tall and fills the height of the stage as it is.
-    if (rotTarget) return insetVT({ k: 1, x: 0, y: 0 }, circVB());
+    if (rotTarget) return circWhole();
     const ins = safeInsets();
     const W = ins.W - ins.l - ins.r, H = ins.H - ins.t - ins.b;
     const s0 = Math.min(W / VB_CIRC[2], H / VB_CIRC[3]);
     // (With a card at the side the whole map is shown: the close-up is for a narrow screen with nothing over it.)
-    if (ins.l || ins.r || VB_CIRC[3] * s0 > 0.62 * H) return insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC);
+    if (ins.l || ins.r || VB_CIRC[3] * s0 > 0.62 * H) return clearPill(insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC), VB_CIRC);
     const k = clamp((0.94 * H) / (VB_CIRC[3] * s0), 1, 3);
     const cx = VB_CIRC[0] + VB_CIRC[2] / 2, cy = VB_CIRC[1] + VB_CIRC[3] / 2;
     const fx = 640, fy = cy;
@@ -1323,7 +1351,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view). Inside the sinusoid it steps back out to the lobule.
     if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.fitView(); return; }
     handsOff();
-    const circuit = morphTarget === 1, focus = defaultVT(circuit), whole = circuit ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : { k: 1, x: 0, y: 0 };
+    const circuit = morphTarget === 1, focus = defaultVT(circuit), whole = circuit ? circWhole() : { k: 1, x: 0, y: 0 };
     const near = (a, b) => Math.abs(a.k - b.k) < 0.02 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
     // Judged from where a glide in progress is going, so a second tap toggles as expected.
     const at = vtGliding ? vtTarget : vt;
@@ -1360,7 +1388,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (on === rotTarget) return;
     // Mid-glide (Fit, a zoom button), the turn starts from where the glide was going.
     if (vtGliding) { cancelFrame(vtAnim); vtGliding = false; vt = { ...vtTarget }; applyVT(); CTM = null; }
-    const whole = morphTarget !== 1 || vt.k <= 1.001 || sameView(vt, insetVT({ k: 1, x: 0, y: 0 }, circVB()));
+    const whole = morphTarget !== 1 || vt.k <= 1.001 || sameView(vt, circWhole());
     rotHold = null;
     if (!whole) {
       const ins = safeInsets(), b = stageBox();
@@ -1370,7 +1398,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     rotTarget = on;
     cancelFrame(vtAnim);
-    if (whole) vt = morphTarget === 1 ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : { k: 1, x: 0, y: 0 };
+    if (whole) vt = morphTarget === 1 ? circWhole() : { k: 1, x: 0, y: 0 };
     if (morphTarget !== 1 || reduceMotion.matches) { rotU = on; setViewBox(easeInOut(morph)); if (rotHold) { holdView(rotHold); rotHold = null; } }
   }
 
@@ -5870,7 +5898,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
       setViewBox(easeInOut(morph));
       if (rotHold) { holdView(rotHold); if (rotU === rotTarget) rotHold = null; }
-      else if (rotU === rotTarget && morphTarget === 1) { vt = insetVT({ k: 1, x: 0, y: 0 }, circVB()); applyVT(); CTM = null; }
+      else if (rotU === rotTarget && morphTarget === 1) { vt = circWhole(); applyVT(); CTM = null; }
     }
     stepReveals(now);
     if (F) stepBlood(dt);
@@ -6552,7 +6580,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
       // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.
       const wasOut = target === 1 && (fromLobule || at.k <= 1.001 || (homeAt && sameView(at, homeAt)));   // the whole plate (or less) is showing
-      const d = wasOut ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : defaultVT(target === 1);
+      const d = wasOut ? circWhole() : defaultVT(target === 1);
       if (target === 0) homeAt = d;   // back to the anatomy: always its home framing
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
     },
@@ -6626,7 +6654,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       handsOff();
       // The last step out lands on the whole figure, centred (the circuit: its whole map), as the lobule's − stops at its framing.
       // (It used to shrink past it to 0.6× about the middle and stay there: a small figure off to one side that nothing put back.)
-      const circuit = morphTarget === 1, d = defaultVT(circuit), whole = circuit ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : d, lo = whole.k < d.k ? whole : d;
+      const circuit = morphTarget === 1, d = defaultVT(circuit), whole = circuit ? circWhole() : d, lo = whole.k < d.k ? whole : d;
       const base = vtGliding && vtTarget ? vtTarget : vt;
       if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; if (!sameView(lo, base)) animateVT(lo, 260); return; }
       const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);

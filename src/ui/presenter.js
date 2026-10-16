@@ -767,11 +767,13 @@ function bigTiles() {
       if (p.S) {
         const on = !none && f[p.k] != null, w = on ? at(p.k, f[p.k]) : 0;
         p.now.hidden = !on;
-        p.now.style.left = w + '%';
+        // (The marks stay whole inside the track: a value past either end of the scale, as platelets of 380 on a bar
+        // that stops at 300, rests against that end instead of running half off it. Sweep, 16 Oct.)
+        p.now.style.left = `clamp(6px, ${w}%, calc(100% - 6px))`;
         if (p.was) {
           const ok = on && r0 != null, w0 = ok ? at(p.k, r0) : 0;
           p.was.hidden = p.link.hidden = !ok;
-          p.was.style.left = w0 + '%';
+          p.was.style.left = `clamp(4.5px, ${w0}%, calc(100% - 4.5px))`;
           p.link.style.left = Math.min(w, w0) + '%'; p.link.style.width = Math.abs(w - w0) + '%';
         }
       }

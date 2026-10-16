@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=0f6d345282';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=24d36f824c';
+import { createStage } from './stage.js?v=5abbbe280c';
 import { createCreditPlacer } from './credit.js?v=65811225d1';
 import { sinusoidSupported } from './sinusoid-view.js?v=2e507f4385';
 import { createInspector } from './inspector.js?v=3e6fa85bd0';
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=5d2cf5f5f3'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=0d78f3fcba'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -201,9 +201,13 @@ async function main() {
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); syncBloodBtn(); redraw(); });
   // A phone shows a short form of a long name (styles), wrapped to two lines if needed: "Decomp. cirrhosis", not "Decomp…".
   const shortName = (s) => s.replace(/\s*\(.*\)$/, '').replace(/,.*$/, '').replace(/^Decompensated\b/, 'Decomp.').replace(/^Compensated\b/, 'Comp.').replace(/^Clinically significant PH$/, 'CSPH');
+  // The compact form, for the narrowest room (a phone held sideways, 84 px): the short form where two lines of it fit, else a
+  // shorter name (a soft hyphen breaks Schistosomiasis across the two lines with a hyphen if it must).
+  const COMPACT = { 'Acute portal vein thrombosis': 'Acute PVT', 'Schistosomiasis / NCPH': 'Schisto\u00ADsomiasis', 'Cirrhosis with gastrorenal shunt': 'Gastrorenal shunt', 'Sinusoidal obstruction syndrome': 'SOS' };
   const syncScenarioName = () => {
-    const st = store.get(), name = presets.find((p) => p.id === st.presetId)?.label || 'Custom';
-    $('#scenarioName').replaceChildren(h('span', { class: 'sn-l' }, name), h('span', { class: 'sn-s' }, shortName(name)));
+    const st = store.get(), name = presets.find((p) => p.id === st.presetId)?.label || 'Custom', short = shortName(name);
+    $('#scenarioName').replaceChildren(h('span', { class: 'sn-l' }, name), h('span', { class: 'sn-s' }, short), h('span', { class: 'sn-c' }, COMPACT[short] ?? short));
+    fitScenarioName();
   };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
@@ -920,6 +924,19 @@ function leave(el) {
 const arrive = (el) => { el.classList.remove('card-leaving'); enterAfterGone(el); };
 function panelShown() { return !app.classList.contains('instrument-focus') && app.classList.contains('panel-open'); }
 // The figure re-fits to the space the open cards leave (once as the card starts, again when its sheet has settled).
+// The patient's name in the top bar shows whole, never cut with "…" (sweep, 16 Oct: "Budd–Chiari (he…" on a phone held
+// sideways). It takes the first form that fits its room: the full name on one line, the short form on one line, the short
+// form on two lines at 12 px, then the compact form on two lines. An upright phone starts at the short form on two lines,
+// as it always has. (styles: .scenario-v[data-form])
+function fitScenarioName() {
+  const e = document.getElementById('scenarioName');
+  if (!e?.querySelector('.sn-c') || !e.offsetParent) return;
+  const forms = matchMedia('(max-width: 480px)').matches ? ['s2', 'c2'] : ['l', 's', 's2', 'c2'];
+  for (const f of forms) {
+    e.dataset.form = f;
+    if (e.scrollWidth <= e.clientWidth + 0.5 && e.scrollHeight <= e.clientHeight + 0.5) return;
+  }
+}
 let refitT = 0;
 function refitStage() {
   clearTimeout(refitT);
@@ -1016,6 +1033,8 @@ function wireFloating() {
     // Off a phone the bar first compacts step by step (data-fit 1-3: shorter patient name, icon-only
     // buttons), so the view and the lens stay on the one row; two rows only if even that fails.
     const tb = $('#topbar'), cs = getComputedStyle(tb);
+    // (Measured with the patient's full name, as always, so the name's form, picked after, never moves the bar's step.)
+    if ($('#scenarioName').dataset.form) $('#scenarioName').dataset.form = 'l';
     const need = () => $('.tb-id').scrollWidth + ($('#viewSeg').closest('.topbar') ? $('#viewSeg').offsetWidth : 0) + $('.topbar .sb-right').offsetWidth + $('.top-right').scrollWidth + 6 * 8 + 16;
     const avail = tb.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     const was = +(tb.dataset.fit || 0) + (tb.classList.contains('two-rows') ? 1 : 0);
@@ -1033,6 +1052,7 @@ function wireFloating() {
       }
       if (fit > steps) { tb.dataset.fit = String(steps); tb.classList.add('two-rows'); }
     }
+    fitScenarioName();
     // Every box is read first and the custom properties written after, so the whole pass costs one layout
     // instead of one per write; a value is written only when it changed, and the occupancy is announced
     // (pps:occ: the cards and the credit place themselves again) only when something did change.
