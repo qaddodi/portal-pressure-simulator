@@ -1,6 +1,6 @@
 # Accessibility
 
-Portal Pressure Simulator 2.1.0 · self-assessment against WCAG 2.2 level AA, in the format of an
+Portal Pressure Simulator (updated October 2026) · self-assessment against WCAG 2.2 level AA, in the format of an
 Accessibility Conformance Report (ACR). **This is not a third-party audit.** An independent
 audit and a published VPAT® are planned before institutional sale; this document records what
 the product does today and where it falls short.

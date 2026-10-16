@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## October 2026
 
 - **The view switch is the bottom bar's first line, one tap away.** On an upright phone or iPad the switch (Circuit,
   Anatomy, Lobule, Sinusoid) is one slim line at the top of the dock, above the play row: small text, the selected view

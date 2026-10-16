@@ -10,7 +10,7 @@ scripted: every number and every pixel comes from one lumped-parameter hemodynam
 > **Educational simulation.** The model is simplified and its values are illustrative. Don't use
 > it for diagnosis or treatment decisions.
 
-Version 2.1.0 · content version 2.0. See [CHANGELOG.md](CHANGELOG.md).
+Updated October 2026, model content dated October 2026. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Run it
 
@@ -131,7 +131,7 @@ more); only Battery saver lowers either. See [docs/PERFORMANCE.md](docs/PERFORMA
   the device. See [docs/PRIVACY.md](docs/PRIVACY.md).
 - **Offline.** Installable PWA; works on poor exam-hall Wi-Fi once loaded.
 - **Language.** English only for now; language selection may come back later.
-- **Versioned content.** A class taught on content version 2.0 behaves the same all term.
+- **Dated content.** The model, patients and presentations change only when their content date does, so a class behaves the same all term.
 
 ## What's inside
 
