@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plate mockup</title>
+<style>
+  body { margin: 0; background: #d8d4cc; font: 14px/1.4 Inter, system-ui, sans-serif; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px; max-width: 1700px; margin: 0 auto; }
+  .panel { position: relative; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+  .panel svg { display: block; width: 100%; height: auto; }
+  .cap { position: absolute; left: 12px; top: 10px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+  .light .cap { color: #16181D; } .dark .cap { color: #E9EDF6; }
+</style>
+</head>
+<body>
+<div class="grid" id="grid"></div>
+<script>
+// ───────── palette (section 2 of the plan) ─────────
+const LIGHT = {
+  bg: '#FBFAF7', ink: '#3A3230', line2: 'rgba(60,40,36,.38)', label: '#4D505A', halo: '#FBFAF7',
+  light: 'rgba(255,255,255,.55)', shadow: 'rgba(60,30,30,.20)', casing: 'rgba(30,24,40,.56)', lumenLine: 'rgba(255,255,255,.28)',
+  liver: ['#D9A08E', '#B9766A', '#8E5345'], stomach: ['#F0CFC2', '#D8A797', '#A47464'], gut: ['#F3DFC9', '#DEBE9F', '#AE8B6E'],
+  spleen: ['#C9A3C4', '#A07A9C', '#70506C'], kidney: ['#D29A8C', '#B07466', '#8A5A4C'], panc: ['#EFDDAF', '#D5BA7F', '#A68D55'],
+  gb: ['#B9CBA0', '#8EA677', '#627A4C'], heart: ['#E0A39E', '#C07A74', '#91524D'], ra: ['#D28E8A', '#B06B66', '#8A4C48'],
+  liverCirr: ['#CFA87C', '#A9805A', '#7E5A3A'], liverCong: ['#B5767F', '#8E5560', '#6A3A44'],
+  nod: '#B98B5E', sep: '#F6EAD6', nut: '#6E3A4C', fluid: '#E7D28A', fluidLine: '#C9B063',
+  // vessel pressure hues (the app's ramp, approximated)
+  hv: '#8DB9E6', ivc: '#8DB9E6', pv: '#6A86DE', pvHigh: '#C1397C', hvHigh: '#D2559A', art: '#C8414D', varix: '#C33077', caput: '#9A57C8', renal: '#9CC2E8',
+};
+const DARK = {
+  bg: '#0E1422', ink: '#E7D6CF', line2: 'rgba(230,214,208,.35)', label: '#A9B2C7', halo: '#0E1422',
+  light: 'rgba(255,240,230,.18)', shadow: 'rgba(0,0,0,.45)', casing: 'rgba(214,222,246,.34)', lumenLine: 'rgba(255,255,255,.22)',
+  liver: ['#9A605A', '#6B3F3E', '#D9A49C'], stomach: ['#9C6872', '#6E4650', '#E2B2BA'], gut: ['#8E7568', '#63504A', '#D6B8A6'],
+  spleen: ['#7E5E86', '#563E5E', '#C8A8D0'], kidney: ['#8F5650', '#633A37', '#D59C94'], panc: ['#8B7A50', '#5E5236', '#D3C08A'],
+  gb: ['#5F7A52', '#42553A', '#A7C08E'], heart: ['#A05C5E', '#703F42', '#E0A2A4'], ra: ['#8E4D50', '#633538', '#D8969A'],
+  liverCirr: ['#9A7A50', '#6B5436', '#D9B98A'], liverCong: ['#8A5566', '#613A48', '#D29AAE'],
+  nod: '#B08A58', sep: '#3A2E26', nut: '#2C1A26', fluid: '#C9B467', fluidLine: '#E0CB7E',
+  hv: '#9CCBF2', ivc: '#9CCBF2', pv: '#7E98EE', pvHigh: '#E0479A', hvHigh: '#EA6AB2', art: '#E4606C', varix: '#E8408E', caput: '#B57AE0', renal: '#A8CFF0',
+};
+
+// ───────── silhouettes (plate units; viewBox 300 0 820 920, midline x ≈ 620) ─────────
+const SH = {
+  diaphragm: 'M318 430 C 312 330 320 226 372 190 C 410 166 460 164 500 168 C 560 174 610 198 650 212 C 690 220 720 208 760 204 C 800 200 850 196 900 204 C 960 212 1030 236 1062 272 C 1096 302 1108 360 1112 430',
+  flankL: 'M336 440 C 324 610 330 780 372 954', flankR: 'M1088 440 C 1100 610 1094 780 1052 954',
+  abdomen: 'M336 440 C 324 610 330 780 372 954 C 470 1012 954 1012 1052 954 C 1094 780 1100 610 1088 440 Z',
+  // liver: domed superior surface, oblique sharp inferior margin, teres notch at x≈625, thin left lobe over the stomach
+  liver: 'M344 326 C 340 262 384 206 468 192 C 540 180 606 186 640 196 C 686 204 730 232 776 262 C 794 272 792 292 770 300 C 730 316 688 344 642 366 L 630 378 L 618 368 C 560 386 468 398 406 396 C 372 394 348 364 344 326 Z',
+  falciform: 'M624 372 C 628 300 632 240 634 198',
+  gb: 'M520 384 C 532 378 556 378 570 386 C 582 394 578 406 560 408 C 540 410 522 400 520 384 Z',
+  // heart on the diaphragm's saddle; right atrium on the viewer's left; apex to the viewer's lower right
+  heart: 'M596 96 C 584 118 584 156 602 176 C 618 194 652 200 686 194 C 708 190 722 180 726 168 C 732 148 708 110 676 84 C 652 64 622 62 606 74 C 598 80 596 88 596 96 Z',
+  ra: 'M596 96 C 584 118 586 158 606 178 C 616 186 626 180 628 166 C 630 134 626 100 618 76 C 610 70 600 84 596 96 Z',
+  avGroove: 'M630 76 C 638 110 638 150 632 184',
+  esophagus: 'M750 -60 L 772 -60 L 770 150 C 768 196 756 228 736 250 L 716 256 C 740 226 748 190 748 150 Z',
+  // stomach with a fundus under the left dome, body down and medially, pylorus just right of the midline (viewer's left)
+  stomach: 'M716 252 C 740 222 792 212 832 228 C 862 240 874 272 868 302 C 862 352 842 402 802 432 C 760 460 690 466 640 450 C 614 442 600 428 600 414 L 602 408 C 634 398 676 394 692 372 C 710 348 712 320 706 290 C 702 272 704 258 716 252 Z',
+  folds: ['M832 262 C 846 300 842 350 822 392', 'M806 248 C 824 292 822 350 800 396', 'M776 246 C 792 290 790 346 770 392', 'M748 262 C 760 300 756 340 742 372'],
+  pylorusLines: ['M606 404 C 600 414 600 426 606 436', 'M616 400 C 610 412 610 426 618 438'],
+  // duodenal C on the patient's right of the midline, framing the pancreatic head
+  duodenum: 'M600 410 C 578 410 564 428 562 455 C 560 495 560 540 584 562 C 606 582 650 578 666 560 C 674 548 674 528 670 510',
+  pancreas: 'M606 522 C 600 500 630 486 672 496 C 760 494 860 470 940 440 C 970 430 990 418 1004 404',
+  pancLines: ['M660 492 C 664 504 660 516 652 524', 'M740 486 C 744 498 740 508 732 514', 'M830 470 C 834 480 830 490 822 496', 'M910 452 C 914 462 910 470 902 476'],
+  bowel: 'M668 505 C 640 530 596 546 568 578 C 536 616 566 652 630 646 C 710 640 786 626 862 632 C 918 636 924 676 880 694 C 820 716 710 700 616 708 C 548 714 524 752 566 776 C 628 806 736 792 834 794 C 896 796 904 828 860 842 C 776 858 648 846 560 838 C 520 834 480 826 458 812',
+  colon: 'M440 806 C 426 782 420 742 420 700 C 420 640 422 580 436 530 C 452 480 472 480 502 500 C 562 542 642 582 722 582 C 802 582 882 540 942 470 C 962 448 988 440 992 472 C 1000 540 1000 640 988 740 C 980 800 940 840 880 846 C 820 852 760 850 720 870 C 690 886 672 904 662 924',
+  appendix: 'M438 818 C 440 836 452 846 470 846',
+  spleen: 'M1060 272 C 1090 272 1104 300 1100 340 C 1096 390 1066 440 1030 462 C 1012 472 1000 462 1004 448 C 1010 432 1024 420 1026 404 C 1028 392 1020 384 1024 372 C 1030 352 1032 334 1028 318 C 1024 300 1036 276 1060 272 Z',
+  spleenNotches: ['M1022 334 C 1030 344 1030 356 1024 366', 'M1020 392 C 1028 400 1028 410 1022 418'],
+  kidney: 'M1002 478 C 1036 472 1046 520 1040 560 C 1034 600 1012 626 988 618 C 972 612 974 594 982 580 C 988 568 986 556 978 548 C 968 530 972 490 1002 478 Z',
+  kidneyHilum: 'M980 548 C 992 546 1000 556 1000 570',
+};
+// Anchor points used by the vessel routes.
+const HILUM = [604, 372], CONF = [682, 512], RA_IN = [616, 182], RA_TOP = [614, 70];
+
+// ───────── helpers ─────────
+let uid = 0;
+const nid = (p) => `${p}${++uid}`;
+function organ(d, tone, P, { ox = 6, oy = 8, hx = 5, hy = 7, lw = 1.6, opacity = 1, extra = '', transform = '', shadowOn = null } = {}) {
+  const id = nid('o'), [base, shade, line] = tone;
+  const g = [`<g${transform ? ` transform="${transform}"` : ''}${opacity !== 1 ? ` opacity="${opacity}"` : ''}>`];
+  g.push(`<defs><path id="${id}" d="${d}"/><clipPath id="${id}c"><use href="#${id}"/></clipPath><mask id="${id}m" maskUnits="userSpaceOnUse" x="0" y="-200" width="1400" height="1300"><use href="#${id}" fill="#fff"/><use href="#${id}" fill="#000" transform="translate(${-ox} ${-oy})"/></mask></defs>`);
+  if (shadowOn) g.push(`<g clip-path="url(#${shadowOn})"><use href="#${id}" fill="none" stroke="${P.shadow}" stroke-width="7" stroke-linejoin="round"/></g>`);
+  g.push(`<g clip-path="url(#${id}c)">`);
+  g.push(`<use href="#${id}" fill="${P.light}"/>`);                                   // highlight sliver (upper-left)
+  g.push(`<use href="#${id}" fill="${base}" transform="translate(${hx} ${hy})"/>`);      // base
+  g.push(`<use href="#${id}" fill="${shade}" mask="url(#${id}m)"/>`);                   // shade crescent (lower-right)
+  g.push(extra);
+  g.push(`</g>`);
+  g.push(`<use href="#${id}" fill="none" stroke="${line}" stroke-width="${lw}" stroke-opacity=".9" stroke-linejoin="round"/>`);
+  g.push(`</g>`);
+  return { svg: g.join(''), clip: `${id}c` };
+}
+const lines = (ds, color, w = 0.9, op = 0.55, extra = '') => ds.map((d) => `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-opacity="${op}" stroke-linecap="round" ${extra}/>`).join('');
+// Tube: a band of varying width along a path (w0 at the start, w1 at the end), casing + lumen + a thin light line.
+function tube(d, w0, w1, color, P, { op = 1, fadeStart = 0, casing = true, cap = 'round' } = {}) {
+  const id = nid('t');
+  // gradient along the tube for a fading start (the fan twigs and organ tips)
+  return `<g opacity="${op}" data-tube="${id}" data-d="${d}" data-w0="${w0}" data-w1="${w1}" data-color="${color}" data-casing="${casing ? P.casing : ''}" data-line="${P.lumenLine}" data-fade="${fadeStart}"></g>`;
+}
+// Tubes are expanded in the browser (path sampling needs the DOM): build a polygon with the width profile.
+function expandTubes(svg) {
+  const probe = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  svg.appendChild(probe);
+  for (const g of svg.querySelectorAll('g[data-tube]')) {
+    const d = g.dataset.d, w0 = +g.dataset.w0, w1 = +g.dataset.w1, col = g.dataset.color, cas = g.dataset.casing, fade = +g.dataset.fade;
+    probe.setAttribute('d', d);
+    const L = probe.getTotalLength(), n = Math.max(12, Math.round(L / 6));
+    const pts = [], nm = [];
+    for (let i = 0; i <= n; i++) { const p = probe.getPointAtLength((L * i) / n); pts.push([p.x, p.y]); }
+    for (let i = 0; i <= n; i++) { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n, i + 1)]; const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; nm.push([-dy / l, dx / l]); }
+    const wAt = (u) => (w0 + (w1 - w0) * u) * (fade ? Math.min(1, u / fade) : 1) + (fade ? 0.6 * Math.max(0, 1 - u / fade) : 0);
+    const outline = (k) => {
+      let s = '';
+      for (let i = 0; i <= n; i++) { const w = wAt(i / n) * k / 2; s += (i ? 'L' : 'M') + (pts[i][0] + nm[i][0] * w).toFixed(1) + ' ' + (pts[i][1] + nm[i][1] * w).toFixed(1); }
+      for (let i = n; i >= 0; i--) { const w = wAt(i / n) * k / 2; s += 'L' + (pts[i][0] - nm[i][0] * w).toFixed(1) + ' ' + (pts[i][1] - nm[i][1] * w).toFixed(1); }
+      return s + 'Z';
+    };
+    let html = '';
+    if (cas) html += `<path d="${outline(1)}" fill="none" stroke="${cas}" stroke-width="2.2" stroke-linejoin="round"/>`;
+    html += `<path d="${outline(1)}" fill="${col}"/>`;
+    // a thin light line a little off-centre (the plate style's single highlight)
+    let s = '';
+    for (let i = 0; i <= n; i++) { const w = wAt(i / n) * 0.22; s += (i ? 'L' : 'M') + (pts[i][0] + nm[i][0] * w).toFixed(1) + ' ' + (pts[i][1] + nm[i][1] * w).toFixed(1); }
+    html += `<path d="${s}" fill="none" stroke="${g.dataset.line}" stroke-width="${Math.max(0.6, Math.min(w0, w1) * 0.14)}" stroke-linecap="round"/>`;
+    if (fade) { const gid = nid('f'); html = `<defs><linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="${pts[0][0]}" y1="${pts[0][1]}" x2="${pts[Math.round(n * fade)][0]}" y2="${pts[Math.round(n * fade)][1]}"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="1"/></linearGradient><mask id="${gid}m" maskUnits="userSpaceOnUse" x="0" y="-200" width="1400" height="1300"><rect x="0" y="-200" width="1400" height="1300" fill="url(#${gid})"/></mask></defs><g mask="url(#${gid}m)">${html}</g>`; }
+    g.innerHTML = html;
+  }
+  probe.remove();
+}
+// A fan of fading twigs leaving `at` around `dir` (degrees, 0 = +x, 90 = down).
+function fan(at, dir, spread, len, n, w, color, P, { out = false, seed = 1 } = {}) {
+  let s = '', r = seed;
+  const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
+  for (let i = 0; i < n; i++) {
+    const a = ((dir - spread / 2 + (spread * (i + 0.5)) / n) * Math.PI) / 180, l = len * (0.8 + 0.4 * rnd());
+    const e = [at[0] + Math.cos(a) * l, at[1] + Math.sin(a) * l], m = [at[0] + Math.cos(a + 0.25 * (rnd() - 0.5)) * l * 0.5 + (rnd() - 0.5) * 8, at[1] + Math.sin(a) * l * 0.5 + (rnd() - 0.5) * 8];
+    const d = out ? `M${at[0]} ${at[1]} Q${m[0]} ${m[1]} ${e[0]} ${e[1]}` : `M${e[0]} ${e[1]} Q${m[0]} ${m[1]} ${at[0]} ${at[1]}`;
+    s += tube(d, out ? w : w * 0.35, out ? w * 0.35 : w, color, P, { fadeStart: out ? 0 : 0.45, casing: false, op: .9 });
+    // a side twig from the middle of each tributary
+    const b = a + (rnd() > 0.5 ? 0.8 : -0.8), bl = l * (0.35 + 0.25 * rnd()), q = [at[0] + Math.cos(a) * l * 0.55, at[1] + Math.sin(a) * l * 0.55];
+    const be = [q[0] + Math.cos(b) * bl, q[1] + Math.sin(b) * bl];
+    s += tube(out ? `M${q[0]} ${q[1]} L ${be[0]} ${be[1]}` : `M${be[0]} ${be[1]} L ${q[0]} ${q[1]}`, out ? w * 0.5 : w * 0.25, out ? w * 0.25 : w * 0.5, color, P, { fadeStart: out ? 0 : 0.5, casing: false, op: .8 });
+  }
+  return s;
+}
+function caput(at, P) {
+  let s = '', r = 23; const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
+  const dirs = [-160, -120, -75, -30, 20, 55, 110, 150, 200];
+  for (const dg of dirs) {
+    const a = (dg * Math.PI) / 180, l = 58 + 30 * rnd(), wig = 10 + 8 * rnd();
+    const p1 = [at[0] + Math.cos(a) * l * 0.4 - Math.sin(a) * wig, at[1] + Math.sin(a) * l * 0.4 + Math.cos(a) * wig];
+    const p2 = [at[0] + Math.cos(a) * l * 0.75 + Math.sin(a) * wig * 0.8, at[1] + Math.sin(a) * l * 0.75 - Math.cos(a) * wig * 0.8];
+    const e = [at[0] + Math.cos(a) * l, at[1] + Math.sin(a) * l];
+    s += tube(`M${at[0]} ${at[1]} C ${p1[0]} ${p1[1]} ${p2[0]} ${p2[1]} ${e[0]} ${e[1]}`, 4.2, 1.6, P.caput, P, { casing: false, op: .9 });
+    // a side branch from the vein's middle
+    const b = (a + (rnd() > 0.5 ? 0.9 : -0.9)), bl = 20 + 16 * rnd(), m = [at[0] + Math.cos(a) * l * 0.55, at[1] + Math.sin(a) * l * 0.55];
+    s += tube(`M${m[0]} ${m[1]} Q ${m[0] + Math.cos(b) * bl * 0.5 + 4} ${m[1] + Math.sin(b) * bl * 0.5 - 3} ${m[0] + Math.cos(b) * bl} ${m[1] + Math.sin(b) * bl}`, 2.2, 1, P.caput, P, { casing: false, op: .8 });
+  }
+  return s;
+}
+function label(x, y, t, P, anchor = 'start') {
+  return `<text x="${x}" y="${y}" font-family="Inter, system-ui, sans-serif" font-size="11" letter-spacing="1.6" font-weight="600" fill="${P.label}" text-anchor="${anchor}" paint-order="stroke" stroke="${P.halo}" stroke-width="3" stroke-linejoin="round">${t}</text>`;
+}
+// seeded lattice of blobs inside a box (nodules, nutmeg rings)
+function lattice(x0, y0, x1, y1, gap, seed) {
+  let r = seed; const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
+  const out = [];
+  for (let y = y0, row = 0; y < y1; y += gap * 0.87, row++) for (let x = x0 + (row % 2) * gap / 2; x < x1; x += gap) out.push({ x: x + (rnd() - 0.5) * gap * 0.5, y: y + (rnd() - 0.5) * gap * 0.5, r: rnd(), k: rnd() });
+  return out;
+}
+const blob = (x, y, r, k) => { let d = ''; for (let j = 0; j < 7; j++) { const t = (j / 7) * Math.PI * 2 + k, rr = r * (0.82 + 0.3 * Math.abs(Math.sin(3 * t + k * 5))); d += (j ? 'L' : 'M') + (x + Math.cos(t) * rr).toFixed(1) + ' ' + (y + Math.sin(t) * rr).toFixed(1); } return d + 'Z'; };
+
+// ───────── a scene ─────────
+function scene({ theme = 'light', state = 'healthy', title = '' }) {
+  const P = theme === 'dark' ? DARK : LIGHT;
+  const cirr = state === 'cirrhosis', cong = state === 'congestion';
+  const o = [];
+  o.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="300 0 820 920"><rect x="300" y="0" width="820" height="920" fill="${P.bg}"/>`);
+  // backdrop: diaphragm and flanks
+  o.push(lines([SH.flankL, SH.flankR], P.ink, 1.4, 0.35));
+  const bulge = cirr ? 14 : cong ? 4 : 0;
+  if (bulge) o.push(lines([`M336 440 C ${324 - bulge} 610 ${330 - bulge} 780 ${372 - bulge * 0.4} 954`, `M1088 440 C ${1100 + bulge} 610 ${1094 + bulge} 780 ${1052 + bulge * 0.4} 954`], P.ink, 1.4, 0.35));
+  o.push(`<path d="${SH.diaphragm}" fill="none" stroke="${P.ink}" stroke-width="6" stroke-opacity=".08" stroke-linecap="round"/><path d="${SH.diaphragm}" fill="none" stroke="${P.ink}" stroke-width="1.6" stroke-opacity=".55" stroke-linecap="round"/>`);
+
+  // ── back tier: kidney, cavae, renal vein
+  const kid = organ(SH.kidney, P.kidney, P, { ox: 4, oy: 6, hx: 3, hy: 5, opacity: .9 });
+  o.push(kid.svg, lines([SH.kidneyHilum], P.kidney[2]));
+  const ivcW = cong ? 1.3 : 1;
+  // IVC: a gentle S, widening behind the liver, ending at the atrium's lower pole; faded where it lies behind organs
+  o.push(tube('M612 930 L 612 700 C 612 640 616 540 619 402', 22, 23, P.ivc, P, { op: .95 }));
+  o.push(tube(`M${RA_TOP[0]} -60 L ${RA_TOP[0]} ${RA_TOP[1]}`, 17, 18, P.ivc, P, { op: .55 }));
+  o.push(tube('M978 556 C 900 558 760 558 622 560', 9, 10, P.renal, P, { op: .7, fadeStart: .12 }));
+
+  // ── mid tier organs
+  // splenic vein first (the pancreas is translucent over it)
+  const pvCol = cirr ? P.pvHigh : P.pv;
+  o.push(tube(`M1022 402 C 992 420 962 448 922 462 C 862 480 792 492 742 502 C 712 506 694 510 ${CONF[0]} ${CONF[1]}`, 9, 12, pvCol, P, { fadeStart: .12 }));
+  o.push(tube('M932 700 C 922 640 902 560 878 480', 6, 7, pvCol, P, { fadeStart: .25 }));            // IMV into the splenic vein from below
+  const panc = organ(SH.pancreas, P.panc, P, { ox: 4, oy: 5, hx: 3, hy: 4, opacity: .62, lw: 1.2 });
+  // the pancreas is a band: draw it as a thick stroke instead of a silhouette
+  o.push(`<g opacity=".62"><ellipse cx="612" cy="512" rx="30" ry="26" fill="${P.panc[1]}"/><ellipse cx="610" cy="508" rx="25" ry="21" fill="${P.panc[0]}"/><path d="${SH.pancreas}" fill="none" stroke="${P.panc[1]}" stroke-width="34" stroke-linecap="round"/><path d="${SH.pancreas}" fill="none" stroke="${P.panc[0]}" stroke-width="24" stroke-linecap="round" transform="translate(-1 -4)"/><ellipse cx="612" cy="512" rx="30" ry="26" fill="none" stroke="${P.panc[2]}" stroke-width="1.1" stroke-opacity=".5"/>${lines(SH.pancLines, P.panc[2], 0.9, 0.5)}</g>`);
+  // duodenum (tube), colon frame, small bowel loops
+  const gutTube = (d, w) => `<path d="${d}" fill="none" stroke="${P.gut[2]}" stroke-width="${w + 3.2}" stroke-linecap="round" stroke-linejoin="round" stroke-opacity=".9"/><path d="${d}" fill="none" stroke="${P.gut[1]}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${P.gut[0]}" stroke-width="${w * 0.66}" stroke-linecap="round" stroke-linejoin="round" transform="translate(-1.5 -2.5)"/>`;
+  const stoTube = (d, w) => `<path d="${d}" fill="none" stroke="${P.stomach[2]}" stroke-width="${w + 3.2}" stroke-linecap="round" stroke-linejoin="round" stroke-opacity=".9"/><path d="${d}" fill="none" stroke="${P.stomach[1]}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${P.stomach[0]}" stroke-width="${w * 0.66}" stroke-linecap="round" stroke-linejoin="round" transform="translate(-1.5 -2.5)"/>`;
+  const lift = cirr ? -6 : 0;
+  o.push(`<g transform="translate(0 ${lift})">${gutTube(SH.bowel, 18)}</g>`);
+  o.push(gutTube(SH.colon, 26), gutTube(SH.appendix, 7));
+  // haustra ticks on the colon
+  o.push(`<g data-haustra="${SH.colon}" data-color="${P.gut[2]}"></g>`);
+  o.push(stoTube(SH.duodenum, 19));
+  // spleen (enlarged in disease: anchored at the upper pole, grown along its long axis)
+  const sc = cirr ? 1.55 : cong ? 1.2 : 1;
+  const spT = sc === 1 ? '' : `translate(1060 272) rotate(28) scale(${(0.6 + 0.4 * sc).toFixed(3)} ${sc}) rotate(-28) translate(-1060 -272)`;
+  const spl = organ(SH.spleen, P.spleen, P, { transform: spT });
+  o.push(spl.svg, `<g transform="${spT}">${lines(SH.spleenNotches, P.spleen[2])}</g>`);
+  // stomach and esophagus
+  const sto = organ(SH.stomach, P.stomach, P, { ox: 7, oy: 9, hx: 5, hy: 7 });
+  o.push(sto.svg, `<g clip-path="url(#${sto.clip})">${lines(SH.folds, P.stomach[2], 0.9, 0.35)}${lines(SH.pylorusLines, P.stomach[2])}</g>`);
+  const eso = organ(SH.esophagus, P.stomach, P, { ox: 4, oy: 5, hx: 3, hy: 4 });
+  o.push(`<g mask="url(#esoFade)">${eso.svg}</g>`);
+  o.push(`<defs><mask id="esoFade" maskUnits="userSpaceOnUse" x="600" y="-100" width="360" height="420"><linearGradient id="esoG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000"/><stop offset=".55" stop-color="#fff"/></linearGradient><rect x="600" y="-100" width="360" height="420" fill="url(#esoG)"/></mask></defs>`);
+  // left gastric (coronary) vein along the lesser curvature, before the liver so the lobe covers its top
+  o.push(tube(`M${CONF[0] - 10} ${CONF[1] - 12} C 694 462 702 420 704 380 C 708 340 706 300 712 262`, 5.5, 4 * (cirr ? 1.6 : 1), pvCol, P, { fadeStart: cirr ? 0 : 0.18 }));
+
+  // ── liver: shape from the state
+  const lvTone = cirr ? P.liverCirr : cong ? P.liverCong : P.liver;
+  const lvScale = cirr ? 0.91 : cong ? 1.08 : 1;
+  const lvT = `translate(${HILUM[0]} ${HILUM[1]}) scale(${lvScale}) translate(${-HILUM[0]} ${-HILUM[1]})`;
+  let liverD = SH.liver;
+  if (cirr) liverD = `__SCALLOP__`;   // built in the browser from the sampled outline
+  // gallbladder first (its fundus shows below the margin)
+  const gb = organ(SH.gb, P.gb, P, { ox: 3, oy: 4, hx: 2, hy: 3, lw: 1.2, transform: lvT });
+  o.push(gb.svg);
+  // contact shadow of the liver on the stomach and colon beneath: a clipped dark stroke
+  const lv = organ(liverD, lvTone, P, { ox: 7, oy: 10, hx: 5, hy: 8, transform: lvT, shadowOn: null });
+  o.push(`<g transform="${lvT}"><path d="${liverD}" fill="none" stroke="${P.shadow}" stroke-width="9" stroke-linejoin="round" opacity=".9"/></g>`);
+  o.push(lv.svg);
+  o.push(`<g transform="${lvT}" clip-path="url(#${lv.clip})">${lines([SH.falciform], lvTone[2], 0.9, 0.5)}<g data-liverpat="${state}"></g></g>`);
+
+  // the retrohepatic cava shows through the liver, faded, and widens up to the atrium
+  o.push(tube(`M619 402 C 623 360 626 300 622 240 C 620 215 619 195 ${RA_IN[0]} ${RA_IN[1]}`, 23 * ivcW, 27 * ivcW, cong ? P.hvHigh : P.ivc, P, { op: .42 }));
+  // ── front vessels
+  const hvCol = cong ? P.hvHigh : P.hv, hvW = cong ? 1.35 : 1;
+  // parenchymal wash between the portal twigs and the hepatic twigs
+  o.push(`<defs><radialGradient id="wash${theme}${state}"><stop offset="0" stop-color="${pvCol}" stop-opacity=".16"/><stop offset="1" stop-color="${pvCol}" stop-opacity="0"/></radialGradient></defs><g clip-path="url(#${lv.clip})" transform="${lvT}"><ellipse cx="470" cy="300" rx="80" ry="52" fill="url(#wash${theme}${state})"/><ellipse cx="730" cy="292" rx="46" ry="30" fill="url(#wash${theme}${state})"/></g>`);
+  // hepatic veins: three, from fans of twigs, converging on the cava under the diaphragm
+  o.push(`<g transform="${lvT}">`);
+  o.push(fan([466, 256], 205, 95, 52, 3, 5, hvCol, P, { seed: 3 }));
+  o.push(tube('M466 256 C 510 236 572 228 612 222', 6 * hvW, 10 * hvW, hvCol, P, { fadeStart: .1 }));
+  o.push(fan([572, 284], 235, 70, 40, 2, 4, hvCol, P, { seed: 5 }));
+  o.push(tube('M572 284 C 592 268 606 250 616 236', 5 * hvW, 8 * hvW, hvCol, P, { fadeStart: .12 }));
+  o.push(fan([732, 262], -25, 70, 40, 2, 4, hvCol, P, { seed: 7 }));
+  o.push(tube('M732 262 C 700 266 660 258 628 248', 5 * hvW, 8 * hvW, hvCol, P, { fadeStart: .12 }));
+  o.push(`</g>`);
+  // portal vein into the hilum, then two branches ending in fans of twigs
+  o.push(tube(`M${CONF[0]} ${CONF[1]} C 660 470 630 420 ${HILUM[0]} ${HILUM[1]}`, 15, 16, pvCol, P));
+  o.push(`<g transform="${lvT}">`);
+  o.push(tube(`M${HILUM[0]} ${HILUM[1]} C 575 356 540 346 502 336`, 11, 7, pvCol, P));
+  o.push(fan([502, 336], 195, 110, 56, 3, 5, pvCol, P, { out: true, seed: 11 }));
+  o.push(tube(`M${HILUM[0]} ${HILUM[1]} C 640 354 672 344 702 328`, 10, 6, pvCol, P));
+  o.push(fan([702, 328], -45, 90, 44, 3, 4.5, pvCol, P, { out: true, seed: 13 }));
+  o.push(`</g>`);
+  // hepatic artery beside the portal vein
+  o.push(tube('M690 476 C 656 456 626 422 608 384', 4.5, 4, P.art, P, { fadeStart: .3 }));
+  // SMV up behind the pancreas (drawn over here, the band is translucent), fading into the mesentery
+  o.push(tube(`M690 704 C 690 640 686 570 ${CONF[0]} ${CONF[1]}`, 11, 13, pvCol, P, { fadeStart: .2 }));
+  o.push(fan([690, 704], 95, 90, 40, 3, 5, pvCol, P, { seed: 17 }));
+  o.push(fan([932, 700], 95, 70, 34, 2, 3.5, pvCol, P, { seed: 19 }));
+
+  // ── heart (in front of the cavae collars)
+  const raT = cong ? 'translate(610 126) scale(1.22) translate(-610 -126)' : '';
+  const ht = organ(SH.heart, P.heart, P, { ox: 6, oy: 8, hx: 4, hy: 6 });
+  o.push(ht.svg);
+  const ra = organ(SH.ra, P.ra, P, { ox: 4, oy: 6, hx: 3, hy: 4, lw: 1.2, transform: raT });
+  o.push(ra.svg, lines([SH.avGroove], P.heart[2], 0.9, 0.5));
+  o.push(`<path d="M642 118 L 656 112 L 652 122 Z M661 124 L 675 118 L 671 128 Z M680 130 L 694 124 L 690 134 Z" fill="${P.heart[2]}" fill-opacity=".55"/>`);
+
+  // ── disease overlays
+  if (cirr) {
+    // ascites: fluid in the flanks and pelvis with a meniscus, bowel lifted, a brighter rim at the organ edges is left to the shader
+    o.push(`<defs><clipPath id="abd${theme}"><path d="${SH.abdomen}"/></clipPath></defs><g clip-path="url(#abd${theme})"><path d="M300 700 C 450 690 600 706 720 700 C 840 694 980 690 1120 700 L 1120 1000 L 300 1000 Z" fill="${P.fluid}" fill-opacity=".34"/><path d="M300 700 C 450 690 600 706 720 700 C 840 694 980 690 1120 700" fill="none" stroke="${P.fluidLine}" stroke-width="2.2" stroke-opacity=".55"/></g>`);
+    // esophageal varices: a braid of three columns on the esophagus, draining up to the azygos
+    const vx = (ph, off) => { let d = ''; for (let y = 256; y >= 60; y -= 8) { const xc = 728 + 32 * Math.min(1, (256 - y) / 100); const x = xc + off + Math.sin((y / 26) + ph) * 6; d += (y === 256 ? 'M' : 'L') + x.toFixed(1) + ' ' + y; } return d; };
+    o.push(`<g mask="url(#esoFade)">${tube(vx(0, -6), 5.5, 4, P.varix, P)}${tube(vx(2.1, 0), 6, 4.5, P.varix, P)}${tube(vx(4.2, 6), 5, 3.5, P.varix, P)}</g>`);
+    o.push(tube('M760 62 C 752 30 712 8 672 10 C 644 12 626 24 616 40', 4, 3.5, P.caput, P, { op: .7 }));
+    // paraumbilical vein in the falciform ligament, from the left portal vein to the umbilicus on the midline, then the caput fan
+    o.push(tube('M648 350 C 636 440 624 600 620 790', 4, 5.5, P.caput, P, { fadeStart: .08 }));
+    o.push(caput([620, 790], P));
+    o.push(`<circle cx="620" cy="790" r="6.5" fill="none" stroke="${P.ink}" stroke-width="1.4" stroke-opacity=".7"/><path d="M614 793 A 6.5 6.5 0 0 0 626 793" fill="none" stroke="${P.ink}" stroke-width="2" stroke-opacity=".5"/>`);
+  }
+  if (cong) {
+    o.push(`<defs><clipPath id="abdc${theme}"><path d="${SH.abdomen}"/></clipPath></defs><g clip-path="url(#abdc${theme})"><path d="M300 820 C 500 812 700 824 900 816 C 1000 812 1060 814 1120 820 L 1120 1000 L 300 1000 Z" fill="${P.fluid}" fill-opacity=".26"/></g>`);
+  }
+
+  // ── captions
+  o.push(label(396, 420, 'LIVER', P), label(820, 342, 'STOMACH', P, 'middle'), label(1064, 300, 'SPLEEN', P), label(1010, 650, 'KIDNEY', P), label(1012, 820, 'COLON', P), label(792, 752, 'SMALL BOWEL', P), label(800, 40, 'ESOPHAGUS', P), label(470, 122, 'RIGHT ATRIUM', P), label(598, 466, 'IVC', P, 'end'));
+  if (cirr) o.push(label(790, 150, 'ESOPH. VARICES', P), label(700, 866, 'CAPUT MEDUSAE', P), label(470, 736, 'ASCITES', P));
+  o.push(`</svg>`);
+  return `<div class="panel ${theme}"><span class="cap">${title}</span>${o.join('')}</div>`;
+}
+
+// ───────── build ─────────
+const panels = [
+  { theme: 'light', state: 'healthy', title: 'Healthy · light' },
+  { theme: 'dark', state: 'healthy', title: 'Healthy · dark' },
+  { theme: 'light', state: 'cirrhosis', title: 'Decompensated cirrhosis · light' },
+  { theme: 'dark', state: 'congestion', title: 'Right heart failure (congestion) · dark' },
+];
+document.getElementById('grid').innerHTML = panels.map(scene).join('');
+
+// Scalloped, slightly shrunken cirrhotic outline: sample the healthy outline, push it along the normal with irregular bumps.
+(function finish() {
+  const probe = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  const svg0 = document.querySelector('svg'); svg0.appendChild(probe);
+  probe.setAttribute('d', SH.liver);
+  const L = probe.getTotalLength(), n = 420, pts = [];
+  for (let i = 0; i < n; i++) { const p = probe.getPointAtLength((L * i) / n); pts.push([p.x, p.y]); }
+  let r = 7; const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
+  let start = 0, lam = 14 + 26 * rnd(); const bumps = [];
+  for (let i = 0; i < n; i++) { const acc = (L * i) / n; if (acc - start > lam) { start = acc; lam = 14 + 26 * rnd(); } bumps.push([(acc - start) / lam, 0.6 + 0.8 * rnd()]); }
+  let d = '';
+  for (let i = 0; i < n; i++) {
+    const a = pts[(i + n - 1) % n], b = pts[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    const nx = dy / l, ny = -dx / l;   // outward for this winding
+    const [u, amp] = bumps[i];
+    const inferior = Math.max(0, ny) ;
+    const push = (Math.pow(Math.sin(Math.PI * u), 0.6) - 0.6) * 5.5 * amp * (0.5 + 0.5 * inferior);
+    d += (i ? 'L' : 'M') + (pts[i][0] + nx * push).toFixed(1) + ' ' + (pts[i][1] + ny * push).toFixed(1);
+  }
+  d += 'Z';
+  probe.remove();
+  for (const el of document.querySelectorAll('[d="__SCALLOP__"], [href]')) { if (el.getAttribute('d') === '__SCALLOP__') el.setAttribute('d', d); }
+  // liver surface patterns
+  for (const g of document.querySelectorAll('g[data-liverpat]')) {
+    const st = g.dataset.liverpat, dark = g.closest('.panel').classList.contains('dark'), P = dark ? DARK : LIGHT;
+    let s = '';
+    if (st === 'cirrhosis') {
+      // macro- and micronodules: flat cells with one dark crescent each; septa as thin pale lines between them
+      for (const c of lattice(330, 180, 820, 410, 27, 5)) {
+        const rad = c.r < 0.45 ? 12 + 8 * c.k : 6 + 3 * c.k, x = c.x, y = c.y;
+        s += `<path d="${blob(x, y, rad, c.k * 6)}" fill="${P.nod}" fill-opacity=".26"/>`;
+        s += `<path d="${blob(x + rad * 0.22, y + rad * 0.28, rad * 0.78, c.k * 6)}" fill="${P.liverCirr[1]}" fill-opacity=".22"/>`;
+        s += `<path d="${blob(x, y, rad + 1.6, c.k * 6)}" fill="none" stroke="${P.sep}" stroke-width="1" stroke-opacity=".32"/>`;
+      }
+    } else if (st === 'congestion') {
+      // nutmeg: sparse rings on a jittered lattice, linking into a lace with severity
+      for (const c of lattice(340, 185, 800, 400, 34, 9)) {
+        if (c.r > 0.8) continue;
+        const x = c.x, y = c.y, rr = 5.5 + 2.5 * c.k;
+        s += `<circle cx="${x}" cy="${y}" r="${rr}" fill="none" stroke="${P.nut}" stroke-width="2.6" stroke-opacity=".16"/><circle cx="${x}" cy="${y}" r="${rr * 0.4}" fill="${P.light}" fill-opacity=".5"/>`;
+        if (c.r > 0.5) s += `<path d="M${x + rr} ${y} Q${x + 17 + (c.k - 0.5) * 8} ${y + 10 + (c.k - 0.5) * 8} ${x + 29} ${y + 15}" fill="none" stroke="${P.nut}" stroke-width="1.8" stroke-opacity=".12"/>`;
+      }
+    }
+    g.innerHTML = s;
+  }
+  // haustra ticks
+  for (const g of document.querySelectorAll('g[data-haustra]')) {
+    const svg = g.closest('svg'); svg.appendChild(probe); probe.setAttribute('d', g.dataset.haustra);
+    const L = probe.getTotalLength(); let s = '';
+    for (let l = 18; l < L - 10; l += 26) { const a = probe.getPointAtLength(l), b = probe.getPointAtLength(l + 1); let tx = b.x - a.x, ty = b.y - a.y; const k = Math.hypot(tx, ty) || 1; tx /= k; ty /= k; s += `M${(a.x - ty * 11).toFixed(1)} ${(a.y + tx * 11).toFixed(1)} Q${(a.x + tx * 4).toFixed(1)} ${(a.y + ty * 4).toFixed(1)} ${(a.x + ty * 11).toFixed(1)} ${(a.y - tx * 11).toFixed(1)} `; }
+    probe.remove();
+    g.innerHTML = `<path d="${s}" fill="none" stroke="${g.dataset.color}" stroke-width="1" stroke-opacity=".4" stroke-linecap="round"/>`;
+  }
+  for (const svg of document.querySelectorAll('svg')) expandTubes(svg);
+  document.body.dataset.ready = '1';
+})();
+</script>
+</body>
+</html>
