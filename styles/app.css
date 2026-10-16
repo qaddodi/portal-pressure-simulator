@@ -113,6 +113,10 @@ svg { flex: none; }
 #overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .stage-view[class*="tool-"]:not(.tool-select):not(.tool-probe) #stage { cursor: crosshair; }
 .stage-view #stage { cursor: grab; }
+/* A press, drag or pinch on the figure focuses it, and the browser's ring then framed the whole view (sweeps 01 #19,
+   02 #08, #16, #18, #30; after a Ctrl+wheel the browser even counted it as keyboard focus). The figure itself is never
+   reached by the keyboard (tabindex -1: Tab goes through the vessels, which keep their own ring), so it shows no ring. */
+.stage-view #stage:focus, .stage-view #stage:focus-visible { outline: none; }
 .stage-view > :is(#stage, #stageOver, #labels, canvas) { transition: opacity .25s ease; }
 .stage-view.unframed > :is(#stage, #stageOver, #labels, canvas) { opacity: 0; }
 /* A presenter's camera move: the labels ease out as it starts and back in once it settles (stage.js camSettle). */
@@ -763,6 +767,10 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 @keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
 .menu.leaving { pointer-events: none; animation: popOut .12s var(--ease) forwards; }
 /* A phone's menus are bottom sheets: full width, descriptions wrap, the same rise and fall as the cards. */
+/* A menu taller than the room scrolls, and fades into its own surface at the bottom while there is more
+   below it (util.js fadeWhileMore), so its last row is never just cut at the edge (sweep 01 #05). A sticky
+   veil rather than a mask, so the menu's own background and edge stay whole. */
+.menu.more::after { content: ''; position: sticky; bottom: 0; flex: none; height: 28px; margin: -29px -8px 0; background: linear-gradient(to bottom, transparent, var(--surface)); pointer-events: none; }
 .menu.as-sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto !important; min-width: 0; max-width: none; max-height: 75dvh; overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y;
   padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; animation: sheetUp .24s var(--ease); }
 .menu.as-sheet.leaving { animation: sheetDown .12s var(--ease) forwards; }
@@ -3259,6 +3267,8 @@ button.finding { cursor: pointer; }
 .umenu:has(.um-empty:not([hidden])) .um-cols { flex: 0 0 auto; }
 .umenu:has(.um-empty:not([hidden])) .um-empty { flex: 1 1 auto; }
 .um-col { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 8px 10px; }
+/* A list with more below fades out at the bottom, as the docked cards do, so a heading is never cut by the footer's line. */
+.um-col.more, .um-cols.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); }
 .um-hi { width: var(--ic-s); height: var(--ic-s); color: var(--text-2); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .um-g { margin-top: 4px; }
 .um-gl { display: flex; align-items: baseline; gap: 6px; padding: 6px 8px 2px; font-size: var(--fs-12); color: var(--text-3); }
@@ -3470,6 +3480,13 @@ button.finding { cursor: pointer; }
   .vdock .tl-time .tl-t-long { display: none; }
   .vdock .tl-time .tl-t-short { display: inline; }
   .vdock .readouts { width: 300px; }
+  /* Even spacing (sweep 01 #14): the clock, jump and compare share the play bar's spare room equally, and
+     the two readings sit evenly in their own part rather than leaving a gap after the second. */
+  .vdock .timeline { justify-content: space-between; }
+  .vdock .timeline .tl-jumps { margin-left: 0; }
+  .vdock .timeline .tl-time { text-align: center; }   /* (it keeps its steady width; centred, its gaps read even) */
+  .vdock:not(.mini) .readouts:not(.all) .metric.primary { text-align: center; }
+  .vdock:not(.mini) .readouts:not(.all) .metric.primary .v { justify-content: center; }
 }
 @media (max-width: 767px) {
   .topbar[data-fit] #viewSeg button { padding: 6px 7px; }
@@ -3864,9 +3881,11 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .lens-opt.on .bo-ic { color: var(--accent-ink); }
 /* The on state is a small switch at the row's end, not only the faint outline. */
 .lens-opt:has(.mt-sw) { grid-template-columns: 22px 1fr auto; }
-.lens-opt .mt-sw { grid-column: 3; grid-row: 1 / 3; position: relative; width: 28px; height: 16px; border-radius: 8px; background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border); transition: background .2s var(--ease), box-shadow .2s var(--ease); }
+.lens-opt .mt-sw { grid-column: 3; grid-row: 1 / 3; position: relative; width: 28px; height: 16px; border-radius: 8px; background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: background .2s var(--ease), box-shadow .2s var(--ease); }
 .lens-opt:not(:has(.lens-d)) .mt-sw { grid-row: 1; }
-.lens-opt .mt-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgb(var(--black-rgb) / .25); transition: transform .2s var(--ease); }
+/* Off reads like the app's other switches (.switch, .ab-tg): a white knob on a track with a strong edge,
+   so it stays plain in dark too (sweep 01 #05). */
+.lens-opt .mt-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 2px rgb(var(--black-rgb) / .25); transition: transform .2s var(--ease); }
 .lens-opt.on .mt-sw { background: var(--accent); box-shadow: none; }
 .lens-opt.on .mt-sw::after { transform: translateX(12px); }
 @media (prefers-reduced-motion: reduce) { .lens-opt .mt-sw, .lens-opt .mt-sw::after { transition: none; } }
@@ -4752,7 +4771,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .topbar[data-fit] .lg-scale { width: 56px; }
   .topbar[data-fit] #viewSeg button { padding: 6px 7px; }
   .app.dock-open:has(#dock.side:not([data-state="peek"])) .instrument-workspace.side { bottom: calc(env(safe-area-inset-bottom) + 6px); }
-  .app.dock-open:has(#dock.side) .vdock { right: calc(env(safe-area-inset-right) + var(--side-ws-w, 340px) + 14px); }
+  .app.dock-open:has(#dock.side) .vdock { right: calc(env(safe-area-inset-right) + var(--side-ws-w, 340px) + 14px); width: auto; }   /* (width auto: the tablet's fixed 640 px had kept it running on under the card; sweep 02 #05) */
   .app.dock-open:has(#dock.side) .vdock .readouts { display: none; }
   .instrument-workspace.side .dop-vessel { min-width: 84px; }
   .instrument-workspace.side .dop-tint { gap: 5px; padding: 0 8px; }
@@ -5616,21 +5635,24 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @media (max-width: 767px) {
   .app.thumb .vdock .timeline .tl-time { min-width: 0; margin-left: 6px; }
   .app.thumb .vdock .readouts:not(.all) { padding-right: 6px; }
+  .app.thumb .vdock .readouts:not(.all) .ro-tiles { column-gap: 2px; }   /* (a number stays 8 px from the next tile's flash; sweep 01 #17) */
 }
 /* A narrow phone (iPhone SE, 375 px and less): a little less room around the numbers so both fit. */
 @media (max-width: 380px) {
   .app.thumb .vdock .timeline { gap: 4px; }
   .app.thumb .vdock .readouts:not(.all) .metric { padding: 0 3px; gap: 0 4px; }
+  .app.thumb .vdock .readouts:not(.all) .ro-tiles { column-gap: 5px; }
   .app.thumb .vdock .readouts:not(.all) .metric .v { font-size: 18px; }
 }
 /* The smallest phones (320 px): the two readings and their names a step smaller, so the second one is not cut off. */
 @media (max-width: 359px) {
   .app.thumb .vdock .timeline { gap: 2px; }
-  .app.thumb .vdock .timeline .tl-time { margin-left: 8px; margin-right: -1px; }   /* (the jump icon has room of its own inside its button) */
+  .app.thumb .vdock .timeline .tl-time { margin-left: 5px; margin-right: -1px; }   /* (the jump icon has room of its own inside its button; 3 px went to the readings' gap) */
   .app.thumb .vdock .readouts:not(.all) .ro-group { padding: 0; }
   .app.thumb .vdock .timeline .tl-ff { width: 30px; }
   .app.thumb .vdock .readouts:not(.all) { padding-right: 8px; }
   .app.thumb .vdock .readouts:not(.all) .metric { padding: 0 1px; gap: 0 2px; }
+  .app.thumb .vdock .readouts:not(.all) .ro-tiles { column-gap: 7px; }
   .app.thumb .vdock .readouts:not(.all) .metric .k { font-size: 10px; letter-spacing: 0; }
   .app.thumb .vdock .readouts:not(.all) .metric .v { font-size: 15px; }
 }

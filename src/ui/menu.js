@@ -5,9 +5,9 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=3b659e1968';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=e387ad7347';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore } from './util.js?v=75eb090c53';
 import { SNAPSHOTS } from './snapshots.js?v=01db65d6d0';
-import { pressureColor } from './colormap.js?v=ec83805fb9';
+import { pressureColor } from './colormap.js?v=8fee5fe6f1';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('menu');
 
@@ -248,7 +248,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     go.hidden = !there;
     go.textContent = there ? `${there} ${other === 'patients' ? (there === 1 ? 'patient matches' : 'patients match') : (there === 1 ? 'presentation matches' : 'presentations match')} ›` : '';
     el.classList.toggle('filtered', !!words.length && any);
+    // The list fades at its bottom while more rows sit below, instead of being cut at the footer's line.
+    for (const sc of el.querySelectorAll('.um-cols, .um-col')) (fades.get(sc) || fades.set(sc, fadeWhileMore(sc)).get(sc))();
   }
+  const fades = new WeakMap();
   // Switching tabs eases the new list in; the panel keeps its size.
   function setTab(k, focus) {
     tab = k;

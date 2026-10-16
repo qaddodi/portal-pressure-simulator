@@ -2,13 +2,13 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { pressureColor } from './colormap.js?v=ec83805fb9';
-import { verbEnabled } from './actions.js?v=f84a878db7';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=e387ad7347';
+import { pressureColor } from './colormap.js?v=8fee5fe6f1';
+import { verbEnabled } from './actions.js?v=41a5162d83';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=75eb090c53';
 import { simTime, isPaused } from './clock.js?v=af6de95a7c';
-import { createEndoGL } from './endo-gl.js?v=9c6f94577c';
-import { renderEndo } from './endo-render.js?v=00dd0c3285';
-import { FONT } from './charts.js?v=eed250ce0a';
+import { createEndoGL } from './endo-gl.js?v=9732ccfa97';
+import { renderEndo } from './endo-render.js?v=41cd56d1d9';
+import { FONT } from './charts.js?v=e5e947b424';
 import { store, updateParams, varicesPresent } from './store.js?v=3b659e1968';
 import { balanceHold } from './balance-hold.js?v=ea4d9121d2';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';

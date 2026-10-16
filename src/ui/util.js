@@ -195,8 +195,11 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   document.body.append(el);
   const put = () => {
     if (asSheet) return;
+    const r = anchor.getBoundingClientRect(), z = uiScale();
+    // A scrolling menu below its button may use all the room down to the 8 px margin, so it ends whole where it fits.
+    if (place === 'below' && el.classList.contains('app-menu')) el.style.maxHeight = Math.max(160, visibleBottom() - r.bottom - 16) / z + 'px';
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
-    const r = anchor.getBoundingClientRect(), z = uiScale(), mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
+    const mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
     let x = align === 'end' ? r.right - mr.width : align === 'center' ? r.left + r.width / 2 - mr.width / 2 : r.left;
     // (A menu from the thumb dock's tab row opens above the whole dock, so it never covers the play bar or HVPG and PPG.)
     const top = anchor.closest('.thumb-bar') ? Math.min(r.top, anchor.closest('.vdock').getBoundingClientRect().top - 6) : r.top;
@@ -207,6 +210,8 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     el.style.top = clamp(y, 8, vb - mr.height - 8) / z + 'px';
   };
   put();
+  // (History's list has its own soft edges at both ends.)
+  if (!el.classList.contains('tl-history')) fadeWhileMore(el);
   if (asSheet) swipeSheet(el, () => closePopover());
   const off = (e) => { if (!el.contains(e.target) && !anchor.contains(e.target)) closePopover(); };
   const esc = (e) => { if (e.key === 'Escape') closePopover(); };
@@ -217,6 +222,16 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   openMenu = { el, anchor, put, cleanup: () => { removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); vv?.removeEventListener('resize', onVV); onClose?.(); } };
   anchor.setAttribute('aria-expanded', 'true');
   return el;
+}
+/** A list that scrolls fades at its bottom edge while there is more below it (class .more), as the docked
+ *  cards do, so its last row is never just cut at the edge. Returns the check, to run after the content changes. */
+export function fadeWhileMore(el) {
+  const sync = () => el.classList.toggle('more', el.scrollHeight - el.clientHeight - el.scrollTop > 4);
+  el.addEventListener('scroll', sync, { passive: true });
+  const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else sync(); });
+  ro.observe(el);
+  sync();
+  return sync;
 }
 export const popoverOpen = () => !!openMenu;
 /** Places the open menu again, after something it is anchored to has moved or resized. */
