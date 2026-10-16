@@ -1833,12 +1833,33 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover')
       && document.querySelector('.pz-data:not(.pz-hide) .pzt-d')?.textContent.includes('from'), null, { timeout: 60000 });
     await page.waitForTimeout(800);
+    // (Short means no dead room, judged from what each part holds, since the tiles carry scale bars (14 Oct): a tile no taller
+    // than its name, value, rating and scale bar with its numbers, plus its padding; the card no taller than its header, tiles
+    // and grip, plus its padding; 2 px of slack each. And the figure keeps at least its 276 px at 390x844.)
     const r = await page.evaluate(() => {
       const d = document.querySelector('.pz-data:not(.pz-hide)'), tiles = [...d.querySelectorAll('.pz-tile')];
       const spill = tiles.flatMap((t) => { const b = t.getBoundingClientRect(); return [...t.children].filter((c) => { const cb = c.getBoundingClientRect(); return cb.width && (cb.right > b.right + 1 || cb.bottom > b.bottom + 1); }).map((c) => c.className); });
-      return { h: d.getBoundingClientRect().height, tile: Math.max(...tiles.map((t) => t.getBoundingClientRect().height)), n: tiles.length, spill };
+      // (the span its shown parts cover, top to bottom, plus its padding and border; the card counts its tiles themselves, so an
+      // empty row in the tile grid shows as dead room)
+      const held = (el, parts) => {
+        const shows = (c) => c.textContent.trim() || c.matches('canvas, svg, img, .pz-grip, .pz-fold') || c.querySelector('canvas, svg, img');
+        const rs = parts.filter((c) => { const s = getComputedStyle(c); return s.display !== 'none' && s.position !== 'absolute' && s.position !== 'fixed' && shows(c); }).map((c) => c.getBoundingClientRect()).filter((q) => q.width && q.height);
+        const s = getComputedStyle(el), z = el.getBoundingClientRect().height / el.offsetHeight || 1;
+        const pad = (parseFloat(s.paddingTop) + parseFloat(s.paddingBottom) + parseFloat(s.borderTopWidth) + parseFloat(s.borderBottomWidth)) * z;
+        return rs.length ? Math.max(...rs.map((q) => q.bottom)) - Math.min(...rs.map((q) => q.top)) + pad : pad;
+      };
+      const loose = tiles.map((t) => ({ k: t.querySelector('.pzt-k')?.textContent.trim(), h: t.getBoundingClientRect().height, held: held(t, [...t.querySelectorAll(':scope > *')]) })).filter((x) => x.h > x.held + 2);
+      const card = d.getBoundingClientRect(), cardHeld = held(d, [...d.children].flatMap((c) => c.matches('.pz-tiles') ? [...c.children] : [c]));
+      const sh = document.querySelector('.pz-shade.stack');
+      return { h: card.height, cardHeld, loose, n: tiles.length, spill, fig: sh ? sh.getBoundingClientRect().top - card.bottom : null };
     });
-    if (r.n !== 2 || r.h > 114 || r.tile > 66 || r.spill.length) throw new Error(`FibroScan card ${Math.round(r.h)}px tall (cap 114), tallest of ${r.n} tiles ${Math.round(r.tile)}px (cap 66)${r.spill.length ? ', spilling: ' + r.spill.join() : ''}`);
+    const why = [];
+    if (r.n !== 2) why.push(`${r.n} tiles (2)`);
+    if (r.h > r.cardHeld + 2) why.push(`FibroScan card ${Math.round(r.h)}px tall for ${Math.round(r.cardHeld)}px of header, tiles and padding`);
+    for (const x of r.loose) why.push(`the ${x.k} tile ${Math.round(x.h)}px tall for ${Math.round(x.held)}px of content and padding`);
+    if (r.fig != null && r.fig < 276) why.push(`the figure keeps ${Math.round(r.fig)}px (at least 276)`);
+    if (r.spill.length) why.push('spilling: ' + r.spill.join());
+    if (why.length) throw new Error(why.join('; '));
     // The Doppler card: its report in three short rows, the direction clear of the stats.
     await page.evaluate(() => window.pps.presenter.start('doppler', 1));
     await page.waitForFunction(() => document.querySelector('.pz-data:not(.pz-hide) .pz-tool[data-kind="doppler"] .dop-dir')?.textContent.length > 2, null, { timeout: 60000 });
