@@ -613,6 +613,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (o.id === 'esophagus') g.setAttribute('mask', 'url(#esoFade)');   // it runs up out of the plate: fade, don't cut
     gOrgans.append(g);
   }
+  // Keyboard stops for the organs a tap opens (the drawn plate is hidden under the GPU copy, and hidden things take no
+  // focus): invisible outlines after the organs, reached by Tab only. They take no pointer, so a click or tap never
+  // focuses one, and their focus shows as the organ's hover outline (focusin below), never as a ring on the figure.
+  const ORGAN_KEYS = [['heart', 'Right heart'], ['liver', 'Liver'], ['spleen', 'Spleen']];   // (the names the palette uses)
+  const gOrgKeys = s('g', { id: 'organKeys' });
+  for (const [id, label] of ORGAN_KEYS) gOrgKeys.append(s('path', { class: 'org-key', d: ORGANS.find((o) => o.id === id).d, tabindex: 0, role: 'button', 'aria-label': `${label}. Press Enter for its card.`, 'data-organ': id }));
+  gOrgans.after(gOrgKeys);
   // The liver shows its disease in its form and surface, never as a pressure hue (hue is kept for
   // data). Healthy: a smooth, glossy capsule and a thin, sharp inferior edge. Congested: a
   // swollen, rounder, darker organ with a faint nutmeg mottle. Cirrhotic: a shrunken right lobe,
@@ -7142,6 +7149,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // Keyboard: Tab reaches each vessel, Enter opens its card, arrows walk along the flow.
   svg.addEventListener('keydown', (ev) => {
+    const org = ev.target.getAttribute?.('data-organ');
+    if (org && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); if (shunt || morph > 0.5) return; setOrganHover(null); onSelect({ type: 'organ', id: org }, { keyboard: true }); return; }
     const id = ev.target.getAttribute?.('data-id');
     if (!id) return;
     if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); if (shunt) { shuntDropOn(id); return; } onSelect({ type: 'edge', id }, { keyboard: true }); }
@@ -7154,7 +7163,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (next) { E[next.id].hit.focus(); onSelect({ type: 'edge', id: next.id }, { quiet: true }); }
     }
   });
+  svg.addEventListener('focusout', (ev) => { if (ev.target.getAttribute?.('data-organ')) setOrganHover(null); });
   svg.addEventListener('focusin', (ev) => {
+    const org = ev.target.getAttribute?.('data-organ');
+    if (org) { const sel = store.get().selection; setOrganHover(sel?.type === 'organ' && sel.id === org ? null : org); return; }
     const id = ev.target.getAttribute?.('data-id');
     if (id && F && EI[id] != null) {
       const e = EDGES[EI[id]], q = F.Q[EI[id]];

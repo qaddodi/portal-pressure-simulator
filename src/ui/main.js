@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=61ebe1d038';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=65ec443c0e';
-import { createStage } from './stage.js?v=e34b0dc3e3';
+import { createStage } from './stage.js?v=1a73fa1302';
 import { createCreditPlacer } from './credit.js?v=b780eae767';
 import { sinusoidSupported } from './sinusoid-view.js?v=e11a2820df';
 import { createInspector } from './inspector.js?v=afc3953073';
@@ -273,10 +273,10 @@ async function openDeepLink() {
   if (q.get('preset')) {
     const id = q.get('preset'), list = store.get().presetList || [];
     if (list.some((p) => p.id === id)) { await loadPreset(id); return true; }
-    const near = list.find((p) => (p.id + ' ' + p.label).toLowerCase().includes(id.toLowerCase().split(/[-\s]/)[0]));
-    toast(`No patient called “${id}”.${near ? ` Showing ${near.label}.` : ''}`, 'bad');
-    if (near) { await loadPreset(near.id); return true; }
-    return false;
+    // A mistyped link never opens a different patient: it says so and opens Patients, searching for the link's first word.
+    toast(`No patient called “${id.slice(0, 60)}”. Pick one from Patients.`, 'bad');
+    mainMenu.open('patients', { query: id.split(/[-_\s]/).find(Boolean)?.slice(0, 40) || '' });
+    return true;
   }
   if (q.get('home')) { mainMenu.open(q.get('home') === 'present' ? 'present' : 'patients'); return true; }
   return false;
@@ -388,16 +388,18 @@ function readShare() {
 }
 async function loadShared(s, { quiet = false } = {}) {
   await loadPreset(s.preset);
+  const missing = s.missing && `This link names a patient the app does not have (“${s.missing}”), so its settings opened on the healthy patient.`;
   if (s.params) {
     const merged = deepMerge(store.get().params, s.params), clean = sanitizeParams(merged);
     updateParams(() => clean, { settle: true, history: false });
-    if (JSON.stringify(clean) !== JSON.stringify(merged)) { timeline.flush(); toast('This link had values out of range; they were set to the nearest allowed values.'); return; }
+    if (JSON.stringify(clean) !== JSON.stringify(merged)) { timeline.flush(); toast(missing || 'This link had values out of range; they were set to the nearest allowed values.', missing ? 'bad' : undefined); return; }
   }
   if (s.view) store.set({ view: s.view });
   if (s.sel) store.set({ selection: s.sel });
   if (s.cam && !store.get().lobule) stage.setCamera(s.cam, 0);
   timeline.flush();
-  if (!quiet) toast('Loaded the shared scenario.');
+  if (missing) toast(missing, 'bad');
+  else if (!quiet) toast('Loaded the shared scenario.');
 }
 // The orange PREVIEW pill reloads onto the newest build and calls this first: a URL for the same place. In Present, the same
 // presentation and slide (?script=&slide=); in Patients, the same patient, settings, view, camera and selection (#s=).
