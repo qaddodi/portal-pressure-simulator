@@ -9,7 +9,7 @@ export const ASCITES = {
   objectives: ['Explain how sinusoidal pressure and lymph make ascites', 'Interpret the SAAG and ascitic protein', 'Explain why pre-hepatic and presinusoidal resistance rarely causes ascites', 'Tell cirrhosis from heart failure and Budd–Chiari by the tap'],
   checks: [
     ['What SAAG points to portal hypertension?', '1.1 g/dL or more.'],
-    ['A high SAAG with ascitic protein of 2.5 g/dL or more. Where is the problem?', 'Behind the liver: heart failure or Budd–Chiari syndrome. The sinusoid wall is still open and lets protein through.'],
+    ['A high SAAG with ascitic protein of 2.5 g/dL or more. Where is the problem?', 'Post-hepatic: heart failure or Budd–Chiari syndrome. The sinusoid wall is still open and lets protein through.'],
     ['Why does portal vein thrombosis rarely cause ascites?', 'The sinusoids beyond the clot stay at normal pressure, and ascites comes from sinusoidal pressure.'],
   ],
   slides: [
