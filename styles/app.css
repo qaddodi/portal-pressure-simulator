@@ -5646,21 +5646,51 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .app.thumb .vdock .readouts:not(.all) .metric { padding: 0 3px; gap: 0 4px; }
   .app.thumb .vdock .readouts:not(.all) .metric .v { font-size: 18px; }
 }
-/* The smallest phones (320 px): the two readings and their names a step smaller, so the second one is not cut off. */
+/* The smallest phones (320 px): the play row a step tighter. */
 @media (max-width: 359px) {
   .app.thumb .vdock .timeline { gap: 2px; }
   .app.thumb .vdock .timeline .tl-time { margin-left: 8px; margin-right: -1px; }   /* (the jump icon has room of its own inside its button) */
   .app.thumb .vdock .readouts:not(.all) .ro-group { padding: 0; }
   .app.thumb .vdock .timeline .tl-ff { width: 30px; }
-  .app.thumb .vdock .readouts:not(.all) { padding-right: 8px; }
   .app.thumb .vdock .readouts:not(.all) .metric { padding: 0 1px; gap: 0 2px; }
-  .app.thumb .vdock .readouts:not(.all) .metric .k { font-size: 10px; letter-spacing: 0; }
-  .app.thumb .vdock .readouts:not(.all) .metric .v { font-size: 15px; }
+  .app.thumb .vdock .readouts:not(.all) .metric .v { font-size: 16px; }
 }
-.app:not(.presenting) .vdock .readouts:not(.all) .metric .val { display: inline-block; min-width: round(up, 2.2em, 1px); text-align: left; font-variant-numeric: tabular-nums; }   /* (room for two digits and a tenth, "16.9", in whole pixels so it rounds alike at every size, so a readout keeps its width from 2.5 to 28.8; the spare room falls after the value) */
+/* The compact form, each name over its number, only where name and number cannot sit side by side at 12 px: Explore below
+   360 px, and the lobule up to 400 px, whose flows reach three digits ("Portal in 106"). (16 Oct: beside them the lobule's
+   "Portal in 105" ran past a 360 px bar, and a 320 px phone's names were 10 px.) It keeps the bar's one slim row. */
+@media (max-width: 359px) {
+  .app.thumb .vdock .readouts:not(.all) .metric { flex-direction: column; align-items: flex-start; justify-content: center; padding: 0 3px; gap: 0; }
+  .app.thumb .vdock .readouts:not(.all) .metric .k { font-size: var(--fs-12); line-height: 14px; letter-spacing: 0; }
+  .app.thumb .vdock .readouts:not(.all) .metric .v { line-height: 18px; }
+}
+@media (min-width: 360px) and (max-width: 400px) {
+  .app.thumb .vdock .readouts.lob:not(.all) .metric { flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; }
+  .app.thumb .vdock .readouts.lob:not(.all) .metric .k { font-size: var(--fs-12); line-height: 14px; letter-spacing: 0; }
+  .app.thumb .vdock .readouts.lob:not(.all) .metric .v { line-height: 20px; }
+  .app.thumb .vdock .readouts.lob:not(.all) .metric { position: relative; top: 1px; }   /* (centred on play by the letters' ink) */
+}
+/* The readings share the room right of the play row evenly (16 Oct: it had piled up past the last reading, and the tiles
+   crowded each other): the gap before the first, between them and after the last is the same, measured from the jump
+   icon's ink (its button has room of its own, so the row starts under the button's spare edge; only the tiles take taps). */
+.app.thumb .vdock:not(.mini) { grid-template-columns: auto minmax(0, 1fr); }
+.app.thumb .vdock .readouts:not(.all) { padding-right: 0; }
+.app.thumb .vdock .readouts:not(.all) :is(.ro-row, .ro-group, .ro-tiles) { flex: 1 1 auto; min-width: 0; padding-left: 0; padding-right: 0; }
+.app.thumb .vdock .readouts:not(.all) .ro-tiles { justify-content: space-evenly; margin: 0 -3px 0 -12px; pointer-events: none; }   /* (-3px: a name's last letter has a little room of its own) */
+.app.thumb .vdock .readouts:not(.all) .metric { pointer-events: auto; }
+/* A phone held sideways: the same, the play row packed by play and the readings spread evenly over the rest (16 Oct: a 145 px
+   empty run sat between the clock and the jump button, and more past the last reading). */
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .vdock:not(.mini) { grid-template-columns: auto minmax(0, 1fr); }
+  .vdock:not(.mini) .timeline .tl-jumps { margin-left: 0; }
+  .vdock:not(.mini) .readouts:not(.all) { width: auto; }
+  .vdock:not(.mini) .readouts:not(.all) :is(.ro-row, .ro-group, .ro-tiles) { flex: 1 1 auto; min-width: 0; padding-left: 0; padding-right: 0; }
+  .vdock:not(.mini) .readouts:not(.all) .ro-tiles { justify-content: space-evenly; margin-right: -3px; }
+  .vdock:not(.mini) .readouts:not(.all) .metric.primary { flex: none; width: max-content; }
+}
+.app:not(.presenting) .vdock .readouts:not(.all) .metric .val { display: inline-block; min-width: var(--vr, 0px); text-align: left; font-variant-numeric: tabular-nums; }   /* (room for the tile's usual reading, set per tile in dock.js, so a reading keeps its width as it changes; the spare room falls after the value) */
 @media (min-width: 1000px) {   /* (a Mac, where the unit shows: the room is kept after "mmHg" instead, so the unit stays beside its value) */
-  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric .val { min-width: 0; }
-  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric .v { display: inline-block; min-width: 4.175em; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric:is([data-id="hvpg"], [data-id="ppg"]) .val { min-width: 0; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric:is([data-id="hvpg"], [data-id="ppg"]) .v { display: inline-block; min-width: 4.175em; }
 }
 @media (min-width: 1000px) {   /* (a Mac from 1024 px, an iPad held sideways) */
   .app:not(.thumb):not(.presenting) .vdock { width: max-content; max-width: calc(100% - 2 * var(--gap)); }
@@ -5673,7 +5703,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric :is(.v, .unit) { overflow: visible; }
   .app:not(.thumb):not(.presenting) .vdock .stage-bar.bottom { height: 52px; min-height: 52px; padding-right: 4px; }
   .app:not(.thumb):not(.presenting) .vdock .timeline .tl-jumps { margin-left: 0; }
-  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) { width: auto; padding: 0 8px 0 6px; container-type: normal; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) { width: auto; padding: 0 0 0 6px; container-type: normal; }   /* (no right padding: the last reading's own room keeps it as far from the bar's end as play is from its start) */
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .ro-group { padding: 0 2px; justify-content: center; flex: none; }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric { flex: none; flex-direction: row; align-items: baseline; gap: 0 6px; padding: 4px 10px; }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric :is(.rb, .s, .tr) { display: none; }

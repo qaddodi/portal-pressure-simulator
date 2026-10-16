@@ -2802,7 +2802,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const parts = [...document.querySelectorAll('#timeline > *, #timeline .tl-left, #strip .metric :is(.k, .val, .unit, .tr)')].filter((e) => e.offsetParent && e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility !== 'hidden');
           const boxes = parts.map((e) => ({ q: e.className, ...e.getBoundingClientRect().toJSON() }));
           const flat = boxes.filter((b) => !/tl-left/.test(b.q)).sort((a, b) => a.left - b.left);
-          const lap = flat.find((b, i) => i && b.left < flat[i - 1].right - 0.5 && !(String(flat[i - 1].q).includes('tl-left')));
+          const lap = flat.find((b, i) => flat.slice(0, i).some((a) => b.left < a.right - 0.5 && b.top < a.bottom - 0.5 && a.top < b.bottom - 0.5));   // (overlapping both ways: a name over its number shares its column, not its line)
           return { n: tiles.length, bars: tiles.some((m) => m.querySelector('.rb')?.offsetParent || m.querySelector('.s')?.offsetParent),
             out: boxes.filter((b) => b.left < d.left - 0.5 || b.right > d.right + 0.5 || b.right > innerWidth).map((b) => b.q),
             off: boxes.filter((b) => b.top < bar.top - 2 || b.bottom > bar.bottom + 2).map((b) => b.q), lap: lap ? lap.q : '',
@@ -3465,6 +3465,71 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
+  // Every word in the bottom bar's readout row stays inside the row, the bar and the screen, in Explore and in the lobule view
+  // (16 Oct: a reserved width for the readings pushed the lobule's "Portal in 36" 6 px past a 390 px phone's bar).
+  // (and the readings share the room right of the play row evenly: no empty run there, before the first reading, between two or
+  // after the last, is wider than the gap between two readings, measured on the letters' ink; a name over its number keeps
+  // 16 px or more from the next reading on both lines. 16 Oct: it had piled up past the last reading, and the tiles crowded.)
+  await check(device, 'readout row: no word runs past the row, the bar or the screen, or under 12 px, and the readings spaced evenly, in Explore and the lobule', async (page) => {
+    const sizes = device === 'desktop' ? [[1440, 900], [1180, 820], [1024, 768], [820, 1180], [768, 1024]] : [[320, 568], [360, 780], [375, 667], [390, 844], [430, 932], [844, 390], [667, 375]];
+    const bad = [];
+    for (const [w, hgt] of sizes) for (const q of ['?preset=cirr-decomp', '?preset=healthy']) for (const lob of [false, true]) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await open(page, q);
+      if (lob) { await page.evaluate(() => window.pps.store.set({ lobule: true })); await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 }); }
+      await page.waitForTimeout(900);
+      const out = await page.evaluate(() => {
+        const strip = document.querySelector('#strip'), vd = document.querySelector('#vdock');
+        if (!strip?.offsetWidth || !vd?.offsetWidth) return [];
+        const sr = strip.getBoundingClientRect(), dr = vd.getBoundingClientRect(), right = Math.min(sr.right, dr.right, innerWidth), res = [];
+        // (the row's room starts where the play row's last button ends: the readings may use the strip's edge, not a button)
+        const playEnd = Math.max(-Infinity, ...[...vd.querySelectorAll('.timeline :is(button, .tl-time)')].filter((e) => e.checkVisibility()).map((e) => e.getBoundingClientRect().right));
+        const left = Math.max(playEnd > -Infinity ? playEnd : sr.left, dr.left, 0);
+        const walk = document.createTreeWalker(strip, NodeFilter.SHOW_TEXT);
+        for (let t = walk.nextNode(); t; t = walk.nextNode()) {
+          if (!t.textContent.trim() || !t.parentElement.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+          const g = document.createRange(); g.selectNodeContents(t); const b = g.getBoundingClientRect();
+          if (b.width && (b.right > right + 0.5 || b.left < left - 0.5)) res.push(`"${t.textContent.trim()}" ${Math.round(Math.max(b.right - right, left - b.left))} px out`);
+          if (b.width && parseFloat(getComputedStyle(t.parentElement).fontSize) < 11.95) res.push(`"${t.textContent.trim()}" at ${getComputedStyle(t.parentElement).fontSize}`);   // (and at 12 px or more)
+        }
+        // The spacing, on ink: a word's ink from its baseline and the font's measured glyphs; an icon button's from its icon; a
+        // reading's slot (the room kept for its usual value) counts as taken.
+        const vis = (e) => e.checkVisibility({ opacityProperty: true, visibilityProperty: true }), cv = document.createElement('canvas').getContext('2d');
+        const ink = (el) => {
+          const g = document.createRange(); g.selectNodeContents(el); const b = g.getBoundingClientRect(), s = getComputedStyle(el);
+          cv.font = `${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`; cv.letterSpacing = s.letterSpacing;
+          const m = document.createElement('span'); m.style.cssText = 'display:inline-block;width:0;height:0'; el.appendChild(m); const base = m.getBoundingClientRect().bottom; m.remove();
+          const t = cv.measureText(el.textContent); return { l: b.left + Math.max(0, -t.actualBoundingBoxLeft), r: b.left + t.actualBoundingBoxRight, t: base - t.actualBoundingBoxAscent, b: base + t.actualBoundingBoxDescent };
+        };
+        let start = -Infinity;   // the play row's last ink, or the hairline before the readings
+        for (const el of vd.querySelectorAll('.timeline :is(button, .tl-time)')) {
+          if (!vis(el)) continue;
+          const lab = [...el.querySelectorAll('span')].find((e) => vis(e) && e.getBoundingClientRect().width && e.textContent.trim());
+          const r = el.matches('.tl-time') && lab ? ink(lab) : lab ? el.getBoundingClientRect() : (el.querySelector('svg use, svg') || el).getBoundingClientRect();
+          if (r.right > r.left || r.r > r.l) start = Math.max(start, r.r ?? r.right);
+        }
+        const ro = strip.closest('.readouts') || strip; if (parseFloat(getComputedStyle(ro).borderLeftWidth) > 0) start = Math.max(start, ro.getBoundingClientRect().left + 1);
+        const tiles = [...strip.querySelectorAll('.metric')].filter((m) => m.offsetWidth && vis(m)).map((m) => {
+          const k = [...m.querySelectorAll('.k > *, .k')].find((e) => e.offsetWidth && !e.children.length && vis(e)), v = m.querySelector('.val'), u = m.querySelector('.v .unit'), vv = m.querySelector('.v');
+          const kb = ink(k), vb = ink(v); let r = Math.max(vb.r, v.getBoundingClientRect().right);
+          if (u && vis(u) && u.getBoundingClientRect().width) r = Math.max(r, ink(u).r);
+          if (parseFloat(getComputedStyle(vv).minWidth) > 0) r = Math.max(r, vv.getBoundingClientRect().right);
+          return { id: m.dataset.id, l: Math.min(kb.l, vb.l), r: Math.max(kb.r, r), k: kb, v: { l: vb.l, r, t: vb.t } };
+        }).sort((a, b) => a.l - b.l);
+        if (tiles.length > 1 && start > -Infinity) {
+          const gaps = tiles.slice(1).map((t, i) => t.l - tiles[i].r), gap = Math.min(...gaps);
+          const runs = [['before the first', tiles[0].l - start], ['after the last', dr.right - tiles[tiles.length - 1].r]];
+          for (const [where, run] of runs) if (run > gap + 0.5) res.push(`${Math.round(run)} px empty ${where} reading, more than the ${Math.round(gap)} px between readings`);
+          if (gap < 4) res.push(`readings ${Math.round(gap)} px apart`);
+          if (tiles[0].k.b <= tiles[0].v.t + 1)   // (a name over its number)
+            tiles.slice(1).forEach((t, i) => { const a = tiles[i]; const gk = t.k.l - a.k.r, gv = t.v.l - a.v.r; if (Math.min(gk, gv) < 15.5) res.push(`${a.id} and ${t.id} ${Math.round(Math.min(gk, gv))} px apart`); });
+        }
+        return res;
+      });
+      if (out.length) bad.push(`${w}x${hgt} ${q}${lob ? ' lobule' : ''}: ${out.join(', ')}`);
+    }
+    if (bad.length) throw new Error(bad.slice(0, 4).join('; '));
+  });
   await check(device, 'floating pieces never overlap', async (page) => {
     const sizes = device === 'desktop' ? [[1440, 900], [1180, 820], [820, 1180]] : [[390, 844], [844, 390]];
     const states = [['?preset=cirr-decomp', null], ['?preset=cirr-decomp', 'measure'], ['?preset=cirr-decomp', 'both'], ['?preset=cirr-decomp', 'card'], ['?preset=cirr-decomp', 'lobule']];
