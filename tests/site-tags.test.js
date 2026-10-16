@@ -27,8 +27,7 @@ test('decks that teach more than one level tag their slides; cirrhosis-only deck
   assert.deepEqual(siteTag(by('prehepatic'), by('prehepatic').slides[0]), { site: 'pre', name: 'Pre-hepatic' });
 });
 
-test('the teaching card renders the tag above the title, in the running head beside the deck name', () => {
+test('the teaching card renders the tag above the title', () => {
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src, /const runHead = [^\n]*\n[^\n]*siteTag\(deck, s\)[^\n]*\n[^\n]*'pz-run'[^\n]*'pz-dn'[^\n]*'pz-site'/);
-  assert.match(src, /text\.replaceChildren\(\.\.\.\[runHead\(s\), h\('h1', \{ class: 'pz-h' \}, \.\.\.diseaseNodes\(nb\(s\.title\)\)\)/);
+  assert.match(src, /siteTag\(deck, s\)[^\n]*'pz-site'[^\n]*h\('h1', \{ class: 'pz-h' \}, \.\.\.diseaseNodes\(nb\(s\.title\)\)\)/);
 });

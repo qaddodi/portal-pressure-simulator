@@ -1493,12 +1493,23 @@ button.finding { cursor: pointer; }
 /* The site tag above a slide's title: which level the block sits at, a quiet pill in the level's colour, smaller than any text on the card. */
 .pz-site { align-self: flex-start; display: inline-flex; align-items: center; gap: .45em; margin-bottom: -.15em; padding: .2em .6em; border-radius: var(--r-pill); font: 600 max(9px, calc(var(--s-cap) * .75))/1.1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); background: color-mix(in srgb, var(--site) 13%, transparent); }
 .pz:not(.stack) .pz-site { font-size: var(--s-cap); }   /* (a wide screen: the caption's size, the smallest on the card, never under 12 px) */
-/* The running head over a slide's title (presenter.js runHead): the deck's short name in quiet capitals at the site tag's size,
-   the site tag beside it on the same line, wrapping under it only where both do not fit. */
-.pz-run { display: flex; flex-wrap: wrap; align-items: center; gap: .35em .9em; margin-bottom: -.15em; font: 600 max(9px, calc(var(--s-cap) * .75))/1.1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); }
-.pz:not(.stack) .pz-run { font-size: var(--s-cap); }
-.pz-run .pz-site { margin-bottom: 0; }
-.app.pz-hi .pz-run { color: var(--text-2); }
+/* The deck's short name (presenter.js deckTab): a tab in the top right corner of the teaching card's glass and of a visual
+   slide's card, a darker patch of the card itself, flush with its top and right edges (the card's corner rounds its top right),
+   only its bottom left corner rounded. It sits in the card's top padding, so it never meets the title; never under 12 px.
+   A phone's (and a phone on its side): 12 px at the text size, the glass reaching above the words to hold it (layout lift).
+   A laptop's or tablet's: about three quarters of the card's padding tall (--pz-cp), its words about half of that. A phone
+   on its side: its full-height panel's top right, above the words' top gap. */
+.pz-shade, .pz-panel { --pz-tabf: calc(12px * var(--ts, 1)); --pz-tabh: calc(var(--pz-tabf) * 1.85); --pz-tab-bg: color-mix(in srgb, var(--text) 8%, transparent); }
+:is(.pz-shade.pz-card:not(.stack), .pz:not(.stack):not(.low) .pz-panel) { --pz-tabh: calc(var(--pz-cp) * .72); --pz-tabf: max(12px, calc(var(--pz-tabh) * .56)); }
+:root[data-theme="dark"] :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); } }
+.pz-tabname { position: absolute; top: 0; right: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55); border-radius: 0 0 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: 600 var(--pz-tabf)/1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
+.pz-shade.stack .pz-tabname { border-top-right-radius: 17px; }   /* (the glass's own corner, inside its 1 px border) */
+.pz-shade.pz-card:not(.stack) .pz-tabname { border-top-right-radius: calc(clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px) - 1px); }
+.pz-panel > .pz-tabname { zoom: 1; }   /* (the panel's corner clips it to its curve; its fit zoom never shrinks the tab under 12 px) */
+.pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px), calc(var(--pz-tabh) + 10px)); }
+.pz.stack .pz-panel.tabbed { padding-top: calc(var(--pz-tabh) + 10px); }
+.app.pz-hi .pz-tabname { color: var(--text); }
 .pz-kick[data-site="none"] { color: var(--text-3); }
 .pz-h { margin: 0; font: 600 var(--s-title)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
 /* A short neutral rule closes the title off from the body. */

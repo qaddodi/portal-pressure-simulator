@@ -13,15 +13,27 @@ test('the unified menu lists every presentation under exactly one topic, with a 
   }
 });
 
-// The running head (presenter.js runHead): a short name for each talk over every slide's title, on one line beside a site tag.
-test('every presentation has a running head of 20 characters or fewer, distinct from the others', () => {
+// The deck's short name (presenter.js deckTab), in a tab at the teaching card's top right corner.
+test('every presentation has a short deck name of 20 characters or fewer, distinct from the others', () => {
   const heads = DECKS.map((d) => d.head);
-  for (const d of DECKS) assert.ok(d.head && d.head.length <= 20 && d.head === d.head.trim(), `${d.id} running head`);
-  assert.equal(new Set(heads).size, heads.length, 'two talks share a running head');
+  for (const d of DECKS) assert.ok(d.head && d.head.length <= 20 && d.head === d.head.trim(), `${d.id} short deck name`);
+  assert.equal(new Set(heads).size, heads.length, 'two talks share a short name');
 });
 
-test('the teaching card and the visual slides carry the running head; the outline slide names the talk in full instead', () => {
+test('the teaching card and the visual slides carry the deck name in a corner tab; the outline slide names the talk in full instead', () => {
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src, /s\.visual === 'outline' \? h\('h1', \{ class: 'pz-dtitle' \}, nb\(deck\.title\)\) : runHead\(s\)/);
-  assert.match(src, /deck\?\.head \|\| deck\?\.title/);
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(src, /const deckTab = [^\n]*deck\?\.head \|\| \(deck\?\.title\?\.length <= 24/);
+  assert.match(src, /h\('div', \{ class: 'pz-shade' \}, deckTab\(\)/);
+  assert.match(src, /const tab = s\.visual !== 'outline' && deckTab\(\)/);
+  // (Flush with the card's top and right edges, only its bottom left corner rounded, never under 12 px, never cut short.)
+  const rule = css.match(/\n\.pz-tabname \{([^}]*)\}/)?.[1] || '';
+  assert.match(rule, /top: 0; right: 0;/);
+  assert.match(rule, /border-radius: 0 0 0 /);
+  assert.match(rule, /white-space: nowrap/);
+  assert.doesNotMatch(rule, /ellipsis|overflow: hidden/);
+  assert.match(css, /--pz-tabf: calc\(12px \* var\(--ts, 1\)\)/);
+  assert.match(css, /--pz-tabf: max\(12px, /);
+  // (The site tag stays on the left, over the title.)
+  assert.match(src, /siteTag\(deck, s\)[^\n]*'pz-site'[^\n]*h\('h1', \{ class: 'pz-h' \}/);
 });

@@ -3,7 +3,8 @@
 // unit is never larger than its reading. Explore's four views at every text size step on a phone, at 100 % and 200 %
 // on an upright iPad and a desktop; the first slides of eight decks at 100 % (and one at 150 %) at each size, a phone on
 // its side included. A phone's slide words (its bottom panel, the title panel) are 1.7 times the roles' size upright, 1.4 times on its side (a77f314: the phone sizes; its summary table and level rail keep their own size).
-// The drawn slide charts (ladders, strip, SAAG map, walls, still column) are checked by tests/e2e/chart-type.mjs.
+// The drawn slide charts (ladders, strip, SAAG map, walls, still column) are checked by tests/e2e/chart-type.mjs. The deck's corner
+// tab is sized by the card's padding, never under 12 px (app.css .pz-tabname; tests/menu.test.js).
 // (A row of choices sets its own roles, unscaled by the phone's words, upright or on its side: app.css .pz-ab.)
 // Run alone: node tests/e2e/type-scale.mjs; also run by smoke.mjs (desktop run).
 import { chromium } from 'playwright';
@@ -27,7 +28,7 @@ export function offScale(roles) {
   const areas = [];
   const fig = document.querySelector('#stageView');
   if (fig) areas.push({ root: fig, name: 'figure', skip: '.pz, .float-ui, .stage-credit, .tool-card, .zoom-pill, .vdock, .sb-banner', sizes: (el) => { const host = el.closest('.sv, .lz-host') || fig; return roles.map((r) => probe(host, `calc(var(--t-${r}) * var(--label-scale, 1) * ${el.closest('.lz-zone') ? 'var(--zk, 1)' : 1})`)); } });
-  for (const pz of document.querySelectorAll('.pz')) areas.push({ root: pz, name: 'slide', skip: 'svg, .pz-bar, .pz-tool, .pzj, .pz-deck, .pz-outline svg', sizes: (el) => { const host = el.closest('.pz-table, .pz-grid, .pz-rail ol, .pz.low .pz-rail-liver, .pz.stack .pz-ab, .pz.low .pz-ab, .pz-text, .pz-panel, .pz-data.col') || pz; return [...roles.map((r) => probe(host, `var(--s-${r})`)),
+  for (const pz of document.querySelectorAll('.pz')) areas.push({ root: pz, name: 'slide', skip: 'svg, .pz-bar, .pz-tool, .pzj, .pz-deck, .pz-tabname, .pz-outline svg', sizes: (el) => { const host = el.closest('.pz-table, .pz-grid, .pz-rail ol, .pz.low .pz-rail-liver, .pz.stack .pz-ab, .pz.low .pz-ab, .pz-text, .pz-panel, .pz-data.col') || pz; return [...roles.map((r) => probe(host, `var(--s-${r})`)),
     // (A long title in the teaching card is the big role at the title's step, --pz-tk, as the title itself: presenter.js layout.)
     ...(host.matches('.pz-text') ? [probe(host, 'calc(var(--s-big) * var(--pz-tk, 1))')] : []),
     // (A stacked data card's smallest words stay 11.5 px on the screen at its smaller steps, --pz-dk: app.css .pz-data.col.)
@@ -38,9 +39,8 @@ export function offScale(roles) {
     ...(el.closest('.pz.stack .pz-data') ? [probe(el.closest('.pz-data'), 'var(--pz-pnum)')] : []),
     // (An equation is set a little above its line's role, as STIX runs small: app.css .pz-eq math, --eq-k its fitted step.)
     ...(el.closest('.pz-eq math') ? ['calc(var(--s-lab) * 1.1 * var(--eq-k, 1))', 'calc(var(--s-body) * 1.15 * var(--eq-k, 1))', 'calc(var(--s-val) * var(--eq-k, 1))'].map((v) => probe(el.closest('.pz-eq'), v)) : []),
-    // (A slide's site tag, and the running head's deck name beside it, are three quarters of the card's caption, the smallest card
-    // text (b2be4e10): app.css .pz-site, .pz-run.)
-    ...(el.closest('.pz-site:not(.pz-case-tag), .pz-run') ? [probe(host, 'calc(var(--s-cap) * .75)')] : []),
+    // (A slide's site tag is three quarters of the card's caption, the smallest card text (b2be4e10): app.css .pz-site.)
+    ...(el.closest('.pz-site:not(.pz-case-tag)') ? [probe(host, 'calc(var(--s-cap) * .75)')] : []),
     // (A case card's words are the body role at the card's fitted step, --case-k: app.css .pz-case-p.)
     // (Its Case tag is the body role and a little more, 1.15 (a1b94e66): app.css .pz-case-tag.)
     ...(el.closest('.pz-case') ? [probe(el.closest('.pz-case'), 'calc(var(--s-body) * var(--case-k, var(--case-max)))'), probe(el.closest('.pz-case'), 'calc(var(--s-body) * 1.15)')] : [])]; } });
@@ -52,7 +52,7 @@ export function offScale(roles) {
       if (!n.textContent.trim() || !el || el.closest(a.skip) || (a.name === 'figure' && el.closest('.pz')) || !shown(el)) continue;
       // (A tile's short name is its ::after, the full name kept at 0 px for readers: the short name's size is judged.)
       const fs = parseFloat(getComputedStyle(el).fontSize) || (el.dataset.s ? parseFloat(getComputedStyle(el, '::after').fontSize) : 0);
-      const key = el.closest('.pz-site:not(.pz-case-tag), .pz-dn') || el.closest('.sv, .lz-host, .lz-zone, .pz-eq math, .pz-case, .pz-table, .pz-grid, .pz-rail ol, .pz.low .pz-rail-liver, .pz.stack .pz-ab, .pz.low .pz-ab, .pz-text, .pz-panel, .pz-data') || a.root;   // (a phone's site rows letter at their own roles, as the summary table does)
+      const key = el.closest('.pz-site:not(.pz-case-tag)') || el.closest('.sv, .lz-host, .lz-zone, .pz-eq math, .pz-case, .pz-table, .pz-grid, .pz-rail ol, .pz.low .pz-rail-liver, .pz.stack .pz-ab, .pz.low .pz-ab, .pz-text, .pz-panel, .pz-data') || a.root;   // (a phone's site rows letter at their own roles, as the summary table does)
       if (!cache.has(key)) cache.set(key, a.sizes(el));
       const ok = cache.get(key);
       const what = `${a.name} ${el.tagName.toLowerCase()}.${[...el.classList].join('.')} "${n.textContent.trim().slice(0, 16)}" ${fs.toFixed(1)}px`;
