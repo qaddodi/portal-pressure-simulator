@@ -27,7 +27,8 @@
     "check": "npm run lint && npm test && npm run build && npm run smoke && npm run smoke:dist",
     "scorm": "node scripts/scorm.mjs",
     "visual": "node tests/e2e/visual.mjs",
-    "smoke:order": "node tests/e2e/card-order.mjs"
+    "smoke:order": "node tests/e2e/card-order.mjs",
+    "smoke:credit": "node tests/e2e/credit-steady.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {
