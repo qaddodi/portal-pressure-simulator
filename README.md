@@ -17,7 +17,7 @@ Updated October 2026, model content dated October 2026. See [CHANGELOG.md](CHANG
 No build step: plain ES modules and static files. Any static server works.
 
 ```bash
-npm start            # http://localhost:8080
+npm start            # http://127.0.0.1:8080
 # or: python3 -m http.server 8080
 ```
 

@@ -624,7 +624,6 @@ div.vital { cursor: default; }
 .section > summary .count + .chev { margin-left: 8px; }
 .section[open] > summary .chev { transform: rotate(180deg); }
 .section-body { padding: 0 0 20px; display: flex; flex-direction: column; gap: 16px; }
-.subhead { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); margin-bottom: -8px; }
 
 /* sliders */
 .ctl { display: flex; flex-direction: column; gap: 8px; }
@@ -3059,8 +3058,6 @@ button.finding { cursor: pointer; }
 .tc-head h2 { margin: 0; font-size: var(--fs-16); font-weight: 600; flex: 1; display: flex; align-items: center; gap: 8px; }
 .tc-head h2 svg { width: var(--ic-m); height: var(--ic-m); fill: none; stroke: currentColor; stroke-width: 1.6; color: var(--text-2); }
 .tc-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 16px; }
-.tc-body .subhead { margin: 14px 0 8px; }
-.tc-body .subhead:first-child { margin-top: 4px; }
 /* Changes: under the orders, closed until opened, so the card does not grow with every order. */
 .tc-body > .section { margin-top: 12px; border-top: 1px solid var(--hairline); }
 

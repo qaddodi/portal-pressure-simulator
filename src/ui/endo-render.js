@@ -152,9 +152,8 @@ export function renderEndo(res, p) {
       r0 = mix(r0, 184, vs); g0 = mix(g0, 84, vs); b0 = mix(b0, 92, vs);
 
       // The vein under the mucosa: white when small, blue when large and thin-walled.
-      let vein = 0;
       if (vis > 0.02 && o.vein > 0.02) {
-        vein = Math.min(1, vis * o.vein * (0.45 + 0.7 * grow) * (o.c >= 0 && cols[o.c].vk ? cols[o.c].vk : 1));
+        const vein = Math.min(1, vis * o.vein * (0.45 + 0.7 * grow) * (o.c >= 0 && cols[o.c].vk ? cols[o.c].vk : 1));
         const crest = Math.exp(-Math.pow(Math.abs(o.u) / 0.55, 2)) * sstep(0.2, 0.6, grow);
         const bl = sstep(0.1, 0.5, grow), k = vein * 0.74;
         r0 = mix(r0, mix(214, 80, bl) + 30 * crest, k); g0 = mix(g0, mix(178, 90, bl) + 26 * crest, k); b0 = mix(b0, mix(176, 172, bl) + 18 * crest, k);
@@ -175,7 +174,7 @@ export function renderEndo(res, p) {
       if (vis > 0.02 && o.vein > 0.003 && o.vein < 0.35) ao = 1 - 0.16 * vis * vis * sstep(0.003, 0.12, o.vein) * (1 - sstep(0.12, 0.35, o.vein));
 
       // Banded knuckle.
-      let gloss = 1, knuckle = 0;
+      let gloss = 1;
       if (o.q < 4) {
         const q = o.q;
         if (q >= 1) {
@@ -185,7 +184,7 @@ export function renderEndo(res, p) {
         }
         if (q < 1.12) {
           const g = Math.max(0, 1 - q);
-          knuckle = sstep(0, 0.12, g);
+          const knuckle = sstep(0, 0.12, g);
           // Strangulated tissue: dusky purple, paler and violet toward the tip, mottled.
           const mt = nz(th / TAU * 60 + 3, z * 7, 60);
           const tip = sstep(0.55, 0.95, g), pr = mix(mix(84, 128, g), 196, tip * 0.6) + 22 * mt, pg = mix(mix(34, 62, g), 150, tip * 0.6) + 14 * mt, pb = mix(mix(76, 112, g), 172, tip * 0.6) + 18 * mt;

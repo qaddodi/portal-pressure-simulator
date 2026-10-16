@@ -76,7 +76,7 @@ export function cardFor(selIn, ctx) {
     info: 'Occlusive thrombus. With anticoagulation it recanalizes slowly on the disease clock.' };
   const doppler = { type: 'button', id: 'doppler', label: 'Doppler', icon: 'doppler', run: () => { ctx.probe(id); ctx.showPane('doppler'); ctx.select(null); } };
   const shunt = ctx.canShunt(id) ? { type: 'button', id: 'shunt', label: 'Create shunt…', icon: 'stent', run: () => ctx.startShunt(id) } : null;
-  let kicker = 'Vein', why = 'pv';
+  let kicker, why = 'pv';
   if (isArt) {
     kicker = 'Artery';
     verbs.push({ type: 'stat', label: 'Flow', value: (f) => `${fmtFlow(f.Q[k] * 0.06)} L/min` });

@@ -237,9 +237,8 @@ export class Engine {
     const p = this.params, s = p.cirrhosis;
     const sinM = 1 + 20 * Math.pow(s, 2.5);
     const cz = { pre: 1 + 2 * s, sin: sinM, post: 1 + 2 * s, inter: sinM }[zone];
-    let user = 1;
-    if (lobe === 'R' || lobe === 'L') user = p.fibrosis[lobe][zone] ?? 1;
-    else user = 0.5 * ((p.fibrosis.R.sin ?? 1) + (p.fibrosis.L.sin ?? 1));
+    const user = lobe === 'R' || lobe === 'L' ? p.fibrosis[lobe][zone] ?? 1
+      : 0.5 * ((p.fibrosis.R.sin ?? 1) + (p.fibrosis.L.sin ?? 1));
     let m = cz * user;
     if (zone === 'sin' || zone === 'inter') m *= this._drug.sin;
     return m;

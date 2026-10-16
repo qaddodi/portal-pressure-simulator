@@ -16,13 +16,13 @@ import { store, replaceParams } from './store.js?v=31ee79b6ab';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox } from './util.js?v=0140acc352';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=e883e572db';
+import { sinusoidSupported } from './sinusoid-view.js?v=be7cf93fb4';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=921111661d';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=50c4e675b4';
-import { createTools } from './presenter-tools.js?v=5301e8d3db';
+import { createTools } from './presenter-tools.js?v=af6f232a6d';
 import { openHandout } from './handout.js?v=9336c6bb0a';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -1063,7 +1063,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=4aee2df25d', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=98a891d68c', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1076,7 +1076,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=09bc3c907f');
+        const { createCore } = await import('../worker-core.js?v=3d883ff8c7');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1389,9 +1389,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // the counter and the numbers follow, then the slide's computed state takes over (the same, to the decimal).
   let lapseOn = false, lapseLeft = 0, lastAt = -1;   // (lapseLeft: days still to run; 0 once Next has sped it up; lastAt: the slide last shown)
   // A compare slide's buttons switch the live model's params (liveOff: it no longer shows the slide's computed state).
-  let liveOff = false, abGen = 0, abFast = false;
+  let liveOff = false, abGen = 0;
   const merge = (a, b) => { for (const [k, v] of Object.entries(b)) a[k] = v && typeof v === 'object' && !Array.isArray(v) ? merge({ ...(a[k] || {}) }, v) : v; return a; };
-  function abSlow() { abGen++; abFast = false; }
+  function abSlow() { abGen++; }
   // The new treatment takes effect on the live figure at real time (a faster clock would make the Doppler and tracings
   // sweep faster while it settles); the ladder and tiles follow it.
   function abPick(s, i, k) {
@@ -1425,7 +1425,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     liveOff = true;
     replaceParams(merge(structuredClone(store.get().params), patch));
     host.send({ type: 'setParams', params: store.get().params, settle: false, ease: 1200 });
-    abFast = true; host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
+    host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
     for (const t0 = performance.now(); performance.now() - t0 < 7000 && mine();) {
       await wait(150);
       const fr = store.get().frame;
@@ -2496,7 +2496,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
     // (On a phone the words sit at the bottom, over the Back/Next bar, and the data card at the top: B is the height
     // from the words' top edge down to the bottom of the figure.)
-    const L = t ? t.right - wr.left : 0, T = t ? t.bottom - wr.top : 0, B = t ? H - ui.text.offsetTop * k : 0;
+    const L = t ? t.right - wr.left : 0, B = t ? H - ui.text.offsetTop * k : 0;
     // (The words' card: as far past the words on the right as its left edge is before them.)
     const card = cardOn && t ? L + pad - sl : 0;
     ui.shade.style.width = !p && t ? `${(card || L + 36) / k}px` : '';

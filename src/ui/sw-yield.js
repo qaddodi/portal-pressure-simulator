@@ -30,7 +30,7 @@ export function softwareYield(software, gl = null) {
   let drawn = null, free = 0, fence = null;   // (drawn: when the last vessel frame was drawn, until the next frame starts)
   const finished = () => {
     if (!fence) return true;
-    let done = true;
+    let done;
     try { done = gl.isContextLost() || gl.getSyncParameter(fence, gl.SYNC_STATUS) === gl.SIGNALED; } catch { done = true; }
     if (done) { try { gl.deleteSync(fence); } catch { /* context lost */ } fence = null; }
     return done;
