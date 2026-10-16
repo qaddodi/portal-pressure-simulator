@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=2a952639b6';
-import { createLobuleZoom } from './lobule-zoom.js?v=9d314c42da';
+import { createLobuleZoom } from './lobule-zoom.js?v=0f0a8ab6c3';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
@@ -23,6 +23,7 @@ import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } fr
 import { softwareYield, watchPerson } from './sw-yield.js?v=888305f6a2';
 import { portalSplit } from './table-marks.js?v=f709ae0429';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
+import { leaderEnd as edgeOf } from './leader-end.js?v=3a261ffe40';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -5253,6 +5254,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
     return t >= 1 ? { x: ax, y: ay } : { x: cx + dx * t, y: cy + dy * t };
   }
+  // Where a drawn leader stops: on the edge of what is seen of its label (the pill, or the letters' own box), never short
+  // of it and never in under the letters, at any zoom (leader-end.js). (leaderEnd above still decides whether one shows.)
+  const seenEnd = (it) => edgeOf(it.bg ? rectOf(it) : { x0: it.x, y0: it.y, x1: it.x + it.w, y1: it.y + it.h }, it.ax, it.ay) || { x: it.ax, y: it.ay };
   // ── Label placement ──
   // A label's slot is solved in figure terms and then carried rigidly: it is stored as the figure
   // point it names (its anchor, in world coordinates) plus a fixed pixel offset to its box. A pan
@@ -5923,8 +5927,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
         r = best.lb;
       }
-      const le = leaderEnd(r, it.ax, it.ay, circuit ? 2 : 6);
-      const far = Math.hypot(le.x - it.ax, le.y - it.ay) > 5;
+      // (Elsewhere the leader stops on the edge of the letters it meets first, run by run: seenEnd.)
+      const le0 = leaderEnd(r, it.ax, it.ay, circuit ? 2 : 6), le = circuit ? le0 : seenEnd(it);
+      const far = Math.hypot(le0.x - it.ax, le0.y - it.ay) > 5;
       if (it.focusLeader) leaders += `<path class="leader focus${it.mk ? ` k-${it.mk}` : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
       // (In the Circuit a reading more than 10 px from its station is always joined to it, so its ring is never in doubt.)
       else if ((it.leader && (circuit || far)) || (circuit && Math.hypot(le.x - it.ax, le.y - it.ay) > 10)) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
@@ -5934,7 +5939,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const it of out) renderBlock(it);
     const sit = out.find((o) => o.key === 'scan'), sblk = pool.get('scan');
     if (sit && !sit.hide) {
-      const le = leaderEnd(rectOf(sit), sit.ax, sit.ay);
+      const le = seenEnd(sit);
       const [lp, ld] = gScan.children;
       lp.setAttribute('d', `M${sit.ax.toFixed(1)} ${sit.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}`);
       ld.setAttribute('cx', sit.ax.toFixed(1)); ld.setAttribute('cy', sit.ay.toFixed(1));

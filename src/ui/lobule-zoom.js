@@ -31,6 +31,7 @@ import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
 import { createSinusoidView } from './sinusoid-view.js?v=586978f5cb';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
+import { leaderEnd, runInside } from './leader-end.js?v=3a261ffe40';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -393,7 +394,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   // A new text size: the labels glide to their new places instead of jumping.
   let easeT = 0;
-  addEventListener('pps:labelscale', () => { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(() => labels.classList.remove('lz-ease'), 450); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
+  addEventListener('pps:labelscale', () => { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
   let pacedVer = -1, viewVer = 0;   // viewVer: a pan, zoom, resize or label change, drawn without waiting
   const viewChanged = () => { drawVersion++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
@@ -1179,11 +1180,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // A label that moves while the view holds still (a term lit, a value's width changed) glides to its new spot;
     // while the view itself pans or zooms, the labels follow it at once.
     const vKey = `${g.W}x${g.H}|${V.k},${V.x},${V.y}`;
-    if ((layoutKey && vKey === layoutV) || baked) { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(() => labels.classList.remove('lz-ease'), 450); }
+    if ((layoutKey && vKey === layoutV) || baked) { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); }
     layoutKey = key; layoutV = vKey; follow = { b: bKey, k: V.k, x: V.x, y: V.y };
     pickAnchors(fr0);
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
-    // Every label has a leader to what it names, ending at the label's centre, behind the text halo.
+    // Every label has a leader to what it names, aimed at the label's centre and stopping on the edge of its letters.
     // Score nearby placements together so zooming, panning and narrow screens do not stack labels.
     const fr = fr0, placed = [];
     const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l))
@@ -1264,6 +1265,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       stack = shown.map((x, i) => w0[i] > fw && u2[i]);
       shown.forEach(([, L], i) => { if (stack[i]) L.el.classList.add('stack'); });
       sizes = shown.map(([, L]) => [L.el.offsetWidth || 100, L.el.offsetHeight || 40]);
+      // (The padding round the letters, read with the sizes: a leader stops on the letters' box, not at the label's middle.)
+      for (const [, L] of shown) { const cs = getComputedStyle(L.el); L.pad = ['Left', 'Right', 'Top', 'Bottom'].map((d) => parseFloat(cs[`padding${d}`]) || 0); }
       shown.forEach(([, L], i) => {
         const sz = L.sz?.key === keys[i] ? L.sz : (L.sz = { key: keys[i], w0: w0[i], u2: u2[i] });
         sz[stack[i] ? 's1' : 's0'] = sizes[i];
@@ -1417,6 +1420,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       // (A line never drawn has no ends to put back: setting "null" logged an error per end on a small phone.)
       ['x1', 'y1', 'x2', 'y2'].forEach((k, i) => (c.line[i] == null ? callLine.removeAttribute(k) : callLine.setAttribute(k, c.line[i])));
     }
+    // (Every label's letters where it lands, for the leaders to keep off.)
+    const inks = sol.res.filter((r) => !r.out).map(({ k, x, y }) => { const { L, w, hh } = items.find((it) => it.k === k); return lettersOf(L, x - w / 2, y - hh / 2, w, hh); });
     for (const { k, x, y, out } of sol.res) {
       const { L, w, hh, a, edge } = items.find((it) => it.k === k);
       if (out) { L.el.hidden = true; L.el.classList.remove('edge'); L.line.style.display = L.dotEl.style.display = 'none'; continue; }
@@ -1424,10 +1429,44 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       L.el.classList.remove('left');
       if (edge) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       L.line.style.display = L.dotEl.style.display = '';
+      L.a = a;
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]);
-      L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);
+      leadTo(L, lettersOf(L, x - w / 2, y - hh / 2, w, hh), inks);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
     }
+    // A label gliding to its new spot takes its leader's end with it, frame by frame, so the leader never runs
+    // through it or stops short of it on the way.
+    if (labels.classList.contains('lz-ease')) { syncLeaders(); glideUntil = performance.now() + 480; if (!glideRaf) glideRaf = requestAnimationFrame(glideLeaders); }
+  }
+  // A label's letters: its box less the padding.
+  const lettersOf = (L, l, t, w, hh) => { const [pl, pr, pt, pb] = L.pad || [0, 0, 0, 0]; return { x0: l + pl, y0: t + pt, x1: l + w - pr, y1: t + hh - pb }; };
+  // A leader's end: on the edge of its label's letters, on the way to the label's middle. While another label lies across
+  // it (one gliding past), the leader is hidden, and eases back once clear: a leader never runs across a label.
+  function leadTo(L, ink, inks) {
+    const e = leaderEnd(ink, L.a[0], L.a[1]);
+    if (!e) { L.line.style.display = 'none'; return; }
+    L.line.setAttribute('x2', e.x); L.line.setAttribute('y2', e.y);
+    L.line.classList.toggle('lz-hid', inks.some((o) => o !== ink && runInside(L.a, [e.x, e.y], o) > 0.5));
+  }
+  let glideRaf = 0, glideUntil = 0;
+  // The glide cut short (its time is up): the labels land at once, and their leaders with them.
+  function easeEnd() { labels.classList.remove('lz-ease'); syncLeaders(); }
+  function glideLeaders(now) {
+    glideRaf = 0;
+    // (Followed until every glide has ended: a slow frame can start one late.)
+    if (syncLeaders() || now < glideUntil) glideRaf = requestAnimationFrame(glideLeaders);
+  }
+  // Each leader's end set from where its label is seen now (part way through a glide, or landed). True while one glides.
+  function syncLeaders() {
+    let moving = false;
+    const on = Object.values(labs).filter((L) => !L.el.hidden && L.el.offsetParent), inks = on.map((L) => lettersOf(L, L.el.offsetLeft, L.el.offsetTop, L.el.offsetWidth, L.el.offsetHeight));
+    on.forEach((L, i) => {
+      if (!L.a || L.el.classList.contains('edge') || L.dotEl.style.display === 'none') return;
+      L.line.style.display = '';
+      leadTo(L, inks[i], inks);
+      moving ||= L.el.getAnimations().some((an) => an.playState === 'running');
+    });
+    return moving;
   }
 
   // ── Frame loop ──

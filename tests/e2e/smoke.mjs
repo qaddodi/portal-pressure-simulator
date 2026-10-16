@@ -93,6 +93,56 @@ const open = async (page, q = '') => {
   await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 45000 });
 };
 
+// Every frame for `ms`: each leader on screen against the labels on screen (the lobule's and the anatomy's). A leader ends on
+// the edge of its own label's letters (no gap, never in under them) and crosses no other label. Returns what was wrong, each
+// problem once with the time it was first seen.
+const leaderFrames = (page, ms) => page.evaluate((ms) => new Promise((done) => {
+  const out = new Map(), t0 = performance.now();
+  const op = (el) => { let o = 1; for (let e = el; e && e.nodeType === 1; e = e.parentElement || e.parentNode) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return 0; o *= +cs.opacity; } return o; };
+  const ink = (el) => {
+    let b = null;
+    for (const p of el.matches('.lz-lab') ? el.querySelectorAll('.n, .v') : el.querySelectorAll('text')) {
+      const r = p.getBoundingClientRect();
+      if (r.width) b = b ? { l: Math.min(b.l, r.left), r: Math.max(b.r, r.right), t: Math.min(b.t, r.top), b: Math.max(b.b, r.bottom) } : { l: r.left, r: r.right, t: r.top, b: r.bottom };
+    }
+    return b;
+  };
+  // How far the segment p→q runs inside box b.
+  const under = (p, q, b) => {
+    let t0 = 0, t1 = 1;
+    for (const [d, lo, hi, o] of [[q[0] - p[0], b.l, b.r, p[0]], [q[1] - p[1], b.t, b.b, p[1]]]) {
+      if (Math.abs(d) < 1e-9) { if (o <= lo || o >= hi) return 0; continue; }
+      let u = (lo - o) / d, v = (hi - o) / d; if (u > v) [u, v] = [v, u];
+      t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 >= t1) return 0;
+    }
+    return (t1 - t0) * Math.hypot(q[0] - p[0], q[1] - p[1]);
+  };
+  const tick = () => {
+    const t = Math.round(performance.now() - t0), labs = [];
+    for (const el of document.querySelectorAll('.lz-lab, #labels g.lb')) {
+      if (el.hidden || el.matches('.lb-off, .organ') || op(el) < 0.05) continue;
+      const b = ink(el);
+      if (b) labs.push({ k: el.dataset.target || el.dataset.key, n: el.textContent.trim().slice(0, 20), ...b });
+    }
+    for (const ln of document.querySelectorAll('.lz-leaders line.leader, #labels path.leader:not(.scan)')) {
+      if (ln.style.display === 'none' || op(ln) < 0.05) continue;
+      const m = ln.getScreenCTM(); if (!m) continue;
+      const at = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
+      const n = ln.tagName === 'line' ? ['x1', 'y1', 'x2', 'y2'].map((a) => +ln.getAttribute(a)) : ln.getAttribute('d').match(/-?[\d.]+/g).map(Number);
+      const p = at(n[0], n[1]), q = at(n[n.length - 2], n[n.length - 1]);
+      const gap = (b) => Math.hypot(Math.max(b.l - q[0], 0, q[0] - b.r), Math.max(b.t - q[1], 0, q[1] - b.b));
+      const own = (ln.dataset.target && labs.find((b) => b.k === ln.dataset.target)) || labs.slice().sort((a, b) => gap(a) - gap(b))[0];
+      if (!own) continue;
+      const note = (k, v) => { if (!out.has(k)) out.set(k, `${k} (${v.toFixed(1)} px, at ${t} ms)`); };
+      if (gap(own) > 2.5) note(`the "${own.n}" leader stops short of its label`, gap(own));
+      if (under(p, q, own) > 2.5) note(`the "${own.n}" leader runs in under its label`, under(p, q, own));
+      for (const b of labs) if (b !== own && under(p, q, b) > 0.5) note(`the "${own.n}" leader crosses "${b.n}"`, under(p, q, b));
+    }
+    if (t < ms) requestAnimationFrame(tick); else done([...out.values()]);
+  };
+  requestAnimationFrame(tick);
+}), ms);
+
 // A presenter's controls against the slide's card: 'ok', or what is wrong (null while the slide is still coming in). The controls'
 // icons and count may not cover the card's words or table. A phone's are a pill fixed at the lower right (10 px in, 4 px up),
 // every tap target at least 44 px, over no line of the words, no other card and no figure label; and the card's title is its
@@ -4400,6 +4450,26 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(800);
     if (!(await page.evaluate(() => window.pps.store.get().frame.pulsing))) throw new Error('the heartbeat stopped when the instruments closed');
   });
+
+  // A leader reaches its label in every frame, and never runs in under it or across another label: the dive into the lobule,
+  // a text-size change gliding the lobule's labels, the rise back out, and zooming in on the anatomy. (The lobule's leaders
+  // once ran to each label's middle, through its letters, and the anatomy's stopped 9 px short of theirs.)
+  await check(device, 'leaders reach their labels in every frame: lobule dive, glide and rise, anatomy zoom', async (page) => {
+    const bad = [];
+    const look = async (what, ms, act) => { const run = leaderFrames(page, ms); await act?.(); for (const b of await run) bad.push(`${what}: ${b}`); };
+    await open(page, '?preset=rhf');
+    await page.waitForFunction(() => document.querySelectorAll('#labels path.leader, #labels g.lb').length > 0);
+    await page.waitForTimeout(1500);
+    await look('diving into the lobule', 2600, () => page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click()));
+    await page.waitForFunction(() => [...document.querySelectorAll('.lz.on .lz-lab')].some((e) => !e.hidden));
+    await look('text size 150 %', 1200, () => page.evaluate(() => window.pps.stage.setLabelScale(1.5)));
+    await look('text size back to 100 %', 1200, () => page.evaluate(() => window.pps.stage.setLabelScale(1)));
+    await look('rising out of the lobule', 2400, () => page.evaluate(() => document.querySelector('#viewSeg [data-view="anatomic"]').click()));
+    await page.waitForTimeout(800);
+    await look('zooming in on the anatomy', 2400, async () => { for (let i = 0; i < 4; i++) { await page.evaluate(() => document.getElementById('zoomIn').click()); await page.waitForTimeout(250); } });
+    await look('zoomed in', 600);
+    if (bad.length) throw new Error(bad.slice(0, 8).join('; '));
+  });
 }
 // The endoscopic field is drawn once per state and then left as it is: the model's varix swells with every heartbeat,
 // and following each swell redrew the shaded field many times a second, which held a browser without a GPU's page for
@@ -4540,6 +4610,7 @@ const MEASURED = {
   'zooming out ends on the whole figure: pinch, wheel and the − button, from a fresh page': 90000,   // (about 5 minutes here, on a software renderer)
   'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text': 90000,   // (one device pixel per pixel on a phone: about 65 s here)
   'presenter: lobule labels never touch, leaders never cross': 140000,
+  'leaders reach their labels in every frame: lobule dive, glide and rise, anatomy zoom': 90000,
   'lobule: the sinusoid reading and its lesion pointer point at the middle of a sinusoid': 150000,
   'liver lobule: GPU vessels, pressure drops, caption, cards, zones': 160000,
   'corner credit never touches a card': 130000,
