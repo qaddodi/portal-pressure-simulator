@@ -4159,6 +4159,47 @@ check('desktop', 'endoscopy: a steady patient\'s field is not redrawn with every
   if (!(await page.evaluate(() => window.pps.store.get().frame.pulsing))) throw new Error('the heartbeat stopped');
   if (n1 - n0 > 2) throw new Error(`the field was drawn ${n1 - n0} times in 8 s of a steady patient`);
 });
+// Without a GPU (the browser draws WebGL on the CPU, as on the CI runners) a frame of the vessels held the page 0.4 to 3 s,
+// and drawn back to back they left it about one frame a second: a 100 ms timer ran 13 times in 6 s instead of 60, and a
+// slide's timed steps ran 10 to 20 times late ("the slide never arrived"). The stage now yields as long again after each
+// such frame (src/ui/sw-yield.js; never on a GPU): the page keeps at least half its time and the vessels still move.
+for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVICE || d === process.env.SMOKE_DEVICE)) check(device, 'a software renderer leaves the page its time while the figure moves (timers, frames, the vessels still drawn)', async (page) => {
+  await open(page);
+  const renderer = await page.evaluate(() => document.querySelector('[data-renderer]')?.dataset.renderer);
+  await page.waitForTimeout(2000);
+  const r = await page.evaluate(() => new Promise((res) => {
+    const d0 = window.pps.perf.totals.drawn.stage || 0;
+    let ticks = 0, frames = 0; const t0 = performance.now();
+    const tick = () => { ticks++; if (performance.now() - t0 < 6000) setTimeout(tick, 100); else res({ ticks, frames, drawn: (window.pps.perf.totals.drawn.stage || 0) - d0, running: window.pps.store.get().running }); };
+    setTimeout(tick, 100);
+    const fr = () => { frames++; if (performance.now() - t0 < 6000) requestAnimationFrame(fr); }; requestAnimationFrame(fr);
+  }));
+  if (!r.running) throw new Error('the model is not running, so nothing on the figure moves');
+  const at = `${renderer} renderer: a 100 ms timer ran ${r.ticks} times in 6 s, ${r.frames} frames, ${r.drawn} vessel frames`;
+  if (r.ticks < 25) throw new Error(`${at} (at least 25: the page is starved)`);
+  if (r.frames < 30) throw new Error(`${at} (at least 30 frames)`);
+  if (r.drawn < 3) throw new Error(`${at} (the vessels stopped moving)`);
+});
+// The checks that hide the figure's WebGL canvases (tests/e2e/fast.mjs) left nothing to hold the page back, so on a software
+// renderer the lobule's and the sinusoid's frames (the zoom into the sinusoid most of all) piled up for the CPU faster than it
+// drew them, and it went on drawing them for a minute or more after the page had closed: the next page in the same browser
+// took 60 to 100 s to open the presenter ("Timeout 60000ms exceeded" on each sweep's second size). Each now waits for its
+// last frame to finish there (src/ui/sw-yield.js; never on a GPU).
+if (!process.env.SMOKE_DEVICE || process.env.SMOKE_DEVICE === 'desktop') check('desktop', 'a software renderer has nothing left to draw after a page with the lobule and the sinusoid closes', async () => {
+  const opts = { viewport: { width: 375, height: 667 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true };
+  let ctx = await fastContext(browser, opts), page = await ctx.newPage();
+  // (Circulation 6 to 8: into the lobule, to the portal triad, into the sinusoid.)
+  for (const i of [5, 6, 7]) await gotoSlide(page, server.url, 'circulation', i);
+  await page.waitForTimeout(3000);
+  await ctx.close();
+  ctx = await fastContext(browser, opts); page = await ctx.newPage();
+  const t0 = Date.now();
+  await page.goto(`${server.url}?script=circulation&slide=1`);
+  await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'), null, { timeout: 60000 });
+  const ms = Date.now() - t0;
+  await ctx.close();
+  if (ms > 20000) throw new Error(`the next page took ${Math.round(ms / 1000)} s to open the presenter (at most 20 s): the last page's frames were still being drawn`);
+});
 // the slowest first, so they do not end up alone at the end (and shards share them out evenly)
 const SLOW = ['responsive instrument workspace', 'pressure over time and Doppler', 'action card is a compact sheet that keeps the vessel in view', 'circuit view, selection card, lenses'];
 const weight = (name) => { const i = SLOW.indexOf(name); return i < 0 ? 0 : SLOW.length - i; };
