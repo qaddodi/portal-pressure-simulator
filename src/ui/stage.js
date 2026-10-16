@@ -766,14 +766,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let lvC = null, lvG = 0, lvT = 0, lvGT = null, lvTT = null, lvAt = 0, lvMoving = false, lvCT = null, lvGTo = null, lvStillAt = 0, caudK = null;
   // Abdominal wall (anterior): a soft skin tint that appears only with caput medusae, under its veins.
   const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
-  // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
-  const flank = s('path', { class: 'flank', d: '' });
+  // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates. It lies wholly below the diaphragm's
+  // fade (diaMask: clear past y 420, the flank starts at 470; tests/flank-mask.test.js), where it drew nothing, so it is
+  // kept hidden, beside the backdrop rather than in it: inside, it stretched the live mask's offscreen layers from the dome
+  // over the liver and spleen to the whole abdomen on every frame the live SVG plate showed (a preset's transition). The fit
+  // still measures it (defaultVT).
+  const flank = s('path', { class: 'flank', d: '', visibility: 'hidden' });
   gOver.before(abdWall);
   const ascitesPath = s('path', { class: 'ascites-fill', d: '', fill: 'url(#fluid)' });
   const ascitesLine = s('path', { class: 'ascites-line', d: '' });
   gAscites.append(ascitesPath, ascitesLine);
   let fluidSurf = null;   // the ascites surface y(x) while there is fluid; a tap below it opens the Ascites view
-  gBackdrop.append(flank);
+  gBackdrop.after(flank);
 
   // Edge groups
   const E = {};
@@ -1339,7 +1343,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Only what holds still is measured: the abdomen, the organs and the ascites. The vessels morph (to and from
       // the circuit, and as the first frames lay them out), and measuring them made the framing land in one place
       // and then glide to another a second later.
-      for (const g of [gBackdrop, gOrgans, gAscites]) {
+      for (const g of [gBackdrop, flank, gOrgans, gAscites]) {
         let b; try { b = g.getBBox(); } catch { continue; }
         if (!b.width || !b.height) continue;
         x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
@@ -2954,13 +2958,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const el of c.querySelectorAll('.lv-nod, .lv-nut, .lv-nut-net')) el.setAttribute('data-pc', 'sub fold');
         for (const el of c.querySelectorAll('.lv-sep, .liver-tint')) el.setAttribute('data-pc', 'fold');
         for (const el of c.querySelectorAll('.lv-gloss')) el.setAttribute('data-pc', 'kids');
-        // The flank (the abdominal wall, drawn with ascites) lies wholly below the diaphragm's fade (diaMask: clear past
-        // y 420, the flank starts at 470), so it shows nothing; in the copy it only stretched the backdrop's mask, two
-        // offscreen layers, from the dome over the liver and spleen to the whole abdomen.
-        for (const el of c.querySelectorAll('.flank')) el.setAttribute('data-pc', 'drop');
         if (inlineStyles(g, c) === false) continue;
         c.removeAttribute('opacity');   // the plate fades with the morph on the GPU
-        for (const el of [...c.querySelectorAll('[data-pc="drop"]')]) el.remove();
         dropInvisible(c);
         for (const el of c.querySelectorAll('[data-pc~="fold"]')) foldOpacity(el);
         // The gloss's two sheens never overlap, so its fade can sit on each of them instead of a layer.
