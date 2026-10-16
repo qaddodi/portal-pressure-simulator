@@ -215,6 +215,27 @@ void main() {
     jm[jn] = mask; js[jn] = fract(A.w) / 0.99; jk[jn] = floor(A.w) * 0.01 * (1.0 - smoothstep(0.55 * A.z, A.z, dc)); jf[jn] = 1.0 - smoothstep(0.3 * A.z, 0.85 * A.z, dc); jn++;
   }
 
+  // ── Nothing to draw here: settled now, without the tiers below ──
+  // Where every vessel in reach lies past what any of them draws, the tiers below would add nothing: no glow band (it ends
+  // 15.6 past a wall), no congestion halo (19 past it), and every tier skipped by its own test (D past 8 + 2 px, Ds past
+  // 6 + 2 px; a fillet pulls a shape in by at most a quarter of its width). The pixel is left empty, exactly as they
+  // would leave it, at the cost of a few reads. (Zoomed in, most of the pixels the cells cover are like this.)
+  {
+    float pull = 0.0, dMin = 1e9, sMin = 1e9;
+    for (int j = 0; j < MAXJ; j++) if (j < jn && jk[j] > 0.0) pull = max(pull, jk[j] * js[j] * 0.25);
+    bool lit = false;
+    for (int s = 0; s < MAXS; s++) {
+      if (s >= n) break;
+      dMin = min(dMin, sd[s]); sMin = min(sMin, sh[s]);
+      if (T(sid[s], 10).a > 0.0 && sd[s] - T(sid[s], 0).w < 15.7) lit = true;
+      if (heat == 1 && T(sid[s], 2).w > 0.0 && sd[s] < 19.1) lit = true;
+    }
+    if (!lit && dMin - pull > 8.01 + 2.0 * px && sMin - pull > 6.01 + 2.0 * px) {
+      if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); return; }
+      discard;
+    }
+  }
+
   // ── Per-vessel attributes ──
   float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], sheat[MAXS], shov[MAXS];
   vec3 scol[MAXS], shcol[MAXS], sedge[MAXS];
