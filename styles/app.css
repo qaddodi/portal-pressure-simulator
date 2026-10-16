@@ -2517,8 +2517,10 @@ button.finding { cursor: pointer; }
 .org-form { opacity: .55; }
 #labels .lb.inline.bare text { stroke: var(--label-halo); stroke-width: max(2.5px, calc(4px * var(--lbk, 1))); }
 /* A reading with no clear spot near its station sits on its vessel (stage.js layoutLabels, onVessel): a solid halo in the
-   stage's own colour keeps every glyph clean, and no flow arrowhead runs under it. */
-#labels .lb.on-vessel { filter: url(#lb-onv); }
+   stage's own colour keeps every glyph clean, and no flow arrowhead runs under it. Circuit only (.cmap): in Anatomy the stage's
+   colour over the liver drew a dark box with tabs behind "Sinusoids R" and "RHV" (16 Oct); there the readings keep their own
+   text halo, as before the Circuit readings v4. */
+.cmap #labels .lb.on-vessel { filter: url(#lb-onv); }
 #labels .lb-onv-flood { flood-color: var(--stage-bg); }
 /* A stent's three point callouts stay level beside their dots, over whatever vessel runs there: a solid halo in the stage's colour,
    7 px wide, knocks the vessel out behind and between the glyphs, so they read as the Circuit readings do, with no box (Review 16 Oct). */
