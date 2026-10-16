@@ -111,3 +111,30 @@ test('every patient loads with its gradients agreeing', () => {
     assert.equal(r1(m.ppg), r1(r1(m.pv) - r1(m.ivc)), `${p.id} PPG`);
   }
 });
+
+// Sweep batch 02, shot 14 (IVC web slide): the figure said "RA 3.5" beside a card and words saying 2.9. The right atrium's
+// a and v waves swing its beat-by-beat pressure about 0.8 mmHg, so a reading taken from it flickered past the slide's own
+// number. The figure, the data card and the bar read it over two breaths (metrics.vitals.ra), which stays by the settled value.
+test('the right atrium is read over two breaths everywhere it is shown, and that reading holds still', () => {
+  const e = new Engine(); e.loadPreset('ivc-web'); e.beat = true;
+  for (let i = 0; i < 6000; i++) e.step(0.004);   // (24 s: the two-breath mean has settled)
+  let lo = Infinity, hi = -Infinity, vlo = Infinity, vhi = -Infinity;
+  for (let f = 0; f < 120; f++) {
+    for (let i = 0; i < 25; i++) e.step(0.004);
+    const m = computeMetrics(e);
+    lo = Math.min(lo, m.ra); hi = Math.max(hi, m.ra); vlo = Math.min(vlo, m.vitals.ra); vhi = Math.max(vhi, m.vitals.ra);
+  }
+  assert.ok(hi - lo > 0.4, `the beat-by-beat RA swings (${lo.toFixed(2)}–${hi.toFixed(2)}), which is why it is not shown`);
+  assert.ok(vhi - vlo < 0.3, `RA over two breaths holds within 0.3 mmHg (${vlo.toFixed(2)}–${vhi.toFixed(2)})`);
+  assert.match(src('stage.js'), /mk === 'ra' \? f\.metrics\?\.vitals\?\.ra/, 'the figure reads RA over two breaths');
+  assert.match(src('presenter.js'), /ra: m\.vitals\?\.ra \?\? m\.ra/, 'the slide data card reads RA over two breaths');
+  assert.match(src('dock.js'), /m\.vitals\?\.ra \?\? m\.ra/, 'the bar reads RA over two breaths');
+});
+
+// Sweep batch 02, shot 14: the Doppler panel said −31 cm/s over a ±5 scale with the trace clipped into a block. The scale
+// now always holds the peak the reading reports, and the words are set in the same frame as the picture.
+test('the Doppler scale holds the reported peak and the report is drawn with the picture', () => {
+  const d = src('doppler.js');
+  assert.match(d, /const rd = reading\(\);\s*\n\s*if \(rd\) for \(const v of \[rd\.vmax \* gf \* sgn, rd\.vmin \* gf \* sgn\]\)/);
+  assert.match(d, /if \(reportDue\) \{ reportDue = false; updateReport\(\); \}\s*\n\s*draw\(now\);/);
+});

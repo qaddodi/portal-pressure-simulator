@@ -725,6 +725,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     gf = gateFactor();
     const k = dopplerK(EDGES[EI[probe]]);
     pos *= k * gf; neg *= k * gf;
+    // (The scale always holds the peak the reading beside it reports, so a −31 cm/s report never sits on a ±5 scale while new
+    // samples are still reaching the window; the reading spans the last 3 s of the record, inside every sweep.)
+    const rd = reading();
+    if (rd) for (const v of [rd.vmax * gf * sgn, rd.vmin * gf * sgn]) { if (v > pos) pos = v; if (-v > neg) neg = -v; }
     const need = Math.max(pos, neg, 8) / 0.85;
     const target = scaleFor(Math.max(pos, neg));
     const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.88 : neg > 0 && pos < neg * 0.08 ? 0.12 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.12, 0.88);
@@ -892,21 +896,24 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
     return [];
   }
-  let raf = 0, askedAt = 0, paintAt = 0;
+  let raf = 0, askedAt = 0, paintAt = 0, reportDue = false;
   function loop(now) {
     raf = 0;
-    if (!frame || !cv.isConnected || !cv.offsetParent) return;
+    if (!frame || !cv.isConnected || !cv.offsetParent) { if (reportDue) { reportDue = false; updateReport(); } return; }
     // The running trace scrolls on every frame the screen offers (15 a second in Battery saver). Its samples are the model's,
     // whatever the frame rate: each frame adds only the columns its elapsed time covers. A change while paused draws at once.
     if (live() && !labBusy && now - paintAt < paceMs()) { raf = nextFrame(loop); return; }
     paintAt = now;
+    // (The words are set in the same frame as the picture, so the reading and the trace and its scale never disagree.)
+    if (reportDue) { reportDue = false; updateReport(); }
     draw(now);
     noteDraw('doppler');
     if ((live() && now - askedAt < 400) || labBusy) raf = nextFrame(loop);
   }
   function redraw() {
     if (!frame) return;
-    updateReport();
+    reportDue = true;
+    if (!cv.isConnected || !cv.offsetParent) { reportDue = false; updateReport(); }
     askedAt = performance.now();
     if (!raf) raf = nextFrame(loop);
   }

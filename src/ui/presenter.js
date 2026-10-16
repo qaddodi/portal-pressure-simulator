@@ -22,7 +22,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e881af47f2';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=3699a77ad6';
-import { createTools } from './presenter-tools.js?v=daad9e398c';
+import { createTools } from './presenter-tools.js?v=da55720f9d';
 import { openHandout } from './handout.js?v=66106df93a';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=f709ae0429';
@@ -315,7 +315,7 @@ const tileVal = (k, v) => (v == null ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 function liveFp(fr) {
   const m = fr.metrics, a = m.ascites, P = fr.Pf || fr.P;
-  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg), asc: a.volume, saag: a.saag, tp: a.totalProtein,
+  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.vitals?.ra ?? m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg), asc: a.volume, saag: a.saag, tp: a.totalProtein,
     sin: P?.[NI.SIN_R], int: P?.[NI.INT], varix: m.varix.d, wall: m.varix.ratio, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
     pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm, pvVel: m.pvVelMean, hb: m.blood?.hb,
     at: P && fr.D ? { P, Q: fr.Qf || fr.Q, D: fr.D } : null };

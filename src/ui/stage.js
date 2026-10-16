@@ -4046,7 +4046,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Live readings, like the data card: the slide's numbers (fp) only while the model still agrees with them, so a
       // what-if slider moves the callouts as it moves the tiles.
       if (d.split) splitTo(el, clamp((Number.isFinite(sites.fp?.shunt) ? sites.fp.shunt : beatMean('shunt', F.metrics?.shuntFraction, 2)) ?? 0, 0, 1));   // (the slide's own share, the tile's number; a what-if or a time-lapse moves it with the tiles)
-      const b = el.querySelector('b'), v = d.split ? null : d.res ? (ratio == null ? '' : '×' + fmt(ratio, ratio < 10 ? 1 : 0)) : fmt(siteLive(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : pinned()?.at?.P[NI[d.node]], (F.Pf || F.P)[NI[d.node]], Number.isFinite(sites.fp?.[k]) ? 0.6 : breath((F.Pf || F.P)[NI[d.node]])), 1);
+      const b = el.querySelector('b'), v = d.split ? null : d.res ? (ratio == null ? '' : '×' + fmt(ratio, ratio < 10 ? 1 : 0)) : fmt(siteLive(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : pinned()?.at?.P[NI[d.node]], (F.Pf || F.P)[NI[d.node]], breath(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : (F.Pf || F.P)[NI[d.node]])), 1);
       if (v != null && b.textContent !== v) b.textContent = v;
       const ra = d.res ? resAt() : null;
       if (ra) el.classList.toggle('low', ra.up);
@@ -4996,8 +4996,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let P = (f.Pf || f.P)[NI[id]];
     // On a slide, a station the tiles and words also read shows their reading: the measured one (the wedge, not the
     // sinusoid node), and once it has settled, the slide's settled value itself, so the callouts, tiles and words agree.
-    const pin = pinned(), mk = pin && LADDER_KEY[id], live = mk && f.metrics?.[mk], fp = mk && pin[mk];
-    if (Number.isFinite(live)) P = Number.isFinite(fp) && Math.abs(live - fp) < 0.6 ? fp : live;
+    // (The right atrium is read over two breaths, as the tiles and the bar read it: its a and v waves swing the beat-by-beat
+    // value 0.8 mmHg, which put "RA 3.6" beside a card and words saying 2.9 on the IVC web slide.)
+    const pin = pinned(), mk = pin && LADDER_KEY[id], live = mk && (mk === 'ra' ? f.metrics?.vitals?.ra ?? f.metrics?.ra : f.metrics?.[mk]), fp = mk && pin[mk];
+    if (Number.isFinite(live)) P = Number.isFinite(fp) && Math.abs(live - fp) < breath(fp) ? fp : live;
     else if (pin && Number.isFinite(P)) {   // (a station the tiles do not read: the slide's own number while the model agrees, else its mean over several breaths)
       const at = pin.at?.P[NI[id]];
       P = Number.isFinite(at) && Math.abs(P - at) < breath(at) ? at : beatMean('n:' + id, P, 6);
