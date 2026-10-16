@@ -199,10 +199,11 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     let x = align === 'end' ? r.right - w0 : align === 'center' ? r.left + r.width / 2 - w0 / 2 : r.left;
     // A scrolling menu below its button may use all the room down to the 8 px margin, so it ends whole where it fits; never
     // over the bottom bar where the two meet (a phone held sideways: Settings had run 87 px over it; sweep 04 #01).
+    let barTop = null;
     if (place === 'below' && el.classList.contains('app-menu')) {
       const dock = document.getElementById('vdock'), d = dock?.offsetParent ? dock.getBoundingClientRect() : null, xl = clamp(x, 8, innerWidth - w0 - 8);
-      const floor = d && d.height && d.left < xl + w0 && d.right > xl ? Math.min(visibleBottom(), d.top) : visibleBottom();
-      el.style.maxHeight = Math.max(160, floor - r.bottom - 16) / z + 'px';
+      if (d && d.height && d.left < xl + w0 && d.right > xl && d.top < visibleBottom()) barTop = d.top;
+      el.style.maxHeight = Math.max(160, (barTop ?? visibleBottom()) - r.bottom - 16) / z + 'px';
     }
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
     const mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
@@ -213,7 +214,17 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     if (y + mr.height > vb - 8) y = Math.max(8, r.top - mr.height - 8);
     el.style.left = clamp(x, 8, innerWidth - mr.width - 8) / z + 'px';
     el.style.top = clamp(y, 8, vb - mr.height - 8) / z + 'px';
+    barAt = barTop;
+    clipBar();
   };
+  // Ending just above the bar, the menu's shadow stops at the bar's top edge, so the bar itself stays as it was (sweep 01
+  // review). Measured from the menu as laid out (its height settles after it opens), again whenever it resizes.
+  let barAt = null;
+  const clipBar = () => {
+    const z = uiScale(), gap = barAt == null ? 0 : barAt - (parseFloat(el.style.top) + el.offsetHeight) * z;
+    el.style.clipPath = barAt == null ? '' : `inset(-64px -64px ${(-Math.max(0, gap) / z).toFixed(2)}px -64px)`;
+  };
+  if (el.classList.contains('app-menu')) { const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else clipBar(); }); ro.observe(el); }
   put();
   // (History's list has its own soft edges at both ends.)
   if (!el.classList.contains('tl-history')) fadeWhileMore(el);
@@ -231,7 +242,8 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
 /** A list that scrolls fades at its bottom edge while there is more below it (class .more), as the docked
  *  cards do, so its last row is never just cut at the edge. Returns the check, to run after the content changes. */
 export function fadeWhileMore(el) {
-  const sync = () => el.classList.toggle('more', el.scrollHeight - el.clientHeight - el.scrollTop > 4);
+  // (--fade-pb: the list's bottom padding, which the fade reaches down through so it ends at the panel's own edge.)
+  const sync = () => { el.classList.toggle('more', el.scrollHeight - el.clientHeight - el.scrollTop > 4); el.style.setProperty('--fade-pb', getComputedStyle(el).paddingBottom); };
   el.addEventListener('scroll', sync, { passive: true });
   const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else sync(); });
   ro.observe(el);

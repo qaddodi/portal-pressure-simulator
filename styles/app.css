@@ -776,7 +776,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 /* A menu taller than the room scrolls, and fades into its own surface at the bottom while there is more
    below it (util.js fadeWhileMore), so its last row is never just cut at the edge (sweep 01 #05). A sticky
    veil rather than a mask, so the menu's own background and edge stay whole. */
-.menu.more::after { content: ''; position: sticky; bottom: 0; flex: none; height: 28px; margin: -29px -8px 0; background: linear-gradient(to bottom, transparent, var(--surface)); pointer-events: none; }
+.menu.more::after { content: ''; position: sticky; bottom: calc(-1 * var(--fade-pb, 8px)); flex: none; height: 28px; margin: -29px -8px 0; background: linear-gradient(to bottom, transparent, var(--surface)); pointer-events: none; }
 .menu.as-sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto !important; min-width: 0; max-width: none; max-height: 75dvh; overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y;
   padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; animation: sheetUp .24s var(--ease); }
 .menu.as-sheet.leaving { animation: sheetDown .12s var(--ease) forwards; }
@@ -2099,7 +2099,7 @@ button.finding { cursor: pointer; }
    44 px tall; the words end that much less a line above the bottom, so only their last line meets it (see clearPill). */
 .pz-pillgap { display: none; }
 .pz.stack .pz-pillgap { display: inline-block; width: calc((var(--pz-pill-w, 160px) + 4px) / var(--pz-fit, 1)); height: calc(var(--pz-reach, 32px) / var(--pz-fit, 1)); vertical-align: bottom; }   /* (as tall as the pill reaches into the words, so its line is the only one it meets) */
-.pz.stack .pz-pillclr { margin-bottom: calc((var(--pz-reach, 32px) + var(--pz-fkrow, 0px) + 6px) / var(--pz-fit, 1)); }   /* (in the card's own px: its contents are zoomed by --pz-fit) */   /* (a box keeps its full width and ends 8 px above the pill: the reach carries 3, plus 6 (the card's zoom rounds it under 8 by a fraction); it had been 5 px, sweep 03 #23) */
+.pz.stack .pz-pillclr { margin-bottom: calc((var(--pz-reach-box, 37px) + var(--pz-fkrow, 0px)) / var(--pz-fit, 1)); }   /* (in the card's own px: its contents are zoomed by --pz-fit) */   /* (a box keeps its full width and ends above the pill: 8 px on a tablet, the reach's 3 on a phone (presenter.js clearPill); sweep 03 #23) */
 .pz.stack .pz-stk:has(> .pz-pillgap) { flex-wrap: wrap; overflow: visible; }
 .pz.stack .pz-bar.idle { opacity: 1; pointer-events: auto; transform: none; }
 /* (The phone's pill looks small, 38 px tall with the count and the two buttons close together (Mohammad, 15 Oct), but every button keeps its 44 px tap box: a negative margin pulls the box's spare 3 to 4 px over the pill's own edge.) */
@@ -2139,7 +2139,7 @@ button.finding { cursor: pointer; }
      that, and its height is set to what it was at the card's zoom, so the card, the figure above it and the credit stay put) */
   .pz.stack .pz-text > .pz-ab { --abz: max(var(--pz-fit, 1), calc(1 / var(--ts, 1))); zoom: var(--abz); padding: calc(3px * var(--pz-fit, 1) / var(--abz)) 3px; }
   .pz.stack .pz-abb { font-size: var(--s-lab); min-height: calc(34px * var(--pz-fit, 1) / var(--abz)); padding-block: 0; }
-  .pz.stack .pz-text > .pz-ab.pz-pillclr { margin-bottom: calc((var(--pz-reach, 32px) + var(--pz-fkrow, 0px) + 6px) / var(--abz)); }   /* (its gap above the pill in its own zoom) */
+  .pz.stack .pz-text > .pz-ab.pz-pillclr { margin-bottom: calc((var(--pz-reach-box, 37px) + var(--pz-fkrow, 0px)) / var(--abz)); }   /* (its gap above the pill in its own zoom) */
 }
 /* A what-if slider: the same frosted pill as the treatment buttons, its name, the track between its two ends, and the value. */
 .pz-wi { display: flex; align-items: center; gap: .5em .9em; flex-wrap: wrap; padding: .45em 1.05em; width: min(100%, 34em); box-sizing: border-box; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; font: 600 var(--s-lab)/1.15 var(--font-ui); color: var(--text); }
@@ -3494,6 +3494,11 @@ button.finding { cursor: pointer; }
      the two readings sit evenly in their own part rather than leaving a gap after the second. */
   .vdock .timeline { justify-content: space-between; }
   .vdock .timeline .tl-jumps { margin-left: 0; }
+  /* Even to the eye, not just box to box: the fast-forward glyph sits 11.3 px inside its button (8 px to the icon, 3.3 px inside
+     the icon), the Compare glyph 9.8 px, the time's digits 8.3 px inside theirs; so the time steps right by the difference
+     and Compare left (sweep 01 review: the gap after the play pill read 11 px short). */
+  .vdock .timeline .tl-time { margin-left: 11.5px; }
+  .vdock .timeline .tl-pin { margin-left: -1.5px; }
   .vdock .timeline .tl-time { text-align: center; }   /* (it keeps its steady width; centred, its gaps read even) */
   .vdock:not(.mini) .readouts:not(.all) .metric.primary { text-align: center; }
   .vdock:not(.mini) .readouts:not(.all) .metric.primary .v { justify-content: center; }
@@ -3891,10 +3896,10 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .lens-opt.on .bo-ic { color: var(--accent-ink); }
 /* The on state is a small switch at the row's end, not only the faint outline. */
 .lens-opt:has(.mt-sw) { grid-template-columns: 22px 1fr auto; }
-.lens-opt .mt-sw { grid-column: 3; grid-row: 1 / 3; position: relative; width: 28px; height: 16px; border-radius: 8px; background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: background .2s var(--ease), box-shadow .2s var(--ease); }
+.lens-opt .mt-sw { grid-column: 3; grid-row: 1 / 3; position: relative; width: 28px; height: 16px; border-radius: 8px; background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--hairline); transition: background .2s var(--ease), box-shadow .2s var(--ease); }
 .lens-opt:not(:has(.lens-d)) .mt-sw { grid-row: 1; }
-/* Off reads like the app's other switches (.switch, .ab-tg): a white knob on a track with a strong edge,
-   so it stays plain in dark too (sweep 01 #05). */
+/* The knob is white on and off, as on the app's other switches (.switch, .ac-toggle, .ab-tg), so off stays plain in dark
+   too (sweep 01 #05); the track keeps the hairline edge of .switch and .ac-toggle. */
 .lens-opt .mt-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 2px rgb(var(--black-rgb) / .25); transition: transform .2s var(--ease); }
 .lens-opt.on .mt-sw { background: var(--accent); box-shadow: none; }
 .lens-opt.on .mt-sw::after { transform: translateX(12px); }
@@ -5462,7 +5467,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack.fk-up .pz-fk { bottom: calc(65px + var(--pz-sb)); scale: var(--pz-fk-s, 1); transform-origin: 0 100%; }
 /* Two lines beside the pill: as tall as its row, bottoms level (presenter.js fitKey). */
 .pz.stack.fk-two .pz-fk:not(.grad) { bottom: calc(21px + var(--pz-sb)); max-width: var(--pz-fk-room, 200px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; border-radius: calc(var(--r-card) + 2px); padding-block: .3em .34em; }
-.pz.stack:is(.fk-up, .fk-two) .pz-pillclr { margin-bottom: calc((var(--pz-reach, 32px) + var(--pz-fkrow, 0px) + 6px) / var(--pz-fit, 1)); }
+.pz.stack:is(.fk-up, .fk-two) .pz-pillclr { margin-bottom: calc((var(--pz-reach-box, 37px) + var(--pz-fkrow, 0px)) / var(--pz-fit, 1)); }
 
 /* ── Tests card on a phone (15 Oct, Mohammad) ─────────────────────
    The scope fills the card's width (its height the room left), the band button sits right under it, and the five

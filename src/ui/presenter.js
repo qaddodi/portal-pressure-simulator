@@ -14,22 +14,22 @@
 
 import { store, replaceParams } from './store.js?v=3b659e1968';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=fea9cf1acd';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=2a952639b6';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=acb18c0eba';
+import { sinusoidSupported } from './sinusoid-view.js?v=586978f5cb';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e881af47f2';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=375f6962fb';
-import { createTools } from './presenter-tools.js?v=330afe0880';
+import { createHvpgMonitor } from './hvpg-proc.js?v=9b45e6b3a5';
+import { createTools } from './presenter-tools.js?v=139dc9ec13';
 import { openHandout } from './handout.js?v=66106df93a';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=f709ae0429';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
 import { createFigureKey } from './figure-key.js?v=382bd7d4ad';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=b8a4088334';
+import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=e8b507a6fd';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -2695,6 +2695,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const reach = bar.offsetParent && bar.offsetParent === text.offsetParent ? text.offsetTop + text.offsetHeight - bar.offsetTop
         : (restRect(text).top + text.offsetHeight * k - bar.getBoundingClientRect().top) / k;
       text.style.setProperty('--pz-reach', `${Math.max(0, Math.ceil(reach) + 3)}px`);
+      // A box ends 8 px above the pill on a tablet, measured to the fraction (offsetTop rounds; the rounded reach had left it at 5,
+      // sweep 03 #23). A phone's
+      // keeps the reach's 3 px: its words are fitted to the last pixel, and 5 more cost them a size step (Right heart 7 at 390
+      // went from 0.70 to 0.58 and its What-if slider from 236 to 56 px; sweep 01 review).
+      text.style.setProperty('--pz-reach-box', ui.root.classList.contains('tab') ? `${Math.max(0, (restRect(text).top + restRect(text).height - restRect(bar).top) / k + 8).toFixed(2)}px` : `${Math.max(0, Math.ceil(reach) + 3)}px`);
     }
     fitKey();
     if (gap && gap.parentElement !== end) gap.remove();

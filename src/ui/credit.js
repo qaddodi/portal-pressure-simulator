@@ -184,7 +184,8 @@ let organMemo = { key: '', test: null };
 // ring: the lobule's outline (client px) while the lobule fills the view. Its art is then the lobule, not the anatomy hidden under it
 // (the credit had landed on the hepatocytes).
 export function organTest(wr, ring = null) {
-  const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2)), ring && ring.flat().map((v) => v.toFixed(1))].join('|');
+  const glows = ring ? [] : window.pps?.stage?.steadyGlows?.() || [];
+  const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2)), ring && ring.flat().map((v) => v.toFixed(1)), glows.flat().join()].join('|');
   if (organMemo.key === key) return organMemo.test;
   const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, grids = { org: new Uint8Array(cols * rows), ves: new Uint8Array(cols * rows) };
   const cv = document.createElement('canvas');
@@ -222,6 +223,19 @@ export function organTest(wr, ring = null) {
       paint(ORGANS, grids.org, false);
       paint(FLUID, grids.org, false, true);
       paint(VESSELS, grids.ves, true);
+      // A lit vessel's glow, the soft band 12 × its width setting (world units) beyond each wall (veins-gl.js), counts as the vessel
+      // (sweep 01 review: an iPad zoomed in had put the credit on a glow).
+      if (glows.length) {
+        for (const [id, wide] of glows) for (const el of document.querySelectorAll(`#world .v-hit[data-id="${CSS.escape(id)}"]`)) {
+          const m = el.getScreenCTM?.(), lumen = el.parentNode?.querySelector('.v-lumen');
+          if (!m) continue;
+          ctx.setTransform(m.a / CELL, m.b / CELL, m.c / CELL, m.d / CELL, (m.e - wr.left) / CELL, (m.f - wr.top) / CELL);
+          ctx.lineWidth = (lumen ? parseFloat(getComputedStyle(lumen).strokeWidth) || 0 : parseFloat(getComputedStyle(el).strokeWidth) || 0) + 2 * 12 * Math.min(1.3, Math.max(0.5, wide));
+          ctx.lineCap = ctx.lineJoin = 'round'; ctx.stroke(shapePath(el));
+        }
+        const px = ctx.getImageData(0, 0, cols, rows).data;
+        for (let k = 0; k < grids.ves.length; k++) grids.ves[k] = px[k * 4 + 3] > 0 ? 1 : 0;
+      }
     }
   }
   // How much art a box covers: organ cells count 1, vessel cells 3.
