@@ -2239,21 +2239,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
   let textLock = null, ladderFold = null;
-  let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0;
+  let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0, fitKids = [], clearFor = null;
   const fitWatch = () => {
     fitRO ||= new ResizeObserver(() => {
       cancelFrame(fitRaf);
       fitRaf = nextFrame(() => { if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
     });
-    fitRO.disconnect();
-    for (const el of [ui.text, ui.data, ui.panel]) for (const c of el.children) fitRO.observe(c);
+    // (Watched again only when the cards' children changed: observing a box reports it at once, so re-observing on every pass
+    // ran the layout again every frame on a slide sitting still, Circuit 7 on an iPhone some four times a second.)
+    const kids = [ui.text, ui.data, ui.panel].flatMap((el) => [...el.children]);
+    if (kids.length !== fitKids.length || kids.some((c, i) => c !== fitKids[i])) { fitRO.disconnect(); for (const c of kids) fitRO.observe(c); fitKids = kids; }
     // A slide that keeps its figure clear of the cards frames it again as the cards settle to their size (a chart arriving, a line wrapping).
     const again = () => { if (!ui) return; if (!shown || 'folding' in ui.data.dataset) { clearT = setTimeout(again, 150); return; }   // (a slide still coming in: once it is in; a card still folding or pulled: once it rests, so the figure and its labels hold still under the finger)
       if (cardSig() !== framedSig) reframe(400); };   // (only when the cards really changed: the camera framed them once; any slide, so a card that grew never covers its box)
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
     // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
     clearRO ||= new ResizeObserver(() => { cancelFrame(paneRaf); paneRaf = nextFrame(() => ui && layout()); soon(); });
-    clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text);
+    if (clearFor !== ui) { clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text); clearFor = ui; }
     ui.data.ontransitionend = ui.text.ontransitionend = soon;   // (a card slides into place: its edge is where it ends, not where it was measured)
   };
   function layout() {
@@ -3117,7 +3119,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     waiters = [];
     removeEventListener('resize', onResize);
     document.fonts?.removeEventListener('loadingdone', onFonts);
-    fitRO?.disconnect(); clearRO?.disconnect(); clearTimeout(clearT); cancelFrame(fitRaf);
+    fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelFrame(fitRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;
