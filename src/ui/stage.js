@@ -19,7 +19,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=07d4833500';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=07d4833500';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=1f05278710';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
@@ -958,7 +958,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const x of Object.values(E)) {
       // (The sinusoids cross nothing, so they stay on their tier: lifted, the tier below would redraw their junctions
       // as hard-edged patches.)
-      const on = (x.g.classList.contains('is-sel') || x.g.classList.contains('hl')) && !SIN_EDGES.has(x.e.id);
+      // (A vessel just deselected stays on top while it eases back into the dimmed network: selA.)
+      const on = (x.g.classList.contains('is-sel') || x.g.classList.contains('hl') || vh.selA.get(x.e.id) > 0) && !SIN_EDGES.has(x.e.id);
       if (on !== !!x.lifted) { x.lifted = on; place(x); }
     }
     // Within the focus tier the portal tree stays in front (as in the resting order), so a
@@ -1076,7 +1077,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function setGlowSrc(src, list) {
     glow.src.set(src, new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, g])));
     const want = new Map();
-    for (const k of GLOW_RANK) for (const [id, g] of glow.src.get(k) || []) want.set(id, g);
+    // (Two sources lighting a vessel in the same colour keep the stronger, wider glow: hovering a selected vessel never dims it.)
+    for (const k of GLOW_RANK) for (const [id, g] of glow.src.get(k) || []) {
+      const was = want.get(id);
+      want.set(id, was && (was.col ?? null) === (g.col ?? null) ? { ...g, amt: Math.max(was.amt ?? 1, g.amt ?? 1), wide: Math.max(was.wide || 1, g.wide || 1) } : g);
+    }
     // (The Doppler's gate on a stent outranks a slide's or a mark's glow on it: the third it samples is the one that shows.)
     for (const [id, g] of glow.src.get('dop') || []) if (g.span) want.set(id, g);
     // Which ends fade: an end that meets another vessel glowing in the same colour runs on into it (even where a third colour also joins, as the IMV joins the splenic vein); one that meets
@@ -1140,7 +1145,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function setGlow(list) { setGlowSrc('slide', (list || []).map((g) => ({ id: g.id, col: toneCol(g.tone || 'accent'), amt: g.soft ? 0.55 : 1, wide: g.soft ? 0.8 : 0.75, at: g.at, dur: 500 }))); }
   // The hovered vessel glows softly in its own colour (and its lumen brightens a little, vh: tube row 9).
   // Each vessel's brightening eases in and out on its own, so moving from one vessel to the next cross-fades.
-  const vh = { id: null, amt: new Map(), raf: 0, t: 0 };
+  // The selected vessel (sel: it and, on the cava, the rest of the cava) takes the same brightening, and selA eases its
+  // standing out of the dimmed network in and out (syncVeins), so selecting and deselecting never snap.
+  const vh = { id: null, amt: new Map(), sel: new Set(), selKey: '', selA: new Map(), raf: 0, t: 0 };
+  const SEL_FADE = 0.3;
+  const selAKey = () => { let k = ''; for (const [id, v] of vh.selA) k += id + v; return k; };
 
   // ── View transform (pan / zoom) ───────────────────
   let vt = { k: 1, x: 0, y: 0 };
@@ -2323,11 +2332,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const selOn = (st.selection?.type === 'edge' && st.selection.id === e.id) || (st.selection?.type === 'node' && SIN_EDGES.has(e.id) && LABEL_VESSEL[st.selection.id] === e.id);   // a side's station dot is its sinusoids
       x.sel.classList.toggle('on', selOn);
       cls(x, 'is-sel', selOn);
-      // A selected side's sinusoids glow as one soft band over the whole network (the ring would be cut off square
-      // where the strands leave the vessel), eased in and out by the glow engine.
-      if (SIN_EDGES.has(e.id) && selOn !== !!x.selGlow) { x.selGlow = selOn; setGlowSrc('sel', [...SIN_EDGES].filter((id) => E[id]?.selGlow).map((id) => ({ id, col: null, amt: 1.5, wide: 1.2, dur: 450 }))); }
       if (selOn) setT(x.sel, 'stroke-width', (w + 12).toFixed(1));
       x.dopW = w;
+    }
+    // The selected vessel glows as a hovered one does, a little stronger and wider, fading out at its free ends (no ring
+    // with hard round ends); a selected side's sinusoids glow as one soft band over the whole network. Eased in and out by
+    // the glow engine, as the brightening and the network's dimming are (vhStep, stepPlateEase).
+    {
+      const sl = st.selection, sv = sl?.type === 'node' && SIN_EDGES.has(LABEL_VESSEL[sl.id]) ? LABEL_VESSEL[sl.id] : sl?.type === 'edge' ? sl.id : null;
+      const ids = sv && E[sv] ? (IVC_EDGES.has(sv) ? [...IVC_EDGES] : [sv]).filter((id) => E[id]?.vis) : [];
+      const key = ids.join();
+      if (key !== vh.selKey) {
+        vh.selKey = key; vh.sel = new Set(ids);
+        setGlowSrc('sel', ids.map((id) => (SIN_EDGES.has(id) ? { id, col: null, amt: 1.5, wide: 1.2, dur: 450 } : { id, col: null, amt: 1.5, wide: 1.3, dur: SEL_FADE * 1000 })));
+        if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
+      }
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
@@ -2746,7 +2765,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const m = glowMemo;
     if (!m || !veins || veins.lost || !vLook || tubesNew || lensFrom || !tubesShown || tubesShown.length !== tubeData.length) return false;
     if (m.t !== t || m.F !== F || m.geo !== geometryVersion || m.netA !== netA || m.cs !== wrapCS() || m.mode !== layerMode() || m.origin !== originOn()) return false;
-    if (m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== wrap.className || m.reach !== (m.mode === 'heat' ? 40 : glow.lit.size ? 20 : 11)) return false;
+    if (m.selK !== selAKey() || m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== wrap.className || m.reach !== (m.mode === 'heat' ? 40 : glow.lit.size ? 20 : 11)) return false;
     const b = glowBits(m.items);
     for (let i = 0; i < b.length; i++) if (b[i] !== m.bits[i] || b[i] & 64) return false;   // (a vessel drawing on changes with the clock: whole syncs)
     return true;
@@ -2860,15 +2879,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const rgbCs = (c) => toRGB(c, cs);
     tubeData.fill(0);
     // Hovering or selecting any part of the IVC shows it whole: no veil, and no fades on it or on the tributaries joining it.
-    let ivcOn = false, ivcSel = false;
-    for (const id of IVC_EDGES) { const g = E[id]?.g; if (g && (g.classList.contains('is-sel') || g.classList.contains('hl'))) ivcOn = true; if (g?.classList.contains('is-sel')) ivcSel = true; }
+    let ivcOn = false;
+    for (const id of IVC_EDGES) { const g = E[id]?.g; if (g && (g.classList.contains('is-sel') || g.classList.contains('hl') || vh.selA.get(id) > 0)) ivcOn = true; }
     for (const it of items) {
       const { x, kind, obj } = it, id = x.e.id, o = it.row * TUBE_TEXELS * 4;
       const ghost = x.g.classList.contains('coll-ghost');
-      // The IVC is one vessel to the eye: hovering or selecting any stretch lights and rings all of it.
-      const whole = ivcOn && IVC_EDGES.has(id);
       const ra = it.ra;
-      const sel = x.g.classList.contains('is-sel') || !!ra?.g.classList.contains('is-sel') || (whole && ivcSel), hl = x.g.classList.contains('hl') || !!ra?.g.classList.contains('hl') || whole;
       let c0, c1;
       if (x.isArt) c0 = c1 = artery;
       else {
@@ -2886,14 +2902,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (originMode) c0 = c1 = ORIGIN_LUMEN;
       }
       let alpha = x.isArt ? 0.85 : kind === 'c' ? clamp(2 * T0 - 1, 0, 1) : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
-      if (x.back) {
-        if (!sel && !hl) alpha *= netA;
-      }
       const tier = ivcOn && IVC_EDGES.has(id) ? TIER_LIFT : x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
+      // The network recedes to netA with a vessel selected (the lifted tier and the vessels behind the organs are not faded as a
+      // group): the selected vessel eases out of that dimming and, deselected, back into it (selA), so it never snaps.
+      if (x.back || tier >= TIER_LIFT) alpha *= netA + (1 - netA) * easeInOut(Math.max(vh.selA.get(id) || 0, ra ? vh.selA.get(ra.e.id) || 0 : 0));
       const shade = !x.isArt && !ghost;
       const veil = IVC_EDGES.has(id) && !ivcOn;
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
-      const flags = (sel && kind === 'v' && !SIN_EDGES.has(id) ? F_SEL : 0) | (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0);
+      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       // No congestion halo on the IVC itself: its wide halo would spill onto the bowel beside it.
       const heatA = kind === 'v' && heat && !IVC_EDGES.has(id) ? (x.heatA || 0) : 0;
@@ -2969,6 +2985,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     tubesNew = false;
     glowMemo = { items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins.hasPlate(0), cls: wrap.className, bits: glowBits(items), reach: vLook.reach };
+    glowMemo.selK = selAKey();   // (the selection's ease sets the vessels' alpha, which the glow-only sync does not write)
     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
     if (!plateWas && plateOn()) drawVeins();
   }
@@ -6845,12 +6862,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function vhStep(now) {
     const dt = Math.min(0.1, (now - vh.t) / 1000); vh.t = now;
-    const want = new Set(vh.id ? vhEdges(vh.id) : []);
+    const want = new Set([...(vh.id ? vhEdges(vh.id) : []), ...vh.sel]);
     for (const id of want) if (!vh.amt.has(id)) vh.amt.set(id, 0);
     let moving = false;
     for (const [id, v] of vh.amt) {
       const to = want.has(id) ? 1 : 0, nv = to > v ? Math.min(1, v + dt / 0.28) : Math.max(0, v - dt / 0.28);
       if (nv <= 0 && !to) vh.amt.delete(id); else vh.amt.set(id, nv);
+      if (nv !== to) moving = true;
+    }
+    for (const id of vh.sel) if (!vh.selA.has(id)) vh.selA.set(id, 0);
+    for (const [id, v] of vh.selA) {
+      const to = vh.sel.has(id) ? 1 : 0, k = reduceMotion.matches ? 1 : dt / SEL_FADE, nv = to > v ? Math.min(1, v + k) : Math.max(0, v - k);
+      if (nv <= 0 && !to) vh.selA.delete(id); else vh.selA.set(id, nv);
       if (nv !== to) moving = true;
     }
     glowSync = true; stageWake();
