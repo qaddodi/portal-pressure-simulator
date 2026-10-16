@@ -3328,7 +3328,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (r.tiles.length < 2) throw new Error(`${where}: fewer than two readouts show`);
         for (const t of r.tiles) {
           for (const p of t.parts) if (p.clip) throw new Error(`${where}: the ${p.q} of "${t.id}" is clipped or wraps (${Math.round(p.w)} px)`);
-          for (let i = 1; i < t.parts.length; i++) if (t.parts[i].t < t.parts[i - 1].b - 0.5) throw new Error(`${where}: "${t.id}" ${t.parts[i].q} overlaps ${t.parts[i - 1].q}`);
+          // (Side by side on one line, as on a Mac's slim play row, or stacked: two lines overlap only where their boxes cross.)
+          for (let i = 1; i < t.parts.length; i++) if (t.parts[i].t < t.parts[i - 1].b - 0.5 && t.parts[i].l < t.parts[i - 1].r - 0.5 && t.parts[i].r > t.parts[i - 1].l + 0.5) throw new Error(`${where}: "${t.id}" ${t.parts[i].q} overlaps ${t.parts[i - 1].q}`);
           if (t.parts.some((p) => p.l < t.l - 0.5 || p.r > t.r + 0.5)) throw new Error(`${where}: a line of "${t.id}" sticks out of its tile`);
         }
         for (let i = 1; i < r.tiles.length; i++) if (r.tiles[i].l < r.tiles[i - 1].r - 0.5 && r.tiles[i].t < r.tiles[i - 1].b - 0.5 && r.tiles[i].b > r.tiles[i - 1].t + 0.5) throw new Error(`${where}: readouts "${r.tiles[i - 1].id}" and "${r.tiles[i].id}" overlap`);
@@ -3380,9 +3381,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const frames = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)))));
       const measure = () => page.evaluate(() => {
         const SEL = ['.tb-id', '.top-right', '#viewSeg', '.topbar .sb-right', '.sb-center.float-ui', '#vdock', '#panel', '#treatCard:not([hidden])', '#dock', '#zoomPill', '.action-card:not([hidden])'];
-        const vis = (el) => { const st = getComputedStyle(el), r = el.getBoundingClientRect(); return st.display !== 'none' && st.visibility !== 'hidden' && +st.opacity > 0.05 && r.width > 2 && r.height > 2; };
-        // On a phone the chart, Treat, the instruments and a vessel's card are sheets that rise over the dock by design.
-        const sheet = (el) => el.classList.contains('docked') || (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px)').matches && (el.id === 'panel' || el.id === 'treatCard' || (el.id === 'dock' && !el.classList.contains('side'))));
+        // (A piece whose holder is faded out counts as hidden: the view switch's pill fades while a card is open.)
+        const vis = (el) => { const st = getComputedStyle(el), r = el.getBoundingClientRect(); return st.display !== 'none' && st.visibility !== 'hidden' && el.checkVisibility({ opacityProperty: true }) && +st.opacity > 0.05 && r.width > 2 && r.height > 2; };
+        // On a phone, and in the thumb layout (an upright iPad), the chart, Treat, the instruments and a vessel's card are sheets
+        // that rise from behind the tab row by design.
+        const sheet = (el) => el.classList.contains('docked') || ((document.querySelector('#app').classList.contains('thumb') || matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px)').matches) && (el.id === 'panel' || el.id === 'treatCard' || (el.id === 'dock' && !el.classList.contains('side'))));
         const items = SEL.flatMap((s) => [...document.querySelectorAll(s)].filter(vis).map((el) => [s, el.getBoundingClientRect(), el]));
         const out = [];
         for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
