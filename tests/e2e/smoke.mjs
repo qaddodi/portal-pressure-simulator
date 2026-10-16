@@ -2780,6 +2780,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         await page.evaluate(() => document.querySelector('#viewSeg [data-view="sinusoid"]').click());
         await page.waitForFunction(() => document.querySelector('#app').classList.contains('sin-focus') && document.querySelector('#sinViews').contains(document.querySelector('#viewSeg')), null, { timeout: 30000 });
         await page.waitForTimeout(2500);
+        // (the top bar glides its pieces to the sinusoid view's places: measure once nothing in it is moving)
+        await page.waitForFunction(() => { const tb = document.querySelector('#topbar'); return !document.getAnimations().some((a) => a.playState === 'running' && tb.contains(a.effect?.target)); }, null, { timeout: 15000, polling: 100 }).catch(() => {});
+        await page.waitForTimeout(300);
         bad = await look(true);
         if (bad.length) throw new Error(`${w}x${ht} sinusoid: ${bad.join('; ')}`);
       }

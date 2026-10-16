@@ -1003,6 +1003,9 @@ function wireFloating() {
     const vd = $('#vdock');
     // (The view switch's pill floats just above the dock and counts as part of it: what sits above the dock clears the pill too.)
     // (and 8 px more kept clear above it: the figure's readings stay 8 px off it, the zoom group 16 px)
+    // (A phone held sideways frames the circuit by its vessels, and its italic vessel names hang below them: 20 px kept there.)
+    const nbvPad = innerHeight <= 500 && innerWidth > innerHeight ? '20' : '8';
+    if ($('#nbViews') && $('#nbViews').dataset.safePad !== nbvPad) $('#nbViews').dataset.safePad = nbvPad;
     const nbv = $('#nbViews'), nbvH = nbv && nbv.offsetHeight ? Math.max(0, vd.getBoundingClientRect().top - nbv.getBoundingClientRect().top + 8) : 0;
     if (!vd.classList.contains('mini') && vd.offsetHeight) vd.dataset.fullH = String(vd.offsetHeight + nbvH);
     const vdTop = vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top + nbvH : 0;
