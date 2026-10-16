@@ -8,9 +8,10 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=e387ad7347';
-import { createLobuleZoom } from './lobule-zoom.js?v=b4ffe13a31';
+import { createLobuleZoom } from './lobule-zoom.js?v=ab6e8df4d7';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
+import { gridHits } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
@@ -5271,33 +5272,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
   }
-  // Does the segment cross the box (grown by `m`)? Liang-Barsky.
-  function segHitsBox(sg, r, m) {
-    const x0 = r.x0 - m, y0 = r.y0 - m, x1 = r.x1 + m, y1 = r.y1 + m;
-    let t0 = 0, t1 = 1;
-    const dx = sg.x1 - sg.x0, dy = sg.y1 - sg.y0;
-    for (const [p, q] of [[-dx, sg.x0 - x0], [dx, x1 - sg.x0], [-dy, sg.y0 - y0], [dy, y1 - sg.y0]]) {
-      if (p === 0) { if (q < 0) return false; } else { const u = q / p; if (p < 0) { if (u > t1) return false; if (u > t0) t0 = u; } else { if (u < t0) return false; if (u < t1) t1 = u; } }
-    }
-    return true;
-  }
-  // How many vessel segments the box touches, a vessel's own width and `margin` px of air included.
-  function lineHits(r, margin) {
-    let n = 0;
-    const stamp = ++segStamp;
-    for (let gx = Math.floor((r.x0 - margin) / SEG_CELL); gx <= Math.floor((r.x1 + margin) / SEG_CELL); gx++) {
-      for (let gy = Math.floor((r.y0 - margin) / SEG_CELL); gy <= Math.floor((r.y1 + margin) / SEG_CELL); gy++) {
-        const cell = segGrid.get(gx * 4096 + gy);
-        if (!cell) continue;
-        for (const sg of cell) {
-          if (sg.stamp === stamp) continue;
-          sg.stamp = stamp;
-          if (segHitsBox(sg, r, sg.hw + margin)) n++;
-        }
-      }
-    }
-    return n;
-  }
+  // How many vessel segments the box touches, a vessel's own width and `margin` px of air included (`any`: whether one does).
+  const lineHits = (r, margin, any = false) => gridHits(segGrid, SEG_CELL, r, margin, ++segStamp, any);
   // `solve`: search (stickily) and record the slots; otherwise carry the recorded slots. Returns false
   // when a label turned up that has no slot or no longer fits its slot: the caller then solves.
   function layoutLabels(f, solve) {
@@ -5369,8 +5345,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const V = it.key === 'scan' ? plain : view, inside = within(r, V), held = !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, V));
         let onLine = 0;
         if (useLines) {
-          onLine = lineHits(r, 0);
-          if (ps.clear && (held ? onLine : lineHits(r, 3))) return;
+          // (A clear pass only asks whether any vessel is in the way: the held spot with no air, a fresh one with 3 px.)
+          if (ps.clear) { if (held ? lineHits(r, 0, true) : lineHits(r, 3, true)) return; } else onLine = lineHits(r, 0);
         }
         const cost = pi * 1e4 + (inside ? 0 : 2e3) + (ps.clear ? 0 : onLine * 12) + i + (ps.bias || 0) - (held ? (ps.clear ? 1e5 : 4) : 0);
         if (!best || cost < best.cost) best = { cost, dx, dy, r, dir, pi, leader: ps.leader };
