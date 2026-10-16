@@ -1001,9 +1001,9 @@ function wireFloating() {
     // The dock's full height is kept while it is folded to one line (figureFocus below): the framing reads it
     // (stage.js safeInsets), so the figure does not jump each time the dock folds and opens.
     const vd = $('#vdock');
-    // (The view switch's pill floats just above the dock and counts as part of it: what sits above the dock clears the pill too.)
-    // (and 8 px more kept clear above it: the figure's readings stay 8 px off it, the zoom group 16 px)
-    // (A phone held sideways frames the circuit by its vessels, and its italic vessel names hang below them: 20 px kept there.)
+    // (The view switch's pill floats just above the dock and counts as part of it, with 8 px more kept clear above it: what sits
+    // above the dock clears the pill too, the figure's readings by 8 px, the zoom group by 16 px. A phone held sideways frames
+    // the circuit by its vessels, and its italic vessel names hang below them: there the framing keeps 20 px.)
     const nbvPad = innerHeight <= 500 && innerWidth > innerHeight ? '20' : '8';
     if ($('#nbViews') && $('#nbViews').dataset.safePad !== nbvPad) $('#nbViews').dataset.safePad = nbvPad;
     const nbv = $('#nbViews'), nbvH = nbv && nbv.offsetHeight ? Math.max(0, vd.getBoundingClientRect().top - nbv.getBoundingClientRect().top + 8) : 0;
