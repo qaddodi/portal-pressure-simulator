@@ -6,9 +6,8 @@ const frac = (n, d) => `<mfrac><mrow>${n}</mrow><mrow>${d}</mrow></mfrac>`;
 export const SHUNTS = {
   id: 'shunts', level: 'advanced', title: 'Spontaneous shunts and TIPS', minutes: 10,
   objectives: [
-    'Explain why a shunt lowers the portal pressure and what it costs the liver',
     'Recognize gastrorenal and splenorenal shunts and their links to fundal varices and encephalopathy',
-    'Describe TIPS, why it is kept narrow, and how a blocked stent shows',
+    'Explain how TIPS lowers the portal pressure, why it is kept narrow, and how a blocked stent shows',
     'Explain how the selective Warren shunt decompresses the varices while keeping portal flow to the liver',
     'Predict what closing a shunt (BRTO) does to the portal pressure',
   ],
@@ -57,8 +56,8 @@ export const SHUNTS = {
     {
       id: 'wide', lens: 'flow', params: { tips: { d: 12 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Stent at 12 mm', kind: 'treat' }, data: 'tiles', tiles: ['ppg', 'liver'],
       kicker: 'Made', site: 'sin', title: 'A 12 mm stent diverts too much portal flow',
-      line: 'The gradient falls further, but the liver loses more portal blood. Encephalopathy is more common with wider stents, and liver failure is a risk when hepatic reserve is poor. Many centers use 8 mm stents for this reason. With the vessels colored by flow, the stent carries far more blood than the sinusoids.',
-      notes: 'The same patient with the stent opened to 12 mm. The gradient falls further, but the liver loses more of its portal blood. Encephalopathy after TIPS is commoner with wider stents, older age and earlier encephalopathy; liver failure is the feared complication when reserve is poor. Many centers place an 8 mm stent, or a stent that is under-dilated and can be widened later if the gradient stays high. Persistent encephalopathy can be treated by narrowing the stent. Under-dilated standard stent grafts tend to widen partly toward their full size over about six months; controlled-expansion grafts are designed to hold the set width.',
+      line: 'The gradient falls further, but the liver loses more portal blood; encephalopathy is more common, and liver failure is a risk when reserve is poor. Many centers use 8 mm stents for this reason.',
+      notes: 'The same patient with the stent opened to 12 mm. The gradient falls further, but the liver loses more of its portal blood. Encephalopathy after TIPS is commoner with wider stents, older age and earlier encephalopathy; liver failure is the feared complication when reserve is poor. Many centers place an 8 mm stent, or a stent that is under-dilated and can be widened later if the gradient stays high. Persistent encephalopathy can be treated by narrowing the stent. Under-dilated standard stent grafts tend to widen partly toward their full size over about six months; controlled-expansion grafts are designed to hold the set width. On the figure, colored by flow, the stent carries far more blood than the sinusoids.',
       ask: ['Why are TIPS stents often left under-dilated?', 'To lower the gradient enough while keeping portal flow to the liver and the risk of encephalopathy down.'],
     },
     {
@@ -73,8 +72,8 @@ export const SHUNTS = {
       id: 'dsrs', lens: 'origin', preset: 'cirr-decomp', params: { dsrs: true }, cam: 'splenic', mark: { edges: ['S_DSR'], label: 'Warren shunt', kind: 'treat' },
       data: 'tiles', tiles: ['ppg', 'varix', 'liver'], delta: 'own',
       kicker: 'Made', site: 'sin', title: 'Distal splenorenal (Warren) shunt',
-      line: 'The splenic vein is tied off near the portal vein, and its spleen end is joined to the left renal vein. The varices drain through the spleen, while SMV blood still reaches the liver. The PPG stays high at {ppg}. With the vessels colored by origin, splenic blood leaves through the shunt, while the portal vein carries only gut blood.',
-      notes: 'The Warren shunt is a selective shunt. The splenic vein is divided close to its junction with the portal vein; the spleen end is sewn to the left renal vein, and the portal end is tied off. Blood from the gastroesophageal varices drains through the short gastric veins and the spleen to the renal vein, so the varices decompress, while SMV blood keeps perfusing the liver at portal pressure. The PPG stays high, so ascites is not relieved and can worsen; refractory ascites is a contraindication. Encephalopathy is less common than after a total shunt or TIPS. Today it is rare: it suits patients with preserved liver function and recurrent variceal bleeding, usually where TIPS is not suitable. The tiles compare with the same patient without the shunt.',
+      line: 'The splenic vein is divided near the portal vein and its spleen end joined to the left renal vein, so the varices drain through the spleen while SMV blood still reaches the liver. The PPG stays high at {ppg}.',
+      notes: 'The Warren shunt is a selective shunt. The splenic vein is divided close to its junction with the portal vein; the spleen end is sewn to the left renal vein, and the portal end is tied off. Blood from the gastroesophageal varices drains through the short gastric veins and the spleen to the renal vein, so the varices decompress, while SMV blood keeps perfusing the liver at portal pressure. The PPG stays high, so ascites is not relieved and can worsen; refractory ascites is a contraindication. Encephalopathy is less common than after a total shunt or TIPS. Today it is rare: it suits patients with preserved liver function and recurrent variceal bleeding, usually where TIPS is not suitable. The tiles compare with the same patient without the shunt. On the figure, colored by origin, splenic blood leaves through the shunt, while the portal vein carries only gut blood.',
       ask: ['Why is the Warren shunt called selective?', 'It drains the varices through the spleen to the left renal vein, while SMV blood keeps perfusing the liver at portal pressure.'],
     },
     {
@@ -82,8 +81,8 @@ export const SHUNTS = {
       compare: [{ label: 'Shunt open', params: { occluded: { C5: false } } }, { label: 'Shunt closed', own: true, params: { occluded: { C5: true } } }],
       data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'], delta: 'grs',
       kicker: 'Closing a shunt', site: 'sin', title: 'BRTO closes the gastrorenal shunt',
-      line: 'A balloon blocks the shunt, and sclerosant fills it and the fundal varices behind it, which then thrombose. Portal blood that used to leave through the shunt stays in the portal system, so pressure rises and esophageal varices grow. With the vessels colored by flow, the closed shunt is empty and the portal vein carries more blood.',
-      notes: 'In balloon-occluded retrograde transvenous obliteration (BRTO), a balloon is inflated in the gastrorenal shunt from the left renal vein, and a sclerosant fills the shunt and the fundal varices behind it, which thrombose. It controls fundal variceal bleeding with little rebleeding. The portal blood that left by the shunt now stays in the portal system, so the portal pressure rises and esophageal varices and ascites can worsen; surveillance endoscopy follows, and some centers combine BRTO with TIPS. In the model the fundal varix keeps its size because the sclerosant is not modeled; only the pressure effect is shown. The tiles compare with the patient before the shunt was closed.',
+      line: 'A balloon blocks the shunt, and sclerosant fills it and the fundal varices behind it, which thrombose. Portal blood now stays in the portal system, so pressure rises and esophageal varices grow.',
+      notes: 'In balloon-occluded retrograde transvenous obliteration (BRTO), a balloon is inflated in the gastrorenal shunt from the left renal vein, and a sclerosant fills the shunt and the fundal varices behind it, which thrombose. It controls fundal variceal bleeding with little rebleeding. The portal blood that left by the shunt now stays in the portal system, so the portal pressure rises and esophageal varices and ascites can worsen; surveillance endoscopy follows, and some centers combine BRTO with TIPS. In the model the fundal varix keeps its size because the sclerosant is not modeled; only the pressure effect is shown. The tiles compare with the patient before the shunt was closed. On the figure, colored by flow, the closed shunt is empty and the portal vein carries more blood.',
       ask: ['What must you watch for after BRTO?', 'Worsening esophageal varices and ascites, from the rise in portal pressure.'],
     },
     {

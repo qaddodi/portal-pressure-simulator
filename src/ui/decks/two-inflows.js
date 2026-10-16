@@ -45,8 +45,8 @@ export const TWO_INFLOWS = {
       id: 'switch', pill: false, lens: 'flow', cam: 'portal', tool: HA('dual'), data: 'tiles', tiles: ['liver'], key: ['liver'], delta: 'dual',
       compare: [{ label: 'Buffer on', own: true, params: { habrStrength: 1 } }, { label: 'Buffer off', params: { habrStrength: 0 } }],
       kicker: 'The buffer', site: 'pre', title: 'Without the buffer the liver loses far more blood',
-      line: 'The liver adjusts its arterial inflow to portal flow, but it cannot adjust portal flow. With the buffer switched off, which cannot happen in a patient, liver blood flow falls to about 40% of normal. With the vessels colored by flow, the hepatic artery and the sinusoids thin when the buffer is off.',
-      notes: 'No patient can switch the buffer off, but the model can: liver blood flow falls to about 40% of normal. The control runs one way only. The liver adjusts its arterial inflow to the portal flow, but it cannot control the portal flow, which is set by the arterioles of the gut and the spleen.',
+      line: 'The liver adjusts its arterial inflow to portal flow but cannot adjust portal flow. With the buffer switched off, which cannot happen in a patient, liver blood flow falls to about 40% of normal.',
+      notes: 'No patient can switch the buffer off, but the model can: liver blood flow falls to about 40% of normal. The control runs one way only. The liver adjusts its arterial inflow to the portal flow, but it cannot control the portal flow, which is set by the arterioles of the gut and the spleen. On the figure, colored by flow, the hepatic artery and the sinusoids thin when the buffer is off.',
       ask: ['Why does the same clot leave the liver far less blood with the buffer off?', 'The artery can no longer dilate, so nothing replaces the portal share, about three quarters of the flow.'],
     },
     {
@@ -68,8 +68,8 @@ export const TWO_INFLOWS = {
     {
       id: 'tips', lens: 'origin', params: { tips: { on: true } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'TIPS', kind: 'treat' }, tool: HA('cirr'), data: 'tiles', tiles: ['liver', 'shunt'], key: ['liver'], delta: 'cirr',
       kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'After TIPS, most liver inflow is arterial',
-      line: 'Flow in the intrahepatic portal branches turns toward the stent, and hepatic artery velocity rises as the buffer response dilates the artery. Total liver blood flow falls to {liver} of normal. With the vessels colored by origin, the sinusoids carry only arterial blood, while portal blood runs through the stent.',
-      notes: 'After a TIPS, flow in the intrahepatic portal branches usually turns toward the stent, and the hepatic artery velocity rises as the buffer responds. A liver with little reserve may not cope: a rising bilirubin and encephalopathy are the warning signs, and the reason TIPS is avoided in very advanced liver failure.',
+      line: 'Flow in the intrahepatic portal branches turns toward the stent, and hepatic artery velocity rises as the buffer response dilates the artery. Total liver blood flow falls to {liver} of normal.',
+      notes: 'After a TIPS, flow in the intrahepatic portal branches usually turns toward the stent, and the hepatic artery velocity rises as the buffer responds. A liver with little reserve may not cope: a rising bilirubin and encephalopathy are the warning signs, and the reason TIPS is avoided in very advanced liver failure. On the figure, colored by origin, the sinusoids carry only arterial blood, while portal blood runs through the stent.',
       ask: ['Which way does blood run in the intrahepatic portal branches after a TIPS?', 'Usually toward the stent, away from the liver tissue, because the stent is the path of least resistance.'],
     },
     {

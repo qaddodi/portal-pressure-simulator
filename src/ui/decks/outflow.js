@@ -50,8 +50,8 @@ export const OUTFLOW = {
     {
       id: 'dips', lens: 'flow', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc', 'caudateLobe'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' }, data: 'tiles', tiles: ['pv', 'asc', 'liver'], key: ['pv'], delta: 'bcs',
       kicker: 'Opening the outflow', site: 'post', title: 'When no vein opens, a DIPS drains the liver into the IVC',
-      line: 'A direct intrahepatic portosystemic shunt (DIPS) runs from the portal vein through the caudate lobe straight into the IVC, bypassing the clotted veins. Two months later the portal pressure is {pv} and the ascites has nearly gone. With the vessels colored by flow, the shunt carries most of the liver\'s outflow.',
-      notes: 'A standard TIPS runs from a hepatic vein to the portal vein, so when all three hepatic veins are clotted the stent is placed from the IVC through the liver to the portal vein instead (a direct intrahepatic portosystemic shunt). The portal vein becomes the liver\'s outflow, and the congestion and ascites resolve. Like any shunt it diverts portal blood from the liver, so encephalopathy is watched for.',
+      line: 'A direct intrahepatic portosystemic shunt (DIPS) runs from the portal vein through the caudate lobe into the IVC, bypassing the clotted veins. Two months later the portal pressure is {pv} and the ascites has nearly gone.',
+      notes: 'A standard TIPS runs from a hepatic vein to the portal vein, so when all three hepatic veins are clotted the stent is placed from the IVC through the liver to the portal vein instead (a direct intrahepatic portosystemic shunt). The portal vein becomes the liver\'s outflow, and the congestion and ascites resolve. Like any shunt it diverts portal blood from the liver, so encephalopathy is watched for. On the figure, colored by flow, the shunt carries most of the liver’s outflow.',
       ask: ['Why can a standard TIPS not be placed when all three hepatic veins are clotted?', 'It needs a hepatic vein to start from; the stent goes from the IVC instead.'],
     },
     {

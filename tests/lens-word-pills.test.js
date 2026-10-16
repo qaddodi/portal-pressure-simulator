@@ -23,7 +23,7 @@ test('every "colored by" in a slide line names a view that gets its pill', () =>
       if (!Object.keys(WORDS).some((w) => m[1] === w || m[1].startsWith(`${w} `))) plain.push(`${d.id}/${s.id}: colored by ${m[1]}`);
     }
   }
-  assert.ok(n > 40, `found ${n} phrases`);
+  assert.ok(n > 30, `found ${n} phrases`);   // (35 since U20 moved the long slides' "colored by" sentences to their notes)
   assert.deepEqual(plain, []);
 });
 

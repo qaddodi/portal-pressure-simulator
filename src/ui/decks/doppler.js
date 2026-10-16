@@ -58,8 +58,8 @@ export const DOPPLER = {
       data: 'tiles', tiles: ['pvFlow', 'hvpg'], key: ['pvFlow'],
       kicker: 'Cirrhosis', site: 'sin', title: 'Portal flow can reverse in advanced cirrhosis',
       vignette: 'A 66-year-old woman with MASH cirrhosis has had three admissions for hepatic encephalopathy this year despite lactulose and rifaximin. Her albumin is 2.6 g/dL.',
-      line: 'In advanced cirrhosis the liver can resist more than the collaterals. Portal blood, with arterial blood shunted into the portal branches, then flows away from the liver (hepatofugal), shown below the baseline. With the vessels colored by direction, the portal and splenic veins show reversed flow, draining away through a splenorenal shunt.',
-      notes: 'Hepatofugal flow appears in advanced cirrhosis, usually with large spontaneous shunts, and is uncommon: about 8% of patients with cirrhosis. The liver then depends on the hepatic artery. It is a sign of advanced disease, raises the risk of portal vein thrombosis and of encephalopathy, and is a warning before TIPS. To-and-fro flow is the step before full reversal.',
+      line: 'In advanced cirrhosis the liver can resist more than the collaterals, so portal blood, with arterial blood shunted into its branches, flows away from the liver (hepatofugal), shown below the baseline.',
+      notes: 'Hepatofugal flow appears in advanced cirrhosis, usually with large spontaneous shunts, and is uncommon: about 8% of patients with cirrhosis. The liver then depends on the hepatic artery. It is a sign of advanced disease, raises the risk of portal vein thrombosis and of encephalopathy, and is a warning before TIPS. To-and-fro flow is the step before full reversal. On the figure, colored by direction, the portal and splenic veins show reversed flow, draining away through a splenorenal shunt.',
       ask: ['What does hepatofugal portal flow mean?', 'Portal blood runs away from the liver, out through collaterals: advanced portal hypertension.'],
     },
     {
