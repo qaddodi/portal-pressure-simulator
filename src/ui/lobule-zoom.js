@@ -24,7 +24,7 @@ import { store } from './store.js?v=ead3d78843';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
 import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=1ff0bc103e';
-import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur } from './lobule-look.js?v=f44413fc6f';
+import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped } from './lobule-look.js?v=ac7a06c4eb';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=0140acc352';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=5c9a375f49';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
@@ -629,19 +629,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // Closed: the full-screen canvases and the vessels' GPU buffers are given back (they are sized again on the way in).
   // The world bitmap, the field's tiles and the uploaded network stay, so the next dive has nothing heavy to build.
   const free = (cv) => { if (cv.width || cv.height) { cv.width = 0; cv.height = 0; } };
-  // Whether a canvas here blurs with ctx.filter (Safari before 18 ignores it): tried once on three pixels.
-  let blurOK = null;
-  const canvasBlur = () => {
-    if (blurOK !== null) return blurOK;
-    try {
-      const cv = document.createElement('canvas'); cv.width = 5; cv.height = 1;
-      const c = cv.getContext('2d', { willReadFrequently: true });
-      c.filter = 'blur(1px)'; c.fillStyle = '#000'; c.fillRect(2, 0, 1, 1);   // colour-exempt: a probe, never shown
-      blurOK = c.getImageData(0, 0, 1, 1).data[3] > 0 || c.getImageData(1, 0, 1, 1).data[3] > 0;
-      free(cv);
-    } catch { blurOK = false; }
-    return blurOK;
-  };
   function release() {
     free(tissue); free(fx); free(glCv); free(diveCv); diveCopyKey = '';
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
@@ -1804,28 +1791,19 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (t.quiet) free(t.quiet.cv);
     const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
     const c = cv.getContext('2d');
-    blurWrapped(c, t.cv, t.tw, t.th, neighbourBlur(t.R));
+    blurTile(c, t.cv, t.tw, t.th, neighbourBlur(t.R));
     fieldQuiet(c, bg, 1, t.tw, t.th);
     c.fillStyle = css(bg, NEIGHBOUR_FLAT); c.fillRect(0, 0, t.tw, t.th);
     return (t.quiet = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() });
   }
-  // Draws the repeating tile src (w × h) onto c blurred by r px, as the pattern shows it: the tile is laid out with its
-  // wrapped neighbours round it before the blur, and only the middle is kept. A canvas filter where the browser has one,
-  // else a scale down and back up (the same softening, a little coarser).
-  function blurWrapped(c, src, w, h, r) {
-    if (!(r > 0.5)) { c.drawImage(src, 0, 0); return; }
-    const p = Math.ceil(r * 3), pad = document.createElement('canvas'); pad.width = w + 2 * p; pad.height = h + 2 * p;
-    const pc = pad.getContext('2d');
-    for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) pc.drawImage(src, p + dx, p + dy);
-    if (canvasBlur()) { c.filter = `blur(${r.toFixed(2)}px)`; c.drawImage(pad, -p, -p); c.filter = 'none'; }
-    else {
-      const f = Math.max(1, r * 1.5), sw = Math.max(1, Math.round(pad.width / f)), sh = Math.max(1, Math.round(pad.height / f));
-      const sm = document.createElement('canvas'); sm.width = sw; sm.height = sh;
-      const sc = sm.getContext('2d'); sc.imageSmoothingQuality = 'high'; sc.drawImage(pad, 0, 0, sw, sh);
-      c.imageSmoothingQuality = 'high'; c.drawImage(sm, -p, -p, pad.width, pad.height);
-      free(sm);
-    }
-    free(pad);
+  // Draws the repeating tile src (w × h) onto c blurred by r px, seamless where the pattern repeats and smooth at full
+  // resolution on every browser (blurWrapped, lobule-look.js; no canvas filter, which some Safaris lack, and no unfiltered canvas rescale).
+  function blurTile(c, src, w, h, r) {
+    c.drawImage(src, 0, 0);
+    if (!(r > 0.5)) return;
+    const img = c.getImageData(0, 0, w, h);
+    img.data.set(blurWrapped(img.data, w, h, r));
+    c.putImageData(img, 0, 0);
   }
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
   // The surround fades into the page (light in light mode, dark in dark mode).

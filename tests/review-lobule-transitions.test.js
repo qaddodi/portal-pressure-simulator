@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur } from '../src/ui/lobule-look.js';
+import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped } from '../src/ui/lobule-look.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const stage = read('../src/ui/stage.js');
@@ -75,9 +75,39 @@ test('G22: the neighbouring lobules are blurred once per tile, seamlessly, with 
   assert.equal(neighbourBlur(12), 0);
   assert.ok(neighbourBlur(192) > 3 && neighbourBlur(192) < 5);
   // Built into the cached quiet tile (the lobule view's surround and the dive's quieting), never per frame.
-  assert.match(lz, /blurWrapped\(c, t\.cv, t\.tw, t\.th, neighbourBlur\(t\.R\)\);\n\s+fieldQuiet\(c, bg, 1, t\.tw, t\.th\);\n\s+c\.fillStyle = css\(bg, NEIGHBOUR_FLAT\);/);
-  assert.match(lz, /for \(const dx of \[-w, 0, w\]\) for \(const dy of \[-h, 0, h\]\) pc\.drawImage\(src, p \+ dx, p \+ dy\);/, 'wrapped before the blur: no seam');
+  assert.match(lz, /blurTile\(c, t\.cv, t\.tw, t\.th, neighbourBlur\(t\.R\)\);\n\s+fieldQuiet\(c, bg, 1, t\.tw, t\.th\);\n\s+c\.fillStyle = css\(bg, NEIGHBOUR_FLAT\);/);
+  assert.match(lz, /img\.data\.set\(blurWrapped\(img\.data, w, h, r\)\);/, 'the same smooth blur on every browser');
+  assert.doesNotMatch(lz, /c\.filter = `blur/, 'no canvas filter (some Safaris lack it)');
   assert.doesNotMatch(lz, /\.filter = `blur[^\n]*\n[^\n]*requestAnimationFrame/);
   // The quieting's saturation fill runs (it had slipped into a comment).
   assert.match(lz, /c\.globalCompositeOperation = 'saturation'; c\.fillStyle = `rgba\(128,128,128,\$\{\(0\.45 \* q\)\.toFixed\(3\)\}\)`; c\.fillRect\(0, 0, w, h\);/);
+});
+
+// A w × h RGBA tile from a function of (x, y) giving a grey level.
+const tile = (w, h, f) => { const p = new Uint8ClampedArray(w * h * 4); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const o = (y * w + x) * 4, v = f(x, y); p[o] = p[o + 1] = p[o + 2] = v; p[o + 3] = 255; } return p; };
+const grey = (p, w, x, y) => p[(y * w + x) * 4];
+
+test('G22: the neighbours\' blur wraps round the tile, so the repeat has no seam', () => {
+  for (const sigma of [2, 7.7]) {
+    const w = 96, h = 54, p = blurWrapped(tile(w, h, (x) => (x < 4 ? 255 : 0)), w, h, sigma);
+    // A bright band at the left edge spreads as much past the right edge (wrapped) as into the tile.
+    for (const y of [0, 27, 53]) assert.ok(Math.abs(grey(p, w, w - 3, y) - grey(p, w, 6, y)) <= 3, `sigma ${sigma}: symmetric across the seam`);
+    assert.ok(grey(p, w, w - 1, 0) > 40, `sigma ${sigma}: it reaches across the seam`);
+    // Opaque stays opaque, and a flat tile stays flat.
+    assert.ok(p.every((v, i) => i % 4 !== 3 || v === 255));
+    assert.ok(blurWrapped(tile(w, h, () => 120), w, h, sigma).every((v, i) => i % 4 === 3 || Math.abs(v - 120) <= 1));
+  }
+});
+
+test('G22: the blurred edge is smooth (no steps), even for a wide blur on a large tile', () => {
+  const w = 600, h = 40, sigma = 7.7, p = blurWrapped(tile(w, h, (x) => (x >= 300 && x < 450 ? 255 : 0)), w, h, sigma);
+  let maxStep = 0;
+  for (let x = 250; x < 350; x++) {
+    const d = grey(p, w, x + 1, 20) - grey(p, w, x, 20);
+    assert.ok(d >= -1, 'rises monotonically into the band');
+    maxStep = Math.max(maxStep, d);
+  }
+  // A Gaussian of 7.7 px rises at most 255 / (7.7 × √(2π)) ≈ 13 per pixel; a coarse scale up showed jumps of 30 or more.
+  assert.ok(maxStep <= 16, `largest step ${maxStep}`);
+  assert.ok(grey(p, w, 375, 20) > 245 && grey(p, w, 200, 20) < 5, 'and still a blur, not a smear');
 });
