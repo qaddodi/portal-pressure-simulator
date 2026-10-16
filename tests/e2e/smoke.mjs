@@ -554,7 +554,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // scale about nine times slower, a frame every few seconds, and the slide changes then took longer than the check waits.)
     if (device === 'phone') await (await page.context().newCDPSession(page)).send('Emulation.setDeviceMetricsOverride', { ...DEVICES.phone.viewport, deviceScaleFactor: 1, mobile: true });
     await open(page, '?preset=healthy');
-    await page.evaluate(() => window.pps.presenter.start('circulation', 4));
+    await page.evaluate(() => window.pps.presenter.start('circulation', 5));
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled() && !document.querySelector('.pz-cover'), null, { timeout: 60000 });   // (the start's cover gone)
     const settle = async () => {
       await page.waitForFunction(() => { const a = document.querySelector('#app'); return !a.classList.contains('pz-hush') && !a.classList.contains('pz-hush-in') && (window.pps.stage.lobuleOpen() || window.pps.store.get().sinusoid); }, null, { timeout: 30000 });
@@ -1318,14 +1318,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
-  // Circulation slide 9 ("After a meal"): the coronary and splenic veins, their glow and the figure's labels sit in the band the data card
+  // Circulation slide 10 ("After a meal"): the coronary and splenic veins, their glow and the figure's labels sit in the band the data card
   // (top) and the words (bottom sheet) leave, and clear of the controls' pill (read from the pill itself).
-  if (device === 'phone') await check(device, 'presenter on a phone: Circulation slide 9 frames the coronary and splenic veins clear of the data card, the words and the pill', async (page) => {
+  if (device === 'phone') await check(device, 'presenter on a phone: Circulation slide 10 frames the coronary and splenic veins clear of the data card, the words and the pill', async (page) => {
     const GLOW = 8;   // px of glow around a vein
     for (const [w, h] of [[390, 844], [375, 667]]) {
       await page.setViewportSize({ width: w, height: h });
       await open(page);
-      await page.evaluate(() => window.pps.presenter.start('circulation', 8));
+      await page.evaluate(() => window.pps.presenter.start('circulation', 9));
       await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
       let r = null, prev = null, still = 0;
       for (let t = 0; t < 50 && !(r?.ok && still >= 4); t++) {
