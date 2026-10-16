@@ -160,6 +160,12 @@ jobs:
         continue-on-error: true
         timeout-minutes: 8
         run: npm run perf -- dist
+      # Main-thread time per surface (Tests dock open, a vessel hovered, the lobule): report only, for the same reason.
+      - name: Frame cost report
+        if: matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/28'
+        continue-on-error: true
+        timeout-minutes: 5
+        run: npm run perf:frames -- dist
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

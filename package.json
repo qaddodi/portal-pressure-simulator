@@ -22,6 +22,7 @@
     "smoke:card": "node tests/e2e/text-card.mjs",
     "smoke:quick": "node tests/e2e/quick.mjs",
     "perf": "node scripts/perf.mjs",
+    "perf:frames": "node scripts/frame-cost.mjs",
     "perf:dive": "node scripts/perf-dive.mjs",
     "perf:zoom": "node scripts/zoom-even.mjs",
     "check": "npm run lint && npm test && npm run build && npm run smoke && npm run smoke:dist",
