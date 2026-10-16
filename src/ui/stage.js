@@ -5028,6 +5028,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return true;
   }
   const shortenTo = (it, lvl) => { while ((it.short || 0) < lvl && shortenItem(it)); };
+  // A Circuit reading set on one line, its name then its value (a rescued reading where two lines have no room: layoutLabels).
+  function oneLine(it) {
+    if (it.lines.length !== 2) return;
+    it.lines = [[...it.lines[0], ...it.lines[1].map((r, i) => (i ? r : { ...r, gap: 4 }))]]; it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); it.one = true;
+  }
   function nodeItem(id, f, mode, compact) {
     const st = store.get();
     const meta = ATLAS_LABELS[id];
@@ -5370,6 +5375,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (!prev) { stale = true; return false; }
         if (prev.drop) return false;
         if (prev.short && it.canShort) shortenTo(it, +prev.short);
+        if (prev.one) oneLine(it);
         if (it.w > prev.w + 0.5 || it.h > prev.h + 0.5) { stale = true; return false; }
         const [ax, ay] = worldToLocal(prev.wx, prev.wy);
         it.ax = ax; it.ay = ay; it.dir = prev.dir; it.leader = prev.leader; it.onVessel = !!prev.onv;
@@ -5402,7 +5408,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           // to have one, crosses no reading or leader.
           if (ps.inView || ps.strict) {
             // (Nor on another station's ring, where that reading's leader starts.)
-            if (ps.strict && rings.some((o) => o !== it && o.ax > r.x0 - 5 && o.ax < r.x1 + 5 && o.ay > r.y0 - 5 && o.ay < r.y1 + 5)) return;
+            // (A rescued one keeps off its own ring too.)
+            if ((ps.strict || ps.resc) && rings.some((o) => (o !== it || ps.resc) && o.ax > r.x0 - 7 && o.ax < r.x1 + 7 && o.ay > r.y0 - 7 && o.ay < r.y1 + 7)) return;
             // (No reading sits on another's leader: 2 px clear of its halo.)
             const others = out.filter((o) => o !== it && o.leader && !o.live).map((o) => { const e = leaderEnd(rectOf(o), o.ax, o.ay); return [o.ax, o.ay, e.x, e.y]; });
             if (others.some((sg) => segHitsBox({ x0: sg[0], y0: sg[1], x1: sg[2], y1: sg[3] }, r, ps.strict ? 5 : 2))) return;
@@ -5662,24 +5669,47 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // spots, on a vessel if it must (with the solid halo); else over a zone's title, which then moves along its band or,
       // with no room there, gives way (see the last pass). Kept 12 px from a callout's row (a lone "Splenic v." 7 px after
       // "R liver ×1.0" read as one line). With no room at all it stays as it was.
-      if (solve && useLines) for (const { it, dirs, passes } of plan) {
-        const shown = out.includes(it);
+      // (Readings already hidden or without their value leave their spots first, as on a vessel above, so a rescue's leader may
+      // cross where they were: RA under a phone's data card has room only past IVC's name. One of them that then finds no room
+      // goes back to its spot where that is still free, else is given up: it showed no value there either.)
+      const rescueOf = [];
+      const segOf = (o) => { const e = leaderEnd(rectOf(o), o.ax, o.ay); return { x0: o.ax, y0: o.ay, x1: e.x, y1: e.y }; };
+      const free = (r) => !placed.some((p) => !p.dot && hits(r, p)) && !out.some((o) => o.leader && !o.live && segHitsBox(segOf(o), r, 2));
+      if (solve && useLines) for (const e of plan) {
+        const { it } = e, shown = out.includes(it);
         // (Also one under a card or callout, which would hide it.)
-        const atRisk = shown && it._r && obstacles.some((o) => !o.zone && hits(it._r, o));
+        // (And one over a station's ring, its own included: a halo there hides the ring.)
+        // (And one outside the free space, which the pull below would set down on whatever is there.)
+        const atRisk = shown && it._r && (!within(it._r, view) || obstacles.some((o) => !o.zone && hits(it._r, o)) || rings.some((o) => o.ax > it._r.x0 - 7 && o.ax < it._r.x1 + 7 && o.ay > it._r.y0 - 7 && o.ay < it._r.y1 + 7));
         if (it.sel || (shown && (it.short || 0) < 2 && !atRisk) || !it._full || (it._full.short || 0) >= 2) continue;
         const was = { lines: it.lines, w: it.w, h: it.h, short: it.short, x: it.x, y: it.y, dir: it.dir, leader: it.leader, _r: it._r, sol: nextSol.get(it.key) };
-        if (shown) { out.splice(out.indexOf(it), 1); placed.splice(placed.indexOf(it._r), 1); }
-        const far = passes.slice(3).map((ps) => ({ ...ps, callGap: 12 }));
-        const near = [...passes.slice(0, 3), { gap: passes[2].gap + 10 }, { gap: passes[2].gap + 18 }].map((ps) => ({ ...ps, clear: false, strict: true, inView: true, callGap: 12 }));
+        const early = shown && (it.short || 0) >= 2;   // (a name without its value: off its spot from the start)
+        if (early) { out.splice(out.indexOf(it), 1); placed.splice(placed.indexOf(it._r), 1); }
+        rescueOf.push({ e, was, shown, early });
+      }
+      for (const { e: { it, dirs, passes, half }, was, shown, early } of rescueOf) {
+        if (shown && !early) { out.splice(out.indexOf(it), 1); placed.splice(placed.indexOf(it._r), 1); }
+        // (Then further out still, on rings 90 to 118 px round: a station at the edge of the free space, RA under a phone's data card,
+        // has no clear spot nearer.)
+        const outer = [90, 104, 118].map((g) => g + half);
+        const far = [...passes.slice(3), ...outer.map((gap) => ({ gap, dirs: RING_DIRS, ring: 'clean', clear: true, inView: true })), ...outer.map((gap) => ({ gap, dirs: RING_DIRS, ring: 'any', clear: true, inView: true }))].map((ps) => ({ ...ps, callGap: 12, resc: true }));
+        const near = [...passes.slice(0, 3), { gap: passes[2].gap + 10 }, { gap: passes[2].gap + 18 }].map((ps) => ({ ...ps, clear: false, strict: true, inView: true, callGap: 12, resc: true }));
         const ok = [far, near, near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
-          Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short });   // (whole again for each try)
+          Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, one: false });   // (whole again for each try)
           return placeMulti(it, dirs, R, 0, R.length, false, 1);
-        });
+        }) || [0, 1].some((sh) => [far, near].some((R) => {
+          // (Else on one line, name then value (then without its units): a station at the top of the free space, RA under a phone's
+          // data card, has room beside it only for a reading one line tall.)
+          Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, one: false });
+          if (sh && !((it.short || 0) < 1 && shortenItem(it) && it.short === 1)) return false;
+          oneLine(it);
+          return it.one && placeMulti(it, dirs, R, 0, R.length, false, it.short || 0);
+        }));
         // (Its slot is not one of the usual passes': marked so the next layout does not take it for one held there.)
-        if (ok) { it.onVessel = lineHits(it._r, 2) > 0; const sol = nextSol.get(it.key); if (sol) { sol.onv = it.onVessel; sol.pi = -1; } continue; }
-        Object.assign(it, { lines: was.lines, w: was.w, h: was.h, short: was.short, x: was.x, y: was.y, dir: was.dir, leader: was.leader, _r: was._r });
+        if (ok) { it.onVessel = lineHits(it._r, 2) > 0; const sol = nextSol.get(it.key); if (sol) { sol.onv = it.onVessel; sol.pi = -1; sol.one = !!it.one; } continue; }
+        Object.assign(it, { lines: was.lines, w: was.w, h: was.h, short: was.short, x: was.x, y: was.y, dir: was.dir, leader: was.leader, _r: was._r, one: false });
         if (was.sol) nextSol.set(it.key, was.sol);
-        if (shown) { out.push(it); placed.push(was._r); }
+        if (shown && (!early || free(was._r))) { out.push(it); placed.push(was._r); } else if (shown) nextSol.set(it.key, { drop: true });
       }
       // Any reading left touching a vessel (within 3 px) takes the solid halo.
       if (solve && useLines) for (const { it } of plan) if (out.includes(it) && it._r && !it.onVessel && lineHits(it._r, 3)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }
@@ -5800,12 +5830,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.hide || it.live || it.cls === 'organ' || it.cls === 'lane' || it.key === 'scan') continue;
       let r = rectOf(it);
       // (A Circuit reading's leader reaches its text: the nearer of its lines, as wide as that line's words, not the block's box.)
-      if (circuit && it.lines.length > 1 && it.align === 'middle') {
+      if (circuit && it.key.startsWith('n:')) {
         let y = it.y, best = null;
         for (const line of it.lines) {
-          const lh = LINE_H(line), lw = lineW(line), lb = { x0: it.x + (it.w - lw) / 2, y0: y, x1: it.x + (it.w + lw) / 2, y1: y + lh };
-          const d = Math.abs(Math.max(lb.y0 - it.ay, 0, it.ay - lb.y1)) + Math.abs(Math.max(lb.x0 - it.ax, 0, it.ax - lb.x1));
-          if (!best || d < best.d) best = { d, lb };
+          // (The words' own height, not the line's: from the cap height down to the baseline, as the glyphs stand (renderBlock's
+          // baseline at 0.78 of the line).)
+          const lh = LINE_H(line), lw = lineW(line), base = y + lh * 0.78, lx = it.align === 'end' ? it.x + it.w - lw : it.align === 'middle' ? it.x + (it.w - lw) / 2 : it.x;
+          // (Word by word: a value's unit is smaller and sits lower than its number.)
+          let x = lx;
+          line.forEach((run, i) => {
+            if (i) x += (run.gap ?? 3) * labelK;
+            const fp = fontPx(run.size), rw = textW(run.t, fp, run.weight, run.track || 0);
+            const lb = { x0: x, y0: base - 0.72 * fp, x1: x + rw, y1: base + 0.04 * fp };
+            x += rw;
+            const d = Math.hypot(Math.max(lb.y0 - it.ay, 0, it.ay - lb.y1), Math.max(lb.x0 - it.ax, 0, it.ax - lb.x1));
+            if (!best || d < best.d) best = { d, lb };
+          });
           y += lh;
         }
         r = best.lb;
