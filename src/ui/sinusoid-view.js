@@ -26,7 +26,6 @@ import { store } from './store.js?v=3b659e1968';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=c449aa59c2';
 import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
-import { softwareGL, softwareYield } from './sw-yield.js?v=13ffef003e';
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -106,9 +105,6 @@ export function createSinusoidView({ host }) {
   host.append(el);
   const gpu = createSinusoidGL(canvas);
   glSupport = !!gpu;   // (answered by this view's own context: sinusoidSupported need not make a throwaway one)
-  // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
-  // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
-  const swGL = gpu ? canvas.getContext('webgl2') : null, svYield = swGL && softwareGL(swGL) ? softwareYield(true, swGL) : null;
 
   // The view is left only by the view switch (Lobule): the wheel and a pinch do nothing here.
   el.addEventListener('wheel', (ev) => ev.preventDefault(), { passive: false });
@@ -644,7 +640,7 @@ export function createSinusoidView({ host }) {
       const n = sprites();
       // Paused and settled (nothing eases, no zoom): the same picture as last frame, so the two full-screen passes are skipped.
       const gk = go === 0 && !dive ? canvas.width + 'x' + canvas.height + '|' + n + '|' + JSON.stringify(u) : '';
-      if (!gk || gk !== gpuKey) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); } else settled = !fenFade;
+      if (!gk || gk !== gpuKey) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); } else settled = !fenFade;
       gpuKey = gk;
     }
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
@@ -671,7 +667,6 @@ export function createSinusoidView({ host }) {
     raf = 0;
     if (shown <= 0 || !model) return;
     if (!dive && !drewNow && now - lastPaint < paceMs()) { raf = nextFrame(loop); return; }
-    if (svYield && !drewNow && !svYield.ready(now)) { raf = nextFrame(loop); return; }
     lastPaint = now;
     const el = (now - (last || now)) / 1000; last = now;
     // (While the zoom runs, place() has already drawn this frame in step with the lobule.)
@@ -710,9 +705,8 @@ export function createSinusoidView({ host }) {
           for (let i = 0; i < 40; i++) stepMovers(0.1);
         }
       }
-      // Drawn now, in step with the lobule's transform this frame (not a frame later). (A software renderer: not while its last
-      // frame is still being drawn on the CPU, or the zoom's frames pile up there; the loop draws it once that one is done.)
-      if (opacity > 0 && model && (!svYield || svYield.ready(performance.now()))) { draw(0, false); drewNow = true; }
+      // Drawn now, in step with the lobule's transform this frame (not a frame later).
+      if (opacity > 0 && model) { draw(0, false); drewNow = true; }
       if (opacity > 0 && !raf && model) raf = nextFrame(loop);
     },
     /** Where the sinusoid's centre is drawn at rest (stage px), its direction (radians) and the lumen's width there (px). */
