@@ -194,6 +194,8 @@ jobs:
       - uses: ./.github/actions/setup-browser
       - name: Nothing undrawn or soft while the view moves
         run: npm run smoke:veins
+      - name: The sharp organ copy is not redrawn mid-pan while it covers the screen
+        run: npm run smoke:plate
       - name: Pinch and pan follow the hand (phone, lobule, trackpad, Safari gesture events)
         run: npm run smoke:gesture
 
