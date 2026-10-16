@@ -2,6 +2,7 @@
 // It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
 import { frameFor } from './frame.js?v=5efaa2bcc9';
+import { layoutWatch } from './idle-keys.js?v=27f599b5bc';
 const nextFrame = frameFor('credit');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);
@@ -447,8 +448,19 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   addEventListener('transitionend', settled, true);
   addEventListener('animationend', settled, true);
   if (app) new MutationObserver(soon).observe(app, { attributes: true, attributeFilter: ['class'] });
-  // Cards open, close and resize in many ways; a light poll catches the ones no event announces.
-  setInterval(() => { if (!document.hidden) soon(); }, 1000);
+  // Cards open, close and resize in many ways; a light poll catches the ones no event announces. (It looks only when something
+  // the look measures may have changed: a card or bar moved, sized or changed state (layoutWatch), the labels were laid out
+  // again or the camera moved, or labels came or went. In the lobule and the sinusoid, whose own labels move by themselves, it
+  // looks every second as before.) A look with nothing changed had measured every card and label just to keep its spot.
+  const watch = layoutWatch();
+  let polled = '';
+  const pollKey = () => `${window.pps?.stage?.labelStamp?.() ?? Math.random()}|${document.querySelectorAll('#labels .lb:not(.lb-off), .cath-labels .cath-label').length}|${innerWidth}x${innerHeight}`;
+  setInterval(() => {
+    if (document.hidden) return;
+    const st = window.pps?.store?.get(), k = pollKey();
+    if (watch.due() || k !== polled || st?.lobule || st?.sinusoid || app?.classList.contains('presenting')) soon();
+    polled = k;
+  }, 1000);
   soon();
   return { refresh: soon, corner: () => cur, searches: () => searches };
 }

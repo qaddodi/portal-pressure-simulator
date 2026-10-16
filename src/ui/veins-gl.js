@@ -46,6 +46,11 @@ export const MAX_TIERS = 20;
 const S_OFF = 96;                      // arc length is stored offset by this, so it can run on past a vessel's start
 export const ORIGIN_GREY = 0.62;       // the lumen's color while the blood is colored by origin
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
+// The composite's per-frame uniform arrays, filled in place: it ran six `new Float32Array`s a frame. (Each is uploaded at once,
+// so one set serves every renderer.)
+const SCR = { world: new Float32Array(9), inv: new Float32Array(9), originCol: new Float32Array(15), be: new Float32Array(40), ba: new Float32Array(10), ncv: new Float32Array(48), hb: new Float32Array(64), hr: new Float32Array(16) };
+const ORIGIN_WHITE = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
+const put = (dst, src) => { dst.set(src); return dst; };
 
 // Flags (tube texel 2, z).
 // Stream flags (tube texel 5, w): the stream runs on at the upstream / downstream end; reversed flow.
@@ -1692,11 +1697,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.useProgram(prg.p);
       const U = prg.u;
       if (!full) {
-        gl.uniformMatrix3fv(U.world, false, new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
+        gl.uniformMatrix3fv(U.world, false, put(SCR.world, [m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
         gl.uniform2f(U.size, canvas.width, canvas.height);
         gl.uniform1f(U.cell, CELL);
       }
-      gl.uniformMatrix3fv(U.inv, false, new Float32Array([ia, ib, 0, ic, id, 0, ie, iff, 1]));
+      gl.uniformMatrix3fv(U.inv, false, put(SCR.inv, [ia, ib, 0, ic, id, 0, ie, iff, 1]));
       gl.uniform1f(U.H, canvas.height);
       gl.uniform1f(U.pxW, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
       const pm = (look.plate ? (plates[0] ? 1 : 0) | (plates[1] ? 2 : 0) : 0);
@@ -1717,22 +1722,22 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform1i(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);
       gl.uniform1f(U.clock, blood.clock || 0);
       gl.uniform1f(U.rows, nTubes);
-      gl.uniform3fv(U.originCol, new Float32Array((blood.originCol || [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]]).flat()));
+      { const oc = (blood.originCol || ORIGIN_WHITE).flat(); gl.uniform3fv(U.originCol, oc.length === 15 ? put(SCR.originCol, oc) : new Float32Array(oc)); }
       gl.uniform3f(U.dyeCol, ...(blood.dyeCol || [0.8, 0.95, 0.2]));
       gl.uniform3f(U.revCol, ...(blood.revCol || [1, 0.55, 0.16]));
       gl.uniform3f(U.inkLight, ...(blood.inkLight || [1, 1, 1]));
       gl.uniform3f(U.inkDark, ...(blood.inkDark || [0.1, 0.1, 0.16]));
       const bl = blood.bleed || [];
-      const be = new Float32Array(40), ba = new Float32Array(10);
+      const be = SCR.be.fill(0), ba = SCR.ba.fill(0);
       bl.slice(0, 10).forEach((b, i) => { be.set(b.slice(0, 4), i * 4); ba[i] = b[4]; });
       gl.uniform4fv(U.bleedE, be);
       gl.uniform1fv(U.bleedA, ba);
       gl.uniform1i(U.bleedN, Math.min(10, bl.length));
-      const nc = (blood.noChev || []).slice(0, 12), ncv = new Float32Array(48);
+      const nc = (blood.noChev || []).slice(0, 12), ncv = SCR.ncv.fill(0);
       nc.forEach((b, i) => ncv.set(b, i * 4));
       gl.uniform4fv(U.noChev, ncv);
       gl.uniform1i(U.noChevN, nc.length);
-      const ho = (blood.holes || []).slice(0, 16), hb = new Float32Array(64), hr = new Float32Array(16);
+      const ho = (blood.holes || []).slice(0, 16), hb = SCR.hb.fill(0), hr = SCR.hr.fill(0);
       ho.forEach((x, i) => { hb.set(x.slice(0, 4), i * 4); hr[i] = x[4] || 0; });
       gl.uniform4fv(U.chevHole, hb); gl.uniform1fv(U.chevHoleR, hr); gl.uniform1i(U.chevHoleN, ho.length);
       const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };

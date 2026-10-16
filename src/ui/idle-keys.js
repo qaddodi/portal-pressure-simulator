@@ -1,0 +1,105 @@
+// What lets a loop that runs while nothing changes skip its work, and nothing else: the picture it draws stays the same.
+// (No DOM needed to import: the unit tests load it in Node.)
+
+// The Pressure chart's glide: whether another display frame should be drawn. The chart draws the model's beat-filtered
+// pressures (Pf) where the frame carries them, so its own eased copy shows only before they arrive; its easing never
+// settled while the model ran, and kept the glide repainting an unchanged picture on every display frame.
+export const glideMoving = (hasPf, pressuresMoving, axisMoving) => (!hasPf && pressuresMoving) || axisMoving;
+
+// The comparison line's deltas as shown, [label, text]: what the line is rebuilt from, and only when one of them changes.
+export function compareRows(a, b, hvpg, model, fmt) {
+  const delta = (label, v, digits, unit) => [label, `${v > 0 ? '+' : ''}${fmt(v, digits)} ${unit}`];
+  return [
+    hvpg ? delta('HVPG', b.hvpg - a.hvpg, 1, 'mmHg') : null,
+    model ? delta('Liver flow', b.liverPerfPct - a.liverPerfPct, 0, 'pp') : null,
+    model ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pp') : null,
+  ].filter(Boolean);
+}
+
+// Whether mutation records leave anything different from before them. The figure writes the same attribute values over and
+// over on its model frames (a transform, a path); a write of the value already there changes nothing, and a value changed
+// and changed back within the batch does not either. (Each attribute is compared once: its first record holds the value it
+// had before the batch.)
+export function netChanged(records) {
+  const seen = new Map();
+  for (const r of records) {
+    if (r.type === 'childList') { if (r.addedNodes?.length || r.removedNodes?.length) return true; continue; }
+    const key = r.type === 'characterData' ? '#text' : r.attributeName;
+    let s = seen.get(r.target);
+    if (!s) seen.set(r.target, (s = new Set()));
+    if (s.has(key)) continue;
+    s.add(key);
+    const now = r.type === 'characterData' ? r.target.data : r.target.getAttribute(r.attributeName);
+    if (r.oldValue !== now) return true;
+  }
+  return false;
+}
+
+// The attributes that can move or hide a card, sheet or bar the framing and labels keep clear of (on it, or on a parent).
+export const PLACE_ATTRS = ['class', 'hidden', 'style', 'data-safe', 'data-safe-pad', 'data-safe-rest', 'data-full-h', 'data-folding', 'open'];
+// The pieces watched: what the home framing (data-safe, the zoom pill), the labels (stage blockers, the slide's glass) and the
+// corner credit (its obstacles) measure. (Base selectors, without a state like :not([hidden]): a piece leaving that state counts.)
+export const PLACED = '[data-safe], .stage-blocker, .pz-shade, #zoomPill, .pz-fk, .stage-clock, .menu, .umenu, .why-pop, .modal-back, .home, .scan-probe, .pz-prog, #topbar, #vdock';
+
+/**
+ * A watch over what measured layout depends on, so a check that reads boxes (forcing a layout in the middle of the model's
+ * frames) runs only when something it measures may have moved: due() is true from any change until `settle` ms after the
+ * last one (a card's slide or fade ends inside that, and its last place is read), then false until the next change.
+ * Changes: a net change inside the measured SVG groups (addGroup); a placed piece (PLACED) or one of its parents changing an
+ * attribute that places it, or one coming or going; a placed piece or the stage changing size; a transition or an animation
+ * on, in or around a placed piece; and whatever the caller reports with touch() (resizes, the store, fonts).
+ * exclude(node): nodes never looked at: by default SVG content (the figure's drawing, rewritten every frame, holds no placed piece).
+ */
+const SVG_NS = 'http://www.w3.org/2000/svg';
+export const inSvg = (n) => n.namespaceURI === SVG_NS;
+export function createLayoutWatch({ root, exclude = inSvg, settle = 2500, now = () => performance.now(), MO = globalThis.MutationObserver, RO = globalThis.ResizeObserver, sel = PLACED } = {}) {
+  let until = now() + settle;   // (the first look is always taken)
+  const touch = () => { until = Math.max(until, now() + settle); };
+  const places = (n) => n?.nodeType === 1 && !exclude(n) && (n.matches(sel) || !!n.querySelector(sel));
+  let sized = new Set();
+  const ro = RO ? new RO(() => touch()) : null;
+  const resync = () => {
+    if (!ro || !root) return;
+    const next = new Set(root.querySelectorAll(sel));
+    for (const el of sized) if (!next.has(el)) ro.unobserve(el);
+    for (const el of next) if (!sized.has(el)) ro.observe(el);
+    sized = next;
+  };
+  const relevant = (r) => {
+    if (r.type === 'childList') return [...(r.addedNodes || []), ...(r.removedNodes || [])].some(places);
+    return r.attributeName === 'data-safe' || places(r.target);
+  };
+  const groupMO = MO ? new MO(() => flush()) : null;
+  const pageMO = MO ? new MO(() => flush()) : null;
+  function flush() {
+    if (groupMO) { const rs = groupMO.takeRecords(); if (rs.length && netChanged(rs)) touch(); }
+    if (pageMO) {
+      const rs = pageMO.takeRecords().filter(relevant);
+      if (rs.length && netChanged(rs)) { touch(); if (rs.some((r) => r.type === 'childList' || r.attributeName === 'data-safe' || r.attributeName === 'class')) resync(); }
+    }
+  }
+  if (root && pageMO) pageMO.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: PLACE_ATTRS });
+  resync();
+  const onMotion = (e) => { const t = e.target; if (t?.nodeType === 1 && !exclude(t) && (places(t) || t.closest?.(sel))) touch(); };
+  const motion = ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel'];
+  const doc = root?.ownerDocument || root;
+  if (doc?.addEventListener) for (const t of motion) doc.addEventListener(t, onMotion, true);
+  return {
+    touch,
+    /** Whether a measured box may have changed since the watch last settled. */
+    due() { flush(); return now() < until; },
+    /** The SVG groups whose boxes are measured (getBBox): any net change in them counts. */
+    addGroup(g) { groupMO?.observe(g, { subtree: true, childList: true, attributes: true, attributeOldValue: true, characterData: true, characterDataOldValue: true }); },
+    /** An element whose own class or style can change what the groups measure (the figure's svg, its wrapper). */
+    addNode(el) { groupMO?.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'hidden'] }); },
+    /** An element whose size counts (the stage itself). */
+    addBox(el) { ro?.observe(el); },
+  };
+}
+
+// One watch for the page, shared by the stage's framing and labels and by the corner credit.
+let shared = null;
+export function layoutWatch() {
+  if (!shared) shared = createLayoutWatch({ root: document.documentElement });
+  return shared;
+}

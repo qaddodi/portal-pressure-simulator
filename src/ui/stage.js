@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=65ec443c0e';
 import { fibroReading } from './clock.js?v=c699a8ff80';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=db566eed84';
-import { createLobuleZoom } from './lobule-zoom.js?v=41b96a8f44';
+import { createLobuleZoom } from './lobule-zoom.js?v=9d1e9e8297';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -19,7 +19,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=14abf051de';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=1f3e9a4ace';
 import { advanceStream, keyChevron, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=34ef08458c';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
 import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
@@ -27,6 +27,7 @@ import { portalSplit } from './table-marks.js?v=f709ae0429';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonRy, routeRadii } from './hvpg-balloon.js?v=0f8da50742';
+import { layoutWatch } from './idle-keys.js?v=27f599b5bc';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -81,6 +82,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const svg = wrap.querySelector('#stage');
   const stageWrap = wrap.closest('.stage-wrap') || wrap;
+  // What the framing and the labels' card boxes measure, watched so they are read again only when one may have moved.
+  const watch = layoutWatch();
+  watch.addBox(wrap); watch.addBox(svg); watch.addNode(svg); watch.addNode(wrap);
+  addEventListener('resize', watch.touch); addEventListener('pps:occ', watch.touch); addEventListener('pps:labelscale', watch.touch);
+  document.addEventListener('visibilitychange', watch.touch);
+  document.fonts?.addEventListener?.('loadingdone', watch.touch);
+  for (const q of MQ) q.addEventListener?.('change', watch.touch);
+  store.on('*', (keys) => { if (keys.some((k) => k !== 'frame')) watch.touch(); });
   svg.setAttribute('viewBox', `0 0 ${VIEW.w} ${VIEW.h}`);
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
@@ -453,6 +462,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   gBackdrop.innerHTML = `<path class="org-diaphragm band-edge" d="${BACKDROP.diaphragm}"/><path class="org-diaphragm band-body" d="${BACKDROP.diaphragm}"/>`;
   const gOrgans = s('g', { id: 'organs' });
   const gAscites = s('g', { id: 'ascites', 'clip-path': 'url(#abdomenClip)' });
+  for (const g of [gBackdrop, gOrgans, gAscites]) watch.addGroup(g);   // (the home framing measures these: defaultVT)
   const gBack = s('g', { id: 'backEdges' });
   // Posterior veins (retrohepatic IVC, iliac, azygos…) pass behind opaque organs; a faint copy
   // drawn over the organs shows their course, as a hidden line does in an anatomical plate.
@@ -2085,9 +2095,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (at most every 500 ms) and once a resize or a turn of the device has settled, which needs no model frame (paused, a
   // turned phone or iPad kept the old shape's framing: under the top bar, or off screen behind the Tests sheet).
   // (Not while a move away from home is under way: its first frames still sit at home. A glide on its way home is retargeted.)
+  // (The look measures the organs' boxes and the cards' (a forced layout in the middle of the model's frames, about 22 ms twice
+  // a second on a slowed phone): it is taken only while something it measures may have moved, see layoutWatch, and once
+  // whenever the view comes back home.)
+  let wasHome = false;
   function followHome(now = performance.now()) {
     if (homeResizeT) return;   // (a resize still settling: its own look comes once it has)
-    if (homeAt && !homeHeld && morphTarget === 0 && !lobuleOn && diveT === 0 && now - homeCheck > 500 && (sameView(vt, homeAt) || (vtGliding && sameView(vtTarget, homeAt))) && (!vtTarget || sameView(vtTarget, homeAt))) {
+    const home = !!homeAt && !homeHeld && morphTarget === 0 && !lobuleOn && diveT === 0 && (sameView(vt, homeAt) || (vtGliding && sameView(vtTarget, homeAt))) && (!vtTarget || sameView(vtTarget, homeAt));
+    if (home && !wasHome) watch.touch();
+    wasHome = home;
+    if (home && now - homeCheck > 500 && watch.due()) {
       homeCheck = now;
       const d = defaultVT(false);
       if (!sameView(d, homeAt)) { homeAt = d; animateVT(d, 400); }
@@ -2098,7 +2115,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // each only if the view is still at home: a sheet or a card takes its new shape a moment after the turn, and the first
   // look measured the space it left before it had. A slide is the presenter's to frame, on a resize too.)
   let homeResizeT = 0, homeLateT = [], homeOccT = 0;
-  const lookHome = () => { if (!store.get().presenting) { homeCheck = 0; followHome(); } };
+  const lookHome = () => { if (!store.get().presenting) { homeCheck = 0; watch.touch(); followHome(); } };
   addEventListener('resize', () => {
     clearTimeout(homeResizeT); homeLateT.forEach(clearTimeout);
     homeResizeT = setTimeout(() => { homeResizeT = 0; lookHome(); homeLateT = [500, 1300].map((ms) => setTimeout(lookHome, ms)); }, 200);
@@ -2111,7 +2128,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const under = (lobuleOn || lz?.isOpen()) && !catchUp;
     // The cards' boxes, read at most every 100 ms (each read forces a layout in the middle of the model's frames);
     // a card that opens, closes or moves announces itself (pps:occ, resize) and is read at once.
-    if (!under && (blockersStale || performance.now() - blockersAt > 100)) { blockerBoxes = readBlockers(); blockersAt = performance.now(); blockersStale = false; }
+    // (And only while one of them may have moved: layoutWatch.)
+    if (!under && (blockersStale || (performance.now() - blockersAt > 100 && watch.due()))) { blockerBoxes = readBlockers(); blockersAt = performance.now(); blockersStale = false; }
     F = f;
     lz?.update(f);
     if (under) return;
@@ -7425,6 +7443,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
     labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
+    // (What the station labels' boxes follow: their layouts and the camera. The corner credit's poll looks again only when it changed.)
+    labelStamp: () => `${stats.layouts}|${vt.k},${vt.x},${vt.y}|${morph}|${rotU}`,
     /** The stage's kept copy of its computed style, for the stage's own element (null for any other): read it instead of a live read. */
     keptStyle: (el) => (el === wrap ? wrapCS() : null),
     /** Where the sinusoid's reading and lesion pointer meet their sinusoid (see lobule-zoom sinAnchor). */

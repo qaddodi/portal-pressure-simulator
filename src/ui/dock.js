@@ -5,18 +5,19 @@ import { store, hiddenNow } from './store.js?v=65ec443c0e';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf } from './util.js?v=db566eed84';
 import { lobuleFlows } from './lobule-model.js?v=4cd46fa580';
-import { createProfile } from './charts.js?v=e8772db78b';
-import { createPressureTime } from './pressure-time.js?v=6dd28181c0';
-import { createFibroScan } from './fibroscan.js?v=2338f95dd1';
-import { createHvpgProcedure } from './hvpg-proc.js?v=01f366b0a2';
-import { createDoppler } from './doppler.js?v=9bbe8042c8';
+import { createProfile } from './charts.js?v=83a96cf757';
+import { createPressureTime } from './pressure-time.js?v=77edbb5937';
+import { createFibroScan } from './fibroscan.js?v=77d89bbc60';
+import { createHvpgProcedure } from './hvpg-proc.js?v=3b35ab3b67';
+import { createDoppler } from './doppler.js?v=251a9fcf04';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=ed9055b39a';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=3c97fe1da7';
 import { createReadoutsPane } from './readouts-pane.js?v=51d4d32aab';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
+import { compareRows } from './idle-keys.js?v=27f599b5bc';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -693,11 +694,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (comparison.hidden !== hideCmp) comparison.hidden = hideCmp;
     if (comparing && frame) {
       const a = st.compareSnap.metrics, b = frame.metrics;
-      const delta = (label, v, digits, unit) => h('span', {}, label, h('b', {}, `${v > 0 ? '+' : ''}${fmt(v, digits)} ${unit}`));
-      comparison.replaceChildren(h('span', { class: 'comparison-label' }, 'Change since baseline'),
-        !hiddenNow(st)?.has('trueHVPG') ? delta('HVPG', b.hvpg - a.hvpg, 1, 'mmHg') : null,
-        !st.hiddenReadouts?.has('model') ? delta('Liver flow', b.liverPerfPct - a.liverPerfPct, 0, 'pp') : null,
-        !st.hiddenReadouts?.has('model') ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pp') : null);
+      const rows = compareRows(a, b, !hiddenNow(st)?.has('trueHVPG'), !st.hiddenReadouts?.has('model'), fmt);
+      // (Frames arrive ten times a second: the line is rebuilt only when a shown number changes, as the comparison table is.)
+      const sig = rows.map((r) => r.join(' ')).join('|');
+      if (comparison._sig !== sig) {
+        comparison._sig = sig;
+        comparison.replaceChildren(h('span', { class: 'comparison-label' }, 'Change since baseline'),
+          ...rows.map(([label, txt]) => h('span', {}, label, h('b', {}, txt))));
+      }
     }
     paintTitle();
     const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][1](frame)

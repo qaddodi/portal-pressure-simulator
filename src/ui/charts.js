@@ -9,6 +9,7 @@ import { frameFor, cancelFrame, paceMs } from './frame.js?v=5efaa2bcc9';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
+import { glideMoving } from './idle-keys.js?v=27f599b5bc';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -80,12 +81,15 @@ export function createProfile() {
     }
     const { v: ax, moving: mA } = easeAxis.step([axisTop(top)]);
     axisMax = ax[0];
-    const moving = mP || mA;
+    // (The chart draws the model's own beat-filtered pressures, F.Pf, where the frame carries them, as every frame after the
+    // first does: those are already smooth, and the eased copy is drawn only before them. Its easing never settled while the
+    // model ran, so it repainted the same picture on every display frame; only what the picture shows keeps the glide going.)
+    const moving = glideMoving(!!Fraw.Pf, mP, mA);
     F = { ...Fraw, P: shown };
     draw();
     cancelFrame(easeRaf);
     // Model frames arrive about ten times a second; the glide runs between them on every frame the screen offers
-    // (15 a second in Battery saver; the pressures never quite settle while the model runs, so this glide never stops).
+    // (15 a second in Battery saver) while the axis or a pill is still on its way, and stops once they have arrived.
     const at = performance.now();
     const next = (t) => { if (t - at < paceMs()) { easeRaf = nextFrame(next); return; } if (cv.isConnected && shown()) ease(); };
     if (moving || pillMoving) easeRaf = nextFrame(next);
