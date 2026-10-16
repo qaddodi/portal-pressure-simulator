@@ -208,7 +208,7 @@ function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
   c.restore();
 }
 
-export function createLobuleZoom({ host }) {
+export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const tissue = h('canvas', { class: 'lz-canvas', role: 'img', 'aria-label': 'Liver lobule microcirculation' });
   const glCv = h('canvas', { class: 'lz-canvas lz-gl', 'aria-hidden': 'true' });
@@ -1776,7 +1776,7 @@ export function createLobuleZoom({ host }) {
     if (key === prepKey) return [];
     let cs, land, bg;
     const q = [
-      () => { cs = getComputedStyle(host); bg = stageBg(cs, dark); land = api.landing(); },
+      () => { cs = styles(); bg = stageBg(cs, dark); land = api.landing(); },   // (the stage's kept copy of its styles: no live read)
       () => ensureGL(),
     ];
     // The dive's field: every tile it steps through on the way to the landing size (see paintField).

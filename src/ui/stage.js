@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=e387ad7347';
-import { createLobuleZoom } from './lobule-zoom.js?v=f8874a7ddc';
+import { createLobuleZoom } from './lobule-zoom.js?v=2917a84f0b';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { gridHits } from './seg-hits.js?v=e7cde76929';
@@ -53,9 +53,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // read made the browser bring its styles up to date in the middle of the frame. They are read once and kept until something that
   // can change them happens: a class, style or theme attribute on the stage or any element above it, the system's light or dark
   // setting, a resize, or a new text size.
-  let csSnap = null;
+  // (A settings change reaches its listeners only at the next frame: a read between, from a timer or an idle moment, checks them itself.)
+  let csSnap = null, csMq = null;
+  const MQ = ['(prefers-color-scheme: dark)', '(prefers-reduced-motion: reduce)', '(prefers-reduced-transparency: reduce)', '(hover: hover)', '(pointer: coarse)', 'print'].map((q) => matchMedia(q));
   function wrapCS() {
+    if (csSnap && MQ.some((q, i) => q.matches !== csMq[i])) csSnap = null;
     if (!csSnap) {
+      csMq = MQ.map((q) => q.matches);
       const live = getComputedStyle(wrap), m = new Map();
       csSnap = { getPropertyValue: (n) => { let v = m.get(n); if (v === undefined) m.set(n, (v = live.getPropertyValue(n))); return v; } };
     }
@@ -64,9 +68,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   {
     const drop = () => { csSnap = null; };
     const mo = new MutationObserver(drop);
-    for (let el = wrap; el; el = el.parentElement) mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme'] });
-    matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drop);
-    addEventListener('resize', drop); addEventListener('pps:labelscale', drop);
+    for (let el = wrap; el; el = el.parentElement) mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme', 'data-noglass', 'data-mode'] });
+    // (The settings the style sheets ask about; the sizes come with a resize, as does a turn of the device or a page zoom.)
+    for (const q of MQ) q.addEventListener?.('change', drop);
+    addEventListener('resize', drop); addEventListener('orientationchange', drop); addEventListener('pps:labelscale', drop);
+    addEventListener('beforeprint', drop); addEventListener('afterprint', drop);
   }
   const svg = wrap.querySelector('#stage');
   const stageWrap = wrap.closest('.stage-wrap') || wrap;
@@ -1778,7 +1784,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   store.on('lobule', (on) => { if (!quietLobule) (on ? openLobule() : closeLobule()); });
   const zoomLobule = () => store.set({ lobule: true });
-  lz = createLobuleZoom({ host: wrap });
+  lz = createLobuleZoom({ host: wrap, styles: wrapCS });
   // Out of the lobule view by zooming out: the view hands the dive back to the scrub, which carries on reversing it.
 
   // ── Detail ────────────────────────────────────────
@@ -6683,6 +6689,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
+    /** The stage's kept copy of its computed style, for the stage's own element (null for any other): read it instead of a live read. */
+    keptStyle: (el) => (el === wrap ? wrapCS() : null),
     /** Where the sinusoid's reading and lesion pointer meet their sinusoid (see lobule-zoom sinAnchor). */
     lobuleSinAnchor: () => lz?.sinAnchor() ?? null,
     lobuleGlCheck: () => lz?.glCheck() ?? null,

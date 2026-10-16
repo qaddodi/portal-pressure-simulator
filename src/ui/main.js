@@ -3,8 +3,8 @@
 
 import { startHost, host } from './host.js?v=0f6d345282';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=3ba5c5697f';
-import { createCreditPlacer } from './credit.js?v=3d542e2410';
+import { createStage } from './stage.js?v=a1eb6c11ef';
+import { createCreditPlacer } from './credit.js?v=65811225d1';
 import { sinusoidSupported } from './sinusoid-view.js?v=2e507f4385';
 import { createInspector } from './inspector.js?v=3e6fa85bd0';
 import { createDock, CUTOFFS } from './dock.js?v=cd5b2663cd';
@@ -1088,7 +1088,7 @@ function wireFloating() {
   new MutationObserver(soon).observe($('#dock'), { attributes: true, attributeFilter: ['class', 'data-state'] });
   addEventListener('resize', soon);
   // The corner credit finds a free spot on the figure (src/ui/credit.js).
-  creditPlacer = createCreditPlacer($('.stage-credit'));
+  creditPlacer = createCreditPlacer($('.stage-credit'), { keptStyle: (el) => stage.keptStyle(el) });
   publish();
   panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', anywhere: true, onClose: closePanel });
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', anywhere: true, onClose: closeTreat, fit: '.tc-body' });

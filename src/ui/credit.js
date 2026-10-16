@@ -121,9 +121,10 @@ export const CHROME = '#topbar, .pz-fk, #vdock, #zoomPill, #sinViews, .stage-clo
 // The figure's own labels (station values, organ captions) and measuring callouts: each one's text and pill, padded and snapped outward to a small
 // grid, so a label that jitters by a pixel as its number changes does not read as a move.
 const GRID = 8;
-export function labelRects(wr, wrap) {
+export function labelRects(wr, wrap, kept = null) {
   const out = [], seen = new Map();   // the shared ancestors' own opacity, read once per pass
-  const own = (el) => { let v = seen.get(el); if (v === undefined) { const s = getComputedStyle(el); v = s.display === 'none' || s.visibility === 'hidden' ? 0 : +s.opacity; seen.set(el, v); } return v; };
+  // (kept: the stage's own kept copy of its styles, for the figure's element: a live read made the browser bring its styles up to date)
+  const own = (el) => { let v = seen.get(el); if (v === undefined) { const s = kept?.(el) || getComputedStyle(el), p = (n) => s.getPropertyValue(n); v = p('display') === 'none' || p('visibility') === 'hidden' ? 0 : +p('opacity'); seen.set(el, v); } return v; };
   for (const g of document.querySelectorAll('#labels .lb:not(.lb-off)')) {
     let o = 1;
     for (let el = g; el && el !== wrap && o > 0.01; el = el.parentElement) o *= own(el);
@@ -239,7 +240,7 @@ export function organTest(wr, ring = null) {
   return test;
 }
 
-export function createCreditPlacer(credit) {
+export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   const wrap = credit.offsetParent || credit.parentElement, app = document.getElementById('app');
   const blocked = {};   // corner -> when a card last covered it
   let cur = null, curTight = false, pos = null, moving = false, changedAt = 0, lastSig = '', raf = 0, waitT = 0, moveT = 0, size = null, sizeKey = '';
@@ -320,7 +321,7 @@ export function createCreditPlacer(credit) {
     const wr = wrap.getBoundingClientRect();
     let { w, h } = measure(false);
     const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height - Math.max(0, size.sb - Math.max(0, innerHeight - wr.bottom)) };   // (the home indicator's strip, where the figure reaches the screen's bottom)
-    const els = [...document.querySelectorAll(OBSTACLES)], obs = [...els.map((el) => rectOf(el, wr)), ...labelRects(wr, wrap)].filter((o) => o && hit(o, fig));
+    const els = [...document.querySelectorAll(OBSTACLES)], obs = [...els.map((el) => rectOf(el, wr)), ...labelRects(wr, wrap, keptStyle)].filter((o) => o && hit(o, fig));
     const busy = obs.some((o) => !o.chrome);
     credit.classList.toggle('busy', busy);
     if (busy) ({ w, h } = measure(true));
