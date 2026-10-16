@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { softwareYield, softwareGL } from '../src/ui/sw-yield.js';
+import { softwareYield, softwareGL, watchPerson } from '../src/ui/sw-yield.js';
 
 // A software renderer's yield (src/ui/sw-yield.js): where WebGL is drawn on the CPU, a vessel frame that held the page
 // T ms is followed by T ms without one, so the page's timers and workers keep running (16 Oct: on a CI runner each frame
@@ -52,14 +52,14 @@ test('on a GPU the frame loop never enters the yield', () => {
   assert.match(js, /const SOFTWARE = !!veins\?\.software;/);
   const uses = js.match(/swYield\b[^;]*/g).slice(1);
   assert.ok(uses.length >= 3, 'the yield is used in the frame loop');
-  for (const u of uses) assert.match(u, /^swYield(\?\.drew\(now\)|\s*&&\s*!swYield\.ready\()/, `unguarded use: ${u}`);
+  for (const u of uses) assert.match(u, /^swYield(\?\.drew\(now\)|\?\.prompt\(\)|\?\.asked \? 0 : paceOf\(quality\)|\) watchPerson\(store, wrap, swYield\.prompt\)|\s*&&\s*!swYield\.ready\()/, `unguarded use: ${u}`);
   // The lobule and the sinusoid view the same: a yield only from their own context's software test, every use guarded.
   const lob = readFileSync(new URL('lobule-zoom.js', SRC), 'utf8');
   assert.match(lob, /lzYield = softwareYield\(!!gl\?\.software, gl\?\.software \? glCv\.getContext\('webgl2'\) : null\);/);
-  for (const u of lob.match(/lzYield\b[^;]*/g).slice(2)) assert.match(u, /^lzYield(\?\.drew\(now\)|\s*&&\s*!lzYield\.ready\()/, `lobule-zoom.js: unguarded use: ${u}`);
+  for (const u of lob.match(/lzYield\b[^;]*/g).slice(2)) assert.match(u, /^lzYield(\?\.drew\(now\)|\?\.asked && now - lastPaint < 110\)|\) watchPerson\(store, el, lzYield\.prompt\)|\s*&&\s*!lzYield\.ready\()/, `lobule-zoom.js: unguarded use: ${u}`);
   const sv = readFileSync(new URL('sinusoid-view.js', SRC), 'utf8');
   assert.match(sv, /svYield = swGL && softwareGL\(swGL\) \? softwareYield\(true, swGL\) : null;/);
-  for (const u of sv.match(/svYield\b[^;]*/g).slice(1)) assert.match(u, /^svYield(\?\.drew\(performance\.now\(\)\)|\s*&&\s*!dive && !drewNow && !svYield\.ready\()/, `sinusoid-view.js: unguarded use: ${u}`);
+  for (const u of sv.match(/svYield\b[^;]*/g).slice(1)) assert.match(u, /^svYield(\?\.drew\(performance\.now\(\)\)|\) watchPerson\(store, el, svYield\.prompt\)|\s*&&\s*!dive && !drewNow && !svYield\.ready\()/, `sinusoid-view.js: unguarded use: ${u}`);
 });
 
 test('a pan, zoom, glide or forced draw is drawn in its own frame, never held by the yield', () => {
@@ -78,6 +78,42 @@ test('a pan, zoom, glide or forced draw is drawn in its own frame, never held by
   y.drew(0);
   for (let t = 16; t < 3000; t += 16) assert.equal(y.ready(t, true), true);
   signalled = true;
+});
+
+test("a person's change is drawn in the next frame; the eased frames after it may wait again", () => {
+  let signalled = false;
+  const gl = { SYNC_GPU_COMMANDS_COMPLETE: 1, SYNC_STATUS: 2, SIGNALED: 3, fenceSync: () => ({}), flush() {}, deleteSync() {}, isContextLost: () => false, getSyncParameter: () => (signalled ? 3 : 0) };
+  const y = softwareYield(true, gl);
+  y.drew(0);
+  assert.equal(y.ready(800), false);   // (the model's motion: its turn waits)
+  y.prompt();
+  assert.equal(y.asked, true);
+  assert.equal(y.ready(816), true);    // (a lens or theme switch, a setting, a hover: at once, the GPU busy or not)
+  y.drew(816);
+  assert.equal(y.asked, false);
+  assert.equal(y.ready(832), false);   // (the eased frames after it: the page's turn again)
+  signalled = true;
+});
+
+test('only a change a person makes marks the yield, never the model\'s own frames', () => {
+  const was = { MutationObserver: globalThis.MutationObserver, matchMedia: globalThis.matchMedia };
+  const watched = [], media = [];
+  globalThis.MutationObserver = class { constructor(cb) { this.cb = cb; } observe(el, o) { watched.push([el, o.attributeFilter]); el.mo = this.cb; } };
+  globalThis.matchMedia = (q) => ({ addEventListener: (t, cb) => media.push([q, cb]) });
+  try {
+    let fn = null, marks = 0;
+    const store = { on: (k, cb) => { assert.equal(k, '*'); fn = cb; } };
+    const html = { parentElement: null }, el = { parentElement: { parentElement: html } };
+    watchPerson(store, el, () => marks++);
+    fn(['frame']); fn(['historyTick']); fn(['frame', 'historyTick']); fn(['lastHVPG']);
+    assert.equal(marks, 0, 'the running model marks nothing');
+    fn(['colorMode']); fn(['frame', 'params']); fn('*');
+    assert.equal(marks, 3, 'a lens switch, a slide\'s new settings, an unnamed change');
+    assert.equal(watched.length, 3, 'the figure and every element above it');
+    assert.ok(watched.every(([, f]) => f.includes('data-theme') && f.includes('class') && f.includes('style')));
+    html.mo(); assert.equal(marks, 4, 'a theme switch');
+    assert.equal(media[0][0], '(prefers-color-scheme: dark)'); media[0][1](); assert.equal(marks, 5, 'the system goes dark');
+  } finally { Object.assign(globalThis, was); }
 });
 
 test('after a vessel frame that held the page T ms, the next waits T ms', () => {

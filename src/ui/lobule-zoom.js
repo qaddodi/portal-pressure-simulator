@@ -22,14 +22,14 @@
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { store } from './store.js?v=3b659e1968';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
-import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
+import { softwareYield, watchPerson } from './sw-yield.js?v=888305f6a2';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=d3b27f8085';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=e387ad7347';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=ec83805fb9';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=bfe532e819';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=3c88ec980e';
+import { createSinusoidView } from './sinusoid-view.js?v=9b40e10740';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -608,6 +608,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // (A software renderer only: each lobule frame waits for the last to finish on the GPU and gives the page as long again,
     // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
     lzYield = softwareYield(!!gl?.software, gl?.software ? glCv.getContext('webgl2') : null);
+    if (lzYield) watchPerson(store, el, lzYield.prompt);
     if (!gl) { glCv.remove(); return null; }
     return gl;
   }
@@ -1434,7 +1435,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     raf = 0;
     if (fade <= 0 || !model) return;
     const soft = !!gl?.software;
-    if (soft && now - lastPaint < 110) { raf = nextFrame(loop); return; }
+    if (soft && !lzYield?.asked && now - lastPaint < 110) { raf = nextFrame(loop); return; }
     if (lzYield && !lzYield.ready(now, viewVer !== pacedVer)) { raf = nextFrame(loop); return; }   // (a pan or zoom: drawn now)
     // The flow is drawn on every frame the screen offers, like the anatomy's blood. Battery saver alone paces it, to 15 a
     // second; a pan, zoom or any other change draws at once even then.

@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=e387ad7347';
-import { createLobuleZoom } from './lobule-zoom.js?v=19b69924bf';
+import { createLobuleZoom } from './lobule-zoom.js?v=c75160dc2a';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { gridHits } from './seg-hits.js?v=e7cde76929';
@@ -20,7 +20,7 @@ import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=bfe532e819';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
-import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
+import { softwareYield, watchPerson } from './sw-yield.js?v=888305f6a2';
 import { portalSplit } from './table-marks.js?v=f709ae0429';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 const nextFrame = frameFor('stage');
@@ -5839,6 +5839,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // On a software renderer only (WebGL drawn on the CPU), a vessel frame waits for the last to finish on the GPU and gives the
   // page as long again (see sw-yield.js); on a GPU there is no yield (null) and the loop below is unchanged.
   const swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
+  if (swYield) watchPerson(store, wrap, swYield.prompt);
   function animate(now) {
     // The blood moves by elapsed time, so speeds and transitions are the same at any frame rate.
     if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; sleep(); return; }
@@ -5847,7 +5848,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (Only the model's own motion waits its turn there: a pan, zoom, glide or forced draw is drawn in this frame, with the
     // rest of the figure that has already moved, never a frame behind it.)
     if (swYield && !swYield.ready(now, forceDraw || drawOnce || viewVersion !== drawnView)) { nextFrame(animate); return; }
-    const interval = paceOf(quality);
+    const interval = swYield?.asked ? 0 : paceOf(quality);   // (a person's change: not held to the software step's pace either)
     // A pan or zoom redraws at once (the picture must stay under the pointer); only the model's
     // own motion is paced, and only on a lower step (see QUALITY).
     const viewMoved = viewVersion !== drawnView;
@@ -5987,6 +5988,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const on = id && store.get().tool === 'select' && !shunt ? id : null;
     if (on === vh.id) return;
     vh.id = on;
+    swYield?.prompt();   // (a software renderer: the hover's first frame is drawn at once)
     setGlowSrc('hover', on ? vhEdges(on).map((id) => ({ id, col: null, amt: 1.35, wide: 1.1, dur: 280 })) : []);
     if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
   }
