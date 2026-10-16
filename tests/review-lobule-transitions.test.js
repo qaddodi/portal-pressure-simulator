@@ -111,3 +111,19 @@ test('G22: the blurred edge is smooth (no steps), even for a wide blur on a larg
   assert.ok(maxStep <= 16, `largest step ${maxStep}`);
   assert.ok(grey(p, w, 375, 20) > 245 && grey(p, w, 200, 20) < 5, 'and still a blur, not a smear');
 });
+
+test('a new patient eases into the lobule: the tissue crossfades instead of snapping', () => {
+  // The tissue bitmap is redrawn in one step when its state changes; the picture it replaces is kept and faded out under it.
+  assert.match(lz, /const XF_MS = 900;/);
+  assert.match(lz, /if \(worldState && ws !== worldState && worldGeo === G && worldCv\.width && !\(xfT0 && now - xfT0 < XF_MS\)\) \{ \[worldOld, worldCv\] = \[worldCv, worldOld\];/,
+    'swapped, not copied, and a change mid-fade does not restart it');
+  assert.match(lz, /const ws = \[G\.W, G\.H, dark,[^\n]*wk = sc\.toFixed\(3\) \+ '\|' \+ ws;/, 'only a new state fades, never a new drawing scale');
+  assert.match(lz, /c\.drawImage\(worldOld, sx \* dpr, sy \* dpr, side, side\);\n\s+c\.globalAlpha = xfU\(xfT0, now\); c\.drawImage\(worldCv,/, 'the old picture under the new one, both sharp');
+  assert.match(lz, /if \(xfT0\) \{ xfT0 = 0; free\(worldOld\); \}/, 'the old picture is given back once faded');
+  // The surround's tiles too, and the frame loop keeps drawing while either fades.
+  assert.match(lz, /if \(surNow && t\.set !== surNow\.set && surNow\.q\.cv\?\.width\) \{ surOld = surNow\.q; surT0 = now; \}/);
+  assert.match(lz, /if \(rzMoving \|\| lensFrom \|\| tissueFading\(now\)\) drawVersion\+\+;/);
+  assert.match(lz, /\[W, H, dpr, wk, fading \?/, 'each fading frame draws the tissue again');
+  // The sinusoids' dulling follows the eased resistance, as their calibers do.
+  assert.match(lz, /const sinFib = \(\) => clamp\(Math\.log\(rzOf\(\)\.sin\) \/ 3\.2, 0, 1\);/);
+});
