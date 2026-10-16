@@ -2656,8 +2656,23 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Leaving the lobule closes its card.
     await page.evaluate(() => document.querySelector('.lz-lab:not([hidden])').click());   // its value updates live, so it never holds still for a pointer click
     await page.waitForSelector('.action-card:not([hidden])');
-    // (the switch's own click: on a phone the docked card covers the view pill, so a click at its spot lands on the card)
-    await page.$eval('#viewSeg [data-view="anatomic"]', (b) => b.click());
+    if (await page.evaluate(() => document.querySelector('#app').classList.contains('thumb'))) {
+      // A phone's docked card hides the view pill under it (the play bar steps aside), so its user pulls the card away first,
+      // then taps the pill once it shows again.
+      const cdp = await page.context().newCDPSession(page);
+      const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+      await page.waitForFunction(() => !document.querySelector('.action-card').getAnimations().length);
+      const [x, y] = await page.evaluate(() => { const r = document.querySelector('.action-card .ac-top').getBoundingClientRect(); return [r.left + r.width / 2, r.top + 16]; });
+      await touch('touchStart', x, y);
+      for (let i = 1; i <= 12; i++) { await touch('touchMove', x, y + 160 * i / 12); await page.waitForTimeout(25); }
+      await page.waitForTimeout(100);
+      await touch('touchEnd');
+      await page.waitForFunction(() => document.querySelector('.action-card').hidden, null, { timeout: 10000 })
+        .catch((e) => { throw new Error('a pull down did not put the lobule card away', { cause: e }); });
+      await page.waitForFunction(() => +getComputedStyle(document.querySelector('#nbViews')).opacity === 1, null, { timeout: 10000 })
+        .catch((e) => { throw new Error('the view pill did not come back once the card was away', { cause: e }); });
+      await page.click('#viewSeg [data-view="anatomic"]');   // (a real tap: it fails if anything else takes it)
+    } else await pickView(page, 'anatomic');   // (a Mac or iPad: the switch stays in reach with the card open)
     await page.waitForFunction(() => !window.pps.stage.lobuleOpen(), null, { timeout: 15000 });
     if (await page.evaluate(() => window.pps.store.get().selection?.type === 'lobule')) throw new Error('the lobule card stayed open after leaving');
   });
