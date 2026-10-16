@@ -376,6 +376,65 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => window.pps.stage.lobuleLensFade() === null, null, { timeout: 15000 });
   });
 
+  // The dive into the lobule and the rise out of it, a frame at a time on a held clock. The lobules around the landing one fade in and
+  // out as one field and never blink: no frame differs from both the frames beside it by more than those two differ from each other.
+  // And the tissue shown scaled down mid-zoom has nothing past the lobule's rim (its corners are clear): it no longer leans on a CSS
+  // mask, which Safari dropped for a frame now and then, flashing a pale card of the lobules around the one being landed on.
+  await check(device, 'lobule dive and rise: the lobules around the landing one never blink, and the scaled tissue is clear past its rim', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.waitForTimeout(1500);
+    await page.evaluate(() => {
+      const real = performance.now.bind(performance), st = window.setTimeout.bind(window), ct = window.clearTimeout.bind(window);
+      let T = real(), q = [], timers = [], id = 1e9;
+      performance.now = () => T;
+      window.requestAnimationFrame = (cb) => { q.push(cb); return q.length; };
+      window.setTimeout = (cb, ms = 0, ...a) => { if (typeof cb !== 'function') return st(cb, ms, ...a); timers.push([id, T + (+ms || 0), cb, a]); return id++; };
+      window.clearTimeout = (i) => { if (i >= 1e9) timers = timers.filter(([j]) => j !== i); else ct(i); };
+      const due = () => { for (;;) { timers.sort((a, b) => a[1] - b[1]); const t = timers[0]; if (!t || t[1] > T) return; timers.shift(); t[2](...t[3]); } };
+      window.__step = (dt) => { T += dt; due(); const run = q; q = []; for (const cb of run) cb(T); due(); };
+      // Every canvas of the lobule view shown scaled down whose corners are not clear (the vessels' WebGL canvas is not read).
+      window.__opaqueCorners = () => [...document.querySelectorAll('.lz canvas:not(.lz-gl)')].filter((c) => {
+        const cs = getComputedStyle(c);
+        if (cs.visibility === 'hidden' || !c.width || !/matrix/.test(cs.transform) || new DOMMatrix(cs.transform).a > 0.999) return false;
+        const x = c.getContext('2d'), px = (u, v) => x.getImageData(u, v, 1, 1).data[3];
+        return px(0, 0) || px(c.width - 1, 0) || px(0, c.height - 1) || px(c.width - 1, c.height - 1);
+      }).map((c) => c.className);
+    });
+    const shots = [], opaque = new Set();
+    for (const [on, ms] of [[true, 1900], [false, 1300]]) {
+      await page.evaluate((v) => window.pps.store.set({ lobule: v }), on);
+      for (let t = 0; t <= ms; t += 50) {
+        await page.evaluate(() => window.__step(50));
+        for (const c of await page.evaluate(() => window.__opaqueCorners())) opaque.add(c);
+        shots.push((await page.screenshot({ type: 'jpeg', quality: 90, scale: 'css' })).toString('base64'));
+      }
+      for (let i = 0; i < 30; i++) await page.evaluate(() => window.__step(50));
+      shots.push(null);   // (the dive and the rise are judged apart)
+    }
+    if (opaque.size) throw new Error(`mid-zoom, a scaled-down lobule canvas shows past the lobule's rim (${[...opaque].join(', ')}): it would show as a card of lobules if its mask were dropped`);
+    const blinks = await page.evaluate(async (shots) => {
+      const lum = async (b) => {
+        if (!b) return null;
+        const img = await createImageBitmap(await (await fetch(`data:image/jpeg;base64,${b}`)).blob());
+        const c = new OffscreenCanvas(Math.round(img.width / 4), Math.round(img.height / 4)), x = c.getContext('2d');
+        x.drawImage(img, 0, 0, c.width, c.height);
+        const d = x.getImageData(0, 0, c.width, c.height).data, out = new Float32Array(d.length / 4);
+        for (let i = 0; i < out.length; i++) out[i] = 0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2];
+        return out;
+      };
+      const L = []; for (const b of shots) L.push(await lum(b));
+      const diff = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+      const out = [];
+      for (let i = 1; i + 1 < L.length; i++) {
+        if (!L[i - 1] || !L[i] || !L[i + 1]) continue;
+        const a = diff(L[i - 1], L[i]), b = diff(L[i], L[i + 1]), c = diff(L[i - 1], L[i + 1]);
+        if (Math.min(a, b) > 1.5 && (a + b) / (c + 0.5) > 2.5) out.push(`frame ${i}: ${a.toFixed(1)} and ${b.toFixed(1)} from its neighbours, which differ by ${c.toFixed(1)}`);
+      }
+      return out;
+    }, shots);
+    if (blinks.length) throw new Error(`the dive or rise blinked: ${blinks.join('; ')}`);
+  });
+
   if (device === 'desktop') await check(device, 'lobule: a Fit glide redraws its bitmap once, leaving after a close zoom gives back its large bitmaps, and a drain rasterizes the organs once', async (page) => {
     await open(page, '?preset=healthy');
     await page.evaluate(() => window.pps.store.set({ lobule: true }));
