@@ -13,7 +13,7 @@ import { createWhy } from './why.js?v=4e4e6ce9d1';
 import { createTimeline, LAPSES } from './timeline.js?v=2fe2d43e1b';
 import { createCompare } from './compare.js?v=b6fbe01a1f';
 import { createCard } from './card.js?v=9942573edd';
-import { createChart } from './chart.js?v=a3f7889f92';
+import { createChart } from './chart.js?v=e2ab2ec6d0';
 import { createMenu } from './menu.js?v=5c48397094';
 import { caption } from './a11y.js?v=c7edec5f58';
 import { startLMS } from './lms.js?v=284ef81e94';
@@ -132,6 +132,8 @@ async function main() {
   chart = createChart({
     onWhy: (m, el) => why.open(m, el), flash: (ids) => stage.flash(ids), onScenarios: () => mainMenu.open('patients'),
     action: doAction, startShunt: (id, o) => stage.startShunt(id, o), select, timeline, pinned: () => compare.section(),
+    // (One card at a time: a patient fact's row puts the Treat card away and opens that vessel's or organ's card.)
+    reveal: (sel) => { closeTreat(); select(sel); },
   });
   inspector = createInspector($('#inspector'), {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),

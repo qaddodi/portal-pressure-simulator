@@ -10,9 +10,10 @@ import { h, icon, svgIcon, toast } from './util.js?v=0140acc352';
 import { DRUGS } from '../engine/scenario.js?v=1ee7733788';
 import { activeInterventions } from './inspector.js?v=112b460c7b';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=a1979140a4';
+import { factTarget } from './fact-target.js?v=435867f75d';
 
 
-export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, timeline, pinned }) {
+export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, reveal = select, timeline, pinned }) {
   let controls = () => [];
   // Changes starts closed in the Treat card so the card does not grow with every order.
   // A damaged saved value (not JSON, or not a list) starts closed rather than stopping the app.
@@ -47,6 +48,13 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     let key = null, count = null;
     const row = (a, undo) => {
       const m = /^(.*?)\s+([×\d].*)$/.exec(a.label);
+      // A fact about the patient opens the vessel or organ where it is set (U14); the chevron sits where × would be.
+      const go = !undo && factTarget(a.key);
+      if (go) {
+        return h('div', { class: 'chg about', role: 'listitem' },
+          h('button', { class: 'chg-go', title: 'Show it on the figure', 'aria-label': `${a.label}: show it on the figure`, onclick: () => reveal(go) },
+            h('span', { class: 'chg-n' }, m ? m[1] : a.label), m ? h('span', { class: 'chg-v' }, m[2]) : null, svgIcon('chev-right', 'chg-ch')));
+      }
       return h('div', { class: 'chg' + (undo ? '' : ' about'), role: 'listitem' },
         h('span', { class: 'chg-n' }, m ? m[1] : a.label), m ? h('span', { class: 'chg-v' }, m[2]) : null,
         undo ? h('button', { class: 'ib chg-x', 'aria-label': `Undo ${a.label}`, title: 'Undo this change', onclick: () => updateParams((q) => { a.remove(q); return q; }, { label: `Remove ${a.label}` }) }, icon('close')) : null);
