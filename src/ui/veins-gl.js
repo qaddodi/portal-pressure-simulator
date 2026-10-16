@@ -53,8 +53,7 @@ const ORIGIN_WHITE = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
 const put = (dst, src) => { dst.set(src); return dst; };
 
 // Flags (tube texel 2, z).
-// Stream flags: the stream runs on at the upstream / downstream end; reversed flow. (Not sent: tube texel 5, w is the
-// reversed flow's dashed band.)
+// Stream flags (tube texel 5, w): the stream runs on at the upstream / downstream end; reversed flow.
 export const F_UP = 1, F_DN = 2, F_REV = 4;
 export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64, F_VEIL = 128;   // F_EDGE: the casing takes its own color (texel 6) and is opaque; F_VEIL: faded along its whole course as if behind an organ
 
@@ -80,7 +79,7 @@ void main() {
 //   2: tier, z (draw order within a tier), flags, congestion glow alpha
 //   3: fade: linear from (x, y) to (x, y), or radial: center (x, y), radius
 //   4: fade: offset, alpha at the start, alpha at the end (radial: at 45 %), mode (0 none, 1 linear, 2 radial, 3 linear with a dip: faintest at the offset, solid at the end)
-//   5: drawn part along the vessel (0–1): from, to; arc length (world); reversed flow's dashed band (0–1, eased)
+//   5: drawn part along the vessel (0–1): from, to; arc length (world); stream flags (F_UP, F_DN, F_REV)
 //   6: congestion glow color (rgb), streak course length (world)
 //   7: flow streaks: phase at the upstream end, spacing (world), direction (±1, from → to), strength (0 off)
 //   8: a stretch recolored (the HVPG's wedged vein): color (rgb), amount (0 none)
@@ -113,7 +112,6 @@ uniform vec4 shadow;                   // rgb, alpha
 uniform vec4 sheenInk;                 // rgb, alpha
 uniform vec4 shadeInk;                 // rgb, alpha
 uniform vec4 ring;                     // selection ring: rgb, alpha
-uniform vec3 revInk;                   // the dashed band round a vessel whose flow has reversed
 uniform vec2 light;                    // unit direction toward the light (world)
 uniform float netAlpha;                // the network group's opacity (dimmed while a vessel is focused)
 uniform int fx;                        // 1: shading and shadows (off in the figure view)
@@ -402,25 +400,6 @@ void main() {
       else if (gv > lg.a) lg = vec4((ge.z > 0.5 ? scol[s] : gc.rgb) * gv, gv);
     }
     if (lgU.a > topC.a) { topC = lgU; topGrp = grp; }
-    // ── Reversed flow: a dashed band in the reversed-flow orange just outside the wall of a vessel the story watches
-    // running against its healthy direction, eased in and out by stage.js (tube texel 5, w). Like a glow it lies over
-    // every vessel of its group it crosses; it fades out toward the vessel's ends and stays out of the vessels joined
-    // to it, so it never wraps a join.
-    for (int s = 0; s < MAXS; s++) {
-      if (s >= n || stier[s] != tt) continue;
-      vec4 t5 = T(sid[s], 5);
-      if (t5.w <= 0.0) continue;
-      float e = sd[s] - swall[s], e1 = 0.9 + max(1.5, 1.4 * px);
-      float band = clamp((e - 0.9) / px + 0.5, 0.0, 1.0) * clamp((e1 - e) / px + 0.5, 0.0, 1.0);
-      if (band <= 0.0) continue;
-      float Lh = max(t5.z, 1.0), x = sv[s] * Lh;
-      float dash = clamp((2.75 - abs(mod(x, 9.0) - 4.5)) / px + 0.5, 0.0, 1.0);
-      float hv = 0.85 * t5.w * band * dash * smoothstep(2.0, 10.0, x) * smoothstep(2.0, 10.0, Lh - x) * sa[s] * tierAlpha[ti];
-      int jw = 0;
-      for (int j = 0; j < MAXJ; j++) if (j < jn && (jm[j] & (1 << s)) != 0) jw |= jm[j];
-      for (int u = 0; u < MAXS; u++) if (u != s && u < n && (jw & (1 << u)) != 0) hv *= smoothstep(-0.6, 0.6, sd[u] - swall[u]);
-      if (hv > topC.a) { topC = vec4(revInk * hv, hv); topGrp = grp; }
-    }
     if (lg.a > 0.0) {
       if (grp == 0) accB = over(lg, accB);
       else if (grp == 1) accN = over(lg * min(1.0 / max(netAlpha, 1e-3), 1.0 / lg.a), accN);   // (accN is faded by netAlpha as a whole)
@@ -1384,7 +1363,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   // kept only while panning.
   const whole = (m) => (Number.isInteger(m[4]) && Number.isInteger(m[5]) ? m : [m[0], m[1], m[2], m[3], Math.round(m[4]), Math.round(m[5])]);
   // What the vessel pass reads from the look (anything else in it only matters to the composite).
-  const lookKey = (k) => JSON.stringify([k.reach, k.shOff, k.casing, k.shadow, k.sheen, k.shade, k.ring, k.revInk, k.light, k.netAlpha, k.fx, k.heat, k.tierAlpha, k.tierGroup, k.organs]);
+  const lookKey = (k) => JSON.stringify([k.reach, k.shOff, k.casing, k.shadow, k.sheen, k.shade, k.ring, k.light, k.netAlpha, k.fx, k.heat, k.tierAlpha, k.tierGroup, k.organs]);
   let tubesNew = true, drawnLook = '';
   const spare = { fbo: gl.createFramebuffer(), base: dataTex(gl), g: dataTex(gl), g2: dataTex(gl), dep: dataTex(gl), w: 0, h: 0, timer: 0 };
   function spareSize(w, h) {
@@ -1536,7 +1515,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.uniform4f(u.sheenInk, ...look.sheen);
     gl.uniform4f(u.shadeInk, ...look.shade);
     gl.uniform4f(u.ring, ...look.ring);
-    gl.uniform3f(u.revInk, ...(look.revInk || [1, 0.55, 0.26]));
     gl.uniform2f(u.light, ...look.light);
     gl.uniform1f(u.netAlpha, look.netAlpha);
     gl.uniform1i(u.fx, look.fx ? 1 : 0);

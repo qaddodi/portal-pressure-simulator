@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=ead3d78843';
 import { fibroReading } from './clock.js?v=b69f28fc47';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=0140acc352';
-import { createLobuleZoom } from './lobule-zoom.js?v=3babdc13db';
+import { createLobuleZoom } from './lobule-zoom.js?v=09e168bc75';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -19,7 +19,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=6b5ab98cbd';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=07d4833500';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=1f05278710';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
@@ -1114,28 +1114,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     glowSync = true; stageWake();
     glow.raf = moving ? nextFrame(glowStep) : 0;
   }
-  // A vessel the story watches (REVERSAL_WATCH) whose flow runs against its healthy direction gets a dashed band in the
-  // reversed-flow orange just outside its wall (veins-gl.js, tube texel 5 w), easing in and out over 600 ms (at once with
-  // reduced motion). In an imaging case it waits, as the blood does, until a Doppler has looked at the flow.
-  const revHalo = { v: new Map(), to: new Map(), raf: 0, t: 0 }, REV_HALO_S = 0.6;
-  function revHaloTo(id, on) {
-    const to = on ? 1 : 0;
-    if ((revHalo.to.get(id) ?? 0) === to) return;
-    revHalo.to.set(id, to);
-    if (!revHalo.raf) { revHalo.t = performance.now(); revHalo.raf = nextFrame(revHaloStep); }
-  }
-  function revHaloStep(now) {
-    const dt = Math.max(0, Math.min(0.1, (now - revHalo.t) / 1000)); revHalo.t = now;
-    let moving = false;
-    for (const [id, to] of revHalo.to) {
-      const v0 = revHalo.v.get(id) ?? 0, v = reduceMotion.matches ? to : to > v0 ? Math.min(1, v0 + dt / REV_HALO_S) : Math.max(0, v0 - dt / REV_HALO_S);
-      revHalo.v.set(id, v);
-      if (v !== to) moving = true;
-    }
-    glowSync = true; stageWake();
-    revHalo.raf = moving ? nextFrame(revHaloStep) : 0;
-  }
-  const revHaloOf = (id) => easeInOut(revHalo.v.get(id) || 0);
+  // The watched vessels (REVERSAL_WATCH) whose flow runs against its healthy direction, as shown: their stations' value
+  // pills carry ⟲. In an imaging case it waits, as the blood does, until a Doppler has looked at the flow.
+  const revShown = new Set();
   // The Doppler's vessel glows in the Doppler's green while its instrument is open; on a stent, only the third its gate samples.
   // (points: a slide's Doppler on a stent shows a callout at each of its three points, not just the sampled one.)
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
@@ -2335,7 +2316,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         setLevel(x, nearestLevel(x.opa));
       }
       x.rev = REVERSAL_WATCH.has(e.id) && isReversed(e, f);
-      revHaloTo(e.id, x.rev && (!st.imaging || !!st.found?.has('flow')));
+      if (x.rev && (!st.imaging || !!st.found?.has('flow'))) revShown.add(e.id); else revShown.delete(e.id);
       const selOn = (st.selection?.type === 'edge' && st.selection.id === e.id) || (st.selection?.type === 'node' && SIN_EDGES.has(e.id) && LABEL_VESSEL[st.selection.id] === e.id);   // a side's station dot is its sinusoids
       x.sel.classList.toggle('on', selOn);
       cls(x, 'is-sel', selOn);
@@ -2777,9 +2758,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.kind !== 'v' && it.kind !== 's') continue;
       const o = it.row * W;
       writeGlowTexels(tubeData, o, it.kind, it.x.e.id, it.ra?.e.id, it.obj.len, glow.lit, vh.amt, rgbCs, easeInOut);
-      // (The reversed flow's band, texel 5 w, eases the same way: revHaloStep.)
-      if (it.kind === 'v') tubeData[o + 23] = revHaloOf(it.x.e.id);
-      for (let i = o + 39; i < o + 48; i++) if (tubeData[i] !== tubesShown[i] || tubeData[o + 23] !== tubesShown[o + 23]) { veinsRows.add(it.row); tubesShown.set(tubeData.subarray(o, o + W), o); changed = true; break; }
+      for (let i = o + 39; i < o + 48; i++) if (tubeData[i] !== tubesShown[i]) { veinsRows.add(it.row); tubesShown.set(tubeData.subarray(o, o + W), o); changed = true; break; }
     }
     if (changed) veins.setTubes(tubeData);
     return true;
@@ -2944,7 +2923,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }
       if (kind === 'v' && LIGATED.some((l) => l[1] === id)) lo = Math.max(lo, divideLen(id) / (it.len || geo[id].len || 1));
-      tubeData.set([lo, hi, kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : it.len || geo[id].len || 1, kind === 'v' ? revHaloOf(id) : 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), 0], o + 20);
+      tubeData.set([lo, hi, kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : it.len || geo[id].len || 1, 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), 0], o + 20);
       let tint = kind === 'v' && cathTint?.[id];
       if (ra && kind === 'v') {
         // On the cava drawn as one, each stretch's tint is placed along the whole.
@@ -2965,7 +2944,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       sheen: [...toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42)],
       shade: [...toRGB('var(--tube-shade-ink)', cs), cssNum(cs, '--tube-shade', 0.2)],
       ring: [...(olCol = toRGB('var(--accent)', cs)), 0.34],
-      revInk: toRGB('var(--flow-reversed)', cs),
       netAlpha: netA,
       fx: true,
       tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: fluidLook,
@@ -5359,9 +5337,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const sel = st.selection?.type === 'node' && st.selection.id === id;
     const lr = isImaging() ? null : layerRuns(f, id, compact);
     const pr = lr ? lr.runs : pressureRuns(P, id, compact);
-    // A station whose own vessel's flow has reversed carries ⟲ after its value, in the reversed-flow orange, while that
-    // vessel shows its dashed band (blueprint §6.2).
-    const rev = !!pr && !!revHalo.to.get(STATION_VESSEL[id]);
+    // A station whose own vessel's flow has reversed carries ⟲ after its value, in the reversed-flow orange (blueprint §6.2).
+    const rev = !!pr && revShown.has(STATION_VESSEL[id]);
     if (rev) pr.push({ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 });
     if (pr && one) lines[0].push(...pr.map((r, i) => (i ? r : { ...r, gap: 4 })));
     else if (pr) lines.push(pr);

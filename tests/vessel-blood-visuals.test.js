@@ -47,18 +47,13 @@ test('G9: under reduced motion the stream stands still but points the way the fl
   assert.ok(st.vd < 0, 'it already points backwards');
 });
 
-test('G9: a dashed orange band outside the wall of a watched vessel that reverses, eased over 600 ms', () => {
-  assert.match(STAGE, /REV_HALO_S = 0\.6/);
-  assert.match(STAGE, /revHaloTo\(e\.id, x\.rev && \(!st\.imaging \|\| !!st\.found\?\.has\('flow'\)\)\)/, 'hidden in an imaging case until the flow is seen');
-  assert.match(STAGE, /kind === 'v' \? revHaloOf\(id\) : 0/, 'sent in tube texel 5, w');
-  assert.match(STAGE, /if \(it\.kind === 'v'\) tubeData\[o \+ 23\] = revHaloOf\(it\.x\.e\.id\);/, 'and by the glow-only sync, which its ease runs');
-  assert.match(STAGE, /revInk: toRGB\('var\(--flow-reversed\)', cs\)/);
-  assert.match(GL, /vec4 t5 = T\(sid\[s\], 5\);/);
-  assert.match(GL, /\(jw & \(1 << u\)\) != 0\) hv \*= smoothstep\(-0\.6, 0\.6, sd\[u\] - swall\[u\]\)/, 'out of the vessels joined to it (over those it crosses)');
-  assert.match(GL, /if \(hv > topC\.a\) \{ topC = vec4\(revInk \* hv, hv\); topGrp = grp; \}/, 'over the vessels it crosses, as a glow');
-  // The station's value pill carries ⟲ in the reversed-flow orange.
+test('G9: a watched vessel that reverses marks its station with ⟲, and no band is drawn round it', () => {
+  // (Mohammad, 16 Oct: the dashed band is not needed.)
+  assert.match(STAGE, /if \(x\.rev && \(!st\.imaging \|\| !!st\.found\?\.has\('flow'\)\)\) revShown\.add\(e\.id\); else revShown\.delete\(e\.id\);/, 'hidden in an imaging case until the flow is seen');
+  assert.match(STAGE, /const rev = !!pr && revShown\.has\(STATION_VESSEL\[id\]\);/);
   assert.match(STAGE, /\{ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 \}/);
   assert.match(src('styles/app.css'), /\.lb-rev \{ fill: var\(--flow-reversed\); \}/);
+  assert.doesNotMatch(GL, /revInk/, 'no dashed band');
 });
 
 const SITES = { varix: [800, 120], fundus: [870, 300], stomachPool: [880, 360] };
