@@ -87,6 +87,6 @@ test("the points' numbers take the velocity colours against the stent's normal; 
   assert.match(stage, /sampled \? \{ weight: 750, cls: 'lb-name lb-gate' \} : \{\}/);
   assert.match(stage, /\.\.\.\(tint \? \{ fill: tint \} : \{\}\)/);
   // (A colour change only repaints the number: it is not part of the label's structure, which rebuilds its text.)
-  assert.match(stage, /line\.map\(\(\{ t, fill, \.\.\.style \}\) => style\)/);
+  assert.match(stage, /line\.map\(\(\{ t, fill, cls, \.\.\.style \}\) => style\)/);
   assert.doesNotMatch(read('styles/app.css'), /lb-gate \{ fill/);
 });

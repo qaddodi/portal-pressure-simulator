@@ -4977,10 +4977,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', `var(--tr-${tone})`); }
     if (!!it.onVessel !== !!b.onVessel) { b.onVessel = !!it.onVessel; b.g.classList.toggle('on-vessel', b.onVessel); }
     // Text and pressure colors change far more often than label structure.
-    // Retain the text nodes (and keyboard focus) across numeric updates.
+    // Retain the text nodes (and keyboard focus) across numeric updates. (A run's class is its colour, as its fill is: a change
+    // badge turning from ▲ to ▼ swaps its class on the same tspan rather than building the label again: 16 Oct.)
     // (A slide's mark is drawn afresh when its words change: a pill kept from another slide's longer mark could hold its old width
     // for a while after the new one was set: Review 16 Oct.)
-    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, fill, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14), /^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')) : 0]);
+    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, fill, cls, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14), /^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')) : 0]);
     if (sig !== b.sig) {
       b.sig = sig;
       const kids = [];
@@ -5015,6 +5016,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const line of it.lines) for (const r of line) {
       const sp = b.spans[i++];
       if (sp.textContent !== r.t) sp.textContent = r.t;
+      if (sp.getAttribute('class') !== (r.cls || '')) sp.setAttribute('class', r.cls || '');
       if ((sp._fill || '') !== (r.fill || '')) { sp._fill = r.fill || ''; sp.style.fill = sp._fill; }
     }
     for (const text of b.textLines) setA(text, 'x', it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : it.swatch ? 7 : 0);
