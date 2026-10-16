@@ -586,6 +586,7 @@ div.vital { cursor: default; }
 .suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; }
 .clamp { fill: var(--text); fill-opacity: .82; }
 .clamp-label, .guide-label { font: 600 var(--fs-12) var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
+.clamp-label { font-size: var(--clamp-fs, var(--fs-12)); }   /* (12 px on screen at any zoom: stage.js syncView) */
 /* Soft clot: three translucent layers of one red build toward the thick middle and fade at the edges. */
 .thrombus-halo { fill: var(--thrombus); fill-opacity: .4; }
 .thrombus { fill: var(--thrombus); fill-opacity: .55; }
@@ -712,7 +713,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .progress i { flex: 1; height: 3px; border-radius: 2px; background: var(--surface-3); }
 .progress i.on { background: var(--accent); }
 .progress i.cur { background: color-mix(in srgb, var(--accent) 55%, var(--surface-3)); }
-.mon.lab .mv::after { content: ' lab'; font-size: 11px; opacity: .7; }
+.mon.lab .mv::after { content: ' lab'; font-size: 12px; opacity: .7; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .card {
   border: 1px solid var(--border); border-radius: var(--r-card); padding: 16px; cursor: pointer; background: var(--surface); text-align: left;
@@ -1117,7 +1118,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .action-card.docked .ac-scroll.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); }
 /* The figure's own buttons (Fit, turn) ride above the sheet instead of under it. */
 .stage-fit, .stage-rotate, .stage-clock { translate: 0 calc(-1 * var(--sheet-h, 0px)); transition: translate .2s var(--ease); }
-.hover-tip .hint { margin-top: 6px; font-size: var(--fs-11, 11px); color: var(--text-3); letter-spacing: .01em; }
+.hover-tip .hint { margin-top: 6px; font-size: 12px; color: var(--text-3); letter-spacing: .01em; }
 .hover-tip.peek { font-size: var(--fs-14); min-width: 200px; padding: 10px 14px; transform-origin: bottom center; }
 @media (prefers-reduced-motion: reduce) { .hover-tip, .hover-tip.on { transform: none; } }
 
@@ -1377,9 +1378,9 @@ button.finding { cursor: pointer; }
 .lz-call[data-kind="note"] { background: var(--surface); color: var(--text); border: 1px solid var(--text-2); } .lz-call-l[data-kind="note"], .lz-call-r[data-kind="note"] { stroke: var(--text-2); }
 .lz-lab { position: absolute; pointer-events: auto; display: grid; gap: 1px; text-align: left; padding: 4px 8px 5px; border-radius: var(--r-control); border: 1px solid var(--hairline); background: var(--glass); box-shadow: 0 1px 1.5px rgb(var(--night-rgb) / .1); cursor: pointer; color: var(--text); font-family: var(--font-ui); }
 .lz:not(.on) .lz-lab { pointer-events: none; }   /* labels of a hidden or still-diving lobule view are not clickable */
-.lz-lab .n { font-size: 11.5px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
+.lz-lab .n { font-size: 12px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
 .lz-lab .v { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.lz-lab small { font-size: 11px; font-weight: 500; color: var(--text-3); }
+.lz-lab small { font-size: 12px; font-weight: 500; color: var(--text-3); }
 .lz-lab[hidden] { display: none; }
 .lz-lab:focus-visible { border-color: var(--accent); outline: none; }
 @media (hover: hover) { .lz-lab:hover { border-color: var(--accent); outline: none; } }
@@ -1406,7 +1407,7 @@ button.finding { cursor: pointer; }
 /* Bedside monitor */
 .monitor { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--mon-grid); border-radius: var(--r-card); overflow: hidden; border: 1px solid var(--mon-line); box-shadow: inset 0 0 0 1px rgb(var(--white-rgb) / .03); }
 .mon { background: var(--mon-bg); padding: 8px 12px 8px; display: grid; grid-template-rows: auto auto auto; color: var(--mc); min-width: 0; }
-.mon .ml { font: 600 11px var(--font-ui); letter-spacing: .06em; text-transform: uppercase; opacity: .85; display: flex; justify-content: space-between; gap: 4px; }
+.mon .ml { font: 600 12px var(--font-ui); letter-spacing: .06em; text-transform: uppercase; opacity: .85; display: flex; justify-content: space-between; gap: 4px; }
 .mon .ml i { font-style: normal; font-weight: 500; opacity: .7; text-transform: none; letter-spacing: 0; }
 .mon .mv { font: 600 24px/1.1 var(--font-num); font-variant-numeric: tabular-nums; }
 .mon .mt { width: 100%; height: 22px; display: block; }
@@ -2841,9 +2842,11 @@ button.finding { cursor: pointer; }
 .hvpg-bar { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
 .hvpg-bar .btn { flex: none; }
 .hvpg-kv { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(56px, auto)); justify-content: start; gap: 18px; margin: 0; }
-.hvpg-kv dt { font-size: 11px; font-weight: 600; letter-spacing: .05em; color: var(--text-3); }
-.hvpg-kv dd { margin: 0; font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.hvpg-kv dt::after { content: ' · mmHg'; font-weight: 500; letter-spacing: 0; }
+/* (The unit on the name's own line, never wrapped: "FHVP ·" over "mmHg" read as a break, sweep batch 03, shot 30; a line of its
+   own instead cost the monitor 19 px on an iPad and cut the words under it sideways, sweep 2 review items 6 and 7.) */
+.hvpg-kv dt { font-size: 12px; font-weight: 600; letter-spacing: .05em; color: var(--text-3); white-space: nowrap; }
+.hvpg-kv dd { margin: 0; font-size: 17px; line-height: 1.2; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hvpg-kv dt::after { content: '\00a0· mmHg'; font-weight: 500; letter-spacing: 0; }
 .hvpg-box { border-radius: var(--r-card); background: var(--mon-bg); }
 .hvpg-kv dd[data-sev="ok"] { color: color-mix(in srgb, var(--ok) 75%, var(--text)); }
 .hvpg-kv dd[data-sev="caution"] { color: color-mix(in srgb, var(--caution) 75%, var(--text)); }
@@ -2851,13 +2854,21 @@ button.finding { cursor: pointer; }
 /* The four steps, in one row: a numbered dot and a word each. */
 .hvpg-steps { margin: 0; padding: 0; list-style: none; counter-reset: hs; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-3); }
 .hvpg-steps li { counter-increment: hs; display: flex; align-items: center; gap: 6px; }
-.hvpg-steps li::before { content: counter(hs); flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 600; border: 1px solid var(--border); }
+.hvpg-steps li::before { content: counter(hs); flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; border: 1px solid var(--border); }
 .hvpg-steps li[data-state="now"] { color: var(--text); font-weight: 600; }
 .hvpg-steps li[data-state="now"]::before { border-color: var(--accent); color: var(--accent-ink); }
 .hvpg-steps li[data-state="done"] { color: var(--text-2); }
 .hvpg-steps li[data-state="done"]::before { content: '✓'; background: var(--accent-soft); border-color: transparent; color: var(--accent-ink); }
 .hvpg-caption { min-height: 3em; margin: 0; }
 .hvpg-note { margin: 0; font-size: 12px; }
+/* A phone held sideways (a short side card): the rows sit a little closer, so the monitor keeps its least height and the
+   description under it ends at least 8 px above the card's foot (sweep 2 review item 6: cut after its second line). */
+@container (max-height: 300px) {
+  .instrument-workspace.side .dock-pane > .instrument-view[data-pane="hvpg"] { gap: 4px; }
+  .instrument-workspace.side .instrument-view[data-pane="hvpg"] > .hvpg-bar { row-gap: 6px; }
+  .instrument-workspace.side .instrument-view[data-pane="hvpg"] > .chart-side { gap: 4px; }
+  .instrument-workspace.side .instrument-view[data-pane="hvpg"] .hvpg-caption { min-height: 0; line-height: 16px; }
+}
 @media (max-width: 600px) {
   .instrument-view[data-pane="hvpg"] .chart-box { height: clamp(170px, calc(26vh / var(--vz)), 220px); }
   .hvpg-bar { gap: 8px 12px; }
@@ -3572,12 +3583,12 @@ button.finding { cursor: pointer; }
 .it-v { display: none; }
 .instr-tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
 .instr-tab[aria-selected="true"] > svg { stroke: var(--accent); }
-.instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { content: attr(data-slot); position: absolute; top: -4px; right: -2px; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font: 600 11px/15px var(--font-ui); text-align: center; }
+.instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { content: attr(data-slot); position: absolute; top: -4px; right: -2px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font: 600 12px/16px var(--font-ui); text-align: center; }
 .picking .instr-tab:not([aria-selected="true"]) { box-shadow: inset 0 0 0 1px var(--accent); }
 /* Narrow: the name under a small icon, so all five fit in one row. */
 @container ws (max-width: 560px) {
   .instr-tab { flex-direction: column; gap: 1px; height: 40px; padding: 0 2px; }
-  .instr-tab { flex: 1 0 auto; min-width: 48px; padding: 0 4px; font-size: 11px; }
+  .instr-tab { flex: 1 0 auto; min-width: 48px; padding: 0 4px; font-size: 12px; }
   .it-t b { overflow: visible; }
 }
 
@@ -3585,8 +3596,8 @@ button.finding { cursor: pointer; }
 .text-size button { font-variant-numeric: tabular-nums; }
 .text-size .ts-a { font-family: var(--font-ui); font-weight: 600; flex: 0 0 52px; }
 .text-size .ts-sm { font-size: 12px; } .text-size .ts-lg { font-size: 18px; }
-.text-size .ts-reset { flex: 1; font-size: var(--fs-12); color: var(--text-2); }
-.text-size button:disabled { opacity: .35; cursor: default; }
+.text-size .ts-reset { flex: 1; font-size: var(--fs-12); background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }   /* (the size in use, raised at every size: at 200 % it had turned grey, sweep batch 04) */
+.text-size button:disabled { opacity: 1; color: var(--text-3); cursor: default; }
 
 
 /* The play bar: the clock sits next to the track it reads, speed looks like a control, Compare is an icon. */
@@ -3974,7 +3985,7 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .tl-split .ib.play.lapse { background: color-mix(in srgb, var(--lapse) 22%, var(--surface)); color: var(--lapse-ink); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--lapse) 70%, transparent); }
 .tl-split .tl-speed.lapse { color: var(--lapse-ink); font-weight: 700; }
 .tl-split .tl-speed { white-space: nowrap; }
-.tl-left .tl-split .tl-speed.lapse, .vdock .tl-left .tl-split .tl-speed.lapse { width: auto; min-width: 30px; padding: 0 7px; font-size: 11px; }
+.tl-left .tl-split .tl-speed.lapse, .vdock .tl-left .tl-split .tl-speed.lapse { width: auto; min-width: 30px; padding: 0 7px; font-size: 12px; }
 
 /* Measure on desktop (batch A): a quiet text tab row with an underline, and one 16px edge for
    head, tabs and body; a softer edge so the card sits lightly over the map. */
@@ -3988,7 +3999,7 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
   .instr-tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
   .instr-tab[aria-selected="true"]::before { content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
   /* The 1 / 2 slot number sits after the name, in the row, so it never covers a neighbour. */
-  .instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { position: static; flex: none; margin-left: 1px; width: 14px; height: 14px; font: 600 11px/14px var(--font-ui); }
+  .instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { position: static; flex: none; margin-left: 1px; width: 16px; height: 16px; font: 600 12px/16px var(--font-ui); }
   .picking .instr-tab:not([aria-selected="true"]) { box-shadow: none; color: var(--accent-ink); }
   .instrument-workspace .dock-head { padding: 10px 8px 2px 16px !important; }
   .instrument-workspace .dock-pane { padding-left: 16px; padding-right: 16px; }
@@ -4112,8 +4123,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ws-tabs.compact .instr-tab:first-child { margin-left: 0; }
 /* Narrower still: the name under its icon. */
 .ws-tabs.narrow .instr-tab, .ws-tabs.narrow .instr-tab[aria-selected="true"] { flex-direction: column; gap: 2px; height: 44px; padding: 0 2px; font-size: 12px; }
-.ws-tabs .instr-tab[data-slot="1"]::after, .ws-tabs .instr-tab[data-slot="2"]::after { position: absolute; top: 0; right: 2px; margin: 0; width: 13px; height: 13px; font: 600 11px/13px var(--font-ui); }
-.ws-tabs.narrow .instr-tab[data-slot="1"]::after, .ws-tabs.narrow .instr-tab[data-slot="2"]::after { top: 2px; right: 3px; width: 15px; height: 15px; font: 600 11px/15px var(--font-ui); }
+.ws-tabs .instr-tab[data-slot="1"]::after, .ws-tabs .instr-tab[data-slot="2"]::after { position: absolute; top: 0; right: 2px; margin: 0; width: 16px; height: 16px; font: 600 12px/16px var(--font-ui); }
+.ws-tabs.narrow .instr-tab[data-slot="1"]::after, .ws-tabs.narrow .instr-tab[data-slot="2"]::after { top: 2px; right: 3px; width: 16px; height: 16px; font: 600 12px/16px var(--font-ui); }
 
 /* Phone: a long patient name wraps to two lines instead of being cut to "Decomp…" (the short form on two lines at 12 px,
    data-form s2; see fitScenarioName). Before the first pass the short form already shows. */
@@ -4262,10 +4273,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab .ab-belly > .ab-big { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3cqi; padding: 0 12cqi; text-align: center; }
 .ab .ab-belly > .ab-big > b { font-size: clamp(12px, 22cqi, 72px) !important; line-height: 1; white-space: nowrap; }
 .ab .ab-belly > .ab-big > b small { margin-left: .15em !important; font-size: .5em !important; }
-.ab .ab-belly > .ab-big > .ab-grade { font-size: clamp(9px, 8.5cqi, 26px) !important; line-height: 1.1; }
-.ab .ab-belly > .ab-big :is(b, b[data-sev], .ab-grade, .ab-rate) { color: var(--text) !important; text-shadow: 0 0 4px var(--surface), 0 0 2px var(--surface) !important; }   /* (the theme's own text with a soft halo of the card, readable in every theme) */
-.ab .ab-belly > .ab-big b small { color: var(--text-2) !important; text-shadow: none !important; }
-.ab-rate { flex: none; min-height: 1.1em; font-size: clamp(8px, 7cqi, 22px); font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; }   /* (the line is always there, empty or not, so the litres and grade never move when the daily rate appears or goes) */
+.dock-pane > .instrument-view.ab .ab-belly > .ab-big > b small { font-size: max(12px, .5em) !important; }   /* (the litres' unit: 12 px at least on a small belly) */
+.ab .ab-belly > .ab-big > .ab-grade { font-size: clamp(12px, 8.5cqi, 26px) !important; line-height: 1.1; }
+.ab .ab-belly > .ab-big { --ab-halo: 0 0 1px var(--surface), 0 0 1px var(--surface), 0 0 2px var(--surface), 0 0 2px var(--surface), 0 0 3px var(--surface), 0 0 5px var(--surface); }
+.ab .ab-belly > .ab-big :is(b, b[data-sev], .ab-grade, .ab-rate) { color: var(--text) !important; text-shadow: var(--ab-halo) !important; }   /* (the theme's own text inside a near-solid halo of the card, readable over the fluid at every level in both themes: sweep batch 04, 1.4–2.7:1 over the fill in dark) */
+.ab .ab-belly > .ab-big b small { color: var(--text-2) !important; text-shadow: var(--ab-halo) !important; }
+.ab-rate { flex: none; min-height: 1.1em; font-size: clamp(12px, 7cqi, 22px); font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; }   /* (the line is always there, empty or not, so the litres and grade never move when the daily rate appears or goes) */
 .ab-belly { position: relative; flex: none; width: 64px; height: 64px; container-type: inline-size; border-radius: 50% 50% 44% 44%; border: 2px solid color-mix(in srgb, var(--text-3) 45%, transparent); overflow: hidden; background: var(--surface); }
 .ab-belly-fill { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--ascites) 55%, transparent), color-mix(in srgb, var(--ascites) 90%, transparent)); transition: height .6s var(--ease); }
 /* In Patients the belly is the card's centrepiece: large and centred, carrying the litres, grade and daily rate inside it,
@@ -4293,7 +4306,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab-iap-mark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--stage-bg); opacity: .9; }
 .ab-tiles { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .ab-tile { display: grid; gap: 1px; min-width: 0; margin: 0; padding: 6px 10px 7px; border-radius: var(--r-control); background: var(--surface-2); transition: opacity .25s var(--ease); }
-.ab-tile dt { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ab-tile dt { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); white-space: nowrap; }
 .ab-tile dd { margin: 0; font-size: 17px; line-height: 1.25; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ab-n { font-weight: 650; color: var(--text); }
 .ab-u { margin-left: 3px; font-size: var(--fs-12); font-weight: 500; color: var(--text-3); }
@@ -4360,19 +4373,19 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab-dial[data-sev="danger"] .ab-dial-w { fill: var(--danger); }
 /* The drain: its label level with the dial's, then litres, albumin and the button, as wide as the dial at most. */
 .dock-pane > .instrument-view.ab .ab-dp { display: grid; grid-column: 3; justify-self: start; align-content: center; gap: 5px; width: 100%; max-width: max(116px, var(--ab-dw)); min-width: 0; }
-.ab-dp-k { text-align: center; color: var(--text-3); font: 600 11px/1.2 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; }
+.ab-dp-k { text-align: center; color: var(--text-3); font: 600 12px/1.2 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; }
 .ab-dp-vol { display: flex; align-items: center; height: 32px; border-radius: var(--r-control); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); overflow: hidden; }
 .ab-dp-sb { flex: none; width: 28px; height: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font: 500 19px/1 var(--font-ui); cursor: pointer; touch-action: manipulation; outline-offset: -3px; transition: background var(--t-fast); }
 .ab-dp-sb:active:not(:disabled) { background: var(--surface-3); }
 .ab-dp-sb:disabled { color: var(--text-3); opacity: .45; cursor: not-allowed; }
 .ab-dp-l { flex: 1; min-width: 0; text-align: center; font: 650 16px/1 var(--font-ui); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ab-dp-l small { margin-left: 2px; font-size: 11px; font-weight: 500; color: var(--text-3); }
+.ab-dp-l small { margin-left: 2px; font-size: 12px; font-weight: 500; color: var(--text-3); }
 .ab-dp-alb { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; height: 34px; padding: 0 6px 0 8px; border: 0; border-radius: var(--r-control); background: var(--surface-2);
   text-align: left; cursor: pointer; touch-action: manipulation; transition: box-shadow .25s var(--ease); }
 .ab-dp-alb.ab-warn { box-shadow: inset 0 0 0 1px var(--caution); }
 .ab-dp-at { display: grid; min-width: 0; line-height: 1.15; }
-.ab-dp-at b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 12px/1.15 var(--font-ui); color: var(--text); }
-.ab-dp-at small { white-space: nowrap; font: 500 11px/1.15 var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; transition: color .25s var(--ease); }
+.ab-dp-at b { white-space: nowrap; font: 500 12px/1.15 var(--font-ui); color: var(--text); }
+.ab-dp-at small { white-space: nowrap; font: 500 12px/1.15 var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; transition: color .25s var(--ease); }
 .ab-dp-at small.ab-warn { color: var(--caution); font-weight: 600; }
 .ab-dp-alb .switch-vis { position: relative; flex: none; width: 30px; height: 18px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: background .2s var(--ease), box-shadow .2s var(--ease); }
 .ab-dp-alb .switch-vis i { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 3px rgb(var(--black-rgb) / .3); transition: transform .22s var(--ease); }
@@ -4380,12 +4393,24 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab-dp-alb[aria-checked="true"] .switch-vis i { transform: translateX(12px); }
 .ab-dp .ab-drain { width: 100%; min-width: 0; height: 34px; padding: 0 8px; }
 @container (max-width: 300px) {   /* (a 320 px phone: the drain column is about 84 px) */
-  .ab-dp-alb { gap: 3px; padding: 0 4px 0 6px; }
-  .ab-dp-at b { font-size: 11px; }
+  /* (Too narrow for the name beside the switch at 12 px: the name over the dose, the switch beside the dose.) */
+  .ab-dp-alb { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "t t" "s v"; align-items: center; row-gap: 0; column-gap: 3px; height: auto; min-height: 32px; padding: 1px 4px 1px 6px; }   /* (32 px tall, as low as the one-line switch it replaces, so the tiles below keep their 9 px gutter on a folded sheet: sweep 2, item 4) */
+  .ab-dp-at { display: contents; }
+  .ab-dp-at b { grid-area: t; }
+  .ab-dp-at small { grid-area: s; }
+  .ab-dp-alb .switch-vis { grid-area: v; }
   .ab-dp-alb .switch-vis { width: 26px; height: 16px; }
   .ab-dp-alb .switch-vis i { width: 12px; height: 12px; }
   .ab-dp-alb[aria-checked="true"] .switch-vis i { transform: translateX(10px); }
   .ab-dp-sb { width: 24px; }
+  /* (The dial as large as its side allows, up to the row's height, so IAP and mmHg at 12 px keep 4 px off the arc: sweep 2, item 20.) */
+  .dock-pane > .instrument-view.ab .ab-dial-box { width: min(76px, (100cqi - var(--ab-bw) - 16px) / 2 - 6px); }
+}
+/* A 320 px phone: the lab tiles take the width their names need (SAAG is short), so "Fluid protein" and "Fluid albumin"
+   read whole at 12 px, as on every other size (sweep 2, item 18: they were cut to "Fluid prot…"). */
+@container (max-width: 300px) {
+  .dock-pane > .instrument-view.ab .ab-tiles { grid-template-columns: repeat(3, auto); gap: 6px; }
+  .dock-pane > .instrument-view.ab .ab-tile { padding-left: 8px; padding-right: 8px; }
 }
 @media (hover: hover) {
   .ab-dp-sb:hover:not(:disabled) { background: var(--surface-2); }
@@ -4409,9 +4434,30 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 #app:not(.thumb) .instrument-workspace.side .ab-dp { gap: clamp(5px, calc(var(--ab-bw) * .03), 9px); }
 #app:not(.thumb) .instrument-workspace.side .ab-dp :is(.ab-dp-vol, .ab-dp-alb, .ab-drain) { height: clamp(32px, calc(var(--ab-bw) * .15), 42px); }
 #app:not(.thumb) .instrument-workspace.side .ab-dp .ab-dp-l { font-size: clamp(16px, calc(var(--ab-bw) * .075), 21px); }
-#app:not(.thumb) .instrument-workspace.side .ab-dp :is(.ab-dp-k, .ab-dp-l small, .ab-dp-at small) { font-size: clamp(11px, calc(var(--ab-bw) * .048), 13px); }
+#app:not(.thumb) .instrument-workspace.side .ab-dp :is(.ab-dp-k, .ab-dp-l small, .ab-dp-at small) { font-size: clamp(12px, calc(var(--ab-bw) * .048), 13px); }
 #app:not(.thumb) .instrument-workspace.side .ab-dp :is(.ab-dp-at b, .ab-drain) { font-size: clamp(12px, calc(var(--ab-bw) * .056), 15px); }
 #app:not(.thumb) .instrument-workspace.side .ab-dp .ab-dp-sb { width: clamp(28px, calc(var(--ab-bw) * .13), 36px); font-size: clamp(19px, calc(var(--ab-bw) * .085), 23px); }
+/* A short side card (a phone on its side, 375–390 px high): everything fits with no scrolling (sweep 2, item 19: Serum
+   albumin was cut off at the card's foot). The belly leaves each side the 104 px its dial and Drain need (the 150 px floor
+   above crowded the litres and the albumin switch), the rows close up a little, and Serum albumin and Diuretics sit side by
+   side, each name over its control. */
+.dock-pane:has(> .instrument-view.ab) { container-name: ab-pane; }
+@container ab-pane (max-height: 330px) {
+  #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane > .instrument-view.ab .ab-vol { --ab-bw: clamp(92px, min(100cqi - 216px, 116px), 116px); }
+  #app:not(.thumb) .instrument-workspace.side .dock-pane > .instrument-view.ab .ab-dial-box { width: min(74px, (100cqi - var(--ab-bw) - 16px) / 2 - 6px); }
+  #app:not(.thumb) .instrument-workspace.side .ab-dp { gap: 4px; }
+  #app:not(.thumb) .instrument-workspace.side .ab-read { gap: 8px; }
+  #app:not(.thumb) .instrument-workspace.side .ab-tile { padding: 4px 10px 5px; }
+  #app:not(.thumb) .instrument-workspace.side .ab-ctl { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 12px; align-items: start; margin-top: 5px; padding-top: 5px; }
+  #app:not(.thumb) .instrument-workspace.side .ab-ctl > .ab-row { grid-template-columns: 20px minmax(0, 1fr) auto; grid-template-areas: "i t v" "s s s"; align-items: center; column-gap: 8px; row-gap: 4px; min-height: 0; padding: 0; }
+  #app:not(.thumb) .instrument-workspace.side .ab-ctl > .ab-row > svg { grid-area: i; }
+  #app:not(.thumb) .instrument-workspace.side .ab-ctl > .ab-row > .ab-txt { grid-area: t; }
+  #app:not(.thumb) .instrument-workspace.side .ab-ctl > .ab-row > .ab-end { grid-area: s; }
+  #app:not(.thumb) .instrument-workspace.side .ab-ctl > .ab-tg > .ab-txt { display: contents; }
+  #app:not(.thumb) .instrument-workspace.side .ab-ctl > .ab-tg > .ab-txt > b { grid-area: t; line-height: 22px; }
+  #app:not(.thumb) .instrument-workspace.side .ab-ctl > .ab-tg > .ab-txt > small { grid-area: s; margin-top: -4px; line-height: 1.3; }
+  #app:not(.thumb) .instrument-workspace.side .ab-ctl > .ab-tg > .switch-vis { grid-area: v; }
+}
 
 /* Scope's readings: the grade leads with its status, wall stress is a meter toward the tear point, size and
    wall sit side by side, red signs and bands are chips. The position label sits on the view's dark rim. */
@@ -4453,7 +4499,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .endo-chip { grid-column: 1 / -1; }
   .endo-read { gap: 6px; }
   .endo-tile { padding: 5px 8px; }
-  .endo-read dt { font-size: 11px; }
+  .endo-read dt { font-size: 12px; }
 }
 
 /* Scope and its Wall mechanics tab share one layout that fills the card: the picture takes all the height the
@@ -4686,7 +4732,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read > div,
 .instrument-workspace .dop-stats > div:not([hidden]) { grid-column: auto; display: flex; flex-direction: column; justify-content: space-between; align-items: stretch; gap: 4px; min-width: 0; min-height: 0; padding: 8px 7px; border-radius: 12px; background: var(--surface-2); border: 2px solid transparent; transition: border-color .3s var(--ease), background-color .3s var(--ease); }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read dt,
-.instrument-workspace .dop-stats dt { font: 600 11px/1.2 var(--font-ui); letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); overflow-wrap: anywhere; }
+.instrument-workspace .dop-stats dt { font: 600 12px/1.2 var(--font-ui); letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); overflow-wrap: anywhere; }
 .instrument-workspace .endo-num, .instrument-workspace .dop-stats dd { font: 600 20px/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); white-space: nowrap; }
 .instrument-workspace .endo-num { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .3em; white-space: normal; }
 .instrument-workspace .endo-chip dt { white-space: normal; }
@@ -4762,15 +4808,15 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace .dop-stats > div.on { border-color: var(--doppler); }
 .instrument-workspace .dop-stats > div.on dt { box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .dop-vel b { transition: none; } }
-.dop-ticks { position: relative; height: 14px; margin-top: 6px; font-size: 11px; line-height: 14px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.dop-ticks { position: relative; height: 15px; margin-top: 6px; font-size: 12px; line-height: 15px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .dop-ticks > span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; transition: left .4s var(--ease); }
-.dop-g-hi { transform: translateX(-85%) !important; }
+.dop-ticks > span[data-u]:not([data-u=""])::after { content: '\00a0' attr(data-u); position: absolute; left: 100%; top: 0; }
 .dop-g-zero { transform: none !important; }
 .dop .dop-report .dop-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; padding: 0; border: 0; }
 .dop .dop-report .dop-stats > div:not([hidden]) { flex: 1 1 64px; min-width: 0; min-height: 0; padding: 6px 8px; gap: 2px; border-radius: 10px; justify-content: flex-start; }
-.dop .dop-report .dop-stats dt { font-size: 11px; letter-spacing: .02em; overflow-wrap: normal; white-space: nowrap; }
+.dop .dop-report .dop-stats dt { font-size: 12px; letter-spacing: .02em; overflow-wrap: normal; white-space: nowrap; }
 .dop .dop-report .dop-stats dd { font-size: 16px; line-height: 1.1; white-space: nowrap; }
-.dop .dop-report .dop-stats dd small { font-size: 11px; font-weight: 500; letter-spacing: 0; color: var(--text-3); }
+.dop .dop-report .dop-stats dd small { font-size: 12px; font-weight: 500; letter-spacing: 0; color: var(--text-3); }
 
 /* The data card can be dragged out of view (up on a phone, right on a tablet) and brought back from its sliver (see dockTouch in presenter.js).
    Its own touches belong to that drag, so it is not a scroller. */
@@ -5128,8 +5174,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* (The words inside the beaker grow with it, a third larger for the size: the litres, the grade and the daily rate, all in the beaker's own width units.) */
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big { gap: 2.5cqi; padding: 0 8cqi; }
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b { font-size: clamp(14px, 29cqi, 96px) !important; }
-.pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-grade { font-size: clamp(10px, 11cqi, 34px) !important; }
-.pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-rate { font-size: clamp(9px, 8.5cqi, 28px) !important; }
+.pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-grade { font-size: clamp(12px, 11cqi, 34px) !important; }
+.pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-rate { font-size: clamp(12px, 8.5cqi, 28px) !important; }
 .ab .ab-belly > .ab-big > .ab-rate { display: inline-flex; align-items: baseline; justify-content: center; gap: .3em; transition: opacity .16s var(--ease); }
 .ab .ab-belly > .ab-big > .ab-rate.ab-rate-out { opacity: .15; }
 .ab-rate-a { font-style: normal; font-size: .72em; transition: color .3s var(--ease); }
@@ -5141,6 +5187,15 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab .ab-belly > .ab-big > .ab-rate[data-dir="down"] { color: color-mix(in srgb, var(--vel-normal) 60%, var(--text)) !important; }
 .ab-rate[data-dir="up"] .ab-rate-a { color: var(--caution); }
 .ab-rate[data-dir="down"] .ab-rate-a { color: var(--vel-normal); }
+/* A small belly (320 px phone, phone on its side): the balance may take two lines ("▲ 200" over "mL/day") so its every
+   word sits inside the ring, 4 px or more from it, with the litres and grade centred over it (sweep 2, item 3: one line
+   ran out of the ring and pushed the block 13 px right). Its backing hugs the words, and its arrow takes the line's own
+   readable colour there. */
+@container (max-width: 124px) {
+  .dock-pane > .instrument-view.ab .ab-belly > .ab-big > .ab-rate[data-dir] { display: block; width: min-content; max-width: 100%; white-space: normal; text-align: center; border-radius: .7em; padding: .06em .45em .1em; }
+  .dock-pane > .instrument-view.ab .ab-belly > .ab-big > .ab-rate[data-dir="steady"] { margin-bottom: 1.1em; }   /* (one line, holding the second line's room, so the litres and grade never move as the balance comes and goes) */
+  .dock-pane > .instrument-view.ab .ab-belly > .ab-big > .ab-rate[data-dir] > .ab-rate-a { margin-right: .3em; color: inherit; }
+}
 /* (The Doppler strip's pattern word gives way first, with an ellipsis, so the strip never shrinks its type below three quarters.) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report > .dop-pattern { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* (Where even the direction's short form at 0.9 cannot hold the pattern beside the reading, doppler.js sets .dop-wrap: the pattern takes a
@@ -5276,7 +5331,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace .dock-head.tabbed .card-close.card-close { position: static; transform: none; flex: none; width: 36px; height: 36px; margin-left: auto; }
 .instrument-workspace .dock-head .ws-tabs.tight .instr-tab, .instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] { flex: 1 1 auto; flex-direction: row; gap: 0; height: 34px; min-width: 0; padding: 0 8px; }
 .instrument-workspace .dock-head .ws-tabs.tight .it-t { max-width: 0; margin-left: 0; opacity: 0; overflow: hidden; transition: max-width .24s var(--ease), margin-left .24s var(--ease), opacity .18s var(--ease); }
-.instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] .it-t { max-width: 96px; margin-left: 5px; opacity: 1; }
+.instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] .it-t { max-width: 120px; margin-left: 5px; opacity: 1; }
+/* (The open tab keeps its whole name, never cut: the icons give way to it, down to their own width. Where even that leaves no
+   room, the open tab is an icon like the rest (dock.js fitTabs, "bare"). The coordinator's 667 x 375 check: "Pressur".) */
+.instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] { flex: 0 0 auto; }
+.instrument-workspace .dock-head .ws-tabs.tight .instr-tab:not([aria-selected="true"]) { flex: 1 1 0; min-width: 26px; padding: 0 3px; }
+.instrument-workspace .dock-head .ws-tabs.tight.bare .instr-tab[aria-selected="true"] .it-t { max-width: 0; margin-left: 0; opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .instrument-workspace .dock-head .ws-tabs.tight .it-t { transition: none; } }
 @media (min-width: 1024px) and (pointer: fine) {
   .instrument-workspace .dock-head.tabbed.card-head { padding: 8px 8px 2px 16px !important; }
@@ -5631,6 +5691,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   #app .instrument-workspace.side .instrument-view.dop .dop-ticks > span { position: static; transform: none !important; }
   #app .instrument-workspace.side .instrument-view.dop .dop-ticks > .dop-g-zero { display: none; }
   #app .instrument-workspace.side .instrument-view.dop .dop-ticks > .dop-g-lo::after { content: '–'; }
+  #app .instrument-workspace.side .instrument-view.dop .dop-ticks > span::after { position: static; }
 }
 
 /* ── Tests card tiles: one style on every tab, the Readouts tiles': the name in sentence case over the value, both left
@@ -5753,3 +5814,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric .v { font-size: var(--fs-20); }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .ro-group + .ro-group::before { display: none; }
 }
+/* A figure label under the open menu is hidden while it is open (main.js labelsUnderMenu): no sliver beside the menu's edge. */
+#labels .lb.under-menu { visibility: hidden; }
+/* A disabled button with words reads clearly (sweep batches 02–03: "No fluid" white on pale blue at 1.9:1, "Band a column" at
+   2.5:1, the small "A" at 1.7:1): flat, on the quiet surface, its words in the third ink (at least 4.5:1 on it in every theme),
+   never faded. Only its look says it is off: no fill colour, no shadow, the not-allowed cursor. */
+:is(.btn, .ac-btn, .ac-toggle, .drug, .order-chip, .order-btn, .ab-drain):disabled { opacity: 1; background: var(--surface-2); border-color: var(--border); color: var(--text-3); box-shadow: none; }
+:is(.btn, .ac-btn, .ac-toggle, .drug, .order-chip, .order-btn, .ab-drain):disabled svg { opacity: .8; }

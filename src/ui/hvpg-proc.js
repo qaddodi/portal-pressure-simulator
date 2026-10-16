@@ -9,7 +9,7 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, fitCanvas, clamp, icon, cssVar } from './util.js?v=2a952639b6';
-import { FONT } from './charts.js?v=bf5b3f6968';
+import { FONT } from './charts.js?v=8d14002b01';
 import { pressureColor } from './colormap.js?v=e8b507a6fd';
 import { store, logAction } from './store.js?v=3b659e1968';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
@@ -148,14 +148,22 @@ export function createHvpgProcedure() {
   }
 
   function paintSide() {
-    const ph = phase(), v = values(), st = store.get();
-    const shown = { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.callout), hvpg: ph === 'result' && (t0 == null || t >= T.sum) };
+    const ph = phase(), st = store.get();
+    // Before any measurement, with the readouts on show (Settings, or measured once for this patient), the three read live,
+    // the free and wedged pressures as the bar reads them and the HVPG as their difference, so the row and the bar agree (sweep
+    // batch 03, shots 05 and 30: dashes here beside HVPG 0.9 on the bar).
+    const open = ph === 'idle' && !!st.frame?.metrics && !hiddenNow(st)?.has('trueHVPG');
+    let v = values();
+    if (open) { const f1 = Math.round(shownOr('fhvp', v.fhvp) * 10) / 10, w1 = Math.round(shownOr('whvp', v.whvp) * 10) / 10; v = { fhvp: f1, whvp: w1, hvpg: Math.round((w1 - f1) * 10) / 10 }; }
+    const shown = open ? { fhvp: true, whvp: true, hvpg: true }
+      : { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.callout), hvpg: ph === 'result' && (t0 == null || t >= T.sum) };
     for (const k of ['fhvp', 'whvp', 'hvpg']) {
       const txt = shown[k] ? fmt(v[k], 1) : '—';
       if (vals[k].textContent !== txt) {
         vals[k].textContent = txt;
-        // The difference arrives after the two readings have settled: it fades and rises in, never pops.
-        if (k === 'hvpg' && shown.hvpg) { vals.hvpg.classList.remove('in'); void vals.hvpg.offsetWidth; vals.hvpg.classList.add('in'); }
+        // The difference arrives after the two readings have settled: it fades and rises in, never pops. (Not a live reading:
+        // restarted with every new tenth, its fade held it blank on Mac, iPad and sideways, sweep 2 review item 5.)
+        if (k === 'hvpg' && shown.hvpg && !open) { vals.hvpg.classList.remove('in'); void vals.hvpg.offsetWidth; vals.hvpg.classList.add('in'); }
       }
     }
     // This runs on every model frame: write only what changed. Rewriting the button's label each frame
@@ -164,7 +172,7 @@ export function createHvpgProcedure() {
     if (vals.hvpg.dataset.sev !== sev) vals.hvpg.dataset.sev = sev;
     const cur = ph === 'abort' ? 1 : STEPS.findIndex((s) => s[0] === ph);
     stepEls.forEach((li, i) => { const v2 = ph === 'idle' ? '' : ph === 'abort' ? (i === 0 ? 'done' : '') : i < cur || ph === 'result' ? 'done' : i === cur ? 'now' : ''; if (li.dataset.state !== v2) li.dataset.state = v2; });
-    const cap = ph === 'idle' ? 'A balloon catheter through the right internal jugular vein reads two pressures in the right hepatic vein: free, then wedged. Watch it on the anatomy.'
+    const cap = ph === 'idle' ? 'A balloon catheter via the right internal jugular vein reads the free, then the wedged, hepatic vein pressure.'
       : ph === 'abort' ? `${ABORT_MSG}. The hepatic vein is thrombosed (Budd–Chiari), so the catheter cannot enter it and no free or wedged pressure can be read. HVPG is not measurable.`
       : blocked && t >= TB.probe0 ? 'The tip is at the hepatic vein ostium, but the vein is thrombosed: it will not advance.'
       : ph === 'result' ? `${sevWord(v.hvpg)}. ${STEPS[3][2]}` : STEPS[cur][2];
@@ -282,7 +290,17 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
   ctx.font = FONT(600, 12); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);
   if (num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
   const { top, bot } = traceRoom(W, H, y), L = x + 22, R = x + W - (narrow ? 2 : 50);
-  if (bot - top < TRACE_MIN) return;
+  if (bot - top < TRACE_MIN) {
+    // (Too short for the tracing, a phone held sideways: its note alone, in the longest form that fits, so the box is never
+    // blank under "Ready". Sweep batch 03, shot 03.)
+    if (ph !== 'idle' && ph !== 'enter') return;
+    ctx.font = FONT(500, 12);
+    const say = blocked && t >= TB.probe0 ? ['Probing the ostium: the vein will not take the catheter.', 'The vein will not take the catheter.']
+      : ph === 'idle' ? ['The tracing starts once the tip is in the hepatic vein.', 'Starts once the tip is in the hepatic vein.', 'Starts in the hepatic vein.'] : ['Waiting for the hepatic vein.'];
+    const ty = Math.min(hh - 12, Math.max(y + 54, (y + 40 + hh) / 2));
+    monitorNote(ctx, say.find((q, i) => i === say.length - 1 || ctx.measureText(q).width <= W - 16), x + 8, x + W - 8, ty - 4);
+    return;
+  }
   const ymax = Math.max(15, Math.ceil((Math.max(v.whvp, v.fhvp) + 5) / 5) * 5);
   const Y = (p) => bot - (clamp(p, 0, ymax) / ymax) * (bot - top);
   const X = (tt) => L + k01(tt, T.free - 300, T.back) * (R - L);
@@ -292,8 +310,12 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
     if (p % 10 === 0 || ymax <= 20) ctx.fillText(String(p), L - 5, Y(p));
   }
   if (ph === 'idle' || ph === 'enter') {
-    ctx.textAlign = 'center'; ctx.fillStyle = C.text; ctx.font = FONT(500, 12);
-    ctx.fillText(blocked && t >= TB.probe0 ? 'Probing the ostium: the vein will not take the catheter…' : ph === 'idle' ? 'The tracing starts once the tip is in the hepatic vein.' : 'Waiting for the hepatic vein…', (L + R) / 2, (top + bot) / 2);
+    // (Wrapped inside the grid, 8 px clear of the axis numbers and the monitor's right edge, on a solid patch of the monitor
+    // so no gridline runs through it: at 320 px it ran past the edge over "20" and "10", on a Mac and an iPad the 15 line
+    // struck through it, sweep 2 review items 14 and 15.)
+    ctx.font = FONT(500, 12);
+    monitorNote(ctx, blocked && t >= TB.probe0 ? 'Probing the ostium: the vein will not take the catheter.' : ph === 'idle' ? 'The tracing starts once the tip is in the hepatic vein.' : 'Waiting for the hepatic vein.',
+      L + 8, Math.min(R, x + W) - 8, (top + bot) / 2);
     return;
   }
   // The trace, swept up to now: blue while free, orchid once the balloon is up.
@@ -334,6 +356,31 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
   ctx.fillStyle = C.text; ctx.font = FONT(500, 12); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillText('balloon up', X(T.inflate), bot + 15);
   ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(X(T.inflate), bot); ctx.lineTo(X(T.inflate), bot + 4); ctx.stroke();
+}
+
+/** A note on the monitor, centred between x0 and x1 about cy, wrapped at word breaks to that width (the current font, 16 px
+ *  lines), on a patch of the monitor's own background 8 px wider and 4 px taller than the words each side. Returns its box. */
+export function monitorNote(ctx, text, x0, x1, cy) {
+  const pad = 8, padY = 4, lh = 16, maxW = Math.max(40, x1 - x0 - 2 * pad);
+  const lines = wrapWords(text, maxW, (q) => ctx.measureText(q).width);
+  const tw = Math.min(maxW, Math.max(...lines.map((q) => ctx.measureText(q).width)));
+  const bw = tw + 2 * pad, bh = lines.length * lh + 2 * padY, bx = (x0 + x1) / 2 - bw / 2, by = cy - bh / 2;
+  ctx.fillStyle = C.bg; ctx.fillRect(bx, by, bw, bh);
+  ctx.fillStyle = C.text; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  lines.forEach((q, i) => ctx.fillText(q, (x0 + x1) / 2, by + padY + lh * (i + 0.5)));
+  ctx.textBaseline = 'alphabetic';
+  return { x: bx, y: by, w: bw, h: bh, lines };
+}
+/** Words into lines no wider than maxW (measure: a line's width); a single word longer than that keeps a line to itself. */
+export function wrapWords(text, maxW, measure) {
+  const out = [];
+  let cur = '';
+  for (const word of String(text).split(/\s+/).filter(Boolean)) {
+    const next = cur ? cur + ' ' + word : word;
+    if (cur && measure(next) > maxW) { out.push(cur); cur = word; } else cur = next;
+  }
+  if (cur) out.push(cur);
+  return out;
 }
 
 function rrect(ctx, x, y, w, h2, r) {

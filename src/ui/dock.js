@@ -5,16 +5,18 @@ import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf } from './util.js?v=2a952639b6';
 import { lobuleFlows } from './lobule-model.js?v=a9d3b2ece7';
-import { createProfile } from './charts.js?v=bf5b3f6968';
-import { createPressureTime } from './pressure-time.js?v=08b2c3f1bc';
-import { createFibroScan } from './fibroscan.js?v=eedeb257c4';
-import { createHvpgProcedure } from './hvpg-proc.js?v=9b45e6b3a5';
-import { createDoppler } from './doppler.js?v=047f9eb2b6';
+import { createProfile } from './charts.js?v=8d14002b01';
+import { createPressureTime } from './pressure-time.js?v=7a5fdbe870';
+import { createFibroScan } from './fibroscan.js?v=bf9de59769';
+import { createHvpgProcedure } from './hvpg-proc.js?v=b1a22671ec';
+import { createDoppler } from './doppler.js?v=3f0e63ce30';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=93efdad2d1';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=4d99b240df';
 import { createReadoutsPane } from './readouts-pane.js?v=c4e4b5d774';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
+import { setShown } from './shown.js?v=82ef5e29ec';
+import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -134,6 +136,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   let rzT = 0;
   const resizeSoon = () => { clearTimeout(rzT); rzT = setTimeout(() => dispatchEvent(new Event('resize')), 30); };
   // ── Readout strip ─────────────────────────────────
+  const ends = { pv: {}, ivc: {}, whvp: {}, fhvp: {} };   // (the gradients' readings, each with the tiles' running mean)
   const tileEls = {};
   // A phone's four tiles are narrow: short names and status words where the long ones would be cut off.
   const narrow = matchMedia('(max-width: 1279px)');   // phones, tablets and narrow windows: short readout names
@@ -199,6 +202,17 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const hidden = hiddenNow(st0);
     const A = st0.compareSnap?.metrics || null;
     const now = performance.now();
+    // The gradients' two readings each get the tiles' running mean, and the gradient is their difference as shown (one
+    // decimal): the Pressure chart writes the same two readings at its brackets' ends, so its labels, the bar and the
+    // readings add up (sweep 2 review item 13: PPG 17.8 beside 22.9 and 5.5).
+    const sm = {};
+    for (const k of ['pv', 'ivc', 'whvp', 'fhvp']) {
+      const raw = m?.[k], e = ends[k];
+      let v = raw;
+      if (Number.isFinite(raw) && Number.isFinite(e.sm) && st0.running && Math.abs(raw - e.sm) < 2) v = e.sm + (raw - e.sm) * Math.min(1, (now - e.smT) / 1200);
+      e.sm = v; e.smT = now; sm[k] = v; setShown(k, v);
+    }
+    const gap = { hvpg: tenthGap(sm.whvp, sm.fhvp, null), ppg: tenthGap(sm.pv, sm.ivc, null) };
     for (const x of Object.values(tileEls)) {
       const { el, t } = x;
       const lz = t.group === 'lobule';
@@ -207,8 +221,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // The beat swings every value a little: the tile shows a running mean (about a second), so the
       // number stays steady; a real step (beyond a tenth of the scale) or a paused model shows at once.
       let v = raw;
-      if (raw != null && x.sm != null && st0.running && t.scale && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200);
+      const live = !lz && t.id in gap && raw != null && raw === t.v(m) && gap[t.id] != null;   // (a live gradient, not a measured one)
+      if (live) v = gap[t.id];
+      else if (raw != null && x.sm != null && st0.running && t.scale && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200);
       x.sm = v; x.smT = now;
+      if (!lz) setShown(t.id, v);
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
@@ -346,7 +363,18 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const tabsBox = tabs;
   // The row never scrolls: a wide card shows every full name, a narrower one the short names over their icons.
   // Tightest (a phone's sheet, beside the close button): only the open tab keeps its name, the others are icons.
-  const fitTabs = () => { const w = tabs.clientWidth; if (w) { tabs.classList.toggle('compact', w < 780); tabs.classList.toggle('narrow', w < 520); tabs.classList.toggle('tight', w < 420); } };
+  // (Tightest and still too narrow for the open tab's whole name beside the icons: that tab is an icon too, never a cut name.)
+  const fitTabs = () => {
+    const w = tabs.clientWidth;
+    if (!w) return;
+    tabs.classList.toggle('compact', w < 780); tabs.classList.toggle('narrow', w < 520); tabs.classList.toggle('tight', w < 420);
+    tabs.classList.remove('bare');
+    if (w < 420) {
+      const on = tabs.querySelector('.instr-tab[aria-selected="true"]'), t = on?.querySelector('.it-t b');
+      const need = [...tabs.children].reduce((a, b) => a + (b === on ? 0 : 26), 0) + (on ? on.offsetWidth - (on.querySelector('.it-t')?.offsetWidth || 0) + (t?.scrollWidth || 0) + 5 : 0) + 2 * (tabs.children.length - 1) + 6;
+      if (need > w) tabs.classList.add('bare');
+    }
+  };
   if (typeof ResizeObserver === 'function') new ResizeObserver(fitTabs).observe(tabs);
   fitTabs();
   // The tabs sit in the head itself, with the close button at the row's end: one slim row instead of a title row
@@ -545,6 +573,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       tabEls[id].b.tabIndex = id === tabOf(open[0]) ? 0 : -1;
       tabEls[id].b.dataset.slot = on && open.length > 1 && !isPair() ? String(at + 1) : '';
     }
+    fitTabs();
     remember();
     fitHeight();
     queueRefresh();

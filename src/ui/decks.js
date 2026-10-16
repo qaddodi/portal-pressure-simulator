@@ -86,7 +86,7 @@ import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=85211432b5';
 import { SPLEEN } from './decks/spleen.js?v=e0e0eaf929';
 import { NCPH } from './decks/ncph.js?v=516acbd224';
 import { OUTFLOW } from './decks/outflow.js?v=41257fe3b1';
-import { RECOMPENSATION } from './decks/recompensation.js?v=a3721db9bf';
+import { RECOMPENSATION } from './decks/recompensation.js?v=5b034d13e0';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

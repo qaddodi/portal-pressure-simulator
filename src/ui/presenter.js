@@ -19,11 +19,11 @@ import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b9
 import { sinusoidSupported } from './sinusoid-view.js?v=586978f5cb';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e881af47f2';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=a57958b150';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=9b45e6b3a5';
-import { createTools } from './presenter-tools.js?v=139dc9ec13';
-import { openHandout } from './handout.js?v=66106df93a';
+import { createHvpgMonitor } from './hvpg-proc.js?v=b1a22671ec';
+import { createTools } from './presenter-tools.js?v=74df0ad0d4';
+import { openHandout } from './handout.js?v=481943d374';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=f709ae0429';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
@@ -493,6 +493,7 @@ function bigLadder() {
   const lay = (b) => {
     if (!b.len) return;
     const half = b.len / 2 + 0.6 * S.c, mid = (b.x0 + b.x1) / 2, r = b.row, above = b.x1 - b.x0 - 2 * half < 14;
+    b.above = above;
     b.lbl.setAttribute('y', (above ? r - 0.4 * S.c : r + 0.33 * S.c).toFixed(1));
     b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (above ? `M${b.x0} ${r}H${b.x1}` : `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}`));
   };
@@ -518,7 +519,8 @@ function bigLadder() {
     bandPad = strip.closest('.pz:not(.stack):not(.low) .pz-data.pz-folds, .pz.stack .pz-data') ? 11 : 2;   // (a phone's card strip too, not a site cell's)
     // The unit sits after the last reading when it fits there, else at the end of the HVPG row (under the last stations).
     const inline = XS(4) + est('20', v, 0.62) / 2 + 8 + est('mmHg', c, 0.68) <= S.W - 1;
-    S.hvpg = S.ny + 0.5 * v + 6 + 1.05 * c; S.ppg = S.hvpg + 1.45 * c; S.H = S.ppg + 0.6 * c + 3;
+    // (The HVPG row sits clear of the falls' hatching under the readings: its label, raised over a short bracket, came within 3 px of it, text-200 review P4.)
+    S.hvpg = S.ny + 0.5 * v + 7 + 1.2 * c; S.ppg = S.hvpg + 1.45 * c; S.H = S.ppg + 0.6 * c + 3;
     // (A phone's site-ladder cell hides the brackets, its kicker carries the HVPG: the strip ends under its readings.)
     if (bare) S.H = S.ny + 0.5 * v + 4;
     unit.style.display = bare ? 'none' : '';   // (a site row has no room for it beside its last reading, where a block's hatching may sit)
@@ -695,11 +697,25 @@ function bigLadder() {
       const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v), [rate] = rateOf(k, { [k]: v });
       b.g.setAttribute('opacity', ok ? 1 : 0);
       if (!ok) return;
-      b.lead.setAttribute('d', `M${snapX(strip, b.x0).toFixed(2)} ${b.row - 5}V${S.ny + 0.5 * S.v + 2}M${snapX(strip, b.x1).toFixed(2)} ${b.row - 5}V${S.ny + 0.5 * S.v + 2}`);
       b.g.dataset.rate = rate || 'ok';
       const num = ' ' + fmt(v, 0);
       b.t[0].textContent = b.name; b.t[1].textContent = num;
       b.len = est(b.name, S.c, 0.64) + est(num, S.c, 0.52); lay(b);
+      // The leaders run from the bracket's ends up to the readings, broken 4 px round the label where it sits above the bar
+      // and wider than it (its tick lines ran through "HVPG", text-200 review P3). The label's own box where it is drawn, else
+      // its estimate.
+      let bb = null;
+      try { const q = b.lbl.getBBox(); if (q.width > 0) bb = { x0: q.x, x1: q.x + q.width, y0: q.y, y1: q.y + q.height }; } catch { /* not rendered */ }
+      const mid = (b.x0 + b.x1) / 2, ly = b.above ? b.row - 0.4 * S.c : b.row + 0.33 * S.c;
+      bb ||= { x0: mid - b.len / 2, x1: mid + b.len / 2, y0: ly - 0.8 * S.c, y1: ly + 0.25 * S.c };
+      const top = S.ny + 0.5 * S.v + 2;
+      const leg = (x) => {
+        const sx = snapX(strip, x).toFixed(2);
+        if (!b.above || x < bb.x0 - 4 || x > bb.x1 + 4) return `M${sx} ${b.row - 5}V${top}`;
+        // (from the bar up to 4 px under the label, and from 4 px over it up to the reading, each where it has length)
+        return (b.row - 5 - (bb.y1 + 4) > 1 ? `M${sx} ${b.row - 5}V${(bb.y1 + 4).toFixed(1)}` : '') + (bb.y0 - 4 - top > 1 ? `M${sx} ${(bb.y0 - 4).toFixed(1)}V${top}` : '');
+      };
+      b.lead.setAttribute('d', leg(b.x0) + leg(b.x1));
     };
     putS(hvS, f.whvp, f.fhvp, gH, 'hvpg'); putS(ppS, f.pv, f.ivc, gP, 'ppg');
     const say = 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '
@@ -2196,7 +2212,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         const t = k.parentElement, cs = getComputedStyle(t), room = t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
         if (room > 0 && k.scrollWidth > room + 0.5) k.classList.add('short');
       }
-      // (A scale bar's cut-off numbers stay inside the bar, and one that would touch the number before it is left out.)
+      // (A scale bar's cut-off numbers stay inside the bar, and one within 8 px of the number before it is left out: sweep batch 03,
+      // 0.1 and 1.5 sat 6 px apart and read as one.)
       for (const bar of el.querySelectorAll('.pz-tiles .pzt-bar')) {
         const B = bar.getBoundingClientRect();
         let end = -Infinity;
@@ -2205,7 +2222,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           let r = l.getBoundingClientRect();
           if (!r.width) continue;
           if (r.left < B.left) { l.classList.add('lo'); r = l.getBoundingClientRect(); } else if (r.right > B.right) { l.classList.add('hi'); r = l.getBoundingClientRect(); }
-          if (r.left < end + 4) l.classList.add('off'); else end = r.right;
+          if (r.left < end + 8) l.classList.add('off'); else end = r.right;
         }
       }
       fitHeads(el);

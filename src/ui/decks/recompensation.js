@@ -60,7 +60,7 @@ export const RECOMPENSATION = {
       id: 'recomp', tick: 'Off diuretics', params: { diuretics: false }, days: 60, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'],
       kicker: 'Recompensation', site: 'sin', title: 'Baveno VIII criteria for recompensation',
       line: 'Off diuretics the ascites stays away and the albumin holds. If that lasts more than 6 months, with the liver back to Child–Pugh A, the patient has recompensated.',
-      causesHead: 'Baveno VIII criteria', causes: ['Cause removed or controlled', 'No ascites or encephalopathy off treatment, and no rebleed, for over 6 months', 'Back to Child–Pugh A'],
+      causesHead: 'Baveno VIII criteria', causes: ['Cause removed or controlled', 'no ascites or encephalopathy off treatment, and no rebleed, for over 6 months', 'back to Child–Pugh A'],
       notes: 'Baveno VIII asks for all of: the cause removed, suppressed or cured; no ascites on imaging off diuretics, no encephalopathy off lactulose or rifaximin and, after a variceal bleed, no further bleed (carvedilol may continue), all for more than 6 months in a row; and liver function back to Child–Pugh A (5 or 6 points). Recompensation means the disease behaves as compensated again; it is not a cure. The patient still has cirrhosis, still needs a clinic visit every 6 months with surveillance for liver cancer and, while CSPH persists, the beta-blocker. If the cause returns, decompensation can follow.',
       ask: ['After recompensation, does liver cancer surveillance stop?', 'No: the cirrhosis remains, so surveillance continues.'],
     },

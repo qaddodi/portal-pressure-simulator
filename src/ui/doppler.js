@@ -6,7 +6,7 @@
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=2a952639b6';
-import { FONT } from './charts.js?v=bf5b3f6968';
+import { FONT } from './charts.js?v=8d14002b01';
 import { logAction, shownVel, store } from './store.js?v=3b659e1968';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=7477106558';
 import { frameFor, noteDraw, paceMs } from './frame.js?v=5efaa2bcc9';
@@ -123,7 +123,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // Normal-range gauge: a track with the usual band shaded and a marker for the current mean.
   const bandEl = h('i', { class: 'dop-band' });
   const markEl = h('i', { class: 'dop-mark' });
-  const gLo = h('span', { class: 'dop-g-lo' }); const gHi = h('span', { class: 'dop-g-hi' }); const gZero = h('span', { class: 'dop-g-zero' }, '0');
+  const gLo = h('span', { class: 'dop-g-lo' }); const gHi = h('span', { class: 'dop-g-hi', 'data-u': 'cm/s' }); const gZero = h('span', { class: 'dop-g-zero' }, '0');
   const rangeEl = h('div', { class: 'dop-range', hidden: true }, h('div', { class: 'dop-track' }, bandEl, markEl), h('div', { class: 'dop-ticks' }, gZero, gLo, gHi));
   const patternEl = h('div', { class: 'dop-pattern' });
   const noteEl = h('p', { class: 'dop-note' });
@@ -352,7 +352,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     markEl.style.left = `${pos(mean)}%`;
     gZero.style.left = `${pos(0)}%`; gLo.style.left = `${pos(n0)}%`; gHi.style.left = `${pos(n1)}%`;
     gHi.hidden = open;
-    set2(gLo, open ? `${n0} cm/s` : String(n0)); set2(gHi, open ? '' : `${n1} cm/s`);
+    // (Each tick's number is centred on its point and the unit hangs after it: "40 cm/s" pulled left to fit put its 40 about
+    // 5 cm/s short of the band's end.)
+    set2(gLo, String(n0)); set2(gHi, open ? '' : String(n1));
+    if (gLo.dataset.u !== (open ? 'cm/s' : '')) gLo.dataset.u = open ? 'cm/s' : '';
     rangeEl.title = open ? `Usual ${n0} cm/s or more` : `Usual ${n0}–${n1} cm/s`;
   }
   // A slide's own state (its fingerprint's network, presenter dataTo → tools.pin): the probed vessel's velocity as the scanner reads it.
@@ -410,7 +413,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const none = it.dir === 'No flow';
     if (velEl.hidden !== none) velEl.hidden = none;
     shownVel.set(probe, { v: Math.abs(mean), t: performance.now(), seg: isStentProbe() ? gateOf() : null });
-    updateGauge(p, r.mean * gf, it.expected);
+    updateGauge(p, mean, it.expected);   // (the headline's own number: the marker read 23.5 under a headline of 22, sweep batch 04, shot 12)
     set(patternEl, it.pattern);
     // peak: the extreme farthest from zero, whichever the direction
     const [pk, tr] = Math.abs(r.vmax) >= Math.abs(r.vmin) ? [r.vmax, r.vmin] : [r.vmin, r.vmax];
