@@ -24,7 +24,7 @@ import { store } from './store.js?v=31ee79b6ab';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=1ff0bc103e';
-import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped } from './lobule-look.js?v=ac7a06c4eb';
+import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline } from './lobule-look.js?v=a208ad8d9e';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=0140acc352';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=5c9a375f49';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
@@ -116,12 +116,7 @@ function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp
     const end = 1 + (e0 - 1) * Math.max(0, 1 - u * 3) ** 2 + (e1 - 1) * Math.max(0, u * 3 - 2) ** 2;
     Wd.push(Math.max(0, w * lump * end));
   }
-  const outline = (k, o = 0) => {
-    c.beginPath();
-    for (let i = 0; i <= n; i++) { const h = Wd[i] * (k / 2 + o); c[i ? 'lineTo' : 'moveTo'](P[i][0] + N[i][0] * h, P[i][1] + N[i][1] * h); }
-    for (let i = n; i >= 0; i--) { const h = Wd[i] * (k / 2 - o); c.lineTo(P[i][0] - N[i][0] * h, P[i][1] - N[i][1] * h); }
-    c.closePath();
-  };
+  const outline = (k) => bandOutline(c, P, N, Wd, k);   // (round ends, so bands meeting at a tract blend)
   // Soft edges: the band laid down in three passes, wide and faint to narrow and dense.
   const sb = c.shadowBlur;   // a shade (set by the caller) is cast by the faint outer pass only
   for (const [k, al] of [[2.1, 0.12], [1.45, 0.24], [1, 0.5]]) { c.fillStyle = css(rgb, al * a); outline(k); c.fill(); c.shadowBlur = 0; }

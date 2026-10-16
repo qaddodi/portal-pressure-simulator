@@ -110,3 +110,19 @@ function areaDown(px, w, h, W, H) {
   }
   return out;
 }
+
+/**
+ * A fibrous band's outline on context c: P its centre line, N the unit normals, Wd its width at each point, k the pass's
+ * width factor. Both ends are rounded (a half circle as wide as the band there), so where bands meet at a portal tract
+ * they merge into one soft collar instead of ending in flat, clipped-looking cuts.
+ */
+export function bandOutline(c, P, N, Wd, k) {
+  const n = P.length - 1, h = (i) => Wd[i] * k / 2, ang = (i) => Math.atan2(N[i][1], N[i][0]);
+  c.beginPath();
+  for (let i = 0; i <= n; i++) c[i ? 'lineTo' : 'moveTo'](P[i][0] + N[i][0] * h(i), P[i][1] + N[i][1] * h(i));
+  // (From +N round to −N through the tangent's direction: the cap bulges past the end, never back over the band.)
+  c.arc(P[n][0], P[n][1], h(n), ang(n), ang(n) - Math.PI, true);
+  for (let i = n; i >= 0; i--) c.lineTo(P[i][0] - N[i][0] * h(i), P[i][1] - N[i][1] * h(i));
+  c.arc(P[0][0], P[0][1], h(0), ang(0) + Math.PI, ang(0), true);
+  c.closePath();
+}
