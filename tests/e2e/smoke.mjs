@@ -2718,7 +2718,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const look = (sin) => page.evaluate((sin) => {
       const out = [], r = (e) => e.getBoundingClientRect(), pill = document.querySelector(sin ? '#sinViews' : '#nbViews'), p = r(pill);
       if (!pill.contains(document.querySelector('#viewSeg'))) return ['the switch is not in its pill'];
-      if (Math.abs((p.left + p.right) / 2 - innerWidth / 2) > 1.5) out.push(`the pill's centre is ${Math.round((p.left + p.right) / 2 - innerWidth / 2)} px off the screen's`);
+      // (centred on the play bar, which is centred on the screen everywhere but a phone held sideways, where it starts at the left)
+      const bar = r(document.querySelector('#vdock')), mid = sin ? innerWidth / 2 : (bar.left + bar.right) / 2;
+      if (Math.abs((p.left + p.right) / 2 - mid) > 1.5) out.push(`the pill's centre is ${Math.round((p.left + p.right) / 2 - mid)} px off the ${sin ? 'screen' : 'play bar'}'s`);
       if (p.left < 0 || p.right > innerWidth) out.push('the pill runs off the screen');
       if (!sin) { const gap = r(document.querySelector('#vdock')).top - p.bottom; if (Math.abs(gap - 8) > 1) out.push(`the pill is ${Math.round(gap)} px above the play bar, not 8`); }
       else {
