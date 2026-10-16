@@ -4917,6 +4917,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       case 'S': return [-w / 2, gap];
       case 'E': return [gap, -hh / 2];
       case 'W': return [-gap - w, -hh / 2];
+      case 'EL': return [gap, -hh * 0.2];   // (beside it, a little low: a one-line reading at the top edge of the free space)
+      case 'WL': return [-gap - w, -hh * 0.2];
       case 'NE': return [d, -d - hh];
       case 'NW': return [-d - w, -d - hh];
       case 'SE': return [d, d];
@@ -5412,13 +5414,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             if ((ps.strict || ps.resc) && rings.some((o) => (o !== it || ps.resc) && o.ax > r.x0 - 7 && o.ax < r.x1 + 7 && o.ay > r.y0 - 7 && o.ay < r.y1 + 7)) return;
             // (No reading sits on another's leader: 2 px clear of its halo.)
             const others = out.filter((o) => o !== it && o.leader && !o.live).map((o) => { const e = leaderEnd(rectOf(o), o.ax, o.ay); return [o.ax, o.ay, e.x, e.y]; });
-            if (others.some((sg) => segHitsBox({ x0: sg[0], y0: sg[1], x1: sg[2], y1: sg[3] }, r, ps.strict ? 5 : 2))) return;
+            if (others.some((sg) => segHitsBox({ x0: sg[0], y0: sg[1], x1: sg[2], y1: sg[3] }, r, ps.strict || ps.resc ? 5 : 2))) return;
             if (ps.inView && placed.some((p) => !p.dot && hits(r, { x0: p.x0 - 4, y0: p.y0 - 4, x1: p.x1 + 4, y1: p.y1 + 4 }))) return;
             const le = leaderEnd(r, it.ax, it.ay), ex = le.x, ey = le.y, L = Math.hypot(ex - it.ax, ey - it.ay);
             const gapPx = Math.hypot(Math.max(r.x0 - it.ax, 0, it.ax - r.x1), Math.max(r.y0 - it.ay, 0, it.ay - r.y1));
             if (gapPx > 10) {
               if (others.some((sg) => segsCross(sg, [it.ax, it.ay, ex, ey]))) return;
-              for (let u = ps.strict ? 0 : 8, q = ps.strict ? 3 : 2; u < L - 2; u += ps.strict ? 2 : 3) {   // (rescued: from its station's ring on, the ring too kept clear)
+              for (let u = ps.strict || ps.resc ? 0 : 8, q = ps.strict || ps.resc ? 3 : 2; u < L - 2; u += ps.strict || ps.resc ? 2 : 3) {   // (rescued: from its station's ring on, the ring too kept clear)
                 const px = it.ax + ((ex - it.ax) * u) / L, py = it.ay + ((ey - it.ay) * u) / L, pr = { x0: px - q, y0: py - q, x1: px + q, y1: py + q };
                 if ((ps.ring === 'clean' && lineHits(pr, 0)) || placed.some((p) => !p.dot && hits(pr, p))) return;   // (a leader may pass a station's dot, never a reading)
               }
@@ -5697,13 +5699,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const ok = [far, near, near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
           Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, one: false });   // (whole again for each try)
           return placeMulti(it, dirs, R, 0, R.length, false, 1);
-        }) || [0, 1].some((sh) => [far, near].some((R) => {
+        }) || [0, 1].some((sh) => [far, near, far.map((ps) => ({ ...ps, overZones: true })), near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
           // (Else on one line, name then value (then without its units): a station at the top of the free space, RA under a phone's
           // data card, has room beside it only for a reading one line tall.)
           Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, one: false });
           if (sh && !((it.short || 0) < 1 && shortenItem(it) && it.short === 1)) return false;
           oneLine(it);
-          return it.one && placeMulti(it, dirs, R, 0, R.length, false, it.short || 0);
+          return it.one && placeMulti(it, [...dirs, 'EL', 'WL'], R, 0, R.length, false, it.short || 0);
         }));
         // (Its slot is not one of the usual passes': marked so the next layout does not take it for one held there.)
         if (ok) { it.onVessel = lineHits(it._r, 2) > 0; const sol = nextSol.get(it.key); if (sol) { sol.onv = it.onVessel; sol.pi = -1; sol.one = !!it.one; } continue; }
