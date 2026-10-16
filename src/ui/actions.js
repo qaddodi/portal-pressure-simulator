@@ -5,7 +5,7 @@
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { store, updateParams, hiddenNow } from './store.js?v=2ffba40465';
+import { store, updateParams, hiddenNow } from './store.js?v=31ee79b6ab';
 import { fmt, fmtFlow, clamp } from './util.js?v=0140acc352';
 import { PREGNANCY_INFO } from '../engine/scenario.js?v=1ee7733788';
 import { aboutVessel, aboutOrgan } from './about.js?v=e0bda4dfee';
@@ -15,21 +15,6 @@ import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=0b72305f30';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
-
-// Named tools and the verbs they unlock (store.allowedVerbs).
-const TOOL_VERB = { pinch: 'narrow', thrombus: 'clot', fibrosis: 'fibrosis', stent: 'shunt', band: 'band', occlude: 'occlude', balloon: 'balloon', doppler: 'doppler', endoscope: 'endoscope', needle: 'paracentesis' };
-export const toolsToVerbs = (list) => (list ? [...new Set(list.map((t) => TOOL_VERB[t] || t).filter((v) => v !== 'select' && v !== 'probe'))] : null);
-
-/** Is a verb available now? store.allowedVerbs can restrict verbs; it may also unlock a parameter. */
-export function verbEnabled(id, key) {
-  const st = store.get();
-  const allowed = st.allowedVerbs;
-  if (!allowed && !st.locked) return true;
-  if (allowed?.includes(id)) return true;
-  if (key && st.locked && !st.locked.has('*') && st.locked.has(key)) return true;
-  if (!allowed) return !(key && st.locked && ((!st.locked.has('*') && !st.locked.has(key)) || st.locked.has('!' + key)));
-  return false;
-}
 
 const pct = (v) => `${Math.round(v * 100)} %`;
 const mult = (v) => `×${v.toFixed(v < 10 ? 1 : 0)}`;

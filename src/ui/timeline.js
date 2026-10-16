@@ -10,10 +10,10 @@
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
-import { store, replaceParams, onParamChange } from './store.js?v=2ffba40465';
+import { store, replaceParams, onParamChange } from './store.js?v=31ee79b6ab';
 import { host } from './host.js?v=63adcda5e9';
 import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=0140acc352';
-import { activeInterventions } from './inspector.js?v=112b460c7b';
+import { activeInterventions } from './inspector.js?v=958160ed1b';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('timeline');
 
@@ -37,7 +37,7 @@ export const fmtClock = (t, day) => {
   return day > 0 ? `Day ${day} · ${tt}` : tt;
 };
 
-export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRevert = () => true, scenarioLabel }) {
+export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scenarioLabel }) {
   let entries = [], cursor = -1, seq = 0, baseline = null, pending = null, lastEv = {}, jumping = false;
   const listeners = [];
   const absT = (e) => e.day * 86400 + e.t;
@@ -184,7 +184,6 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
   function goTo(i, { quiet = false } = {}) {
     const e = entries[i];
     if (!e?.snap) return false;
-    if (!canRevert()) { toast('Going back in time is off here.'); return false; }
     flushParams();
     host.send({ type: 'restore', snap: e.snap });
     replaceParams(structuredClone(e.snap.params));
@@ -198,7 +197,6 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
   }
   /** Whether there is an earlier moment to go back to (and going back is allowed here). */
   function canUndo() {
-    if (!canRevert()) return false;
     if (pending) return liveIndex() >= 0;   // (a change still being typed in becomes an entry when Undo flushes it)
     for (let i = currentIndex() - 1; i >= 0; i--) if (restorable(i)) return true;
     return false;
@@ -260,7 +258,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
       const e = entries[i];
       const acts = [];
       const act = (label, ic, col, fn) => acts.push(h('button', { class: 'tl-pop-ic', style: { gridColumn: col }, title: label, 'aria-label': label, onclick: fn }, ic));
-      if (e.snap && canRevert()) act(i === liveIndex() && cursor < 0 ? 'Back to this moment' : 'Go back here', svgIcon('rewind', 'mi-ic'), 1, () => { closePopover(); goTo(i); });
+      if (e.snap) act(i === liveIndex() && cursor < 0 ? 'Back to this moment' : 'Go back here', svgIcon('rewind', 'mi-ic'), 1, () => { closePopover(); goTo(i); });
       if (e.frame) act('Compare with now', svgIcon('camera', 'mi-ic'), 2, () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Comparing with ${fmtClock(e.t, e.day)}: ${e.label}.`); });
       const future = cursor >= 0 && i > cursor;
       return h('div', { class: `tl-pop-row${future ? ' future' : ''}` },

@@ -1007,7 +1007,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .ac-ic { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); flex: none; }
 .ac-slider, .ac-drain { display: flex; flex-direction: column; gap: 4px; position: relative; }
 .ac-slider.changed .ctl-val { color: var(--accent-ink); }
-.ac-slider.locked, .ac-drain.locked { opacity: .5; }
 .ac-row { display: flex; flex-direction: column; gap: 4px; }
 .ac-seg button { padding: 4px 8px; font-size: var(--fs-12); }
 .ac-seg.small button { padding: 4px 8px; font-size: var(--fs-12); }

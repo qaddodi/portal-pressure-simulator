@@ -12,17 +12,17 @@
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide,
 // Esc. (The Guide lists them: PRESENT_KEYS in main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=2ffba40465';
+import { store, replaceParams } from './store.js?v=31ee79b6ab';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox } from './util.js?v=0140acc352';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=b483575a4c';
+import { sinusoidSupported } from './sinusoid-view.js?v=e883e572db';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=46c693091f';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=1920936d7e';
-import { createTools } from './presenter-tools.js?v=acd8e675e3';
+import { createHvpgMonitor } from './hvpg-proc.js?v=50c4e675b4';
+import { createTools } from './presenter-tools.js?v=5301e8d3db';
 import { openHandout } from './handout.js?v=c3ee61aae0';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';

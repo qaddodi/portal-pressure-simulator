@@ -2,23 +2,23 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=63adcda5e9';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=2ffba40465';
-import { createStage } from './stage.js?v=9108d1ce8d';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
+import { createStage } from './stage.js?v=d06ad5d9d5';
 import { createCreditPlacer } from './credit.js?v=b780eae767';
-import { sinusoidSupported } from './sinusoid-view.js?v=b483575a4c';
-import { createInspector } from './inspector.js?v=112b460c7b';
-import { createDock, CUTOFFS } from './dock.js?v=d3766bd1ab';
-import { setHvpgStage } from './hvpg-proc.js?v=1920936d7e';
+import { sinusoidSupported } from './sinusoid-view.js?v=e883e572db';
+import { createInspector } from './inspector.js?v=958160ed1b';
+import { createDock, CUTOFFS } from './dock.js?v=eb34f825b8';
+import { setHvpgStage } from './hvpg-proc.js?v=50c4e675b4';
 import { createWhy } from './why.js?v=4e4e6ce9d1';
-import { createTimeline, LAPSES } from './timeline.js?v=2fe2d43e1b';
-import { createCompare } from './compare.js?v=b6fbe01a1f';
-import { createCard } from './card.js?v=9942573edd';
-import { createChart } from './chart.js?v=e2ab2ec6d0';
-import { createMenu } from './menu.js?v=5c48397094';
-import { caption } from './a11y.js?v=c7edec5f58';
+import { createTimeline, LAPSES } from './timeline.js?v=f50fbbb8b3';
+import { createCompare } from './compare.js?v=d555638c31';
+import { createCard } from './card.js?v=692441314d';
+import { createChart } from './chart.js?v=d09ebc131d';
+import { createMenu } from './menu.js?v=10a35de051';
+import { caption } from './a11y.js?v=06858b3c4a';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=a1979140a4';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=db658d5f21';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=5c9a375f49';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
@@ -159,7 +159,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=8041546354'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=8b26ea4920'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -167,7 +167,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=b58409ce10'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=1fb13fd42c'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -482,10 +482,6 @@ function doAction(a) {
 
 // ── Armed gestures ─────
 function setTool() { store.set({ tool: 'select' }); }
-function setAllowedTools(list) {
-  store.set({ allowedVerbs: toolsToVerbs(list) });
-  if (store.get().tool !== 'select') store.set({ tool: 'select' });
-}
 // The shunt hint, one target per line with the vein to pick in bold; "Tap" on touch, and Esc only where there is a keyboard.
 function shuntHint(only) {
   const fine = matchMedia('(hover: hover) and (pointer: fine)').matches, verb = fine ? 'Click' : 'Tap';
@@ -1524,7 +1520,7 @@ function closeHistory({ focus = false } = {}) {
 function onMode(mode) {
   app.dataset.mode = mode;
   store.set({ focus: null });
-  if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, hiddenEvents: null, imaging: false, found: null }); setAllowedTools(null); }
+  if (mode === 'explore') { store.set({ hiddenReadouts: null, hiddenEvents: null, imaging: false, found: null }); if (store.get().tool !== 'select') setTool(); }
   store.set({ selection: null, details: null });
   inspector.render();
   renderPaintHint(); renderBanner(); renderLegend();
@@ -1627,15 +1623,6 @@ function revealDock(mode) {
   openPanel('instruments');
 }
 function wirePanel() {
-  const tabs = $$('.panel-tabs [role="tab"]');
-  tabs.forEach((b, i) => {
-    b.addEventListener('click', () => openPanel(b.dataset.ptab));
-    b.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
-      n.focus(); openPanel(n.dataset.ptab);
-    });
-  });
   $('#tabInstruments').addEventListener('click', () => dock.toggle());
   $('#panelClose').addEventListener('click', () => closePanel({ focus: true }));
   $('#panelScrim').addEventListener('click', () => closePanel());
@@ -1730,7 +1717,6 @@ function openPrivacy() {
 // Launch goes straight into the simulator, the first time included. Only a deep link
 // (?script=, ?preset=, ?home=) opens anything else.
 function firstRun() {
-  try { localStorage.setItem('pps.seen', '1'); } catch { /* storage unavailable */ }
   showFirstHint();
 }
 // The first-run hint: once per device, in the message card under the top bars (never over the bottom bar), until the

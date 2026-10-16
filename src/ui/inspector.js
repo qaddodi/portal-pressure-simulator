@@ -3,7 +3,7 @@
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
 import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=1ee7733788';
-import { store, updateParams, isLocked, hiddenNow } from './store.js?v=2ffba40465';
+import { store, updateParams, hiddenNow } from './store.js?v=31ee79b6ab';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=0140acc352';
 import { liveBalance } from './balance-hold.js?v=ea4d9121d2';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
@@ -47,7 +47,7 @@ export const CONTROLS = {
   dipsD: { type: 'slider', key: 'dips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, get: (p) => p.dips.d, set: (p, v) => { p.dips.d = v; }, format: (v) => `${v.toFixed(1)} mm`, def: 8, info: 'The same stent as a TIPS, through a shorter tract: the diameter matters as much.', showIf: (p) => p.dips.on },
   balloonEso: { type: 'toggle', key: 'balloonEso', label: 'Esophageal balloon tamponade', ...prop('balloonEso') },
   balloonGas: { type: 'toggle', key: 'balloonGas', label: 'Gastric balloon tamponade', ...prop('balloonGas') },
-  brto: { type: 'toggle', key: 'occluded', lockKey: 'brto', label: 'BRTO (occlude the gastrorenal shunt)', get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, info: 'Balloon-occluded retrograde transvenous obliteration. Watch what it does to portal pressure.' },
+  brto: { type: 'toggle', key: 'occluded', label: 'BRTO (occlude the gastrorenal shunt)', get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, info: 'Balloon-occluded retrograde transvenous obliteration. Watch what it does to portal pressure.' },
   splenicRx: { type: 'slider', key: 'splenicRx', label: 'Spleen: embolization / splenectomy', min: 0, max: 2, step: 1, get: (p) => p.splenicRx | 0, set: (p, v) => { p.splenicRx = v; }, format: (v) => ['none', 'partial embolization', 'splenectomy'][v], def: 0, info: 'Cuts splenic artery inflow: partial embolization removes part of the spleen\'s blood supply, splenectomy removes all of it. Less inflow means a lower portal pressure and less flow to the varices.' },
   portocaval: { type: 'toggle', key: 'portocaval', label: 'Portocaval shunt', ...prop('portocaval'), info: 'End-to-side: total diversion; the liver loses all portal perfusion.' },
   dsrs: { type: 'toggle', key: 'dsrs', label: 'Distal splenorenal (Warren)', ...prop('dsrs'), info: 'Selective: decompresses gastroesophageal varices while SMV blood still perfuses the liver.' },
@@ -65,7 +65,7 @@ export const CONTROLS = {
   bleeding: { type: 'toggle', key: 'bleeding', label: 'Variceal bleeding', ...prop('bleeding'), info: 'Off: varices grow but never rupture on their own. On: a varix can tear once its wall tension passes the critical value.' },
   detRupture: { type: 'toggle', key: 'deterministicRupture', label: 'Deterministic rupture', ...prop('deterministicRupture'), info: 'Rupture exactly when wall tension exceeds the critical value, instead of a random hazard.' },
 };
-for (const k of Object.keys(DRUGS)) CONTROLS['drug:' + k] = { type: 'drug', key: 'drugs', lockKey: 'drug:' + k, drug: k };
+for (const k of Object.keys(DRUGS)) CONTROLS['drug:' + k] = { type: 'drug', key: 'drugs', drug: k };
 
 const DRUG_SHORT = { propranolol: 'Non-selective β-blocker', carvedilol: 'β-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
 
@@ -73,7 +73,6 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   let live = [];        // [el, fn(frame)]
   let syncers = [];
   let lastSel;
-  let tab = 'therapy';
   const openSections = new Set(['liver', 'drugs', 'procedures', 'inflow', 'live', 'ctl']);
 
   const liveText = (fn) => { const el = h('span', { class: 'num' }); live.push([el, fn]); return el; };
@@ -81,7 +80,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
 
   // ── Control builders ──────────────────────────────
   function slider(c) {
-    const { key, label, min, max, step, get, set, format, normal, info, sub, lockKey, def } = c;
+    const { label, min, max, step, get, set, format, normal, info, sub, def } = c;
     const input = h('input', { type: 'range', min, max, step, 'aria-label': label, 'data-def': def ?? null });
     const val = h('span', { class: 'ctl-val' });
     const reset = h('button', { class: 'reset-btn', title: 'Reset', 'aria-label': `Reset ${label}` }, icon('reset'));
@@ -95,8 +94,6 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
       wrap.classList.toggle('changed', def != null && Math.abs(v - def) > 1e-9);
     };
     let fresh = true;
-    const locked = isLocked(lockKey || key);
-    if (locked) { input.disabled = true; wrap.title = 'Locked here'; }
     input.addEventListener('pointerdown', () => { fresh = true; });
     input.addEventListener('keydown', () => { fresh = true; });
     // The thumb and its number follow the pointer at once; the model gets the newest value once per frame.
@@ -111,7 +108,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     });
     input.addEventListener('change', flush);
     reset.addEventListener('click', () => {
-      if (def == null || locked) return;
+      if (def == null) return;
       paint(def);
       updateParams((pp) => { set(pp, def); return pp; }, { label: `Reset ${label}` });
     });
@@ -120,10 +117,9 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     if (c.showIf) wrap.hidden = !c.showIf(store.get().params);
     return wrap;
   }
-  function toggle({ key, label, get, set, info, sub, lockKey }) {
+  function toggle({ label, get, set, info, sub }) {
     const cb = h('input', { type: 'checkbox', role: 'switch', 'aria-label': label });
     cb.checked = !!get(store.get().params);
-    if (isLocked(lockKey || key)) cb.disabled = true;
     cb.addEventListener('change', () => updateParams((pp) => { set(pp, cb.checked); return pp; }, { label: `${label} ${cb.checked ? 'on' : 'off'}` }));
     const row = h('div', { class: 'ctl' }, h('label', { class: 'toggle-row' }, h('span', { class: 'ctl-label' }, label, info ? infoButton(info) : null), h('span', { class: 'switch' }, cb, h('span'))), sub ? h('div', { class: 'ctl-sub' }, sub) : null);
     row._sync = (pp) => { cb.checked = !!get(pp); };
@@ -133,7 +129,6 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     const d = DRUGS[k];
     const b = h('button', { class: 'drug', 'aria-pressed': String(!!store.get().params.drugs[k]) },
       h('span', { class: 'dn' }, d.label, h('span', { class: 'dot' }, icon('check'))), h('span', { class: 'dd' }, DRUG_SHORT[k] || ''));
-    if (isLocked('drug:' + k)) b.disabled = true;
     tooltipFor(b, d.info);
     b.addEventListener('click', () => updateParams((pp) => { pp.drugs[k] = !pp.drugs[k]; return pp; }, { label: d.label }));
     b._sync = (pp) => b.setAttribute('aria-pressed', String(!!pp.drugs[k]));
@@ -154,76 +149,11 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     d.addEventListener('toggle', () => { if (d.open) openSections.add(id); else openSections.delete(id); });
     return d;
   }
-  const changedCount = (ids) => { const p = store.get().params; const n = ids.filter((id) => { const c = CONTROLS[id]; if (!c) return false; const v = c.type === 'drug' ? p.drugs[c.drug] : c.get(p); return c.type === 'slider' ? Math.abs(v - c.def) > 1e-9 : c.def !== undefined ? v !== c.def : !!v; }).length; return n || null; };
   const whyBtn = (metric, text = 'Why this value?') => h('button', { class: 'btn sm', onclick: (e) => onWhy(metric, e.currentTarget) }, icon('bulb'), text);
 
-  // ── Global panel ──────────────────────────────────
-  function globalPanel() {
-    const P = store.get().params;
-    const activeBox = h('div', { class: 'changes' });
-    const renderActive = (pp) => {
-      const active = activeInterventions(pp);
-      // Rebuilt only when the list of changes reads differently (not on every step of a slider).
-      const sig = active.map((a) => a.label).join('\n');
-      if (activeBox._sig === sig) return;
-      activeBox._sig = sig;
-      activeBox.replaceChildren(
-        h('div', { class: 'changes-head' }, h('span', { class: 'overline' }, active.length ? `Active changes · ${active.length}` : 'Active changes'),
-          active.length ? h('button', { class: 'link', style: { fontSize: 'var(--fs-12)' }, onclick: () => updateParams((q) => { for (const a of activeInterventions(q)) a.remove(q); return q; }, { label: 'Clear all changes' }) }, 'Clear all') : null),
-        active.length
-          ? h('div', { class: 'chips-list' }, active.map((a) => h('span', { class: 'active-chip' }, a.label, h('button', { 'aria-label': `Remove ${a.label}`, title: 'Remove', onclick: () => updateParams((q) => { a.remove(q); return q; }, { label: `Remove ${a.label}` }) }, icon('close')))))
-          : h('div', { class: 'ctl-sub' }, 'Healthy baseline. Change something with the tools on the anatomy or the controls below.'));
-    };
-    renderActive(P);
-    activeBox._sync = renderActive;
-    syncers.push(activeBox);
-
-    const tabs = h('div', { class: 'seg full', role: 'tablist', 'aria-label': 'Control groups' }, [['therapy', 'Therapy'], ['physiology', 'Physiology']].map(([id, l]) => {
-      const b = h('button', { role: 'tab', 'aria-selected': String(tab === id) }, l);
-      b.addEventListener('click', () => { tab = id; render(); });
-      return b;
-    }));
-    const scen = store.get().presetList?.find((x) => x.id === store.get().presetId)?.label || 'Custom';
-    const head = h('div', { class: 'p-head' },
-      h('div', { class: 'p-head-row' }, h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, `Patient · ${scen}`), h('h2', {}, 'Controls'))),
-      tabs);
-    let body;
-    if (tab === 'therapy') {
-      const fluids = h('div', { class: 'action-grid' },
-        h('button', { class: 'btn', onclick: () => onAction({ kind: 'infuse', fluid: 'crystalloid' }) }, '+ 1 L crystalloid'),
-        h('button', { class: 'btn', onclick: () => onAction({ kind: 'infuse', fluid: 'prbc' }) }, '+ 1 unit PRBC'),
-        h('button', { class: 'btn', onclick: () => onAction({ kind: 'infuse', fluid: 'albumin' }) }, '+ Albumin'),
-        h('button', { class: 'btn danger', onclick: () => onAction({ kind: 'hemorrhage', mL: 500 }) }, '− 500 mL bleed'));
-      body = [
-        h('div', { class: 'callout-note', style: { margin: '14px 0 4px' } }, 'Disease is set on the anatomy: click the liver, a vein, the heart or the varices and use the card beside it.'),
-        section('drugs', 'Drugs', 'pill', changedCount([...Object.keys(DRUGS).map((k) => 'drug:' + k), 'anticoag']), h('div', { class: 'drug-grid' }, Object.keys(DRUGS).map((k) => build('drug:' + k))), build('anticoag')),
-        section('procedures', 'Procedures', 'stent', changedCount(['tips', 'dips', 'balloonEso', 'balloonGas', 'brto', 'splenicRx', 'portocaval', 'dsrs', 'mesocaval']),
-          build('tips'), build('tipsD'), build('dips'), build('dipsD'),
-          h('div', { class: 'action-grid' },
-            h('button', { class: 'btn', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band varices'),
-            h('button', { class: 'btn', onclick: () => onAction({ kind: 'paracentesisPrompt' }) }, icon('needle'), 'Paracentesis…')),
-          h('div', { class: 'subhead' }, 'Tamponade & embolization'), build('balloonEso'), build('balloonGas'), build('brto'), build('splenicRx'),
-          h('div', { class: 'subhead' }, 'Surgical shunts'), build('portocaval'), build('dsrs'), build('mesocaval')),
-        section('volume', 'Volume & ascites', 'drop', changedCount(['albumin', 'diuretics']),
-          h('div', { class: 'stat-grid' },
-            h('div', { class: 'stat' }, h('span', { class: 'k' }, 'Blood volume'), h('span', { class: 'v' }, liveText((f) => `${fmt(f.metrics.blood.volume / 1000, 2)} L`))),
-            h('div', { class: 'stat' }, h('span', { class: 'k' }, 'Hemoglobin'), h('span', { class: 'v' }, liveText((f) => `${fmt(f.metrics.blood.hb, 1)} g/dL`)))),
-          fluids, build('albumin'), build('diuretics')),
-      ];
-    } else {
-      body = [
-        section('inflow', 'Inflow & vascular tone', 'activity', changedCount(['splanchnicTone', 'systemicTone']), build('splanchnicTone'), build('systemicTone')),
-        section('hepatic', 'Hepatic circulation', 'liver', changedCount(['habr', 'apShunt']), build('habr'), build('apShunt')),
-        section('anatomy', 'Anatomical variants', null, changedCount(['grShunt', 'srShunt']), build('grShunt'), build('srShunt')),
-        section('env', 'Simulation', 'settle', null, build('pulsatile'), build('respiration'), build('respDepth'), build('bleeding'), build('detRupture'),
-          h('div', { class: 'action-grid' },
-            h('button', { class: 'btn', onclick: () => onAction({ kind: 'valsalva' }) }, 'Valsalva'),
-            h('button', { class: 'btn danger', onclick: () => onAction({ kind: 'rupture', site: 'VAR', tear: 0.6 }) }, 'Rupture a varix'))),
-        h('p', { class: 'disclaimer', style: { margin: '16px 0 0' } }, 'Educational simulation. The model is simplified and its values are illustrative; do not use it for diagnosis or treatment decisions.'),
-      ];
-    }
-    return [head, pinned?.(), activeBox, h('div', { class: 'p-body' }, body)];
-  }
+  // A details request that names nothing known falls back to the patient chart, as an empty one does.
+  const ctl = (ids) => ids.map((id) => build(id));
+  const home = () => chart.render(ctl);
 
   // ── Selection panels ──────────────────────────────
   function selectionHead(kicker, title, extra) {
@@ -237,7 +167,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
 
   function edgePanel(id) {
     const e = EDGES[EI[id]];
-    if (!e) return globalPanel();
+    if (!e) return home();
     const k = EI[id];
     const fromN = NODES[NI[e.from]], toN = NODES[NI[e.to]];
     const isColl = e.kind === 'collateral', isArt = e.kind === 'arteriole' || e.kind === 'artery';
@@ -305,7 +235,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   };
   function organPanel(id) {
     const o = ORGAN_ABOUT[id];
-    if (!o) return globalPanel();
+    if (!o) return home();
     const [kicker, title, about, stats, why] = o;
     return [selectionHead(kicker, title), h('div', { class: 'p-body' },
       section('live', 'Live values', null, null, h('div', { class: 'stat-grid' }, stats.map(([k, fn]) => stat(k, fn))), h('div', { class: 'btn-row' }, whyBtn(why))),
@@ -337,8 +267,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   function render() {
     live = []; syncers = [];
     const sel = store.get().details;
-    const ctl = (ids) => ids.map((id) => build(id));
-    const els = (!sel ? (chart ? chart.render(ctl) : globalPanel()) : sel.type === 'advanced' ? (chart ? chart.renderAdvanced(ctl) : globalPanel()) : sel.type === 'edge' ? edgePanel(sel.id) : sel.type === 'node' ? nodePanel(sel.id) : sel.type === 'organ' ? organPanel(sel.id) : globalPanel());
+    const els = !sel ? home() : sel.type === 'advanced' ? chart.renderAdvanced(ctl) : sel.type === 'edge' ? edgePanel(sel.id) : sel.type === 'node' ? nodePanel(sel.id) : sel.type === 'organ' ? organPanel(sel.id) : home();
     const scroller = root.closest('.panel') || root;
     const top = scroller.scrollTop;
     root.replaceChildren(...els.filter(Boolean));
@@ -353,11 +282,9 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   }
 
   store.on('details', render);
-  store.on('locked', render);
   document.addEventListener('pps:rerender-panel', render);
-  for (const k of ['presetId', 'mode', 'allowedVerbs', 'hiddenReadouts', 'showHvpg']) store.on(k, () => { if (!store.get().details) render(); });
+  for (const k of ['presetId', 'mode', 'hiddenReadouts', 'showHvpg']) store.on(k, () => { if (!store.get().details) render(); });
   store.on('params', () => { const p = store.get().params; for (const s of syncers) s._sync(p); });
-  if (!chart) render();
   return {
     render, update,
     /** Detached controls; they keep themselves in sync with params. */

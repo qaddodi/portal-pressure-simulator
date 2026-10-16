@@ -11,7 +11,6 @@ const state = {
   sinusoid: false,            // inside the Lobule view, zoomed on into one sinusoid
   selection: null,            // { type: 'edge' | 'node' | 'organ', id } — the structure whose action card is open
   details: null,              // a selection shown in full in the side panel ('Details ›')
-  allowedVerbs: null,         // verbs allowed now (null = all)
   shunting: null,             // { src, only } while a shunt waits for its drop target
   layers: { flow: true, chips: true, collaterals: false, organs: true, labels: true, grid: false },
   labelLevel: (() => { try { const v = localStorage.getItem('pps.labels'); return ['key', 'all', 'none'].includes(v) ? v : 'key'; } catch { return 'key'; } })(),   // station labels: key | all | none (Blood menu)
@@ -34,7 +33,6 @@ const state = {
   compareMetrics: null,
   healthy: null,
   presetId: 'healthy',
-  locked: null,               // Set of locked control keys
   hiddenReadouts: null,       // Set of hidden metrics
   hiddenEvents: null,         // Set of event ids kept out of the story (model-only knowledge)
   hvpgMeasured: false,        // Explore: the HVPG catheter procedure has run for this patient (the live HVPG shows)
@@ -126,4 +124,3 @@ export function redo() {
 }
 export function clearHistory() { past.length = 0; future.length = 0; }
 
-export const isLocked = (key) => !!(state.locked && !state.locked.has('*') && !state.locked.has(key)) || !!(state.locked && state.locked.has('!' + key));

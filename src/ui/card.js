@@ -3,14 +3,13 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=2ffba40465';
+import { store, updateParams } from './store.js?v=31ee79b6ab';
 import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink } from './util.js?v=0140acc352';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=a1979140a4';
+import { cardFor, normalizeSel } from './actions.js?v=db658d5f21';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
 
-const LOCK_TIP = 'Not available here';
 
 export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const el = h('section', { class: 'action-card stage-blocker', role: 'dialog', 'aria-label': 'Actions', hidden: true });
@@ -201,7 +200,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     });
   }
 
-  function locked(v) { return !verbEnabled(v.id, v.key); }
 
   function verbEl(v) {
     const p0 = store.get().params;
@@ -234,8 +232,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       const lab = typeof v.label === 'function' ? v.label() : v.label;
       const input = h('input', { type: 'range', min: v.min, max: v.max, step: v.step, 'aria-label': lab, 'data-def': v.def ?? null });
       const val = h('span', { class: 'ctl-val' });
-      const dis = locked(v);
-      if (dis) input.disabled = true;
       const paint = (x) => { input.value = x; val.textContent = v.format(x); input.style.setProperty('--pct', `${((x - v.min) / (v.max - v.min)) * 100}%`); row.classList.toggle('changed', v.def != null && Math.abs(x - v.def) > 1e-9); };
       let fresh = true;
       input.addEventListener('pointerdown', () => { fresh = true; });
@@ -252,7 +248,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       });
       input.addEventListener('change', flush);
       // On a phone a short name sits on one row with its track; a long one stacks above it.
-      const row = h('div', { class: 'ac-slider' + (lab.length > 13 ? ' long' : '') + (dis ? ' locked' : ''), title: dis ? LOCK_TIP : null },
+      const row = h('div', { class: 'ac-slider' + (lab.length > 13 ? ' long' : '') },
         h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lab, v.info ? infoButton(v.info) : null), val),
         h('div', { class: 'range-wrap' }, input),
         v.sub ? h('div', { class: 'ctl-sub' }, v.sub) : null);
@@ -262,8 +258,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       return row;
     }
     if (v.type === 'toggle') {
-      const dis = locked(v);
-      const b = h('button', { class: 'ac-toggle', role: 'switch', 'aria-checked': String(!!v.get(p0)), disabled: dis, title: dis ? LOCK_TIP : null },
+      const b = h('button', { class: 'ac-toggle', role: 'switch', 'aria-checked': String(!!v.get(p0)) },
         v.icon ? svgIcon(v.icon, 'ac-ic') : null, h('span', { class: 'ac-tl' }, v.label), h('span', { class: 'switch-vis', 'aria-hidden': 'true' }, h('i')));
       b.addEventListener('click', () => { const on = !v.get(store.get().params); updateParams((pp) => { v.set(pp, on); return pp; }, { label: `${v.hist || v.label} ${on ? 'on' : 'off'}` }); });
       syncs.push((p) => b.setAttribute('aria-checked', String(!!v.get(p))));
@@ -271,9 +266,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       return b;
     }
     if (v.type === 'button') {
-      const dis = locked(v);
       const lbl = h('span', { class: 'ac-bl' }, v.label);
-      const b = h('button', { class: 'ac-btn' + (v.danger ? ' danger' : ''), disabled: dis, title: dis ? LOCK_TIP : null }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lbl);
+      const b = h('button', { class: 'ac-btn' + (v.danger ? ' danger' : '') }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lbl);
       b.addEventListener('click', () => { v.run(); setTimeout(() => render({ keepFocus: true }), 30); });
       const wrap = h('div', { class: 'ac-btn-wrap' + (v.label.length > 15 ? ' wide' : '') }, b);   // a long name takes the whole row on a phone
       if (v.note || v.on || v.labelFor) {
@@ -310,16 +304,15 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       return h('div', { class: 'ac-btn-wrap' }, b);
     }
     if (v.type === 'drain') {
-      const dis = locked(v);
-      const vol = h('input', { type: 'range', min: 1, max: 10, step: 0.5, value: 5, 'aria-label': 'Volume to drain (L)', disabled: dis });
+      const vol = h('input', { type: 'range', min: 1, max: 10, step: 0.5, value: 5, 'aria-label': 'Volume to drain (L)' });
       const volLbl = h('span', { class: 'ctl-val' });
       const paintVol = () => { volLbl.textContent = `${(+vol.value).toFixed(1)} L`; vol.style.setProperty('--pct', `${((+vol.value - 1) / 9) * 100}%`); };
       vol.addEventListener('input', paintVol); paintVol();
-      const alb = h('input', { type: 'checkbox', checked: true, disabled: dis });
-      const go = h('button', { class: 'ac-btn', disabled: dis }, svgIcon('needle', 'ac-ic'), h('span', { class: 'ac-bl' }, 'Drain'));
+      const alb = h('input', { type: 'checkbox', checked: true });
+      const go = h('button', { class: 'ac-btn' }, svgIcon('needle', 'ac-ic'), h('span', { class: 'ac-bl' }, 'Drain'));
       go.addEventListener('click', () => ctx.action({ kind: 'paracentesis', mL: +vol.value * 1000, albumin: alb.checked }));
       actionable.push({ el: go, run: () => go.click(), focus: () => go.focus() });
-      return h('div', { class: 'ac-drain' + (dis ? ' locked' : ''), title: dis ? LOCK_TIP : null },
+      return h('div', { class: 'ac-drain' },
         h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, svgIcon('needle', 'ac-ic'), 'Paracentesis'), volLbl), h('div', { class: 'range-wrap' }, vol),
         h('div', { class: 'ac-drain-row' }, h('label', { class: 'check-row' }, alb, 'Albumin 8 g/L'), go));
     }
@@ -424,8 +417,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   addEventListener('pps:occ', () => { fitAbovePill(); if (pinned && !isDocked()) { lastLayout = ''; position(); return; } placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); });
   store.on('selection', () => render());
   store.on('shunting', () => render());
-  store.on('allowedVerbs', () => render());
-  store.on('locked', () => render());
   store.on('colorMode', () => update());
   store.on('params', () => { const p = store.get().params; for (const s of syncs) s(p); });
   return {

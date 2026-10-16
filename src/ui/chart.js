@@ -5,11 +5,11 @@
 //   Changes                              Treat card, closed until opened: what has been set, with values
 //   Advanced physiology                  side panel, from Settings
 
-import { store, updateParams } from './store.js?v=2ffba40465';
+import { store, updateParams } from './store.js?v=31ee79b6ab';
 import { h, icon, svgIcon, toast } from './util.js?v=0140acc352';
 import { DRUGS } from '../engine/scenario.js?v=1ee7733788';
-import { activeInterventions } from './inspector.js?v=112b460c7b';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=a1979140a4';
+import { activeInterventions } from './inspector.js?v=958160ed1b';
+import { DRUG_NOTE } from './actions.js?v=db658d5f21';
 import { factTarget } from './fact-target.js?v=435867f75d';
 
 
@@ -88,8 +88,6 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const p0 = store.get().params;
     const drugChip = (k, label, note, get, set) => {
       const b = h('button', { class: 'order-chip', 'aria-pressed': String(!!get(p0)), title: note }, h('span', { class: 'oc-dot' }, icon('check')), h('span', { class: 'oc-t' }, label));
-      const enabled = verbEnabled('drug:' + k, 'drug:' + k) || verbEnabled('drugs', 'drugs');
-      if (!enabled) b.disabled = true;
       b.addEventListener('click', () => updateParams((pp) => { set(pp, !get(pp)); return pp; }, { label }));
       live.push(() => b.setAttribute('aria-pressed', String(!!get(store.get().params))));
       return b;
@@ -104,32 +102,31 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       btn(null, '1 L crystalloid', () => action({ kind: 'infuse', fluid: 'crystalloid' }), 'about 25 % stays in the vessels'),
       btn(null, '1 unit PRBC', () => action({ kind: 'infuse', fluid: 'prbc' }), 'packed red cells'),
       btn(null, 'Albumin', () => action({ kind: 'infuse', fluid: 'albumin' }), 'raises oncotic pressure'));
-    const lock = (id) => !verbEnabled(id);
-    const proc = (ic, label, sub, id, run) => { const b = btn(ic, label, run, sub); if (lock(id)) b.disabled = true; return b; };
+    const proc = (ic, label, sub, run) => btn(ic, label, run, sub);
     // A procedure that continues on the figure (a card, a shunt to draw) puts the Treat card away.
     const procs = h('div', { class: 'order-grid' },
-      proc('band', 'Band ligation', 'on the esophageal varices', 'band', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); }),
-      proc('balloon', 'Balloon tamponade', 'esophageal or gastric', 'balloon', () => { select({ type: 'organ', id: 'varices' }); toast('Switch the balloon on in the varices card.'); }),
+      proc('band', 'Band ligation', 'on the esophageal varices', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); }),
+      proc('balloon', 'Balloon tamponade', 'esophageal or gastric', () => { select({ type: 'organ', id: 'varices' }); toast('Switch the balloon on in the varices card.'); }),
       // A TIPS is always right portal vein → right hepatic vein, so it is placed at once.
-      proc('stent', 'TIPS', 'right portal vein → right hepatic vein', 'shunt', () => {
+      proc('stent', 'TIPS', 'right portal vein → right hepatic vein', () => {
         const on = store.get().params.tips.on;
         if (!on) updateParams({ tips: { on: true, d: store.get().params.tips.d || 8 } }, { label: 'TIPS' });
         select({ type: 'edge', id: 'TIPS' });
         toast(on ? 'The TIPS is already in place.' : 'TIPS placed: right portal vein → right hepatic vein.');
       }),
       // A DIPS is always right portal vein → the intrahepatic IVC, so it is placed at once too.
-      proc('stent', 'DIPS', 'right portal vein → intrahepatic IVC', 'shunt', () => {
+      proc('stent', 'DIPS', 'right portal vein → intrahepatic IVC', () => {
         const on = store.get().params.dips.on;
         if (!on) updateParams({ dips: { on: true, d: store.get().params.dips.d || 8 } }, { label: 'DIPS' });
         select({ type: 'edge', id: 'DIPS' });
         toast(on ? 'The DIPS is already in place.' : 'DIPS placed: right portal vein → IVC, through the caudate lobe.');
       }),
-      proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', 'shunt', () => { select(null); startShunt('PV_TRUNK'); }),
-      proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', 'occlude', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
+      proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', () => { select(null); startShunt('PV_TRUNK'); }),
+      proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
       // One button cycles the spleen: untreated → partial embolization → splenectomy → untreated.
       (() => {
         const NAME = ['Spleen', 'Embolization', 'Splenectomy'], SUB = ['embolization or splenectomy', 'partial splenic artery embolization', 'spleen removed'];
-        const b = proc('occlude', 'Spleen', SUB[0], 'splenic', () => {
+        const b = proc('occlude', 'Spleen', SUB[0], () => {
           const v = ((store.get().params.splenicRx | 0) + 1) % 3;
           updateParams((p) => { p.splenicRx = v; return p; }, { label: ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'][v] });
           select({ type: 'organ', id: 'spleen' });
@@ -137,7 +134,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
         const paint = () => { const v = store.get().params.splenicRx | 0; b.querySelector('.ob-t').textContent = NAME[v]; b.title = `${NAME[v]}: ${SUB[v]} (click to change)`; b.setAttribute('aria-pressed', String(v > 0)); };
         paint(); live.push(paint); return b;
       })(),
-      proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
+      proc('needle', 'Paracentesis', 'drain ascites', () => select({ type: 'organ', id: 'abdomen' })));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
     // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
     const panes = [['drugs', 'pill', 'Drugs', drugs], ['fluids', 'drop', 'Fluids', fluids], ['procs', 'band', 'Procedures', procs]];

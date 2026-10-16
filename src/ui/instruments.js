@@ -3,13 +3,12 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { pressureColor } from './colormap.js?v=5c9a375f49';
-import { verbEnabled } from './actions.js?v=a1979140a4';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=0140acc352';
-import { simTime, isPaused } from './clock.js?v=de1ce85f84';
+import { simTime, isPaused } from './clock.js?v=520596240b';
 import { createEndoGL } from './endo-gl.js?v=0c91a1f663';
 import { renderEndo } from './endo-render.js?v=fb62bded9f';
-import { FONT } from './charts.js?v=75b97f0438';
-import { store, updateParams, varicesPresent } from './store.js?v=2ffba40465';
+import { FONT } from './charts.js?v=7e8a65ec45';
+import { store, updateParams, varicesPresent } from './store.js?v=31ee79b6ab';
 import { balanceHold } from './balance-hold.js?v=ea4d9121d2';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('instruments');
@@ -588,7 +587,6 @@ export function createAbdomen({ onAction }) {
     setText(gradeEl, GRADE[a.grade] || a.label); setAttr(gradeEl, 'title', GRADE_TIP[a.grade] || '');
     setData(gradeEl, 'sev', SEV[a.grade] || 'danger'); setData(bigEl, 'sev', SEV[a.grade] || 'danger');
     setAttr(diu, 'aria-checked', String(!!p.diuretics));
-    diu.disabled = !(verbEnabled('drug:diuretics', 'drug:diuretics') || verbEnabled('drugs', 'drugs'));
     if (sa.get() !== p.albumin) sa.set(p.albumin);
     const r = a.ratePerDay, trend = Math.abs(r) < 20 ? 'steady' : r > 0 ? 'building up' : 'resolving';
     paintRate(r);
