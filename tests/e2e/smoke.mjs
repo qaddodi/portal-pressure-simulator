@@ -93,9 +93,6 @@ const open = async (page, q = '') => {
   await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 45000 });
 };
 
-// Every frame for `ms`: each leader on screen against the labels on screen (the lobule's and the anatomy's). A leader ends on
-// the edge of its own label's letters (no gap, never in under them) and crosses no other label. Returns what was wrong, each
-// problem once with the time it was first seen.
 // The lobule's station labels: every vessel label shows, no leader is longer than an optional label may take (140 px), and
 // a Lymph label left out had no clear spot within that of its node. The spot search is the check's own: a fine grid of every
 // position whose leader is short enough, kept inside the free space, off the other labels (with the margins the layout keeps
@@ -144,6 +141,9 @@ const stationRoom = (page, fault = null) => page.evaluate((fault) => {
   return bad;
 }, fault);
 
+// Every frame for `ms`: each leader on screen against the labels on screen (the lobule's and the anatomy's). A leader ends on
+// the edge of its own label's letters (no gap, never in under them) and crosses no other label. Returns what was wrong, each
+// problem once with the time it was first seen.
 const leaderFrames = (page, ms) => page.evaluate((ms) => new Promise((done) => {
   const out = new Map(), t0 = performance.now();
   const op = (el) => { let o = 1; for (let e = el; e && e.nodeType === 1; e = e.parentElement || e.parentNode) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return 0; o *= +cs.opacity; } return o; };
