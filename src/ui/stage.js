@@ -2954,8 +2954,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const el of c.querySelectorAll('.lv-nod, .lv-nut, .lv-nut-net')) el.setAttribute('data-pc', 'sub fold');
         for (const el of c.querySelectorAll('.lv-sep, .liver-tint')) el.setAttribute('data-pc', 'fold');
         for (const el of c.querySelectorAll('.lv-gloss')) el.setAttribute('data-pc', 'kids');
+        // The flank (the abdominal wall, drawn with ascites) lies wholly below the diaphragm's fade (diaMask: clear past
+        // y 420, the flank starts at 470), so it shows nothing; in the copy it only stretched the backdrop's mask, two
+        // offscreen layers, from the dome over the liver and spleen to the whole abdomen.
+        for (const el of c.querySelectorAll('.flank')) el.setAttribute('data-pc', 'drop');
         if (inlineStyles(g, c) === false) continue;
         c.removeAttribute('opacity');   // the plate fades with the morph on the GPU
+        for (const el of [...c.querySelectorAll('[data-pc="drop"]')]) el.remove();
         dropInvisible(c);
         for (const el of c.querySelectorAll('[data-pc~="fold"]')) foldOpacity(el);
         // The gloss's two sheens never overlap, so its fade can sit on each of them instead of a layer.
