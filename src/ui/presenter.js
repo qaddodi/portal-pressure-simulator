@@ -19,11 +19,11 @@ import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b9
 import { sinusoidSupported } from './sinusoid-view.js?v=ba3b748ee4';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e881af47f2';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=a57958b150';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=3699a77ad6';
-import { createTools } from './presenter-tools.js?v=da55720f9d';
-import { openHandout } from './handout.js?v=66106df93a';
+import { createHvpgMonitor } from './hvpg-proc.js?v=618f471141';
+import { createTools } from './presenter-tools.js?v=71787e2fb8';
+import { openHandout } from './handout.js?v=481943d374';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=f709ae0429';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
@@ -2191,7 +2191,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         const t = k.parentElement, cs = getComputedStyle(t), room = t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
         if (room > 0 && k.scrollWidth > room + 0.5) k.classList.add('short');
       }
-      // (A scale bar's cut-off numbers stay inside the bar, and one that would touch the number before it is left out.)
+      // (A scale bar's cut-off numbers stay inside the bar, and one within 8 px of the number before it is left out: sweep batch 03,
+      // 0.1 and 1.5 sat 6 px apart and read as one.)
       for (const bar of el.querySelectorAll('.pz-tiles .pzt-bar')) {
         const B = bar.getBoundingClientRect();
         let end = -Infinity;
@@ -2200,7 +2201,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           let r = l.getBoundingClientRect();
           if (!r.width) continue;
           if (r.left < B.left) { l.classList.add('lo'); r = l.getBoundingClientRect(); } else if (r.right > B.right) { l.classList.add('hi'); r = l.getBoundingClientRect(); }
-          if (r.left < end + 4) l.classList.add('off'); else end = r.right;
+          if (r.left < end + 8) l.classList.add('off'); else end = r.right;
         }
       }
       fitHeads(el);

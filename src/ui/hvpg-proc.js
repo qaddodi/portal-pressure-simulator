@@ -9,9 +9,10 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, fitCanvas, clamp, icon, cssVar } from './util.js?v=e387ad7347';
-import { FONT } from './charts.js?v=eed250ce0a';
+import { FONT } from './charts.js?v=64b363e87e';
 import { pressureColor } from './colormap.js?v=ec83805fb9';
-import { store, logAction } from './store.js?v=3b659e1968';
+import { store, logAction, hiddenNow } from './store.js?v=3b659e1968';
+import { shownOr } from './shown.js?v=82ef5e29ec';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
@@ -148,8 +149,15 @@ export function createHvpgProcedure() {
   }
 
   function paintSide() {
-    const ph = phase(), v = values(), st = store.get();
-    const shown = { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.callout), hvpg: ph === 'result' && (t0 == null || t >= T.sum) };
+    const ph = phase(), st = store.get();
+    // Before any measurement, with the readouts on show (Settings, or measured once for this patient), the three read live,
+    // the HVPG as the bar shows it and the wedged pressure as the free one plus it, so the row and the bar agree (sweep
+    // batch 03, shots 05 and 30: dashes here beside HVPG 0.9 on the bar).
+    const open = ph === 'idle' && !!st.frame?.metrics && !hiddenNow(st)?.has('trueHVPG');
+    let v = values();
+    if (open) { const f1 = Math.round(v.fhvp * 10) / 10, g1 = Math.round(shownOr('hvpg', v.hvpg) * 10) / 10; v = { fhvp: f1, hvpg: g1, whvp: f1 + g1 }; }
+    const shown = open ? { fhvp: true, whvp: true, hvpg: true }
+      : { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.callout), hvpg: ph === 'result' && (t0 == null || t >= T.sum) };
     for (const k of ['fhvp', 'whvp', 'hvpg']) {
       const txt = shown[k] ? fmt(v[k], 1) : '—';
       if (vals[k].textContent !== txt) {
@@ -282,7 +290,17 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
   ctx.font = FONT(600, 12); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);
   if (num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
   const { top, bot } = traceRoom(W, H, y), L = x + 22, R = x + W - (narrow ? 2 : 50);
-  if (bot - top < TRACE_MIN) return;
+  if (bot - top < TRACE_MIN) {
+    // (Too short for the tracing, a phone held sideways: its note alone, in the longest form that fits, so the box is never
+    // blank under "Ready". Sweep batch 03, shot 03.)
+    if (ph !== 'idle' && ph !== 'enter') return;
+    ctx.textAlign = 'center'; ctx.fillStyle = C.text; ctx.font = FONT(500, 12);
+    const say = blocked && t >= TB.probe0 ? ['Probing the ostium: the vein will not take the catheter…', 'The vein will not take the catheter…']
+      : ph === 'idle' ? ['The tracing starts once the tip is in the hepatic vein.', 'Starts once the tip is in the hepatic vein.', 'Starts in the hepatic vein.'] : ['Waiting for the hepatic vein…'];
+    const ty = Math.min(hh - 12, Math.max(y + 54, (y + 40 + hh) / 2));
+    ctx.fillText(say.find((q, i) => i === say.length - 1 || ctx.measureText(q).width <= W - 8), w / 2, ty);
+    return;
+  }
   const ymax = Math.max(15, Math.ceil((Math.max(v.whvp, v.fhvp) + 5) / 5) * 5);
   const Y = (p) => bot - (clamp(p, 0, ymax) / ymax) * (bot - top);
   const X = (tt) => L + k01(tt, T.free - 300, T.back) * (R - L);

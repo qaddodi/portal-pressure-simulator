@@ -5,16 +5,17 @@ import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf } from './util.js?v=e387ad7347';
 import { lobuleFlows } from './lobule-model.js?v=d3b27f8085';
-import { createProfile } from './charts.js?v=eed250ce0a';
-import { createPressureTime } from './pressure-time.js?v=d7e88da869';
-import { createFibroScan } from './fibroscan.js?v=6a092fc3ad';
-import { createHvpgProcedure } from './hvpg-proc.js?v=3699a77ad6';
-import { createDoppler } from './doppler.js?v=3b215e90f2';
+import { createProfile } from './charts.js?v=64b363e87e';
+import { createPressureTime } from './pressure-time.js?v=3a1989d2f5';
+import { createFibroScan } from './fibroscan.js?v=7217b044f8';
+import { createHvpgProcedure } from './hvpg-proc.js?v=618f471141';
+import { createDoppler } from './doppler.js?v=abfc1cf195';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=0ea4381f0f';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=0ede90472f';
 import { createReadoutsPane } from './readouts-pane.js?v=366cc67e8d';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
+import { setShown } from './shown.js?v=82ef5e29ec';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -206,6 +207,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       let v = raw;
       if (raw != null && x.sm != null && st0.running && t.scale && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200);
       x.sm = v; x.smT = now;
+      if (!lz) setShown(t.id, v);
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {

@@ -8,7 +8,7 @@ import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=e3
 import { simTime, isPaused } from './clock.js?v=af6de95a7c';
 import { createEndoGL } from './endo-gl.js?v=9c6f94577c';
 import { renderEndo } from './endo-render.js?v=00dd0c3285';
-import { FONT } from './charts.js?v=eed250ce0a';
+import { FONT } from './charts.js?v=64b363e87e';
 import { store, updateParams, varicesPresent } from './store.js?v=3b659e1968';
 import { balanceHold } from './balance-hold.js?v=ea4d9121d2';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
@@ -329,17 +329,51 @@ function iapDial() {
     const lp = s('path', { class: 'ab-dial-live', d, 'data-sev': sev, pathLength: '100', 'stroke-dasharray': '0 100' });
     svg.append(lp); live.push([a1, b1, lp]);
   }
+  const tls = [];
   for (const v of [12, 20]) {
-    const [x0, y0] = pt(v, R + 5), [x1, y1] = pt(v, R + 9), [lx, ly] = pt(v, R + 15.5);
+    const [x0, y0] = pt(v, R + 5), [x1, y1] = pt(v, R + 9);
     svg.append(s('line', { class: 'ab-dial-tick', x1: x0.toFixed(2), y1: y0.toFixed(2), x2: x1.toFixed(2), y2: y1.toFixed(2) }));
-    svg.append(s('text', { class: 'ab-dial-tl', x: lx.toFixed(2), y: (ly + 3).toFixed(2) }, String(v)));
+    const tl = s('text', { class: 'ab-dial-tl' }, String(v));
+    svg.append(tl); tls.push([v, tl]);
   }
   // The knob: drawn pointing right (into the belly), then turned to the reading, so it eases round the ring.
   const knob = s('g', { class: 'ab-dial-knob' });
   knob.append(s('line', { x1: C + R - 12, y1: C, x2: C + R - 6, y2: C }), s('circle', { cx: C + R, cy: C, r: 4.6 }));
-  const num = s('text', { class: 'ab-dial-n', x: TX, y: 70 }, '—'), word = s('text', { class: 'ab-dial-w', x: TX, y: 92 });
-  svg.append(knob, s('text', { class: 'ab-dial-k', x: TX, y: 43 }, 'IAP'), num, s('text', { class: 'ab-dial-u', x: TX, y: 81 }, 'mmHg'), word);
+  const num = s('text', { class: 'ab-dial-n', x: TX, y: 70 }, '—'), word = s('text', { class: 'ab-dial-w', x: TX });
+  const key = s('text', { class: 'ab-dial-k', x: TX, y: 43 }, 'IAP'), unit = s('text', { class: 'ab-dial-u', x: TX }, 'mmHg');
+  svg.append(knob, key, num, unit, word);
   const el = h('div', { class: 'ab-dial-box', title: 'Intra-abdominal pressure. 12 mmHg and above: intra-abdominal hypertension. 20 mmHg and above: abdominal compartment syndrome.' }, svg);
+  // The small words are 12 px on screen at least, however small the dial is drawn (sweep batch 04: the ticks at about 7 px,
+  // the caption at 9.6 px on a phone): their size in the drawing grows as the dial shrinks, the lines below the number move
+  // down to make room, and the word under them is left out when it no longer fits inside the half circle (the number's
+  // colour and the arc still say how high it is; the dial's label reads the word).
+  let fitK = 0;
+  const fit = () => {
+    const w = svg.getBoundingClientRect().width;
+    if (!w) return;
+    const k = 76 / w;
+    if (Math.abs(k - fitK) < 0.005) return;
+    fitK = k;
+    const f = (base) => Math.max(base, 12.2 * k);
+    const fk = f(8.5), fu = f(8.5), fw = f(9), ft = f(8.5);
+    key.style.fontSize = `${fk.toFixed(2)}px`; unit.style.fontSize = `${fu.toFixed(2)}px`; word.style.fontSize = `${fw.toFixed(2)}px`;
+    const yu = 74 + 0.72 * fu, yw = yu + 3.5 + 0.72 * fw;
+    unit.setAttribute('y', yu.toFixed(2)); word.setAttribute('y', yw.toFixed(2));
+    for (const [v, tl] of tls) {
+      const [lx, ly] = pt(v, R + 10 + 0.65 * ft);
+      tl.style.fontSize = `${ft.toFixed(2)}px`; tl.setAttribute('x', lx.toFixed(2)); tl.setAttribute('y', (ly + 0.36 * ft).toFixed(2));
+    }
+    fitWord();
+  };
+  // (The chord of the ring's inside at the word's baseline, from the text column to the flat side.)
+  const fitWord = () => {
+    const fw = parseFloat(word.style.fontSize) || 9, y = parseFloat(word.getAttribute('y')) || 92, top = y - 0.72 * fw;
+    const dy = Math.max(Math.abs(y - C), Math.abs(top - C)), half = Math.sqrt(Math.max(0, (R - 4) ** 2 - dy * dy));
+    word.style.display = '';
+    const tw = word.getComputedTextLength?.() || 0;
+    word.style.display = tw > 0 && (tw / 2 > C - TX + 0 || TX - tw / 2 < C - half) ? 'none' : '';
+  };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(fit).observe(svg);
   let last = null;
   function set(iap) {
     const n = Math.max(0, Math.round(iap) || 0), v = Math.min(n, IAP_MAX);   // (whole mmHg, as the number reads, so the word and the arc agree with it)
@@ -347,6 +381,7 @@ function iapDial() {
     last = n;
     const sev = iapSev(v);
     num.textContent = String(n); word.textContent = IAP_WORD[sev];
+    if (fitK) fitWord();
     svg.dataset.sev = sev;
     for (const [a, b, lp] of live) lp.setAttribute('stroke-dasharray', `${(clamp((v - a) / (b - a), 0, 1) * 100).toFixed(1)} 100`);
     knob.style.transform = `rotate(${(90 + (v / IAP_MAX) * 180).toFixed(1)}deg)`;

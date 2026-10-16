@@ -6,6 +6,7 @@ import { pressureColor } from './colormap.js?v=ec83805fb9';
 import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=e387ad7347';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=5efaa2bcc9';
+import { shownOr } from './shown.js?v=82ef5e29ec';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -98,7 +99,7 @@ export function createProfile() {
     // Close together, the station names turn 30° on one row (each ending under its point).
     const stagger = slot0 < 74;
     let tilt = 0;
-    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 11); tilt = Math.max(...stations.map((n) => m.measureText(nm(n)).width)) * 0.5; }
+    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 12); tilt = Math.max(...stations.map((n) => m.measureText(nm(n)).width)) * 0.5; }
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
@@ -120,7 +121,7 @@ export function createProfile() {
     const g = geometry();
     const { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY, roomy } = g;
     ctx.clearRect(0, 0, w, hh);
-    ctx.font = FONT(500, 11);
+    ctx.font = FONT(500, 12);
     // grid (solid hairlines): absolute pressure has no clinical threshold, so none is drawn
     ctx.strokeStyle = c.border; ctx.fillStyle = c.faint; ctx.lineWidth = 1;
     const step = maxP > 40 ? 10 : 5;
@@ -130,18 +131,20 @@ export function createProfile() {
     }
     // The liver: a soft band behind its stations, named at the top.
     const lv = curPath().liver;
+    let liverCap = null;   // (the LIVER caption's box: the value labels and the HVPG and PPG pills keep 2 px clear of it)
     if (lv) {
       const i0 = stations.indexOf(lv[0]), i1 = stations.indexOf(lv[1]);
       if (i0 >= 0 && i1 >= i0) {
         const bx = x(i0) - slot / 2, bw = slot * (i1 - i0 + 1);
         ctx.save(); ctx.fillStyle = cssVar('--chart-liver-band'); ctx.fillRect(bx, T - 6, bw, y(0) - T + 6);
-        ctx.fillStyle = c.muted; ctx.font = FONT(600, 10.5); ctx.textAlign = 'center'; ctx.fillText('LIVER', bx + bw / 2, T + 4); ctx.restore();
+        ctx.fillStyle = c.muted; ctx.font = FONT(600, 12); ctx.textAlign = 'center'; ctx.fillText('LIVER', bx + bw / 2, T + 4);
+        const lw = ctx.measureText('LIVER').width; liverCap = { x0: bx + bw / 2 - lw / 2 - 2, x1: bx + bw / 2 + lw / 2 + 2, y0: T + 4 - 11, y1: T + 4 + 7 }; ctx.restore();
       }
     }
     ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(y(0)) + 0.5); ctx.lineTo(w - R, Math.round(y(0)) + 0.5); ctx.stroke();
     if (roomy || !hasArt) { ctx.textAlign = 'left'; ctx.fillText('mmHg', 6, 12); } else { ctx.textAlign = 'right'; ctx.fillText('mmHg', w - R, artY + 4); }
     // station labels: horizontal, or turned 30° (ending under their point) when close together
-    ctx.fillStyle = c.muted; ctx.font = FONT(500, 11);
+    ctx.fillStyle = c.muted; ctx.font = FONT(500, 12);
     stations.forEach((n, i) => {
       if (!stagger) { ctx.textAlign = 'center'; ctx.fillText(nm(n), x(i), hh - B + 16); return; }
       ctx.save(); ctx.translate(x(i) + 3, hh - B + 10); ctx.rotate(-Math.PI / 6);
@@ -153,7 +156,7 @@ export function createProfile() {
     if (hasArt) {
       ctx.strokeStyle = c.axis; ctx.lineWidth = 1.2;
       for (const dy of [-3, 3]) { ctx.beginPath(); ctx.moveTo(L - 6, T - 10 + dy + 3); ctx.lineTo(L + 6, T - 10 + dy - 3); ctx.stroke(); }
-      ctx.fillStyle = c.faint; ctx.textAlign = 'left'; ctx.font = FONT(500, 10.5); ctx.fillText('arterial', 4, artY + 4);
+      ctx.fillStyle = c.faint; ctx.textAlign = 'left'; ctx.font = FONT(500, 12); ctx.fillText('arterial', 4, artY + 4);
     }
     const Y = (v, i) => (ARTERIAL.has(stations[i]) ? artY : y(v));
     // The curve runs through the venous stations only; an arterial station sits in its band above
@@ -162,7 +165,8 @@ export function createProfile() {
     const pts = (vals) => venousIdx.map((i) => [x(i), y(vals[i])]);
     const st = store.get();
     const healthy = st.healthy;
-    const now = stations.map((n) => F.P[NI[n]]);
+    // (The display-filtered pressures, as the figure's labels read them: the beat-by-beat ones put 22 here beside 22.6 there.)
+    const now = stations.map((n) => (F.Pf || F.P)[NI[n]]);
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     // Horizontal gradient in pressure colour, so the line and the fill read the colour of each station.
     const grad = () => {
@@ -199,8 +203,8 @@ export function createProfile() {
         ctx.strokeStyle = c.artery; ctx.globalAlpha = 0.45; ctx.lineWidth = 1.5; ctx.setLineDash([2, 4]);
         ctx.beginPath(); ctx.moveTo(x(i), artY); ctx.lineTo(x(j), y(now[j])); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
       }
-      ctx.fillStyle = c.text; ctx.font = FONT(600, 10.5); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillText(`${fmt(now[i], 0)} mmHg`, x(i) + 9, artY);
+      ctx.fillStyle = c.text; ctx.font = FONT(600, 12); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(`${fmt(now[i], 1)} mmHg`, x(i) + 9, artY);
       ctx.textBaseline = 'alphabetic';
     });
     // station dots, ringed in the surface colour so they sit cleanly on the line
@@ -213,6 +217,7 @@ export function createProfile() {
     // (≥ 1 mmHg). The largest fall is where the resistance sits, and is marked as such.
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     const taken = dots.map((d) => ({ x0: d.cx - 8, x1: d.cx + 8, y0: d.cy - 8, y1: d.cy + 8 }));
+    if (liverCap) taken.push(liverCap);
     const clash = (r) => taken.some((o) => r.x0 < o.x1 && r.x1 > o.x0 && r.y0 < o.y1 && r.y1 > o.y0);
     const place = (cx, cands, tw, th) => {
       for (const cy of cands) {
@@ -224,7 +229,7 @@ export function createProfile() {
     };
     let big = -1, bigDp = 3;
     for (let k = 0; k < venousIdx.length - 1; k++) { const i = venousIdx[k], j = venousIdx[k + 1]; const d = now[i] - now[j]; if (d > bigDp) { bigDp = d; big = i; } }
-    ctx.font = FONT(600, 10.5);
+    ctx.font = FONT(600, 12);
     const dims = curPath().dims;
     // With HVPG and PPG drawn at the right, the per-segment drop pills are left out.
     for (let k = 0; !dims && k < venousIdx.length - 1; k++) {
@@ -247,15 +252,15 @@ export function createProfile() {
       ctx.fillStyle = dp < 0 ? c.rev : main ? c.danger : c.muted;
       ctx.fillText(txt, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2 + 0.5);
     }
+    const vals = [];   // (the station values, drawn once the HVPG and PPG pills have their places: one a pill must cover is left out)
     if (slot >= 26) {
-      ctx.font = FONT(600, 11);
+      ctx.font = FONT(600, 12);
       for (const d of dots) {
         if (ARTERIAL.has(stations[d.i])) continue;
-        const txt = fmt(now[d.i], 0);
-        const tw = ctx.measureText(txt).width + 4, th = 13;
+        const txt = fmt(now[d.i], 1);
+        const tw = ctx.measureText(txt).width + 4, th = 14;
         const r = place(d.cx, [d.cy - 15, d.cy + 15], tw, th);
-        if (!r) continue;
-        ctx.fillStyle = c.text; ctx.fillText(txt, d.cx, (r.y0 + r.y1) / 2 + 0.5);
+        if (r) vals.push({ txt, x: d.cx, r, alt: [d.cy - 15, d.cy + 15, d.cy - 29, d.cy + 29].map((cy) => { const yy = Math.max(T + th / 2, Math.min(hh - B - th / 2, cy)); return { x0: d.cx - tw / 2, x1: d.cx + tw / 2, y0: yy - th / 2, y1: yy + th / 2 }; }) });
       }
     }
     // HVPG and PPG: a bracket inside the chart from where each is measured to where it ends, with a
@@ -264,7 +269,7 @@ export function createProfile() {
     // axis and is lifted (and slid along its bracket) to the nearest spot that covers no station dot,
     // no value label and no pressure line; the move is eased so it never jumps.
     const hid = hiddenNow();
-    const nLbl = dots.length, dimN = (dims || []).length;
+    const nLbl = dots.length + (liverCap ? 1 : 0), dimN = (dims || []).length;
     const lineY = (pp, px) => {
       for (let q = 0; q < pp.length - 1; q++) if (px >= pp[q][0] && px <= pp[q + 1][0]) return pp[q][1] + (pp[q + 1][1] - pp[q][1]) * (px - pp[q][0]) / (pp[q + 1][0] - pp[q][0] || 1);
       return null;
@@ -272,17 +277,17 @@ export function createProfile() {
     const lines = [P0];
     if (healthy) lines.push(pts(stations.map((n) => healthy.P[NI[n]])));
     const hitsLine = (r, pp) => { for (let px = r.x0; px <= r.x1 + 3; px += 4) { const ly = lineY(pp, Math.min(px, r.x1)); if (ly != null && ly > r.y0 - 5 && ly < r.y1 + 5) return true; } return false; };
-    const overlap = (r, o) => r.x0 < o.x1 && r.x1 > o.x0 && r.y0 < o.y1 && r.y1 > o.y0;
+    const overlap = (r, o) => r.x0 < o.x1 + 2 && r.x1 > o.x0 - 2 && r.y0 < o.y1 + 2 && r.y1 > o.y0 - 2;   // (2 px clear, at least)
     const items = [], claimed = [];
     (dims || []).forEach((d, k) => {
       const a = stations.indexOf(d.hi), b = stations.indexOf(d.lo);
       if (a < 0 || b < 0 || (d.hide && hid?.has(d.hide))) { items.push(null); return; }
       const m = F.metrics || {};
       const hv = d.hiM && m[d.hiM] != null ? m[d.hiM] : now[a], lv = d.loM && m[d.loM] != null ? m[d.loM] : now[b];
-      const v = d.m && m[d.m] != null ? m[d.m] : hv - lv;
+      const v = d.m && m[d.m] != null ? shownOr(d.m, m[d.m]) : hv - lv;   // (the bar's own number: shown.js)
       const col = v >= d.bad ? c.danger : v >= d.warn ? c.caution : c.muted;
       const txt = `${d.k} `, num = fmt(v, 1);
-      ctx.font = FONT(600, 10.5); const tw1 = ctx.measureText(txt).width;
+      ctx.font = FONT(600, 12); const tw1 = ctx.measureText(txt).width;
       ctx.font = FONT(700, 12.5); const tw2 = ctx.measureText(num).width;
       const tw = tw1 + tw2 + 12, x0 = x(a), x1 = x(b);
       const base = y(0) - 12 - (dimN - 1 - k) * 24;
@@ -305,6 +310,13 @@ export function createProfile() {
         for (const yy of rows) { for (const lx of xs) if (ok(yy, lx, withHealthy)) { best = { yy, lx }; break; } if (best) break; }
         if (best) break;
       }
+      // (No spot clear of everything, a short chart: the first clear of the dots, the LIVER caption and the other pill; the
+      // station values it then covers are left out. Before, it kept its first row and covered a value, sweep batch 02, shot 28.)
+      const fixed = taken.slice(0, nLbl);
+      const clear = (lx, yy, boxes) => { const pr = { x0: lx, x1: lx + tw, y0: yy - 8, y1: yy + 8 }, bar = { x0: Math.min(x0, x1) - 3, x1: Math.max(x0, x1) + 3, y0: yy - 6, y1: yy + 6 }; return ![pr, bar].some((q) => boxes.some((o) => overlap(q, o)) || claimed.some((o) => overlap(q, o))); };
+      // (First a spot clear of every value though on a line, then one clear of the dots alone.)
+      if (!best) for (const yy of rows) { for (const lx of xs) if (clear(lx, yy, taken)) { best = { yy, lx }; break; } if (best) break; }
+      if (!best) for (const yy of rows) { for (const lx of xs) { const pr = { x0: lx, x1: lx + tw, y0: yy - 8, y1: yy + 8 }, bar = { x0: Math.min(x0, x1) - 3, x1: Math.max(x0, x1) + 3, y0: yy - 6, y1: yy + 6 }; if (![pr, bar].some((q) => fixed.some((o) => overlap(q, o)) || claimed.some((o) => overlap(q, o)))) { best = { yy, lx }; break; } } if (best) break; }
       if (!best) best = { yy: base, lx: cx };
       claimed.push({ x0: Math.min(x0, x1) - 3, x1: Math.max(x0, x1) + 3, y0: best.yy - 9, y1: best.yy + 9 });
       items.push({ d, a, b, col, txt, num, tw1, tw, x0, x1, ty: best.yy, tx: best.lx, base });
@@ -334,10 +346,22 @@ export function createProfile() {
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ly - 8, tw, 16, 8) : ctx.rect(lx, ly - 8, tw, 16);
       ctx.fillStyle = c.surface; ctx.fill(); ctx.strokeStyle = col; ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = c.muted; ctx.font = FONT(600, 10.5); ctx.fillText(txt, lx + 6, ly + 0.5);
+      ctx.fillStyle = c.muted; ctx.font = FONT(600, 12); ctx.fillText(txt, lx + 6, ly + 0.5);
       ctx.fillStyle = col === c.muted ? c.text : col; ctx.font = FONT(700, 12.5); ctx.fillText(num, lx + 6 + tw1, ly + 0.5);
       ctx.restore();
     });
+    // The station values, each only where no pill or bracket stands (2 px clear), as the pills are drawn this frame.
+    ctx.font = FONT(600, 12); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = c.text;
+    const pillBoxes = items.flatMap((it, k) => (it ? [{ x0: pos[2 * k + 1], x1: pos[2 * k + 1] + it.tw, y0: pos[2 * k] - 8, y1: pos[2 * k] + 8 }, { x0: Math.min(it.x0, it.x1) - 1, x1: Math.max(it.x0, it.x1) + 1, y0: pos[2 * k] - 4, y1: pos[2 * k] + 4 }] : []));
+    // (One a pill stands on moves to the dot's other side, or a row further out, when that spot is clear of the pills, the dots and
+    // the other values; only with no clear spot is it left out.)
+    const dotBoxes = taken.slice(0, dots.length), drawn = [];
+    for (const v of vals) {
+      const free = (r) => !pillBoxes.some((o) => overlap(r, o)) && !drawn.some((o) => overlap(r, o)) && !dotBoxes.some((o) => r.x0 < o.x1 && r.x1 > o.x0 && r.y0 < o.y1 && r.y1 > o.y0);
+      const r = !pillBoxes.some((o) => overlap(v.r, o)) ? v.r : v.alt.find(free);
+      if (!r) continue;
+      drawn.push(r); ctx.fillText(v.txt, v.x, (r.y0 + r.y1) / 2 + 0.5);
+    }
     if (pillMoving) { cancelFrame(easeRaf); easeRaf = nextFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); }); }
     ctx.textBaseline = 'alphabetic';
     el.querySelector('#profileOffscale').textContent = hasArt ? 'Arterial pressure is drawn above the break (//) at its true value.' : '';

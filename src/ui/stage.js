@@ -552,7 +552,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   for (const o of ORGANS) {
     const g = s('g', { class: 'organ organ-' + o.id + (o.tone ? ' tone-' + o.tone : '') });
     let el;
-    if (o.circle) { const [cx, cy, r] = o.circle; el = s('circle', { cx, cy, r, class: o.cls }); g.append(el); }
+    if (o.circle) { const [cx, cy, r] = o.circle; el = s('circle', { cx, cy, r, class: o.cls, opacity: o.id === 'umbilicus' ? 0 : null }); g.append(el); }
     else if (o.band) {
       // Tubes (colon, small bowel, duodenum): a soft contact edge, the wall, the lumen in the
       // tissue tone, a shaded underside and a light top, then the colon's haustra.
@@ -1114,6 +1114,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let drawOnce = false;   // draw the vessels once through the dive's freeze: the camera moved while hidden
   let stageWake = () => {};   // set once the frame loop exists: anything that may need a redraw calls it
   let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
+  let clampFs = '';
+  // A narrowing's label stands level on screen whatever the figure's turn, just clear of its clamp on the vessel's side,
+  // at its 12 px size (a turned "60 %" had stood on end across the right atrium in the circuit).
+  function placeClampLabels() {
+    const fs = parseFloat(clampFs) || 12, th = (rotDeg() * Math.PI) / 180, w = 1.4 * fs, hh = 0.6 * fs;
+    for (const t of ov.clamps.querySelectorAll('.clamp-label')) {
+      const [x, y, nx, ny, off] = t.dataset.at.split(' ').map(Number);
+      const sx = nx * Math.cos(th) - ny * Math.sin(th), sy = nx * Math.sin(th) + ny * Math.cos(th);   // (the side, as it points on screen)
+      const D = off + 2 + Math.abs(sx) * w + Math.abs(sy) * hh, lx = x + nx * D, ly = y + ny * D;
+      t.setAttribute('x', lx.toFixed(2)); t.setAttribute('y', ly.toFixed(2));
+      t.setAttribute('transform', `rotate(${(-rotDeg()).toFixed(2)} ${lx.toFixed(2)} ${ly.toFixed(2)})`);
+    }
+  }
   const applyVT = () => {
     const deg = rotDeg();
     world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})${deg ? ` rotate(${deg.toFixed(3)} ${CIRC_C[0]} ${CIRC_C[1]})` : ''}`);
@@ -1158,6 +1171,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // An unchanged view keeps the same object, so the frame loop (which compares it) sees that nothing moved.
     CTM = ctmLast && ['a', 'b', 'c', 'd', 'e', 'f', 'sc'].every((k) => ctmLast[k] === m[k]) ? ctmLast : (ctmLast = m);
     wrapRect = b;
+    // (A narrowing's "60 %" is drawn in the figure: its size there is 12 px on screen at any zoom, sweep batch 03 at 6–7 px.)
+    const cfs = sk > 0 ? (12 / sk).toFixed(1) : '';
+    if (cfs && cfs !== clampFs) { clampFs = cfs; ov.clamps.style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }
   }
   function worldToLocal(x, y) {
     if (!CTM) refreshCTM();
@@ -2918,7 +2934,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (Math.abs(tq - tintQ) > 1.5 || (tq === 0 && tintQ !== 0)) tintQ = Math.round(tq);
     return [liverKey, organG.liver.getAttribute('transform')?.replace(/(\d\.\d\d\d)\d*/g, '$1'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'), diaKey,
       tintQ,
-      organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), selOKey,
+      organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), selOKey, organEls.umbilicus?.getAttribute('opacity'),
       cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
   }
   // Hidden (the home page over the app), every organ would rasterize invisible: wait until the figure shows.
@@ -3700,6 +3716,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const c3 = recruitFrac('C3', f);
     abdWall.setAttribute('opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
+    // The umbilicus is a landmark only for the paraumbilical vein that runs to it: with that vein closed, it was a lone ring
+    // in the empty abdomen beside the gut (sweep batches 02–04). It fades in as the vein opens, as the caput's veins do, in
+    // quarter steps (the organs' raster is drawn again at each step: plateStateKey).
+    if (organEls.umbilicus) {
+      const op = String(Math.round(4 * (findingHidden('coll') ? 0 : clamp((c3 - 0.15) / 0.3, 0, 1))) / 4);
+      if (organEls.umbilicus.getAttribute('opacity') !== op) organEls.umbilicus.setAttribute('opacity', op);
+    }
     const sc = f.slow.spleen / 11;
     organG.spleen.setAttribute('transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
     organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
@@ -4662,8 +4685,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const ux = dx / n * 4.5, uy = dy / n * 4.5;
         ov.clamps.append(s('path', { class: 'clamp', d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
       }
-      ov.clamps.append(s('text', { x: x + nx * (off + 16) + 4, y: y + ny * (off + 16) + 4, class: 'clamp-label' }, document.createTextNode(`${Math.round(v * 100)} %`)));
+      ov.clamps.append(s('text', { class: 'clamp-label', 'text-anchor': 'middle', 'dominant-baseline': 'central', 'data-at': [x, y, nx, ny, off + 8].map((q) => q.toFixed(2)).join(' ') }, document.createTextNode(`${Math.round(v * 100)} %`)));
     }
+    placeClampLabels();
     // Thrombus: a lumpy clot lying against one wall of the lumen, drawn as soft stacked layers of one
     // deep red (see clotLayers) so it is darkest where thickest and fades into the vessel at its edges.
     // A hairline in a darker shade of the same red traces only its free edge in the lumen, so it reads

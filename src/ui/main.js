@@ -3,12 +3,12 @@
 
 import { startHost, host } from './host.js?v=0f6d345282';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=6df66159e6';
+import { createStage } from './stage.js?v=086a4d0e80';
 import { createCreditPlacer } from './credit.js?v=3d542e2410';
 import { sinusoidSupported } from './sinusoid-view.js?v=ba3b748ee4';
 import { createInspector } from './inspector.js?v=3e6fa85bd0';
-import { createDock, CUTOFFS } from './dock.js?v=cd5b2663cd';
-import { setHvpgStage } from './hvpg-proc.js?v=3699a77ad6';
+import { createDock, CUTOFFS } from './dock.js?v=0d3c2562e7';
+import { setHvpgStage } from './hvpg-proc.js?v=618f471141';
 import { createWhy } from './why.js?v=79b7992637';
 import { createTimeline, LAPSES } from './timeline.js?v=b8bb2e227f';
 import { createCompare } from './compare.js?v=9ec14ef778';
@@ -136,16 +136,30 @@ async function main() {
     onBack: () => { if (store.get().compareSnap) store.set({ details: null }); else closePanel(); },
   });
   store.on('details', (d) => { const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare'; });
+  // The figure's labels the open menu covers are hidden while it is open: one tucked under its edge showed a sliver, the "S" of
+  // Sinusoids R between the screen edge and the menu (sweep batches 02 and 04). The labels keep their places.
+  function labelsUnderMenu(on) {
+    for (const g of document.querySelectorAll('#labels .lb.under-menu')) g.classList.remove('under-menu');
+    if (on) nextFrame(() => {
+      const m = document.querySelector('.umenu:not(.out)');
+      if (!m) return;
+      const r = m.getBoundingClientRect();
+      for (const g of document.querySelectorAll('#labels .lb')) {
+        const b = g.getBoundingClientRect();
+        if (b.width && b.right > r.left - 8 && b.left < r.right + 8 && b.bottom > r.top - 8 && b.top < r.bottom + 8) g.classList.add('under-menu');
+      }
+    });
+  }
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=a799037d26'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=4a2f869e3e'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
     anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
-    onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
+    onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
   paletteL = lazy(() => import('./palette.js?v=b0aa1a3272'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
