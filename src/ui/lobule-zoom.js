@@ -22,13 +22,14 @@
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { store } from './store.js?v=3b659e1968';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
+import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=d3b27f8085';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=e387ad7347';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=ec83805fb9';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=bfe532e819';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=2e507f4385';
+import { createSinusoidView } from './sinusoid-view.js?v=3c88ec980e';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -588,6 +589,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // Any change may show in the lobule, except these, which never do (the model's frame arrives through update()).
   const UNSEEN = new Set(['frame', 'historyTick', 'details', 'found', 'presetLoading', 'presetList', 'lastHVPG', 'speed', 'lapse', 'tool', 'hiddenReadouts', 'hiddenEvents', 'booted']);
   store.on('*', (keys) => { if (!Array.isArray(keys) || keys.some((k) => !UNSEEN.has(k))) { drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); } });
+  let lzYield = null;
   let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
   const worldCv = document.createElement('canvas');   // the lobule's tissue in world space (see paintTissue)
   const tubeData = new Float32Array(MAXT * TUBE_TEXELS * 4), flowData = new Float32Array(MAXT * FLOW_TEXELS * 4);
@@ -603,6 +605,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     glTried = true;
     gl = createVeinsGL(glCv, { tubes: MAXT, force: true });
     el.dataset.vessels = gl ? 'webgl2' : 'flat';
+    // (A software renderer only: each lobule frame waits for the last to finish on the GPU and gives the page as long again,
+    // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
+    lzYield = softwareYield(!!gl?.software, gl?.software ? glCv.getContext('webgl2') : null);
     if (!gl) { glCv.remove(); return null; }
     return gl;
   }
@@ -1430,6 +1435,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (fade <= 0 || !model) return;
     const soft = !!gl?.software;
     if (soft && now - lastPaint < 110) { raf = nextFrame(loop); return; }
+    if (lzYield && !lzYield.ready(now, viewVer !== pacedVer)) { raf = nextFrame(loop); return; }   // (a pan or zoom: drawn now)
     // The flow is drawn on every frame the screen offers, like the anatomy's blood. Battery saver alone paces it, to 15 a
     // second; a pan, zoom or any other change draws at once even then.
     const pace = paceMs(), paced = !soft && pace > 0 && viewVer === pacedVer;
@@ -1440,7 +1446,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     rzMoving = easeRadii(dt);
     if (rzMoving || lensFrom) drawVersion++;   // a caliber still easing, or the colours crossfading: redraw this frame
     const drew = draw(moving ? dt : 0);
-    if (drew) noteDraw('lobule-zoom');
+    if (drew) { noteDraw('lobule-zoom'); lzYield?.drew(now); }
     pacedVer = viewVer;
     // Paused and settled (nothing drawn, nothing easing): the loop stops asking for frames, as the figure does, so the
     // screen can idle. Every change wakes it (update, a pan or zoom, a glide, the store, a label size, the dive), and it
