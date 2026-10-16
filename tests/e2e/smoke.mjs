@@ -2713,6 +2713,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // The view switch is its own pill, centred on the screen 8 px above the play bar on every screen, Mac and phone held sideways
   // included (16 Oct, Mohammad: "detached from the timeline button slightly above it as a pill and centered"); in the sinusoid
   // view the same pill sits centred at the bottom, level with the zoom group and clear of it; every label 12 px or more, whole.
+  // The figure's readings end 8 px or more above the pill; the sinusoid view keeps the key's whole card in the top bar (it had
+  // shrunk to a 4 px sliver, its scale spilling under History); on a Mac with Tests open the zoom group keeps clear of the pill.
   await check(device, 'view switch: a centred pill 8 px above the play bar; in the sinusoid view centred and clear of the zoom group', async (page) => {
     const sizes = device === 'phone' ? [[320, 568], [390, 844], [844, 390]] : [[820, 1180], [1180, 820], [1440, 900]];
     const look = (sin) => page.evaluate((sin) => {
@@ -2728,6 +2730,18 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (Math.abs(z.bottom - p.bottom) > 1.5) out.push(`the pill's foot is ${Math.round(z.bottom - p.bottom)} px off the zoom group's`);
         if (p.right > z.left - 4) out.push(`the pill runs into the zoom group (${Math.round(p.right)} vs ${Math.round(z.left)})`);
       }
+      // (the readings and names on the figure: none ends closer than 8 px above the pill where it would sit over it)
+      for (const l of document.querySelectorAll('#labels .lb:not(.lb-off), .lz-lab, .sv-region')) {
+        const q = r(l);
+        if (!q.width || !q.height || +getComputedStyle(l).opacity < 0.05 || q.bottom < 0 || q.top > innerHeight) continue;
+        if (q.right > p.left && q.left < p.right && q.bottom > p.top - 7.5 && q.top < p.bottom) out.push(`"${l.textContent.trim().slice(0, 24)}" ends ${Math.round(p.top - q.bottom)} px above the pill, not 8`);
+      }
+      if (sin && document.querySelector('#app').classList.contains('thumb')) {
+        const k = r(document.querySelector('#stageTop .sb-right')), lg = r(document.querySelector('#legend')), tr = r(document.querySelector('.top-right'));
+        if (k.width < 100) out.push(`the key's card is ${Math.round(k.width)} px wide`);
+        if (lg.left < k.left - 0.5 || lg.right > k.right + 0.5) out.push('the key spills out of its card');
+        if (k.right > tr.left && k.left < tr.right && k.bottom > tr.top && k.top < tr.bottom) out.push('the key runs under the buttons beside it');
+      }
       for (const b of [...document.querySelectorAll('#viewSeg button')].filter((e) => e.offsetParent)) {
         const t = document.createRange(); t.selectNodeContents(b); const tr = t.getBoundingClientRect(), q = r(b);
         if (parseFloat(getComputedStyle(b).fontSize) < 12) out.push(`"${b.textContent.trim()}" is under 12 px`);
@@ -2740,8 +2754,23 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page, '?preset=cirr-decomp');
       await page.waitForFunction(() => !document.querySelector('#boot:not(.done)'), null, { timeout: 30000 });
       await page.waitForTimeout(600);
+      await page.waitForTimeout(1500);   // (the framing settles)
       let bad = await look(false);
       if (bad.length) throw new Error(`${w}x${ht} anatomy: ${bad.join('; ')}`);
+      await page.evaluate(() => document.querySelector('#viewSeg [data-view="circuit"]').click());
+      await page.waitForTimeout(2500);
+      bad = await look(false);
+      if (bad.length) throw new Error(`${w}x${ht} circuit: ${bad.join('; ')}`);
+      // A Mac with Tests open: the zoom group, pushed left of the card, stays 16 px above the pill or beside it.
+      if (await page.evaluate(() => !document.querySelector('#app').classList.contains('thumb') && innerWidth >= 1000)) {
+        await page.evaluate(() => document.querySelector('#tabInstruments').click());
+        await page.waitForTimeout(1500);
+        const z = await page.evaluate(() => { const a = document.querySelector('#zoomPill').getBoundingClientRect(), p = document.querySelector('#nbViews').getBoundingClientRect();
+          return { show: !!document.querySelector('#zoomPill').offsetParent, side: a.right <= p.left || a.left >= p.right, gap: p.top - a.bottom }; });
+        if (z.show && !z.side && z.gap < 15.5) throw new Error(`${w}x${ht} Tests open: the zoom group ends ${Math.round(z.gap)} px above the view pill, over it`);
+        await page.evaluate(() => document.querySelector('#tabInstruments').click());
+        await page.waitForTimeout(800);
+      }
       await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
       await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
       await page.waitForTimeout(600);
@@ -2749,8 +2778,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (bad.length) throw new Error(`${w}x${ht} lobule: ${bad.join('; ')}`);
       if (await page.evaluate(() => !document.querySelector('#viewSeg [data-view="sinusoid"]').hidden)) {
         await page.evaluate(() => document.querySelector('#viewSeg [data-view="sinusoid"]').click());
-        await page.waitForFunction(() => document.querySelector('#app').classList.contains('sin-focus'), null, { timeout: 30000 });
-        await page.waitForTimeout(1200);
+        await page.waitForFunction(() => document.querySelector('#app').classList.contains('sin-focus') && document.querySelector('#sinViews').contains(document.querySelector('#viewSeg')), null, { timeout: 30000 });
+        await page.waitForTimeout(2500);
         bad = await look(true);
         if (bad.length) throw new Error(`${w}x${ht} sinusoid: ${bad.join('; ')}`);
       }

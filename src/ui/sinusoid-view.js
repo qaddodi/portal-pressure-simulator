@@ -127,13 +127,16 @@ export function createSinusoidView({ host }) {
     const t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8 + (cssN('--pz-t') ? 0 : 40);
     // (A fixed strip, not the credit's current spot: the credit keeps clear of this view's labels, so a view sized to wherever
     // the credit sat moved the labels, which moved the credit, which resized the view, about once a second for good.)
-    const b = H - cssN('--pz-b') - 34, l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
+    // (Outside a presentation the view switch's pill sits centred at the bottom, its foot the gap plus 8 px up, 42 px tall:
+    // the vein's end, its arrow and its reading stay 8 px above it.)
+    const app = document.getElementById('app'), pill = !app || app.classList.contains('presenting') ? 0 : (parseFloat(getComputedStyle(app).getPropertyValue('--gap')) || 12) + 8 + 42 + 8;
+    const b = H - cssN('--pz-b') - Math.max(34, pill), l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
     return { l: Math.round(l), t: Math.round(t), r: Math.round(Math.max(l + 80, r)), b: Math.round(Math.max(t + 80, b)) };
   }
   // The stretch is laid out once per stage size. It runs along the stage's longer side: across on a
   // landscape screen, down on a portrait one (where every label still reads level).
   function ensureGeo(W, H) {
-    const key = W + '|' + H;
+    const key = W + '|' + H + '|' + !!document.getElementById('app')?.classList.contains('presenting');
     if (key !== geoKey) {
       geoKey = key;
       const vert = W < H * 0.95, tall = vert, ang = vert ? Math.PI / 2 : 0;

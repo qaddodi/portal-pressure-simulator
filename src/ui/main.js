@@ -3,9 +3,9 @@
 
 import { startHost, host } from './host.js?v=0f6d345282';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=49cea96337';
+import { createStage } from './stage.js?v=efd2dc4bcd';
 import { createCreditPlacer } from './credit.js?v=3d542e2410';
-import { sinusoidSupported } from './sinusoid-view.js?v=7117686e39';
+import { sinusoidSupported } from './sinusoid-view.js?v=ba3b748ee4';
 import { createInspector } from './inspector.js?v=3e6fa85bd0';
 import { createDock, CUTOFFS } from './dock.js?v=eaeecad124';
 import { setHvpgStage } from './hvpg-proc.js?v=3699a77ad6';
@@ -139,7 +139,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=8737257242'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=29f90cf352'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -1002,10 +1002,11 @@ function wireFloating() {
     // (stage.js safeInsets), so the figure does not jump each time the dock folds and opens.
     const vd = $('#vdock');
     // (The view switch's pill floats just above the dock and counts as part of it: what sits above the dock clears the pill too.)
-    const nbv = $('#nbViews'), nbvH = nbv && nbv.offsetHeight ? vd.getBoundingClientRect().top - nbv.getBoundingClientRect().top : 0;
-    if (!vd.classList.contains('mini') && vd.offsetHeight) vd.dataset.fullH = String(vd.offsetHeight + Math.max(0, nbvH));
-    const vdTop = vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top + Math.max(0, nbvH) : 0;
-    const vdock = vd.offsetHeight ? Math.max(vd.offsetHeight + Math.max(0, nbvH), vdTop - gap) : 0, wide = !isPhone();
+    // (and 8 px more kept clear above it: the figure's readings stay 8 px off it, the zoom group 16 px)
+    const nbv = $('#nbViews'), nbvH = nbv && nbv.offsetHeight ? Math.max(0, vd.getBoundingClientRect().top - nbv.getBoundingClientRect().top + 8) : 0;
+    if (!vd.classList.contains('mini') && vd.offsetHeight) vd.dataset.fullH = String(vd.offsetHeight + nbvH);
+    const vdTop = vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top + nbvH : 0;
+    const vdock = vd.offsetHeight ? Math.max(vd.offsetHeight + nbvH, vdTop - gap) : 0, wide = !isPhone();
     // The top bar keeps one row when everything fits at its natural width (with a little to spare,
     // so it does not flip back and forth), else the view and legend move to a second row.
     // Off a phone the bar first compacts step by step (data-fit 1-3: shorter patient name, icon-only
@@ -1319,7 +1320,7 @@ function wireThumbBar() {
   const layers = tab('layers', 'layers', 'Layers', menuTab(openLayersMenu));
   const more = tab('settings', 'gear', 'Settings', menuTab((a) => openSettings(a, true)));
   for (const b of [hist, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
-  $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews', 'data-safe': 'bottom' }));
+  $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews', 'data-safe': 'bottom', 'data-safe-pad': '8' }));
   $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, layers, more));
   $('#stageView').append(h('div', { class: 'sin-views float-ui stage-blocker', id: 'sinViews' }));
   // The tabs follow the cards they open (and History's count), however those were opened or closed.
