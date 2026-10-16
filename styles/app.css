@@ -163,8 +163,6 @@ svg { flex: none; }
 .lg-scale { position: relative; width: 168px; height: 30px; }
 .lg-bar { position: absolute; left: 0; right: 0; top: 4px; height: 8px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgb(var(--black-rgb) / .06); }
 .lg-tick { position: absolute; top: 2px; width: 1px; height: 12px; background: var(--text-2); opacity: .55; }
-/* a marked value (an HVPG cut-off): a hairline, with a few pixels either side that show its words on hover */
-.lg-mark::after { content: ''; position: absolute; inset: 0 -4px; }
 .lg-num { position: absolute; top: 15px; transform: translateX(-50%); font-size: var(--fs-12); font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .lg-cats { display: flex; gap: 12px; font-size: var(--fs-12); color: var(--text-2); }
 .lg-cats span { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }

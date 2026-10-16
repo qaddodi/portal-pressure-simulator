@@ -85,20 +85,13 @@ test('G10: a bleed is a pool and four tapered jets into the lumen, each spurting
   assert.match(GL, /uniform vec4 bleedB\[10\];/);
 });
 
-test('G12: the pressure legend marks the HVPG cut-offs 5, 10, 12 and 20, with their meaning on hover', () => {
+test('G12 taken back: the pressure legend is as it was (its scale is absolute pressure; the cut-offs are HVPG)', () => {
+  // (Mohammad, 16 Oct.)
   const cm = src('src/ui/colormap.js');
-  const marks = [...cm.matchAll(/\[(\d+), '(\d+) mmHg: ([^']+)'\]/g)];
-  assert.deepEqual(marks.map((m) => +m[1]), [5, 10, 12, 20]);
-  for (const m of marks) { assert.equal(m[1], m[2]); assert.match(m[3], /HVPG/); }
-  assert.match(cm, /from about this HVPG, the risk of variceal bleeding rises steeply/, 'the 12 wording the project uses');
-  assert.match(cm, /export const PRESSURE_TICKS = \[0, 10, 20, 30\];/, 'the numbers stay as they were');
-  assert.match(src('src/ui/main.js'), /PRESSURE_MARKS\.map\(\(\[p, t\]\) => \[at\(p\), t\]\)/);
-  // Dark mode lifts the ramp's low end; the light themes keep theirs.
-  const tok = src('styles/tokens.css');
-  const ramps = [...tok.matchAll(/--ramp-pressure: (#[0-9A-F]{6}) 0,/g)].map((m) => m[1]);
-  assert.deepEqual(ramps, ['#DCEBF7', '#9FC9EA', '#9FC9EA']);
-  // The colour table is built again when the theme changes the ramp.
-  assert.match(cm, /LUT_SRC === cssVar\('--ramp-pressure'\)/);
+  assert.match(cm, /export const PRESSURE_TICKS = \[0, 10, 20, 30\];/);
+  assert.doesNotMatch(cm, /PRESSURE_MARKS/);
+  assert.doesNotMatch(src('src/ui/main.js'), /lg-mark|PRESSURE_MARKS/);
+  assert.deepEqual([...src('styles/tokens.css').matchAll(/--ramp-pressure: (#[0-9A-F]{6}) 0,/g)].map((m) => m[1]), ['#DCEBF7']);
 });
 
 test('G14: the esophageal varix strands bead once the varix is large, as the endoscopy draws it', () => {
