@@ -11,7 +11,7 @@ import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, re
 import { createLobuleZoom } from './lobule-zoom.js?v=b4fe4805ed';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
-import { fluidTarget } from './fluid-step.js?v=96d8c45961';
+import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
 import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns } from './plate-copy.js?v=8a7456e9fc';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -3536,6 +3536,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!selFluid) return;
     selFluid.fill.setAttribute('d', ascitesPath.getAttribute('d') || '');
     selFluid.line.setAttribute('d', ascitesLine.getAttribute('d') || '');
+    selFluid.g.style.opacity = ascitesPath.getAttribute('d') ? fluidFade().toFixed(3) : '';   // (fades with the pool it outlines)
   }
   function syncSelLine() {
     if (glLines) olGeom();
@@ -3564,7 +3565,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (o === 'abdomen') {   // the fluid as drawn; it follows the volume (see syncSelFluid)
       const cg = s('g', { 'clip-path': 'url(#abdomenClip)' });
-      selFluid = { fill: s('path', { class: 'org-sel-fluid' }), line: s('path', { class: 'org-sel-line' }) };
+      selFluid = { g: cg, fill: s('path', { class: 'org-sel-fluid' }), line: s('path', { class: 'org-sel-line' }) };
       cg.append(selFluid.fill, selFluid.line); gSelO.append(cg); syncSelFluid();
       return;
     }
@@ -3843,8 +3844,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const abdomenClipEl = defs.querySelector('#abdomenClip path');
   const fluidPhase = () => (performance.now() / 1100) % (20 * Math.PI);   // both ripple terms are periodic over 20π
   const fluidSurfAt = (x, ph) => { const c = (x - 712) / 400; return ABDOMEN_FLOOR + 5 - fluidH * (0.8 + 0.2 * c * c) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp; };
-  // A thin pool fades in as it fills and fades out as it drains, so the first and last millimetres never pop.
-  const fluidFade = () => clamp((fluidH - 3) / 45, 0, 1);
+  // No pool while the readout grades the belly "None"; past that it fades in as it fills and out as it drains, so it never pops.
+  const fluidFade = () => poolFade(ascShown);
   function drawAscites() {
     const u = clamp(ascShown / 8500, 0, 1);
     // The wall and the bowel move in half-unit steps of the bulge, with some hysteresis: each step re-rasterizes the
@@ -3872,7 +3873,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const uv = Math.pow(u, 0.6);
     fluidH = uv * 485; fluidAmp = 2 * Math.min(1, uv * 4);
     fluidSurf = null;
-    if (fluidH < 3) { ascitesPath.setAttribute('d', ''); ascitesLine.setAttribute('d', ''); }
+    if (fluidFade() <= 0) { ascitesPath.setAttribute('d', ''); ascitesLine.setAttribute('d', ''); }
     else {
       const floor = ABDOMEN_FLOOR + 5, ph = reduceMotion.matches || plateOn() ? 0 : fluidPhase();
       const surf = (x) => fluidSurfAt(x, ph);
@@ -3919,8 +3920,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const run = st.running && !reduceMotion.matches;
     const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? 0.72 : 1);
     fluidLook.s = [ABDOMEN_FLOOR + 5, fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
-    fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidH >= 3 ? fluidInkRGBA[3] * k * fluidFade() : 0];
-    fluidLook.ripple = run && fluidH >= 3 && k > 0;
+    fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidInkRGBA[3] * k * fluidFade()];
+    fluidLook.ripple = run && fluidFade() > 0 && k > 0;
     if (vLook) vLook.fluid = fluidLook;
     return moved;
   }
