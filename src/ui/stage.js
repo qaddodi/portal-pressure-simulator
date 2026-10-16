@@ -26,6 +26,7 @@ import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
 import { portalSplit } from './table-marks.js?v=f709ae0429';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
+import { balloonRy } from './hvpg-balloon.js?v=44bd4eca4b';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -4392,6 +4393,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       P.push([lerp(pts[j - 1][0], pts[j][0], u), lerp(pts[j - 1][1], pts[j][1], u)]); Rr.push(lerp(rad[j - 1], rad[j], u));
     }
     const idx = marks.map((m) => Math.round((c0[Math.min(m, c0.length - 1)] / c0[c0.length - 1]) * (n - 1)));
+    const raw = P;   // the vessels' own centrelines, where the walls are (the balloon is fitted between them)
     for (let pass = 0; pass < 2; pass++) {
       const Q = P.map((q) => q.slice());
       for (let i = 1; i < n - 1; i++) {
@@ -4405,18 +4407,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const cum = lenTo(P), L = (i) => cum[Math.min(idx[i], cum.length - 1)];
     // The tip reads in the trunk of the right hepatic vein, about two thirds of the way out from the IVC.
     const hv0 = L(3), hv1 = L(4);
-    const r = { pts: P, rad: Rr, cum, total: cum[cum.length - 1], start: L(1) * 0.55, free: hv0 + (hv1 - hv0) * 0.62, hv0, hvEnd: hv1 };
+    const r = { pts: P, raw, rad: Rr, cum, total: cum[cum.length - 1], start: L(1) * 0.55, free: hv0 + (hv1 - hv0) * 0.62, hv0, hvEnd: hv1 };
     if (E.RHV_IVC.glR?.length) cath.route = r;
     return r;
   }
-  /** The point, direction and lumen radius at length d along the route. */
+  /** The point, direction, the vein's own centre (w) and lumen radius at length d along the route. */
   function cathAt(r, d) {
     d = clamp(d, 0, r.total);
     let i = 1;
     while (i < r.cum.length - 1 && r.cum[i] < d) i++;
     const s0 = r.cum[i - 1], s1 = r.cum[i], u = s1 > s0 ? (d - s0) / (s1 - s0) : 0, a = r.pts[i - 1], b = r.pts[i];
     const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-    return { p: [lerp(a[0], b[0], u), lerp(a[1], b[1], u)], t: [(b[0] - a[0]) / l, (b[1] - a[1]) / l], r: lerp(r.rad[i - 1], r.rad[i], u) };
+    const wa = r.raw[i - 1], wb = r.raw[i];
+    return { p: [lerp(a[0], b[0], u), lerp(a[1], b[1], u)], t: [(b[0] - a[0]) / l, (b[1] - a[1]) / l], w: [lerp(wa[0], wb[0], u), lerp(wa[1], wb[1], u)], r: lerp(r.rad[i - 1], r.rad[i], u) };
   }
   function cathPaint() {
     const st = cath.st, r = st && cathRoute();
@@ -4480,11 +4483,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     tube(Math.max(0, tipD - rc * 3.2), tipD - rc * 1.6, () => rc * 1.06, 3, [0.2, 0.23, 0.29], 1, [0, 0]);
     const tp = cathAt(r, tipD);
     disc(tp.p, tp.t, rc, rc, 4, shaft, 1);
-    // The balloon sits just behind the tip; inflated, it fills the vein and wedges.
+    // The balloon sits just behind the tip; inflated, it fills the vein and wedges, held inside its walls.
     const bl = clamp(st.balloon || 0, 0, 1);
     if (bl > 0.001) {
       const gap = rc * 4.2, Rb = cathAt(r, tipD - gap - rFree(r) * 1.6).r;
-      const rx = lerp(rc * 3.4, Rb * 1.6, bl), ry = lerp(rc * 1.35, Rb * 1.12, bl), bc = cathAt(r, tipD - gap - rx);
+      const rx = lerp(rc * 3.4, Rb * 1.6, bl), dC = tipD - gap - rx, bc = cathAt(r, dC);
+      const ry = balloonRy((d) => cathAt(r, d), dC, rx, lerp(rc * 1.35, Rb, bl), { floor: rc * 1.05 });
       disc(bc.p, bc.t, rx, ry, 5, [0.99, 0.9, 0.7], 0.55 + 0.45 * bl);   // latex
     }
     // The tip reading: two ripples running out from it.
@@ -4509,9 +4513,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cath.ring.setAttribute('r', (cw * (1.8 + 0.8 * (st.pulse || 0))).toFixed(2)); cath.ring.style.display = st.ring ? '' : 'none';
     cath.ring.style.stroke = st.ring || '';
     const bl = clamp(st.balloon || 0, 0, 1), rx = wHV * (0.45 + 0.35 * bl), bcx = tp[0] - ux * (rx + cw * 1.5), bcy = tp[1] - uy * (rx + cw * 1.5);
+    const ry = balloonRy((d) => cathAt(r, d), tipD - rx - cw * 1.5, rx, cw * 0.65 + (wHV * 0.47 - cw * 0.65) * bl, { floor: cw * 0.55 });
     cath.balloon.style.display = bl > 0 ? '' : 'none';
     cath.balloon.setAttribute('cx', bcx.toFixed(2)); cath.balloon.setAttribute('cy', bcy.toFixed(2));
-    cath.balloon.setAttribute('rx', rx.toFixed(2)); cath.balloon.setAttribute('ry', (cw * 0.65 + (wHV * 0.47 - cw * 0.65) * bl).toFixed(2));
+    cath.balloon.setAttribute('rx', rx.toFixed(2)); cath.balloon.setAttribute('ry', ry.toFixed(2));
     cath.balloon.setAttribute('transform', `rotate(${(ang * 180 / Math.PI).toFixed(1)} ${bcx.toFixed(2)} ${bcy.toFixed(2)})`);
     const col = clamp(st.column || 0, 0, 1), reach = tipD + (r.total - tipD) * col;
     const a = cutLen(r.pts, r.cum, tipD, reach);
