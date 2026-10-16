@@ -5084,7 +5084,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b { font-size: clamp(14px, 29cqi, 96px) !important; }
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-grade { font-size: clamp(12px, 11cqi, 34px) !important; }
 .pz-data .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > .ab-rate { font-size: clamp(12px, 8.5cqi, 28px) !important; }
-.ab .ab-belly > .ab-big > .ab-rate { display: inline-flex; align-items: baseline; justify-content: center; gap: .3em; transition: opacity .16s var(--ease); }
+.ab .ab-belly > .ab-big > .ab-rate { display: inline-flex; align-items: baseline; justify-content: center; gap: .3em; transition: opacity .16s var(--ease); will-change: opacity; }   /* (its own layer for good: iPad Safari left the wider "▲ 120 mL/day" backing painted behind a narrower "Steady" after the dip, 16 Oct) */
 .ab .ab-belly > .ab-big > .ab-rate.ab-rate-out { opacity: .15; }
 .ab-rate-a { font-style: normal; font-size: .72em; transition: color .3s var(--ease); }
 .ab-rate-a:empty { display: none; }
@@ -5147,19 +5147,21 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    ring where the value started (a slide that gives a change) and a dot where it is now. The rating has no dot of its own: the
    rating word carries the colour, and the number keeps plain ink. Every tile of a card has the bar (an empty one where a reading
    has no scale), so tiles in a row stay one height; the bar's height is fixed, so a tile never resizes as its numbers change. */
-.pz-tile .pzt-bar { position: relative; display: block; align-self: stretch; width: auto; height: calc(7px + 1.05em); margin-top: .3em; flex: none; font: 500 var(--s-cap)/1.2 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: 0; color: var(--text-3); }
+.pz-tile .pzt-bar { position: relative; display: block; align-self: stretch; width: auto; height: calc(15px + 1.05em); margin-top: .3em; flex: none; font: 500 var(--s-cap)/1.2 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: 0; color: var(--text-3); }
 .pz:not(.stack) .pz-data .pz-tiles .pzt-bar { font-size: var(--pz-sm); }
 .pz.stack .pz-data .pz-tiles .pzt-bar { font-size: var(--pz-psm); margin-top: .25em; }
 .pzt-bar.empty { visibility: hidden; }
 .pzt-bar [hidden] { display: none; }
-.pzb-track { position: absolute; left: 0; right: 0; top: 0; height: 5px; }
+/* (The dot, 12 px with its 2 px ring, overhangs the 5 px track by 4 px above and 8 px below: the track sits 4 px into the bar and the
+   cut-off numbers start under the ring, so the dot never touches the rating over the bar or a number under it. iPad, 16 Oct.) */
+.pzb-track { position: absolute; left: 0; right: 0; top: 4px; height: 5px; }
 .pzb-zs { position: absolute; inset: 0; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--text) 8%, transparent); }
 .pzb-z { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--text-3) 30%, transparent); transition: background-color .4s var(--ease); }
 .pzb-z[data-rate="ok"] { background: color-mix(in srgb, var(--ok) 38%, transparent); }
 .pzb-z[data-rate="mid"] { background: color-mix(in srgb, var(--caution) 42%, transparent); }
 .pzb-z[data-rate="hi"] { background: color-mix(in srgb, var(--danger) 40%, transparent); }
 .pzb-t { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--surface); }
-.pzb-l { position: absolute; top: 7px; line-height: 1.05; translate: -50% 0; white-space: nowrap; }
+.pzb-l { position: absolute; top: 15px; line-height: 1.05; translate: -50% 0; white-space: nowrap; }
 .pzb-l.lo { translate: 0 0; }
 .pzb-l.hi { translate: -100% 0; }
 .pzb-l.off { visibility: hidden; }
