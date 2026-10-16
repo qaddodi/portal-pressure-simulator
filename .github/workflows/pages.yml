@@ -44,6 +44,17 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The unit tests keep every deck's slide states in node_modules/.cache (tests/deck-states.js), keyed by a hash of src/;
+      # restored after npm ci, which empties node_modules. A miss or a failed restore only warns and the tests compute afresh.
+      - name: Restore saved deck states
+        uses: actions/cache@v4
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+        with:
+          path: node_modules/.cache/pps-deck-states
+          key: deck-states-${{ hashFiles('src/**') }}
       - name: Lint and unit tests
         run: npm run lint && npm test
 

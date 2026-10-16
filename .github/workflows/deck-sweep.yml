@@ -37,18 +37,37 @@ jobs:
           done
           echo "Pages run still going; sweeping anyway"
 
+  # The deck list comes from the deck registry (src/ui/decks.js), so a new deck is never left out. If this fails, only
+  # the sweep fails.
+  plan:
+    needs: wait-for-deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      decks: ${{ steps.decks.outputs.decks }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: List the decks
+        id: decks
+        run: |
+          decks=$(node -e "import('./src/ui/decks.js').then((m) => { const ids = m.DECKS.map((d) => d.id); if (!ids.length) throw new Error('no decks'); console.log(JSON.stringify(ids)); })")
+          echo "$decks"
+          echo "decks=$decks" >> "$GITHUB_OUTPUT"
+
   sweep:
     name: ${{ matrix.deck }} (${{ matrix.size }})
-    needs: wait-for-deploy
+    needs: plan
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
       fail-fast: false
       max-parallel: 10
       matrix:
-        deck: [circulation, sites, hvpg, ascites, varices, treatment, stiffness, one-year, tap, circuit, lobule, shunts,
-               doppler, endoscopy, prehepatic, right-heart, variceal-bleed, two-inflows, pvt-cirrhosis, spleen, ncph, outflow, recompensation]
-        size: ['mac,desktop', 'laptop,wide', 'ipadwide,ipad', 'phone,phone375', 'phone430,sideways', 'sideways375,sideways430']   # (two sizes a job: a matrix holds at most 256 jobs)
+        deck: ${{ fromJSON(needs.plan.outputs.decks) }}
+        size: ['mac,desktop', 'laptop,wide', 'ipadwide,ipad', 'phone,phone375', 'phone430,sideways', 'sideways375,sideways430']   # (two sizes a job: a matrix holds at most 256 jobs, so 42 decks at most)
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
@@ -67,7 +86,7 @@ jobs:
           retention-days: 1
 
   report:
-    needs: [wait-for-deploy, sweep]
+    needs: [wait-for-deploy, plan, sweep]
     if: always() && needs.wait-for-deploy.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10

@@ -27,6 +27,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Restore saved deck states
+        uses: actions/cache@v4
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+        with:
+          path: node_modules/.cache/pps-deck-states
+          key: deck-states-${{ hashFiles('src/**') }}
       - name: Lint
         run: npm run lint
       - name: Physiology acceptance tests and cache stamps
@@ -144,9 +153,12 @@ jobs:
           SMOKE_SHARD: ${{ matrix.shard }}
           SMOKE_WORKERS: 1
         run: npm run smoke -- ${{ matrix.site == 'build' && 'dist' || '.' }}
-      # Needs a browser and the build: one of the build runners reports it.
+      # Needs a browser and the build: one of the build runners reports it. Report only (no --budget): the runners have
+      # no graphics card, so their frame times say nothing about a real device and must never fail a pull request.
       - name: Performance report
-        if: matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/20'
+        if: matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/28'
+        continue-on-error: true
+        timeout-minutes: 8
         run: npm run perf -- dist
       - uses: actions/upload-artifact@v4
         if: failure()
