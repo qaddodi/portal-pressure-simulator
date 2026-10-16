@@ -141,6 +141,9 @@ try {
       await run(false); await still(`lobule, paused${tag}`, 'lobule-zoom', true);
       if (await page.evaluate(() => !document.querySelector('#viewSeg [data-view="sinusoid"]').hidden)) {
         await page.evaluate(() => document.querySelector('#viewSeg [data-view="sinusoid"]').click());
+        // (Counted once the zoom into it has landed: while it runs, the lobule draws each frame of the view and the view's
+        // own loop only follows, so a slow runner still zooming after the settling time counted those frames as paced.)
+        await page.waitForFunction(() => window.pps.stage.sinusoidOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 120000 });
         await run(true); busy(`sinusoid, playing${tag}`, await rate('sinusoid-view', 5000), cap, true);
         await run(false); await still(`sinusoid, paused${tag}`, 'sinusoid-view');
         await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());

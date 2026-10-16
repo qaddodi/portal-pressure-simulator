@@ -588,14 +588,16 @@ export function createSinusoidView({ host }) {
 
   // ── The frame ──
   let lastKey = '', descKey = '', gpuKey = '', settled = false;   // settled: paused, nothing easing, the same picture as last frame
-  function draw(dt, run = true, paint = true) {
+  // dt: the traffic's step (capped, so a long frame never jumps the cells along); ease: the time the eases step by, the
+  // real time since the last frame (an exponential ease takes any step, so a slow frame settles as soon as a fast one would).
+  function draw(dt, run = true, paint = true, ease = dt) {
     settled = false;
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     ensureGeo(W, H);
-    if (dt > 0 || S.lum == null) stepState(dt);
-    stepView(dt);
-    go += ((isPaused() ? 0 : 1) - go) * (dt > 0 ? 1 - Math.exp(-dt / 0.25) : 0);
+    if (ease > 0 || S.lum == null) stepState(ease);
+    stepView(ease);
+    go += ((isPaused() ? 0 : 1) - go) * (ease > 0 ? 1 - Math.exp(-ease / 0.25) : 0);
     if (go < 0.002) go = 0;
     if (run && dt > 0 && go > 0) stepMovers(dt * go);
     if (!paint) return;
@@ -666,9 +668,9 @@ export function createSinusoidView({ host }) {
     if (shown <= 0 || !model) return;
     if (!dive && !drewNow && now - lastPaint < paceMs()) { raf = nextFrame(loop); return; }
     lastPaint = now;
-    const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
+    const el = (now - (last || now)) / 1000; last = now;
     // (While the zoom runs, place() has already drawn this frame in step with the lobule.)
-    draw(dt, !reduce.matches, !drewNow);   // (the wall's traffic eases to a stop while the clock is paused, and picks up again on resume)
+    draw(Math.min(0.1, el), !reduce.matches, !drewNow, el);   // (the wall's traffic eases to a stop while the clock is paused, and picks up again on resume)
     drewNow = false;
     if (settled && go === 0 && isPaused()) { last = 0; clearTimeout(sleepT); sleepT = setTimeout(wake, 250); return; }   // (on waking, the first frame steps nothing)
     raf = nextFrame(loop);

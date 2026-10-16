@@ -857,7 +857,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // moves steadily from the first frame to the last, in one direction, with no stop at an intermediate framing (the liver, the fit).
   // The presenter's slides are walked with the arrow keys, from the slide before a crossing to the one after it, and back.
   const CROSSINGS = [   // [deck, slide to start on (0-based), key, whether the key goes into the lobule, whether it is the sinusoid view that is gone to or left]
-    ['circulation', 3, 'ArrowRight', true], ['circulation', 4, 'ArrowLeft', false], ['circulation', 7, 'ArrowRight', false],   // ladder → lobule and back; central vein → the next view
+    ['circulation', 4, 'ArrowRight', true], ['circulation', 5, 'ArrowLeft', false], ['circulation', 8, 'ArrowRight', false],   // ladder → lobule and back; central vein → the next view
     ['lobule', 0, 'ArrowRight', true],   // the outline's fit → the whole lobule
     ['ncph', 1, 'ArrowRight', true], ['ncph', 4, 'ArrowRight', true], ['ncph', 5, 'ArrowRight', false, false, true],   // a fit, then a liver close-up, before it (the last one changes the patient: propranolol)
     ['sites', 7, 'ArrowLeft', true],   // backwards into it
@@ -880,11 +880,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         await page.evaluate(() => window.pps.stage.diveToSinusoid());
         await page.waitForFunction(() => window.pps.stage.sinusoidOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 60000 });
       }
-      const quiet = async (open) => {   // the figure holds still (a software renderer draws a frame a second or two apart)
+      const viewKey = () => page.evaluate(() => `${window.pps.stage.lobuleOpen()}|${window.pps.stage.lobuleSettled()}|${window.pps.stage.cameraKey()}|${document.querySelector('.pz-load.on') ? 'load' : ''}`);
+      const quiet = async (open, from) => {   // the figure holds still (a software renderer draws a frame a second or two apart)
+        // (After a key, first the move has to begin: the old slide's words leave before it, which on a loaded software
+        // renderer can hold the view as it was for longer than the stillness looked for below.)
+        if (from) for (let t0 = Date.now(); (await viewKey()) === from && Date.now() - t0 < 60000;) await page.waitForTimeout(400);
         let last = '', same = 0;
         for (let i = 0; i < 120 && same < 6; i++) {
           await page.waitForTimeout(400);
-          const k = await page.evaluate(() => `${window.pps.stage.lobuleOpen()}|${window.pps.stage.lobuleSettled()}|${window.pps.stage.cameraKey()}|${document.querySelector('.pz-load.on') ? 'load' : ''}`);
+          const k = await viewKey();
           same = k === last ? same + 1 : 0; last = k;
         }
         if (open !== undefined && (await page.evaluate(() => window.pps.stage.lobuleOpen())) !== open) throw new Error(`${deck} slide ${n}: the lobule is ${open ? 'not open' : 'still open'} once the view settled`);
@@ -898,6 +902,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         requestAnimationFrame(tick);
       });
       await page.evaluate(() => window.pps.stage.cameraMoves(true));
+      const before = await viewKey();
       if (explore) {
         // (A station is aimed at as the presenter aims at a slide's, before the dive.)
         await page.evaluate((m) => { if (m === 'triad') window.pps.stage.lobuleAim('triad', { zoom: 2.3 }); if (m === 'sinusoid') window.pps.stage.diveToSinusoid(); else if (m === 'out') window.pps.stage.exitSinusoid(); else window.pps.store.set({ lobule: true }); }, from);
@@ -906,7 +911,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         await page.keyboard.press(key);
         await page.waitForFunction((l) => (document.querySelector('.pzb-n, .pz-count')?.textContent.trim() || '') !== l, label);
       }
-      await quiet(into);
+      await quiet(into, before);
       const s = await page.evaluate(() => { window.__zoomTrace.go = false; return window.__zoomTrace.s; });
       // One move: the dive (or rise) itself, with no glide of the camera before or after it beyond a small settling (a new patient changes the space the words leave, after the rise has begun).
       const moves = await page.evaluate(() => window.pps.stage.cameraMoves());
