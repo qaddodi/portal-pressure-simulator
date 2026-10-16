@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=2a952639b6';
-import { createLobuleZoom } from './lobule-zoom.js?v=0f0a8ab6c3';
+import { createLobuleZoom } from './lobule-zoom.js?v=517200c267';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
@@ -23,7 +23,7 @@ import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } fr
 import { softwareYield, watchPerson } from './sw-yield.js?v=888305f6a2';
 import { portalSplit } from './table-marks.js?v=f709ae0429';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
-import { leaderEnd as edgeOf } from './leader-end.js?v=3a261ffe40';
+import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=41874d9ac9';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -5256,7 +5256,33 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Where a drawn leader stops: on the edge of what is seen of its label (the pill, or the letters' own box), never short
   // of it and never in under the letters, at any zoom (leader-end.js). (leaderEnd above still decides whether one shows.)
-  const seenEnd = (it) => edgeOf(it.bg ? rectOf(it) : { x0: it.x, y0: it.y, x1: it.x + it.w, y1: it.y + it.h }, it.ax, it.ay) || { x: it.ax, y: it.ay };
+  // A haloed label is seen as its letters: each run of text (a name, a number, a unit) from its tallest figures' tops
+  // (0.72 of its font) down to the next line, the last line's to just below its baseline, as wide as the run, plus the halo.
+  const inkRects = (it) => {
+    const out = [], halo = 1;
+    let y = it.y, prev = [];
+    it.lines.forEach((line, li) => {
+      const lh = LINE_H(line), lw = lineW(line) + (it.swatch ? 7 : 0), base = y + lh * 0.78;
+      let x = (it.align === 'end' ? it.x + it.w - lw : it.align === 'middle' ? it.x + (it.w - lw) / 2 : it.x) + (it.swatch ? 7 : 0);
+      const row = line.map((r, i) => {
+        const f = fontPx(r.size), w = textW(r.t, f, r.weight, r.track || 0);
+        if (i) x += (r.gap ?? 3) * labelK;
+        const b = { x0: x - halo, x1: x + w + halo, y0: base - f * 0.72 - halo, y1: base + halo };
+        x += w;
+        return b;
+      });
+      const top = Math.min(...row.map((b) => b.y0));
+      for (const b of prev) b.y1 = Math.max(b.y1, top);
+      out.push(...row); prev = row; y += lh;
+      if (li === it.lines.length - 1) for (const b of row) b.y1 = base + halo;
+    });
+    return out;
+  };
+  const seenEnd = (it) => {
+    if (it.bg) return edgeOf(rectOf(it), it.ax, it.ay) || { x: it.ax, y: it.ay };
+    const rs = inkRects(it), outer = { x0: Math.min(...rs.map((r) => r.x0)), y0: Math.min(...rs.map((r) => r.y0)), x1: Math.max(...rs.map((r) => r.x1)), y1: Math.max(...rs.map((r) => r.y1)) };
+    return edgeOfRects(rs, outer, it.ax, it.ay) || { x: it.ax, y: it.ay };
+  };
   // ── Label placement ──
   // A label's slot is solved in figure terms and then carried rigidly: it is stored as the figure
   // point it names (its anchor, in world coordinates) plus a fixed pixel offset to its box. A pan
@@ -5930,9 +5956,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Elsewhere the leader stops on the edge of the letters it meets first, run by run: seenEnd.)
       const le0 = leaderEnd(r, it.ax, it.ay, circuit ? 2 : 6), le = circuit ? le0 : seenEnd(it);
       const far = Math.hypot(le0.x - it.ax, le0.y - it.ay) > 5;
-      if (it.focusLeader) leaders += `<path class="leader focus${it.mk ? ` k-${it.mk}` : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
+      if (it.focusLeader) leaders += `<path class="leader focus${it.mk ? ` k-${it.mk}` : ''}" data-k="${it.key}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
       // (In the Circuit a reading more than 10 px from its station is always joined to it, so its ring is never in doubt.)
-      else if ((it.leader && (circuit || far)) || (circuit && Math.hypot(le.x - it.ax, le.y - it.ay) > 10)) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
+      else if ((it.leader && (circuit || far)) || (circuit && Math.hypot(le.x - it.ax, le.y - it.ay) > 10)) leaders += `<path class="leader${it.sel ? ' hl' : ''}" data-k="${it.key}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
       if (it.focusLeader || it.free) continue;
       if (!circuit || it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
     }

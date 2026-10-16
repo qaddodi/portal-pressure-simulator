@@ -31,7 +31,7 @@ import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
 import { createSinusoidView } from './sinusoid-view.js?v=586978f5cb';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
-import { leaderEnd, runInside } from './leader-end.js?v=3a261ffe40';
+import { leaderEnd, runInside } from './leader-end.js?v=41874d9ac9';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -1030,6 +1030,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   const hitKind = (key) => (key === 'ha' || key === 'bd' ? { part: key, tri: pick.triad } : key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
   let callPrev = null, callCost = 0;
+  const LONG_LEAD = 140;   // px: the longest leader an optional label may take (a vessel label pays steeply past it)
   const CORE = ['cv', 'sin', 'triad'];   // the vessel labels: never left out for the slide's pill
   // The ring on the spot: its centre and radius on screen (null while the spot is out of view), and how far from the ring's
   // centre everything else keeps (the radius, half its 4 px stroke and a small gap), so no label or pill ever touches it.
@@ -1300,7 +1301,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     let base = placed.slice();
     // A label that finds no spot clear of the others, the pill, the cards and the structures is left out rather than
     // stacked: leaving one out costs more than any clear spot, and more still for a label the slide's words name.
-    const drop = (k) => (named(k) ? 2e7 : 1e7);
+    // A label no slide names and that is not one of the vessel labels (the lymph, an arteriole, a ductule) costs far less
+    // to leave out: it gives way rather than push a vessel label onto a long leader across the lobule.
+    const drop = (k) => (named(k) ? 2e7 : CORE.includes(k) ? 1e7 : 3e4);
     const solve = (order, pl0 = base, ld0 = callLead ? [callLead] : []) => {
       const pl = pl0.slice(), ld = ld0.slice(), res = [];
       let total = 0;
@@ -1353,7 +1356,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
             + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e3 : 0)
             + keep.reduce((sum, q) => { const d = into(q, box); return sum + (d > 0 ? 1e6 + d * 1e3 : 0); }, 0)
             + (into({ x: a[0], y: a[1], r: 10 }, box) > 0 ? 1e6 : 0)
-            + lead * 8 + Math.max(0, lead - 3 * hh) * 60 + Math.hypot(x - preferred[0], y - preferred[1]) * 0.5;
+            + lead * 8 + Math.max(0, lead - 3 * hh) * 60 + Math.hypot(x - preferred[0], y - preferred[1]) * 0.5
+            // A label no slide names (the lymph, an arteriole, a ductule) is left out sooner than sent far from what it names
+            // on a leader across the lobule (a phone once ran the Lymph label's 420 px over it, past every other label).
+            + (!CORE.includes(k) && !named(k) && lead > LONG_LEAD ? 1e6 : Math.max(0, lead - LONG_LEAD) * 400);
           if (!best || cost < best.cost) best = { x, y, box, cost };
         }
         if (best.cost >= 1e6) { res.push({ k, out: true }); total += drop(k); continue; }

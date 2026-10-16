@@ -99,12 +99,33 @@ const open = async (page, q = '') => {
 const leaderFrames = (page, ms) => page.evaluate((ms) => new Promise((done) => {
   const out = new Map(), t0 = performance.now();
   const op = (el) => { let o = 1; for (let e = el; e && e.nodeType === 1; e = e.parentElement || e.parentNode) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return 0; o *= +cs.opacity; } return o; };
+  // A lobule label's letters are its .n and .v rows; an anatomy label's are its letters, each from the top of its ink to
+  // the bottom (measured with the same font on a canvas), so a gap above the letters counts.
+  const cv = document.createElement('canvas').getContext('2d');
   const ink = (el) => {
-    let b = null;
-    for (const p of el.matches('.lz-lab') ? el.querySelectorAll('.n, .v') : el.querySelectorAll('text')) {
-      const r = p.getBoundingClientRect();
-      if (r.width) b = b ? { l: Math.min(b.l, r.left), r: Math.max(b.r, r.right), t: Math.min(b.t, r.top), b: Math.max(b.b, r.bottom) } : { l: r.left, r: r.right, t: r.top, b: r.bottom };
+    let b = null, sc = 1;
+    const parts = [];
+    const add = (l, r, t, bt) => { parts.push({ l, r, t, b: bt }); b = b ? { l: Math.min(b.l, l), r: Math.max(b.r, r), t: Math.min(b.t, t), b: Math.max(b.b, bt), parts } : { l, r, t, b: bt, parts }; };
+    if (el.matches('.lz-lab')) { for (const p of el.querySelectorAll('.n, .v')) { const r = p.getBoundingClientRect(); if (r.width) add(r.left, r.right, r.top, r.bottom); } return b; }
+    // (Letter by letter: where each sits from the text's own layout, how high and low its ink reaches from the font.)
+    for (const tx of el.querySelectorAll('text')) {
+      const m = tx.getScreenCTM(); if (!m) continue;
+      const k = Math.hypot(m.c, m.d), base = m.d * +tx.getAttribute('y') + m.f;
+      sc = k;
+      let i = 0;
+      for (const sp of tx.querySelectorAll('tspan')) {
+        const cs = getComputedStyle(sp);
+        cv.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        for (const ch of sp.textContent) {
+          if (ch.trim()) {
+            const e = tx.getExtentOfChar(i), mt = cv.measureText(ch);
+            add(m.a * e.x + m.e, m.a * (e.x + e.width) + m.e, base - mt.actualBoundingBoxAscent * k, base + mt.actualBoundingBoxDescent * k);
+          }
+          i++;
+        }
+      }
     }
+    if (b) b.sc = sc;
     return b;
   };
   // How far the segment p→q runs inside box b.
@@ -130,13 +151,17 @@ const leaderFrames = (page, ms) => page.evaluate((ms) => new Promise((done) => {
       const at = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
       const n = ln.tagName === 'line' ? ['x1', 'y1', 'x2', 'y2'].map((a) => +ln.getAttribute(a)) : ln.getAttribute('d').match(/-?[\d.]+/g).map(Number);
       const p = at(n[0], n[1]), q = at(n[n.length - 2], n[n.length - 1]);
-      const gap = (b) => Math.hypot(Math.max(b.l - q[0], 0, q[0] - b.r), Math.max(b.t - q[1], 0, q[1] - b.b));
-      const own = (ln.dataset.target && labs.find((b) => b.k === ln.dataset.target)) || labs.slice().sort((a, b) => gap(a) - gap(b))[0];
-      if (!own) continue;
+      // (Measured against each run of letters, not the box round them all: a name, its number and its unit.)
+      const gap = (b) => Math.min(...b.parts.map((c) => Math.hypot(Math.max(c.l - q[0], 0, q[0] - c.r), Math.max(c.t - q[1], 0, q[1] - c.b))));
+      const thru = (b) => Math.max(...b.parts.map((c) => under(p, q, c)));
+      const key = ln.dataset.target || ln.dataset.k, own = labs.find((b) => b.k === key);
       const note = (k, v) => { if (!out.has(k)) out.set(k, `${k} (${v.toFixed(1)} px, at ${t} ms)`); };
-      if (gap(own) > 2.5) note(`the "${own.n}" leader stops short of its label`, gap(own));
-      if (under(p, q, own) > 2.5) note(`the "${own.n}" leader runs in under its label`, under(p, q, own));
-      for (const b of labs) if (b !== own && under(p, q, b) > 0.5) note(`the "${own.n}" leader crosses "${b.n}"`, under(p, q, b));
+      if (!own) { note(`the ${key} leader shows without its label`, 0); continue; }
+      // (3 px of play: the letters' halo and side bearings, larger while the labels are drawn larger in a dive.)
+      const play = 3 * own.sc;
+      if (gap(own) > play) note(`the "${own.n}" leader stops short of its label`, gap(own));
+      if (thru(own) > play) note(`the "${own.n}" leader runs in under its label`, thru(own));
+      for (const b of labs) if (b !== own && thru(b) > 0.5) note(`the "${own.n}" leader crosses "${b.n}"`, thru(b));
     }
     if (t < ms) requestAnimationFrame(tick); else done([...out.values()]);
   };

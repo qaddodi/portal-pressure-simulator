@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { leaderEnd, runInside } from '../src/ui/leader-end.js';
+import { leaderEnd, leaderEndRects, runInside } from '../src/ui/leader-end.js';
 
 const box = { x0: 100, y0: 50, x1: 160, y1: 70 };
 const onEdge = (p, b) => {
@@ -37,13 +37,32 @@ test('runInside measures how far a segment runs through a box, not a graze', () 
   assert.ok(Math.abs(runInside([130, 0], [130, 60], box) - 10) < 1e-9);
 });
 
+test('a label seen run by run: the leader stops on the first run of letters it meets, not on the box round them all', () => {
+  // A short name beside a tall number: from above the name, the leader comes down to the name's own top.
+  const name = { x0: 100, x1: 140, y0: 56, y1: 70 }, num = { x0: 146, x1: 180, y0: 50, y1: 70 };
+  const outer = { x0: 100, x1: 180, y0: 50, y1: 70 };
+  const e = leaderEndRects([name, num], outer, 110, 0);
+  assert.ok(Math.abs(e.y - 56) < 1e-9, `ends at y ${e.y}, the name's top is 56`);
+  assert.ok(runInside([110, 0], [e.x, e.y], name) < 1e-9 && runInside([110, 0], [e.x, e.y], num) < 1e-9);
+  assert.equal(leaderEndRects([name, num], outer, 120, 60), null);
+});
+
 test('the lobule and the anatomy both stop their leaders with leader-end.js', () => {
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(lz, /import \{[^}]*\bleaderEnd\b[^}]*\} from '\.\/leader-end\.js/);
-  assert.match(st, /import \{[^}]*\bleaderEnd as edgeOf\b[^}]*\} from '\.\/leader-end\.js/);
+  assert.match(st, /import \{[^}]*\bleaderEnd as edgeOf\b[^}]*\bleaderEndRects\b[^}]*\} from '\.\/leader-end\.js/);
   // The lobule's leaders never end at the label's middle again (x2/y2 set straight from the placement's centre).
   assert.doesNotMatch(lz, /setAttribute\('x2', x\)/);
   // A gliding label takes its leader's end with it.
   assert.match(lz, /function syncLeaders\(/);
+});
+
+test('an optional lobule label gives way rather than take a leader across the lobule', () => {
+  // (Batch 04, a phone: the Lymph label sat at the top right, its leader 420 px long over the whole lobule.)
+  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const m = /const LONG_LEAD = (\d+);/.exec(lz);
+  assert.ok(m && +m[1] <= 160, 'LONG_LEAD is missing or too long');
+  assert.match(lz, /!CORE\.includes\(k\) && !named\(k\) && lead > LONG_LEAD \? 1e6/);
+  assert.match(lz, /const drop = \(k\) => \(named\(k\) \? 2e7 : CORE\.includes\(k\) \? 1e7 : 3e4\);/);
 });
