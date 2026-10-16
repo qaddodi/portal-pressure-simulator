@@ -2023,7 +2023,7 @@ button.finding { cursor: pointer; }
    (A short phone, 600 px tall or less, has no room for the row: there it stays on bare figure, or hidden where nothing is bare.) */
 .pz-cred { display: none; }
 @media (min-height: 601px) {
-  .pz-shade.stack:not(.tab) .pz-cred { display: block; position: absolute; left: 11px; right: 11px; bottom: 6px; font: 500 12px/17px var(--font-ui); letter-spacing: .01em; white-space: nowrap; color: var(--text-3); pointer-events: none; user-select: none; }   /* (its ink starts at the words' 21 px; --text-3: quieter than the words, over 4.5:1 in both themes) */
+  .pz-shade.stack:not(.tab) .pz-cred { display: block; position: absolute; left: 11px; right: 11px; bottom: 6px; text-align: center; font: 500 12px/17px var(--font-ui); letter-spacing: .01em; white-space: nowrap; color: var(--text-3); pointer-events: none; user-select: none; }   /* (centred: clear of the card's rounded foot corners, which follow the screen's on an iPhone Home Screen app (an iPhone 16 Pro Max put the © outside the corner); --text-3: quieter than the words, over 4.5:1 in both themes) */
   .pz.stack:not(.tab) { --pz-sb: calc(env(safe-area-inset-bottom, 0px) + 20px); }
   :root.iphone-app .pz.stack:not(.tab) { --pz-sb: 20px; }
   .app.presenting:has(.pz-shade.stack:not(.tab)) .stage-credit { display: none; }
