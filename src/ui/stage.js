@@ -2959,7 +2959,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // y 420, the flank starts at 470), so it shows nothing; in the copy it only stretched the backdrop's mask, two
         // offscreen layers, from the dome over the liver and spleen to the whole abdomen.
         for (const el of c.querySelectorAll('.flank')) el.setAttribute('data-pc', 'drop');
-        if (inlineStyles(g, c) === false) continue;
+        // (Shown for this copy by definition: the stage hides these groups only while the GPU draws them. A visibility read back
+        // from the page here could be stale, as Chrome's was for descendants (d7d2314), and one stale "hidden" at the top hides
+        // every organ in the copy and so in the figure.)
+        if (inlineStyles(g, c, 'visible') === false) continue;
         c.removeAttribute('opacity');   // the plate fades with the morph on the GPU
         for (const el of [...c.querySelectorAll('[data-pc="drop"]')]) el.remove();
         dropInvisible(c);
