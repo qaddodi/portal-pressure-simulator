@@ -38,8 +38,9 @@ export function offScale(roles) {
     ...(el.closest('.pz.stack .pz-data') ? [probe(el.closest('.pz-data'), 'var(--pz-pnum)')] : []),
     // (An equation is set a little above its line's role, as STIX runs small: app.css .pz-eq math, --eq-k its fitted step.)
     ...(el.closest('.pz-eq math') ? ['calc(var(--s-lab) * 1.1 * var(--eq-k, 1))', 'calc(var(--s-body) * 1.15 * var(--eq-k, 1))', 'calc(var(--s-val) * var(--eq-k, 1))'].map((v) => probe(el.closest('.pz-eq'), v)) : []),
-    // (A slide's site tag is three quarters of the card's caption, the smallest card text (b2be4e10): app.css .pz-site.)
-    ...(el.closest('.pz-site:not(.pz-case-tag)') ? [probe(host, 'calc(var(--s-cap) * .75)')] : []),
+    // (A slide's site tag, and the running head's deck name beside it, are three quarters of the card's caption, the smallest card
+    // text (b2be4e10): app.css .pz-site, .pz-run.)
+    ...(el.closest('.pz-site:not(.pz-case-tag), .pz-run') ? [probe(host, 'calc(var(--s-cap) * .75)')] : []),
     // (A case card's words are the body role at the card's fitted step, --case-k: app.css .pz-case-p.)
     // (Its Case tag is the body role and a little more, 1.15 (a1b94e66): app.css .pz-case-tag.)
     ...(el.closest('.pz-case') ? [probe(el.closest('.pz-case'), 'calc(var(--s-body) * var(--case-k, var(--case-max)))'), probe(el.closest('.pz-case'), 'calc(var(--s-body) * 1.15)')] : [])]; } });
@@ -51,7 +52,7 @@ export function offScale(roles) {
       if (!n.textContent.trim() || !el || el.closest(a.skip) || (a.name === 'figure' && el.closest('.pz')) || !shown(el)) continue;
       // (A tile's short name is its ::after, the full name kept at 0 px for readers: the short name's size is judged.)
       const fs = parseFloat(getComputedStyle(el).fontSize) || (el.dataset.s ? parseFloat(getComputedStyle(el, '::after').fontSize) : 0);
-      const key = el.closest('.pz-site:not(.pz-case-tag)') || el.closest('.sv, .lz-host, .lz-zone, .pz-eq math, .pz-case, .pz-table, .pz-grid, .pz-rail ol, .pz.low .pz-rail-liver, .pz.stack .pz-ab, .pz.low .pz-ab, .pz-text, .pz-panel, .pz-data') || a.root;   // (a phone's site rows letter at their own roles, as the summary table does)
+      const key = el.closest('.pz-site:not(.pz-case-tag), .pz-dn') || el.closest('.sv, .lz-host, .lz-zone, .pz-eq math, .pz-case, .pz-table, .pz-grid, .pz-rail ol, .pz.low .pz-rail-liver, .pz.stack .pz-ab, .pz.low .pz-ab, .pz-text, .pz-panel, .pz-data') || a.root;   // (a phone's site rows letter at their own roles, as the summary table does)
       if (!cache.has(key)) cache.set(key, a.sizes(el));
       const ok = cache.get(key);
       const what = `${a.name} ${el.tagName.toLowerCase()}.${[...el.classList].join('.')} "${n.textContent.trim().slice(0, 16)}" ${fs.toFixed(1)}px`;

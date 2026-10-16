@@ -16,7 +16,7 @@ Contents: At a glance · 1 What a deck is · 2 Deck fields · 3 Slide fields · 
 * **The data card** holds the numbers: a pressure ladder, readout tiles, comparison tables, scales, and live instruments (Doppler, endoscopy scope, FibroScan, pressure traces, the abdomen, the varix wall, a flow-over-time chart), or a what-if slider and treatment buttons that act on the live model.
 * **Catheter choreography.** The HVPG measurement can be played step by step (route, free, wedge, result) with the live tracing.
 * **Case cards.** A slide that brings in a new patient can open with a centred frosted card holding a short clinical case (section 14).
-* **Deck furniture the app adds for you:** an Outline and objectives slide in front, site tags above titles in decks that cover more than one level, disease-name pills, the closing quick check (`checks`), speaker notes in the handout, the nav pill, the corner credit.
+* **Deck furniture the app adds for you:** an Outline and objectives slide in front, the deck's short name over every slide's title (the running head), site tags beside it in decks that cover more than one level, disease-name pills, the closing quick check (`checks`), speaker notes in the handout, the nav pill, the corner credit.
 * **The menu has two tabs:** *Present* (the decks, this guide) and *Patients* (the presets, free exploration). Instructors can also import a deck file in the app (section 13).
 
 ---
@@ -43,6 +43,7 @@ A slide is **one idea**: a standalone title, a one-sentence line, at most four c
 | `checks` | `[question, answer][]` | The closing quick check: 3 or 4 questions, added after the last slide over its patient. Each answer starts hidden and eases open when tapped. Do not write the slide itself. |
 | `sections` | `[name, [kickers or slide ids]][]` | Optional. 3 to 5 sections for the outline and the running head. Needed only when the deck has more than 5 distinct `kicker` values, or fewer than 3 (list slide `id`s then, as `circuit` does); with 3 to 5 kicker groups the sections are built from them automatically. A kicker `'Summary'` is left out of the outline. |
 | `short` | string | **Set by the menu table (`TOPICS` in `src/ui/decks.js`), not in the deck file** (see section 12). Max 32 characters. |
+| `head` | string | The running head, the deck's short name in small capitals over every slide's title (beside the site tag). **Set by the menu table too**, its third entry. Max 20 characters, one or two words ("Ascites"). |
 | `topic` | string | Set by the menu table too (`foundations causes measuring complications treatment`). |
 
 ## 3. Slide fields
@@ -496,7 +497,7 @@ Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; bleeding risk rises 
 11. **Every content slide has** `id`, `kicker`, `title`, `line`, `notes` (2–4 sentences a lecturer can read aloud) and `ask: [question, answer]`. The last slide is a `visual: 'table'` summary under `kicker: 'Summary'` with `of` rows naming the earlier slides, and the deck ends with `checks` (3 or 4 `[question, answer]` pairs; the app adds the quick-check slide).
 12. **Decks:** 6–12 slides, 3–4 `objectives`, ≥ 3 kicker groups or explicit `sections`, `level` one of foundation/core/advanced.
 13. **Style:** plain sentence case, no emoji, American spelling, numbers with units (`mmHg`, `g/dL`, `kPa`), clinically accurate (Baveno VIII, the latest, never Baveno VII; AASLD where US practice differs; US drug choices such as octreotide). Write for the learner, never the instructor, in full grammatical sentences that read like a clinician-teacher at the bedside (`docs/ai-humanizer.md`). Use proper clinical shorthand ("OCP use", never "on the pill"). Never write "our patient" or "the patient we just measured", and never an ambiguous "this patient": say "in this case, the HVPG is…" or use the case's own description. Say **resistance** (site labels and running prose), not "block" or "obstruction", for where pressure is lost; drug and procedure uses such as "blocks α1 receptors" stay. (The code's `kind: 'block'`, `block:` and `callout` names are fine; only learner-facing text is affected.) Word thresholds as rising risk, not a cliff.
-14. **No new furniture by hand.** The app adds the site tag above the title (decks covering more than one `site`), disease-name pills (list in `src/ui/diseases.js`), the Outline slide, the quick check and the corner credit. Do not write them into lines or titles.
+14. **No new furniture by hand.** The app adds the deck's short name and the site tag above the title (decks covering more than one `site`), disease-name pills (list in `src/ui/diseases.js`), the Outline slide, the quick check and the corner credit. Do not write them into lines or titles.
 15. Presenter shows pressure unless a slide sets `lens` (section 5.2), and keeps the app's own N, S, L keys off while presenting; there are **no card or test-type fields on slides**: the nearest are `tool.kind` and `visual` (section 7).
 
 ---
@@ -629,10 +630,10 @@ export const CLOT_DEMO = {
      `import { CLOT_DEMO } from './decks/clot-demo.js?v=0000000000';`
    * Register it near the other `DECKS.push(...)` lines:
      `DECKS.push(CLOT_DEMO);`
-   * Add it to `TOPICS` (the unified menu) under exactly one topic, with a short title of **32 characters or fewer**:
-     `['causes', 'Causes', [ …, ['clot-demo', 'A clot in the portal vein'] ]]`.
+   * Add it to `TOPICS` (the unified menu) under exactly one topic, with a short title of **32 characters or fewer** and a running head of **20 or fewer**:
+     `['causes', 'Causes', [ …, ['clot-demo', 'A clot in the portal vein', 'Portal vein clot'] ]]`.
      Topics, in order: `foundations`, `causes`, `measuring`, `complications`, `treatment`. A deck missing from `TOPICS` fails the menu test.
-3. **Check it:** `npm run lint && npm test`. Among the tests that guard a deck: every deck is listed once under a topic with a short title (`menu`); every slide's `ask[0]` appears in the printed handout (`handout`); a term a slide gives is named by its line and no slide loses a pill (`deck-terms`); a line that sets a live HVPG or PPG beside a threshold matches the patient the slide shows (`deck-thresholds`, with a hand-checked exceptions list at its top); site tags and disease pills (`site-tags`, `disease-pills`); every case card is under 220 characters on a slide with a preset (`case-card`).
+3. **Check it:** `npm run lint && npm test`. Among the tests that guard a deck: every deck is listed once under a topic with a short title and its own running head (`menu`); every slide's `ask[0]` appears in the printed handout (`handout`); a term a slide gives is named by its line and no slide loses a pill (`deck-terms`); a line that sets a live HVPG or PPG beside a threshold matches the patient the slide shows (`deck-thresholds`, with a hand-checked exceptions list at its top); site tags and disease pills (`site-tags`, `disease-pills`); every case card is under 220 characters on a slide with a preset (`case-card`).
 4. **Stamp scripts:** `npm run stamp` rewrites the `?v=` hashes (required whenever a script file changed; a stale stamp fails the unit job and skips the deploy).
 5. **Optional deck-picker stills:** `node scripts/deck-stills.mjs <id>` writes `brand/decks/<id>-light.webp` and `-dark.webp` (200×250); run it after the deck exists.
 6. **Preview:** follow `AGENTS.md` (the single source of truth for the preview workflow). In short: pushing the integration branch `claude/settings-topbar-icon-flvft1` publishes `/preview/` at https://qaddodi.github.io/portal-pressure-simulator/preview/ . Rebase on the latest preview right before pushing, never force-push, grep for conflict markers, never push to `main` (the owner merges), and check the "Pages (live site + preview)" deploy job succeeded.

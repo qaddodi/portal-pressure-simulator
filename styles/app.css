@@ -1493,6 +1493,12 @@ button.finding { cursor: pointer; }
 /* The site tag above a slide's title: which level the block sits at, a quiet pill in the level's colour, smaller than any text on the card. */
 .pz-site { align-self: flex-start; display: inline-flex; align-items: center; gap: .45em; margin-bottom: -.15em; padding: .2em .6em; border-radius: var(--r-pill); font: 600 max(9px, calc(var(--s-cap) * .75))/1.1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); background: color-mix(in srgb, var(--site) 13%, transparent); }
 .pz:not(.stack) .pz-site { font-size: var(--s-cap); }   /* (a wide screen: the caption's size, the smallest on the card, never under 12 px) */
+/* The running head over a slide's title (presenter.js runHead): the deck's short name in quiet capitals at the site tag's size,
+   the site tag beside it on the same line, wrapping under it only where both do not fit. */
+.pz-run { display: flex; flex-wrap: wrap; align-items: center; gap: .35em .9em; margin-bottom: -.15em; font: 600 max(9px, calc(var(--s-cap) * .75))/1.1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); }
+.pz:not(.stack) .pz-run { font-size: var(--s-cap); }
+.pz-run .pz-site { margin-bottom: 0; }
+.app.pz-hi .pz-run { color: var(--text-2); }
 .pz-kick[data-site="none"] { color: var(--text-3); }
 .pz-h { margin: 0; font: 600 var(--s-title)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
 /* A short neutral rule closes the title off from the body. */
