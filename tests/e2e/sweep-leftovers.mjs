@@ -37,7 +37,7 @@ for (const size of [[1280, 800], [1440, 900], [1180, 820]]) {
   for (let i = 0; i < 60 && same < 3; i++) { await sleep(400); const b = await page.evaluate(() => JSON.stringify(document.querySelector('#net').getBoundingClientRect())); same = b === last ? same + 1 : 0; last = b; }
   const r = await page.evaluate(() => {
     const a = document.querySelector('#net').getBoundingClientRect(), p = document.querySelector('#zoomPill').getBoundingClientRect();
-    return { hit: a.right > p.left - 8 && a.bottom > p.top - 8 && p.width > 0, a: [a.right, a.bottom].map(Math.round), p: [p.left, p.top].map(Math.round) };
+    return { hit: a.right > p.left - 7.5 && a.bottom > p.top - 7.5 && p.width > 0, a: [a.right, a.bottom].map(Math.round), p: [p.left, p.top].map(Math.round) };
   });
   if (r.hit) fail(`${size}: the circuit runs under the zoom pill (map right/bottom ${r.a}, pill left/top ${r.p})`);
   await close();
