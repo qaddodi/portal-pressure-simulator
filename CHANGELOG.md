@@ -2,6 +2,12 @@
 
 ## October 2026
 
+- **The view switch is its own centred pill, just above the play bar.** On every screen (upright phone and iPad, Mac,
+  iPad and phone held sideways) Circuit, Anatomy, Lobule and Sinusoid sit in one pill, centred on the screen 8 px above
+  the play bar, the selected view in a soft inner pill. It is no longer part of the dock or the Mac's top bar. A card
+  on an upright phone or iPad covers it as it covers the play row. In the sinusoid view the same pill sits centred at
+  the bottom, level with +, − and Fit, which now stand upright at the bottom right on every screen. While presenting,
+  the switch stays in the top bar. Test: smoke "view switch: a centred pill 8 px above the play bar".
 - **The view switch is the bottom bar's first line, one tap away.** On an upright phone or iPad the switch (Circuit,
   Anatomy, Lobule, Sinusoid) is one slim line at the top of the dock, above the play row: small text, the selected view
   in a soft pill, no box. A card covers it as it covers the play row. The tab labels sit whole on an iPhone again (the

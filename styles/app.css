@@ -5253,23 +5253,22 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .app.thumb .topbar .tb-id { flex: 0 1 auto; min-width: 0; }
 .app.thumb .topbar .stage-bar.top { flex: 1 1 auto; order: 0; justify-content: flex-end; }
 .app.thumb .topbar .sb-left { display: none; }
-/* The view switch (Circuit, Anatomy, Lobule, Sinusoid) is the thumb dock's first line, above the play row (15 Oct, Mohammad:
-   "can we put it down below"; main.js syncThumb moves it there). One slim line, the selected view in a soft pill as in the
-   top-bar switch, no track or box. It is part of the play bar's half of the dock: a card or menu covers it as it covers the
-   play row, and it comes back with them. The sinusoid view hides the dock: there Lobule and Sinusoid sit in a pill at the
-   bottom left, level with the zoom group (+, − back to the lobule, Fit) at the bottom right. */
+/* The view switch (Circuit, Anatomy, Lobule, Sinusoid) is its own pill, centred a little above the play bar, on every screen
+   (16 Oct, Mohammad: "detached from the timeline button slightly above it as a pill and centered"; main.js syncThumb moves it
+   there). The selected view sits in a soft inner pill. On an upright phone or tablet an open card or menu covers it as it
+   covers the play row, and it comes back with them. The sinusoid view hides the bar: there the same pill sits centred at
+   the bottom, level with the zoom group (+, − back to the lobule, Fit) at the bottom right. While presenting the switch
+   stays in the top bar. */
 .nb-views, .sin-views { display: none; }
-.app.thumb .vdock:not(.mini) > .nb-views { grid-area: st; display: flex; justify-content: center; min-width: 0; padding: 7px 6px 3px; }   /* (6 px clear of the dock's 1 px edge line) */
-.app.thumb .nb-views #viewSeg { display: flex; justify-content: center; gap: 4px; min-width: 0; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.app.thumb :is(.nb-views, .sin-views) #viewSeg button { position: relative; flex: 0 1 auto; min-width: 0; min-height: 0; height: 29px; padding: 0 14px; border-radius: 999px; font-size: var(--fs-12); font-weight: 600; letter-spacing: 0; white-space: nowrap; }
-/* (The painted pill is 29 px; the touch reaches 7 px past it above and below, unseen.) */
-.app.thumb :is(.nb-views, .sin-views) #viewSeg button::after { content: ""; position: absolute; inset: -7px 0; }
-.app.thumb :is(.nb-views, .sin-views) #viewSeg button[aria-pressed="true"] { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; color: var(--text); }
-@media (max-width: 359px) { .app.thumb .nb-views #viewSeg { gap: 0; } .app.thumb .nb-views #viewSeg button { padding: 0 10px; } }
-.app.thumb .sin-views #viewSeg { display: flex; gap: 2px; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
-#app.thumb.sin-focus .sin-views { display: flex; position: absolute; z-index: var(--z-hud); padding: 6.5px 5px;   /* (as tall as the zoom group beside it, 42 px) */ border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
-  left: calc(env(safe-area-inset-left) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); }
-@media (max-width: 767px) { #app.thumb.sin-focus .sin-views { left: calc(env(safe-area-inset-left) + 8px); } }
+.app:not(.presenting) .vdock:not(.mini) > .nb-views, #app.sin-focus:not(.presenting) .sin-views { display: flex; position: absolute; left: 0; right: 0; width: max-content; max-width: calc(100vw - 16px); margin: 0 auto; padding: 6px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
+.app:not(.presenting) .vdock:not(.mini) > .nb-views { bottom: calc(100% + 8px); }   /* (8 px above the play bar) */
+#app.sin-focus:not(.presenting) .sin-views { z-index: var(--z-hud); bottom: calc(var(--bot-occ, 120px) + 8px); }
+:is(.nb-views, .sin-views) #viewSeg { display: flex; gap: 2px; min-width: 0; height: auto; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:is(.nb-views, .sin-views) #viewSeg button { position: relative; flex: 0 0 auto; min-width: 0; min-height: 0; height: 30px; padding: 0 14px; border-radius: calc(var(--r-sheet) - 6px); font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; white-space: nowrap; }
+/* (The painted pill is 30 px; the touch reaches 6 px past it above and below, to the pill's edge, unseen.) */
+:is(.nb-views, .sin-views) #viewSeg button::after { content: ""; position: absolute; inset: -6px 0; }
+:is(.nb-views, .sin-views) #viewSeg button[aria-pressed="true"] { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; color: var(--text); }
+@media (max-width: 380px) { :is(.nb-views, .sin-views) #viewSeg button { padding: 0 10px; font-size: var(--fs-12); } }
 /* A phone: the cards (Tests, Treat, Details) and the menus sit above the dock, inset like it, round on every corner. */
 @media (max-width: 767px) {
   .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) {
@@ -5297,6 +5296,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    above the dock. The sinusoid view hides the dock: there the zoom group (+, − back to the lobule, Fit) stays at the bottom right. */
 .app.thumb:not(.sin-focus) .zoom-pill { display: none !important; }
 #app.thumb.sin-focus .zoom-pill :is(#zoomIn, #zoomOut) { display: inline-grid !important; }
+/* (The sinusoid view: the zoom group stands upright at the bottom right on every screen, as on a Mac, so the centred view pill
+   has the bottom row to itself, even on a 320 px phone.) */
+#app.sin-focus .zoom-pill { flex-direction: column; }
 /* One card or menu at a time above the thumb dock, each a solid piece that comes and goes whole: it rises a little
    out of the dock as it fades in and sinks back as it fades out, never sliding across the dock, and one opened while
    another is still going out waits until that one has gone (--enter-delay, set by util.js enterAfterGone). */
@@ -5581,7 +5583,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    One row: play, speed, the clock and jump at the left, the two key readings at the right as plain numbers, with no bars
    and no rating words (Tests > Readouts has the rest). On an upright phone or tablet it sits on the tab row; on a Mac or
    an iPad held sideways it is the whole bar. The colour of a number still says normal, raised or high. */
-.app.thumb .vdock .stage-bar.bottom { height: 49px; min-height: 49px; padding-bottom: 3px; }   /* (6 px from the play box to the tab row's line, as from the switch to the box) */
+.app.thumb .vdock .stage-bar.bottom { height: 48px; min-height: 48px; }
 .app.thumb .vdock .readouts:not(.all) .ro-group { padding: 0 2px; justify-content: center; }
 .app.thumb .vdock .readouts:not(.all) .metric { flex-direction: row; flex-wrap: nowrap; align-items: baseline; justify-content: flex-end; gap: 0 5px; padding: 0 6px; }
 .app.thumb .vdock .readouts:not(.all) .metric :is(.rb, .s, .tr) { display: none; }

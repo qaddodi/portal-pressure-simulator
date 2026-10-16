@@ -1001,15 +1001,17 @@ function wireFloating() {
     // The dock's full height is kept while it is folded to one line (figureFocus below): the framing reads it
     // (stage.js safeInsets), so the figure does not jump each time the dock folds and opens.
     const vd = $('#vdock');
-    if (!vd.classList.contains('mini') && vd.offsetHeight) vd.dataset.fullH = String(vd.offsetHeight);
-    const vdTop = vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top : 0;
-    const vdock = vd.offsetHeight ? Math.max(vd.offsetHeight, vdTop - gap) : 0, wide = !isPhone();
+    // (The view switch's pill floats just above the dock and counts as part of it: what sits above the dock clears the pill too.)
+    const nbv = $('#nbViews'), nbvH = nbv && nbv.offsetHeight ? vd.getBoundingClientRect().top - nbv.getBoundingClientRect().top : 0;
+    if (!vd.classList.contains('mini') && vd.offsetHeight) vd.dataset.fullH = String(vd.offsetHeight + Math.max(0, nbvH));
+    const vdTop = vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top + Math.max(0, nbvH) : 0;
+    const vdock = vd.offsetHeight ? Math.max(vd.offsetHeight + Math.max(0, nbvH), vdTop - gap) : 0, wide = !isPhone();
     // The top bar keeps one row when everything fits at its natural width (with a little to spare,
     // so it does not flip back and forth), else the view and legend move to a second row.
     // Off a phone the bar first compacts step by step (data-fit 1-3: shorter patient name, icon-only
     // buttons), so the view and the lens stay on the one row; two rows only if even that fails.
     const tb = $('#topbar'), cs = getComputedStyle(tb);
-    const need = () => $('.tb-id').scrollWidth + $('#viewSeg').offsetWidth + $('.topbar .sb-right').offsetWidth + $('.top-right').scrollWidth + 6 * 8 + 16;
+    const need = () => $('.tb-id').scrollWidth + ($('#viewSeg').closest('.topbar') ? $('#viewSeg').offsetWidth : 0) + $('.topbar .sb-right').offsetWidth + $('.top-right').scrollWidth + 6 * 8 + 16;
     const avail = tb.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     const was = +(tb.dataset.fit || 0) + (tb.classList.contains('two-rows') ? 1 : 0);
     tb.classList.remove('two-rows');
@@ -1290,10 +1292,11 @@ function syncThumb() {
   const on = thumbOn();
   if (app.classList.contains('thumb') !== on) app.classList.toggle('thumb', on);
   document.documentElement.classList.toggle('thumb-ui', on);   // (the menus and sheets live outside #app)
-  // The view switch leaves the top bar for the thumb dock, the dock's first line, above the play row (15 Oct, Mohammad: "down
-  // below"); the sinusoid view hides the dock, so there it sits in a pill at the bottom left, level with the zoom group. Off
-  // the thumb dock (a Mac, a tablet or phone held sideways) it is back in the top bar.
-  const seg = $('#viewSeg'), home = !on ? $('#stageTop .sb-left') : app.classList.contains('sin-focus') ? $('#sinViews') : $('#nbViews');
+  // The view switch is its own centred pill just above the play bar, on every screen (16 Oct, Mohammad: "detached from the
+  // timeline ... slightly above it as a pill and centered"); the sinusoid view hides the bar, so there the same pill sits
+  // centred at the bottom, level with the zoom group. While presenting it stays in the top bar.
+  const pres = app.classList.contains('presenting');
+  const seg = $('#viewSeg'), home = pres ? $('#stageTop .sb-left') : app.classList.contains('sin-focus') ? $('#sinViews') : $('#nbViews');
   if (home && seg.parentElement !== home) home.append(seg);
 }
 function wireThumbBar() {
@@ -1316,7 +1319,7 @@ function wireThumbBar() {
   const layers = tab('layers', 'layers', 'Layers', menuTab(openLayersMenu));
   const more = tab('settings', 'gear', 'Settings', menuTab((a) => openSettings(a, true)));
   for (const b of [hist, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
-  $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews' }));
+  $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews', 'data-safe': 'bottom' }));
   $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, layers, more));
   $('#stageView').append(h('div', { class: 'sin-views float-ui stage-blocker', id: 'sinViews' }));
   // The tabs follow the cards they open (and History's count), however those were opened or closed.
