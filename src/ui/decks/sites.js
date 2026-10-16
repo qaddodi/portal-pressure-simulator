@@ -23,7 +23,7 @@ export const SITES = {
     {
       id: 'healthy', lens: 'drop', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg'],
       kicker: 'Reference', title: 'In a healthy liver each pressure drop is small',
-      line: 'HVPG is the wedged [sinusoidal pressure](sin) minus the free [hepatic vein](fhvp) pressure, normally 1 to 5 mmHg; here it is {hvpg}. Each station from the [portal vein](pv) to the [right atrium](ra) sits a few mmHg below the last.',
+      line: 'HVPG is the wedged [sinusoidal pressure](sin) minus the free [hepatic vein](fhvp) pressure, normally 1 to 5 mmHg; here it is {hvpg}. Colored by pressure drop, every vein stays pale, as each station from the [portal vein](pv) to the [right atrium](ra) is a little lower.',
       notes: 'The wedged hepatic venous pressure (WHVP) is taken with a balloon catheter wedged in a hepatic vein: with the flow stopped, the still column of blood reads the sinusoidal pressure. The free hepatic venous pressure (FHVP) is taken with the balloon down. HVPG = WHVP − FHVP. Normal is 1 to 5 mmHg; above 5 is portal hypertension; from 10, clinically significant portal hypertension, varices and decompensation become possible, and the risk rises with the gradient; from about 12 the risk of variceal bleeding rises. The portal pressure gradient (PPG) is the portal vein minus the IVC, measured directly. On the figure, colored by pressure drop, every vein stays pale.',
       ask: ['What does the wedged pressure measure?', 'The sinusoidal pressure: with the vein occluded, the still column of blood reads the pressure upstream.'],
     },
@@ -69,7 +69,7 @@ export const SITES = {
       data: 'ladder', key: ['fhvp', 'ra', 'hvpg'], rail: true,
       kicker: 'Post-hepatic', site: 'post', title: 'Budd–Chiari syndrome',
       vignette: 'A 29-year-old woman taking OCPs has had RUQ pain for 2 months and now has tense ascites. Paracentesis shows a SAAG of 1.4 and a total protein of 4.3 g/dL.',
-      line: 'Hepatic venous outflow meets resistance. Where a catheter gets behind it, wedged and free pressures are both high, so the HVPG is near zero while the [right atrium](ra) stays normal at {ra}.',
+      line: 'Hepatic venous outflow meets resistance. Where a catheter gets behind it, wedged and free pressures are both high, so the HVPG is near zero while the [right atrium](ra) stays normal at {ra}. Colored by pressure drop, the clotted veins stand out.',
       causes: ['Myeloproliferative neoplasm (JAK2)', 'Thrombophilia, pregnancy, OCP use', 'IVC web', 'Tumor invading the veins'],
       notes: 'Hepatic venous outflow obstruction, anywhere from the small hepatic veins to the IVC at the right atrium. The liver is congested and enlarged; the caudate lobe, which drains straight into the IVC, hypertrophies. Ascites is common, protein-rich (2.5 g/dL or more) and with a SAAG of 1.1 or more. In practice the clotted veins often cannot be catheterized; when one can be entered, both readings lie behind the resistance. The model shows the pressures there. Doppler ultrasound, CT or MR venography make the diagnosis. On the figure, colored by pressure drop, the large drop sits in the clotted hepatic veins.',
       ask: ['Why is HVPG near zero although the portal pressure is about 26 mmHg?', 'Where the catheter reaches behind the resistance, both the wedged and the free pressures are measured there, so both are high and their difference is small.'],
