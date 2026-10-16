@@ -118,6 +118,7 @@ export class Engine {
       if ((e.Q || e.R) && !(this.Rbase[k] > 0)) throw new Error(`Non-positive baseline resistance on ${e.id}`);
     });
     this.collaterals = EDGES.map((e, k) => (e.kind === 'collateral' ? k : -1)).filter((k) => k >= 0);
+    this.diodes = EDGES.map((e, k) => (e.kind === 'diode' ? k : -1)).filter((k) => k >= 0);
 
     this.params = params ? structuredClone(params) : defaultParams();
     this.reset(seed ?? this.params.seed);
@@ -435,35 +436,7 @@ export class Engine {
     this.computeExt(tNew);
     this.computeG(P);
 
-    A.fill(0);
-    const P0 = this._P0 || (this._P0 = new Float64Array(N));
-    for (let i = 0; i < N; i++) {
-      const [Pk, Ps] = this.nodeK[i];
-      const C = this.nodeC[i] * this.liverStiff(i);
-      const ptm = ptmOf(this.V[i], C, Pk, Ps);
-      P0[i] = this.ext[i] + ptm;
-      const Ci = complianceAt(ptm, C, Pk, Ps);
-      this.Cn[i] = Ci;
-      A[i * N + i] = Ci / dt;
-      b[i] = (Ci / dt) * P0[i];
-    }
-    // Diodes: choose conductance by current gradient
-    for (let k = 0; k < this.E; k++) {
-      let g = this.G[k];
-      if (g === 0) continue;
-      const f = this.edgeF[k], t = this.edgeT[k];
-      if (EDGES[k].kind === 'diode' && P[f] < P[t]) g *= 0.002;
-      this.G[k] = g;
-      if (this.wf[k]) {
-        const up = this.wf[k] > 0 ? f : t, dn = up === f ? t : f, x = this.wfx[k];
-        A[up * N + up] += g; b[up] += g * x;
-        A[dn * N + up] -= g; b[dn] -= g * x;
-        continue;
-      }
-      A[f * N + f] += g; A[t * N + t] += g;
-      A[f * N + t] -= g; A[t * N + f] -= g;
-    }
-    // Heart pump RA → AO
+    // Heart pump RA → AO, linearized about the pressures at the start of the step
     const RA = this.ni.RA, AO = this.ni.AO;
     let m = 1;
     if (this.pulsing()) {
@@ -473,21 +446,68 @@ export class Engine {
     const [Qh0, dQh0] = heartFlow(P[RA] - this.ext[RA], hs.cap, P[RA] - this.ext[this.ni.SVC]);
     const Qh = Qh0 * m, dQh = dQh0 * m;
     const a0 = Qh - dQh * P[RA];
-    A[RA * N + RA] += dQh; b[RA] -= a0;
-    A[AO * N + RA] -= dQh; b[AO] += a0;
     // Bleeding sink
     let gb = 0, bi = -1;
     if (this.bleed.active) {
       bi = this.ni[this.bleed.site];
-      if (P[bi] - this.ext[bi] > 0) { gb = this.bleed.G; A[bi * N + bi] += gb; b[bi] += gb * this.ext[bi]; }
+      if (P[bi] - this.ext[bi] > 0) gb = this.bleed.G;
     }
     // Infusions (mL/s) into upper-body veins
     let inf = 0;
     for (const f of this.infusions) inf += f.rate;
     const UP = this.ni.UPPV;
-    b[UP] += inf;
 
-    solve(A, b, N);
+    // A diode (valved vein) is shut, its conductance × 0.002, while its gradient runs backwards. It takes its state from
+    // the gradient at the start of the step; when the solved gradient disagrees (the flow reverses within the step), the
+    // step is solved again with the new state, at most three solves, so the valve does not chatter open and shut on
+    // alternate steps.
+    const G0 = this._G0 || (this._G0 = new Float64Array(this.E)), shut = this._shut || (this._shut = new Uint8Array(this.E));
+    G0.set(this.G);
+    for (const k of this.diodes) shut[k] = P[this.edgeF[k]] < P[this.edgeT[k]] ? 1 : 0;
+    const P0 = this._P0 || (this._P0 = new Float64Array(N)), Pit = this._Pit || (this._Pit = new Float64Array(N));
+    for (let pass = 0; ; pass++) {
+      A.fill(0);
+      for (let i = 0; i < N; i++) {
+        const [Pk, Ps] = this.nodeK[i];
+        const C = this.nodeC[i] * this.liverStiff(i);
+        const ptm = ptmOf(this.V[i], C, Pk, Ps);
+        P0[i] = this.ext[i] + ptm;
+        const Ci = complianceAt(ptm, C, Pk, Ps);
+        this.Cn[i] = Ci;
+        A[i * N + i] = Ci / dt;
+        b[i] = (Ci / dt) * P0[i];
+      }
+      for (let k = 0; k < this.E; k++) {
+        let g = G0[k];
+        if (g === 0) continue;
+        const f = this.edgeF[k], t = this.edgeT[k];
+        if (shut[k]) g *= 0.002;
+        this.G[k] = g;
+        if (this.wf[k]) {
+          const up = this.wf[k] > 0 ? f : t, dn = up === f ? t : f, x = this.wfx[k];
+          A[up * N + up] += g; b[up] += g * x;
+          A[dn * N + up] -= g; b[dn] -= g * x;
+          continue;
+        }
+        A[f * N + f] += g; A[t * N + t] += g;
+        A[f * N + t] -= g; A[t * N + f] -= g;
+      }
+      A[RA * N + RA] += dQh; b[RA] -= a0;
+      A[AO * N + RA] -= dQh; b[AO] += a0;
+      if (gb > 0) { A[bi * N + bi] += gb; b[bi] += gb * this.ext[bi]; }
+      b[UP] += inf;
+
+      solve(A, b, N);
+      if (pass === 2) break;
+      let flip = false;
+      for (const k of this.diodes) {
+        const s = b[this.edgeF[k]] < b[this.edgeT[k]] ? 1 : 0;
+        if (s !== shut[k]) { shut[k] = s; flip = true; }
+      }
+      if (!flip) break;
+      // Re-linearize the vessel conductances about the solved pressures for the next solve.
+      Pit.set(b); this.computeG(Pit); G0.set(this.G);
+    }
     const Pn = b;
 
     // Flows & volume update (exactly conservative)

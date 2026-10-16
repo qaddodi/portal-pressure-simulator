@@ -1,7 +1,7 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=63adcda5e9';
+import { startHost, host } from './host.js?v=5ac7e79fae';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
 import { createStage } from './stage.js?v=d06ad5d9d5';
 import { createCreditPlacer } from './credit.js?v=b780eae767';
@@ -9,8 +9,8 @@ import { sinusoidSupported } from './sinusoid-view.js?v=e883e572db';
 import { createInspector } from './inspector.js?v=958160ed1b';
 import { createDock, CUTOFFS } from './dock.js?v=eb34f825b8';
 import { setHvpgStage } from './hvpg-proc.js?v=50c4e675b4';
-import { createWhy } from './why.js?v=4e4e6ce9d1';
-import { createTimeline, LAPSES } from './timeline.js?v=f50fbbb8b3';
+import { createWhy } from './why.js?v=4963846de3';
+import { createTimeline, LAPSES } from './timeline.js?v=6ad12af8a5';
 import { createCompare } from './compare.js?v=d555638c31';
 import { createCard } from './card.js?v=692441314d';
 import { createChart } from './chart.js?v=d09ebc131d';
@@ -159,7 +159,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=4f5fd53586'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=ccf4f3b7e4'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
