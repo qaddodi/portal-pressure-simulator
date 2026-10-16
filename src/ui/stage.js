@@ -5660,7 +5660,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (let i = 1; i < pts.length; i++) {
         const cur = worldToLocal(pts[i][0], pts[i][1]);
         const hw = (Math.max(rAt(cum[i - 1] / L), rAt(cum[i] / L)) + wall) * CTM.sc;
-        const sg = { x0: prev[0], y0: prev[1], x1: cur[0], y1: cur[1], hw, stamp: 0, id: x.e.id };
+        const sg = { x0: prev[0], y0: prev[1], x1: cur[0], y1: cur[1], hw, stamp: 0, id: x.e ? x.e.id : 'res' };   // (a resistor's zigzag has no vessel)
         segs.push(sg);
         for (let gx = Math.floor((Math.min(sg.x0, sg.x1) - hw) / SEG_CELL); gx <= Math.floor((Math.max(sg.x0, sg.x1) + hw) / SEG_CELL); gx++) {
           for (let gy = Math.floor((Math.min(sg.y0, sg.y1) - hw) / SEG_CELL); gy <= Math.floor((Math.max(sg.y0, sg.y1) + hw) / SEG_CELL); gy++) {
