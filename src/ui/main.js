@@ -4,7 +4,7 @@
 import { startHost, host } from './host.js?v=0f6d345282';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
 import { createStage } from './stage.js?v=82c6d79469';
-import { createCreditPlacer } from './credit.js?v=75ac479bd4';
+import { createCreditPlacer } from './credit.js?v=39572e5917';
 import { sinusoidSupported } from './sinusoid-view.js?v=586978f5cb';
 import { createInspector } from './inspector.js?v=6bcb851088';
 import { createDock, CUTOFFS } from './dock.js?v=de7cd9e03f';
@@ -244,7 +244,8 @@ async function main() {
 // ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.
 async function openDeepLink() {
   const q = new URLSearchParams(location.search);
-  if (q.get('script')) { presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1)); return true; }
+  // (data-pz-opening: the deck is on its way; the corner credit waits for it rather than settle on the plain figure first.)
+  if (q.get('script')) { const de = document.documentElement; de.dataset.pzOpening = ''; presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1)).finally(() => delete de.dataset.pzOpening); return true; }
   if (q.get('preset')) {
     const id = q.get('preset'), list = store.get().presetList || [];
     if (list.some((p) => p.id === id)) { await loadPreset(id); return true; }

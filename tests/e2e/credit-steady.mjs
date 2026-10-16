@@ -32,6 +32,8 @@ for (const v of VIEWS) {
     await page.goto(server.url + url);
     await page.waitForFunction(() => window.pps?.stage, null, { timeout: 30000 });
     if (view) { await page.waitForTimeout(800); await page.click(`#viewSeg button:has-text("${view}")`); }
+    // (A deck opened by its link: from when it is up and its first slide has settled.)
+    if (url.includes('script=')) await page.waitForFunction(() => document.getElementById('app').classList.contains('presenting') && !document.getElementById('app').classList.contains('pz-moving'), null, { timeout: 90000 });
     await page.waitForTimeout(4000);
     const a = await spot(page);
     await page.waitForTimeout(2000);
@@ -44,7 +46,7 @@ for (const v of VIEWS) {
     seen.push(a);
     await ctx.close();
   }
-  if (seen[0] !== seen[1]) { console.log(`✗ ${name}: two loads put the credit in different spots (${seen[0]} vs ${seen[1]})`); fails++; }
+  if (seen[0] !== seen[1]) { console.log(`✗ ${v.name}: two loads put the credit in different spots (${seen[0]} vs ${seen[1]})`); fails++; }
   else console.log(`✓ ${v.name}: ${seen[0]}`);
 }
 await browser.close();

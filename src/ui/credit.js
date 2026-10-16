@@ -321,6 +321,9 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     if (moving || !credit.isConnected || !wrap.offsetParent || !credit.offsetParent) return;   // (not shown: an iPhone slide carries it in the teaching card)
     // A slide change (the presenter's pz-moving): out of sight until the cards are in and the camera has settled; it then
     // appears at once at its final spot.
+    // A deck opened by its link still loading: out of sight until it is up (it had settled on the plain figure, then hidden as the
+    // slide came in; sweep 01 review).
+    if ('pzOpening' in document.documentElement.dataset) { credit.classList.add('moving'); lastSig = ''; kept = ''; fresh = true; clearTimeout(camT); camT = setTimeout(soon, 200); return; }
     if (app?.classList.contains('pz-moving')) { credit.classList.add('moving'); changedAt = 0; lastSig = ''; kept = ''; fresh = true; return; }
     // A resize or a turn: hidden at once, and placed once when the size has held a moment (it had hopped three times in 1.2 s
     // as the cards and the figure followed the new size).
@@ -388,9 +391,10 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     if (stuck && !fresh && slide && stuck === slide) { kept = look; keptBlocked = []; return; }
     // A new spot is chosen only from a view that has held still: the same cards, labels, camera and size on two looks 150 ms
     // apart (a label or the lobule's outline still arriving had made the same view land it in different corners on two loads;
-    // sweep 02). A slide keeps its own beat (it waits for pz-moving to end). Never longer than 1.6 s.
+    // sweep 02). A slide too, after its pz-moving hold: its labels and readings arrive after the camera settles (Circuit 10 on an
+    // iPad showed it for a second, then hid it). Never longer than 1.6 s.
     if (steadyAt && now - steadyAt > 2000) { steady = ''; steadyAt = 0; }   // (a wait left behind by a look that kept its spot)
-    if (!slide && look !== steady && (!steadyAt || now - steadyAt < 1600)) { steadyAt ||= now; steady = look; clearTimeout(waitT); waitT = setTimeout(soon, 150); return; }
+    if (look !== steady && (!steadyAt || now - steadyAt < 1600)) { steadyAt ||= now; steady = look; clearTimeout(waitT); waitT = setTimeout(soon, 150); return; }
     steady = ''; steadyAt = 0;
     stuck = ''; fresh = false; searches++;
     const covered = CORNERS.filter((k) => !freeSpots(fig, obs, w, h, opt)[k]);
