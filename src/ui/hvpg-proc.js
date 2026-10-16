@@ -11,7 +11,8 @@
 import { h, fmt, fitCanvas, clamp, icon, cssVar } from './util.js?v=2a952639b6';
 import { FONT } from './charts.js?v=8d14002b01';
 import { pressureColor } from './colormap.js?v=e8b507a6fd';
-import { store, logAction } from './store.js?v=3b659e1968';
+import { store, logAction, hiddenNow } from './store.js?v=3b659e1968';
+import { shownOr } from './shown.js?v=82ef5e29ec';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
