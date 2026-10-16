@@ -71,6 +71,19 @@ export function advanceStream(st, vMean, vNow, dt, { phasic = false, speed = 1, 
   return st;
 }
 
+// Key chevrons only (Blood menu; always while presenting): chevrons keep to the portal story (the portal
+// inflow, the liver's beds, the hepatic veins, any open collateral or shunt); the rest fade.
+const KEY_CHEV_IDS = new Set(['V_INT', 'V_COL', 'V_IMV', 'V_SPL', 'SV_MID', 'V_STO', 'SMV_CONF', 'SV_CONF', 'LGV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_L', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC']);
+// A vein drawn in an open collateral's own lane: the ascending lumbar collateral (C9) runs up the azygos
+// trunk's lane into the arch, so that stretch of its course is the azygos (AZY_SVC) on screen and keeps its
+// chevrons while the collateral is open.
+export const KEY_CHEV_LANES = { AZY_SVC: ['C9'] };
+/** Whether vessel `e` keeps its chevrons under Key chevrons only; `open(id)`: whether collateral `id` is drawn open. */
+export function keyChevron(e, open = () => false) {
+  return KEY_CHEV_IDS.has(e.id) || e.kind === 'liver' || e.kind === 'collateral' || e.kind === 'shunt'
+    || (KEY_CHEV_LANES[e.id] || []).some(open);
+}
+
 // ── Where the blood comes from ─────────────────────
 // The veins that drain each bed name its blood: the superior mesenteric vein (small bowel; the
 // coronary, left gastric, vein shares its color), the inferior mesenteric vein, the splenic vein;

@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=0f6d345282';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=f9c25fac0f';
+import { createStage } from './stage.js?v=8d0dd0e5b9';
 import { createCreditPlacer } from './credit.js?v=60d087892e';
 import { sinusoidSupported } from './sinusoid-view.js?v=051eabb041';
 import { createInspector } from './inspector.js?v=6bcb851088';
@@ -35,7 +35,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=bde7401bef';
 import { initTopbarMotion } from './topbar-motion.js?v=f095540bb8';
-import { ORIGINS } from './blood.js?v=6c39f43ddf';
+import { ORIGINS } from './blood.js?v=34ef08458c';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=6ebaeb46c8';
 import { frameFor, perf as framePerf } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('main');
