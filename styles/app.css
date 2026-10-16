@@ -5260,7 +5260,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    the bottom, level with the zoom group (+, − back to the lobule, Fit) at the bottom right. While presenting the switch
    stays in the top bar. */
 .nb-views, .sin-views { display: none; }
-.app:not(.presenting) .vdock:not(.mini) > .nb-views, #app.sin-focus:not(.presenting) .sin-views { display: flex; position: absolute; left: 0; right: 0; width: max-content; max-width: calc(100vw - 16px); margin: 0 auto; padding: 6px; border-radius: 21px; background: var(--glass); box-shadow: 0 1px 2px rgb(var(--night-rgb) / .08), inset 0 0 0 1px var(--hairline); }   /* (a full pill, 42 px tall; a tight shadow that leaves the 8 px gap and the bar's edge their own colour) */
+.app:not(.presenting) .vdock:not(.mini) > .nb-views, #app.sin-focus:not(.presenting) .sin-views { display: flex; position: absolute; left: 0; right: 0; width: max-content; max-width: calc(100vw - 16px); margin: 0 auto; padding: 6px; border-radius: 21px; background: var(--glass); box-shadow: 0 0 1px rgb(var(--night-rgb) / .04), inset 0 0 0 1px var(--hairline); }   /* (a full pill, 42 px tall; only a 1 px contact shade, so the 8 px gap and the bar's edge keep the canvas's colour) */
 .app:not(.presenting) .vdock:not(.mini) > .nb-views { bottom: calc(100% + 8px); }   /* (8 px above the play bar) */
 #app.sin-focus:not(.presenting) .sin-views { z-index: var(--z-hud); bottom: calc(var(--bot-occ, 120px) + 8px); }
 :is(.nb-views, .sin-views) #viewSeg { display: flex; gap: 2px; min-width: 0; height: auto; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
@@ -5296,6 +5296,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    4 px sliver with its scale spilling out under History. It takes the rest of the first row instead, as in the other views,
    and never less than a compact key, so on a phone those four buttons go to the second row.) */
 #app.thumb.sin-focus .topbar .stage-bar.top { flex: 1 1 0; min-width: 112px; }
+/* (A phone from 360 px: the key's card on the first row and the buttons' card under it take one width, their edges lined up.) */
+@media (min-width: 360px) and (max-width: 767px) {
+  #app.thumb.sin-focus .topbar .stage-bar.top .sb-right, #app.thumb.sin-focus .top-right { width: 156px; box-sizing: border-box; }
+  #app.thumb.sin-focus .top-right { justify-content: space-between; }
+}
 /* Fit and the circuit's turn upright live in the Layers tab's menu (15 Oct, option 2), so nothing floats over the figure
    above the dock. The sinusoid view hides the dock: there the zoom group (+, − back to the lobule, Fit) stays at the bottom right. */
 .app.thumb:not(.sin-focus) .zoom-pill { display: none !important; }

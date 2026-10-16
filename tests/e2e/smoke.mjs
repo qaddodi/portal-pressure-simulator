@@ -2732,8 +2732,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }
       // (the readings and names on the figure: none ends closer than 8 px above the pill where it would sit over it)
       for (const l of document.querySelectorAll('#labels .lb:not(.lb-off), .lz-lab, .sv-region')) {
-        const q = r(l);
-        if (!q.width || !q.height || +getComputedStyle(l).opacity < 0.05 || q.bottom < 0 || q.top > innerHeight) continue;
+        const q0 = r(l);
+        if (!q0.width || !q0.height || +getComputedStyle(l).opacity < 0.05 || q0.bottom < 0 || q0.top > innerHeight) continue;
+        // (the words' own boxes, a line's full descent included: the label's box can stop short of a "g")
+        const q = { left: q0.left, right: q0.right, top: q0.top, bottom: q0.bottom };
+        const walk = document.createTreeWalker(l, NodeFilter.SHOW_TEXT);
+        for (let n = walk.nextNode(); n; n = walk.nextNode()) { if (!n.textContent.trim()) continue; const t = document.createRange(); t.selectNodeContents(n); const b = t.getBoundingClientRect(); if (b.height) q.bottom = Math.max(q.bottom, b.bottom); }
         if (q.right > p.left && q.left < p.right && q.bottom > p.top - 7.5 && q.top < p.bottom) out.push(`"${l.textContent.trim().slice(0, 24)}" ends ${Math.round(p.top - q.bottom)} px above the pill, not 8`);
       }
       if (sin && document.querySelector('#app').classList.contains('thumb')) {

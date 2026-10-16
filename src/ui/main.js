@@ -1002,9 +1002,10 @@ function wireFloating() {
     // (stage.js safeInsets), so the figure does not jump each time the dock folds and opens.
     const vd = $('#vdock');
     // (The view switch's pill floats just above the dock and counts as part of it, with 8 px more kept clear above it: what sits
-    // above the dock clears the pill too, the figure's readings by 8 px, the zoom group by 16 px. A phone held sideways frames
-    // the circuit by its vessels, and its italic vessel names hang below them: there the framing keeps 20 px.)
-    const nbvPad = innerHeight <= 500 && innerWidth > innerHeight ? '20' : '8';
+    // above the dock clears the pill too, the figure's readings by 8 px (12 for the framing: a reading's box stops short of its
+    // descenders), the zoom group by 16 px. A phone held sideways frames the circuit by its vessels, and its italic vessel names
+    // hang below them: there the framing keeps 24 px.)
+    const nbvPad = innerHeight <= 500 && innerWidth > innerHeight ? '24' : '12';
     if ($('#nbViews') && $('#nbViews').dataset.safePad !== nbvPad) $('#nbViews').dataset.safePad = nbvPad;
     const nbv = $('#nbViews'), nbvH = nbv && nbv.offsetHeight ? Math.max(0, vd.getBoundingClientRect().top - nbv.getBoundingClientRect().top + 8) : 0;
     if (!vd.classList.contains('mini') && vd.offsetHeight) vd.dataset.fullH = String(vd.offsetHeight + nbvH);
@@ -1323,7 +1324,7 @@ function wireThumbBar() {
   const layers = tab('layers', 'layers', 'Layers', menuTab(openLayersMenu));
   const more = tab('settings', 'gear', 'Settings', menuTab((a) => openSettings(a, true)));
   for (const b of [hist, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
-  $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews', 'data-safe': 'bottom', 'data-safe-pad': '8' }));
+  $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews', 'data-safe': 'bottom', 'data-safe-pad': '12' }));
   $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, layers, more));
   $('#stageView').append(h('div', { class: 'sin-views float-ui stage-blocker', id: 'sinViews' }));
   // The tabs follow the cards they open (and History's count), however those were opened or closed.
