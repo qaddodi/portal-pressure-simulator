@@ -11,6 +11,7 @@ import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, re
 import { createLobuleZoom } from './lobule-zoom.js?v=fc40358700';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
+import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns } from './plate-copy.js?v=8a7456e9fc';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
@@ -631,7 +632,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const diaMask = defs.querySelector('#diaMask');
   const diaCut = {};
   for (const o of ORGANS) if (['heart', 'heart-ra', 'esophagus', 'liver', 'stomach', 'spleen'].includes(o.id)) {
-    diaCut[o.id] = s('path', { d: o.d, fill: '#000', stroke: '#000', 'stroke-width': 5, 'stroke-linejoin': 'round' });   // colour-exempt: a mask (black hides)
+    diaCut[o.id] = s('path', { d: o.d, fill: '#000', stroke: '#000', 'stroke-width': 5, 'stroke-linejoin': 'round', 'data-cut': o.id });   // colour-exempt: a mask (black hides)
     diaMask.append(diaCut[o.id]);
   }
   liverPaths.push(diaCut.liver);
@@ -2921,38 +2922,74 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // picking organs and for exports.
   const PLATE_RECT = [200, -200, 1020, 1320];
   const PLATE_BASE = 1.2;          // px per world unit of the whole-plate raster
-  let plateTheme = null, plateKey = '', plateSeq = 0, plateBusy = false, plateAgain = false, plateLast = 0, plateTimer = 0, plateView = null, plateViewKey = '', plateSettle = 0;
+  let plateTheme = null, plateKey = '', plateSeq = 0, plateBusy = false, plateAgain = false, plateLast = 0, plateTimer = 0, plateView = null, plateViewKey = '', plateSettle = 0, plateCopy = null;
   const plateOn = () => wrap.classList.contains('gl-plate');
   // Drops the plate rasters and shows the live SVG organs. The vessel layer is redrawn in the same
   // task (after the model update in progress), so no frame shows the SVG organs over the old GPU
   // plate: the two, and the ascites, would add up to a bright flash.
   let plateRedraw = false;
   function hidePlate() {
-    veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = '';
+    veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = ''; plateCopy = null;
     wrap.classList.remove('gl-plate'); veinsDirty = true; syncPlateLook();
     if (inUpdate) plateRedraw = true; else drawVeins();
   }
-  function plateMarkup(rect, W, H) {
+  // The inlined copy of the backdrop and organs for the current state (plateStateKey), built with the whole-plate raster
+  // and reused by the view rasters that follow it (a pan changes only the window): inlining every element's styles is
+  // about 30 ms of each redraw. Made cheaper to draw on the way (plate-copy.js), with the same pixels.
+  // The diaphragm's cuts for the liver, stomach and spleen never touch it: the dome is their hull pushed out DIA_GAP (11)
+  // units, more than the cut's half-width (2.5) and the line's (3.5). The heart and esophagus cuts stay.
+  const DEAD_CUTS = ['liver', 'stomach', 'spleen'];
+  function plateBuild(key) {
     const was = plateOn();
     wrap.classList.remove('gl-plate');
-    const ser = new XMLSerializer();
-    let out;
+    const ser = new XMLSerializer(), parts = [], subs = [];
     try {
       const dc = defs.cloneNode(true); inlineStyles(defs, dc);
-      out = ser.serializeToString(dc);
+      for (const id of DEAD_CUTS) dc.querySelector(`[data-cut="${id}"]`)?.remove();
+      const head = ser.serializeToString(dc);
       for (const g of [gBackdrop, gOrgans]) {   // the ascites is drawn on the GPU over the plate (see fluidLook)
         const c = g.cloneNode(true);
+        // Marked while the classes are still on (inlineStyles takes them off).
+        for (const el of c.querySelectorAll('.lv-nod, .lv-nut, .lv-nut-net')) el.setAttribute('data-pc', 'sub fold');
+        for (const el of c.querySelectorAll('.lv-sep, .liver-tint')) el.setAttribute('data-pc', 'fold');
+        for (const el of c.querySelectorAll('.lv-gloss')) el.setAttribute('data-pc', 'kids');
         if (inlineStyles(g, c) === false) continue;
         c.removeAttribute('opacity');   // the plate fades with the morph on the GPU
-        out += ser.serializeToString(c);
+        dropInvisible(c);
+        for (const el of c.querySelectorAll('[data-pc~="fold"]')) foldOpacity(el);
+        // The gloss's two sheens never overlap, so its fade can sit on each of them instead of a layer.
+        for (const el of c.querySelectorAll('[data-pc="kids"]')) {
+          const o = parseFloat(el.getAttribute('opacity') ?? '1');
+          if (o < 1) {
+            for (const k of el.children) { k.setAttribute('opacity', String(+(o * parseFloat(k.getAttribute('opacity') ?? '1')).toFixed(5))); foldOpacity(k); }
+            el.removeAttribute('opacity');
+          }
+        }
+        for (const el of c.querySelectorAll('[data-pc~="sub"]')) subs.push({ el, d: el.getAttribute('d') || '' });
+        for (const el of c.querySelectorAll('[data-pc]')) el.removeAttribute('data-pc');
+        for (const og of [c, ...c.children]) mergeClipRuns(og);
+        parts.push(c);
       }
+      // The nodules and spots are drawn in the liver's own frame (its shrink about a centre): the window is mapped into it.
+      const t = organG.liver.getAttribute('transform') || '', m = t.match(/^translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\) translate\([-\d.]+ [-\d.]+\)$/);
+      const toLiver = !t ? (r) => r : m ? (r) => { const [cx, cy, k] = m.slice(1).map(Number); return [cx + (r[0] - cx) / k, cy + (r[1] - cy) / k, r[2] / k, r[3] / k]; } : null;
+      return { key, seq: plateSeq, head, parts, subs, toLiver };
     } finally { if (was) wrap.classList.add('gl-plate'); }
+  }
+  function plateMarkup(rect, W, H, fresh) {
+    const key = plateStateKey();
+    if (fresh || !plateCopy || plateCopy.key !== key || plateCopy.seq !== plateSeq) plateCopy = plateBuild(key);
+    // Only the nodules and nutmeg spots that meet this window (the others add nothing to it).
+    const lr = plateCopy.toLiver?.(rect);
+    for (const sp of plateCopy.subs) sp.el.setAttribute('d', lr ? subpathsIn(sp.d, lr) : sp.d);
+    const ser = new XMLSerializer();
+    const out = plateCopy.head + plateCopy.parts.map((c) => ser.serializeToString(c)).join('');
     return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="${rect.join(' ')}" preserveAspectRatio="none">${out}</svg>`;
   }
   async function rasterPlate(slot, rect, scale) {
     const W = Math.max(1, Math.round(rect[2] * scale)), H = Math.max(1, Math.round(rect[3] * scale));
     const seq = plateSeq;
-    const url = URL.createObjectURL(new Blob([plateMarkup(rect, W, H)], { type: 'image/svg+xml' }));
+    const url = URL.createObjectURL(new Blob([plateMarkup(rect, W, H, slot === 0)], { type: 'image/svg+xml' }));
     try {
       const img = new Image();
       await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
