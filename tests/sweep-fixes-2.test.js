@@ -78,3 +78,12 @@ test('a Pressure chart too short for its plot shows the compact strip, and the f
   assert.match(charts, /if \(stripNow\(g\) \|\| \(formLock\.strip && !predict\?\.on\)\) \{ toStrip\(\); return; \}/);
   assert.match(charts, /cv\.animate\?\.\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/);   // (eased, never a jump)
 });
+
+test('the HVPG bracket runs from the wedge ring (where the curve falls to the WHVP) to the hepatic vein, on the chart and the strip', () => {
+  assert.match(charts, /for \(let k = ka; k >= 0 && k < kb && !pt; k\+\+\) pt = crossAt\(P0, k, y\(wv\)\)/);
+  assert.match(charts, /x0 = wd \? wedge\.cx : x\(a\)/);
+  assert.match(charts, /fillText\('WHVP ', r\.x0/);
+  assert.match(charts, /if \(!r\) fail = true;\n\s+else \{ r\.g4 = true;/);   // (no clear spot for its reading: the strip)
+  assert.match(charts, /const STRIP = wOn \? STRIP0\.map\(\(n\) => \(n === 'SIN_R' \? 'WHVP' : n\)\) : STRIP0;/);
+  assert.match(charts, /STRIP\.indexOf\(d === hvd && wOn \? 'WHVP' : d\.hi\)/);
+});

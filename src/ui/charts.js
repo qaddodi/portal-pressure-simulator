@@ -22,11 +22,8 @@ export const FONT = (w = 500, px = 11) => `${w} ${px}px Inter, system-ui, -apple
 
 // A smooth curve through the points that never overshoots them (monotone cubic, Fritsch–Carlson),
 // so a pressure that only falls is never drawn rising between two stations.
-function smoothPath(ctx, pts) {
+function smoothTangents(pts) {
   const n = pts.length;
-  if (!n) return;
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  if (n < 3) { for (let i = 1; i < n; i++) ctx.lineTo(pts[i][0], pts[i][1]); return; }
   const dx = [], m = [];
   for (let i = 0; i < n - 1; i++) { dx[i] = pts[i + 1][0] - pts[i][0] || 1e-6; m[i] = (pts[i + 1][1] - pts[i][1]) / dx[i]; }
   const t = [m[0]];
@@ -37,10 +34,32 @@ function smoothPath(ctx, pts) {
     const a = t[i] / m[i], b = t[i + 1] / m[i], h2 = a * a + b * b;
     if (h2 > 9) { const k = 3 / Math.sqrt(h2); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i]; }
   }
+  return { dx, t };
+}
+function smoothPath(ctx, pts) {
+  const n = pts.length;
+  if (!n) return;
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  if (n < 3) { for (let i = 1; i < n; i++) ctx.lineTo(pts[i][0], pts[i][1]); return; }
+  const { dx, t } = smoothTangents(pts);
   for (let i = 0; i < n - 1; i++) {
     const d = dx[i] / 3;
     ctx.bezierCurveTo(pts[i][0] + d, pts[i][1] + t[i] * d, pts[i + 1][0] - d, pts[i + 1][1] - t[i + 1] * d, pts[i + 1][0], pts[i + 1][1]);
   }
+}
+
+// The point on the drawn curve between pts[i] and pts[i + 1] where it crosses height yT (the segment's x runs evenly with
+// its parameter, and the curve is monotone there, so halving finds it); null when yT is outside the segment.
+function crossAt(pts, i, yT) {
+  const p0 = pts[i], p1 = pts[i + 1];
+  if (!p0 || !p1 || (yT - p0[1]) * (yT - p1[1]) > 0) return null;
+  const { dx, t } = pts.length < 3 ? { dx: [p1[0] - p0[0]], t: [] } : smoothTangents(pts);
+  const d = dx[i] / 3, c1 = pts.length < 3 ? p0[1] + (p1[1] - p0[1]) / 3 : p0[1] + t[i] * d, c2 = pts.length < 3 ? p1[1] - (p1[1] - p0[1]) / 3 : p1[1] - t[i + 1] * d;
+  const by = (u) => (1 - u) ** 3 * p0[1] + 3 * (1 - u) ** 2 * u * c1 + 3 * (1 - u) * u * u * c2 + u ** 3 * p1[1];
+  let lo = 0, hi = 1; const up = p1[1] > p0[1];
+  for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if ((by(mid) < yT) === up) lo = mid; else hi = mid; }
+  const u = (lo + hi) / 2;
+  return [p0[0] + (p1[0] - p0[0]) * u, by(u)];
 }
 
 // ── Pressure profile ("hydraulic grade line") ────────
@@ -119,7 +138,7 @@ export function createProfile() {
   // for its axis numbers, the LIVER caption and both pills to stand clear (a 320 px phone's half sheet, about 40 px), five
   // stations in a row, their names over their readings, with the HVPG and PPG as brackets under them. The full chart returns
   // as soon as the plot has its room (the sheet pulled up). Never while a prediction is being drawn on the plot.
-  const STRIP = ['CONF', 'SIN_R', 'RHV', 'IVCS', 'RA'], STRIP_NAME = { CONF: 'Portal v.', SIN_R: 'Sinusoid', RHV: 'RHV', IVCS: 'IVC', RA: 'RA' };
+  const STRIP0 = ['CONF', 'SIN_R', 'RHV', 'IVCS', 'RA'], STRIP_NAME = { CONF: 'Portal v.', SIN_R: 'Sinusoid', WHVP: 'WHVP', RHV: 'RHV', IVCS: 'IVC', RA: 'RA' };
   const PLOT_MIN = 130;   // (two pill rows of 24, the LIVER caption, and the stations' own spread)
   // A station's reading: the bar's own (shown.js) where a gradient ends, so a bracket's label is the difference of the two
   // readings written at its ends, after rounding, and the bar's number too (sweep 2 review item 13).
@@ -138,11 +157,16 @@ export function createProfile() {
   };
   function drawStrip(ctx, c, w, hh) {
     const PM = F.Pf || F.P, m = F.metrics || {}, hid = hiddenNow();
+    // (With the HVPG measured, the wedged reading stands in the sinusoids' column, as the full chart's wedge ring does on its
+    // curve, so the HVPG bracket runs WHVP → RHV and is the difference of the two readings written there, review item 13.)
+    const hvd = (curPath().dims || []).find((d) => d.hiM === 'whvp');
+    const wOn = hvd && !(hvd.hide && hid?.has(hvd.hide)) && Number.isFinite(m.whvp);
+    const STRIP = wOn ? STRIP0.map((n) => (n === 'SIN_R' ? 'WHVP' : n)) : STRIP0;
     // Each column as wide as its name (6 px apart) or its reading with room for a connector (12 px or more) between,
     // whichever is wider, the rest of the row shared out evenly; the block centred top to bottom in the box. (By the names
     // alone, the IVC and RA readings left no room for their connector, sweep 2 review item 11.)
     const x0 = 12, x1 = w - 12;
-    const vals = STRIP.map((n) => reading(n, PM)), txt = vals.map((v) => fmt(v, 1));
+    const vals = STRIP.map((n) => (n === 'WHVP' ? shownOr('whvp', m.whvp) : reading(n, PM))), txt = vals.map((v) => fmt(v, 1));
     ctx.font = FONT(600, 12);
     const nw = STRIP.map((n) => ctx.measureText(STRIP_NAME[n]).width);
     let vf = 15, tw;
@@ -170,7 +194,7 @@ export function createProfile() {
     const dims = curPath().dims || [];
     for (const d of dims) {
       if (d.hide && hid?.has(d.hide)) continue;
-      const a = STRIP.indexOf(d.hi), b = STRIP.indexOf(d.lo);
+      const a = STRIP.indexOf(d === hvd && wOn ? 'WHVP' : d.hi), b = STRIP.indexOf(d.lo);
       if (a < 0 || b < 0) continue;
       const v = gapOf(d, m, reading(d.hi, PM), reading(d.lo, PM));
       const col = v >= d.bad ? c.danger : v >= d.warn ? c.caution : c.muted;
@@ -326,6 +350,35 @@ export function createProfile() {
     for (let k = 0; k < venousIdx.length - 1; k++) { const i = venousIdx[k], j = venousIdx[k + 1]; const d = now[i] - now[j]; if (d > bigDp) { bigDp = d; big = i; } }
     ctx.font = FONT(600, 12);
     const dims = curPath().dims;
+    // The wedge (sweep 2 review item 13): the wedged hepatic venous pressure is measured with the catheter tip blocking a
+    // hepatic vein, so it reads the sinusoids upstream, not the sinusoid node itself. It is marked where the curve falls to
+    // that reading, between the sinusoids and the central vein, as a hollow ring with its reading; the HVPG bracket runs from
+    // it to the hepatic vein, so the bracket's number is the difference of the two readings written at its ends.
+    let wedge = null;
+    const hvd = (dims || []).find((d) => d.hiM === 'whvp'), mw = F.metrics || {};
+    if (hvd && !(hvd.hide && hiddenNow()?.has(hvd.hide)) && Number.isFinite(mw.whvp)) {
+      const wv = Math.round(shownOr('whvp', mw.whvp) * 10) / 10, ia = stations.indexOf(hvd.hi), ib = stations.indexOf(hvd.lo);
+      const ka = venousIdx.indexOf(ia), kb = venousIdx.indexOf(ib);
+      let pt = null;
+      for (let k = ka; k >= 0 && k < kb && !pt; k++) pt = crossAt(P0, k, y(wv));
+      if (!pt && ka >= 0) pt = P0[wv >= now[ia] ? ka : kb];   // (off the segment's ends: at the nearer station)
+      if (pt) {
+        // (Where the wedge falls on a station's dot, the sinusoids' as a rule in cirrhosis, the ring is drawn round that dot.)
+        const onDot = dots.find((d) => Math.hypot(d.cx - pt[0], d.cy - pt[1]) < 13);
+        wedge = { v: wv, cx: pt[0], cy: pt[1] };
+        ctx.strokeStyle = pressureColor(wv); ctx.lineWidth = 2;
+        if (onDot) {
+          ctx.beginPath(); ctx.arc(onDot.cx, onDot.cy, 9.5, 0, Math.PI * 2); ctx.stroke();
+          Object.assign(wedge, { cx: onDot.cx, cy: onDot.cy });
+          taken[onDot.i] = { x0: onDot.cx - 12, x1: onDot.cx + 12, y0: onDot.cy - 12, y1: onDot.cy + 12 };
+        } else {
+          ctx.fillStyle = c.surface; ctx.beginPath(); ctx.arc(wedge.cx, wedge.cy, 6.5, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(wedge.cx, wedge.cy, 3.8, 0, Math.PI * 2); ctx.stroke();
+          taken.push({ x0: wedge.cx - 8, x1: wedge.cx + 8, y0: wedge.cy - 8, y1: wedge.cy + 8 });
+        }
+      }
+    }
+    const nDot = taken.length;   // (the station dots and the wedge ring: labels keep 4 px from these, 2 from each other)
     // With HVPG and PPG drawn at the right, the per-segment drop pills are left out.
     for (let k = 0; !dims && k < venousIdx.length - 1; k++) {
       const i = venousIdx[k], j = venousIdx[k + 1];
@@ -356,7 +409,7 @@ export function createProfile() {
         const tw = ctx.measureText(txt).width, th = 12;
         // (Above or below its dot, a row further out, or beside it: 4 px clear of the curve, the dots and the other values.)
         // (Above first and beside before below: the brackets run along the bottom.)
-        const sx = tw / 2 + 12, cands = [[0, -18], [sx, -10], [-sx, -10], [0, -32], [sx, -24], [-sx, -24], [sx, 0], [-sx, 0], [0, 18], [sx, 10], [-sx, 10], [0, 32], [sx, 24], [-sx, 24]];
+        const sx = tw / 2 + 12, cands = [[0, -18], [sx, -10], [-sx, -10], [0, -34], [sx, -24], [-sx, -24], [sx, 0], [-sx, 0], [0, 18], [sx, 10], [-sx, 10], [0, 34], [sx, 24], [-sx, 24]];
         let r = null;
         // (Clear of the bracket rows along the axis first; into them only when there is no other spot.)
         const band = dims ? y(0) - 12 - (dims.length - 1) * 24 - 11 : hh;
@@ -367,7 +420,7 @@ export function createProfile() {
           const [dx, dy] = cands[ci % cands.length], pass = Math.floor(ci / cands.length);
           const cx = d.cx + dx, yy = d.cy + dy, q = { x0: cx - tw / 2, x1: cx + tw / 2, y0: yy - th / 2, y1: yy + th / 2 };
           if (q.y0 < 2 || q.y1 > hh - B - 2 || q.x0 < L - 4 || q.x1 > w - R + 4 || (q.y1 > band && (pass < 2 || (pass < 4 && spans.some(([s0, s1]) => q.x1 > s0 && q.x0 < s1))))) continue;
-          if (taken.some((o, j) => { const g = j < dots.length ? 4 : 2; return q.x0 < o.x1 + g && q.x1 > o.x0 - g && q.y0 < o.y1 + g && q.y1 > o.y0 - g; }) || nearCurve(q, 4) || (hCurve && pass % 2 === 0 && nearCurve(q, 2, hCurve))) continue;   // (4 px from the dots and the curve, 2 from another value)
+          if (taken.some((o, j) => { const g = j < nDot ? 4 : 2; return q.x0 < o.x1 + g && q.x1 > o.x0 - g && q.y0 < o.y1 + g && q.y1 > o.y0 - g; }) || nearCurve(q, 4) || (hCurve && pass % 2 === 0 && nearCurve(q, 2, hCurve))) continue;   // (4 px from the dots and the curve, 2 from another value)
           r = q; break;
         }
         if (!r) { fail = true; continue; }
@@ -375,6 +428,23 @@ export function createProfile() {
       }
     }
     const overlap = (r, o) => r.x0 < o.x1 + 2 && r.x1 > o.x0 - 2 && r.y0 < o.y1 + 2 && r.y1 > o.y0 - 2;   // (2 px clear, at least)
+    const overlap4 = (r, o) => r.x0 < o.x1 + 4 && r.x1 > o.x0 - 4 && r.y0 < o.y1 + 4 && r.y1 > o.y0 - 4;
+    // The wedge's reading, "WHVP 16.4", beside its ring: 4 px clear of the curve, the dots, the values (and, below, the pills
+    // and the brackets). No clear spot means the strip, as for a value.
+    if (wedge) {
+      ctx.font = FONT(600, 12); const w1 = ctx.measureText('WHVP ').width; ctx.font = FONT(700, 12); const w2 = ctx.measureText(fmt(wedge.v, 1)).width;
+      const tw = w1 + w2, th = 12, sx = tw / 2 + 12;
+      const cands = [[sx, 0], [sx, -12], [sx, 12], [-sx, 0], [-sx, -12], [-sx, 12], [sx, -24], [sx, 24], [-sx, -24], [-sx, 24], [0, -20], [0, 20]];
+      let r = null;
+      for (const [dx, dy] of cands) {
+        const q = { x0: wedge.cx + dx - tw / 2, x1: wedge.cx + dx + tw / 2, y0: wedge.cy + dy - th / 2, y1: wedge.cy + dy + th / 2 };
+        if (q.y0 < 2 || q.y1 > hh - B - 2 || q.x0 < L - 4 || q.x1 > w - R + 4) continue;
+        if (taken.some((o) => overlap4(q, o)) || nearCurve(q, 4)) continue;
+        r = q; break;
+      }
+      if (!r) fail = true;
+      else { r.g4 = true; taken.push(r); wedge.lbl = { r, w1 }; }
+    }
     // The LIVER caption over its band: centred, or slid along the band, where it stands clear of the dots, the values and the
     // curve (it was left out where the station values needed its spot; now a value keeps its place and the name moves).
     if (liverCap) {
@@ -393,7 +463,7 @@ export function createProfile() {
     // axis and is lifted (and slid along its bracket) to the nearest spot that covers no station dot,
     // no value label and no pressure line; the move is eased so it never jumps.
     const hid = hiddenNow();
-    const nLbl = dots.length, dimN = (dims || []).length;
+    const nLbl = nDot, dimN = (dims || []).length;
     const lineY = (pp, px) => {
       for (let q = 0; q < pp.length - 1; q++) if (px >= pp[q][0] && px <= pp[q + 1][0]) return pp[q][1] + (pp[q + 1][1] - pp[q][1]) * (px - pp[q][0]) / (pp[q + 1][0] - pp[q][0] || 1);
       return null;
@@ -401,7 +471,6 @@ export function createProfile() {
     const lines = [P0];
     if (healthy) lines.push(pts(stations.map((n) => healthy.P[NI[n]])));
     const hitsLine = (r, pp) => { for (let px = r.x0; px <= r.x1 + 3; px += 4) { const ly = lineY(pp, Math.min(px, r.x1)); if (ly != null && ly > r.y0 - 5 && ly < r.y1 + 5) return true; } return false; };
-    const overlap4 = (r, o) => r.x0 < o.x1 + 4 && r.x1 > o.x0 - 4 && r.y0 < o.y1 + 4 && r.y1 > o.y0 - 4;
     const items = [], claimed = [];
     (dims || []).forEach((d, k) => {
       const a = stations.indexOf(d.hi), b = stations.indexOf(d.lo);
@@ -412,7 +481,7 @@ export function createProfile() {
       const txt = `${d.k} `, num = fmt(v, 1);
       ctx.font = FONT(600, 12); const tw1 = ctx.measureText(txt).width;
       ctx.font = FONT(700, 12.5); const tw2 = ctx.measureText(num).width;
-      const tw = tw1 + tw2 + 12, x0 = x(a), x1 = x(b);
+      const wd = d === hvd && wedge, tw = tw1 + tw2 + 12, x0 = wd ? wedge.cx : x(a), x1 = x(b);
       const base = y(0) - 12 - (dimN - 1 - k) * 24;
       // (Inside its bracket with 8 px of bar showing at each end, or just past either end when the bracket is too short.)
       const lo = Math.max(L + 2, Math.min(x0, x1) + 8), hi = Math.min(w - R, Math.max(x0, x1) - 8) - tw;
@@ -429,7 +498,7 @@ export function createProfile() {
         if (taken.some((o) => overlap4(r, o)) || claimed.some((o) => overlap4(r, o)) || nearCurve(r, 4)) return false;
         // the whole bracket (bar and end caps) must clear every dot and value label too, not just the pill
         const bar = { x0: Math.min(x0, x1) - 3, x1: Math.max(x0, x1) + 3, y0: yy - 6, y1: yy + 6 };
-        if (taken.some((o) => overlap(bar, o)) || claimed.some((o) => overlap(bar, o))) return false;
+        if (taken.some((o) => (o.g4 ? overlap4 : overlap)(bar, o)) || claimed.some((o) => overlap(bar, o))) return false;
         return !withHealthy || !lines.slice(1).some((pp) => hitsLine(r, pp));
       };
       let best = null;
@@ -441,7 +510,7 @@ export function createProfile() {
       // kept a spot on the curve, sweep 2 review item 1.)
       if (!best) { fail = true; best = { yy: base, lx: cx }; }
       claimed.push({ x0: Math.min(x0, x1) - 3, x1: Math.max(x0, x1) + 3, y0: best.yy - 9, y1: best.yy + 9 });
-      items.push({ d, a, b, col, txt, num, tw1, tw, x0, x1, ty: best.yy, tx: best.lx, base });
+      items.push({ d, a, b, col, txt, num, tw1, tw, x0, x1, ay: wd ? wedge.cy : null, ty: best.yy, tx: best.lx, base });
     });
     if (fail && !predict?.on) { toStrip(); return; }
     setForm(false);
@@ -450,13 +519,13 @@ export function createProfile() {
     pillMoving = mPill;
     items.forEach((it, k) => {
       if (!it) return;
-      const { a, b, col, txt, num, tw1, tw, x0, x1 } = it;
+      const { a, b, col, txt, num, tw1, tw, x0, x1, ay } = it;
       const yy = pos[2 * k], lx = pos[2 * k + 1], ly = yy;
       ctx.save();
       // Faint leaders from the bracket ends to the two station dots, broken around any value label.
       ctx.strokeStyle = col; ctx.globalAlpha = 0.45; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
       for (const [px, st2] of [[x0, a], [x1, b]]) {
-        const dy = Y(now[st2], st2), from = yy + (dy > yy ? 4 : -4), to = dy + (dy > yy ? -7 : 7);
+        const dy = st2 === a && ay != null ? ay : Y(now[st2], st2), from = yy + (dy > yy ? 4 : -4), to = dy + (dy > yy ? -7 : 7);
         const gaps = taken.slice(nLbl).filter((o) => px > o.x0 - 2 && px < o.x1 + 2 && o.y1 > Math.min(from, to) && o.y0 < Math.max(from, to)).sort((p1, p2) => p1.y0 - p2.y0);
         const dir = to > from ? 1 : -1; let cur = from;
         const segs = [];
@@ -477,6 +546,11 @@ export function createProfile() {
     // The station values, where they were placed (the pills keep 4 px clear of them).
     ctx.font = FONT(600, 12); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = c.text;
     for (const v of vals) ctx.fillText(v.txt, v.x, (v.r.y0 + v.r.y1) / 2 + 0.5);
+    if (wedge?.lbl) {
+      const { r, w1 } = wedge.lbl;
+      ctx.textAlign = 'left'; ctx.fillStyle = c.muted; ctx.font = FONT(600, 12); ctx.fillText('WHVP ', r.x0, (r.y0 + r.y1) / 2 + 0.5);
+      ctx.fillStyle = c.text; ctx.font = FONT(700, 12); ctx.fillText(fmt(wedge.v, 1), r.x0 + w1, (r.y0 + r.y1) / 2 + 0.5);
+    }
     if (pillMoving) { cancelFrame(easeRaf); easeRaf = nextFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); }); }
     ctx.textBaseline = 'alphabetic';
     el.querySelector('#profileOffscale').textContent = hasArt ? 'Arterial pressure is drawn above the break (//) at its true value.' : '';
