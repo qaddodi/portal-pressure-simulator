@@ -1986,6 +1986,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }
       return { cls, box };
     };
+    // (Read once the cards have settled: the same layout twice, half a second apart, within 15 s.)
+    const settled = async (pg) => { let was = ''; for (let t = 0; t < 30; t++) { const now = JSON.stringify(await pg.evaluate(lay)); if (now === was) return JSON.parse(now); was = now; await pg.waitForTimeout(500); } return JSON.parse(was); };
     const fresh = new Map(), live = new Map();
     for (const [w, h] of [[1440, 900], [1280, 800], [1180, 820]]) for (const k of [1, 2]) {
       const ctx = await fastContext(browser, { viewport: { width: w, height: h } });
@@ -1993,7 +1995,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const page = await ctx.newPage();
       await gotoSlide(page, server.url, 'treatment', 1); await quiet(page);
       const at = `treatment slide 2 at ${w}x${h} ${k * 100}%`;
-      fresh.set(`${w}x${h}:${k}`, await page.evaluate(lay));
+      fresh.set(`${w}x${h}:${k}`, await settled(page));
       const folds = await page.evaluate(() => document.querySelector('.pz-data')?.classList.contains('pz-folds'));
       if (k === 1 && folds) bad.push(`${at}: the card folded at 100% text`);
       for (const c of await page.evaluate(inside)) bad.push(`${at}${folds ? ', folded' : ''}: ${c}`);
@@ -2006,12 +2008,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (await page.evaluate(() => document.querySelector('.pz-data')?.classList.contains('pz-folds'))) bad.push(`${at}: still folded after text went back to 100%`);
       }
       // (The other size set live in Settings on a newly loaded slide: compared below with a fresh load at that size.)
+      await page.close();   // (one page at a time: a page left open in the background held the other's frames, and its cards never came in)
       const again = await ctx.newPage();
       await gotoSlide(again, server.url, 'treatment', 1); await quiet(again);
       await again.evaluate((k) => window.pps.stage.setLabelScale(k), 3 - k); await quiet(again);
-      // (the cards drawn again: in, at rest)
-      await again.waitForFunction(() => { const d = document.querySelector('.pz-data'); return d && !d.classList.contains('pz-hide') && !d.closest('.pz-prep'); }, null, { timeout: 15000 }).catch(() => {}); await quiet(again);
-      live.set(`${w}x${h}:${3 - k}`, await again.evaluate(lay));
+      live.set(`${w}x${h}:${3 - k}`, await settled(again));
       if (await again.evaluate(() => document.querySelector('.pz-data')?.classList.contains('pz-folds'))) {
         await again.click('.pz-data .pz-fold'); await quiet(again);
         live.set(`${w}x${h}:${3 - k} shown`, await again.evaluate(lay));
@@ -2019,13 +2020,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await ctx.close();
     }
     // A live text-size change lays the cards out exactly as a fresh load at that size: the same plot or strip, fold, and boxes
-    // within 4 px (a fresh load itself varies by 2-3 px from one load to the next). (17507e3: switched from 200% to 100% the card kept the strip a fresh 100% load shows as the full plot.)
+    // within 2 px. (17507e3: switched from 200% to 100% the card kept the strip a fresh 100% load shows as the full plot.)
     for (const [key, got] of live) {
       const want = fresh.get(key), at = `treatment slide 2 at ${key.replace(/:(\d)/, ' $100%')} set live`;
       if (!want) { bad.push(`${at}: a fresh load did not fold`); continue; }
       if (got.cls !== want.cls) bad.push(`${at}: card "${got.cls}", a fresh load "${want.cls}"`);
       // (Opened by Show, the card eases to its height: its boxes differ by a few px from one load to the next, so only its parts are compared.)
-      else if (!key.endsWith(' shown')) for (const n of Object.keys(want.box)) if (want.box[n].some((v, i) => Math.abs(v - got.box[n][i]) > 4)) bad.push(`${at}: ${n} at ${got.box[n]}, a fresh load ${want.box[n]}`);
+      else if (!key.endsWith(' shown')) for (const n of Object.keys(want.box)) if (want.box[n].some((v, i) => Math.abs(v - got.box[n][i]) > 2)) bad.push(`${at}: ${n} at ${got.box[n]}, a fresh load ${want.box[n]}`);
     }
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });

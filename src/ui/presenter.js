@@ -2479,10 +2479,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const DK = [[0.9, 0.95], [0.8, 0.9], [0.7, 0.88], [0.6, 0.88]], TK = [1, 0.95, 0.9, 0.85, 0.8];   // (the data card's block size with the words' text size; the title's steps)
   // The data card's height at width w (page px) under the words: as it would stand there, at full size (unfitted).
   function colHeight(w, dk = 1) {
-    const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk')];
-    d.classList.add('col'); if (dk < 1) ds.setProperty('--pz-dk', dk); else ds.removeProperty('--pz-dk'); ds.width = `${w}px`; ds.maxHeight = 'none'; ds.removeProperty('--pz-fit');
+    // (Unfitted, its zoom (--pz-z) cleared with the fit: kept, the card measured at the last fit's zoom, so the words' step depended on
+    // what was fitted before (a live text-size change took a larger title than a fresh load at that size).)
+    const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk'), ds.getPropertyValue('--pz-z')];
+    d.classList.add('col'); if (dk < 1) ds.setProperty('--pz-dk', dk); else ds.removeProperty('--pz-dk'); ds.width = `${w}px`; ds.maxHeight = 'none'; ds.removeProperty('--pz-fit'); ds.removeProperty('--pz-z');
     const hh = d.offsetHeight;
-    d.className = sv[0]; ds.width = sv[1]; ds.maxHeight = sv[2]; if (sv[3]) ds.setProperty('--pz-fit', sv[3]); if (sv[4]) ds.setProperty('--pz-dk', sv[4]); else ds.removeProperty('--pz-dk');
+    d.className = sv[0]; ds.width = sv[1]; ds.maxHeight = sv[2]; if (sv[3]) ds.setProperty('--pz-fit', sv[3]); if (sv[4]) ds.setProperty('--pz-dk', sv[4]); else ds.removeProperty('--pz-dk'); if (sv[5]) ds.setProperty('--pz-z', sv[5]);
     return hh;
   }
   function freeRects() {
@@ -2594,6 +2596,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Nothing fitted at the old size carries over: each card's fit, the words' steps (a title judged long or not at the old
     // step had kept that size), and each ladder's choice of plot or strip.)
     for (const el of [ui.text, ui.data, ui.panel]) { fitDone.delete(el); for (const n of ['--pz-fit', '--pz-z', '--pz-tk', '--pz-bk', '--pz-dk']) el.style.removeProperty(n); }
+    // (The ladder and strip are kept from slide to slide: their lettering and its height, set for the old size, go too, so they
+    // are measured from nothing, as on a fresh load. Kept, the 200% card's words took a larger title step than a fresh load's.)
+    for (const e of ui.data.querySelectorAll('svg')) { e.style.removeProperty('--lad-fixed'); for (const t of e.querySelectorAll('text[style]')) t.style.removeProperty('font-size'); }
     reFit();
     lastAt = Math.max(lastAt, shown.i + 1); redrawn = ++gen;
     if (!busy) run();
