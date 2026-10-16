@@ -3341,7 +3341,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // overlap, on a phone the ratings sit left-aligned under their values with the tiles side by side at one height, and different
   // readings (a healthy patient, a decompensated one) never change a tile's size or place.
   await check(device, 'bottom bar: nothing wraps, clips or overlaps, and the readouts keep their place as values change', async (page) => {
-    const sizes = device === 'desktop' ? [[1440, 900], [1180, 820], [1024, 768], [820, 1180]] : [[390, 844], [360, 740], [430, 932], [844, 390]];
+    const sizes = device === 'desktop' ? [[1440, 900], [1180, 820], [1024, 768], [820, 1180]] : [[390, 844], [360, 740], [320, 568], [375, 667], [430, 932], [844, 390]];
     const read = () => page.evaluate(() => {
       const strip = document.querySelector('#strip');
       const tiles = [...strip.querySelectorAll('.metric')].filter((e) => e.offsetWidth && getComputedStyle(e).display !== 'none');
@@ -3381,8 +3381,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const box = bar.dock;
           if (p.l < box.l - 0.5 || p.r > box.r + 0.5 || p.t < box.t - 0.5 || p.b > box.b + 0.5) throw new Error(`${where}: ${p.q} sticks out of the bottom bar`);
           // (The Mac's Pin carries its word in a 34 px bordered button on the one-line play row, 29f1d0f; the icons are 36 px.)
-          const minH = p.q === '.tl-pin' && p.w > 40 ? 33.5 : 35.5;
-          if (/tl-(ff|hist|pin)/.test(p.q) && (p.w < 35.5 || p.h < minH)) throw new Error(`${where}: ${p.q} is smaller than a 36 px button`);
+          // (and a 320 px phone narrows the jump button to 30 px so both readings fit, f2d0dbd)
+          const minH = p.q === '.tl-pin' && p.w > 40 ? 33.5 : 35.5, minW = p.q === '.tl-ff' && w < 360 ? 29.5 : 35.5;
+          if (/tl-(ff|hist|pin)/.test(p.q) && (p.w < minW || p.h < minH)) throw new Error(`${where}: ${p.q} is smaller than a 36 px button`);
         }
         for (let i = 0; i < bar.parts.length; i++) for (let j = i + 1; j < bar.parts.length; j++) { const a = bar.parts[i], c = bar.parts[j]; if (a.l < c.r - 0.5 && c.l < a.r - 0.5 && a.t < c.b - 0.5 && c.t < a.b - 0.5) throw new Error(`${where}: ${a.q} overlaps ${c.q}`); }
         if (w < 768 && hgt > 500) {
