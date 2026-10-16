@@ -1662,7 +1662,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   function drawTile(t, { cell, gap, cvc, pvc, art, duct, dark, fs }) {
     const S3 = Math.sqrt(3), R = t.R;
     const hash = (i, j) => { let q = (i * 374761393 + j * 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };
-    const COLa = cssRGB01('--collagen'), edges = new Set();
+    const COLa = cssRGB01('--lz-septum'), edges = new Set();
     const TW = 6 * R, TH = 2 * S3 * R, tw = Math.round(TW), th = Math.round(TH);
     const cv = document.createElement('canvas'); cv.width = tw; cv.height = th;
     const c = cv.getContext('2d');
@@ -2320,9 +2320,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const { R, cx, cy, lobules } = G;
     { const l = lobules[0], bq = rgb01(bg); c.fillStyle = css(rgb01(v('--og-liver-2')).map((x, i) => lerp(bq[i], x, 0.55)), 1); c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * 1.015, py = l.y + (y - l.y) * 1.015; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); c.fill(); }
     const gap = rgb01(v('--og-liver-2')), cell = rgb01(v('--og-liver-1'));
-    const COL = dark ? [0.78, 0.73, 0.6] : [0.93, 0.87, 0.73];
+    const COL = rgb01(v('--lz-septum'));   // (light and Soft: a deeper tan than the collagen token, to read on the pale cells)
     const PRE = dark ? [0.86, 0.78, 0.6] : [0.78, 0.64, 0.44];   // periportal scar: deeper than COL to read on the tissue
-    const col = (a) => css(COL, a);
+    const DIS = rgb01(v('--collagen')), col = (a) => css(DIS, a);   // (the space of Disse's lining keeps the paler collagen)
     const hexPath = (l, k = 1) => { c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * k, py = l.y + (y - l.y) * k; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); };
     // The lobule's own plates: hepatocytes in radial cords, one cell thick.
     const main = lobules[0];

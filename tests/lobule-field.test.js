@@ -70,3 +70,12 @@ test('nothing is built during the zoom: the field\'s tiles and their quieted cop
   assert.equal((lz.match(/const t = fieldTile\(cs, dark, r\); liverTile\(t, cs, dark, bg\); quietTile\(t, shadeOf\(bg, dark\)\);/g) || []).length, 2, 'idle preparation and prewarm both build the quieted copy');
   assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);/, 'whatever prewarm queued is done before the zoom starts');
 });
+
+test('the lobule\'s fibrous bands are a deeper tan in light and Soft, the collagen itself in dark (Mohammad, 16 Oct)', () => {
+  const tokens = read('../styles/tokens.css');
+  assert.match(tokens, /--lz-septum: rgb\(206, 178, 130\);/);
+  assert.equal((tokens.match(/--lz-field-sin-pale: #2E1A26; --lz-septum: rgb\(199, 186, 153\);/g) || []).length, 2, 'dark unchanged, both dark blocks');
+  assert.match(lz, /const COL = rgb01\(v\('--lz-septum'\)\);/);
+  assert.match(lz, /const COLa = cssRGB01\('--lz-septum'\), edges/);
+  assert.match(lz, /const DIS = rgb01\(v\('--collagen'\)\), col = \(a\) => css\(DIS, a\);/, 'the space of Disse lining is unchanged');
+});
