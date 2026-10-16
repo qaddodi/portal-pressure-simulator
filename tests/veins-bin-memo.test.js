@@ -49,3 +49,26 @@ test('the figure uploads the vessel geometry only when binning gave a new result
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(stage, /binVeins\([^;]*, binMemo\);\s*\n\s*if \(bins !== binShown\) \{ binShown = bins; veins\.setGeometry\(bins\); \}/);
 });
+
+test('each cell lists its segments in runs of one vessel, each run bounded around its start', async () => {
+  const { RUN } = await import('../src/ui/veins-bin.js');
+  const b = binVeins(scene(0.4).tubes, scene(0.4).joins);
+  let runs = 0;
+  for (let c = 0; c < b.nCells; c++) {
+    const s0 = b.cells[c * 6 + 2], n = b.cells[c * 6 + 3];
+    for (let e = s0; e < s0 + n;) {
+      const q0 = e * 8, len = b.ent[q0 + 7], rho = b.ent[q0 + 6];
+      assert.ok(len >= 1 && len <= RUN && e + len <= s0 + n, 'a run stays inside its cell');
+      for (let k = e; k < e + len; k++) {
+        const q = k * 8;
+        assert.equal(b.ent[q + 4], b.ent[q0 + 4], 'a run is one vessel');
+        if (k > e) assert.equal(b.ent[q + 7], 0, 'only a run\'s first entry carries it');
+        for (const [x, y] of [[b.ent[q], b.ent[q + 1]], [b.ent[q + 2], b.ent[q + 3]]]) assert.ok(Math.hypot(x - b.ent[q0], y - b.ent[q0 + 1]) <= rho, 'every point of the run lies within its radius');
+      }
+      // A run ends at RUN segments or where the vessel changes.
+      if (len < RUN && e + len < s0 + n) assert.notEqual(b.ent[(e + len) * 8 + 4], b.ent[q0 + 4]);
+      runs++; e += len;
+    }
+  }
+  assert.ok(runs > 0);
+});

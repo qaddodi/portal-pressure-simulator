@@ -28,7 +28,7 @@
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=6c39f43ddf';
 import { cssRGB } from './util.js?v=e387ad7347';
-import { CELL, ENT_W, binVeins } from './veins-bin.js?v=99947f1c67';
+import { CELL, ENT_W, binVeins } from './veins-bin.js?v=6be68b8c72';
 
 export { binVeins };
 
@@ -84,6 +84,7 @@ in vec2 vW;
 flat in ivec4 vR;
 uniform highp sampler2D ent;
 uniform highp sampler2D rad;
+uniform highp sampler2D rmax;           // per vessel: its largest lumen radius now
 uniform highp sampler2D tube;
 uniform sampler2D organ;               // organ covers (alpha), world space
 uniform vec4 organRect;                // world x, y, w, h of the organ texture
@@ -143,6 +144,7 @@ void main() {
   vec2 bg = vec2(0.0);
   vec4 clip = vec4(0.0, 1.0, 1.0, 0.0);
   bool dotted = false;
+  float rmx = 0.0;
   int cnt = min(vR.y, 2048);
   for (int k = 0; k <= cnt; k++) {
     int id = -2;
@@ -162,9 +164,17 @@ void main() {
         if (slot >= 0) { sk[slot] = key; sid[slot] = cur; sd[slot] = bd; sh[slot] = bs; sr[slot] = br; su[slot] = bu; sg[slot] = bg; sx[slot] = bx; sv[slot] = aW > 0.0 ? aU / aW : bu; }
       }
       cur = id; bd = 1e9; bs = 1e9; aM = 1e9; aW = 0.0; aU = 0.0;
-      if (id >= 0) { clip = T(id, 5); dotted = (int(T(id, 2).z + 0.5) & ${F_DOTTED}) != 0; }
+      if (id >= 0) { clip = T(id, 5); dotted = (int(T(id, 2).z + 0.5) & ${F_DOTTED}) != 0; rmx = texelFetch(rmax, ivec2(0, id), 0).r; }
     }
     if (k == cnt) break;
+    // A run of this vessel's segments (B.w of them, every point within B.z of this one's start: see veins-bin) that lies
+    // wholly past what could change anything here is passed over: each of its segments would be farther than this
+    // vessel's nearest so far by more than the 12 the along-course blend reads, and its shadow farther than the nearest
+    // shadow, so it would change nothing. (Never the vessel's first run: the nearest so far starts unset.)
+    if (B.w > 1.5) {
+      float lo = length(p - A.xy) - B.z - rmx, los = length(ps - A.xy) - B.z - rmx;
+      if (lo > aM + 12.01 && los > bs + 0.01) { k += int(B.w + 0.5) - 1; continue; }
+    }
     // The part of this segment inside the drawn stretch (a vessel drawing on is cut short).
     float i = B.y, u0 = i / LAST, u1 = (i + 1.0) / LAST;
     if (u1 < clip.x || u0 > clip.y) continue;
@@ -1185,14 +1195,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.bindVertexArray(null);
 
-  const entTex = dataTex(gl), radTex = dataTex(gl), tubeTex = dataTex(gl), organTex = dataTex(gl, gl.LINEAR);
+  const entTex = dataTex(gl), radTex = dataTex(gl), rmaxTex = dataTex(gl), tubeTex = dataTex(gl), organTex = dataTex(gl, gl.LINEAR);
   gl.bindTexture(gl.TEXTURE_2D, radTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, N_SAMPLES, nTubes, 0, gl.RG, gl.FLOAT, null);
+  gl.bindTexture(gl.TEXTURE_2D, rmaxTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, 1, nTubes, 0, gl.RED, gl.FLOAT, new Float32Array(nTubes));
   gl.bindTexture(gl.TEXTURE_2D, tubeTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, TUBE_TEXELS, nTubes, 0, gl.RGBA, gl.FLOAT, null);
   gl.bindTexture(gl.TEXTURE_2D, organTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
-  const radRow = new Float32Array(N_SAMPLES * 2);
+  const radRow = new Float32Array(N_SAMPLES * 2), rmaxOne = new Float32Array(1);
   // Per-vessel blood (FLOW_TEXELS texels a row) and dye (DYE_BINS along the course).
   const flowTex = dataTex(gl), dyeTex = dataTex(gl, gl.LINEAR);
   gl.bindTexture(gl.TEXTURE_2D, flowTex);
@@ -1300,6 +1312,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, radTex); gl.uniform1i(u.rad, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tubeTex); gl.uniform1i(u.tube, 2);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, organTex); gl.uniform1i(u.organ, 3);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, rmaxTex); gl.uniform1i(u.rmax, 4);
     gl.bindVertexArray(va);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
     gl.bindVertexArray(null);
@@ -1332,6 +1345,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       for (let i = 0; i < N_SAMPLES; i++) { radRow[i * 2] = r[i]; radRow[i * 2 + 1] = r[Math.min(N_SAMPLES - 1, i + 1)]; }
       gl.bindTexture(gl.TEXTURE_2D, radTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, N_SAMPLES, 1, gl.RG, gl.FLOAT, radRow);
+      rmaxOne[0] = Math.max(...radRow);
+      gl.bindTexture(gl.TEXTURE_2D, rmaxTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, 1, 1, gl.RED, gl.FLOAT, rmaxOne);
       fboOK = false;
     },
     /** Every vessel's attributes: nTubes × TUBE_TEXELS × 4 floats. */
@@ -1576,7 +1592,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     dispose({ lose = false } = {}) {
       canvas.removeEventListener('webglcontextlost', onLost);
       if (!lost) {
-        for (const t of [entTex, radTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, lineLayer.tex, glowLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
+        for (const t of [entTex, radTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, lineLayer.tex, glowLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
         for (const b of [quad, cellBuf, partBuf, fluidBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [vao, partVAO, fluidVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
         for (const x of [prog, comp, compCell, cathP, lineP]) if (x) gl.deleteProgram(x.p);

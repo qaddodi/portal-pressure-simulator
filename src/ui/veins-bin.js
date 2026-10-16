@@ -3,6 +3,7 @@
 
 export const CELL = 16;                       // cell size, world units
 export const ENT_W = 2048;                    // texels per row of the entry texture
+export const RUN = 4;                         // segments of one vessel per run (see the runs below)
 
 // Distance from point (px, py) to segment a→b.
 function segDist(px, py, ax, ay, bx, by) {
@@ -87,6 +88,23 @@ export function binVeins(tubes, joins, memo = null) {
     const e = fillS[cellOf[k]]++, t = tubes[tubeOf[k]], i = segOf[k], a = t.pts[i], b = t.pts[i + 1], q = e * 8;
     ent[q] = a[0]; ent[q + 1] = a[1]; ent[q + 2] = b[0]; ent[q + 3] = b[1];
     ent[q + 4] = t.id; ent[q + 5] = i;
+  }
+  // Each cell's list in runs of up to RUN segments of one vessel: the run's first entry holds (in its two spare floats) a
+  // radius around its start that holds every point of the run, and the run's length, so the shader can pass over a run
+  // that lies wholly too far away to change anything (veins-gl).
+  for (let c = 0; c < NC; c++) {
+    const e1 = segStart[c] + segCount[c];
+    for (let e = segStart[c]; e < e1;) {
+      const q0 = e * 8, id = ent[q0 + 4], ax = ent[q0], ay = ent[q0 + 1];
+      let n = 0, rho = 0;
+      while (n < RUN && e + n < e1 && ent[(e + n) * 8 + 4] === id) {
+        const q = (e + n) * 8;
+        rho = Math.max(rho, Math.hypot(ent[q] - ax, ent[q + 1] - ay), Math.hypot(ent[q + 2] - ax, ent[q + 3] - ay));
+        n++;
+      }
+      ent[q0 + 6] = Math.fround(rho) < rho ? rho * (1 + 1e-6) + 1e-6 : rho; ent[q0 + 7] = n;
+      e += n;
+    }
   }
   for (let k = 0; k < jCell.length; k += 2) {
     const c = jCell[k];
