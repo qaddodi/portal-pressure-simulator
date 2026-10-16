@@ -2548,7 +2548,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function phoneTextCap(key, H, k) {
     const dd = ui.data, ds = dd.style, gone = dd.hidden || 'gone' in dd.dataset;
     const held = key && phoneLock?.key === key ? phoneLock : null;
-    if (held && (held.fold || gone)) { dd.classList.toggle('pz-folds', held.fold); dd.classList.toggle('pz-ftight', held.tight); phoneFoldH = held.foldH; return held.cap; }
+    // (Also while a what-if slider or a compare button drives the live model (liveOff): its data card changes only its numbers,
+    // and re-planned on every live reading that measured a pixel taller, the words' cap stepped and the teaching card shook
+    // under the finger on a phone, Sites 4's clot slider. The plan made as the slide came in holds until the next slide.)
+    if (held && (held.fold || gone || liveOff)) { dd.classList.toggle('pz-folds', held.fold); dd.classList.toggle('pz-ftight', held.tight); phoneFoldH = held.foldH; return held.cap; }
     phoneFoldH = 0;
     dd.classList.remove('pz-folds', 'pz-ftight');
     const natural = (el, st) => {   // (as it stands unfitted and uncapped)
