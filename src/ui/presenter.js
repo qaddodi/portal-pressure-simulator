@@ -204,6 +204,9 @@ export function slideTargets(s, line = s.line || '') {
     else if (ORGANS.has(id)) organs.set(id, tone || TARGETS[id]?.tone);
     else add(id, tone || EDGE_TONE[id] || 'accent');
   });
+  // A lobule slide that lights the portal venule's or the central vein's reading lights the sinusoids' as well: the
+  // sinusoidal pressure sits between the two, and the other labels are faded out (Mohammad, 16 Oct).
+  if (lit.has('lobule:central') || lit.has('lobule:triad')) lit.add('lobule:sinusoid');
   if (isDop(s)) { const v = s.tool.vessel || 'PV_TRUNK'; if (glow.has(v)) glow.set(v, '--doppler'); }
   return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0, soft: soft.has(id) || undefined })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
 }
