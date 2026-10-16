@@ -2443,9 +2443,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let phoneLock = null, phoneFoldH = 0;   // (phoneFoldH: the folded card's height at full size, css px; 0 when it is not folded)
   function phoneTextCap(key, H, k) {
     const dd = ui.data, ds = dd.style, gone = dd.hidden || 'gone' in dd.dataset;
-    if (key && phoneLock?.key === key) { dd.classList.toggle('pz-folds', phoneLock.fold); phoneFoldH = phoneLock.foldH; return phoneLock.cap; }
+    if (key && phoneLock?.key === key) { dd.classList.toggle('pz-folds', phoneLock.fold); dd.classList.toggle('pz-ftight', phoneLock.tight); phoneFoldH = phoneLock.foldH; return phoneLock.cap; }
     phoneFoldH = 0;
-    dd.classList.remove('pz-folds');
+    dd.classList.remove('pz-folds', 'pz-ftight');
     const natural = (el, st) => {   // (as it stands unfitted and uncapped)
       const sv = [st.maxHeight, st.getPropertyValue('--pz-fit'), st.getPropertyValue('--pz-z')];
       st.maxHeight = 'none'; st.removeProperty('--pz-fit'); st.removeProperty('--pz-z');
@@ -2463,12 +2463,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The words' glass starts 16 px above them; the data card stands 8 px from the top. A tall data card takes at most
     // 45 % of what the two cards share, its own fit doing the rest.)
     const both = H - foot - 16 - 8 - FIG_MIN(H), share = (h) => Math.min(h, 0.45 * both);
-    let data = gone ? 0 : share(natural(dd, ds)), fold = false;
+    let data = gone ? 0 : share(natural(dd, ds)), fold = false, tightOn = false;
     if (!gone && both - data < words && dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip)')) {
       dd.classList.add('pz-folds');
       const shut = natural(dd, ds), folded = share(shut);
       if (folded < data - 1) {
         data = folded; fold = true; phoneFoldH = shut / k;
+        // (Still short of the figure's share: the folded card takes its compact form, 6 px above and below its header in place
+        // of 10, the header and its Show chip at full size.)
+        if (both - data < words) { dd.classList.add('pz-ftight'); const tight = natural(dd, ds); data = share(tight); phoneFoldH = tight / k; tightOn = true; }
         // (Each such slide comes in folded, whatever an earlier slide's Show left open.)
         const b = dd.querySelector('.pz-dh > .pz-fold');
         dd.classList.remove('tool-open'); if (b) { b.textContent = 'Show'; b.setAttribute('aria-expanded', 'false'); }
@@ -2476,7 +2479,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     // (Words at 12 px win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card.)
     const cap = Math.max(120, Math.min(H - foot - 16 - 16 - data, Math.max(Math.min(Number.isFinite(own) ? own : 0.62 * H, both - data), words))) / k;
-    if (key) phoneLock = { key, cap, fold, foldH: phoneFoldH };
+    if (key) phoneLock = { key, cap, fold, tight: tightOn, foldH: phoneFoldH };
     return cap;
   }
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
