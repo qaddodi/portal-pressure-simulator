@@ -1730,6 +1730,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     await unhush(cut);
     if (cut()) return;
     shown = { i: to, rev, gen: g }; lastAt = to;
+    // (One pass keyed to the slide now shown, so its fold and words' room are kept from here on: a tap on Show or Hide then
+    // eases the card it planned, not one measured afresh with the instrument open. The pass changes nothing on screen.)
+    if (ui && phone()) layout();
     paintChrome();
     if (s.lapse && to > 0 && !q && back) paintLapse(s, s.days, s.days, true);
     if (booting) await coverDown();
@@ -2206,13 +2209,27 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       fitHeads(el);
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
       const all = el.querySelector('.pz-check'); all?.classList.add('pzc-all', 'pzc-still');
-      let k = 1;
-      for (let n = 0; n < 8 && k > 0.5; n++) {
-        const o = overflowOf(el);
-        if (o.v <= 1 && o.h <= 1) break;
-        k = Math.max(0.5, k * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
+      // (A phone's words never fit below 12 px: the card's height cap leaves them that room, phoneTextCap.)
+      const ln = el === ui.text && phone() ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(getComputedStyle(ln).fontSize) : 0;
+      const kMin = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : 0.5;
+      let k = 1, over = 1;   // (over: the largest fit tried that still overflowed)
+      const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1 ? null : o; };
+      for (let n = 0; n < 8 && k > kMin; n++) {
+        const o = fits();
+        if (!o) break;
+        over = k;
+        k = Math.max(kMin, k * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
         el.style.setProperty('--pz-fit', k.toFixed(3));
       }
+      // (The steps above scale by how far the card overflows, but smaller words wrap into fewer lines, so a step overshoots:
+      // a phone's words that fit at 0.62 came in at 0.5, under 12 px. Once a fit fits, the largest that still fits is found
+      // between it and the last that did not.)
+      if (k < over && !fits()) for (let n = 0; n < 6 && over - k > 0.005; n++) {
+        const m = (k + over) / 2;
+        el.style.setProperty('--pz-fit', m.toFixed(3));
+        if (fits()) over = m; else k = m;
+      }
+      if (k < 1) el.style.setProperty('--pz-fit', k.toFixed(3));
       // (A fit within a hair of the last one keeps the last one, when the card still fits with it: a phone's words had flipped
       // between 0.850 and 0.851 with every pass, moving the card a pixel and restyling the whole page about twice a second.)
       if (was !== k && Math.abs(was - k) < 0.01) {
@@ -2443,7 +2460,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let phoneLock = null, phoneFoldH = 0;   // (phoneFoldH: the folded card's height at full size, css px; 0 when it is not folded)
   function phoneTextCap(key, H, k) {
     const dd = ui.data, ds = dd.style, gone = dd.hidden || 'gone' in dd.dataset;
-    if (key && phoneLock?.key === key) { dd.classList.toggle('pz-folds', phoneLock.fold); dd.classList.toggle('pz-ftight', phoneLock.tight); phoneFoldH = phoneLock.foldH; return phoneLock.cap; }
+    const held = key && phoneLock?.key === key ? phoneLock : null;
+    if (held && (held.fold || gone)) { dd.classList.toggle('pz-folds', held.fold); dd.classList.toggle('pz-ftight', held.tight); phoneFoldH = held.foldH; return held.cap; }
     phoneFoldH = 0;
     dd.classList.remove('pz-folds', 'pz-ftight');
     const natural = (el, st) => {   // (as it stands unfitted and uncapped)
@@ -2453,33 +2471,50 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       st.maxHeight = sv[0]; if (sv[1]) st.setProperty('--pz-fit', sv[1]); if (sv[2]) st.setProperty('--pz-z', sv[2]);
       return v;
     };
+    // (Kept while the slide shows, unless its data card grew past what was planned for it, an instrument or chart built after
+    // the slide arrived: Doppler 5 on a 320 px iPhone was planned at 148 px and grew to 284, over the figure's share.)
+    // (Not for an instrument the reader opened: that grows by choice, over the figure, and closes again.)
+    if (held) { if (dd.classList.contains('tool-open') || natural(dd, ds) <= held.data + 1) { dd.classList.remove('pz-folds'); phoneFoldH = 0; return held.cap; } }
     const ts = ui.text.style, was = ts.maxHeight;
     ts.maxHeight = '';
     const css = getComputedStyle(ui.text), own = parseFloat(css.maxHeight) * (css.maxHeight.endsWith('%') ? H / 100 : 1), foot = (parseFloat(css.bottom) || 0) * k;
     ts.maxHeight = was;
     // (The words zoom down to fit (--pz-fit) but never below 12 px: their body size sets how far.)
     const line = ui.text.querySelector('.pz-line, p'), body = line ? parseFloat(getComputedStyle(line).fontSize) : 0;
-    const words = natural(ui.text, ts) * Math.min(1, body > 12 ? 12 / body : 1) + 4;
-    // (The words' glass starts 16 px above them; the data card stands 8 px from the top. A tall data card takes at most
-    // 45 % of what the two cards share, its own fit doing the rest.)
-    const both = H - foot - 16 - 8 - FIG_MIN(H), share = (h) => Math.min(h, 0.45 * both);
-    let data = gone ? 0 : share(natural(dd, ds)), fold = false, tightOn = false;
-    if (!gone && both - data < words && dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip)')) {
+    // (Measured at that floor, not scaled from the full size: zoomed down, the lines take more words each and the card comes
+    // out shorter than its full height times the zoom. Scaled, HVPG 5 on a 667 px iPhone asked 263 px for words that take 230.)
+    const floor = body > 12 ? Math.ceil(12 / body * 1000) / 1000 : 1, words = (floor < 1 ? (() => {
+      const sv = [ts.maxHeight, ts.getPropertyValue('--pz-fit'), ts.getPropertyValue('--pz-z')];
+      ts.maxHeight = 'none'; ts.removeProperty('--pz-z'); ts.setProperty('--pz-fit', String(floor));
+      const v = ui.text.offsetHeight * k;
+      ts.maxHeight = sv[0]; if (sv[1]) ts.setProperty('--pz-fit', sv[1]); else ts.removeProperty('--pz-fit'); if (sv[2]) ts.setProperty('--pz-z', sv[2]);
+      return v;
+    })() : natural(ui.text, ts)) + 4;
+    // (The words' glass starts 16 px above them, the data card ends 8 px above that and stands its own top (8 px) from the
+    // screen's top: the same room the layout gives it below.) The data card shows at full size or folds: never shrunk to fit.
+    // It folds where it and the words at 12 px cannot both fit beside the figure's share, or where it is taller than its own
+    // cap (styles/app.css max-height). (Capped at 45 % of the shared room before, its own fit doing the rest: Treatment 2 on a
+    // 667 px iPhone came in at half size, and the 8 px of its top left out shrank hvpg 5's card to 78 % on a 844 px one.)
+    const dcs = getComputedStyle(dd), dtop = (parseFloat(dcs.top) || 0) * k;
+    const dmax = (() => { const sv = ds.maxHeight; ds.maxHeight = ''; const m = getComputedStyle(dd).maxHeight; ds.maxHeight = sv; return m === 'none' ? Infinity : m.endsWith('%') ? parseFloat(m) * H / 100 : parseFloat(m) * k; })();
+    const both = H - foot - 16 - 8 - dtop - FIG_MIN(H);
+    let data = gone ? 0 : natural(dd, ds), fold = false, tightOn = false;
+    if (!gone && (both - data < words || data > dmax + 0.5) && dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip)')) {
       dd.classList.add('pz-folds');
-      const shut = natural(dd, ds), folded = share(shut);
-      if (folded < data - 1) {
-        data = folded; fold = true; phoneFoldH = shut / k;
+      const shut = natural(dd, ds);
+      if (shut < data - 1) {
+        data = shut; fold = true; phoneFoldH = shut / k;
         // (Still short of the figure's share: the folded card takes its compact form, 6 px above and below its header in place
         // of 10, the header and its Show chip at full size.)
-        if (both - data < words) { dd.classList.add('pz-ftight'); const tight = natural(dd, ds); data = share(tight); phoneFoldH = tight / k; tightOn = true; }
+        if (both - data < words) { dd.classList.add('pz-ftight'); const tight = natural(dd, ds); data = tight; phoneFoldH = tight / k; tightOn = true; }
         // (Each such slide comes in folded, whatever an earlier slide's Show left open.)
         const b = dd.querySelector('.pz-dh > .pz-fold');
         dd.classList.remove('tool-open'); if (b) { b.textContent = 'Show'; b.setAttribute('aria-expanded', 'false'); }
       } else dd.classList.remove('pz-folds');
     }
     // (Words at 12 px win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card.)
-    const cap = Math.max(120, Math.min(H - foot - 16 - 16 - data, Math.max(Math.min(Number.isFinite(own) ? own : 0.62 * H, both - data), words))) / k;
-    if (key) phoneLock = { key, cap, fold, tight: tightOn, foldH: phoneFoldH };
+    const cap = Math.max(120, Math.min(H - foot - 16 - 8 - dtop - data, Math.max(Math.min(Number.isFinite(own) ? own : 0.62 * H, both - data), words))) / k;
+    if (key) phoneLock = { key, cap, fold, tight: tightOn, foldH: phoneFoldH, data };
     return cap;
   }
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
