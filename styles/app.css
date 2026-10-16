@@ -113,6 +113,11 @@ svg { flex: none; }
 .stage-view svg#stageOver { pointer-events: none; }
 /* The plate (backdrop, organs, ascites) is drawn by the GPU from a raster; the SVG stays for picking and exports. */
 .stage-view.gl-plate :is(#backdrop, #organs, #ascites, #ghosts) { visibility: hidden; }
+/* Hidden, a group's mask is still built on every repaint of the svg (an offscreen layer as big as what it masks, on each pan
+   frame), so the masks under the hidden plate are off while the GPU draws it. The diaphragm's (#backdrop) covered the dome
+   over the liver and spleen, and with ascites the flank stretched it over the whole abdomen. The organs' copy for the GPU
+   is cloned with the mask attributes, which this rule does not change, so the plate keeps them. */
+.stage-view.gl-plate :is(#backdrop, #backdrop [mask], #organs [mask], #ascites [mask], #ghosts [mask]) { mask: none; }
 .stage-view.gl-on #world :is(.v-shadow, .v-wallP, .v-lumenP, .v-wall, .v-lumen, .v-shade, .v-sheen, .v-select, .v-artery, .v-strand, .v-strand-wall, .v-heat) { display: none; }
 .stage-view canvas { pointer-events: none; }
 .stage-view svg#labels { pointer-events: none; overflow: visible; }

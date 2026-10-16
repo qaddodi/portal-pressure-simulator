@@ -1,0 +1,26 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+// While the GPU draws the plate, its SVG groups are hidden, and their masks are turned off with them: a hidden group's mask
+// is still built on each repaint (the diaphragm's covered the whole abdomen with ascites, on every pan frame). The copy the
+// GPU draws is cloned from the mask attributes, which the rule leaves alone.
+const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+
+test('the hidden plate groups draw no masks', () => {
+  const hide = css.match(/\.stage-view\.gl-plate :is\(([^)]*)\) \{ visibility: hidden; \}/);
+  assert.ok(hide, 'the plate groups hide under gl-plate');
+  const off = css.match(/\.stage-view\.gl-plate :is\(([^)]*)\) \{ mask: none; \}/);
+  assert.ok(off, 'their masks are off under gl-plate');
+  for (const id of hide[1].split(',').map((x) => x.trim())) {
+    assert.ok(off[1].includes(`${id} [mask]`), `${id}: masks inside it stay on while hidden`);
+  }
+  assert.ok(off[1].split(',').map((x) => x.trim()).includes('#backdrop'), 'the diaphragm mask (on #backdrop itself) is off');
+});
+
+test("the plate copy keeps the diaphragm's mask", () => {
+  assert.match(stage, /s\('g', \{ id: 'backdrop', mask: 'url\(#diaMask\)' \}\)/, 'the mask is an attribute (cloned into the copy)');
+  assert.match(stage, /const c = g\.cloneNode\(true\);/, 'the copy is a clone of the live group');
+  assert.ok(!/removeAttribute\('mask'\)[^\n]*gBackdrop|gBackdrop[^\n]*removeAttribute\('mask'\)/.test(stage), 'the live mask attribute is never removed');
+});
