@@ -47,7 +47,7 @@ test('a slide Doppler card lays its readings two across so labels and values nev
 // iPad landscape (15 Oct): when the smallest steps still leave the pair too tall, the instrument folds behind Show, as on a phone.
 test('a pair that does not fit at the smallest steps folds the instrument behind Show on a wide screen', () => {
   assert.match(js, /if \(!below && canFold\) \{ setFolds\(true\);[^\n]*below = title\(1\); if \(!below\) ladder\(\); \}/);
-  assert.match(js, /canFold = \(dd\.classList\.contains\('has-tool'\) \|\| \(!dd\.classList\.contains\('tiles-only'\) && ladderFold === lockKey\)\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\)/);
+  assert.match(js, /canFold = \(dd\.classList\.contains\('has-tool'\) \|\| \(!dd\.classList\.contains\('tiles-only'\) && ladderFold === foldKey\)\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\)/);
   assert.match(js, /if \(lock\.folds\) setFolds\(true\);/, 'the fold is part of the slide\'s locked layout');
   assert.match(js, /folds: dd\.classList\.contains\('pz-folds'\)/);
   assert.match(css, /\.pz:not\(\.stack\):not\(\.low\) \.pz-data\.pz-folds:not\(\.tool-open\) > \.pz-tool \{ max-height: 0; opacity: 0;/);
@@ -57,7 +57,7 @@ test('a pair that does not fit at the smallest steps folds the instrument behind
 // Treatment slide 2 at 200% text (15 Oct, option B): a ladder card folds its plot only once its own zoom has failed to fit it,
 // so at 100% text, where the zoom always fits, it never folds; folded, the plot and key hide, and shown, the plot takes the tiles' place.
 test('a ladder card folds its plot only when its own fit fails, and shown it swaps plot for tiles', () => {
-  assert.match(js, /fitCards\(ui\.data, ui\.panel\);[\s\S]{0,400}ladderFold !== lockKey[\s\S]{0,400}\(overflowOf\(dd\)\)\) \{ ladderFold = lockKey; textLock = null; layout\(\); return; \}/);
+  assert.match(js, /fitCards\(ui\.data, ui\.panel\);[\s\S]{0,400}ladderFold !== foldKey[\s\S]{0,400}\(overflowOf\(dd\)\)\) \{ ladderFold = foldKey; textLock = null; layout\(\); return; \}/);
   assert.match(css, /\.pz-data\.pz-folds:not\(\.has-tool\):not\(\.tool-open\) > :is\(\.pz-ladder, \.pz-strip\)/);
   assert.match(css, /\.pz-data\.pz-folds\.tool-open:not\(\.has-tool\) > \.pz-tiles \{ display: none; \}/);
 });

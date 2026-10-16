@@ -1903,7 +1903,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // A Mac or iPad ladder card too tall for its room even at its smallest steps folds its plot behind Show, its tiles keeping the
   // readings; shown, the plot takes the tiles' place. Folded or shown, every reading sits inside the card at 12 px or more, and
   // at 100% text the card never folds. (Treatment slide 2 at 200% on a 1440x900 Mac: the strip ran below the card's end.)
-  if (device === 'desktop') await check(device, 'presenter: a ladder card too tall for its room folds whole, its readings inside it, never at 100% text', async () => {
+  if (device === 'desktop') await check(device, 'presenter: a ladder card too tall for its room folds whole, its readings inside it, never at 100% text, and a live text size lays out as a fresh load', async () => {
     const bad = [];
     const inside = () => {
       const dd = document.querySelector('.pz-data'), out = [];
@@ -1927,23 +1927,60 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }
       return out;
     };
+    // (The cards' layout: the numbers card's classes, whether its ladder shows as the compact strip, and the boxes of both cards,
+    // the words' title and the ladder.)
+    const lay = () => {
+      const dd = document.querySelector('.pz-data');
+      // (the strip as the viewer sees it: a folded card's hidden ladder can carry either)
+      const lad = dd.querySelector(':is(.pz-ladder,.pz-strip)'), seen = lad && lad.getBoundingClientRect().height > 0;
+      const cls = `${[...dd.classList].filter((c) => c !== 'stage-blocker' && c !== 'strip').sort().join(' ')}${seen && (dd.querySelector('.strip') || dd.classList.contains('strip')) ? ' +strip' : ''}`;
+      const box = {};
+      for (const [n, q] of [['numbers card', '.pz-data'], ['words card', '.pz-text'], ['title', '.pz-text h1, .pz-text h2'], ['ladder', '.pz-data :is(.pz-ladder,.pz-strip)']]) {
+        const e = document.querySelector(q), r = e?.getBoundingClientRect();
+        box[n] = r && r.width ? [r.left, r.top, r.width, r.height].map(Math.round) : [0, 0, 0, 0];
+      }
+      return { cls, box };
+    };
+    const fresh = new Map(), live = new Map();
     for (const [w, h] of [[1440, 900], [1280, 800], [1180, 820]]) for (const k of [1, 2]) {
       const ctx = await fastContext(browser, { viewport: { width: w, height: h } });
       await ctx.addInitScript((k) => { localStorage.setItem('pps.labelScale', String(k)); localStorage.setItem('pps.labelScaleV', '2'); }, k);
       const page = await ctx.newPage();
       await gotoSlide(page, server.url, 'treatment', 1); await quiet(page);
       const at = `treatment slide 2 at ${w}x${h} ${k * 100}%`;
+      fresh.set(`${w}x${h}:${k}`, await page.evaluate(lay));
       const folds = await page.evaluate(() => document.querySelector('.pz-data')?.classList.contains('pz-folds'));
       if (k === 1 && folds) bad.push(`${at}: the card folded at 100% text`);
       for (const c of await page.evaluate(inside)) bad.push(`${at}${folds ? ', folded' : ''}: ${c}`);
       if (folds) {
         await page.click('.pz-data .pz-fold'); await quiet(page);
+        fresh.set(`${w}x${h}:${k} shown`, await page.evaluate(lay));
         for (const c of await page.evaluate(inside)) bad.push(`${at}, shown: ${c}`);
         // (Text set back to 100% in Settings while the slide shows: the card lays out again and unfolds, as a fresh load does.)
         await page.evaluate(() => window.pps.stage.setLabelScale(1)); await quiet(page);
         if (await page.evaluate(() => document.querySelector('.pz-data')?.classList.contains('pz-folds'))) bad.push(`${at}: still folded after text went back to 100%`);
       }
+      // (The other size set live in Settings on a newly loaded slide: compared below with a fresh load at that size.)
+      const again = await ctx.newPage();
+      await gotoSlide(again, server.url, 'treatment', 1); await quiet(again);
+      await again.evaluate((k) => window.pps.stage.setLabelScale(k), 3 - k); await quiet(again);
+      // (the cards drawn again: in, at rest)
+      await again.waitForFunction(() => { const d = document.querySelector('.pz-data'); return d && !d.classList.contains('pz-hide') && !d.closest('.pz-prep'); }, null, { timeout: 15000 }).catch(() => {}); await quiet(again);
+      live.set(`${w}x${h}:${3 - k}`, await again.evaluate(lay));
+      if (await again.evaluate(() => document.querySelector('.pz-data')?.classList.contains('pz-folds'))) {
+        await again.click('.pz-data .pz-fold'); await quiet(again);
+        live.set(`${w}x${h}:${3 - k} shown`, await again.evaluate(lay));
+      }
       await ctx.close();
+    }
+    // A live text-size change lays the cards out exactly as a fresh load at that size: the same plot or strip, fold, and boxes
+    // within 4 px (a fresh load itself varies by 2-3 px from one load to the next). (17507e3: switched from 200% to 100% the card kept the strip a fresh 100% load shows as the full plot.)
+    for (const [key, got] of live) {
+      const want = fresh.get(key), at = `treatment slide 2 at ${key.replace(/:(\d)/, ' $100%')} set live`;
+      if (!want) { bad.push(`${at}: a fresh load did not fold`); continue; }
+      if (got.cls !== want.cls) bad.push(`${at}: card "${got.cls}", a fresh load "${want.cls}"`);
+      // (Opened by Show, the card eases to its height: its boxes differ by a few px from one load to the next, so only its parts are compared.)
+      else if (!key.endsWith(' shown')) for (const n of Object.keys(want.box)) if (want.box[n].some((v, i) => Math.abs(v - got.box[n][i]) > 4)) bad.push(`${at}: ${n} at ${got.box[n]}, a fresh load ${want.box[n]}`);
     }
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });

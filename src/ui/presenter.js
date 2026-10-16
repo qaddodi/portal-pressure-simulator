@@ -1049,7 +1049,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const cache = new Map();   // deck id → computed states, reused the next time it is presented
   let deck = null, slides = [], states = [], waiters = [], stateOf = [], base = null, extraOf = new Map();
   // `gen` counts redraws asked of the slide in place (quiz on or off): a transition under way for an older one starts over.
-  let want = 0, wantRev = false, shown = null, shownState = -1, busy = false, quiz = false, gen = 0;
+  let want = 0, wantRev = false, shown = null, shownState = -1, busy = false, quiz = false, gen = 0, redrawn = -1;   // (redrawn: the cards drawn again for a new text size, see pps:labelscale)
   let ui = null, black = false, digits = '', digitT = 0;
   let saved = null, layersBefore = null;   // (the viewer's own lobule layers, put back when the show ends)
   // High contrast: a deeper shade, stronger text, ratings as filled chips (pz-hi). Off for now; no control offers it.
@@ -1864,7 +1864,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), s.causes.join(', ')) : null]));
       paintKey(!q && (slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null);
-      markLong(text, true);
+      markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
     }
@@ -2272,6 +2272,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // keeps them, so the teaching card's text never changes size while it is in view. (A new text size in Settings is a new layout:
     // kept, a card folded at 200% stayed folded back at 100%.)
     const lockKey = shown ? `${shown.gen}:${shown.i}:${W.toFixed(0)}x${H.toFixed(0)}:${stage.labelScale()}` : null, lock = lockKey && textLock?.key === lockKey ? textLock : null;
+    // (A ladder's fold holds for the slide being drawn, from its first measure: keyed by the slide wanted, not the one shown, so
+    // the fold found while its cards come in is kept once it shows. Keyed by the slide shown, the card unfolded for a moment
+    // as it came in at 200%, then folded again.)
+    const foldKey = `${gen}:${want}:${W.toFixed(0)}x${H.toFixed(0)}:${stage.labelScale()}`;
     ui.text.style.removeProperty('--pz-tk'); ui.text.style.removeProperty('--pz-bk');
     ui.text.style.maxHeight = '';   // (the last pass's cap would shrink the words to a room they no longer have)
     // (A phone's words keep clear of the pill and the colour key first: the room they leave (--pz-reach, --pz-fkrow) is part
@@ -2299,7 +2303,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A ladder card with no instrument folds its plot the same way, its tiles keeping the readings, but only once its own fit has
       // failed (ladderFold, below): its plot shrinks with the card where an instrument cannot. Treatment slide 2 at 200 % on a
       // 1440x900 screen left the card 232 px, too short for the plot even at the card's smallest zoom.)
-      const canFold = (dd.classList.contains('has-tool') || (!dd.classList.contains('tiles-only') && ladderFold === lockKey)) && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead');
+      const canFold = (dd.classList.contains('has-tool') || (!dd.classList.contains('tiles-only') && ladderFold === foldKey)) && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead');
       const setFolds = (on) => {
         if (dd.classList.contains('pz-folds') === on) return;   // (unchanged: a pass mid-ease must not cut a Show or Hide short)
         const tl = dd.querySelector(':scope > .pz-tool');
@@ -2378,8 +2382,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     fitCards(ui.data, ui.panel);
     // (A ladder card still too full at its smallest zoom: laid out again, folded, for as long as the slide shows at this size.
     // At 100 % text the card always fits by its own zoom, so it never folds there.)
-    if (below && lockKey && ladderFold !== lockKey && !dd.classList.contains('has-tool') && !dd.classList.contains('tiles-only') && !dd.classList.contains('tool-only')
-      && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-folds') && (({ v, h }) => v > 1 || h > 1)(overflowOf(dd))) { ladderFold = lockKey; textLock = null; layout(); return; }
+    // (Not while the leaving slide's card is still out, its charts lettered for the old size: only the new card, being fitted unseen
+    // (pz-prep) or in view.)
+    if (below && ladderFold !== foldKey && (ui.root.classList.contains('pz-prep') || !dd.classList.contains('pz-hide')) && !dd.classList.contains('has-tool') && !dd.classList.contains('tiles-only') && !dd.classList.contains('tool-only')
+      && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-folds') && (({ v, h }) => v > 1 || h > 1)(overflowOf(dd))) { ladderFold = foldKey; textLock = null; layout(); return; }
     // The stacked pair shorter than the screen is centred top to bottom as one (equal room above and below, never closer than one margin
     // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
     let shift = 0;
@@ -2577,7 +2583,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // The viewer's own text size (Settings) scales them too: a change there while presenting is re-applied on top.
   let labelling = false;
-  addEventListener('pps:labelscale', () => { if (deck && ui && !labelling) setLabels(); });
+  // A new text size draws the slide again, as a fresh load at that size does (the words out and back in, laid out from the
+  // start, the camera framing around them). Adjusted in place, a card kept what the old size had chosen: a 200% card stayed
+  // folded or kept the compact strip at 100%, and a 100% card switched to 200% folded where a fresh load did not.
+  // (As when coming back to the slide: a time-lapse shows its end, not playing again.)
+  addEventListener('pps:labelscale', () => {
+    if (!deck || !ui || labelling) return;
+    setLabels();
+    if (!shown) return;   // (a slide on its way in lays out at the new size anyway)
+    // (Nothing fitted at the old size carries over: each card's fit, the words' steps (a title judged long or not at the old
+    // step had kept that size), and each ladder's choice of plot or strip.)
+    for (const el of [ui.text, ui.data, ui.panel]) { fitDone.delete(el); for (const n of ['--pz-fit', '--pz-z', '--pz-tk', '--pz-bk', '--pz-dk']) el.style.removeProperty(n); }
+    reFit();
+    lastAt = Math.max(lastAt, shown.i + 1); redrawn = ++gen;
+    if (!busy) run();
+  });
 
   // ── Chrome: counter, progress, controls ──
   // The controls are a small frosted pill (a phone: count, settings, exit; a wide screen adds back and next) at the screen's lower right, on the words'
