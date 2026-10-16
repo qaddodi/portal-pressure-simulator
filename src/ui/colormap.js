@@ -119,3 +119,11 @@ export const DROP_MAX = 12;
 const dropScale = makeScale('--ramp-drop');
 export const dropColor = (dp) => dropScale(Math.abs(dp) / DROP_MAX);
 export const dropCss = (dir) => dropScale.css(dir);
+
+// Oxygen saturation, 60 to 100 %: deoxygenated blue (hepatic venous blood, about 65 %) through to oxygenated
+// cerise (arterial, 98 %), the textbook convention of blue veins and red arteries.
+export const OXY_MIN = 0.6;
+const oxyScale = makeScale('--ramp-oxygen');
+export const oxygenPos = (s) => Math.min(1, Math.max(0, (s - OXY_MIN) / (1 - OXY_MIN)));
+export const oxygenColor = (s) => oxyScale(oxygenPos(s));
+export const oxygenCss = (dir) => oxyScale.css(dir);

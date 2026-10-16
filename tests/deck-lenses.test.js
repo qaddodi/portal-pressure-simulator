@@ -9,7 +9,7 @@ import { deepMerge } from '../src/engine/scenario.js';
 import { originFractions } from '../src/ui/blood.js';
 import { DECKS } from '../src/ui/decks.js';
 
-const KNOWN = ['velocity', 'flow', 'direction', 'heat', 'drop', 'delta', 'origin'];
+const KNOWN = ['velocity', 'flow', 'direction', 'heat', 'drop', 'delta', 'oxygen', 'origin'];
 const deck = (id) => DECKS.find((d) => d.id === id);
 function run(deckId, upTo) {
   const e = new Engine();

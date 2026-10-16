@@ -17,7 +17,7 @@ const state = {
   labelLevel: (() => { try { const v = localStorage.getItem('pps.labels'); return ['key', 'all', 'none'].includes(v) ? v : 'key'; } catch { return 'key'; } })(),   // station labels: key | all | none (Blood menu)
   lobuleLayers: { zones: false, lymph: true },   // the Lobule view's own layers (toolbar Layers menu): zone bands, hepatic lymph
   blood: { look: 'shimmer', phasic: false, chevrons: false, keyChevrons: false },   // look: parcels | shimmer
-  colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction
+  colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction | oxygen | origin
   params: defaultParams(),
   frame: null,
   running: true,

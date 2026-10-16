@@ -7,6 +7,7 @@
 
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { clamp } from './util.js?v=0140acc352';
+import { oxygenFor } from './blood.js?v=6f386fa742';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -47,6 +48,9 @@ export function lobuleState(f, st) {
   m.Qs = { pre: Qe(S.pre), sin: Qe(S.q), post: Qe(S.post) };
   const Q0 = { pre: He(S.pre), sin: He(S.q), post: He(S.post) };
   m.Q0 = Q0;
+  // Colored by oxygen: saturation in the portal venule, where portal and arterial blood meet at the sinusoids' inlet,
+  // and at the central vein after the liver cells have taken their share.
+  if (m.mode === 'oxygen') { const { node } = oxygenFor(EDGES, NODES, f); m.oxy = [node[NI[S.pv]], node[NI[S.sin]], node[NI[S.cv]]]; }
   m.rev = Object.fromEntries(Object.entries(m.Qs).map(([k, q]) => [k, q < -Math.max(0.12, 0.02 * Math.abs(Q0[k] ?? 1))]));
   return m;
 }

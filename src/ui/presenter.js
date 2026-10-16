@@ -12,25 +12,25 @@
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide,
 // Esc. (The Guide lists them: PRESENT_KEYS in main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=65ec443c0e';
+import { store, replaceParams } from './store.js?v=ead3d78843';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox } from './util.js?v=0140acc352';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=1199bb8c7d';
+import { sinusoidSupported } from './sinusoid-view.js?v=47df865991';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=12c5c963e5';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=6e264abb06';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=2f555feeba';
-import { createTools } from './presenter-tools.js?v=bbec1b3938';
-import { openHandout } from './handout.js?v=c018341a13';
+import { createHvpgMonitor } from './hvpg-proc.js?v=c4b4c57a48';
+import { createTools } from './presenter-tools.js?v=c2238c46b0';
+import { openHandout } from './handout.js?v=5b9bc2c16c';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=ca12af9a8d';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
 import { createFigureKey } from './figure-key.js?v=382bd7d4ad';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=c7b884e944';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=5c9a375f49';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -69,6 +69,7 @@ const LENS_KEY = {
   heat: ['congestion', () => heatCss('to right'), 'None', 'Backed up'],
   drop: ['pressure drop', () => dropCss('to right'), 'None', 'Large'],
   delta: ['change', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
+  oxygen: ['oxygen', () => oxygenCss('to right'), 'Low', 'High'],
   origin: ['origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen'], ['--origin-artery', 'Artery'], ['--origin-systemic', 'Systemic']]],
 };
 export const slideLens = (s) => (!s?.visual && LENS_KEY[s?.lens] ? s.lens : 'pressure');
@@ -236,8 +237,8 @@ function lineRe(s = {}) {
 // A view the words name ("With the vessels colored by congestion"): the view's name is a pill in that view's own colour,
 // as its key on the figure draws it (Mohammad, 16 Oct). It points at nothing on the figure, so it lights nothing.
 export const LENS_WORDS = { 'pressure drop': 'drop', 'blood origin': 'origin', origin: 'origin', velocity: 'velocity', 'flow volume': 'flow',
-  flow: 'flow', direction: 'direction', congestion: 'heat', change: 'delta' };
-export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direction: '--flow-reversed', heat: '--lens-heat', drop: '--lens-drop', delta: '--delta-high', origin: '--origin-spleen' };
+  flow: 'flow', direction: 'direction', congestion: 'heat', change: 'delta', oxygen: 'oxygen' };
+export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direction: '--flow-reversed', heat: '--lens-heat', drop: '--lens-drop', delta: '--delta-high', origin: '--origin-spleen', oxygen: '--lens-oxygen' };
 const LENS_RE = String.raw`\b([Cc]olou?red by )(${Object.keys(LENS_WORDS).sort((a, b) => b.length - a.length).join('|')})\b`;
 function rich(t, s = {}, fp = null) {
   const { re, tl } = lineRe(s);

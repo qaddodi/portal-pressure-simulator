@@ -2,24 +2,24 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=d6a857aa4d';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=65ec443c0e';
-import { createStage } from './stage.js?v=09caaba6b0';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=ead3d78843';
+import { createStage } from './stage.js?v=7c84e00af6';
 import { createCreditPlacer } from './credit.js?v=b780eae767';
-import { sinusoidSupported } from './sinusoid-view.js?v=1199bb8c7d';
-import { createInspector } from './inspector.js?v=762a2fb951';
-import { createDock, CUTOFFS } from './dock.js?v=e66235afd1';
-import { setHvpgStage } from './hvpg-proc.js?v=2f555feeba';
+import { sinusoidSupported } from './sinusoid-view.js?v=47df865991';
+import { createInspector } from './inspector.js?v=bccfbe114a';
+import { createDock, CUTOFFS } from './dock.js?v=17176c7881';
+import { setHvpgStage } from './hvpg-proc.js?v=c4b4c57a48';
 import { createWhy } from './why.js?v=da9565d669';
-import { createTimeline, LAPSES } from './timeline.js?v=fa07822c4b';
-import { createCompare } from './compare.js?v=ffc7874c50';
-import { createCard } from './card.js?v=7cdda32074';
-import { createChart } from './chart.js?v=48b16c45aa';
-import { createMenu } from './menu.js?v=b0261ca27f';
-import { caption } from './a11y.js?v=a135cfdf93';
+import { createTimeline, LAPSES } from './timeline.js?v=a313a9da5d';
+import { createCompare } from './compare.js?v=c9ba3b5396';
+import { createCard } from './card.js?v=7c9836fedc';
+import { createChart } from './chart.js?v=64ef24c835';
+import { createMenu } from './menu.js?v=b0d2cf9c0a';
+import { caption } from './a11y.js?v=a8f707b90b';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=8d3cbdab01';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=c7b884e944';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=d512a95bb4';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=5c9a375f49';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=0140acc352';
@@ -35,7 +35,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=da514a9b04';
 import { initTopbarMotion } from './topbar-motion.js?v=f095540bb8';
-import { ORIGINS } from './blood.js?v=34ef08458c';
+import { ORIGINS } from './blood.js?v=6f386fa742';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=5c3e8b1079';
 import { frameFor, perf as framePerf } from './frame.js?v=5efaa2bcc9';
@@ -52,9 +52,10 @@ const LENSES = {
   flow: ['Flow volume', 'How much blood; width = flow', () => flowCss('to right')],
   velocity: ['Velocity', 'Against each vessel\'s normal: sand slower, teal normal, violet faster, graded', () => velocityCss('to right')],
   direction: ['Direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
+  oxygen: ['Oxygen', 'How much oxygen the blood carries: blue low, red high', () => oxygenCss('to right')],
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
 };
-const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', origin: 'Blood origin' };
+const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', oxygen: 'Oxygen', origin: 'Blood origin' };
 
 let stage, inspector, dock, why, timeline, compare, card, chart, mainMenu;
 
@@ -156,7 +157,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=b7f184c45f'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=311b190940'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -164,7 +165,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=71e7da1163'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=bf78760936'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -596,6 +597,11 @@ function renderLegend() {
     el.replaceChildren(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),
       scale(heatCss('to right'), [[at(0), '0'], [at(5), '5'], [at(10), '10', 1], [at(15), '15+']], []));
     el.setAttribute('aria-label', `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, grey to yellow to deep red, with a glow where congestion is highest`);
+  } else if (m === 'oxygen') {
+    const at = (p) => ((p / 100 - OXY_MIN) / (1 - OXY_MIN)) * 100;
+    el.replaceChildren(h('div', { class: 'lg-title' }, 'Oxygen saturation', h('small', {}, '%')), cap('Oxygen', '%'),
+      scale(oxygenCss('to right'), [[at(60), '60'], [at(80), '80'], [at(100), '100']], [at(80)]));
+    el.setAttribute('aria-label', 'Legend: oxygen saturation of the blood in each vessel, 60 to 100 percent, blue (hepatic venous blood, about 65) to red (arterial, 98); portal blood is about 85');
   } else if (m === 'direction') {
     el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), 'Reversed')));
     el.setAttribute('aria-label', 'Legend: teal is physiological flow direction, orange is reversed');

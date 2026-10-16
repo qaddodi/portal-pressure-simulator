@@ -3,12 +3,12 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=0b72305f30';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor } from './colormap.js?v=c7b884e944';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=5c9a375f49';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=65ec443c0e';
-import { fibroReading } from './clock.js?v=c699a8ff80';
+import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=ead3d78843';
+import { fibroReading } from './clock.js?v=b69f28fc47';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=0140acc352';
-import { createLobuleZoom } from './lobule-zoom.js?v=cad690b407';
+import { createLobuleZoom } from './lobule-zoom.js?v=ad27d0c886';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -19,8 +19,8 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=9aab2894c1';
-import { advanceStream, keyChevron, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=34ef08458c';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=fddd3c5e2d';
+import { advanceStream, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6f386fa742';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
 import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
 import { portalSplit } from './table-marks.js?v=ca12af9a8d';
@@ -2176,6 +2176,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Data layers other than pressure quiet the anatomy so the network carries the reading.
     wrap.classList.toggle('data-layer', !['pressure', 'neutral'].includes(mode));
     if (wrap.dataset.layer !== mode) wrap.dataset.layer = mode;   // unchanged writes still queue a mutation and restyle [data-layer]
+    // Colored by oxygen: each vessel's saturation at its two ends (the sinusoids darken toward the central vein).
+    const oxy = mode === 'oxygen' ? oxygenFor(EDGES, NODES, f).edge : null;
 
     // collateral tortuosity
     const coiling = [];
@@ -2285,6 +2287,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (mode === 'direction') { const rev = isReversed(e, f); c1 = c2 = rev ? 'var(--flow-reversed)' : 'var(--flow-normal)'; }
       else if (mode === 'flow') { c1 = c2 = flowColor(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06); }
       else if (mode === 'velocity') { c1 = c2 = e.kind === 'liver' ? 'var(--lens-neutral)' : velColorOf(f, k, store.get().healthy); }
+      else if (mode === 'oxygen') { c1 = oxygenColor(oxy[2 * k]); c2 = oxygenColor(oxy[2 * k + 1]); }
       else if (mode === 'heat') { c1 = heatColor(ref ? qP(P1 - ref[NI[e.from]]) : 0); c2 = heatColor(ref ? qP(P2 - ref[NI[e.to]]) : 0); }
       else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }
       else { c1 = deltaColor(ref ? qP(P1 - ref[NI[e.from]]) : 0); c2 = deltaColor(ref ? qP(P2 - ref[NI[e.to]]) : 0); }

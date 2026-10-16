@@ -5,10 +5,11 @@
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { store, updateParams, hiddenNow } from './store.js?v=65ec443c0e';
+import { store, updateParams, hiddenNow } from './store.js?v=ead3d78843';
 import { fmt, fmtFlow, clamp } from './util.js?v=0140acc352';
 import { aboutVessel, aboutOrgan } from './about.js?v=e0bda4dfee';
-import { lobuleState } from './lobule-model.js?v=c6255ba5cf';
+import { lobuleState } from './lobule-model.js?v=0e7c572ba0';
+import { oxygenFor } from './blood.js?v=6f386fa742';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=0b72305f30';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -179,6 +180,13 @@ export function edgeValue(e, f, lens, ref) {
   // Velocity reads as Doppler does (peak, see dopplerK), so it matches the figure callouts and the Doppler monitor.
   if (lens === 'velocity') return { v: fmt(Math.abs(dopplerVel(f, k)), 0), u: 'cm/s' };
   if (lens === 'drop') return { v: fmt(P1 - P2, 1), u: 'mmHg drop' };
+  // Oxygen saturation of the blood leaving the vessel (an artery's as it enters its bed); the sinusoids read in → out.
+  if (lens === 'oxygen') {
+    const o = oxygenFor(EDGES, NODES, f).edge, up = q >= 0 ? 2 * k : 2 * k + 1, dn = q >= 0 ? 2 * k + 1 : 2 * k;
+    const pc = (s) => String(Math.round(s * 100));
+    const a = o[up], b = e.kind === 'artery' || e.kind === 'arteriole' ? o[up] : o[dn];
+    return { v: Math.abs(a - b) >= 0.005 ? `${pc(a)} → ${pc(b)}` : pc(b), u: '% O₂ saturation' };
+  }
   const r = ref ? (st ? ref[NI[st]] : (ref[NI[e.from]] + ref[NI[e.to]]) / 2) : null;
   return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r };
 }

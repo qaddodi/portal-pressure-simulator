@@ -2,6 +2,13 @@
 
 ## October 2026
 
+- **Colored by oxygen.** A new view in Colored by shows each vessel's oxygen saturation, 60 to 100 %, from blue
+  (deoxygenated) to cerise red (arterial). The hepatic artery is 98 %, the portal vein about 85 % (gut venous blood),
+  systemic veins about 75 %; the sinusoids mix portal and arterial blood at the portal tract and darken toward the
+  central vein as the liver takes about a quarter of the oxygen, so hepatic venous blood is about 65 %. Saturation
+  mixes flow-weighted at every junction, so when portal flow falls or reverses the hepatic artery's blood fills the
+  sinusoids (the buffer response). The lobule colours its vessels the same way, the vessel card reads the saturation,
+  and "colored by oxygen" in slide words is a cerise pill. Tests: `tests/oxygen.test.js`.
 - **Less work per frame while a glow eases, and for the FibroScan waves.** Hovering, selecting or a slide's glow
   easing in now rewrites only the glow values of the vessels instead of rebuilding all of them each frame, the FibroScan
   probe's waves write a path or an opacity only when it changed, hidden SVG tubes under the GPU are written when they

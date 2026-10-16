@@ -34,7 +34,7 @@
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
 //                            (on a phone it folds away behind a Show button; open: true keeps it open there and folds the tiles instead)
 //   lens                     the vessel colours on that slide: 'velocity', 'flow', 'direction', 'heat' (congestion), 'drop'
-//                            (pressure drop), 'delta' (change from healthy) or 'origin' (blood origin), with a key under the line; pressure when absent
+//                            (pressure drop), 'delta' (change from healthy), 'oxygen' (oxygen saturation) or 'origin' (blood origin), with a key under the line; pressure when absent
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'

@@ -20,16 +20,16 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
-import { store } from './store.js?v=65ec443c0e';
+import { store } from './store.js?v=ead3d78843';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
 import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=c6255ba5cf';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=0e7c572ba0';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=0140acc352';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=c7b884e944';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=5c9a375f49';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=9aab2894c1';
-import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=34ef08458c';
-import { createSinusoidView } from './sinusoid-view.js?v=1199bb8c7d';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=fddd3c5e2d';
+import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6f386fa742';
+import { createSinusoidView } from './sinusoid-view.js?v=47df865991';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
@@ -2002,6 +2002,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       const V = M === 'pressure' ? [m.P1, m.P2, m.P3].map(qP) : m.dP;
       const v = seg === 'pv' ? V[0] : seg === 'in' ? lerp(V[0], V[1], 0.6 * w) : seg === 'cv' ? V[2] : V[2] + (V[1] - V[2]) * w;
       return M === 'pressure' ? pressureColor(qP(v)) : M === 'delta' ? deltaColor(qP(v)) : heatColor(qP(v));
+    }
+    if (M === 'oxygen') {
+      const [a, b, c] = m.oxy || [1, 1, 1];
+      return oxygenColor(seg === 'pv' ? a : seg === 'in' ? lerp(a, b, w) : seg === 'cv' ? c : c + (b - c) * w);
     }
     const e = seg === 'sin' ? 'sin' : seg === 'cv' ? 'post' : 'pre';
     switch (M) {

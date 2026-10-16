@@ -102,7 +102,8 @@
   --vel-slow: #D8B26A; --vel-normal: #3FA092; --vel-fast: #6E4FB0;
   --ramp-heat: #B4B8C2 0, #F4D35E .12, #F08A24 .45, #D7263D .75, #6E0B2E 1;
   --ramp-drop: #DCE6D2 0, #A8C97A .3, #4F8C3C .65, #1D4724 1;
-  --lens-flow: #1E6F8C; --lens-heat: #D7263D; --lens-drop: #4F8C3C;   /* a view named in the words: its pill, from its own ramp */
+  --ramp-oxygen: #3A4F8F 0, #6E6A9F .35, #A9578A .65, #D2386F .9, #DC2F5E 1;   /* oxygen saturation 60–100 %: deoxygenated blue to oxygenated cerise */
+  --lens-flow: #1E6F8C; --lens-heat: #D7263D; --lens-drop: #4F8C3C; --lens-oxygen: #C2387A;   /* a view named in the words: its pill, from its own ramp */
   --delta-low: #2D6CDF; --delta-mid: #9696A0; --delta-high: #D22846;   /* Change lens: lower, same, higher than healthy */
   /* blood origin lens (both themes): the streams in the vessels, their legend, and the matching traces */
   --origin-smv: #E69929; --origin-imv: #179E8C; --origin-spleen: #7D5CDB; --origin-artery: #D63347; --origin-systemic: #708FBF;

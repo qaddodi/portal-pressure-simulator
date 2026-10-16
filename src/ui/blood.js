@@ -134,6 +134,68 @@ export function originFractions(edges, nodes, Q, P) {
   return edge;
 }
 
+// ── Oxygen ─────────────────────────────────────────
+// Oxygen saturation of each vessel's blood, for the "colored by oxygen" view: the hepatic artery's blood is fully
+// arterial, each capillary bed returns venous blood (the gut's veins less desaturated than the rest of the body's),
+// and the liver's sinusoids use oxygen along their length, so blood darkens from the portal tract to the central
+// vein. Saturation mixes flow-weighted at every junction (one haemoglobin throughout, so content mixes as
+// saturation does). Round, textbook values: arterial 98 %, portal (gut venous) about 85 %, mixed systemic venous
+// about 75 %, and the liver extracting about a quarter of what reaches its sinusoids, so hepatic venous blood is
+// about 65 %. When portal inflow falls and the hepatic artery takes over (the buffer response), the sinusoids
+// fill with brighter arterial blood.
+export const SAT = { artery: 0.98, gut: 0.85, systemic: 0.75 };
+export const LIVER_EXTRACTION = 0.25;
+const consumes = (e) => e.kind === 'liver' && e.zone === 'sin';
+const isArterial = (e) => e.kind === 'artery' || e.kind === 'arteriole';
+
+/**
+ * Oxygen saturation (0–1) per node, and per edge at its `from` and `to` ends (2 × edges: from, to), as
+ * { node, edge }. Beds fed straight from the aorta return their own venous saturation; the hepatic artery's node
+ * mixes as any other. Nodes are visited from high pressure to low, as in originFractions.
+ */
+export function oxygenSat(edges, nodes, Q, P) {
+  const NI = new Map(nodes.map((n, i) => [n.id, i]));
+  const from = edges.map((e) => NI.get(e.from)), to = edges.map((e) => NI.get(e.to));
+  const bed = new Map();
+  edges.forEach((e, k) => { if (e.from === 'AO' && e.kind === 'arteriole') bed.set(to[k], e.tone === 'splanchnic' ? SAT.gut : SAT.systemic); });
+  const inflow = nodes.map(() => []);
+  edges.forEach((e, k) => {
+    if (e.kind === 'wedge' || !Q[k]) return;
+    inflow[Q[k] > 0 ? to[k] : from[k]].push(k);
+  });
+  const node = new Float32Array(nodes.length).fill(SAT.systemic), edge = new Float32Array(edges.length * 2);
+  const ao = NI.get('AO');
+  if (ao != null) node[ao] = SAT.artery;
+  const up = (k) => (Q[k] >= 0 ? from[k] : to[k]);
+  // Saturation leaving edge k at its downstream end.
+  const out = (k) => node[up(k)] * (consumes(edges[k]) ? 1 - LIVER_EXTRACTION : 1);
+  const order = nodes.map((_, i) => i).sort((a, b) => P[b] - P[a]);
+  for (const n of order) {
+    if (n === ao) continue;
+    if (bed.has(n)) { node[n] = bed.get(n); continue; }
+    let w = 0, s = 0;
+    for (const k of inflow[n]) { const q = Math.abs(Q[k]); w += q; s += q * out(k); }
+    if (w > 0) node[n] = s / w;
+  }
+  for (let k = 0; k < edges.length; k++) {
+    const a = node[up(k)], b = out(k);
+    // An arteriole into a bed is arterial along its length (the bed's own venous blood starts after it).
+    const lo = isArterial(edges[k]) ? a : b;
+    if (Q[k] >= 0) { edge[2 * k] = a; edge[2 * k + 1] = lo; } else { edge[2 * k] = lo; edge[2 * k + 1] = a; }
+  }
+  return { node, edge };
+}
+
+const OXY_MEMO = new WeakMap();
+/** oxygenSat for model frame `f` (its beat-filtered flows), computed once per flow array: the figure, the lobule
+ *  and the vessel card all read the same frame. */
+export function oxygenFor(edges, nodes, f) {
+  const Q = f.Qf || f.Q;
+  let o = OXY_MEMO.get(Q);
+  if (!o) { o = oxygenSat(edges, nodes, Q, f.Pf || f.P); OXY_MEMO.set(Q, o); }
+  return o;
+}
+
 // ── Dye bolus ──────────────────────────────────────────
 // An injection (DYE_SECONDS, or for as long as it is held, up to DYE_MAX_HOLD) travelling the
 // network as dye in the blood. Each vessel holds slugs of blood with a concentration (0–1) that
