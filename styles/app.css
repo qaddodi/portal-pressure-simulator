@@ -84,7 +84,6 @@ svg { flex: none; }
 .topbar .scenario-v:is([data-form="s2"], [data-form="c2"]) { white-space: normal; font-size: 12px; line-height: 1.15; max-height: 2.3em; }
 /* (No transition, not even the 1 ms one reduced motion gives every property: main.js reads each form's own size at once.) */
 .scenario-v, .scenario-v * { transition: none !important; }
-.ib.panel-toggle[aria-pressed="true"] { background: var(--surface-3); color: var(--text); }
 
 /* ── Figure (stage) ─────────────────────────────── */
 .stage-wrap { grid-area: stage; position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--stage-bg); color: var(--text); overflow: hidden; }
@@ -204,9 +203,6 @@ svg { flex: none; }
 .lb.node:focus-visible .lb-bg, .lb.node.sel.inline .lb-bg { stroke: var(--accent); stroke-width: 1.5; }
 .lb.node.atlas:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 #labels .lb.focus .lb-bg { fill: var(--accent); stroke: none; }
-#labels .lb.selE .lb-bg { fill: var(--accent-soft); stroke: var(--accent-line); }
-#labels .lb.selE text { stroke: none; }
-.lb-selname { fill: var(--accent-ink); }
 .lb.focus text { fill: var(--on-accent); }
 .lb-sw { stroke: rgb(var(--black-rgb) / .08); stroke-width: .5; }
 .leader { fill: none; stroke: var(--leader); stroke-width: 1; }
@@ -239,7 +235,6 @@ svg { flex: none; }
 .lb-glass[hidden] { display: none; }
 .lb.module:focus-visible .lb-bg { stroke: var(--accent); }
 @media (hover: hover) { .lb.module:hover .lb-bg { stroke: var(--accent); } }
-.lb-mod-act { fill: var(--accent-ink); }
 .lb-lane { fill: var(--text-3); font-style: italic; }
 
 /* Figure header: the compare switch */
@@ -257,7 +252,6 @@ svg { flex: none; }
 /* Tools: Select plus three named groups; a group opens a tray listing its tools by name */
 .toolbar { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: var(--r-sheet); background: var(--surface); box-shadow: var(--shadow-1), inset 0 0 0 1px var(--hairline); justify-self: center; }
 .tb-sep { width: 1px; height: 22px; background: var(--hairline); margin: 0 2px; }
-.tool-tray { width: 300px; padding: 8px; }
 
 .zoom { display: flex; gap: 2px; justify-self: end; }
 .zoom .ib { width: 32px; height: 32px; }
@@ -352,16 +346,10 @@ div.vital { cursor: default; }
 .vital b { font-weight: 600; color: var(--text); font-size: var(--fs-14); font-variant-numeric: tabular-nums; }
 .vital.bad b { color: var(--danger); }
 @media (hover: hover) { button.vital:hover b { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; } }
-.readouts .ro-more { display: none; flex: none; align-self: center; width: 32px; height: 32px; }
-/* A vertical flip, not a turn: the icon keeps its width while it animates. */
-.ro-more svg { transform: scaleY(-1); transition: transform .2s var(--ease); }
-.readouts.all .ro-more svg { transform: none; }
 /* Narrower: the systemic block folds behind the chevron. */
 @container (max-width: 1000px) {
-  .readouts .ro-more { display: inline-grid; }
   .readouts:not(.all) .ro-systemic { display: none; }
   .readouts.all .ro-row { flex-wrap: wrap; }   /* full width: the chevron sits over the first caption line, not in a column of its own */
-  .readouts.all .ro-more { position: absolute; top: -2px; right: 4px; z-index: 1; }
   .readouts.all .ro-systemic { flex: 1 1 100%; border-top: 1px solid var(--hairline); padding-bottom: 10px; }
   .readouts.all .ro-systemic::before { display: none; }
   .readouts.all .vb-grid { grid-template-columns: repeat(5, auto); justify-content: start; }
@@ -424,7 +412,6 @@ div.vital { cursor: default; }
 .stat .v { font-size: var(--fs-16); font-weight: 600; font-variant-numeric: tabular-nums; }
 .stat.wide { grid-column: 1 / -1; }
 .formula { font: var(--fs-12)/1.6 var(--font-mono); background: var(--surface-2); border-radius: var(--r-control); padding: 8px 12px; overflow-x: auto; color: var(--text-2); }
-.callout-note { font-size: var(--fs-14); color: var(--text-2); background: var(--surface-2); border-radius: var(--r-card); padding: 12px 12px; line-height: 1.5; }
 
 /* ── Buttons & basic controls ───────────────────── */
 .ib {
@@ -482,7 +469,6 @@ div.vital { cursor: default; }
 .org-heart-groove { fill: none; stroke: var(--organ-heart); stroke-opacity: .45; stroke-width: 1; stroke-linecap: round; }
 .org-bowel.band-edge { stroke: color-mix(in srgb, var(--organ-gut) 80%, var(--shade-ink)); stroke-width: 21; stroke-opacity: .5; }
 .org-bowel.band-body { stroke: color-mix(in srgb, var(--organ-gut) 22%, var(--stage-bg)); stroke-width: 19; }
-.org-bowel.band-cast { stroke-width: 20; }
 .org-lobe-line.faint { stroke-opacity: .22; stroke-dasharray: 4 5; }
 .org-lobe-line { fill: none; stroke: var(--organ-liver); stroke-opacity: .45; stroke-width: 1; stroke-linecap: round; }
 .band-edge, .band-body { fill: none; stroke-linecap: round; stroke-linejoin: round; }
@@ -577,7 +563,6 @@ div.vital { cursor: default; }
 .map-dot { fill: var(--map-dot); }
 /* Background plane: the diaphragm (no body-cavity shading). */
 #backdrop { pointer-events: none; transition: opacity .5s var(--ease); }
-.org-colon.band-cast { stroke-width: 26; }
 .band-sheen { fill: none; stroke: var(--light-ink); stroke-opacity: calc(var(--tube-sheen) * .55); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 .tex { fill: none; stroke: currentColor; stroke-width: .8; }
 .tex-dot { fill: currentColor; }
@@ -619,12 +604,6 @@ div.vital { cursor: default; }
 /* ── Panel (inspector) ──────────────────────────── */
 .panel { background: var(--surface); overflow: hidden; min-width: 0; z-index: var(--z-panel); display: flex; flex-direction: column; }
 .panel-page { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
-.panel-tabs { flex: none; display: flex; align-items: stretch; gap: 2px; height: 44px; padding: 0 8px 0 8px; border-bottom: 1px solid var(--hairline); background: var(--surface); }
-.panel-tabs [role="tab"] { position: relative; display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0 12px; font: 600 var(--fs-14) var(--font-ui); color: var(--text-3); cursor: pointer; }
-@media (hover: hover) { .panel-tabs [role="tab"]:hover { color: var(--text); } }
-.panel-tabs [role="tab"][aria-selected="true"] { color: var(--text); }
-.panel-tabs [role="tab"][aria-selected="true"]::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
-.panel-tabs [role="tab"] svg { width: var(--ic-m); height: var(--ic-m); stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .panel-head { align-items: center; padding: 0 8px 0 20px; }
 .panel-scrim { display: none; }
 .p-head { position: sticky; top: 0; z-index: var(--z-figure); background: var(--surface); padding: 16px 20px 12px; border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 12px; }
@@ -634,12 +613,6 @@ div.vital { cursor: default; }
 .p-title .kicker { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; display: flex; align-items: center; gap: 8px; }
 .p-body { padding: 4px 20px 24px; }
 .changes { padding: 12px 20px; border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 8px; }
-.changes-head { display: flex; justify-content: space-between; align-items: baseline; }
-.chips-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.active-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent-ink); font-weight: 500; font-size: var(--fs-12); }
-.active-chip button { border: 0; background: transparent; cursor: pointer; color: inherit; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; padding: 0; }
-.active-chip button svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; }
-@media (hover: hover) { .active-chip button:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); } }
 .section { border-bottom: 1px solid var(--hairline); }
 .section:last-child { border-bottom: 0; }
 .section > summary { list-style: none; cursor: pointer; padding: 16px 0 12px; font-weight: 600; font-size: var(--fs-14); color: var(--text); display: flex; align-items: center; gap: 8px; user-select: none; }
@@ -699,7 +672,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .switch input:checked + span::after { transform: translateX(14px); }
 .switch input:disabled + span { opacity: .45; }
 .switch input:focus-visible + span { box-shadow: 0 0 0 2px var(--focus); }
-.drug-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .drug {
   display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px 12px; border-radius: var(--r-card); border: 1px solid var(--border); background: var(--surface); cursor: pointer;
   transition: border-color var(--t-fast), background var(--t-fast);
@@ -713,8 +685,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .drug[aria-pressed="true"] .dot { background: var(--accent); border-color: var(--accent); }
 .drug[aria-pressed="true"] .dot svg { opacity: 1; }
 .drug:disabled { opacity: .45; cursor: not-allowed; }
-.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.action-grid .btn { justify-content: flex-start; }
 .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 600; background: var(--surface-2); color: var(--text-2); }
 .pill.rev { background: color-mix(in srgb, var(--flow-reversed) 14%, transparent); color: color-mix(in srgb, var(--flow-reversed) 85%, var(--text)); }
 .pill.ok { background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
@@ -851,7 +821,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .cmp-card.a .ck i { background: var(--surface-3); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--text-2); }
 .cmp-card .cn { font-size: var(--fs-14); font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 .cmp-card .cd { font-size: var(--fs-12); color: var(--text-2); line-height: 1.45; overflow-wrap: anywhere; }
-.cmp-card.empty-a { border-style: dashed; justify-content: center; }
 .cmp-table { width: 100%; border-collapse: collapse; font-size: var(--fs-14); }
 .cmp-table th { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); text-align: right; padding: 0 0 8px 8px; }
 .cmp-table th:first-child { text-align: left; padding-left: 0; }
@@ -902,9 +871,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .chip-btn { height: 34px; padding: 0 8px; }
   #btnLayers #colorModeLabel { display: none; }
   #btnInspector { position: relative; width: 36px; height: 36px; padding: 0; justify-content: center; }
-  /* The count sits on the icon's corner, so a two-digit count stays inside the 36 px button and never reaches the Treat button. */
-  #btnInspector .fb-n { position: absolute; top: 1px; right: 0; min-width: 18px; height: 18px; padding: 0 4px; font-size: var(--fs-12); line-height: 1; box-shadow: 0 0 0 2px var(--glass); }
-  #btnInspector .fb-l { display: none; }
   .legend .lg-title { display: none; }
   .lg-scale { width: 88px; }
   .lg-num { font-size: var(--fs-12); }
@@ -919,8 +885,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 
   .readouts { border-top: 1px solid var(--hairline); }
   .app .panel, .app.dock-open .panel { width: min(440px, calc(100vw / var(--vz)) - 44px); padding-bottom: env(safe-area-inset-bottom); }
-  .panel-tabs { height: 48px; }
-  .panel-tabs [role="tab"] { font-size: var(--fs-14); padding: 0 16px; }
   .dock-head .ib { display: none; }   /* no floating windows on a phone */
   .dock-pane .chart-box { height: clamp(220px, calc(38vh / var(--vz)), 340px); }
   .modal > header { padding: 16px 20px 12px; }
@@ -928,7 +892,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .entry-grid { grid-template-columns: 1fr; }
   .keys { grid-template-columns: 1fr; }
   .toast-wrap { top: auto; bottom: calc(80px + env(safe-area-inset-bottom)); }
-  .tool-tray { width: min(340px, calc(calc(100vw / var(--vz)) - 16px)); }
   .p-head { padding: 12px 16px 12px; }
   .p-body { padding: 4px 16px 24px; }
   .changes { padding-left: 16px; padding-right: 16px; }
@@ -1048,7 +1011,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .ac-foot.in-head { display: none; }
 .ac-foot .link { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-14); }
 .mi-ic { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.ac-grab { display: none; }
 /* Phone: a bottom sheet, sitting at the bottom of the figure column (over the play row, above the readouts), sized to what is in it so nothing is wasted: the header (kind, Why?, Details, close; name; the
    reading) is fixed and the controls follow. A tap on the handle folds it to a strip with just the header. Only a card with
    more controls than fit (a few liver compartments) scrolls, with a fade at the bottom to show there is more. */
@@ -1066,8 +1028,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .app.dock-open:not(.instrument-focus):has(.action-card.docked:not([hidden])) .instrument-workspace.float-ui:not(.side) { max-height: calc(100% - var(--top-safe, 0px) - calc(36dvh / var(--vz)) - 8px); }
 .action-card.docked .ac-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 2px; align-items: center; padding: 2px 12px 4px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 .action-card.docked .ac-head, .action-card.docked .ac-titles, .action-card.docked .ac-readout { display: contents; }
-.action-card.docked .ac-grab { grid-column: 1 / -1; grid-row: 1; display: block; width: 100%; height: 12px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
-.action-card.docked .ac-grab::before { content: ''; position: absolute; left: 50%; top: 3px; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
 /* The header is one grid. Line 1: the kind, the two links and the close button. Line 2: the name, with the reading at the
    right. Line 3 (when there is one): the status. */
 .action-card.docked .ac-kicker { grid-column: 1; grid-row: 2; font-size: var(--fs-12); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1217,8 +1177,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .menu-seg { margin: 2px 8px 8px; }
 .btn.menu-btn { width: auto; margin: 2px 8px 8px; gap: 8px; justify-content: center; }
 .btn.menu-btn .bo-ic { stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.menu-select { height: 30px; font-size: var(--fs-14); }
-.menu-select { margin: 2px 12px 8px; width: calc(100% - 24px); }
 .menu-credit .mc-link { display: inline-flex; align-items: center; gap: 2px; color: var(--accent-ink); font-weight: 600; text-decoration: none; }
 .menu-credit svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 2; }
 .menu-credit { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; border-radius: calc(var(--r-sheet) - 8px); font-size: var(--fs-12); color: var(--text-2); text-decoration: none; }
@@ -1246,17 +1204,12 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 /* Patient chart */
 
 .chart-body { padding-top: 0; }
-.fd-list { display: flex; flex-direction: column; }
 .finding { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 12px; align-items: start; width: 100%; padding: 8px 8px; margin: 0 -8px; width: calc(100% + 16px); border: 0; border-radius: var(--r-card); background: transparent; text-align: left; color: var(--text); font: inherit; }
 button.finding { cursor: pointer; }
 @media (hover: hover) { button.finding:hover { background: var(--surface-2); } }
 .finding + .finding { border-top: 1px solid var(--hairline); border-radius: 0; }
 @media (hover: hover) { .finding + .finding:hover { border-radius: var(--r-card); } }
 .finding[data-sev="caution"] { --sev: var(--caution); } .finding[data-sev="danger"] { --sev: var(--danger); } .finding[data-sev="critical"] { --sev: var(--critical); }
-.fd-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.fd-t { font-size: var(--fs-14); font-weight: 600; line-height: 1.35; }
-.finding[data-sev="danger"] .fd-t, .finding[data-sev="critical"] .fd-t { color: color-mix(in srgb, var(--sev) 70%, var(--text)); }
-.fd-d { font-size: var(--fs-12); color: var(--text-2); line-height: 1.45; }
 .fd-empty { margin: 0; font-size: var(--fs-14); color: var(--text-3); line-height: 1.45; }
 .fd-empty[hidden] { display: none; }
 .section > summary .fd-count { color: var(--text-2); background: var(--surface-3); }
@@ -1279,7 +1232,6 @@ button.finding { cursor: pointer; }
 .order-btn .ac-ic { flex: none; }
 .ob-t { display: flex; flex-direction: column; gap: 1px; font-size: var(--fs-14); font-weight: 600; line-height: 1.3; }
 .ob-t small { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); }
-.st-act { font-size: var(--fs-12); }
 
 /* Instruments: one level */
 .dock-head { gap: 8px; }
@@ -1363,9 +1315,6 @@ button.finding { cursor: pointer; }
 .sv-legend i { display: inline-block; flex: none; border-radius: 50%; }
 .sv-legend i.alb { width: 8px; height: 8px; background: var(--albumin); box-shadow: inset 0 0 0 1px var(--albumin-line); }
 .sv:not(.on) .sv-legend { opacity: 0; }
-.sv-back span { font-size: 18px; line-height: 1; margin-top: -2px; }
-.sv-back:focus-visible { border-color: var(--accent); outline: none; }
-@media (hover: hover) { .sv-back:hover { border-color: var(--accent); outline: none; } }
 .lz-field { z-index: var(--z-figure); pointer-events: none; opacity: 0; }
 .lz .lz-leaders { opacity: var(--lz-chrome, 1); } .lz .lz-labels { --lab-o: var(--lz-chrome, 1); }
 /* The labels fade through their children and glass, never as a whole: a faded ancestor would stop the frosted glass behind them seeing the figure (and the blur would pop on at full opacity). */
@@ -1547,7 +1496,6 @@ button.finding { cursor: pointer; }
 .pz-site { align-self: flex-start; display: inline-flex; align-items: center; gap: .45em; margin-bottom: -.15em; padding: .2em .6em; border-radius: var(--r-pill); font: 600 max(9px, calc(var(--s-cap) * .75))/1.1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); background: color-mix(in srgb, var(--site) 13%, transparent); }
 .pz:not(.stack) .pz-site { font-size: var(--s-cap); }   /* (a wide screen: the caption's size, the smallest on the card, never under 12 px) */
 .pz-kick[data-site="none"] { color: var(--text-3); }
-.pz-sec { color: var(--text-3); font-weight: 500; white-space: nowrap; }
 .pz-h { margin: 0; font: 600 var(--s-title)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
 /* A short neutral rule closes the title off from the body. */
 .pz-text .pz-h::after, .pz-ph .pz-h::after { content: ""; display: block; width: 2.2rem; height: 2px; margin-top: .3em; border-radius: 1px; background: color-mix(in srgb, var(--text) 22%, transparent); }
@@ -1965,8 +1913,6 @@ button.finding { cursor: pointer; }
 .pz-bar.pzb-pill > :last-child, .pz.stack .pz-bar > :last-child { margin-right: -1px; }
 .pz-bar.idle { opacity: 0; pointer-events: none; transform: translateY(8px); }
 .pz-bar .pzb-n { min-width: 5.4em; text-align: center; padding: 0 4px; font: 600 var(--fs-14) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-2); white-space: nowrap; }
-.pz-bar .pzb-slot { display: inline-flex; align-items: center; justify-content: center; flex: none; }
-.pz-bar .pzb-sep { width: 1px; align-self: stretch; margin: 8px 3px; background: color-mix(in srgb, var(--text) 12%, transparent); }
 .pz-black { position: fixed; inset: 0; z-index: var(--z-toast); background: var(--black); opacity: 0; pointer-events: none; transition: opacity .4s var(--ease); }
 .pz-black.on { opacity: 1; pointer-events: auto; cursor: none; }
 /* (On a phone the words sit at the bottom over the Back/Next bar, on a glass pane rising from the bottom edge; the data card is at the top.) */
@@ -2115,9 +2061,6 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-bar .ib { width: 44px; min-width: 0; height: 44px; margin: -4px -3px; }
 .pz.stack .pz-bar .ib svg { width: 18px; height: 18px; }
 .pz.stack .pz-bar button.pzb-n { min-width: 5em; min-height: 44px; margin-block: -4px; padding: 0 4px; font-size: calc(var(--s-body) * .9); font-variant-numeric: tabular-nums; }   /* (room for "10 / 13": the pill keeps one width on every slide) */
-.pz.stack .pz-kick .pz-sec { flex: none; }
-@media (max-width: 359px) { .pz.stack .pz-kick .pz-sec { display: none; } }
-.pz.stack .pz-kick .pz-kw { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pz.stack .pz-quadwrap { grid-template-columns: minmax(0, 1fr); }
 .pz.stack .pz-quad { max-height: none; }/* An upright tablet uses the phone's compact table (one line per row, no sideways scroll), drawn larger. */
 @media (min-width: 768px) and (max-width: 1100px) and (orientation: portrait) {
@@ -2199,7 +2142,6 @@ button.finding { cursor: pointer; }
    (as on a phone), so it takes one or two lines. The grid itself is the data card's one tile grid (below). */
 .pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pz-tile { gap: .15em; padding: clamp(8px, calc(1.1 * var(--pzh) / var(--vz)), 14px) clamp(9px, calc(1.1 * var(--pzh) / var(--vz)), 14px); }
 .pz:not(.stack) .pz-data.has-tool:not(.tool-only) .pzt-k { letter-spacing: .04em; overflow-wrap: normal; }
-.pz:not(.stack) .pz-data.has-tool:not(.tool-only) :is(.pzt-dw, .pzt-du) { display: none; }
 /* One tile grid in every data card (Mac and iPad landscape). Tiles and the scope's readings are laid on columns that span the
    card's full inner width, at one gap, one padding and one corner; every row fills the width (no tile alone, centred or leaving
    a row half empty) and a row's tiles share one height. One to three tiles take one row, four go two by two; three drop to two
@@ -2226,7 +2168,6 @@ button.finding { cursor: pointer; }
 .pz:not(.stack) .pz-data .pz-tiles .pzt-v { font-size: min(var(--pz-num), 26cqi); }
 .pz:not(.stack) .pz-data .pz-tiles .pzt-vu small { font-size: var(--pz-sm); }
 .pz:not(.stack) .pz-data .pz-tiles :is(.pzt-r, .pzt-d) { font-size: var(--pz-sm); line-height: 1.3; white-space: nowrap; }
-.pz:not(.stack) .pz-data .pz-tiles :is(.pzt-dw, .pzt-du) { display: none; }   /* (the change says only "▲ 7.5 from 5.0") */
 /* An instrument with tiles (Mac and iPad landscape, Mohammad's sketch 14 Oct): the instrument on the left, its tiles stacked in a
    column on the right, the column as tall as the instrument and its tiles sharing that height evenly (taller tiles make the row
    taller, the instrument centred in it). The card's fit (presenter.js overflowOf) counts the row once, at its taller side. */
@@ -2321,7 +2262,6 @@ button.finding { cursor: pointer; }
 .pz-tool .ctl-sub,
 .pz-tool .pt-range,
 .pz-tool .pt-chips,
-.pz-tool .pt-tools,
 .pz-tool .ab-ctl { display: none; }
 .pz-tool .dop-head:empty, .pz-tool .dop-head:not(:has(> :not(select):not(.dop-btns))) { display: none; }
 /* The Doppler monitor fills its card's width with rounded corners; a tight card shortens it (--pz-dk), never narrows it. */
@@ -2460,15 +2400,8 @@ button.finding { cursor: pointer; }
   .pz *, .pz, .app.presenting #stageView { animation: none !important; transition: none !important; }
 }
 /* Menu › Present: the presentations and your scripts. */
-.pz-decks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
 .pz-deck { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-sheet); background: var(--surface); overflow: hidden; }
-.pzd-top { display: flex; align-items: center; gap: 8px; font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); }
-.pzd-lvl { padding: 2px 8px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--border); font-weight: 600; color: var(--text-2); }
 .pz-deck h3 { margin: 0; font: 600 var(--fs-20, 20px)/1.2 var(--font-display); letter-spacing: -.01em; color: var(--text); }
-/* A thin divider naming each level, simple to advanced. */
-.pz-lvl-div { display: flex; align-items: center; gap: 12px; margin: 16px 0 8px; font: 600 var(--fs-12)/1.2 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
-.pz-lvl-div::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-.pz-lib > .pz-lvl-div:first-of-type { margin-top: 8px; }
 /* High contrast (P while presenting, or Settings): colour only, never a size. Stronger words, ratings as filled chips, a deeper shade. Organ art unchanged. */
 .app.pz-hi .pz-text { filter: contrast(1.3); }
 /* The opening slide: the talk's plan as a numbered run of sections, its objectives on a tinted card beside it
@@ -2527,11 +2460,6 @@ button.finding { cursor: pointer; }
 #labels .lb.inline:is([data-key^="n:TIPS:"], [data-key^="n:DIPS:"]) text { stroke: var(--stage-bg); stroke-width: 7px; stroke-linejoin: round; }
 
 /* ── Home: a map of the disease ───────────────────────────────────────────────── */
-.hp-intro { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin: 0 0 20px; }
-.hp-intro p { margin: 0; font-size: var(--fs-14); color: var(--text-2); max-width: 60ch; line-height: 1.5; }
-.hp-intro b { color: var(--text); font-weight: 600; }
-.hp-axis { display: flex; gap: 2px; font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
-.hp-axis span { padding: 4px 8px; border-radius: var(--r-control); background: var(--surface-2); white-space: nowrap; }
 .hp-prof { width: 100%; height: 56px; display: block; margin: 2px 0 0; overflow: visible; }
 .hp-grid { stroke: var(--grid); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
 .hp-area { fill: var(--accent); fill-opacity: .06; }
@@ -2547,11 +2475,6 @@ button.finding { cursor: pointer; }
 .hp-chip.mid b, .hp-chip.high b { color: var(--danger); }
 .hp-chip.high { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
 .hp-chip.rev { color: color-mix(in srgb, var(--flow-reversed) 80%, var(--text)); background: color-mix(in srgb, var(--flow-reversed) 12%, var(--surface)); font-weight: 600; }
-@media (max-width: 700px) { .hp-axis { display: none; } }
-@media (max-width: 700px) {
-  /* The four doors become one compact segmented row: icon and name. */
-  .hp-intro p { font-size: var(--fs-14); }
-}
 
 /* Phones: the figure fits the width with a 12 px margin, centered between the top bar and the
    transport; the readouts are a carousel of whole cards that snaps card by card, with the next
@@ -2657,7 +2580,6 @@ button.finding { cursor: pointer; }
 /* Every live number uses tabular figures, so digits hold still as the model runs. */
 .metric,
 .vital,
-.fd-d,
 .kv dd,
 .tl-time,
 .stage-clock,
@@ -2667,8 +2589,6 @@ button.finding { cursor: pointer; }
 .hp-chip,
 .mon,
 .ctl-val,
-.pb-n,
-.pt-n,
 #labels text,
 .tl-pop .when { font-variant-numeric: tabular-nums; }
 
@@ -2987,13 +2907,8 @@ button.finding { cursor: pointer; }
 .dop-btns { display: flex; gap: 4px; flex: none; }
 .dop-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; }
 .instrument-workspace .instrument-view.dop .dop-box { height: auto; min-height: 200px; border-radius: var(--r-card); overflow: hidden; }
-.dop-box.dop-fade { animation: dop-fade .45s ease both; }
-@keyframes dop-fade { from { opacity: 0; } to { opacity: 1; } }
 .dop-report > * { transition: opacity .3s ease; }
-.dop-paused .dop-report > :not(.dop-dir) { opacity: .35; }
-@media (prefers-reduced-motion: reduce) { .dop-box.dop-fade { animation: none; } }
 .dop-report { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.dop-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
 .dop-dir { font-size: var(--fs-20); font-weight: 600; letter-spacing: -.01em; line-height: 1.2; color: var(--text); display: inline-flex; align-items: center; gap: 8px; }
 .dop-dir[data-sev="caution"] { color: color-mix(in srgb, var(--caution) 80%, var(--text)); }
 .dop-dir[data-sev="danger"], .dop-dir[data-sev="critical"] { color: var(--danger); }
@@ -3026,10 +2941,6 @@ button.finding { cursor: pointer; }
 /* ── HVPG ───────────────────────────────────────── */
 .instrument-view.hv { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
 .hv-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; }
-.hv-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
-.hv-num { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
-.hv-num b { font-size: var(--fs-28); font-weight: 600; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
-.hv-num small { font-size: var(--fs-12); color: var(--text-3); }
 @container (min-width: 620px) {
   .hv-main { grid-template-columns: minmax(0, 1fr) 232px; }
 }
@@ -3037,10 +2948,6 @@ button.finding { cursor: pointer; }
   .hv-main { flex: none; gap: 12px; }
 }
 
-.instrument-workspace .instrument-view .chart-box.perf-donut { height: min(var(--plot-h), 300px); }
-@container (max-width: 649px) or style(--one-col: 1) {
-  .instrument-workspace .instrument-view .chart-box.perf-donut { height: 250px; }
-}
 
 /* Moving blood: the Blood menu beside the lens, and the origin key in the figure. */
 #btnBlood.off svg:first-child { color: var(--text-3); }
@@ -3092,17 +2999,6 @@ button.finding { cursor: pointer; }
 .tb-act svg { width: var(--ic-m); height: var(--ic-m); fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .tb-act[aria-pressed="true"], .tb-act[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent-ink); }
 .top-right .measure-launch { border: 0; }
-.find-badge { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 6px 0 11px; border: 0; border-radius: var(--r-card); background: transparent; color: var(--text-2); cursor: pointer; font: 600 var(--fs-14) var(--font-ui); white-space: nowrap; }
-@media (hover: hover) { .find-badge:hover { background: var(--surface-2); color: var(--text); } }
-.find-badge[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); }
-.find-badge > svg { width: var(--ic-m); height: var(--ic-m); fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.fb-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: var(--r-pill); display: inline-grid; place-items: center; font: 600 var(--fs-12) var(--font-ui); font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--ok) 16%, var(--surface)); color: color-mix(in srgb, var(--ok) 75%, var(--text)); }
-.fb-n svg { width: var(--ic-mark); height: var(--ic-mark); fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.fb-n[data-sev="none"] { background: var(--surface-3); color: var(--text-3); }
-.fb-n[data-sev="caution"] { background: var(--caution); color: var(--on-caution); }
-.fb-n[data-sev="danger"], .fb-n[data-sev="critical"] { background: var(--critical); color: var(--on-status); }
-.fb-n.bump { animation: fbBump .6s var(--ease); }
-@keyframes fbBump { 30% { transform: scale(1.25); } }
 
 /* The vitals dock: the play bar and the four key readouts in one floating card at the bottom.
    The chevron opens every readout group above the play bar. */
@@ -3123,7 +3019,6 @@ button.finding { cursor: pointer; }
 .readouts:not(.all) .ro-group[data-group="pressure"] { --n: 3; }
 .readouts:not(.all) .ro-group:not(:has(.metric.primary)) { display: none; }
 .readouts:not(.all) .ro-row { padding-right: 2px; }
-.readouts .ro-more { display: inline-grid; }
 .readouts:not(.all) .u-x { display: none; }
 .readouts:not(.all) .metric .v { font-size: var(--fs-20); }
 @container (max-width: 720px) { .readouts:not(.all) .metric .v { font-size: var(--fs-16); } }
@@ -3150,7 +3045,6 @@ button.finding { cursor: pointer; }
   transform: translateX(calc(100% + 24px)); visibility: hidden; transition: transform .28s var(--ease), visibility .28s, opacity .28s;
 }
 .app.panel-open .panel { transform: none; visibility: visible; }
-.panel .panel-tabs { border-radius: var(--r-sheet) var(--r-sheet) 0 0; }
 .panel-scrim { display: none; }
 .panel-grab { display: none; }
 
@@ -3169,7 +3063,6 @@ button.finding { cursor: pointer; }
 .tc-body .subhead:first-child { margin-top: 4px; }
 /* Changes: under the orders, closed until opened, so the card does not grow with every order. */
 .tc-body > .section { margin-top: 12px; border-top: 1px solid var(--hairline); }
-.tc-active { font-size: var(--fs-12); color: var(--text-3); font-weight: 600; }
 
 /* Focus: while the figure is dragged, pinched or scrolled, the floating pieces step back. */
 .float-ui, .stage-fit, .stage-rotate, .action-card:not(.docked) { transition: opacity .25s var(--ease); }
@@ -3192,14 +3085,13 @@ button.finding { cursor: pointer; }
    (peek, half, full); a drag on the handle moves between them. */
 @media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .top-right.float-pill { gap: 0; padding: 3px; }
-  .tb-sep, .find-badge .fb-l, .tb-act > span { display: none; }
-  .tb-act, .find-badge { padding: 0 8px; height: 38px; }
-  .find-badge { gap: 4px; padding: 0 6px; }
+  .tb-sep, .tb-act > span { display: none; }
+  .tb-act { padding: 0 8px; height: 38px; }
   .tb-id { flex: 1 1 0; }
   .tb-id .brand { padding: 2px; }
   .tb-id .brand-mark { width: 30px; height: 30px; }
   .tb-id .menu-btn { flex: 1 1 auto; min-width: 0; }
-  .top-right .ib, .top-right .pal-btn, .tb-act, .find-badge { min-width: 36px; width: auto; }
+  .top-right .ib, .top-right .pal-btn, .tb-act { min-width: 36px; width: auto; }
   .top-right .ib, .top-right .pal-btn { width: 36px; padding: 0; justify-content: center; }
   .topbar .stage-bar.top { gap: 6px; }
   .topbar #viewSeg button { padding: 6px 8px; }
@@ -3219,7 +3111,6 @@ button.finding { cursor: pointer; }
   .app.panel-open .panel { transform: none; }
   .panel-grab, .sheet-grab { display: block; flex: none; height: 18px; width: 100%; border: 0; background: none; cursor: grab; touch-action: none; position: relative; }
   .panel-grab::before, .sheet-grab::before { content: ''; position: absolute; left: 50%; top: 6px; width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
-  .panel .panel-tabs { touch-action: none; }
   /* The instruments are a bottom sheet like the chart and Treat: they rise from the bottom edge,
      the handle (or the head) drags them between three heights, and a drag down closes them. */
   .instrument-workspace.float-ui:not(.side) {
@@ -3242,7 +3133,6 @@ button.finding { cursor: pointer; }
   .app.panel-open .instrument-workspace.float-ui { right: 6px; }
 }
 @media (min-width: 768px) { .sheet-grab { display: none; } }
-@media (max-width: 479px) { .find-badge:not(#btnInspector) .fb-n { min-width: 20px; height: 20px; } }
 
 /* ── Floating layout, second pass ─────────────────────
    One system for every floating piece: pills 12 px round, cards 16 px, the same shadow, controls
@@ -3485,7 +3375,6 @@ button.finding { cursor: pointer; }
   .vdock .readouts { width: 330px; border-left: 1px solid var(--hairline); border-bottom: 0; }
   .vdock .readouts:not(.all) .metric .s, .vdock .readouts:not(.all) .rb { display: none; }
   .vdock .readouts:not(.all) .metric .v { font-size: var(--fs-16); }
-  .vdock .readouts .ro-more { display: none; }
 }
 
 /* A phone: the second row shortens the legend; the zoom pill steps aside for a sheet of instruments. */
@@ -3819,8 +3708,10 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .topbar[data-fit="1"] #btnBlood > span, .topbar[data-fit="1"] #btnBlood .chev, .topbar[data-fit="1"] #btnLobuleLayers > span, .topbar[data-fit="1"] #btnLobuleLayers .chev,
 .topbar[data-fit="2"] #btnBlood > span, .topbar[data-fit="2"] #btnBlood .chev, .topbar[data-fit="2"] #btnLobuleLayers > span, .topbar[data-fit="2"] #btnLobuleLayers .chev,
 .topbar[data-fit="3"] #btnBlood > span, .topbar[data-fit="3"] #btnBlood .chev, .topbar[data-fit="3"] #btnLobuleLayers > span, .topbar[data-fit="3"] #btnLobuleLayers .chev { display: none; }
-.topbar[data-fit="2"] .tb-sep, .topbar[data-fit="2"] .find-badge .fb-l, .topbar[data-fit="2"] .tb-act > span,
-.topbar[data-fit="3"] .tb-sep, .topbar[data-fit="3"] .find-badge .fb-l, .topbar[data-fit="3"] .tb-act > span { display: none; }
+.topbar[data-fit="2"] .tb-sep,
+.topbar[data-fit="2"] .tb-act > span,
+.topbar[data-fit="3"] .tb-sep,
+.topbar[data-fit="3"] .tb-act > span { display: none; }
 .topbar[data-fit="3"] #viewSeg button { padding-left: 10px; padding-right: 10px; }
 .topbar[data-fit="3"] .lg-scale { width: 112px; }
 /* A phone: the lens pill is all key (a tap opens the lenses), so the five origins fit beside Blood. */
@@ -3917,7 +3808,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .time-pop .menu-item[aria-pressed="true"] { color: var(--accent-ink); font-weight: 600; }
 
 /* Concentric corners: inside a 16px pill with 3px padding, inner highlights are 13px. */
-.topbar .float-pill > .menu-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .find-badge, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: calc(var(--r-sheet) - 3px); }
+.topbar .float-pill > .menu-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: calc(var(--r-sheet) - 3px); }
 
 /* Display-option rows: the same selectable card as the lenses, one per row, icon at the left. */
 .lens-opt { grid-template-columns: 22px 1fr; column-gap: 10px; align-items: center; margin: 0 8px; }
@@ -3950,8 +3841,8 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .zoom-pill { --inset: 3px; }
 .float-pill, .toolbar { --inset: 4px; }
 .top-right.float-pill { --inset: 3px; }
-.zoom-pill > *, .float-pill > .ib, .float-pill > .tb-act, .float-pill > .menu-btn, .float-pill > .find-badge, .float-pill > .pal-btn, .toolbar > .ib { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset, 4px))); }
-.topbar .float-pill > .menu-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .find-badge, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset, 4px))); }
+.zoom-pill > *, .float-pill > .ib, .float-pill > .tb-act, .float-pill > .menu-btn, .float-pill > .pal-btn, .toolbar > .ib { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset, 4px))); }
+.topbar .float-pill > .menu-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset, 4px))); }
 .zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { border-radius: calc(var(--r-sheet) - 3px); }
 /* The lobule group is hidden outside the lobule view; the group after it must not draw a divider above itself. */
 .readouts:not(.lob) .ro-group[data-group="lobule"] + .ro-group { border-top: 0 !important; }
@@ -4345,13 +4236,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab-txt small { font-size: var(--fs-12); color: var(--text-3); transition: color .25s var(--ease); }
 .ab-txt small.ab-warn { color: var(--caution); }
 .ab-end { display: flex; align-items: center; gap: 8px; }
-.ab-out { min-width: 3.4em; text-align: right; font-size: var(--fs-14); font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ab-out.ab-wide { min-width: 4.9em; }
-.ab-step { display: inline-flex; flex: none; border-radius: var(--r-control); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); overflow: hidden; }
-.ab-sb { width: var(--ab-sb-w); height: var(--ab-sb-h); padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--text); font: 500 19px/1 var(--font-ui); cursor: pointer; touch-action: manipulation; outline-offset: -3px; transition: background var(--t-fast); }
-.ab-sb + .ab-sb { box-shadow: inset 1px 0 0 var(--border-strong); }
-.ab-sb:active:not(:disabled) { background: var(--surface-3); }
-.ab-sb:disabled { color: var(--text-3); opacity: .45; cursor: not-allowed; }
 .ab-tg { width: 100%; border: 0; border-radius: var(--r-control); background: none; text-align: left; cursor: pointer; touch-action: manipulation; }
 .ab-tg:disabled { opacity: .5; cursor: not-allowed; }
 .ab-tg .switch-vis { position: relative; flex: none; width: 38px; height: 22px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); transition: background .2s var(--ease), box-shadow .2s var(--ease); }
@@ -4361,7 +4245,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab-drain { min-width: 84px; height: var(--ab-sb-h); padding: 0 14px; border: 0; border-radius: var(--r-control); background: var(--accent); color: var(--on-accent); font: 600 var(--fs-14)/1 var(--font-ui); cursor: pointer; touch-action: manipulation; transition: opacity .2s var(--ease), filter var(--t-fast); }
 .ab-drain:disabled { opacity: .4; cursor: not-allowed; }
 @media (hover: hover) {
-  .ab-sb:hover:not(:disabled) { background: var(--surface-2); }
   .ab-drain:hover:not(:disabled) { filter: brightness(1.07); }
 }
 /* The Ascites tab's centre row: the pressure dial hugging the belly's left side, the drain on its right, the belly centred
@@ -4745,7 +4628,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .pz.stack .pz-data .pz-tiles .pzt-r { grid-area: 3 / 1 / 4 / -1; justify-self: center; text-align: center; }
   .pz.stack .pz-data .pz-tiles .pzt-d { grid-area: 4 / 1 / 5 / -1; }
 }
-.pz.stack .pzt-dw, .pz.stack .pzt-du { display: none; }
 
 /* Tests card: the scope and Doppler readings as compact tiles, in the presenter data card's style (small
    uppercase name, big number with a muted unit, the state in the word's colour). Two across on a phone, more on a wider card. */
@@ -5236,7 +5118,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-vu { gap: 0 .12em; }
 /* (The beat-by-beat lanes never get too flat to tell the lines apart.) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-box { min-height: 170px; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt.endo-dt, :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: inline; }   /* (named, "Stigmata ● None", so it never reads as a second grade) */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: inline; }   /* (named, "Stigmata ● None", so it never reads as a second grade) */
 
 .wall-big, .wall-sev { display: none; }
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > :is(dt, .endo-stress-v) { display: none; }
