@@ -5,13 +5,13 @@ import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf } from './util.js?v=e387ad7347';
 import { lobuleFlows } from './lobule-model.js?v=d3b27f8085';
-import { createProfile } from './charts.js?v=64b363e87e';
-import { createPressureTime } from './pressure-time.js?v=3a1989d2f5';
-import { createFibroScan } from './fibroscan.js?v=7217b044f8';
-import { createHvpgProcedure } from './hvpg-proc.js?v=618f471141';
-import { createDoppler } from './doppler.js?v=abfc1cf195';
+import { createProfile } from './charts.js?v=0c66c9b1fa';
+import { createPressureTime } from './pressure-time.js?v=ef8eddc97f';
+import { createFibroScan } from './fibroscan.js?v=c76a53fa30';
+import { createHvpgProcedure } from './hvpg-proc.js?v=5e44bf692e';
+import { createDoppler } from './doppler.js?v=60ad76bb3e';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=0ede90472f';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=2947c3dc38';
 import { createReadoutsPane } from './readouts-pane.js?v=366cc67e8d';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
@@ -345,7 +345,18 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const tabsBox = tabs;
   // The row never scrolls: a wide card shows every full name, a narrower one the short names over their icons.
   // Tightest (a phone's sheet, beside the close button): only the open tab keeps its name, the others are icons.
-  const fitTabs = () => { const w = tabs.clientWidth; if (w) { tabs.classList.toggle('compact', w < 780); tabs.classList.toggle('narrow', w < 520); tabs.classList.toggle('tight', w < 420); } };
+  // (Tightest and still too narrow for the open tab's whole name beside the icons: that tab is an icon too, never a cut name.)
+  const fitTabs = () => {
+    const w = tabs.clientWidth;
+    if (!w) return;
+    tabs.classList.toggle('compact', w < 780); tabs.classList.toggle('narrow', w < 520); tabs.classList.toggle('tight', w < 420);
+    tabs.classList.remove('bare');
+    if (w < 420) {
+      const on = tabs.querySelector('.instr-tab[aria-selected="true"]'), t = on?.querySelector('.it-t b');
+      const need = [...tabs.children].reduce((a, b) => a + (b === on ? 0 : 26), 0) + (on ? on.offsetWidth - (on.querySelector('.it-t')?.offsetWidth || 0) + (t?.scrollWidth || 0) + 5 : 0) + 2 * (tabs.children.length - 1) + 6;
+      if (need > w) tabs.classList.add('bare');
+    }
+  };
   if (typeof ResizeObserver === 'function') new ResizeObserver(fitTabs).observe(tabs);
   fitTabs();
   // The tabs sit in the head itself, with the close button at the row's end: one slim row instead of a title row
@@ -544,6 +555,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       tabEls[id].b.tabIndex = id === tabOf(open[0]) ? 0 : -1;
       tabEls[id].b.dataset.slot = on && open.length > 1 && !isPair() ? String(at + 1) : '';
     }
+    fitTabs();
     remember();
     fitHeight();
     queueRefresh();

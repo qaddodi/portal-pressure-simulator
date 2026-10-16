@@ -5238,7 +5238,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace .dock-head.tabbed .card-close.card-close { position: static; transform: none; flex: none; width: 36px; height: 36px; margin-left: auto; }
 .instrument-workspace .dock-head .ws-tabs.tight .instr-tab, .instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] { flex: 1 1 auto; flex-direction: row; gap: 0; height: 34px; min-width: 0; padding: 0 8px; }
 .instrument-workspace .dock-head .ws-tabs.tight .it-t { max-width: 0; margin-left: 0; opacity: 0; overflow: hidden; transition: max-width .24s var(--ease), margin-left .24s var(--ease), opacity .18s var(--ease); }
-.instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] .it-t { max-width: 96px; margin-left: 5px; opacity: 1; }
+.instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] .it-t { max-width: 120px; margin-left: 5px; opacity: 1; }
+/* (The open tab keeps its whole name, never cut: the icons give way to it, down to their own width. Where even that leaves no
+   room, the open tab is an icon like the rest (dock.js fitTabs, "bare"). The coordinator's 667 x 375 check: "Pressur".) */
+.instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] { flex: 0 0 auto; }
+.instrument-workspace .dock-head .ws-tabs.tight .instr-tab:not([aria-selected="true"]) { flex: 1 1 0; min-width: 26px; padding: 0 3px; }
+.instrument-workspace .dock-head .ws-tabs.tight.bare .instr-tab[aria-selected="true"] .it-t { max-width: 0; margin-left: 0; opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .instrument-workspace .dock-head .ws-tabs.tight .it-t { transition: none; } }
 @media (min-width: 1024px) and (pointer: fine) {
   .instrument-workspace .dock-head.tabbed.card-head { padding: 8px 8px 2px 16px !important; }

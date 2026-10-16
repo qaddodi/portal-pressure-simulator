@@ -124,10 +124,13 @@ export function createProfile() {
     ctx.font = FONT(500, 12);
     // grid (solid hairlines): absolute pressure has no clinical threshold, so none is drawn
     ctx.strokeStyle = c.border; ctx.fillStyle = c.faint; ctx.lineWidth = 1;
-    const step = maxP > 40 ? 10 : 5;
+    // (A short chart, a 320 px phone's half sheet, numbers only every so many lines so no two touch: their 30, 25, 20 had
+    // stacked into one smudge. 16 px apart at least, the lines 6 px.)
+    const step0 = maxP > 40 ? 10 : 5, per = Math.abs(y(0) - y(step0)) || 1;
+    const step = step0 * Math.max(1, Math.ceil(6 / per)), lstep = step0 * Math.max(1, Math.ceil(16 / per));
     for (let p = 0; p <= maxP; p += step) {
       ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.moveTo(L, Math.round(y(p)) + 0.5); ctx.lineTo(w - R, Math.round(y(p)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1;
-      ctx.textAlign = 'right'; ctx.fillText(String(p), L - 8, y(p) + 4);
+      if (p % lstep === 0) { ctx.textAlign = 'right'; ctx.fillText(String(p), L - 8, y(p) + 4); }
     }
     // The liver: a soft band behind its stations, named at the top.
     const lv = curPath().liver;
@@ -137,8 +140,12 @@ export function createProfile() {
       if (i0 >= 0 && i1 >= i0) {
         const bx = x(i0) - slot / 2, bw = slot * (i1 - i0 + 1);
         ctx.save(); ctx.fillStyle = cssVar('--chart-liver-band'); ctx.fillRect(bx, T - 6, bw, y(0) - T + 6);
-        ctx.fillStyle = c.muted; ctx.font = FONT(600, 12); ctx.textAlign = 'center'; ctx.fillText('LIVER', bx + bw / 2, T + 4);
-        const lw = ctx.measureText('LIVER').width; liverCap = { x0: bx + bw / 2 - lw / 2 - 2, x1: bx + bw / 2 + lw / 2 + 2, y0: T + 4 - 11, y1: T + 4 + 7 }; ctx.restore();
+        // (Named only where the plot is tall enough to keep the name clear of the pills; the band alone says it on a short one.)
+        if (y(0) - T >= 90) {
+          ctx.fillStyle = c.muted; ctx.font = FONT(600, 12); ctx.textAlign = 'center'; ctx.fillText('LIVER', bx + bw / 2, T + 4);
+          const lw = ctx.measureText('LIVER').width; liverCap = { x0: bx + bw / 2 - lw / 2 - 2, x1: bx + bw / 2 + lw / 2 + 2, y0: T + 4 - 11, y1: T + 4 + 7 };
+        }
+        ctx.restore();
       }
     }
     ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(y(0)) + 0.5); ctx.lineTo(w - R, Math.round(y(0)) + 0.5); ctx.stroke();
