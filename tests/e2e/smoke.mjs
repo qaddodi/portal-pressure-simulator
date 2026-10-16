@@ -4731,9 +4731,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 // The yield is only for the model's own motion: a pan or a pinch moves the rest of the figure in the frame it happens, so
 // the vessels are drawn in that frame too. (Made to wait as well, they were drawn a step behind it, which veins-gesture
 // saw as blocks left undrawn: 53234e1, reverted.) At the first frame each move shows in, the transform the vessels were
-// drawn in is the one a whole draw of that view takes. A person's change (a theme or lens switch) is drawn in the frame
-// the page shows it too, or the page is restyled while the vessels still show the old state (09196403, not landed).
-for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVICE || d === process.env.SMOKE_DEVICE)) check(device, 'a software renderer draws a moved view, or a person\'s change, in the frame it shows, never a step behind (a drag, a pinch, a theme and a lens switch, playing)', async (page) => {
+// drawn in is the one a whole draw of that view takes.
+for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVICE || d === process.env.SMOKE_DEVICE)) check(device, 'a software renderer draws a moved view in the frame it moves, never a step behind (a drag and a pinch while playing)', async (page) => {
   await open(page);
   await page.evaluate(() => { const c = window.pps.stage.cameraState(); window.pps.stage.setCamera({ k: c.k * 2.2, x: c.x - 200, y: c.y - 150 }, 1); });
   await page.waitForTimeout(3000);
@@ -4766,31 +4765,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   if (device === 'desktop') {
     await page.mouse.move(cx, cy);
     for (let i = 1; i <= 3; i++) await behind(`pinch, step ${i}`, async () => { await page.keyboard.down('Control'); await page.mouse.wheel(0, -9); await page.keyboard.up('Control'); });
-  }
-  // A person's change (a theme switch as the app makes it, a lens switch) right after a vessel frame, when the model's
-  // own motion would wait its turn: in the frame the page changes, the vessels are drawn, and match a whole draw.
-  await page.waitForTimeout(1500);
-  for (const act of ['dark', 'velocity', 'light', 'pressure']) {
-    const r = await page.evaluate((act) => new Promise((res) => {
-      const drawn = () => window.pps.perf.totals.drawn.stage || 0;
-      const change = () => {
-        if (act === 'dark' || act === 'light') { document.documentElement.setAttribute('data-theme', act); window.pps.stage.update(window.pps.store.get().frame); }
-        else window.pps.store.set({ colorMode: act });
-      };
-      const d0 = drawn(), t0 = performance.now();
-      const f = () => {
-        if (drawn() === d0) { if (performance.now() - t0 < 10000) requestAnimationFrame(f); else res(null); return; }
-        change();
-        const d1 = drawn();
-        requestAnimationFrame(() => { const drew = drawn() > d1, c = window.pps.stage.veinsCheck(); res({ drew, same: !!c && c.now === c.whole }); });
-      };
-      requestAnimationFrame(f);
-    }), act);
-    const what = act === 'dark' || act === 'light' ? `the theme switched to ${act}` : `the lens switched to ${act}`;
-    if (!r) throw new Error(`${what}: no vessel frame to start from`);
-    if (!r.drew) throw new Error(`${what}: the vessels were not drawn in the frame the page changed (they showed the old state)`);
-    if (!r.same) throw new Error(`${what}: the vessels drawn in the frame the page changed differ from a whole draw`);
-    await page.waitForTimeout(1500);
   }
 });
 // The checks that hide the figure's WebGL canvases (tests/e2e/fast.mjs) left nothing to hold the page back, so on a software

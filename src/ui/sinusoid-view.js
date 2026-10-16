@@ -26,7 +26,7 @@ import { store } from './store.js?v=3b659e1968';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=c449aa59c2';
 import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
-import { softwareGL, softwareYield, watchPerson } from './sw-yield.js?v=888305f6a2';
+import { softwareGL, softwareYield } from './sw-yield.js?v=8ed814fc6a';
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -109,7 +109,6 @@ export function createSinusoidView({ host }) {
   // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
   // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
   const swGL = gpu ? canvas.getContext('webgl2') : null, svYield = swGL && softwareGL(swGL) ? softwareYield(true, swGL) : null;
-  if (svYield) watchPerson(store, el, svYield.prompt);
 
   // The view is left only by the view switch (Lobule): the wheel and a pinch do nothing here.
   el.addEventListener('wheel', (ev) => ev.preventDefault(), { passive: false });
