@@ -19,7 +19,8 @@ test('a menu switch that is off stays visible: white knob, strong edge, as the o
 });
 
 test('Settings may use the room down to the 8 px margin, and scrolling menus fade at the bottom', () => {
-  assert.match(util, /el\.classList\.contains\('app-menu'\)\) el\.style\.maxHeight = /);
+  assert.match(util, /el\.classList\.contains\('app-menu'\)\) \{/);
+  assert.match(util, /Math\.min\(visibleBottom\(\), d\.top\)/, 'and stops above the bottom bar where the two meet');
   assert.match(util, /fadeWhileMore\(el\)/);
   assert.match(css, /\.menu\.more::after \{[^}]*position: sticky; bottom: 0;/);
   assert.match(css, /\.um-col\.more, \.um-cols\.more \{[^}]*mask-image/);
