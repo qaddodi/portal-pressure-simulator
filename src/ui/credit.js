@@ -163,7 +163,8 @@ const ORGANS = 'g.organ :is(path, circle, ellipse, rect, polygon):not(.org-shade
 const VESSELS = '#edges :is(.v-lumen, .v-lumenP, .v-strand), #world .v-hit';
 // (The ascites fluid and the flanks' outline count as organs' art, as drawn: their fill where they have one, their stroke where
 // they have one. A small phone in Patients had put the credit on the fluid.)
-const FLUID = '#ascites .ascites-fill, #ascites .ascites-line, path.flank';
+// (The diaphragm's line across the back wall counts too: the credit had sat on it with the menu open; sweep 02 #11.)
+const FLUID = '#ascites .ascites-fill, #ascites .ascites-line, path.flank, path.org-diaphragm';
 const num = (el, a) => parseFloat(el.getAttribute(a)) || 0;
 function shapePath(el) {
   const p = new Path2D(), tag = el.tagName.toLowerCase();
@@ -251,6 +252,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   // (tier: the art test the spot was found under (null: the least covered spot, or the plain one); fresh: the next look picks
   // anew instead of keeping the spot (after a slide change or a resize); resized: when the screen last changed size)
   let tier = null, fresh = true, resizedAt = -1e9, stuck = '';   // (stuck: the slide it was hidden on for want of a bare spot)
+  let steady = '', steadyAt = 0;   // (the look a new spot waits to see twice, and since when it has waited)
   const measure = (busy) => {
     const key = innerWidth + 'x' + innerHeight;
     if (key !== sizeKey) {
@@ -309,7 +311,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     if (performance.now() - resizedAt < 400) { credit.classList.add('moving'); fresh = true; clearTimeout(camT); camT = setTimeout(soon, 420); return; }
     // The dive into the lobule (or back out) under way: the credit holds still (and the look waits) until it has landed.
     const dv = window.pps?.stage?.diveProgress?.() ?? 0;
-    if (pos && dv > 0 && dv < 1) { clearTimeout(camT); camT = setTimeout(soon, 150); return; }
+    if (dv > 0 && dv < 1) { clearTimeout(camT); camT = setTimeout(soon, 150); return; }
     // A pan or a zoom under way: the art under every spot moves with the camera, and sampling it again on each look
     // (thousands of point-in-shape tests over the vessels) made panning and zooming lag. A placed credit keeps its spot
     // until the camera has rested a moment, then looks once.
@@ -317,7 +319,8 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     const ring = window.pps?.stage?.lobuleRing?.() || null;
     const wm = document.getElementById('world')?.getScreenCTM(), wk = (wm ? [wm.a, wm.d, wm.e, wm.f].map((v) => v.toFixed(2)).join(',') : '') + (ring ? '|' + ring.flat().map(Math.round).join(',') : '');
     if (wk !== worldKey) { worldKey = wk; worldAt = performance.now(); }
-    if (pos && performance.now() - worldAt < 250) { clearTimeout(camT); camT = setTimeout(soon, 260); return; }
+    // (The first placement waits for the camera too: a look taken mid-move had put it at the bottom on one load and the top on the next.)
+    if (performance.now() - worldAt < 250) { clearTimeout(camT); camT = setTimeout(soon, 260); return; }
     const wr = wrap.getBoundingClientRect();
     let { w, h } = measure(false);
     const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height - Math.max(0, size.sb - Math.max(0, innerHeight - wr.bottom)) };   // (the home indicator's strip, where the figure reaches the screen's bottom)
@@ -367,15 +370,21 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     // a number or a card shifts, until the next slide or a resize looks afresh.)
     const slide = app?.classList.contains('presenting') ? `${document.title}|${document.querySelector('.pzb-n')?.textContent}` : '';
     if (stuck && !fresh && slide && stuck === slide) { kept = look; keptBlocked = []; return; }
+    // A new spot is chosen only from a view that has held still: the same cards, labels, camera and size on two looks 150 ms
+    // apart (a label or the lobule's outline still arriving had made the same view land it in different corners on two loads;
+    // sweep 02). A slide keeps its own beat (it waits for pz-moving to end). Never longer than 1.6 s.
+    if (steadyAt && now - steadyAt > 2000) { steady = ''; steadyAt = 0; }   // (a wait left behind by a look that kept its spot)
+    if (!slide && look !== steady && (!steadyAt || now - steadyAt < 1600)) { steadyAt ||= now; steady = look; clearTimeout(waitT); waitT = setTimeout(soon, 150); return; }
+    steady = ''; steadyAt = 0;
     stuck = ''; fresh = false; searches++;
     const covered = CORNERS.filter((k) => !freeSpots(fig, obs, w, h, opt)[k]);
     for (const k of covered) blocked[k] = now;
     // Only bare figure: never on an organ or a vessel, nor on a card or label (Mohammad, 14 Oct; and 15 Oct: it had been put over
-    // a vessel where nothing bare was free). The strictest look first, 18 px clear of the art, then 8 and then 4; at each step on
-    // one line, then on two. With no bare spot anywhere it stays hidden.
+    // a vessel where nothing bare was free). The strictest look first, 18 px clear of the art, then 8 and then 4, always on one
+    // line (it had wrapped onto two in a narrow strip; sweeps 01 #14, 02 #13, #22). With no bare spot anywhere it stays hidden.
     let spots = null, tight = false, found = null;
     find: for (const t of [{ pad: 18 }, { pad: 8 }, { pad: 4 }]) {
-      for (const two of [false, true]) {
+      for (const two of [false]) {
         const z = two ? measure('tight') : { w, h }, b = freeSpots(fig, obs, z.w, z.h, { ...opt, avoid: (box) => art(box, t) });
         if (CORNERS.some((k) => b[k])) { spots = b; tight = two; found = t; break find; }
       }

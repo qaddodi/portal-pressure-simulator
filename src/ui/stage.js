@@ -3,12 +3,12 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=0b72305f30';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=ec83805fb9';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=8fee5fe6f1';
 import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=e387ad7347';
-import { createLobuleZoom } from './lobule-zoom.js?v=7cd30dbce1';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=75eb090c53';
+import { createLobuleZoom } from './lobule-zoom.js?v=88f005babd';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
@@ -17,7 +17,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=4b8ac22493';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=f4b81c8c79';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
 import { softwareYield, watchPerson } from './sw-yield.js?v=888305f6a2';
