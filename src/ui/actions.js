@@ -6,9 +6,9 @@
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, hiddenNow } from './store.js?v=65ec443c0e';
-import { fmt, fmtFlow, clamp, toast } from './util.js?v=4c3d80678b';
-import { aboutVessel, aboutOrgan } from './about.js?v=232ccda432';
-import { lobuleState } from './lobule-model.js?v=9b9c91474f';
+import { fmt, fmtFlow, clamp } from './util.js?v=0140acc352';
+import { aboutVessel, aboutOrgan } from './about.js?v=e0bda4dfee';
+import { lobuleState } from './lobule-model.js?v=c6255ba5cf';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=0b72305f30';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -193,7 +193,7 @@ export function bedStats(e, f) {
 function varixVerbs(site, ctx) {
   const eso = site === 'eso';
   const out = [];
-  if (eso) out.push({ type: 'button', id: 'band', label: 'Band', icon: 'band', run: () => { ctx.action({ kind: 'band' }); toast('Band placed on an esophageal varix column.'); }, note: (f) => (f.bands ? `${Math.round(f.bands)} band${f.bands >= 1.5 ? 's' : ''} placed` : null) });
+  if (eso) out.push({ type: 'button', id: 'band', label: 'Band', icon: 'band', run: () => { ctx.action({ kind: 'band' }); }, note: (f) => (f.bands ? `${Math.round(f.bands)} band${f.bands >= 1.5 ? 's' : ''} placed` : null) });
   out.push({ type: 'button', id: 'endoscope', label: 'Endoscope', icon: 'endoscope', run: () => { ctx.paneApi('endoscopy')?.setView?.('eso'); ctx.showPane('endoscopy'); } });
   const key = eso ? 'balloonEso' : 'balloonGas';
   out.push({ type: 'toggle', id: 'balloon', key, label: eso ? 'Esophageal balloon' : 'Gastric balloon', icon: 'balloon', get: (p) => !!p[key], set: (p, v) => { p[key] = v; }, hist: eso ? 'Esophageal balloon' : 'Gastric balloon' });
@@ -247,7 +247,7 @@ function organCard(sel, ctx) {
       key: 'o:spleen', sel, kicker: 'Organ', title: 'Spleen', why: 'spleen',
       value: (f) => (f.metrics.spleen.length > 0 ? { v: fmt(f.metrics.spleen.length, 1), u: 'cm long' } : { v: 'Removed', u: '' }),
       verbs: [
-        stat('Platelets (illustrative)', (f) => `${Math.round(f.metrics.spleen.platelets)} ×10⁹/L`),
+        stat('Platelets (illustrative)', (f) => `${(Math.round(f.metrics.spleen.platelets) * 1000).toLocaleString('en-US')}/µL`),
         { type: 'seg', label: 'Treat the spleen', options: [[0, 'None'], [1, 'Embolize'], [2, 'Splenectomy']], get: () => store.get().params.splenicRx | 0, set: (val) => updateParams((p) => { p.splenicRx = val; return p; }, { label: ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'][val] }) },
         { type: 'about', text: () => ['Partial embolization closes branches of the splenic artery and infarcts part of the spleen; splenectomy removes it. Both cut splenic inflow, so portal pressure and flow to the varices fall (splenectomy more than embolization).'] },
         { type: 'slider', id: 'clot', key: 'thrombus', label: 'Clot the splenic vein', icon: 'clot', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.thrombus.SV_CONF || 0,

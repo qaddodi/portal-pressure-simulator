@@ -3,7 +3,7 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=65ec443c0e';
-import { h, svgIcon, toast } from './util.js?v=4c3d80678b';
+import { h, svgIcon, toast } from './util.js?v=0140acc352';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=5c3e8b1079';
 import { HIDDEN_EDGES } from './anatomy.js?v=0b72305f30';
@@ -56,7 +56,7 @@ export function createPalette({ ctx }) {
     add('Time', 'Restart this patient', () => ctx.restart(), { kw: 'restart reset start over beginning' });
     add('Time', 'Compare from here', () => ctx.pin(), { kw: 'compare snapshot pin' });
     // View
-    for (const [id, [t, d]] of Object.entries(ctx.lenses)) add('View', `Lens: ${t}`, () => store.set({ colorMode: id }), { kw: `color ${d}` });
+    for (const [id, [t, d]] of Object.entries(ctx.lenses)) add('View', `Colored by ${t.toLowerCase()}`, () => store.set({ colorMode: id }), { kw: `color colour lens ${d}` });
     add('View', 'Anatomy view', () => store.set({ view: 'anatomic' }), { kw: 'anatomic' });
     add('View', 'Circuit view', () => store.set({ view: 'circuit' }), { kw: 'schematic map' });
     add('View', 'Lobule view', () => ctx.zoomLobule(), { kw: 'microcirculation sinusoid lobule zoom' });

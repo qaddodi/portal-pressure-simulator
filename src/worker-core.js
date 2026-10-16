@@ -5,7 +5,7 @@ import { Engine } from './engine/engine.js?v=350a252c76';
 import { computeMetrics } from './engine/metrics.js?v=b9783022b9';
 import { tenthGap } from './engine/gap.js?v=3a5947c552';
 import { detectEvents } from './engine/events.js?v=62eef64795';
-import { explain } from './engine/explain.js?v=d126ba08ea';
+import { explain } from './engine/explain.js?v=f2e61375b6';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=5c3e8b1079';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];

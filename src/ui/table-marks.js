@@ -49,7 +49,7 @@ export const TILE = {
   varix: { t: 'Esophageal varix', n: 'Varix', s: 'Diameter', u: 'mm', better: -1 },
   gv: { t: 'Gastric varix', n: 'Fundal', s: 'Fundal, diameter', u: 'mm', better: -1 },
   spleen: { t: 'Spleen', s: 'Length', u: 'cm', better: -1 },
-  plt: { t: 'Platelets', s: '× 10⁹ per litre', u: '×10⁹/L', d: 0, better: 1 },
+  plt: { t: 'Platelets', s: 'Thousands per µL', u: '×10³/µL', d: 0, better: 1 },
   pvFlow: { t: 'Portal vein flow', n: 'Portal flow', s: 'Mean', u: 'L/min' },
   pvVel: { t: 'Portal vein velocity', n: 'PV velocity', s: 'Doppler, main portal vein', u: 'cm/s', d: 0, better: 1 },
   liver: { t: 'Liver flow, % of normal', n: 'Liver flow', s: 'Through the sinusoids, of normal', u: '%', d: 0, better: 1 },
@@ -97,7 +97,7 @@ export const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA'
 // Each column's cut-offs (the same as the readouts' status colors), shown on its heading (hover, or a tap under the table) so the legend can stay short.
 export const CUT = { pv: '↑ over 10, ↑↑ 15 or more mmHg', whvp: '↑ over 10, ↑↑ 15 or more mmHg', fhvp: '↑ over 8, ↑↑ over 16 mmHg', ivc: '↑ over 8, ↑↑ over 16 mmHg', ra: '↑ over 8, ↑↑ over 16 mmHg',
   hvpg: '↑ 5 or more, ↑↑ 10 or more mmHg', ppg: '↑ 6 or more, ↑↑ 12 or more mmHg', sin: '↑ 9 or more, ↑↑ 12 or more mmHg', varix: '↑ 2.5 to 5 mm, ↑↑ 5 mm or more',
-  plt: '↓ under 150, ↓↓ under 100 × 10⁹/L', lsm: '↑ 10 to 25, ↑↑ 25 kPa or more', spleen: '↑ over 13, ↑↑ over 16 cm', liver: '↓ 75% or less, ↓↓ 55% or less', shunt: '↑ 10% or more, ↑↑ 30% or more', map: '↓↓ under 65 mmHg', hr: '↑↑ over 100 beats/min (slow, under 60, is not flagged)',
+  plt: '↓ under 150, ↓↓ under 100 × 10³/µL', lsm: '↑ 10 to 25, ↑↑ 25 kPa or more', spleen: '↑ over 13, ↑↑ over 16 cm', liver: '↓ 75% or less, ↓↓ 55% or less', shunt: '↑ 10% or more, ↑↑ 30% or more', map: '↓↓ under 65 mmHg', hr: '↑↑ over 100 beats/min (slow, under 60, is not flagged)',
   asc: '↑ grade 1, ↑↑ grade 2 or 3', saag: '↑ 1.1 g/dL or more: portal hypertension; ↓ under 1.1', tp: '↑ 2.5 g/dL or more, ↓ under 2.5 (ascites protein)', pvFlow: '↓ under 0.9 L/min, ↓↓ stasis or reversed; ↑ over 1.3 L/min (fasting normal)' };
 // Raw pressures, in whole mmHg: ↑ over the first, ↑↑ over the second. PV and WHVP follow the portal pressure readout (normal 10 or less, high from 15).
 export const RAW = { pv: [10, 14], whvp: [10, 14], fhvp: [8, 16], ivc: [8, 16], ra: [8, 16] };

@@ -3,16 +3,16 @@
 
 import { store, hiddenNow } from './store.js?v=65ec443c0e';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf } from './util.js?v=4c3d80678b';
-import { lobuleFlows } from './lobule-model.js?v=9b9c91474f';
-import { createProfile } from './charts.js?v=3b89fd4072';
-import { createPressureTime } from './pressure-time.js?v=6df1877a5c';
-import { createFibroScan } from './fibroscan.js?v=e587fe3ac8';
-import { createHvpgProcedure } from './hvpg-proc.js?v=07d9bf1adb';
-import { createDoppler } from './doppler.js?v=df04199a63';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf } from './util.js?v=0140acc352';
+import { lobuleFlows } from './lobule-model.js?v=c6255ba5cf';
+import { createProfile } from './charts.js?v=263db52ce7';
+import { createPressureTime } from './pressure-time.js?v=d7aa908b60';
+import { createFibroScan } from './fibroscan.js?v=6832ac98de';
+import { createHvpgProcedure } from './hvpg-proc.js?v=2f555feeba';
+import { createDoppler } from './doppler.js?v=fbdfb504e5';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=ae447c6302';
-import { createReadoutsPane } from './readouts-pane.js?v=ee4959260a';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=c18411dd9e';
+import { createReadoutsPane } from './readouts-pane.js?v=b633811594';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';
@@ -108,7 +108,7 @@ export const VITALS = [
   { id: 'hr', k: 'HR', title: 'Heart rate', why: 'hr', v: (m) => m.vitals?.hr ?? m.hr, d: 0, u: '/min', cut: 110, hys: 3 },
   { id: 'co', k: 'CO', title: 'Cardiac output', why: 'co', v: (m) => m.vitals?.co ?? m.co, d: 1, u: 'L/min', cut: 6.5, hys: 0.2 },
   { id: 'ra', k: 'RA', title: 'Right atrial pressure', why: 'ra', hideKey: 'ra', v: (m) => m.vitals?.ra ?? m.ra, d: 1, u: 'mmHg', cut: 10, hys: 0.5 },
-  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: null, v: (m) => m.blood.hb, d: 1, u: 'g/dL', cut: 7, low: true, hys: 0.2 },
+  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb', v: (m) => m.blood.hb, d: 1, u: 'g/dL', cut: 7, low: true, hys: 0.2 },
 ];
 
 // The key readouts: collapsed, the bar shows only the two gradients (HVPG and the portosystemic
@@ -344,7 +344,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   head.append(titleEl, live, closeBtn);
   // The tabs: one per instrument, with its live reading.
   const tabEls = {};
-  const tabs = h('div', { class: 'instr-tabs ws-tabs', role: 'tablist', 'aria-label': 'Instruments' }, TABS.map((id) => {
+  const tabs = h('div', { class: 'instr-tabs ws-tabs', role: 'tablist', 'aria-label': 'Tests' }, TABS.map((id) => {
     const val = h('small', { class: 'it-v' });
     const b = h('button', { class: 'instr-tab', role: 'tab', 'data-instrument': id, 'aria-selected': 'false', 'aria-controls': 'pane-' + id },
       svgIcon(INFO[id][0]), h('span', { class: 'it-t' }, h('b', {}, h('span', { class: 'it-full' }, SHORT[id] || byId[id].label), h('span', { class: 'it-short' }, TINY[id] || SHORT[id] || byId[id].label)), val));

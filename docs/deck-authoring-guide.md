@@ -468,7 +468,7 @@ Edge tones used when you glow an id by hand: portal vessels follow their station
 | `varix` | Esophageal varix diameter | mm | amber ≥ 2.5, red ≥ 5 |
 | `gv` | Gastric varix diameter | mm | same |
 | `spleen` | Spleen length | cm | red > 13 |
-| `plt` | Platelets | × 10⁹/L | amber < 150, red < 100 |
+| `plt` | Platelets | × 10³/µL (88 = 88,000/µL) | amber < 150, red < 100 |
 | `pvFlow` | Portal vein flow | L/min | red if reversed |
 | `pvVel` | Portal vein velocity (Doppler, main portal vein) | cm/s | amber < 15 ("Slow"), red < 9 ("Stasis") or reversed |
 | `liver` | Liver flow, % of normal | % | amber < 80, red < 50 |

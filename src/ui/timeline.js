@@ -11,9 +11,9 @@
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
 import { store, replaceParams, onParamChange } from './store.js?v=65ec443c0e';
-import { host } from './host.js?v=61ebe1d038';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=4c3d80678b';
-import { activeInterventions } from './inspector.js?v=afc3953073';
+import { host } from './host.js?v=d6a857aa4d';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=0140acc352';
+import { activeInterventions } from './inspector.js?v=762a2fb951';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('timeline');
 
@@ -71,6 +71,8 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
   histBtn.addEventListener('click', (e) => openHistory(e.currentTarget));
   const ffBtn = h('button', { class: 'ib tl-ff', 'aria-label': 'Jump ahead', 'aria-haspopup': 'menu', title: 'Fast forward' }, icon('ffwd'));
   ffBtn.addEventListener('click', (e) => popover(e.currentTarget, [
+    // Undo on touch (no Ctrl Z there): the last change, one tap from the play bar.
+    ...(canUndo() ? [menuBtn('Undo the last change', () => undo())] : []),
     h('div', { class: 'menu-title' }, 'Jump ahead'),
     ...JUMPS.map(([d, , long]) => menuBtn(`Jump ${long} ahead`, () => jump(d, long))),
     menuBtn('Until something happens', () => jump('event', 'until the next event')),
@@ -194,6 +196,19 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
     render();
     return true;
   }
+  /** Whether there is an earlier moment to go back to (and going back is allowed here). */
+  function canUndo() {
+    if (!canRevert()) return false;
+    if (pending) return liveIndex() >= 0;   // (a change still being typed in becomes an entry when Undo flushes it)
+    for (let i = currentIndex() - 1; i >= 0; i--) if (restorable(i)) return true;
+    return false;
+  }
+  /** The label of the change Undo would take back (the newest change at or before now), or null. */
+  function lastChangeLabel() {
+    if (pending) return pending.label || null;
+    for (let i = currentIndex(); i > 0; i--) if (entries[i]?.kind === 'change') return entries[i].label;
+    return null;
+  }
   function undo() {
     flushParams();
     const cur = currentIndex();
@@ -279,7 +294,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, canRe
   onParamChange(({ label, history }) => { if (history || pending) noteParamChange(label); });
 
   return {
-    reset, recordAction, addEvents, update, undo, redo, goTo, togglePin, jump, openHistory, historyBody,
+    reset, recordAction, addEvents, update, undo, canUndo, lastChangeLabel, redo, goTo, togglePin, jump, openHistory, historyBody,
     entries: () => entries, cursor: () => cursor,
     onChange: (fn) => listeners.push(fn),
     save: () => ({ entries: entries.slice(), cursor, baseline: structuredClone(baseline) }),

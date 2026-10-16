@@ -81,8 +81,11 @@ export function uiScale() {
 // Messages show as a card at the top, below the bars, never over the bottom bar.
 // opts: actions, [[label, fn], …] as buttons after the words (a tap runs it and closes the card); sticky, stays until
 // dismissed; onClose, called once when it goes. Returns a function that closes it.
-export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null } = {}) {
+export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = {}) {
   if (!msg) return () => {};
+  // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
+  // (present: a link copied, a slide number typed) show.
+  if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return () => {};
   const wrap = document.getElementById('toasts');
   // One message at a time reads calmer than a growing stack.
   while (wrap.children.length >= 2) wrap.firstChild.remove();

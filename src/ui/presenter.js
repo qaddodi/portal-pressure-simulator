@@ -14,22 +14,22 @@
 
 import { store, replaceParams } from './store.js?v=65ec443c0e';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=4c3d80678b';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=0140acc352';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=e11a2820df';
+import { sinusoidSupported } from './sinusoid-view.js?v=1199bb8c7d';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e3c7909d78';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=07d9bf1adb';
-import { createTools } from './presenter-tools.js?v=458dd94d1e';
-import { openHandout } from './handout.js?v=9cf7b12bc8';
+import { createHvpgMonitor } from './hvpg-proc.js?v=2f555feeba';
+import { createTools } from './presenter-tools.js?v=bc9e019840';
+import { openHandout } from './handout.js?v=aabe71bc78';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=f709ae0429';
+import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=ca12af9a8d';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
 import { createFigureKey } from './figure-key.js?v=382bd7d4ad';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=1cefa5f7d8';
+import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=c7b884e944';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1061,7 +1061,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=ebc38b3de8', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=c8d8ec90ed', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1074,7 +1074,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=aa5565daa8');
+        const { createCore } = await import('../worker-core.js?v=64f4df21b2');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1159,7 +1159,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (c.broken) { c.kill(); if (calc === c) calc = null; }
       if (states !== mine || deck !== deckNow) return;
       stop();
-      toast('This presentation could not be prepared. Reload the page to present it.');
+      toast('This presentation could not be prepared. Reload the page to present it.', 'bad');
     })();
   }
   // Each slide's numbers for the printed notes (handout.js): the deck computed as presenting it computes it, or the states
@@ -2034,7 +2034,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const WORD = { 2: 'well above normal', 1: 'above normal', 0: 'normal', '-1': 'below normal', '-2': 'well below normal' };
   const WORDREL = { 2: 'much higher', 1: 'higher', 0: 'unchanged', '-1': 'lower', '-2': 'much lower' };
   const unitOf = (k) => (k === 'varix' ? ' mm' : k === 'asc' ? ' L' : k === 'liver' || k === 'shunt' ? '%' : k === 'hr' ? '/min' : k === 'res' ? ' mmHg per L/min' : PRESS.has(k) ? ' mmHg' : TILE[k]?.u ? ` ${TILE[k].u}` : '');
-  const UNIT_WORDS = { press: 'pressures in mmHg', varix: 'varix in mm', asc: 'ascites in liters', liver: 'liver blood flow in % of normal', shunt: 'shunted blood in %', plt: 'platelets × 10⁹/L',
+  const UNIT_WORDS = { press: 'pressures in mmHg', varix: 'varix in mm', asc: 'ascites in liters', liver: 'liver blood flow in % of normal', shunt: 'shunted blood in %', plt: 'platelets × 10³/µL',
     lsm: 'stiffness in kPa', hr: 'heart rate in beats/min', pvFlow: 'portal flow in L/min', res: 'liver resistance in mmHg per L/min', spleen: 'spleen in cm' };
   function summaryTable(s, arrived = -1) {
     const cols = s.cols || ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], ascCols = s.asc ?? !s.cols, rows = rowsOf(s);
@@ -3018,7 +3018,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     const k = e.key, lk = k.length === 1 ? k.toLowerCase() : k;
     let used = true;
-    if (/^[0-9]$/.test(k)) { digits = (digits + k).slice(-3); clearTimeout(digitT); digitT = setTimeout(() => { digits = ''; }, 2500); toast(`Slide ${digits}: press Enter`); }
+    if (/^[0-9]$/.test(k)) { digits = (digits + k).slice(-3); clearTimeout(digitT); digitT = setTimeout(() => { digits = ''; }, 2500); toast(`Slide ${digits}: press Enter`, '', { present: true }); }
     else if (k === 'Enter' && digits) { const n = +digits; digits = ''; if (n >= 1) go(n - 1); }
     else if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter' || k === 'ArrowDown') { if (!e.repeat) next(); }
     else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'ArrowUp' || k === 'Backspace') { if (!e.repeat) prev(); }
@@ -3228,7 +3228,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     noCase = true;
     const want0 = Math.max(0, (parseInt(at, 10) || 0));
     const d = typeof id === 'object' ? id : all().find((x) => x.id === (ALIAS[id] || id));
-    if (!d?.slides?.length) { toast('That presentation could not be found.'); return; }
+    if (!d?.slides?.length) { toast('That presentation could not be found.', 'bad'); return; }
     // The start is one composed reveal: a calm cover fades over the screen, the projector layout, the first patient and
     // the first slide are all set up under it, and the cover fades away once nothing behind it is still moving.
     const up = Promise.all([coverUp(), fontsIn()]);
@@ -3327,7 +3327,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   function remove(id) { if (!confirm('Delete this script?')) return; writeMine(readMine().filter((x) => x.id !== id)); rerenderHome?.(); }
   function exportScript(s) { download(`${s.title.replace(/[^\w-]+/g, '-').toLowerCase()}.pps-script.json`, JSON.stringify(s, null, 2), 'application/json'); }
-  const copy = (url, msg) => navigator.clipboard?.writeText(url).then(() => toast(msg), () => prompt('Copy this link', url)) ?? prompt('Copy this link', url);
+  const copy = (url, msg) => navigator.clipboard?.writeText(url).then(() => toast(msg, '', { present: true }), () => prompt('Copy this link', url)) ?? prompt('Copy this link', url);
   const shareScript = (s) => copy(`${location.origin}${location.pathname}#script=${enc(s)}`, 'Link copied: opening it adds the script to the recipient’s library.');
   // Built-in decks share through their page (c/deck-<id>.html, scripts/share-pages.mjs) on the hosted site, so a link preview shows the deck title.
   const shareDeck = (d) => copy(location.hostname.endsWith('github.io') && /^[\w-]+$/.test(d.id) && !String(d.id).startsWith('my-') ? new URL(`c/deck-${d.id}.html`, location.href).href : `${location.origin}${location.pathname}?script=${d.id}`, 'Link copied: it opens this presentation at its first slide.');

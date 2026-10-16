@@ -7,7 +7,7 @@
 
 import { download } from './download.js?v=3564e5bf8c';
 import { LEVELS, withOverview } from './decks.js?v=e3c7909d78';
-import { TILE } from './table-marks.js?v=f709ae0429';
+import { TILE } from './table-marks.js?v=ca12af9a8d';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();

@@ -1,7 +1,7 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
-import { host } from './host.js?v=61ebe1d038';
-import { h, fmt, svgIcon, uiScale, visibleBottom } from './util.js?v=4c3d80678b';
+import { host } from './host.js?v=d6a857aa4d';
+import { h, fmt, svgIcon, uiScale, visibleBottom } from './util.js?v=0140acc352';
 
 export function createWhy(pop) {
   let openFor = null, anchorEl = null;
@@ -19,7 +19,7 @@ export function createWhy(pop) {
   async function open(metric, anchor) {
     if (openFor === metric && pop.classList.contains('show')) { close(); return; }
     openFor = metric; anchorEl = anchor;
-    pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'Reverting each change on a scratch copy of the model…'), h('div', { class: 'skeleton', style: { width: '90%' } }), h('div', { class: 'skeleton', style: { width: '70%' } }), h('div', { class: 'skeleton', style: { width: '80%' } }));
+    pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'Working out what drives it…'), h('div', { class: 'skeleton', style: { width: '90%' } }), h('div', { class: 'skeleton', style: { width: '70%' } }), h('div', { class: 'skeleton', style: { width: '80%' } }));
     pop.classList.add('show');
     place(anchor);
     let r = null;
@@ -33,8 +33,8 @@ export function createWhy(pop) {
     // of its own, so the bars always sum to the change shown above them.
     const rest = r.total - shown.reduce((a, c) => a + c.delta, 0);
     if (shown.length && Math.abs(rest) >= Math.max(tiny, 0.05 * Math.abs(r.total))) shown.push({ label: 'Interaction and other', delta: rest, other: true });
-    // A short name on the row ("Cirrhosis (85 %)"), the full one in its tooltip.
-    const short = (l) => (l.includes(':') ? l.slice(0, l.indexOf(':')) : l.replace(/\s*\([^)]*\)\s*$/, '')).trim();
+    // A short name on the row ("Cirrhosis"), the full one with its amount in the tooltip ("Cirrhosis 85 %").
+    const short = (l) => l.replace(/\s[+×]?[\d.]+(\s?(%|mm|mL|L|g\/dL))?$/, '');
     const rows = shown.map((c) => {
       const wpct = (Math.abs(c.delta) / maxAbs) * 50;
       const bar = h('div', { class: 'wf-bar' }, h('i', { style: { left: c.delta >= 0 ? '50%' : `${50 - wpct}%`, width: `${Math.max(1, wpct)}%`, background: c.other ? 'var(--text-3)' : c.delta >= 0 ? 'var(--danger)' : 'var(--accent)' } }));

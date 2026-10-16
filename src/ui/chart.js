@@ -6,10 +6,10 @@
 //   Advanced physiology                  side panel, from Settings
 
 import { store, updateParams } from './store.js?v=65ec443c0e';
-import { h, icon, svgIcon, toast } from './util.js?v=4c3d80678b';
+import { h, icon, svgIcon, toast } from './util.js?v=0140acc352';
 import { DRUGS } from '../engine/scenario.js?v=5c3e8b1079';
-import { activeInterventions } from './inspector.js?v=afc3953073';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=c82482abf2';
+import { activeInterventions } from './inspector.js?v=762a2fb951';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=8d3cbdab01';
 
 
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, timeline, pinned }) {
@@ -100,7 +100,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const proc = (ic, label, sub, id, run) => { const b = btn(ic, label, run, sub); if (lock(id)) b.disabled = true; return b; };
     // A procedure that continues on the figure (a card, a shunt to draw) puts the Treat card away.
     const procs = h('div', { class: 'order-grid' },
-      proc('band', 'Band ligation', 'on the esophageal varices', 'band', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); toast('Band placed. The varices card is open on the figure.'); }),
+      proc('band', 'Band ligation', 'on the esophageal varices', 'band', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); }),
       proc('balloon', 'Balloon tamponade', 'esophageal or gastric', 'balloon', () => { select({ type: 'organ', id: 'varices' }); toast('Switch the balloon on in the varices card.'); }),
       // A TIPS is always right portal vein → right hepatic vein, so it is placed at once.
       proc('stent', 'TIPS', 'right portal vein → right hepatic vein', 'shunt', () => {
@@ -116,7 +116,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
         select({ type: 'edge', id: 'DIPS' });
         toast(on ? 'The DIPS is already in place.' : 'DIPS placed: right portal vein → IVC, through the caudate lobe.');
       }),
-      proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', 'shunt', () => { select(null); if (startShunt('PV_TRUNK')) toast('Click the systemic vein to connect the portal vein to.'); }),
+      proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', 'shunt', () => { select(null); startShunt('PV_TRUNK'); }),
       proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', 'occlude', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
       // One button cycles the spleen: untreated → partial embolization → splenectomy → untreated.
       (() => {

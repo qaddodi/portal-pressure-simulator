@@ -1,28 +1,28 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=61ebe1d038';
+import { startHost, host } from './host.js?v=d6a857aa4d';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=65ec443c0e';
-import { createStage } from './stage.js?v=29d61cdba1';
+import { createStage } from './stage.js?v=c8e0c7aac1';
 import { createCreditPlacer } from './credit.js?v=b780eae767';
-import { sinusoidSupported } from './sinusoid-view.js?v=e11a2820df';
-import { createInspector } from './inspector.js?v=afc3953073';
-import { createDock, CUTOFFS } from './dock.js?v=bb39a00632';
-import { setHvpgStage } from './hvpg-proc.js?v=07d9bf1adb';
-import { createWhy } from './why.js?v=7bf16a150f';
-import { createTimeline, LAPSES } from './timeline.js?v=acdf0e5ba1';
-import { createCompare } from './compare.js?v=3fc5a4f5ed';
-import { createCard } from './card.js?v=7c9b7d69e4';
-import { createChart } from './chart.js?v=aefd05efe2';
-import { createMenu } from './menu.js?v=9f6ad017bf';
-import { caption } from './a11y.js?v=572d2aadf0';
+import { sinusoidSupported } from './sinusoid-view.js?v=1199bb8c7d';
+import { createInspector } from './inspector.js?v=762a2fb951';
+import { createDock, CUTOFFS } from './dock.js?v=e66235afd1';
+import { setHvpgStage } from './hvpg-proc.js?v=2f555feeba';
+import { createWhy } from './why.js?v=da9565d669';
+import { createTimeline, LAPSES } from './timeline.js?v=fa07822c4b';
+import { createCompare } from './compare.js?v=ffc7874c50';
+import { createCard } from './card.js?v=7cdda32074';
+import { createChart } from './chart.js?v=48b16c45aa';
+import { createMenu } from './menu.js?v=2ecc354df9';
+import { caption } from './a11y.js?v=a135cfdf93';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=c82482abf2';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=1cefa5f7d8';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=8d3cbdab01';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=c7b884e944';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=4c3d80678b';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=0140acc352';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=461d25f9d5';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=da514a9b04';
 import { initTopbarMotion } from './topbar-motion.js?v=f095540bb8';
 import { ORIGINS } from './blood.js?v=34ef08458c';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -97,6 +97,8 @@ async function main() {
   try { localStorage.removeItem('pps.lang'); } catch { /* storage unavailable */ }
   const kind = await startHost();
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
+  // (In learner words: no background worker means the model and the drawing share one thread.)
+  if (kind === 'main') toast('This browser runs the model and the figure together, so the figure may stutter.');
   app.dataset.engine = kind;
   document.addEventListener('visibilitychange', () => host.send({ type: 'visibility', visible: !document.hidden }));
   host.send({ type: 'visibility', visible: !document.hidden });
@@ -154,7 +156,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=6592f1d879'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=690987a9ed'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -162,7 +164,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=25cbc8dccb'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=8e2b6d8441'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -194,7 +196,7 @@ async function main() {
   wirePanel();
 
   host.on('frame', onFrame);
-  host.on('error', (m) => { console.error(m.message); toast('Engine error: see the console.', 'bad'); });
+  host.on('error', (m) => { console.error(m.message); toast('The model could not do that. If the figure stops moving, reload the page.', 'bad', { actions: [['Reload', () => location.reload()]] }); });
   // The engine stopped (it threw, or its numbers stopped being numbers): one card that stays until it is used or
   // dismissed, instead of a figure that silently freezes.
   let crashCard = null;
@@ -209,6 +211,9 @@ async function main() {
   const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); $('#btnSinPlay').hidden = !(st.lobule && st.sinusoid); const inSin = !!(st.lobule && st.sinusoid); $('#zoomIn').disabled = inSin; for (const [id, off, on] of [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoomFit', 'Fit the figure to the view', 'Back out to the lobule']]) { $(id).title = inSin ? on : off; $(id).setAttribute('aria-label', inSin ? on : off); } };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
+  // Without WebGL2 the Sinusoid button is hidden: say why, once, the first time the Lobule view opens.
+  let sinNoted = false;
+  store.on('lobule', (on) => { if (on && !sinNoted && !sinusoidSupported()) { sinNoted = true; toast('This device cannot draw the sinusoid view (it needs WebGL2), so that button is hidden.'); } });
   store.on('sinusoid', syncViewSeg);
   // The sinusoid view hides the timeline, so it gets its own play / pause (Space works too).
   const sinPlay = $('#btnSinPlay');
@@ -314,16 +319,24 @@ function syncScanProbe() {
 // Settings no patient could live through (circulatory collapse): a plain warning over the figure, so nobody
 // reads numbers off an impossible patient. Hysteresis keeps it from flickering at the edge.
 const COLLAPSE = { on: (m) => m.map < 45 || m.co < 1.5, off: (m) => m.map > 50 && m.co > 1.8 };
-let collapseEl = null, collapsed = false;
+let collapseEl = null, collapsed = false, tippedBy = null;
 function syncCollapse(m) {
   if (!m || !Number.isFinite(m.map) || !Number.isFinite(m.co)) return;
   // Present (any deck) never shows it: the warning belongs to Patients, where the settings are the viewer's own.
   const next = !store.get().presenting && (collapsed ? !COLLAPSE.off(m) : COLLAPSE.on(m));
   if (!collapseEl) {
-    collapseEl = h('div', { class: 'collapse-banner', role: 'status', 'aria-live': 'polite' }, h('b', {}, 'This patient would not survive these settings'), h('span'));
+    // A way out: undo the change that tipped it, or start this patient again.
+    const undoBtn = h('button', { class: 'btn sm cb-undo', onclick: () => doUndo() }, 'Undo last change');
+    collapseEl = h('div', { class: 'collapse-banner', role: 'status', 'aria-live': 'polite' }, h('b', {}, 'This patient would not survive these settings'), h('span', { class: 'cb-msg' }),
+      h('span', { class: 'cb-acts' }, undoBtn, h('button', { class: 'btn sm', onclick: () => restartPatient() }, 'Restart patient')));
     document.getElementById('stageWrap')?.append(collapseEl);
   }
-  if (next) collapseEl.lastChild.textContent = `Blood pressure ${fmt(m.map, 0)} mmHg and cardiac output ${fmt(m.co, 1)} L/min: the circulation has collapsed.`;
+  if (next && !collapsed) tippedBy = timeline?.lastChangeLabel?.() || null;
+  if (next) {
+    const why = `Blood pressure ${fmt(m.map, 0)} mmHg and cardiac output ${fmt(m.co, 1)} L/min: the circulation has collapsed.`;
+    collapseEl.querySelector('.cb-msg').textContent = tippedBy ? `${why} Last change: ${tippedBy}.` : why;
+    collapseEl.querySelector('.cb-undo').hidden = !timeline?.canUndo?.();
+  }
   if (next !== collapsed) { collapsed = next; collapseEl.classList.toggle('on', next); }
 }
 function onFrame(f) {
@@ -457,7 +470,7 @@ function doAction(a) {
   const tlLabel = typeof tl === 'object' ? tl[a.fluid] : tl;
   if (tlLabel) timeline.recordAction(tlLabel);
   const msgs = { infuse: { crystalloid: '1 L crystalloid running (≈25 % stays intravascular).', prbc: '1 unit of packed red cells running.', albumin: 'Albumin given: plasma oncotic pressure rises.' },
-    hemorrhage: 'Hemorrhage: 500 mL lost.', band: 'Band placed on a variceal column.', valsalva: 'Valsalva: intrathoracic and abdominal pressure up for 10 s.' };
+    valsalva: 'Valsalva: intrathoracic and abdominal pressure up for 10 s.' };
   const m = typeof msgs[a.kind] === 'object' ? msgs[a.kind][a.fluid] : msgs[a.kind];
   if (a.kind === 'paracentesis') toast(`Paracentesis: up to ${(a.mL / 1000).toFixed(1)} L drained${a.albumin ? ' with albumin' : ' without albumin'}.`);
   else if (m) toast(m);
@@ -469,6 +482,18 @@ function setAllowedTools(list) {
   store.set({ allowedVerbs: toolsToVerbs(list) });
   if (store.get().tool !== 'select') store.set({ tool: 'select' });
 }
+// The shunt hint, one target per line with the vein to pick in bold; "Tap" on touch, and Esc only where there is a keyboard.
+function shuntHint(only) {
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches, verb = fine ? 'Click' : 'Tap';
+  if (only === 'tips') return [h('div', {}, `${verb} the `, h('b', {}, 'hepatic vein'), ' where the stent should end. Glowing vessels are valid targets.')];
+  return [
+    h('div', {}, `${verb} a glowing vein to connect it to.`),
+    h('div', {}, 'A portal branch to a ', h('b', {}, 'hepatic vein'), ' makes a TIPS.'),
+    h('div', {}, 'A portal branch to the ', h('b', {}, 'IVC'), ' below the hepatic veins makes a DIPS.'),
+    h('div', {}, 'The splenic vein to the ', h('b', {}, 'left renal vein'), ' makes a Warren shunt.'),
+    fine ? h('div', {}, 'Esc cancels.') : null,
+  ].filter(Boolean);
+}
 // The hint card for an armed gesture: a shunt waiting for its target.
 function renderPaintHint() {
   const el = $('#toolHint');
@@ -478,7 +503,7 @@ function renderPaintHint() {
     const only = st.shunting.only;
     el.hidden = false;
     el.replaceChildren(h('div', { class: 'tc-title' }, icon('stent'), only === 'tips' ? 'Place the TIPS' : 'Make a shunt', h('span', { class: 'sp' }), done('Cancel', () => stage.cancelShunt())),
-      h('div', {}, only === 'tips' ? 'Click the hepatic vein where the stent should end. Glowing vessels are valid targets.' : 'Click the vein to connect it to. Glowing vessels are valid targets: a portal branch to a hepatic vein makes a TIPS, to the IVC below the hepatic veins a DIPS, splenic to left renal a Warren shunt. Esc cancels.'));
+      ...shuntHint(only));
     redraw();
     return;
   }
@@ -607,8 +632,6 @@ function syncBloodBtn() {
 function injectDye({ hold = false } = {}) {
   const sel = store.get().selection;
   stage.injectDye(sel?.type === 'edge' ? sel.id : null, { hold });
-  const name = sel?.type === 'edge' ? (EDGES.find((e) => e.id === sel.id)?.label || 'the vessel') : 'the gut\u2019s veins';
-  toast(`Injecting dye into ${name}`);
 }
 // A row of a Blood or Layers menu: an icon, a name, a line under it, and a checkbox.
 function menuToggle(checked, ic, label, sub, onChange) {
@@ -1141,7 +1164,7 @@ function wireFloating() {
   publish();
   panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', anywhere: true, onClose: closePanel });
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', anywhere: true, onClose: closeTreat, fit: '.tc-body' });
-  dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the instruments' }), drag: '.dock-head', anywhere: true, onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
+  dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Tests card' }), drag: '.dock-head', anywhere: true, onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, down = null, moved = false;
   // (Adding a class it already has still counts as a change to the page's observers: every pointer move of a drag or
@@ -1550,7 +1573,7 @@ function wireKeyboard() {
     if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging && !(store.get().lobule && store.get().sinusoid)) {
       const ks = lensKeys(), i = ks.indexOf(store.get().colorMode);
       const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];
-      store.set({ colorMode: next }); toast(`Lens: ${LENSES[next][0]}. ${LENSES[next][1]}.`); return;
+      store.set({ colorMode: next }); toast(`Colored by ${LENSES[next][0].toLowerCase()}. ${LENSES[next][1]}.`); return;
     }
     if (k === 'z') { settle(); return; }
     if (e.key === '?') { openHelp(); return; }
