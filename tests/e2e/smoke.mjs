@@ -113,10 +113,11 @@ const barFit = (page) => page.evaluate(() => {
   const b = bar.getBoundingClientRect();
   if (bar.classList.contains('phone')) {
     // (Inside the teaching card at its lower right, 13 px in from its corner: 21 px from the screen's edge on a phone, 13 from
-    // the card's on an upright iPad; styles/app.css .pz.stack .pz-bar.)
-    const inR = document.querySelector('.pz.stack.tab') ? innerWidth * 0.15 + 13 : 21;
+    // the card's on an upright iPad, where it also sits 29 px up, 8 px inside the card raised above the progress line;
+    // styles/app.css .pz.stack .pz-bar and .pz.stack.tab .pz-bar.)
+    const tab = !!document.querySelector('.pz.stack.tab'), inR = tab ? innerWidth * 0.15 + 13 : 21, inB = tab ? 29 : 21;
     if (Math.abs(innerWidth - b.right - inR) > 1.5) return `the pill is ${Math.round(innerWidth - b.right)} px from the right edge, not ${Math.round(inR)}`;
-    if (Math.abs(innerHeight - b.bottom - 21) > 1.5) return `the pill is ${Math.round(innerHeight - b.bottom)} px from the bottom, not 21`;
+    if (Math.abs(innerHeight - b.bottom - inB) > 1.5) return `the pill is ${Math.round(innerHeight - b.bottom)} px from the bottom, not ${inB}`;
     const small = [...bar.querySelectorAll('button')].find((c) => { const r = c.getBoundingClientRect(); return r.width < 44 || r.height < 44; });
     if (small) return `a control (${small.getAttribute('aria-label')}) is under 44 px`;
     const h = host.getBoundingClientRect();
@@ -3283,7 +3284,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const order = await page.$$eval('.top-right > button', (els) => els.filter((e) => e.offsetParent).map((e) => e.id));
     if (order.indexOf('btnHistory') !== order.indexOf('tabInstruments') + 1) throw new Error(`History is not beside Tests: ${order.join(', ')}`);
     await page.click('#btnHistory');
-    await page.waitForSelector('#historyCard:not([hidden]) .tl-pop-row');
+    await page.waitForSelector('#historyCard:not([hidden]) :is(.tl-pop-row, .tl-pop-empty)');   // (a new patient may have no event yet: events wait for breath-averaged readings)
     const r = await page.evaluate(() => { const c = document.querySelector('#historyCard').getBoundingClientRect(); return innerWidth - c.right; });
     if (r > 40) throw new Error(`the History card sits ${Math.round(r)} px from the right edge`);
     await tapTool(page, '#btnTreat');
