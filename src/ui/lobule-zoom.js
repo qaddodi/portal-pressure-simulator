@@ -3001,7 +3001,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     ring() {
       if (!geo || fade <= 0.98 || sinU > 0 || sinTo) return null;
       const r = host.getBoundingClientRect();
-      return geo.lobules[0].corners.map((p) => { const [x, y] = toScreen(p); return [x + r.left, y + r.top]; });
+      const at = (p) => { const [x, y] = toScreen(p); return [x + r.left, y + r.top]; };
+      const out = geo.lobules[0].corners.map(at);
+      // (Drawn round it, the credit keeps off these too: every portal tract (each lobule's corners, with the arteriole, ductule
+      // and lymphatic beside the venule) and the neighbouring lobules' central veins, as [x, y, radius] in client px.)
+      const k = V.k, seen = new Set();
+      out.discs = [];
+      for (const l of geo.lobules) {
+        if (!l.main) out.discs.push([...at([l.x, l.y]), geo.R * 0.14 * k]);
+        for (const c of l.corners) { const key = c.map(Math.round).join(); if (!seen.has(key)) { seen.add(key); out.discs.push([...at(c), geo.R * 0.2 * k]); } }
+      }
+      return out;
     },
     setLobe,
   };

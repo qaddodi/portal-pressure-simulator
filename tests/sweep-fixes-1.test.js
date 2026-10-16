@@ -42,3 +42,11 @@ test('the credit never wraps onto two lines', () => {
   const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
   assert.match(credit, /for \(const two of \[false\]\)/);
 });
+
+test('in the lobule the credit keeps off the portal tracts and neighbouring central veins, not only the outline', () => {
+  const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  assert.match(lz, /out\.discs = \[\]/);
+  assert.match(lz, /for \(const c of l\.corners\)/);
+  assert.match(credit, /for \(const \[x, y, rr\] of ring\.discs \|\| \[\]\)/);
+});

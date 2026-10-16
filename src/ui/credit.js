@@ -210,10 +210,12 @@ export function organTest(wr, ring = null) {
       for (let k = 0; k < grid.length; k++) grid[k] = px[k * 4 + 3] > 0 ? 1 : 0;
     };
     if (ring) {
-      // The lobule: its outline filled (the portal tracts at its corners fall within the test's pad); nothing else is art.
+      // The lobule: its outline filled, and every portal tract and neighbouring central vein round it (a phone had put the credit on a
+      // neighbour's central vein, sweep 05); the faint neighbouring lobules' sinusoids are background.
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cols, rows); ctx.beginPath();
       ring.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, (x - wr.left) / CELL, (y - wr.top) / CELL));
       ctx.closePath(); ctx.fill();
+      for (const [x, y, rr] of ring.discs || []) { ctx.beginPath(); ctx.arc((x - wr.left) / CELL, (y - wr.top) / CELL, rr / CELL, 0, Math.PI * 2); ctx.fill(); }
       const px = ctx.getImageData(0, 0, cols, rows).data;
       for (let k = 0; k < grids.org.length; k++) grids.org[k] = px[k * 4 + 3] > 0 ? 1 : 0;
     } else {

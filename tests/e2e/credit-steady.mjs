@@ -18,7 +18,9 @@ const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '-
 const spot = (page) => page.evaluate(() => {
   const c = document.querySelector('.stage-credit'), r = c.getBoundingClientRect();
   if (getComputedStyle(c).opacity === '0' || !c.offsetParent) return 'hidden';
-  return `${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.height)}h`;
+  // In the lobule: never over a portal tract or a neighbouring central vein.
+  const on = (window.pps?.stage?.lobuleRing?.()?.discs || []).filter(([x, y, rr]) => Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom)) < rr);
+  return `${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.height)}h${on.length ? ' OVER-TRACT' : ''}`;
 });
 let fails = 0;
 for (const v of VIEWS) {
@@ -37,6 +39,7 @@ for (const v of VIEWS) {
     // One line: no taller than one line of 12 px text.
     const lineH = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.stage-credit')).lineHeight));
     if (a !== 'hidden' && +a.split(' ')[1].replace('h', '') > lineH * 1.5) { console.log(`✗ ${name}: the credit wraps (${a})`); fails++; }
+    if (a.includes('OVER-TRACT')) { console.log(`✗ ${name}: the credit sits on a portal tract or a central vein (${a})`); fails++; }
     if (a !== b) { console.log(`✗ ${name}: the credit moved while the view held still (${a} → ${b})`); fails++; }
     seen.push(a);
     await ctx.close();
