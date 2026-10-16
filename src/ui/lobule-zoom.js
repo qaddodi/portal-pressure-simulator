@@ -902,6 +902,10 @@ export function createLobuleZoom({ host }) {
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
   const labs = {}, badges = {};
+  // What a label's size depends on beyond its own text and classes (see layoutLabels).
+  let fontVer = 0;
+  document.fonts?.addEventListener?.('loadingdone', () => { fontVer++; });
+  const sizeEnv = () => `${innerWidth}x${innerHeight}|${devicePixelRatio}|${fontVer}|${document.fonts?.status}|${[...document.documentElement.attributes].map((a) => `${a.name}=${a.value}`).join(' ')}|${document.body.className}|${host.className}|${el.className}`;
   // A unit with a second reading ('mL/min · Protein 48%'): the second part can drop to its own line when the label is wide.
   const unitParts = (u) => {
     if (!u) return [];
@@ -1224,14 +1228,31 @@ export function createLobuleZoom({ host }) {
       if ((k === 'lymph' && !lymphOn) || ((k === 'ha' || k === 'bd') && !named(k))) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       if (faded(`lobule:${LZ_TARGET[k] || k}`)) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       L.el.hidden = false;
-      L.el.classList.remove('stack');
       shown.push([k, L]);
     }
-    // (Written, then read together: one layout for all of them, not one per label.)
     // Too wide for the free space (large text, a narrow screen): the label stacks its second reading.
-    const stack = shown.map(([, L]) => L.el.offsetWidth > (fr.r - fr.l) * 0.32 && !!L.el.querySelector('.u2'));
-    shown.forEach(([, L], i) => { if (stack[i]) L.el.classList.add('stack'); });
-    const sizes = shown.map(([, L]) => [L.el.offsetWidth || 100, L.el.offsetHeight || 40]);
+    // A label's size is read back from the page only when what decides it changed (its text and classes, the text size,
+    // the theme, the window, the fonts): each read lays the page out, and two of them on every frame of a pinch were most
+    // of what placing the lobule's labels cost. Otherwise the sizes last read are used, which are the same numbers.
+    const env = sizeEnv(), fw = (fr.r - fr.l) * 0.32;
+    const keys = shown.map(([, L]) => `${env}|${L.el.className.replace(/(^| )stack( |$)/, '$1')}|${L.el.innerHTML}`);
+    let stack, sizes;
+    if (shown.every(([, L], i) => L.sz?.key === keys[i] && (L.sz.w0 > fw && L.sz.u2 ? L.sz.s1 : L.sz.s0))) {
+      stack = shown.map(([, L]) => L.sz.w0 > fw && L.sz.u2);
+      shown.forEach(([, L], i) => L.el.classList.toggle('stack', stack[i]));
+      sizes = shown.map(([, L], i) => (stack[i] ? L.sz.s1 : L.sz.s0));
+    } else {
+      // (Written, then read together: one layout for all of them, not one per label.)
+      shown.forEach(([, L]) => L.el.classList.remove('stack'));
+      const w0 = shown.map(([, L]) => L.el.offsetWidth), u2 = shown.map(([, L]) => !!L.el.querySelector('.u2'));
+      stack = shown.map((x, i) => w0[i] > fw && u2[i]);
+      shown.forEach(([, L], i) => { if (stack[i]) L.el.classList.add('stack'); });
+      sizes = shown.map(([, L]) => [L.el.offsetWidth || 100, L.el.offsetHeight || 40]);
+      shown.forEach(([, L], i) => {
+        const sz = L.sz?.key === keys[i] ? L.sz : (L.sz = { key: keys[i], w0: w0[i], u2: u2[i] });
+        sz[stack[i] ? 's1' : 's0'] = sizes[i];
+      });
+    }
     for (const [i, [k, L]] of shown.entries()) {
       const [w, hh] = sizes[i];
       const a = toScreen(anchorOf(k));
