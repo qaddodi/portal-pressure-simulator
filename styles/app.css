@@ -3990,6 +3990,11 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .toast-wrap.docked .toast.leaving { animation: toastUp .25s cubic-bezier(.64, 0, .78, 0) forwards; }
 .toast-wrap.docked .toast-msg { flex: 0 1 auto; max-width: 100%; text-align: center; white-space: normal; overflow-wrap: anywhere; overflow: hidden; }
 .toast-wrap.docked .toast-x { position: absolute; top: 50%; right: 8px; margin: -11px 0 0; }
+/* A card with buttons (the engine stopped): the words on one line, the buttons centred under them. */
+.toast.has-acts { flex-wrap: wrap; }
+.toast-acts { display: inline-flex; flex: none; gap: 8px; }
+.toast-wrap.docked .toast.has-acts { align-content: center; row-gap: 6px; }
+.toast-wrap.docked .toast.has-acts .toast-msg { flex-basis: 100%; }
 @keyframes toastDown { from { transform: translateY(calc(-100% - 12px)); } to { transform: none; } }
 @keyframes toastUp { from { transform: none; } to { transform: translateY(calc(-100% - 12px)); } }
 @media (prefers-reduced-motion: reduce) {

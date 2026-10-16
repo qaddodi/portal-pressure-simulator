@@ -1,12 +1,12 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=d7cc0b2ef0';
+import { Engine } from './engine/engine.js?v=350a252c76';
 import { computeMetrics } from './engine/metrics.js?v=b9783022b9';
 import { tenthGap } from './engine/gap.js?v=3a5947c552';
 import { detectEvents } from './engine/events.js?v=62eef64795';
-import { explain } from './engine/explain.js?v=85d836853e';
-import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=6ebaeb46c8';
+import { explain } from './engine/explain.js?v=d126ba08ea';
+import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=5c3e8b1079';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
@@ -117,8 +117,23 @@ export function createCore(post) {
     post(f, [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer]);
   }
 
-  let lastFrame = 0;
+  // An engine that throws, or whose pressures or flows stop being numbers, stops the clock and says so once
+  // ('crash'): the figure keeps the last good frame and the page offers Reload or Restart. Loading a patient
+  // (or any state) clears it.
+  let crashed = false;
+  const RECOVER = ['init', 'preset', 'reset', 'restore', 'morph'];
+  const finite = (a) => { for (let i = 0; i < a.length; i++) if (!Number.isFinite(a[i])) return false; return true; };
+  function crash(err) {
+    stop();
+    crashed = true; morph = null; lapse = null; samples = null;
+    post({ type: 'crash', message: String(err && err.stack || err) });
+  }
   function tick() {
+    try { tickOnce(); } catch (err) { crash(err); }
+  }
+
+  let lastFrame = 0;
+  function tickOnce() {
     const now = performance.now();
     const realDt = last == null ? 0 : Math.min(0.1, (now - last) / 1000);
     last = now;
@@ -164,6 +179,7 @@ export function createCore(post) {
         }
       }
     }
+    if (!finite(eng.P) || !finite(eng.Q)) throw new Error('The model produced a pressure or flow that is not a number.');
     if (frameDirty || paramsDirty || eng.newEvents.length || (running && now - lastFrame > 95)) { lastFrame = now; frame(); }
   }
 
@@ -179,7 +195,7 @@ export function createCore(post) {
   }
 
   function start() {
-    if (timer || !running || !visible) return;
+    if (timer || crashed || !running || !visible) return;
     last = null;
     timer = setInterval(tick, 33);
   }
@@ -355,9 +371,10 @@ export function createCore(post) {
             }
           }
         }
+        if (RECOVER.includes(msg.type)) crashed = false;
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence'].includes(msg.type)) {
+        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence'].includes(msg.type)) {
           frameDirty = true;
           if (visible) { lastFrame = performance.now(); frame(); }
         }

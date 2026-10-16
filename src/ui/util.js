@@ -79,8 +79,10 @@ export function uiScale() {
 }
 
 // Messages show as a card at the top, below the bars, never over the bottom bar.
-export function toast(msg, kind = '') {
-  if (!msg) return;
+// opts: actions, [[label, fn], …] as buttons after the words (a tap runs it and closes the card); sticky, stays until
+// dismissed; onClose, called once when it goes. Returns a function that closes it.
+export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null } = {}) {
+  if (!msg) return () => {};
   const wrap = document.getElementById('toasts');
   // One message at a time reads calmer than a growing stack.
   while (wrap.children.length >= 2) wrap.firstChild.remove();
@@ -93,8 +95,16 @@ export function toast(msg, kind = '') {
     Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom / z}px`, bottom: 'auto', height: '', maxWidth: 'none' });
   }
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
-  let timer = 0;
-  const close = () => { clearTimeout(timer); t.classList.add('leaving'); setTimeout(() => t.remove(), 340); };
+  let timer = 0, gone = false;
+  const close = () => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(); t.classList.add('leaving'); setTimeout(() => t.remove(), 340); };
+  if (actions?.length) {
+    t.classList.add('has-acts');
+    t.append(h('span', { class: 'toast-acts' }, ...actions.map(([label, fn]) => {
+      const b = h('button', { class: 'btn sm' }, label);
+      b.addEventListener('click', (e) => { e.stopPropagation(); close(); fn(); });
+      return b;
+    })));
+  }
   const x = h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
   x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
   t.append(x);
@@ -103,15 +113,19 @@ export function toast(msg, kind = '') {
   let sx = 0, sy = 0;
   t.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
   t.addEventListener('pointerup', (e) => { if (Math.abs(e.clientY - sy) > 18 || Math.abs(e.clientX - sx) > 40) close(); });
+  // (A card pushed out by newer ones still counts as closed.)
+  if (onClose) new MutationObserver((_, ob) => { if (!t.isConnected) { ob.disconnect(); if (!gone) { gone = true; clearTimeout(timer); onClose?.(); } } }).observe(wrap, { childList: true });
   wrap.append(t);
   // Fill the docked card: the largest size that fits, stepping down for longer text, never clipped.
   if (wrap.classList.contains('docked')) {
     const m = t.querySelector('.toast-msg');
-    if (msg.length > 60) t.style.height = '84px';
+    if (msg.length > 60 || actions?.length) t.style.height = '84px';
     let px = msg.length <= 28 ? 20 : msg.length <= 60 ? 17 : 15;
-    for (; px > 12; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= t.clientHeight - 8 && m.scrollWidth <= m.clientWidth) break; }
+    const room = t.clientHeight - 8 - (actions?.length ? t.querySelector('.toast-acts').offsetHeight + 6 : 0);
+    for (; px > 12; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= room && m.scrollWidth <= m.clientWidth) break; }
   }
-  timer = setTimeout(close, 4200);
+  if (!sticky) timer = setTimeout(close, 4200);
+  return close;
 }
 
 let liveLast = 0;

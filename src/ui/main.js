@@ -1,28 +1,28 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=0f6d345282';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=3a2596ae17';
+import { startHost, host } from './host.js?v=61ebe1d038';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=65ec443c0e';
+import { createStage } from './stage.js?v=7d755b48bf';
 import { createCreditPlacer } from './credit.js?v=60d087892e';
-import { sinusoidSupported } from './sinusoid-view.js?v=051eabb041';
-import { createInspector } from './inspector.js?v=6bcb851088';
-import { createDock, CUTOFFS } from './dock.js?v=d954795e57';
-import { setHvpgStage } from './hvpg-proc.js?v=f423703c71';
-import { createWhy } from './why.js?v=e64ba04904';
-import { createTimeline, LAPSES } from './timeline.js?v=6d1c0cd95f';
-import { createCompare } from './compare.js?v=136a0625e4';
-import { createCard } from './card.js?v=b55ea9d934';
-import { createChart } from './chart.js?v=9dbeba1774';
-import { createMenu } from './menu.js?v=3794bda455';
-import { caption } from './a11y.js?v=dd710efaf1';
+import { sinusoidSupported } from './sinusoid-view.js?v=37130e1bae';
+import { createInspector } from './inspector.js?v=a39e4f9166';
+import { createDock, CUTOFFS } from './dock.js?v=d05c8c2270';
+import { setHvpgStage } from './hvpg-proc.js?v=01f366b0a2';
+import { createWhy } from './why.js?v=931e367a80';
+import { createTimeline, LAPSES } from './timeline.js?v=061ecaf8ef';
+import { createCompare } from './compare.js?v=889cc55ffd';
+import { createCard } from './card.js?v=b679c04ac5';
+import { createChart } from './chart.js?v=d0b077de8e';
+import { createMenu } from './menu.js?v=d2de98372c';
+import { caption } from './a11y.js?v=732c9ab008';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=131e89aa35';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=e8b507a6fd';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=efa2590dce';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=165ccda767';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=2a952639b6';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=db566eed84';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,10 +33,11 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=bde7401bef';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=25d28e3945';
 import { initTopbarMotion } from './topbar-motion.js?v=f095540bb8';
 import { ORIGINS } from './blood.js?v=34ef08458c';
-import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=6ebaeb46c8';
+import { parseShare, cleanShare } from './share-link.js?v=dc3934667b';
+import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=5c3e8b1079';
 import { frameFor, perf as framePerf } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('main');
 
@@ -153,7 +154,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=e199bcd2e4'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=653eb301c9'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -161,7 +162,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=1cea9bdffd'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=b896a6256a'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -194,6 +195,15 @@ async function main() {
 
   host.on('frame', onFrame);
   host.on('error', (m) => { console.error(m.message); toast('Engine error: see the console.', 'bad'); });
+  // The engine stopped (it threw, or its numbers stopped being numbers): one card that stays until it is used or
+  // dismissed, instead of a figure that silently freezes.
+  let crashCard = null;
+  host.on('crash', (m) => {
+    console.error(m.message);
+    if (crashCard) return;
+    crashCard = toast('The model stopped. Reload, or restart this patient.', 'bad', { sticky: true, onClose: () => { crashCard = null; },
+      actions: [['Restart patient', () => restartPatient()], ['Reload', () => location.reload()]] });
+  });
 
   // The Sinusoid button shows only in the Lobule view: it is one level further down.
   const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); $('#btnSinPlay').hidden = !(st.lobule && st.sinusoid); const inSin = !!(st.lobule && st.sinusoid); $('#zoomIn').disabled = inSin; for (const [id, off, on] of [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoomFit', 'Fit the figure to the view', 'Back out to the lobule']]) { $(id).title = inSin ? on : off; $(id).setAttribute('aria-label', inSin ? on : off); } };
@@ -371,13 +381,13 @@ function encodeShare(extra) {
   const payload = { v: 1, preset: st.presetId, params: st.params, view: st.view, ...extra };
   return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
+// (Read through share-link.js: prototype keys dropped, and only a known patient, view, selection and a finite camera kept.)
 function readShare() {
   const m = location.hash.match(/#s=([\w-]+)/);
-  if (!m) return null;
-  try { return JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g, '+').replace(/_/g, '/'))))); } catch { return null; }
+  return m ? cleanShare(parseShare(m[1]), store.get().presetList?.map((p) => p.id)) : null;
 }
 async function loadShared(s, { quiet = false } = {}) {
-  await loadPreset(s.preset || 'healthy');
+  await loadPreset(s.preset);
   if (s.params) {
     const merged = deepMerge(store.get().params, s.params), clean = sanitizeParams(merged);
     updateParams(() => clean, { settle: true, history: false });
@@ -1677,5 +1687,25 @@ function openPrivacy() {
 // (?script=, ?preset=, ?home=) opens anything else.
 function firstRun() {
   try { localStorage.setItem('pps.seen', '1'); } catch { /* storage unavailable */ }
+  showFirstHint();
+}
+// The first-run hint: once per device, in the message card under the top bars (never over the bottom bar), until the
+// first vessel or organ is picked or the card is dismissed. Its own key, so devices that opened the app before see it once.
+// (Not under automation: the browser checks and visual references start from a fresh browser every time.)
+const HINT_KEY = 'pps.hint';
+function showFirstHint() {
+  if (navigator.webdriver) return;
+  let seen = true;
+  try { seen = !!localStorage.getItem(HINT_KEY); } catch { /* storage unavailable: no hint */ }
+  if (seen) return;
+  const show = () => {
+    if (store.get().selection || presenter.active()) return;
+    const verb = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Click' : 'Tap';
+    let off = null;
+    const done = () => { off?.(); off = null; try { localStorage.setItem(HINT_KEY, '1'); } catch { /* storage unavailable */ } };
+    const close = toast(`${verb} a vessel or the liver to change it.`, '', { sticky: true, onClose: done });
+    off = store.on('selection', (sel) => { if (sel) close(); });
+  };
+  if (window.ppsFigureReady) setTimeout(show, 600); else addEventListener('pps:figure-ready', () => setTimeout(show, 600), { once: true });
 }
 main().catch((err) => { console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });

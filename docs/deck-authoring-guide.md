@@ -481,7 +481,7 @@ Edge tones used when you glow an id by hand: portal vessels follow their station
 
 Status words read in order: Normal, then High (or Low), then Severe; HVPG, PPG and stiffness use their guideline meaning instead (Mild/CSPH, High/Bleed risk, cACLD/Borderline/CSPH). The spleen is Normal or Large.
 
-Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; HVPG ≥ 12 high risk of variceal bleeding; PPG normal ≤ 5; Baveno VIII stiffness: < 10 kPa normal, ≤ 15 with platelets ≥ 150 rules CSPH out, 15–25 gray zone (ANTICIPATE ≥ 75% or spleen stiffness ≥ 55 kPa rules it in), ≥ 25 CSPH.
+Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; bleeding risk rises steeply from an HVPG of about 12 (rising risk, not a cut-off: varices can bleed below it); PPG normal ≤ 5; Baveno VIII stiffness: < 10 kPa normal, ≤ 15 with platelets ≥ 150 rules CSPH out, 15–25 gray zone (ANTICIPATE ≥ 75% or spleen stiffness ≥ 55 kPa rules it in), ≥ 25 CSPH.
 
 ---
 

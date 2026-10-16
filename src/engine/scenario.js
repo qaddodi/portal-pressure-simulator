@@ -125,11 +125,15 @@ export function sanitizeParams(p) {
 }
 
 function isObj(x) { return x && typeof x === 'object' && !Array.isArray(x); }
+// (Keys that would reach an object's prototype are skipped, and only the base's own keys are merged into, so a
+// hand-made share link cannot change Object.prototype.)
+const UNSAFE = new Set(['__proto__', 'constructor', 'prototype']);
 export function deepMerge(base, patch) {
   const out = structuredClone(base);
   (function merge(o, p) {
     for (const k of Object.keys(p)) {
-      if (isObj(p[k]) && isObj(o[k])) merge(o[k], p[k]);
+      if (UNSAFE.has(k)) continue;
+      if (isObj(p[k]) && Object.hasOwn(o, k) && isObj(o[k])) merge(o[k], p[k]);
       else o[k] = structuredClone(p[k]);
     }
   })(out, patch);

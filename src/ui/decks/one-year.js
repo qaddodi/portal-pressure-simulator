@@ -50,9 +50,9 @@ export const ONE_YEAR = {
     {
       id: 'd365', tick: 'Catheter, Doppler', days: 185, ramp: ramp(0.58, 0.66), cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], delta: 'd0',
       kicker: 'Day 365', site: 'sin', title: 'At one year, HVPG is above 12',
-      line: 'The HVPG is {hvpg}, up from 9 a year ago. At 12 or more, varices can bleed.',
-      notes: 'A year on, the gradient has risen by 4 mmHg. Above 12 mmHg varices can bleed, and the risk of ascites and other decompensation rises with each mmHg. Repeat catheter studies are not routine; in practice the stiffness, the platelets and the scope track this rise.',
-      ask: ['The HVPG is now 13. What does that change?', 'The varices can now bleed; below 12 mmHg bleeding is rare.'],
+      line: 'The HVPG is {hvpg}, up from 9 a year ago. From about 12, the risk of a variceal bleed rises steeply.',
+      notes: 'A year on, the gradient has risen by 4 mmHg. Above about 12 mmHg a variceal bleed becomes more likely, and the risk of ascites and other decompensation rises with each mmHg. Repeat catheter studies are not routine; in practice the stiffness, the platelets and the scope track this rise.',
+      ask: ['The HVPG is now 13. What does that change?', 'The varices are now more likely to bleed; below about 12 mmHg bleeding is rare.'],
     },
     {
       id: 'doppler', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'd0' },

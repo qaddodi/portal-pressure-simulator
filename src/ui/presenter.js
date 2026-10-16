@@ -12,24 +12,24 @@
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen,
 // Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=3b659e1968';
+import { store, replaceParams } from './store.js?v=65ec443c0e';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=2a952639b6';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=db566eed84';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=051eabb041';
+import { sinusoidSupported } from './sinusoid-view.js?v=37130e1bae';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=5a20dace6b';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e3c7909d78';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=f423703c71';
-import { createTools } from './presenter-tools.js?v=24a65670b2';
-import { openHandout } from './handout.js?v=dd7b6703cc';
+import { createHvpgMonitor } from './hvpg-proc.js?v=01f366b0a2';
+import { createTools } from './presenter-tools.js?v=58ca8a7470';
+import { openHandout } from './handout.js?v=9cf7b12bc8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=f709ae0429';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
 import { createFigureKey } from './figure-key.js?v=382bd7d4ad';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=e8b507a6fd';
+import { flowCss, heatCss, dropCss, gradientCss } from './colormap.js?v=165ccda767';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1061,7 +1061,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=35c4e71965', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=ebc38b3de8', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1074,7 +1074,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=e650a9ef5a');
+        const { createCore } = await import('../worker-core.js?v=aa5565daa8');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

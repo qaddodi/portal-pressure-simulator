@@ -21,15 +21,15 @@
 // covered until the answer. Each instrument is made once per presentation and kept, so a trace that keeps recording
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
-import { store } from './store.js?v=3b659e1968';
-import { h, fmt, clamp } from './util.js?v=2a952639b6';
+import { store } from './store.js?v=65ec443c0e';
+import { h, fmt, clamp } from './util.js?v=db566eed84';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=08dca5a2c3';
-import { createFibroScan } from './fibroscan.js?v=adc9e644f8';
-import { createPressureTime } from './pressure-time.js?v=bb6e5de96d';
+import { createDoppler } from './doppler.js?v=9bbe8042c8';
+import { createFibroScan } from './fibroscan.js?v=2338f95dd1';
+import { createPressureTime } from './pressure-time.js?v=6dd28181c0';
 import { createFlowTime } from './flow-time.js?v=f4004dece2';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=15e9c448c8';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=ed9055b39a';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('presenter-tools');
 

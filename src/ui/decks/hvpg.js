@@ -8,7 +8,7 @@ export const HVPG = {
   objectives: ['Describe how free and wedged hepatic pressures are recorded', 'Calculate the HVPG and state its 5, 10 and 12 mmHg cut-offs', 'Recognize when the HVPG misleads', 'Use the portal pressure gradient when it does'],
   checks: [
     ['How is the HVPG calculated?', 'Wedged hepatic vein pressure minus free hepatic vein pressure (WHVP − FHVP).'],
-    ['At which HVPG levels does the risk rise?', 'Above 5 mmHg is portal hypertension, 10 mmHg or more is CSPH, and from 12 mmHg varices can bleed.'],
+    ['At which HVPG levels does the risk rise?', 'Above 5 mmHg is portal hypertension, 10 mmHg or more is CSPH, and from about 12 mmHg the risk of a variceal bleed rises steeply.'],
     ['When does the HVPG miss a high portal pressure, and what do you measure instead?', 'When the resistance lies before the sinusoids, as with a portal vein clot or schistosomiasis. Measure the PPG, portal vein minus IVC.'],
   ],
   slides: [
@@ -42,15 +42,15 @@ export const HVPG = {
       kicker: 'Measuring portal pressure', site: 'sin', title: 'HVPG measures the pressure drop across the sinusoids',
       eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>'],
       line: 'The patient has an HVPG of {hvpg}: clinically significant portal hypertension.',
-      notes: 'The hepatic venous pressure gradient is the pressure drop across the sinusoids. The patient has an HVPG of about 12 mmHg, which is clinically significant. HVPG predicts outcome: from 10 mmHg varices and decompensation become possible, and the risk rises with the gradient; from 12 varices can bleed. After a variceal bleed, a fall on treatment to below 12 mmHg, or by 20% or more, protects against rebleeding. Before any bleed, a fall of 10% or more already predicts benefit. Without a catheter, liver stiffness (25 kPa or more) rules clinically significant portal hypertension in; stiffness of 15 kPa or less with platelets of 150 or more rules it out.',
+      notes: 'The hepatic venous pressure gradient is the pressure drop across the sinusoids. The patient has an HVPG of about 12 mmHg, which is clinically significant. HVPG predicts outcome: from 10 mmHg varices and decompensation become possible, and the risk rises with the gradient; variceal bleeding is rare below about 12. After a variceal bleed, a fall on treatment to below 12 mmHg, or by 20% or more, protects against rebleeding. Before any bleed, a fall of 10% or more already predicts benefit. Without a catheter, liver stiffness (25 kPa or more) rules clinically significant portal hypertension in; stiffness of 15 kPa or less with platelets of 150 or more rules it out.',
       ask: ['After a variceal bleed, on carvedilol, the HVPG falls from 18 to 13 mmHg. Is that a response?', 'Yes: a fall of 20% or more protects against rebleeding even above 12. Before any bleed, a fall of 10% already predicts benefit.'],
     },
     {
-      id: 'grades', visual: 'scale', scale: { key: 'hvpg', max: 20, legend: true, low: 'Normal', marks: [[5, 'Portal\nhypertension', 'Mild'], [10, 'Clinically significant\nportal hypertension\n(CSPH)', 'CSPH'], [12, 'Varices\ncan bleed', 'Bleed risk']] },
+      id: 'grades', visual: 'scale', scale: { key: 'hvpg', max: 20, legend: true, low: 'Normal', marks: [[5, 'Portal\nhypertension', 'Mild'], [10, 'Clinically significant\nportal hypertension\n(CSPH)', 'CSPH'], [12, 'Bleeding risk\nrises', 'Bleed risk']] },
       of: [{ preset: 'healthy', name: 'Healthy' }, { preset: 'cirr-comp', name: 'Compensated cirrhosis' }, { id: 'hvpg', name: 'The patient' }, { preset: 'cirr-decomp', name: 'Decompensated cirrhosis' }],
       kicker: 'Thresholds', title: 'Four patients on the HVPG scale',
       line: 'A healthy liver, compensated cirrhosis, the patient\'s liver and decompensated cirrhosis, each placed by its HVPG.',
-      notes: 'HVPG 1 to 5 mmHg is normal. 6 to 9: portal hypertension, still subclinical. 10 or more: clinically significant portal hypertension, where varices, ascites and decompensation become possible, and the risk rises with the gradient; Baveno VIII advises a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. 12 or more: varices can bleed, although size, red signs and liver function decide how likely that is. Higher values carry a worse outlook; in an acute bleed an HVPG of 20 or more predicts failure to control it.',
+      notes: 'HVPG 1 to 5 mmHg is normal. 6 to 9: portal hypertension, still subclinical. 10 or more: clinically significant portal hypertension, where varices, ascites and decompensation become possible, and the risk rises with the gradient; Baveno VIII advises a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. From about 12, the risk of a variceal bleed rises steeply, although size, red signs and liver function decide how likely a bleed is; 12 is not a cut-off, and varices can bleed below it. Higher values carry a worse outlook; in an acute bleed an HVPG of 20 or more predicts failure to control it.',
       ask: ['At what HVPG can varices bleed?', '12 mmHg or more.'],
     },
     {

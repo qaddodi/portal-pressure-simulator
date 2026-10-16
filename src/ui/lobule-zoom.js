@@ -20,16 +20,16 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
-import { store } from './store.js?v=3b659e1968';
+import { store } from './store.js?v=65ec443c0e';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
 import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=a9d3b2ece7';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=2a952639b6';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=e8b507a6fd';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=4cd46fa580';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=db566eed84';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=165ccda767';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=a746146c03';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=14abf051de';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=34ef08458c';
-import { createSinusoidView } from './sinusoid-view.js?v=051eabb041';
+import { createSinusoidView } from './sinusoid-view.js?v=37130e1bae';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');

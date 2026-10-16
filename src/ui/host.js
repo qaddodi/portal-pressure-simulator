@@ -14,12 +14,17 @@ function dispatch(msg) {
   (handlers.get(msg.type) || []).forEach((fn) => fn(msg));
 }
 
+function crashed(message) {
+  for (const [id, p] of pending) { pending.delete(id); p.reject(new Error(message)); }
+  dispatch({ type: 'crash', message });
+}
+
 export const WORKER_WAIT = 15000;
 
 export async function startHost() {
   let w;
   try {
-    w = new Worker(new URL('../worker.js?v=35c4e71965', import.meta.url), { type: 'module' });
+    w = new Worker(new URL('../worker.js?v=ebc38b3de8', import.meta.url), { type: 'module' });
     await new Promise((resolve, reject) => {
       // A worker that cannot start fails at once (onerror); the timeout only catches one that never answers. It is long, so
       // a slow first load (the worker's modules arrive one round trip after another) still gets the worker, not the main
@@ -29,13 +34,16 @@ export async function startHost() {
       w.onerror = (e) => { clearTimeout(t); reject(e); };
       w.postMessage({ type: 'init' });
     });
+    // After start-up an uncaught error inside the worker is a crash: say so (main.js offers Reload or Restart),
+    // and settle every request still waiting, so nothing hangs on an engine that will not answer.
+    w.onerror = (e) => { e.preventDefault?.(); crashed(e.message || 'The engine stopped.'); };
     impl = { post: (m) => w.postMessage(m), kind: 'worker' };
   } catch (err) {
     // A slow module load can finish after the timeout. Never leave a second
     // engine alive, or let its late frames reach the fallback's subscribers.
     if (w) { w.onmessage = null; w.onerror = null; w.terminate(); }
     console.warn('Web Worker unavailable, running engine on main thread.', err);
-    const { createCore } = await import('../worker-core.js?v=e650a9ef5a');
+    const { createCore } = await import('../worker-core.js?v=aa5565daa8');
     const core = createCore((m) => setTimeout(() => dispatch(m), 0));
     impl = { post: (m) => core.handle(structuredClone(m)), kind: 'main' };
     impl.post({ type: 'init' });

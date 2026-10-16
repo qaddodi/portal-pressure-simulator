@@ -4,10 +4,10 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=2a952639b6';
-import { FONT } from './charts.js?v=a7aaa9ed66';
-import { simTime, isPaused, fibroReading } from './clock.js?v=af6de95a7c';
-import { store } from './store.js?v=3b659e1968';
+import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=db566eed84';
+import { FONT } from './charts.js?v=e8772db78b';
+import { simTime, isPaused, fibroReading } from './clock.js?v=c699a8ff80';
+import { store } from './store.js?v=65ec443c0e';
 import { elastogramGL } from './fibroscan-gl.js?v=c1e9f0f60b';
 import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('fibroscan');

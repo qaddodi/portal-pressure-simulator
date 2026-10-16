@@ -4,10 +4,10 @@
 // same content as a bottom sheet. Hovering a row (or focusing it with the arrow keys) previews it beside
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
-import { store } from './store.js?v=3b659e1968';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore } from './util.js?v=2a952639b6';
+import { store } from './store.js?v=65ec443c0e';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore } from './util.js?v=db566eed84';
 import { SNAPSHOTS } from './snapshots.js?v=01db65d6d0';
-import { pressureColor } from './colormap.js?v=e8b507a6fd';
+import { pressureColor } from './colormap.js?v=165ccda767';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('menu');
 
@@ -105,7 +105,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       h('span', { class: 'um-t' }, p.label), p.id === cur ? svgIcon('check', 'um-check') : null);
     row.dataset.find = fold([p.label, p.group, GROUP_WHERE[p.group], p.id].join(' ')); row.dataset.more = fold(p.summary);
     hoverable(row, () => patientPreview(p), 'patients');
-    return h('li', {}, row);
+    // On touch (iPad, iPhone) there is no hover: the ⓘ opens the same preview under the row, as the decks' rows do.
+    const info = h('button', { class: 'um-info', 'aria-label': `About ${p.label}`, 'aria-expanded': 'false', onclick: () => toggleInline(li, () => patientPreview(p), info) }, icon('info'));
+    const li = h('li', {}, row, info);
+    return li;
   }
   const deckPreview = (d, lib) => h('div', { class: 'um-pv-in pt' },
     h('span', { class: 'um-pv-meta' }, `${lib.levels[d.level] || ''} · ${d.slides.length + 1} slides · ${d.minutes} min`),
