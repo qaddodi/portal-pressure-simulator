@@ -35,7 +35,6 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=1f05278710';
 import { cssRGB } from './util.js?v=0140acc352';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=2bc0d36839';
-import { SIN_PERFUSION } from './sin-perfusion.js?v=63361a456d';
 
 export { binVeins };
 
@@ -56,7 +55,7 @@ const put = (dst, src) => { dst.set(src); return dst; };
 // Flags (tube texel 2, z).
 // Stream flags (tube texel 5, w): the stream runs on at the upstream / downstream end; reversed flow.
 export const F_UP = 1, F_DN = 2, F_REV = 4;
-export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64, F_VEIL = 128, F_PERF = 256;   // F_EDGE: the casing takes its own color (texel 6) and is opaque; F_VEIL: faded along its whole course as if behind an organ; F_PERF: a sinusoid strand's glow (texel 12, w)
+export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64, F_VEIL = 128;   // F_EDGE: the casing takes its own color (texel 6) and is opaque; F_VEIL: faded along its whole course as if behind an organ
 
 const VS = `#version 300 es
 layout(location=0) in vec2 corner;
@@ -90,8 +89,7 @@ void main() {
 //      stretch between the two u glows, 0–1 along the vessel); 1: its own color;
 //      its width (× the usual, 0 or 1 usual; at most 1.3: 15.6 past the wall, inside the vessel's cells)
 //  12: selection: how far the vessel stands out of the dimmed network (0–1), whether it eases back into it toward its
-//      start, toward its end (1: over a third of its length, at most 60, as the hover's brightening; 0: it runs on at full);
-//      a sinusoid strand's soft glow in its own colour, its opacity at the strand (0 none; see sin-perfusion.js)
+//      start, toward its end (1: over a third of its length, at most 60, as the hover's brightening; 0: it runs on at full)
 const FS = `#version 300 es
 precision highp float;
 precision highp int;
@@ -171,15 +169,14 @@ void main() {
   vec2 bg = vec2(0.0);
   vec4 clip = vec4(0.0, 1.0, 1.0, 0.0);
   bool dotted = false;
-  float rmx = 0.0, rv = reach;   // rv: how far from its lumen this vessel draws anything (a sinusoid strand's glow, farther)
-  float pReach = max(reach, ${SIN_PERFUSION.reach.toFixed(1)} + 2.0 * px);
+  float rmx = 0.0;
   int cnt = min(vR.y, 2048);
   for (int k = 0; k <= cnt; k++) {
     int id = -2;
     vec4 A = vec4(0.0), B = vec4(0.0);
     if (k < cnt) { A = E(vR.x + k, 0); B = E(vR.x + k, 1); id = int(B.x + 0.5); }
     if (id != cur) {
-      if (cur >= 0 && min(bd, bs) < rv) {
+      if (cur >= 0 && min(bd, bs) < reach) {
         int slot = n;
         // When the slots are full, the vessel that matters least here gives way: the farthest, a glowing one
         // counting as nearer by its glow's width (or a crowded join, the hepatic veins' at the IVC, drops its glow in blocks).
@@ -192,14 +189,14 @@ void main() {
         if (slot >= 0) { sk[slot] = key; sid[slot] = cur; sd[slot] = bd; sh[slot] = bs; sr[slot] = br; su[slot] = bu; sg[slot] = bg; sx[slot] = bx; sv[slot] = aW > 0.0 ? aU / aW : bu; }
       }
       cur = id; bd = 1e9; bs = 1e9; aM = 1e9; aW = 0.0; aU = 0.0;
-      if (id >= 0) { clip = T(id, 5); int fl = int(T(id, 2).z + 0.5); dotted = (fl & ${F_DOTTED}) != 0; rv = (fl & ${F_PERF}) != 0 ? pReach : reach; rmx = texelFetch(rmax, ivec2(0, id), 0).r; }
+      if (id >= 0) { clip = T(id, 5); dotted = (int(T(id, 2).z + 0.5) & ${F_DOTTED}) != 0; rmx = texelFetch(rmax, ivec2(0, id), 0).r; }
     }
     if (k == cnt) break;
     // The head of this vessel's stretch of the list (segment index -1: a circle holding every point of the stretch, and
     // its length; see veins-bin). When every point lies out of reach, by the wall and by the shadow, the vessel would not
     // be kept here whatever its segments, so they are passed over.
     if (B.y < -0.5) {
-      if (length(p - A.xy) - A.z - rmx > rv + 0.01 && length(ps - A.xy) - A.z - rmx > rv + 0.01) k += int(B.w + 0.5);
+      if (length(p - A.xy) - A.z - rmx > reach + 0.01 && length(ps - A.xy) - A.z - rmx > reach + 0.01) k += int(B.w + 0.5);
       continue;
     }
     // A run of this vessel's segments (B.w of them, every point within B.z of this one's start: see veins-bin) that lies
@@ -274,7 +271,6 @@ void main() {
       dMin = min(dMin, sd[s]); sMin = min(sMin, sh[s]);
       if (T(sid[s], 10).a > 0.0 && sd[s] - T(sid[s], 0).w < 15.7) lit = true;
       if (heat == 1 && T(sid[s], 2).w > 0.0 && sd[s] < 19.1) lit = true;
-      if ((int(T(sid[s], 2).z + 0.5) & ${F_PERF}) != 0 && sd[s] < ${SIN_PERFUSION.reach.toFixed(1)} + 0.1) lit = true;
     }
     if (!lit && dMin - pull > 8.01 + 2.0 * px && sMin - pull > 6.01 + 2.0 * px) {
       if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; }
@@ -342,17 +338,6 @@ void main() {
     float x = sd[s] + sr[s], hw = sr[s] + 7.0;
     float gv = 0.58 * (1.0 - smoothstep(hw - 12.0, hw + 12.0, x)) * sheat[s] * sa[s];
     if (gv > glow.a) glow = vec4(shcol[s] * gv, gv);
-  }
-  // ── A sinusoid strand's soft glow in its own colour, on the same path: the blood seems to soak into the liver tissue ──
-  // Strongest at the strand and easing out to nothing at the reach; it fades out toward both ends of the sinusoid (over a
-  // quarter of its length), so it does not pool where the sinusoid meets the portal venule and the central vein.
-  for (int s = 0; s < MAXS; s++) {
-    if (s >= n || (int(sflag[s] + 0.5) & ${F_PERF}) == 0) continue;
-    float pa = T(sid[s], 12).w;
-    float Lp = max(T(sid[s], 5).z, 1.0), fp = 0.25 * Lp;
-    float gv = pa * (1.0 - smoothstep(0.0, ${SIN_PERFUSION.reach.toFixed(1)}, sd[s])) * smoothstep(0.0, fp, sv[s] * Lp) * smoothstep(0.0, fp, (1.0 - sv[s]) * Lp);
-    if (gv > 0.0) dep = true;
-    if (gv > glow.a) glow = vec4(scol[s] * gv, gv);
   }
   // (A lit vessel's glow, the thin soft band hugging its wall, is laid down with its own tier below.)
 

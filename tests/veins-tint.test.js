@@ -59,9 +59,7 @@ test('the vessel shader marks the pixels a lumen colour reaches, and a colour-on
   assert.match(fs, /float aL = clamp\(0\.5 - D \/ aa, 0\.0, 1\.0\);\n\s*if \(aL > 0\.0\) dep = true;/);
   assert.match(fs, /if \(gv > 0\.0 && ge\.z > 0\.5\) dep = true;\n\s*if \(up\) \{ if \(gv > lgU\.a\) lgU = vec4\(\(ge\.z > 0\.5 \? scol\[s\]/);
   const uses = fs.split('\n').filter((l) => /\bscol\[s\]/.test(l) && !/scol\[s\] = /.test(l) && !/^\s*\/\//.test(l));
-  // (and a sinusoid strand's soft glow in its own colour, which marks its pixels too: review G15)
-  assert.match(fs, /if \(gv > 0\.0\) dep = true;\n\s*if \(gv > glow\.a\) glow = vec4\(scol\[s\] \* gv, gv\);/);
-  assert.equal(uses.length, 4, 'scol reaches the picture through the glow (twice), the sinusoid strands\' glow and the lumen colour only');
+  assert.equal(uses.length, 3, 'scol reaches the picture through the glow (twice) and the lumen colour only');
   assert.match(fs, /col \+= w \* scol\[s\]/);
   // (lines that set lum from itself, the inks and the hover, aside: what leaves it)
   const lumUses = fs.split('\n').filter((l) => /\blum\b/.test(l) && !/^\s*\/\//.test(l) && !/\blum = /.test(l));

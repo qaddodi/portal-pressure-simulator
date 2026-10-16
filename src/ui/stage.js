@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=0140acc352';
-import { createLobuleZoom } from './lobule-zoom.js?v=e5f849973e';
+import { createLobuleZoom } from './lobule-zoom.js?v=1fb97de239';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -19,7 +19,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_PERF, ORIGIN_GREY } from './veins-gl.js?v=f81dea345f';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=fdd771b756';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=1f05278710';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
@@ -30,7 +30,7 @@ import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end
 import { balloonRy, routeRadii } from './hvpg-balloon.js?v=0f8da50742';
 import { layoutWatch } from './idle-keys.js?v=27f599b5bc';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
-import { SIN_PERFUSION, sinStrandRadius, sinGlowIn } from './sin-perfusion.js?v=63361a456d';
+import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 const nextFrame = frameFor('stage');
@@ -2578,7 +2578,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const veinsRows = new Set();   // vessel rows whose attributes changed since the vessel layer was drawn (only those, while veinsDirty is false)
   let plateDim = null, plateSat = 1, netA = 1;
   // A lens switch crossfades every vessel from the colors it showed to the new lens's (no one-frame recolor).
-  let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null, lensPrev = null;
+  let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
   const LENS_FADE = 300;
   const lensFading = () => !!lensFrom && performance.now() - lensT0 < LENS_FADE + 20;
   const colorCtx = veins ? document.createElement('canvas').getContext('2d') : null;
@@ -2829,7 +2829,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const items = glItems();
     const cs = wrapCS();
     const mode = layerMode(), heat = mode === 'heat';
-    if (lensMode && mode !== lensMode && !reduceMotion.matches) { lensFrom = shownCol; lensT0 = performance.now(); lensPrev = lensMode; }
+    if (lensMode && mode !== lensMode && !reduceMotion.matches) { lensFrom = shownCol; lensT0 = performance.now(); }
     lensMode = mode;
     if (lensFrom && !lensFading()) lensFrom = null;
     shownCol = new Map();
@@ -2871,8 +2871,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     glRadDirty = false;
     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.
-    // (A sinusoid strand's glow reaches farther: sin-perfusion.js.)
-    const reachOf = (it) => Math.ceil(Math.max(it.obj.glMaxR + (it.x.wallPx || 1) + 18 + (heat ? 30 : 0), it.kind === 's' && SIN_EDGES.has(it.x.e.id) ? it.obj.glMaxR + (it.x.wallPx || 1) + SIN_PERFUSION.reach + 4 : 0) / 2) * 2;
+    const reachOf = (it) => Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18 + (heat ? 30 : 0)) / 2) * 2;
     const key = `${geometryVersion}|${heat}|` + items.map((it) => it.row).join(',');
     const grew = key === vBinKey && items.some((it) => reachOf(it) > (vBinReach.get(it.row) || 0));
     if (key !== vBinKey || grew) {
@@ -2920,9 +2919,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       let alpha = x.isArt ? 0.85 : kind === 'c' ? clamp(2 * T0 - 1, 0, 1) : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
       const sinStrand = kind === 's' && SIN_EDGES.has(id);
-      // Their glow shows only in the data lenses, where it takes the strands' colour (none in Anatomy or by origin, where it
-      // would be one constant tint); it eases in and out with a lens change.
-      const sinGlow = sinStrand ? (lensFrom ? lerp(sinGlowIn(lensPrev), sinGlowIn(mode), easeInOut(clamp((now - lensT0) / LENS_FADE, 0, 1))) : sinGlowIn(mode)) : 0;
       const tier = ivcOn && IVC_EDGES.has(id) ? TIER_LIFT : x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
       // The network recedes to netA with a vessel selected (the lifted tier and the vessels behind the organs are not faded as a
       // group): the selected vessel eases out of that dimming and, deselected, back into it (selA), so it never snaps.
@@ -2930,7 +2926,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const shade = !x.isArt && !ghost;
       const veil = IVC_EDGES.has(id) && !ivcOn;
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
-      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (sinGlow > 0 && alpha > 0 ? F_PERF : 0);
+      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       // No congestion halo on the IVC itself: its wide halo would spill onto the bowel beside it.
       const heatA = kind === 'v' && heat && !IVC_EDGES.has(id) ? (x.heatA || 0) : 0;
@@ -2939,8 +2935,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (was) { c0 = mix3(was[0], c0, u); c1 = mix3(was[1], c1, u); }
       }
       shownCol.set(it.row, [c0, c1]);
-      // The sinusoids' strands are drawn faint over their glow (sin-perfusion.js).
-      const sinAlpha = alpha;
+      // The sinusoids' strands are drawn faint and fine (sin-perfusion.js).
       if (sinStrand) alpha *= SIN_PERFUSION.fade;
       tubeData.set([...c0, x.isArt ? 0 : x.wallPx, ...c1, alpha, tier, z, flags, heatA], o);
       // Fades, as the SVG masks: into an organ (TIP_FADE), out of the plate, into a deeper vein,
@@ -2982,8 +2977,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // eases back into the network; a free end, or one into the rest of the selection, stays at full.
       const sa = tier < TIER_LIFT && !x.back && !SIN_EDGES.has(id) ? vh.selA.get(id) || 0 : 0;
       if (sa > 0) tubeData.set(kind === 'v' ? [easeInOut(sa), selEnd(id, x.e.from), selEnd(id, x.e.to), 0] : [easeInOut(sa), 0, 0, 0], o + 48);
-      // A sinusoid strand's soft glow in its own colour (texel 12, w), as strong as the strand was before it was faded.
-      if (sinGlow > 0 && alpha > 0) tubeData[o + 51] = SIN_PERFUSION.glow * sinGlow * sinAlpha;
     }
     // (Uploaded only when some vessel's attributes changed: most model frames in a steady state change none.)
     const tubesChanged = !tubesShown || tubesShown.length !== tubeData.length || tubeData.some((v, i) => v !== tubesShown[i]);
