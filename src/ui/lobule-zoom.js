@@ -24,7 +24,7 @@ import { store } from './store.js?v=31ee79b6ab';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=1ff0bc103e';
-import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline } from './lobule-look.js?v=a208ad8d9e';
+import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline } from './lobule-look.js?v=240bbb6cad';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=0140acc352';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=5c9a375f49';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
@@ -116,7 +116,9 @@ function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp
     const end = 1 + (e0 - 1) * Math.max(0, 1 - u * 3) ** 2 + (e1 - 1) * Math.max(0, u * 3 - 2) ** 2;
     Wd.push(Math.max(0, w * lump * end));
   }
-  const outline = (k) => bandOutline(c, P, N, Wd, k);   // (round ends, so bands meeting at a tract blend)
+  // (Round ends, so bands meeting at a tract blend; the widest, faintest pass narrows to the middle one's width at the
+  // ends, so it leaves no outer halo round the tract.)
+  const outline = (k) => bandOutline(c, P, N, Wd, k, Math.min(k, 1.45));
   // Soft edges: the band laid down in three passes, wide and faint to narrow and dense.
   const sb = c.shadowBlur;   // a shade (set by the caller) is cast by the faint outer pass only
   for (const [k, al] of [[2.1, 0.12], [1.45, 0.24], [1, 0.5]]) { c.fillStyle = css(rgb, al * a); outline(k); c.fill(); c.shadowBlur = 0; }
@@ -604,7 +606,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // is kept (worldOld, swapped rather than copied) and laid under the new one as it fades in, and the surround's tiles the
   // same way. Both pictures stay sharp throughout; the fade only adds one image draw a frame while it runs.
   const XF_MS = 900;   // as long as the vessels' calibers take to settle (easeRadii, τ 0.3 s)
-  let worldOld = document.createElement('canvas'), worldOldSc = 0, worldState = '', xfT0 = 0, surNow = null, surOld = null, surT0 = 0;
+  let worldOld = document.createElement('canvas'), xfCv = document.createElement('canvas'), worldOldSc = 0, worldState = '', xfT0 = 0, surNow = null, surOld = null, surT0 = 0;
   const xfU = (t0, now) => { const u = Math.min(1, Math.max(0, (now - t0) / XF_MS)); return u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2; };
   const tissueFading = (now = performance.now()) => (xfT0 > 0 && now - xfT0 < XF_MS) || (surT0 > 0 && now - surT0 < XF_MS);
   const tubeData = new Float32Array(MAXT * TUBE_TEXELS * 4), flowData = new Float32Array(MAXT * FLOW_TEXELS * 4);
@@ -646,7 +648,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const dpr = Math.min(2, devicePixelRatio || 1), k = kFit || V.k;
     const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * k)) * 2) / 2), 3600 / (2.6 * geo.R)), n = Math.ceil(2.6 * geo.R * sc);
     if (worldCv.width > n) { free(worldCv); worldKey = ''; prepKey = ''; }
-    free(worldOld); xfT0 = 0; surNow = null; surOld = null; surT0 = 0;
+    free(worldOld); free(xfCv); xfT0 = 0; surNow = null; surOld = null; surT0 = 0;
     // The field: the newest state's tiles only, and none above the largest the dive or the framed lobule draws.
     const keys = [...tileSets.keys()], top = Math.max(geo.R * k * Math.min(1, devicePixelRatio || 1) * 0.8, geo.R * k * dpr) * 0.55;
     const drop = (q) => { if (q.cv) free(q.cv); if (q.quiet) free(q.quiet.cv); if (q.liverQ) free(q.liverQ.cv); q.cv = null; q.quiet = null; q.liverQ = null; };
@@ -2277,11 +2279,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     {
       const [sx, sy] = toScreen([bx, by]), side = 2 * B * V.k * dpr;
       if (xfT0 && now - xfT0 < XF_MS && worldOld.width && worldOldSc) {
-        c.drawImage(worldOld, sx * dpr, sy * dpr, side, side);
-        c.globalAlpha = xfU(xfT0, now); c.drawImage(worldCv, sx * dpr, sy * dpr, side, side); c.globalAlpha = 1;
+        // Mixed (1 − u)·old + u·new before it is laid on the field: drawn one over the other, the see-through rim (the soft
+        // outer collagen past the lobule's edge) grew denser mid-fade and dropped back after, so it pulsed at every redraw.
+        const u = xfU(xfT0, now), x = xfCv.getContext('2d'), n = worldCv.width;
+        if (xfCv.width !== n || xfCv.height !== worldCv.height) { xfCv.width = n; xfCv.height = worldCv.height; }
+        x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1 - u; x.drawImage(worldOld, 0, 0, n, xfCv.height);
+        x.globalCompositeOperation = 'lighter'; x.globalAlpha = u; x.drawImage(worldCv, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+        c.drawImage(xfCv, sx * dpr, sy * dpr, side, side);
       } else {
         c.drawImage(worldCv, sx * dpr, sy * dpr, side, side);
-        if (xfT0) { xfT0 = 0; free(worldOld); }   // (faded in: the old picture is given back)
+        if (xfT0) { xfT0 = 0; free(worldOld); free(xfCv); }   // (faded in: the old picture is given back)
       }
     }
     // Focus: the surround fades into the page (as the dive's field does at its end).

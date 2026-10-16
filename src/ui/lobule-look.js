@@ -114,10 +114,13 @@ function areaDown(px, w, h, W, H) {
 /**
  * A fibrous band's outline on context c: P its centre line, N the unit normals, Wd its width at each point, k the pass's
  * width factor. Both ends are rounded (a half circle as wide as the band there), so where bands meet at a portal tract
- * they merge into one soft collar instead of ending in flat, clipped-looking cuts.
+ * they merge into one soft collar instead of ending in flat, clipped-looking cuts. kEnd (≤ k): the width factor the pass
+ * narrows to over the last quarter at each end, so a wide faint pass tucks into the next one there instead of
+ * spreading a halo round the tract.
  */
-export function bandOutline(c, P, N, Wd, k) {
-  const n = P.length - 1, h = (i) => Wd[i] * k / 2, ang = (i) => Math.atan2(N[i][1], N[i][0]);
+export function bandOutline(c, P, N, Wd, k, kEnd = k) {
+  const n = P.length - 1, ang = (i) => Math.atan2(N[i][1], N[i][0]);
+  const h = (i) => { const t = Math.min(1, Math.min(i, n - i) / n * 4), e = t * t * (3 - 2 * t); return Wd[i] * (kEnd + (k - kEnd) * e) / 2; };
   c.beginPath();
   for (let i = 0; i <= n; i++) c[i ? 'lineTo' : 'moveTo'](P[i][0] + N[i][0] * h(i), P[i][1] + N[i][1] * h(i));
   // (From +N round to −N through the tangent's direction: the cap bulges past the end, never back over the band.)

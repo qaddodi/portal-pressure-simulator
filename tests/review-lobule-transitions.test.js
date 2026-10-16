@@ -120,8 +120,9 @@ test('a new patient eases into the lobule: the tissue crossfades instead of snap
   assert.match(lz, /if \(worldState && ws !== worldState && worldGeo === G && worldCv\.width && !\(xfT0 && now - xfT0 < XF_MS\)\) \{ \[worldOld, worldCv\] = \[worldCv, worldOld\];/,
     'swapped, not copied, and a change mid-fade does not restart it');
   assert.match(lz, /const ws = \[G\.W, G\.H, dark,[^\n]*wk = sc\.toFixed\(3\) \+ '\|' \+ ws;/, 'only a new state fades, never a new drawing scale');
-  assert.match(lz, /c\.drawImage\(worldOld, sx \* dpr, sy \* dpr, side, side\);\n\s+c\.globalAlpha = xfU\(xfT0, now\); c\.drawImage\(worldCv,/, 'the old picture under the new one, both sharp');
-  assert.match(lz, /if \(xfT0\) \{ xfT0 = 0; free\(worldOld\); \}/, 'the old picture is given back once faded');
+  // (Mixed (1 − u)·old + u·new at the bitmap's own size, then placed: see tests/fibrous-band-ends.test.js for why not one over the other.)
+  assert.match(lz, /const u = xfU\(xfT0, now\)[^\n]*\n[^\n]*\n[^\n]*x\.globalAlpha = 1 - u; x\.drawImage\(worldOld, 0, 0, n, xfCv\.height\);\n[^\n]*x\.globalAlpha = u; x\.drawImage\(worldCv, 0, 0\);[^\n]*\n\s+c\.drawImage\(xfCv, sx \* dpr, sy \* dpr, side, side\);/, 'the old picture under the new one, both sharp');
+  assert.match(lz, /if \(xfT0\) \{ xfT0 = 0; free\(worldOld\); free\(xfCv\); \}/, 'the old picture is given back once faded');
   // The surround's tiles too, and the frame loop keeps drawing while either fades.
   assert.match(lz, /if \(surNow && t\.set !== surNow\.set && surNow\.q\.cv\?\.width\) \{ surOld = surNow\.q; surT0 = now; \}/);
   assert.match(lz, /if \(rzMoving \|\| lensFrom \|\| tissueFading\(now\)\) drawVersion\+\+;/);
