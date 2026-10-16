@@ -153,3 +153,29 @@ export function binVeins(tubes, joins, memo = null) {
   if (memo) { memo.last = out; memo.key = sameKey; }
   return out;
 }
+
+// ── What a vessel's new attributes change in the drawn layer ──
+// A vessel row (see veins-gl's tube layout) whose attributes changed since the vessel layer was drawn in its two lumen
+// colours alone (texels 0 and 1, rgb: floats 0–2 and 4–6) changes only the pixels that colour reaches: its shape,
+// casing, alpha, flags, glow and every other attribute are as drawn, so every pixel's blending weights are too. Such a
+// row is recoloured (veins-gl tintPass); any other change draws its cells again whole (cellsPass).
+export const TINT_FLOATS = [0, 1, 2, 4, 5, 6];
+const TINT = new Set(TINT_FLOATS);
+
+/**
+ * Sorts the changed `rows` by what changed since `drawn` (the attributes the layer shows; null: unknown): `tint`, rows
+ * whose lumen colours alone changed; `shape`, rows with any other change, or with new radii (`fixed`, a Set), or any
+ * row when nothing is known of the drawn layer. A row with nothing changed is in neither. `width`: floats per row.
+ */
+export function splitRows(rows, now, drawn, width, fixed = null) {
+  const shape = [], tint = [];
+  for (const r of rows) {
+    if (!drawn || fixed?.has(r)) { shape.push(r); continue; }
+    const o = r * width;
+    let kind = 0;   // 0 nothing, 1 the colours alone, 2 anything else
+    for (let i = 0; i < width && kind < 2; i++) if (!Object.is(now[o + i], drawn[o + i])) kind = TINT.has(i) ? 1 : 2;
+    if (kind === 2) shape.push(r);
+    else if (kind === 1) tint.push(r);
+  }
+  return { shape, tint };
+}

@@ -84,12 +84,26 @@ try {
     const okRadiiNamed = g.drawRows(m, look, blood, [2]), radPart = g.snapshot();
     g.draw(m, look, blood);
     const radWhole = g.snapshot();
+    // Lumen colours alone (the trunk and a branch joined to it, and the crossing vessel): recoloured, not drawn again
+    // whole; only the pixels those colours reach are drawn, and the picture is a whole redraw's.
+    const preTint = g.snapshot();
+    put(0, [0.1, 0.5, 0.9], [0.3, 0.3, 0.7]);
+    put(2, [0.4, 0.8, 0.3], [0.2, 0.6, 0.2]);
+    put(3, [0.6, 0.6, 0.3], [0.5, 0.4, 0.1], { hover: 0.7 });
+    g.setTubes(data);
+    const p0 = g.partCells, t0 = g.tintCells;
+    const okTint = g.drawRows(m, look, blood, [0, 2, 3]), tinted = g.snapshot(), tintWhole = g.partCells - p0, tintCells = g.tintCells - t0;
+    g.draw(m, look, blood);
+    const tintRef = g.snapshot();
     // (The two pictures compared pixel by pixel: how many differ, by how much at most, and where.)
     const px = async (url) => { const im = new Image(); im.src = url; await im.decode(); const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const x = c.getContext('2d'); x.drawImage(im, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
     const A = await px(partial), B = await px(whole); let nd = 0, md = 0, bx = [1e9, 1e9, 0, 0];
     for (let i = 0; i < A.length; i += 4) { const d = Math.max(...[0, 1, 2, 3].map((k) => Math.abs(A[i + k] - B[i + k]))); if (d) { nd++; md = Math.max(md, d); const x = (i / 4) % cv.width, y = Math.floor(i / 4 / cv.width); bx = [Math.min(bx[0], x), Math.min(bx[1], y), Math.max(bx[2], x), Math.max(bx[3], y)]; } }
     const diff = { pixels: nd, most: md, box: bx };
-    return { diff, okRows, okNone, okMoved, okRadii, okRadiiNamed, radSame: radPart === radWhole, radChanged: radWhole !== preRad, same: partial === whole, changed: partial !== before, noneSame: none === whole, noneCells, cells, nCells: g.nCells };
+    const T1 = await px(tinted), T2 = await px(tintRef); let tn = 0, tm = 0;
+    for (let i = 0; i < T1.length; i += 4) { const d = Math.max(...[0, 1, 2, 3].map((k) => Math.abs(T1[i + k] - T2[i + k]))); if (d) { tn++; tm = Math.max(tm, d); } }
+    const tint = { ok: okTint, same: tinted === tintRef, changed: tintRef !== preTint, whole: tintWhole, cells: tintCells, diff: { pixels: tn, most: tm } };
+    return { tint, diff, okRows, okNone, okMoved, okRadii, okRadiiNamed, radSame: radPart === radWhole, radChanged: radWhole !== preRad, same: partial === whole, changed: partial !== before, noneSame: none === whole, noneCells, cells, nCells: g.nCells };
   });
   if (r.skip) console.log(`skipped: ${r.skip}`);
   else {
@@ -104,6 +118,11 @@ try {
     if (!r.okRadiiNamed) fail('drawRows refused a change of radii to a vessel it was given');
     if (!r.radSame) fail('the redraw of a vessel with new radii differs from a whole redraw');
     if (!r.radChanged) fail('the new radii did not change the picture (the check would prove nothing)');
+    console.log(`colour-only redraw: ${r.tint.cells} cells recoloured, ${r.tint.whole} drawn whole; matches a whole redraw: ${r.tint.same}`);
+    if (!r.tint.ok) fail('drawRows refused a change of lumen colours alone');
+    if (!r.tint.same) fail(`the recoloured layer differs from a whole redraw: ${JSON.stringify(r.tint.diff)}`);
+    if (!r.tint.changed) fail('the new lumen colours did not change the picture (the check would prove nothing)');
+    if (r.tint.whole || !(r.tint.cells > 0)) fail(`a change of lumen colours alone drew ${r.tint.whole} cells whole and recoloured ${r.tint.cells}`);
   }
 } finally {
   await browser.close();

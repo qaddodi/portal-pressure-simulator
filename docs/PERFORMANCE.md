@@ -22,6 +22,13 @@ What changed:
   attributes (the pulse moving a few colours), `drawRows` in `veins-gl.js` redraws only those
   vessels' cells, to the same picture pixel for pixel; anything else the vessel pass reads (view,
   size, look, a vessel's shape) still redraws the whole layer. Checked by `npm run smoke:rows`.
+- **A colour change draws only the pixels that colour reaches.** The vessel shader marks, beside
+  each pixel's colour, whether any vessel's lumen colour reaches it (its lumen, or a glow in its own
+  colour). When vessels' lumen colours alone change (the pulse, the lobule's lymph tint, a lens
+  fade), `drawRows` recolours their cells: the same shader runs again only on the marked pixels and
+  writes their colour; casings, shadows and the space between vessels depend on no lumen colour and
+  stay as drawn. So a tint that moves every lymph channel at once no longer redraws the whole layer.
+  The picture is a whole redraw's, pixel for pixel (`npm run smoke:rows`; `tests/veins-tint.test.js`).
 - **Full detail, always.** Outside Battery saver the figure, the lobule and the FibroScan never
   lower their own resolution or frame rate: no governor steps them down when frames run long, and
   zooming in keeps every pixel. Levels older builds stored (`pps.quality`, `pps.q`) are removed at

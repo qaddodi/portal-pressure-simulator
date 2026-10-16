@@ -2,6 +2,11 @@
 
 ## October 2026
 
+- **Colour changes no longer redraw every vessel.** When only vessels' colours change (the pulse, the lobule's lymph
+  tint, a lens fade), the vessel layer draws again just the pixels those colours reach, with the same shader, instead
+  of the whole layer: the lymph tint moves all 63 lymph channels at once, which used to redraw over 90 % of the
+  lobule's vessel cells about 12 times a second. Casings, shadows and the space between vessels stay as drawn, so the
+  picture is the same pixel for pixel. Tests: `tests/veins-tint.test.js`, smoke:rows (a colour-only case).
 - **The view switch is its own centred pill, just above the play bar.** On every screen (upright phone and iPad, Mac,
   iPad and phone held sideways) Circuit, Anatomy, Lobule and Sinusoid sit in one pill, centred on the screen 8 px above
   the play bar, the selected view in a soft inner pill. It is no longer part of the dock or the Mac's top bar. A card
