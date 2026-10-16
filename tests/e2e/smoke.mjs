@@ -3723,8 +3723,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const hit = (a, b) => a.l < b.r - 0.5 && a.r > b.l + 0.5 && a.t < b.b - 0.5 && a.b > b.t + 0.5;
       const head = R(probe.querySelector('.sp-body'));
       if (pill.l < head.l - 1 || pill.r > head.r + 1 || pill.t < head.t - 1 || pill.b > head.b + 1) bad.push('reading off the probe body');
-      const m = probe.querySelector('.scan-probe svg') && getComputedStyle(probe.querySelector('svg')).transform;
-      if (!/matrix\(0\.70\d+, 0\.70\d+/.test(m)) bad.push(`probe not at 45° (${m})`);
+      // (At 45°, steeper beside the left edge and flatter below the top one, a0a9590e and e948cbf: the angle the probe was
+      // given, --sp-turn, is the one it shows.)
+      const m = new DOMMatrix(getComputedStyle(probe.querySelector('svg')).transform), turn = parseFloat(getComputedStyle(probe).getPropertyValue('--sp-turn')) || 45;
+      if (Math.abs(Math.atan2(m.b, m.a) * 180 / Math.PI - turn) > 0.5) bad.push(`probe not at its ${turn}° (${m.a.toFixed(2)}, ${m.b.toFixed(2)})`);
+      if (turn < 10 || turn > 80) bad.push(`probe turned ${turn}°, outside 10° to 80°`);
       if (parseFloat(getComputedStyle(probe.querySelector('.sp-unit')).fontSize) < 11) bad.push('reading smaller than 11 px');
       for (const e of document.querySelectorAll('#labels .lb:not(.lb-off)')) if (vis(e)) for (const t of e.querySelectorAll('text')) { const r = R(t); if (r.r - r.l > 1) others.push([`label ${e.dataset.key}`, r]); }
       for (const e of document.querySelectorAll('.cath-label.site, .stage-credit')) if (vis(e)) { const r = R(e); if (r.r - r.l > 2) others.push([e.id || e.className.split(' ')[0], r]); }
