@@ -8,6 +8,7 @@ import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=5efaa2bcc9';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { shownOr } from './shown.js?v=82ef5e29ec';
+import { monotoneSegs, curveTester } from './curve-near.js?v=9ff15157e9';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -19,6 +20,10 @@ export const theme = () => ({
   series: [1, 2, 3, 4, 5, 6, 7, 8].map((i) => cssVar('--s' + i)),
 });
 export const FONT = (w = 500, px = 11) => `${w} ${px}px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif`;
+// DOM writes only when something changed: a write on every frame, even of the same text, marks the page for a fresh
+// style and layout pass.
+const setText = (node, t) => { if (node && node.textContent !== t) node.textContent = t; };
+const setDisplay = (node, d) => { if (node && node.style.display !== d) node.style.display = d; };
 
 // A smooth curve through the points that never overshoots them (monotone cubic, Fritsch–Carlson),
 // so a pressure that only falls is never drawn rising between two stations.
@@ -26,21 +31,9 @@ function smoothPath(ctx, pts) {
   const n = pts.length;
   if (!n) return;
   ctx.moveTo(pts[0][0], pts[0][1]);
-  if (n < 3) { for (let i = 1; i < n; i++) ctx.lineTo(pts[i][0], pts[i][1]); return; }
-  const dx = [], m = [];
-  for (let i = 0; i < n - 1; i++) { dx[i] = pts[i + 1][0] - pts[i][0] || 1e-6; m[i] = (pts[i + 1][1] - pts[i][1]) / dx[i]; }
-  const t = [m[0]];
-  for (let i = 1; i < n - 1; i++) t[i] = m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2;
-  t[n - 1] = m[n - 2];
-  for (let i = 0; i < n - 1; i++) {
-    if (m[i] === 0) { t[i] = t[i + 1] = 0; continue; }
-    const a = t[i] / m[i], b = t[i + 1] / m[i], h2 = a * a + b * b;
-    if (h2 > 9) { const k = 3 / Math.sqrt(h2); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i]; }
-  }
-  for (let i = 0; i < n - 1; i++) {
-    const d = dx[i] / 3;
-    ctx.bezierCurveTo(pts[i][0] + d, pts[i][1] + t[i] * d, pts[i + 1][0] - d, pts[i + 1][1] - t[i + 1] * d, pts[i + 1][0], pts[i + 1][1]);
-  }
+  const segs = monotoneSegs(pts);
+  if (!segs) { for (let i = 1; i < n; i++) ctx.lineTo(pts[i][0], pts[i][1]); return; }
+  for (const [, , ax, ay, bx, by, x1, y1] of segs) ctx.bezierCurveTo(ax, ay, bx, by, x1, y1);
 }
 
 // ── Pressure profile ("hydraulic grade line") ────────
@@ -63,6 +56,15 @@ export function createProfile() {
   // F is what is drawn: the frame with its pressures eased toward the model's (breath- and
   // beat-filtered) values, so the line, dots and labels glide rather than jump when values change.
   let F = null, Fraw = null, axisMax = 15, easeRaf = 0;
+  // On screen: kept by an observer rather than read from cv.offsetParent on every glide frame, which forced a style and
+  // layout pass each time (as the Over time trace does). Back on screen, the glide picks up again.
+  let seen = null;
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => {
+    const was = seen; seen = es[es.length - 1].isIntersecting;
+    if (seen && !was && Fraw) { cancelFrame(easeRaf); easeRaf = nextFrame(() => { if (cv.isConnected && shown()) ease(); }); }
+  }) : null;
+  io?.observe(cv);
+  const shown = () => (seen == null ? !!cv.offsetParent : seen);
   const easeP = createEaser(), easeAxis = createEaser(), easePill = createEaser(0.18);
   let pillMoving = false;
   function ease() {
@@ -85,7 +87,7 @@ export function createProfile() {
     // Model frames arrive about ten times a second; the glide runs between them on every frame the screen offers
     // (15 a second in Battery saver; the pressures never quite settle while the model runs, so this glide never stops).
     const at = performance.now();
-    const next = (t) => { if (t - at < paceMs()) { easeRaf = nextFrame(next); return; } if (cv.isConnected && cv.offsetParent) ease(); };
+    const next = (t) => { if (t - at < paceMs()) { easeRaf = nextFrame(next); return; } if (cv.isConnected && shown()) ease(); };
     if (moving || pillMoving) easeRaf = nextFrame(next);
   }
   let predict = null; // { on, values: Map(station → P), done }
@@ -134,7 +136,7 @@ export function createProfile() {
   const setForm = (strip) => {
     if (wasStrip !== null && strip !== wasStrip) cv.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' });   // (a short fade as it changes form)
     wasStrip = strip;
-    legend.style.display = strip ? 'none' : '';   // (the strip draws no lines to key)
+    setDisplay(legend, strip ? 'none' : '');   // (the strip draws no lines to key)
   };
   function drawStrip(ctx, c, w, hh) {
     const PM = F.Pf || F.P, m = F.metrics || {}, hid = hiddenNow();
@@ -267,8 +269,8 @@ export function createProfile() {
     if (st.compareSnap?.P) {
       ctx.strokeStyle = c.series[0]; ctx.lineWidth = 2; ctx.setLineDash([1.5, 4]);
       ctx.beginPath(); smoothPath(ctx, pts(stations.map((n) => st.compareSnap.P[NI[n]]))); ctx.stroke(); ctx.setLineDash([]);
-      el.querySelector('.lg-compare').style.display = '';
-    } else el.querySelector('.lg-compare').style.display = 'none';
+      setDisplay(el.querySelector('.lg-compare'), '');
+    } else setDisplay(el.querySelector('.lg-compare'), 'none');
     const P0 = pts(now);
     // soft area under the curve, fading towards the baseline
     if (P0.length > 1) {
@@ -284,10 +286,13 @@ export function createProfile() {
     const curve = new Path2D(); smoothPath(curve, P0);
     const hCurve = healthy ? new Path2D() : null;
     if (hCurve) smoothPath(hCurve, pts(stations.map((n) => healthy.P[NI[n]])));
+    // (Each point is settled by its distance from the curve where that is clear-cut, and asked of the browser only on the
+    // stroke's very edge: the same answers as asking it every time, without stroking the path thousands of times a frame.)
+    const testers = new Map([[curve, curveTester(P0)]]);
+    if (hCurve) testers.set(hCurve, curveTester(pts(stations.map((n) => healthy.P[NI[n]]))));
     const nearCurve = (r, pad, path = curve) => {
       ctx.save(); ctx.lineWidth = 3 + 2 * pad; const M = ctx.getTransform();
-      let hit = false;
-      for (let px = r.x0; px <= r.x1 + 0.1 && !hit; px += Math.min(2, (r.x1 - r.x0) / 2 || 2)) for (let py = r.y0; py <= r.y1 + 0.1 && !hit; py += Math.min(2, (r.y1 - r.y0) / 2 || 2)) hit = ctx.isPointInStroke(path, M.a * px + M.e, M.d * py + M.f);
+      const hit = testers.get(path)(r, 3 + 2 * pad, (px, py) => ctx.isPointInStroke(path, M.a * px + M.e, M.d * py + M.f));
       ctx.restore(); return hit;
     };
     let fail = false;   // (a label with no clear spot: the strip instead)
@@ -477,13 +482,13 @@ export function createProfile() {
     // The station values, where they were placed (the pills keep 4 px clear of them).
     ctx.font = FONT(600, 12); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = c.text;
     for (const v of vals) ctx.fillText(v.txt, v.x, (v.r.y0 + v.r.y1) / 2 + 0.5);
-    if (pillMoving) { cancelFrame(easeRaf); easeRaf = nextFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); }); }
+    if (pillMoving) { cancelFrame(easeRaf); easeRaf = nextFrame(() => { if (cv.isConnected && shown()) ease(); }); }
     ctx.textBaseline = 'alphabetic';
-    el.querySelector('#profileOffscale').textContent = hasArt ? 'Arterial pressure is drawn above the break (//) at its true value.' : '';
+    setText(el.querySelector('#profileOffscale'), hasArt ? 'Arterial pressure is drawn above the break (//) at its true value.' : '');
     // prediction
     const lp = el.querySelector('.lg-pred');
     if (predict?.values?.size) {
-      lp.style.display = '';
+      setDisplay(lp, '');
       ctx.strokeStyle = c.accent; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
       ctx.beginPath();
       smoothPath(ctx, stations.map((n, i) => [n, i]).filter(([n]) => predict.values.get(n) != null && !ARTERIAL.has(n)).map(([n, i]) => [x(i), y(predict.values.get(n))]));
@@ -492,7 +497,7 @@ export function createProfile() {
         ctx.fillStyle = cssAlpha('--danger', 0.14);
         stations.forEach((n, i) => { const v = predict.values.get(n); if (v == null) return; ctx.fillRect(x(i) - 6, Math.min(y(v), y(now[i])), 12, Math.abs(y(v) - y(now[i]))); });
       }
-    } else lp.style.display = 'none';
+    } else setDisplay(lp, 'none');
     if (predict?.on) {
       ctx.fillStyle = c.accent; ctx.font = FONT(600, 12.5); ctx.textAlign = 'right';
       ctx.fillText('Drag across the chart to draw your prediction', w - R - 6, T + 14);

@@ -7,9 +7,11 @@
 
 import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=2a952639b6';
-import { FONT as FONT0, FONT } from './charts.js?v=8d14002b01';
+import { FONT as FONT0, FONT } from './charts.js?v=a7aaa9ed66';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
+import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
+import { limitLabelX as labelX } from './limit-label.js?v=52dcc41a1e';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
@@ -178,9 +180,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
   }
   function rawSeries(key, x0, x1) {
     if (range === 'beats') {
-      const out = { x: [], mid: [] };
-      for (let i = 0; i < fine.t.length; i++) if (fine.t[i] >= x0 - 0.05 && fine.t[i] <= x1) { out.x.push(fine.t[i]); out.mid.push(fine[key][i]); }
-      return out;
+      // (The samples are in time order: the window is one run of them, found by bisection and copied whole.)
+      const i0 = firstAtOrAbove(fine.t, x0 - 0.05), i1 = firstAbove(fine.t, x1);
+      return i1 > i0 ? { x: fine.t.slice(i0, i1), mid: fine[key].slice(i0, i1) } : { x: [], mid: [] };
     }
     if (range === 'minutes') {
       const out = { x: [], mid: [], lo: [], hi: [] };
@@ -339,6 +341,20 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const keys = lane.key === 'pressure' ? traces.map((t) => t.id) : ['hvpg'];
       let mn = Infinity, mx = -Infinity;
       for (const k of keys) {
+        // (The whole record up to the right edge, read in place: building it as a series on every frame cost more than drawing.)
+        if (range === 'beats' && !smooth) {
+          const v = fine[k], n = firstAbove(fine.t, x1);
+          for (let i = 0; i < n; i++) { const a = v[i]; if (a < mn) mn = a; if (a > mx) mx = a; }
+          continue;
+        }
+        if (range === 'minutes' && !smooth) {
+          for (const b of coarse) {
+            const q = b.v[k];
+            if (!q || b.t + BIN / 2 > x1) continue;
+            if (q[0] < mn) mn = q[0]; if (q[1] > mx) mx = q[1];
+          }
+          continue;
+        }
         const s = range === 'days' ? data[k] : series(k, -Infinity, x1);
         for (let i = 0; i < s.x.length; i++) {
           const a = s.lo ? s.lo[i] : s.mid[i], b = s.hi ? s.hi[i] : s.mid[i];
@@ -370,18 +386,24 @@ export function createPressureTime({ marks = () => [] } = {}) {
       if (lane.key === 'hvpg') {
         // clinical thresholds
         const roomy = bot - top > 90;
+        // (Every dashed line first, then the labels on their plates, so no later line crosses an earlier label.)
+        const labs = [];
         for (const [v, label] of LIMITS) {
           if (v > hi || (v === 5 && !roomy) || (slide && v !== 10)) continue;   // (a slide's small lane: the one cut-off, CSPH)
           const yy = Math.round(Y(v)) + 0.5;
           ctx.strokeStyle = col(v >= 10 ? '--danger' : '--caution'); ctx.globalAlpha = v >= 10 ? 0.5 : 0.35;
           ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + plotW, yy); ctx.stroke(); ctx.setLineDash([]);
           ctx.globalAlpha = 1;
-          if (label && !narrow && (roomy || v === 10)) {
-            ctx.font = FONT(600, 12); const tw = ctx.measureText(label).width;
-            ctx.fillStyle = surface; ctx.fillRect(L + 6, yy - 6, tw + 8, 12);
-            ctx.fillStyle = col('--danger'); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-            ctx.fillText(label, L + 10, yy); ctx.textBaseline = 'alphabetic';
-          }
+          if (label && !narrow && (roomy || v === 10)) labs.push([label, yy]);
+        }
+        let prevLab = null;   // (the label drawn last: one that would sit on it moves along its own line, past its right end)
+        for (const [label, yy] of labs) {
+          ctx.font = FONT(600, 12); const tw = ctx.measureText(label).width;
+          const lx = labelX(prevLab, yy, L + 6);
+          ctx.fillStyle = surface; ctx.fillRect(lx, yy - 6, tw + 8, 12);
+          ctx.fillStyle = col('--danger'); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          ctx.fillText(label, lx + 4, yy); ctx.textBaseline = 'alphabetic';
+          prevLab = { x1: lx + tw + 8, y: yy };
         }
         const s = data.hvpg;
         if (s.x.length > 1) {

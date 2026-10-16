@@ -2946,7 +2946,7 @@ button.finding { cursor: pointer; }
 .pt-sev { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); }
 .pt-sev[data-sev="caution"] { color: color-mix(in srgb, var(--caution) 80%, var(--text)); }
 .pt-sev[data-sev="danger"] { color: var(--danger); }
-.pt-delta { font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.2em; }
+.pt-delta { font-size: var(--fs-12); line-height: 1.2; color: var(--text-3); font-variant-numeric: tabular-nums; flex: 1 1 0; min-width: min-content; min-height: 1.2em; }   /* (never cut with an ellipsis: where the row is short it wraps between words, "Steady in" over "2 min", inside the buttons' height) */
 .pt-delta[data-dir="up"] { color: var(--danger); }
 .pt-delta[data-dir="down"] { color: var(--ok); }
 .pt-range { flex: none; }
