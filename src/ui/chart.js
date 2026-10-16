@@ -9,7 +9,7 @@ import { store, updateParams } from './store.js?v=ead3d78843';
 import { h, icon, svgIcon, toast } from './util.js?v=0140acc352';
 import { DRUGS } from '../engine/scenario.js?v=5c3e8b1079';
 import { activeInterventions } from './inspector.js?v=bccfbe114a';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=d512a95bb4';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=803bcc935e';
 
 
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, timeline, pinned }) {

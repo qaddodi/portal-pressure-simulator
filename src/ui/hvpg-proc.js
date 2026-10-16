@@ -9,8 +9,8 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, fitCanvas, clamp, icon, cssVar } from './util.js?v=0140acc352';
-import { FONT } from './charts.js?v=37b764ad83';
-import { pressureColor } from './colormap.js?v=5c9a375f49';
+import { FONT } from './charts.js?v=01303f20a4';
+import { pressureColor } from './colormap.js?v=525a9705e2';
 import { store, logAction, hiddenNow } from './store.js?v=ead3d78843';
 import { shownOr } from './shown.js?v=82ef5e29ec';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';

@@ -57,19 +57,41 @@ export function occupancy(qMlS, vDisp, n, spacing = SLOT) {
 /**
  * One vessel's stream, advanced by `dt` seconds. `vMean` is the beat-filtered mean velocity
  * (cm/s), `vNow` the instantaneous one; with `phasic` the display follows breathing and the
- * heartbeat (amplified ×2 around the mean) instead of a smooth mean. `speed` scales motion.
+ * heartbeat (amplified ×2 around the mean) instead of a smooth mean. `speed` scales motion;
+ * `still` (reduced motion) keeps it in place, following the flow's direction at once.
  */
-export function advanceStream(st, vMean, vNow, dt, { phasic = false, speed = 1, large = true } = {}) {
-  if (st.vSlow == null) { st.vSlow = vMean; st.vFast = vNow; st.D = (st.seed || 0) * 97 % PERIOD; }
+export function advanceStream(st, vMean, vNow, dt, { phasic = false, speed = 1, large = true, still = false } = {}) {
+  if (st.vSlow == null) { st.vSlow = vMean; st.vFast = vNow; st.D = (st.seed || 0) * 97 % PERIOD; st.hold = 0; }
+  // Reduced motion (still): nothing moves or eases; the stream stands where it is and points the way the flow goes now.
+  if (still) { st.vSlow = vMean; st.vFast = vNow; st.hold = 0; st.sgn = Math.sign(vMean) || st.sgn; dt = 0; }
   st.vSlow += (vMean - st.vSlow) * -Math.expm1(-dt / 1.5);
   st.vFast += (vNow - st.vFast) * -Math.expm1(-dt / 0.12);
+  // When the mean flow turns round, the blood settles, stands still for REVERSE_HOLD seconds and then eases off the
+  // other way (over REVERSE_RAMP), so the stop is seen (blueprint §6.2). The display alone holds: the model and its
+  // numbers run on.
+  const sg = Math.sign(st.vSlow);
+  if (sg && st.sgn && sg !== st.sgn) st.hold = REVERSE_HOLD + REVERSE_RAMP;
+  if (sg) st.sgn = sg;
+  let k = 1;
+  if (st.hold > 0) {
+    st.hold = Math.max(0, st.hold - dt);
+    k = st.hold > REVERSE_RAMP ? 0 : smoothstep(0, 1, 1 - st.hold / REVERSE_RAMP);
+  }
   const v = phasic ? st.vSlow + (st.vFast - st.vSlow) * 2 : st.vSlow;
-  st.v = v;
-  st.vd = displaySpeed(v);
+  st.v = k ? k * v : 0;
+  st.vd = k ? k * displaySpeed(v) : 0;   // (eased on the display's own scale, which is steep near zero)
   st.D = (((st.D + st.vd * speed * dt) % PERIOD) + PERIOD) % PERIOD;
-  st.stasis = large ? 1 - smoothstep(2, 5.5, Math.abs(st.vSlow)) : 0;
+  st.stasis = large ? 1 - k * smoothstep(2, 5.5, Math.abs(st.vSlow)) : 0;
   return st;
 }
+/**
+ * Reduced motion: still chevrons spaced by flow. The spacing level (0–3, continuous) for a flow q (mL/s, either way): 0, the
+ * finest spacing, from 0.8 L/min; each halving of the flow doubles the spacing, up to 3 (eight times as far apart).
+ */
+export const CHEV_Q_FULL = 0.8 / 0.06;   // 0.8 L/min in mL/s
+export const chevFlowLevel = (q) => Math.min(3, Math.max(0, Math.log2(CHEV_Q_FULL / Math.max(1e-3, Math.abs(q || 0)))));
+/** Seconds the displayed blood stands still when a vessel's mean flow turns round, and then takes to reach its speed. */
+export const REVERSE_HOLD = 0.6, REVERSE_RAMP = 0.5;
 
 // Key chevrons only (Blood menu; always while presenting): chevrons keep to the portal story (the portal
 // inflow, the liver's beds, the hepatic veins, any open collateral or shunt); the rest fade.
@@ -351,3 +373,27 @@ export function createBolus(edges, nodes) {
   };
 }
 export const HIDDEN_SECONDS = HIDDEN_S;
+
+// ── An active variceal bleed on the figure (veins-gl.js draws it) ──
+// Blood jets from the rupture into the lumen (up the esophagus from an esophageal varix, down into the fundus from a
+// gastric one): four tapered streaks, each spurting in its turn, longer and faster with the bleeding rate, and the pool
+// in the stomach, growing with the square root of the blood lost. t: seconds (0 holds every jet at its own stage).
+// Each shape: [x0, y0, x1, y1, r0, r1, alpha, kind]: a jet (kind 1) from its base (x0, y0; radius r0) to its tip
+// (x1, y1; radius r1), or the pool (kind 0), an ellipse at (x0, y0) with radii x1, y1.
+export const BLEED_JETS = 4;
+export function bleedShapes(bleed, rate, t, sites) {
+  const gv = bleed.site === 'GV';
+  const site = gv ? [sites.fundus[0], sites.fundus[1] - 4] : [sites.varix[0] + 8, sites.varix[1] + 12];
+  const k = Math.min(1.8, Math.max(0.7, (rate || 50) / 90));
+  const pool = Math.min(40, Math.max(4, Math.sqrt((bleed.total || 0) / 5)));
+  const out = [[sites.stomachPool[0], sites.stomachPool[1], pool * 1.4, pool * 0.6, 0, 0, 0.34, 0]];
+  for (let i = 0; i < BLEED_JETS; i++) {
+    const a = (gv ? Math.PI / 2 : -Math.PI / 2) + (i - (BLEED_JETS - 1) / 2) * 0.2;
+    const ph = (((t * 0.9 + i / BLEED_JETS) % 1) + 1) % 1;
+    // Out fast, then slowing (√): each spurt eases in, so none pops on, and thins away as it reaches its length.
+    const len = (8 + 22 * Math.sqrt(ph)) * k;
+    const al = 0.9 * Math.min(1, ph / 0.12) * (1 - ph) ** 1.5;
+    out.push([site[0], site[1], site[0] + Math.cos(a) * len * 0.55, site[1] + Math.sin(a) * len, 1.6 * k, 0.45 * k, al, 1]);
+  }
+  return out;
+}

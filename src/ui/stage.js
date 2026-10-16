@@ -3,12 +3,12 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=0b72305f30';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=5c9a375f49';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=525a9705e2';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=ead3d78843';
 import { fibroReading } from './clock.js?v=b69f28fc47';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=0140acc352';
-import { createLobuleZoom } from './lobule-zoom.js?v=a1f7ba6f62';
+import { createLobuleZoom } from './lobule-zoom.js?v=3babdc13db';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -19,8 +19,9 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=fddd3c5e2d';
-import { advanceStream, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6f386fa742';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=6b5ab98cbd';
+import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
+import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=1f05278710';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
 import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
 import { portalSplit } from './table-marks.js?v=ca12af9a8d';
@@ -1113,6 +1114,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     glowSync = true; stageWake();
     glow.raf = moving ? nextFrame(glowStep) : 0;
   }
+  // A vessel the story watches (REVERSAL_WATCH) whose flow runs against its healthy direction gets a dashed band in the
+  // reversed-flow orange just outside its wall (veins-gl.js, tube texel 5 w), easing in and out over 600 ms (at once with
+  // reduced motion). In an imaging case it waits, as the blood does, until a Doppler has looked at the flow.
+  const revHalo = { v: new Map(), to: new Map(), raf: 0, t: 0 }, REV_HALO_S = 0.6;
+  function revHaloTo(id, on) {
+    const to = on ? 1 : 0;
+    if ((revHalo.to.get(id) ?? 0) === to) return;
+    revHalo.to.set(id, to);
+    if (!revHalo.raf) { revHalo.t = performance.now(); revHalo.raf = nextFrame(revHaloStep); }
+  }
+  function revHaloStep(now) {
+    const dt = Math.max(0, Math.min(0.1, (now - revHalo.t) / 1000)); revHalo.t = now;
+    let moving = false;
+    for (const [id, to] of revHalo.to) {
+      const v0 = revHalo.v.get(id) ?? 0, v = reduceMotion.matches ? to : to > v0 ? Math.min(1, v0 + dt / REV_HALO_S) : Math.max(0, v0 - dt / REV_HALO_S);
+      revHalo.v.set(id, v);
+      if (v !== to) moving = true;
+    }
+    glowSync = true; stageWake();
+    revHalo.raf = moving ? nextFrame(revHaloStep) : 0;
+  }
+  const revHaloOf = (id) => easeInOut(revHalo.v.get(id) || 0);
   // The Doppler's vessel glows in the Doppler's green while its instrument is open; on a stent, only the third its gate samples.
   // (points: a slide's Doppler on a stent shows a callout at each of its three points, not just the sampled one.)
   const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
@@ -2253,6 +2276,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (x.cbr) for (const cb of x.cbr) cb.w = Math.max(1.2, w * cb.k);
       if (x.strands) x.strands.forEach((sd, i) => {
         setT(sd.lumen, 'stroke-width', Math.max(1.6, w * sd.k).toFixed(1)); setT(sd.wall, 'stroke-width', (Math.max(1.6, w * sd.k) + 2 * wallPx).toFixed(1));
+        sd.bead = e.id === 'C1a' ? Math.round(varixBead(f.metrics?.varix?.d) * (1 - t) * 100) / 100 : 0;   // (in hundredths: the radii are sent again only when it moves a step)
         sd.live = e.code === 'C1' ? clamp(i + 1 - (f.bands || 0), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - i, 0, 1) : 1;   // cavernoma: one strand beside the main channel when acute, the rest grow in with the remodeling
         const vis = sd.live > 0.02 ? '' : 'none', op = sd.live < 1 ? sd.live.toFixed(2) : '';
         for (const el of [sd.lumen, sd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
@@ -2311,6 +2335,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         setLevel(x, nearestLevel(x.opa));
       }
       x.rev = REVERSAL_WATCH.has(e.id) && isReversed(e, f);
+      revHaloTo(e.id, x.rev && (!st.imaging || !!st.found?.has('flow')));
       const selOn = (st.selection?.type === 'edge' && st.selection.id === e.id) || (st.selection?.type === 'node' && SIN_EDGES.has(e.id) && LABEL_VESSEL[st.selection.id] === e.id);   // a side's station dot is its sinusoids
       x.sel.classList.toggle('on', selOn);
       cls(x, 'is-sel', selOn);
@@ -2617,6 +2642,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (kind === 'v' && !x.isArt) return [x.shadeKey, (i) => x.rOf(i / (N_SAMPLES - 1))];
     const r = kind === 'v' ? Math.max(0.5, x.width / 2) : kind === 's' ? Math.max(1.6, x.width * it.obj.k) / 2 : it.obj.w / 2;
+    // (A varix strand beaded by the varix's size: varix-bead.js.)
+    const b = kind === 's' ? it.obj.bead || 0 : 0, o = it.obj;
+    if (b > 0) return [`${r.toFixed(2)}|${b}|${Math.round(o.len || 0)}`, (i) => beadRadius(r, b, i / (N_SAMPLES - 1), o.len || 1, o.ph * 1.7, o.u0 || 0)];
     return [r.toFixed(2), () => r];
   }
   // Vessels that run on into each other (from veinJoins): their calibers are eased to meet at the join.
@@ -2749,7 +2777,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.kind !== 'v' && it.kind !== 's') continue;
       const o = it.row * W;
       writeGlowTexels(tubeData, o, it.kind, it.x.e.id, it.ra?.e.id, it.obj.len, glow.lit, vh.amt, rgbCs, easeInOut);
-      for (let i = o + 39; i < o + 48; i++) if (tubeData[i] !== tubesShown[i]) { veinsRows.add(it.row); tubesShown.set(tubeData.subarray(o, o + W), o); changed = true; break; }
+      // (The reversed flow's band, texel 5 w, eases the same way: revHaloStep.)
+      if (it.kind === 'v') tubeData[o + 23] = revHaloOf(it.x.e.id);
+      for (let i = o + 39; i < o + 48; i++) if (tubeData[i] !== tubesShown[i] || tubeData[o + 23] !== tubesShown[o + 23]) { veinsRows.add(it.row); tubesShown.set(tubeData.subarray(o, o + W), o); changed = true; break; }
     }
     if (changed) veins.setTubes(tubeData);
     return true;
@@ -2914,7 +2944,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }
       if (kind === 'v' && LIGATED.some((l) => l[1] === id)) lo = Math.max(lo, divideLen(id) / (it.len || geo[id].len || 1));
-      tubeData.set([lo, hi, kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : it.len || geo[id].len || 1, 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), 0], o + 20);
+      tubeData.set([lo, hi, kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : it.len || geo[id].len || 1, kind === 'v' ? revHaloOf(id) : 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), 0], o + 20);
       let tint = kind === 'v' && cathTint?.[id];
       if (ra && kind === 'v') {
         // On the cava drawn as one, each stretch's tint is placed along the whole.
@@ -2935,6 +2965,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       sheen: [...toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42)],
       shade: [...toRGB('var(--tube-shade-ink)', cs), cssNum(cs, '--tube-shade', 0.2)],
       ring: [...(olCol = toRGB('var(--accent)', cs)), 0.34],
+      revInk: toRGB('var(--flow-reversed)', cs),
       netAlpha: netA,
       fx: true,
       tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: fluidLook,
@@ -5328,11 +5359,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const sel = st.selection?.type === 'node' && st.selection.id === id;
     const lr = isImaging() ? null : layerRuns(f, id, compact);
     const pr = lr ? lr.runs : pressureRuns(P, id, compact);
+    // A station whose own vessel's flow has reversed carries ⟲ after its value, in the reversed-flow orange, while that
+    // vessel shows its dashed band (blueprint §6.2).
+    const rev = !!pr && !!revHalo.to.get(STATION_VESSEL[id]);
+    if (rev) pr.push({ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 });
     if (pr && one) lines[0].push(...pr.map((r, i) => (i ? r : { ...r, gap: 4 })));
     else if (pr) lines.push(pr);
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
-    return { key: 'n:' + id, src: ['node', id, mode, compact], node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: !!pr && mode !== 'atlas', label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
+    return { key: 'n:' + id, src: ['node', id, mode, compact], node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: !!pr && mode !== 'atlas', label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.filter((r) => r.cls !== 'lb-rev').map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}${rev ? ', flow reversed' : ''}`,
       swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
 
@@ -6516,7 +6551,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   //      second, stasis (0–1)
   //   1: free at the from end, free at the to end (parcels fade there), strength, reversed (0–1, eased)
   //   2: fraction of its blood from the SMV, the IMV, the splenic vein and the hepatic artery (rest: systemic)
-  //   3: chevron visibility (0–1, eased: Key chevrons only fades the rest)
+  //   3: chevron visibility (0–1, eased: Key chevrons only fades the rest); the still chevrons' spacing level (reduced motion, chevFlowLevel)
   const flowData = new Float32Array(GL_ROWS * FLOW_TEXELS * 4);
   const dyeData = new Float32Array(GL_ROWS * DYE_BINS), dyeRow = new Float32Array(DYE_BINS);
   const streams = EDGES.map((e, k) => ({ seed: k + 1 }));
@@ -6568,9 +6603,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const Qf = F.Qf || F.Q;
     if (moving) bloodClock = (bloodClock + dt) % 10000;
     // Reversed flow (against the healthy direction, as the Direction lens has it) eases in and out.
-    const ease = -Math.expm1(-dt / 0.5), RF = { Qf };
+    // (Reduced motion: the streams stand still but follow the flow's direction at once, and nothing eases.)
+    const still = st.running && reduceMotion.matches;
+    const ease = reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.5), RF = { Qf };
     for (let k = 0; k < EDGES.length; k++) {
-      const sm = advanceStream(streams[k], velOf(k, Qf[k]), velOf(k, F.Q[k]), moving ? dt : 0, { phasic: !!b.phasic, speed, large: LARGE[k] });
+      const sm = advanceStream(streams[k], velOf(k, Qf[k]), velOf(k, F.Q[k]), moving ? dt : 0, { phasic: !!b.phasic, speed, large: LARGE[k], still });
       const rt = isReversed(EDGES[k], RF) ? 1 : 0;
       sm.rev = sm.rev == null ? rt : sm.rev + (rt - sm.rev) * ease;
       const ct = !keyOnly() || keyChevron(EDGES[k], laneOpen) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
@@ -6587,6 +6624,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       flowData[o + 4] = f0 ? 1 : 0; flowData[o + 5] = f1 ? 1 : 0; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
       if (origins) for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[k * ORIGIN_N + c];
       flowData[o + 12] = sm.chevK ?? 1;
+      // Reduced motion: the chevrons stand still, so their spacing carries the flow (veins-gl chevAt): a level of 0 (the
+      // finest, 28 units) for 0.8 L/min or more, one level coarser for each halving, at most 3.
+      flowData[o + 13] = chevFlowLevel(q);
     };
     if (on) for (const x of Object.values(E)) {
       if (!x.vis || x.isArt || x.reveal || x.g.classList.contains('coll-ghost')) continue;
@@ -6631,27 +6671,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!store.get().running) store.set({ running: true });
   }
 
-  // Active variceal bleeding: a small spray at the rupture site and blood pooling in the stomach.
+  // Active variceal bleeding: blood jets from the rupture into the lumen, four tapered streaks spurting in turn (still,
+  // in the same four stages, while paused or with reduced motion), and pools in the stomach, the pool growing with the
+  // square root of what has been lost. Each: [x0, y0, x1, y1, r0, r1, alpha, kind] (veins-gl.js): a jet (kind 1) from
+  // its base (x0, y0; radius r0) to its tip (x1, y1; r1), or the pool (kind 0), an ellipse at (x0, y0) with radii x1, y1.
   function bleedSpray(moving) {
     if (!F?.bleed?.active || morph >= 0.5) return [];
-    const gv = F.bleed.site === 'GV';
-    const site = gv ? [SITES.fundus[0], SITES.fundus[1] - 4] : [SITES.varix[0] + 8, SITES.varix[1] + 12];
-    const k = clamp((F.metrics.bleeding?.rate || 50) / 90, 0.7, 1.8);
-    const tt = moving ? performance.now() / 1000 : 0;
-    const out = [];
-    for (let i = 0; i < 9; i++) {
-      const a = (gv ? Math.PI / 2 : -Math.PI / 2) + (i - 4) * 0.22;
-      const ph = (tt * 0.8 + i * 0.37) % 1;
-      const rr = (5 + 20 * ph) * k, r = (1.9 - ph) * k;
-      out.push([site[0] + Math.cos(a) * rr * 0.55, site[1] + Math.sin(a) * rr, r, r, 0.9 * (1 - ph)]);
-    }
-    const pool = clamp(Math.sqrt((F.bleed.total || 0) / 5), 4, 40);
-    out.unshift([SITES.stomachPool[0], SITES.stomachPool[1], pool * 1.4, pool * 0.6, 0.28]);
-    return out;
+    return bleedShapes(F.bleed, F.metrics.bleeding?.rate, moving ? performance.now() / 1000 : 0, SITES);
   }
   function bloodLook() {
     const st = store.get(), b = st.blood || {};
-    return { on: bloodOn(), chev: chevOn() && !cath.st, look: b.look, origin: originOn(), clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), noChev: noChevBoxes, holes: chevHoles, ...bloodColors() };
+    return { on: bloodOn(), still: reduceMotion.matches, chev: chevOn() && !cath.st, look: b.look, origin: originOn(), clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), noChev: noChevBoxes, holes: chevHoles, ...bloodColors() };
   }
 
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null, lastAnim = true;

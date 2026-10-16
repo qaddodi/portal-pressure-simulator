@@ -3,23 +3,23 @@
 
 import { startHost, host } from './host.js?v=d6a857aa4d';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=ead3d78843';
-import { createStage } from './stage.js?v=069704caf2';
+import { createStage } from './stage.js?v=fa77543a27';
 import { createCreditPlacer } from './credit.js?v=b780eae767';
-import { sinusoidSupported } from './sinusoid-view.js?v=47df865991';
+import { sinusoidSupported } from './sinusoid-view.js?v=174df90bae';
 import { createInspector } from './inspector.js?v=bccfbe114a';
-import { createDock, CUTOFFS } from './dock.js?v=17176c7881';
-import { setHvpgStage } from './hvpg-proc.js?v=c4b4c57a48';
+import { createDock, CUTOFFS } from './dock.js?v=6d3d88ebdf';
+import { setHvpgStage } from './hvpg-proc.js?v=52366f8ee1';
 import { createWhy } from './why.js?v=da9565d669';
 import { createTimeline, LAPSES } from './timeline.js?v=a313a9da5d';
 import { createCompare } from './compare.js?v=c9ba3b5396';
-import { createCard } from './card.js?v=7c9836fedc';
-import { createChart } from './chart.js?v=64ef24c835';
-import { createMenu } from './menu.js?v=b0d2cf9c0a';
+import { createCard } from './card.js?v=6c8e2706a1';
+import { createChart } from './chart.js?v=aeaa9fa0f9';
+import { createMenu } from './menu.js?v=82698525ea';
 import { caption } from './a11y.js?v=a8f707b90b';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=d512a95bb4';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=5c9a375f49';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=803bcc935e';
+import { gradientCss, dropCss, PRESSURE_TICKS, PRESSURE_MARKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=525a9705e2';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=0140acc352';
@@ -35,7 +35,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=da514a9b04';
 import { initTopbarMotion } from './topbar-motion.js?v=f095540bb8';
-import { ORIGINS } from './blood.js?v=6f386fa742';
+import { ORIGINS } from './blood.js?v=1f05278710';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=5c3e8b1079';
 import { frameFor, perf as framePerf } from './frame.js?v=5efaa2bcc9';
@@ -157,7 +157,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=311b190940'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=1278288cf4'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -573,16 +573,17 @@ function renderLegend() {
   // (Every number is centred on its tick; the scale stands in from its neighbours by half its end numbers' width (ch: a digit,
   // the scale's own font being the numbers'), so the first and last are never pulled in off their ticks: "30" had sat 7.5 px left of its tick.)
   const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale', style: { marginLeft: `${String(nums[0]?.[1] ?? '').length / 2}ch`, marginRight: `${String(nums.at(-1)?.[1] ?? '').length / 2}ch` } }, h('div', { class: 'lg-bar', style: { background: grad } }),
-    ticks.map((p) => h('span', { class: 'lg-tick', style: { left: p + '%' } })),
+    // (A tick given as [position, words] is a marked value: its words show on hover.)
+    ticks.map((p) => (Array.isArray(p) ? h('span', { class: 'lg-tick lg-mark', style: { left: p[0] + '%' }, title: p[1] }) : h('span', { class: 'lg-tick', style: { left: p + '%' } }))),
     nums.map(([p, t, opt]) => h('span', { class: 'lg-num' + (p >= 95 ? ' end' : p <= 1 ? ' start' : '') + (opt ? ' opt' : ''), style: { left: p + '%' } }, t)));
   // Where the full title is hidden (narrow screens), a two-word caption keeps the lens and its unit.
   const cap = (k, u) => h('div', { class: 'lg-cap', 'aria-hidden': 'true' }, k, h('small', {}, u));
   if (m === 'pressure' || m === 'drop') {
     const max = 30, at = (p) => (p / max) * 100;
     el.replaceChildren(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')), cap(m === 'pressure' ? 'Pressure' : 'Drop', 'mmHg'),
-      m === 'pressure' ? scale(gradientCss('to right', max), PRESSURE_TICKS.map((p) => [at(p), String(p)]), PRESSURE_TICKS.map(at))
+      m === 'pressure' ? scale(gradientCss('to right', max), PRESSURE_TICKS.map((p) => [at(p), String(p)]), [...PRESSURE_TICKS.filter((p) => !PRESSURE_MARKS.some(([q]) => q === p)).map(at), ...PRESSURE_MARKS.map(([p, t]) => [at(p), t])])
         : scale(dropCss('to right'), [[0, '0'], [100, '12+']]));
-    el.setAttribute('aria-label', m === 'pressure' ? 'Legend: mean venous pressure at each vessel, 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury, pale to deep green');
+    el.setAttribute('aria-label', m === 'pressure' ? 'Legend: mean venous pressure at each vessel, 0 to 30 millimeters of mercury, pale blue to dark magenta, marked at the HVPG cut-offs 5, 10, 12 and 20' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury, pale to deep green');
   } else if (m === 'flow') {
     const at = (v) => flowPos(v) * 100;
     el.replaceChildren(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')), cap('Flow', 'L/min'),

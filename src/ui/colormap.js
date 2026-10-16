@@ -1,11 +1,18 @@
 // Perceptually uniform pressure colormap interpolated in OKLab (blueprint §5.3).
 // Every ramp's stops are colour tokens (--ramp-* in styles/tokens.css); the tables are built on first use.
 
-import { cssRamp, cssRGB } from './util.js?v=0140acc352';
+import { cssRamp, cssRGB, cssVar } from './util.js?v=0140acc352';
 import { velPos, velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
-// The scale shows absolute mean venous pressure at a vessel. Its ticks are plain numbers: no
-// value on it is a clinical threshold (HVPG and other gradients are separate measurements).
+// The scale shows absolute mean venous pressure at a vessel. Its numbers are plain: no value on it is a clinical
+// threshold (HVPG and other gradients are separate measurements). Hairline marks sit where the ramp changes colour,
+// at the HVPG cut-offs the colours were chosen for (blueprint §5.3), each saying on hover what that gradient means.
 export const PRESSURE_TICKS = [0, 10, 20, 30];
+export const PRESSURE_MARKS = [
+  [5, '5 mmHg: an HVPG above this is portal hypertension'],
+  [10, '10 mmHg: an HVPG this high is clinically significant portal hypertension'],
+  [12, '12 mmHg: from about this HVPG, the risk of variceal bleeding rises steeply'],
+  [20, '20 mmHg: an HVPG this high in a variceal bleed predicts treatment failure'],
+];
 
 const hex2rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
 const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -28,8 +35,11 @@ function oklab2rgb([L, a, b]) {
 }
 
 const LUT_N = 256, LUT_MAX = 35;
-let LUT = null;
+// Built from the theme's ramp (dark mode lifts the low end so a 3 mmHg vein keeps its edge against the casing), and
+// built again when the theme changes it.
+let LUT = null, LUT_SRC = null;
 function pressureLut() {
+  LUT_SRC = cssVar('--ramp-pressure');
   const LAB = cssRamp('--ramp-pressure').map(([p, h]) => [p, rgb2oklab(hex2rgb(h))]);
   LUT = [];
   for (let i = 0; i < LUT_N; i++) {
@@ -46,7 +56,7 @@ function pressureLut() {
 
 export function pressureColor(p) {
   const i = Math.round((Math.min(LUT_MAX, Math.max(0, p)) / LUT_MAX) * (LUT_N - 1));
-  return (LUT || pressureLut())[i];
+  return (LUT && LUT_SRC === cssVar('--ramp-pressure') ? LUT : pressureLut())[i];
 }
 
 export function gradientCss(dir = 'to top', max = LUT_MAX) {

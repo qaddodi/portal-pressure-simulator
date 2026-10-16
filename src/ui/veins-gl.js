@@ -32,7 +32,7 @@
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
-import { SLOT, DYE_BINS } from './blood.js?v=6f386fa742';
+import { SLOT, DYE_BINS } from './blood.js?v=1f05278710';
 import { cssRGB } from './util.js?v=0140acc352';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=2bc0d36839';
 
@@ -48,12 +48,13 @@ export const ORIGIN_GREY = 0.62;       // the lumen's color while the blood is c
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 // The composite's per-frame uniform arrays, filled in place: it ran six `new Float32Array`s a frame. (Each is uploaded at once,
 // so one set serves every renderer.)
-const SCR = { world: new Float32Array(9), inv: new Float32Array(9), originCol: new Float32Array(15), be: new Float32Array(40), ba: new Float32Array(10), ncv: new Float32Array(48), hb: new Float32Array(64), hr: new Float32Array(16) };
+const SCR = { world: new Float32Array(9), inv: new Float32Array(9), originCol: new Float32Array(15), be: new Float32Array(40), bb: new Float32Array(40), ncv: new Float32Array(48), hb: new Float32Array(64), hr: new Float32Array(16) };
 const ORIGIN_WHITE = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
 const put = (dst, src) => { dst.set(src); return dst; };
 
 // Flags (tube texel 2, z).
-// Stream flags (tube texel 5, w): the stream runs on at the upstream / downstream end; reversed flow.
+// Stream flags: the stream runs on at the upstream / downstream end; reversed flow. (Not sent: tube texel 5, w is the
+// reversed flow's dashed band.)
 export const F_UP = 1, F_DN = 2, F_REV = 4;
 export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64, F_VEIL = 128;   // F_EDGE: the casing takes its own color (texel 6) and is opaque; F_VEIL: faded along its whole course as if behind an organ
 
@@ -79,7 +80,7 @@ void main() {
 //   2: tier, z (draw order within a tier), flags, congestion glow alpha
 //   3: fade: linear from (x, y) to (x, y), or radial: center (x, y), radius
 //   4: fade: offset, alpha at the start, alpha at the end (radial: at 45 %), mode (0 none, 1 linear, 2 radial, 3 linear with a dip: faintest at the offset, solid at the end)
-//   5: drawn part along the vessel (0–1): from, to; arc length (world); stream flags (F_UP, F_DN, F_REV)
+//   5: drawn part along the vessel (0–1): from, to; arc length (world); reversed flow's dashed band (0–1, eased)
 //   6: congestion glow color (rgb), streak course length (world)
 //   7: flow streaks: phase at the upstream end, spacing (world), direction (±1, from → to), strength (0 off)
 //   8: a stretch recolored (the HVPG's wedged vein): color (rgb), amount (0 none)
@@ -112,6 +113,7 @@ uniform vec4 shadow;                   // rgb, alpha
 uniform vec4 sheenInk;                 // rgb, alpha
 uniform vec4 shadeInk;                 // rgb, alpha
 uniform vec4 ring;                     // selection ring: rgb, alpha
+uniform vec3 revInk;                   // the dashed band round a vessel whose flow has reversed
 uniform vec2 light;                    // unit direction toward the light (world)
 uniform float netAlpha;                // the network group's opacity (dimmed while a vessel is focused)
 uniform int fx;                        // 1: shading and shadows (off in the figure view)
@@ -400,6 +402,25 @@ void main() {
       else if (gv > lg.a) lg = vec4((ge.z > 0.5 ? scol[s] : gc.rgb) * gv, gv);
     }
     if (lgU.a > topC.a) { topC = lgU; topGrp = grp; }
+    // ── Reversed flow: a dashed band in the reversed-flow orange just outside the wall of a vessel the story watches
+    // running against its healthy direction, eased in and out by stage.js (tube texel 5, w). Like a glow it lies over
+    // every vessel of its group it crosses; it fades out toward the vessel's ends and stays out of the vessels joined
+    // to it, so it never wraps a join.
+    for (int s = 0; s < MAXS; s++) {
+      if (s >= n || stier[s] != tt) continue;
+      vec4 t5 = T(sid[s], 5);
+      if (t5.w <= 0.0) continue;
+      float e = sd[s] - swall[s], e1 = 0.9 + max(1.5, 1.4 * px);
+      float band = clamp((e - 0.9) / px + 0.5, 0.0, 1.0) * clamp((e1 - e) / px + 0.5, 0.0, 1.0);
+      if (band <= 0.0) continue;
+      float Lh = max(t5.z, 1.0), x = sv[s] * Lh;
+      float dash = clamp((2.75 - abs(mod(x, 9.0) - 4.5)) / px + 0.5, 0.0, 1.0);
+      float hv = 0.85 * t5.w * band * dash * smoothstep(2.0, 10.0, x) * smoothstep(2.0, 10.0, Lh - x) * sa[s] * tierAlpha[ti];
+      int jw = 0;
+      for (int j = 0; j < MAXJ; j++) if (j < jn && (jm[j] & (1 << s)) != 0) jw |= jm[j];
+      for (int u = 0; u < MAXS; u++) if (u != s && u < n && (jw & (1 << u)) != 0) hv *= smoothstep(-0.6, 0.6, sd[u] - swall[u]);
+      if (hv > topC.a) { topC = vec4(revInk * hv, hv); topGrp = grp; }
+    }
     if (lg.a > 0.0) {
       if (grp == 0) accB = over(lg, accB);
       else if (grp == 1) accN = over(lg * min(1.0 / max(netAlpha, 1e-3), 1.0 / lg.a), accN);   // (accN is faded by netAlpha as a whole)
@@ -747,6 +768,7 @@ uniform float H;                       // canvas height, device pixels
 uniform float pxW;                     // world units per device pixel
 uniform int blood;                     // 1: draw the blood
 uniform int chev;                      // 1: flow chevrons on top (dark; orange where flow is reversed)
+uniform int still;                     // 1: reduced motion (the chevrons stand still, spaced by flow)
 uniform vec3 chevInk;
 uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
 uniform int look;                      // 0 parcels, 1 shimmer
@@ -757,8 +779,8 @@ uniform vec3 originCol[5];
 uniform vec3 dyeCol;
 uniform vec3 revCol;                   // the moving blood's color where flow runs backwards
 uniform vec3 inkLight, inkDark;
-uniform vec4 bleedE[10];               // world ellipses: center, radii
-uniform float bleedA[10];
+uniform vec4 bleedE[10];               // an active bleed (stage.js bleedSpray): a jet's base and tip, or the pool's centre and radii (world)
+uniform vec4 bleedB[10];               // a jet's radius at its base and at its tip, alpha, kind (1 jet, 0 pool)
 uniform int bleedN;
 uniform vec4 noChev[12];               // world boxes (x0, y0, x1, y1) where no flow arrowhead is drawn: a figure reading sits there
 uniform int noChevN;
@@ -951,7 +973,11 @@ vec2 chevAt(int id, float s, float y) {
   // Spacing: a power-of-two multiple of 28 world units (it divides the stream's period: no jump on
   // wrap), at least ~60 px on screen. Zooming out, every other head fades away before the spacing
   // doubles (the coarser heads are a subset of the finer ones), so nothing jumps or pops.
-  float lv = max(0.0, log2(max(3.6 * R, 60.0 * pxW) / 28.0)), n = floor(lv), fr = lv - n;
+  float lv = max(0.0, log2(max(3.6 * R, 60.0 * pxW) / 28.0));
+  // Reduced motion: the heads stand still, so their spacing carries the flow instead: closer where more blood passes
+  // (flow texel 3, y: a coarser level for less flow). Never closer than the zoom allows.
+  if (still == 1) lv = max(lv, texelFetch(flow, ivec2(3, id), 0).y);
+  float n = floor(lv), fr = lv - n;
   float P = 28.0 * exp2(n), Pc = 28.0 * exp2(lv);
   float x = mod(s - f0.x + 0.5 * P, P) - 0.5 * P, u = x * dir;
   float Rs = max(texelFetch(rad, ivec2(clamp(int(clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, N_LAST), id), 0).r, 0.3);
@@ -1073,12 +1099,26 @@ void main() {
     v = vec4(col * v.a, v.a);
   }
   vec4 o = over(fluidC, over(v, pl));
+  // An active bleed: jets from the rupture (tapered streaks, densest at the base) and the pool in the stomach (a
+  // feathered edge, and a darker meniscus just inside it).
   for (int i = 0; i < 10; i++) {
     if (i >= bleedN) break;
-    vec2 d = (w - bleedE[i].xy) / max(bleedE[i].zw, vec2(1e-3));
-    float r = length(d), aa = pxW / max(min(bleedE[i].z, bleedE[i].w), 1e-3);
-    float a = (1.0 - smoothstep(1.0 - aa, 1.0 + aa, r)) * bleedA[i];
-    o = over(vec4(vec3(${cssRGB('--bleed-spray').map((v) => v.toFixed(1)).join(', ')}) / 255.0 * a, a), o);
+    vec4 bE = bleedE[i], bB = bleedB[i];
+    vec3 bc = vec3(${cssRGB('--bleed-spray').map((v) => v.toFixed(1)).join(', ')}) / 255.0;
+    float a;
+    if (bB.w > 0.5) {
+      vec2 pa = w - bE.xy, ba = bE.zw - bE.xy;
+      float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
+      float d = length(pa - ba * h) - mix(bB.x, bB.y, h);
+      a = (1.0 - smoothstep(-0.75 * pxW, 0.75 * pxW, d)) * bB.z * (1.0 - 0.55 * h);
+    } else {
+      vec2 d = (w - bE.xy) / max(bE.zw, vec2(1e-3));
+      float r = length(d), aa = pxW / max(min(bE.z, bE.w), 1e-3);
+      float rim = smoothstep(0.7, 0.9, r) * (1.0 - smoothstep(0.9, 1.0, r));
+      a = min(1.0, bB.z + 0.3 * rim) * (1.0 - smoothstep(0.84, 1.0 + aa, r));
+      bc = mix(bc, bc * 0.55, rim);
+    }
+    if (a > 0.0) o = over(vec4(bc * a, a), o);
   }
   if (lineOn == 1) o = over(texelFetch(lineL, ip, 0), o);
   outColor = o;
@@ -1344,7 +1384,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   // kept only while panning.
   const whole = (m) => (Number.isInteger(m[4]) && Number.isInteger(m[5]) ? m : [m[0], m[1], m[2], m[3], Math.round(m[4]), Math.round(m[5])]);
   // What the vessel pass reads from the look (anything else in it only matters to the composite).
-  const lookKey = (k) => JSON.stringify([k.reach, k.shOff, k.casing, k.shadow, k.sheen, k.shade, k.ring, k.light, k.netAlpha, k.fx, k.heat, k.tierAlpha, k.tierGroup, k.organs]);
+  const lookKey = (k) => JSON.stringify([k.reach, k.shOff, k.casing, k.shadow, k.sheen, k.shade, k.ring, k.revInk, k.light, k.netAlpha, k.fx, k.heat, k.tierAlpha, k.tierGroup, k.organs]);
   let tubesNew = true, drawnLook = '';
   const spare = { fbo: gl.createFramebuffer(), base: dataTex(gl), g: dataTex(gl), g2: dataTex(gl), dep: dataTex(gl), w: 0, h: 0, timer: 0 };
   function spareSize(w, h) {
@@ -1496,6 +1536,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.uniform4f(u.sheenInk, ...look.sheen);
     gl.uniform4f(u.shadeInk, ...look.shade);
     gl.uniform4f(u.ring, ...look.ring);
+    gl.uniform3f(u.revInk, ...(look.revInk || [1, 0.55, 0.26]));
     gl.uniform2f(u.light, ...look.light);
     gl.uniform1f(u.netAlpha, look.netAlpha);
     gl.uniform1i(u.fx, look.fx ? 1 : 0);
@@ -1660,7 +1701,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     /**
      * The picture from the last vessel layer: plate, vessels, blood, dye, bleed. Cheap; runs
      * every animation frame. `blood`: { on, look, origin, clock, originCol, dyeCol, inkLight,
-     * inkDark, bleed: [[x, y, rx, ry, alpha]] }.
+     * inkDark, bleed: [[x0, y0, x1, y1, r0, r1, alpha, kind]] (stage.js bleedSpray) }.
      */
     composite(look, blood = {}, full = false) {
       if (!baseM || fboW !== canvas.width || fboH !== canvas.height) return;
@@ -1715,6 +1756,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform4f(U.fluidInk, ...(fl && pm ? fl.ink : [0, 0, 0, 0]));
       gl.uniform1i(U.blood, blood.on ? 1 : 0);
       gl.uniform1i(U.chev, blood.chev ? 1 : 0);
+      gl.uniform1i(U.still, blood.still ? 1 : 0);
       gl.uniform1f(U.flowA, blood.alpha ?? 1);
       gl.uniform3f(U.chevInk, ...(blood.chevInk || [0.08, 0.08, 0.1]));
       gl.uniform1i(U.look, blood.look === 'shimmer' ? 1 : 0);
@@ -1728,10 +1770,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform3f(U.inkLight, ...(blood.inkLight || [1, 1, 1]));
       gl.uniform3f(U.inkDark, ...(blood.inkDark || [0.1, 0.1, 0.16]));
       const bl = blood.bleed || [];
-      const be = SCR.be.fill(0), ba = SCR.ba.fill(0);
-      bl.slice(0, 10).forEach((b, i) => { be.set(b.slice(0, 4), i * 4); ba[i] = b[4]; });
+      const be = SCR.be.fill(0), bb = SCR.bb.fill(0);
+      for (let i = 0; i < Math.min(10, bl.length); i++) for (let j = 0; j < 4; j++) { be[i * 4 + j] = bl[i][j]; bb[i * 4 + j] = bl[i][4 + j]; }
       gl.uniform4fv(U.bleedE, be);
-      gl.uniform1fv(U.bleedA, ba);
+      gl.uniform4fv(U.bleedB, bb);
       gl.uniform1i(U.bleedN, Math.min(10, bl.length));
       const nc = (blood.noChev || []).slice(0, 12), ncv = SCR.ncv.fill(0);
       nc.forEach((b, i) => ncv.set(b, i * 4));
