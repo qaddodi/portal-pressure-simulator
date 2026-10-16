@@ -3,7 +3,7 @@
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=0b72305f30';
 import { pressureColor } from './colormap.js?v=5c9a375f49';
-import { store, hiddenNow } from './store.js?v=ead3d78843';
+import { store, hiddenNow } from './store.js?v=2ffba40465';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=0140acc352';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=5efaa2bcc9';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';

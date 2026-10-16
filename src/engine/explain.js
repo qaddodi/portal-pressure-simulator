@@ -2,9 +2,9 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=350a252c76';
-import { computeMetrics } from './metrics.js?v=b9783022b9';
-import { defaultParams, DRUGS } from './scenario.js?v=5c3e8b1079';
+import { Engine } from './engine.js?v=d725be9347';
+import { computeMetrics } from './metrics.js?v=e566c70621';
+import { defaultParams, DRUGS } from './scenario.js?v=1ee7733788';
 import { EDGES, dMinOf } from './topology.js?v=4044766e96';
 
 export const METRICS = {
@@ -53,6 +53,7 @@ function factors(eng, metricId) {
   if (p.contractility !== 1) add('Right-heart contractility', 'the right-heart contractility', (e) => { e.params.contractility = 1; });
   if (p.tr > 0) add('Tricuspid regurgitation', 'the tricuspid regurgitation', (e) => { e.params.tr = 0; });
   if (p.pericardial > 0) add('Pericardial constraint', 'the pericardial constraint', (e) => { e.params.pericardial = 0; });
+  if (p.gestation > 0) add(`Pregnancy ${Math.round(p.gestation)} weeks`, 'the pregnancy', (e) => { e.params.gestation = 0; });
   if (p.apShunt > 0) add('Arterioportal shunting', 'the arterioportal shunting', (e) => { e.params.apShunt = 0; });
   for (const [k, on] of Object.entries(p.drugs)) if (on) add(DRUGS[k].label, lc(DRUGS[k].label), (e) => { e.params.drugs[k] = false; });
   if (p.tips.on) add(`TIPS ${p.tips.d} mm`, 'the TIPS', (e) => { e.params.tips.on = false; });
@@ -68,10 +69,12 @@ function factors(eng, metricId) {
     for (const x of EDGES) if (x.kind === 'collateral') e.slow.d[x.id] = dMinOf(x);
   }, 'slow');
   if (s.ascites > 200) add(`Ascites ${(s.ascites / 1000).toFixed(1)} L`, 'the pressure of the ascites', (e) => { e.slow.ascites = 0; }, 'slow');
-  const dv = eng.bloodVolume() - 5000;
+  const dv = eng.bloodVolume() - 5000 - (eng.blood.preg || 0);   // (the pregnancy's own volume goes with the pregnancy)
   // Hemoglobin is red cells over blood volume, so for it the red cells lost or given and the plasma that followed are one
   // change: reverted together, the bars add up to the whole difference instead of two large halves that cancel.
-  const rbc0 = 5000 * 0.42, drbc = eng.blood.rbc - rbc0;   // (a healthy red cell mass: engine.js BLOOD_BASE × HCT_BASE)
+  // (A healthy red cell mass, engine.js BLOOD_BASE × HCT_BASE, plus the red cells in the pregnancy's own volume, added at
+  // HCT_BASE × 0.7.)
+  const rbc0 = 5000 * 0.42 + (eng.blood.preg || 0) * 0.42 * 0.7, drbc = eng.blood.rbc - rbc0;
   if (metricId === 'hb') {
     if (Math.abs(drbc) > rbc0 * 0.02 || Math.abs(dv) > 150) {
       // Named for what moved it: a bleed, extra plasma that dilutes the red cells, or red cells given.

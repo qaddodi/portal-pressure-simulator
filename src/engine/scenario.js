@@ -17,6 +17,7 @@ export function defaultParams() {
     tr: 0,                        // tricuspid regurgitation 0..1
     pericardial: 0,               // constriction 0..1
     albumin: 4.0,                 // g/dL
+    gestation: 0,                 // pregnancy, weeks (0 = not pregnant); see PREGNANCY in engine.js
     habrStrength: 1,
     apShunt: 0,                   // extra arterioportal shunting 0..1
     respiration: true,
@@ -54,6 +55,9 @@ export const DRUGS = {
     info: 'Somatostatin analogue: inhibits vasodilatory gut peptides → splanchnic vasoconstriction.' },
 };
 
+/** What the pregnancy setting (gestation) does, for its controls' info. */
+export const PREGNANCY_INFO = 'Weeks of pregnancy. Blood volume and cardiac output rise from the first trimester, and splanchnic vasodilation raises portal inflow, so portal pressure and the varices grow. After 20 weeks the uterus also raises the pressure in the abdomen. 0 is before pregnancy.';
+
 const P = (patch) => (p) => deepMerge(p, patch);
 
 // Each preset: patch applied to defaultParams(), plus chronic days on the disease clock.
@@ -80,6 +84,10 @@ export const PRESETS = [
     summary: 'Very high sinusoidal resistance plus arterioportal shunting: the portal vein reverses and drains the liver into collaterals.' },
   { id: 'gastric-varix', group: 'Sinusoidal', label: 'Cirrhosis with gastrorenal shunt', apply: P({ cirrhosis: 0.9, albumin: 3.0, diuretics: true, spontaneous: { C5: true }, isolatedGV: true }), days: 450,
     summary: 'Isolated fundal varices (IGV1), fed by the short and posterior gastric veins, decompress into the left renal vein through a gastrorenal shunt (the BRTO target); no communication with the coronary vein.' },
+  // Compensated cirrhosis with small varices before pregnancy (HVPG about 12); `now` makes her pregnant once the disease
+  // clock has run, so moving the gestation back to 0 shows her before pregnancy.
+  { id: 'pregnancy', group: 'Sinusoidal', label: 'Cirrhosis in pregnancy', apply: P({ cirrhosis: 0.62 }), days: 365, now: { gestation: 24 },
+    summary: 'Compensated cirrhosis at 24 weeks of pregnancy. A larger blood volume, a higher cardiac output and splanchnic vasodilation raise portal inflow, so small varices grow large. Move the weeks on the heart card.' },
   { id: 'sos', group: 'Postsinusoidal', label: 'Sinusoidal obstruction syndrome', apply: P({ fibrosis: { R: { post: 20 }, L: { post: 20 } } }), days: 21,
     summary: 'Central-vein resistance: high wedged pressure and HVPG, hepatomegaly, ascites.' },
   { id: 'budd-chiari', group: 'Posthepatic', label: 'Budd–Chiari (hepatic vein occlusion)', apply: P({ thrombus: { RHV_IVC: 1, MHV_IVC: 1, LHV_IVC: 1 } }), days: 60,
@@ -97,7 +105,7 @@ export const PRESETS = [
 const RANGES = {
   cirrhosis: [0, 1], splenicRx: [0, 2], splanchnicTone: [0.4, 2.5], systemicTone: [0.4, 2.5],
   contractility: [0.15, 1.6], tr: [0, 1], pericardial: [0, 1], albumin: [1.5, 5], habrStrength: [0, 2],
-  apShunt: [0, 1], respDepth: [0, 3],
+  apShunt: [0, 1], respDepth: [0, 3], gestation: [0, 40],
 };
 const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
 

@@ -2,10 +2,10 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=ead3d78843';
+import { store, updateParams } from './store.js?v=2ffba40465';
 import { h, svgIcon, toast } from './util.js?v=0140acc352';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { DRUGS } from '../engine/scenario.js?v=5c3e8b1079';
+import { DRUGS } from '../engine/scenario.js?v=1ee7733788';
 import { HIDDEN_EDGES } from './anatomy.js?v=0b72305f30';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
@@ -32,6 +32,7 @@ export function createPalette({ ctx }) {
     add('Change', 'Serum albumin', (n) => updateParams({ albumin: Math.min(5, Math.max(1.5, n ?? 3)) }, { label: 'Serum albumin' }), { num: 'g/dL', kw: 'protein oncotic' });
     add('Change', 'Right-heart contractility', (n) => updateParams({ contractility: Math.min(1.6, Math.max(0.15, (n ?? 50) / 100)) }, { label: 'Contractility' }), { num: '%', kw: 'heart failure rv' });
     add('Change', 'Tricuspid regurgitation', (n) => updateParams({ tr: Math.min(1, Math.max(0, (n ?? 80) / 100)) }, { label: 'TR' }), { num: '%', kw: 'tr heart valve' });
+    add('Change', 'Pregnancy', (n) => updateParams({ gestation: Math.min(40, Math.max(0, Math.round(n ?? 24))) }, { label: 'Pregnancy' }), { num: 'weeks', kw: 'pregnant gestation trimester', hint: 'pregnancy 24 → 24 weeks' });
     add('Change', 'Splanchnic arteriolar tone', (n) => updateParams({ splanchnicTone: Math.min(2.5, Math.max(0.4, (n ?? 60) / 100)) }, { label: 'Splanchnic tone' }), { num: '%', kw: 'vasodilation inflow' });
     for (const [id, name] of [['PV_TRUNK', 'portal vein'], ['SV_CONF', 'splenic vein'], ['SMV_CONF', 'superior mesenteric vein'], ['RHV_IVC', 'right hepatic vein'], ['IVCS_RA', 'suprahepatic ivc']]) {
       add('Change', `Narrow the ${name}`, (n) => updateParams((p) => { const v = Math.min(0.95, Math.max(0, (n ?? 70) / 100)); if (v <= 0) delete p.stenosis[id]; else p.stenosis[id] = v; return p; }, { label: `${name} stenosis` }), { num: '%', kw: 'stenosis pinch' });

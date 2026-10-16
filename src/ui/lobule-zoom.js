@@ -20,7 +20,7 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
-import { store } from './store.js?v=ead3d78843';
+import { store } from './store.js?v=2ffba40465';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
 import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=1ff0bc103e';
@@ -30,7 +30,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=07d4833500';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=1f05278710';
-import { createSinusoidView } from './sinusoid-view.js?v=47df865991';
+import { createSinusoidView } from './sinusoid-view.js?v=b483575a4c';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');

@@ -2,6 +2,14 @@
 
 ## October 2026
 
+- **Pregnancy, and a Cirrhosis in pregnancy patient.** A new setting, the weeks of pregnancy (0 to 40), changes the
+  circulation as pregnancy does: blood volume up about a third (most of it plasma, so the hemoglobin falls to about 12),
+  cardiac output up about half, the heart about 15 beats a minute faster, splanchnic and systemic vasodilation, and from
+  20 weeks a rising abdominal pressure from the uterus. The new patient (Sinusoidal) has compensated cirrhosis with small
+  varices and an HVPG of about 12 before pregnancy; at 24 weeks the portal inflow is a third higher, HVPG about 13 and
+  the varices large with red wale signs, and propranolol takes them back to small. The weeks are a slider on the heart
+  card (shown for a pregnant patient), in Changes and in Why?. At 0 weeks nothing changes for any other patient.
+  Tests: `tests/pregnancy.test.js`.
 - **Colored by oxygen.** A new view in Colored by shows each vessel's oxygen saturation, 60 to 100 %, from blue
   (deoxygenated) to cerise red (arterial). The hepatic artery is 98 %, the portal vein about 85 % (gut venous blood),
   systemic veins about 75 %; the sinusoids mix portal and arterial blood at the portal tract and darken toward the

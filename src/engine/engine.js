@@ -6,8 +6,8 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=5c3e8b1079';
-import { detectEvents } from './events.js?v=62eef64795';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=1ee7733788';
+import { detectEvents } from './events.js?v=582dd803a9';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -68,6 +68,17 @@ const sieve = (sig, jv, ps) => (1 - sig) / (1 - sig * Math.exp(-Math.max(0, jv) 
 const SPLENIC_RX_R = [1, 2.5, 80];
 /** Systemic share of the chronic splanchnic vasodilation (fraction of the splanchnic tone drop). */
 const SYS_DILATION = 0.5;
+// Pregnancy (params.gestation, weeks; 0 = not pregnant, and then none of this applies). At its full extent, from about
+// 30 weeks: splanchnic and systemic arteriolar tone fall by a quarter and 30 %, the heart pumps 20 % harder and beats
+// 15 /min faster (the rate only, as the chronic drive in cirrhosis), and blood volume grows by about 1.8 L (30–50 % in
+// pregnancy): `stressed` mL raises venous filling, the rest (`plasma`) fills veins that widen to hold it, so the right
+// atrial pressure stays normal, and is mostly plasma (`rbc`: its red cell share), so the hemoglobin falls (the
+// physiological anemia). From 20 weeks the growing uterus raises intra-abdominal pressure, by `iap` mmHg at term.
+export const PREGNANCY = { spl: 0.25, sys: 0.3, contr: 0.2, hr: 15, stressed: 300, plasma: 1500, rbc: 0.2, iap: 4, tau: 5 };
+/** How far pregnancy has changed the circulation, 0..1: fast in the first trimester, complete by about 30 weeks. */
+export const pregnancyLevel = (weeks) => { const x = clamp((weeks || 0) / 30, 0, 1); return x * (2 - x); };
+/** The uterus's share of the late rise in intra-abdominal pressure, 0 until 20 weeks, 1 at 40. */
+const uterusLevel = (weeks) => Math.pow(clamp(((weeks || 0) - 20) / 20, 0, 1), 1.5);
 
 export class Engine {
   constructor({ params, seed } = {}) {
@@ -194,6 +205,8 @@ export class Engine {
     this.settle();
     const n = days ?? pr.days;
     if (n > 0) yield* this.advanceDaySteps(n, { noRupture: true, silent: true });
+    // What the patient has now, after the years of disease (a pregnancy): set once the disease clock has run.
+    if (pr.now) Object.assign(params, deepMerge(params, pr.now));
     // Day steps relax only roughly; start from a true equilibrium so a before/after comparison
     // (e.g. closing a shunt) shows the intervention, not leftover relaxation.
     this.settle();
@@ -231,7 +244,13 @@ export class Engine {
     return m;
   }
 
-  hct() { return clamp(this.blood.rbc / this.bloodVolume(), 0.05, 0.8); }
+  hct() {
+    const u = this.pregnancyPlasma();
+    return clamp((this.blood.rbc + PREGNANCY.rbc * u) / (this.bloodVolume() + u), 0.05, 0.8);
+  }
+  /** Pregnancy's blood held in widened veins (mL): in the circulation but adding no pressure, so it is counted out of
+   *  bloodVolume (and so out of what the bleeding reflexes measure) and added back where the volume is shown. */
+  pregnancyPlasma() { return PREGNANCY.plasma * pregnancyLevel(this.params.gestation); }
   bloodVolume() {
     let s = 0;
     for (let i = 0; i < this.N; i++) s += this.V[i] - this.Vbase[i];
@@ -252,9 +271,12 @@ export class Engine {
     // with the vasodilation; slowing (a high pressure) scales the rate as before.
     const reflex = (0.9 * (b - 1) + vol) * d.baroHr;
     const blunt = 1 - RESERVOIR.chrono * clamp((1 - this.slow.splTone) / 0.45, 0, 1);
-    const hr = clamp(HR_REST * d.hr * (reflex > 0 ? symp + reflex * blunt : symp * (1 + reflex)), 38, 170);
-    const contr = p.contractility * d.contr * clamp(1 + 0.35 * (b - 1), 0.6, 1.6);
-    const cap = contr * Math.pow(hr / (HR_REST * symp), 0.6) * (1 - 0.3 * p.tr);
+    // Pregnancy adds beats to the resting rate and strengthens the heart; like the chronic drive, the beats it adds do not
+    // add pump capacity. (At 0 weeks `rest` is the rate as before: HR_REST · symp.)
+    const pg = pregnancyLevel(p.gestation), add = PREGNANCY.hr * pg, rest = HR_REST * symp + add;
+    const hr = clamp(HR_REST * d.hr * (reflex > 0 ? symp + reflex * blunt : symp * (1 + reflex)) + d.hr * add * (reflex > 0 ? 1 : 1 + reflex), 38, 170);
+    const contr = p.contractility * (1 + PREGNANCY.contr * pg) * d.contr * clamp(1 + 0.35 * (b - 1), 0.6, 1.6);
+    const cap = contr * Math.pow(hr / rest, 0.6) * (1 - 0.3 * p.tr);
     return { hr, cap };
   }
 
@@ -272,7 +294,7 @@ export class Engine {
       const u = Math.min(1, (t - this.valsalva.start) / 1.5);
       vals = 30 * u;
     }
-    this.iap = iapFromAscites(this.slow.ascites) + iapResp + vals;
+    this.iap = iapFromAscites(this.slow.ascites) + PREGNANCY.iap * uterusLevel(p.gestation) + iapResp + vals;
     const iapDev = this.iap - 5;
     const pplDev = ppl + vals;
     let raExt = pplDev + 12 * p.pericardial;
@@ -303,10 +325,11 @@ export class Engine {
   computeG(P) {
     const p = this.params, s = p.cirrhosis, d = this._drug;
     const visc = this.viscosity();
-    const spl = p.splanchnicTone * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6);
+    const pg = pregnancyLevel(p.gestation);
+    const spl = p.splanchnicTone * (1 - PREGNANCY.spl * pg) * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6);
     // Chronic portal hypertension dilates systemic arterioles too (nitric oxide spill-over), not only the
     // splanchnic bed: SVR falls and, with the expanded plasma volume, cardiac output rises (hyperdynamic circulation).
-    const sys = p.systemicTone * d.sys * this.baro * (1 - SYS_DILATION * (1 - this.slow.splTone));
+    const sys = p.systemicTone * (1 - PREGNANCY.sys * pg) * d.sys * this.baro * (1 - SYS_DILATION * (1 - this.slow.splTone));
     const cath = p.catheter;
     const extE = { abd: this.iap - 5, thor: this.ext[this.ni.SVC], eso: this.ext[this.ni.VAR], gas: this.ext[this.ni.GV], none: 0 };
 
@@ -404,6 +427,7 @@ export class Engine {
   step(dt) {
     const N = this.N, A = this.A, b = this.b, P = this.P, p = this.params;
     this._drug = this.drugEffects();
+    this.pregnancyVolume(dt);
     const hs = this.heartState();
     this.hr = hs.hr;
     this.cyc = (this.cyc || 0) + dt * hs.hr / 60;
@@ -561,6 +585,16 @@ export class Engine {
         this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i], Pk, Ps);
       }
     }
+  }
+
+  /** Pregnancy's extra venous filling (PREGNANCY.stressed), eased in or out as the gestation changes: the body's own
+   *  volume, so the reflexes reset to it (blood.preg: the mL added so far). */
+  pregnancyVolume(dt) {
+    const want = PREGNANCY.stressed * pregnancyLevel(this.params.gestation), now = this.blood.preg || 0;
+    if (want === now) return;
+    const dv = Math.abs(want - now) < 0.01 ? want - now : (want - now) * Math.min(1, dt / PREGNANCY.tau);
+    this.addVolume(dv, HCT_BASE * 0.7, true);
+    this.blood.preg = now + dv;
   }
 
   /** Blood volume missing against the patient's own (mL, never negative): what the bleeding reflexes respond to. */

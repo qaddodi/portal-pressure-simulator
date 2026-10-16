@@ -111,7 +111,7 @@ export function computeMetrics(eng) {
     spleen: eng.params.splenicRx === 2 ? { length: 0, platelets: 380 } : { length: eng.slow.spleen, platelets: clamp(250 * Math.pow(11 / eng.slow.spleen, 3), 25, 400) },
     map, co, hr: eng.hr, svr: (map - ra) / Math.max(0.5, co),
     heRisk: { index: heIdx, label: heIdx < 0.2 ? 'Low' : heIdx < 0.45 ? 'Moderate' : 'High' },
-    blood: { volume: bv, lossPct, lost: eng.blood.lost, hct, hb: (hct * 100) / 3, shock },
+    blood: { volume: bv + eng.pregnancyPlasma(), lossPct, lost: eng.blood.lost, hct, hb: (hct * 100) / 3, shock },
     bleeding: eng.bleed.active ? { site: eng.bleed.site, rate: eng.Qbleed * 60, total: eng.bleed.total } : null,
     habr: eng.habr, baro: eng.baro,
     splTone: eng.slow.splTone,

@@ -2,8 +2,8 @@
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { DRUGS } from '../engine/scenario.js?v=5c3e8b1079';
-import { store, updateParams, isLocked, hiddenNow } from './store.js?v=ead3d78843';
+import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=1ee7733788';
+import { store, updateParams, isLocked, hiddenNow } from './store.js?v=2ffba40465';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=0140acc352';
 import { liveBalance } from './balance-hold.js?v=ea4d9121d2';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
@@ -52,6 +52,7 @@ export const CONTROLS = {
   portocaval: { type: 'toggle', key: 'portocaval', label: 'Portocaval shunt', ...prop('portocaval'), info: 'End-to-side: total diversion; the liver loses all portal perfusion.' },
   dsrs: { type: 'toggle', key: 'dsrs', label: 'Distal splenorenal (Warren)', ...prop('dsrs'), info: 'Selective: decompresses gastroesophageal varices while SMV blood still perfuses the liver.' },
   mesocaval: { type: 'toggle', key: 'mesocaval', label: 'Mesocaval shunt', ...prop('mesocaval') },
+  gestation: { type: 'slider', key: 'gestation', label: 'Pregnancy', min: 0, max: 40, step: 1, ...prop('gestation'), format: (v) => (v > 0 ? `${Math.round(v)} weeks` : 'Not pregnant'), def: 0, info: PREGNANCY_INFO },
   albumin: { type: 'slider', key: 'albumin', label: 'Serum albumin', min: 1.5, max: 5, step: 0.1, ...prop('albumin'), format: (v) => `${v.toFixed(1)} g/dL`, def: 4, normal: [3.5, 5], info: 'Plasma oncotic pressure opposes filtration out of capillaries (Starling).' },
   diuretics: { type: 'toggle', key: 'diuretics', label: 'Diuretics', ...prop('diuretics'), info: 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites.' },
   splanchnicTone: { type: 'slider', key: 'splanchnicTone', label: 'Splanchnic arteriolar tone', min: 0.4, max: 2.5, step: 0.01, ...prop('splanchnicTone'), format: tone, def: 1, normal: [0.85, 1.15], info: 'Forward-flow theory: splanchnic vasodilation raises portal inflow, and so portal pressure.' },
@@ -399,6 +400,7 @@ export function activeInterventions(p) {
   if (p.pericardial > 0) add('pericardial', `Pericardial constraint ${Math.round(p.pericardial * 100)} %`, (q) => { q.pericardial = 0; });
   if (p.apShunt > 0) add('apShunt', `Arterioportal shunting ${Math.round(p.apShunt * 100)} %`, (q) => { q.apShunt = 0; });
   if (p.habrStrength !== 1) add('habr', `Arterial buffer ×${p.habrStrength.toFixed(2)}`, (q) => { q.habrStrength = 1; });
+  if (p.gestation > 0) add('gestation', `Pregnancy ${Math.round(p.gestation)} weeks`, (q) => { q.gestation = 0; });
   if (p.albumin !== 4) add('albumin', `Albumin ${p.albumin.toFixed(1)} g/dL`, (q) => { q.albumin = 4; });
   if (p.diuretics) add('diuretics', 'Diuretics', (q) => { q.diuretics = false; });
   if (p.anticoag) add('anticoag', 'Anticoagulation', (q) => { q.anticoag = false; });

@@ -5,8 +5,9 @@
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { store, updateParams, hiddenNow } from './store.js?v=ead3d78843';
+import { store, updateParams, hiddenNow } from './store.js?v=2ffba40465';
 import { fmt, fmtFlow, clamp } from './util.js?v=0140acc352';
+import { PREGNANCY_INFO } from '../engine/scenario.js?v=1ee7733788';
 import { aboutVessel, aboutOrgan } from './about.js?v=e0bda4dfee';
 import { lobuleState } from './lobule-model.js?v=1ff0bc103e';
 import { oxygenFor } from './blood.js?v=1f05278710';
@@ -32,6 +33,7 @@ export function verbEnabled(id, key) {
 
 const pct = (v) => `${Math.round(v * 100)} %`;
 const mult = (v) => `×${v.toFixed(v < 10 ? 1 : 0)}`;
+const weeks = (v) => (v > 0 ? `${Math.round(v)} weeks` : 'Not pregnant');
 const HEP_VEIN = { RHV_IVC: 'R', POST_R_RHV: 'R', MHV_IVC: 'M', POST_R_MHV: 'M', POST_L_MHV: 'M', LHV_IVC: 'L', POST_L_LHV: 'L' };
 const POST_TO_HV = { POST_R_RHV: 'RHV_IVC', POST_R_MHV: 'MHV_IVC', POST_L_MHV: 'MHV_IVC', POST_L_LHV: 'LHV_IVC' };
 const WEDGE_OF = { W_R: 'RHV_IVC', W_M: 'MHV_IVC', W_L: 'LHV_IVC' };
@@ -232,6 +234,9 @@ function organCard(sel, ctx) {
         sl('contractility', 'contractility', 'Contractility', 0.15, 1.6, 1, 'Right-ventricular pump strength (Frank–Starling).'),
         sl('tr', 'tr', 'Tricuspid regurgitation', 0, 1, 0, 'Systolic backflow into the right atrium: large v-waves reach the liver.'),
         sl('pericardial', 'pericardial', 'Pericardial constraint', 0, 1, 0, 'Constrictive pericarditis limits filling.'),
+        // Only for a pregnant patient (or the pregnancy patient moved back to 0 weeks): every other heart card is as before.
+        { type: 'slider', id: 'gestation', key: 'gestation', label: 'Pregnancy', min: 0, max: 40, step: 1, def: 0, format: weeks, get: (p) => p.gestation || 0, set: (p, v) => { p.gestation = v; }, hist: 'Pregnancy',
+          showIf: (p) => p.gestation > 0 || store.get().presetId === 'pregnancy', info: PREGNANCY_INFO },
         stat('Cardiac output', (f) => `${fmt(f.metrics.co, 1)} L/min`),
       ],
     };
