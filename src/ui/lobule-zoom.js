@@ -924,23 +924,27 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const txt = `${name}|${v}|${u}|${d}|${col}`;
     if (L.txt === txt) return;
     // Only the number (or its change) moved: its text is updated in place, and the labels are laid out again
-    // only when it takes more or fewer characters (the label is rebuilt only when its make-up changes).
-    const frame = `${name}|${short}|${u}|${col}|${v === ''}|${!!d}`;
+    // only when it takes more or fewer characters (the label is rebuilt only when its make-up changes). The same holds for
+    // a figure inside the unit ('Protein 48%', which moves with the pulse): its digits are tabular, so a new figure with
+    // as many digits leaves the label's size as it was.
+    const uk = u.replace(/\d/g, '0'), frame = `${name}|${short}|${uk}|${col}|${v === ''}|${!!d}`;
     if (L.frame === frame && L.b) {
       if (String(v).length !== L.b.textContent.length || (d && d.length !== L.dEl.textContent.length)) layoutKey = '';
       L.b.textContent = v;
       if (d) L.dEl.textContent = d;
+      if (u !== L.u) { const [a, ...rest] = u.split(' · '); if (rest.length) { L.uEls[0].textContent = a; L.uEls[1].lastChild.textContent = rest.join(' · '); } else if (u) L.uEls[0].textContent = u; }
     } else {
       L.frame = frame;
       L.el.style.setProperty('--sw', col || 'var(--border-strong)');
       L.b = v === '' ? null : h('b', {}, v);
       L.dEl = d ? h('span', { class: 'd' }, d) : null;
+      L.uEls = unitParts(u);
       L.el.replaceChildren(h('span', { class: 'n' }, h('span', { class: 'n-long' }, name), h('span', { class: 'n-short' }, short)),
-        v === '' ? null : h('span', { class: 'v' }, L.b, ...unitParts(u), L.dEl));
+        v === '' ? null : h('span', { class: 'v' }, L.b, ...L.uEls, L.dEl));
       layoutKey = '';
     }
-    L.txt = txt;
-    L.lk = `${name}|${short}|${u}|${v === ''}|${!!d}`;   // what the layout depends on (a value of new length clears layoutKey above)
+    L.txt = txt; L.u = u;
+    L.lk = `${name}|${short}|${uk}|${v === ''}|${!!d}`;   // what the layout depends on (a value of new length clears layoutKey above)
     L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('▲') ? 'up' : 'down'} ${d.slice(2)} ${model?.cmp ? 'since then' : 'from healthy'}` : ''}. Show details`);
   }
   // Which portal venule and which sinusoid carry the label: at first the left portal venule and the
@@ -1144,6 +1148,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     for (const e of leaders.children) for (const [a, d] of [['x1', dx], ['x2', dx], ['cx', dx], ['y1', dy], ['y2', dy], ['cy', dy]]) { const v = e.getAttribute(a); if (v != null) e.setAttribute(a, +v + d); }
     return true;
   }
+  let layoutN = 0;   // (for the checks: how many times the labels have been placed in full)
   function layoutLabels() {
     // Laid out where the presenter's glide lands (see camSettle), or once its time is up if the hand cut it short.
     if (camMove) { if (performance.now() >= camUntil) camSettle(); return; }
@@ -1160,6 +1165,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       return;
     }
     const baked = bakeFollow();
+    layoutN++;
     // A label that moves while the view holds still (a term lit, a value's width changed) glides to its new spot;
     // while the view itself pans or zooms, the labels follow it at once.
     const vKey = `${g.W}x${g.H}|${V.k},${V.x},${V.y}`;
@@ -2291,16 +2297,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   }
 
   // ── Overlay: lymph droplets; without WebGL2, the red cells too ──
-  // What the effects layer draws that does not move (the ductules' cells, the eraser under the vessels, the sinusoids'
-  // collagen lining), as world-space paths: rebuilt only when the calibers or the zoom change, not every frame.
-  let fxKey = '', fxP = null;
-  function fxPaths() {
-    const G = geo, key = [geoKey, Object.values(rzOf()).map((x) => x.toFixed(5)).join(','), V.k.toFixed(5)].join('|');
-    if (key === fxKey) return fxP;
-    fxKey = key;
+  // What the effects layer draws that does not move, as world-space paths, each with the box it covers (so a frame
+  // draws only those that reach the screen; one wholly off it changes no pixel there). The ductules' cells follow only
+  // their calibers; the eraser under the vessels and the sinusoids' collagen lining (both with the lymph on) follow the
+  // calibers and the zoom: the eraser's courses are kept for the geometry, only its widths and discs are worked out again.
+  let ductKey = '', ductP = null;
+  function fxDuct() {
+    const G = geo, rs = G.triads.map((tr) => Math.max(radiusAt(tr.bdT, N >> 1), G.R * 0.008)), key = rs.join(',');
+    if (ductP && ductP.G === G && key === ductKey) return ductP;
+    ductKey = key;
     const NC = 16, TAU2 = Math.PI * 2;
-    const duct = G.triads.map((tr) => {
-      const r = Math.max(radiusAt(tr.bdT, N >> 1), G.R * 0.008), rm = r * 1.35, hw = Math.PI * rm / NC, rin = rm - hw, rout = rm + hw, x = tr.bd[0], y = tr.bd[1];
+    const duct = G.triads.map((tr, j) => {
+      const r = rs[j], rm = r * 1.35, hw = Math.PI * rm / NC, rin = rm - hw, rout = rm + hw, x = tr.bd[0], y = tr.bd[1];
       const lumen = new Path2D(); lumen.arc(x, y, rin, 0, TAU2);
       const cells = [];
       for (let i = 0; i < NC; i++) {
@@ -2311,41 +2319,74 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       for (let i = 0; i < NC; i++) { const a = ((i + 0.5) / NC) * TAU2 + tr.i, nx = x + Math.cos(a) * rn, ny = y + Math.sin(a) * rn; nuc.moveTo(nx + nr, ny); nuc.arc(nx, ny, nr, 0, TAU2); }
       return { lumen, cells, nuc };
     });
-    // The eraser: a disc (w 0, filled) or a stroke of width w each, in the order they are cut.
+    return (ductP = { G, key, duct });
+  }
+  // A world-space box [x0, y0, x1, y1] round some points.
+  const boxOf = (pts) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const [x, y] of pts) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } return [x0, y0, x1, y1]; };
+  let fxKey = '', fxP = null, fxCourses = null, liningKey = '', liningP = null;
+  function fxPaths() {
+    const G = geo, key = [geoKey, Object.values(rzOf()).map((x) => x.toFixed(5)).join(','), V.k.toFixed(5)].join('|');
+    if (key === fxKey && fxP.G === G) return fxP;
+    fxKey = key;
+    // The eraser's courses: a disc for each vessel seen end-on, and each other blood vessel in thirds (each stroked as wide as
+    // the lumen at its middle: the sinusoids widen toward the central vein). They depend on the geometry alone.
+    if (fxCourses?.G !== G) {
+      const list = [];
+      for (const t of G.tubes) {
+        if (t.lymph || t.kind === 'ly' || t.kind === 'lt' || t.kind === 'lv') continue;
+        if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd') { list.push({ t, disc: true }); continue; }
+        for (let q = 0; q < 3; q++) {
+          const i0 = Math.floor((q * (N - 1)) / 3), i1 = Math.floor(((q + 1) * (N - 1)) / 3), p = new Path2D();
+          p.moveTo(...t.pts[i0]);
+          for (let i = i0 + 1; i <= i1; i++) p.lineTo(...t.pts[i]);
+          list.push({ t, p, mid: (i0 + i1) >> 1, box: boxOf(t.pts.slice(i0, i1 + 1)) });
+        }
+      }
+      fxCourses = { G, list };
+    }
+    // The eraser: a disc (w 0, filled) or a stroke of width w each, in the order they are cut, each with the box it covers.
     const erase = [];
-    for (const t of G.tubes) {
-      if (t.lymph || t.kind === 'ly' || t.kind === 'lt' || t.kind === 'lv') continue;
-      const wall = (WALL[t.kind] || 0.8) + 0.6 / V.k;
-      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd') {
-        const [x0, y0] = t.pts[0], p = new Path2D();
-        p.arc(x0, y0, radiusAt(t, N >> 1) + wall, 0, TAU); erase.push({ p, w: 0 });
+    for (const e of fxCourses.list) {
+      const t = e.t, wall = (WALL[t.kind] || 0.8) + 0.6 / V.k;
+      if (e.disc) {
+        const [x0, y0] = t.pts[0], p = new Path2D(), r = radiusAt(t, N >> 1) + wall;
+        p.arc(x0, y0, r, 0, TAU); erase.push({ p, w: 0, box: [x0 - r, y0 - r, x0 + r, y0 + r] });
         continue;
       }
-      // In thirds, each as wide as the lumen at its middle (the sinusoids widen toward the central vein).
-      for (let q = 0; q < 3; q++) {
-        const i0 = Math.floor((q * (N - 1)) / 3), i1 = Math.floor(((q + 1) * (N - 1)) / 3), p = new Path2D();
-        p.moveTo(...t.pts[i0]);
-        for (let i = i0 + 1; i <= i1; i++) p.lineTo(...t.pts[i]);
-        erase.push({ p, w: 2 * (radiusAt(t, (i0 + i1) >> 1) + wall) });
-      }
+      const w = 2 * (radiusAt(t, e.mid) + wall), b = e.box;
+      erase.push({ p: e.p, w, box: [b[0] - w / 2, b[1] - w / 2, b[2] + w / 2, b[3] + w / 2] });
     }
-    // The sinusoid lining, a line either side of each sinusoid.
-    const lw = 0.9 / V.k, lining = new Path2D();
-    for (const t of G.tubes) {
-      if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
-      for (const side of [-1, 1]) {
-        let on = false;
-        t.pts.forEach(([x, y], i) => {
-          if (t.rho[i] < CV_STOP) return;   // stops at the central vein's edge: no spokes into it
-          const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
-          const o = side * (radiusAt(t, i) + lw);
-          const px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
-          if (on) lining.lineTo(px, py); else { lining.moveTo(px, py); on = true; }
-        });
+    // The sinusoid lining, a line either side of each sinusoid: one path for the whole of it, and each side on its own
+    // with its box (stroked with the default miter joins, which reach at most 10 half-widths past a point).
+    const z = rzOf(), lw = 0.9 / V.k, lk = [geoKey, z.sin.toFixed(5), z.congU.toFixed(5), V.k.toFixed(5)].join('|');
+    if (lk !== liningKey || liningP?.G !== G) {
+      liningKey = lk;
+      const lining = new Path2D(), sides = [], reach = 5 * lw;
+      for (const t of G.tubes) {
+        if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
+        for (const side of [-1, 1]) {
+          const one = new Path2D(), pts = [];
+          t.pts.forEach(([x, y], i) => {
+            if (t.rho[i] < CV_STOP) return;   // stops at the central vein's edge: no spokes into it
+            const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
+            const o = side * (radiusAt(t, i) + lw);
+            const px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
+            if (pts.length) { lining.lineTo(px, py); one.lineTo(px, py); } else { lining.moveTo(px, py); one.moveTo(px, py); }
+            pts.push([px, py]);
+          });
+          if (!pts.length) continue;
+          const b = boxOf(pts);
+          sides.push({ p: one, box: [b[0] - reach, b[1] - reach, b[2] + reach, b[3] + reach] });
+        }
       }
+      liningP = { G, lining, sides };
     }
-    return (fxP = { duct, erase, lining });
+    return (fxP = { G, erase, lining: liningP });
   }
+  // What part of the world the effects layer shows, with a few device pixels to spare for antialiasing: [x0, y0, x1, y1].
+  let fxAll = false;   // (for the checks: draw the eraser and the lining whole, see fxCheck)
+  const fxView = (W, H, dpr) => { if (fxAll) return [-Infinity, -Infinity, Infinity, Infinity]; const mg = 4 / (dpr * V.k); return [-V.x / V.k - mg, -V.y / V.k - mg, (W - V.x) / V.k + mg, (H - V.y) / V.k + mg]; };
+  const meets = (b, v) => b[2] >= v[0] && b[0] <= v[2] && b[3] >= v[1] && b[1] <= v[3];
   let fxDrawn = '';
   function paintFx(W, H, dpr, dark, dt, flat) {
     const fw = canvasPx(W, dpr), fh = canvasPx(H, dpr);
@@ -2354,7 +2395,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // With nothing moving on this layer (no lymph, WebGL vessels), it holds only the ductules' epithelium: drawn again only when
     // the view, a caliber or the theme changes, not every frame (clearing and redrawing a full-screen canvas the screen then re-uploads).
     const moving = fxMoves({ lymph: lymphOn, flat, hide: m.hide, flow: store.get().layers?.flow });
-    const fk = moving ? '' : [fw, fh, dpr, dark, m.hide, m.hide ? '' : (fxPaths(), fxKey), V.k, V.x, V.y, tk('--lz-duct-cell'), tk('--lz-duct-edge'), tk('--lz-duct-nucleus'), tk('--lz-duct-lumen')].join('|');
+    const fk = moving ? '' : [fw, fh, dpr, dark, m.hide, m.hide ? '' : fxDuct().key, V.k, V.x, V.y, tk('--lz-duct-cell'), tk('--lz-duct-edge'), tk('--lz-duct-nucleus'), tk('--lz-duct-lumen')].join('|');
     if (fk && fk === fxDrawn) return;
     fxDrawn = fk;
     const c = fx.getContext('2d');
@@ -2367,7 +2408,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       const cellFill = tk('--lz-duct-cell'), cellEdge = tk('--lz-duct-edge'), nuc = tk('--lz-duct-nucleus'), lumen = tk('--lz-duct-lumen');
       c.lineWidth = Math.max(0.3, G.R * 0.0013); c.strokeStyle = cellEdge; c.globalAlpha = 0.72;   // a little faded, so the ductule sits back in the tract
       // One ring of 16 cuboidal cells round each: as deep as they are wide, so each nucleus has room (a third of the cell's width).
-      for (const d of fxPaths().duct) {
+      for (const d of fxDuct().duct) {
         c.fillStyle = lumen; c.fill(d.lumen);
         c.fillStyle = cellFill;
         for (const p of d.cells) { c.fill(p); c.stroke(p); }
@@ -2425,6 +2466,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       const gapW = G.R * 0.06, minR = 2.6 / V.k;
       lyV = lyV == null ? lyR : lyV + (lyR - lyV) * -Math.expm1(-dt / 0.5);
       const vW = G.R * 0.035 * Math.sqrt(lyV);
+      // (Every drop is drawn, on the screen or not: the drops and beads go out as one path each, and a path with fewer
+      // circles in it comes out a shade different at a few edges. The eraser and the lining below draw only what reaches the screen.)
+      const view = fxView(W, H, dpr);
       const drops = [];
       for (const t of G.tubes) {
         if (t.kind !== 'ly' && t.kind !== 'lt') continue;
@@ -2465,7 +2509,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       c.globalCompositeOperation = 'destination-out';
       c.fillStyle = c.strokeStyle = '#000';   // colour-exempt: an eraser (destination-out)
       c.lineCap = 'round'; c.lineJoin = 'round';
-      for (const { p, w } of fxPaths().erase) { if (w) { c.lineWidth = w; c.stroke(p); } else c.fill(p); }
+      for (const { p, w, box } of fxPaths().erase) { if (!meets(box, view)) continue; if (w) { c.lineWidth = w; c.stroke(p); } else c.fill(p); }
       c.restore();
       // The sinusoid lining: nothing extra while the fenestrae are open; a thin continuous collagen line
       // fades in as the sinusoids capillarize and hold protein back.
@@ -2473,7 +2517,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
         c.save();
         c.lineWidth = lw;
         c.strokeStyle = tk('--lz-collagen', ((dark ? 0.6 : 0.5) * seal).toFixed(3));
-        c.stroke(fxPaths().lining);
+        const { lining, sides } = fxPaths().lining, seen = sides.filter((sd) => meets(sd.box, view));
+        let path = lining;
+        if (seen.length < sides.length) { path = new Path2D(); for (const sd of seen) path.addPath(sd.p); }
+        c.stroke(path);
         c.restore();
       }
     }
@@ -2796,6 +2843,23 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       const d = { canvases: b(tissue) + b(glCv) + b(fx) + b(field), world: b(worldCv), tiles: 0, worldDraws, tileSets: tileSets.size };
       for (const tiles of tileSets.values()) for (const q of tiles) d.tiles += b(q.cv) + b(q.quiet?.cv) + b(q.liverQ?.cv);
       return detail ? d : d.canvases + d.world + d.tiles;
+    },
+    /** For the checks: how many times the labels have been placed in full (a pan should only carry them along). */
+    labelLayouts: () => layoutN,
+    /** For the checks: the effects layer drawn as a frame draws it (the eraser and lining only where they reach the screen), then
+     *  with all of them: how many bytes differ (0 when nothing on the screen was left out). Drawn at rest (no step in the drops' motion). */
+    fxCheck() {
+      if (!geo || !model || fade <= 0.98 || !fx.width) return null;
+      const rect = host.getBoundingClientRect(), W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+      const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1), flat = !gl || gl.lost, c = fx.getContext('2d');
+      const read = () => { fxDrawn = ''; paintFx(W, H, dpr, isDark(), 0, flat); return c.getImageData(0, 0, fx.width, fx.height).data; };
+      const a = read();
+      fxAll = true;
+      const b = read();
+      fxAll = false;
+      let differ = 0;
+      for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) differ++;
+      return { bytes: a.length, differ, lymph: lymphOn };
     },
     isOpen: () => fade > 0.98,
     isShown: () => fade > 0,

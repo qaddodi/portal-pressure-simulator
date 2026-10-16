@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=e387ad7347';
-import { createLobuleZoom } from './lobule-zoom.js?v=2917a84f0b';
+import { createLobuleZoom } from './lobule-zoom.js?v=c5c1447cc5';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { gridHits } from './seg-hits.js?v=e7cde76929';
@@ -6693,7 +6693,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     keptStyle: (el) => (el === wrap ? wrapCS() : null),
     /** Where the sinusoid's reading and lesion pointer meet their sinusoid (see lobule-zoom sinAnchor). */
     lobuleSinAnchor: () => lz?.sinAnchor() ?? null,
-    lobuleGlCheck: () => lz?.glCheck() ?? null,
+    lobuleGlCheck: () => lz?.glCheck() ?? null, lobuleFxCheck: () => lz?.fxCheck() ?? null, lobuleLabelLayouts: () => lz?.labelLayouts() ?? 0,
     /** The lobule's outline in client px while it fills the view (see lobule-zoom ring), else null. */
     lobuleRing: () => (lobuleOn && diveT >= 1 ? lz?.ring() ?? null : null),
     /** Where a station's callout attaches, in client px (for the checks). */
