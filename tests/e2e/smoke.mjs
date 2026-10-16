@@ -106,6 +106,12 @@ const leaderFrames = (page, ms) => page.evaluate((ms) => new Promise((done) => {
     let b = null, sc = 1;
     const parts = [];
     const add = (l, r, t, bt) => { parts.push({ l, r, t, b: bt }); b = b ? { l: Math.min(b.l, l), r: Math.max(b.r, r), t: Math.min(b.t, t), b: Math.max(b.b, bt), parts } : { l, r, t, b: bt, parts }; };
+    // (A label the slide's words light is seen as its pill.)
+    if (el.matches('.lz-lab') && (document.getElementById('app').dataset.lit || '').split(' ').includes(el.dataset.target)) {
+      const r = el.getBoundingClientRect(), pill = getComputedStyle(el, '::before'), px = Math.max(0, -parseFloat(pill.left) || 0), py = Math.max(0, -parseFloat(pill.top) || 0);
+      add(r.left - px, r.right + px, r.top - py, r.bottom + py);
+      return b;
+    }
     if (el.matches('.lz-lab')) { for (const p of el.querySelectorAll('.n, .v')) { const r = p.getBoundingClientRect(); if (r.width) add(r.left, r.right, r.top, r.bottom); } return b; }
     // (Letter by letter: where each sits from the text's own layout, how high and low its ink reaches from the font.)
     for (const tx of el.querySelectorAll('text')) {
@@ -141,9 +147,10 @@ const leaderFrames = (page, ms) => page.evaluate((ms) => new Promise((done) => {
   const tick = () => {
     const t = Math.round(performance.now() - t0), labs = [];
     for (const el of document.querySelectorAll('.lz-lab, #labels g.lb')) {
-      if (el.hidden || el.matches('.lb-off, .organ') || op(el) < 0.05) continue;
+      // (One fading in counts as its leader's label; only those seen count as labels a leader must not cross.)
+      if (el.hidden || el.matches('.lb-off, .organ')) continue;
       const b = ink(el);
-      if (b) labs.push({ k: el.dataset.target || el.dataset.key, n: el.textContent.trim().slice(0, 20), ...b });
+      if (b) labs.push({ k: el.dataset.target || el.dataset.key, n: el.textContent.trim().slice(0, 20), o: op(el), ...b });
     }
     for (const ln of document.querySelectorAll('.lz-leaders line.leader, #labels path.leader:not(.scan)')) {
       if (ln.style.display === 'none' || op(ln) < 0.05) continue;
@@ -161,7 +168,7 @@ const leaderFrames = (page, ms) => page.evaluate((ms) => new Promise((done) => {
       const play = 3 * own.sc;
       if (gap(own) > play) note(`the "${own.n}" leader stops short of its label`, gap(own));
       if (thru(own) > play) note(`the "${own.n}" leader runs in under its label`, thru(own));
-      for (const b of labs) if (b !== own && thru(b) > 0.5) note(`the "${own.n}" leader crosses "${b.n}"`, thru(b));
+      for (const b of labs) if (b !== own && b.o >= 0.05 && thru(b) > 0.5) note(`the "${own.n}" leader crosses "${b.n}"`, thru(b));
     }
     if (t < ms) requestAnimationFrame(tick); else done([...out.values()]);
   };

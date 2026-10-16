@@ -411,7 +411,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   function framing(part, zoom = 2) {
     const g = geo, tri = g.lobules[0].corners[3];
     const w = part === 'triad' ? [lerp(tri[0], g.cx, 0.12), lerp(tri[1], g.cy, 0.12)] : part === 'central' ? [g.cx, g.cy] : [lerp(tri[0], g.cx, 0.5), lerp(tri[1], g.cy, 0.5)];
-    const f = freeRect(), mx = (f.l + f.r) / 2, my = (f.t + f.b) / 2, k = clamp(kFit * zoom, kFit, kFit * KMAX);
+    const f = freeRect(), mx = (f.l + f.r) / 2;
+    let my = (f.t + f.b) / 2, k = clamp(kFit * zoom, kFit, kFit * KMAX);
+    // A free space too short for a label above or below what the slide is about, clear of the disc no label may cover
+    // (a phone at a large text size, under the slide's words): it is framed at the top of the free space, at the same zoom,
+    // so one row of labels fits below it rather than every label being left out. (The same sums as layoutLabels: a label's
+    // height at this text size, its margins and the free space's padding.)
+    const disc = part === 'triad' ? (g.rt || 6) * 2.4 : part === 'central' ? g.rcv0 * 1.7 : 0;
+    if (disc) {
+      const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, H = f.b - f.t;
+      const row = 21 * lk + 2 * Math.max(4 + 2 * lk, 5 * lk + 5) + 2 * (8 + 4 * lk) + 8;
+      if (H < 2 * Math.max(14, disc * k) + 2 * row) my = f.t + Math.min(H / 2, Math.max(14, disc * k) + 4);
+    }
     const saved = { ...V };
     Object.assign(V, { k, x: mx - w[0] * k, y: my - w[1] * k }); clampV();
     const to = { ...V }; Object.assign(V, saved);
@@ -1115,7 +1126,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // once and only moved: re-making them at every layout (a value easing, a glide) restarted their lit pill each time,
   // which showed as a flash. Returns each name's box on screen (its pill included), for the other labels to keep clear of.
   const zoneEls = [];
-  function placeZones(fr0, hx, hy) {
+  function placeZones(fr0, hx, hy, lesion = null) {
     if (!zonesOn) { while (zoneEls.length) zoneEls.pop().remove(); return []; }
     const { R, cx, cy } = geo, a = Math.PI / 2, ap = R * 0.866, boxes = [];
     [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
@@ -1131,15 +1142,20 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       for (let k = 0; k < 6; k++) { const th = a + k * Math.PI / 3; ring.push([cx + Math.cos(th) * ap * q, cy + Math.sin(th) * ap * q], [cx + Math.cos(th + Math.PI / 6) * R * q * 0.95, cy + Math.sin(th + Math.PI / 6) * R * q * 0.95]); }
       const inV = ([x, y]) => x > fr0.l + 40 && x < fr0.r - 40 && y > fr0.t + 20 && y < fr0.b - 20;
       const mid = [(fr0.l + fr0.r) / 2, (fr0.t + fr0.b) / 2];
-      let [zx, zy] = toScreen(ring[0]);
-      if (!inV([zx, zy])) {
-        const ok = ring.map(toScreen).filter(inV).sort((u, v) => Math.hypot(u[0] - mid[0], u[1] - mid[1]) - Math.hypot(v[0] - mid[0], v[1] - mid[1]))[0];
-        if (ok) [zx, zy] = ok; else { zx = clamp(zx, fr0.l + 40, fr0.r - 40); zy = clamp(zy, fr0.t + 20, fr0.b - 20); }
-      }
-      z.style.left = `${zx}px`; z.style.top = `${zy}px`;
+      const spots = ring.map(toScreen), first = spots[0];
+      const tries = [...(inV(first) ? [first] : []), ...spots.slice(1).filter(inV).sort((u, v) => Math.hypot(u[0] - mid[0], u[1] - mid[1]) - Math.hypot(v[0] - mid[0], v[1] - mid[1]))];
+      if (!tries.length) tries.push([clamp(first[0], fr0.l + 40, fr0.r - 40), clamp(first[1], fr0.t + 20, fr0.b - 20)]);
+      z.style.left = `${tries[0][0]}px`; z.style.top = `${tries[0][1]}px`;
       const w = z.offsetWidth || 92, hh = z.offsetHeight || 36;
+      const boxAt = ([x, y]) => ({ l: x - w / 2 - hx, r: x + w / 2 + hx, t: y - hh / 2 - hy, b: y + hh / 2 + hy });
+      // A zone's name never sits on the slide's lesion ring (the ring is what the slide points at): it takes another
+      // spot on its band, or leaves the view for that slide.
+      const at = tries.find((p) => !ringDepth(lesion, boxAt(p)));
+      z.hidden = !at;
+      if (!at) return;
+      z.style.left = `${at[0]}px`; z.style.top = `${at[1]}px`;
       // (A zone the slide's words leave unlit fades out: its spot is free for the labels.)
-      if (!faded(`lobule:zone${i + 1}`)) boxes.push({ l: zx - w / 2 - hx, r: zx + w / 2 + hx, t: zy - hh / 2 - hy, b: zy + hh / 2 + hy });
+      if (!faded(`lobule:zone${i + 1}`)) boxes.push(boxAt(at));
     });
     return boxes;
   }
@@ -1220,7 +1236,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, hm = 4 + 2 * lk,
       hx = Math.max(hm, 4 * lk + 5), hy = Math.max(hm, 5 * lk + 5);
     const hit = (a, b) => overlap(a, b) > 0;
-    placed.push(...placeZones(fr0, hx, hy));
+    placed.push(...placeZones(fr0, hx, hy, callRingAt(fr0)));
     // Leaders run to each label's centre; a leader never crosses another label, and a label never sits on another's leader.
     const crosses = (p, q, b) => {
       let t0 = 0, t1 = 1;
@@ -1445,7 +1461,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (labels.classList.contains('lz-ease')) { syncLeaders(); glideUntil = performance.now() + 480; if (!glideRaf) glideRaf = requestAnimationFrame(glideLeaders); }
   }
   // A label's letters: its box less the padding.
-  const lettersOf = (L, l, t, w, hh) => { const [pl, pr, pt, pb] = L.pad || [0, 0, 0, 0]; return { x0: l + pl, y0: t + pt, x1: l + w - pr, y1: t + hh - pb }; };
+  // A label the slide's words light sits in its pill (styles: 4 × 5 px past its box at --label-k 1): the leader stops on the pill.
+  const lettersOf = (L, l, t, w, hh) => {
+    if ((document.getElementById('app')?.dataset.lit || '').split(' ').includes(L.el.dataset.target)) {
+      const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1;
+      return { x0: l - 4 * lk, y0: t - 5 * lk, x1: l + w + 4 * lk, y1: t + hh + 5 * lk };
+    }
+    const [pl, pr, pt, pb] = L.pad || [0, 0, 0, 0];
+    return { x0: l + pl, y0: t + pt, x1: l + w - pr, y1: t + hh - pb };
+  };
   // A leader's end: on the edge of its label's letters, on the way to the label's middle. While another label lies across
   // it (one gliding past), the leader is hidden, and eases back once clear: a leader never runs across a label.
   function leadTo(L, ink, inks) {

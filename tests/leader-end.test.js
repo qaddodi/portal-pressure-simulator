@@ -66,3 +66,10 @@ test('an optional lobule label gives way rather than take a leader across the lo
   assert.match(lz, /!CORE\.includes\(k\) && !named\(k\) && lead > LONG_LEAD \? 1e6/);
   assert.match(lz, /const drop = \(k\) => \(named\(k\) \? 2e7 : CORE\.includes\(k\) \? 1e7 : 3e4\);/);
 });
+
+test('a zone name never sits on the slide\'s lesion ring', () => {
+  // (CI #32, a phone: lobule slide 7, "Zone 3 centrilobular" 7 px from the ring's centre as the view settled.)
+  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  assert.match(lz, /placeZones\(fr0, hx, hy, callRingAt\(fr0\)\)/);
+  assert.match(lz, /tries\.find\(\(p\) => !ringDepth\(lesion, boxAt\(p\)\)\)/);
+});
