@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=ead3d78843';
 import { fibroReading } from './clock.js?v=b69f28fc47';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=0140acc352';
-import { createLobuleZoom } from './lobule-zoom.js?v=ad27d0c886';
+import { createLobuleZoom } from './lobule-zoom.js?v=a1f7ba6f62';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -3175,11 +3175,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const { a, b, c, d, e, f } = CTM, det = a * d - b * c || 1, x = cx - e, y = cy - f;
     return [(d * x - c * y) / det, (-b * x + a * y) / det];
   }
+  // With a vessel selected the organs (and the ascites over them) step back to SEL_DIM, as app.css's .has-sel filter (G20).
+  const SEL_DIM = 0.6;
   // The plate's dim and grey (a lens or a selection) and the network's dim ease toward their targets
   // (stepPlateEase, each frame), so a lens switch or a selection never changes the figure in one frame.
   const plateTargets = () => {
     const dataLayer = wrap.classList.contains('data-layer'), sel = wrap.classList.contains('has-sel');
-    return [(sel ? 0.72 : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, sel ? 0.42 : 1];
+    return [(sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, sel ? 0.42 : 1];
   };
   function syncPlateLook() {
     if (!vLook) return;
@@ -3189,13 +3191,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const plateEasing = () => { if (plateDim == null) return false; const [d, s, n] = plateTargets(); return d !== plateDim || s !== plateSat || n !== netA; };
   // Timed on the clock with an ease in and out (PLATE_FADE), so the organs fade to grey and back smoothly at any frame rate.
-  const PLATE_FADE = 450;
+  // One clock for organs and vessels (G18): the plate eases over the vessels' own lens crossfade, from the same moment, on the
+  // same curve, as the SVG organs' filter does when the GPU plate is off (app.css: --view-fade, --ease-io).
+  const PLATE_FADE = LENS_FADE;
   let plateFrom = null, plateTo = null, plateT0 = 0;
   function stepPlateEase() {
     if (lensFrom) veinsDirty = true;
     if (!vLook || !plateEasing()) { plateFrom = null; return; }
     const to = plateTargets(), now = performance.now();
-    if (!plateFrom || to.some((v, i) => v !== plateTo[i])) { plateFrom = [plateDim, plateSat, netA]; plateTo = to; plateT0 = now; }
+    if (!plateFrom || to.some((v, i) => v !== plateTo[i])) { plateFrom = [plateDim, plateSat, netA]; plateTo = to; plateT0 = lensFrom && now - lensT0 < 60 ? lensT0 : now; }
     const u = easeInOut(clamp((now - plateT0) / PLATE_FADE, 0, 1));
     [plateDim, plateSat, netA] = u >= 1 ? to : plateFrom.map((v, i) => v + (to[i] - v) * u);
     if (u >= 1) plateFrom = null;
@@ -3329,7 +3333,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // or zoom moves them in the same frame (an SVG overlay is composited apart and can trail it).
   // Each one fades in and out; the SVG lines are kept only where the GPU cannot draw them.
   const glLines = !!veins?.canLines;
-  const OL_LOOK = { sel: [2.4, 0.55], hov: [2, 0.4], pin: [2.6, 0.6] };   // as .org-sel-line and .org-hov-line: width, opacity
+  const OL_LOOK = { sel: [2.6, 0.7], hov: [2, 0.45], pin: [2.6, 0.6] };   // as .org-sel-line and .org-hov-line: width, opacity
+  // A selected organ is outlined in its own deep tone (--og-<tone>-3, read through the organ's tone class as --o3), not the
+  // accent blue, with a soft glow of the same tone easing out from its edge (G20). Hovered, the same tone without the glow.
+  const SEL_GLOW = { reach: 12, alpha: 0.22 };
+  const orgToneCache = new Map();
+  function orgTone(id) {
+    const k = `${id}|${document.documentElement.dataset.theme}|${darkMQ.matches}`;
+    let c = orgToneCache.get(k);
+    if (!c) {
+      const g = organG[id], v = g && getComputedStyle(g).getPropertyValue('--o3').trim();
+      c = v ? [...toRGB(v, null)].slice(0, 3) : olCol;
+      if (v) orgToneCache.set(k, c);
+    }
+    return c;
+  }
   const OL_FADE = 160;   // ms
   // The heart a slide points at (the right atrium, the heart itself) is lit whole by a soft glow, not a line: one band
   // easing out from its edge (the GPU shades the falloff smoothly, behind the organs): reach in world units, peak opacity.
@@ -3393,29 +3411,37 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const t = o.on ? 1 : 0;
       if (o.a !== t) { o.a = t > o.a ? Math.min(1, o.a + du) : Math.max(0, o.a - du); moving = true; }
     }
-    olList = olList.filter((o) => o.on || o.a > 0);
+    // (An outline that has faded out leaves the list: the rest are laid out again, or each would draw from its old place.)
+    const kept = olList.filter((o) => o.on || o.a > 0);
+    if (kept.length !== olList.length) olDirty = true;
+    olList = kept;
     let V = olDirty ? [] : null;
     const draws = [];
     let first = 0;
     for (const o of olList) {
       const ease = o.a * o.a * (3 - 2 * o.a);
-      const [w, alpha] = o.glow ? [HEART_GLOW.reach, HEART_GLOW.alpha] : OL_LOOK[o.kind], h = w / 2, a = alpha * ease;
-      for (const r of o.rings) {
-        const closed = Math.hypot(r[0][0] - r[r.length - 1][0], r[0][1] - r[r.length - 1][1]) < 0.5;
-        const pts = closed ? r.slice(0, -1) : r, n = pts.length, count = (n + (closed ? 1 : 0)) * 2;
-        // A glow starts on the edge and runs outward only (inside it would fold over itself on a tight curve): the side
-        // that points away from the shape, by the ring's winding.
-        let out = 1;
-        if (o.glow) { let ar = 0; for (let i = 0; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; ar += p[0] * q[1] - q[0] * p[1]; } out = ar > 0 ? -1 : 1; }
-        if (V) for (let i = 0; i <= n - (closed ? 0 : 1); i++) {
-          const k = i % n, p = pts[k];
-          const pa = pts[closed ? (k - 1 + n) % n : Math.max(0, k - 1)], pb = pts[closed ? (k + 1) % n : Math.min(n - 1, k + 1)];
-          let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
-          if (o.glow) V.push(p[0], p[1], -ty, tx, 0, w, p[0], p[1], -ty, tx, out, w);
-          else V.push(p[0], p[1], -ty, tx, 1, h, p[0], p[1], -ty, tx, -1, h);
+      const col = o.col || (o.kind === 'pin' ? olCol : orgTone(o.id));
+      // The passes: a glow alone (the heart a slide points at), a glow under the line (a selected organ), or the line.
+      const passes = o.glow ? [[true, HEART_GLOW.reach, HEART_GLOW.alpha]] : [...(o.kind === 'sel' ? [[true, SEL_GLOW.reach, SEL_GLOW.alpha]] : []), [false, ...OL_LOOK[o.kind]]];
+      for (const [glow, w, alpha] of passes) {
+        const h = w / 2, a = alpha * ease;
+        for (const r of o.rings) {
+          const closed = Math.hypot(r[0][0] - r[r.length - 1][0], r[0][1] - r[r.length - 1][1]) < 0.5;
+          const pts = closed ? r.slice(0, -1) : r, n = pts.length, count = (n + (closed ? 1 : 0)) * 2;
+          // A glow starts on the edge and runs outward only (inside it would fold over itself on a tight curve): the side
+          // that points away from the shape, by the ring's winding.
+          let out = 1;
+          if (glow) { let ar = 0; for (let i = 0; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; ar += p[0] * q[1] - q[0] * p[1]; } out = ar > 0 ? -1 : 1; }
+          if (V) for (let i = 0; i <= n - (closed ? 0 : 1); i++) {
+            const k = i % n, p = pts[k];
+            const pa = pts[closed ? (k - 1 + n) % n : Math.max(0, k - 1)], pb = pts[closed ? (k + 1) % n : Math.min(n - 1, k + 1)];
+            let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+            if (glow) V.push(p[0], p[1], -ty, tx, 0, w, p[0], p[1], -ty, tx, out, w);
+            else V.push(p[0], p[1], -ty, tx, 1, h, p[0], p[1], -ty, tx, -1, h);
+          }
+          draws.push({ first, count, col, alpha: a, soft: glow || undefined });
+          first += count;
         }
-        draws.push({ first, count, col: o.col || olCol, alpha: a, soft: o.glow || undefined });
-        first += count;
       }
     }
     if (V) olVerts = new Float32Array(V);
@@ -3632,7 +3658,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (glLines) return;
       // The outline follows the organ as drawn now (a cirrhotic liver's reshaped contour, an
       // enlarged spleen), not its healthy outline.
-      if (organEls[byOrgan[0]]?.getAttribute('d')) { selLine = { id: byOrgan[0], el: s('path', { class: 'org-sel-line' }) }; syncSelLine(); gSelO.append(selLine.el); }
+      if (organEls[byOrgan[0]]?.getAttribute('d')) { selLine = { id: byOrgan[0], el: s('path', { class: 'org-sel-line', style: `stroke: rgb(${orgTone(byOrgan[0]).map((x) => Math.round(x * 255))})` }) }; syncSelLine(); gSelO.append(selLine.el); }
       return;
     }
     if (o === 'abdomen') {   // the fluid as drawn; it follows the volume (see syncSelFluid)
@@ -3990,7 +4016,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       drawAscites(); moved = true;   // (its platePoke rasterizes once the fluid is within a step of its volume)
     }
     const run = st.running && !reduceMotion.matches;
-    const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? 0.72 : 1);
+    const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? SEL_DIM : 1);
     fluidLook.s = [ABDOMEN_FLOOR + 5, fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
     fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidInkRGBA[3] * k * fluidFade()];
     fluidLook.ripple = run && fluidFade() > 0 && k > 0;
@@ -6820,7 +6846,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (glLines) return;
       const d = organEls[byOrgan]?.getAttribute('d');
       if (!d) return;
-      const el = s('path', { class: 'org-hov-line', d }), tr = organG[byOrgan].getAttribute('transform');
+      const el = s('path', { class: 'org-hov-line', d, style: `stroke: rgb(${orgTone(byOrgan).map((x) => Math.round(x * 255))})` }), tr = organG[byOrgan].getAttribute('transform');
       if (tr) el.setAttribute('transform', tr);
       gHovO.append(el);
       return;

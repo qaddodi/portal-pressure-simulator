@@ -519,11 +519,11 @@ div.vital { cursor: default; }
    vessels' borders overlap (every junction, every bend) they read as one shape, not a darker patch. */
 .tier-casing { opacity: var(--casing-a); }
 .tier-shadow { opacity: var(--shadow-a); }
-#net { transition: opacity .25s var(--ease); }
+#net { transition: opacity var(--view-fade) var(--ease-io); }
 .stage-view.has-sel #net { opacity: .42; }
 /* A selected vessel stays bright; the rest of the network and the organs recede. */
 .stage-view.has-sel #backEdges .vg:not(.is-sel):not(.hl) { filter: opacity(.42); }
-.stage-view.has-sel #organs > g, .stage-view.has-sel #backdrop { filter: opacity(.72); }
+.stage-view.has-sel #organs > g, .stage-view.has-sel #backdrop { filter: opacity(.6); }   /* SEL_DIM in stage.js */
 .stage-view.has-sel .vg.is-sel .v-lumen, .stage-view.has-sel .vg.is-sel .v-lumenP { filter: brightness(1.12) saturate(1.1); }
 
 .v-wall { fill: none; stroke: rgb(var(--casing-rgb)); stroke-linecap: round; stroke-linejoin: round; }
@@ -567,10 +567,10 @@ div.vital { cursor: default; }
 .org-heart-flow { fill: color-mix(in srgb, var(--organ-heart) 70%, var(--shade-ink)); fill-opacity: .55; stroke: none; }
 /* Data layers: the anatomy steps back so the network carries the reading. */
 .stage-view.data-layer #organs, .stage-view.data-layer #backdrop { filter: saturate(.12) opacity(.72); }
-#heatGlow { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .28s var(--ease), visibility 0s linear .28s; }
-.stage-view[data-layer="heat"] #heatGlow { opacity: 1; visibility: visible; transition: opacity .28s var(--ease), visibility 0s; }
+#heatGlow { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--view-fade) var(--ease-io), visibility 0s linear var(--view-fade); }
+.stage-view[data-layer="heat"] #heatGlow { opacity: 1; visibility: visible; transition: opacity var(--view-fade) var(--ease-io), visibility 0s; }
 /* A lens or a selection eases the anatomy back (no one-frame dim or grey). */
-#organs > g, #backdrop, #organs, #backEdges .vg { transition: filter .28s var(--ease); }
+#organs > g, #backdrop, #organs, #backEdges .vg { transition: filter var(--view-fade) var(--ease-io); }
 .v-heat { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .map-grid { opacity: .9; }
 .map-dot { fill: var(--map-dot); }
@@ -1136,8 +1136,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 @media (prefers-reduced-motion: reduce) { .hover-tip, .hover-tip.on { transform: none; } }
 
 /* Selection feedback on organs and sites */
-.org-sel-line { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-opacity: .55; stroke-linejoin: round; pointer-events: none; }
-.org-hov-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-opacity: .4; stroke-linejoin: round; pointer-events: none; }
+.org-sel-line { fill: none; stroke: var(--accent); stroke-width: 2.6; stroke-opacity: .7; stroke-linejoin: round; pointer-events: none; }
+.org-hov-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-opacity: .45; stroke-linejoin: round; pointer-events: none; }
 .org-hov-fluid { fill: var(--accent-soft); stroke: none; pointer-events: none; }
 .org-sel-fluid { fill: var(--accent-soft); stroke: none; pointer-events: none; }
 #organSel { pointer-events: none; }

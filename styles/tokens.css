@@ -217,6 +217,8 @@
   --font-display: 'Source Serif 4', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   --ease: cubic-bezier(.2, .8, .2, 1);
+  /* One clock for a lens switch or a selection: the organs and vessels ease together (stage.js LENS_FADE = PLATE_FADE, an ease in and out). */
+  --view-fade: .3s; --ease-io: cubic-bezier(.455, .03, .515, .955);
   --t-fast: .16s; --t: .24s;
 
   color-scheme: light;

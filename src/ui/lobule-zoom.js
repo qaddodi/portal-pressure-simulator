@@ -24,6 +24,7 @@ import { store } from './store.js?v=ead3d78843';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
 import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=0e7c572ba0';
+import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur } from './lobule-look.js?v=f44413fc6f';
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=0140acc352';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=5c9a375f49';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
@@ -628,6 +629,19 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // Closed: the full-screen canvases and the vessels' GPU buffers are given back (they are sized again on the way in).
   // The world bitmap, the field's tiles and the uploaded network stay, so the next dive has nothing heavy to build.
   const free = (cv) => { if (cv.width || cv.height) { cv.width = 0; cv.height = 0; } };
+  // Whether a canvas here blurs with ctx.filter (Safari before 18 ignores it): tried once on three pixels.
+  let blurOK = null;
+  const canvasBlur = () => {
+    if (blurOK !== null) return blurOK;
+    try {
+      const cv = document.createElement('canvas'); cv.width = 5; cv.height = 1;
+      const c = cv.getContext('2d', { willReadFrequently: true });
+      c.filter = 'blur(1px)'; c.fillStyle = '#000'; c.fillRect(2, 0, 1, 1);   // colour-exempt: a probe, never shown
+      blurOK = c.getImageData(0, 0, 1, 1).data[3] > 0 || c.getImageData(1, 0, 1, 1).data[3] > 0;
+      free(cv);
+    } catch { blurOK = false; }
+    return blurOK;
+  };
   function release() {
     free(tissue); free(fx); free(glCv); free(diveCv); diveCopyKey = '';
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
@@ -667,7 +681,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const tubes = [], joins = [];
     const add = (kind, c, o = {}) => { const t = { id: tubes.length, kind, pts: c.pts, len: c.len, ...o }; t.rho = t.pts.map(([x, y]) => Math.hypot(x - cx, y - cy) / R); tubes.push(t); return t; };
     const join = (x, y, members, rSmall) => { const k = clamp(1.2 * rSmall + 1.2, 1.5, 9); joins.push({ x, y, k, reach: 2 * rSmall + k + 10, members: members.map((t) => t.id) }); };
-    const rs0 = clamp(R * 0.0085, 1.7, 3);     // sinusoid lumen (healthy)
+    const rs0 = clamp(R * 0.0085, 1.7, 3);     // sinusoid lumen (healthy), before SIN_NARROW
+    const rsN = rs0 * SIN_NARROW;              // as drawn: a quarter narrower than the cords' gap (G21)
     const rcv0 = R * 0.07;
     const polar = (x, y) => [Math.hypot(x - cx, y - cy), Math.atan2(y - cy, x - cx)];
     const unwrap = (a, ref) => a + Math.round((ref - a) / TAU) * TAU;
@@ -724,16 +739,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     s0.forEach((st, j) => {
       const t = add('s0', radial(st.p, n1[j >> 1], amp), { lvl: 0, edge: st.e, tri: st.k < N0 / 2 ? st.e : (st.e + 1) % 6, inl: st.inl.id });
       L0.push(t);
-      join(st.p[0], st.p[1], [st.inl, t], rs0);
+      join(st.p[0], st.p[1], [st.inl, t], rsN);
     });
-    n1.forEach((p, m) => { const t = add('s1', radial(p, n2[Math.min(n2.length - 1, m >> 1)], amp), { lvl: 1 }); L1.push(t); join(p[0], p[1], [L0[2 * m], L0[2 * m + 1], t], rs0); L0[2 * m].parent = L0[2 * m + 1].parent = t.id; });
+    n1.forEach((p, m) => { const t = add('s1', radial(p, n2[Math.min(n2.length - 1, m >> 1)], amp), { lvl: 1 }); L1.push(t); join(p[0], p[1], [L0[2 * m], L0[2 * m + 1], t], rsN); L0[2 * m].parent = L0[2 * m + 1].parent = t.id; });
     // An odd first-generation node (6 per edge) joins its neighbour's second-generation course.
     n2.forEach((p, m) => {
       const [, a] = polar(...p);
       const t = add('s2', radial(p, [cx + Math.cos(a) * rIn, cy + Math.sin(a) * rIn], amp * 0.6), { lvl: 2 });
       L2.push(t);
       const kids = L1.filter((_, j) => Math.min(n2.length - 1, j >> 1) === m);
-      join(p[0], p[1], [...kids.slice(0, 3), t], rs0);
+      join(p[0], p[1], [...kids.slice(0, 3), t], rsN);
       for (const k of kids) k.parent = t.id;
     });
     // Anastomoses: short cross-links between neighbouring sinusoids that do not merge.
@@ -742,13 +757,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       if (Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) > R * 0.24) return;
       const mx = (pa[0] + pb[0]) / 2, my = (pa[1] + pb[1]) / 2, k = (r() - 0.5) * 0.25;
       const t = add('an', curve((u) => [lerp(pa[0], pb[0], u) + (pb[1] - pa[1]) * k * Math.sin(Math.PI * u), lerp(pa[1], pb[1], u) - (pb[0] - pa[0]) * k * Math.sin(Math.PI * u)]), { lvl, sign: r() < 0.5 ? -1 : 1, mid: [mx, my] });
-      join(pa[0], pa[1], [a, t], rs0 * 0.7); join(pb[0], pb[1], [b, t], rs0 * 0.7);
+      join(pa[0], pa[1], [a, t], rsN * 0.7); join(pb[0], pb[1], [b, t], rsN * 0.7);
     };
     for (let m = 0; m < L0.length / 2; m++) link(L0[2 * m + 1], L0[(2 * m + 2) % L0.length], 0.35 + r() * 0.25, 0.35 + r() * 0.25, 0);
     for (let m = 0; m < L1.length; m += 2) if (L1[m + 1] && L1[m + 2]) link(L1[m + 1], L1[(m + 2) % L1.length], 0.4 + r() * 0.2, 0.4 + r() * 0.2, 1);
     // Central vein (end-on), with the third generation entering it.
     const cv = add('cv', dot(cx, cy));
-    for (const t of L2) { const [, a] = polar(...t.pts[0]); join(cx + Math.cos(a) * rcv0, cy + Math.sin(a) * rcv0, [t, cv], rs0 * 1.3); }
+    for (const t of L2) { const [, a] = polar(...t.pts[0]); join(cx + Math.cos(a) * rcv0, cy + Math.sin(a) * rcv0, [t, cv], rsN * 1.3); }
     // Arterioles: from each triad's arteriole into the first stretch of a sinusoid (zone 1).
     for (const tr of triads) {
       const target = L0.find((t) => t.edge === tr.i && t.tri === tr.i) || L0[tr.i * N0];
@@ -768,7 +783,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // neighbouring sinusoids holds a plate (two side by side where the sinusoids are far apart, near
     // their forks); along a plate the cells stack outward like beads on a cord.
     const cells = [];
-    const sinP = [...L0, ...L1, ...L2].map((t) => ({ rs: rs0 * (t.kind === 's0' ? 1 : t.kind === 's1' ? 1.15 : 1.3), P: t.pts.map(([x, y]) => polar(x, y)) }));
+    const sinP = [...L0, ...L1, ...L2].map((t) => ({ rs: rsN * (t.kind === 's0' ? 1 : t.kind === 's1' ? 1.15 : 1.3), P: t.pts.map(([x, y]) => polar(x, y)) }));
     const crossAt = (rr) => {
       const out = [];
       for (const { rs, P } of sinP) for (let i = 0; i < P.length - 1; i++) {
@@ -802,7 +817,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       const t = [...L0, ...L1][Math.floor(r() * (L0.length + L1.length))], u = 0.15 + r() * 0.7, [x, y] = at(t.pts, u), [x2, y2] = at(t.pts, u + 0.02);
       const dx = x2 - x, dy = y2 - y, l = Math.hypot(dx, dy) || 1, sd = r() < 0.5 ? -1 : 1;
       r();   // (keeps the seeded sequence)
-      hsc.push({ x: x - (dy / l) * sd * rs0 * 1.9, y: y + (dx / l) * sd * rs0 * 1.9, a: Math.atan2(dy, dx), nx: (-dy / l) * sd, ny: (dx / l) * sd });
+      hsc.push({ x: x - (dy / l) * sd * (rsN + rs0 * 0.9), y: y + (dx / l) * sd * (rsN + rs0 * 0.9), a: Math.atan2(dy, dx), nx: (-dy / l) * sd, ny: (dx / l) * sd });
     }
     // Lymph droplets: start deep in the lobule, drift to the nearest triad.
     // Lymph shimmer: each streak rises deep in the lobule and drifts out through the tissue to the nearest triad.
@@ -813,7 +828,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // lymphatic vessel in each portal tract.
     // The portal tract's own lymphatic, end-on beside the venule (on its outer side, away from the arteriole and ductule).
     for (const tr of triads) { const d = R * TRIAD_D; tr.lv = add('lv', dot(tr.x + Math.cos(tr.a) * d, tr.y + Math.sin(tr.a) * d), { tri: tr.i, lymph: true }); }
-    const lyOff = rs0 * 2.1;
+    const lyOff = rsN + rs0 * 1.1;   // (rs0 × 2.1 before the sinusoids narrowed: the same gap from their wall)
     const beside = (t) => t.pts.map((q, i) => { const a = t.pts[Math.max(0, i - 1)], b = t.pts[Math.min(N - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [q[0] - ((b[1] - a[1]) / L) * lyOff, q[1] + ((b[0] - a[0]) / L) * lyOff]; });
     // Along each edge, from its midpoint to the triad at either end, in the portal tract just outside
     // the inlet venule: its course offset outward (so the venule stays in view, the lymph beneath it),
@@ -1773,19 +1788,44 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   }
   // Behind the lobule the field steps back: most of its colour drained and its contrast lowered (q: 0..1).
   function fieldQuiet(c, bg, q, w, h) {
-    c.globalCompositeOperation = 'saturation'; c.fillStyle = `rgba(128,128,128,${(0.45 * q).toFixed(3)})`;   // colour-exempt: a grey for the saturation blend drains colour, it is not a colour c.fillRect(0, 0, w, h);
+    // (colour-exempt: a grey for the saturation blend drains colour, it is not a colour. Its fill had slipped into this comment on 12 Oct.)
+    c.globalCompositeOperation = 'saturation'; c.fillStyle = `rgba(128,128,128,${(0.45 * q).toFixed(3)})`; c.fillRect(0, 0, w, h);   // colour-exempt
     c.globalCompositeOperation = 'source-over'; c.fillStyle = css(bg, 0.42 * q); c.fillRect(0, 0, w, h);
   }
   // A tile with fieldQuiet already applied (the lobule view's resting state), so panning and zooming
   // there fill one pattern instead of blending the whole screen each frame.
+  // (G22) The neighbouring lobules are also softened here, once per tile: blurred (wrapping round the repeat, so no seam
+  // shows where the pattern tiles) and their contrast cut by NEIGHBOUR_FLAT, so the lobule in focus stands clear of them on a
+  // phone. The one exception to the no-blur rule (Mohammad, 16 Oct), and only for these neighbours.
   function quietTile(t, bg) {
     const k = bg.join(',');
     if (t.quiet?.k === k) return t.quiet;
     // (the cache holds one tone at a time; the dive's liver tone is kept apart, see paintField)
     if (t.quiet) free(t.quiet.cv);
     const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
-    const c = cv.getContext('2d'); c.drawImage(t.cv, 0, 0); fieldQuiet(c, bg, 1, t.tw, t.th);
+    const c = cv.getContext('2d');
+    blurWrapped(c, t.cv, t.tw, t.th, neighbourBlur(t.R));
+    fieldQuiet(c, bg, 1, t.tw, t.th);
+    c.fillStyle = css(bg, NEIGHBOUR_FLAT); c.fillRect(0, 0, t.tw, t.th);
     return (t.quiet = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() });
+  }
+  // Draws the repeating tile src (w × h) onto c blurred by r px, as the pattern shows it: the tile is laid out with its
+  // wrapped neighbours round it before the blur, and only the middle is kept. A canvas filter where the browser has one,
+  // else a scale down and back up (the same softening, a little coarser).
+  function blurWrapped(c, src, w, h, r) {
+    if (!(r > 0.5)) { c.drawImage(src, 0, 0); return; }
+    const p = Math.ceil(r * 3), pad = document.createElement('canvas'); pad.width = w + 2 * p; pad.height = h + 2 * p;
+    const pc = pad.getContext('2d');
+    for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) pc.drawImage(src, p + dx, p + dy);
+    if (canvasBlur()) { c.filter = `blur(${r.toFixed(2)}px)`; c.drawImage(pad, -p, -p); c.filter = 'none'; }
+    else {
+      const f = Math.max(1, r * 1.5), sw = Math.max(1, Math.round(pad.width / f)), sh = Math.max(1, Math.round(pad.height / f));
+      const sm = document.createElement('canvas'); sm.width = sw; sm.height = sh;
+      const sc = sm.getContext('2d'); sc.imageSmoothingQuality = 'high'; sc.drawImage(pad, 0, 0, sw, sh);
+      c.imageSmoothingQuality = 'high'; c.drawImage(sm, -p, -p, pad.width, pad.height);
+      free(sm);
+    }
+    free(pad);
   }
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
   // The surround fades into the page (light in light mode, dark in dark mode).
@@ -1936,7 +1976,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   function radiusAt(t, i) {
     const m = rzOf(), g = geo, R = g.R;
     const z3 = 1 - smooth(0.24, 0.56, t.rho[i]);
-    const rs = g.rs0 / m.sin ** 0.12 * (1 + 1.5 * m.congU * z3);
+    const rs = g.rs0 * SIN_NARROW / m.sin ** 0.12 * (1 + 1.5 * m.congU * z3);
     switch (t.kind) {
       case 's0': return rs;
       case 's1': return rs * 1.15;
@@ -2024,8 +2064,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   }
   const segOf = (t) => (t.kind === 'pv' || t.kind === 'in' || t.kind === 'cv' ? t.kind : 'sin');
   const tubeW = (t, end) => { const sg = segOf(t); return sg === 'sin' ? sinW(t.rho[end ? N - 1 : 0]) : end ? 1 : 0; };
-  const tubeInk = (t, end) => ink(segOf(t), tubeW(t, end));
-  const tubeRGB = (t, end, k) => inkRGB(segOf(t), tubeW(t, end), k);
+  const tubeInk = (t, end) => (segOf(t) === 'sin' && model.fibSin > 0 ? css(tubeRGB(t, end)) : ink(segOf(t), tubeW(t, end)));
+  // Capillarized sinusoids are drawn duller as fibSin rises (G21): drained toward the lobule's shade, never brighter.
+  const sinDull = (rgb) => (model.fibSin > 0 ? dullSinusoid(rgb, cssRGB01('--lz-shade'), model.fibSin) : rgb);
+  const tubeRGB = (t, end, k) => { const c = inkRGB(segOf(t), tubeW(t, end), k); return segOf(t) === 'sin' ? sinDull(c) : c; };
   // A "Colored by" switch crossfades the lobule's vessels over 300 ms, as the anatomy's do (stage.js LENS_FADE).
   // lensFrom: the lens they are leaving, null when no switch is under way.
   const LENS_FADE = 300, ORIGIN_RGB = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
@@ -2276,17 +2318,21 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     hexPath(main); c.fillStyle = css(gap, dark ? 0.55 : 0.5); c.fill();
     c.save(); hexPath(main); c.clip();
     const cu = m.congU;
+    // Each cell's membrane: a 0.6 px line where neighbouring cells meet, so a cord reads as a row of cells (G21).
+    c.strokeStyle = tk('--lz-plate-line'); c.lineWidth = Math.max(0.6, 0.6 / (c.getTransform().a || 1));
     for (const k of G.cells) {
       const z3 = k.q < 0.4, dead = z3 && cu > 0.12 && k.drop < cu * (1.25 - k.q * 1.6);
       const t = 0.88 + 0.12 * k.tone;
       const base = dark ? cell.map((x, i) => lerp(gap[i], x, 0.28)) : cell;
-      const fill = dead ? (dark ? [0.42, 0.33, 0.3] : [0.93, 0.86, 0.72]) : base.map((x) => x * t + (1 - t) * (dark ? 0.15 : 1) * 0.3);
+      // (Zone 3, by the central vein, deeper and warmer than zone 1: cordTone.)
+      const fill = dead ? (dark ? [0.42, 0.33, 0.3] : [0.93, 0.86, 0.72]) : cordTone(base.map((x) => x * t + (1 - t) * (dark ? 0.15 : 1) * 0.3), k.q, dark);
       // In cirrhosis the plates thicken and lose their order (regenerating nodules).
       const sj = m.septU, dz = sj * Math.min(k.l, k.w) * 0.45;
       c.save(); c.translate(k.x + k.jx * dz, k.y + k.jy * dz); c.rotate(k.a + k.ja * sj * 0.9);
       const lw = (dead ? k.l * 0.7 : k.l) * (1 + 0.12 * sj), ww = (dead ? k.w * 0.7 : k.w) * (1 + 0.3 * sj);
       c.fillStyle = css(fill, dead ? 0.6 : dark ? 0.8 : 0.92);
       c.beginPath(); if (c.roundRect) c.roundRect(-lw / 2, -ww / 2, lw, ww, Math.min(lw, ww) * 0.38); else c.rect(-lw / 2, -ww / 2, lw, ww); c.fill();
+      if (!dead) c.stroke();
       if (!dead) { c.fillStyle = tk('--lz-nodule-ink'); c.beginPath(); c.arc(k.nu * lw, 0, Math.max(0.9, ww * 0.16), 0, TAU); c.fill(); }
       c.restore();
     }
