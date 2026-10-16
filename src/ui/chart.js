@@ -27,8 +27,10 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const d = h('details', { class: 'section chart-sec', 'data-id': id },
       h('summary', {}, ic ? svgIcon(ic, 'sec-ic') : null, title, badge ? h('span', { class: 'count' }, badge) : null, svgIcon('chev-down', 'chev')),
       h('div', { class: 'section-body' }, ...kids));
-    if (open.has(id)) d.open = true;
-    d.addEventListener('toggle', () => { if (d.open) open.add(id); else open.delete(id); remember(); });
+    // The Advanced physiology sections start open; for them the saved set holds the ones closed.
+    const shut = id.startsWith('adv-');
+    if (open.has(id) !== shut) d.open = true;
+    d.addEventListener('toggle', () => { if (d.open !== shut) open.add(id); else open.delete(id); remember(); });
     return d;
   }
 
@@ -176,11 +178,12 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'valsalva' }) }, h('span', { class: 'ob-t' }, 'Valsalva', h('small', {}, '10 s strain'))),
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'rupture', site: 'VAR', tear: 0.6 }) }, h('span', { class: 'ob-t' }, 'Rupture a varix', h('small', {}, 'start a bleed'))),
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'hemorrhage', mL: 500 }) }, h('span', { class: 'ob-t' }, '− 500 mL', h('small', {}, 'hemorrhage'))));
+    // Laid out as the Details panel's sections (heading, spaced rows, a hairline between groups), not bare subheads.
     return [
-      h('div', { class: 'subhead' }, 'Inflow & vascular tone'), controls(['splanchnicTone', 'systemicTone']),
-      h('div', { class: 'subhead' }, 'Hepatic circulation'), controls(['habr', 'apShunt']),
-      h('div', { class: 'subhead' }, 'Anatomical variants'), controls(['grShunt', 'srShunt']),
-      h('div', { class: 'subhead' }, 'Simulation'), controls(['pulsatile', 'respiration', 'respDepth', 'bleeding', 'detRupture']), acts];
+      section('adv-tone', 'Inflow & vascular tone', null, null, ...controls(['splanchnicTone', 'systemicTone'])),
+      section('adv-hepatic', 'Hepatic circulation', null, null, ...controls(['habr', 'apShunt'])),
+      section('adv-variants', 'Anatomical variants', null, null, ...controls(['grShunt', 'srShunt'])),
+      section('adv-sim', 'Simulation', null, null, ...controls(['pulsatile', 'respiration', 'respDepth', 'bleeding', 'detRupture']), acts)];
   }
 
   // The side panel with nothing selected shows only a pinned comparison; the changes live in the Treat card
@@ -193,7 +196,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   function renderAdvanced(ctl) {
     if (ctl) controls = ctl;
     live = [];
-    return [h('div', { class: 'p-body chart-body adv-body' }, ...advanced().flat())];
+    return [h('div', { class: 'p-body chart-body adv-body' }, ...advanced())];
   }
   /** The changes list for the Treat card; `sync` collects its repaint. */
   function treatChanges(sync) {
