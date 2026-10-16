@@ -5,7 +5,8 @@
 //   4. the patient's name in the top bar shows whole, never cut with "…" (every patient, sideways phones, iPad, Mac);
 //   5. the menu's titles show whole (phones);
 //   6. the summary table's "vs …" lines are 12 px or more (Mac);
-//   7. Compare keeps 12 px from the divider before the bar's readings.
+//   7. Compare keeps 12 px from the divider before the bar's readings;
+//   8. Treat's frame holds still from tab to tab, Changes sits right under the tab shown, the spare room at the card's foot.
 //
 //   node tests/e2e/sweep-leftovers.mjs
 import { chromium } from 'playwright';
@@ -120,6 +121,30 @@ for (const size of [[1024, 768], [1440, 900], [1180, 820]]) {
   const { page, close } = await open(size, '?preset=cirr-decomp');
   const gap = await page.evaluate(() => document.querySelector('.vdock .readouts').getBoundingClientRect().left - document.querySelector('.vdock .tl-pin').getBoundingClientRect().right);
   if (gap < 11.5) fail(`${size}: Compare is ${gap.toFixed(1)} px from the divider`);
+  await close();
+}
+
+// 8. Treat: one frame for every tab, Changes right under the orders shown, nothing scrolls (iPad, Mac, iPhone).
+for (const size of [[820, 1180], [1280, 800], [390, 844]]) {
+  const { page, close } = await open(size, '?preset=healthy');
+  await page.evaluate(() => { const b = document.querySelector('#btnTreat'); (b.offsetParent ? b : [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === 'Treat' && x.offsetParent)).click(); });
+  await page.waitForSelector('#treatCard .instr-tab');
+  await sleep(2000);
+  let frame = null;
+  for (const t of ['drugs', 'fluids', 'procs']) {
+    await page.click(`#treatCard .instr-tab[data-tab="${t}"]`);
+    await sleep(1000);
+    const r = await page.evaluate(() => {
+      const c = document.querySelector('#treatCard'), body = c.querySelector('.tc-body'), on = c.querySelector('.treat-pane > :not(.tp-off)').getBoundingClientRect();
+      const card = c.getBoundingClientRect(), tabs = c.querySelector('.treat-tabs').getBoundingClientRect(), chg = body.querySelector(':scope > .section').getBoundingClientRect();
+      return { frame: [card.top, card.bottom, tabs.top].map(Math.round).join(), gap: chg.top - on.bottom, below: card.bottom - chg.bottom, scrolls: body.scrollHeight > body.clientHeight + 1 };
+    });
+    if (frame && r.frame !== frame) fail(`${size} Treat ${t}: the card or its tabs moved (${frame} → ${r.frame})`);
+    frame ??= r.frame;
+    if (r.gap > 16.5) fail(`${size} Treat ${t}: ${Math.round(r.gap)} px blank between the orders and Changes`);
+    if (r.below < 0) fail(`${size} Treat ${t}: Changes runs out of the card`);
+    if (r.scrolls) fail(`${size} Treat ${t}: the card scrolls`);
+  }
   await close();
 }
 

@@ -4053,6 +4053,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .treat-pane { padding-top: 4px; display: grid; }
 .treat-pane > * { grid-area: 1 / 1; align-self: start; }
 .treat-pane > .tp-off { visibility: hidden; }
+/* The tallest tab's spare room, measured in chart.js, sits under Changes at the card's foot, not between the orders and Changes. */
+.tc-body:has(> .treat-pane) { padding-bottom: calc(16px + var(--tp-spare, 0px)); }
 /* A wide Treat card lays the procedures out three or four to a row, as many as keep every name on one line (about
    180 px each): fewer rows, so the one height every tab shares leaves a far smaller blank band under the drugs and
    fluids (sweep, 16 Oct: 106 px above Changes on an upright iPad). The narrow card (Mac, iPhone) keeps two. */

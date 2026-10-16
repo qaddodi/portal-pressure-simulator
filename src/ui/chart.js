@@ -141,7 +141,21 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       treatTab = id;
       for (const b of tabs.children) b.setAttribute('aria-selected', String(b.dataset.tab === id));
       for (const [pid, , , el] of panes) { const off = pid !== id; el.classList.toggle('tp-off', off); el.inert = off; el.setAttribute('aria-hidden', String(off)); }
+      if (body.isConnected) spare();
     };
+    // The spare room under a shorter tab goes to the card's foot, under Changes, rather than sitting as a band between
+    // the orders and Changes (sweep, 16 Oct): the pane is as tall as the tab shown, and the card's body is padded by
+    // what the tallest tab needs more, so the card's frame still holds still from tab to tab.
+    const spare = () => {
+      if (!body.isConnected) { ro?.disconnect(); return; }
+      const on = panes.find((x) => x[0] === treatTab)?.[3];
+      const tall = Math.max(...panes.map((x) => x[3].offsetHeight)), own = on?.offsetHeight ?? tall, cs = getComputedStyle(body);
+      const pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      body.style.height = `${own + pad}px`;
+      body.parentElement?.style.setProperty('--tp-spare', `${tall - own}px`);
+    };
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(spare) : null;
+    for (const x of panes) ro?.observe(x[3]);
     for (const [id, ic, label] of panes) tabs.append(h('button', { class: 'instr-tab', role: 'tab', 'data-tab': id, 'aria-selected': 'false', onclick: () => show(id) }, svgIcon(ic), h('span', {}, label)));
     show(treatTab);
     return [tabs, body];

@@ -39,3 +39,9 @@ test('every framing of the whole circuit keeps clear of the zoom pill', () => {
   assert.doesNotMatch(stage, /insetVT\(\{ k: 1, x: 0, y: 0 \}, circVB\(\)\)(?!, circVB\(\)\))/, 'the whole map is always circWhole()');
   assert.match(stage, /const circWhole = \(\) => clearPill\(insetVT\(\{ k: 1, x: 0, y: 0 \}, circVB\(\)\), circVB\(\)\);/);
 });
+
+test("Treat's spare room sits at the card's foot, under Changes, not between the orders and Changes", () => {
+  const chart = readFileSync(new URL('../src/ui/chart.js', import.meta.url), 'utf8');
+  assert.match(chart, /setProperty\('--tp-spare', `\$\{tall - own\}px`\)/);
+  assert.match(css, /\.tc-body:has\(> \.treat-pane\) \{ padding-bottom: calc\(16px \+ var\(--tp-spare, 0px\)\); \}/);
+});
