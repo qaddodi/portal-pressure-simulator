@@ -1,5 +1,5 @@
-// The colour system: every colour lives once, as a named token in styles/tokens.css (key:
-// reports/colour-key.md in the project files). These checks keep it that way.
+// The colour system: every colour lives once, as a named token in styles/tokens.css. These checks
+// keep it that way.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
