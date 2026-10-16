@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=0140acc352';
-import { createLobuleZoom } from './lobule-zoom.js?v=2d6afba3cc';
+import { createLobuleZoom } from './lobule-zoom.js?v=5327ae9fa5';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -19,7 +19,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=07d4833500';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=fdd771b756';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=1f05278710';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
@@ -958,8 +958,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const x of Object.values(E)) {
       // (The sinusoids cross nothing, so they stay on their tier: lifted, the tier below would redraw their junctions
       // as hard-edged patches.)
-      // (A vessel just deselected stays on top while it eases back into the dimmed network: selA.)
-      const on = (x.g.classList.contains('is-sel') || x.g.classList.contains('hl') || vh.selA.get(x.e.id) > 0) && !SIN_EDGES.has(x.e.id);
+      // (A selected vessel stays in its own tier, so it joins its neighbours as every vessel does, and stands out of the dimmed
+      // network along its course instead (tube texel 12), easing back into it toward its ends. Only the cava, one vessel to the
+      // eye, is lifted whole, and stays so while it eases back: selA.)
+      const on = (x.g.classList.contains('hl') || (IVC_EDGES.has(x.e.id) && (x.g.classList.contains('is-sel') || vh.selA.get(x.e.id) > 0))) && !SIN_EDGES.has(x.e.id);
       if (on !== !!x.lifted) { x.lifted = on; place(x); }
     }
     // Within the focus tier the portal tree stays in front (as in the resting order), so a
@@ -2761,6 +2763,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     IVC_LIST.forEach((id, i) => { const g = E[id]?.g; b[items.length + i] = on(g, 'is-sel') | on(g, 'hl') << 1; });
     return b;
   }
+  // Whether a selected vessel eases back into the network toward its end at node n: 1 where another visible vessel joins there
+  // and none of the selection does.
+  function selEnd(id, n) {
+    let other = false;
+    for (const y of Object.values(E)) {
+      if (y.e.id === id || !y.vis || (y.e.from !== n && y.e.to !== n)) continue;
+      if (vh.sel.has(y.e.id)) return 0;
+      if (!y.g.classList.contains('coll-ghost')) other = true;
+    }
+    return other ? 1 : 0;
+  }
   function glowOnlyOk(t) {
     const m = glowMemo;
     if (!m || !veins || veins.lost || !vLook || tubesNew || lensFrom || !tubesShown || tubesShown.length !== tubeData.length) return false;
@@ -2953,6 +2966,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       if (tint) tubeData.set([...toRGB(cathTint.col, cs), 1, tint[0], tint[1], cathTint.soft, 0], o + 32);
       writeGlowTexels(tubeData, o, kind, id, ra?.e.id, obj.len, glow.lit, vh.amt, rgbCs, easeInOut);
+      // The selected vessel's standing out of the dimmed network (its tributaries' too); the cava and the vessels behind the
+      // organs take it in their alpha above. Toward an end where another visible vessel joins and none of the selection, it
+      // eases back into the network; a free end, or one into the rest of the selection, stays at full.
+      const sa = tier < TIER_LIFT && !x.back && !SIN_EDGES.has(id) ? vh.selA.get(id) || 0 : 0;
+      if (sa > 0) tubeData.set(kind === 'v' ? [easeInOut(sa), selEnd(id, x.e.from), selEnd(id, x.e.to), 0] : [easeInOut(sa), 0, 0, 0], o + 48);
     }
     // (Uploaded only when some vessel's attributes changed: most model frames in a steady state change none.)
     const tubesChanged = !tubesShown || tubesShown.length !== tubeData.length || tubeData.some((v, i) => v !== tubesShown[i]);

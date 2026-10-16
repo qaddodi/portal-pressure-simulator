@@ -15,7 +15,16 @@ test('a selected vessel glows as a hovered one does, with no solid ring', () => 
 
 test('selecting and deselecting ease the vessel in and out of the dimmed network', () => {
   assert.match(stage, /if \(x\.back \|\| tier >= TIER_LIFT\) alpha \*= netA \+ \(1 - netA\) \* easeInOut\(/);
-  assert.match(stage, /vh\.selA\.get\(x\.e\.id\) > 0\) && !SIN_EDGES\.has\(x\.e\.id\)/, 'a vessel just deselected stays lifted while it eases back');
+  assert.match(stage, /const on = \(x\.g\.classList\.contains\('hl'\) \|\| \(IVC_EDGES\.has\(x\.e\.id\) && /, 'only the cava is lifted when selected');
   assert.match(stage, /m\.selK !== selAKey\(\)/, 'the glow-only sync gives way while the selection eases (it does not write alpha)');
   assert.match(stage, /glowMemo\.selK = selAKey\(\);/);
+});
+
+test('the selected vessel eases back into the dimmed network toward its ends, with no hard round end', () => {
+  const vg = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(vg, /export const TUBE_TEXELS = 13;/);
+  assert.match(vg, /ssel\[s\] \*= \(t12\.y > 0\.5 \? smoothstep\(0\.0, fs, sv\[s\] \* Ls\) : 1\.0\) \* \(t12\.z > 0\.5 \? smoothstep\(0\.0, fs, \(1\.0 - sv\[s\]\) \* Ls\) : 1\.0\);/);
+  assert.match(vg, /else if \(grp == 1\) \{ accN = over\(c, accN\); if \(wsel > 0\.0\) accT = over\(c \* wsel, accT\); \}/, 'its own share laid over the dimmed network');
+  assert.match(vg, /grp == 1 \? mix\(netAlpha, 1\.0, wsel\)/, 'its blood stands out with it');
+  assert.match(stage, /tubeData\.set\(kind === 'v' \? \[easeInOut\(sa\), selEnd\(id, x\.e\.from\), selEnd\(id, x\.e\.to\), 0\] : \[easeInOut\(sa\), 0, 0, 0\], o \+ 48\);/);
 });

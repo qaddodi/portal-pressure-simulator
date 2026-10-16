@@ -41,7 +41,7 @@ export { binVeins };
 export const N_SAMPLES = 64;
 export const FLOW_TEXELS = 4;          // per-vessel blood: see stage.js (syncBlood)
 const SLOT_W = SLOT;
-export const TUBE_TEXELS = 12;         // texels of per-vessel attributes (see the layout below)
+export const TUBE_TEXELS = 13;         // texels of per-vessel attributes (see the layout below)
 export const MAX_TIERS = 20;
 const S_OFF = 96;                      // arc length is stored offset by this, so it can run on past a vessel's start
 export const ORIGIN_GREY = 0.62;       // the lumen's color while the blood is colored by origin
@@ -88,6 +88,8 @@ void main() {
 //  11: the glow's fade at the start, at the end (world; 0: runs on into the next glowing vessel; both −(1 + u): only the
 //      stretch between the two u glows, 0–1 along the vessel); 1: its own color;
 //      its width (× the usual, 0 or 1 usual; at most 1.3: 15.6 past the wall, inside the vessel's cells)
+//  12: selection: how far the vessel stands out of the dimmed network (0–1), whether it eases back into it toward its
+//      start, toward its end (1: over a third of its length, at most 60, as the hover's brightening; 0: it runs on at full)
 const FS = `#version 300 es
 precision highp float;
 precision highp int;
@@ -277,7 +279,7 @@ void main() {
   }
 
   // ── Per-vessel attributes ──
-  float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], sheat[MAXS], shov[MAXS];
+  float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], sheat[MAXS], shov[MAXS], ssel[MAXS];
   vec3 scol[MAXS], shcol[MAXS], sedge[MAXS];
   float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * 0.5 * organK : 0.0;
   for (int s = 0; s < MAXS; s++) {
@@ -287,6 +289,14 @@ void main() {
     scol[s] = mix(t0.rgb, t1.rgb, clamp(su[s], 0.0, 1.0));
     vec4 tc = T(sid[s], 8);
     shov[s] = T(sid[s], 9).w;
+    // The selected vessel stands out of the dimmed network, easing back into it along its course toward each end that
+    // meets an unselected vessel, so it never stops in a hard, round end where the dimmed vessel carries on.
+    vec4 t12 = T(sid[s], 12);
+    ssel[s] = t12.x;
+    if (t12.x > 0.0) {
+      float Ls = max(T(sid[s], 5).z, 1.0), fs = min(0.35 * Ls, 60.0);
+      ssel[s] *= (t12.y > 0.5 ? smoothstep(0.0, fs, sv[s] * Ls) : 1.0) * (t12.z > 0.5 ? smoothstep(0.0, fs, (1.0 - sv[s]) * Ls) : 1.0);
+    }
     if (tc.w > 0.0) {
       vec4 tr = T(sid[s], 9);
       float Lv = max(T(sid[s], 5).z, 1.0), uu = su[s] * Lv;
@@ -532,7 +542,8 @@ void main() {
     }
     c = over(vec4(lum, 1.0) * aL, c);
     c *= alpha * tierAlpha[ti];
-    float gf = grp == 0 ? 1.0 - occl : grp == 1 ? netAlpha : 1.0;
+    float wsel = grp == 1 ? ssel[ow] : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
+    float gf = grp == 0 ? 1.0 - occl : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
     float lumA = aL * alpha * tierAlpha[ti] * gf;
     if (lumA > 0.02 && (flags & ${F_DOTTED}) == 0) {
       // The stream shown here: the two joined lumens with the largest share, by nearness and by how
@@ -577,7 +588,7 @@ void main() {
       }
     } else gW *= 1.0 - c.a * gf;
     if (grp == 0) { c *= 1.0 - occl; accB = over(c, accB); }
-    else if (grp == 1) accN = over(c, accN);
+    else if (grp == 1) { accN = over(c, accN); if (wsel > 0.0) accT = over(c * wsel, accT); }
     else accT = over(c, accT);
   }
   if (topC.a > 0.0) {

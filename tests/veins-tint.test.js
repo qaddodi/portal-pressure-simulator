@@ -19,7 +19,7 @@ globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
 const vg = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-const W = 48;   // floats per vessel row (TUBE_TEXELS × 4)
+const W = 52;   // floats per vessel row (TUBE_TEXELS × 4)
 
 test('a row whose lumen colours alone changed is recoloured; any other change draws it again', () => {
   assert.deepEqual(TINT_FLOATS, [0, 1, 2, 4, 5, 6], 'texel 0 and 1, rgb: the colour at the start and at the end');
@@ -142,7 +142,7 @@ test('a colour-only change recolours its cells, draws none again whole, and its 
   const n0 = calls.length;
   g.setTubes(data);
   const up = calls.slice(n0).find((c) => c[0] === 'texSubImage2D');
-  assert.ok(up && up[9] instanceof Float32Array && Math.abs(up[9][48] - 0.9) < 1e-6, 'the new colours are uploaded');
+  assert.ok(up && up[9] instanceof Float32Array && Math.abs(up[9][W] - 0.9) < 1e-6, 'the new colours are uploaded');
   const p0 = g.partCells, t0 = g.tintCells, n1 = calls.length;
   assert.equal(g.drawRows(m, look, { on: false }, [1, 2]), true);
   assert.equal(g.partCells - p0, 0, 'no cell drawn again whole');
