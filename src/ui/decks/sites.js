@@ -29,6 +29,7 @@ export const SITES = {
     },
     {
       id: 'pvt', lens: 'drop', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF', 'SV'], terms: { 'portal pressure': 'pv', 'wedged pressure': 'whvp' }, mark: { edges: ['PV_TRUNK'], label: 'Clot' },
+      whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] },
       data: 'ladder', key: ['hvpg', 'ppg'], rail: true,
       kicker: 'Pre-hepatic', site: 'pre', title: 'Portal vein thrombosis',
       vignette: 'A 38-year-old man with a JAK2-positive myeloproliferative neoplasm has splenomegaly and small esophageal varices on EGD. His liver tests are normal, and there is no ascites.',
@@ -39,6 +40,7 @@ export const SITES = {
     },
     {
       id: 'presin', lens: 'drop', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', data: 'ladder', key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Resistance' }, rail: true,
+      whatIf: { label: 'Periportal fibrosis', param: ['fibrosis.R.pre', 'fibrosis.L.pre'], min: 1, max: 80, step: 1, ends: ['None', 'Severe'] },
       kicker: 'Intrahepatic · presinusoidal', site: 'presin', title: 'Schistosomiasis',
       vignette: 'A 26-year-old man who grew up in the Nile Delta presents with hematemesis. EGD shows large esophageal varices. His spleen is enlarged, his liver tests are normal, and there is no ascites.',
       line: 'Eggs lodge in the portal venules and cause periportal fibrosis. The resistance is upstream of the sinusoids, so HVPG stays near normal. With the vessels colored by pressure drop, the large drop sits in the portal venules.',
@@ -76,6 +78,7 @@ export const SITES = {
     },
     {
       id: 'cardiac', lens: 'drop', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
+      compare: [{ label: 'Normal heart', params: { contractility: 1, tr: 0 } }, { label: 'Failing heart', own: true, params: { contractility: 0.25, tr: 0.9 } }],
       data: 'ladder', block: 'ra', key: ['fhvp', 'hvpg', 'ppg'], rail: true,
       kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure',
       vignette: 'A 67-year-old man with severe TR from pulmonary hypertension has a raised JVP, leg edema and ascites. Paracentesis shows a SAAG of 1.4 and a total protein of 4.3 g/dL, and EGD shows no varices.',

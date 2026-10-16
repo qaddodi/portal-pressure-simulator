@@ -55,7 +55,8 @@
 //   caveat                   one short sentence in small print under the line, where the model differs from patients
 //   notes, ask               speaker notes, and [question, expected answer] for the room
 //   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter
-//                            (a dotted path, e.g. 'tips.d') of the live model; the figure and the data card follow it
+//                            (a dotted path, e.g. 'tips.d', or an array of paths moved together, e.g. both lobes' fibrosis)
+//                            of the live model; the figure and the data card follow it
 //
 // Deck fields: id, level, title, minutes, summary, objectives (3 to 4 short learning objectives), slides, and sections
 // ([name, [kickers]], three to five) when its kicker groups are more than five, and checks ([[question, answer]], three
@@ -64,7 +65,7 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=4e1c0762c5';
-import { SITES } from './decks/sites.js?v=8064f7fabb';
+import { SITES } from './decks/sites.js?v=86397f1de8';
 import { HVPG } from './decks/hvpg.js?v=cd919eeec5';
 import { ASCITES } from './decks/ascites.js?v=15bbff4e49';
 import { VARICES } from './decks/varices.js?v=243b1724a8';

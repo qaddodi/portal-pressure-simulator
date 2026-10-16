@@ -19,11 +19,11 @@ import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b9
 import { sinusoidSupported } from './sinusoid-view.js?v=e883e572db';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=ecb5e782d3';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=921111661d';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=50c4e675b4';
 import { createTools } from './presenter-tools.js?v=5301e8d3db';
-import { openHandout } from './handout.js?v=ec1c32fc33';
+import { openHandout } from './handout.js?v=9336c6bb0a';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=ca12af9a8d';
@@ -1433,13 +1433,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (mine()) abSlow();
   }
-  // A what-if slider (whatIf: { label, param, min, max, step, ends?, unit? }) drags one parameter of the live model;
-  // the figure, the ladder and the tiles follow it as with the buttons. It starts at the slide's own value, and the
-  // slide's computed state comes back whenever the slide is shown again.
+  // A what-if slider (whatIf: { label, param, min, max, step, ends?, unit? }) drags one parameter of the live model
+  // (or several together: param an array of paths, e.g. both lobes' fibrosis); the figure, the ladder and the tiles follow
+  // it as with the buttons. It starts at the slide's own value (the first path's), and the slide's computed state comes
+  // back whenever the slide is shown again.
   function whatIfEl(s, i, st) {
-    const w = s.whatIf, path = w.param.split('.');
-    const v0 = +(path.reduce((o, k) => o?.[k], st?.params) ?? w.min);
-    const patchOf = (x) => path.reduceRight((o, k) => ({ [k]: o }), x);
+    const w = s.whatIf, paths = [].concat(w.param).map((p) => p.split('.'));
+    const v0 = +(paths[0].reduce((o, k) => o?.[k], st?.params) ?? w.min);
+    const patchOf = (x) => paths.reduce((a, path) => merge(a, path.reduceRight((o, k) => ({ [k]: o }), x)), {});
     const out = h('output', { class: 'pzi-v' });
     const input = h('input', { type: 'range', min: w.min, max: w.max, step: w.step ?? (w.max - w.min) / 20, value: v0, 'aria-label': `What if: ${w.label}` });
     const fmtV = (x) => (w.unit ? `${fmt(x, w.step >= 1 ? 0 : 1)} ${w.unit}` : '');
