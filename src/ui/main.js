@@ -3,19 +3,19 @@
 
 import { startHost, host } from './host.js?v=0f6d345282';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=3b659e1968';
-import { createStage } from './stage.js?v=5cec2027c6';
-import { createCreditPlacer } from './credit.js?v=65811225d1';
-import { sinusoidSupported } from './sinusoid-view.js?v=3c88ec980e';
-import { createInspector } from './inspector.js?v=3e6fa85bd0';
-import { createDock, CUTOFFS } from './dock.js?v=3a29f7a2dc';
-import { setHvpgStage } from './hvpg-proc.js?v=3699a77ad6';
-import { createWhy } from './why.js?v=79b7992637';
-import { createTimeline, LAPSES } from './timeline.js?v=b8bb2e227f';
-import { createCompare } from './compare.js?v=9ec14ef778';
-import { createCard } from './card.js?v=00709a865b';
-import { createChart } from './chart.js?v=503fcce935';
-import { createMenu } from './menu.js?v=f8afed30cc';
-import { caption } from './a11y.js?v=5be217ba8e';
+import { createStage } from './stage.js?v=4491519c73';
+import { createCreditPlacer } from './credit.js?v=60d087892e';
+import { sinusoidSupported } from './sinusoid-view.js?v=051eabb041';
+import { createInspector } from './inspector.js?v=6bcb851088';
+import { createDock, CUTOFFS } from './dock.js?v=ea46c375e5';
+import { setHvpgStage } from './hvpg-proc.js?v=29e4482b7a';
+import { createWhy } from './why.js?v=e64ba04904';
+import { createTimeline, LAPSES } from './timeline.js?v=6d1c0cd95f';
+import { createCompare } from './compare.js?v=136a0625e4';
+import { createCard } from './card.js?v=b55ea9d934';
+import { createChart } from './chart.js?v=9dbeba1774';
+import { createMenu } from './menu.js?v=3794bda455';
+import { caption } from './a11y.js?v=dd710efaf1';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=131e89aa35';
@@ -153,7 +153,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=3c382d19ee'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=e48330e8d8'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
