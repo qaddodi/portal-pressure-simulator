@@ -186,7 +186,39 @@ export function createEndoscopy({ onAction }) {
 // Scope's Wall mechanics tab: a cross-section of the esophagus with the varix in its wall, and Laplace's
 // law as readings in the same tiles and meter as the scope view.
 const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near tear', critical: 'Past tear' };
+// A name's ink as drawn (centred, baseline middle), one span per quarter-pixel row: [top, bottom, left, right] round its
+// anchor. A name's box has empty corners ("muscle" curves away from a ring's edge under its round letters), so names are
+// placed by the ink itself.
+const inkCache = new Map();
+function inkRows(font, t) {
+  const k = font + '|' + t;
+  let rows = inkCache.get(k);
+  if (rows) return rows;
+  const S = 4, c = document.createElement('canvas'), x = c.getContext('2d', { willReadFrequently: true });
+  x.font = font;
+  const m = x.measureText(t), W = Math.ceil(m.width + 8) * S, H = Math.ceil((m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) * 2 + 8) * S;
+  c.width = W; c.height = H;
+  x.scale(S, S); x.font = font; x.textAlign = 'center'; x.textBaseline = 'middle';   // (the default ink is opaque, all that is read)
+  x.fillText(t, W / S / 2, H / S / 2);
+  const d = x.getImageData(0, 0, W, H).data;
+  rows = [];
+  for (let y = 0; y < H; y++) {
+    let l = -1, r = -1;
+    for (let i = 0; i < W; i++) if (d[(y * W + i) * 4 + 3] > 8) { if (l < 0) l = i; r = i; }
+    if (l >= 0) rows.push([y / S - H / S / 2, (y + 1) / S - H / S / 2, l / S - W / S / 2, (r + 1) / S - W / S / 2]);
+  }
+  inkCache.set(k, rows);
+  return rows;
+}
+// How far a name's ink at (x, y) keeps from things round it, in px: inside a circle (its edge), outside one, from a box.
+const inkIn = (rows, x, y, ox, oy, r) => Math.min(...rows.map(([t, b, l, rt]) => r - Math.hypot(Math.max(Math.abs(x + l - ox), Math.abs(x + rt - ox)), Math.max(Math.abs(y + t - oy), Math.abs(y + b - oy)))));
+const inkOut = (rows, x, y, ox, oy, r) => Math.min(...rows.map(([t, b, l, rt]) => Math.hypot(Math.max(0, x + l - ox, ox - x - rt), Math.max(0, y + t - oy, oy - y - b)) - r));
+const inkFrom = (rows, x, y, [bl, bt, br, bb]) => Math.min(...rows.map(([t, b, l, rt]) => {
+  const dx = Math.max(bl - (x + rt), x + l - br), dy = Math.max(bt - (y + b), y + t - bb);
+  return dx > 0 && dy > 0 ? Math.hypot(dx, dy) : Math.max(dx, dy);
+}));
 export function createVarixWall() {
+  const geo = { k: '', R: 0, cy: 0, off: new Set() };   // (the picture's fitted size and the names left out at it, update below)
   const el = h('div', { class: 'dock-pane', 'data-pane': 'varixwall' });
   const box = h('div', { class: 'chart-box square' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Varix cross-section: transmural pressure stretches the varix wall' });
@@ -242,18 +274,46 @@ export function createVarixWall() {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return;
     ctx.clearRect(0, 0, w, hh);
-    const cx = w / 2, cy = hh / 2, R = Math.min(w, hh) / 2 - 6, Rl = R * 0.52;
+    // (On a slide the labels take the card's small size, so they never fall under 12 px; 12 px is the floor in the Tests card too.)
+    const fs = cv.closest('.pz-tool') ? parseFloat(getComputedStyle(cv).fontSize) || 12 : clamp((Math.min(w, hh) / 2 - 6) / 11, 12, 14);
+    const f6 = FONT(600, fs), f5 = FONT(500, fs), inkT = inkRows(f6, 'T');
+    const cx = w / 2;
+    // The varix and its marks for a picture of radius R round (cx, cy), at this beat's radius, wall and ΔP.
+    // (most: the largest varix and ΔP the picture can show, which set its size, so the ring holds still through every beat)
+    const parts = (R, cy, most) => {
+      const Rl = R * 0.52, rr = most ? R * 0.3 : clamp(v.r * R * 0.05, 4, R * 0.3), vy = cy - Rl - rr * 0.25, lw = clamp((most ? Math.ceil(v.w * 10) / 10 : v.w) * R / 20, 1, 10);
+      const ro = rr + lw / 2 + Math.max(5, R / 30), len = (most ? 30 : clamp(v.ptm, 0, 30)) / 30 * rr * 0.9 + 4;
+      // T beside the ΔP arrow's shaft, just right of its head; where it would sit on the wall's outline it rises until its
+      // ink is 2 px or more clear of the line's soft edge (it follows the varix through the beat, so it never touches it).
+      const tx = cx + (4 + R / 60) * 0.45 + 2 - Math.min(...inkT.map((q) => q[2]));
+      let ty = vy - ro - fs * 0.75;
+      if (inkIn(inkT, tx, ty, cx, cy, R - 1) < 2) for (let k = 0; k < 400 && inkOut(inkT, tx, ty, cx, cy, R + 1) < 2; k++) ty -= 0.25;
+      const tTop = ty + Math.min(...inkT.map((q) => q[0]));
+      return { Rl, rr, vy, lw, ro, len, tx, ty, top: Math.min(vy - Math.max(rr + lw / 2, ro + 2.5, rr + 3 + len + 1), tTop) };
+    };
+    // The tension's T and the ΔP arrow rise above the varix at the top of the wall: the picture, its foot 6 px above the box's
+    // foot (or lower, into those 6 px, where that is all it needs), is the largest whose T and arrow ink at the largest varix
+    // and ΔP stays 1 px or more inside the canvas (a 12 px T had its crossbar cut). The ring is set once for the box, and only
+    // the varix and its marks move with the beat.
+    const gk = `${w}x${hh}x${fs}x${Math.ceil(v.w * 10)}`;
+    if (geo.k !== gk) {
+      const at = (R) => { const c0 = hh - 6 - R; return Math.min(hh - 1 - R, c0 + Math.max(0, 1 - parts(R, c0, true).top)); };
+      const ok = (R) => parts(R, at(R), true).top >= 1;
+      let lo = 20, hi = Math.min(w, hh) / 2 - 6;
+      if (ok(hi)) lo = hi; else for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (ok(m)) lo = m; else hi = m; }
+      if (geo.k.split('x').slice(0, 3).join('x') !== gk.split('x').slice(0, 3).join('x')) geo.off.clear();
+      Object.assign(geo, { k: gk, R: lo, cy: at(lo) });
+    }
+    const { R, cy } = geo;
+    const { Rl, rr, vy, lw, ro, len, tx, ty } = parts(R, cy);
     // The wall: muscle outside, mucosa inside, the lumen in the middle.
     ctx.fillStyle = cssVar('--organ-stomach'); ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
     ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(cx, cy, R * 0.74, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
     ctx.strokeStyle = cssVar('--hairline'); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
     ctx.fillStyle = cssVar('--surface'); ctx.beginPath(); ctx.arc(cx, cy, Rl, 0, 7); ctx.fill();
     // The varix in the submucosa at the top, bulging into the lumen; its size follows the model's radius.
-    const rr = clamp(v.r * R * 0.05, 4, R * 0.3);
-    const vy = cy - Rl - rr * 0.25;
     const rim = v.ratio > 0.7 ? cssVar('--danger') : cssVar('--text-2');
     // Transmural pressure pushes outward on the varix wall: longer arrows for a higher ΔP.
-    const len = clamp(v.ptm, 0, 30) / 30 * rr * 0.9 + 4;
     ctx.strokeStyle = cssVar('--text-2'); ctx.fillStyle = cssVar('--text-2'); ctx.lineWidth = Math.max(1.25, R / 140);
     for (let a = -Math.PI; a < Math.PI - 0.01; a += Math.PI / 4) {
       const x0 = cx + Math.cos(a) * (rr + 3), y0 = vy + Math.sin(a) * (rr + 3), x1 = cx + Math.cos(a) * (rr + 3 + len), y1 = vy + Math.sin(a) * (rr + 3 + len);
@@ -263,17 +323,28 @@ export function createVarixWall() {
       ctx.lineTo(x1 - Math.cos(a - 0.45) * hd, y1 - Math.sin(a - 0.45) * hd); ctx.lineTo(x1 - Math.cos(a + 0.45) * hd, y1 - Math.sin(a + 0.45) * hd); ctx.fill();
     }
     ctx.fillStyle = pressureColor(f.P[NI.VAR]); ctx.beginPath(); ctx.arc(cx, vy, rr, 0, 7); ctx.fill();
-    ctx.strokeStyle = rim; ctx.lineWidth = clamp(v.w * R / 20, 1, 10); ctx.stroke();
+    ctx.strokeStyle = rim; ctx.lineWidth = lw; ctx.stroke();
     // The radius, drawn across the varix.
     ctx.strokeStyle = cssAlpha('--white', 0.85); ctx.lineWidth = 1.25; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(cx, vy); ctx.lineTo(cx + rr, vy); ctx.stroke(); ctx.setLineDash([]);
-    // (On a slide the labels take the card's small size, so they never fall under 12 px.)
-    const fs = cv.closest('.pz-tool') ? parseFloat(getComputedStyle(cv).fontSize) || 12 : clamp(R / 11, 10, 14);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    if (rr > 14) { ctx.fillStyle = cssVar('--white'); ctx.font = FONT(600, fs); ctx.fillText('r', cx + rr / 2, vy + fs * 0.7); }
+    // (A name that once misses at this size stays out until the size changes: r and the w label move with the beat, and a name
+    // blinking in and out with it would read as a glitch.)
+    const keep = (t, ok) => { if (!ok) geo.off.add(t); return !geo.off.has(t); };
+    const drawn = [], gaps = {};
+    const put = (t, font, x, y, g) => { ctx.font = font; ctx.fillText(t, x, y); drawn.push(t); gaps[t] = g; };
+    // "r" just under the dashed radius, its ink 2 px or more clear of the dashes and 1 px or more inside the varix's fill;
+    // on a small varix it moves in toward the centre, still under the dashes.
+    const inkR = inkRows(f6, 'r'), rTop = Math.min(...inkR.map((q) => q[0])), rL = Math.min(...inkR.map((q) => q[2]));
+    const ry = vy + 3.4 - rTop, dash = [cx, vy - 1.1, cx + rr, vy + 1.1];   // (the dashes' soft edge included)
+    const rAt = (x) => ({ x, fill: inkIn(inkR, x, ry, cx, vy, rr - lw / 2 - 0.5), dash: inkFrom(inkR, x, ry, dash) });
+    let rp = rAt(cx + rr / 2);
+    if (rp.fill < 2) { const q = rAt(cx + 1.5 - rL); if (q.fill > rp.fill) rp = q; }
+    ctx.fillStyle = cssVar('--white');
+    if (keep('r', rp.fill >= 1 && rp.dash >= 2)) put('r', f6, rp.x, ry, { fill: rp.fill, dash: rp.dash });
     // Laplace's other two terms on the picture: the tension T along the wall (two arrows pulling apart round the top,
     // heavier as the stress rises) and the wall thickness w across the rim (a bracket, in the faded label ink).
-    const lw = clamp(v.w * R / 20, 1, 10), ro = rr + lw / 2 + Math.max(5, R / 30), ink = cssVar('--text-3');
+    const ink = cssVar('--text-3');
     ctx.strokeStyle = rim; ctx.fillStyle = rim; ctx.lineWidth = clamp(1.25 + 2.5 * clamp(v.ratio, 0, 1.2), 1.25, 4);
     for (const s of [-1, 1]) {
       const a0 = -Math.PI / 2 + s * 0.22, a1 = -Math.PI / 2 + s * 1.05;
@@ -282,19 +353,40 @@ export function createVarixWall() {
       ctx.beginPath(); ctx.moveTo(ex + tx * hd * 0.2, ey + ty * hd * 0.2);
       ctx.lineTo(ex - tx * hd + ty * hd * 0.55, ey - ty * hd - tx * hd * 0.55); ctx.lineTo(ex - tx * hd - ty * hd * 0.55, ey - ty * hd + tx * hd * 0.55); ctx.fill();
     }
-    ctx.font = FONT(600, fs); ctx.fillStyle = rim; ctx.fillText('T', cx, vy - ro - fs * 0.75);
+    put('T', f6, tx, ty, { ring: Math.max(inkIn(inkT, tx, ty, cx, cy, R - 0.5), inkOut(inkT, tx, ty, cx, cy, R + 0.5)), top: ty + Math.min(...inkT.map((q) => q[0])) });
     const aw = Math.PI * 0.62, bx = Math.cos(aw), by = Math.sin(aw);
     const i0 = rr - lw / 2, o0 = rr + lw / 2 + 3;
     ctx.strokeStyle = ink; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(cx + bx * i0, vy + by * i0); ctx.lineTo(cx + bx * (o0 + 6), vy + by * (o0 + 6)); ctx.stroke();
     for (const d of [i0, rr + lw / 2]) { ctx.beginPath(); ctx.moveTo(cx + bx * d - by * 3, vy + by * d + bx * 3); ctx.lineTo(cx + bx * d + by * 3, vy + by * d - bx * 3); ctx.stroke(); }
-    const wy = vy + by * (o0 + 6 + fs * 0.6);
-    ctx.fillStyle = ink; ctx.font = FONT(600, fs); ctx.fillText('w', cx + bx * (o0 + 6 + fs * 0.6), wy);
-    ctx.fillStyle = cssVar('--text-3'); ctx.font = FONT(500, fs);
-    // (A small picture: "lumen" moves down clear of the w label, and is left out when the lumen has no room for both.)
-    const ly = Math.max(cy + Rl * 0.35, wy + fs * 1.3);
-    if (ly <= cy + Rl - fs * 0.6) ctx.fillText('lumen', cx, ly);
-    ctx.fillText('muscle', cx, cy + R * 0.87);
+    const wx = cx + bx * (o0 + 6 + fs * 0.6), wy = vy + by * (o0 + 6 + fs * 0.6), inkW = inkRows(f6, 'w');
+    ctx.fillStyle = ink; put('w', f6, wx, wy, {});
+    // "lumen" as high in the lumen as its ink keeps 1 px inside the lumen's edge and 2 px clear of the w label, its bracket
+    // and the ΔP arrows; "muscle" where its ink keeps the most room inside the muscle ring, 1 px or more on each side.
+    // A name is drawn only where its ink fits, never across a ring's edge.
+    ctx.fillStyle = cssVar('--text-3');
+    const box = (rows, x, y) => [x + Math.min(...rows.map((q) => q[2])), y + Math.min(...rows.map((q) => q[0])), x + Math.max(...rows.map((q) => q[3])), y + Math.max(...rows.map((q) => q[1]))];
+    const wBox = box(inkW, wx, wy), brk = [cx + bx * (o0 + 6) - 3.5, vy + by * i0 - 3.5, cx + bx * i0 + 3.5, vy + by * (o0 + 6) + 3.5];
+    const inkL = inkRows(f5, 'lumen');
+    let lp = null;
+    for (let y = cy + Rl * 0.35; y < cy + Rl; y += 0.25) {
+      const g = { edge: inkIn(inkL, cx, y, cx, cy, Rl - 0.35), w: Math.min(inkFrom(inkL, cx, y, wBox), inkFrom(inkL, cx, y, brk)), arrows: inkOut(inkL, cx, y, cx, vy, rr + 3 + len + 1) };
+      if (g.edge < 1) break;
+      if (g.w >= 2.5 && g.arrows >= 2) { lp = { y, g }; break; }   // (2.5: both names' soft edges)
+    }
+    if (keep('lumen', !!lp)) put('lumen', f5, cx, lp.y, lp.g);
+    const inkM = inkRows(f5, 'muscle');
+    let mp = null;
+    for (let y = cy + R * 0.74; y < cy + R; y += 0.25) {
+      const g = { outer: inkIn(inkM, cx, y, cx, cy, R - 0.5), band: inkOut(inkM, cx, y, cx, cy, R * 0.74) };
+      if (!mp || Math.min(g.outer, g.band) > Math.min(mp.g.outer, mp.g.band)) mp = { y, g };
+    }
+    if (keep('muscle', Math.min(mp.g.outer, mp.g.band) >= 1)) put('muscle', f5, cx, mp.y, mp.g);
+    // (What the picture shows, for the checks: the names drawn and how far each keeps from its neighbours.)
+    const lab = drawn.join(',');
+    if (cv.dataset.labels !== lab) cv.dataset.labels = lab;
+    gaps.picture = { R, cy, h: hh };
+    cv.wallGaps = gaps;
   }
   return { id: 'varixwall', label: 'Varix wall', el, update, pin };
 }

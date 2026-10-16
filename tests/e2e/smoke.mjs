@@ -1040,7 +1040,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // Half and Full on phones down to an iPhone SE with Safari's toolbar, and at desktop and upright and sideways iPad sizes,
   // with long and extreme readings.
   await check(device, 'Wall mechanics tiles fit at every card size', async (page) => {
-    const sizes = device === 'phone' ? [[390, 844], [375, 667], [390, 664], [430, 932]] : [[1440, 900], [820, 1180], [1180, 820]];
+    const sizes = device === 'phone' ? [[390, 844], [375, 667], [390, 664], [430, 932], [320, 568], [320, 480]] : [[1440, 900], [820, 1180], [1180, 820]];   // (320 wide: the compact Half card)
     const fit = () => page.evaluate(() => {
       const v = document.querySelector('.wall-view'), pane = v.closest('.dock-pane'), pr = pane.getBoundingClientRect(), bad = [];
       const tiles = [...v.querySelectorAll('.endo-read > div')].filter((d) => d.offsetWidth);
@@ -1065,6 +1065,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const rows = [];
       for (const n of nums) { const r = rows.find((x) => Math.abs(x[0].top - n.top) < 30); if (r) r.push(n); else rows.push([n]); }
       for (const r of rows) { const b = r.map((n) => n.bottom); if (Math.max(...b) - Math.min(...b) > 0.5) bad.push(`values not level: ${b.map((x) => x.toFixed(1)).join('/')}`); }
+      // The picture's names, measured by their ink as drawn: T clear of the wall's outline and inside the canvas, r inside the
+      // varix and clear of its dashes, lumen and muscle inside their rings and lumen clear of the w label and the arrows.
+      const cv = v.querySelector('.endo-stage canvas'), gaps = cv?.offsetWidth ? cv.wallGaps : null;
+      if (gaps) {
+        if (!gaps.T || !gaps.w) bad.push('T or w missing from the picture');
+        const least = { T: { ring: 2, top: 1 }, r: { fill: 1, dash: 2 }, lumen: { edge: 1, w: 2, arrows: 2 }, muscle: { outer: 1, band: 1 } };
+        for (const [k, lim] of Object.entries(least)) for (const [q, m] of Object.entries(lim)) if (gaps[k] && !(gaps[k][q] >= m - 0.01)) bad.push(`picture: ${k} ${q} ${gaps[k][q]?.toFixed(2)} px (needs ${m})`);
+      }
       return bad;
     });
     for (const [width, height] of sizes) {

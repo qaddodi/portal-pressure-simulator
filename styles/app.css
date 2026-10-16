@@ -5451,6 +5451,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(110px, 1fr) auto auto; gap: 10px; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage { grid-column: 1; grid-row: 1; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh - 24px, var(--stage-min))); }
+  /* (A 320 px phone's Full card: the picture takes the 2 px the equation's row leaves spare, so "muscle" keeps its room in the ring.) */
+  @media (max-width: 340px) { #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh - 22px, var(--stage-min))); } }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { grid-column: 1; grid-row: 2; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read > div { padding: 7px 8px 6px; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .chart-side > .ctl-sub { grid-row: 3; text-align: center; }
@@ -5460,11 +5462,26 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   @container tpane (max-height: 330px) and (min-width: 280px) {
     #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view { grid-template-columns: minmax(0, 1fr) minmax(0, 62%); grid-template-rows: minmax(0, 1fr); gap: 8px 10px; }   /* (one row: the empty second row's 8 px gap made a 664 px phone's Half card scroll by 6 px) */
     #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage { --stage-min: 90px; grid-row: 1; justify-content: center; }
-    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh - 24px, var(--stage-min))); }
+    /* (16 px taller than wide, upward into the column's spare room: the T and the ΔP arrow over the varix take that room, not
+       the picture's size, and the ring and the equation under it keep their places) */
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh - 24px, var(--stage-min))); aspect-ratio: auto; height: min(max(100cqh - 24px, var(--stage-min)), min(100cqw, max(100cqh - 24px, var(--stage-min))) + 16px); margin-top: -16px; }
     #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .wall-cap { display: none; }
     #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { grid-column: 2; grid-row: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); align-self: center; }
     #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .chart-side > .ctl-sub { display: none; }
     #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { gap: 5px; }
+  }
+  /* A very short card (Half on a 320 x 568 or smaller phone, 200 px or less): no room for the picture beside two rows of tall
+     tiles, so the readings alone, compact (the ladder cards' precedent, a667e9f): the wall stress down the left, ΔP, r, w and
+     the index two by two beside it, each value with its unit on one line; the picture is back at Full. */
+  @container tpane (max-height: 200px) {
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; align-content: center; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage { display: none; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { grid-column: 1; grid-row: 1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); grid-auto-rows: auto; align-self: center; gap: 4px; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read > .endo-stress { grid-column: 1; grid-row: 1 / span 2; justify-content: center; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read > div { padding: 4px 7px 3px; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-tile .endo-num { flex-direction: row; align-items: baseline; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-tile .endo-num small:empty { display: none; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-tile .endo-num small { margin-left: 3px; }
   }
   /* HVPG: the monitor the card's full width, the readings over it with Measure HVPG at their right (15 Oct, always in view); the steps and words under
      the monitor only at Full. */
