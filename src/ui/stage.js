@@ -4172,10 +4172,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (sv.textContent !== txt) sv.textContent = txt;
   }
   fibroReading.show = scanShow;
-  function scanTurn(tx) {
+  // (Its body's far corners sit 76 px back from the tip along the probe and 13.8 px either side of it, the stroke included,
+  // so the corners bound the rounded body: near the screen's top edge, a phone on its side, the probe lies flatter, down to 10°, so the whole
+  // body stays 4 px or more below the top edge; the left edge wins where both press. Laid flatter, its cable runs on to the
+  // screen's edge, so it does not end in mid-air.)
+  function scanTurn(tx, y = Infinity) {
+    const r = (d) => d * Math.PI / 180, left = (d) => tx - 92 * Math.cos(r(d)) - 13 * Math.sin(r(d)) >= SCAN_EDGE, top = (d) => y - 76 * Math.sin(r(d)) - 13.8 * Math.cos(r(d)) >= 4;
+    const bodyLeft = (d) => tx - 76 * Math.cos(r(d)) - 13.8 * Math.sin(r(d)) >= 4;   // (laid flatter, the cable runs off the edge, so only the body must stay on screen)
     let deg = 45;
-    while (deg < 80 && tx - 92 * Math.cos(deg * Math.PI / 180) - 13 * Math.sin(deg * Math.PI / 180) < SCAN_EDGE) deg += 5;
+    while (deg < 80 && !left(deg)) deg += 5;
+    if (left(deg)) while (deg > 10 && !top(deg) && bodyLeft(deg - 5)) deg -= 5;
     if (deg !== scan.deg) { scan.deg = deg; scan.el.style.setProperty('--sp-turn', `${deg}deg`); }
+    // (From the tip, the cable starts 74 px back: it runs on until it crosses the top or the left edge, 8 px past it.)
+    const run = Math.min((y + 8) / Math.sin(r(deg)), (tx + 8) / Math.cos(r(deg))) - 74;
+    const cab = deg < 45 ? `M${(-8 - Math.max(18, Math.min(400, run))).toFixed(1)} 48 L-8 48` : 'M-26 48 C-18 48 -14 48 -8 48';
+    const cp = scan.el.querySelector('.sp-cable'); if (cp && cp.getAttribute('d') !== cab) cp.setAttribute('d', cab);
   }
   function scanPaint() {
     if (!scan.el) {
@@ -4189,7 +4200,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/><rect class="sp-screen" x="-3" y="39.5" width="54" height="17" rx="4"/>'
         + '<text class="sp-read" x="24" y="52.3" text-anchor="middle"><tspan class="sp-val">5.0</tspan><tspan class="sp-unit" dx="2">kPa</tspan></text></g></svg>';   // (constant markup; the screen on the body shows the live stiffness)
       sites.el.append(el); scan.el = el; scan.deg = 45;
-      const t0 = scanTipLocal(); if (t0) scanTurn(t0.tx);   // (turned before it first shows, so it fades in at its angle rather than swinging to it)
+      const t0 = scanTipLocal(); if (t0) scanTurn(t0.tx, t0.y);   // (turned before it first shows, so it fades in at its angle rather than swinging to it)
       void el.offsetWidth; el.classList.remove('cath-pre');
       if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = scan.nextTap = Infinity; }
       if (!scan.raf) { scan.last = 0; scan.raf = nextFrame(scanTick); }
@@ -4199,7 +4210,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const { tx, y } = tip, x = tx - SCAN_TIP[0];
     // Turned 45° down-right, the probe's body and its kPa screen reach 75 px left of the tip; where the liver sits near the
     // screen's left edge (a phone), the probe stands steeper, up to 80°, so its reading stays whole on screen.
-    scanTurn(tx);
+    scanTurn(tx, y);
     scan.el.classList.toggle('off', tx < -30 || tx > wr.width + 30 || y < -30 || y > wr.height + 30);
     scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }

@@ -23,9 +23,10 @@ test('the meal chart sets its words larger by its card\'s zoom, to 12 px at leas
   assert.match(flow, /font-size: \$\{G\.f\.toFixed\(2\)\}px/);
 });
 
-test('the FibroScan probe turns steeper beside the left edge, and its card check uses the same angle', () => {
+test('the FibroScan probe turns steeper beside the left edge, flatter below the top edge, and its card check uses the same angle', () => {
   assert.match(css, /\.scan-probe svg \{[^}]*rotate\(var\(--sp-turn, 45deg\)\)/);
-  assert.match(stage, /function scanTurn\(tx\)/);
+  assert.match(stage, /function scanTurn\(tx, y = Infinity\)/);
+  assert.match(stage, /while \(deg > 10 && !top\(deg\) && bodyLeft\(deg - 5\)\) deg -= 5;/);
   assert.match(stage, /scan\.deg \* Math\.PI \/ 180/);
 });
 
