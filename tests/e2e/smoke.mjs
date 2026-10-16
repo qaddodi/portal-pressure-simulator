@@ -96,6 +96,54 @@ const open = async (page, q = '') => {
 // Every frame for `ms`: each leader on screen against the labels on screen (the lobule's and the anatomy's). A leader ends on
 // the edge of its own label's letters (no gap, never in under them) and crosses no other label. Returns what was wrong, each
 // problem once with the time it was first seen.
+// The lobule's station labels: every vessel label shows, no leader is longer than an optional label may take (140 px), and
+// a Lymph label left out had no clear spot within that of its node. The spot search is the check's own: a fine grid of every
+// position whose leader is short enough, kept inside the free space, off the other labels (with the margins the layout keeps
+// between labels), the cards, the central vein and portal tract discs, the node itself, and with no leader crossing it or its own
+// leader crossing a label. Returns what is wrong ([] when nothing is). (fault: 'drop' hides a shown Lymph label first, 'long'
+// stretches one leader to 150 px, to prove the check catches both.)
+const stationRoom = (page, fault = null) => page.evaluate((fault) => {
+  const lay = document.querySelector('.lz.on .lz-labels'), room = JSON.parse(lay?.dataset.room || 'null'), bad = [];
+  if (!room) return ['the lobule has no layout to check'];
+  const host = lay.getBoundingClientRect(), labs = [...lay.querySelectorAll('.lz-lab')];
+  const rel = (r) => ({ l: r.left - host.left, t: r.top - host.top, r: r.right - host.left, b: r.bottom - host.top });
+  const ly = labs.find((l) => l.dataset.target === 'lobule:lymph');
+  if (fault === 'drop' && ly && !ly.hidden) ly.hidden = true;
+  const lines = [...document.querySelectorAll('.lz.on .lz-leaders line.leader')];
+  if (fault === 'long') { const l = lines.find((q) => q.style.display !== 'none' && q.getAttribute('x2') != null); const [x, y] = [+l.getAttribute('x1'), +l.getAttribute('y1')]; l.setAttribute('x2', x + 150); l.setAttribute('y2', y); }
+  for (const k of ['central', 'sinusoid', 'triad']) if (labs.find((l) => l.dataset.target === `lobule:${k}`)?.hidden) bad.push(`the ${k} label is left out`);
+  const shown = labs.filter((l) => !l.hidden && l.offsetWidth);
+  const segs = lines.filter((l) => l.style.display !== 'none' && l.getAttribute('x2') != null && !l.closest('[hidden]') && labs.find((q) => q.dataset.target === l.dataset.target && !q.hidden))
+    .map((l) => ({ k: l.dataset.target, p: [+l.getAttribute('x1'), +l.getAttribute('y1')], q: [+l.getAttribute('x2'), +l.getAttribute('y2')] }));
+  for (const g of segs) { const n = Math.hypot(g.q[0] - g.p[0], g.q[1] - g.p[1]); if (n > room.lead + 1) bad.push(`the ${g.k} leader is ${n.toFixed(0)} px (over ${room.lead})`); }
+  if (ly?.hidden) {
+    // Its size as it would be drawn.
+    ly.hidden = false; ly.style.visibility = 'hidden';
+    const w = ly.offsetWidth, h = ly.offsetHeight;
+    ly.hidden = true; ly.style.visibility = '';
+    const [ax, ay] = (ly.dataset.at || '').split(',').map(Number);
+    const boxes = shown.map((l) => rel(l.getBoundingClientRect()));
+    const big = (b) => ({ l: b.l - room.hx, r: b.r + room.hx, t: b.t - room.hy, b: b.b + room.hy });
+    const meets = (a, b) => Math.min(a.r, b.r) > Math.max(a.l, b.l) && Math.min(a.b, b.b) > Math.max(a.t, b.t);
+    const disc = (x, y, r, b) => Math.hypot(Math.max(b.l - x, 0, x - b.r), Math.max(b.t - y, 0, y - b.b)) < r;
+    const cross = (p, q, b) => { let t0 = 0, t1 = 1; for (const [d, lo, hi, o] of [[q[0] - p[0], b.l, b.r, p[0]], [q[1] - p[1], b.t, b.b, p[1]]]) { if (Math.abs(d) < 1e-9) { if (o <= lo || o >= hi) return false; continue; } let u = (lo - o) / d, v = (hi - o) / d; if (u > v) [u, v] = [v, u]; t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 >= t1) return false; } return true; };
+    // (Two leaders crossing each other.)
+    const side = (a, b, c) => Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+    const cut = (p, q, r, t) => side(p, q, r) * side(p, q, t) < 0 && side(r, t, p) * side(r, t, q) < 0;
+    const [fl, ft, frr, fb] = room.fr;
+    let clear = null;
+    for (let x = fl + w / 2 + room.pad; x <= frr - w / 2 - room.pad && !clear; x += 3) for (let y = ft + h / 2 + room.pad; y <= fb - h / 2 - room.pad && !clear; y += 3) {
+      const b = { l: x - w / 2, r: x + w / 2, t: y - h / 2, b: y + h / 2 }, B = big(b);
+      if (Math.hypot(Math.max(0, Math.abs(ax - x) - w / 2), Math.max(0, Math.abs(ay - y) - h / 2)) > room.lead) continue;
+      if (disc(ax, ay, 10, B) || boxes.some((o) => meets(B, big(o))) || room.cards.some(([l, t, r, bb]) => meets(B, { l, t, r, b: bb })) || room.keep.some(([kx, ky, kr]) => disc(kx, ky, kr, B))) continue;
+      if (boxes.some((o) => cross([ax, ay], [x, y], big(o))) || segs.some((g) => cross(g.p, g.q, B) || cut(g.p, g.q, [ax, ay], [x, y]))) continue;
+      clear = [x, y];
+    }
+    if (clear) bad.push(`the Lymph label is left out though a clear spot lies at (${clear.map((v) => v.toFixed(0))}), within ${room.lead} px of its node`);
+  }
+  return bad;
+}, fault);
+
 const leaderFrames = (page, ms) => page.evaluate((ms) => new Promise((done) => {
   const out = new Map(), t0 = performance.now();
   const op = (el) => { let o = 1; for (let e = el; e && e.nodeType === 1; e = e.parentElement || e.parentNode) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return 0; o *= +cs.opacity; } return o; };
@@ -2771,7 +2819,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (lit < 300) throw new Error(`the lobule's vessel layer is nearly empty (${lit} px)`);
     // The four stations carry cards; the arteriole and ductule labels exist but stay hidden until a slide's term names them.
     const stations = await page.evaluate(() => [...document.querySelectorAll('.lz-lab')].map((l) => `${l.dataset.target}${l.hidden ? ':hidden' : ''}`).sort().join());
-    if (stations !== 'lobule:arteriole:hidden,lobule:central,lobule:ductule:hidden,lobule:lymph,lobule:sinusoid,lobule:triad') throw new Error(`station cards missing (${stations})`);
+    // (The Lymph label may be left out, never stacked, but only where no clear spot lies within a short leader of its node.)
+    const full = 'lobule:arteriole:hidden,lobule:central,lobule:ductule:hidden,lobule:lymph,lobule:sinusoid,lobule:triad';
+    if (stations !== full && stations !== full.replace('lobule:lymph,', 'lobule:lymph:hidden,')) throw new Error(`station cards missing (${stations})`);
+    const room = await stationRoom(page);
+    if (room.length) throw new Error(room.join('; '));
     // The card is gone: nothing floats beside the lobule but its labels.
     if (await page.locator('.lz-side').count()) throw new Error('the lobule still has its card');
     // The strip reads the lobule's two flows here, as the anatomy's reads HVPG and PPG (the slim bar, 88e0a8d: arterial inflow and
@@ -4496,6 +4548,32 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // A leader reaches its label in every frame, and never runs in under it or across another label: the dive into the lobule,
   // a text-size change gliding the lobule's labels, the rise back out, and zooming in on the anatomy. (The lobule's leaders
   // once ran to each label's middle, through its letters, and the anatomy's stopped 9 px short of theirs.)
+  // The station check above proves its own case: it fails on a Lymph label hidden where a clear spot exists and on a
+  // leader stretched to 150 px, and passes on the lobule of every kind of patient (the Lymph label left out only where no
+  // clear spot lies near its node: a phone's decompensated cirrhosis).
+  await check(device, 'lobule stations: the Lymph label is left out only where no clear spot lies near its node, no leader over 140 px', async (page) => {
+    const into = async (q) => {
+      await open(page, q);
+      await pickView(page, 'lobule');
+      await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled() && !!document.querySelector('.lz.on .lz-labels')?.dataset.room, null, { timeout: 60000 });
+      await page.waitForTimeout(1500);
+    };
+    const bad = [];
+    for (const q of ['?preset=healthy', '?preset=rhf', '?preset=cirr-comp', '?preset=cirr-decomp', '?preset=budd-chiari', '?preset=csph', '?preset=schisto']) {
+      await into(q);
+      for (const b of await stationRoom(page)) bad.push(`${q}: ${b}`);
+    }
+    if (bad.length) throw new Error(bad.join('; '));
+    // (The faults: on a lobule whose Lymph label shows.)
+    await into('?preset=healthy');
+    if (await page.evaluate(() => document.querySelector('.lz.on .lz-lab[data-target="lobule:lymph"]').hidden)) throw new Error('the healthy lobule shows no Lymph label to test with');
+    const dropped = await stationRoom(page, 'drop');
+    if (!dropped.some((b) => /left out though a clear spot/.test(b))) throw new Error(`a Lymph label hidden beside a clear spot was not caught (${dropped.join('; ') || 'no problem found'})`);
+    await into('?preset=healthy');
+    const long = await stationRoom(page, 'long');
+    if (!long.some((b) => /leader is 150 px/.test(b))) throw new Error(`a 150 px leader was not caught (${long.join('; ') || 'no problem found'})`);
+  });
+
   await check(device, 'leaders reach their labels in every frame: lobule dive, glide and rise, anatomy zoom', async (page) => {
     const bad = [];
     const look = async (what, ms, act) => { const run = leaderFrames(page, ms); await act?.(); for (const b of await run) bad.push(`${what}: ${b}`); };
@@ -4666,6 +4744,7 @@ const MEASURED = {
   'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text': 90000,   // (one device pixel per pixel on a phone: about 65 s here)
   'presenter: lobule labels never touch, leaders never cross': 140000,
   'leaders reach their labels in every frame: lobule dive, glide and rise, anatomy zoom': 120000,
+  'lobule stations: the Lymph label is left out only where no clear spot lies near its node, no leader over 140 px': 150000,
   'lobule: the sinusoid reading and its lesion pointer point at the middle of a sinusoid': 150000,
   'liver lobule: GPU vessels, pressure drops, caption, cards, zones': 160000,
   'corner credit never touches a card': 130000,

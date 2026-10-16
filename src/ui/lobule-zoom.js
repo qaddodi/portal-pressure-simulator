@@ -1236,6 +1236,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, hm = 4 + 2 * lk,
       hx = Math.max(hm, 4 * lk + 5), hy = Math.max(hm, 5 * lk + 5);
     const hit = (a, b) => overlap(a, b) > 0;
+    // (What a label must keep clear of, for the browser check that proves a label left out had no clear spot.)
+    const r1 = (v) => Math.round(v * 10) / 10;
+    labels.dataset.room = JSON.stringify({ fr: [fr.l, fr.t, fr.r, fr.b].map(r1), pad: r1(8 + 4 * lk), hx: r1(hx), hy: r1(hy), lead: LONG_LEAD,
+      keep: keep.map((q) => [q.x, q.y, q.r].map(r1)), cards: cards.map((c) => [c.l, c.t, c.r, c.b].map(r1)) });
     placed.push(...placeZones(fr0, hx, hy, callRingAt(fr0)));
     // Leaders run to each label's centre; a leader never crosses another label, and a label never sits on another's leader.
     const crosses = (p, q, b) => {
@@ -1446,6 +1450,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const inks = sol.res.filter((r) => !r.out).map(({ k, x, y }) => { const { L, w, hh } = items.find((it) => it.k === k); return lettersOf(L, x - w / 2, y - hh / 2, w, hh); });
     for (const { k, x, y, out } of sol.res) {
       const { L, w, hh, a, edge } = items.find((it) => it.k === k);
+      L.el.dataset.at = `${r1(a[0])},${r1(a[1])}`;
       if (out) { L.el.hidden = true; L.el.classList.remove('edge'); L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
       L.el.classList.remove('left');
