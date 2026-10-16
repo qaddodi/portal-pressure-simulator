@@ -20,7 +20,9 @@ test('G18: organs and vessels ease on one clock and one curve', () => {
   assert.ok(fade && Number('0.' + fade[1]) * 1000 === lens, 'the SVG organs\' CSS fade takes the same time');
   // easeInOut (quadratic) as a CSS curve.
   assert.match(tokens, /--ease-io: cubic-bezier\(\.455, \.03, \.515, \.955\);/);
-  for (const rule of ['#net { transition: opacity var(--view-fade) var(--ease-io); }', '#organs > g, #backdrop, #organs, #backEdges .vg { transition: filter var(--view-fade) var(--ease-io); }']) assert.ok(app.includes(rule), rule);
+  for (const rule of ['#net { transition: opacity var(--view-fade) var(--ease-io); }', '#backEdges .vg { transition: filter var(--view-fade) var(--ease-io); }']) assert.ok(app.includes(rule), rule);
+  // The live SVG organs take the plate's own eased values (stepPlateEase → syncPlateLook → syncOrganDim), so they share its clock.
+  assert.match(stage, /function syncPlateLook\(\) \{\n {4}syncOrganDim\(\);/);
   assert.doesNotMatch(app, /#heatGlow[^}]*\.28s|#backEdges \.vg \{ transition: filter \.28s/, 'no lens or selection fade left on the old .28 s clock');
 });
 
@@ -31,7 +33,7 @@ test('G20: a selected organ is outlined in its own deep tone with a soft glow; t
   assert.match(stage, /const col = o\.col \|\| \(o\.kind === 'pin' \? olCol : orgTone\(o\.id\)\);/, 'slide pins keep their station colour');
   assert.match(stage, /const SEL_DIM = 0\.6;/);
   assert.match(stage, /\(sel \? SEL_DIM : 1\) \* \(dataLayer \? 0\.72 : 1\)/, 'the GPU plate dims to SEL_DIM');
-  assert.ok(app.includes('.stage-view.has-sel #organs > g, .stage-view.has-sel #backdrop { filter: opacity(.6); }'), 'as the SVG organs do');
+  assert.match(stage, /const on = !plateOn\(\) && \(plateDim < 1 \|\| plateSat < 1\);/, 'the SVG organs dim with the same values (syncOrganDim)');
   // Every selectable organ has a tone class that sets --o3.
   for (const t of ['liver', 'spleen', 'heart']) assert.match(app, new RegExp(`\\.tone-${t} \\{[^}]*--o3: var\\(--og-${t}-3\\)`));
 });

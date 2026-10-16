@@ -510,7 +510,6 @@ div.vital { cursor: default; }
 .stage-view.has-sel #net { opacity: .42; }
 /* A selected vessel stays bright; the rest of the network and the organs recede. */
 .stage-view.has-sel #backEdges .vg:not(.is-sel):not(.hl) { filter: opacity(.42); }
-.stage-view.has-sel #organs > g, .stage-view.has-sel #backdrop { filter: opacity(.6); }   /* SEL_DIM in stage.js */
 .stage-view.has-sel .vg.is-sel .v-lumen, .stage-view.has-sel .vg.is-sel .v-lumenP { filter: brightness(1.12) saturate(1.1); }
 
 .v-wall { fill: none; stroke: rgb(var(--casing-rgb)); stroke-linecap: round; stroke-linejoin: round; }
@@ -552,12 +551,12 @@ div.vital { cursor: default; }
 .org-ra.org-fill { fill: color-mix(in srgb, var(--organ-heart) calc(var(--organ-tint) + 14%), var(--stage-bg)); }
 .organ-heart-ra { color: color-mix(in srgb, var(--organ-heart) 80%, var(--shade-ink)); }
 .org-heart-flow { fill: color-mix(in srgb, var(--organ-heart) 70%, var(--shade-ink)); fill-opacity: .55; stroke: none; }
-/* Data layers: the anatomy steps back so the network carries the reading. */
-.stage-view.data-layer #organs, .stage-view.data-layer #backdrop { filter: saturate(.12) opacity(.72); }
+/* Data layers and a selection step the anatomy back (#organs, #backdrop) with the GPU's values, eased on its clock: stage.js
+   syncOrganDim, an SVG filter, since WebKit draws no CSS filter functions on SVG elements. */
 #heatGlow { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--view-fade) var(--ease-io), visibility 0s linear var(--view-fade); }
 .stage-view[data-layer="heat"] #heatGlow { opacity: 1; visibility: visible; transition: opacity var(--view-fade) var(--ease-io), visibility 0s; }
 /* A lens or a selection eases the anatomy back (no one-frame dim or grey). */
-#organs > g, #backdrop, #organs, #backEdges .vg { transition: filter var(--view-fade) var(--ease-io); }
+#backEdges .vg { transition: filter var(--view-fade) var(--ease-io); }
 .v-heat { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .map-grid { opacity: .9; }
 .map-dot { fill: var(--map-dot); }

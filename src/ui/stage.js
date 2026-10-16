@@ -31,6 +31,7 @@ import { balloonRy, routeRadii } from './hvpg-balloon.js?v=0f8da50742';
 import { layoutWatch } from './idle-keys.js?v=27f599b5bc';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
+import { organDimMatrix } from './organ-dim.js?v=7888276613';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -640,6 +641,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     nod: s('path', { class: 'lv-nod', 'clip-path': 'url(#clip-liver)', style: 'opacity:0' }),
   };
   // The capsule's sheen: broad soft reflections on the domes of both lobes.
+  // The organs' dim and grey on the live drawing (syncOrganDim), over the plate's rectangle (PLATE_RECT), as the GPU copy has it.
+  defs.insertAdjacentHTML('beforeend', '<filter id="organDim" filterUnits="userSpaceOnUse" x="200" y="-200" width="1020" height="1320" color-interpolation-filters="sRGB"><feColorMatrix type="matrix"/></filter>');
   defs.insertAdjacentHTML('beforeend', '<radialGradient id="lvSheen"><stop offset="0" class="lv-sh0"/><stop offset=".55" class="lv-sh1"/><stop offset="1" class="lv-sh2"/></radialGradient>');
   lv.gloss.append(s('ellipse', { cx: 468, cy: 236, rx: 118, ry: 34, transform: 'rotate(-6 468 236)', fill: 'url(#lvSheen)' }),
     s('ellipse', { cx: 752, cy: 262, rx: 66, ry: 16, transform: 'rotate(22 752 262)', fill: 'url(#lvSheen)' }));
@@ -2772,6 +2775,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!on && tubesStale) { tubesStale = false; updateGeometry(true); }
     const plateWas = plateOn();
     wrap.classList.toggle('gl-plate', on && veins.hasPlate(0));
+    syncOrganDim();
     if (!on) { if (vLook) { veins.clear(); vLook = null; vBinKey = ''; binShown = null; } return; }
     if (!glOrgans) {
       // The organ covers, rasterized once in world space (1.5 px per unit): tiers behind them fade.
@@ -3045,6 +3049,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // every organ in the copy and so in the figure.)
         if (inlineStyles(g, c, 'visible') === false) continue;
         c.removeAttribute('opacity');   // the plate fades with the morph on the GPU
+        c.removeAttribute('filter');    // and dims and greys there too (syncOrganDim)
         for (const el of [...c.querySelectorAll('[data-pc="drop"]')]) el.remove();
         dropInvisible(c);
         for (const el of c.querySelectorAll('[data-pc~="fold"]')) foldOpacity(el);
@@ -3193,10 +3198,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return [(sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, sel ? 0.42 : 1];
   };
   function syncPlateLook() {
+    syncOrganDim();
     if (!vLook) return;
     if (plateDim == null || reduceMotion.matches) [plateDim, plateSat, netA] = plateTargets();
     vLook.plate = plateOn() ? { alpha: (1 - easeInOut(morph)) * plateDim, sat: plateSat } : null;
     vLook.netAlpha = netA;
+  }
+  // The live SVG organs (shown while the GPU copy is off: a patient change, a theme switch, no WebGL) take the same dim and
+  // grey, on the same eased values, through an SVG filter (organ-dim.js). Only while they show: a filter on the hidden groups
+  // would still be built on every repaint (as their masks were, app.css).
+  const organDimFx = defs.querySelector('#organDim feColorMatrix');
+  let organDimKey = '';
+  function syncOrganDim() {
+    if (plateDim == null || reduceMotion.matches) [plateDim, plateSat, netA] = plateTargets();
+    const on = !plateOn() && (plateDim < 1 || plateSat < 1);
+    const key = on ? organDimMatrix(plateDim, plateSat) : '';
+    if (key === organDimKey) return;
+    organDimKey = key;
+    if (on) organDimFx.setAttribute('values', key);
+    for (const g of [gOrgans, gBackdrop]) { if (on) g.setAttribute('filter', 'url(#organDim)'); else g.removeAttribute('filter'); }
   }
   const plateEasing = () => { if (plateDim == null) return false; const [d, s, n] = plateTargets(); return d !== plateDim || s !== plateSat || n !== netA; };
   // Timed on the clock with an ease in and out (PLATE_FADE), so the organs fade to grey and back smoothly at any frame rate.
@@ -3206,7 +3226,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let plateFrom = null, plateTo = null, plateT0 = 0;
   function stepPlateEase() {
     if (lensFrom) veinsDirty = true;
-    if (!vLook || !plateEasing()) { plateFrom = null; return; }
+    if (!plateEasing()) { plateFrom = null; return; }
     const to = plateTargets(), now = performance.now();
     if (!plateFrom || to.some((v, i) => v !== plateTo[i])) { plateFrom = [plateDim, plateSat, netA]; plateTo = to; plateT0 = lensFrom && now - lensT0 < 60 ? lensT0 : now; }
     const u = easeInOut(clamp((now - plateT0) / PLATE_FADE, 0, 1));
