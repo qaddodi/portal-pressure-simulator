@@ -18,6 +18,8 @@ const withPoints = (d) => ({ ...d, slides: d.slides.map((s) => (s.visual ? s : {
 
 export const CIRCUIT = withPoints({
   id: 'circuit', level: 'foundation', title: 'Portal pressure as a circuit', minutes: 10,
+  // (Every slide shares one kicker, so the outline's sections name the slides.)
+  sections: [['Flow and resistance', ['ohm', 'where', 'meal']], ['Cirrhosis', ['resist', 'both']], ['Collaterals', ['parallel']], ['Treatment', ['tips', 'drugs']]],
   objectives: [
     'Read portal pressure as flow times resistance',
     'Explain why a meal raises portal pressure more in cirrhosis',

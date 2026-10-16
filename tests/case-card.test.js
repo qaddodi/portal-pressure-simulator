@@ -35,7 +35,7 @@ test('every case in every deck sits on a slide with a preset and stays under 220
 test('Next lifts an open case card before it changes the slide', () => {
   assert.match(src, /const next = \(\) => \{\s*if \(caseLift\) \{ caseLift\(\); return; \}/);
   // Shown only going forward onto a new patient, and loaded behind the card before it lifts.
-  assert.match(src, /s\.vignette && ui && !booting && !rev && !lap && to > lastAt && \(si !== shownState \|\| liveOff\)/);
+  assert.match(src, /s\.vignette && ui && !booting && !lap && to > lastAt && \(si !== shownState \|\| liveOff\)/);
 });
 
 test('behind the case card the camera glides once, to the slide\'s own framing; the tap makes no second move', () => {

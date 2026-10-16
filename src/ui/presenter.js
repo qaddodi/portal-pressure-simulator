@@ -9,21 +9,22 @@
 // new values.
 //
 // Keys (clickers send the same): → Page Down Space Enter next (during a time-lapse the first runs it to its end),
-// ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen,
-// Esc. On a touch screen a sideways swipe anywhere on the slide goes on or back.
+// ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide,
+// Esc. (The Guide lists them: PRESENT_KEYS in main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
 import { store, replaceParams } from './store.js?v=65ec443c0e';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, restBox } from './util.js?v=0140acc352';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox } from './util.js?v=0140acc352';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
 import { sinusoidSupported } from './sinusoid-view.js?v=1199bb8c7d';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=e3c7909d78';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=12c5c963e5';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=2f555feeba';
-import { createTools } from './presenter-tools.js?v=bc9e019840';
-import { openHandout } from './handout.js?v=aabe71bc78';
+import { createTools } from './presenter-tools.js?v=bbec1b3938';
+import { openHandout } from './handout.js?v=c018341a13';
+import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=ca12af9a8d';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
@@ -70,7 +71,7 @@ const LENS_KEY = {
   delta: ['change', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
   origin: ['origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen'], ['--origin-artery', 'Artery'], ['--origin-systemic', 'Systemic']]],
 };
-export const slideLens = (s, q = false) => (!q && !s?.visual && LENS_KEY[s?.lens] ? s.lens : 'pressure');
+export const slideLens = (s) => (!s?.visual && LENS_KEY[s?.lens] ? s.lens : 'pressure');
 // Pressure's key shows only on a slide with lens buttons (the default needs none).
 const PRESSURE_KEY = ['pressure', () => gradientCss('to right', 30), 'Low', 'High'];
 const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
@@ -872,7 +873,7 @@ const SITES = [
   ['cardiac', 'Cardiac'],
 ];
 /** The six levels, portal vein to heart, the liver's three bracketed; mode: 'all' shows each level named,
- *  a level id marks that one as the block, null shows the levels unmarked (a quiz). Each name stays on one
+ *  a level id marks that one as the block, anything else shows the levels unmarked. Each name stays on one
  *  line under its bar (it shrinks to fit the card, and tilts 45° when the card is too narrow). */
 function rail(mode) {
   const at = SITES.findIndex(([id]) => id === mode);
@@ -1100,8 +1101,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const getCalc = () => (calc ||= makeCalc());
   const cache = new Map();   // deck id → computed states, reused the next time it is presented
   let deck = null, slides = [], states = [], waiters = [], stateOf = [], base = null, extraOf = new Map();
-  // `gen` counts redraws asked of the slide in place (quiz on or off): a transition under way for an older one starts over.
-  let want = 0, wantRev = false, shown = null, shownState = -1, busy = false, quiz = false, gen = 0, redrawn = -1;   // (redrawn: the cards drawn again for a new text size, see pps:labelscale)
+  // `gen` counts redraws asked of the slide in place: a transition under way for an older one starts over.
+  let want = 0, shown = null, shownState = -1, busy = false, gen = 0, redrawn = -1;   // (redrawn: the cards drawn again for a new text size, see pps:labelscale)
   let ui = null, black = false, digits = '', digitT = 0;
   let saved = null, layersBefore = null;   // (the viewer's own lobule layers, put back when the show ends)
   // High contrast: a deeper shade, stronger text, ratings as filled chips (pz-hi). Off for now; no control offers it.
@@ -1581,24 +1582,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
 
   // ── Slides ──
-  const asking = (s, rev) => quiz && !!s.quiz && !rev;
-  function go(i, rev = false) {
+  function go(i) {
     if (!deck) return;
-    want = clamp(i, 0, slides.length - 1); wantRev = rev;
+    want = clamp(i, 0, slides.length - 1);
+    noteResume(deck.id, want, slides.length);   // (the Present menu offers to resume here; the first or last slide forgets it)
     paintChrome();
     if (!busy) run();
   }
   const next = () => {
     if (caseLift) { caseLift(); return; }
-    const s = slides[want];
     if (lapseOn && lapseLeft > 0 && shown?.i === want) skipLapse();
-    else if (asking(s, wantRev)) go(want, true); else if (want < slides.length - 1) go(want + 1); else stop();
+    else if (want < slides.length - 1) go(want + 1); else stop();
   };
   const prev = () => { if (want > 0) go(want - 1); };
   async function run() {
     busy = true;
     try {
-      while (deck && (!shown || shown.i !== want || shown.rev !== wantRev || shown.gen !== gen)) await transition(want, wantRev);
+      while (deck && (!shown || shown.i !== want || shown.gen !== gen)) await transition(want);
     } finally { busy = false; }
   }
   // Inside the liver a slide change is one sequence: every label (text, pill, ring, leader) eases out together, the
@@ -1631,24 +1631,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The corner credit sits out a slide change (class pz-moving on #app, read by src/ui/credit.js): it fades as the cards leave and
   // comes back once, at its final spot, after the cards are in and the camera has eased to fit around them.
   let creditHolds = 0, creditT = 0;   // (moves running; the timer that lifts the hold)
-  async function transition(to, rev) {
+  async function transition(to) {
     stage.holdHome(true);
     creditHolds++; clearTimeout(creditT); app.classList.add('pz-moving');
-    try { await transitionRun(to, rev); } finally {
+    try { await transitionRun(to); } finally {
       stage.holdHome(false); caseShut(); if (bare) { bare = false; layout(); cardsIn(); }
       creditHolds--; clearTimeout(creditT);
       creditT = setTimeout(() => { if (!creditHolds) app.classList.remove('pz-moving'); }, 120);   // (the cards come in after the one camera move; src/ui/credit.js then waits for any card still sliding)
     }
   }
-  async function transitionRun(to, rev) {
-    const g = gen, s = slides[to], cut = () => !deck || want !== to || wantRev !== rev || gen !== g;
+  async function transitionRun(to) {
+    const g = gen, s = slides[to], cut = () => !deck || want !== to || gen !== g;
     // The slide on screen is leaving, so a move cut short never counts as showing it: going back and forward again to that
     // slide (summary table included) draws it afresh instead of leaving the half-changed screen.
     shown = null;
-    const q = asking(s, rev), cam = s.visual ? s.cam || null : q ? 'fit' : s.cam || 'fit';
+    const cam = s.visual ? s.cam || null : s.cam || 'fit';
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     // Coming back to it from a later slide shows its end at once: it plays only going forward.
-    const back = to < lastAt, lap = !!s.lapse && to > 0 && !q && !back, ct = !q && !s.visual ? s.cath || null : null;
+    const back = to < lastAt, lap = !!s.lapse && to > 0 && !back, ct = !s.visual ? s.cath || null : null;
     // A slide without breathing stops it on the live figure at once, before its probe is placed: otherwise its Doppler
     // trace records the leaving patient's breathing until the slide's own state eases in (the Doppler talk's meal slide).
     if (s.params?.respiration === false && store.get().params?.respiration !== false) {
@@ -1656,13 +1656,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     // In the liver, with a new framing or new lit labels: all labels out first (see hush).
     const inLiver = store.get().lobule || store.get().sinusoid;
-    const litNext = !s.visual && !q ? slideTargets(s).lit.join(' ') : '';
-    if (inLiver && !booting && (hushed || cam !== lastCam || litNext !== (app.dataset.lit || '') || s.visual || q || ct)) hush();
+    const litNext = !s.visual ? slideTargets(s).lit.join(' ') : '';
+    if (inLiver && !booting && (hushed || cam !== lastCam || litNext !== (app.dataset.lit || '') || s.visual || ct)) hush();
     // Words out, and the marks: they belong to the slide that is leaving.
     store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     // The slide's lens: the figure crossfades to its colours (stage.js) while the old words leave. A question, or a
     // visual over the figure, keeps the colours already showing: they change only when a slide's lens does.
-    if (!q && !s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
+    if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
@@ -1693,7 +1693,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // A new patient's case (s.vignette), going forward: a centred glass card covers the figure while the patient loads behind it
     // (it stays up while the camera glides, once, to the slide's own framing; Next lifts it, and the slide's cards then come in with no further move).
     const skipCase = noCase; noCase = false;
-    if (!skipCase && s.vignette && ui && !booting && !rev && !lap && to > lastAt && (si !== shownState || liveOff)) { if (!await caseRun(s, si, st, cut)) return; }
+    if (!skipCase && s.vignette && ui && !booting && !lap && to > lastAt && (si !== shownState || liveOff)) { if (!await caseRun(s, si, st, cut)) return; }
     // A new patient, or the same one changed: the figure fades out, the state changes unseen, it fades back in.
     const swap = si !== shownState || liveOff || !!own;
     // On screen the change eases (morphTo): after the camera has landed and before the cards come in, or for a catheter slide
@@ -1724,7 +1724,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A catheter slide comes in at once: its teaching card carries the live tracing, which stays on screen through the
     // measurement while the catheter drives the camera.)
     bare = !booting && !!ui && !ct;
-    wordsIn(s, q, said, to, swap, lap, st);
+    wordsIn(s, said, to, swap, lap, st);
     // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first. Behind a case
     // card they also stay out until it is lifted, a catheter slide's included: its words would otherwise come in under the case.)
     if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
@@ -1732,7 +1732,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn(); }
     if (cut()) return;
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
-    if (!s.visual && !q) app.dataset.lit = slideTargets(s).lit.join(' ');
+    if (!s.visual) app.dataset.lit = slideTargets(s).lit.join(' ');
     if (s.visual === 'table') fillTable(s, cut);
     const lead = swap && !glide && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? camera(cam, s, cut) : null;
     if (lead) await wait(150);
@@ -1756,8 +1756,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (!s.visual) {
       // The slide's marks, labels, the stations its terms name (in their colours) and its glows (see slideTargets).
-      const tg = q ? null : slideTargets(s);
-      let marks = q ? [] : (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block', free: !!m.free, ...(m.seg ? { seg: m.seg } : {}) }));
+      const tg = slideTargets(s);
+      let marks = (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block', free: !!m.free, ...(m.seg ? { seg: m.seg } : {}) }));
       // A note mark is a pointer: its vessel glows in its station's colour. Where a station label on the slide already
       // names that vessel, the pointer would only repeat it, so it goes (the glow stays).
       if (tg) {
@@ -1767,26 +1767,26 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       }
       // (A site the label stands in for lends it its station colour, so the label is the slide's highlight.)
       if (tg) for (const k of s.sites || []) if (SITE_NODE[k] && [...(s.labels || []), ...tg.labels].includes(SITE_NODE[k])) tg.terms[SITE_NODE[k]] ||= TARGETS[k]?.tone || VAL_TONE[k];
-      store.set({ presentLabels: q ? [] : [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg?.terms || null,
-        presentNames: !q && (s.data === 'ladder' || !!s.cath), presentFp: st?.fp || null,
-        focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: q || !s.callout ? null : { kind: 'block', ...s.callout } });
+      store.set({ presentLabels: [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg.terms || null,
+        presentNames: s.data === 'ladder' || !!s.cath, presentFp: st?.fp || null,
+        focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
       if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
       app.dataset.lit = tg?.lit.join(' ') || '';
     }
     // A site whose station label is already on the slide is not called out twice: the label carries the one reading,
     // in its station's colour, and the pill stays only where no label stands.
     { const named = new Set(store.get().presentLabels || []);
-      const ss = !s.visual && !q ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])].filter((k) => !named.has(SITE_NODE[k])) : [];
+      const ss = !s.visual ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])].filter((k) => !named.has(SITE_NODE[k])) : [];
       if (ss.length) stage.setSites(ss, st.fp); }
     lastCam = cam; framedSig = cardSig();
     await unhush(cut);
     if (cut()) return;
-    shown = { i: to, rev, gen: g }; lastAt = to;
+    shown = { i: to, gen: g }; lastAt = to;
     // (One pass keyed to the slide now shown, so its fold and words' room are kept from here on: a tap on Show or Hide then
     // eases the card it planned, not one measured afresh with the instrument open. The pass changes nothing on screen.)
     if (ui && phone()) layout();
     paintChrome();
-    if (s.lapse && to > 0 && !q && back) paintLapse(s, s.days, s.days, true);
+    if (s.lapse && to > 0 && back) paintLapse(s, s.days, s.days, true);
     if (booting) await coverDown();
     if (lap) await playLapse(s, to, cut);
   }
@@ -1888,7 +1888,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     });
     return mon.el;
   }
-  function wordsIn(s, q, st, i, fresh = false, lap = false, now = st) {
+  function wordsIn(s, st, i, fresh = false, lap = false, now = st) {
     if (!ui) return;
     const { text, panel, data } = ui;
     // (the panel's own is let go once its new content is in, so it never fades back in with the old; behind a case card the words
@@ -1907,9 +1907,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     } else {
       panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); ui.veil.classList.remove('on');
       text.hidden = false;
-      text.replaceChildren(...(q
-        ? [h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
-        : [(({ site, name } = siteTag(deck, s) || {}) => site ? h('span', { class: 'pz-site', 'data-site': site }, name) : null)(), h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
+      text.replaceChildren(...[(({ site, name } = siteTag(deck, s) || {}) => site ? h('span', { class: 'pz-site', 'data-site': site }, name) : null)(), h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
@@ -1917,8 +1915,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
-          s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), s.causes.join(', ')) : null]));
-      paintKey(!q && (slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null);
+          s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), s.causes.join(', ')) : null]);
+      paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null);
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
@@ -1943,12 +1941,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       ui.dhT.textContent = cardTitle(s);
       ui.dhL.hidden = !lad;
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
-      if (s.tool) ui.tools.show(s.tool, { slide: i, quiz: q, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1 }); else ui.tools.hide();
-      if (s.tool) ui.tools.ghost(q ? null : toolGhost(s, i));
+      if (s.tool) ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1 }); else ui.tools.hide();
+      if (s.tool) ui.tools.ghost(toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
       const ms = fresh ? 0 : undefined;
-      if (lad) ui.ladder.set(now.fp, { key: q ? [] : s.key || [], ms, brackets: q ? null : s.brackets, block: q ? null : s.block });
-      if (s.data) ui.tiles.set(now.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms, now.params?.tips?.on);
+      if (lad) ui.ladder.set(now.fp, { key: s.key || [], ms, brackets: s.brackets, block: s.block });
+      if (s.data) ui.tiles.set(now.fp, tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
       ui.tools.pin(now.fp);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
       if (!ui.root.classList.contains('pz-prep')) data.classList.remove('pz-hide');   // (else once fitted: settle)
@@ -1986,7 +1984,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs, key: x.key, calm: x.calm || [], block: x.block ?? sl?.block };
     }).filter(Boolean);
   }
-  const reveal = (c) => { c.classList.add('shown'); c.removeAttribute('role'); c.removeAttribute('tabindex'); c.removeAttribute('aria-label'); };
   function laddersGrid(s) {
     // (At a large text size a phone's strips take a row each: five readings no longer fit half its width.)
     const big = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) >= 1.3;
@@ -1999,8 +1996,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     for (const r of rowsOf(s)) {
       if (!r.f) continue;
       const L = bigLadder(); L.setBase(base); L.set(r.f, { block: r.block });   // (a block on a station, the heart's RA, is hatched on its node)
-      // In quiz mode each ladder's site is hidden until a tap (D7): the room names the site from the ladder's shape.
-      const cell = h('div', quiz ? { class: 'pz-cell q', role: 'button', tabindex: '0', 'aria-label': 'Show the site of this ladder', onclick: () => reveal(cell), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reveal(cell); } } } : { class: 'pz-cell' },
+      const cell = h('div', { class: 'pz-cell' },
         h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')),
           h('span', { class: 'pz-cell-pill', 'data-rate': rateOf('hvpg', { hvpg: wholeGap(r.f.whvp, r.f.fhvp, r.f.hvpg) })[0] }, 'HVPG ', h('b', {}, fmt(wholeGap(r.f.whvp, r.f.fhvp, r.f.hvpg), 0)))),   // (as its ladder's bracket reads it: whole readings, their difference)
         h('div', { class: 'pz-cell-t' }, r.title), L.el, L.strip);
@@ -2125,6 +2121,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // no height for the two stacked). An upright tablet's cards take 70% of the width (class `tab`), centred.
   const tabUp = () => innerWidth >= 700 && innerWidth <= 1100 && innerHeight > innerWidth * 1.15;
   const phone = () => (innerWidth < 700 && innerHeight >= 500) || tabUp();
+  // Which pill the screen takes (paintChrome): a phone's, an upright tablet's (with back and next) or a wide screen's.
+  const pillKind = () => (phone() ? (tabUp() ? 'tab' : 'phone') : 'wide');
   // ── The data card slides out of view and back ──
   // Drag or swipe it away (up on a phone, to the right on a tablet; to the left when it sits under the words) and a sliver
   // stays at the edge: a tap or a drag on the sliver brings it back. It follows the finger, eases to rest, and stays put from
@@ -2673,7 +2671,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const cardSig = () => (ui ? [ui.text, ui.data].map((el) => (el.hidden ? '-' : ((r) => [r.left, r.top, r.width, r.height].map((v) => Math.round(v / 4)).join())(el.getBoundingClientRect()))).join('|') : '');
   function reframe(ms) {
     const s = slides[shown.i];
-    fitAround(s, s.visual ? s.cam : asking(s, shown.rev) ? 'fit' : s.cam || 'fit', ms);
+    fitAround(s, s.visual ? s.cam : s.cam || 'fit', ms);
   }
   // The camera eases to fit a slide's framing into the space its cards leave (the lobule refits itself on pps:occ).
   function fitAround(s, cam, ms) {
@@ -2716,6 +2714,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // re-fits in steps as the size settles, and a data card easing after it passed over the words.)
     const turn = e?.type === 'resize';
     if (turn) { ui.root.classList.add('pz-turning'); clearTimeout(turnT); turnT = setTimeout(() => ui?.root.classList.remove('pz-turning'), 800); }
+    if (ui.bar.dataset.kind !== pillKind()) paintChrome();   // (turned between a phone's, a tablet's and a wide screen's pill: its buttons change before the words are fitted around it)
     layout();
     // (Judged once the cards have their new layout's classes, then laid out again if that changed the title.)
     if (turn && !ui.text.hidden) { const was = !!ui.text.querySelector('.pz-h.long'); markLong(ui.text); if (was !== !!ui.text.querySelector('.pz-h.long')) { textLock = null; layout(); } }
@@ -2844,24 +2843,30 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui) return;
     const n = slides.length, i = want;
     ui.prog.style.setProperty('--p', String((i + 1) / n));
-    const ph = phone(), skip = lapseOn && lapseLeft > 0, last = i === n - 1 && !asking(slides[i], wantRev) && !skip;
+    const ph = phone(), skip = lapseOn && lapseLeft > 0, last = i === n - 1 && !skip;
     // The count opens the slide list (G).
     const countBtn = h('button', { class: 'pzb-n', 'aria-label': `Slide ${i + 1} of ${n}: list the slides`, title: 'Slide list (G)', 'aria-expanded': String(!ui.jump.hidden), onclick: () => toggleJump() }, `${i + 1} / ${n}`);
     ui.bar.classList.toggle('phone', ph); ui.bar.classList.toggle('pzb-pill', !ph);
+    ui.bar.dataset.kind = pillKind();
+    const prevBtn = () => h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0, onclick: prev }, icon('chev-left'));
+    const nextBtn = () => h('button', { class: `ib pzb-next${skip ? ' skipping' : ''}`, 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', title: skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)', disabled: last, onclick: next }, icon('chev-right'));
     if (ph) {
-      // A phone's pill: the count (it opens the slide list), settings, exit. Slides change by swiping.
+      // A phone's pill: the count (it opens the slide list), settings, exit. Slides change by swiping. An upright tablet's
+      // pill has back and next around the count too, as a wide screen's: an iPad mirrored to a projector is often driven
+      // by tapping, and a swipe there competes with the card fold and the figure pan (review U5).
       ui.bar.classList.remove('idle');
-      ui.bar.replaceChildren(countBtn, gear(),
+      const tab = tabUp();
+      ui.bar.replaceChildren(...(tab ? [prevBtn(), countBtn, nextBtn()] : [countBtn]), gear(),
         h('button', { class: 'ib', 'aria-label': 'Exit the presentation', title: 'Exit', onclick: stop }, icon('close')));
       placeBar();
       return;
     }
     // A wide screen's pill, as on a phone at the lower right (Mohammad): back, the count (it opens the slide list), next,
-    // settings, exit. (No quiz or ask-the-room buttons: he asks the room by voice; full screen is in Settings and on F.)
+    // settings, exit. (No ask-the-room buttons: he asks the room by voice; full screen is in Settings and on F.)
     ui.bar.replaceChildren(
-      h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0, onclick: prev }, icon('chev-left')),
+      prevBtn(),
       countBtn,
-      h('button', { class: `ib pzb-next${skip ? ' skipping' : ''}`, 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', title: skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)', disabled: last, onclick: next }, icon('chev-right')),
+      nextBtn(),
       gear(),
       h('button', { class: 'ib', 'aria-label': 'Stop presenting', title: 'Stop (Esc)', onclick: stop }, icon('close')));
     placeBar();
@@ -3013,6 +3018,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // ── Keys ──
   function onKey(e) {
     if (!deck || e.ctrlKey || e.metaKey || e.altKey) return;
+    // (A dialog over the talk, such as the Guide that ? opens, keeps its keys: Esc closes it rather than ending the talk.)
+    if (isModalOpen()) return;
     if (ui && !ui.jump.hidden) { jumpKey(e); return; }
     const tag = e.target?.tagName?.toLowerCase?.();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
@@ -3239,7 +3246,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     lastAt = -1;
     saved = before;
     if (saved && !saved.cards) saved.cards = stashCards?.();
-    deck = d; slides = d.mine ? d.slides : withOverview(d).slides; shown = null; shownState = -1; quiz = false; black = false;
+    deck = d; slides = d.mine ? d.slides : withOverview(d).slides; shown = null; shownState = -1; black = false;
     closeHome?.();
     const st0 = store.get();
     if (!layersBefore) layersBefore = { ...st0.lobuleLayers };
@@ -3382,7 +3389,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
 
   // What the unified menu (menu.js) lists and does: the presentations, this device's scripts and their actions.
   const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), start, shareDeck, notes: (d) => openHandout(d, deckNumbers(d)),
-    scriptNotes: (s) => { const d = fromScript(s); openHandout(d, deckNumbers(d)); }, newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null });
+    scriptNotes: (s) => { const d = fromScript(s); openHandout(d, deckNumbers(d)); }, newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null,
+    resumeAt: (d) => resumeFor(d.id, (d.mine ? d.slides : withOverview(d).slides).length) });
 
   return { start, stop, library, readLink, active: () => !!deck,
     // Where the show is (for the preview pill's reload): the deck and the slide on screen, or the one it is moving to.

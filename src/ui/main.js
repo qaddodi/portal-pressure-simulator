@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=d6a857aa4d';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=65ec443c0e';
-import { createStage } from './stage.js?v=c8e0c7aac1';
+import { createStage } from './stage.js?v=09caaba6b0';
 import { createCreditPlacer } from './credit.js?v=b780eae767';
 import { sinusoidSupported } from './sinusoid-view.js?v=1199bb8c7d';
 import { createInspector } from './inspector.js?v=762a2fb951';
@@ -14,7 +14,7 @@ import { createTimeline, LAPSES } from './timeline.js?v=fa07822c4b';
 import { createCompare } from './compare.js?v=ffc7874c50';
 import { createCard } from './card.js?v=7cdda32074';
 import { createChart } from './chart.js?v=48b16c45aa';
-import { createMenu } from './menu.js?v=2ecc354df9';
+import { createMenu } from './menu.js?v=b0261ca27f';
 import { caption } from './a11y.js?v=a135cfdf93';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
@@ -156,7 +156,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=690987a9ed'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=b7f184c45f'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -164,12 +164,13 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=8e2b6d8441'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=71e7da1163'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     home: () => mainMenu.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
+    library: presenter.library, libraryNow: presenter.libraryNow, present: (id) => presenter.start(id),
   } }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
@@ -805,8 +806,9 @@ function openSettings(anchor, withSearch = false) {
   // While presenting, only what changes how the talk looks: appearance, full screen, text size, interface zoom.
   const talk = presenter.active();
   popover(anchor, [
-    // (From the thumb dock's Settings tab, Search heads the sheet: the dock has no More menu.)
-    ...(withSearch ? [menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } })] : []),
+    // (From the thumb dock's Settings tab, Search and Help head the sheet: the dock has no More menu, and a touch keyboard has no ?.)
+    ...(withSearch ? [menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } }),
+      menuItem('Help', { icon: 'help', onClick: () => { closePopover(); openHelpMenu(anchor, { place: 'above', align: 'end', cls: 'app-menu' }); } })] : []),
     h('div', { class: 'menu-title' }, 'Appearance'),
     h('div', { class: 'seg full menu-seg' }, [['light', 'Light'], ['dark', 'Dark'], ['soft', 'Soft'], ['system', 'System']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     fullscreenControl(),
@@ -910,7 +912,7 @@ function uiZoomControl() {
   paint();
   return h('div', { class: 'seg full menu-seg text-size ui-zoom', role: 'group', 'aria-label': 'Interface zoom' }, smaller, reset, larger);
 }
-function openHelpMenu(anchor) {
+function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
   popover(anchor, [
     h('div', { class: 'menu-title' }, 'Help'),
     menuItem('Guide', { icon: 'book', onClick: () => { closePopover(); openHelp(); } }),
@@ -921,7 +923,7 @@ function openHelpMenu(anchor) {
     h('div', { class: 'menu-sep' }),
     h('a', { class: 'menu-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener', onclick: () => closePopover() },
       h('span', {}, 'Created by ', h('b', {}, AUTHOR)), h('span', { class: 'mc-link' }, 'All my tools ', icon('chev-right'))),
-  ], { align: 'start', cls: 'app-menu' });
+  ], at);
 }
 function doUndo() { timeline.undo(); }
 function doRedo() { timeline.redo(); }
@@ -1576,7 +1578,7 @@ function wireKeyboard() {
       store.set({ colorMode: next }); toast(`Colored by ${LENSES[next][0].toLowerCase()}. ${LENSES[next][1]}.`); return;
     }
     if (k === 'z') { settle(); return; }
-    if (e.key === '?') { openHelp(); return; }
+    if (e.key === '?') { openHelp(presenter.active() ? 'present' : undefined); return; }
     if (k === 'i') { dock.toggle(); return; }
     if (k === 't') { if (treatOpen()) closeTreat({ focus: true }); else openTreat(); return; }
     if (k === 'p') { timeline.togglePin(); return; }
@@ -1634,6 +1636,12 @@ function wirePanel() {
 }
 
 // ── Help & first run ────────────────────────────────
+// The presenter's keys (src/ui/presenter.js, onKey), for the Guide's "While presenting" block.
+const PRESENT_KEYS = [
+  ['→ · Space · Enter', 'Next slide (during a time-lapse, run it to its end)'], ['← · Backspace', 'Previous slide'],
+  ['Home · End', 'First / last slide'], ['Number, then Enter', 'Jump to that slide'], ['G', 'The slide list'],
+  ['B or .', 'Black screen'], ['F', 'Full screen'], ['?', 'This guide'], ['Esc', 'Stop presenting'],
+];
 function openHelp(section) {
   const rows = [
     ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'],
@@ -1650,6 +1658,9 @@ function openHelp(section) {
         ['bulb', 'Ask “Why?”', 'Click any readout for a causal breakdown of what is driving it, change by change.']].map(([ic, t, d]) => h('div', { class: 'entry', style: { cursor: 'default' } }, h('span', { class: 'eic' }, icon(ic)), h('span', { class: 't' }, t), h('span', { class: 'd' }, d)))),
     h('h3', { 'data-sec': 'keys' }, 'Keyboard'),
     h('div', { class: 'keys' }, rows.map(([k, v]) => h('div', {}, h('span', {}, v), h('kbd', {}, k)))),
+    h('h3', { 'data-sec': 'present' }, 'While presenting'),
+    h('p', { class: 'sub' }, 'A presentation clicker sends the same keys. On a touch screen, swipe sideways on the slide to go on or back.'),
+    h('div', { class: 'keys' }, PRESENT_KEYS.map(([k, v]) => h('div', {}, h('span', {}, v), h('kbd', {}, k)))),
     h('h3', {}, 'Reading the figure'),
     h('ul', {},
       h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg). Labels give the value in mmHg; ▲ / ▼ is the change from healthy, shown from 5 mmHg. Arteries are thinner, in a fixed red.'),

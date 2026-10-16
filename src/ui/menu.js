@@ -88,11 +88,14 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   // ── Rows ──
   // A deck's level as a short muted word (Foundation, Core, Advanced), not a row of pips.
   const levelWord = (lv, levels) => h('span', { class: 'um-m um-lv' }, levels[lv] || '');
+  // A deck left part way through (resume.js) opens where it was left: its row says "Resume 7 / 12" in place of its minutes.
+  const resumeOf = (d, lib, script) => (script || lib.current() === d.id ? null : lib.resumeAt?.(d) ?? null);
   function deckRow(d, lib, script) {
-    const row = h('button', { class: 'um-row', 'data-k': (script ? 's:' : 'd:') + d.id, 'aria-current': lib.current() === d.id ? 'true' : null, onclick: () => { close(); lib.start(d.id); } },
+    const r = resumeOf(d, lib, script);
+    const row = h('button', { class: 'um-row', 'data-k': (script ? 's:' : 'd:') + d.id, 'aria-current': lib.current() === d.id ? 'true' : null, onclick: () => { close(); lib.start(d.id, r?.at ?? 0); } },
       svgIcon('play', 'um-play'), h('span', { class: 'um-t' }, script ? d.title : d.short || d.title),
       script ? h('span', { class: 'um-m' }, `${(d.steps || d.deck.slides).length} slides`) : levelWord(d.level, lib.levels),
-      script ? null : h('span', { class: 'um-m' }, `${d.minutes} min`));
+      script ? null : r ? h('span', { class: 'um-m um-res' }, `Resume ${r.at + 1} / ${r.n}`) : h('span', { class: 'um-m' }, `${d.minutes} min`));
     row.dataset.find = fold([d.title, d.short, script ? 'script' : ''].join(' ')); row.dataset.more = fold(d.summary);
     const info = h('button', { class: 'um-info', 'aria-label': `About ${d.short || d.title}`, 'aria-expanded': 'false', onclick: () => toggleInline(li, () => (script ? scriptPreview(d, lib) : deckPreview(d, lib)), info) }, icon('info'));
     const li = h('li', {}, row, info);
@@ -110,12 +113,13 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const li = h('li', {}, row, info);
     return li;
   }
-  const deckPreview = (d, lib) => h('div', { class: 'um-pv-in pt' },
+  const deckPreview = (d, lib, r = resumeOf(d, lib)) => h('div', { class: 'um-pv-in pt' },
     h('span', { class: 'um-pv-meta' }, `${lib.levels[d.level] || ''} · ${d.slides.length + 1} slides · ${d.minutes} min`),
     h('h3', {}, d.title), h('p', {}, d.summary || ''),
     d.objectives?.length ? h('ul', {}, d.objectives.map((o) => h('li', {}, o))) : null,
     h('div', { class: 'um-acts' },
-      h('button', { class: 'btn sm primary', onclick: () => { close(); lib.start(d.id); } }, svgIcon('play', 'mi-ic'), 'Present'),
+      r ? h('button', { class: 'btn sm primary', onclick: () => { close(); lib.start(d.id, r.at); } }, svgIcon('play', 'mi-ic'), `Resume ${r.at + 1} / ${r.n}`) : null,
+      h('button', { class: r ? 'btn sm' : 'btn sm primary', onclick: () => { close(); lib.start(d.id); } }, svgIcon('play', 'mi-ic'), r ? 'From the start' : 'Present'),
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareDeck(d) }, svgIcon('share', 'mi-ic'), 'Copy link'),
       h('button', { class: 'btn ghost sm', title: 'Speaker notes and questions for the room, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
   const scriptPreview = (s, lib) => h('div', { class: 'um-pv-in' },

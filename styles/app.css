@@ -1582,7 +1582,6 @@ button.finding { cursor: pointer; }
 .pz:not(.stack) .pz-eq math { font-size: calc(var(--s-body) * 1.15 * var(--eq-k, 1)); }   /* (a wide screen: a little above the line's size, as on a phone; STIX runs small) */
 .pz-eq .eq-wedge { color: var(--tr-wedge); } .pz-eq .eq-hv { color: var(--tr-hv); } .pz-eq .eq-pv { color: var(--tr-pv); } .pz-eq .eq-ivc { color: var(--tr-ivc); } .pz-eq .eq-var { color: var(--tr-var); }
 .pz-eqk { margin: 4px 0 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-3); }
-.pz-hint { color: var(--text-3); font-style: italic; }
 .pz-nw { white-space: nowrap; }
 .app.pz-hi .pz-val { background: color-mix(in srgb, var(--text) 12%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 55%, transparent); }
 /* A pill in a station's colour (--tone): a live value ({pv}) or a term that points at the figure ([portal vein](pv)). */
@@ -1791,11 +1790,6 @@ button.finding { cursor: pointer; }
 .pz-cell-pill[data-rate="mid"] { background: color-mix(in srgb, var(--caution) 20%, transparent); }
 .pz-cell-pill[data-rate="hi"] b { color: var(--danger); }
 .pz-cell-pill[data-rate="mid"] b { color: var(--caution); }
-.pz-cell.q { cursor: pointer; }
-.pz-cell.q :is(.pz-kick, .pz-cell-t) { transition: filter .5s var(--ease), opacity .5s var(--ease); }
-.pz-cell.q:not(.shown) :is(.pz-kick, .pz-cell-t) { filter: blur(7px); opacity: .45; user-select: none; }
-@media (hover: hover) { .pz-cell.q:not(.shown):hover { box-shadow: inset 0 0 0 1.5px var(--accent); } }
-.pz-cell.q:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pz-cell-t { font: 600 var(--s-body)/1.15 var(--font-display); color: var(--text); }
 .pz-cell-t { font-size: min(var(--s-body), 12cqi); overflow-wrap: anywhere; }   /* (a long one-word name, Schistosomiasis, stays inside a phone's half-width cell) */
 /* The six ladders fill the panel: two rows share its height and each chart shrinks to its cell. */
@@ -2340,11 +2334,7 @@ button.finding { cursor: pointer; }
 .pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; margin: 0; }
 .pz-tool[data-kind="scope"] .chart-side { width: 100%; max-width: none; }
 .pz-tool[data-kind="beats"] .pt-box { width: 100%; height: clamp(180px, calc(30 * var(--pzh)), 360px); }
-/* Quiz: the reading stays covered until the answer (a soft veil, never a pop). */
-.pz-tool::after { content: ""; position: absolute; pointer-events: none; opacity: 0; transition: opacity .32s var(--ease); background: var(--surface); border-radius: 10px; }
-.pz-tool.ask[data-kind="fibroscan"]::after { opacity: 1; left: 8px; top: 30px; width: 46%; height: 64px; }
 .pz-tool .dop-report, .pz-tool[data-kind="scope"] .endo-read { transition: opacity .32s var(--ease); }
-.pz-tool.ask .dop-report, .pz-tool.ask[data-kind="scope"] .endo-read { opacity: 0; }
 /* The talk so far: pressures at each slide, HVPG in its own lane. */
 .pz-talk { display: grid; }
 .pz-mon { flex: none; margin-top: 14px; }
@@ -3331,6 +3321,7 @@ button.finding { cursor: pointer; }
 @media (hover: hover) { .um-row:hover .um-play { color: var(--accent); } }
 .um-row .um-lv { min-width: 0; text-align: right; }
 .um-m { flex: none; min-width: 44px; text-align: right; font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.um-m.um-res { color: var(--accent); }   /* (a deck left part way: its row resumes there) */
 .um-check { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: var(--accent); stroke-width: 2.2; fill: none; }
 .um-info { display: none; flex: none; width: 36px; height: 36px; align-items: center; justify-content: center; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text-3); cursor: pointer; }
 .um-info svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; }

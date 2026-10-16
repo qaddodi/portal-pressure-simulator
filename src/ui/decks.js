@@ -14,7 +14,7 @@
 //   labels                   the stations named on the anatomy (none when absent)
 //   tint                     ['imv']: TARGETS keys whose station label takes its colour though the line never names it
 //   layers                   ['zones']: the lobule's zone bands on (a lobule slide shows none otherwise)
-//   mark                     { edges, label, seg? }: a ring and a callout on the figure (hidden until a quiz is answered); on a stent,
+//   mark                     { edges, label, seg? }: a ring and a callout on the figure; on a stent,
 //                            seg ('proximal' | 'mid' | 'distal' | 'site', the third holding its narrowing) lights and points at that third only
 //   eq                       [MathML, legend?]: an equation under the title (see mi, mo, sub and frac)
 //   kicker, site, title, line, causes
@@ -52,7 +52,6 @@
 //                            time (params: each option's full set of the switched keys; own: the slide's own state);
 //                            or [{ label, lens, own? }]: buttons that switch the figure's lens, the model untouched;
 //                            or [{ label, gate, own? }]: buttons that move a stent Doppler's gate (see tool), the model untouched
-//   quiz                     quiz mode (Q) asks this before the answer shows (the camera waits at the whole figure)
 //   caveat                   one short sentence in small print under the line, where the model differs from patients
 //   notes, ask               speaker notes, and [question, expected answer] for the room
 //   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter
@@ -65,7 +64,7 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=f4688d51a1';
-import { SITES } from './decks/sites.js?v=7de115e6a2';
+import { SITES } from './decks/sites.js?v=9437f9cce6';
 import { HVPG } from './decks/hvpg.js?v=cd919eeec5';
 import { ASCITES } from './decks/ascites.js?v=15bbff4e49';
 import { VARICES } from './decks/varices.js?v=ee8d50f114';
@@ -76,7 +75,7 @@ import { LOBULE } from './decks/lobule.js?v=2179638d8f';
 import { SHUNTS } from './decks/shunts.js?v=cb9a4f646f';
 import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=cfde14f57a';
 import { TAP } from './decks/tap.js?v=04459c913c';
-import { CIRCUIT } from './decks/circuit.js?v=766499377a';
+import { CIRCUIT } from './decks/circuit.js?v=5b522232db';
 import { DOPPLER } from './decks/doppler.js?v=9362620731';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=d72eb14fbd';
 import { PREHEPATIC } from './decks/prehepatic.js?v=24aebcd245';
@@ -115,12 +114,13 @@ const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
 export function withOverview(d) {
   if (!d?.slides?.length || d.slides[0].visual === 'outline') return d;
   const [first, ...rest] = d.slides, keep = !first.lapse && !first.ramp;
-  // The talk's sections: its own (sections: [[name, [kickers]]]), else its kicker groups when there are three to
-  // five; each slide then carries its place (sec: [n, of]) for the running head. Fewer groups: the slide titles.
+  // The talk's sections: its own (sections: [[name, [kickers or slide ids]]], ids for a talk under one kicker), else its
+  // kicker groups when there are three to five; each slide then carries its place (sec: [n, of]) for the running head.
+  // Fewer groups: the slide titles.
   const groups = [...new Set(d.slides.map((s) => s.kicker).filter((k) => k && k !== 'Summary'))];
   const secs = d.sections || (groups.length >= 3 && groups.length <= 5 ? groups.map((g) => [g, [g]]) : null);
   const outline = secs ? secs.map(([n]) => n) : d.slides.filter((s) => s.kicker !== 'Summary').map((s) => s.title);
-  const place = (s) => { const k = secs ? secs.findIndex(([, ks]) => ks.includes(s.kicker)) : -1; return k >= 0 ? { ...s, sec: [k + 1, secs.length] } : s; };
+  const place = (s) => { const k = secs ? secs.findIndex(([, ks]) => ks.includes(s.kicker) || (s.id && ks.includes(s.id))) : -1; return k >= 0 ? { ...s, sec: [k + 1, secs.length] } : s; };
   const open = { id: 'outline', visual: 'outline', outline, objectives: d.objectives || [], kicker: d.title, title: 'Outline and objectives',
     notes: 'Set out the plan of the talk and what the audience should be able to do by the end.',
     ...(keep ? Object.fromEntries(MODEL.filter((k) => first[k] !== undefined).map((k) => [k, first[k]])) : {}) };

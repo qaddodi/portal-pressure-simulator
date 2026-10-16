@@ -17,8 +17,7 @@
 //                                                   (flow-time.js LINE), one point a model day, drawn as it plays
 //
 // Optional on any kind: title (the card's heading, in place of the kind's own). A slide may carry both data and tool:
-// the tool sits above the tiles. In quiz mode a tool with a reading (Doppler, FibroScan, the scope's grade) keeps it
-// covered until the answer. Each instrument is made once per presentation and kept, so a trace that keeps recording
+// the tool sits above the tiles. Each instrument is made once per presentation and kept, so a trace that keeps recording
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
 import { store } from './store.js?v=65ec443c0e';
@@ -45,7 +44,6 @@ const TITLE = {
   wall: () => 'The varix wall, in cross-section',
   flowtime: () => 'Portal pressure and flow over time',
 };
-const READS = new Set(['doppler', 'fibroscan', 'scope']);
 const noop = () => {};
 
 export function createTools({ host, stage }) {
@@ -78,11 +76,11 @@ export function createTools({ host, stage }) {
     /** Put the slide's tool in the box. stateKey: the slide's model state (a new one clears a recording trace);
      *  chain: for the talk trace, [{ n, title, fp }] of every state up to this slide.
      *  trail, reveal: for the flow-time chart, its series and how far along to draw it (see progress). */
-    show(t, { slide = null, quiz = false, stateKey = null, chain = [], trail = null, reveal = 1 } = {}) {
+    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1 } = {}) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
-      stage?.setScanProbe?.(k === 'fibroscan', { covered: quiz && READS.has(t.kind) });   // (the probe on the skin over the liver, where the reading comes from)
+      stage?.setScanProbe?.(k === 'fibroscan');   // (the probe on the skin over the liver, where the reading comes from)
       if (k === 'doppler') {
         if (probe0 === undefined) { probe0 = store.get().frame?.probe ?? null; gate0 = store.get().dopGate; }
         host.send({ type: 'probe', id: t.vessel || 'PV_TRUNK' });
@@ -98,7 +96,6 @@ export function createTools({ host, stage }) {
       if (cur !== inst) box.replaceChildren(inst.el, ghostEl);
       cur = inst; kind = k;
       box.dataset.kind = k;
-      box.classList.toggle('ask', quiz && READS.has(t.kind));
       if (k === 'talk') inst.set(chain);
       else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines });
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update(f)); }

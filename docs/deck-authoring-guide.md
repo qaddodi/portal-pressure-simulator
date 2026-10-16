@@ -16,7 +16,7 @@ Contents: At a glance · 1 What a deck is · 2 Deck fields · 3 Slide fields · 
 * **The data card** holds the numbers: a pressure ladder, readout tiles, comparison tables, scales, and live instruments (Doppler, endoscopy scope, FibroScan, pressure traces, the abdomen, the varix wall, a flow-over-time chart), or a what-if slider and treatment buttons that act on the live model.
 * **Catheter choreography.** The HVPG measurement can be played step by step (route, free, wedge, result) with the live tracing.
 * **Case cards.** A slide that brings in a new patient can open with a centred frosted card holding a short clinical case (section 14).
-* **Deck furniture the app adds for you:** an Outline and objectives slide in front, site tags above titles in decks that cover more than one level, disease-name pills, the closing quick check (`checks`), speaker notes in the handout, quiz mode, the nav pill, the corner credit.
+* **Deck furniture the app adds for you:** an Outline and objectives slide in front, site tags above titles in decks that cover more than one level, disease-name pills, the closing quick check (`checks`), speaker notes in the handout, the nav pill, the corner credit.
 * **The menu has two tabs:** *Present* (the decks, this guide) and *Patients* (the presets, free exploration). Instructors can also import a deck file in the app (section 13).
 
 ---
@@ -41,7 +41,7 @@ A slide is **one idea**: a standalone title, a one-sentence line, at most four c
 | `objectives` | string[] | **3 to 4** short learning objectives (start with a verb: "Explain…", "Name…"). |
 | `slides` | slide[] | See section 3. |
 | `checks` | `[question, answer][]` | The closing quick check: 3 or 4 questions, added after the last slide over its patient. Each answer starts hidden and eases open when tapped. Do not write the slide itself. |
-| `sections` | `[name, [kickers]][]` | Optional. 3 to 5 sections for the running head. Needed only when the deck has more than 5 distinct `kicker` values; with 3 to 5 kicker groups the sections are built from them automatically. A kicker `'Summary'` is left out of the outline. |
+| `sections` | `[name, [kickers or slide ids]][]` | Optional. 3 to 5 sections for the outline and the running head. Needed only when the deck has more than 5 distinct `kicker` values, or fewer than 3 (list slide `id`s then, as `circuit` does); with 3 to 5 kicker groups the sections are built from them automatically. A kicker `'Summary'` is left out of the outline. |
 | `short` | string | **Set by the menu table (`TOPICS` in `src/ui/decks.js`), not in the deck file** (see section 12). Max 32 characters. |
 | `topic` | string | Set by the menu table too (`foundations causes measuring complications treatment`). |
 
@@ -67,7 +67,6 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 | `vignette` | string | none | A case card: a clinical case shown on a centred card when this slide brings in a new patient. At most 219 characters, and only on a slide with a `preset`. See section 14. |
 | `notes` | string | `''` | Speaker notes. Printed in the handout. Give every slide notes. |
 | `ask` | `[question, expected answer]` | none | Question for the room. Give every content slide one. The handout test requires `ask[0]` to appear. |
-| `quiz` | string | none | If present, quiz mode (Q) shows this question first with the figure at "fit", and the answer slide on the next click. |
 | `rail` | `true` \| `'all'` | none | `true`: the six levels with this slide's `site` marked; `'all'`: all six levels named. |
 | `column` | `true` | none | Draws the wedge-pressure column illustration (portal vein, sinusoids, central vein, balloon) in the text panel. |
 | `tick` | string | the slide title | A few words for what happened at this slide's time point, set at 45° over its line on a talk trace (`tool: { kind: 'trace', range: 'talk' }`). Used in the time-line decks (`one-year`, `pvt-cirrhosis`, `recompensation`). |
@@ -129,7 +128,7 @@ Typical "meal" lapse (used by several decks): `days: 8, ramp: { splanchnicTone: 
 
 ### 5.2 Lens (what the vessel colours show)
 
-`lens` picks what the figure's vessels are colored by on that slide, as the color menu does in Patients. Without it the slide shows pressure. The figure crossfades to the new colours while the old words leave, and a small key sits on the figure, not in the teaching card (src/ui/figure-key.js puts it on bare background, clear of vessels, cards and labels): the lens name ("Velocity", no "Colored by") and the two ends. Quiz questions and `visual` slides always show pressure. In learner-facing words say "colored by velocity", never "lens" (Mohammad, 14 Oct).
+`lens` picks what the figure's vessels are colored by on that slide, as the color menu does in Patients. Without it the slide shows pressure. The figure crossfades to the new colours while the old words leave, and a small key sits on the figure, not in the teaching card (src/ui/figure-key.js puts it on bare background, clear of vessels, cards and labels): the lens name ("Velocity", no "Colored by") and the two ends. `visual` slides always show pressure. In learner-facing words say "colored by velocity", never "lens" (Mohammad, 14 Oct).
 
 | `lens` | Colours | Key |
 |---|---|---|
@@ -174,7 +173,6 @@ On ladder (`data: 'ladder'`) and catheter (`cath`) slides the figure automatical
 | `'note'` | a pointer: the vessel glows in its station colour with a small boxed name | naming a collateral, a shunt |
 
 **No repeats:** a `note` mark whose vessel is already named by a station label (or a term) on the slide is dropped by the engine, but its glow stays. Do not point at what a label already names.
-Marks are hidden in quiz mode until the answer shows.
 
 ### 5.7 Readouts on the figure
 
@@ -302,8 +300,6 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 | `{ kind: 'wall' }` | the varix in cross-section: Laplace's T, r, w |
 | `{ kind: 'flowtime' }` | portal pressure and portal flow around a meal, drawn as the slide's time-lapse plays (clock in minutes) |
 | `{ kind: 'flowtime', clock: 'days', lines: [lower, upper] }` | the same chart over a disease time-lapse: two fingerprint keys from `pv pvFlow sin asc hvpg varix`, one point a model day |
-
-In quiz mode, tools with a reading (Doppler, FibroScan, scope grade) stay covered until the answer.
 
 ### 7.3 `visual`: replaces the text and figure area with a full panel (the figure is dimmed behind)
 
@@ -640,7 +636,7 @@ export const CLOT_DEMO = {
 4. **Stamp scripts:** `npm run stamp` rewrites the `?v=` hashes (required whenever a script file changed; a stale stamp fails the unit job and skips the deploy).
 5. **Optional deck-picker stills:** `node scripts/deck-stills.mjs <id>` writes `brand/decks/<id>-light.webp` and `-dark.webp` (200×250); run it after the deck exists.
 6. **Preview:** follow `AGENTS.md` (the single source of truth for the preview workflow). In short: pushing the integration branch `claude/settings-topbar-icon-flvft1` publishes `/preview/` at https://qaddodi.github.io/portal-pressure-simulator/preview/ . Rebase on the latest preview right before pushing, never force-push, grep for conflict markers, never push to `main` (the owner merges), and check the "Pages (live site + preview)" deploy job succeeded.
-7. **Test on the preview:** Present menu → pick the deck. In the app: ←/→ step, Q toggles quiz mode, P toggles projector contrast.
+7. **Test on the preview:** Present menu → pick the deck. In the app: ←/→ step, G lists the slides, B blacks the screen, ? opens the Guide with every presenter key.
 
 **Alternative with no code:** an instructor can capture slides inside the app (stored in the browser as "Yours"); those support only `preset, presetDays, params, action, days, view, cam, kicker, title, line, causes, site, notes, ask, key` and always show the ladder. Full decks need the file route above.
 

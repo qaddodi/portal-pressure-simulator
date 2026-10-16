@@ -66,6 +66,10 @@ export function createPalette({ ctx }) {
     for (const [id, t] of [['liver', 'Liver'], ['heart', 'Right heart'], ['varices', 'Esophageal varices'], ['gastric', 'Fundal varices'], ['spleen', 'Spleen'], ['abdomen', 'Ascites']]) add('Go to', t, () => ctx.select({ type: 'organ', id }), { kw: 'organ select' });
     // Sessions and scenarios
     for (const p of st.presetList || []) add('Patient', p.label, () => ctx.loadPreset(p.id), { kw: `scenario preset ${p.group}` });
+    // Presentations, by their short and full titles (the presenter loads on first use: until it has, the list fills in a moment later).
+    const lib = ctx.libraryNow?.();
+    for (const d of lib?.decks || []) add('Present', d.short || d.title, () => ctx.present(d.id), { kw: `${d.title} ${d.summary || ''} present presentation deck talk slides` });
+    for (const d of lib?.mine || []) add('Present', d.title, () => ctx.present(d.id), { kw: `${d.summary || ''} present presentation script slides mine` });
     add('App', 'Home', () => ctx.home(), { kw: 'start' });
     add('App', 'Reset everything', () => ctx.reset(), { kw: 'reset reload refresh clear start over' });
     add('App', 'Light / dark theme', () => ctx.theme(), { kw: 'appearance' });
@@ -117,6 +121,7 @@ export function createPalette({ ctx }) {
     // (Ctrl K, or a click Safari does not focus: the Search button takes focus back, not the page.)
     ret = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.getElementById('btnPalette');
     back.hidden = false; input.value = ''; sel = 0; renderList();
+    if (ctx.library && !ctx.libraryNow?.()) ctx.library().then(() => { if (!back.hidden) renderList(); }).catch(() => {});
     setTimeout(() => input.focus(), 0);
   }
   function close() { back.hidden = true; ret?.focus?.({ preventScroll: true }); }

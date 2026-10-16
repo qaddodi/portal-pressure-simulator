@@ -4284,7 +4284,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // line. Screen-space, at the liver's outline. Each tap (three a second) sends one shear wavefront: a soft arc that spreads and fades as
   // it crosses the liver. The true speed goes with √kPa (about 2.2× from 5 to 25 kPa); on screen it is exaggerated to
   // roughly linear in kPa (5× from 5 to 25) so the difference reads at a glance, easing to a new speed when the reading changes.
-  const scan = { on: false, el: null, raf: 0, deg: 45, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, cover: false, leaving: false, headAt: 0 };   // k: the stiffness the callout shows, eased; cover: a quiz holds the reading back
+  const scan = { on: false, el: null, raf: 0, deg: 45, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, leaving: false, headAt: 0 };   // k: the stiffness the callout shows, eased
   const SCAN_EDGE = 8, SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1 / 3, SCAN_N = 12, SCAN_HALF = 0.5, SCAN_GAP = 6;   // three pulses a second, so several fronts are in flight at once
   const scanSpeed = () => 35 * (clamp(F?.metrics?.lsm ?? 5, 4, 40) / 5) ** 1.3;   // px/s, steeper than linear: 35 at 5 kPa (clearly slow), 240 at 25 (7x), 520 from 40
   function scanArc(r) {
@@ -4350,11 +4350,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { tx: r.left - wr.left + r.width * 0.13, y: r.top - wr.top + r.height * 0.09 };
   }
   // The probe's reading is the FibroScan card's own number (fibroscan.js writes it in its frame, with its rounding) while a card
-  // is on screen; without one it falls back to the model's eased value. A quiz holds it back.
+  // is on screen; without one it falls back to the model's eased value.
   function scanShow(cardTxt) {
     if (!scan.el) return;
     const card = fibroReading.cv, live = card?.isConnected && card.offsetParent !== null && fibroReading.txt != null;
-    const k = scan.k, txt = scan.cover ? '--' : cardTxt ?? (live ? fibroReading.txt : k == null ? '--' : k.toFixed(1));
+    const k = scan.k, txt = cardTxt ?? (live ? fibroReading.txt : k == null ? '--' : k.toFixed(1));
     const sv = scan.el.querySelector('.sp-val');
     if (sv.textContent !== txt) sv.textContent = txt;
   }
@@ -4401,9 +4401,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     scan.el.classList.toggle('off', tx < -30 || tx > wr.width + 30 || y < -30 || y > wr.height + 30);
     scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
-  // opts.covered: a quiz slide holds the reading back, so the callout waits too (the probe and its waves still show).
-  function setScanProbe(on, opts) {
-    scan.cover = !!opts?.covered;
+  function setScanProbe(on) {
     if (scan.on === !!on) return;
     scan.on = !!on;
     if (on) { scan.leaving = false; refreshCTM(); scanPaint(); return; }
@@ -5519,7 +5517,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get(), t = easeInOut(morph);
     const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, scan.on, scan.cover, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join(''), dop.key].join('|');
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join(''), dop.key].join('|');
   }
   // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
   // signature (geometry, widths, selection, layers, levels...), the morph and turn, the floating panels,
