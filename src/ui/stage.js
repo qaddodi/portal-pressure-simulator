@@ -1126,12 +1126,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let viewRaf = 0, viewVersion = 0, CTM = null, wrapRect = null;
   let drawOnce = false;   // draw the vessels once through the dive's freeze: the camera moved while hidden
   let stageWake = () => {};   // set once the frame loop exists: anything that may need a redraw calls it
-  // Zoomed far in, the vessels fill the screen and the vessel shader runs on most of its pixels: the picture is drawn at a
-  // lower resolution there (in steps, so the canvas is not resized on every wheel notch), as on main. The owner, 16 Oct,
-  // chose this over full detail when zoomed ("Do both lets see"): the full-detail build lagged zoomed in where main did not.
-  const ZOOM_RES = [[4, 0.65], [2.5, 0.8]];
-  const zoomResAt = (k) => (ZOOM_RES.find(([at]) => k > at) || [0, 1])[1];
-  let zoomRes = 1;
   let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
   let clampFs = '';
   // A narrowing's label stands level on screen whatever the figure's turn, just clear of its clamp on the vessel's side,
@@ -1152,9 +1146,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     worldOver?.setAttribute('transform', world.getAttribute('transform'));
     syncSemantic();
     CTM = null; viewVersion++; stageWake();
-    // (After the new camera is set: the resize redraws the picture at once, in it.)
-    const zr = zoomResAt(vt.k);
-    if (zr !== zoomRes) { zoomRes = zr; if (resizeReady) resizeCanvas(); }
     if (!viewRaf) viewRaf = nextFrame(syncView);
   };
   function syncView() {
@@ -1848,18 +1839,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // ── Detail ────────────────────────────────────────
   // Detail: the moving blood is drawn on every frame the screen offers (fps 0: 60, 120 or more a second; a frame of it
-  // only re-composites the vessel cells) at full resolution, whatever the device or the frame time: the figure never steps
-  // itself down for slow frames (the owner, 15 Oct: "0 drop in quality", "120hz persistently"). Zoomed in it follows main
-  // (ZOOM_RES, ZOOMED_FPS: the owner's choice, 16 Oct). Only two other steps lower it, each
+  // only re-composites the vessel cells) at full resolution, whatever the device, the zoom or the frame time: the figure
+  // never steps itself down (the owner, 15 Oct: "0 drop in quality", "120hz persistently"). Only two steps lower it, each
   // explicit: Settings › Battery saver (15 a second at 0.6 of the pixels), and a software renderer (WebGL drawn on the
   // CPU, no usable GPU: 8 a second at half the pixels), where every frame costs CPU the rest of the page needs.
   // (Levels a device once stepped down to were stored under 'pps.quality' and 'pps.q', and an old low one stuck, also on
   // the live site, which shares this origin: both are dropped.)
   const QUALITY = [{ fps: 0, res: 1 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }], Q_SAVER = 1, Q_SOFTWARE = 2;
   const paceOf = (q) => (QUALITY[q].fps ? 1000 / QUALITY[q].fps : 0);   // (ms between drawn frames of the blood; 0: every frame)
-  // Zoomed in, the model's own motion (the blood, the ascites' ripple) is drawn ZOOMED_FPS times a second, as on main; a pan
-  // or zoom still draws on every frame the screen offers (see animate). Chosen by the owner with ZOOM_RES (16 Oct).
-  const ZOOMED_FPS = 30;
   const SOFTWARE = !!veins?.software;
   try { localStorage.removeItem('pps.quality'); localStorage.removeItem('pps.q'); } catch { /* storage unavailable */ }
   let quality = SOFTWARE ? Q_SOFTWARE : (() => { try { return localStorage.getItem('pps.saver') === '1' ? Q_SAVER : 0; } catch { return 0; } })();
@@ -1875,7 +1862,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let vdpr = 1;
   function resizeCanvas() {
     const r = wrap.getBoundingClientRect();
-    vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res * zoomRes;
+    vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res;
     wrap.dataset.res = vdpr.toFixed(2);   // (the vessel canvas's pixels per CSS pixel, for diagnosis)
     vCanvas.width = Math.max(1, Math.round(r.width * vdpr)); vCanvas.height = Math.max(1, Math.round(r.height * vdpr));
     wrap.classList.toggle('compact', r.height < 600);
@@ -6565,9 +6552,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (Only the model's own motion waits its turn there: a pan, zoom, glide or forced draw is drawn in this frame, with the
     // rest of the figure that has already moved, never a frame behind it.)
     if (swYield && !swYield.ready(now, forceDraw || drawOnce || viewVersion !== drawnView)) { nextFrame(animate); return; }
-    const interval = paceOf(quality) || (zoomedIn() ? 1000 / ZOOMED_FPS : 0);
+    const interval = paceOf(quality);
     // A pan or zoom redraws at once (the picture must stay under the pointer); only the model's
-    // own motion is paced, and only on a lower step (see QUALITY) or zoomed in (ZOOMED_FPS).
+    // own motion is paced, and only on a lower step (see QUALITY).
     const viewMoved = viewVersion !== drawnView;
     if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { nextFrame(animate); return; }
     flowGate = interval ? now - ((now - flowGate) % interval) : now;
