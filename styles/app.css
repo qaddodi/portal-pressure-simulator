@@ -2493,6 +2493,10 @@ button.finding { cursor: pointer; }
 .band-sheen { display: none; }
 .org-form { opacity: .55; }
 #labels .lb.inline.bare text { stroke: var(--label-halo); stroke-width: max(2.5px, calc(4px * var(--lbk, 1))); }
+/* A reading with no clear spot near its station sits on its vessel (stage.js layoutLabels, onVessel): a solid halo in the
+   stage's own colour keeps every glyph clean, and no flow arrowhead runs under it. */
+#labels .lb.on-vessel { filter: url(#lb-onv); }
+#labels .lb-onv-flood { flood-color: var(--stage-bg); }
 
 /* ── Home: a map of the disease ───────────────────────────────────────────────── */
 .hp-intro { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin: 0 0 20px; }

@@ -727,6 +727,8 @@ uniform vec3 inkLight, inkDark;
 uniform vec4 bleedE[10];               // world ellipses: center, radii
 uniform float bleedA[10];
 uniform int bleedN;
+uniform vec4 noChev[12];               // world boxes (x0, y0, x1, y1) where no flow arrowhead is drawn: a figure reading sits there
+uniform int noChevN;
 uniform float rows;
 uniform sampler2D lineL;               // the organ outlines, drawn once per change (premultiplied, device pixels)
 uniform int lineOn;
@@ -1011,7 +1013,9 @@ void main() {
       float inLumen = 1.0 - smoothstep(0.6, 0.85, abs(y1));
       col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * max(smoothstep(0.0, 0.2, vis), inLumen));
     }
-    if (chev == 1) {
+    bool hole = false;
+    for (int i = 0; i < 12; i++) { if (i >= noChevN) break; if (all(greaterThanEqual(w, noChev[i].xy)) && all(lessThanEqual(w, noChev[i].zw))) { hole = true; break; } }
+    if (chev == 1 && !hole) {
       vec2 c = chevAt(id1, s1, y1);
       c *= 1.0 - smoothstep(0.02, 0.25, b);   // none where another vessel joins
       if (c.x + c.y > 0.0) {
@@ -1628,6 +1632,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform4fv(U.bleedE, be);
       gl.uniform1fv(U.bleedA, ba);
       gl.uniform1i(U.bleedN, Math.min(10, bl.length));
+      const nc = (blood.noChev || []).slice(0, 12), ncv = new Float32Array(48);
+      nc.forEach((b, i) => ncv.set(b, i * 4));
+      gl.uniform4fv(U.noChev, ncv);
+      gl.uniform1i(U.noChevN, nc.length);
       const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };
       bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
       bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2'); bind(9, fluidTex, 'fluidMask');

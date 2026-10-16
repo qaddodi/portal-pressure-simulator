@@ -3682,6 +3682,124 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }
     }
   });
+  // A Circuit station's reading never prints over a vessel: the figure is drawn with its labels hidden, and under each word of a reading
+  // no vessel's colour shows (stage.js layoutLabels moves a reading off its vessel to a near clear spot, with a short leader). One with
+  // no clear spot near its station stays, knocked out of its vessel by a solid halo with no flow arrowhead under it (.on-vessel).
+  // (On 612a1c5 "4.1" sat on the liver's zigzag, RA's "mmHg" on its branch and Portal v.'s "mmHg" on the trunk at 375.)
+  await check(device, 'presenter: Circuit readings sit clear of the vessels', async (page) => {
+    const cases = device === 'desktop' ? [[820, 1180, [2, 4, 6]]] : [[375, 667, [2, 4, 6]], [390, 844, [2, 4, 6]], [320, 568, [2, 4]]];
+    const out = [];
+    for (const [w, hgt, list] of cases) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await open(page);
+      let started = false;
+      for (const n of list) {
+        if (!started) { await page.evaluate((k) => window.pps.presenter.start('circuit', k), n - 1); started = true; } else await page.evaluate((k) => window.pps.presenter.go(k), n - 1);
+        await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !window.pps.presenter.busy() && !document.querySelector('.pz-load.on, .pz-cover'), n, { timeout: 120000 });
+        await page.waitForTimeout(5000);
+        const boxes = await page.evaluate(() => {
+          const res = [];
+          for (const g of document.querySelectorAll('#labels g.lb[data-key^="n:"]')) {
+            if (getComputedStyle(g).display === 'none' || +getComputedStyle(g).opacity < 0.5) continue;
+            if (g.classList.contains('on-vessel')) { if (!getComputedStyle(g).filter.includes('lb-onv')) res.push({ k: g.dataset.key.slice(2), t: 'halo', x: 0, y: 0, w: 0, h: 0, thin: true }); continue; }
+            for (const sp of g.querySelectorAll('tspan')) { const b = sp.getBoundingClientRect(); if (b.width > 1) res.push({ k: g.dataset.key.slice(2), t: sp.textContent, x: b.left, y: b.top + b.height * 0.22, w: b.width, h: b.height * 0.62 }); }
+          }
+          for (const e of document.querySelectorAll('#labels, .cath-labels')) e.style.visibility = 'hidden';
+          return res;
+        });
+        await page.waitForTimeout(300);
+        const png = (await page.screenshot({ scale: 'css' })).toString('base64');
+        out.push(...await page.evaluate(async ({ png, boxes, at }) => {
+          for (const e of document.querySelectorAll('#labels, .cath-labels')) e.style.visibility = '';
+          const img = new Image(); img.src = 'data:image/png;base64,' + png; await img.decode();
+          const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const x = c.getContext('2d'); x.drawImage(img, 0, 0);
+          const bad = [];
+          for (const b of boxes) {
+            if (b.thin) { bad.push(`${at}: ${b.k} sits on its vessel without its solid halo`); continue; }
+            const d = x.getImageData(Math.round(b.x), Math.round(b.y), Math.max(1, Math.round(b.w)), Math.max(1, Math.round(b.h))).data;
+            let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 50) n++;
+            if (n / (d.length / 4) > 0.02) bad.push(`${at}: ${b.k} "${b.t}" prints on a vessel (${Math.round((100 * n) / (d.length / 4))}% of it)`);
+          }
+          return bad;
+        }, { png, boxes, at: `${w}x${hgt} Circuit ${n}` }));
+      }
+    }
+    if (out.length) throw new Error(out.join('; '));
+  });
+  // Every Circuit slide at every size: every station's reading shows whole (its value too) unless a card covers its station, and no
+  // leader, nor the station ring it starts from, runs within 2 px of another reading's halo (stage.js layoutLabels: the passes from 3
+  // on, and the fallbacks after them). (Before this, "Esoph. varices" and its value went missing at 375 and 390 on slides 5, 6 and 9,
+  // and RHV's leader ran under RA's "3.7" at 375.)
+  // Not every reading has room yet on a small phone: the ones still hidden or without their value are counted, and the count may only
+  // fall (MISSING_MAX: lower it with each round that shows more). The ones fixed so far must show: STRICT.
+  const MISSING_MAX = { phone: 38, desktop: 23 }[device];
+  const STRICT = { '375x667': { 5: ['VAR'], 6: ['VAR'] }, '390x844': { 5: ['VAR'], 6: ['VAR'], 9: ['VAR'] } };
+  await check(device, 'presenter: every Circuit reading shows, and no leader runs into another reading', async (page) => {
+    const cases = device === 'desktop' ? [[820, 1180], [1180, 820]] : [[375, 667], [390, 844], [320, 568]];
+    const out = [], missing = [];
+    for (const [w, hgt] of cases) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await open(page);
+      for (let n = 1; n <= 11; n++) {
+        if (n === 1) await page.evaluate(() => window.pps.presenter.start('circuit', 0)); else await page.evaluate((k) => window.pps.presenter.go(k), n - 1);
+        await page.waitForFunction((k) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === k && !window.pps.presenter.busy() && !document.querySelector('.pz-load.on, .pz-cover'), n, { timeout: 120000 });
+        await page.waitForTimeout(4000);
+        const found = await page.evaluate((at) => {
+          const bad = [], miss = [], boxes = [];
+          // (Covered: the point is under something other than the figure, a card, the slide's words or a callout on the figure, or
+          // off the screen.)
+          const calls = [...document.querySelectorAll('.cath-labels:not([hidden]) > *')].filter((c) => !c.classList.contains('off') && +getComputedStyle(c).opacity > 0.5).map((c) => c.getBoundingClientRect());
+          const covered = (x, y) => { const e = document.elementFromPoint(x, y); return !e || !e.closest('#stageView') || calls.some((c) => x > c.left && x < c.right && y > c.top && y < c.bottom); };
+          for (const g of document.querySelectorAll('#labels g.lb[data-key^="n:"]')) {
+            const k = g.dataset.key.slice(2), r = g.getBoundingClientRect(), cs = getComputedStyle(g);
+            const shown = cs.display !== 'none' && +cs.opacity >= 0.5 && r.width > 1;
+            if (!shown) { if (r.width > 1 && !covered(r.left + r.width / 2, r.top + r.height / 2)) miss.push([k, `${at}: ${k} is hidden`]); continue; }
+            if (!/\d/.test(g.textContent) && !covered(r.left + r.width / 2, r.top + r.height / 2)) miss.push([k, `${at}: ${k} shows "${g.textContent}" without its value`]);
+            const t = g.querySelector('text'), m = parseFloat(getComputedStyle(t).strokeWidth) / 2 + 2;
+            for (const sp of g.querySelectorAll('tspan')) { const b = sp.getBoundingClientRect(); if (b.width > 1) boxes.push({ k, x0: b.left - m, y0: b.top + b.height * 0.15 - m, x1: b.right + m, y1: b.top + b.height * 0.85 + m }); }
+          }
+          // (A reading given up for want of room is not drawn at all: stage.js lists it.)
+          // (Its station under a card or off the screen excuses it, as for one hidden.)
+          const lr = document.querySelector('#labels').getBoundingClientRect();
+          for (const d of (document.querySelector('#labels .lb-blocks')?.dataset.dropped || '').split(' ').filter(Boolean)) {
+            const [k, xy] = d.split('@'), [x, y] = (xy || '').split(',').map(Number);
+            if (xy && !covered(lr.left + x, lr.top + y)) miss.push([k, `${at}: ${k} is left out`]);
+          }
+          const inBox = (x, y, b) => x > b.x0 && x < b.x1 && y > b.y0 && y < b.y1;
+          for (const p of document.querySelectorAll('#labels path.leader')) {
+            const L = p.getTotalLength(), ctm = p.getScreenCTM();
+            if (L < 1) continue;
+            const pt = (u) => { const q = p.getPointAtLength(u); return new DOMPoint(q.x, q.y).matrixTransform(ctm); };
+            const a = pt(0), e = pt(L);
+            // (Its own reading: the one nearest its far end, which stops a few px short of it: stage.js leaderEnd.)
+            const gap = (b) => Math.hypot(Math.max(b.x0 - e.x, 0, e.x - b.x1), Math.max(b.y0 - e.y, 0, e.y - b.y1));
+            const near = boxes.reduce((m, b) => (!m || gap(b) < gap(m) ? b : m), null);
+            const own = near && gap(near) < 14 ? [near.k] : [];
+            const hit = new Set();
+            for (let u = 0; u <= L; u += 1.5) { const q = pt(u); for (const b of boxes) if (!own.includes(b.k) && inBox(q.x, q.y, b)) hit.add(b.k); }
+            for (const b of boxes) if (!own.includes(b.k) && inBox(a.x, a.y, { x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3 })) hit.add(b.k);   // (the station ring, 3 px round)
+            if (hit.size) bad.push(`${at}: the leader of ${own.join('/') || '?'} from (${Math.round(a.x)},${Math.round(a.y)}) runs into ${[...hit].join(', ')}`);
+            // (It reaches its text: within 3 px of the words, as near as the glyph boxes measure.)
+            const ownBoxes = [...document.querySelectorAll('#labels g.lb[data-key="n:' + own[0] + '"] tspan')].map((t) => t.getBoundingClientRect()).filter((b) => b.width > 1);
+            const reach = Math.min(...ownBoxes.map((b) => Math.hypot(Math.max(b.left - e.x, 0, e.x - b.right), Math.max(b.top + b.height * 0.15 - e.y, 0, e.y - b.top - b.height * 0.85))));
+            if (own.length && ownBoxes.length && reach > 4) bad.push(`${at}: the leader of ${own[0]} stops ${Math.round(reach)} px short of its text`);
+          }
+          // No reading's halo covers a station's ring (its own too), 2 px clear of the ring's 4 px radius.
+          for (const xy of (document.querySelector('#labels .lb-blocks')?.dataset.rings || '').split(' ').filter(Boolean)) {
+            const [x, y] = xy.split(',').map(Number), lr = document.querySelector('#labels').getBoundingClientRect(), cx = lr.left + x, cy = lr.top + y;
+            const on = boxes.filter((b) => Math.hypot(Math.max(b.x0 - cx, 0, cx - b.x1), Math.max(b.y0 - cy, 0, cy - b.y1)) < 4).map((b) => b.k);
+            if (on.length) bad.push(`${at}: ${[...new Set(on)].join(', ')} covers the station ring at (${Math.round(cx)},${Math.round(cy)})`);
+          }
+          return { bad, miss };
+        }, `${w}x${hgt} Circuit ${n}`);
+        out.push(...found.bad);
+        for (const [k, m] of found.miss) (STRICT[`${w}x${hgt}`]?.[n]?.includes(k) ? out : missing).push(m);
+      }
+    }
+    if (missing.length > MISSING_MAX) out.push(`${missing.length} readings hidden or without their value, more than ${MISSING_MAX}: ${missing.join('; ')}`);
+    if (out.length) throw new Error(out.join('; '));
+    if (missing.length < MISSING_MAX) console.log(`  (${device}: ${missing.length} readings still hidden or without their value; lower MISSING_MAX to ${missing.length})`);
+  });
   // The readings over the figure (the Circuit deck's resistors, a slide's measuring sites, the HVPG catheter's callouts) on a phone and
   // an iPad: every resistor with a ratio shows, whole on screen and clear of the slide's cards, and no figure label prints on any reading.
   await check(device, 'presenter: resistance readings and callouts show, clear of the cards and the figure labels', async (page) => {
