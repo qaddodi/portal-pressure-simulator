@@ -1298,7 +1298,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const ax0 = ox + s0 * (v.x + v.k * x0), ax1 = ox + s0 * (v.x + v.k * x1), ay0 = oy + s0 * (v.y + v.k * y0), ay1 = oy + s0 * (v.y + v.k * y1);
     const g = 8, pl = p.left - wr.left - g, pt = p.top - wr.top - g, pr = p.right - wr.left + g, pb = p.bottom - wr.top + g;
     if (ax1 <= pl || ax0 >= pr || ay1 <= pt || ay0 >= pb) return v;
-    const up = ay1 - pt, room = ay0 - safeInsets().t - g;
+    const up = ay1 - pt + 1, room = ay0 - safeInsets().t - g;   // (+1: the art's box rounds on screen; a whole pixel to spare)
     if (up <= room) return { k: v.k, x: v.x, y: v.y - up / s0 };
     if (pl - ax0 < (ax1 - ax0) * 0.5) return v;
     const f = (pl - ax0) / (ax1 - ax0), wx = (ax0 - ox) / s0, wy = ((ay0 + ay1) / 2 - oy) / s0;
