@@ -195,12 +195,17 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   document.body.append(el);
   const put = () => {
     if (asSheet) return;
-    const r = anchor.getBoundingClientRect(), z = uiScale();
-    // A scrolling menu below its button may use all the room down to the 8 px margin, so it ends whole where it fits.
-    if (place === 'below' && el.classList.contains('app-menu')) el.style.maxHeight = Math.max(160, visibleBottom() - r.bottom - 16) / z + 'px';
+    const r = anchor.getBoundingClientRect(), z = uiScale(), w0 = el.offsetWidth * z;
+    let x = align === 'end' ? r.right - w0 : align === 'center' ? r.left + r.width / 2 - w0 / 2 : r.left;
+    // A scrolling menu below its button may use all the room down to the 8 px margin, so it ends whole where it fits; never
+    // over the bottom bar where the two meet (a phone held sideways: Settings had run 87 px over it; sweep 04 #01).
+    if (place === 'below' && el.classList.contains('app-menu')) {
+      const dock = document.getElementById('vdock'), d = dock?.offsetParent ? dock.getBoundingClientRect() : null, xl = clamp(x, 8, innerWidth - w0 - 8);
+      const floor = d && d.height && d.left < xl + w0 && d.right > xl ? Math.min(visibleBottom(), d.top) : visibleBottom();
+      el.style.maxHeight = Math.max(160, floor - r.bottom - 16) / z + 'px';
+    }
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
     const mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
-    let x = align === 'end' ? r.right - mr.width : align === 'center' ? r.left + r.width / 2 - mr.width / 2 : r.left;
     // (A menu from the thumb dock's tab row opens above the whole dock, so it never covers the play bar or HVPG and PPG.)
     const top = anchor.closest('.thumb-bar') ? Math.min(r.top, anchor.closest('.vdock').getBoundingClientRect().top - 6) : r.top;
     let y = place === 'above' ? top - mr.height - 8 : r.bottom + 8;
