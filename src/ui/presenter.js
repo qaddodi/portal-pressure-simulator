@@ -1189,6 +1189,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // pressures and flows travel, the days run on); a newer slide mid-way eases on from wherever the model has got to.
   // Resolves once the slide's exact state is in, or early (the model left part way) when cut() says a newer slide was asked for.
   const MORPH_MS = 2000;
+  const CATH_SETTLE_MS = 4000;   // (at most: a model still drifting never holds the catheter longer)
   // (.app.pz-morph while a change of patient eases: the checks hold the data card to it.)
   async function morphTo(st, cut, ms = MORPH_MS, mark = true) {
     host.send({ type: 'morph', snap: st.snap, ms });
@@ -1740,6 +1741,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (lead) await wait(150);
     if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
     if (cut()) return;
+    // A catheter slide with a new patient changes it before its camera moves (its cards come in at once), and the catheter then drives
+    // the camera at once. While the liver and the fluid ease, the organs are the live SVG drawing (stage.js hidePlate), which every camera
+    // frame paints again whole, its diaphragm mask stretched over the abdomen by the flank: the route's glide ran at about 1 fps (HVPG
+    // slide 9, Budd–Chiari). So the catheter sets off once the organs are back on the GPU copy, as every other slide's camera moves over it.
+    if (ct && swap && glide) { await until(() => cut() || stage.organsSettled(), CATH_SETTLE_MS); if (cut()) return; }
     if (ct) await cathTo(ct, st.fp, cut);
     else if (lead) await lead;
     else if (cam) await camera(cam, s, cut);
