@@ -3133,9 +3133,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const pt = await page.evaluate((sel) => { const c = document.querySelector(sel), b = [...c.querySelectorAll('button')].find((x) => { const r = x.getBoundingClientRect(); return r.height && !x.closest('[role="tablist"], .card-head, .dock-head, .tc-head') && r.top > c.getBoundingClientRect().top + 80 && r.bottom < document.querySelector('#thumbBar').getBoundingClientRect().top; }); const r = (b || c).getBoundingClientRect(); return [r.x + r.width / 2, r.y + Math.min(r.height / 2, 20)]; }, sel);
       await page.mouse.move(pt[0], pt[1]); await page.mouse.down();
       for (let i = 1; i <= 30; i++) await page.mouse.move(pt[0], pt[1] + 6 * i);
+      // (The card follows the finger from the button: the button never keeps the pull to itself.)
+      if (tab === 'treat' && !(await page.evaluate(() => { const c = document.querySelector('#treatCard'); return c.classList.contains('dragging') && parseFloat(c.style.getPropertyValue('--sink')) > 100; }))) throw new Error('a pull down from a button on Treat did not move it');
       await page.mouse.up();
+      // (It sinks behind the tab row and closes; a slow runner's frames can run late, so the close is waited for, not timed.)
+      if (tab === 'treat' && !(await page.waitForFunction(() => document.querySelector('#treatCard').hidden, null, { timeout: 5000 }).then(() => true, () => false))) throw new Error('a pull down from a button on Treat did not close it');
       await page.waitForTimeout(700);
-      if (tab === 'treat' && await page.evaluate(() => !document.querySelector('#treatCard').hidden)) throw new Error('a pull down from a button on Treat did not close it');
       if (tab === 'tests' && await page.evaluate(() => document.querySelector('#app').classList.contains('dock-open'))) await page.click('#thumbBar [data-tab="tests"]');
       await page.waitForTimeout(700);
     }
@@ -3233,7 +3236,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!st.open) throw new Error('a fast pull from Full closed the Tests card instead of settling at Half');
     if (Math.abs(st.h - halfH) > Math.abs(st.h - fullH)) throw new Error(`a pull from Full settled at ${st.h} px, not Half (${halfH}; Full ${fullH})`);
     await flick();
-    if (await page.evaluate(() => document.querySelector('#app').classList.contains('dock-open'))) throw new Error('a second pull, from Half, did not close the Tests card');
+    // (The close lands when the card's 220 ms sink ends, by its frames or its timer: on a CI runner whose frames take seconds
+    // that can be later than the flick's fixed 700 ms wait, which had failed this check on a card that did close. It must
+    // still close, within a few seconds.)
+    if (!(await page.waitForFunction(() => !document.querySelector('#app').classList.contains('dock-open'), null, { timeout: 5000 }).then(() => true, () => false))) throw new Error('a second pull, from Half, did not close the Tests card');
     const bad = await page.evaluate(() => { cancelAnimationFrame(window.__sinkRaf); return [...new Set(window.__bad)].slice(0, 3); });
     if (bad.length) throw new Error(`the card's slide and cut came apart: ${bad.join('; ')}`);
   });
@@ -3352,8 +3358,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           await page.$eval(`${sel} :is(.sheet-grab, .panel-grab)`, (b) => b.click());   // (the keyboard's Half/Full button)
           await page.waitForFunction((sel) => !document.querySelector(sel).getAnimations().length, sel);   // (its height has finished easing)
           await page.waitForTimeout(500);
+          // (Full, waited for: a slow runner's frames can run late; it still has to get there, and to stay.)
+          await page.waitForFunction(([sel, h0]) => document.querySelector(sel).getBoundingClientRect().height >= h0 + 20, [sel, h0], { timeout: 5000 }).catch(() => {});
           const full = await height(sel);
-          if (full < h0 + 20) throw new Error(`${name}: the grabber did not open Full`);
+          if (full < h0 + 20) throw new Error(`${name}: the grabber did not open Full (${Math.round(full)} px, Half ${Math.round(h0)})`);
           if (how === 'slow') await pull(sel, 300, { steps: 20, hold: 150 });
           else await flick(sel);
           if (how === 'regrab') { await page.waitForTimeout(60); await pull(sel, 20, { hold: 150 }); }   // (caught while it eases to Half)
@@ -3896,6 +3904,45 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
   // The readings over the figure (the Circuit deck's resistors, a slide's measuring sites, the HVPG catheter's callouts) on a phone and
   // an iPad: every resistor with a ratio shows, whole on screen and clear of the slide's cards, and no figure label prints on any reading.
+  // A 320 px phone's data card folded behind Show keeps its whole header: the title never cut (it had read "DOPPLER, THE ..." in a
+  // card squeezed to 27 px, the title cut through), and the figure key's words are 12 px or more (they had read 11 px).
+  if (device === 'phone') await check(device, 'presenter: a folded data card on a 320 px phone shows its whole title, and the key is 12 px', async (page) => {
+    const out = [];
+    for (const [w, hgt] of [[320, 568], [375, 667]]) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await open(page);
+      const restore = await instantMotionOn(page);
+      let started = false;
+      for (const k of [4, 9, 2]) {   // (TIPS Doppler 5, 10 and 3: an instrument folded, and slides with the velocity key)
+        if (!started) { await page.evaluate((n) => window.pps.presenter.start('tips-doppler', n), k); started = true; }
+        else await page.evaluate((n) => window.pps.presenter.go(n), k);
+        await page.waitForFunction((n) => Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === n + 1 && !window.pps.presenter.busy(), k, { timeout: 60000 });
+        await quiet(page); await page.waitForTimeout(600);
+        out.push(...await page.evaluate((at) => {
+          const bad = [], R = (e) => e.getBoundingClientRect();
+          const dc = document.querySelector('.pz-data:not(.pz-hide):not([hidden])'), dh = dc?.querySelector('.pz-dh'), t = dh?.querySelector(':scope > span:first-child');
+          if (t && getComputedStyle(dc).display !== 'none') {
+            if (t.scrollWidth > t.clientWidth + 1) bad.push(`${at}: the card title "${t.textContent}" is cut (${t.scrollWidth} px in ${t.clientWidth})`);
+            if (R(dh).bottom > R(dc).bottom + 0.5 || R(t).bottom > R(dc).bottom - 2) bad.push(`${at}: the card (to ${Math.round(R(dc).bottom)}) cuts its header (to ${Math.round(R(dh).bottom)})`);
+          }
+          const fk = document.querySelector('.pz-fk');
+          if (fk && !fk.hidden && getComputedStyle(fk).display !== 'none') {
+            let k = 1; for (let q = fk; q; q = q.parentElement) { const sc = getComputedStyle(q).scale; if (sc && sc !== 'none') k *= parseFloat(sc); }
+            for (const e of [fk, ...fk.querySelectorAll('*')]) {
+              if (![...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+              const px = parseFloat(getComputedStyle(e).fontSize) * k;
+              if (px < 11.95) bad.push(`${at}: the key's "${e.textContent.trim().slice(0, 16)}" is ${px.toFixed(1)} px`);
+            }
+            if (R(fk).right > innerWidth || R(fk).left < 0) bad.push(`${at}: the key runs off the screen`);
+          }
+          return bad;
+        }, `${w}x${hgt} tips-doppler ${k + 1}`));
+      }
+      await page.keyboard.press('Escape');
+      await restore?.();
+    }
+    if (out.length) throw new Error(out.slice(0, 6).join('; '));
+  });
   await check(device, 'presenter: resistance readings and callouts show, clear of the cards and the figure labels', async (page) => {
     const sizes = device === 'desktop' ? [[820, 1180], [1180, 820], [1440, 900]] : [[390, 844], [375, 667], [320, 568]];
     // (Plus every other slide with a reading on the figure, and every slide whose words a 320 px phone had fitted under 12 px.)

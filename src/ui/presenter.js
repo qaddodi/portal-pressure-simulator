@@ -2728,9 +2728,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // beside it (fk-two, as tall as the pill's row); else on its own row just above the pill's row (fk-up; a 320 px phone), one line,
   // shrunk to the card's width if even that is too narrow. The words end above whatever the key takes (--pz-fkrow).
   function fitKey() {
-    const fk = ui.fk, root = ui.root, set = (two, up) => { root.classList.toggle('fk-two', two); root.classList.toggle('fk-up', up); };
+    const fk = ui.fk, root = ui.root, set = (two, up, wrap = false) => { root.classList.toggle('fk-two', two); root.classList.toggle('fk-up', up); root.classList.toggle('fk-wrap', wrap); };
     const on = phone() && !ui.text.hidden && fk.dataset.empty == null;
-    fk.style.removeProperty('--pz-fk-s');
     if (!on) { set(false, false); return; }
     const was = fk.hidden; fk.hidden = false; set(false, false);
     const wr = restRect(root), k = wr.width / (root.clientWidth || wr.width) || 1;
@@ -2746,9 +2745,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const w2 = fk.scrollWidth, h2 = fk.offsetHeight;
       if (w2 <= room + .5 && h2 <= Math.max(barH + 6, h1 * 2.3)) row = Math.max(0, h2 - barH) + 2;
       else {
-        set(false, true);
-        if (w > full) fk.style.setProperty('--pz-fk-s', String(Math.max(.5, full / w).toFixed(3)));
-        row = Math.ceil(h1 * Math.min(1, full / w || 1)) + 12;
+        // (Wider than the card too: wrapped to its width, at its own size; it had been scaled down, its words under 12 px.)
+        if (w > full) fk.style.setProperty('--pz-fk-room', `${Math.floor(full)}px`);
+        set(false, true, w > full);
+        row = Math.ceil(fk.offsetHeight) + 12;
       }
     }
     fk.hidden = was;

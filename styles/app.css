@@ -151,8 +151,8 @@ svg { flex: none; }
 .legend { display: flex; align-items: center; gap: 12px; padding: 0 4px; border-radius: var(--r-control); pointer-events: none; }
 .lg-title { display: flex; flex-direction: column; line-height: 1.15; font-size: var(--fs-12); color: var(--text-2); font-weight: 600; text-align: right; white-space: nowrap; margin-right: 4px; }
 .lg-title small { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
-.lg-cap { display: none; flex-direction: column; line-height: 1.1; font-size: 11px; color: var(--text-2); font-weight: 600; text-align: right; white-space: nowrap; margin-right: -4px; }
-.lg-cap small { font-size: 11px; color: var(--text-3); font-weight: 500; }
+.lg-cap { display: none; flex-direction: column; line-height: 1.1; font-size: var(--fs-12); color: var(--text-2); font-weight: 600; text-align: right; white-space: nowrap; margin-right: -4px; }
+.lg-cap small { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
 @container figbar (max-width: 1000px) { .legend .lg-cap { display: flex; } }
 @media (max-width: 1599px) { .legend .lg-cap { display: flex; } }
 .lg-scale { position: relative; width: 168px; height: 30px; }
@@ -1544,7 +1544,7 @@ button.finding { cursor: pointer; }
 /* A slide's colour key (presenter.js keyNodes), a small frosted pill on the figure, not in the teaching card: the lens named, then its
    ends, as the Explore legend shows them. src/ui/figure-key.js puts it on bare background, never over a vessel or a card; it
    sits on one line, or stacked in a short column where the line will not fit. It fades in and out, and never takes a tap. */
-.pz-fk { position: absolute; left: 0; top: 0; translate: var(--fx, 0px) var(--fy, 0px); display: flex; flex-wrap: nowrap; align-items: center; gap: .55em; box-sizing: border-box; padding: .22em .75em .26em; border-radius: var(--r-pill); white-space: nowrap; font: 400 max(11px, calc(var(--s-cap) * .9))/1.25 var(--font-ui); color: var(--text-2); background: color-mix(in srgb, var(--surface) 62%, transparent); -webkit-backdrop-filter: blur(10px) saturate(1.15); backdrop-filter: blur(10px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); box-shadow: 0 1px 6px rgb(var(--black-rgb) / .12); pointer-events: none; opacity: 0; transition: opacity .25s var(--ease); }
+.pz-fk { position: absolute; left: 0; top: 0; translate: var(--fx, 0px) var(--fy, 0px); display: flex; flex-wrap: nowrap; align-items: center; gap: .55em; box-sizing: border-box; padding: .22em .75em .26em; border-radius: var(--r-pill); white-space: nowrap; font: 400 max(12px, calc(var(--s-cap) * .9))/1.25 var(--font-ui); color: var(--text-2); background: color-mix(in srgb, var(--surface) 62%, transparent); -webkit-backdrop-filter: blur(10px) saturate(1.15); backdrop-filter: blur(10px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); box-shadow: 0 1px 6px rgb(var(--black-rgb) / .12); pointer-events: none; opacity: 0; transition: opacity .25s var(--ease); }
 .pz-fk.on { opacity: 1; }
 .pz-fk[hidden] { display: none; }
 .pz-fk b { font-weight: 600; color: var(--text); margin-right: .1em; }
@@ -3375,7 +3375,8 @@ button.finding { cursor: pointer; }
 .topbar { gap: 8px; }
 .topbar .float-pill, .topbar #viewSeg, .topbar .sb-right > .chip-btn, .topbar .lens-btn { height: var(--pill-h); }
 .tb-id { padding: 3px 6px 3px 3px; }
-.menu-btn .scenario-v { max-width: 300px; }
+/* The patient's name is never cut off a phone: the bar compacts (data-fit, below) and wraps it instead. */
+.menu-btn .scenario-v { max-width: none; overflow: visible; text-overflow: clip; }
 .topbar .stage-bar.top { justify-content: space-between; }
 .topbar #viewSeg { align-items: center; padding: 4px; }
 .topbar #viewSeg button { height: 36px; }
@@ -3390,7 +3391,6 @@ button.finding { cursor: pointer; }
 @media (max-width: 1599px) {
   .top-right .pal-l, .top-right .pal-btn kbd, .legend .lg-title { display: none; }
   .top-right .pal-btn { width: 38px; padding: 0; justify-content: center; }
-  .menu-btn .scenario-v { max-width: 240px; }
   .lg-scale { width: 128px; }
 }
 @media (max-width: 1239px) { #btnBlood > span, #btnBlood .chev, #btnLobuleLayers > span, #btnLobuleLayers .chev { display: none; } }
@@ -3608,9 +3608,8 @@ button.finding { cursor: pointer; }
 .tl-speed::after { content: ''; width: 0; height: 0; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; border-top: 4px solid currentColor; opacity: .55; margin-left: 2px; }
 @media (hover: hover) { .tl-speed:hover { border-color: var(--accent-line); color: var(--accent-ink); background: var(--accent-soft); } }
 
-/* Legend: the end numbers stay inside the scale instead of being cut off. */
-.lg-num.start { transform: none; }
-.lg-num.end { transform: translateX(-100%); }
+/* Legend: every number centred on its tick, the end ones too (main.js gives the scale room for them beside it, in its numbers' font). */
+.lg-scale { font: 600 var(--fs-12) var(--font-ui); font-variant-numeric: tabular-nums; }
 /* Tick labels never overlap, whatever width a rule gives the scale: the labels between the two ends go first (below 80 px,
    where four numbers no longer clear each other), then all of them (below 48 px); the ticks stay. */
 .lg-scale { container-type: inline-size; }
@@ -3791,7 +3790,11 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .chg-clear { align-self: flex-start; margin: 6px 0 0; padding: 0; font-size: var(--fs-12); text-align: left; }
 
 /* The top bar keeps one row off a phone: main.js steps data-fit up until it fits. */
-.topbar[data-fit="1"] .menu-btn .scenario-v, .topbar[data-fit="2"] .menu-btn .scenario-v { max-width: 200px; }
+/* (1: the whole name on two balanced lines at 12 px; 2-3: its short form, "Budd–Chiari", the same way. Never an ellipsis.) */
+.topbar:not(.two-rows)[data-fit="1"] .menu-btn .scenario-v, .topbar:not(.two-rows)[data-fit="2"] .menu-btn .scenario-v, .topbar:not(.two-rows)[data-fit="3"] .menu-btn .scenario-v { max-width: 190px; white-space: normal; text-wrap: balance; font-size: 12px; line-height: 1.15; }
+.topbar:not(.two-rows)[data-fit="2"] .menu-btn .scenario-v, .topbar:not(.two-rows)[data-fit="3"] .menu-btn .scenario-v { max-width: 150px; }
+.topbar:not(.two-rows)[data-fit="2"] .scenario-v .sn-l, .topbar:not(.two-rows)[data-fit="3"] .scenario-v .sn-l { display: none; }
+.topbar:not(.two-rows)[data-fit="2"] .scenario-v .sn-s, .topbar:not(.two-rows)[data-fit="3"] .scenario-v .sn-s { display: inline; }
 .topbar[data-fit="1"] .top-right .pal-l, .topbar[data-fit="1"] .top-right .pal-btn kbd,
 .topbar[data-fit="2"] .top-right .pal-l, .topbar[data-fit="2"] .top-right .pal-btn kbd,
 .topbar[data-fit="3"] .top-right .pal-l, .topbar[data-fit="3"] .top-right .pal-btn kbd { display: none; }
@@ -3800,7 +3803,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .topbar[data-fit="3"] #btnBlood > span, .topbar[data-fit="3"] #btnBlood .chev, .topbar[data-fit="3"] #btnLobuleLayers > span, .topbar[data-fit="3"] #btnLobuleLayers .chev { display: none; }
 .topbar[data-fit="2"] .tb-sep, .topbar[data-fit="2"] .find-badge .fb-l, .topbar[data-fit="2"] .tb-act > span,
 .topbar[data-fit="3"] .tb-sep, .topbar[data-fit="3"] .find-badge .fb-l, .topbar[data-fit="3"] .tb-act > span { display: none; }
-.topbar[data-fit="3"] .menu-btn .scenario-v { max-width: 160px; }
 .topbar[data-fit="3"] #viewSeg button { padding-left: 10px; padding-right: 10px; }
 .topbar[data-fit="3"] .lg-scale { width: 112px; }
 /* A phone: the lens pill is all key (a tap opens the lenses), so the five origins fit beside Blood. */
@@ -3819,7 +3821,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 @media (max-width: 720px) { .topbar #viewSeg button { font-size: 12px; letter-spacing: -.01em; }
   .topbar #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) > button:where([data-view]) { padding-left: 3px; padding-right: 3px; }
   #app:not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-scale { width: 64px; }
-  #app:not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-num { font-size: 11px; } }
+  #app:not(.thumb) .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-num { font-size: 12px; } }
 /* Lobule on a narrow phone: four views leave the lens about 55-80 px, too little for its title, numbers and scale (the numbers
    landed on each other). It keeps just the colour scale, sized to the room that is left, with the chevron; the numbers are in the menu. */
 @media (max-width: 479px) {
@@ -4836,9 +4838,14 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    on the right at full height, and the play bar shortened to end at the card, so the figure keeps the height. */
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .tb-id { flex: 0 1 auto; }
-  .topbar[data-fit] .tb-id .menu-btn .scenario-v { max-width: 130px; }
-  .topbar .lg-title, .topbar .lg-num { display: none; }
-  .topbar[data-fit] .lg-scale { width: 56px; }
+  /* The patient's name is never cut (no "Decompensated ..."): whole on one line while the bar has room for it, and on two
+     rows of bar (the top row is the name and the tools only). When the bar compacts to keep one row, its short name
+     ("Decomp. cirrhosis") on up to two 12 px lines, as on an upright phone. (main.js steps data-fit up until the row fits.) */
+  .topbar[data-fit] .tb-id .menu-btn .scenario-v { max-width: none; overflow: visible; text-overflow: clip; }
+  .topbar:not(.two-rows):not([data-fit="0"]) .tb-id .menu-btn .scenario-v { max-width: 150px; white-space: normal; text-wrap: balance; font-size: 12px; line-height: 1.15; }
+  .topbar:not(.two-rows):not([data-fit="0"]) .scenario-v .sn-l { display: none; }
+  .topbar:not(.two-rows):not([data-fit="0"]) .scenario-v .sn-s { display: inline; }
+  .topbar .lg-title { display: none; }   /* (the key keeps its caption and its numbers: the bar compacts, or takes two rows, instead) */
   .topbar[data-fit] #viewSeg button { padding: 6px 7px; }
   .app.dock-open:has(#dock.side:not([data-state="peek"])) .instrument-workspace.side { bottom: calc(env(safe-area-inset-bottom) + 6px); }
   .app.dock-open:has(#dock.side) .vdock { right: calc(env(safe-area-inset-right) + var(--side-ws-w, 340px) + 14px); width: auto; }   /* (width: auto lets `right` hold over the slim bar's fixed 640 px from 768 px wide, 88e0a8d: an 844 px phone's bar ran under the card) */
@@ -4850,10 +4857,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .app.dock-open:has(#dock.side) .vdock { grid-template-columns: minmax(0, 1fr); grid-template-areas: "st" "tl"; }
 }
 @media (max-width: 720px) and (max-height: 500px) and (orientation: landscape) {
-  .topbar[data-fit] .tb-id .menu-btn .scenario-v { max-width: 84px; }
   .topbar[data-fit] #viewSeg button { padding: 6px 5px; }
-  .topbar[data-fit] .lg-scale { width: 40px; }
-  .topbar .lg-cap { display: none; }
   .top-right .ib, .top-right .pal-btn { width: 34px; min-width: 34px; }
 }
 /* Every Tests picture fits its pane: the pane (absolutely placed, so its size is known) is a size container and no
@@ -5220,7 +5224,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-tool[data-kind="wall"] canvas { font-size: var(--pz-sm, var(--pz-psm, 12px)); }   /* (the wall's reading: one number top left, its state top right, the labels on the drawing at the card's small size) */
 @container (max-width: 300px) { :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .wall-of { display: none; } }   /* (a narrow screen: "169 %", its state beside it) */
 :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-mean { display: none; }   /* (the reading is the mean: "cm/s" alone, so its state never runs into it) */
-.pz.stack .pz-dh > span:first-child { white-space: nowrap; hyphens: manual; overflow: hidden; text-overflow: ellipsis; }   /* (a phone's title, one short line) */
+.pz.stack .pz-dh > span:first-child { min-width: 0; hyphens: manual; text-wrap: balance; }   /* (a phone's title: one short line where it fits, else two balanced lines, never cut with an ellipsis (a 320 px phone had shown "DOPPLER, THE ...")) */
 /* The over-time chart is drawn at its own size in pixels, in the card's small type: its box sets the size (shorter as the card fits). */
 .pz-flowtime { font-size: var(--pz-sm, var(--pz-psm, 12px)); height: calc(var(--ft-h, max(60cqi, 15em)) * var(--pz-fit, 1)); min-height: 9em; }
 .pz.stack .pz-flowtime { --ft-h: min(54cqi, 180px); }
@@ -5513,7 +5517,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 :root[data-noglass] #labels :is(.lb.focus, .lb.term) text { fill: var(--lbc) !important; stroke: var(--label-halo) !important; }
 @keyframes glow-in { from { filter: drop-shadow(0 0 5px transparent) drop-shadow(0 0 12px transparent); } }
 /* The figure key: a small pill, its name with the colour scale under it (no "None" or "Large" words; a key of named swatches keeps its names). */
-.pz-fk.grad, .pz-fk.grad.col { flex-direction: column; align-items: center; gap: .2em; padding: .28em .7em .34em; border-radius: calc(var(--r-card) + 2px); font-size: max(10px, calc(var(--s-cap) * .78)); }
+.pz-fk.grad, .pz-fk.grad.col { flex-direction: column; align-items: center; gap: .2em; padding: .28em .7em .34em; border-radius: calc(var(--r-card) + 2px); font-size: max(12px, calc(var(--s-cap) * .78)); }   /* (the 12 px floor: a key's words had read 11 px, and 10 here) */
 .pz-fk.grad .pz-lens-bar { width: 4em; height: .5em; }
 /* A wider screen's colour key (Mac, iPad, a phone held sideways) sits right on top of the nav pill at the lower right: right-aligned with it,
    a small gap above it, the pill's own glass and corners (Mohammad, 15 Oct). Its own width; it moves with the pill. */
@@ -5523,8 +5527,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* A phone's colour key sits at the words' bottom-left corner, on the nav pill's row (figure-key.js fades it in once the cards have landed). */
 .pz.stack .pz-fk { left: 21px; top: auto; bottom: calc(26px + var(--pz-sb)); translate: none; z-index: 1; }
 .pz.stack.tab .pz-fk { left: calc(15% + 13px); }
-/* Too wide for the room beside the nav pill: its own row just above the pill's row, never under it (presenter.js fitKey), one line, shrunk to fit. */
-.pz.stack.fk-up .pz-fk { bottom: calc(65px + var(--pz-sb)); scale: var(--pz-fk-s, 1); transform-origin: 0 100%; }
+/* Too wide for the room beside the nav pill: its own row just above the pill's row, never under it (presenter.js fitKey), one line where
+   it fits, else wrapped to the card's width (never shrunk: shrunk, its words had gone under 12 px). */
+.pz.stack.fk-up .pz-fk { bottom: calc(65px + var(--pz-sb)); }
+.pz.stack.fk-up.fk-wrap .pz-fk:not(.grad) { max-width: var(--pz-fk-room, 280px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; border-radius: calc(var(--r-card) + 2px); padding-block: .3em .34em; }
 /* Two lines beside the pill: as tall as its row, bottoms level (presenter.js fitKey). */
 .pz.stack.fk-two .pz-fk:not(.grad) { bottom: calc(21px + var(--pz-sb)); max-width: var(--pz-fk-room, 200px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; border-radius: calc(var(--r-card) + 2px); padding-block: .3em .34em; }
 .pz.stack:is(.fk-up, .fk-two) .pz-pillclr { margin-bottom: calc((var(--pz-reach-box, 37px) + var(--pz-fkrow, 0px)) / var(--pz-fit, 1)); }
@@ -5821,3 +5827,33 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    never faded. Only its look says it is off: no fill colour, no shadow, the not-allowed cursor. */
 :is(.btn, .ac-btn, .ac-toggle, .drug, .order-chip, .order-btn, .ab-drain):disabled { opacity: 1; background: var(--surface-2); border-color: var(--border); color: var(--text-3); box-shadow: none; }
 :is(.btn, .ac-btn, .ac-toggle, .drug, .order-chip, .order-btn, .ab-drain):disabled svg { opacity: .8; }
+
+/* The colour key in the top bar is never squeezed (16 Oct): its scale keeps its width, and so its numbers, on every phone,
+   upright or sideways; the patient's name gives way instead (its short form, on up to two 12 px lines). */
+.lg-scale { flex: none; }
+@media (max-width: 767px) {
+  /* (The bar is not a size container here, so it is as wide as its key: a container is zero wide until it is given room.) */
+  .app.thumb .topbar { flex-wrap: nowrap; }
+  .app.thumb .topbar .stage-bar.top { container-type: normal; }
+  /* (Both give way, down to what they need: the name its longest word, the key its caption and a 48 px scale with its end numbers.) */
+  .app.thumb .topbar :is(.stage-bar.top, .sb-right, .lens-btn, .legend) { flex: 0 1 auto; min-width: min-content; overflow: visible; }
+  .app.thumb .topbar .lg-scale { flex: none; width: clamp(48px, calc(100vw / var(--vz, 1) - 302px), 88px); }   /* (88 px from a 390 px phone up, 48 at 320: an empty box adds only its width to the bar's size, so it is set by the screen) */
+  .app.thumb .topbar .legend { gap: 13px; }   /* (9 px between the caption and the first number, which hangs past the scale's end by half its width) */
+  .app.thumb .topbar .tb-id { flex: 0 1 auto; min-width: min-content; margin-right: auto; }
+  .topbar .lg-cats:not(.lg-dots) { display: grid; gap: 1px 0; line-height: 1.25; }   /* (Physiological over Reversed) */
+}
+/* A phone held sideways: the key keeps its whole width too, so the bar's fit (main.js) sees what it needs and compacts or takes two rows. */
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  #app:not(.thumb) .topbar :is(.sb-right, .lens-btn, .legend) { min-width: min-content; }
+  #app:not(.thumb) .topbar .lg-scale { min-width: 48px; }
+}
+@media (max-width: 359px) {
+  .app.thumb .topbar .legend { gap: 9px; }   /* (the narrowest phones: 5 px between the caption and the first number) */
+}
+/* The sinusoid view brings history, play, settings and search back to the top bar: they take their own row under the key,
+   at the right, as before, and the key keeps its whole width on the first row, as in the other views. */
+@media (max-width: 767px) {
+  #app.thumb.sin-focus .topbar { flex-wrap: wrap; }
+  #app.thumb.sin-focus .topbar .stage-bar.top { flex: 0 1 auto; min-width: min-content; }
+  #app.thumb.sin-focus .topbar .stage-bar.top .sb-right { width: auto; }
+}

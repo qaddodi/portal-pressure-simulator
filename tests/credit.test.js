@@ -178,3 +178,17 @@ test('the credit holds its spot while it stays good, keeps off the lobule and th
   assert.match(src, /safe-area-inset-bottom/, 'the home indicator strip is kept clear');
   assert.match(OBSTACLES, /\.pz-prog/, 'the slide progress line is kept clear');
 });
+
+// Sinusoid view: all art, no bare spot, so the credit is hidden there (Mohammad's "Hide there"), from the zoom in until
+// the zoom back out has landed.
+test('the credit is hidden in the sinusoid view and while zooming into or out of it', async () => {
+  const { inSinusoidView } = await import('../src/ui/credit.js');
+  const pps = (sinusoid, open = false, busy = false) => ({ store: { get: () => ({ sinusoid }) }, stage: { sinusoidOpen: () => open, sinBusy: () => busy } });
+  assert.equal(inSinusoidView(pps(false)), false, 'anatomy, circuit or lobule: placed as usual');
+  assert.equal(inSinusoidView(pps(true)), true, 'asked for the sinusoid: hidden at once');
+  assert.equal(inSinusoidView(pps(false, true)), true, 'still open on the way out');
+  assert.equal(inSinusoidView(pps(false, false, true)), true, 'still zooming back out to the lobule');
+  assert.equal(inSinusoidView(undefined), false);
+  const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(inSinusoid\(\)\) \{\s*credit\.classList\.add\('covered'\)/, 'check() hides it (covered: no fade) in the sinusoid');
+});

@@ -257,7 +257,11 @@ export function organTest(wr, ring = null) {
   return test;
 }
 
+// In the sinusoid view, or zooming into or out of it (pps: window.pps, the app's handles).
+export const inSinusoidView = (pps) => !!(pps?.store?.get().sinusoid || pps?.stage?.sinusoidOpen?.() || pps?.stage?.sinBusy?.());
+
 export function createCreditPlacer(credit, { keptStyle = null } = {}) {
+  const inSinusoid = () => inSinusoidView(window.pps);
   const wrap = credit.offsetParent || credit.parentElement, app = document.getElementById('app');
   const blocked = {};   // corner -> when a card last covered it
   let cur = null, curTight = false, pos = null, moving = false, changedAt = 0, lastSig = '', raf = 0, waitT = 0, moveT = 0, size = null, sizeKey = '';
@@ -325,6 +329,13 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     // slide came in; sweep 01 review).
     if ('pzOpening' in document.documentElement.dataset) { credit.classList.add('moving'); lastSig = ''; kept = ''; fresh = true; clearTimeout(camT); camT = setTimeout(soon, 200); return; }
     if (app?.classList.contains('pz-moving')) { credit.classList.add('moving'); changedAt = 0; lastSig = ''; kept = ''; fresh = true; return; }
+    // The sinusoid view is all art (hepatocytes, the wall, the blood): no bare spot, so it is hidden there, from the moment the
+    // zoom in starts until the zoom back out to the lobule has landed, then placed afresh (at once, never faded).
+    if (inSinusoid()) {
+      credit.classList.add('covered'); changedAt = 0; lastSig = ''; kept = ''; fresh = true;
+      clearTimeout(camT); if (!window.pps?.store?.get().sinusoid) camT = setTimeout(soon, 120);   // (on the way out: look again until it lands)
+      return;
+    }
     // A resize or a turn: hidden at once, and placed once when the size has held a moment (it had hopped three times in 1.2 s
     // as the cards and the figure followed the new size).
     if (performance.now() - resizedAt < 400) { credit.classList.add('moving'); fresh = true; clearTimeout(camT); camT = setTimeout(soon, 420); return; }
