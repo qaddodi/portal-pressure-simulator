@@ -1,5 +1,5 @@
-// The colour system: every colour lives once, as a named token in styles/tokens.css (key:
-// reports/colour-key.md in the project files). These checks keep it that way.
+// The colour system: every colour lives once, as a named token in styles/tokens.css. These checks
+// keep it that way.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -25,7 +25,7 @@ test('no colour is written outside styles/tokens.css', () => {
 });
 
 test('the two dark-theme blocks in tokens.css stay identical', () => {
-  const media = tokens.match(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{([^}]*)\}/)[1];
+  const media = tokens.match(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\):not\(\[data-theme="soft"\]\) \{([^}]*)\}/)[1];
   const attr = tokens.match(/\n:root\[data-theme="dark"\] \{([^}]*)\}/)[1];
   const norm = (s) => s.split('\n').map((l) => l.trim()).filter(Boolean).join('\n');
   assert.equal(norm(media), norm(attr), 'change a dark colour in both blocks');

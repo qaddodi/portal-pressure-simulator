@@ -8,6 +8,7 @@ export function defaultParams() {
       L: { pre: 1, sin: 1, post: 1 },
     },
     stenosis: {},                 // edgeId → 0..1 lumen narrowing
+    stenosisSite: {},             // stent edgeId → 'proximal' | 'mid' | 'distal': the segment a stent's narrowing sits in (distal if unset)
     thrombus: {},                 // edgeId → 0..1 occlusion
     splenicRx: 0,                 // 0 none · 1 partial splenic artery embolization · 2 splenectomy
     splanchnicTone: 1,            // arteriolar resistance multiplier (<1 = vasodilated)
@@ -16,12 +17,14 @@ export function defaultParams() {
     tr: 0,                        // tricuspid regurgitation 0..1
     pericardial: 0,               // constriction 0..1
     albumin: 4.0,                 // g/dL
+    gestation: 0,                 // pregnancy, weeks (0 = not pregnant); see PREGNANCY in engine.js
     habrStrength: 1,
     apShunt: 0,                   // extra arterioportal shunting 0..1
     respiration: true,
     respDepth: 1,
     pulsatile: true,
     spontaneous: { C5: false, C6: false },   // C5: gastrorenal shunt, an anatomical variant: absent by default (a preset or the user adds it); fundal varices need it
+    isolatedGV: false,            // isolated fundal varices (IGV1): the coronary vein never forms esophageal varices
     occluded: {},                 // collateral id → true (BRTO / plug)
     tips: { on: false, d: 8 },
     dips: { on: false, d: 8 },
@@ -52,6 +55,9 @@ export const DRUGS = {
     info: 'Somatostatin analogue: inhibits vasodilatory gut peptides → splanchnic vasoconstriction.' },
 };
 
+/** What the pregnancy setting (gestation) does, for its controls' info. */
+export const PREGNANCY_INFO = 'Weeks of pregnancy. Blood volume and cardiac output rise from the first trimester, and splanchnic vasodilation raises portal inflow, so portal pressure and the varices grow. After 20 weeks the uterus also raises the pressure in the abdomen. 0 is before pregnancy.';
+
 const P = (patch) => (p) => deepMerge(p, patch);
 
 // Each preset: patch applied to defaultParams(), plus chronic days on the disease clock.
@@ -76,10 +82,14 @@ export const PRESETS = [
     summary: 'HVPG ≥ 16, large varices, ascites, splenomegaly, hyperdynamic circulation.' },
   { id: 'cirr-hepatofugal', group: 'Sinusoidal', label: 'End-stage cirrhosis, hepatofugal flow', apply: P({ cirrhosis: 0.95, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
     summary: 'Very high sinusoidal resistance plus arterioportal shunting: the portal vein reverses and drains the liver into collaterals.' },
-  { id: 'gastric-varix', group: 'Sinusoidal', label: 'Cirrhosis with gastrorenal shunt', apply: P({ cirrhosis: 0.9, albumin: 3.0, diuretics: true, spontaneous: { C5: true } }), days: 450,
+  { id: 'gastric-varix', group: 'Sinusoidal', label: 'Cirrhosis with gastrorenal shunt', apply: P({ cirrhosis: 0.9, albumin: 3.0, diuretics: true, spontaneous: { C5: true }, isolatedGV: true }), days: 450,
     summary: 'Isolated fundal varices (IGV1), fed by the short and posterior gastric veins, decompress into the left renal vein through a gastrorenal shunt (the BRTO target); no communication with the coronary vein.' },
+  // Compensated cirrhosis with small varices before pregnancy (HVPG about 12); `now` makes her pregnant once the disease
+  // clock has run, so moving the gestation back to 0 shows her before pregnancy.
+  { id: 'pregnancy', group: 'Sinusoidal', label: 'Cirrhosis in pregnancy', apply: P({ cirrhosis: 0.62 }), days: 365, now: { gestation: 24 },
+    summary: 'Compensated cirrhosis at 24 weeks of pregnancy. A larger blood volume, a higher cardiac output and splanchnic vasodilation raise portal inflow, so small varices grow large. Move the weeks on the heart card.' },
   { id: 'sos', group: 'Postsinusoidal', label: 'Sinusoidal obstruction syndrome', apply: P({ fibrosis: { R: { post: 20 }, L: { post: 20 } } }), days: 21,
-    summary: 'Central-vein obstruction: high wedged pressure and HVPG, hepatomegaly, ascites.' },
+    summary: 'Central-vein resistance: high wedged pressure and HVPG, hepatomegaly, ascites.' },
   { id: 'budd-chiari', group: 'Posthepatic', label: 'Budd–Chiari (hepatic vein occlusion)', apply: P({ thrombus: { RHV_IVC: 1, MHV_IVC: 1, LHV_IVC: 1 } }), days: 60,
     summary: 'All three hepatic veins occluded: only the caudate veins drain the liver (caudate hypertrophy), massive ascites.' },
   { id: 'ivc-web', group: 'Posthepatic', label: 'IVC web', apply: P({ stenosis: { IVCS_RA: 0.6 } }), days: 90, volume: 800,
@@ -95,7 +105,7 @@ export const PRESETS = [
 const RANGES = {
   cirrhosis: [0, 1], splenicRx: [0, 2], splanchnicTone: [0.4, 2.5], systemicTone: [0.4, 2.5],
   contractility: [0.15, 1.6], tr: [0, 1], pericardial: [0, 1], albumin: [1.5, 5], habrStrength: [0, 2],
-  apShunt: [0, 1], respDepth: [0, 3],
+  apShunt: [0, 1], respDepth: [0, 3], gestation: [0, 40],
 };
 const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
 
@@ -114,6 +124,7 @@ export function sanitizeParams(p) {
     for (const z of ['pre', 'sin', 'post']) out.fibrosis[lobe][z] = num(out.fibrosis[lobe][z], 1, 80, 1);
   }
   for (const k of ['stenosis', 'thrombus']) for (const id of Object.keys(out[k])) out[k][id] = num(out[k][id], 0, k === 'stenosis' ? 0.95 : 1, 0);
+  for (const id of Object.keys(out.stenosisSite)) if (!['proximal', 'mid', 'distal'].includes(out.stenosisSite[id])) delete out.stenosisSite[id];
   for (const k of ['tips', 'dips']) { out[k].on = !!out[k].on; out[k].d = num(out[k].d, 6, 12, 8); }
   for (const id of Object.keys(out.customShunts)) if (out.customShunts[id]) out.customShunts[id] = num(out.customShunts[id], 4, 16, 10);
   for (const k of Object.keys(out.drugs)) out.drugs[k] = !!out.drugs[k];
@@ -122,11 +133,15 @@ export function sanitizeParams(p) {
 }
 
 function isObj(x) { return x && typeof x === 'object' && !Array.isArray(x); }
+// (Keys that would reach an object's prototype are skipped, and only the base's own keys are merged into, so a
+// hand-made share link cannot change Object.prototype.)
+const UNSAFE = new Set(['__proto__', 'constructor', 'prototype']);
 export function deepMerge(base, patch) {
   const out = structuredClone(base);
   (function merge(o, p) {
     for (const k of Object.keys(p)) {
-      if (isObj(p[k]) && isObj(o[k])) merge(o[k], p[k]);
+      if (UNSAFE.has(k)) continue;
+      if (isObj(p[k]) && Object.hasOwn(o, k) && isObj(o[k])) merge(o[k], p[k]);
       else o[k] = structuredClone(p[k]);
     }
   })(out, patch);

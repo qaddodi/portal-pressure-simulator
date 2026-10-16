@@ -46,17 +46,22 @@ try {
     await page.waitForTimeout(2600);   // (the camera lands and the card settles)
     walked++;
     if (walked === 2) {
-      // A shift alone (an entry under way, a glide) never counts as overflow: the card keeps its zoom.
+      // A shift alone (an entry under way, a glide) never counts as overflow: the card keeps its zoom, whatever zoom its
+      // words need. The card's own entry slide (pz-leave, 18 px) once counted as room the pill took from the words
+      // (--pz-reach): fitted mid-entry, Circulation slide 2 came in at 0.814 and grew to 0.847 once the card settled.
       const shrunk = await page.evaluate(async () => {
         const text = document.querySelector('.pz-text:not([hidden])');
         if (!text) return 'no words on the second slide';
-        const last = [...text.children].at(-1);
-        last.style.translate = '0 60px';
+        const read = () => `zoom ${text.style.getPropertyValue('--pz-fit') || 1}, pill room ${text.style.getPropertyValue('--pz-reach')}`;
+        const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        dispatchEvent(new Event('resize')); await frames(); await new Promise((r) => setTimeout(r, 300)); await frames();   // (settled first)
+        const before = read(), last = [...text.children].at(-1);
+        last.style.translate = '0 60px'; text.style.translate = '0 18px';
         dispatchEvent(new Event('resize'));
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-        const fit = text.style.getPropertyValue('--pz-fit');
-        last.style.translate = '';
-        return fit ? `zoom ${fit}` : '';
+        await frames(); await new Promise((r) => setTimeout(r, 300)); await frames();
+        const after = read();
+        last.style.translate = ''; text.style.translate = '';
+        return after !== before ? `${before} -> ${after}` : '';
       });
       if (shrunk) fail(`a shifted line shrank the words (${shrunk})`);
     }

@@ -4,20 +4,15 @@
 // same content as a bottom sheet. Hovering a row (or focusing it with the arrow keys) previews it beside
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
-import { store } from './store.js?v=7fb7280c05';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=b1761ad19c';
-import { SNAPSHOTS } from './snapshots.js?v=c8cbaabb1f';
-import { pressureColor } from './colormap.js?v=a65dea21ce';
-import { frameFor } from './frame.js?v=0db47e99bf';
+import { store } from './store.js?v=31ee79b6ab';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore } from './util.js?v=0140acc352';
+import { SNAPSHOTS } from './snapshots.js?v=f018995b4c';
+import { pressureColor } from './colormap.js?v=5c9a375f49';
+import { frameFor } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('menu');
 
-const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 // Where each group's resistance sits along the pathway from the gut to the heart.
-const GROUP_WHERE = { Normal: 'No obstruction', Prehepatic: 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', Posthepatic: 'Hepatic veins and IVC', Cardiac: 'The right heart' };
-const LEVEL_N = { foundation: 1, core: 2, advanced: 3 };
-
-// Who is using the simulator (chosen in Settings): Student sees a simpler Explore; Instructor adds the physiology knobs.
-export const ROLES = [['student', 'Student', 'A simpler set of controls, with the HVPG shown from the start.'], ['instructor', 'Instructor', 'All controls, including the physiology settings and resistances.']];
+const GROUP_WHERE = { Normal: 'No added resistance', Prehepatic: 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', Posthepatic: 'Hepatic veins and IVC', Cardiac: 'The right heart' };
 
 const NS = 'http://www.w3.org/2000/svg';
 const sv = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
@@ -46,7 +41,7 @@ const one = (v) => v.toFixed(v < 10 ? 1 : 0);
 function patientPreview(p) {
   const s = SNAPSHOTS[p.id], fp = s?.fp;
   return h('div', { class: 'um-pv-in pt' },
-    h('span', { class: 'um-pv-meta' }, h('i', { class: 'um-dot', style: { background: GROUP_COLOR[p.group] || 'var(--text-3)' } }), `${p.group} · ${GROUP_WHERE[p.group] || ''}`),
+    h('span', { class: 'um-pv-meta' }, `${p.group} · ${GROUP_WHERE[p.group] || ''}`),
     h('h3', {}, p.label),
     s ? profile(s) : null,
     s ? h('span', { class: 'hp-facts' },
@@ -91,12 +86,16 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   const outside = (e) => { if (el && !el.contains(e.target) && !pv?.contains(e.target) && !anchor.contains(e.target)) close(); };
 
   // ── Rows ──
-  const dots = (lv, levels) => h('span', { class: 'um-lv', title: levels[lv] || '', 'aria-label': levels[lv] || '' }, [1, 2, 3].map((n) => h('i', { class: n <= (LEVEL_N[lv] || 0) ? 'on' : '' })));
+  // A deck's level as a short muted word (Foundation, Core, Advanced), not a row of pips.
+  const levelWord = (lv, levels) => h('span', { class: 'um-m um-lv' }, levels[lv] || '');
+  // A deck left part way through (resume.js) opens where it was left: its row says "Resume 7 / 12" in place of its minutes.
+  const resumeOf = (d, lib, script) => (script || lib.current() === d.id ? null : lib.resumeAt?.(d) ?? null);
   function deckRow(d, lib, script) {
-    const row = h('button', { class: 'um-row', 'data-k': (script ? 's:' : 'd:') + d.id, 'aria-current': lib.current() === d.id ? 'true' : null, onclick: () => { close(); lib.start(d.id); } },
+    const r = resumeOf(d, lib, script);
+    const row = h('button', { class: 'um-row', 'data-k': (script ? 's:' : 'd:') + d.id, 'aria-current': lib.current() === d.id ? 'true' : null, onclick: () => { close(); lib.start(d.id, r?.at ?? 0); } },
       svgIcon('play', 'um-play'), h('span', { class: 'um-t' }, script ? d.title : d.short || d.title),
-      script ? h('span', { class: 'um-m' }, `${(d.steps || d.deck.slides).length} slides`) : dots(d.level, lib.levels),
-      script ? null : h('span', { class: 'um-m' }, `${d.minutes} min`));
+      script ? h('span', { class: 'um-m' }, `${(d.steps || d.deck.slides).length} slides`) : levelWord(d.level, lib.levels),
+      script ? null : r ? h('span', { class: 'um-m um-res' }, `Resume ${r.at + 1} / ${r.n}`) : h('span', { class: 'um-m' }, `${d.minutes} min`));
     row.dataset.find = fold([d.title, d.short, script ? 'script' : ''].join(' ')); row.dataset.more = fold(d.summary);
     const info = h('button', { class: 'um-info', 'aria-label': `About ${d.short || d.title}`, 'aria-expanded': 'false', onclick: () => toggleInline(li, () => (script ? scriptPreview(d, lib) : deckPreview(d, lib)), info) }, icon('info'));
     const li = h('li', {}, row, info);
@@ -106,17 +105,21 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   }
   function patientRow(p, cur) {
     const row = h('button', { class: 'um-row', 'data-k': 'p:' + p.id, 'aria-current': p.id === cur ? 'true' : null, onclick: () => { close(); if (p.id !== store.get().presetId || store.get().mode !== 'explore') onPreset(p.id); } },
-      h('i', { class: 'um-dot', style: { background: GROUP_COLOR[p.group] || 'var(--text-3)' } }), h('span', { class: 'um-t' }, p.label), p.id === cur ? svgIcon('check', 'um-check') : null);
+      h('span', { class: 'um-t' }, p.label), p.id === cur ? svgIcon('check', 'um-check') : null);
     row.dataset.find = fold([p.label, p.group, GROUP_WHERE[p.group], p.id].join(' ')); row.dataset.more = fold(p.summary);
     hoverable(row, () => patientPreview(p), 'patients');
-    return h('li', {}, row);
+    // On touch (iPad, iPhone) there is no hover: the ⓘ opens the same preview under the row, as the decks' rows do.
+    const info = h('button', { class: 'um-info', 'aria-label': `About ${p.label}`, 'aria-expanded': 'false', onclick: () => toggleInline(li, () => patientPreview(p), info) }, icon('info'));
+    const li = h('li', {}, row, info);
+    return li;
   }
-  const deckPreview = (d, lib) => h('div', { class: 'um-pv-in pt' },
+  const deckPreview = (d, lib, r = resumeOf(d, lib)) => h('div', { class: 'um-pv-in pt' },
     h('span', { class: 'um-pv-meta' }, `${lib.levels[d.level] || ''} · ${d.slides.length + 1} slides · ${d.minutes} min`),
     h('h3', {}, d.title), h('p', {}, d.summary || ''),
     d.objectives?.length ? h('ul', {}, d.objectives.map((o) => h('li', {}, o))) : null,
     h('div', { class: 'um-acts' },
-      h('button', { class: 'btn sm primary', onclick: () => { close(); lib.start(d.id); } }, svgIcon('play', 'mi-ic'), 'Present'),
+      r ? h('button', { class: 'btn sm primary', onclick: () => { close(); lib.start(d.id, r.at); } }, svgIcon('play', 'mi-ic'), `Resume ${r.at + 1} / ${r.n}`) : null,
+      h('button', { class: r ? 'btn sm' : 'btn sm primary', onclick: () => { close(); lib.start(d.id); } }, svgIcon('play', 'mi-ic'), r ? 'From the start' : 'Present'),
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareDeck(d) }, svgIcon('share', 'mi-ic'), 'Copy link'),
       h('button', { class: 'btn ghost sm', title: 'Speaker notes and questions for the room, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
   const scriptPreview = (s, lib) => h('div', { class: 'um-pv-in' },
@@ -184,7 +187,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
 
   // ── Panel ──
   function build(lib) {
-    const st = store.get(), cur = st.mode === 'cases' ? null : st.presetId;
+    const st = store.get(), cur = st.presetId;
     const groups = {};
     for (const p of st.presetList || []) (groups[p.group] ||= []).push(p);
     const patients = h('section', { class: 'um-col', 'data-col': 'patients' },
@@ -252,7 +255,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     go.hidden = !there;
     go.textContent = there ? `${there} ${other === 'patients' ? (there === 1 ? 'patient matches' : 'patients match') : (there === 1 ? 'presentation matches' : 'presentations match')} ›` : '';
     el.classList.toggle('filtered', !!words.length && any);
+    // The list fades at its bottom while more rows sit below, instead of being cut at the footer's line.
+    for (const sc of el.querySelectorAll('.um-cols, .um-col')) (fades.get(sc) || fades.set(sc, fadeWhileMore(sc)).get(sc))();
   }
+  const fades = new WeakMap();
   // Switching tabs eases the new list in; the panel keeps its size.
   function setTab(k, focus) {
     tab = k;
@@ -311,13 +317,14 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   }
 
   return {
-    // section: 'present' | 'patients' | 'scripts' (scrolled into view); opts.mark: a script id to highlight.
+    // section: 'present' | 'patients' | 'scripts' (scrolled into view); opts.mark: a script id to highlight;
+    // opts.query: words to start the search with (a mistyped ?preset= link).
     open(section, opts = {}) {
       if (leaveT) { clearTimeout(leaveT); leaveT = 0; document.querySelectorAll('.umenu.out, .um-scrim.out').forEach((x) => x.remove()); }
       mark = opts.mark || null;
       if (section) setTab(section === 'patients' ? 'patients' : 'present');
       if (!open) {
-        open = true; query = '';
+        open = true; query = opts.query || '';
         const sheet = sheetMQ.matches, lib = libraryNow();
         el = build(lib);
         if (sheet) { el.classList.add('sheet'); back = h('div', { class: 'um-scrim', onclick: () => close() }); document.body.append(back); }

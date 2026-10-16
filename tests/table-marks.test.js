@@ -4,27 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
-import { createCore } from '../src/worker-core.js';
+import { deckStates, runSteps as run } from './deck-states.js';
 import { CUT, dirAbs, dirRel, fpv, atShown } from '../src/ui/table-marks.js';
 
 const DIR = new URL('../src/ui/decks/', import.meta.url);
-const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
-const changes = (s) => MODEL.some((k) => s[k]);
-
-async function run(steps) {
-  const fps = [];
-  const core = createCore((m) => { if (m.type === 'seqStep') fps[m.i] = m.fp; });
-  core.handle({ type: 'run', running: false });
-  await core.handle({ type: 'sequence', steps, reqId: 1 });
-  core.dispose();
-  return fps;
-}
-async function deckStates(d) {
-  const fps = await run(d.slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse } : {})));
-  let last = fps[0];
-  return d.slides.map((s, i) => (last = changes(s) || i === 0 ? fps[i] : last));
-}
-
 // [value as printed] → arrow: 2 / 1 up, 0 normal, -1 / -2 down.
 const band = (v, lo, hi) => (v > hi ? 2 : v > lo ? 1 : 0);
 const SPEC = {

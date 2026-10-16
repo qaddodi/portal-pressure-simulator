@@ -8,22 +8,20 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, fitCanvas, clamp, icon, toast, cssVar } from './util.js?v=b1761ad19c';
-import { FONT } from './charts.js?v=e073763634';
-import { pressureColor } from './colormap.js?v=a65dea21ce';
-import { store, logAction } from './store.js?v=7fb7280c05';
-import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
+import { h, fmt, fitCanvas, clamp, icon, cssVar } from './util.js?v=0140acc352';
+import { FONT } from './charts.js?v=7e8a65ec45';
+import { pressureColor } from './colormap.js?v=5c9a375f49';
+import { store, logAction, hiddenNow } from './store.js?v=31ee79b6ab';
+import { shownOr } from './shown.js?v=82ef5e29ec';
+import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=553551a92a';
+import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
+import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
 /** main.js hands over the figure once it exists. */
 export function setHvpgStage(stage) { stageRef = stage; }
 
-// The sequence, in ms from the start.
-// (settle: the wedged pressure has reached its plateau and the still column starts to fill; callout: the column
-// is full and the trace has held on the plateau, so only now is WHVP read and shown, then the result follows; sum: both readings
-// have travelled to the summary, and after a beat the HVPG fades in.)
-const T = { travel0: 300, travel1: 4300, zoom: 4300, free: 5100, inflate: 8200, wedge: 8900, settle: 10700, callout: 12400, result: 14600, sum: 15350, back: 20100, end: 20900 };
 // A thrombosed hepatic vein (Budd–Chiari): the tip reaches the ostium, probes it a few times, then the
 // procedure is aborted and the catheter withdrawn. No reading, so HVPG stays unmeasured.
 const TB = { probe0: 4600, probe1: 8200, abort: 8200, back: 9600, end: 13000 };
@@ -38,18 +36,7 @@ const STEPS = [
 const C = Object.defineProperties({}, Object.fromEntries(Object.entries({ bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
   free: '--mon-free', wedge: '--mon-wedge', ok: '--mon-ok', caution: '--mon-caution', danger: '--mon-alarm' }).map(([k, n]) => [k, { get: () => cssVar(n) }])));
 const sevOf = (v) => (v >= 10 ? 'danger' : v >= 5 ? 'caution' : 'ok');
-const sevWord = (v) => (v >= 10 ? 'Clinically significant portal hypertension (CSPH)' : v >= 5 ? 'Subclinical' : 'Normal');
-const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-const k01 = (t, a, b) => clamp((t - a) / (b - a), 0, 1);
-
-/** The catheter pressure at time tt: the free level with small cardiac and breathing waves, then an exponential climb
- *  to the wedged level once the balloon is up, the waves damped by the still column. */
-function pAt(tt, v) {
-  const wave = Math.sin(tt / 850 * 2 * Math.PI) * 0.55 + Math.sin(tt / 850 * 4 * Math.PI + 1) * 0.25 + Math.sin(tt / 3600 * 2 * Math.PI) * 0.45;
-  if (tt < T.inflate) return v.fhvp + wave;
-  const k = 1 - Math.exp(-(tt - T.inflate) / 650);
-  return v.fhvp + (v.whvp - v.fhvp) * k + wave * (0.15 + 0.85 * Math.exp(-(tt - T.inflate) / 500));
-}
+const sevWord = (v) => (v >= 10 ? 'Clinically significant portal hypertension (CSPH)' : v >= 5 ? 'Mild portal hypertension' : 'Normal');
 
 export function createHvpgProcedure() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'HVPG measurement: catheter pressure tracing' });
@@ -82,7 +69,6 @@ export function createHvpgProcedure() {
 
   function start() {
     if (t0 != null && t < tEnd()) return;
-    if (store.get().blind) { toast('Answer the question first.'); return; }
     const st = store.get();
     if (st.lobule) store.set({ lobule: false });
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
@@ -100,7 +86,6 @@ export function createHvpgProcedure() {
       figure();
       paintSide(); draw();
       if (t < tEnd()) raf = nextFrame(step);
-      // A lesson waits for the whole procedure (the catheter back out) before it moves on.
       else { raf = 0; stageRef?.setCatheter(null); logAction('hvpg', blocked ? 'aborted' : 'measured'); }
     };
     step();
@@ -124,10 +109,11 @@ export function createHvpgProcedure() {
     if (cam === 'route' && want === 'route') sg.cathFollow?.();
     const v = values(), ph = phase(), pulse = 0.5 + 0.5 * Math.sin(t / 170);
     const labels = [];
-    if (ph === 'free') labels.push({ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(pAt(t, v), 1), unit: 'mmHg', cls: 'free' });
+    // (A reading is the mean, as a monitor's number is: the trace wavers with the breath and the beat, the number holds.)
+    if (ph === 'free') labels.push({ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(v.fhvp, 1), unit: 'mmHg', cls: 'free' });
     if (ph === 'wedge') {
       labels.push({ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(v.fhvp, 1), unit: 'mmHg', cls: 'free' });
-      if (t >= T.callout) labels.push({ key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(pAt(t, v), 1), unit: 'mmHg', cls: 'wedge' });
+      if (t >= T.callout) labels.push({ key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(v.whvp, 1), unit: 'mmHg', cls: 'wedge' });
     }
     // Both readings stay; a bracket joins them and gives the difference.
     if (ph === 'result' && t < T.back) {
@@ -137,7 +123,7 @@ export function createHvpgProcedure() {
     }
     sg.setCatheter({
       u: ease(k01(t, T.travel0, T.travel1)),
-      balloon: ease(k01(t, T.inflate, T.wedge)) * (1 - k01(t, T.back, T.back + 500)),
+      balloon: balloonAt(t) * (1 - k01(t, T.back, T.back + 500)),
       column: ease(k01(t, T.settle, T.settle + 1400)) * (1 - k01(t, T.back, T.back + 500)),
       columnColor: pressureColor(v.whvp),
       ring: ph === 'free' ? C.free : ph === 'wedge' && t > T.wedge ? C.wedge : null, pulse, clock: t,
@@ -163,14 +149,22 @@ export function createHvpgProcedure() {
   }
 
   function paintSide() {
-    const ph = phase(), v = values(), st = store.get();
-    const shown = { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.callout), hvpg: ph === 'result' && (t0 == null || t >= T.sum) };
+    const ph = phase(), st = store.get();
+    // Before any measurement, with the readouts on show (Settings, or measured once for this patient), the three read live,
+    // the free and wedged pressures as the bar reads them and the HVPG as their difference, so the row and the bar agree (sweep
+    // batch 03, shots 05 and 30: dashes here beside HVPG 0.9 on the bar).
+    const open = ph === 'idle' && !!st.frame?.metrics && !hiddenNow(st)?.has('trueHVPG');
+    let v = values();
+    if (open) { const f1 = Math.round(shownOr('fhvp', v.fhvp) * 10) / 10, w1 = Math.round(shownOr('whvp', v.whvp) * 10) / 10; v = { fhvp: f1, whvp: w1, hvpg: Math.round((w1 - f1) * 10) / 10 }; }
+    const shown = open ? { fhvp: true, whvp: true, hvpg: true }
+      : { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.callout), hvpg: ph === 'result' && (t0 == null || t >= T.sum) };
     for (const k of ['fhvp', 'whvp', 'hvpg']) {
       const txt = shown[k] ? fmt(v[k], 1) : '—';
       if (vals[k].textContent !== txt) {
         vals[k].textContent = txt;
-        // The difference arrives after the two readings have settled: it fades and rises in, never pops.
-        if (k === 'hvpg' && shown.hvpg) { vals.hvpg.classList.remove('in'); void vals.hvpg.offsetWidth; vals.hvpg.classList.add('in'); }
+        // The difference arrives after the two readings have settled: it fades and rises in, never pops. (Not a live reading:
+        // restarted with every new tenth, its fade held it blank on Mac, iPad and sideways, sweep 2 review item 5.)
+        if (k === 'hvpg' && shown.hvpg && !open) { vals.hvpg.classList.remove('in'); void vals.hvpg.offsetWidth; vals.hvpg.classList.add('in'); }
       }
     }
     // This runs on every model frame: write only what changed. Rewriting the button's label each frame
@@ -179,7 +173,7 @@ export function createHvpgProcedure() {
     if (vals.hvpg.dataset.sev !== sev) vals.hvpg.dataset.sev = sev;
     const cur = ph === 'abort' ? 1 : STEPS.findIndex((s) => s[0] === ph);
     stepEls.forEach((li, i) => { const v2 = ph === 'idle' ? '' : ph === 'abort' ? (i === 0 ? 'done' : '') : i < cur || ph === 'result' ? 'done' : i === cur ? 'now' : ''; if (li.dataset.state !== v2) li.dataset.state = v2; });
-    const cap = ph === 'idle' ? 'A balloon catheter through the right internal jugular vein reads two pressures in the right hepatic vein: free, then wedged. Watch it on the anatomy.'
+    const cap = ph === 'idle' ? 'A balloon catheter via the right internal jugular vein reads the free, then the wedged, hepatic vein pressure.'
       : ph === 'abort' ? `${ABORT_MSG}. The hepatic vein is thrombosed (Budd–Chiari), so the catheter cannot enter it and no free or wedged pressure can be read. HVPG is not measurable.`
       : blocked && t >= TB.probe0 ? 'The tip is at the hepatic vein ostium, but the vein is thrombosed: it will not advance.'
       : ph === 'result' ? `${sevWord(v.hvpg)}. ${STEPS[3][2]}` : STEPS[cur][2];
@@ -220,31 +214,49 @@ const ORDER = ['free', 'wedge', 'result'];
 export function createHvpgMonitor() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Catheter pressure tracing, as on the monitor in the procedure room' });
   const el = h('div', { class: 'pz-mon' }, h('div', { class: 'chart-box hvpg-box' }, cv));
-  let mode = null, t = 0, t1 = 0, last = 0, raf = 0, fp = null;
+  let mode = null, t = 0, t1 = 0, last = 0, raf = 0, fp = null, bal = 0;
   // The slide's own readings (the catheter's callouts and the tiles show the same), else the live model's.
   const live = () => { const m = fp || store.get().frame?.metrics; return { fhvp: m?.fhvp ?? 0, whvp: m?.whvp ?? 0, hvpg: m?.hvpg ?? 0 }; };
   const phase = () => (t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
   const draw = () => drawTrace(cv, { ph: phase(), t, v: live(), blocked: false, running: true });
+  // The balloon is the clock for the pressure's rise: the trace climbs exactly as far as the balloon is filled, so it
+  // waits at the free level until the balloon starts to fill, holds its plateau once it is up, and comes back down
+  // with it. Past the wedge (balloon up) the trace runs on its own clock again.
+  const rising = () => mode !== 'free' && bal < 1 && t <= T.wedge;   // the balloon is still setting the trace
+  const falling = () => mode === 'free' && bal > 0;                  // back from a wedge slide: held, then down with the balloon
   function step(now) {
-    t = Math.min(t1, t + (now - last)); last = now;
+    const dt = now - last; last = now;
+    if (falling()) { if (bal < 1) t = Math.min(t, timeOfBalloon(bal)); }
+    else if (mode === 'free' && t >= T.inflate) t = SPAN.free[0];   // the balloon is down: the free trace sweeps in afresh
+    else if (rising()) t = bal > 0 ? timeOfBalloon(bal) : Math.min(t + dt, T.inflate);
+    else t = Math.min(t1, t + dt);
     draw();
-    raf = t < t1 && el.isConnected ? nextFrame(step) : 0;
+    raf = el.isConnected && (t < t1 || falling() || rising()) ? nextFrame(step) : 0;
   }
-  function set(m, f = null) {
+  const go = () => { cancelFrame(raf); raf = nextFrame((now) => { last = now; step(now); }); };
+  function set(m, f = null, b = bal) {
     const span = SPAN[m];
-    fp = f;
+    fp = f; bal = b;
     if (!span || (m === mode && (raf || t >= t1))) { if (!raf) draw(); return; }
     const fwd = mode && ORDER.indexOf(m) > ORDER.indexOf(mode);
-    if (!(fwd && t >= SPAN[mode][0] && t <= span[0])) t = span[0];
+    // (A free slide reached with the balloon still up keeps the trace as it is until the balloon is down.)
+    if (!(m === 'free' && bal > 0) && !(fwd && t >= SPAN[mode][0] && t <= span[0])) t = span[0];
+    // Already wedged (back from the result slide): the pressure is on its plateau, nothing climbs again.
+    if (m !== 'free' && bal >= 1) t = Math.max(t, T.wedge);
     mode = m; t1 = span[1];
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) t = t1;
-    cancelFrame(raf);
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches && !falling()) t = t1;
     // (Once the card is laid out: the canvas sizes itself to it.)
-    nextFrame((now) => { last = now; step(now); });
+    go();
+  }
+  /** The catheter's balloon (0..1), every frame: the one value the pressure follows. */
+  function balloon(b) {
+    if (b === bal) return;
+    bal = b;
+    if (mode && !raf && el.isConnected) go();
   }
   // (A new size redraws it; the animation loop paints while it runs.)
   new ResizeObserver(() => { if (!raf && mode) draw(); }).observe(cv);
-  return { el, set };
+  return { el, set, balloon };
 }
 
 // ── The tracing: the monitor in the IR suite, dark in both themes ──
@@ -257,37 +269,54 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
   const x = 14, y = 10, W = w - 28, H = hh - 18;
   const narrow = W < 300;
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-  ctx.fillStyle = C.text; ctx.font = FONT(600, 10);
-  ctx.fillText(narrow ? 'CATHETER TIP · mmHg' : 'CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', x, y + 13);
-  const big = Math.round(clamp(Math.min(W * 0.1, H * 0.14), 22, 40));
+  // (Every word on the monitor at 12 px or more; the header takes the longest form that clears the big reading.)
+  const { big } = traceRoom(W, H);
+  ctx.font = FONT(700, big); const room = W - ctx.measureText('88.8').width - 12;
+  ctx.fillStyle = C.text; ctx.font = FONT(600, 12);
+  ctx.fillText(['CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', 'CATHETER TIP PRESSURE · mmHg', 'CATHETER TIP · mmHg'].find((s, i, a) => i === a.length - 1 || ctx.measureText(s).width <= room), x, y + 13);
   let label, num = '', col = C.text;
   if (ph === 'abort') {
     ctx.font = FONT(600, 12); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 32);
     ctx.textAlign = 'center'; ctx.font = FONT(600, 12); ctx.fillText(narrow ? 'Unable to cannulate hepatic vein' : 'Unable to cannulate hepatic vein: procedure aborted', w / 2, hh / 2 + 8);
-    ctx.fillStyle = C.text; ctx.font = FONT(500, 11); ctx.fillText('HVPG not measurable', w / 2, hh / 2 + 28);
+    ctx.fillStyle = C.text; ctx.font = FONT(500, 12); ctx.fillText('HVPG not measurable', w / 2, hh / 2 + 28);
     return;
   }
   if (ph === 'idle') label = 'Ready';
   else if (ph === 'enter') label = 'Catheter advancing';
-  else if (ph === 'free') { label = 'FHVP'; num = fmt(pAt(t, v), 1); col = C.free; }
-  else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; num = fmt(pAt(t, v), 1); col = C.wedge; }
+  // (The monitor's number is the mean, as the callout on the figure reads it; it follows the trace only while the balloon is still changing it.)
+  else if (ph === 'free') { label = 'FHVP'; num = fmt(v.fhvp, 1); col = C.free; }
+  else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; num = fmt(t < T.callout ? pAt(t, v) : v.whvp, 1); col = C.wedge; }
   else if (running && t < T.sum) { label = 'WHVP'; num = fmt(v.whvp, 1); col = C.wedge; }
   else { label = 'HVPG'; num = fmt(v.hvpg, 1); col = C[sevOf(v.hvpg)]; }
   ctx.font = FONT(600, 12); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);
   if (num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
-  const top = y + 30 + Math.max(big, 26) - 4, bot = y + H - 16, L = x + 22, R = x + W - (narrow ? 2 : 50);
-  if (bot - top < 40) return;
+  const { top, bot } = traceRoom(W, H, y), L = x + 22, R = x + W - (narrow ? 2 : 50);
+  if (bot - top < TRACE_MIN) {
+    // (Too short for the tracing, a phone held sideways: its note alone, in the longest form that fits, so the box is never
+    // blank under "Ready". Sweep batch 03, shot 03.)
+    if (ph !== 'idle' && ph !== 'enter') return;
+    ctx.font = FONT(500, 12);
+    const say = blocked && t >= TB.probe0 ? ['Probing the ostium: the vein will not take the catheter.', 'The vein will not take the catheter.']
+      : ph === 'idle' ? ['The tracing starts once the tip is in the hepatic vein.', 'Starts once the tip is in the hepatic vein.', 'Starts in the hepatic vein.'] : ['Waiting for the hepatic vein.'];
+    const ty = Math.min(hh - 12, Math.max(y + 54, (y + 40 + hh) / 2));
+    monitorNote(ctx, say.find((q, i) => i === say.length - 1 || ctx.measureText(q).width <= W - 16), x + 8, x + W - 8, ty - 4);
+    return;
+  }
   const ymax = Math.max(15, Math.ceil((Math.max(v.whvp, v.fhvp) + 5) / 5) * 5);
   const Y = (p) => bot - (clamp(p, 0, ymax) / ymax) * (bot - top);
   const X = (tt) => L + k01(tt, T.free - 300, T.back) * (R - L);
-  ctx.lineWidth = 1; ctx.font = FONT(500, 9.5); ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 1; ctx.font = FONT(500, 12); ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   for (let p = 0; p <= ymax; p += 5) {
     ctx.strokeStyle = p ? C.grid : C.line; ctx.beginPath(); ctx.moveTo(L, Math.round(Y(p)) + 0.5); ctx.lineTo(R, Math.round(Y(p)) + 0.5); ctx.stroke();
     if (p % 10 === 0 || ymax <= 20) ctx.fillText(String(p), L - 5, Y(p));
   }
   if (ph === 'idle' || ph === 'enter') {
-    ctx.textAlign = 'center'; ctx.fillStyle = C.text; ctx.font = FONT(500, 11);
-    ctx.fillText(blocked && t >= TB.probe0 ? 'Probing the ostium: the vein will not take the catheter…' : ph === 'idle' ? 'The tracing starts once the tip is in the hepatic vein.' : 'Waiting for the hepatic vein…', (L + R) / 2, (top + bot) / 2);
+    // (Wrapped inside the grid, 8 px clear of the axis numbers and the monitor's right edge, on a solid patch of the monitor
+    // so no gridline runs through it: at 320 px it ran past the edge over "20" and "10", on a Mac and an iPad the 15 line
+    // struck through it, sweep 2 review items 14 and 15.)
+    ctx.font = FONT(500, 12);
+    monitorNote(ctx, blocked && t >= TB.probe0 ? 'Probing the ostium: the vein will not take the catheter.' : ph === 'idle' ? 'The tracing starts once the tip is in the hepatic vein.' : 'Waiting for the hepatic vein.',
+      L + 8, Math.min(R, x + W) - 8, (top + bot) / 2);
     return;
   }
   // The trace, swept up to now: blue while free, orchid once the balloon is up.
@@ -301,30 +330,58 @@ function drawTrace(cv, { ph, t, v, blocked, running }) {
   seg(T.free - 300, T.inflate, C.free);
   seg(T.inflate, T.back, C.wedge);
   if (t < T.back) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tNow), Y(pAt(tNow, v)), 2.6, 0, Math.PI * 2); ctx.fill(); }
-  const level = (p, colr, txt) => {
+  // (Each level's name and number at the right, centred on its line; the two pairs kept 28 px apart so they never touch.)
+  const both = ph === 'result', sep = both ? Math.max(0, 28 - (Y(v.fhvp) - Y(v.whvp))) / 2 : 0;
+  const yf = Math.min(Y(v.fhvp) + sep, hh - 12), yw = Math.min(Y(v.whvp) - sep, yf - 28);   // (the lower pair kept off the monitor's foot)
+  const level = (p, colr, txt, ly) => {
     ctx.save(); ctx.strokeStyle = colr; ctx.globalAlpha = 0.75; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(L, Y(p)); ctx.lineTo(R, Y(p)); ctx.stroke(); ctx.restore();
-    if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, 10); ctx.textAlign = 'left'; ctx.fillText(txt, R + 6, Y(p) - 6); ctx.font = FONT(700, 11); ctx.fillText(fmt(p, 1), R + 6, Y(p) + 7); }
+    if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, 12); ctx.textAlign = 'left'; ctx.fillText(txt, R + 6, ly - 7); ctx.font = FONT(700, 12); ctx.fillText(fmt(p, 1), R + 6, ly + 7); }
   };
-  if (t >= T.inflate) level(v.fhvp, C.free, 'FHVP');
+  if (t >= T.inflate) level(v.fhvp, C.free, 'FHVP', yf);
   if (ph === 'result') {
-    level(v.whvp, C.wedge, 'WHVP');
+    level(v.whvp, C.wedge, 'WHVP', yw);
     const a = ease(k01(t, T.sum - 400, T.sum + 200)), xa = L + (R - L) * 0.9, y1 = Y(v.fhvp), y2 = Y(v.fhvp + (v.whvp - v.fhvp) * a), col2 = C[sevOf(v.hvpg)];
     ctx.strokeStyle = col2; ctx.fillStyle = col2; ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.moveTo(xa, y1); ctx.lineTo(xa, y2); ctx.stroke();
     if (Math.abs(y1 - y2) > 10) for (const [yy, d] of [[y1, 1], [y2, -1]]) { ctx.beginPath(); ctx.moveTo(xa, yy); ctx.lineTo(xa - 4, yy - 6 * d); ctx.lineTo(xa + 4, yy - 6 * d); ctx.closePath(); ctx.fill(); }
     if (a > 0.6) {
       ctx.save(); ctx.globalAlpha = ease(k01(t, T.sum, T.sum + 450));
-      const txt = `HVPG ${fmt(v.hvpg, 1)}`; ctx.font = FONT(700, 11.5);
+      const txt = `HVPG ${fmt(v.hvpg, 1)}`; ctx.font = FONT(700, 12);
       const tw = ctx.measureText(txt).width + 12, lx = xa - tw - 6, ly = (y1 + y2) / 2;
       ctx.fillStyle = C.bg; rrect(ctx, lx, ly - 9, tw, 18, 9); ctx.fill(); ctx.strokeStyle = col2; ctx.lineWidth = 1; ctx.stroke();
       ctx.fillStyle = col2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx + 6, ly + 0.5);
       ctx.restore();
     }
   }
-  ctx.fillStyle = C.text; ctx.font = FONT(500, 9); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  ctx.fillText('balloon up', X(T.inflate), bot + 13);
+  ctx.fillStyle = C.text; ctx.font = FONT(500, 12); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('balloon up', X(T.inflate), bot + 15);
   ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(X(T.inflate), bot); ctx.lineTo(X(T.inflate), bot + 4); ctx.stroke();
+}
+
+/** A note on the monitor, centred between x0 and x1 about cy, wrapped at word breaks to that width (the current font, 16 px
+ *  lines), on a patch of the monitor's own background 8 px wider and 4 px taller than the words each side. Returns its box. */
+export function monitorNote(ctx, text, x0, x1, cy) {
+  const pad = 8, padY = 4, lh = 16, maxW = Math.max(40, x1 - x0 - 2 * pad);
+  const lines = wrapWords(text, maxW, (q) => ctx.measureText(q).width);
+  const tw = Math.min(maxW, Math.max(...lines.map((q) => ctx.measureText(q).width)));
+  const bw = tw + 2 * pad, bh = lines.length * lh + 2 * padY, bx = (x0 + x1) / 2 - bw / 2, by = cy - bh / 2;
+  ctx.fillStyle = C.bg; ctx.fillRect(bx, by, bw, bh);
+  ctx.fillStyle = C.text; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  lines.forEach((q, i) => ctx.fillText(q, (x0 + x1) / 2, by + padY + lh * (i + 0.5)));
+  ctx.textBaseline = 'alphabetic';
+  return { x: bx, y: by, w: bw, h: bh, lines };
+}
+/** Words into lines no wider than maxW (measure: a line's width); a single word longer than that keeps a line to itself. */
+export function wrapWords(text, maxW, measure) {
+  const out = [];
+  let cur = '';
+  for (const word of String(text).split(/\s+/).filter(Boolean)) {
+    const next = cur ? cur + ' ' + word : word;
+    if (cur && measure(next) > maxW) { out.push(cur); cur = word; } else cur = next;
+  }
+  if (cur) out.push(cur);
+  return out;
 }
 
 function rrect(ctx, x, y, w, h2, r) {

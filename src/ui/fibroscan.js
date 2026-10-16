@@ -4,11 +4,12 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=b1761ad19c';
-import { FONT } from './charts.js?v=e073763634';
-import { simTime, isPaused, fibroReading } from './clock.js?v=af42a9670d';
-import { store } from './store.js?v=7fb7280c05';
-import { frameFor } from './frame.js?v=0db47e99bf';
+import { h, fitCanvas, clamp, cssAlpha } from './util.js?v=0140acc352';
+import { FONT } from './charts.js?v=7e8a65ec45';
+import { simTime, isPaused, fibroReading } from './clock.js?v=520596240b';
+import { store } from './store.js?v=31ee79b6ab';
+import { elastogramGL } from './fibroscan-gl.js?v=c1e9f0f60b';
+import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
@@ -17,7 +18,7 @@ let theme = null, themeAt = 0;
 function colors(now) {
   if (!theme || now - themeAt > 1000) {
     const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
-    theme = { panel: g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan') };
+    theme = { panel: g('--inst-panel') || g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan') };
     themeAt = now;
   }
   return theme;
@@ -31,13 +32,13 @@ export const shearSpeed = (kpa) => Math.sqrt((kpa * 1000) / 3000);
 function noiseField(w, hh, cell, seed) {
   const r = rnd(seed), gw = Math.ceil(w / cell), gh = Math.ceil(hh / cell); // periodic: any coordinate wraps seamlessly
   const g = Array.from({ length: gw * gh }, r);
-  return (x, y) => {
+  return Object.assign((x, y) => {
     const fx = x / cell, fy = y / cell, fix = Math.floor(fx), fiy = Math.floor(fy);
     const tx = fx - fix, ty = fy - fiy, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
     const ix = ((fix % gw) + gw) % gw, iy = ((fiy % gh) + gh) % gh, jx = (ix + 1) % gw, jy = (iy + 1) % gh;
     const a = g[iy * gw + ix], b = g[iy * gw + jx], c = g[jy * gw + ix], d = g[jy * gw + jx];
     return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
-  };
+  }, { grid: g, gw, gh, cell });   // (the grid itself, for the GPU's copy of this field: fibroscan-gl.js)
 }
 
 const NB = 104; // the noise fields are laid out on this grid; the map is sampled at any resolution from it
@@ -79,6 +80,18 @@ function drawElastogram(ctx2, img, N, c, t) {
   ctx2.putImageData(img, 0, 0);
 }
 
+/** For the checks: the map drawn on the CPU and on the GPU for the same moment, as RGBA pixel arrays (the GPU's null without WebGL2). */
+export function elastogramPair(N, c, t) {
+  const cv = Object.assign(document.createElement('canvas'), { width: N, height: N }), x = cv.getContext('2d', { willReadFrequently: true });
+  const img = x.createImageData(N, N);
+  drawElastogram(x, img, N, c, t);
+  const cpu = x.getImageData(0, 0, N, N).data;
+  const g = elastogramGL(fields(), NB, WAVE_T0, N, c, t);
+  if (!g) return { cpu, gpu: null };
+  x.clearRect(0, 0, N, N); x.drawImage(g, 0, 0, N, N, 0, 0, N, N);
+  return { cpu, gpu: x.getImageData(0, 0, N, N).data };
+}
+
 function rrect(ctx, x, y, w, h2, r) {
   ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h2, r); ctx.arcTo(x + w, y + h2, x, y + h2, r);
   ctx.arcTo(x, y + h2, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
@@ -90,74 +103,103 @@ export function createFibroScan() {
   const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
   const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
   const off = document.createElement('canvas'), octx = off.getContext('2d');
-  let N = 0, img = null, cap = 300, ema = 0;
+  let N = 0, img = null;
+  const cap = 300;
   let model = 10, running = false, shown = null, last = 0;
+  const sized = { w: 0, h: 0, cap: 11 };
 
   function paint(now) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 80 || hh < 80) return;
     const st = simTime(now), t = REDUCED ? 3 : st, dt = clamp(st - last, 0, 0.2); last = st;
-    // The measured value drifts gently around the model's median; the readout follows it smoothly.
+    // The wave front drifts gently around the model's median; the readout is the median itself (eased when it changes),
+    // so it reads the same number as the slide's tile and words.
     const kNow = model * (1 + 0.05 * Math.sin(t * 0.8) + 0.03 * Math.sin(t * 1.9 + 1));
-    shown = shown === null ? kNow : shown + (kNow - shown) * (1 - Math.exp(-dt * 2.5));
+    shown = shown === null || Math.abs(model - shown) < 0.05 ? model : shown + (model - shown) * (1 - Math.exp(-dt * 2.5));
     const c = shearSpeed(kNow);
     const th = colors(now);
+    const reading = shown.toFixed(1); if (cv.dataset.reading !== reading) cv.dataset.reading = reading;
+    fibroReading.txt = reading; fibroReading.cv = cv; fibroReading.show?.(reading);
     ctx.clearRect(0, 0, w, hh);
-    rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.fillStyle = th.panel; ctx.fill(); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
-    // A short, wide panel (a phone's presenter card) puts the reading beside the map rather than over it.
-    const pad = 14, narrow = w < 380, side = hh < 200 && w > hh * 2.2;
-    // Readout
-    ctx.textAlign = 'left'; ctx.fillStyle = th.tick; ctx.font = FONT(600, 10);
-    ctx.fillText('LIVER STIFFNESS · MEDIAN', pad, 24);
-    const big = Math.round(side ? clamp(hh * 0.24, 26, 40) : clamp(Math.min(w * 0.13, hh * 0.13), 30, 52));
-    ctx.fillStyle = th.orange; ctx.font = FONT(600, big);
-    const txt = shown.toFixed(1); if (cv.dataset.reading !== txt) cv.dataset.reading = txt;
-    fibroReading.txt = txt; fibroReading.cv = cv; fibroReading.show?.(txt); ctx.fillText(txt, pad, 28 + big);
-    const tw = ctx.measureText(txt).width;
-    ctx.fillStyle = th.tick; ctx.font = FONT(500, 14); ctx.fillText('kPa', pad + tw + 6, 28 + big);
-    // Live badge and caption
-    ctx.textAlign = 'right'; ctx.font = FONT(600, 10); ctx.fillStyle = th.tick;
-    ctx.fillText(narrow ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model', w - pad, 24);
-    const pulse = 0.55 + 0.45 * Math.sin(t * 3), lw = ctx.measureText(narrow ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model').width;
-    ctx.fillStyle = cssAlpha('--fibroscan-live', pulse); ctx.beginPath(); ctx.arc(w - pad - lw - 9, 21, 3, 0, 7); ctx.fill();
-    // Map
-    const top = side ? 44 : 56 + big, bot = hh - (side ? 22 : 36), ph = bot - top, ax = side ? pad + Math.max(tw + 34, 96) + 22 : pad + 22, ex = ax + 6, ew = w - pad - ex; // bottom room keeps the tick row inside the canvas on a phone
+    // The map is the whole instrument: it fills the canvas, the depth labels inside its left edge, the time labels inside its bottom
+    // edge and the reading inside its top right corner (the clearest part: the wave front starts at the top left).
+    // A short, wide panel (a phone's presenter card on its side) differs only in its smaller words.
+    const side = !cv.closest('.pz-tool') && hh < 200 && w > hh * 2.2;
+    // The panel's words are the size of the card's small words (the canvas's own font size, which a slide sets to the tiles'
+    // small size), so the labels never look tiny beside the card: one size for the axes and the units.
+    if (w !== sized.w || hh !== sized.h) { sized.w = w; sized.h = hh; const fs = parseFloat(getComputedStyle(cv).fontSize) || 11; sized.cap = clamp(fs * (w / (cv.offsetWidth || w)), 10, 20); }
+    const CAP = side ? 10 : sized.cap, m = Math.round(CAP * 0.7);
+    const ex = 0, top = 0, ew = w, ph = hh, bot = hh;
     if (ph < 50 || ew < 60) return;
-    // Sample the map at about half the screen pixels (smooth, never blocky); drop the cap if frames run long.
-    const want = clamp(Math.round(Math.max(ew, ph) * (w / cv.clientWidth || 1) * 0.75), 140, cap);
+    // Sample the map at about half the screen pixels (smooth, never blocky), always (it never shrinks itself when frames
+    // run long). (Battery saver: a third of them.)
+    const lo = saver();
+    const want = clamp(Math.round(Math.max(ew, ph) * (w / cv.clientWidth || 1) * (lo ? 0.5 : 0.75)), lo ? 100 : 140, lo ? Math.min(cap, 200) : cap);
     if (want !== N) { N = want; off.width = off.height = N; img = octx.createImageData(N, N); }
-    const t0p = performance.now();
-    drawElastogram(octx, img, N, c, t);
-    ctx.save(); rrect(ctx, ex, top, ew, ph, 8); ctx.clip();
-    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(off, 0, 0, N, N, ex, top, ew, ph);
-    ema = ema * 0.9 + (performance.now() - t0p) * 0.1; if (ema > 14 && cap > 130) { cap -= 20; ema = 0; }
+    // The map: on the GPU (the same formula and noise, a fraction of a millisecond), else pixel by pixel here.
+    const mapCv = elastogramGL(fields(), NB, WAVE_T0, N, c, t) || (drawElastogram(octx, img, N, c, t), off);
+    ctx.save(); rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.clip();
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(mapCv, 0, 0, N, N, ex, top, ew, ph);
     ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
     for (const d of [35, 75]) { const y = top + ((d - 30) / 60) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
     ctx.setLineDash([]);
     const x0 = ex + (WAVE_T0 / 80) * ew, x1 = x0 + clamp((40 / c) / 80, 0, 1) * ew;
     ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + (5 / 60) * ph); ctx.lineTo(x1, top + (45 / 60) * ph); ctx.stroke();
     ctx.restore();
-    rrect(ctx, ex, top, ew, ph, 8); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
-    // Axes
-    ctx.fillStyle = th.tick; ctx.font = FONT(500, 10); 
-    ctx.textAlign = 'right';
-    for (let d = 30; d <= 90; d += 20) { const y = top + ((d - 30) / 60) * ph; ctx.fillText(String(d), ax, Math.min(y + 3, bot)); }
-    ctx.textAlign = 'center';
-    for (let m = 0; m <= 80; m += 20) ctx.fillText(String(m), ex + (m / 80) * ew, bot + 16);
-    // Units share the tick row: mm beside the depth labels, ms beside the time labels, so nothing needs extra height.
-    ctx.textAlign = 'left'; ctx.fillText('mm', ax - 22, top - 6); ctx.fillText('ms', ax - 22, bot + 16);
+    rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
+    // Axes: the units ride on one tick each ("60 mm", "0 ms"), so they need no room of their own.
+    const TK = side ? 10 : CAP;
+    ctx.fillStyle = th.tick; ctx.font = FONT(500, TK);
+    // Depth labels sit inside the map's left edge in white with a dark halo, so they read on any colour of the elastogram. They stand at
+    // 40, 60 and 80 mm (a sixth, a half and five sixths of the way down): even gaps, clear of the corners and of the time row.
+    ctx.textAlign = 'left'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, TK * 0.32); ctx.strokeStyle = cssAlpha('--black', 0.7);
+    for (let d = 40; d <= 80; d += 20) {
+      const y = top + ((d - 30) / 60) * ph, txt = d === 60 ? '60 mm' : String(d), by = y + TK * 0.35;
+      ctx.fillStyle = cssAlpha('--white', 0.96); ctx.strokeText(txt, ex + m, by); ctx.fillText(txt, ex + m, by);
+    }
+    // Time labels sit inside the map's bottom edge the same way, 0 to 80 ms with the unit on the first: their centres are spread evenly
+    // between the two end labels (which cannot sit on the edges), so the gaps between the numbers are equal.
+    // (A narrow box names every other tick, 0, 40 and 80 ms: "60" ran into "80".)
+    const tw = (t) => ctx.measureText(t).width, tstep = tw('0 ms') / 2 + tw('80') / 2 + tw('60') + 3 * 8 > ew - 2 * m ? 40 : 20;
+    const tks = []; for (let tm = 0; tm <= 80; tm += tstep) tks.push(tm);
+    const c0 = ex + m + tw('0 ms') / 2, c1 = ex + ew - m - tw('80') / 2, by = bot - TK * 0.45;
+    ctx.textAlign = 'center'; ctx.fillStyle = cssAlpha('--white', 0.96);
+    tks.forEach((tm, i) => { const txt = tm === 0 ? '0 ms' : String(tm), bx = c0 + i * (c1 - c0) / (tks.length - 1); ctx.strokeText(txt, bx, by); ctx.fillText(txt, bx, by); });
+    // The reading, inside the top right corner in the same white with a dark halo: the number big (about four times the label size, within the map's room), "kPa" small
+    // beside it. Right aligned, so "kPa" never moves while the number eases.
+    // (It stays in the top right and keeps clear of the "40" depth label: where the two would meet (a box about 900 px wide),
+    // the number steps smaller until a gap is left. Judged at the widest reading, "88.8", so its size never changes as the number eases.)
+    const ly = top + ph / 6 + TK * 0.35, lr = ex + m + tw('40') + CAP, lt = ly - TK * 0.8;   // (the "40" label's baseline, right edge plus a gap, and top)
+    ctx.font = FONT(500, Math.round(CAP * 1.4));
+    const uw = ctx.measureText('kPa').width;
+    let big = Math.round(Math.max(24, Math.min(CAP * 4, 72, ph * 0.3, ew * 0.28))), RM, RY;   // (RM: the reading's own margin from the map's top and right edges)
+    for (;;) {
+      RM = Math.max(m * 2, Math.round(big * 0.4)); RY = RM + Math.round(big * 0.74);
+      ctx.font = FONT(600, big);
+      const left = ex + ew - RM - uw - 5 - ctx.measureText('88.8').width - big * 0.08, below = RY + big * 0.08 < lt;   // (with the halo's half width)
+      if (below || left >= lr || big <= 14) break;
+      big -= 2;
+    }
+    ctx.textAlign = 'right'; ctx.lineWidth = Math.max(3, big * 0.16);
+    ctx.font = FONT(500, Math.round(CAP * 1.4)); const ux = ex + ew - RM;
+    ctx.strokeText('kPa', ux, RY); ctx.fillText('kPa', ux, RY);
+    ctx.font = FONT(600, big); ctx.strokeText(reading, ux - uw - 5, RY); ctx.fillText(reading, ux - uw - 5, RY);
   }
   // Runs only while the pane is on screen; update() restarts it when the tab is shown again.
+  // While it plays the map is drawn on every frame the screen offers (15 a second in Battery saver), like the lobule's flow.
+  let lastPaint = -1e9;
   function loop(now) {
     if (!cv.isConnected || cv.offsetParent === null || document.hidden) { running = false; return; }
-    paint(now);
-    if (REDUCED || isPaused()) { running = false; return; }   // paused: hold this frame; resume restarts the loop
+    const hold = REDUCED || isPaused();
+    if (hold || now - lastPaint >= paceMs()) { paint(now); lastPaint = now; noteDraw('fibroscan'); }   // (paused: always drawn, so a change shows)
+    if (hold) { running = false; return; }   // paused: hold this frame; resume restarts the loop
     nextFrame(loop);
   }
+  let pinned = null;   // (the slide's settled stiffness, the tiles' and words' number; the live value swings with each beat)
   function update(f) {
-    model = f.metrics.lsm;
+    model = pinned ?? f.metrics.lsm;
     if (!running && cv.offsetParent !== null) { running = true; nextFrame(loop); }
   }
   const offRun = store.on('running', (on) => { if (on && !running && cv.offsetParent !== null) { running = true; nextFrame(loop); } });
-  return { id: 'fibroscan', label: 'FibroScan', el, update, dispose: offRun };
+  return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose: offRun };
 }

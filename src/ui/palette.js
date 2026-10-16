@@ -2,11 +2,11 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=7fb7280c05';
-import { h, svgIcon, toast } from './util.js?v=b1761ad19c';
-import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
-import { HIDDEN_EDGES } from './anatomy.js?v=6e4d654280';
+import { store, updateParams } from './store.js?v=31ee79b6ab';
+import { h, svgIcon, toast } from './util.js?v=0140acc352';
+import { EDGES } from '../engine/topology.js?v=4044766e96';
+import { DRUGS } from '../engine/scenario.js?v=1ee7733788';
+import { HIDDEN_EDGES } from './anatomy.js?v=0b72305f30';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
@@ -32,6 +32,7 @@ export function createPalette({ ctx }) {
     add('Change', 'Serum albumin', (n) => updateParams({ albumin: Math.min(5, Math.max(1.5, n ?? 3)) }, { label: 'Serum albumin' }), { num: 'g/dL', kw: 'protein oncotic' });
     add('Change', 'Right-heart contractility', (n) => updateParams({ contractility: Math.min(1.6, Math.max(0.15, (n ?? 50) / 100)) }, { label: 'Contractility' }), { num: '%', kw: 'heart failure rv' });
     add('Change', 'Tricuspid regurgitation', (n) => updateParams({ tr: Math.min(1, Math.max(0, (n ?? 80) / 100)) }, { label: 'TR' }), { num: '%', kw: 'tr heart valve' });
+    add('Change', 'Pregnancy', (n) => updateParams({ gestation: Math.min(40, Math.max(0, Math.round(n ?? 24))) }, { label: 'Pregnancy' }), { num: 'weeks', kw: 'pregnant gestation trimester', hint: 'pregnancy 24 → 24 weeks' });
     add('Change', 'Splanchnic arteriolar tone', (n) => updateParams({ splanchnicTone: Math.min(2.5, Math.max(0.4, (n ?? 60) / 100)) }, { label: 'Splanchnic tone' }), { num: '%', kw: 'vasodilation inflow' });
     for (const [id, name] of [['PV_TRUNK', 'portal vein'], ['SV_CONF', 'splenic vein'], ['SMV_CONF', 'superior mesenteric vein'], ['RHV_IVC', 'right hepatic vein'], ['IVCS_RA', 'suprahepatic ivc']]) {
       add('Change', `Narrow the ${name}`, (n) => updateParams((p) => { const v = Math.min(0.95, Math.max(0, (n ?? 70) / 100)); if (v <= 0) delete p.stenosis[id]; else p.stenosis[id] = v; return p; }, { label: `${name} stenosis` }), { num: '%', kw: 'stenosis pinch' });
@@ -56,7 +57,7 @@ export function createPalette({ ctx }) {
     add('Time', 'Restart this patient', () => ctx.restart(), { kw: 'restart reset start over beginning' });
     add('Time', 'Compare from here', () => ctx.pin(), { kw: 'compare snapshot pin' });
     // View
-    for (const [id, [t, d]] of Object.entries(ctx.lenses)) add('View', `Lens: ${t}`, () => store.set({ colorMode: id }), { kw: `color ${d}` });
+    for (const [id, [t, d]] of Object.entries(ctx.lenses)) add('View', `Colored by ${t.toLowerCase()}`, () => store.set({ colorMode: id }), { kw: `color colour lens ${d}` });
     add('View', 'Anatomy view', () => store.set({ view: 'anatomic' }), { kw: 'anatomic' });
     add('View', 'Circuit view', () => store.set({ view: 'circuit' }), { kw: 'schematic map' });
     add('View', 'Lobule view', () => ctx.zoomLobule(), { kw: 'microcirculation sinusoid lobule zoom' });
@@ -66,6 +67,10 @@ export function createPalette({ ctx }) {
     for (const [id, t] of [['liver', 'Liver'], ['heart', 'Right heart'], ['varices', 'Esophageal varices'], ['gastric', 'Fundal varices'], ['spleen', 'Spleen'], ['abdomen', 'Ascites']]) add('Go to', t, () => ctx.select({ type: 'organ', id }), { kw: 'organ select' });
     // Sessions and scenarios
     for (const p of st.presetList || []) add('Patient', p.label, () => ctx.loadPreset(p.id), { kw: `scenario preset ${p.group}` });
+    // Presentations, by their short and full titles (the presenter loads on first use: until it has, the list fills in a moment later).
+    const lib = ctx.libraryNow?.();
+    for (const d of lib?.decks || []) add('Present', d.short || d.title, () => ctx.present(d.id), { kw: `${d.title} ${d.summary || ''} present presentation deck talk slides` });
+    for (const d of lib?.mine || []) add('Present', d.title, () => ctx.present(d.id), { kw: `${d.summary || ''} present presentation script slides mine` });
     add('App', 'Home', () => ctx.home(), { kw: 'start' });
     add('App', 'Reset everything', () => ctx.reset(), { kw: 'reset reload refresh clear start over' });
     add('App', 'Light / dark theme', () => ctx.theme(), { kw: 'appearance' });
@@ -114,8 +119,10 @@ export function createPalette({ ctx }) {
     try { it.c.run(it.num); } catch (e) { console.error(e); toast('That command did not run.', 'bad'); }
   }
   function open() {
-    ret = document.activeElement;
+    // (Ctrl K, or a click Safari does not focus: the Search button takes focus back, not the page.)
+    ret = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.getElementById('btnPalette');
     back.hidden = false; input.value = ''; sel = 0; renderList();
+    if (ctx.library && !ctx.libraryNow?.()) ctx.library().then(() => { if (!back.hidden) renderList(); }).catch(() => {});
     setTimeout(() => input.focus(), 0);
   }
   function close() { back.hidden = true; ret?.focus?.({ preventScroll: true }); }

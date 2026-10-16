@@ -1,0 +1,158 @@
+name: Checks (browser, visual, WebKit)
+
+# Every browser, visual and WebKit check on each push to main and the integration branch, beside
+# pages.yml (which only lints, unit-tests and deploys, so a preview never waits for these).
+# On the integration branch a run that has started always finishes, so a full result arrives about every
+# 35-40 minutes on a recent commit even while pushes land every few minutes. Only the waiting run is
+# replaced: a newer push takes the place of the one queued behind the running run (GitHub's concurrency
+# group keeps one running and one waiting, with no runner needed), so at most one run holds runners and
+# old checks never pile up in front of a deploy. (15 Oct: cancelling the running run on every push meant
+# no run ever finished, so nobody saw a failure.) On main every run goes to the end.
+
+on:
+  push:
+    branches: [main, claude/settings-topbar-icon-flvft1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # (main: a group of its own per run, so nothing on main is cancelled or dropped)
+  group: checks-${{ github.ref_name == 'main' && github.run_id || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # The browser checks run alongside the deploy (pages.yml), not before it: a failure marks this run red
+  # (so it is seen) but the preview is already published for testing on devices.
+  # Split over forty-two runners (desktop in twenty-eight shares, phone in fourteen), filled by each check's own time on a runner
+  # (tests/e2e/check-times.json), one check at a time per runner: a runner is too small to run several browsers at once.
+  browser-checks:
+    runs-on: ubuntu-24.04
+    # Covers the install (capped at 4 minutes below) plus the checks: about 24 minutes a share (below), so a slow runner still
+    # finishes. (The old 25-minute limit cut almost every share off mid-check and every run ended red without a result.)
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      # 14 shards + 2 visual + 1 WebKit = 17 of the account's ~20 runners, so pages.yml's lint and deploy always find one.
+      # (42 shards take three rounds at 14 at a time, about 75 minutes for a full run while failing checks still time out.)
+      max-parallel: 14
+      matrix:
+        # About 24 minutes a share by the measured times (SMOKE_PLAN=1 npm run smoke prints them), well inside the 40-minute limit.
+        # (15 Oct: twenty desktop shares planned from estimates ran 40+ minutes and nine hit the limit; the longest checks are now
+        # split by size or deck, so none holds a share alone for more than about 15 minutes.)
+        include:
+          - { device: desktop, shard: '1/28' }
+          - { device: desktop, shard: '2/28' }
+          - { device: desktop, shard: '3/28' }
+          - { device: desktop, shard: '4/28' }
+          - { device: desktop, shard: '5/28' }
+          - { device: desktop, shard: '6/28' }
+          - { device: desktop, shard: '7/28' }
+          - { device: desktop, shard: '8/28' }
+          - { device: desktop, shard: '9/28' }
+          - { device: desktop, shard: '10/28' }
+          - { device: desktop, shard: '11/28' }
+          - { device: desktop, shard: '12/28' }
+          - { device: desktop, shard: '13/28' }
+          - { device: desktop, shard: '14/28' }
+          - { device: desktop, shard: '15/28' }
+          - { device: desktop, shard: '16/28' }
+          - { device: desktop, shard: '17/28' }
+          - { device: desktop, shard: '18/28' }
+          - { device: desktop, shard: '19/28' }
+          - { device: desktop, shard: '20/28' }
+          - { device: desktop, shard: '21/28' }
+          - { device: desktop, shard: '22/28' }
+          - { device: desktop, shard: '23/28' }
+          - { device: desktop, shard: '24/28' }
+          - { device: desktop, shard: '25/28' }
+          - { device: desktop, shard: '26/28' }
+          - { device: desktop, shard: '27/28' }
+          - { device: desktop, shard: '28/28' }
+          - { device: phone, shard: '1/14' }
+          - { device: phone, shard: '2/14' }
+          - { device: phone, shard: '3/14' }
+          - { device: phone, shard: '4/14' }
+          - { device: phone, shard: '5/14' }
+          - { device: phone, shard: '6/14' }
+          - { device: phone, shard: '7/14' }
+          - { device: phone, shard: '8/14' }
+          - { device: phone, shard: '9/14' }
+          - { device: phone, shard: '10/14' }
+          - { device: phone, shard: '11/14' }
+          - { device: phone, shard: '12/14' }
+          - { device: phone, shard: '13/14' }
+          - { device: phone, shard: '14/14' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      # Pages serves the production build (pages.yml builds each copy), so the browser checks run against
+      # that build, as shipped. ci.yml checks the source site as well on pull requests and main.
+      - name: Production build
+        run: npm run build
+      - name: Browser checks
+        env:
+          SHOTS: workspace-shots
+          SMOKE_DEVICE: ${{ matrix.device }}
+          SMOKE_SHARD: ${{ matrix.shard }}
+          SMOKE_WORKERS: 1
+        run: npm run smoke:dist
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: workspace-browser-checks-${{ matrix.device }}-${{ strategy.job-index }}
+          path: workspace-shots/
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
+  webkit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: WebKit for Playwright
+        run: timeout 300 npx playwright install --with-deps webkit
+      - name: Presenter words keep one size (iPhone, WebKit)
+        run: npm run smoke:webkit
+
+  # The look against tests/visual on every preview push, so a drift shows up now, not at merge
+  # time. A drift is a warning here (the diffs are kept as an artifact) and blocks only in ci.yml.
+  # When the change to the look is intended, run the "Visual references" workflow on the branch,
+  # which redraws the drifted views on these same machines and commits them.
+  visual:
+    name: visual (${{ matrix.device }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [desktop, phone]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Visual regression
+        id: visual
+        continue-on-error: true
+        env:
+          VISUAL_DEVICE: ${{ matrix.device }}
+        shell: bash
+        run: npm run visual | tee visual.log
+      - name: Report drifted views
+        if: steps.visual.outcome == 'failure'
+        run: |
+          views=$(grep -o '^FAIL [^:]*' visual.log | cut -c6- | paste -sd' ' -)
+          echo "::warning title=Visual references drifted::$views. If intended, run the Visual references workflow on this branch; ci.yml blocks the merge until then."
+      - uses: actions/upload-artifact@v4
+        if: steps.visual.outcome == 'failure'
+        with:
+          name: visual-diff-${{ matrix.device }}
+          path: test-results/visual
+          if-no-files-found: ignore
+          retention-days: 1

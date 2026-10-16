@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=34e377149b';
+import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=4044766e96';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=b2eabea2e1';
-import { detectEvents } from './events.js?v=a6e16e86ec';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=1ee7733788';
+import { detectEvents } from './events.js?v=582dd803a9';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -22,12 +22,37 @@ const TIPS_R = { tract: 0.12, kin: 5.96 };   // PRU; kin: mmHg per (mL/s ÷ mm²
 const DIPS_R = { tract: 0.07, kin: 5.96 };   // the caudate tract is a few centimetres, shorter than a TIPS tract
 // A stent in series with a parenchymal tract (which does not widen with the stent, so large stents plateau),
 // plus an entrance/exit loss ∝ Q² (lagged one step). Flow then splits against the sinusoids by resistance.
-const stentConductance = (tract, d, q, visc) => {
-  const A = Math.PI * d * d / 4;
-  return 1 / ((tract + 0.04 * Math.pow(10 / d, 4)) * visc + TIPS_R.kin * Math.abs(q) / (A * A));
+// A narrowing s (of the diameter) is a short pinch, PINCH of the stent's length (about 1 cm of an 8 cm TIPS), not the
+// whole stent: that piece's own resistance rises by (1 − s)⁻⁴, and the jet leaving it loses its speed in the wider
+// stent beyond (Borda–Carnot, ½ρ(v_jet − v)², with ½ρ = kin / K). So a mild pinch costs little, and a tight one
+// throttles the stent while the jet through it runs fast, as on Doppler.
+const PINCH = 0.125;
+const stentConductance = (tract, d, q, visc, s = 0) => {
+  const A = Math.PI * d * d / 4, wall = 0.04 * Math.pow(10 / d, 4) * visc, kq = TIPS_R.kin * Math.abs(q) / (A * A);
+  return 1 / (tract * visc + wall + kq + pinchResistance(wall, kq, s));
+};
+// A stent drawn with the stent tool has no parenchymal tract or entrance loss of its own (only the pinch's jet).
+const customConductance = (d, q, visc, s = 0) => {
+  const A = Math.PI * d * d / 4, wall = 0.05 * Math.pow(10 / d, 4) * visc;
+  return 1 / (wall + pinchResistance(wall, TIPS_R.kin * Math.abs(q) / (A * A), s));
+};
+const pinchResistance = (wall, kq, s) => {
+  if (!(s > 0)) return 0;
+  const a = (1 - s) * (1 - s);
+  return wall * PINCH * (stenosisFactor(s) - 1) + (kq / 1.5) * (1 / a - 1) * (1 / a - 1);
 };
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
+// Compensation for blood loss, calibrated to the ATLS hemorrhage classes (ATLS 10th ed., 2018): under 15 % lost the
+// vital signs barely change, 15–30 % raises the heart rate with the pressure held, 30–40 % brings hypotension, and over
+// 40 % is severe shock. Two reflexes the arterial baroreflex alone misses:
+// - the venous reservoir: sympathetic venoconstriction (mostly splanchnic and skin veins) moves unstressed blood into
+//   the stressed volume, so most of a moderate loss is made up from it (Gelman 2008, Anesthesiology 108:735);
+//   k: share of the deficit refilled, max: reservoir limit (mL), tau: seconds; cirrhotic vasoplegia (vascular
+//   hyporeactivity to vasoconstrictors) blunts it by up to `cirr`;
+// - the volume afferent (cardiopulmonary receptors and the narrowing pulse pressure): drives the sympathetic tone
+//   per fraction of the patient's own volume lost, before the mean pressure falls.
+export const RESERVOIR = { k: 0.72, max: 1700, tau: 20, cirr: 0.5, afferent: 1.5, chrono: 0.4 };
 const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
 // Protein in lymph and ascites (Kedem–Katchalsky sieving per bed, then a peritoneal mass balance).
 // From the literature: the sinusoidal reflection coefficient for albumin, low in a fenestrated liver (lymph
@@ -43,6 +68,17 @@ const sieve = (sig, jv, ps) => (1 - sig) / (1 - sig * Math.exp(-Math.max(0, jv) 
 const SPLENIC_RX_R = [1, 2.5, 80];
 /** Systemic share of the chronic splanchnic vasodilation (fraction of the splanchnic tone drop). */
 const SYS_DILATION = 0.5;
+// Pregnancy (params.gestation, weeks; 0 = not pregnant, and then none of this applies). At its full extent, from about
+// 30 weeks: splanchnic and systemic arteriolar tone fall by a quarter and 30 %, the heart pumps 20 % harder and beats
+// 15 /min faster (the rate only, as the chronic drive in cirrhosis), and blood volume grows by about 1.8 L (30–50 % in
+// pregnancy): `stressed` mL raises venous filling, the rest (`plasma`) fills veins that widen to hold it, so the right
+// atrial pressure stays normal, and is mostly plasma (`rbc`: its red cell share), so the hemoglobin falls (the
+// physiological anemia). From 20 weeks the growing uterus raises intra-abdominal pressure, by `iap` mmHg at term.
+export const PREGNANCY = { spl: 0.25, sys: 0.3, contr: 0.2, hr: 15, stressed: 300, plasma: 1500, rbc: 0.2, iap: 4, tau: 5 };
+/** How far pregnancy has changed the circulation, 0..1: fast in the first trimester, complete by about 30 weeks. */
+export const pregnancyLevel = (weeks) => { const x = clamp((weeks || 0) / 30, 0, 1); return x * (2 - x); };
+/** The uterus's share of the late rise in intra-abdominal pressure, 0 until 20 weeks, 1 at 40. */
+const uterusLevel = (weeks) => Math.pow(clamp(((weeks || 0) - 20) / 20, 0, 1), 1.5);
 
 export class Engine {
   constructor({ params, seed } = {}) {
@@ -62,6 +98,8 @@ export class Engine {
     this.Cn = new Float64Array(this.N);
     this.wf = new Int8Array(this.E);     // waterfall flag: +1 f→t, −1 t→f
     this.wfx = new Float64Array(this.E); // waterfall external pressure
+    this.vx = new Float64Array(this.E);  // a vein's external pressure (set by computeG)
+    this.wfPrev = new Int8Array(this.E); // the waterfall state of the step before
 
     // Static node constants
     this.nodeC = NODES.map((n) => n.C);
@@ -82,6 +120,8 @@ export class Engine {
       if ((e.Q || e.R) && !(this.Rbase[k] > 0)) throw new Error(`Non-positive baseline resistance on ${e.id}`);
     });
     this.collaterals = EDGES.map((e, k) => (e.kind === 'collateral' ? k : -1)).filter((k) => k >= 0);
+    this.veins = EDGES.map((e, k) => (e.kind === 'vein' || e.kind === 'diode' ? k : -1)).filter((k) => k >= 0);
+    this.diodes = EDGES.map((e, k) => (e.kind === 'diode' ? k : -1)).filter((k) => k >= 0);
 
     this.params = params ? structuredClone(params) : defaultParams();
     this.reset(seed ?? this.params.seed);
@@ -94,7 +134,7 @@ export class Engine {
     this.rng = makeRng(seed);
     this.baro = 1; this.MAPf = 93; this.habr = 1;
     // Display filters start over from the new state (a non-finite run must not leak into the next patient).
-    this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined;
+    this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null;
     this.hr = HR_REST;
     this.slow = {
       d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, dMinOf(EDGES[k])])),
@@ -106,18 +146,22 @@ export class Engine {
       ascites: 0,
       ascAlb: null, ascGlob: null,   // ascitic albumin and globulin, g/dL (null: no fluid yet)
     };
-    this.blood = { rbc: BLOOD_BASE * HCT_BASE, lost: 0, infused: 0 };
+    // ref: the patient's own blood volume (the reflexes measure a loss against it), inf0: infused when it was set,
+    // shift: blood the venous reservoir has moved into the circulation (counted out of bloodVolume, which is the
+    // whole volume).
+    this.blood = { rbc: BLOOD_BASE * HCT_BASE, lost: 0, infused: 0, ref: BLOOD_BASE, inf0: 0, shift: 0 };
     this.bleed = { active: false, site: null, G: 0, clot: 0, total: 0 };
     this.infusions = [];
     this.valsalva = { until: -1, start: -1 };
     this.pi = { vmax: -Infinity, vmin: Infinity, cycleStart: 0, value: 0, lastPh: 0 };
     this.flows = { ascitesRate: 0, hepLymph: 0, splLymph: 0 };
-    this.evState = {};
+    this.evState = {}; this.evAvg = null;
     this.newEvents = [];
     this.eventLog = [];
+    this.eventCount = 0;   // every event ever pushed (the log keeps only the last 200)
     this.quiet = false;
     // Beat-to-beat waveform switched on by the UI while a waveform instrument is on screen,
-    // without touching the patient's parameters (links, undo and cases stay unchanged).
+    // without touching the patient's parameters (links and undo stay unchanged).
     this.beat = false;
     this.bands = 0;
     for (let i = 0; i < this.N; i++) {
@@ -165,14 +209,17 @@ export class Engine {
     this.settle();
     const n = days ?? pr.days;
     if (n > 0) yield* this.advanceDaySteps(n, { noRupture: true, silent: true });
+    // What the patient has now, after the years of disease (a pregnancy): set once the disease clock has run.
+    if (pr.now) Object.assign(params, deepMerge(params, pr.now));
     // Day steps relax only roughly; start from a true equilibrium so a before/after comparison
     // (e.g. closing a shunt) shows the intervention, not leftover relaxation.
     this.settle();
+    this.blood.ref = this.bloodVolume(); this.blood.inf0 = this.blood.infused;
     this.day = 0;
     this.t = 0;
     this.eventLog = [];
     this.newEvents = [];
-    this.evState = {};
+    this.evState = {}; this.evAvg = null;
     detectEvents(this, true);
     this.newEvents = [];
     return params;
@@ -193,19 +240,24 @@ export class Engine {
     const p = this.params, s = p.cirrhosis;
     const sinM = 1 + 20 * Math.pow(s, 2.5);
     const cz = { pre: 1 + 2 * s, sin: sinM, post: 1 + 2 * s, inter: sinM }[zone];
-    let user = 1;
-    if (lobe === 'R' || lobe === 'L') user = p.fibrosis[lobe][zone] ?? 1;
-    else user = 0.5 * ((p.fibrosis.R.sin ?? 1) + (p.fibrosis.L.sin ?? 1));
+    const user = lobe === 'R' || lobe === 'L' ? p.fibrosis[lobe][zone] ?? 1
+      : 0.5 * ((p.fibrosis.R.sin ?? 1) + (p.fibrosis.L.sin ?? 1));
     let m = cz * user;
     if (zone === 'sin' || zone === 'inter') m *= this._drug.sin;
     return m;
   }
 
-  hct() { return clamp(this.blood.rbc / this.bloodVolume(), 0.05, 0.8); }
+  hct() {
+    const u = this.pregnancyPlasma();
+    return clamp((this.blood.rbc + PREGNANCY.rbc * u) / (this.bloodVolume() + u), 0.05, 0.8);
+  }
+  /** Pregnancy's blood held in widened veins (mL): in the circulation but adding no pressure, so it is counted out of
+   *  bloodVolume (and so out of what the bleeding reflexes measure) and added back where the volume is shown. */
+  pregnancyPlasma() { return PREGNANCY.plasma * pregnancyLevel(this.params.gestation); }
   bloodVolume() {
     let s = 0;
     for (let i = 0; i < this.N; i++) s += this.V[i] - this.Vbase[i];
-    return BLOOD_BASE + s;
+    return BLOOD_BASE + s - (this.blood.shift || 0);
   }
   viscosity() { return clamp(1 + 1.6 * (this.hct() - HCT_BASE), 0.5, 1.6); }
 
@@ -215,9 +267,19 @@ export class Engine {
     // in the 70s to 80s in decompensated disease, as at the bedside. It sets the rate only, not the
     // pump capacity, so pressures and flows are unchanged.
     const symp = 1 + 1.4 * (1 - this.slow.splTone);
-    const hr = clamp(HR_REST * symp * d.hr * (1 + 0.9 * (b - 1) * d.baroHr), 38, 170);
-    const contr = p.contractility * d.contr * clamp(1 + 0.35 * (b - 1), 0.6, 1.6);
-    const cap = contr * Math.pow(hr / (HR_REST * symp), 0.6) * (1 - 0.3 * p.tr);
+    // Volume afferent (see RESERVOIR): the heart rate climbs with the fraction lost before the mean pressure falls.
+    const vol = RESERVOIR.afferent * this.volumeDeficit() / (this.blood.ref || BLOOD_BASE);
+    // A reflex speeding the heart adds beats to the resting rate rather than scaling it, and cirrhosis blunts it (lower
+    // baroreflex sensitivity and chronotropic incompetence, Møller & Henriksen 2010, Heart 96:1088), by up to `chrono`
+    // with the vasodilation; slowing (a high pressure) scales the rate as before.
+    const reflex = (0.9 * (b - 1) + vol) * d.baroHr;
+    const blunt = 1 - RESERVOIR.chrono * clamp((1 - this.slow.splTone) / 0.45, 0, 1);
+    // Pregnancy adds beats to the resting rate and strengthens the heart; like the chronic drive, the beats it adds do not
+    // add pump capacity. (At 0 weeks `rest` is the rate as before: HR_REST · symp.)
+    const pg = pregnancyLevel(p.gestation), add = PREGNANCY.hr * pg, rest = HR_REST * symp + add;
+    const hr = clamp(HR_REST * d.hr * (reflex > 0 ? symp + reflex * blunt : symp * (1 + reflex)) + d.hr * add * (reflex > 0 ? 1 : 1 + reflex), 38, 170);
+    const contr = p.contractility * (1 + PREGNANCY.contr * pg) * d.contr * clamp(1 + 0.35 * (b - 1), 0.6, 1.6);
+    const cap = contr * Math.pow(hr / rest, 0.6) * (1 - 0.3 * p.tr);
     return { hr, cap };
   }
 
@@ -235,7 +297,7 @@ export class Engine {
       const u = Math.min(1, (t - this.valsalva.start) / 1.5);
       vals = 30 * u;
     }
-    this.iap = iapFromAscites(this.slow.ascites) + iapResp + vals;
+    this.iap = iapFromAscites(this.slow.ascites) + PREGNANCY.iap * uterusLevel(p.gestation) + iapResp + vals;
     const iapDev = this.iap - 5;
     const pplDev = ppl + vals;
     let raExt = pplDev + 12 * p.pericardial;
@@ -266,10 +328,11 @@ export class Engine {
   computeG(P) {
     const p = this.params, s = p.cirrhosis, d = this._drug;
     const visc = this.viscosity();
-    const spl = p.splanchnicTone * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6);
+    const pg = pregnancyLevel(p.gestation);
+    const spl = p.splanchnicTone * (1 - PREGNANCY.spl * pg) * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6);
     // Chronic portal hypertension dilates systemic arterioles too (nitric oxide spill-over), not only the
     // splanchnic bed: SVR falls and, with the expanded plasma volume, cardiac output rises (hyperdynamic circulation).
-    const sys = p.systemicTone * d.sys * this.baro * (1 - SYS_DILATION * (1 - this.slow.splTone));
+    const sys = p.systemicTone * (1 - PREGNANCY.sys * pg) * d.sys * this.baro * (1 - SYS_DILATION * (1 - this.slow.splTone));
     const cath = p.catheter;
     const extE = { abd: this.iap - 5, thor: this.ext[this.ni.SVC], eso: this.ext[this.ni.VAR], gas: this.ext[this.ni.GV], none: 0 };
 
@@ -292,6 +355,7 @@ export class Engine {
           break;
         case 'vein': case 'diode': {
           const x = extE[this.edgeExt[k]];
+          this.vx[k] = x;
           const up = P[f] >= P[t] ? f : t, dn = up === f ? t : f;
           // Starling resistor: downstream end collapsed → flow set by upstream − external pressure.
           if (P[dn] - x < 0 && P[up] - x > 0.5) {
@@ -329,15 +393,18 @@ export class Engine {
         }
         case 'shunt': {
           let g = 0;
-          if (e.shunt === 'ap') g = 0.5 * (0.05 * s * s * s + 0.1 * p.apShunt);
+          // Stents narrow at a short pinch (stentConductance); a surgical shunt narrows along its whole length.
+          const occ = this.occlusion(e.id), stent = e.shunt === 'tips' || e.shunt === 'dips' || e.shunt === 'custom';
+          if (stent && occ >= 0.995) g = 0;
+          else if (e.shunt === 'ap') g = 0.5 * (0.05 * s * s * s + 0.1 * p.apShunt);
           // Diameter grades both the shunt fraction and the portosystemic gradient.
-          else if (e.shunt === 'tips' && p.tips.on) g = stentConductance(TIPS_R.tract, p.tips.d, this.Q[k], visc);
-          else if (e.shunt === 'dips' && p.dips.on) g = stentConductance(DIPS_R.tract, p.dips.d, this.Q[k], visc);
+          else if (e.shunt === 'tips' && p.tips.on) g = stentConductance(TIPS_R.tract, p.tips.d, this.Q[k], visc, occ);
+          else if (e.shunt === 'dips' && p.dips.on) g = stentConductance(DIPS_R.tract, p.dips.d, this.Q[k], visc, occ);
           else if (e.shunt === 'portocaval' && p.portocaval) g = 1 / (0.03 * visc);
           else if (e.shunt === 'dsrs' && p.dsrs) g = 1 / (0.08 * visc);
           else if (e.shunt === 'mesocaval' && p.mesocaval) g = 1 / (0.08 * visc);
-          else if (e.shunt === 'custom' && p.customShunts?.[e.id]) g = 1 / (0.05 * Math.pow(10 / p.customShunts[e.id], 4) * visc);
-          if (g > 0) g /= Math.min(1e9, stenosisFactor(this.occlusion(e.id)));
+          else if (e.shunt === 'custom' && p.customShunts?.[e.id]) g = customConductance(p.customShunts[e.id], this.Q[k], visc, occ);
+          if (g > 0 && !stent) g /= Math.min(1e9, stenosisFactor(occ));
           this.G[k] = g;
           continue;
         }
@@ -348,7 +415,8 @@ export class Engine {
       R *= sf;
       // Surgical ligations implied by shunt procedures
       if (p.portocaval && e.id === 'PV_TRUNK') { this.G[k] = 0; continue; }
-      if (p.dsrs && e.id === 'SV_CONF') { this.G[k] = 0; continue; }
+      // Warren: the splenic vein is divided between the shunt and the IMV, so the IMV still drains to the portal vein.
+      if (p.dsrs && e.id === 'SV_MID') { this.G[k] = 0; continue; }
       this.G[k] = 1 / R;
     }
   }
@@ -363,6 +431,7 @@ export class Engine {
   step(dt) {
     const N = this.N, A = this.A, b = this.b, P = this.P, p = this.params;
     this._drug = this.drugEffects();
+    if (!this._sub) this.pregnancyVolume(dt);
     const hs = this.heartState();
     this.hr = hs.hr;
     this.cyc = (this.cyc || 0) + dt * hs.hr / 60;
@@ -370,35 +439,7 @@ export class Engine {
     this.computeExt(tNew);
     this.computeG(P);
 
-    A.fill(0);
-    const P0 = this._P0 || (this._P0 = new Float64Array(N));
-    for (let i = 0; i < N; i++) {
-      const [Pk, Ps] = this.nodeK[i];
-      const C = this.nodeC[i] * this.liverStiff(i);
-      const ptm = ptmOf(this.V[i], C, Pk, Ps);
-      P0[i] = this.ext[i] + ptm;
-      const Ci = complianceAt(ptm, C, Pk, Ps);
-      this.Cn[i] = Ci;
-      A[i * N + i] = Ci / dt;
-      b[i] = (Ci / dt) * P0[i];
-    }
-    // Diodes: choose conductance by current gradient
-    for (let k = 0; k < this.E; k++) {
-      let g = this.G[k];
-      if (g === 0) continue;
-      const f = this.edgeF[k], t = this.edgeT[k];
-      if (EDGES[k].kind === 'diode' && P[f] < P[t]) g *= 0.002;
-      this.G[k] = g;
-      if (this.wf[k]) {
-        const up = this.wf[k] > 0 ? f : t, dn = up === f ? t : f, x = this.wfx[k];
-        A[up * N + up] += g; b[up] += g * x;
-        A[dn * N + up] -= g; b[dn] -= g * x;
-        continue;
-      }
-      A[f * N + f] += g; A[t * N + t] += g;
-      A[f * N + t] -= g; A[t * N + f] -= g;
-    }
-    // Heart pump RA → AO
+    // Heart pump RA → AO, linearized about the pressures at the start of the step
     const RA = this.ni.RA, AO = this.ni.AO;
     let m = 1;
     if (this.pulsing()) {
@@ -408,21 +449,82 @@ export class Engine {
     const [Qh0, dQh0] = heartFlow(P[RA] - this.ext[RA], hs.cap, P[RA] - this.ext[this.ni.SVC]);
     const Qh = Qh0 * m, dQh = dQh0 * m;
     const a0 = Qh - dQh * P[RA];
-    A[RA * N + RA] += dQh; b[RA] -= a0;
-    A[AO * N + RA] -= dQh; b[AO] += a0;
     // Bleeding sink
     let gb = 0, bi = -1;
     if (this.bleed.active) {
       bi = this.ni[this.bleed.site];
-      if (P[bi] - this.ext[bi] > 0) { gb = this.bleed.G; A[bi * N + bi] += gb; b[bi] += gb * this.ext[bi]; }
+      if (P[bi] - this.ext[bi] > 0) gb = this.bleed.G;
     }
     // Infusions (mL/s) into upper-body veins
     let inf = 0;
     for (const f of this.infusions) inf += f.rate;
     const UP = this.ni.UPPV;
-    b[UP] += inf;
 
-    solve(A, b, N);
+    // A diode (valved vein) is shut, its conductance × 0.002, while its gradient runs backwards. It takes its state from
+    // the gradient at the start of the step; when the solved gradient disagrees (the flow reverses within the step), the
+    // step is solved again with the new state, at most three solves, so the valve does not chatter open and shut on
+    // alternate steps.
+    const G0 = this._G0 || (this._G0 = new Float64Array(this.E)), shut = this._shut || (this._shut = new Uint8Array(this.E));
+    G0.set(this.G);
+    for (const k of this.diodes) shut[k] = P[this.edgeF[k]] < P[this.edgeT[k]] ? 1 : 0;
+    const P0 = this._P0 || (this._P0 = new Float64Array(N)), Pit = this._Pit || (this._Pit = new Float64Array(N));
+    for (let pass = 0; ; pass++) {
+      A.fill(0);
+      for (let i = 0; i < N; i++) {
+        const [Pk, Ps] = this.nodeK[i];
+        const C = this.nodeC[i] * this.liverStiff(i);
+        const ptm = ptmOf(this.V[i], C, Pk, Ps);
+        P0[i] = this.ext[i] + ptm;
+        const Ci = complianceAt(ptm, C, Pk, Ps);
+        this.Cn[i] = Ci;
+        A[i * N + i] = Ci / dt;
+        b[i] = (Ci / dt) * P0[i];
+      }
+      for (let k = 0; k < this.E; k++) {
+        let g = G0[k];
+        if (g === 0) continue;
+        const f = this.edgeF[k], t = this.edgeT[k];
+        if (shut[k]) g *= 0.002;
+        this.G[k] = g;
+        if (this.wf[k]) {
+          const up = this.wf[k] > 0 ? f : t, dn = up === f ? t : f, x = this.wfx[k];
+          A[up * N + up] += g; b[up] += g * x;
+          A[dn * N + up] -= g; b[dn] -= g * x;
+          continue;
+        }
+        A[f * N + f] += g; A[t * N + t] += g;
+        A[f * N + t] -= g; A[t * N + f] -= g;
+      }
+      A[RA * N + RA] += dQh; b[RA] -= a0;
+      A[AO * N + RA] -= dQh; b[AO] += a0;
+      if (gb > 0) { A[bi * N + bi] += gb; b[bi] += gb * this.ext[bi]; }
+      b[UP] += inf;
+
+      solve(A, b, N);
+      if (pass === 2) break;
+      let flip = false;
+      for (const k of this.diodes) {
+        const s = b[this.edgeF[k]] < b[this.edgeT[k]] ? 1 : 0;
+        if (s !== shut[k]) { shut[k] = s; flip = true; }
+      }
+      if (!flip) break;
+      // Re-linearize the vessel conductances about the solved pressures for the next solve.
+      Pit.set(b); this.computeG(Pit); G0.set(this.G);
+    }
+    // A long quiet step (settling, 5 to 10 s) that carries a vein across its collapse point, the downstream end falling
+    // below or rising above the pressure outside it, can overshoot the far side and flip back on the next step: a
+    // cycle that never settles (a tense belly, from ascites or late pregnancy, holds the hepatic veins at that edge).
+    // When the solved step sends a vein back to the state it had the step before, the step is taken again as half-second
+    // steps, which follow the vein across. (The pregnancy volume step above stands for the whole step.)
+    const flips = this.quiet && dt > 0.5 && !this._sub && this.collapseFlips(b);
+    this.wfPrev.set(this.wf);
+    if (flips) {
+      this.cyc -= dt * hs.hr / 60;
+      const n = Math.ceil(dt / 0.5);
+      this._sub = true;
+      try { for (let i = 0; i < n; i++) this.step(dt / n); } finally { this._sub = false; }
+      return;
+    }
     const Pn = b;
 
     // Flows & volume update (exactly conservative)
@@ -471,6 +573,18 @@ export class Engine {
 
   pulsing() { return (this.params.pulsatile || this.beat) && !this.quiet; }
 
+  /** Whether solved pressures Pn put any open vein on the other side of its collapse point (computeG's waterfall test). */
+  collapseFlips(Pn) {
+    for (const k of this.veins) {
+      if (this.G[k] === 0) continue;
+      const f = this.edgeF[k], t = this.edgeT[k], x = this.vx[k];
+      const up = Pn[f] >= Pn[t] ? f : t, dn = up === f ? t : f;
+      const w = Pn[dn] - x < 0 && Pn[up] - x > 0.5 ? (up === f ? 1 : -1) : 0;
+      if (w !== this.wf[k] && w === this.wfPrev[k]) return true;
+    }
+    return false;
+  }
+
   liverStiff(i) {
     const k = NODES[i].kind;
     return (k === 'liver') ? 1 - 0.6 * this.params.cirrhosis : 1;
@@ -493,13 +607,47 @@ export class Engine {
     for (let i = 0; i < this.N; i++) this.Pf[i] += (this.P[i] - this.Pf[i]) * ap;
     this.COf = (this.COf ?? this.Qheart) + (this.Qheart - (this.COf ?? this.Qheart)) * Math.min(1, dt / 2);
     this.MAPf += (this.P[this.ni.AO] - this.MAPf) * (dt / (2 + dt));
+    // The vitals as the bar and Readouts show them, averaged over two breaths at every step: breathing swings the
+    // cardiac output 5.6 to 7.1 and the MAP 91 to 96 in decompensated cirrhosis, and a screen's frames sample that too
+    // sparsely to average it out themselves.
+    // (Two 4 s stages: one leaves the output wandering ±0.07 L/min, right across its 6.5 cut-off in that patient.)
+    const vNow = [this.COf * 0.06, this.MAPf, this.hr, this.P[this.ni.RA]], av4 = Math.min(1, dt / 4);
+    if (!this.vitM || !this.vitM.every(Number.isFinite)) { this.vitM = vNow; this.vitM1 = [...vNow]; }
+    else for (let i = 0; i < 4; i++) { this.vitM1[i] += (vNow[i] - this.vitM1[i]) * av4; this.vitM[i] += (this.vitM1[i] - this.vitM[i]) * av4; }
+    const def = this.volumeDeficit();
     const bt = clamp(1 + 4 * (93 - this.MAPf) / 93, 0.5, 2.5);
     this.baro += (bt - this.baro) * Math.min(0.25, dt / (15 + dt));
     const Qp = this.portalInflow();
     const kh = 2.0 * (1 - 0.5 * p.cirrhosis) * p.habrStrength;
     const ht = 1 + kh * clamp((this.Qpref - Qp) / this.Qpref, 0, 1);
     this.habr += (ht - this.habr) * Math.min(0.3, dt / (10 + dt));
+    // Venous reservoir (see RESERVOIR): eases toward its share of the deficit, a soft limit at max, and gives the
+    // blood back as the volume is replaced.
+    const R = RESERVOIR, vaso = clamp((1 - this.slow.splTone) / 0.45, 0, 1);
+    const want = R.k * (1 - R.cirr * vaso) * def, target = want / Math.pow(1 + Math.pow(want / R.max, 4), 0.25);
+    const ds = (target - (this.blood.shift || 0)) * Math.min(1, dt / R.tau);
+    if (Math.abs(ds) > 1e-9) {
+      this.blood.shift = (this.blood.shift || 0) + ds;
+      for (const id of ['UPPV', 'LOWV']) {
+        const i = this.ni[id], [Pk, Ps] = this.nodeK[i];
+        this.V[i] += ds / 2;
+        this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i], Pk, Ps);
+      }
+    }
   }
+
+  /** Pregnancy's extra venous filling (PREGNANCY.stressed), eased in or out as the gestation changes: the body's own
+   *  volume, so the reflexes reset to it (blood.preg: the mL added so far). */
+  pregnancyVolume(dt) {
+    const want = PREGNANCY.stressed * pregnancyLevel(this.params.gestation), now = this.blood.preg || 0;
+    if (want === now) return;
+    const dv = Math.abs(want - now) < 0.01 ? want - now : (want - now) * Math.min(1, dt / PREGNANCY.tau);
+    this.addVolume(dv, HCT_BASE * 0.7, true);
+    this.blood.preg = now + dv;
+  }
+
+  /** Blood volume missing against the patient's own (mL, never negative): what the bleeding reflexes respond to. */
+  volumeDeficit() { return Math.max(0, (this.blood.ref ?? BLOOD_BASE) - this.bloodVolume()); }
 
   portalInflow() {
     return Math.max(0, this.Q[this.ei.PRE_R]) + Math.max(0, this.Q[this.ei.PRE_L]);
@@ -549,6 +697,13 @@ export class Engine {
     const q = this.quiet, t = this.t, cyc = this.cyc; this.quiet = true;
     const sched = [[0.02, 10], [0.2, 15], [2, 20], [10, 30]];
     for (let r = 0; r < n; r++) for (const [dt, k] of sched) for (let i = 0; i < k; i++) this.step(dt);
+    this.quiet = q; this.t = t; this.cyc = cyc;
+  }
+  /** A few quiet relaxation steps that leave the clock alone, so a live change reaches its steady state in about a second
+   *  while the Doppler and tracings keep sweeping at real time (the arterial buffer alone takes half a minute of model time). */
+  relax(dt = 0.5, n = 3) {
+    const q = this.quiet, t = this.t, cyc = this.cyc; this.quiet = true;
+    for (let i = 0; i < n; i++) this.step(dt);
     this.quiet = q; this.t = t; this.cyc = cyc;
   }
   settleQuick() {
@@ -748,7 +903,9 @@ export class Engine {
     const [Pk, Ps] = this.nodeK[i];
     this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i], Pk, Ps);
     this.blood.rbc += mL * hct;
+    // Silent plasma is the body's own volume changing (the chronic plasma expansion): the reflexes reset to it.
     if (!silentPlasma) this.blood.infused += mL;
+    else this.blood.ref = (this.blood.ref ?? BLOOD_BASE) + mL;
   }
 
   infuse(kind) {
@@ -809,7 +966,7 @@ export class Engine {
   startValsalva(sec = 10) { this.valsalva = { start: this.t, until: this.t + sec }; }
 
   pushEvent(ev) {
-    const e = { ...ev, t: this.t, day: this.day, key: `${ev.id}-${this.eventLog.length}` };
+    const e = { ...ev, t: this.t, day: this.day, key: `${ev.id}-${this.eventCount++}` };
     this.newEvents.push(e);
     this.eventLog.push(e);
     if (this.eventLog.length > 200) this.eventLog.shift();
@@ -841,7 +998,10 @@ export class Engine {
   /** Mean velocity (cm/s), signed. */
   velocity(id) {
     const q = this.Q[this.ei[id]];
-    const d = Math.max(0.5, this.diameter(id)) / 10; // cm
+    const e = EDGES[this.ei[id]];
+    // A lumped bundle (e.g. the jejunal and ileal veins) is drawn at one vein's width but its flow
+    // reaches the probe through a wider trunk: vd is the diameter the probe sees.
+    const d = Math.max(0.5, this.diameter(id) * (e.vd ? e.vd / e.d : 1)) / 10; // cm
     return q / (Math.PI * d * d / 4);
   }
 
@@ -863,7 +1023,8 @@ export class Engine {
     // open and the size must not fall away as they do.
     const ex = site === 'VAR' ? this.routeExcess(['CONF', 'RA'], P) : this.routeExcess(['SV', 'IVCI'], P);
     // Fundal varices exist only where a gastrorenal shunt can drain them.
-    const ex0 = site === 'GV' && p.spontaneous.C5 === false ? -1e9 : ex;
+    // Isolated fundal varices (IGV1) have no esophageal varices beside them, until BRTO closes their shunt.
+    const ex0 = (site === 'GV' && p.spontaneous.C5 === false) || (site === 'VAR' && p.isolatedGV && !p.occluded.C5) ? -1e9 : ex;
     // Esophageal varices are collaterals too, so they take weeks to form: their size is capped by how far the coronary
     // vein feeding them has remodeled on the disease clock (none at the onset of an acute block). Fundal varices ride
     // on a gastrorenal shunt that is present from birth, so they are not capped.
@@ -875,6 +1036,7 @@ export class Engine {
   /** How far the channel feeding a varix has remodeled (0 at the onset of a block, 1 once established). */
   varixMature(site) {
     if (site === 'GV') return 1;
+    if (this.params.isolatedGV && !this.params.occluded.C5) return 0;   // BRTO closes the shunt: esophageal varices can form
     const ch = EDGES[this.ei.C1a], chMin = dMinOf(ch);
     return clamp((this.slow.d.C1a - chMin) / (ch.dMax - chMin) / VARIX.mature, 0, 1);
   }
@@ -917,10 +1079,13 @@ export class Engine {
     this.V.set(c.V); this.P.set(c.P); if (c.Q) this.Q.set(c.Q);
     Object.assign(this, { t: c.t, day: c.day, baro: c.baro, MAPf: c.MAPf, habr: c.habr, hr: c.hr, slow: c.slow, blood: c.blood,
       bleed: c.bleed, infusions: c.infusions, bands: c.bands, iap: c.iap, valsalva: c.valsalva || { until: -1, start: -1 }, evState: c.evState || {} });
+    this.evAvg = null;   // (the events' breath average, events.js, starts over from the restored state)
     this.rng.setState(c.rng);
+    // A snapshot from before the bleeding reflexes: the volume it holds is the patient's own.
+    if (!(this.blood.ref > 0)) Object.assign(this.blood, { ref: this.bloodVolume(), inf0: this.blood.infused || 0, shift: 0 });
     this.Pf = Float64Array.from(this.P);
     this.Qf = Float64Array.from(this.Q);
-    this.pvQm = this.pvVm = undefined;
+    this.pvQm = this.pvVm = undefined; this.vitM = null;
     this._drug = this.drugEffects();
     this.computeExt(this.t);
     this.computeG(this.P);

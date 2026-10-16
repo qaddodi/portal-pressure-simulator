@@ -57,18 +57,53 @@ export function occupancy(qMlS, vDisp, n, spacing = SLOT) {
 /**
  * One vessel's stream, advanced by `dt` seconds. `vMean` is the beat-filtered mean velocity
  * (cm/s), `vNow` the instantaneous one; with `phasic` the display follows breathing and the
- * heartbeat (amplified ×2 around the mean) instead of a smooth mean. `speed` scales motion.
+ * heartbeat (amplified ×2 around the mean) instead of a smooth mean. `speed` scales motion;
+ * `still` (reduced motion) keeps it in place, following the flow's direction at once.
  */
-export function advanceStream(st, vMean, vNow, dt, { phasic = false, speed = 1, large = true } = {}) {
-  if (st.vSlow == null) { st.vSlow = vMean; st.vFast = vNow; st.D = (st.seed || 0) * 97 % PERIOD; }
+export function advanceStream(st, vMean, vNow, dt, { phasic = false, speed = 1, large = true, still = false } = {}) {
+  if (st.vSlow == null) { st.vSlow = vMean; st.vFast = vNow; st.D = (st.seed || 0) * 97 % PERIOD; st.hold = 0; }
+  // Reduced motion (still): nothing moves or eases; the stream stands where it is and points the way the flow goes now.
+  if (still) { st.vSlow = vMean; st.vFast = vNow; st.hold = 0; st.sgn = Math.sign(vMean) || st.sgn; dt = 0; }
   st.vSlow += (vMean - st.vSlow) * -Math.expm1(-dt / 1.5);
   st.vFast += (vNow - st.vFast) * -Math.expm1(-dt / 0.12);
+  // When the mean flow turns round, the blood settles, stands still for REVERSE_HOLD seconds and then eases off the
+  // other way (over REVERSE_RAMP), so the stop is seen (blueprint §6.2). The display alone holds: the model and its
+  // numbers run on.
+  const sg = Math.sign(st.vSlow);
+  if (sg && st.sgn && sg !== st.sgn) st.hold = REVERSE_HOLD + REVERSE_RAMP;
+  if (sg) st.sgn = sg;
+  let k = 1;
+  if (st.hold > 0) {
+    st.hold = Math.max(0, st.hold - dt);
+    k = st.hold > REVERSE_RAMP ? 0 : smoothstep(0, 1, 1 - st.hold / REVERSE_RAMP);
+  }
   const v = phasic ? st.vSlow + (st.vFast - st.vSlow) * 2 : st.vSlow;
-  st.v = v;
-  st.vd = displaySpeed(v);
+  st.v = k ? k * v : 0;
+  st.vd = k ? k * displaySpeed(v) : 0;   // (eased on the display's own scale, which is steep near zero)
   st.D = (((st.D + st.vd * speed * dt) % PERIOD) + PERIOD) % PERIOD;
-  st.stasis = large ? 1 - smoothstep(2, 5.5, Math.abs(st.vSlow)) : 0;
+  st.stasis = large ? 1 - k * smoothstep(2, 5.5, Math.abs(st.vSlow)) : 0;
   return st;
+}
+/**
+ * Reduced motion: still chevrons spaced by flow. The spacing level (0–3, continuous) for a flow q (mL/s, either way): 0, the
+ * finest spacing, from 0.8 L/min; each halving of the flow doubles the spacing, up to 3 (eight times as far apart).
+ */
+export const CHEV_Q_FULL = 0.8 / 0.06;   // 0.8 L/min in mL/s
+export const chevFlowLevel = (q) => Math.min(3, Math.max(0, Math.log2(CHEV_Q_FULL / Math.max(1e-3, Math.abs(q || 0)))));
+/** Seconds the displayed blood stands still when a vessel's mean flow turns round, and then takes to reach its speed. */
+export const REVERSE_HOLD = 0.6, REVERSE_RAMP = 0.5;
+
+// Key chevrons only (Blood menu; always while presenting): chevrons keep to the portal story (the portal
+// inflow, the liver's beds, the hepatic veins, any open collateral or shunt); the rest fade.
+const KEY_CHEV_IDS = new Set(['V_INT', 'V_COL', 'V_IMV', 'V_SPL', 'SV_MID', 'V_STO', 'SMV_CONF', 'SV_CONF', 'LGV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_L', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC']);
+// A vein drawn in an open collateral's own lane: the ascending lumbar collateral (C9) runs up the azygos
+// trunk's lane into the arch, so that stretch of its course is the azygos (AZY_SVC) on screen and keeps its
+// chevrons while the collateral is open.
+export const KEY_CHEV_LANES = { AZY_SVC: ['C9'] };
+/** Whether vessel `e` keeps its chevrons under Key chevrons only; `open(id)`: whether collateral `id` is drawn open. */
+export function keyChevron(e, open = () => false) {
+  return KEY_CHEV_IDS.has(e.id) || e.kind === 'liver' || e.kind === 'collateral' || e.kind === 'shunt'
+    || (KEY_CHEV_LANES[e.id] || []).some(open);
 }
 
 // ── Where the blood comes from ─────────────────────
@@ -119,6 +154,68 @@ export function originFractions(edges, nodes, Q, P) {
   }
   for (let k = 0; k < edges.length; k++) { comp(k, c); edge.set(c, k * N); }
   return edge;
+}
+
+// ── Oxygen ─────────────────────────────────────────
+// Oxygen saturation of each vessel's blood, for the "colored by oxygen" view: the hepatic artery's blood is fully
+// arterial, each capillary bed returns venous blood (the gut's veins less desaturated than the rest of the body's),
+// and the liver's sinusoids use oxygen along their length, so blood darkens from the portal tract to the central
+// vein. Saturation mixes flow-weighted at every junction (one haemoglobin throughout, so content mixes as
+// saturation does). Round, textbook values: arterial 98 %, portal (gut venous) about 85 %, mixed systemic venous
+// about 75 %, and the liver extracting about a quarter of what reaches its sinusoids, so hepatic venous blood is
+// about 65 %. When portal inflow falls and the hepatic artery takes over (the buffer response), the sinusoids
+// fill with brighter arterial blood.
+export const SAT = { artery: 0.98, gut: 0.85, systemic: 0.75 };
+export const LIVER_EXTRACTION = 0.25;
+const consumes = (e) => e.kind === 'liver' && e.zone === 'sin';
+const isArterial = (e) => e.kind === 'artery' || e.kind === 'arteriole';
+
+/**
+ * Oxygen saturation (0–1) per node, and per edge at its `from` and `to` ends (2 × edges: from, to), as
+ * { node, edge }. Beds fed straight from the aorta return their own venous saturation; the hepatic artery's node
+ * mixes as any other. Nodes are visited from high pressure to low, as in originFractions.
+ */
+export function oxygenSat(edges, nodes, Q, P) {
+  const NI = new Map(nodes.map((n, i) => [n.id, i]));
+  const from = edges.map((e) => NI.get(e.from)), to = edges.map((e) => NI.get(e.to));
+  const bed = new Map();
+  edges.forEach((e, k) => { if (e.from === 'AO' && e.kind === 'arteriole') bed.set(to[k], e.tone === 'splanchnic' ? SAT.gut : SAT.systemic); });
+  const inflow = nodes.map(() => []);
+  edges.forEach((e, k) => {
+    if (e.kind === 'wedge' || !Q[k]) return;
+    inflow[Q[k] > 0 ? to[k] : from[k]].push(k);
+  });
+  const node = new Float32Array(nodes.length).fill(SAT.systemic), edge = new Float32Array(edges.length * 2);
+  const ao = NI.get('AO');
+  if (ao != null) node[ao] = SAT.artery;
+  const up = (k) => (Q[k] >= 0 ? from[k] : to[k]);
+  // Saturation leaving edge k at its downstream end.
+  const out = (k) => node[up(k)] * (consumes(edges[k]) ? 1 - LIVER_EXTRACTION : 1);
+  const order = nodes.map((_, i) => i).sort((a, b) => P[b] - P[a]);
+  for (const n of order) {
+    if (n === ao) continue;
+    if (bed.has(n)) { node[n] = bed.get(n); continue; }
+    let w = 0, s = 0;
+    for (const k of inflow[n]) { const q = Math.abs(Q[k]); w += q; s += q * out(k); }
+    if (w > 0) node[n] = s / w;
+  }
+  for (let k = 0; k < edges.length; k++) {
+    const a = node[up(k)], b = out(k);
+    // An arteriole into a bed is arterial along its length (the bed's own venous blood starts after it).
+    const lo = isArterial(edges[k]) ? a : b;
+    if (Q[k] >= 0) { edge[2 * k] = a; edge[2 * k + 1] = lo; } else { edge[2 * k] = lo; edge[2 * k + 1] = a; }
+  }
+  return { node, edge };
+}
+
+const OXY_MEMO = new WeakMap();
+/** oxygenSat for model frame `f` (its beat-filtered flows), computed once per flow array: the figure, the lobule
+ *  and the vessel card all read the same frame. */
+export function oxygenFor(edges, nodes, f) {
+  const Q = f.Qf || f.Q;
+  let o = OXY_MEMO.get(Q);
+  if (!o) { o = oxygenSat(edges, nodes, Q, f.Pf || f.P); OXY_MEMO.set(Q, o); }
+  return o;
 }
 
 // ── Dye bolus ──────────────────────────────────────────
@@ -276,3 +373,27 @@ export function createBolus(edges, nodes) {
   };
 }
 export const HIDDEN_SECONDS = HIDDEN_S;
+
+// ── An active variceal bleed on the figure (veins-gl.js draws it) ──
+// Blood jets from the rupture into the lumen (up the esophagus from an esophageal varix, down into the fundus from a
+// gastric one): four tapered streaks, each spurting in its turn, longer and faster with the bleeding rate, and the pool
+// in the stomach, growing with the square root of the blood lost. t: seconds (0 holds every jet at its own stage).
+// Each shape: [x0, y0, x1, y1, r0, r1, alpha, kind]: a jet (kind 1) from its base (x0, y0; radius r0) to its tip
+// (x1, y1; radius r1), or the pool (kind 0), an ellipse at (x0, y0) with radii x1, y1.
+export const BLEED_JETS = 4;
+export function bleedShapes(bleed, rate, t, sites) {
+  const gv = bleed.site === 'GV';
+  const site = gv ? [sites.fundus[0], sites.fundus[1] - 4] : [sites.varix[0] + 8, sites.varix[1] + 12];
+  const k = Math.min(1.8, Math.max(0.7, (rate || 50) / 90));
+  const pool = Math.min(40, Math.max(4, Math.sqrt((bleed.total || 0) / 5)));
+  const out = [[sites.stomachPool[0], sites.stomachPool[1], pool * 1.4, pool * 0.6, 0, 0, 0.34, 0]];
+  for (let i = 0; i < BLEED_JETS; i++) {
+    const a = (gv ? Math.PI / 2 : -Math.PI / 2) + (i - (BLEED_JETS - 1) / 2) * 0.2;
+    const ph = (((t * 0.9 + i / BLEED_JETS) % 1) + 1) % 1;
+    // Out fast, then slowing (√): each spurt eases in, so none pops on, and thins away as it reaches its length.
+    const len = (8 + 22 * Math.sqrt(ph)) * k;
+    const al = 0.9 * Math.min(1, ph / 0.12) * (1 - ph) ** 1.5;
+    out.push([site[0], site[1], site[0] + Math.cos(a) * len * 0.55, site[1] + Math.sin(a) * len, 1.6 * k, 0.45 * k, al, 1]);
+  }
+  return out;
+}

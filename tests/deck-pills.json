@@ -20,8 +20,7 @@
   "portal venules",
   "hepatic arterioles",
   "sinusoids",
-  "central vein",
-  "(a value)"
+  "central vein"
  ],
  "circulation/triad": [
   "portal venule",
@@ -130,7 +129,8 @@
   "{sin}"
  ],
  "ascites/presin": [
-  "portal tracts"
+  "portal tracts",
+  "sinusoidal pressure"
  ],
  "ascites/hf": [
   "lymph",
@@ -144,7 +144,8 @@
   "(a value)"
  ],
  "varices/lapse": [
-  "{17 mmHg}"
+  "{hvpg@collat}",
+  "{hvpg}"
  ],
  "varices/eso": [
   "left gastric vein",
@@ -205,7 +206,8 @@
   "{hvpg}"
  ],
  "stiffness/rule": [
-  "{24.1 kPa}"
+  "{lsm@spleen}",
+  "{hvpg@spleen}"
  ],
  "stiffness/spleen": [
   "spleen",
@@ -233,7 +235,7 @@
   "{hvpg}"
  ],
  "one-year/doppler": [
-  "(a value)"
+  "{<15 cm/s}"
  ],
  "one-year/belly": [
   "{spleen}"
@@ -330,24 +332,28 @@
  "shunts/wide": [
   "(a value)"
  ],
+ "shunts/dsrs": [
+  "{ppg}"
+ ],
  "shunts/brto": [
   "fundal varices"
  ],
  "doppler/probe": [
   "portal vein",
-  "{15 cm/s}"
+  "{>=15 cm/s}"
  ],
  "doppler/meal": [
   "(a value)"
  ],
  "doppler/slow": [
-  "{15 cm/s}"
+  "{<15 cm/s}"
  ],
  "doppler/clot": [
   "superior mesenteric vein"
  ],
  "doppler/smv": [
-  "superior mesenteric vein"
+  "superior mesenteric vein",
+  "cavernoma"
  ],
  "doppler/bc": [
   "hepatic vein"
@@ -357,7 +363,8 @@
   "sinusoids"
  ],
  "doppler/tips": [
-  "{90 cm/s}"
+  "{<90 cm/s}",
+  "{>190 cm/s}"
  ],
  "endoscopy/grow": [
   "varices",
@@ -378,6 +385,52 @@
  "endoscopy/transfuse": [
   "{pv}"
  ],
+ "tips-doppler/before": [
+  "{<15 cm/s}"
+ ],
+ "tips-doppler/shunted": [
+  "{shunt}"
+ ],
+ "tips-doppler/stent": [
+  "right portal vein",
+  "{ppg@before}",
+  "{ppg}"
+ ],
+ "tips-doppler/jet": [
+  "{<90 cm/s}",
+  "{>190 cm/s}"
+ ],
+ "tips-doppler/mpv": [
+  "{>30 cm/s}",
+  "{<30 cm/s}"
+ ],
+ "tips-doppler/left": [
+  "left portal vein"
+ ],
+ "tips-doppler/right": [
+  "right portal vein"
+ ],
+ "tips-doppler/narrow": [
+  "{>190 cm/s}",
+  "{<90 cm/s}",
+  "{ppg}"
+ ],
+ "tips-doppler/where": [
+  "{>190 cm/s}",
+  "{<90 cm/s}"
+ ],
+ "tips-doppler/warn": [
+  "left portal vein"
+ ],
+ "tips-doppler/backup": [
+  "{<30 cm/s}"
+ ],
+ "tips-doppler/fix": [
+  "{ppg}"
+ ],
+ "tips-doppler/summary": [
+  "(a value)"
+ ],
  "prehepatic/clot": [
   "portal pressure",
   "superior mesenteric vein"
@@ -385,6 +438,9 @@
  "prehepatic/cath": [
   "{hvpg}",
   "{ppg}"
+ ],
+ "prehepatic/cavernoma": [
+  "cavernoma"
  ],
  "prehepatic/liver": [
   "{lsm}"
@@ -401,7 +457,7 @@
   "portal vein"
  ],
  "right-heart/cath": [
-  "(a value)"
+  "{ra}"
  ],
  "right-heart/constrict": [
   "right atrial pressure",
@@ -423,15 +479,14 @@
   "{hr}",
   "{map}"
  ],
+ "variceal-bleed/oct": [
+  "{map}"
+ ],
  "variceal-bleed/blood": [
   "{map}"
  ],
  "variceal-bleed/band": [
   "varix"
- ],
- "variceal-bleed/over": [
-  "varix",
-  "{pv}"
  ],
  "variceal-bleed/tips": [
   "{ppg}"
@@ -460,6 +515,7 @@
   "{liver}"
  ],
  "two-inflows/fugal": [
+  "portal vein",
   "{pvFlow}"
  ],
  "pvt-cirrhosis/base": [
@@ -560,7 +616,8 @@
   "{pv}"
  ],
  "outflow/caudate": [
-  "ivc"
+  "ivc",
+  "caudate lobe"
  ],
  "outflow/nowedge": [
   "hepatic vein",
@@ -573,6 +630,7 @@
  "outflow/dips": [
   "portal vein",
   "ivc",
+  "caudate lobe",
   "{pv}"
  ],
  "outflow/sos": [

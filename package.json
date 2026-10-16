@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "npx --yes http-server -c-1 -p 8080 .",
+    "start": "node scripts/serve.mjs . 8080",
     "test": "node --test tests/*.test.js",
     "lint": "eslint .",
     "stamp": "node scripts/stamp.mjs",
@@ -15,13 +15,21 @@
     "smoke:dist": "node tests/e2e/smoke.mjs dist",
     "smoke:webkit": "node tests/e2e/words-steady.mjs",
     "smoke:idle": "node tests/e2e/idle-steady.mjs",
+    "smoke:veins": "node tests/e2e/veins-gesture.mjs",
+    "smoke:rows": "node tests/e2e/veins-rows.mjs && node tests/e2e/veins-stale.mjs",
+    "smoke:gesture": "node tests/e2e/pinch-pan.mjs",
     "smoke:frame": "node tests/e2e/frame-centre.mjs",
+    "smoke:card": "node tests/e2e/text-card.mjs",
+    "smoke:quick": "node tests/e2e/quick.mjs",
     "perf": "node scripts/perf.mjs",
+    "perf:frames": "node scripts/frame-cost.mjs",
     "perf:dive": "node scripts/perf-dive.mjs",
     "perf:zoom": "node scripts/zoom-even.mjs",
     "check": "npm run lint && npm test && npm run build && npm run smoke && npm run smoke:dist",
     "scorm": "node scripts/scorm.mjs",
-    "visual": "node tests/e2e/visual.mjs"
+    "visual": "node tests/e2e/visual.mjs",
+    "smoke:order": "node tests/e2e/card-order.mjs",
+    "smoke:credit": "node tests/e2e/credit-steady.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {

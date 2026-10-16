@@ -16,7 +16,6 @@ const hsh = (x) => {
   return (x ^ (x >>> 16)) >>> 0;
 };
 /** A hash of (i, seed) in [0, 1), 24 bits, as the shader's h1. */
-import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 export const h1 = (i, s) => (hsh((Math.imul((i + 1048576) >>> 0, 0x9e3779b1) ^ hsh(s)) >>> 0) >>> 8) / 16777216;
 export const SLOT = 1;                    // fenestra slots (µm), ten to a stretch of lining with a sieve plate in it
 export const CELL = 24;                   // hepatocyte pitch along a plate (µm)
@@ -73,12 +72,10 @@ out vec4 o;
 ${COMMON}
 uniform int uPass;              // 0: the tissue; 1: the cells that lie over the moving particles (stellate, Kupffer)
 uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uFlow, uLym, uLyF, uDir, uDark, uShim, uStreak;
-uniform vec3 cBg, cShade, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cKup, cKupN, cKupE, cRbc, cChev, cRev, cEndF, cEndE;
+uniform vec3 cBg, cShade, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cKup, cKupN, cKupE, cRbc, cEndF, cEndE;
 uniform float aBm;
 uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
 uniform vec2 uEndA;              // how much each end's name shows (0 to 1): its arrow fades with it
-uniform float uRamp;             // the arrowheads' fades, at least this long (µm): half a second of the blood's travel, up to 12 µm
-uniform vec3 uLab;               // the lumen's own name: x and half length (µm), kept clear of the arrowheads; how much it shows (0 to 1)
 
 const float ENDO = ${UM.endo.toFixed(2)}, DISSE = ${UM.disse.toFixed(2)}, HEP = ${UM.hep.toFixed(1)}, LUM0 = ${UM.lum.toFixed(1)};
 const float SLOT = ${SLOT.toFixed(2)}, CELL = ${CELL.toFixed(1)};
@@ -118,7 +115,6 @@ vec2 sdBez(vec2 pos, vec2 A, vec2 B, vec2 C) {
 }
 // A smooth process: a Bézier stroke tapering from radius ra to rb.
 float sdProc(vec2 p, vec2 A, vec2 B, vec2 C, float ra, float rb) { vec2 r = sdBez(p, A, B, C); return r.x - mix(ra, rb, r.y); }
-${CHEV_GLSL}
 // Flat fill, no outline, as the lobule draws its cells: a shape reads by its colour against what is under it.
 vec3 paint(vec3 under, vec3 fill, float d) { return mix(under, fill, cov(d)); }
 
@@ -167,8 +163,8 @@ vec3 endoInk(vec3 under, float d, float dN, float x, float det) {
   return mix(c, cEndoN, line(dN, 0.05) * 0.35 * det);
 }
 
-// ── The lumen, flat as the lobule's: pressure colour, a thin light line and a thin dark one, the streaks and chevrons ──
-vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
+// ── The lumen, flat as the lobule's: pressure colour, a thin light line and a thin dark one, the streaks ──
+vec3 lumen(float x, float y, float hw, int lane0) {
   vec3 c = cLumen;
   c = mix(c, vec3(1.0), 0.28 * line(y + hw - 0.5, 0.16));
   c = mix(c, vec3(0.0), 0.1 * line(y - hw + 0.5, 0.16));
@@ -195,24 +191,6 @@ vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
   float along = smoothstep(0.0, 0.85, ed) * (1.0 - smoothstep(0.86, 1.0, ed));
   float acr = exp(-pow((y - yc) / (wy * (0.6 + 0.6 * ed)), 2.0));
   c = mix(c, vec3(1.0), along * acr * smoothstep(0.15, 0.35, hk) * uShim * 0.6 * (0.45 + 0.75 * sh));
-  if (chev) {
-    // The flow's arrowheads, the app's own (chevHead, as every vessel draws them): a slim filled head with a notched
-    // back, dark (orange where the flow runs backwards) with a faint light rim, one fixed shape, moving with the blood.
-    // Sized as they show on the anatomy's veins; none by the ends' arrows or the lumen's name.
-    float cw = min(0.5 * uLum, 0.42 * uEnd.z), L = 1.6 * cw, Pc = 24.0;
-    float xc = mod(x - uFlow + 0.5 * Pc, Pc) - 0.5 * Pc, xh = x - xc;
-    vec2 ch = chevHead(xc * uDir, abs(y), cw, uPx);
-    // (Long, soft fades, at least half a second of the head's travel: a head moving past one dims over a good stretch of
-    // its path, it never blinks out. Each end's name lies beyond its arrow, toward its venule. The Kupffer cell is drawn
-    // over the stream, so a head simply passes under it.)
-    float s = uEnd.z, re = max(2.5 * s, uRamp);
-    float fe = smoothstep(4.0 * s, 4.0 * s + re, abs(xh - uEnd.x)) * smoothstep(4.0 * s, 4.0 * s + re, abs(xh - uEnd.y));
-    float fade = uEnd.w > 0.0 ? fe : 1.0;
-    // (Only as much as the name shows: a name the slide hides leaves the heads steady, and one fading in clears them as it comes.)
-    fade *= mix(1.0, smoothstep(uLab.y + 0.3 * L, uLab.y + 0.3 * L + max(2.7 * L, uRamp), abs(xh - uLab.x)), uLab.z);
-    c = mix(c, vec3(1.0), ch.y * 0.75 * fade);
-    c = mix(c, uDir < 0.0 ? cRev : cChev, ch.x * fade);
-  }
   return c;
 }
 
@@ -409,7 +387,7 @@ void main() {
   }
   vec3 c = cBg;
   if (a < hw) {
-    c = lumen(x, y, hw, 0, true);
+    c = lumen(x, y, hw, 0);
     // The arrows at the ends, beside their labels: the blood coming in from the portal venule and going out to the central vein.
     for (int i = 0; i < 2; i++) {
       float s = uEnd.z;
@@ -437,7 +415,7 @@ void main() {
       if (b < D) c = disse(x, D - b + E, E, D + E, side, false, 0.0);
       else if (b < D + 2.0 * E + 2.0 * L) {
         float yl = b - (D + E + L), al = abs(yl);
-        c = al < L ? lumen(x, yl, L, 40, false) : mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (al - L) / E);
+        c = al < L ? lumen(x, yl, L, 40) : mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (al - L) / E);
         float dN, de = sdEndo(x, al, L, side < 0 ? 7 : 9, 0, false, 0.0, dN);
         c = endoInk(c, de, dN, x, 0.0);
       }
@@ -523,7 +501,11 @@ export function createSinusoidGL(canvas) {
     gl.bindVertexArray(null);
     return true;
   }
-  let ok = init();
+  // The shaders are compiled at the first idle moment after start-up, not during it (nothing shows the sinusoid that early), or at the
+  // first draw if that comes sooner.
+  let ok = null;
+  const ready = () => (ok === null ? (ok = init()) : ok);
+  if (window.requestIdleCallback) requestIdleCallback(ready, { timeout: 8000 }); else setTimeout(ready, 3000);
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); ok = false; });
   canvas.addEventListener('webglcontextrestored', () => { ok = init(); });
   const set = (U, k, v) => {
@@ -543,10 +525,10 @@ export function createSinusoidGL(canvas) {
     gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
   return {
-    get ok() { return ok; },
+    get ok() { return ready(); },
     /** u: uniforms by name; pts: Float32Array of (x, y, r, alpha, kind) × n. The tissue, the particles, then the cells over them. */
     draw(u, pts, n) {
-      if (!ok) return;
+      if (!ready()) return;
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.disable(gl.BLEND);

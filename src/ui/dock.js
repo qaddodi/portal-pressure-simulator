@@ -1,17 +1,23 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=7fb7280c05';
-import { EDGES } from '../engine/topology.js?v=34e377149b';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=b1761ad19c';
-import { lobuleFlows } from './lobule-model.js?v=ef674ee7ff';
-import { createProfile } from './charts.js?v=e073763634';
-import { createPressureTime } from './pressure-time.js?v=a1bb3a4807';
-import { createFibroScan } from './fibroscan.js?v=1b0c346f76';
-import { createHvpgProcedure } from './hvpg-proc.js?v=b87658d79c';
-import { createDoppler } from './doppler.js?v=b26ba3e4f5';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=9feb441f21';
-import { frameFor } from './frame.js?v=0db47e99bf';
+import { store, hiddenNow } from './store.js?v=31ee79b6ab';
+import { EDGES } from '../engine/topology.js?v=4044766e96';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf } from './util.js?v=0140acc352';
+import { lobuleFlows } from './lobule-model.js?v=1ff0bc103e';
+import { createProfile } from './charts.js?v=7e8a65ec45';
+import { createPressureTime } from './pressure-time.js?v=b392d335bc';
+import { createFibroScan } from './fibroscan.js?v=b582562ab5';
+import { createHvpgProcedure } from './hvpg-proc.js?v=50c4e675b4';
+import { createDoppler } from './doppler.js?v=781d185565';
+import { ownsSideways } from './swipe.js?v=75b95b59cf';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=3b2ab2c133';
+import { createReadoutsPane } from './readouts-pane.js?v=e39c9f98b5';
+import { frameFor } from './frame.js?v=5efaa2bcc9';
+import { vitalReading } from './vital-read.js?v=e902fb66cd';
+import { setShown } from './shown.js?v=82ef5e29ec';
+import { tenthGap } from '../engine/gap.js?v=3a5947c552';
+import { compareRows } from './idle-keys.js?v=27f599b5bc';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -19,7 +25,7 @@ const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
-// circulation. Each readout's status (dot, bar color and word) comes from a clinical cut-off,
+// circulation. Each readout's status (bar color and word) comes from a clinical cut-off,
 // listed in CUTOFFS below and in About the model: green is normal, amber borderline, red past a
 // clinical threshold, dark red past the highest one where a readout has one. `scale` and `ticks`
 // draw the bar under each value: where the value sits between the cut-offs.
@@ -28,13 +34,13 @@ export const TILES = [
   { id: 'hvpg', group: 'pressure', k: 'HVPG', title: 'Hepatic venous pressure gradient: wedged − free hepatic venous pressure. Estimates the sinusoidal gradient; normal < 5, clinically significant ≥ 10 mmHg.', why: 'hvpg', v: (m) => m.hvpg, d: 1, u: 'mmHg', hideKey: 'trueHVPG', measured: () => store.get().lastHVPG,
     scale: [0, 25], ticks: [5, 10],
     st: (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger'),
-    s: (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : 'CSPH') },
-  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes a block before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
+    s: (v) => (v < 5 ? 'Normal' : v < 10 ? 'Mild' : 'CSPH') },
+  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes resistance before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
     scale: [0, 25], ticks: [6, 12],
-    st: (v) => (v < 6 ? 'ok' : v < 12 ? 'caution' : 'danger'), s: (v) => (v < 6 ? 'Normal' : v < 12 ? 'Raised' : 'High') },
+    st: (v) => (v < 6 ? 'ok' : v < 12 ? 'caution' : 'danger'), s: (v) => (v < 6 ? 'Normal' : v < 12 ? 'High' : 'Bleed risk') },
   { id: 'pv', group: 'pressure', k: 'Portal pressure', ks: 'Portal P', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
     scale: [0, 35], ticks: [10, 15],
-    st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
+    st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'High' : 'Severe') },
   // Flow and velocity averaged over a few breaths (pvFlowMean, pvVelMean): breathing swings the
   // instantaneous velocity across the 15 cm/s cut-off even in a healthy patient.
   { id: 'pvflow', group: 'flow', k: 'Portal flow', ks: 'PV flow', title: 'Portal vein blood flow toward the liver, averaged over a few breaths (negative = away from it). Normal ≥ 0.9 L/min at ≥ 15 cm/s (Doppler).', why: 'pvFlow', v: (m) => m.pvFlowMean ?? m.pvFlow, d: 1, u: 'L/min',
@@ -43,7 +49,7 @@ export const TILES = [
     s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(vel(m)) < 9 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(vel(m)) < 15 ? 'Slow' : 'Normal') },
   { id: 'liver', group: 'flow', hideKey: 'model', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Total blood flow through the liver sinusoids (portal + hepatic artery), % of this model\'s healthy baseline. A model quantity, not liver function.', why: 'sinFlow', v: (m) => m.liverPerfPct, d: 0, u: '%',
     scale: [0, 150], ticks: [55, 75],
-    st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Reduced' : 'Low') },
+    st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Low' : 'Severe') },
   { id: 'shunt', group: 'flow', k: 'Shunted', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100, d: 0, u: '%', title: 'Share of gut and spleen blood that bypasses the liver through collaterals and shunts.',
     scale: [0, 100], ticks: [10, 30, 60],
     st: (v) => (v < 10 ? 'ok' : v < 30 ? 'caution' : v < 60 ? 'danger' : 'critical'), s: (v) => (v < 10 ? 'Minimal' : v < 30 ? 'Moderate' : v < 60 ? 'Large' : 'Most') },
@@ -57,7 +63,7 @@ export const TILES = [
     st: (v, m) => (m.ascites.grade === 0 ? 'ok' : m.ascites.grade === 1 ? 'caution' : 'danger'), s: (v, m) => (m.ascites.grade === 0 ? 'None' : `Grade ${m.ascites.grade}`) },
   { id: 'spleen', group: 'effects', k: 'Spleen', title: 'Spleen length. Splenomegaly > 13 cm; the enlarged spleen traps platelets.', why: 'spleen', v: (m) => m.spleen.length, d: 1, u: 'cm',
     scale: [8, 22], ticks: [13],
-    st: (v) => (v <= 13 ? 'ok' : v <= 16 ? 'caution' : 'danger'), s: (v) => (v <= 13 ? 'Normal' : v <= 16 ? 'Enlarged' : 'Large') },
+    st: (v) => (v <= 13 ? 'ok' : v <= 16 ? 'caution' : 'danger'), s: (v) => (v <= 13 ? 'Normal' : 'Large') },
 ];
 // On the Lobule view the strip reads the lobule's own flows instead (what the card beside the lobule used to
 // list): through the sinusoids, in from the portal vein and the hepatic artery, and the lymph the liver
@@ -66,19 +72,20 @@ const lobuleVal = (key) => (f, st) => lobuleFlows(f, st.healthy)[key];
 export const LOBULE_TILES = [
   { id: 'lz-sin', group: 'lobule', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Blood through the sinusoids, % of normal (portal + hepatic artery).', why: 'sinFlow', v: (f, st) => lobuleVal('flow')(f, st) * 100, d: 0, u: '%',
     scale: [0, 150], ticks: [55, 75],
-    st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Reduced' : 'Low') },
+    st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Low' : 'Severe') },
   { id: 'lz-pv', group: 'lobule', k: 'Portal inflow', ks: 'Portal in', title: 'Blood entering the lobule from the portal venule, % of normal (negative = flowing out of the liver).', why: 'portalIn', v: (f, st) => lobuleVal('portal')(f, st) * 100, d: 0, u: '%',
     scale: [-60, 150], ticks: [0, 50],
-    st: (v) => (v < -2 ? 'critical' : v < 50 ? 'danger' : v < 75 ? 'caution' : 'ok'), s: (v) => (v < -2 ? 'Reversed' : v < 50 ? 'Low' : v < 75 ? 'Reduced' : 'Normal') },
+    st: (v) => (v < -2 ? 'critical' : v < 50 ? 'danger' : v < 75 ? 'caution' : 'ok'), s: (v) => (v < -2 ? 'Reversed' : v < 50 ? 'Severe' : v < 75 ? 'Low' : 'Normal') },
   { id: 'lz-art', group: 'lobule', k: 'Arterial inflow', ks: 'Artery in', title: 'Blood entering the lobule from the hepatic arteriole, % of normal. It rises when the portal inflow falls (the arterial buffer response).', why: 'artIn', v: (f, st) => lobuleVal('art')(f, st) * 100, d: 0, u: '%',
     scale: [0, 200], ticks: [60, 130],
-    st: (v) => (v < 60 ? 'danger' : v > 130 ? 'caution' : 'ok'), s: (v) => (v < 60 ? 'Low' : v > 130 ? 'Compensating' : 'Normal'), ss: (v) => (v < 60 ? 'Low' : v > 130 ? 'Raised' : 'Normal') },
+    st: (v) => (v < 60 ? 'danger' : v > 130 ? 'caution' : 'ok'), s: (v) => (v < 60 ? 'Low' : v > 130 ? 'Compensating' : 'Normal'), ss: (v) => (v < 60 ? 'Low' : v > 130 ? 'High' : 'Normal') },
   { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Lymph the liver forms in the space of Disse and drains to the portal tract. Normal is about 0.8 mL/min; past about three times that it overflows into the abdomen (ascites).', why: 'hepLymph', v: (f, st) => lobuleVal('lymph')(f, st), d: 1, u: 'mL/min',
     scale: [0, 5], ticks: [1.2, 2.4],
     st: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'danger' : r >= 1.5 ? 'caution' : 'ok'; },
-    s: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'Overflow' : r >= 1.5 ? 'Raised' : 'Normal'; } },
+    s: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'Overflow' : r >= 1.5 ? 'High' : 'Normal'; } },
 ];
-export const LOBULE_PRIMARY = new Set(LOBULE_TILES.map((t) => t.id));
+// Collapsed, the lobule view keeps its two key flows: through the sinusoids and in from the portal venule.
+export const LOBULE_PRIMARY = new Set(['lz-sin', 'lz-pv']);
 
 // A group whose readouts share a unit names it once, in its caption, so the tiles stay narrow.
 export const GROUPS = [['pressure', 'Pressure'], ['flow', 'Flow'], ['effects', 'Consequences']];
@@ -95,26 +102,26 @@ export const CUTOFFS = [
   ['Spleen length', '≤ 13 cm', '13–16 cm', '> 16 cm', '—'],
 ];
 
-// Systemic circulation: a compact block at the end of the strip.
+// Systemic circulation: a compact obstruction at the end of the strip.
 export const VITALS = [
-  { id: 'map', k: 'MAP', title: 'Mean arterial pressure', why: 'map', v: (m) => m.map, d: 0, u: 'mmHg', bad: (m) => m.map < 65 },
-  { id: 'hr', k: 'HR', title: 'Heart rate', why: 'hr', v: (m) => m.hr, d: 0, u: '/min', bad: (m) => m.hr > 110 },
-  { id: 'co', k: 'CO', title: 'Cardiac output', why: 'co', v: (m) => m.co, d: 1, u: 'L/min', bad: (m) => m.co > 6.5 },
-  { id: 'ra', k: 'RA', title: 'Right atrial pressure', why: 'ra', hideKey: 'ra', v: (m) => m.ra, d: 1, u: 'mmHg', bad: (m) => m.ra > 10 },
-  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: null, v: (m) => m.blood.hb, d: 1, u: 'g/dL', bad: (m) => m.blood.hb < 7 },
+  { id: 'map', k: 'MAP', title: 'Mean arterial pressure', why: 'map', v: (m) => m.vitals?.map ?? m.map, d: 0, u: 'mmHg', cut: 65, low: true, hys: 2 },
+  { id: 'hr', k: 'HR', title: 'Heart rate', why: 'hr', v: (m) => m.vitals?.hr ?? m.hr, d: 0, u: '/min', cut: 110, hys: 3 },
+  { id: 'co', k: 'CO', title: 'Cardiac output', why: 'co', v: (m) => m.vitals?.co ?? m.co, d: 1, u: 'L/min', cut: 6.5, hys: 0.2 },
+  { id: 'ra', k: 'RA', title: 'Right atrial pressure', why: 'ra', hideKey: 'ra', v: (m) => m.vitals?.ra ?? m.ra, d: 1, u: 'mmHg', cut: 10, hys: 0.5 },
+  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb', v: (m) => m.blood.hb, d: 1, u: 'g/dL', cut: 7, low: true, hys: 0.2 },
 ];
 
-// The key readouts: the only ones on a phone until the strip is expanded.
-// Collapsed, the strip shows the pressures (HVPG, the portosystemic gradient, portal pressure) and,
-// where there is room (not on a phone), portal flow: where the pressure sends the blood.
-export const PRIMARY = new Set(['hvpg', 'ppg', 'pv', 'pvflow']);
-const STUDENT_PRIMARY = new Set(['hvpg', 'ppg']);
+// The key readouts: collapsed, the bar shows only the two gradients (HVPG and the portosystemic
+// gradient) on every device; the rest open with the chevron.
+export const PRIMARY = new Set(['hvpg', 'ppg']);
+// The bar's two gradients do nothing when tapped for now (the handlers in tile() stay for when they return).
+const BAR_INERT = PRIMARY;
 
 // A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the
 // bar's range), so the heartbeat and breathing never make it flicker.
 const TREND_S = 5, TREND_FRAC = 0.03;
 
-/** The value a readout shows, or null when a case hides it and it has not been measured. */
+/** The value a readout shows, or null when it is hidden and has not been measured. */
 export function readoutValue(t, m, hidden) {
   if (!hidden?.has(t.hideKey)) return t.v(m);
   const meas = t.id === 'hvpg' ? t.measured?.() : null;
@@ -125,26 +132,33 @@ export function readoutValue(t, m, hidden) {
 const ALIAS = { flow: 'profile', perfusion: 'profile', chart: 'profile' };
 
 export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
-  // One app-wide relayout for a burst of changes (a mode change also changes the role and the lobule): every resize
+  // One app-wide relayout for a burst of changes (a mode change also changes the lobule): every resize
   // listener (the figure, the timeline, the presenter) runs once, not once per key.
   let rzT = 0;
   const resizeSoon = () => { clearTimeout(rzT); rzT = setTimeout(() => dispatchEvent(new Event('resize')), 30); };
   // ── Readout strip ─────────────────────────────────
+  const ends = { pv: {}, ivc: {}, whvp: {}, fhvp: {} };   // (the gradients' readings, each with the tiles' running mean)
   const tileEls = {};
   // A phone's four tiles are narrow: short names and status words where the long ones would be cut off.
-  const narrow = matchMedia('(max-width: 767px), (max-width: 1194px) and (pointer: coarse)');   // phones and tablets: short readout names
+  const narrow = matchMedia('(max-width: 1279px)');   // phones, tablets and narrow windows: short readout names
   const row = h('div', { class: 'ro-row' });
   strip.append(row);
   const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1) * 100;
   function tile(t, shared) {
     const val = h('span', { class: 'val' }, '—'), tr = h('span', { class: 'tr', 'aria-hidden': 'true' }), st = h('span', { class: 'status' }), cmp = h('span', { class: 'cmp' });
+    // (Room for two whole digits and the tile's decimals, "16.9" or "62", in whole pixels: a reading keeps its width as it
+    // changes, and a tile is never wider than its usual reading, so a phone's row still fits.)
+    val.style.setProperty('--vr', `round(up, calc(${2 + t.d}ch${t.d ? ' + 0.26em' : ''}), 1px)`);
     const fill = h('i', { class: 'rb-fill' });
     const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, t.ticks.map((x) => h('i', { class: 'rb-tick', style: { left: pos(t, x) + '%' } })));
-    const el = h('button', { class: 'metric' + (PRIMARY.has(t.id) || LOBULE_PRIMARY.has(t.id) ? ' primary' : ''), 'data-id': t.id },
+    // The bar's HVPG and PPG are plain readouts for now: no tap action, button or focus stop (the Readouts tab's tiles still open "why").
+    const inert = BAR_INERT.has(t.id);
+    const el = h(inert ? 'div' : 'button', { class: 'metric' + (inert ? ' inert' : '') + (PRIMARY.has(t.id) || LOBULE_PRIMARY.has(t.id) ? ' primary' : ''), 'data-id': t.id, ...(inert ? { role: 'group' } : {}) },
       h('span', { class: 'k' }, t.ks ? [h('span', { class: 'k-l' }, t.k), h('span', { class: 'k-s' }, t.ks)] : t.k), h('span', { class: 'v' }, val, shared ? null : h('span', { class: 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null), tr), bar, h('span', { class: 's' }, st, cmp));
-    el.title = `${t.title || t.k}${t.pane ? '\nClick to open the Ascites view.' : t.why ? '\nClick for what is driving it.' : ''}`;
+    el.title = `${t.title || t.k}${inert ? '' : t.pane ? '\nClick to open the Ascites view.' : t.why ? '\nClick for what is driving it.' : ''}`;
     // Ascites opens its own instrument (amount, cause, tap, treatment) rather than a second popover.
-    if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
+    if (inert) { /* readout only */ }
+    else if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
     // HVPG not yet measured (Explore): the tile opens the catheter procedure instead.
     else if (t.why) el.addEventListener('click', () => (t.id === 'hvpg' && readoutValue(t, {}, hiddenNow()) == null ? show('hvpg', { reveal: true }) : onWhy(t.why, el)));
     tileEls[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };
@@ -156,10 +170,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, label), h('div', { class: 'ro-tiles' }, ts.map((t) => tile(t, false)))));
   }
   // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
-  // Student mode keeps the two gradients (HVPG, PPG) and no "all readouts" chevron (CSS).
-  const syncLobule = () => { const st = store.get(), on = !!st.lobule, pri = on ? LOBULE_PRIMARY : st.role === 'student' && st.mode === 'explore' ? STUDENT_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
+  const syncLobule = () => { const on = !!store.get().lobule, pri = on ? LOBULE_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
   // A paused model sends no frames: fill the tiles from the last one at once (no dashes).
-  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
+  for (const k of ['lobule', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
+  // (A measurement, the Always show HVPG switch or a new patient's hidden readouts change what the tiles show: repaint
+  // them from the last frame now, or a paused model keeps showing "Not measured" or the last patient's band until Play.)
+  for (const k of ['hvpgMeasured', 'showHvpg', 'hiddenReadouts', 'lastHVPG', 'presetId']) store.on(k, () => { if (frame) update(frame); });
   syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
@@ -169,63 +185,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   });
   row.append(h('div', { class: 'ro-group ro-systemic', 'data-group': 'systemic', role: 'group', 'aria-label': 'Systemic' },
     h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
-  const moreBtn = h('button', { class: 'ib ro-more', 'aria-expanded': 'false', 'aria-label': 'Show all readouts', title: 'All readouts' }, svgIcon('chev-down'));
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  // Open or close the rest of the readouts; the strip grows upward from the bottom edge, so its height
-  // animates between the two sizes.
-  const setAll = (on, animate) => {
-    if (strip.classList.contains('all') === on) return;
-    const h0 = strip.offsetHeight;
-    strip.classList.toggle('all', on);
-    moreBtn.setAttribute('aria-expanded', String(on));
-    moreBtn.setAttribute('aria-label', on ? 'Show fewer readouts' : 'Show all readouts');
-    const h1 = strip.offsetHeight;
-    if (animate && !reduce.matches && h0 !== h1 && strip.animate) {
-      strip.animate({ height: [`${h0}px`, `${h1}px`] }, { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = () => dispatchEvent(new Event('resize'));
-      strip.style.overflow = 'hidden'; setTimeout(() => { strip.style.overflow = ''; }, 300);
-    }
-    resizeSoon();
-  };
-  moreBtn.addEventListener('click', () => setAll(!strip.classList.contains('all'), true));
-  // Drag the strip up to open it, down to close it (touch only; where the chevron is shown). It follows
-  // the finger, then settles open or closed by speed or by how far it got.
-  let flick = null;
-  const sizes = () => { const h = strip.offsetHeight, was = strip.classList.contains('all'); strip.classList.toggle('all', !was); const o = strip.offsetHeight; strip.classList.toggle('all', was); return was ? [o, h] : [h, o]; };
-  strip.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' || getComputedStyle(moreBtn).display === 'none') return;
-    flick = { id: e.pointerId, y: e.clientY, t: performance.now(), on: false, v: 0, ly: e.clientY, lt: performance.now() };
-  });
-  strip.addEventListener('pointermove', (e) => {
-    if (!flick || e.pointerId !== flick.id) return;
-    const dy = e.clientY - flick.y, now = performance.now();
-    if (!flick.on) {
-      if (Math.abs(dy) < 8) return;
-      flick.on = true; flick.wasAll = strip.classList.contains('all');
-      [flick.lo, flick.hi] = sizes();
-      strip.classList.add('all'); strip.style.overflow = 'hidden';
-      try { strip.setPointerCapture(e.pointerId); } catch {}
-    }
-    e.stopPropagation();
-    flick.h = Math.max(flick.lo, Math.min(flick.hi, (flick.wasAll ? flick.hi : flick.lo) - dy));
-    strip.style.height = `${flick.h}px`;
-    if (now - flick.lt > 30) { flick.v = (e.clientY - flick.ly) / (now - flick.lt); flick.ly = e.clientY; flick.lt = now; }
-  });
-  const endFlick = () => {
-    const f = flick; flick = null;
-    if (!f || !f.on) return;
-    const open = Math.abs(f.v) > 0.3 ? f.v < 0 : f.h > (f.lo + f.hi) / 2, to = open ? f.hi : f.lo;
-    const finish = () => { strip.style.height = ''; strip.style.overflow = ''; strip.classList.toggle('all', open); moreBtn.setAttribute('aria-expanded', String(open)); moreBtn.setAttribute('aria-label', open ? 'Show fewer readouts' : 'Show all readouts'); dispatchEvent(new Event('resize')); };
-    if (reduce.matches || !strip.animate) return finish();
-    const an = strip.animate({ height: [`${f.h}px`, `${to}px`] }, { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
-    strip.style.height = `${to}px`; an.onfinish = finish; an.oncancel = finish;
-  };
-  strip.addEventListener('pointerup', endFlick); strip.addEventListener('pointercancel', endFlick);
-  row.append(moreBtn);
-  // A phone held sideways has no room for every readout: it keeps the four key ones.
-  const sideways = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
-  const foldAll = () => { if (sideways.matches && strip.classList.contains('all')) { strip.classList.remove('all'); moreBtn.setAttribute('aria-expanded', 'false'); dispatchEvent(new Event('resize')); } };
-  sideways.addEventListener('change', foldAll);
-  new MutationObserver(foldAll).observe(strip, { attributes: true, attributeFilter: ['class'] });
+  // The bar keeps only the key readouts; every readout lives in Tests > Readouts (readouts-pane.js), so the
+  // strip no longer opens.
 
   function trendOf(x, v, now) {
     const hs = x.hist;
@@ -242,6 +203,17 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const hidden = hiddenNow(st0);
     const A = st0.compareSnap?.metrics || null;
     const now = performance.now();
+    // The gradients' two readings each get the tiles' running mean, and the gradient is their difference as shown (one
+    // decimal): the Pressure chart writes the same two readings at its brackets' ends, so its labels, the bar and the
+    // readings add up (sweep 2 review item 13: PPG 17.8 beside 22.9 and 5.5).
+    const sm = {};
+    for (const k of ['pv', 'ivc', 'whvp', 'fhvp']) {
+      const raw = m?.[k], e = ends[k];
+      let v = raw;
+      if (Number.isFinite(raw) && Number.isFinite(e.sm) && st0.running && Math.abs(raw - e.sm) < 2) v = e.sm + (raw - e.sm) * Math.min(1, (now - e.smT) / 1200);
+      e.sm = v; e.smT = now; sm[k] = v; setShown(k, v);
+    }
+    const gap = { hvpg: tenthGap(sm.whvp, sm.fhvp, null), ppg: tenthGap(sm.pv, sm.ivc, null) };
     for (const x of Object.values(tileEls)) {
       const { el, t } = x;
       const lz = t.group === 'lobule';
@@ -250,8 +222,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // The beat swings every value a little: the tile shows a running mean (about a second), so the
       // number stays steady; a real step (beyond a tenth of the scale) or a paused model shows at once.
       let v = raw;
-      if (raw != null && x.sm != null && st0.running && t.scale && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200);
+      const live = !lz && t.id in gap && raw != null && raw === t.v(m) && gap[t.id] != null;   // (a live gradient, not a measured one)
+      if (live) v = gap[t.id];
+      else if (raw != null && x.sm != null && st0.running && t.scale && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200);
       x.sm = v; x.smT = now;
+      if (!lz) setShown(t.id, v);
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
@@ -262,9 +237,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       } else {
         const txt = fmt(v, t.d);
         setText(x.val, txt);
-        const a = lz ? [f, st0] : [m];
-        s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(v, ...a);
-        sev = t.st(v, ...a);
+        const a = lz ? [f, st0] : [m], vs = shownOf(v, t.d);   // (the word judges the number shown: "5.0 L" is Grade 3)
+        s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(vs, ...a);
+        sev = t.st(vs, ...a);
         const w = pos(t, v), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
         const fl = Math.min(w, o) / 100, fw = Math.abs(w - o) / 100;
         if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
@@ -281,10 +256,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         x.st.hidden = true;
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
       // A new band must hold for a moment before the tile takes it, so a value hovering on a
-      // cut-off does not flicker between two colors.
+      // cut-off does not flicker between two colors. (A paused model sends no more frames: it takes the band at once.)
       if (sev !== x.sev) {
         if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }
-        if (!x.sev || sev === 'none' || now - x.sevSince > 1500) {
+        if (!x.sev || sev === 'none' || !st0.running || now - x.sevSince > 1500) {
           // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
           const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
           if (x.sev && RANKS[sev] > RANKS[x.sev]) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
@@ -297,14 +272,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     }
     for (const x of vitEls) {
       const hid = hidden?.has(x.v.hideKey);
-      const txt = hid ? '?' : fmt(x.v.v(m), x.v.d);
-      setText(x.val, txt);
-      x.el.classList.toggle('bad', !hid && x.v.bad(m));
+      const r = vitalReading(x, m, st0.running, now);
+      setText(x.val, hid ? '?' : fmt(r.v, x.v.d));
+      x.el.classList.toggle('bad', !hid && r.bad);
     }
   }
 
   // ── Instrument workspace ─────────────────────────
-  // The instruments. Legacy ids remain valid for lessons and actions:
+  // The instruments. Legacy ids remain valid for actions:
   // landscape is a Pressure view; varixwall is Scope's Wall mechanics tab.
   const app = document.getElementById('app');
   const workspace = head.closest('.dock');
@@ -313,11 +288,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const endoscopy = createEndoscopy({ onAction });
   wall.el.className = 'instrument-view wall-view';
   const pressure = { ...profile, id: 'profile', label: 'Pressure' };
+  // Every readout the bottom bar used to carry, live, in its own tab.
+  const readouts = createReadoutsPane({ tiles: TILES, groups: GROUPS, vitals: VITALS, readoutValue, onWhy, show });
   const instruments = [
     pressure, createPressureTime({ marks }),
     // On a sheet (phone, portrait tablet) the procedure folds the card down so the anatomy shows it.
     createHvpgProcedure(),
-    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(),
+    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(), readouts,
   ];
   const panes = instruments.map((p) => {
     p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');
@@ -337,13 +314,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     endoscopy: ['endoscope', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
     fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 0)} kPa`],
+    readouts: ['grid', (f) => readouts.summary(f)],
   };
-  const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan' };
+  const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan', readouts: 'Readouts' };
   // Narrow cards use these shorter names so all six tabs always fit without scrolling.
   const TINY = { endoscopy: 'Scope', fibroscan: 'Fibro' };
-  const ORDER = ['profile', 'scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan'];
+  const ORDER = ['profile', 'scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan', 'readouts'];
   // Pressure (along the circuit) and Over time (the same pressures through time) share one tab with a
-  // small switch inside it; 'scope' stays a pane of its own, so lessons and the Presenter still reach it.
+  // small switch inside it; 'scope' stays a pane of its own, so the Presenter still reaches it.
   const TABS = ORDER.filter((id) => id !== 'scope');
   const tabOf = (id) => (id === 'scope' ? 'profile' : id);
   const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
@@ -362,11 +340,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const closeBtn = h('button', { class: 'ib card-close workspace-close', 'aria-label': 'Close Tests', title: 'Close (Esc)', onclick: close }, svgIcon('close'));
   const divider = h('div', { class: 'workspace-divider', role: 'separator', tabindex: '0', 'aria-label': 'Instruments size' }, h('span'));
   workspace.prepend(divider);
-  head.classList.add('card-head');
+  head.classList.add('card-head', 'tabbed');
   head.append(titleEl, live, closeBtn);
   // The tabs: one per instrument, with its live reading.
   const tabEls = {};
-  const tabs = h('div', { class: 'instr-tabs ws-tabs', role: 'tablist', 'aria-label': 'Instruments' }, TABS.map((id) => {
+  const tabs = h('div', { class: 'instr-tabs ws-tabs', role: 'tablist', 'aria-label': 'Tests' }, TABS.map((id) => {
     const val = h('small', { class: 'it-v' });
     const b = h('button', { class: 'instr-tab', role: 'tab', 'data-instrument': id, 'aria-selected': 'false', 'aria-controls': 'pane-' + id },
       svgIcon(INFO[id][0]), h('span', { class: 'it-t' }, h('b', {}, h('span', { class: 'it-full' }, SHORT[id] || byId[id].label), h('span', { class: 'it-short' }, TINY[id] || SHORT[id] || byId[id].label)), val));
@@ -385,10 +363,71 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const pickHint = h('div', { class: 'instr-hint', hidden: true }, 'Pick a second instrument to show with ', h('b'), '.');
   const tabsBox = tabs;
   // The row never scrolls: a wide card shows every full name, a narrower one the short names over their icons.
-  const fitTabs = () => { const w = tabs.clientWidth; if (w) { tabs.classList.toggle('compact', w < 620); tabs.classList.toggle('narrow', w < 470); } };
+  // Tightest (a phone's sheet, beside the close button): only the open tab keeps its name, the others are icons.
+  // (Tightest and still too narrow for the open tab's whole name beside the icons: that tab is an icon too, never a cut name.)
+  const fitTabs = () => {
+    const w = tabs.clientWidth;
+    if (!w) return;
+    tabs.classList.toggle('compact', w < 780); tabs.classList.toggle('narrow', w < 520); tabs.classList.toggle('tight', w < 420);
+    tabs.classList.remove('bare');
+    if (w < 420) {
+      const on = tabs.querySelector('.instr-tab[aria-selected="true"]'), t = on?.querySelector('.it-t b');
+      const need = [...tabs.children].reduce((a, b) => a + (b === on ? 0 : 26), 0) + (on ? on.offsetWidth - (on.querySelector('.it-t')?.offsetWidth || 0) + (t?.scrollWidth || 0) + 5 : 0) + 2 * (tabs.children.length - 1) + 6;
+      if (need > w) tabs.classList.add('bare');
+    }
+  };
   if (typeof ResizeObserver === 'function') new ResizeObserver(fitTabs).observe(tabs);
   fitTabs();
-  head.after(tabsBox, pickHint);
+  // The tabs sit in the head itself, with the close button at the row's end: one slim row instead of a title row
+  // over a tab row. The title and its quiet status show only while the tabs are hidden (the folded peek state).
+  closeBtn.before(tabsBox);
+  head.after(pickHint);
+  // A phone's Tests card (over the thumb dock): a sideways drag on the card pages between the tabs. The open pane follows
+  // the finger with the next (or previous) tab's pane beside it; on release it eases to whichever is nearer, or on to the
+  // next one after a quick flick. A vertical pull stays the sheet's (it closes or resizes the card).
+  let sw = null, settle = null;   // settle: the last swipe's switch, while its panes are still easing
+  const paneFor = (id) => (panes.find((p) => p.id === id) || panes.find((p) => tabOf(p.id) === id))?.el;
+  const clearSwipe = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; e.classList.remove('swipe-peer'); } };
+  body.addEventListener('touchstart', (e) => {
+    // A second swipe before the first has settled finishes the first at once, so it starts from the new tab (review #21).
+    settle?.();
+    sw = e.touches.length === 1 && app.classList.contains('thumb') && open.length === 1 && !ownsSideways(e.target, { stop: body })
+      ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0 } : null;
+  }, { passive: true });
+  body.addEventListener('touchmove', (e) => {
+    if (!sw) return;
+    const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+    if (!sw.on) {
+      if (Math.hypot(dx, dy) < 8) return;
+      if (Math.abs(dx) < Math.abs(dy) * 1.2) { sw = null; return; }   // (vertical: the sheet's, or the pane's scroll)
+      sw.on = true; sw.cur = body.querySelector('.dock-pane.active'); sw.i = TABS.indexOf(tabOf(open[0])); sw.w = body.clientWidth;
+    }
+    if (e.cancelable) e.preventDefault();
+    const d = dx < 0 ? 1 : -1, j = sw.i + d;
+    const nb = j >= 0 && j < TABS.length ? paneFor(TABS[j]) : null;
+    if (nb !== sw.nb) { clearSwipe([sw.nb]); sw.nb = nb; sw.j = j; if (nb) nb.classList.add('swipe-peer'); }
+    sw.dx = nb ? dx : dx / 3;   // (past the first or last tab it gives a little and springs back)
+    sw.cur.style.transform = `translateX(${sw.dx}px)`;
+    if (nb) nb.style.transform = `translateX(${sw.dx + d * sw.w}px)`;
+  }, { passive: false });
+  const endSwipe = () => {
+    const s = sw; sw = null;
+    if (!s?.on) return;
+    const ms = performance.now() - s.t, go = s.nb && (Math.abs(s.dx) > s.w * 0.35 || (Math.abs(s.dx) > 40 && Math.abs(s.dx) / ms > 0.4));
+    const d = s.dx < 0 ? 1 : -1, ease = 'transform .24s var(--ease)';
+    s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
+    s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';
+    if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;
+    const done = () => {
+      clearTimeout(timer); settle = null;
+      clearSwipe([s.cur, s.nb]);
+      if (go) { pick(TABS[s.j]); tabEls[TABS[s.j]].b.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); }
+    };
+    const timer = setTimeout(done, 250);
+    settle = done;
+  };
+  body.addEventListener('touchend', endSwipe, { passive: true });
+  body.addEventListener('touchcancel', endSwipe, { passive: true });
   // The switch inside the Pressure tab: the chart along the circuit, or the same pressures over time.
   const pressureSwitch = (own) => h('div', { class: 'pressure-switch', role: 'group', 'aria-label': 'Pressure view' },
     [['profile', 'Along the circuit'], ['scope', 'Over time']].map(([id, label]) => h('button', {
@@ -411,6 +450,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     endoSub = v; endoPane.dataset.sub = v;
     for (const b of endoSwitch.children) b.setAttribute('aria-pressed', String(b.dataset.view === v));
     if (frame) nextFrame(() => (v === 'wall' ? wall : endoscopy).update(frame));
+    fitHeight();
   }
   endoPane.prepend(endoSwitch); endoPane.append(wall.el); endoPane.dataset.sub = endoSub;
   const comparison = h('div', { class: 'workspace-comparison', hidden: true });
@@ -448,17 +488,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       divider.setAttribute('aria-valuenow', String(Math.round((w / W) * 100)));
     } else {
       // The sheet rises from above the vitals dock, at most to just under the top bar.
-      // A lesson's step card (under the top bar) keeps its room: the sheet takes what is below it.
-      const coach = document.getElementById('coach'), coachH = coach && coach.childElementCount ? coach.offsetHeight + 8 : 0;
-      // With a step card above it, a phone keeps about a quarter of the height for the figure itself.
-      const keep = coachH && matchMedia('(max-width: 767px)').matches ? Math.max(40, stageWrap.clientHeight * 0.26) : 40;
-      const max = stageWrap.clientHeight - css('--top-safe') - coachH - css('--vdock-h') - keep;
+      const max = stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') - 40;
       // A tablet held upright keeps more than half the stage for the figure, so its vessel labels stay legible.
       const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : matchMedia('(orientation: portrait)').matches ? 0.4 : 0.46);
-      // A phone in a lesson: the step card sits on top of the sheet and the two share the bottom half, so
-      // the figure keeps the top half (styles: the coach in learn mode).
-      const lessonPhone = coachH && app.dataset.mode === 'learn' && matchMedia('(max-width: 767px)').matches;
-      const height = lessonPhone ? Math.max(150, stageWrap.clientHeight * 0.27) : Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
+      const height = Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
       workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);
       divider.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
     }
@@ -466,18 +499,18 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   // A tab whose picture keeps its own shape (Ascites has none to stretch; HVPG and FibroScan are boxes of a fixed
   // aspect) has nothing to fill a tall card with, so its card is only as tall as its content: the height eases to
-  // fit, and eases back for any other tab. A sheet the learner has resized keeps their height, a lesson's sheet
-  // keeps its own, and when the content would not fit even the full card its picture shrinks as it always did.
-  const FIT = ['abdomen', 'hvpg', 'fibroscan'];
-  const fitView = (id) => byId[id].el.firstElementChild;
+  // fit, and eases back for any other tab. A sheet the learner has resized keeps their height, and when the content would not fit even the full card its picture shrinks as it always did.
+  // Doppler, the scope view and Readouts fit too: on a Mac the card ends under its content instead of running empty to the
+  // play bar (the Wall mechanics view keeps the full card). The scope's view is its second child, after the Scope view / Wall switch.
+  const FIT = ['abdomen', 'hvpg', 'fibroscan', 'doppler', 'endoscopy', 'readouts'];
+  const fitView = (id) => (id === 'endoscopy' ? endoscopy.el : byId[id].el.firstElementChild);
   let fitTimer = 0;
   function fitHeight() {
-    const id = open.length === 1 && FIT.includes(open[0]) && state === 'open' ? open[0] : null;
+    const id = open.length === 1 && FIT.includes(open[0]) && state === 'open' && !(open[0] === 'endoscopy' && endoSub === 'wall') ? open[0] : null;
     for (const o of FIT) if (o !== id) fitView(o).classList.remove('nat');
     const view = id ? fitView(id) : null;
-    const lessonSheet = app.dataset.mode === 'learn' && !isSide() && matchMedia('(max-width: 767px)').matches;
-    // On a phone HVPG and FibroScan fill the sheet by design; only Ascites fits there.
-    let fits = !!view && !lessonSheet && !sidewaysMQ.matches && (isSide() || heightRatio == null) && (id === 'abdomen' || matchMedia('(min-width: 768px)').matches);
+    // Over the thumb dock (a phone, an upright iPad) the card keeps its height whatever the tab: nothing fits there.
+    let fits = !!view && !sidewaysMQ.matches && (isSide() || heightRatio == null) && matchMedia('(min-width: 768px)').matches && !document.getElementById('app')?.classList.contains('thumb');
     if (view) view.classList.toggle('nat', fits);   // nat: the view at its natural height, to measure it
     fits = fits && view.offsetHeight > 0;
     const on = workspace.classList.contains('fit');
@@ -489,7 +522,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     let need = 0;
     if (fits) {
       const pcs = getComputedStyle(view.parentElement);
-      const measure = () => Math.ceil(workspace.offsetHeight - body.clientHeight + parseFloat(pcs.paddingTop) + parseFloat(pcs.paddingBottom) + view.offsetHeight);
+      // (everything the pane shows, stacked: the view, and on Scope the switch above it)
+      const kids = [...view.parentElement.children].filter((c) => c.offsetHeight > 0);
+      const measure = () => Math.ceil(workspace.offsetHeight - body.clientHeight + parseFloat(pcs.paddingTop) + parseFloat(pcs.paddingBottom)
+        + kids.reduce((a, c) => a + c.offsetHeight, 0) + (parseFloat(pcs.rowGap) || 0) * (kids.length - 1));
       need = measure();
       // too tall for the card (a short window): leave it to scale as it always did
       if (need > full + 1 && id !== 'abdomen') { view.classList.remove('nat'); fits = false; }
@@ -538,12 +574,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       tabEls[id].b.tabIndex = id === tabOf(open[0]) ? 0 : -1;
       tabEls[id].b.dataset.slot = on && open.length > 1 && !isPair() ? String(at + 1) : '';
     }
+    fitTabs();
     remember();
     fitHeight();
     queueRefresh();
     onLayout?.();
   }
-  // Beside the name: the vessel the Doppler reads, with a green dot, the colour of its glow on the figure.
+  // Beside the name: the vessel the Doppler reads (its glow on the figure shows where).
   function paintTitle() {
     const probe = open.length === 1 && open[0] === 'doppler' && frame?.probe ? EDGES.find((e) => e.id === frame.probe)?.label : null;
     const txt = probe || '';
@@ -649,7 +686,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     layout();
   });
   sizeObserver.observe(stageWrap); sizeObserver.observe(body);
-  const coachEl = document.getElementById('coach'); if (coachEl) sizeObserver.observe(coachEl);
   sideMQ.addEventListener('change', () => { updateSize(); layout(); });
   store.on('compareSnap', () => updateHeader());
   function updateHeader() {
@@ -658,19 +694,22 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (comparison.hidden !== hideCmp) comparison.hidden = hideCmp;
     if (comparing && frame) {
       const a = st.compareSnap.metrics, b = frame.metrics;
-      const delta = (label, v, digits, unit) => h('span', {}, label, h('b', {}, `${v > 0 ? '+' : ''}${fmt(v, digits)} ${unit}`));
-      comparison.replaceChildren(h('span', { class: 'comparison-label' }, 'Change since baseline'),
-        !hiddenNow(st)?.has('trueHVPG') ? delta('HVPG', b.hvpg - a.hvpg, 1, 'mmHg') : null,
-        !st.hiddenReadouts?.has('model') ? delta('Liver flow', b.liverPerfPct - a.liverPerfPct, 0, 'pp') : null,
-        !st.hiddenReadouts?.has('model') ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pp') : null);
+      const rows = compareRows(a, b, !hiddenNow(st)?.has('trueHVPG'), !st.hiddenReadouts?.has('model'), fmt);
+      // (Frames arrive ten times a second: the line is rebuilt only when a shown number changes, as the comparison table is.)
+      const sig = rows.map((r) => r.join(' ')).join('|');
+      if (comparison._sig !== sig) {
+        comparison._sig = sig;
+        comparison.replaceChildren(h('span', { class: 'comparison-label' }, 'Change since baseline'),
+          ...rows.map(([label, txt]) => h('span', {}, label, h('b', {}, txt))));
+      }
     }
     paintTitle();
     const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][1](frame)
-      : frame.clock === 'disease' ? `${st.running ? 'Live' : 'Paused'} · Day ${frame.day}` : st.running ? 'Live' : 'Paused';
+      : frame.clock === 'disease' ? (st.running ? `Day ${frame.day}` : `Paused · Day ${frame.day}`) : st.running ? '' : 'Paused';
     if (live.textContent !== txt) live.textContent = txt;
     const ls = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
     if (live.dataset.state !== ls) live.dataset.state = ls;
-    // Each tab carries its instrument's reading (not in a case, where the numbers are to be found).
+    // Each tab carries its instrument's reading (not where the numbers are hidden).
     if (frame && isVisible()) for (const id of TABS) {
       const v = st.imaging ? '' : INFO[id][1](frame);
       if (tabEls[id].val.textContent !== v) tabEls[id].val.textContent = v;

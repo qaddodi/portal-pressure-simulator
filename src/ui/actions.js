@@ -1,35 +1,24 @@
 // Verbs on the anatomy (object → verb). Every manipulation the learner can make lives here once:
 // the action card beside a selected structure, the Treat section of the patient chart, the command
-// palette, lessons and cases all call these same verbs, so each change is made one way and lands
+// palette and the presenter all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=34e377149b';
-import { store, updateParams, hiddenNow } from './store.js?v=7fb7280c05';
-import { fmt, fmtFlow, clamp, toast } from './util.js?v=b1761ad19c';
-import { aboutVessel, aboutOrgan } from './about.js?v=b51139478a';
-import { lobuleState } from './lobule-model.js?v=ef674ee7ff';
-import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=6e4d654280';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
+import { dopplerVel } from './velNormal.js?v=181dda5594';
+import { store, updateParams, hiddenNow } from './store.js?v=31ee79b6ab';
+import { fmt, fmtFlow, clamp } from './util.js?v=0140acc352';
+import { PREGNANCY_INFO } from '../engine/scenario.js?v=1ee7733788';
+import { aboutVessel, aboutOrgan } from './about.js?v=e0bda4dfee';
+import { lobuleState } from './lobule-model.js?v=1ff0bc103e';
+import { oxygenFor } from './blood.js?v=1f05278710';
+import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=0b72305f30';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
-// Lessons and cases name the tools a step allows; these are the verbs they unlock.
-const TOOL_VERB = { pinch: 'narrow', thrombus: 'clot', fibrosis: 'fibrosis', stent: 'shunt', band: 'band', occlude: 'occlude', balloon: 'balloon', doppler: 'doppler', endoscope: 'endoscope', needle: 'paracentesis' };
-export const toolsToVerbs = (list) => (list ? [...new Set(list.map((t) => TOOL_VERB[t] || t).filter((v) => v !== 'select' && v !== 'probe'))] : null);
-
-/** Is a verb available now? Lessons and cases restrict verbs; they may also unlock a parameter. */
-export function verbEnabled(id, key) {
-  const st = store.get();
-  const allowed = st.allowedVerbs;
-  if (!allowed && !st.locked) return true;
-  if (allowed?.includes(id)) return true;
-  if (key && st.locked && !st.locked.has('*') && st.locked.has(key)) return true;
-  if (!allowed) return !(key && st.locked && ((!st.locked.has('*') && !st.locked.has(key)) || st.locked.has('!' + key)));
-  return false;
-}
-
 const pct = (v) => `${Math.round(v * 100)} %`;
 const mult = (v) => `×${v.toFixed(v < 10 ? 1 : 0)}`;
+const weeks = (v) => (v > 0 ? `${Math.round(v)} weeks` : 'Not pregnant');
 const HEP_VEIN = { RHV_IVC: 'R', POST_R_RHV: 'R', MHV_IVC: 'M', POST_R_MHV: 'M', POST_L_MHV: 'M', LHV_IVC: 'L', POST_L_LHV: 'L' };
 const POST_TO_HV = { POST_R_RHV: 'RHV_IVC', POST_R_MHV: 'MHV_IVC', POST_L_MHV: 'MHV_IVC', POST_L_LHV: 'LHV_IVC' };
 const WEDGE_OF = { W_R: 'RHV_IVC', W_M: 'MHV_IVC', W_L: 'LHV_IVC' };
@@ -87,7 +76,7 @@ export function cardFor(selIn, ctx) {
     info: 'Occlusive thrombus. With anticoagulation it recanalizes slowly on the disease clock.' };
   const doppler = { type: 'button', id: 'doppler', label: 'Doppler', icon: 'doppler', run: () => { ctx.probe(id); ctx.showPane('doppler'); ctx.select(null); } };
   const shunt = ctx.canShunt(id) ? { type: 'button', id: 'shunt', label: 'Create shunt…', icon: 'stent', run: () => ctx.startShunt(id) } : null;
-  let kicker = 'Vein', why = 'pv';
+  let kicker, why = 'pv';
   if (isArt) {
     kicker = 'Artery';
     verbs.push({ type: 'stat', label: 'Flow', value: (f) => `${fmtFlow(f.Q[k] * 0.06)} L/min` });
@@ -111,7 +100,15 @@ export function cardFor(selIn, ctx) {
       verbs.push({ type: 'slider', id: 'diameter', key: 'customShunts', label: 'Shunt diameter', min: 4, max: 16, step: 0.5, def: 10, format: (v) => `${v.toFixed(1)} mm`,
         get: (p) => p.customShunts?.[id] || 10, set: (p, v) => { p.customShunts = { ...(p.customShunts || {}), [id]: v }; }, hist: `${e.label} diameter` });
       verbs.push({ type: 'button', id: 'remove', key: 'customShunts', label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams((p) => { const c = { ...(p.customShunts || {}) }; delete c[id]; p.customShunts = c; return p; }, { label: `Remove ${e.label}` }); ctx.select(null); } });
-    } else if (['S_PC', 'S_DSR', 'S_MC'].includes(id)) {
+    }
+    // A stent narrows at a short pinch in one of the segments Doppler samples: proximal (portal end), mid or distal.
+    if (isStent(e)) {
+      const at = verbs.findIndex((v) => v.id === 'remove');
+      verbs.splice(at < 0 ? verbs.length : at, 0, { ...narrow, info: 'A short pinch in one segment of the stent. Its resistance rises with (1 − s)⁻⁴, and the jet through it speeds up by (1 − s)⁻².' }, { type: 'seg', id: 'site', label: 'Where', small: true,
+        options: [['proximal', 'Proximal'], ['mid', 'Mid'], ['distal', 'Distal']], get: () => stentSite(store.get().params, id),
+        set: (val) => updateParams((p) => { p.stenosisSite = { ...(p.stenosisSite || {}), [id]: val }; return p; }, { label: `${e.label} narrowing: ${val}` }) });
+    }
+    if (['S_PC', 'S_DSR', 'S_MC'].includes(id)) {
       const key = { S_PC: 'portocaval', S_DSR: 'dsrs', S_MC: 'mesocaval' }[id];
       verbs.push({ type: 'button', id: 'remove', key, label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams({ [key]: false }, { label: `Remove ${e.label}` }); ctx.select(null); } });
     }
@@ -130,7 +127,7 @@ export function cardFor(selIn, ctx) {
     verbs.push(narrow, clot);
     verbs.push(doppler);
     if (shunt) verbs.push(shunt);
-    if (id === 'SV_CONF' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => ctx.select({ type: 'organ', id: 'spleen' }) });
+    if (id === 'SV_CONF' || id === 'SV_MID' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => ctx.select({ type: 'organ', id: 'spleen' }) });
   }
   // Dye into this vessel, beside Doppler: a few seconds a press, or as long as it is held.
   if (ctx.injectDye && !SIN_EDGES.has(id)) {
@@ -167,8 +164,16 @@ export function edgeValue(e, f, lens, ref) {
     return { v: fmtFlow(Math.abs(q)), u: 'L/min', d: d != null && Math.abs(d) >= 5 ? `${d > 0 ? '▲' : '▼'} ${Math.round(Math.abs(d))} %` : null, up: d > 0 };
   }
   if (lens === 'velocity' && e.kind === 'liver') return { v: '—', u: 'cm/s' };   // a lumped bed has no one velocity
-  if (lens === 'velocity') { const D = Math.max(0.5, f.D[k]) / 10; return { v: fmt(Math.abs((q / 0.06) / (Math.PI * D * D / 4)), 0), u: 'cm/s' }; }
+  // Velocity reads as Doppler does (peak, see dopplerK), so it matches the figure callouts and the Doppler monitor.
+  if (lens === 'velocity') return { v: fmt(Math.abs(dopplerVel(f, k)), 0), u: 'cm/s' };
   if (lens === 'drop') return { v: fmt(P1 - P2, 1), u: 'mmHg drop' };
+  // Oxygen saturation of the blood leaving the vessel (an artery's as it enters its bed); the sinusoids read in → out.
+  if (lens === 'oxygen') {
+    const o = oxygenFor(EDGES, NODES, f).edge, up = q >= 0 ? 2 * k : 2 * k + 1, dn = q >= 0 ? 2 * k + 1 : 2 * k;
+    const pc = (s) => String(Math.round(s * 100));
+    const a = o[up], b = e.kind === 'artery' || e.kind === 'arteriole' ? o[up] : o[dn];
+    return { v: Math.abs(a - b) >= 0.005 ? `${pc(a)} → ${pc(b)}` : pc(b), u: '% O₂ saturation' };
+  }
   const r = ref ? (st ? ref[NI[st]] : (ref[NI[e.from]] + ref[NI[e.to]]) / 2) : null;
   return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r };
 }
@@ -183,7 +188,7 @@ export function bedStats(e, f) {
 function varixVerbs(site, ctx) {
   const eso = site === 'eso';
   const out = [];
-  if (eso) out.push({ type: 'button', id: 'band', label: 'Band', icon: 'band', run: () => { ctx.action({ kind: 'band' }); toast('Band placed on an esophageal varix column.'); }, note: (f) => (f.bands ? `${Math.round(f.bands)} band${f.bands >= 1.5 ? 's' : ''} placed` : null) });
+  if (eso) out.push({ type: 'button', id: 'band', label: 'Band', icon: 'band', run: () => { ctx.action({ kind: 'band' }); }, note: (f) => (f.bands ? `${Math.round(f.bands)} band${f.bands >= 1.5 ? 's' : ''} placed` : null) });
   out.push({ type: 'button', id: 'endoscope', label: 'Endoscope', icon: 'endoscope', run: () => { ctx.paneApi('endoscopy')?.setView?.('eso'); ctx.showPane('endoscopy'); } });
   const key = eso ? 'balloonEso' : 'balloonGas';
   out.push({ type: 'toggle', id: 'balloon', key, label: eso ? 'Esophageal balloon' : 'Gastric balloon', icon: 'balloon', get: (p) => !!p[key], set: (p, v) => { p[key] = v; }, hist: eso ? 'Esophageal balloon' : 'Gastric balloon' });
@@ -214,6 +219,9 @@ function organCard(sel, ctx) {
         sl('contractility', 'contractility', 'Contractility', 0.15, 1.6, 1, 'Right-ventricular pump strength (Frank–Starling).'),
         sl('tr', 'tr', 'Tricuspid regurgitation', 0, 1, 0, 'Systolic backflow into the right atrium: large v-waves reach the liver.'),
         sl('pericardial', 'pericardial', 'Pericardial constraint', 0, 1, 0, 'Constrictive pericarditis limits filling.'),
+        // Only for a pregnant patient (or the pregnancy patient moved back to 0 weeks): every other heart card is as before.
+        { type: 'slider', id: 'gestation', key: 'gestation', label: 'Pregnancy', min: 0, max: 40, step: 1, def: 0, format: weeks, get: (p) => p.gestation || 0, set: (p, v) => { p.gestation = v; }, hist: 'Pregnancy',
+          showIf: (p) => p.gestation > 0 || store.get().presetId === 'pregnancy', info: PREGNANCY_INFO },
         stat('Cardiac output', (f) => `${fmt(f.metrics.co, 1)} L/min`),
       ],
     };
@@ -237,7 +245,7 @@ function organCard(sel, ctx) {
       key: 'o:spleen', sel, kicker: 'Organ', title: 'Spleen', why: 'spleen',
       value: (f) => (f.metrics.spleen.length > 0 ? { v: fmt(f.metrics.spleen.length, 1), u: 'cm long' } : { v: 'Removed', u: '' }),
       verbs: [
-        stat('Platelets (illustrative)', (f) => `${Math.round(f.metrics.spleen.platelets)} ×10⁹/L`),
+        stat('Platelets (illustrative)', (f) => `${(Math.round(f.metrics.spleen.platelets) * 1000).toLocaleString('en-US')}/µL`),
         { type: 'seg', label: 'Treat the spleen', options: [[0, 'None'], [1, 'Embolize'], [2, 'Splenectomy']], get: () => store.get().params.splenicRx | 0, set: (val) => updateParams((p) => { p.splenicRx = val; return p; }, { label: ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'][val] }) },
         { type: 'about', text: () => ['Partial embolization closes branches of the splenic artery and infarcts part of the spleen; splenectomy removes it. Both cut splenic inflow, so portal pressure and flow to the varices fall (splenectomy more than embolization).'] },
         { type: 'slider', id: 'clot', key: 'thrombus', label: 'Clot the splenic vein', icon: 'clot', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.thrombus.SV_CONF || 0,
@@ -257,7 +265,7 @@ const ZONE_NAME = { pre: 'portal tract', sin: 'sinusoids', post: 'central vein' 
 const fibrosisVerb = (z) => ({ type: 'slider', id: 'fibrosis', key: 'fibrosis', label: `Fibrosis · ${ZONE_NAME[z]}`, icon: 'fibrosis', min: 1, max: 80, step: 0.5, def: 1, format: mult,
   get: (p) => Math.max(p.fibrosis.R[z], p.fibrosis.L[z]), set: (p, v) => { p.fibrosis.R[z] = v; p.fibrosis.L[z] = v; }, hist: `Fibrosis · ${ZONE_NAME[z]}`,
   info: { pre: 'Resistance before the sinusoids, as in schistosomiasis: portal pressure rises, the wedged pressure does not.', sin: 'Collagen in the space of Disse and closing fenestrae: resistance in the sinusoids themselves, read by HVPG.', post: 'Resistance at the central veins, as in sinusoidal obstruction syndrome: the sinusoids congest from the outflow side.' }[z] });
-const ZONE_TEXT = ['Zone 1 (periportal) gets blood first, richest in oxygen and nutrients: the first to regenerate, the last to die in ischemia.', 'Zone 2 lies between: intermediate oxygen.', 'Zone 3 (centrilobular) gets blood last, poorest in oxygen: first to suffer in congestion, shock and drug toxicity (paracetamol).'];
+const ZONE_TEXT = ['Zone 1 (periportal) gets blood first, richest in oxygen and nutrients: the first to regenerate, the last to die in ischemia.', 'Zone 2 lies between: intermediate oxygen.', 'Zone 3 (centrilobular) gets blood last, poorest in oxygen: first to suffer in congestion, shock and drug toxicity (acetaminophen).'];
 
 function lobuleCard(sel, ctx) {
   const L = (f) => lobuleState(f, store.get());
@@ -277,7 +285,7 @@ function lobuleCard(sel, ctx) {
       verbs: [about((m) => ['A branch of the portal venule running along the lobule’s border, feeding the sinusoids it passes.', m.portal < 0 ? 'Flow here runs backwards (orange): arterial blood that entered the sinusoids drains out through the portal venules.' : ''].filter(Boolean)),
         fibrosisVerb('pre'), stat('Portal inflow', (m) => (m.portal < 0 ? 'reversed' : pc(m.portal)))] };
     case 'sin': case 'an': return { ...base, title: sel.part === 'an' ? 'Sinusoidal anastomosis' : 'Sinusoid', value: pv((m) => m.P2),
-      verbs: [about((m) => [sel.part === 'an' ? 'A cross-link between sinusoids: blood can go around a local block, so one obstructed sinusoid does not starve the cells beyond it.'
+      verbs: [about((m) => [sel.part === 'an' ? 'A cross-link between sinusoids: blood can go around a local block, so one blocked sinusoid does not starve the cells beyond it.'
         : 'A leaky capillary lined by fenestrated endothelium, between plates of hepatocytes one cell thick. Sinusoids merge toward the central vein, so blood speeds up as it goes; the highlighted path runs to the central vein.',
       m.fibSin > 0.1 ? 'Capillarization: the fenestrae close and collagen fills the space of Disse (pale sleeve), raising sinusoidal resistance: this is what raises HVPG in cirrhosis.' : '',
       m.congU > 0.1 ? 'Zone 3 sinusoids are dilated and packed with blood: the outflow is backing up.' : ''].filter(Boolean)),

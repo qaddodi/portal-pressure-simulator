@@ -9,21 +9,65 @@ on:
   push:
     branches: ['claude/*']
 
+# Yields to deploys: on main and the preview branch it waits for this commit's Pages run first, a newer
+# sweep cancels the older one, and it uses at most 10 runners. The report runs as the last job.
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: deck-sweep-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deck-sweep]') }}   # (a push that does not sweep never cancels one that does)
+  cancel-in-progress: true
 
 jobs:
+  wait-for-deploy:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deck-sweep]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Wait for this commit's Pages run
+        if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 55); do
+            left=$(gh run list -R "$GITHUB_REPOSITORY" -w pages.yml -c "$GITHUB_SHA" --json status -q '[.[] | select(.status != "completed")] | length')
+            [ "$left" = "0" ] && exit 0
+            sleep 30
+          done
+          echo "Pages run still going; sweeping anyway"
+
+  # The deck list comes from the deck registry (src/ui/decks.js), so a new deck is never left out. If this fails, only
+  # the sweep fails.
+  plan:
+    needs: wait-for-deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      decks: ${{ steps.decks.outputs.decks }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: List the decks
+        id: decks
+        run: |
+          decks=$(node -e "import('./src/ui/decks.js').then((m) => { const ids = m.DECKS.map((d) => d.id); if (!ids.length) throw new Error('no decks'); console.log(JSON.stringify(ids)); })")
+          echo "$decks"
+          echo "decks=$decks" >> "$GITHUB_OUTPUT"
+
   sweep:
     name: ${{ matrix.deck }} (${{ matrix.size }})
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deck-sweep]')
-    runs-on: ubuntu-latest
+    needs: plan
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
       fail-fast: false
+      max-parallel: 10
       matrix:
-        deck: [circulation, sites, hvpg, ascites, varices, treatment, stiffness, one-year, tap, circuit, lobule, shunts,
-               doppler, endoscopy, prehepatic, right-heart, variceal-bleed, two-inflows, pvt-cirrhosis, spleen, ncph, outflow, recompensation]
-        size: [desktop, laptop, wide, ipadwide, ipad, phone, phone375, phone430, sideways, sideways375, sideways430]
+        deck: ${{ fromJSON(needs.plan.outputs.decks) }}
+        size: ['mac,desktop', 'laptop,wide', 'ipadwide,ipad', 'phone,phone375', 'phone430,sideways', 'sideways375,sideways430']   # (two sizes a job: a matrix holds at most 256 jobs, so 42 decks at most)
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
@@ -31,11 +75,26 @@ jobs:
         env:
           DECKS: ${{ matrix.deck }}
           DEVS: ${{ matrix.size }}
+          FAST: '1'
         run: node tests/e2e/deck-sweep.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: deck-sweep-${{ matrix.deck }}-${{ matrix.size }}
+          name: deck-sweep-${{ matrix.deck }}-${{ strategy.job-index }}
           path: deck-sweep/
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 1
+
+  report:
+    needs: [wait-for-deploy, plan, sweep]
+    if: always() && needs.wait-for-deploy.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: deck-sweep-*
+          path: results
+      - name: Summary
+        run: node scripts/deck-sweep-summary.mjs results

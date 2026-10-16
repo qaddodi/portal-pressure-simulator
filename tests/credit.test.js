@@ -40,7 +40,7 @@ test('copyright credit is on the figure layer, placed by script, and never takes
 });
 
 // The placement itself: a free box nearest each corner, never within the gap of a card.
-const { freeSpots, pickCorner } = await import('../src/ui/credit.js');
+const { freeSpots, pickCorner, OBSTACLES } = await import('../src/ui/credit.js');
 const fig = { l: 0, t: 0, r: 390, b: 700 }, W = 200, H = 14;
 const clear = (s, obs) => obs.every((o) => s.x + W + 10 <= o.l || s.x - 10 >= o.r || s.y + H + 10 <= o.t || s.y - 10 >= o.b);
 
@@ -50,10 +50,17 @@ test('credit keeps the bottom-left corner on a bare figure', () => {
   assert.equal(pickCorner(s, null), 'bl');
 });
 
-test('copyright credit shrinks while a card sits beneath it', () => {
-  assert.match(css, /\.stage-credit\.busy \{ scale: \.875; \}/);
-  assert.match(css, /\.stage-credit \{[^}]*scale: \.875/);
-  assert.match(css, /\.stage-credit\.busy \{ scale: \.75; \}/);
+test('copyright credit is 12 px everywhere: never scaled below the 12 px floor (15 Oct)', () => {
+  assert.match(css, /\.stage-credit \{[^}]*font-size: var\(--fs-12\)/);
+  assert.doesNotMatch(css, /\.stage-credit[^{]*\{[^}]*\bscale:/);
+});
+
+test('the credit goes only on bare figure: no fallback over the art, hidden where nothing is bare (15 Oct)', () => {
+  const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  const body = src.slice(src.indexOf('export function createCreditPlacer'));
+  assert.doesNotMatch(body, /leastCovered\(|org: false/);
+  assert.match(body, /\{ pad: 18 \}, \{ pad: 8 \}, \{ pad: 4 \}/);
+  assert.match(body, /size\[b\] = \{ w: k\.width, h: k\.height/);   // its size as drawn
 });
 
 test('credit rides above a card at the bottom, clear of it', () => {
@@ -70,7 +77,7 @@ test('credit moves to a top corner when cards cover the lower half', () => {
   assert.ok(clear(s.tl, obs));
 });
 
-test('credit keeps its current corner while it stays free, and fades when no figure is left', () => {
+test('credit keeps its current corner while it stays free, and hides when no figure is left', () => {
   const s = freeSpots(fig, [{ l: 0, t: 600, r: 230, b: 700 }], W, H);
   assert.equal(pickCorner(s, 'br'), 'br');
   const none = freeSpots(fig, [{ l: 0, t: 0, r: 390, b: 700 }], W, H);
@@ -110,4 +117,78 @@ test('credit keeps clear of the FibroScan probe body (it is looked for, not only
   const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
   const obstacles = src.match(/const OBSTACLES = '([^']*)'/)[1];
   assert.ok(obstacles.includes('.scan-probe:not(.off) .sp-body'));
+});
+
+test('credit does not go back to a corner it left; a displaced credit takes the corner cards have left alone longest', () => {
+  const spots = { bl: { x: 1, y: 1 }, br: { x: 2, y: 2 }, tl: { x: 3, y: 3 }, tr: { x: 4, y: 4 } };
+  assert.equal(pickCorner(spots, 'br'), 'br', 'bl freeing up does not pull it back');
+  assert.equal(pickCorner(spots, null, { bl: 900, br: 100 }), 'tl', 'never-blocked corners come first, in order');
+  assert.equal(pickCorner({ ...spots, tl: null, tr: null }, null, { bl: 900, br: 100 }), 'br', 'else the corner blocked longest ago');
+});
+
+test('credit is never animated: no fade, glide or scale ease', () => {
+  assert.match(css, /\.stage-credit \{ transition: none; \}/);
+  assert.doesNotMatch(css, /\.stage-credit \{ transition: opacity/);
+});
+
+test('a spot over an organ is passed over like a covered one; the corners on the left step to the bare right side', () => {
+  const fig = { l: 0, t: 0, r: 1000, b: 800 };
+  const s = freeSpots(fig, [], 200, 20, { avoid: (q) => q.l < 500 });
+  for (const c of ['bl', 'tl', 'br', 'tr']) assert.ok(s[c] && s[c].x >= 500, `${c} must be on the bare side`);
+  assert.equal(s.br.y, 800 - 12 - 20);
+  assert.equal(pickCorner(s, null), 'bl');
+});
+
+test('with art all round, the credit takes the gap between two cards', () => {
+  // A phone with its data card open: cards above and below, a 90 px strip of figure between, vessels along its top and bottom edges.
+  const fig = { l: 0, t: 0, r: 390, b: 800 };
+  const cards = [{ l: 8, t: 8, r: 382, b: 330 }, { l: 8, t: 420, r: 382, b: 792 }];
+  const s = freeSpots(fig, cards, 158, 13, { gap: 12, avoid: (q) => q.t < 350 || q.b > 400 });
+  const at = s.bl;
+  assert.ok(at, 'a spot must be found in the strip');
+  assert.ok(at.y >= 330 + 12 && at.y + 13 <= 420 - 12, `y ${at.y} is not in the strip`);
+  assert.ok(at.y >= 350 && at.y + 13 <= 400, 'and clear of the art');
+});
+
+test('the sinusoid view keeps a fixed strip for the credit instead of sizing itself to the credit\'s spot', () => {
+  // (The credit keeps clear of the view's labels; a view that followed the credit moved the labels, which moved the credit,
+  // about once a second for good.)
+  const view = readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(view, /stage-credit/);
+});
+
+test('the credit keeps its inset from the top and bottom edges in the whole-figure search too (it had touched the top, y = 2)', async () => {
+  const { leastCovered, CORNERS } = await import('../src/ui/credit.js');
+  const fig = { l: 0, t: 0, r: 1440, b: 900 }, inset = 24;
+  const { spots } = leastCovered(fig, [], 200, 14, { gap: 24, inset }, () => 0);
+  for (const c of CORNERS) {
+    assert.ok(spots[c], `no ${c} spot`);
+    assert.ok(spots[c].y >= inset && spots[c].y + 14 <= fig.b - inset, `${c} at y ${spots[c].y}, inside the ${inset} px inset`);
+  }
+  // (and the edge search with art to avoid, when nothing along the edges is bare)
+  const s = freeSpots(fig, [], 200, 14, { gap: 24, inset, avoid: (q) => q.l < 1300 && q.t > 40 });
+  for (const c of CORNERS) if (s[c]) assert.ok(s[c].y >= inset, `${c} at y ${s[c].y}`);
+});
+
+test('the credit holds its spot while it stays good, keeps off the lobule and the ascites, and clear of the home bar and progress line', () => {
+  const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(pos && !fresh && !credit\.matches\('\.moving, \.covered'\)\)/, 'a spot still good is kept');
+  assert.match(src, /organTest\(wr, ring\)/, 'the lobule is the art while it fills the view');
+  assert.match(src, /#ascites \.ascites-fill/, 'the ascites fluid counts as art');
+  assert.match(src, /safe-area-inset-bottom/, 'the home indicator strip is kept clear');
+  assert.match(OBSTACLES, /\.pz-prog/, 'the slide progress line is kept clear');
+});
+
+// Sinusoid view: all art, no bare spot, so the credit is hidden there (Mohammad's "Hide there"), from the zoom in until
+// the zoom back out has landed.
+test('the credit is hidden in the sinusoid view and while zooming into or out of it', async () => {
+  const { inSinusoidView } = await import('../src/ui/credit.js');
+  const pps = (sinusoid, open = false, busy = false) => ({ store: { get: () => ({ sinusoid }) }, stage: { sinusoidOpen: () => open, sinBusy: () => busy } });
+  assert.equal(inSinusoidView(pps(false)), false, 'anatomy, circuit or lobule: placed as usual');
+  assert.equal(inSinusoidView(pps(true)), true, 'asked for the sinusoid: hidden at once');
+  assert.equal(inSinusoidView(pps(false, true)), true, 'still open on the way out');
+  assert.equal(inSinusoidView(pps(false, false, true)), true, 'still zooming back out to the lobule');
+  assert.equal(inSinusoidView(undefined), false);
+  const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(inSinusoid\(\)\) \{\s*credit\.classList\.add\('covered'\)/, 'check() hides it (covered: no fade) in the sinusoid');
 });

@@ -1,5 +1,12 @@
 # Portal Pressure Simulator: Design Blueprint (v0.1, draft)
 
+> **Read this first (October 2026).** This is the original build spec, kept because the code
+> comments cite its sections. The model sections (§7 physics engine, §10 presets and
+> interventions, §12 acceptance tests) still describe the engine. The interface sections (§3–§5,
+> §8, §9, §11) are history: the app now has two modes, *Present* (decks) and *Patients*, and the
+> Lessons and Cases modes described here have been removed. For the current app see the
+> [README](../README.md) and the [CHANGELOG](../CHANGELOG.md).
+
 > **What this is:** the design spec for rebuilding the Portal Pressure Simulator from scratch.
 > It's written for the agent or developer who will build it. It covers **what** to build and
 > **why**, with enough **how** (the physics model, data schema, layout, and interactions)
@@ -587,7 +594,8 @@ clamp d ∈ [d_min, d_max]
   settings makes lessons reproducible by rupturing exactly when T > T_crit.
 - **Once ruptured:** a new edge `VAR → GI lumen (sink)` opens with a resistance scaled to the tear size.
   Blood volume drains, **MAP and portal pressure fall** (tamponade physiology), and the baroreflex
-  kicks in. Bleeding can stop spontaneously if P_var falls below a clotting threshold. It can
+  kicks in, helped by the venous reservoir and a volume afferent (`RESERVOIR` in engine.js), so the vital signs follow
+  the ATLS hemorrhage classes. Bleeding can stop spontaneously if P_var falls below a clotting threshold. It can
   **rebleed** if pressure recovers, for example from **over-transfusion**. That's a key teaching loop.
 
 ### 7.6 Two clocks

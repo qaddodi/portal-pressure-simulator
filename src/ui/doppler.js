@@ -4,15 +4,19 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES, dopplerK } from '../engine/topology.js?v=34e377149b';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=b1761ad19c';
-import { FONT } from './charts.js?v=e073763634';
-import { logAction } from './store.js?v=7fb7280c05';
-import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=abf1691da6';
-import { frameFor } from './frame.js?v=0db47e99bf';
+import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=0140acc352';
+import { FONT } from './charts.js?v=7e8a65ec45';
+import { logAction, shownVel, store } from './store.js?v=31ee79b6ab';
+import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=bc285aa69c';
+import { frameFor, noteDraw, paceMs } from './frame.js?v=5efaa2bcc9';
+import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
+import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
+// What the Doppler calls a vessel: a stent also names its course ("TIPS RPV → RHV"), read from where the model connects it.
+const probeName = (p) => (p.kind === 'tips' ? `${p.short} ${stentCourse(EDGES[EI[p.id]])}` : p.short);
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
 // Positive velocity is the vessel's physiological direction (for a collateral: portal → systemic).
 // The trace is drawn as the scanner shows it, relative to the transducer: flow toward the probe
@@ -37,16 +41,22 @@ const PROBES = [
   { id: 'C3', short: 'Paraumb. C3', kind: 'collateral', normal: null },
 ];
 const SWEEP_SECONDS = [6, 3, 12]; // Start at 6 s; first tap shortens the visible window.
+const PAD_L = 12, PAD_R = 46;        // The trace's side margins (CSS px).
 const KEEP = 16;                 // Retain enough samples for the 12 s sweep and display lag.
 const MINUS = '−';
 const num = (v, d = 0) => (v < 0 ? MINUS : '') + fmt(Math.abs(v), d);
 
-export function createDoppler({ onProbe }) {
+export function createDoppler({ onProbe, pickGate = true }) {
   let sweepIndex = 0;
   let sweepSeconds = SWEEP_SECONDS[sweepIndex];
   const probeSel = h('select', { class: 'select dop-vessel', 'aria-label': 'Vessel' },
-    PROBES.map((p) => h('option', { value: p.id, title: EDGES[EI[p.id]].label }, p.short)));
+    PROBES.map((p) => h('option', { value: p.id, title: EDGES[EI[p.id]].label }, probeName(p))));
   probeSel.addEventListener('change', () => onProbe(probeSel.value));
+  // A stent's sample gate: where along it the trace and the reading come from (store.dopGate, shared with the figure, whose
+  // stent glows in the Doppler's green over that third). Chosen by tapping the Proximal, Mid or Distal tile under the trace
+  // (real buttons, in the dock; a slide's own buttons set it in Present, where the tiles are plain).
+  const SEGS = [['proximal', 'Proximal'], ['mid', 'Mid'], ['distal', 'Distal']];
+  const pickSeg = (seg) => { if (store.get().dopGate !== seg) store.set({ dopGate: seg }); logAction('gate', 'doppler', seg); };
   // Display mode: a pill that cycles Spectrum → Direction → Power → Directional Power → Variance,
   // like Invert. The colour maps live in dopplerColor.js; the trace is drawn through them.
   let mode = 'spectrum';
@@ -80,39 +90,64 @@ export function createDoppler({ onProbe }) {
     title: `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`,
     'aria-label': `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`,
   }, sweepIcon, h('span', { class: 'dop-sweep-label' }, `${sweepSeconds} s`));
-  sweepBtn.addEventListener('click', () => {
-    sweepIndex = (sweepIndex + 1) % SWEEP_SECONDS.length;
+  // The window in use: set by a tap, or chosen from the drawn width (see pickWindow).
+  function setSweep(i) {
+    sweepIndex = i;
     sweepSeconds = SWEEP_SECONDS[sweepIndex];
     sweepBtn.lastChild.textContent = `${sweepSeconds} s`;
     sweepBtn.title = `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`;
     sweepBtn.setAttribute('aria-label', `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`);
     ringKey = '';
+  }
+  sweepBtn.addEventListener('click', () => {
+    manualSweep = true;
+    setSweep((sweepIndex + 1) % SWEEP_SECONDS.length);
     if (frame) { updateReport(); draw(); }
   });
+  // Auto window: once per showing (first draw, and again each time a slide shows it), a narrow trace takes 3 s and a wide one 6 s.
+  // It never switches while the slide stays; a tap picks a window by hand until the next showing.
+  let manualSweep = false, pickNext = true;
+  function pickWindow() {
+    pickNext = false;
+    if (manualSweep) return;
+    const i = windowIndexFor(cv.clientWidth - PAD_L - PAD_R);   // (layout width: not scaled by a card still easing in, and never a stale cached size)
+    if (i !== sweepIndex) { setSweep(i); updateReport(); }
+  }
+  const WAVE_PX = 20;   // the a, S, v, D letters: large enough to read against the card text
   const cv = h('canvas', { role: 'img', 'aria-label': 'Spectral Doppler' });
   const box = h('div', { class: 'chart-box dark dop-box' }, cv);
 
   // The report
   const dirEl = h('b', { class: 'dop-dir' }, '—');
-  const velEl = h('span', { class: 'dop-vel' }, h('b', {}, '—'), h('small', {}, 'cm/s mean'));
+  const velEl = h('span', { class: 'dop-vel' }, h('b', {}, '—'), h('small', {}, 'cm/s', h('span', { class: 'dop-mean' })));
   // Normal-range gauge: a track with the usual band shaded and a marker for the current mean.
   const bandEl = h('i', { class: 'dop-band' });
   const markEl = h('i', { class: 'dop-mark' });
-  const gLo = h('span', { class: 'dop-g-lo' }); const gHi = h('span', { class: 'dop-g-hi' }); const gZero = h('span', { class: 'dop-g-zero' }, '0');
+  const gLo = h('span', { class: 'dop-g-lo' }); const gHi = h('span', { class: 'dop-g-hi', 'data-u': 'cm/s' }); const gZero = h('span', { class: 'dop-g-zero' }, '0');
   const rangeEl = h('div', { class: 'dop-range', hidden: true }, h('div', { class: 'dop-track' }, bandEl, markEl), h('div', { class: 'dop-ticks' }, gZero, gLo, gHi));
   const patternEl = h('div', { class: 'dop-pattern' });
   const noteEl = h('p', { class: 'dop-note' });
   const statEls = {};
-  const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI'].map((k) => {
-    const dd = h('dd', {}, '—'); const wrap = h('div', {}, h('dt', {}, k), dd); statEls[k] = { dd, wrap }; return wrap;
+  const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI', 'Proximal', 'Mid', 'Distal'].map((k) => {
+    const dd = h('dd', {}, '—');
+    const seg = SEGS.find(([, name]) => name === k)?.[0];
+    // A stent segment's tile is a button (the name inside the term; its ::after covers the whole tile, so a tap anywhere on it samples there).
+    const btn = seg && pickGate ? h('button', { type: 'button', class: 'dop-seg', 'aria-pressed': 'false', title: `Sample the stent at its ${k.toLowerCase()} end` }, k) : null;
+    btn?.addEventListener('click', () => pickSeg(seg));
+    // (the Peak tile is named Max: the highest point of the last 3 s, beside the big reading, which is the spectrum's peak averaged over time)
+    const wrap = h('div', k === 'Peak' ? { title: 'Highest velocity in the last 3 s' } : {}, h('dt', {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn }; return wrap;
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
+  // The top strip's fitting steps (see fitStrip): [type scale, the direction's short form, the pattern on its own line].
+  let stripKey = '', stripStep = 0, dirFull = '—', stripType = '', rng = null;
+  const STEPS = [[1, false, false], [0.9, false, false], [1, false, true], [0.9, false, true], [0.8, false, true], [0.9, true, true], [0.8, true, true]];
+  const SHORT_DIR = { 'Portal → hepatic vein': 'PV → HV', 'Portal → IVC': 'PV → IVC', 'Portal → systemic': 'PV → systemic', 'Systemic → portal': 'Systemic → PV', 'Toward the heart': 'To the heart', 'Not available during time lapse': 'Paused in time lapse' };
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
     h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
 
   // ── Samples ───────────────────────────────────────
   let buf = [];
-  let probe = null, frame = null;
+  let probe = null, frame = null, gateNow = '';
   // Time lapse (the disease clock) has no bedside samples: the model jumps a day at a time. The
   // trace keeps scrolling at bedside speed by replaying the last recorded beats (the template),
   // scaled so their mean eases to the vessel's current mean velocity. Synthetic times run on from
@@ -127,7 +162,7 @@ export function createDoppler({ onProbe }) {
     if (pts.length < 8 || L < 1) return null;
     const mean = pts.reduce((a, p) => a + p[1], 0) / pts.length;
     tpl = { t0: pts[0][0], L, pts, mean };
-    return { t: tEnd, wall: performance.now(), mean, target: mean };
+    return { t: tEnd, wall: performance.now(), mean, target: mean, amp: 1, still: false };
   }
   function tplAt(t) {
     const { t0, L, pts } = tpl;
@@ -149,18 +184,26 @@ export function createDoppler({ onProbe }) {
     for (let k = 0, n = Math.ceil(dt / 0.02); k < n; k++) {
       synth.t += dt / n;
       synth.mean += (synth.target - synth.mean) * Math.min(1, (dt / n) * 3);
-      const v = tplAt(synth.t);
+      // (The template was recorded with breathing; a lapse run without respiration eases its swings out.)
+      synth.amp = clamp(synth.amp + (synth.still ? -1.5 : 1.5) * (dt / n), 0, 1);
+      const v = m0 + (tplAt(synth.t) - m0) * synth.amp;
       buf.push([synth.t, ratio ? v * synth.mean / m0 : v - m0 + synth.mean]);
     }
   }
   function ingest(f) {
     frame = f;
-    if (f.probe !== probe) { buf = []; wl = null; tOff = 0; synth = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
+    if (f.probe !== probe) { buf = []; wl = null; tOff = 0; synth = null; scale = null; steady.probe = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
+    // A new spot along a stent is a new recording, as a new vessel is: the trace starts over and finds its own scale.
+    const g = isStentProbe() ? gateOf() : '';
+    if (g !== gateNow) { gateNow = g; buf = []; wl = null; synth = null; scale = null; steady.probe = null; }
     const s = f.samples;
     if (f.clock === 'disease') {
       if (!synth && buf.length) synth = startSynth();
       if (!synth) return;
       if (s?.vel?.length) synth.target = s.vel[s.vel.length - 1];
+      synth.still = f.resp === false;
+      // A lapse without respiration shows none from its first frame: the replay and the trace already drawn go flat at once.
+      if (synth.still && !synth.flat) { synth.flat = true; synth.amp = 0; for (const p of buf) p[1] = synth.mean; }
       if (f.running) runSynth();
     } else {
       if (synth && s?.t.length) { tOff = synth.t + 0.02 - s.t[0]; synth = null; }
@@ -177,9 +220,12 @@ export function createDoppler({ onProbe }) {
   }
 
   // ── Reading ───────────────────────────────────────
+  // (Nothing until 1.5 s of this vessel is recorded: a pattern judged from part of a beat is a wrong one, a red "To-and-fro" for a moment.)
+  const SETTLE = 1.5;
   function reading() {
     if (buf.length < 4) return null;
     const tNow = buf[buf.length - 1][0];
+    if (tNow - buf[0][0] < SETTLE) return null;
     let sum = 0, n = 0, vmax = -Infinity, vmin = Infinity;
     for (let i = buf.length - 1; i >= 0 && buf[i][0] >= tNow - 3; i--) {
       const v = buf[i][1]; sum += v; n++;
@@ -190,12 +236,27 @@ export function createDoppler({ onProbe }) {
     return { mean: k * sum / n, vmax: vmax * k, vmin: vmin * k, vmaxMean: vmax, vminMean: vmin };
   }
   const meta = () => PROBES.find((p) => p.id === probe) || PROBES[0];
+  // A stent's proximal, mid and distal velocities from the open stent's velocity v: the narrowed segment runs faster.
+  const stentReads = (v) => {
+    const prm = store.get().params, s = 1 - (1 - (prm?.stenosis?.[probe] || 0)) * (1 - (prm?.thrombus?.[probe] || 0));
+    return stentSegments(v, s, stentSite(prm, probe));
+  };
+  // The gated segment of a stent, and how much faster it runs than the open stent (1 elsewhere, and on any other vessel).
+  const isStentProbe = () => meta().kind === 'tips';
+  const gateOf = () => stentGate(store.get().dopGate, store.get().params, probe);
+  let gf = 1;
+  const gateFactor = () => (isStentProbe() ? stentReads(1)[SEGS.findIndex(([v]) => v === gateOf())] || 1 : 1);
   // +1 when the vessel's forward flow is drawn above the baseline, −1 when below
   const effInvert = () => invert;
   const pol = () => (!meta().away !== !effInvert() ? -1 : 1);
 
-  function interpret(r) {
-    const p = meta();
+  // A vessel's usual range: with a TIPS or DIPS in, the main portal vein's is 30 cm/s and up (velNormal.js), so fast flow is not flagged.
+  const normalOf = (p) => (p.id === 'PV_TRUNK' && frame?.D ? velNormal(EI.PV_TRUNK, frame) : null) || p.normal;
+  // A stent is judged at its gate, as its reading, trace and tiles show it: a 90% narrowing's jet is flow, not an occlusion,
+  // although the open stent around it barely moves (g, the gate's factor; open, the open stent's mean for its segment tiles).
+  function interpret(r0, g = 1) {
+    const p = meta(), normal = normalOf(p), open = Math.abs(r0.mean);
+    const r = g === 1 ? r0 : { mean: r0.mean * g, vmax: r0.vmax * g, vmin: r0.vmin * g, vmaxMean: r0.vmaxMean * g, vminMean: r0.vminMean * g };
     const a = Math.abs(r.mean);
     const swing = r.vmaxMean - r.vminMean;
     const big = Math.max(Math.abs(r.vmaxMean), Math.abs(r.vminMean));
@@ -206,17 +267,32 @@ export function createDoppler({ onProbe }) {
       dir = 'No flow'; sev = 'critical'; pattern = 'No signal';
       note = p.kind === 'tips' ? 'No flow in the stent: occluded.' : 'No detectable flow: the vessel is occluded, as in thrombosis.';
     } else if (p.kind === 'portal') {
+      // A stent draws the intrahepatic branches toward it: the left branch (and with a DIPS, which leaves the bifurcation,
+      // the right too) runs back toward it, often slowly, so slow reversed flow there is still a direction, not stasis.
+      // The right branch probe sits between the bifurcation and a TIPS, so it flows on toward the stent, hepatopetal.
+      const stent = frame?.D ? (frame.D[EI.TIPS] > 0 ? 'TIPS' : frame.D[EI.DIPS] > 0 ? 'DIPS' : null) : null;
+      const branch = stent && (p.id === 'PVH_L' || p.id === 'PVH_R') ? p.id : null;
+      const toStent = branch === 'PVH_R' && stent === 'TIPS' ? 1 : -1;
+      if (branch && (toStent < 0 ? r.mean < -2 : r.mean > 2)) {
+        dir = toStent < 0 ? 'Hepatofugal' : 'Hepatopetal'; sev = 'ok';
+        pattern = pi > 0.5 ? 'Pulsatile' : pi > 0.15 ? 'Phasic' : 'Monophasic';
+        note = toStent < 0 ? `Expected with a ${stent}: flow runs back toward the stent.` : 'Expected with a TIPS: the segment before the stent flows hepatopetal into it; beyond the stent the right branches are hepatofugal.';
+        return { dir, sev, pattern, note, pi, expected: true };
+      }
       if (a < 9 && !reverses) { dir = 'Stasis'; sev = 'danger'; }
       else if (reverses && Math.abs(r.mean) < swing * 0.35) { dir = 'To-and-fro'; sev = 'danger'; }
       else if (r.mean < 0) { dir = 'Hepatofugal'; sev = 'critical'; }
-      else { dir = 'Hepatopetal'; sev = a < p.normal[0] ? 'caution' : 'ok'; }
+      else { dir = 'Hepatopetal'; sev = a < normal[0] ? 'caution' : 'ok'; }
       pattern = pi > 0.5 ? 'Pulsatile' : pi > 0.15 ? 'Phasic' : 'Monophasic';
       note = dir === 'Hepatofugal' ? 'Flow runs away from the liver: portal blood is leaving through collaterals.'
         : dir === 'To-and-fro' ? 'Flow swings both ways each cycle, on the way to reversal.'
         : dir === 'Stasis' ? 'Almost no net flow: a setting for portal vein thrombosis.'
         : pattern === 'Pulsatile' ? 'A pulsatile portal vein suggests right-heart pressure transmitted back (heart failure, tricuspid regurgitation).'
-        : a < p.normal[0] ? 'Toward the liver but slow: typical of portal hypertension.'
+        : a < normal[0] ? (stent ? `Slower than expected with a ${stent}: it suggests the stent is narrowing.` : 'Toward the liver but slow: typical of portal hypertension.')
+        : pattern === 'Monophasic' ? 'Normal: toward the liver, steady.'
         : 'Normal: toward the liver with gentle phasicity.';
+      // Flow toward the liver in a branch that a working stent would reverse: the stent no longer draws it, as when it narrows.
+      if (branch && dir === 'Hepatopetal') { sev = 'caution'; note = `With a ${stent}, flow toward the liver here is not expected: it suggests the stent is narrowing.`; }
     } else if (p.kind === 'hepatic') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
       // A reversal over 15 cm/s and 0.4 of the forward peak is more than the a-wave: tricuspid regurgitation or a high atrium.
@@ -227,7 +303,7 @@ export function createDoppler({ onProbe }) {
       note = backflow ? 'Blood surges back toward the liver each beat: tricuspid regurgitation or a high right atrial pressure.'
         : pattern === 'Triphasic' ? 'Normal: the atrial a-wave briefly reverses flow each beat.'
         : pattern === 'Biphasic' ? 'Damped: the a-wave no longer reverses flow.'
-        : 'Flat: a stiff liver (cirrhosis) or an outflow block damps the cardiac waveform.';
+        : 'Flat: a stiff liver (cirrhosis) or outflow resistance damps the cardiac waveform.';
     } else if (p.kind === 'artery') {
       dir = r.mean < 0 ? 'Reversed' : 'Antegrade'; sev = r.mean < 0 ? 'danger' : 'ok';
       const ri = r.vmax > 0.5 ? (r.vmax - Math.max(0, r.vmin)) / r.vmax : 0;
@@ -235,7 +311,9 @@ export function createDoppler({ onProbe }) {
       note = 'The hepatic artery buffers falling portal inflow by dilating (the hepatic arterial buffer response).';
     } else if (p.kind === 'tips') {
       dir = a < 2 ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = a < 2 || r.mean < 0 ? 'critical' : a < 90 || a > 190 ? 'caution' : 'ok';
-      pattern = a < 2 ? 'Occluded' : a < 90 ? 'Low velocity' : a > 190 ? 'High velocity' : 'Patent';
+      const jet = Math.max(a, ...stentReads(open));   // the fastest segment: a narrowing's jet
+      pattern = a < 2 ? 'Occluded' : a < 90 ? (jet > 190 ? 'Low velocity, jet' : 'Low velocity') : jet > 190 ? 'High velocity' : 'Patent';
+      if (sev === 'ok' && jet > 190) sev = 'caution';
       note = a < 2 ? 'No flow in the stent: occluded.' : 'Stent velocities under 90 or over 190 cm/s, or a change of more than 50 cm/s from the baseline scan, suggest stenosis.';
     } else if (p.kind === 'ivc') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
@@ -259,42 +337,89 @@ export function createDoppler({ onProbe }) {
 
   // Place the normal band and the current mean on one scale: 0 to ~1.7x the top of the usual range, widened
   // when the mean falls outside (reversed flow reaches below zero). The marker eases there with CSS.
-  function updateGauge(p, mean) {
-    if (!p.normal) { rangeEl.hidden = true; velEl.dataset.out = 'false'; return; }
-    const [n0, n1] = p.normal;
-    const hi = Math.max(Math.round(n1 * 1.7), Math.ceil(mean * 1.1));
+  // (expected: a reading the stent explains, as a branch running back toward a TIPS, is not flagged out of range.)
+  function updateGauge(p, mean, expected = false) {
+    const normal = normalOf(p);
+    if (!normal) { rangeEl.hidden = true; velEl.dataset.out = 'false'; return; }
+    // (A range with no ceiling, the portal vein with a stent in, runs its band to the gauge's end and names only its floor.)
+    const [n0, n1] = normal, open = !Number.isFinite(n1);
+    const hi = Math.max(Math.round((open ? 2 * n0 : n1) * 1.7), Math.ceil(mean * 1.1));
     const lo = Math.min(0, Math.floor(mean * 1.1));
     const pos = (v) => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
     rangeEl.hidden = false;
-    rangeEl.dataset.out = velEl.dataset.out = mean < n0 || mean > n1 ? 'true' : 'false';
+    rangeEl.dataset.out = velEl.dataset.out = !expected && (mean < n0 || mean > n1) ? 'true' : 'false';
     bandEl.style.left = `${pos(n0)}%`; bandEl.style.width = `${pos(n1) - pos(n0)}%`;
     markEl.style.left = `${pos(mean)}%`;
     gZero.style.left = `${pos(0)}%`; gLo.style.left = `${pos(n0)}%`; gHi.style.left = `${pos(n1)}%`;
-    set2(gLo, String(n0)); set2(gHi, `${n1} cm/s`);
-    rangeEl.title = `Usual ${n0}–${n1} cm/s`;
+    gHi.hidden = open;
+    // (Each tick's number is centred on its point and the unit hangs after it: "40 cm/s" pulled left to fit put its 40 about
+    // 5 cm/s short of the band's end.)
+    set2(gLo, String(n0)); set2(gHi, open ? '' : String(n1));
+    if (gLo.dataset.u !== (open ? 'cm/s' : '')) gLo.dataset.u = open ? 'cm/s' : '';
+    rangeEl.title = open ? `Usual ${n0} cm/s or more` : `Usual ${n0}–${n1} cm/s`;
+  }
+  // A slide's own state (its fingerprint's network, presenter dataTo → tools.pin): the probed vessel's velocity as the scanner reads it.
+  let pinAt = null;
+  function pin(fp) { pinAt = fp?.at || null; }
+  function pinnedVel() {
+    const k = EI[probe];
+    if (!pinAt || k == null) return NaN;
+    return Math.abs(dopplerVel({ Q: pinAt.Q, D: pinAt.D }, k));
   }
   const set2 = (e, t) => { if (e.textContent !== t) e.textContent = t; };
 
+  // The running mean behind a slide's reading: eases toward the 3 s mean over about six seconds (about a second and a half after a clear
+  // change, a what-if or a new disease state), and starts again on a new vessel or after a gap.
+  const steady = { probe: null, v: 0, t: 0, n: 0 };
+  function steadyMean(x) {
+    const now = performance.now(), dt = (now - steady.t) / 1000;
+    if (steady.probe !== probe || dt > 1.5 || !Number.isFinite(steady.v)) { steady.probe = probe; steady.v = x; steady.n = 1; }
+    else if (dt > 0) {
+      const far = Math.abs(x - steady.v) > 0.25 * Math.max(Math.abs(x), 4);   // (a clear change: the number follows it)
+      steady.n++;
+      steady.v += (x - steady.v) * (far ? 1 - Math.exp(-dt / 1.5) : Math.max(1 / steady.n, 1 - Math.exp(-dt / 6)));   // (a plain average until the time constant has passed: the first moments do not set it)
+    }
+    steady.t = now;
+    return steady.v;
+  }
   function updateReport() {
     const r = reading();
     if (!r) {
-      dirEl.textContent = frame?.clock === 'disease' ? 'Not available during time lapse' : 'Acquiring…'; dirEl.dataset.sev = '';
-      rangeEl.hidden = true; velEl.dataset.out = 'false';
+      setDir(frame?.clock === 'disease' ? 'Not available during time lapse' : 'Acquiring…'); dirEl.dataset.sev = '';
+      rangeEl.hidden = true; velEl.dataset.out = 'false'; velEl.hidden = false;
       for (const e of [velEl.firstChild, patternEl, noteEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
       for (const k in statEls) setStat(statEls[k].dd, '—');
       return;
     }
     const p = meta();
-    const it = interpret(r);
+    const it = interpret(r, gateFactor());
     const set = (e, t) => { if (e.textContent !== t) e.textContent = t; };
-    set(dirEl, it.dir); dirEl.dataset.sev = it.sev;
-    set(velEl.firstChild, num(r.mean, Math.abs(r.mean) < 10 ? 1 : 0));
-    updateGauge(p, r.mean);
+    setDir(it.dir); dirEl.dataset.sev = it.sev;
+    // (In a slide's top strip the reading is signed as the trace is drawn, the scanner's way: a hepatic vein's forward flow runs away from the
+    // probe, below the baseline, so it reads "−18 · Toward the heart", and the sign, the words and the drawing agree.)
+    // (And steady: the 3 s mean swings a few percent with the beat and breath, so a slide's strip, and the callout that copies it, read a
+    // slow running mean of it, the same number at any moment of the slide on any screen.)
+    let mean = ovOn ? steadyMean(r.mean) : r.mean;
+    // (While it agrees, the slide's own velocity in this vessel, as its tiles and callouts read the slide: one number on every screen.)
+    const fixed = ovOn ? pinnedVel() : NaN;
+    if (Number.isFinite(fixed) && Math.abs(Math.abs(mean) - fixed) < Math.max(4, fixed * 0.12)) mean = (mean < 0 ? -1 : 1) * fixed;
+    // (A stent reads at its gate: the segment holding a narrowing runs faster than the open stent around it.)
+    const open = Math.abs(mean);
+    gf = gateFactor(); mean *= gf;
+    const drawn = ovOn ? mean * pol() : mean;
+    set(velEl.firstChild, num(drawn, Math.abs(drawn) < 10 ? 1 : 0));
+    // (No flow, as in an occluded stent or a clotted vein: the words say it, "No flow · No signal", with no "0.0 cm/s" beside them,
+    // and the figure's callout says "No flow" too.)
+    const none = it.dir === 'No flow';
+    if (velEl.hidden !== none) velEl.hidden = none;
+    // (open: the open stent's velocity, from which the figure's callouts at a stent's three points read what its tiles read.)
+    shownVel.set(probe, { v: Math.abs(mean), t: performance.now(), seg: isStentProbe() ? gateOf() : null, open });
+    updateGauge(p, mean, it.expected);   // (the headline's own number: the marker read 23.5 under a headline of 22, sweep batch 04, shot 12)
     set(patternEl, it.pattern);
     // peak: the extreme farthest from zero, whichever the direction
     const [pk, tr] = Math.abs(r.vmax) >= Math.abs(r.vmin) ? [r.vmax, r.vmin] : [r.vmin, r.vmax];
-    setStat(statEls.Peak.dd, num(pk), 'cm/s');
-    setStat(statEls.Trough.dd, num(tr), 'cm/s');
+    setStat(statEls.Peak.dd, num(pk * gf), 'cm/s');   // (a stent's peak at its gate)
+    setStat(statEls.Trough.dd, num(tr * gf), 'cm/s');
     setStat(statEls.Pulsatility.dd, fmt(it.pi, 2));
     // Congestion index (portal vein): cross-sectional area / mean velocity, about 0.07 cm·s in health, over 0.1 suggests portal hypertension
     const isPV = probe === 'PV_TRUNK';
@@ -304,8 +429,28 @@ export function createDoppler({ onProbe }) {
       const vm = Math.abs(r.mean) / dopplerK(EDGES[EI[probe]]);   // Moriyasu's index uses the mean across the lumen
       vm > 0.3 ? setStat(statEls.CI.dd, fmt(area / vm, 2), 'cm·s') : setStat(statEls.CI.dd, '—');
     }
+    // A stent: velocity at its portal end, middle and hepatic vein end, in place of trough and pulsatility.
+    const isStent = p.kind === 'tips';
+    statEls.Trough.wrap.hidden = statEls.Pulsatility.wrap.hidden = isStent;
+    for (const k of ['Proximal', 'Mid', 'Distal']) statEls[k].wrap.hidden = !isStent;
+    if (isStent) {
+      // Each segment against the usual 90–190 cm/s, the gated one marked.
+      const at = gateOf();
+      stentReads(open).forEach((v, i) => {
+        const [seg, name] = SEGS[i], w = statEls[name].wrap, out = String(v < p.normal[0] || v > p.normal[1]);
+        setStat(statEls[name].dd, num(v), 'cm/s');
+        if (w.dataset.out !== out) w.dataset.out = out;
+        w.classList.toggle('on', seg === at);
+        const b = statEls[name].btn;
+        if (b) {
+          const on = String(seg === at), label = `${name}, ${num(v)} centimeters per second${seg === at ? ', sampling here' : ''}. Activate to sample here.`;
+          if (b.getAttribute('aria-pressed') !== on) b.setAttribute('aria-pressed', on);
+          if (b.getAttribute('aria-label') !== label) b.setAttribute('aria-label', label);
+        }
+      });
+    }
     set(noteEl, it.note);
-    const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
+    const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
     if (cv.getAttribute('aria-label') !== aria) cv.setAttribute('aria-label', aria);
   }
 
@@ -326,10 +471,10 @@ export function createDoppler({ onProbe }) {
   let settleAt = 0;     // when the signal last fitted the current scale
   let tDisp = null;     // the display clock (model seconds)
   let wallLast = 0;
+  let ovLast = '', ovAt = 0, ovOn = false, ovTop = 26;   // the report in the top strip (see draw)
   let img = null, off = null, octx = null;
   let floor = null, noiseAt = 0, nx = 0, ny = 0;
   let ringKey = '', lastCol = null, jit = 0, lineGain = 0, spk = null;
-  const STEPS = [8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 80, 100, 120, 150, 200, 300];
   const cc = [0, 0, 0, 0], sc = [0, 0, 0];   // scratch: one pixel's colour
   const A_SIG = 10 ** 2.8;          // signal power over the noise floor (≈ 28 dB)
   const FLOOR_DB = 4.5, RANGE_DB = 30;  // log compression: the grey map spans 4.5–34.5 dB
@@ -360,15 +505,17 @@ export function createDoppler({ onProbe }) {
     let lo = 0, hi = n - 1;
     while (hi - lo > 1) { const m = (lo + hi) >> 1; if (buf[m][0] <= t) lo = m; else hi = m; }
     const [ta, va] = buf[lo], [tb, vb] = buf[hi];
-    return g.pol * (tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va);
+    return g.pol * gf * (tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va);
   }
 
   // The noise floor: a screen-sized texture made once per size and shown at a new random offset
   // a few times a second. Like the grain, it is exponential power, independent from one spectral
   // line to the next but smooth over a few frequency bins along it, log-compressed.
+  // (Made on a 128 px grid and kept while it covers the screen, so a monitor that settles by a few pixels
+  // as its card enters, or its report grows, does not build it again.)
   function makeNoise(RW, RH, binPx, cw) {
     binPx *= 2;
-    const TW = RW + PAD, TH = RH + PAD;
+    const TW = Math.ceil((RW + PAD) / 128) * 128, TH = Math.ceil((RH + PAD) / 128) * 128;
     const fi = new ImageData(TW, TH), F = fi.data;
     const nb = Math.ceil(TH / binPx) + 2;
     const nf = new Float32Array(nb);
@@ -386,7 +533,7 @@ export function createDoppler({ onProbe }) {
       }
     }
     floor = mk(TW, TH); floor.getContext('2d').putImageData(fi, 0, 0);
-    floor.key = `${RW}x${RH}`;
+    floor.dpr = cw;
   }
 
   // Synthesise spectral line c into the ring. Geometry in device pixels.
@@ -426,6 +573,12 @@ export function createDoppler({ onProbe }) {
       lineS = (Number.isNaN(vp) ? 0 : Math.abs(v - vp) / (0.45 * scale)) + 0.5 * clamp((av - 80) / 120, 0, 1);
     }
     const D = img.data;
+    // No flow on this line (before the record starts, as on a slide's first sweep): every pixel is black,
+    // so skip the per-pixel synthesis (a full redraw of an empty screen used to cost tens of ms).
+    if (!has || av <= 0.3) {
+      for (let ry = 0, q = x * 4; ry < RH; ry++, q += RW * 4) { D[q] = 0; D[q + 1] = 0; D[q + 2] = 0; D[q + 3] = 255; }
+      return;
+    }
     for (let ry = 0; ry < RH; ry++) {
       const vel = (rBase - ry) / rPxPerV;
       let S = 0;
@@ -464,6 +617,66 @@ export function createDoppler({ onProbe }) {
     }
   }
 
+  // The top strip fits its words by fixed steps, never by cutting or dropping one: the type at full size, then at 0.9 (the gaps
+  // and type scale together, --dop-k), then the pattern ("High velocity") on a line of its own under the reading, whole, and only
+  // when even that does not fit the direction's short form (clinical shorthand, "PV → HV"): the direction is read in full
+  // wherever a second line makes room for it (Review 16 Oct: "PV → HV · Patent" on a Mac slide). The card and monitor keep their size; the trace starts under
+  // the strip. Measured only when its words or width change; a bigger step is taken back only with room to spare, so a reading
+  // that changes by a digit does not move the strip (and the trace under it) back and forth.
+  function setDir(t) {
+    dirFull = t;
+    const s = STEPS[stripStep][1] ? SHORT_DIR[t] || t : t;
+    if (dirEl.textContent !== s) dirEl.textContent = s;
+  }
+  function stripStepSet(i) {
+    const [k, short, wrap] = STEPS[i];
+    stripStep = i;
+    if (report.style.getPropertyValue('--dop-k') !== String(k)) report.style.setProperty('--dop-k', String(k));
+    report.classList.toggle('dop-wrap', wrap);
+    const s = short ? SHORT_DIR[dirFull] || dirFull : dirFull;
+    if (dirEl.textContent !== s) dirEl.textContent = s;
+  }
+  function stripFits(i, have, spare) {
+    const wrap = STEPS[i][2], box = (e) => { if (e.hidden || !e.textContent) return null; rng.selectNodeContents(e); const q = rng.getBoundingClientRect(); return q.width ? q : null; };
+    const v = box(velEl), d = box(dirEl), p = box(patternEl), line = [v, d, wrap ? null : p].filter(Boolean);
+    if (!line.length) return true;
+    // (one row: with the pattern on its own line the strip may wrap, and the direction must not go down with it)
+    if (wrap && v && d && (d.top >= v.bottom - 2 || d.left < v.right)) return false;
+    // (the union of the line's words, the dot before the pattern included; 14 px for its end, which Safari's ranges leave out)
+    const w = Math.max(...line.map((q) => q.right)) - Math.min(...line.map((q) => q.left)) + (p && !wrap ? 14 : 0);
+    return w + spare <= have && (!wrap || !p || p.width + 14 + spare <= have);
+  }
+  function fitStrip() {
+    const key = `${report.clientWidth}|${cv.clientWidth}|${stripType}|${dirFull}|${velEl.hidden ? '' : velEl.textContent}|${patternEl.textContent}`;
+    if (key === stripKey) return;
+    stripKey = key;
+    // (the room is the monitor picture's, 12 px in from its right edge, where the report is wider than it: a phone held sideways)
+    const cs = getComputedStyle(report), rr = report.getBoundingClientRect(), br = cv.getBoundingClientRect();
+    const sc = rr.width / (report.offsetWidth || 1) || 1;   // (screen px per layout px: a card still easing in is scaled)
+    const have = Math.min(report.clientWidth - parseFloat(cs.paddingRight), (br.right - rr.left) / sc - 12) - parseFloat(cs.paddingLeft);
+    rng ||= document.createRange();
+    if (have <= 0) return;
+    if (patternEl.hidden) patternEl.hidden = false;
+    const was = stripStep;
+    for (let i = 0; i < STEPS.length; i++) {
+      stripStepSet(i);
+      if (stripFits(i, have * sc, i < was ? 6 : 0)) return;   // (the words are measured on screen)
+    }
+  }
+
+  // The strip's own words (the reading, direction and pattern), measured together: a phone's Tests card keeps the gauge and tiles
+  // in the same box under the monitor, so the box itself is not the strip.
+  function stripRect() {
+    let l = Infinity, r = -Infinity, b = -Infinity;
+    for (const e of [velEl, dirEl, patternEl]) {
+      rng.selectNodeContents(e);
+      const q = rng.getBoundingClientRect();
+      if (!q.width) continue;
+      l = Math.min(l, q.left); r = Math.max(r, q.right); b = Math.max(b, e.getBoundingClientRect().bottom);
+    }
+    return { width: r > l ? r - l + (patternEl.textContent && !patternEl.hidden ? 14 : 0) : 0, bottom: b };
+  }
+
   function draw(now = performance.now()) {
     labBusy = false;
     const { ctx, w, h: hh } = fitCanvas(cv);
@@ -471,15 +684,36 @@ export function createDoppler({ onProbe }) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = cssVar('--black'); ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const padL = 12, padR = 46, padT = 26, padB = 20;
+    // On a slide's data card the report sits in the top strip (CSS sets --dop-ov on the box): the strip is as tall as the
+    // report, and the vessel and settings move to the bottom strip under the second ticks. Read again when the size changes.
+    // (Its height is read only when the strip was refitted or the size changed, and it gives back room only by more than 4 px.)
+    const ovKey = `${w}x${hh}`, tOv = performance.now();
+    if (ovKey !== ovLast || tOv - ovAt > 500) {
+      ovAt = tOv; const cs = getComputedStyle(cv); ovOn = cs.getPropertyValue('--dop-ov').trim() === '1';
+      // (the strip's type sizes, read with it: a slide's text scale can settle after the strip was fitted, which left it fitted too wide)
+      if (ovOn) stripType = ['--bs', '--pz-num', '--fs-12', '--fs-14', '--fs-20'].map((v) => cs.getPropertyValue(v).trim()).join();
+    }
+    if (ovOn) {
+      const k0 = stripKey; fitStrip();
+      if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4; if (ovKey !== ovLast || t > ovTop || t < ovTop - 4) ovTop = t; }
+    } else {
+      ovTop = 26;
+      if (stripStep) { stripStepSet(0); stripKey = ''; }   // (off the strip the words are always whole and full size)
+    }
+    ovLast = ovKey;
+    const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
     if (w < 60 || hh < 60) return;
-    const label = probe ? EDGES[EI[probe]].label : '';
-    ctx.font = FONT(600, 11); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(label, padL, 13);
+    if (pickNext) pickWindow();
+    const label = probe ? probeName(meta()) + (isStentProbe() ? ` · ${SEGS.find(([v]) => v === gateOf())[1]}` : '') : '';
+    ctx.font = FONT(600, 12); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, padL, yLab);
     const lw = ctx.measureText(label).width;
-    ctx.font = FONT(500, 11); ctx.fillStyle = cssAlpha('--white', .5);
-    ctx.fillText(`${mode === 'spectrum' ? 'PW' : 'PW + CD'}  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, padL + lw + 12, 13);
+    ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
+    // (The settings drop from the end, sweep first, where the strip is too narrow for all of them beside the units.)
+    const parts = [mode === 'spectrum' ? 'PW' : 'PW + CD', 'θ 60°', 'SV 3 mm', `${sweepSeconds} s`], room = w - padR - (padL + lw + 12) - 6;
+    while (parts.length > 1 && ctx.measureText(parts.join('  ·  ')).width > room) parts.pop();
+    if (ctx.measureText(parts.join('  ·  ')).width <= room) ctx.fillText(parts.join('  ·  '), padL + lw + 12, yLab);
     if (buf.length < 2) {
       tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = cssAlpha('--white', .55);
@@ -493,10 +727,15 @@ export function createDoppler({ onProbe }) {
     let pos = 0, neg = 0;
     const sgn = pol();
     for (const [t, v0] of buf) if (t >= tNow - sweepSeconds && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
+    gf = gateFactor();
     const k = dopplerK(EDGES[EI[probe]]);
-    pos *= k; neg *= k;
+    pos *= k * gf; neg *= k * gf;
+    // (The scale always holds the peak the reading beside it reports, so a −31 cm/s report never sits on a ±5 scale while new
+    // samples are still reaching the window; the reading spans the last 3 s of the record, inside every sweep.)
+    const rd = reading();
+    if (rd) for (const v of [rd.vmax * gf * sgn, rd.vmin * gf * sgn]) { if (v > pos) pos = v; if (-v > neg) neg = -v; }
     const need = Math.max(pos, neg, 8) / 0.85;
-    const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
+    const target = scaleFor(Math.max(pos, neg));
     const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.88 : neg > 0 && pos < neg * 0.08 ? 0.12 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.12, 0.88);
     const tbF = Math.round(tbRaw * 10) / 10;
     const fits = scale != null && need <= scale && (pos >= neg) === (baseF >= 0.5 || baseF == null);
@@ -511,11 +750,24 @@ export function createDoppler({ onProbe }) {
     const RW = Math.max(1, Math.round(W * dpr)), RH = Math.max(1, Math.round(H * dpr));
     const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / sweepSeconds, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, k, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
     const cNow = Math.floor(tNow * g.cps);
-    const key = `${RW}x${RH}|${scale}|${baseF}|${probe}|${sgn}|${sweepSeconds}|${mode}`;
+    const rest = `${scale}|${baseF}|${probe}|${sgn}|${sweepSeconds}|${mode}`, key = `${RW}x${RH}|${rest}`;
     if (!img || img.width !== RW || img.height !== RH) {
+      const old = off, oRW = img?.width, oRH = img?.height;
       img = new ImageData(RW, RH);
       off = mk(RW, RH);
       octx = off.getContext('2d');
+      // Only the size changed (a card settling as it enters, the top strip refitted): the trace already drawn is stretched
+      // to the new size in two image copies instead of being synthesised again line by line, and new lines scroll in sharp.
+      const lc = lastCol != null && old && ringKey === `${oRW}x${oRH}|${rest}` ? Math.floor(lastCol * RW / oRW) : null;
+      if (lc != null && cNow >= lc && cNow - lc < RW) {
+        const T = mk(oRW, oRH), tctx = T.getContext('2d'), po = ((lastCol % oRW) + oRW) % oRW;
+        if (po + 1 < oRW) tctx.drawImage(old, po + 1, 0, oRW - po - 1, oRH, 0, 0, oRW - po - 1, oRH);
+        tctx.drawImage(old, 0, 0, po + 1, oRH, oRW - po - 1, 0, po + 1, oRH);
+        const sx = (lc + 1) % RW, fx = oRW / RW;   // (the oldest line shown goes to ring column sx)
+        if (RW - sx > 0) octx.drawImage(T, 0, 0, (RW - sx) * fx, oRH, sx, 0, RW - sx, RH);
+        if (sx > 0) octx.drawImage(T, (RW - sx) * fx, 0, sx * fx, oRH, 0, 0, sx, RH);
+        ringKey = key; lastCol = lc;
+      }
     }
     // redraw every line after a change of scale, size or colour, or when time runs backwards
     const full = key !== ringKey || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
@@ -539,8 +791,8 @@ export function createDoppler({ onProbe }) {
     };
     ring(ctx, off, dx, dy);
     // the noise floor, fixed to the screen: a new random view of the texture ~10 times a second
-    if (floor?.key !== `${RW}x${RH}`) makeNoise(RW, RH, g.binPx, Math.max(1, dpr));
-    if (now - noiseAt > 100) { noiseAt = now; nx = (Math.random() * PAD) | 0; ny = (Math.random() * PAD) | 0; }
+    if (!floor || floor.width < RW + PAD || floor.height < RH + PAD || floor.dpr !== Math.max(1, dpr)) makeNoise(RW, RH, g.binPx, Math.max(1, dpr));
+    if (now - noiseAt > 100) { noiseAt = now; nx = (Math.random() * (floor.width - RW)) | 0; ny = (Math.random() * (floor.height - RH)) | 0; }
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = mode === 'spectrum' ? 1 : 0.3;
     ctx.drawImage(floor, nx, ny, RW, RH, dx, dy, RW, RH);
@@ -556,9 +808,10 @@ export function createDoppler({ onProbe }) {
     // Baseline
     ctx.fillStyle = cssAlpha('--white', .8); ctx.fillRect(padL, padT + baseY, W, 1);
     // Velocity scale on the right
-    ctx.font = FONT(500, 10.5); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.font = FONT(500, 12); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     // ticks: a labelled tick every 1, 2, 5, 10, 20, 50 ... cm/s (the first that gives at most five a side), a half tick between
-    const lab = [1, 2, 5, 10, 20, 50, 100, 200].find((x) => scale / x <= 5) || 100, minor = lab / 2;
+    // (and labels at least 18 px apart, so a short trace keeps a few readable ones rather than a stack)
+    const lab = [1, 2, 5, 10, 20, 50, 100, 200, 500].find((x) => scale / x <= 5 && x * pxPerV >= 18) || 500, minor = lab / 2;
     for (let k = -Math.ceil(scale / minor); k <= Math.ceil(scale / minor); k++) {
       const v = k * minor, y = padT + baseY - v * pxPerV;
       if (y < padT - 1 || y > padT + H + 1) continue;
@@ -566,7 +819,11 @@ export function createDoppler({ onProbe }) {
       ctx.fillStyle = cssAlpha('--white', .55); ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
       if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = cssAlpha('--white', .78); ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
     }
-    ctx.fillStyle = cssAlpha('--white', .5); ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
+    // The scale's unit: top right, or, when the reading fills the top strip, bottom right under the scale, clear of its words
+    // (the bottom strip's settings stop short of the scale's margin).
+    // (left out where a narrow monitor's bottom label would run into it: the strip's reading already names the unit)
+    ctx.fillStyle = cssAlpha('--white', .5); ctx.textAlign = 'right';
+    if (!ovOn || padL + lw + 8 <= w - 6 - ctx.measureText('cm/s').width) ctx.fillText('cm/s', w - 6, ovOn ? yLab : 13);
     if (waves && meta().kind === 'hepatic') {
       // The hepatic vein's waves named at their peaks (a presenter slide asks for it): the a-wave reversal on the
       // atrial side of the baseline, then the S, v and D forward waves of the same beat. One beat is named at a time.
@@ -584,15 +841,15 @@ export function createDoppler({ onProbe }) {
         wl.alpha = clamp(wl.alpha + (wl.out ? -1 : 1) * dtL / 0.4, 0, 1);
         labBusy = wl.out ? wl.alpha > 0 : wl.alpha < 1;
         const A = wl.alpha * wl.alpha * (3 - 2 * wl.alpha);
-        ctx.font = FONT(700, 13); ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.font = FONT(700, WAVE_PX); ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         const at = (t, v) => [padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr, padT + baseY - v * k * pxPerV];
         for (const [t, v, name] of wl.pts) {
           // (The a-wave's letter sits just past the baseline on its side, clear of the spectrum, even when it barely crosses.)
           const up = name === 'a', [x, y0] = at(t, v), y = up ? Math.min(y0, padT + baseY) : y0;
           if (x < padL + 2 || x > padL + W - 2) continue;
-          const ty = clamp(y + (up ? -5 : 5), padT + (up ? 14 : 0), padT + H - (up ? 0 : 14));
+          const ty = clamp(y + (up ? -5 : 5), padT + (up ? WAVE_PX + 1 : 0), padT + H - (up ? 0 : WAVE_PX + 1));
           ctx.textBaseline = up ? 'bottom' : 'top';
-          ctx.lineWidth = 4; ctx.strokeStyle = cssAlpha('--black', 0.9 * A); ctx.strokeText(name, x, ty);
+          ctx.lineWidth = 5; ctx.strokeStyle = cssAlpha('--black', 0.9 * A); ctx.strokeText(name, x, ty);
           ctx.fillStyle = cssAlpha('--white', A); ctx.fillText(name, x, ty);
         }
       }
@@ -644,22 +901,33 @@ export function createDoppler({ onProbe }) {
     }
     return [];
   }
-  let raf = 0, askedAt = 0;
+  let raf = 0, askedAt = 0, paintAt = 0, reportDue = false;
   function loop(now) {
     raf = 0;
-    if (!frame || !cv.isConnected || !cv.offsetParent) return;
+    if (!frame || !cv.isConnected || !cv.offsetParent) { if (reportDue) { reportDue = false; updateReport(); } return; }
+    // The running trace scrolls on every frame the screen offers (15 a second in Battery saver). Its samples are the model's,
+    // whatever the frame rate: each frame adds only the columns its elapsed time covers. A change while paused draws at once.
+    if (live() && !labBusy && now - paintAt < paceMs()) { raf = nextFrame(loop); return; }
+    paintAt = now;
+    // (The words are set in the same frame as the picture, so the reading and the trace and its scale never disagree.)
+    if (reportDue) { reportDue = false; updateReport(); }
     draw(now);
+    noteDraw('doppler');
     if ((live() && now - askedAt < 400) || labBusy) raf = nextFrame(loop);
   }
   function redraw() {
     if (!frame) return;
-    updateReport();
+    reportDue = true;
+    if (!cv.isConnected || !cv.offsetParent) { reportDue = false; updateReport(); }
     askedAt = performance.now();
     if (!raf) raf = nextFrame(loop);
   }
   function update(f) { ingest(f); redraw(); }
   function clear() { buf = []; wl = null; redraw(); }
+  /** A slide is showing this monitor: choose its window again from the width it is drawn at. (The trace already drawn
+   *  stays: only a change of window redraws it, so a slide that keeps the window enters without a full repaint.) */
+  function autoWindow() { manualSweep = false; pickNext = true; redraw(); }
   /** Name the hepatic vein's a, S, v and D waves on the trace (the Presenter's waveform slides). */
-  function setWaves(on) { if (waves !== !!on) { waves = !!on; ringKey = null; redraw(); } }
-  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves };
+  function setWaves(on) { if (waves !== !!on) { waves = !!on; redraw(); } }
+  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves, autoWindow, pin };
 }

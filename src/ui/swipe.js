@@ -26,3 +26,29 @@ export function ownsSideways(el, { stop = null, cardSideways = false } = {}) {
   }
   return false;
 }
+
+// The case card follows a finger sideways and flies off when let go far enough out or with a quick flick, either way.
+export const FLING_FAR = 0.33;    // of the card's width: let go past this and it flies off
+export const FLING_V = 0.45;      // px/ms: a flick this fast flies it off from a short drag
+export const FLING_MIN = 24;      // px a flick must travel first, so a twitch on lift-off does not count
+
+/** -1 (off to the left) or +1 (off to the right) when the card is let go at `dx` moving at `vx` px/ms; 0 springs it back.
+ *  A card pulled far but being carried back toward the middle when let go springs back. */
+export function caseFling(dx, vx, w) {
+  if (!(w > 0) || !Number.isFinite(dx)) return 0;
+  const s = Math.sign(dx), v = Number.isFinite(vx) ? vx : 0;
+  if (!s) return 0;
+  if (v * s <= -FLING_V * 0.6) return 0;
+  if (Math.abs(dx) >= FLING_FAR * w) return s;
+  if (Math.abs(dx) >= FLING_MIN && v * s >= FLING_V) return s;
+  return 0;
+}
+
+/** How long (ms) a flung case card takes to travel the `left` px still to go at the finger's `vx` px/ms: long enough to be
+ *  seen leaving and fading (a slow let-go never pops), short enough that a hard flick still feels thrown. */
+export const FLIGHT_MIN = 380, FLIGHT_MAX = 600;
+export function caseFlight(left, vx) {
+  const v = Math.max(Math.abs(Number.isFinite(vx) ? vx : 0), 0.8);
+  const t = (1.6 * left) / v;
+  return Number.isFinite(t) ? Math.round(Math.min(FLIGHT_MAX, Math.max(FLIGHT_MIN, t))) : FLIGHT_MAX;
+}

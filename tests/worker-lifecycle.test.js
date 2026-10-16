@@ -63,9 +63,9 @@ test('worker timeout terminates and disconnects the worker before main-thread fa
   const hostURL = new URL('../src/ui/host.js', import.meta.url);
   const source = readFileSync(hostURL, 'utf8').replace(/import\.meta\.url/g, JSON.stringify(hostURL.href))
     .replace(/import\('([^']+)'\)/g, (_, path) => `import('${new URL(path, hostURL).href}')`);
-  const { startHost } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+  const { startHost, WORKER_WAIT } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
   const ready = startHost();
-  t.mock.timers.tick(4000);
+  t.mock.timers.tick(WORKER_WAIT);
   assert.equal(await ready, 'main');
   assert.equal(worker.terminated, true);
   assert.equal(worker.onmessage, null);

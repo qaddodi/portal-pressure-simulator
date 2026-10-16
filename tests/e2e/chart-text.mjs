@@ -3,6 +3,7 @@
 // rule line (a cut-off tick, a divider, an SVG line). Run alone: node tests/e2e/chart-text.mjs; also run by smoke.mjs.
 import { chromium } from 'playwright';
 import { serve } from '../../scripts/serve.mjs';
+import { fastContext, gotoSlide, quiet } from './fast.mjs';
 
 const CHARTS = new Set(['scale', 'ladders', 'quadrant', 'walls']);
 export async function chartSlides() {
@@ -72,9 +73,10 @@ const settle = (page) => page.waitForFunction(() => {
   return !document.getAnimations().some((a) => a.playState === 'running' && isFinite(a.effect?.getTiming().iterations));
 }, null, { timeout: 20000, polling: 200 }).catch(() => {});
 
-export async function checkCharts(browser, url, log = console.log) {
+// (only: one size's name, as smoke.mjs runs each size as a check of its own)
+export async function checkCharts(browser, url, log = console.log, only = null) {
   const slides = (await chartSlides()).filter((s) => !process.env.DECKS || process.env.DECKS.split(',').includes(s.deck)), bad = [];
-  for (const size of SIZES) {
+  for (const size of SIZES.filter((s) => !only || s.name === only)) {
     const { name, ...opts } = size;
     const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
     const page = await ctx.newPage();
@@ -199,7 +201,7 @@ export function gradientsAdd() {
 }
 export async function checkStripGaps(browser, url, log = console.log) {
   const bad = [];
-  const all = [['circulation', 10], ['sites', 3], ['sites', 6]];   // (raised, healthy and HVPG over 10: one- and two-digit readings in one strip)
+  const all = [['circulation', 11], ['sites', 3], ['sites', 6]];   // (raised, healthy and HVPG over 10: one- and two-digit readings in one strip)
   for (const size of SIZES) {
     const { name, ...opts } = size;
     const ctx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
@@ -251,7 +253,7 @@ export async function checkStripSlides(browser, url, log = console.log, deck = n
 }
 export async function checkStrip(browser, url, log = console.log) {
   const bad = [];
-  for (const size of SIZES.slice(0, 2)) for (const scheme of ['light', 'dark']) for (const [q, what] of [['script=sites&slide=3', 'healthy'], ['script=circulation&slide=10', 'raised'], ['script=sites&slide=6', 'HVPG over 10']]) {
+  for (const size of SIZES.slice(0, 2)) for (const scheme of ['light', 'dark']) for (const [q, what] of [['script=sites&slide=3', 'healthy'], ['script=circulation&slide=11', 'raised'], ['script=sites&slide=6', 'HVPG over 10']]) {
     const { name, ...opts } = size;
     const ctx = await browser.newContext({ ...opts, colorScheme: scheme, serviceWorkers: 'block' });
     const page = await ctx.newPage();
@@ -272,4 +274,74 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (const b of bad) console.log('FAIL ' + b);
   await browser.close(); server.close?.();
   process.exit(bad.length ? 1 : 0);
+}
+
+// The big ladders' HVPG and PPG brackets (the data card's and each site ladder's, Mac and iPad): each visible bracket
+// draws a line of real width between its end ticks, and its label touches no dotted drop line, reading, station name,
+// end tick or other bracket. In the page: what clashes (empty when every bracket reads cleanly).
+export function ladderBrackets() {
+  const out = [], vis = (e) => { for (let n = e; n && n !== document.body; n = n.parentElement) { const c = getComputedStyle(n); if (c.display === 'none' || c.visibility === 'hidden' || +c.opacity < 0.05) return false; } return true; };
+  const hit = (a, b, m = 0.5) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > m && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > m;
+  // A path's straight pieces (M x y, then V or H moves) as screen boxes.
+  const segs = (p) => {
+    const m = p.getScreenCTM(), out = [];
+    if (!m) return out;
+    const pt = (x, y) => ({ x: m.a * x + m.c * y + m.e, y: m.b * x + m.d * y + m.f });
+    let x = 0, y = 0;
+    for (const [, op, a, b] of (p.getAttribute('d') || '').matchAll(/([MVH])\s*(-?[\d.]+)(?:\s+(-?[\d.]+))?/g)) {
+      if (op === 'M') { x = +a; y = +b; continue; }
+      const p0 = pt(x, y); if (op === 'V') y = +a; else x = +a; const p1 = pt(x, y);
+      out.push({ h: op === 'H', len: Math.hypot(p1.x - p0.x, p1.y - p0.y), r: { left: Math.min(p0.x, p1.x) - 0.6, right: Math.max(p0.x, p1.x) + 0.6, top: Math.min(p0.y, p1.y) - 0.6, bottom: Math.max(p0.y, p1.y) + 0.6 } });
+    }
+    return out;
+  };
+  const ink = (r) => { const pad = r.height * 0.2; return { left: r.left, right: r.right, top: r.top + pad, bottom: r.bottom - pad }; };
+  for (const L of document.querySelectorAll('.pz-ladder')) {
+    if (!vis(L)) continue;
+    const brs = [...L.querySelectorAll('.pzl-bg')].filter((b) => +b.getAttribute('opacity') >= 0.5);
+    const texts = [...L.querySelectorAll('.pzl-v, .pzl-k')].filter((t) => vis(t) && t.textContent.trim()).map((t) => ({ r: ink(t.getBoundingClientRect()), name: `"${t.textContent.trim()}"` }));
+    for (const b of brs) {
+      const t = b.querySelector('.pzl-bk'), name = t.textContent.trim(), lab = ink(t.getBoundingClientRect());
+      const own = segs(b.querySelector('.pzl-br')), line = own.filter((s) => s.h).reduce((a, s) => a + s.len, 0);
+      if (line < 12) out.push(`${name}: no visible bracket line (${line.toFixed(1)} px)`);
+      for (const s of own) if (hit(lab, s.r)) out.push(`${name} sits on its own bracket ${s.h ? 'line' : 'tick'}`);
+      for (const o of brs) if (o !== b) {
+        for (const s of [...segs(o.querySelector('.pzl-br')), ...segs(o.querySelector('.pzl-lead'))]) if (hit(lab, s.r)) out.push(`${name} touches the ${o.querySelector('.pzl-bk').textContent.trim().split(' ')[0]} bracket`);
+        if (hit(lab, ink(o.querySelector('.pzl-bk').getBoundingClientRect()))) out.push(`${name} overlaps the other label`);
+      }
+      for (const s of segs(b.querySelector('.pzl-lead'))) if (hit(lab, s.r)) out.push(`${name} sits on a drop line`);
+      for (const x of texts) if (hit(lab, x.r)) out.push(`${name} overlaps ${x.name}`);
+    }
+  }
+  return [...new Set(out)];
+}
+export const LADDER_SIZES = [
+  { name: 'Mac 1280x800', viewport: { width: 1280, height: 800 } },
+  { name: 'Mac 1440x900', viewport: { width: 1440, height: 900 } },
+  { name: 'iPad upright', viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  { name: 'iPad landscape', viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+];
+// Every slide of every deck, at each size, at 100% and 200% text. (DECKS=a,b limits the decks; LADDER_SIZES_N the sizes.)
+export async function checkLadderBrackets(browser, url, log = console.log, sizes = LADDER_SIZES, zooms = [1, 2]) {
+  const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+  const decks = DECKS.filter((d) => !process.env.DECKS || process.env.DECKS.split(',').includes(d.id)), bad = [];
+  for (const { name, ...opts } of sizes) for (const z of zooms) {
+    // (one page per size and text size; each slide reached directly, its motion instant: tests/e2e/fast.mjs)
+    const ctx = await fastContext(browser, opts);
+    await ctx.addInitScript((z) => { try { localStorage.setItem('pps.labelScale', String(z)); localStorage.setItem('pps.labelScaleV', '2'); } catch { /* private mode */ } }, z);
+    const page = await ctx.newPage();
+    for (const d of decks) {
+      const n = withOverview(d).slides.length;
+      for (let i = 1; i <= n; i++) {
+        await gotoSlide(page, url, d.id, i - 1);
+        await page.waitForFunction(() => document.querySelector('.pz-visual, .pz-grid, .pz-data'), null, { timeout: 45000 }).catch(() => {});
+        await quiet(page);
+        const c = await page.evaluate(ladderBrackets);
+        if (c.length) bad.push(`${d.id} slide ${i} at ${name} ${z * 100}%: ${c.slice(0, 4).join('; ')}`);
+      }
+      log(`ok?  ${name} ${z * 100}% ${d.id}`);
+    }
+    await ctx.close();
+  }
+  return bad;
 }

@@ -1,8 +1,9 @@
-// Product and content versions. A course built on one content version behaves the same all
-// semester: the model, presets, lessons and cases only change with a new content version.
-export const APP_VERSION = '2.1.0';
-export const CONTENT_VERSION = '2.0';
-export const RELEASED = '2026-09';
+// When the app and its model content were last updated, shown as a date (no version number is shown
+// anywhere; package.json keeps one only for SCORM exports). A class taught on content of one date
+// behaves the same all term: the model, presets and decks only change when the content date does.
+// A no-break space keeps month and year on one line.
+export const UPDATED = 'October\u00a02026';
+export const CONTENT_UPDATED = 'October\u00a02026';
 
 // Creator, and the page that lists all of their teaching tools.
 export const AUTHOR = 'Mohammad Almeqdadi, MD';

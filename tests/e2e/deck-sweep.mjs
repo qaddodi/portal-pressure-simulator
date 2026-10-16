@@ -15,11 +15,15 @@ const TITLES = Object.fromEntries(DECKS.map((d) => [d.id, withOverview(d).slides
 const only = process.env.DECKS ? process.env.DECKS.split(',') : null;
 const decks = DECKS.map((d) => d.id).filter((id) => !only || only.includes(id));
 const server = await serve(ROOT);
+// FAST=1: layout only (shorter settle, no camera checks, no backward pass); JOBS=n plays n deck/size pairs at once.
+const ONE = +process.env.SLIDE || 0;   // SLIDE=n: only that slide (opened straight at it)
+const FAST = !!process.env.FAST, JOBS = +process.env.JOBS || 1;
 mkdirSync('deck-sweep', { recursive: true });
 const SIZES = {
   desktop: { viewport: { width: 1440, height: 900 } },
   laptop: { viewport: { width: 1280, height: 800 } },
   wide: { viewport: { width: 1920, height: 1080 } },
+  mac: { viewport: { width: 1901, height: 1139 } },
   ipadwide: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   ipad: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
@@ -75,6 +79,64 @@ const snap = (page) => page.evaluate(() => {
     const pill = [...document.querySelectorAll('.cath-label.site:not(.cath-pre)')].find((e) => e.querySelector('small')?.textContent === k), lab = document.querySelector(`.lb[data-key="n:${n}"]`);
     if (pill && lab && +getComputedStyle(pill).opacity >= 0.5 && getComputedStyle(lab).display !== 'none' && +getComputedStyle(lab).opacity >= 0.5) issues.push(`${k} pill repeats the ${n} label`);
   }
+  // Size checks. Laptop and iPad landscape (cards mode): the data card stacks under the teaching card, at its width, and
+  // its blocks shrink only when the column has no room for them. Every size: no card text drawn below a readable size, and
+  // a data card's drawing (a chart, an instrument) fills its box rather than sitting small inside it.
+  const app = document.querySelector('.pz'), cards = app?.classList.contains('pz-card') && !app.classList.contains('stack');
+  const T = boxes['.pz-text'], D = boxes['.pz-data'], dEl = document.querySelector('.pz-data'), tEl = document.querySelector('.pz-text');
+  const tk = +(tEl?.style.getPropertyValue('--pz-tk') || 1), bk = +(tEl?.style.getPropertyValue('--pz-bk') || 1), dk = +(dEl?.style.getPropertyValue('--pz-dk') || 1);
+  const fit = +(dEl?.style.getPropertyValue('--pz-fit') || 1), tfit = +(tEl?.style.getPropertyValue('--pz-fit') || 1);
+  const shrink = { tk, bk, dk, fit, tfit };
+  if (cards && T && D) {
+    if (!(D.top >= T.bottom - 1)) issues.push(`SIDE BY SIDE: data card ${Math.round(D.width)}x${Math.round(D.height)} beside teaching card ${Math.round(T.width)}x${Math.round(T.height)} (window ${W}x${H})`);
+    else {
+      const bar = vis(document.querySelector('.pz-bar')), foot = bar && bar.left < T.right ? bar.top : H, spare = foot - D.bottom;
+      if ((dk < 1 || bk < 1 || tk < 1) && spare > 120) issues.push(`SHRUNK WITH ROOM: ${Math.round(spare)}px spare below the stack, yet title x${tk}${bk < 1 ? `, text x${bk}` : ''}${dk < 1 ? `, data blocks x${dk}` : ''}`);
+    }
+  }
+  if (fit < 0.9) issues.push(`DATA FIT: data card contents shrunk to x${fit.toFixed(2)} to fit`);
+  if (tfit < 0.9) issues.push(`TEXT FIT: teaching card contents shrunk to x${tfit.toFixed(2)} to fit`);
+  const minPx = W < 700 || H < 500 ? 10 : 11, small = new Map(), fonts = { teaching: [], data: [], panel: [] };
+  for (const [s, el] of [['teaching', tEl], ['data', dEl], ['panel', document.querySelector('.pz-panel')]]) {
+    if (!el || !vis(el)) continue;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) {
+      const e = n.parentElement, t = n.textContent.trim(); if (!t || e.closest('.sr-only, [aria-hidden="true"]')) continue;
+      if (e.checkVisibility && !e.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+      const g = document.createRange(); g.selectNodeContents(n); const rr = [...g.getClientRects()].filter((q) => q.width && q.height); if (!rr.length) continue;
+      if (rr.some((q) => q.bottom < 0 || q.top > H) || hiddenIn(e, el)) continue;
+      let px = parseFloat(getComputedStyle(e).fontSize);
+      if (e instanceof SVGElement) { const m = e.getScreenCTM?.(); if (m) px *= Math.hypot(m.a, m.b); } else px *= e.currentCSSZoom || 1;
+      fonts[s].push([px, t.length, e.closest('h1, h2') ? 'title' : 'text']);
+      if (px < minPx - 0.05) { const k = `${s}: "${t.slice(0, 24)}"`; if (!small.has(k) || small.get(k) > px) small.set(k, px); }
+    }
+  }
+  if (small.size) issues.push(`SMALL TEXT (<${minPx}px): ` + [...small].sort((a, b) => a[1] - b[1]).slice(0, 6).map(([k, v]) => `${k} ${v.toFixed(1)}px`).join('; ') + (small.size > 6 ? ` (+${small.size - 6} more)` : ''));
+  // Text sizes on one slide stay within reach of each other: the data card's words and numbers against the teaching card's
+  // body text (its title aside), and no block far below the rest of its own card.
+  const med = (a) => { const v = a.flatMap(([px, n]) => Array(Math.min(n, 40)).fill(px)).sort((x, y) => x - y); return v.length ? v[v.length >> 1] : 0; };
+  const tBody = med(fonts.teaching.filter((f) => f[2] === 'text')), dMed = med(fonts.data), dMin = fonts.data.length ? Math.min(...fonts.data.map((f) => f[0])) : 0;
+  const type = { tBody: +tBody.toFixed(1), dMed: +dMed.toFixed(1), dMin: +dMin.toFixed(1) };
+  const mr = app?.classList.contains('stack') ? 0.5 : 0.6;   // (a phone's data card is the compact strip above the words)
+  if (tBody && dMed && dMed < tBody * mr) issues.push(`TEXT MISMATCH: data card text ${dMed.toFixed(1)}px against ${tBody.toFixed(1)}px teaching card text`);
+  if (dMed && dMin && dMin < dMed * 0.6) issues.push(`TEXT MISMATCH: data card's smallest text ${dMin.toFixed(1)}px against its usual ${dMed.toFixed(1)}px`);
+  if (D) for (const sv of dEl.querySelectorAll('svg')) {
+    const r = sv.getBoundingClientRect(); if (r.width < 120 || r.height < 80 || sv.closest('[aria-hidden="true"] button, button')) continue;
+    if (sv.checkVisibility && !sv.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+    let l = 1e9, t = 1e9, R = -1e9, B = -1e9;
+    for (const g of sv.querySelectorAll('path, rect, circle, ellipse, line, polyline, polygon, text, image')) { if (g.closest('defs, clipPath, mask, symbol')) continue; const q = g.getBoundingClientRect(); if (!q.width && !q.height) continue; l = Math.min(l, q.left); t = Math.min(t, q.top); R = Math.max(R, q.right); B = Math.max(B, q.bottom); }
+    if (R < l) continue;
+    const fw = (Math.min(R, r.right) - Math.max(l, r.left)) / r.width, fh = (Math.min(B, r.bottom) - Math.max(t, r.top)) / r.height;
+    if (fw < 0.7 || fh < 0.7) issues.push(`SMALL DRAWING: data card ${sv.getAttribute('class') || 'svg'} drawn in ${Math.round(fw * 100)}% x ${Math.round(fh * 100)}% of its ${Math.round(r.width)}x${Math.round(r.height)} box`);
+  }
+  if (D && cards) { const free = (D.height - [...dEl.children].reduce((a, c) => { const q = vis(c); return a + (q ? q.height : 0); }, 0)); if (free > 120) issues.push(`EMPTY DATA CARD SPACE: ${Math.round(free)}px of the data card's ${Math.round(D.height)}px height holds nothing`); }
+  // A pressure strip's or ladder's station names (PV, WHVP, FHVP, IVC, RA) never crowd: no two level names touch (tilted ones are clear by construction).
+  for (const svg of document.querySelectorAll('.pz-strip, .pz-ladder')) {
+    if (!vis(svg)) continue;
+    const ks = [...svg.querySelectorAll('.pzs-k, .pzl-k')].filter((t) => !t.getAttribute('transform') && vis(t)).map((t) => [t.textContent, t.getBoundingClientRect()]);
+    for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) { const [a, ra] = ks[i], [b, rb] = ks[j];
+      if (ra.top < rb.bottom && rb.top < ra.bottom && Math.max(ra.left, rb.left) - Math.min(ra.right, rb.right) < 4) issues.push(`LABELS CROWD: "${a}" and "${b}" in ${svg.getAttribute('class')}`); }
+  }
   const txt = (s) => { const el = document.querySelector(s); return vis(el) ? el.innerText.replace(/\s+/g, ' ').trim() : ''; };
   const terms = [...document.querySelectorAll('.pz-term')].map((t) => `${t.textContent}→${t.dataset.target}`);
   const count = document.querySelector('.pzb-n, .pz-count')?.textContent.trim();
@@ -82,7 +144,7 @@ const snap = (page) => page.evaluate(() => {
   const size = Object.fromEntries(['.pz-text', '.pz-data'].map((k) => [k, boxes[k] ? `${Math.round(boxes[k].width)}x${Math.round(boxes[k].height)}` : '']));
   const cam = window.__cam || 0; window.__cam = 0;
   const path = window.__path.splice(0);
-  return { size, cam, path, count, text: txt('.pz-text'), data: txt('.pz-data'), panel: txt('.pz-panel'), terms, issues, m: { pv: m.pv?.toFixed(1), hvpg: m.hvpg?.toFixed(1), ppg: m.ppg?.toFixed(1) } };
+  return { size, shrink, type, cam, path, count, text: txt('.pz-text'), data: txt('.pz-data'), panel: txt('.pz-panel'), terms, issues, m: { pv: m.pv?.toFixed(1), hvpg: m.hvpg?.toFixed(1), ppg: m.ppg?.toFixed(1) } };
 });
 // A camera that moves into a slide goes once, straight: no zoom or pan that turns back on itself (a round trip, or a move
 // away and back to where it started). Zoom in log steps; pan in plate units at the camera's zoom (what the eye sees move).
@@ -105,26 +167,42 @@ async function run(deck, dev) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto(server.url + '?script=' + deck);
+  const tl = Date.now(); await page.goto(server.url + '?script=' + deck + (process.env.LITE ? '&lite=' + process.env.LITE : '') + (ONE ? '&slide=' + ONE : '')); if (process.env.DEBUGT) console.log('goto', Date.now() - tl);
   await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'), null, { timeout: 60000 });
+  if (process.env.DEBUGT) console.log('presenting', Date.now() - tl);
   // Every camera move asked of the stage, counted (read and reset by snap).
   // The camera, sampled every frame outside the lobule (read and reset by snap): the path it took into each slide.
   await page.evaluate(() => { window.__path = []; const st = window.pps.stage, f = () => { const g = window.pps.store.get(); if (!g.lobule && !g.sinusoid && st.cameraZoom() == null) { const c = st.cameraState(), l = window.__path.at(-1); if (!l || l[0] !== c.k || l[1] !== c.x || l[2] !== c.y) window.__path.push([c.k, c.x, c.y]); } requestAnimationFrame(f); }; f(); });
   await page.evaluate(() => { const st = window.pps.stage; for (const k of ['frameBox', 'fitSlow']) { const f = st[k]; st[k] = (...a) => { window.__cam = (window.__cam || 0) + 1; return f.apply(st, a); }; } });
   const fwd = [], back = [];
-  let n = 99;
-  for (let i = 0; i < n; i++) {
-    const okT = await shows(page, TITLES[deck][i]); await settle(page); await page.waitForTimeout(700); await page.waitForFunction(() => { const t = document.querySelector('.pzl-t'); return !t || !t.offsetParent || !/Day |→/.test(t.textContent); }, null, { timeout: 30000 }).catch(() => {}); await page.waitForTimeout(300);
-    const s0 = await snap(page); await page.waitForTimeout(1500); const s = await snap(page); s.issues = s.issues.filter((x) => s0.issues.includes(x)); if (!okT) s.issues.push('title not shown: ' + TITLES[deck][i]);
+  let n = ONE || 99;
+  for (let i = ONE ? ONE - 1 : 0; i < n; i++) {
+    const t0 = Date.now(), lap = (w) => process.env.DEBUGT && console.log(deck, dev, i + 1, w, Date.now() - t0);
+    const okT = await shows(page, TITLES[deck][i]); lap('title'); await settle(page); lap('settle'); await page.waitForTimeout(FAST ? 300 : 700); await page.waitForFunction(() => { const t = document.querySelector('.pzl-t'); return !t || !t.offsetParent || !/Day |→/.test(t.textContent); }, null, { timeout: 30000 }).catch(() => {}); await page.waitForTimeout(300);
+    lap('lapse'); const s0 = await snap(page); await page.waitForTimeout(FAST ? 400 : 1500); const s = await snap(page); s.issues = s.issues.filter((x) => s0.issues.includes(x)); if (!okT) s.issues.push('title not shown: ' + TITLES[deck][i]);
     // Once in, a slide's cards keep their size and the camera moved at most once for it (no second glide as the cards settle).
     for (const k of ['.pz-text', '.pz-data']) if (s0.size[k] && s.size[k] && s0.size[k] !== s.size[k]) s.issues.push(`${k} changed size after it showed (${s0.size[k]} -> ${s.size[k]})`);
-    if (s0.cam + s.cam > 1) s.issues.push(`camera framed ${s0.cam + s.cam} times for one slide`);
-    { const w = wander([...s0.path, ...s.path]); if (w && i > 0) s.issues.push(`CAMERA ${w}`); }
-    fwd.push(s);
-    const m = s.count?.match(/(\d+) \/ (\d+)/); if (m) n = +m[2];
+    if (!FAST && s0.cam + s.cam > 1) s.issues.push(`camera framed ${s0.cam + s.cam} times for one slide`);
+    if (!FAST) { const w = wander([...s0.path, ...s.path]); if (w && i > 0) s.issues.push(`CAMERA ${w}`); }
+    // A quick check is sized once for every answer shown: opening them all moves neither its card nor its text size.
+    const qc = await page.evaluate(async () => {
+      const l = document.querySelector('.pz-check'); if (!l || !l.offsetParent) return null;
+      const c = l.closest('section'), m = () => `${Math.round(c.getBoundingClientRect().height)} ${c.style.getPropertyValue('--pz-fit')} ${getComputedStyle(l).fontSize}`;
+      const a = m(), qs = [...l.querySelectorAll('.pzc-q')];
+      for (const q of qs) q.click();
+      await new Promise((r) => setTimeout(r, 900)); const b = m();
+      for (const q of qs) q.click();
+      return a === b ? null : `${a} -> ${b}`;
+    });
+    if (qc) s.issues.push(`QUICK CHECK RESIZES when its answers open (height, fit, text: ${qc})`);
+    s.slide = i + 1; fwd.push(s); lap('snap');
+    const m = s.count?.match(/(\d+) \/ (\d+)/); if (m && !ONE) n = +m[2];
     if (i < n - 1) { await page.keyboard.press('ArrowRight'); await at(page, i + 2); }
   }
-  if (dev === 'desktop') for (let i = n - 2; i >= 0; i--) { await page.keyboard.press('ArrowLeft'); await at(page, i + 1); await shows(page, TITLES[deck][i]); await settle(page); await page.waitForTimeout(2000); back.unshift(await snap(page)); }
+  // The same deck at one size: a data card's text much smaller or larger than on the deck's other slides.
+  { const v = fwd.map((s) => s.type?.dMed).filter(Boolean).sort((a, b) => a - b), m = v[v.length >> 1];
+    if (m) fwd.forEach((s) => { const d = s.type?.dMed; if (d && (d < m * 0.75 || d > m * 1.33)) s.issues.push(`DECK MISMATCH: data card text ${d}px where the deck's slides use about ${m}px`); }); }
+  if (dev === 'desktop' && !FAST) for (let i = n - 2; i >= 0; i--) { await page.keyboard.press('ArrowLeft'); await at(page, i + 1); await shows(page, TITLES[deck][i]); await settle(page); await page.waitForTimeout(2000); back.unshift(await snap(page)); }
   await ctx.close();
   return { fwd, back, errors };
   } finally { await browser.close().catch(() => {}); }
@@ -136,22 +214,24 @@ const report = (deck, dev, r) => {
   const lines = [];
   r.errors.forEach((e) => lines.push(`console: ${e.slice(0, 200)}`));
   r.fwd.forEach((s, i) => {
-    s.issues.forEach((x) => { lines.push(`slide ${i + 1}: ${x}`); if (x.startsWith('CAMERA')) camBad++; });
+    s.issues.forEach((x) => { lines.push(`slide ${s.slide || i + 1}: ${x}`); if (x.startsWith('CAMERA')) camBad++; });
     const b = r.back[i];
     if (b && (b.text !== s.text || b.panel !== s.panel)) lines.push(`slide ${i + 1}: words differ going back | F: ${(s.text + s.panel).slice(0, 160)} | B: ${(b.text + b.panel).slice(0, 160)}`);
   });
   console.log(`== ${deck} ${dev}: ${r.fwd.length} slides, ${lines.length ? lines.length + ' finding(s)' : 'clean'}`);
   for (const l of lines) console.log('   ' + l);
 };
-for (const [d, dev] of jobs) {
+const one = async ([d, dev]) => {
   let r = null;
   for (let tries = 0; tries < 2 && !r; tries++) {
     try { r = await run(d, dev); } catch (e) { console.log(`RETRY ${d} ${dev}: ${e.message.split('\n')[0]}`); }
   }
-  if (!r) { failed++; console.log(`FAIL ${d} ${dev}`); continue; }
+  if (!r) { failed++; console.log(`FAIL ${d} ${dev}`); return; }
   writeFileSync(`deck-sweep/${d}.${dev}.json`, JSON.stringify(r));
   report(d, dev, r);
-}
+};
+const queue = [...jobs];
+await Promise.all(Array.from({ length: JOBS }, async () => { while (queue.length) await one(queue.shift()); }));
 server.close?.();
 // (A camera that goes back on itself fails the job; the layout findings are for reading.)
 process.exit(failed || camBad ? 1 : 0);

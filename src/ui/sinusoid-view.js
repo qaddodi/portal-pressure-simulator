@@ -1,6 +1,6 @@
 // Semantic zoom, one level below the lobule: a stretch of one sinusoid, cut along its length, drawn on
-// the GPU (sinusoid-gl.js) in the lobule's language: the pressure-coloured lumen with its shimmer and
-// chevrons, the pale green lymph, the hepatocyte plates. Blood runs from the portal triad (left, or top
+// the GPU (sinusoid-gl.js) in the lobule's language: the pressure-coloured lumen with its shimmer,
+// the pale green lymph, the hepatocyte plates. Blood runs from the portal triad (left, or top
 // on a portrait screen) to the central vein.
 //
 // What it is for: the wall, and what crosses it. Plasma filters out of the lumen through the
@@ -19,12 +19,14 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp, bloodColors } from './util.js?v=b1761ad19c';
-import { pressureColor } from './colormap.js?v=a65dea21ce';
-import { isPaused } from './clock.js?v=af42a9670d';
+import { h, fmt, clamp, lerp } from './util.js?v=0140acc352';
+import { pressureColor } from './colormap.js?v=5c9a375f49';
+import { isPaused } from './clock.js?v=520596240b';
+import { store } from './store.js?v=31ee79b6ab';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8eea50315b';
-import { frameFor } from './frame.js?v=0db47e99bf';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=c449aa59c2';
+import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
+import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -103,6 +105,10 @@ export function createSinusoidView({ host }) {
   const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
   host.append(el);
   const gpu = createSinusoidGL(canvas);
+  glSupport = !!gpu;   // (answered by this view's own context: sinusoidSupported need not make a throwaway one)
+  // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
+  // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
+  const swGL = gpu ? canvas.getContext('webgl2') : null, svYield = swGL && softwareGL(swGL) ? softwareYield(true, swGL) : null;
 
   // The view is left only by the view switch (Lobule): the wheel and a pinch do nothing here.
   el.addEventListener('wheel', (ev) => ev.preventDefault(), { passive: false });
@@ -123,14 +129,18 @@ export function createSinusoidView({ host }) {
     // (--pz-l, --pz-r, --pz-t, --pz-b: the room a presenter slide's text, data and bar take; the credit line, just above
     // the dock or the bar, is kept clear.)
     const t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8 + (cssN('--pz-t') ? 0 : 40);
-    const cr = document.querySelector('.stage-credit')?.getBoundingClientRect(), ht = host.getBoundingClientRect().top;
-    const b = Math.min(H - cssN('--pz-b') - 34, cr?.height && cr.top - ht > H / 2 ? cr.top - ht - 8 : H - 34), l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
-    return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
+    // (A fixed strip, not the credit's current spot: the credit keeps clear of this view's labels, so a view sized to wherever
+    // the credit sat moved the labels, which moved the credit, which resized the view, about once a second for good.)
+    // (Outside a presentation the view switch's pill sits centred at the bottom, its foot the gap plus 8 px up, 42 px tall:
+    // the vein's end, its arrow and its reading stay 8 px above it.)
+    const app = document.getElementById('app'), pill = !app || app.classList.contains('presenting') ? 0 : (parseFloat(getComputedStyle(app).getPropertyValue('--gap')) || 12) + 8 + 42 + 8;
+    const b = H - cssN('--pz-b') - Math.max(34, pill), l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
+    return { l: Math.round(l), t: Math.round(t), r: Math.round(Math.max(l + 80, r)), b: Math.round(Math.max(t + 80, b)) };
   }
   // The stretch is laid out once per stage size. It runs along the stage's longer side: across on a
   // landscape screen, down on a portrait one (where every label still reads level).
   function ensureGeo(W, H) {
-    const key = W + '|' + H;
+    const key = W + '|' + H + '|' + !!document.getElementById('app')?.classList.contains('presenting');
     if (key !== geoKey) {
       geoKey = key;
       const vert = W < H * 0.95, tall = vert, ang = vert ? Math.PI / 2 : 0;
@@ -247,14 +257,13 @@ export function createSinusoidView({ host }) {
       cRbc: t('--sv-gl-rbc'),
       // The end arrows are inked as their labels: the text's colour inside the labels' halo.
       cEndF: rgb(v('--text')), cEndE: rgb(v('--label-halo')),
-      cChev: bloodColors().chevInk, cRev: bloodColors().revCol,   // (the app's chevron inks: dark, orange where reversed)
       cAlb: t('--sv-gl-albumin'), cAlbE: t('--sv-gl-albumin-edge'),
       uShim: dark ? 0.3 : 0.5, uStreak: dark ? 0.3 : 0.85, uDark: dark ? 1 : 0,
     };
   }
 
   // ── What moves ──
-  // The blood: the shader's shimmer and chevrons, at the flow. Albumin rides in it (amber dots), each at
+  // The blood: the shader's shimmer, at the flow. Albumin rides in it (amber dots), each at
   // its lane's speed (parabolic: fastest in the middle). Plasma crosses the wall into Disse: its water
   // wherever it can (not drawn), albumin only through open fenestrae; at a closed wall albumin is turned back.
   // In Disse the lymph runs back toward the portal triad, carrying what crossed.
@@ -375,8 +384,7 @@ export function createSinusoidView({ host }) {
     if (g.tall) { layoutTall(); return; }
     for (const k in lead) if (k !== 'lymph' && k !== 'fen') lead[k].style.opacity = '0';   // (across the screen only the lymph and the fenestrae have leaders)
     const xc = away(pick(0.5), g.xk, 30);
-    const rs = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
-    LAB[0] = rs.x; LAB[1] = rs.half;
+    region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
     kupName();
     // In the plates: the stellate cell named just beyond its body; the fenestrae beside it in the same plate, with a
     // thin callout down to an open fenestra in the lining (to the name's left), clear of the stellate cell's name.
@@ -423,7 +431,7 @@ export function createSinusoidView({ host }) {
     const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
     const mid = (x) => hepIn(x) + Math.min(hep * 0.5, (geo.W / 2 / k - hepIn(x)) * 0.5);   // the middle of the plate's part on screen
     const dis = (x) => wallIn(x) + disseW(x) * 0.5;
-    LAB[0] = pick(0.42); LAB[1] = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), LAB[0], 0).half;
+    region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), pick(0.42), 0);
     // Right (y < 0): fenestrae, stellate cell, a hepatocyte.
     let x = pick(0.08);
     const xp = fenAt(x);
@@ -441,9 +449,6 @@ export function createSinusoidView({ host }) {
   // The Kupffer cell is named inside itself, over its body above the nucleus (its name tinted as the cell).
   const kupName = () => region('kup', 'Kupffer\ncell', '', geo.xk - 0.3, halfW(geo.xk) - 3.3 * clamp(halfW(geo.xk) / 5.2, 0.6, 1), { along: true });
   const BAND = [0, 0];   // a portrait screen's band for the other names, between the ends' (px down the screen)
-  const LAB = [0, 0];   // the lumen's name: x and half length (µm), for the shader to keep the arrowheads clear of it
-  // How much the lumen's name shows now (its own fades: a presenter slide that is not about it, the labels leaving).
-  const labShown = () => { const e = regions.sin?.el; return e && !e.hidden && e.firstElementChild ? +getComputedStyle(e.firstElementChild).opacity || 0 : 0; };
   // How much an end's name shows now (0 to 1): its pill's own fades (a presenter slide that is not about it, the names leaving).
   // In the presenter an end's arrow follows it, so no direction arrow shows without its name (Explore keeps both as they are).
   const endShown = (key) => {
@@ -586,18 +591,21 @@ export function createSinusoidView({ host }) {
   }
 
   // ── The frame ──
-  let lastKey = '', descKey = '', gpuKey = '';
-  function draw(dt, run = true, paint = true) {
+  let lastKey = '', descKey = '', gpuKey = '', settled = false;   // settled: paused, nothing easing, the same picture as last frame
+  // dt: the traffic's step (capped, so a long frame never jumps the cells along); ease: the time the eases step by, the
+  // real time since the last frame (an exponential ease takes any step, so a slow frame settles as soon as a fast one would).
+  function draw(dt, run = true, paint = true, ease = dt) {
+    settled = false;
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     ensureGeo(W, H);
-    if (dt > 0 || S.lum == null) stepState(dt);
-    stepView(dt);
-    go += ((isPaused() ? 0 : 1) - go) * (dt > 0 ? 1 - Math.exp(-dt / 0.25) : 0);
+    if (ease > 0 || S.lum == null) stepState(ease);
+    stepView(ease);
+    go += ((isPaused() ? 0 : 1) - go) * (ease > 0 ? 1 - Math.exp(-ease / 0.25) : 0);
     if (go < 0.002) go = 0;
     if (run && dt > 0 && go > 0) stepMovers(dt * go);
     if (!paint) return;
-    const dpr = Math.min(2, devicePixelRatio || 1);
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1);   // (Battery saver: one pixel per CSS pixel)
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
@@ -619,7 +627,7 @@ export function createSinusoidView({ host }) {
       Object.assign(u, {
         uLum: UM.lum * S.lum, uPinch: S.pinch, uXs: geo.xs, uXk: geo.xk, uKy: halfW(geo.xk), uHscA: wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8,
         uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uLyF: clamp(0.32 * S.filt ** 1.5, 0.06, 1.75), uDir: Math.sign(S.v || 1),
-        uEnd: [END[0], END[1], END[2], 0.95], uEndA: endA, uLab: [LAB[0], LAB[1], labShown()], uRamp: Math.min(12, Math.abs(S.v * 24) * 0.5),
+        uEnd: [END[0], END[1], END[2], 0.95], uEndA: endA,
       });
       // The zoom from the lobule: one camera move. The lobule (magnified by the compositor) carries it most of the way;
       // the view, already drawn where the lobule's own sinusoid is, comes in over all of it at once as the zoom lands
@@ -636,7 +644,7 @@ export function createSinusoidView({ host }) {
       const n = sprites();
       // Paused and settled (nothing eases, no zoom): the same picture as last frame, so the two full-screen passes are skipped.
       const gk = go === 0 && !dive ? canvas.width + 'x' + canvas.height + '|' + n + '|' + JSON.stringify(u) : '';
-      if (!gk || gk !== gpuKey) gpu.draw(u, pts, n);
+      if (!gk || gk !== gpuKey) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); } else settled = !fenFade;
       gpuKey = gk;
     }
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
@@ -652,13 +660,24 @@ export function createSinusoidView({ host }) {
     parts.push(S.act > 0.4 ? 'The stellate cell is activated: no vitamin A droplets, contracted, laying down collagen.' : 'The stellate cell is quiescent, full of vitamin A droplets.');
     return parts.join(' ');
   }
+  // Drawn on every frame the screen offers, like the lobule's flow (15 a second in Battery saver); the zoom from the
+  // lobule draws every frame, in step with it. Paused and settled, the loop stops asking for frames, as the figure
+  // does: a new model, the zoom, the store (Play) wake it, and it looks again four times a second in case a change came
+  // by a path that does not.
+  let lastPaint = 0, sleepT = 0;
+  const wake = () => { if (shown > 0 && !raf && model) raf = nextFrame(loop); };
+  store.on('*', wake);
   function loop(now) {
     raf = 0;
     if (shown <= 0 || !model) return;
-    const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
+    if (!dive && !drewNow && now - lastPaint < paceMs()) { raf = nextFrame(loop); return; }
+    if (svYield && !dive && !drewNow && !svYield.ready(now)) { raf = nextFrame(loop); return; }   // (the zoom: drawn by place())
+    lastPaint = now;
+    const el = (now - (last || now)) / 1000; last = now;
     // (While the zoom runs, place() has already drawn this frame in step with the lobule.)
-    draw(dt, !reduce.matches, !drewNow);   // (the wall's traffic eases to a stop while the clock is paused, and picks up again on resume)
+    draw(Math.min(0.1, el), !reduce.matches, !drewNow, el);   // (the wall's traffic eases to a stop while the clock is paused, and picks up again on resume)
     drewNow = false;
+    if (settled && go === 0 && isPaused()) { last = 0; clearTimeout(sleepT); sleepT = setTimeout(wake, 250); return; }   // (on waking, the first frame steps nothing)
     raf = nextFrame(loop);
   }
 
@@ -691,7 +710,7 @@ export function createSinusoidView({ host }) {
           for (let i = 0; i < 40; i++) stepMovers(0.1);
         }
       }
-      // Drawn now, in step with the lobule's transform this frame (not a frame later).
+      // Drawn now, in step with the lobule's transform this frame (not a frame later), on a software renderer too.
       if (opacity > 0 && model) { draw(0, false); drewNow = true; }
       if (opacity > 0 && !raf && model) raf = nextFrame(loop);
     },

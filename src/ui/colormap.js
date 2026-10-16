@@ -1,7 +1,8 @@
 // Perceptually uniform pressure colormap interpolated in OKLab (blueprint §5.3).
 // Every ramp's stops are colour tokens (--ramp-* in styles/tokens.css); the tables are built on first use.
 
-import { cssRamp, cssRGB } from './util.js?v=b1761ad19c';
+import { cssRamp, cssRGB } from './util.js?v=0140acc352';
+import { velPos, velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
 // The scale shows absolute mean venous pressure at a vessel. Its ticks are plain numbers: no
 // value on it is a clinical threshold (HVPG and other gradients are separate measurements).
 export const PRESSURE_TICKS = [0, 10, 20, 30];
@@ -95,12 +96,15 @@ export const flowPos = (lpm) => Math.log10(Math.max(FLOW_MIN, lpm) / FLOW_MIN) /
 export const flowColor = (lpm) => flowScale(flowPos(lpm));
 export const flowCss = (dir) => flowScale.css(dir);
 
-// Mean velocity, cm/s on a square-root scale to 60: one hue, light amber (slow) to deep brown
-// (fast), so it reads without colour vision and never uses red for "slow". Stasis is named on the label.
-export const VEL_MAX = 60;
+// Mean velocity against the vessel's normal range (velNormal.js), as the Doppler reads it, on one continuous scale:
+// teal at the middle of the normal range, shading toward sand as it falls below normal and deepening toward violet as
+// it rises above (deepest at twice the top of the range). The further outside normal, the stronger the colour, and
+// red never means slow. A vessel with no normal (a collateral, a surgical shunt) stays neutral.
 const velScale = makeScale('--ramp-velocity');
-export const velPos = (v) => Math.sqrt(Math.min(VEL_MAX, Math.abs(v)) / VEL_MAX);
-export const velocityColor = (v) => velScale(velPos(v));
+export const velocityColor = (v, normal) => (normal ? velScale(velPos(v, normal)) : 'var(--lens-neutral)');
+// Vessel k of frame f against its normal (velNormal.js), with the healthy frame for the veins no range covers.
+export const velColorOf = (f, k, healthy) => velocityColor(dopplerVel(f, k), velNormal(k, f, healthy));
+// The key's bar: the same continuous gradient.
 export const velocityCss = (dir) => velScale.css(dir);
 
 // Congestion heat: pressure above the reference, 0 to 15 mmHg. Neutral grey when none.
@@ -115,3 +119,11 @@ export const DROP_MAX = 12;
 const dropScale = makeScale('--ramp-drop');
 export const dropColor = (dp) => dropScale(Math.abs(dp) / DROP_MAX);
 export const dropCss = (dir) => dropScale.css(dir);
+
+// Oxygen saturation, 60 to 100 %: deoxygenated blue (hepatic venous blood, about 65 %) through to oxygenated
+// cerise (arterial, 98 %), the textbook convention of blue veins and red arteries.
+export const OXY_MIN = 0.6;
+const oxyScale = makeScale('--ramp-oxygen');
+export const oxygenPos = (s) => Math.min(1, Math.max(0, (s - OXY_MIN) / (1 - OXY_MIN)));
+export const oxygenColor = (s) => oxyScale(oxygenPos(s));
+export const oxygenCss = (dir) => oxyScale.css(dir);

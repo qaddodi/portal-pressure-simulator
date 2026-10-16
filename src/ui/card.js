@@ -3,13 +3,13 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=7fb7280c05';
-import { h, icon, svgIcon, clamp, infoButton } from './util.js?v=b1761ad19c';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=9266baba58';
-import { frameFor, cancelFrame } from './frame.js?v=0db47e99bf';
+import { store, updateParams } from './store.js?v=31ee79b6ab';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink } from './util.js?v=0140acc352';
+import { cardFor, normalizeSel } from './actions.js?v=2502de316d';
+import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
+import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
 
-const LOCK_TIP = 'Not available in this step of the lesson or case';
 
 export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const el = h('section', { class: 'action-card stage-blocker', role: 'dialog', 'aria-label': 'Actions', hidden: true });
@@ -53,9 +53,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     lift ||= [...dockHost.querySelectorAll('.zoom-pill, .stage-clock')];
     for (const b of lift) b.style.setProperty('--sheet-h', px);
     // Keep the zoom and Fit pill above the card; hide only if it would reach the top bar.
-    const pill = lift.find((b) => b.classList.contains('zoom-pill'));
-    if (pill) pill.classList.toggle('under-sheet', isDocked() && parseFloat(px) > 0);
-    if (pill) pill.classList.remove('no-room');
+    for (const pill of lift.filter((b) => b.matches('.zoom-pill'))) {
+      pill.classList.toggle('under-sheet', isDocked() && parseFloat(px) > 0);
+      pill.classList.remove('no-room');
+    }
   }
   function reveal() {
     cancelFrame(revealRaf);
@@ -70,6 +71,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   let closeTimer = 0, stopSheetGesture = () => {};
   function hide() {
     stopSheetGesture();
+    if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; el.style.removeProperty('--sink'); }   // (pulled away: already out of sight behind the tab row)
     if (!el.hidden && !el.classList.contains('ac-leaving')) {
       if (isDocked() && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
         el.classList.add('ac-leaving');
@@ -160,28 +162,44 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // Track swipes outside the header too; release all listeners on close or selection change.
+  // Over the thumb dock (an upright phone) the card follows the finger down behind the tab row (--sink, as the other
+  // cards there) and, let go past a short pull or flicked, sinks out of sight and closes; a short pull eases back.
   function wireSheet(top) {
-    let y0 = null;
+    let y0 = null, t0 = 0, dy = 0;
+    const thumb = () => document.documentElement.classList.contains('thumb-ui');
     const stop = () => {
       y0 = null;
+      removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
-      removeEventListener('pointercancel', stop);
+      removeEventListener('pointercancel', cancel);
+    };
+    const move = (e) => {
+      dy = Math.max(0, e.clientY - y0);
+      if (thumb()) el.style.setProperty('--sink', `${dy}px`);
+    };
+    const settle = (gone) => {
+      if (!thumb()) { if (gone) store.set({ selection: null }); return; }
+      if (!gone) { sinkTo(el, 0); return; }
+      sinkTo(el, el.offsetHeight, 220, () => { if (el.hidden) return; el.dataset.swiped = '1'; store.set({ selection: null }); if (!el.hidden) { delete el.dataset.swiped; el.style.removeProperty('--sink'); } });
     };
     const up = (e) => {
-      const dy = e.clientY - y0;
+      dy = Math.max(0, e.clientY - y0);
+      const flick = dy > 30 && dy / Math.max(1, performance.now() - t0) > 0.6;
       stop();
-      if (dy > 40) store.set({ selection: null });
+      settle(flick || dy > 40);
     };
-    stopSheetGesture = stop;
+    const cancel = () => { stop(); settle(false); };
+    stopSheetGesture = () => { if (y0 != null) stop(); stopSink(el); el.style.removeProperty('--sink'); };
     top.addEventListener('pointerdown', (e) => {
       if (!isDocked() || !e.isPrimary || e.button !== 0 || e.target.closest('.ac-close, .ac-foot')) return;
-      y0 = e.clientY;
+      y0 = e.clientY - (parseFloat(el.style.getPropertyValue('--sink')) || 0); t0 = performance.now(); dy = 0;
+      stopSink(el);
+      addEventListener('pointermove', move);
       addEventListener('pointerup', up);
-      addEventListener('pointercancel', stop);
+      addEventListener('pointercancel', cancel);
     });
   }
 
-  function locked(v) { return !verbEnabled(v.id, v.key); }
 
   function verbEl(v) {
     const p0 = store.get().params;
@@ -214,8 +232,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       const lab = typeof v.label === 'function' ? v.label() : v.label;
       const input = h('input', { type: 'range', min: v.min, max: v.max, step: v.step, 'aria-label': lab, 'data-def': v.def ?? null });
       const val = h('span', { class: 'ctl-val' });
-      const dis = locked(v);
-      if (dis) input.disabled = true;
       const paint = (x) => { input.value = x; val.textContent = v.format(x); input.style.setProperty('--pct', `${((x - v.min) / (v.max - v.min)) * 100}%`); row.classList.toggle('changed', v.def != null && Math.abs(x - v.def) > 1e-9); };
       let fresh = true;
       input.addEventListener('pointerdown', () => { fresh = true; });
@@ -232,7 +248,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       });
       input.addEventListener('change', flush);
       // On a phone a short name sits on one row with its track; a long one stacks above it.
-      const row = h('div', { class: 'ac-slider' + (lab.length > 13 ? ' long' : '') + (dis ? ' locked' : ''), title: dis ? LOCK_TIP : null },
+      const row = h('div', { class: 'ac-slider' + (lab.length > 13 ? ' long' : '') },
         h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lab, v.info ? infoButton(v.info) : null), val),
         h('div', { class: 'range-wrap' }, input),
         v.sub ? h('div', { class: 'ctl-sub' }, v.sub) : null);
@@ -242,8 +258,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       return row;
     }
     if (v.type === 'toggle') {
-      const dis = locked(v);
-      const b = h('button', { class: 'ac-toggle', role: 'switch', 'aria-checked': String(!!v.get(p0)), disabled: dis, title: dis ? LOCK_TIP : null },
+      const b = h('button', { class: 'ac-toggle', role: 'switch', 'aria-checked': String(!!v.get(p0)) },
         v.icon ? svgIcon(v.icon, 'ac-ic') : null, h('span', { class: 'ac-tl' }, v.label), h('span', { class: 'switch-vis', 'aria-hidden': 'true' }, h('i')));
       b.addEventListener('click', () => { const on = !v.get(store.get().params); updateParams((pp) => { v.set(pp, on); return pp; }, { label: `${v.hist || v.label} ${on ? 'on' : 'off'}` }); });
       syncs.push((p) => b.setAttribute('aria-checked', String(!!v.get(p))));
@@ -251,9 +266,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       return b;
     }
     if (v.type === 'button') {
-      const dis = locked(v);
       const lbl = h('span', { class: 'ac-bl' }, v.label);
-      const b = h('button', { class: 'ac-btn' + (v.danger ? ' danger' : ''), disabled: dis, title: dis ? LOCK_TIP : null }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lbl);
+      const b = h('button', { class: 'ac-btn' + (v.danger ? ' danger' : '') }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lbl);
       b.addEventListener('click', () => { v.run(); setTimeout(() => render({ keepFocus: true }), 30); });
       const wrap = h('div', { class: 'ac-btn-wrap' + (v.label.length > 15 ? ' wide' : '') }, b);   // a long name takes the whole row on a phone
       if (v.note || v.on || v.labelFor) {
@@ -290,16 +304,15 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       return h('div', { class: 'ac-btn-wrap' }, b);
     }
     if (v.type === 'drain') {
-      const dis = locked(v);
-      const vol = h('input', { type: 'range', min: 1, max: 10, step: 0.5, value: 5, 'aria-label': 'Volume to drain (L)', disabled: dis });
+      const vol = h('input', { type: 'range', min: 1, max: 10, step: 0.5, value: 5, 'aria-label': 'Volume to drain (L)' });
       const volLbl = h('span', { class: 'ctl-val' });
       const paintVol = () => { volLbl.textContent = `${(+vol.value).toFixed(1)} L`; vol.style.setProperty('--pct', `${((+vol.value - 1) / 9) * 100}%`); };
       vol.addEventListener('input', paintVol); paintVol();
-      const alb = h('input', { type: 'checkbox', checked: true, disabled: dis });
-      const go = h('button', { class: 'ac-btn', disabled: dis }, svgIcon('needle', 'ac-ic'), h('span', { class: 'ac-bl' }, 'Drain'));
+      const alb = h('input', { type: 'checkbox', checked: true });
+      const go = h('button', { class: 'ac-btn' }, svgIcon('needle', 'ac-ic'), h('span', { class: 'ac-bl' }, 'Drain'));
       go.addEventListener('click', () => ctx.action({ kind: 'paracentesis', mL: +vol.value * 1000, albumin: alb.checked }));
       actionable.push({ el: go, run: () => go.click(), focus: () => go.focus() });
-      return h('div', { class: 'ac-drain' + (dis ? ' locked' : ''), title: dis ? LOCK_TIP : null },
+      return h('div', { class: 'ac-drain' },
         h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, svgIcon('needle', 'ac-ic'), 'Paracentesis'), volLbl), h('div', { class: 'range-wrap' }, vol),
         h('div', { class: 'ac-drain-row' }, h('label', { class: 'check-row' }, alb, 'Albumin 8 g/L'), go));
     }
@@ -323,7 +336,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     position();
   }
 
-  // Beside the structure, on the side that covers least of it, inside the figure.
   // The zoom pill is a column above the dock on the right: a card that reaches it ends above it. The dock's
   // height settles after a card is placed, so this runs again whenever the occupancy changes (pps:occ).
   function fitAbovePill() {
@@ -346,7 +358,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (lk && lk === lastLayout && placedFor) return;
     lastLayout = lk;
     const a = stage.anchorFor(normalizeSel(selRef) || selRef);
-    if (!a) return;
     // Once placed, the card stays put while its controls are used (the drawn structure shifting as values change must not
     // move it); only the leader follows. A resize, a new selection or a moved panel places it afresh (placedFor reset).
     // Sizes come from ResizeObservers: measuring here, after the frame's DOM writes, would force
@@ -357,31 +368,24 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // cards on the right leave free (published on #app by main.js).
     const css = (k) => parseFloat(appStyle.getPropertyValue(k)) || 0;
     const top = css('--top-safe') + 8, bottom = H - (css('--bot-occ') || 0) - 8, right = W - css('--right-occ') - 8;
-    // ...unless it no longer fits there (placed before the dock published its height, or the card grew).
-    const fits = pinned && pinned.y >= top - 1 && pinned.y + hh <= Math.max(bottom, top + hh) + 1;
-    if (placedFor && pinned && fits) { drawLeader(pinned.x, pinned.y, w, hh, a); return; }
-    const pts = a.path || [[a.x, a.y]];
-    const gap = 22;
-    // Beside the structure first; failing that, in the empty margin beside the figure (with a leader
-    // line back to it), so the card covers as little of the anatomy as it can.
-    const fig = stage.contentRect?.();
-    const cands = [[a.x + gap, a.y - hh / 2], [a.x - gap - w, a.y - hh / 2], [a.x - w / 2, a.y + gap], [a.x - w / 2, a.y - gap - hh], [a.x + gap, a.y - 30], [a.x - gap - w, a.y - 30]];
-    if (fig) cands.push([fig.x1 + 16, a.y - hh / 2], [fig.x0 - 16 - w, a.y - hh / 2]);
-    let best = null;
-    // A touch tablet (an iPad): the card is a side panel on the right, under the top bar, with a leader to its structure,
-    // so it never lands under the hand working the figure.
-    if (tabletTouch.matches) best = { cost: 0, x: Math.max(8, right - w), y: top };
-    if (!best) cands.forEach(([x, y], i) => {
-      const cx = clamp(x, 8, Math.max(8, right - w)), cy = clamp(y, top, Math.max(top, bottom - hh));
-      let cover = 0;
-      for (const [px, py] of pts) if (px > cx - 6 && px < cx + w + 6 && py > cy - 6 && py < cy + hh + 6) cover++;
-      const shift = Math.abs(cx - x) + Math.abs(cy - y);
-      // The share of the card lying over the drawn figure.
-      const over = fig ? Math.max(0, Math.min(cx + w, fig.x1) - Math.max(cx, fig.x0)) * Math.max(0, Math.min(cy + hh, fig.y1) - Math.max(cy, fig.y0)) / (w * hh) : 0;
-      const far = Math.max(0, Math.hypot(cx + w / 2 - a.x, cy + hh / 2 - a.y) - (w + hh) / 2);
-      const cost = cover * 40 + over * 140 + shift * 0.5 + far * 0.15 + i * 3;
-      if (!best || cost < best.cost) best = { cost, x: cx, y: cy };
-    });
+    // Nothing drawn to point at (a vessel this view leaves out, picked from Search): no leader, and the card keeps clear of the cards on the right.
+    if (!a) {
+      leader.replaceChildren();
+      const x = pinned ? Math.min(pinned.x, Math.max(8, right - w)) : Math.max(8, right - w), y = pinned ? clamp(pinned.y, top, Math.max(top, bottom - hh)) : top;
+      if (!pinned || x !== pinned.x || y !== pinned.y) { pinned = { x, y }; placedFor = ''; el.style.left = x + 'px'; el.style.top = y + 'px'; fitAbovePill(); }
+      return;
+    }
+    // ...unless it no longer fits there (placed before the dock published its height, the card grew, or
+    // Tests, Treat or History opened on the right over it: then it moves left, clear of them).
+    // A zoom or pan can bring the vessel under a pinned card: then it moves (gliding) to a clear spot.
+    // (A card that has no clear spot left, zoomed right in, stays where it is rather than hunting for one.)
+    const fits = pinned && pinned.y >= top - 1 && pinned.y + hh <= Math.max(bottom, top + hh) + 1 && pinned.x + w <= Math.max(right, 8 + w) + 1;
+    const clear = fits && (a.r == null || !coverCount(vesselPoints(a), pinned.x, pinned.y, w, hh, a.r + 4));
+    if (placedFor && pinned && clear) { drawLeader(pinned.x, pinned.y, w, hh, a); return; }
+    // Beside the structure, clear of the whole vessel; failing that, in the empty margin beside the figure
+    // (with a leader line back to it), so the card covers as little of the anatomy as it can (card-place.js).
+    const best = placeCard(a, w, hh, { top, bottom, right }, stage.contentRect?.(), tabletTouch.matches);
+    if (placedFor && pinned && fits && best.cover) { drawLeader(pinned.x, pinned.y, w, hh, a); return; }
     const key = `${Math.round(best.x)},${Math.round(best.y)}|${Math.round(a.x)},${Math.round(a.y)}`;
     if (key === placedFor) return;
     placedFor = key; pinned = { x: best.x, y: best.y };
@@ -413,8 +417,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   addEventListener('pps:occ', () => { fitAbovePill(); if (pinned && !isDocked()) { lastLayout = ''; position(); return; } placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); });
   store.on('selection', () => render());
   store.on('shunting', () => render());
-  store.on('allowedVerbs', () => render());
-  store.on('locked', () => render());
   store.on('colorMode', () => update());
   store.on('params', () => { const p = store.get().params; for (const s of syncs) s(p); });
   return {

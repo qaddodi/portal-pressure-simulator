@@ -3,14 +3,15 @@
 // and the change, readouts report "vs then", and this section of the panel names both states and
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
-import { store } from './store.js?v=7fb7280c05';
-import { h, fmt, svgIcon } from './util.js?v=b1761ad19c';
-import { activeInterventions } from './inspector.js?v=58d14bee0e';
+import { store } from './store.js?v=31ee79b6ab';
+import { h, fmt, svgIcon } from './util.js?v=0140acc352';
+import { liveBalance } from './balance-hold.js?v=ea4d9121d2';
+import { activeInterventions } from './inspector.js?v=958160ed1b';
 
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (portal vein − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],
   ['Liver perfusion', (m) => m.liverPerfPct, 0, '%'], ['Shunt fraction', (m) => m.shuntFraction * 100, 0, '%'], ['Varix wall stress (model)', (m) => m.varix.ratio * 100, 0, '%'],
-  ['Ascites formation', (m) => m.ascites.ratePerDay, 0, 'mL/day'], ['Right atrium', (m) => m.ra, 1, 'mmHg'], ['MAP', (m) => m.map, 0, 'mmHg'], ['Cardiac output', (m) => m.co, 1, 'L/min'],
+  ['Ascites formation', (m, live) => (live ? liveBalance(m.ascites.ratePerDay) : Math.round(m.ascites.ratePerDay / 100) * 100), 0, 'mL/day'], ['Right atrium', (m) => m.ra, 1, 'mmHg'], ['MAP', (m) => m.map, 0, 'mmHg'], ['Cardiac output', (m) => m.co, 1, 'L/min'],
 ];
 
 export function createCompare() {
@@ -32,18 +33,19 @@ export function createCompare() {
       h('div', { class: 'cmp-states' }, card('a', 'T', A.names ? nA : `Then · ${A.when}`, A.label, describe(A.changes)), nowCard),
       tableEl,
       h('p', { class: 'ctl-sub', style: { margin: 0 } }, 'Switch the figure between then, now and the change in the figure header. The pressure profile overlays then as a dotted line.'));
+    // (Filled now, before the section is on the page: while paused no frame comes to fill it, review #22.)
     const f = store.get().frame;
-    if (f) update(f);
+    if (f) update(f, true);
     return el;
   }
 
-  function update(f) {
+  function update(f, building = false) {
     const st = store.get();
-    if (!tableEl?.isConnected || !st.compareSnap) return;
+    if (!tableEl || (!building && !tableEl.isConnected) || !st.compareSnap) return;
     const A = st.compareSnap.metrics, B = f.metrics;
-    const maxRel = Math.max(...ROWS.map(([, g]) => { const a = g(A), b = g(B); return Math.abs(b - a) / Math.max(Math.abs(a), 1); }), 1e-6);
+    const maxRel = Math.max(...ROWS.map(([, g]) => { const a = g(A), b = g(B, true); return Math.abs(b - a) / Math.max(Math.abs(a), 1); }), 1e-6);
     const rows = ROWS.map(([lab, g, d, u]) => {
-      const a = g(A), b = g(B), dd = b - a;
+      const a = g(A), b = g(B, true), dd = b - a;
       const same = Math.abs(dd) < Math.pow(10, -d) * 0.5;
       const rel = Math.abs(dd) / Math.max(Math.abs(a), 1);
       return [lab, u, !same && rel / maxRel > 0.5 ? 'big' : '', fmt(a, d), fmt(b, d), 'd ' + (same ? 'same' : dd > 0 ? 'up' : 'down'), same ? '—' : `${dd > 0 ? '▲ +' : '▼ −'}${fmt(Math.abs(dd), d)}`];

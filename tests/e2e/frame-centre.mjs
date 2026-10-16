@@ -4,8 +4,9 @@
 //   DECKS=doppler DEVS=desktop,ipad node tests/e2e/frame-centre.mjs
 import { chromium } from 'playwright';
 import { serve } from '../../scripts/serve.mjs';
+import { fastContext, gotoSlide, quiet } from './fast.mjs';
 const ROOT = new URL('../..', import.meta.url).pathname;
-const { DECKS } = await import(new URL('../../src/ui/decks.js', import.meta.url));
+const { DECKS, withOverview } = await import(new URL('../../src/ui/decks.js', import.meta.url));
 const only = process.env.DECKS ? process.env.DECKS.split(',') : null;
 const decks = DECKS.map((d) => d.id).filter((id) => !only || only.includes(id));
 const SIZES = {
@@ -19,20 +20,22 @@ const devs = (process.env.DEVS || 'desktop,mac,hd,ipad,ipadL').split(',');
 const TOL = +(process.env.TOL || 0.12);   // centre offset allowed, as a share of the free area's size
 const server = await serve(ROOT);
 let fails = 0;
-const settle = (page) => page.waitForFunction(() => !document.querySelector('.pz-load.on') && !document.getAnimations().some((a) => a.playState === 'running' && isFinite(a.effect?.getTiming().iterations)), null, { timeout: 8000, polling: 150 }).catch(() => {});
+const browser = await chromium.launch();
+const spy = () => { if (window.__spied) return; window.__spied = true; const st = window.pps.stage, f = st.frameBox; st.frameBox = (box, ...a) => { window.__box = box; window.__camT = performance.now(); return f.apply(st, [box, ...a]); }; st.fitSlow = ((g) => (...a) => { window.__box = null; window.__camT = performance.now(); return g.apply(st, a); })(st.fitSlow); };
 for (const dev of devs) {
-  const browser = await chromium.launch();
+  // (one page per size; each slide reached directly, its motion instant: tests/e2e/fast.mjs)
+  const ctx = await fastContext(browser, SIZES[dev]);
+  const page = await ctx.newPage(); page.setDefaultTimeout(60000);
   for (const deck of decks) {
-    const ctx = await browser.newContext({ ...SIZES[dev], serviceWorkers: 'block', reducedMotion: 'reduce' });
-    const page = await ctx.newPage(); page.setDefaultTimeout(60000);
-    await page.goto(server.url + '?script=' + deck);
-    await page.waitForFunction(() => document.querySelector('#app')?.classList.contains('presenting'));
-    await page.evaluate(() => { const st = window.pps.stage, f = st.frameBox; st.frameBox = (box, ...a) => { window.__box = box; window.__camT = performance.now(); return f.apply(st, [box, ...a]); }; st.fitSlow = ((g) => (...a) => { window.__box = null; window.__camT = performance.now(); return g.apply(st, a); })(st.fitSlow); });
-    const n = await page.evaluate(() => +(document.querySelector('.pzb-n')?.textContent.split('/')[1] || 0));
+    const n = withOverview(DECKS.find((d) => d.id === deck)).slides.length;
     for (let i = 1; i <= n; i++) {
-      await page.waitForTimeout(700); await settle(page);
-      // (the camera's glide has landed: none running, and none asked for in the last 1.6 s)
-      await page.waitForFunction(() => !document.querySelector('.cam-move') && performance.now() - (window.__camT || 0) > 1600, null, { timeout: 20000, polling: 200 }).catch(() => {});
+      await gotoSlide(page, server.url, deck, i - 1);
+      // (as with a fresh load per deck: the camera is watched from the first slide's arrival on)
+      if (i === 1) await page.evaluate(() => { window.__box = undefined; });
+      await page.evaluate(spy);
+      await quiet(page);
+      // (the camera's glide has landed: none running, and none asked for in the last 0.6 s; reduced motion keeps glides short)
+      await page.waitForFunction(() => !document.querySelector('.cam-move') && performance.now() - (window.__camT || 0) > 600, null, { timeout: 20000, polling: 100 }).catch(() => {});
       const measure = () => page.evaluate(() => {
         const box = window.__box;
         if (!box || window.pps.store.get().lobule || window.pps.store.get().view !== 'anatomic') return null;
@@ -59,12 +62,11 @@ for (const dev of devs) {
         if (bad) fails++;
         if (bad || process.env.VERBOSE) console.log(`${bad ? 'FAIL' : 'ok  '} ${dev} ${deck} ${i}/${n} "${title}" ${JSON.stringify(res)}`);
       }
-      if (i < n) await page.keyboard.press('ArrowRight');
     }
-    await ctx.close();
   }
-  await browser.close();
+  await ctx.close();
 }
+await browser.close();
 server.close?.();
 console.log(fails ? `${fails} slide(s) off centre or covered` : 'all framed slides centred and clear');
 process.exit(fails ? 1 : 0);

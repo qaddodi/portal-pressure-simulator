@@ -18,7 +18,7 @@ concurrency:
 # its own runner at the same time, so the run takes as long as the slowest share.
 jobs:
   quick:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +27,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Restore saved deck states
+        uses: actions/cache@v4
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+        with:
+          path: node_modules/.cache/pps-deck-states
+          key: deck-states-${{ hashFiles('src/**') }}
       - name: Lint
         run: npm run lint
       - name: Physiology acceptance tests and cache stamps
@@ -34,90 +43,103 @@ jobs:
       - name: Production build
         run: npm run build
 
-  # The build-free site (what Pages serves) and the production build (the SCORM package), each on
-  # a desktop and a phone, desktop in twenty shares and phone in sixteen: seventy-two runners, one check at a time on each (a runner is
+  # The source site and the production build (what Pages serves, and the SCORM package), each on
+  # a desktop and a phone, desktop in twenty-eight shares and phone in fourteen: eighty-four runners, one check at a time on each (a runner is
   # too small to run several browsers at once). A check that only timed out gets one more try.
   browser-checks:
     name: browser-checks (${{ matrix.site }}, ${{ matrix.device }} ${{ matrix.shard }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 25   # (a runner under load takes up to 25 minutes over the same share; Pages has the same limit)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40   # (as checks.yml: a share is about 24 minutes by measured times, and a runner under load takes longer)
     strategy:
       fail-fast: false
       matrix:
-        # Desktop in twenty shares (the longest single checks take 11 to 15 minutes on a runner, so a share must not hold more than one plus a little); phone in sixteen, since it also walks every slide of all decks.
+        # Desktop in twenty-eight shares and phone in fourteen, as checks.yml: about 24 minutes a share by each check's own time on a
+        # runner (tests/e2e/check-times.json; SMOKE_PLAN=1 npm run smoke prints them).
         include:
-          - { site: source, device: desktop, shard: '1/20' }
-          - { site: source, device: desktop, shard: '2/20' }
-          - { site: source, device: desktop, shard: '3/20' }
-          - { site: source, device: desktop, shard: '4/20' }
-          - { site: source, device: desktop, shard: '5/20' }
-          - { site: source, device: desktop, shard: '6/20' }
-          - { site: source, device: desktop, shard: '7/20' }
-          - { site: source, device: desktop, shard: '8/20' }
-          - { site: source, device: desktop, shard: '9/20' }
-          - { site: source, device: desktop, shard: '10/20' }
-          - { site: source, device: desktop, shard: '11/20' }
-          - { site: source, device: desktop, shard: '12/20' }
-          - { site: source, device: desktop, shard: '13/20' }
-          - { site: source, device: desktop, shard: '14/20' }
-          - { site: source, device: desktop, shard: '15/20' }
-          - { site: source, device: desktop, shard: '16/20' }
-          - { site: source, device: desktop, shard: '17/20' }
-          - { site: source, device: desktop, shard: '18/20' }
-          - { site: source, device: desktop, shard: '19/20' }
-          - { site: source, device: desktop, shard: '20/20' }
-          - { site: source, device: phone, shard: '1/16' }
-          - { site: source, device: phone, shard: '2/16' }
-          - { site: source, device: phone, shard: '3/16' }
-          - { site: source, device: phone, shard: '4/16' }
-          - { site: source, device: phone, shard: '5/16' }
-          - { site: source, device: phone, shard: '6/16' }
-          - { site: source, device: phone, shard: '7/16' }
-          - { site: source, device: phone, shard: '8/16' }
-          - { site: source, device: phone, shard: '9/16' }
-          - { site: source, device: phone, shard: '10/16' }
-          - { site: source, device: phone, shard: '11/16' }
-          - { site: source, device: phone, shard: '12/16' }
-          - { site: source, device: phone, shard: '13/16' }
-          - { site: source, device: phone, shard: '14/16' }
-          - { site: source, device: phone, shard: '15/16' }
-          - { site: source, device: phone, shard: '16/16' }
-          - { site: build, device: desktop, shard: '1/20' }
-          - { site: build, device: desktop, shard: '2/20' }
-          - { site: build, device: desktop, shard: '3/20' }
-          - { site: build, device: desktop, shard: '4/20' }
-          - { site: build, device: desktop, shard: '5/20' }
-          - { site: build, device: desktop, shard: '6/20' }
-          - { site: build, device: desktop, shard: '7/20' }
-          - { site: build, device: desktop, shard: '8/20' }
-          - { site: build, device: desktop, shard: '9/20' }
-          - { site: build, device: desktop, shard: '10/20' }
-          - { site: build, device: desktop, shard: '11/20' }
-          - { site: build, device: desktop, shard: '12/20' }
-          - { site: build, device: desktop, shard: '13/20' }
-          - { site: build, device: desktop, shard: '14/20' }
-          - { site: build, device: desktop, shard: '15/20' }
-          - { site: build, device: desktop, shard: '16/20' }
-          - { site: build, device: desktop, shard: '17/20' }
-          - { site: build, device: desktop, shard: '18/20' }
-          - { site: build, device: desktop, shard: '19/20' }
-          - { site: build, device: desktop, shard: '20/20' }
-          - { site: build, device: phone, shard: '1/16' }
-          - { site: build, device: phone, shard: '2/16' }
-          - { site: build, device: phone, shard: '3/16' }
-          - { site: build, device: phone, shard: '4/16' }
-          - { site: build, device: phone, shard: '5/16' }
-          - { site: build, device: phone, shard: '6/16' }
-          - { site: build, device: phone, shard: '7/16' }
-          - { site: build, device: phone, shard: '8/16' }
-          - { site: build, device: phone, shard: '9/16' }
-          - { site: build, device: phone, shard: '10/16' }
-          - { site: build, device: phone, shard: '11/16' }
-          - { site: build, device: phone, shard: '12/16' }
-          - { site: build, device: phone, shard: '13/16' }
-          - { site: build, device: phone, shard: '14/16' }
-          - { site: build, device: phone, shard: '15/16' }
-          - { site: build, device: phone, shard: '16/16' }
+          - { site: source, device: desktop, shard: '1/28' }
+          - { site: source, device: desktop, shard: '2/28' }
+          - { site: source, device: desktop, shard: '3/28' }
+          - { site: source, device: desktop, shard: '4/28' }
+          - { site: source, device: desktop, shard: '5/28' }
+          - { site: source, device: desktop, shard: '6/28' }
+          - { site: source, device: desktop, shard: '7/28' }
+          - { site: source, device: desktop, shard: '8/28' }
+          - { site: source, device: desktop, shard: '9/28' }
+          - { site: source, device: desktop, shard: '10/28' }
+          - { site: source, device: desktop, shard: '11/28' }
+          - { site: source, device: desktop, shard: '12/28' }
+          - { site: source, device: desktop, shard: '13/28' }
+          - { site: source, device: desktop, shard: '14/28' }
+          - { site: source, device: desktop, shard: '15/28' }
+          - { site: source, device: desktop, shard: '16/28' }
+          - { site: source, device: desktop, shard: '17/28' }
+          - { site: source, device: desktop, shard: '18/28' }
+          - { site: source, device: desktop, shard: '19/28' }
+          - { site: source, device: desktop, shard: '20/28' }
+          - { site: source, device: desktop, shard: '21/28' }
+          - { site: source, device: desktop, shard: '22/28' }
+          - { site: source, device: desktop, shard: '23/28' }
+          - { site: source, device: desktop, shard: '24/28' }
+          - { site: source, device: desktop, shard: '25/28' }
+          - { site: source, device: desktop, shard: '26/28' }
+          - { site: source, device: desktop, shard: '27/28' }
+          - { site: source, device: desktop, shard: '28/28' }
+          - { site: source, device: phone, shard: '1/14' }
+          - { site: source, device: phone, shard: '2/14' }
+          - { site: source, device: phone, shard: '3/14' }
+          - { site: source, device: phone, shard: '4/14' }
+          - { site: source, device: phone, shard: '5/14' }
+          - { site: source, device: phone, shard: '6/14' }
+          - { site: source, device: phone, shard: '7/14' }
+          - { site: source, device: phone, shard: '8/14' }
+          - { site: source, device: phone, shard: '9/14' }
+          - { site: source, device: phone, shard: '10/14' }
+          - { site: source, device: phone, shard: '11/14' }
+          - { site: source, device: phone, shard: '12/14' }
+          - { site: source, device: phone, shard: '13/14' }
+          - { site: source, device: phone, shard: '14/14' }
+          - { site: build, device: desktop, shard: '1/28' }
+          - { site: build, device: desktop, shard: '2/28' }
+          - { site: build, device: desktop, shard: '3/28' }
+          - { site: build, device: desktop, shard: '4/28' }
+          - { site: build, device: desktop, shard: '5/28' }
+          - { site: build, device: desktop, shard: '6/28' }
+          - { site: build, device: desktop, shard: '7/28' }
+          - { site: build, device: desktop, shard: '8/28' }
+          - { site: build, device: desktop, shard: '9/28' }
+          - { site: build, device: desktop, shard: '10/28' }
+          - { site: build, device: desktop, shard: '11/28' }
+          - { site: build, device: desktop, shard: '12/28' }
+          - { site: build, device: desktop, shard: '13/28' }
+          - { site: build, device: desktop, shard: '14/28' }
+          - { site: build, device: desktop, shard: '15/28' }
+          - { site: build, device: desktop, shard: '16/28' }
+          - { site: build, device: desktop, shard: '17/28' }
+          - { site: build, device: desktop, shard: '18/28' }
+          - { site: build, device: desktop, shard: '19/28' }
+          - { site: build, device: desktop, shard: '20/28' }
+          - { site: build, device: desktop, shard: '21/28' }
+          - { site: build, device: desktop, shard: '22/28' }
+          - { site: build, device: desktop, shard: '23/28' }
+          - { site: build, device: desktop, shard: '24/28' }
+          - { site: build, device: desktop, shard: '25/28' }
+          - { site: build, device: desktop, shard: '26/28' }
+          - { site: build, device: desktop, shard: '27/28' }
+          - { site: build, device: desktop, shard: '28/28' }
+          - { site: build, device: phone, shard: '1/14' }
+          - { site: build, device: phone, shard: '2/14' }
+          - { site: build, device: phone, shard: '3/14' }
+          - { site: build, device: phone, shard: '4/14' }
+          - { site: build, device: phone, shard: '5/14' }
+          - { site: build, device: phone, shard: '6/14' }
+          - { site: build, device: phone, shard: '7/14' }
+          - { site: build, device: phone, shard: '8/14' }
+          - { site: build, device: phone, shard: '9/14' }
+          - { site: build, device: phone, shard: '10/14' }
+          - { site: build, device: phone, shard: '11/14' }
+          - { site: build, device: phone, shard: '12/14' }
+          - { site: build, device: phone, shard: '13/14' }
+          - { site: build, device: phone, shard: '14/14' }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
@@ -131,21 +153,30 @@ jobs:
           SMOKE_SHARD: ${{ matrix.shard }}
           SMOKE_WORKERS: 1
         run: npm run smoke -- ${{ matrix.site == 'build' && 'dist' || '.' }}
-      # Needs a browser and the build: one of the build runners reports it.
+      # Needs a browser and the build: one of the build runners reports it. Report only (no --budget): the runners have
+      # no graphics card, so their frame times say nothing about a real device and must never fail a pull request.
       - name: Performance report
-        if: matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/20'
+        if: matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/28'
+        continue-on-error: true
+        timeout-minutes: 8
         run: npm run perf -- dist
+      # Main-thread time per surface (Tests dock open, a vessel hovered, the lobule): report only, for the same reason.
+      - name: Frame cost report
+        if: matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/28'
+        continue-on-error: true
+        timeout-minutes: 5
+        run: npm run perf:frames -- dist
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: browser-checks-${{ matrix.site }}-${{ matrix.device }}-${{ strategy.job-index }}
           path: browser-shots/
           if-no-files-found: ignore
-          retention-days: 2
+          retention-days: 1
 
   # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
   webkit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -161,19 +192,34 @@ jobs:
 
   # Left alone for two minutes, the anatomy and the lobule do not pile up memory, page nodes or listeners.
   idle:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
       - name: Nothing piles up while a view is left alone
         run: npm run smoke:idle
+      - name: A redraw of only the vessels that changed matches a whole redraw; nothing stale after any change
+        run: npm run smoke:rows
+
+  # Pan and pinch: the figure and the lobule follow the hand, and the moving picture is never undrawn or softer than a
+  # whole draw of the same view.
+  gesture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Nothing undrawn or soft while the view moves
+        run: npm run smoke:veins
+      - name: Pinch and pan follow the hand (phone, lobule, trackpad, Safari gesture events)
+        run: npm run smoke:gesture
 
   # The look (organ tones and light, vessels, lobule) against tests/visual, one device per runner;
   # on a failure the current pictures and diffs are kept as an artifact.
   visual:
     name: visual (${{ matrix.device }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -191,4 +237,4 @@ jobs:
         with:
           name: visual-diff-${{ matrix.device }}
           path: test-results/visual
-          retention-days: 2
+          retention-days: 1

@@ -5,13 +5,16 @@
 // per day). Changes the learner makes and threshold events are marked where they happened, and
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
-import { store, hiddenNow } from './store.js?v=7fb7280c05';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=b1761ad19c';
-import { FONT } from './charts.js?v=e073763634';
-import { frameFor } from './frame.js?v=0db47e99bf';
+import { store, hiddenNow } from './store.js?v=31ee79b6ab';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=0140acc352';
+import { FONT as FONT0, FONT } from './charts.js?v=7e8a65ec45';
+import { frameFor } from './frame.js?v=5efaa2bcc9';
+import { tenthGap } from '../engine/gap.js?v=3a5947c552';
+import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
+import { limitLabelX as labelX } from './limit-label.js?v=52dcc41a1e';
 const nextFrame = frameFor('pressure-time');
 
-// hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
+// hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
 const TRACES = [
   { id: 'CONF', label: 'Portal vein', abbr: 'PV', short: 'Portal', c: '--tr-pv', hide: 'pv', on: true, day: (m) => m.pv },
@@ -28,10 +31,10 @@ const SMOOTH_S = 6; // seconds averaged by the Smooth toggle
 const RANGES = [['beats', '10 s', 10], ['minutes', '2 min', 120], ['days', 'Days', null]];
 const LAG_S = 0.12; // wall seconds the trace runs behind the newest sample, so it can glide between frames
 const FINE_S = 22, COARSE_S = 140, BIN = 0.25;
-// HVPG cut-offs (Baveno): above normal, clinically significant, variceal bleeding risk.
-const LIMITS = [[5, ''], [10, 'CSPH 10'], [12, 'Bleeding risk 12']];
+// HVPG cut-offs: above normal, clinically significant (Baveno), and 12, below which varices rarely bleed.
+const LIMITS = [[5, ''], [10, 'CSPH 10'], [12, 'Can bleed 12']];
 const sevOf = (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger');
-const wordOf = (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : v < 12 ? 'CSPH' : 'CSPH · bleeding risk');
+const wordOf = (v) => (v < 5 ? 'Normal' : v < 10 ? 'Mild' : v < 12 ? 'CSPH' : 'CSPH · can bleed');
 const nice = (span, n = 4) => { const raw = Math.max(1e-6, span / n); const p = Math.pow(10, Math.floor(Math.log10(raw))); const r = raw / p; return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * p; };
 
 export function createPressureTime({ marks = () => [] } = {}) {
@@ -80,11 +83,30 @@ export function createPressureTime({ marks = () => [] } = {}) {
 
   function clearHemo() {
     for (const k of Object.keys(fine)) fine[k].length = 0;
-    coarse = []; bin = null; lastT = -Infinity;
+    coarse = []; bin = null; lastT = -Infinity; steadyAt = 0;
   }
+  // On a slide each reading is its steady value, the mean over the last few seconds, so the lines' end labels, the header and
+  // the tiles agree, and a laptop and a tablet show the same numbers whenever they are looked at. (The HVPG is the difference
+  // of the two readings as shown, so WHVP − FHVP reads exactly.)
+  const steady = {};
+  let steadyAt = 0;
+  function settle(m) {
+    if (!m) return;
+    const now = performance.now(), a = steadyAt ? 1 - Math.exp(-Math.min(1, (now - steadyAt) / 1000) / 2.5) : 1;
+    steadyAt = now;
+    for (const t of TRACES) { const v = t.day?.(m); if (Number.isFinite(v)) steady[t.id] = a < 1 && Number.isFinite(steady[t.id]) ? steady[t.id] + (v - steady[t.id]) * a : v; }
+  }
+  // (A slide pins the numbers its tiles show, its settled state: the ends and the header read those, so they match the tiles
+  // to the digit on every screen. A trace with no tile number keeps its steady mean.)
+  let pinned = null;
+  const PIN = { CONF: 'pv', whvp: 'whvp', RHV: 'fhvp', RA: 'ra', IVCS: 'ivc' };
+  const onSlide = () => !!cv.closest('.pz-tool');
+  const endOf = (id) => (Number.isFinite(pinned?.[PIN[id]]) ? pinned[PIN[id]] : steady[id]);
+  const steadyHvpg = () => tenthGap(endOf('whvp'), endOf('RHV'), frame.metrics.hvpg);
   function ingest(f) {
     frame = f; wallAt = performance.now();
     wake();
+    if (f.clock !== 'disease') settle(f.metrics);
     if (f.clock !== clock) {
       clock = f.clock;
       // The disease clock is a trend: show it as one while it runs, then return to the learner's range.
@@ -158,9 +180,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
   }
   function rawSeries(key, x0, x1) {
     if (range === 'beats') {
-      const out = { x: [], mid: [] };
-      for (let i = 0; i < fine.t.length; i++) if (fine.t[i] >= x0 - 0.05 && fine.t[i] <= x1) { out.x.push(fine.t[i]); out.mid.push(fine[key][i]); }
-      return out;
+      // (The samples are in time order: the window is one run of them, found by bisection and copied whole.)
+      const i0 = firstAtOrAbove(fine.t, x0 - 0.05), i1 = firstAbove(fine.t, x1);
+      return i1 > i0 ? { x: fine.t.slice(i0, i1), mid: fine[key].slice(i0, i1) } : { x: [], mid: [] };
     }
     if (range === 'minutes') {
       const out = { x: [], mid: [], lo: [], hi: [] };
@@ -214,7 +236,12 @@ export function createPressureTime({ marks = () => [] } = {}) {
   }
   // The scroll loop runs only while the trace is on screen and moving; the next sample (ingest) wakes it.
   let ticking = false;
-  const live = () => frame?.running && range !== 'days' && cv.offsetParent && !document.hidden;
+  // On screen: kept by an observer, not read from cv.offsetParent, which forced a style and layout pass on every model frame
+  // (the dock's chart wakes with each sample, shown or not).
+  let seen = false;
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; wake(); }) : null;
+  io?.observe(cv);
+  const live = () => frame?.running && range !== 'days' && (io ? seen : cv.offsetParent) && !document.hidden;
   function tickLoop() {
     if (!live()) { ticking = false; return; }
     nextFrame(tickLoop);
@@ -231,8 +258,10 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const hidden = hiddenSet();
     const showHvpg = !hidden.has('trueHVPG');
     const traces = TRACES.filter((t) => chosen.has(t.id) && !hidden.has(t.hide) && (range !== 'days' || t.day));
-    const narrow = w < 460;
-    const L = 34, R = narrow ? 90 : 104, B = 22, GAP = 16;
+    const slide = onSlide();   // (a slide's card: its own window, one scale, steady readings and larger lettering, below)
+    const FONT = (wt, px) => FONT0(wt, slide ? px * 13 / 12 : px);
+    const narrow = w < 460, tiny = !slide && w < 300 && (hh - 52) * 0.55 >= traces.length * 27;   // (tiny: a tablet's card with its tiles beside; each end's name goes under its value, where the lane has room to stack them)
+    const L = 34, R = tiny ? 62 : narrow ? (slide ? 96 : 90) : 104, B = 22, GAP = slide ? 30 : 16;   // (a slide's lanes stand apart, the lower one named)
     let T = 30;
     const plotW = w - L - R;
 
@@ -253,6 +282,13 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const span = RANGES.find((r) => r[0] === range)[2];
       xNow = headX();
       x1 = xNow; x0 = x1 - span;
+      // (On a slide the window starts where its record does: a slide just arrived has no empty left part.)
+      if (slide) {
+        const firstIn = (q) => { for (let i = 0; i < q.x.length; i++) if (Number.isFinite(q.mid[i])) return q.x[i]; return Infinity; };   // (its first reading in the window: after a restart, or a stall that dropped samples, the window starts there)
+        const first = Math.min(...[...traces.map((t) => t.id), 'hvpg'].map((k) => firstIn(series(k, x0, x1))));
+        // (The scale stays fixed: recording starts at the left edge and fills to the right, then scrolls left.)
+        if (Number.isFinite(first) && first > x0) { x0 = first; x1 = first + span; }
+      }
     }
     const X = (x) => L + ((x - x0) / Math.max(1e-9, x1 - x0)) * plotW;
 
@@ -268,8 +304,14 @@ export function createPressureTime({ marks = () => [] } = {}) {
     // lanes
     const avail = hh - T - B;
     const lanes = [];
-    if (traces.length && showHvpg) {
-      const pH = Math.round((avail - GAP) * 0.64);
+    // (On a slide both lanes start at zero and end on a round number above every reading, with a tick at the top.)
+    const top0 = (key) => { let mx = -Infinity; for (const k of key === 'pressure' ? traces.map((t) => t.id) : ['hvpg']) { const q = series(k, -Infinity, x1); for (let i = 0; i < q.x.length; i++) mx = Math.max(mx, q.hi ? q.hi[i] : q.mid[i]); }
+      mx = Math.max(mx, ...(key === 'pressure' ? traces.map((t) => endOf(t.id)) : [steadyHvpg()]).filter(Number.isFinite));   // (and the numbers written at the ends: a reading never sits above its lane)
+      return key === 'hvpg' ? Math.max(15, Math.ceil(((Number.isFinite(mx) ? mx : 0) + 3) / 5) * 5) : Math.max(10, Math.ceil(((Number.isFinite(mx) ? mx : 10) * 1.1) / 5) * 5); };
+    const fixed = slide ? { pressure: [0, top0('pressure')], hvpg: [0, top0('hvpg')] } : null;
+    // (A slide's small card drops the HVPG lane, which the header already reads, and gives its room to the pressures.)
+    if (traces.length && showHvpg && !(slide && avail < 160)) {
+      const pH = Math.round((avail - GAP) * (fixed ? 0.66 : 0.64));   // (a slide's pressure lane holds five lines, the HVPG lane one: two thirds of the room)
       lanes.push({ key: 'pressure', top: T, bot: T + pH }, { key: 'hvpg', top: T + pH + GAP, bot: T + avail });
     } else lanes.push({ key: traces.length ? 'pressure' : 'hvpg', top: T, bot: T + avail });
 
@@ -299,6 +341,20 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const keys = lane.key === 'pressure' ? traces.map((t) => t.id) : ['hvpg'];
       let mn = Infinity, mx = -Infinity;
       for (const k of keys) {
+        // (The whole record up to the right edge, read in place: building it as a series on every frame cost more than drawing.)
+        if (range === 'beats' && !smooth) {
+          const v = fine[k], n = firstAbove(fine.t, x1);
+          for (let i = 0; i < n; i++) { const a = v[i]; if (a < mn) mn = a; if (a > mx) mx = a; }
+          continue;
+        }
+        if (range === 'minutes' && !smooth) {
+          for (const b of coarse) {
+            const q = b.v[k];
+            if (!q || b.t + BIN / 2 > x1) continue;
+            if (q[0] < mn) mn = q[0]; if (q[1] > mx) mx = q[1];
+          }
+          continue;
+        }
         const s = range === 'days' ? data[k] : series(k, -Infinity, x1);
         for (let i = 0; i < s.x.length; i++) {
           const a = s.lo ? s.lo[i] : s.mid[i], b = s.hi ? s.hi[i] : s.mid[i];
@@ -312,13 +368,13 @@ export function createPressureTime({ marks = () => [] } = {}) {
         const pad = Math.max(1.5, (mx - mn) * 0.1);
         lo = Math.max(lane.key === 'pressure' && mn >= 0 ? 0 : -Infinity, mn - pad); hi = mx + pad;
       }
-      [lo, hi] = ease(lane.key, lo, hi);
-      const tick = nice(hi - lo, (bot - top) > 120 ? 4 : 2);
+      [lo, hi] = fixed ? fixed[lane.key] : ease(lane.key, lo, hi);
+      const tick = fixed ? [5, 10, 20, 25, 50].find((t) => hi % t === 0 && (bot - top) * t / hi >= 15) ?? hi : nice(hi - lo, (bot - top) > 120 ? 4 : 2);   // (a slide's ticks end on its top line, never closer than 15 px)
       const Y = (v) => bot - ((v - lo) / Math.max(1e-6, hi - lo)) * (bot - top);
       lane.Y = Y;
 
       // grid
-      ctx.lineWidth = 1; ctx.font = FONT(500, 10.5); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 1; ctx.font = FONT(500, 12); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       for (let v = Math.ceil(lo / tick) * tick; v <= hi + 1e-9; v += tick) {
         const yy = Math.round(Y(v)) + 0.5;
         ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + plotW, yy); ctx.stroke();
@@ -330,18 +386,24 @@ export function createPressureTime({ marks = () => [] } = {}) {
       if (lane.key === 'hvpg') {
         // clinical thresholds
         const roomy = bot - top > 90;
+        // (Every dashed line first, then the labels on their plates, so no later line crosses an earlier label.)
+        const labs = [];
         for (const [v, label] of LIMITS) {
-          if (v > hi || (v === 5 && !roomy)) continue;
+          if (v > hi || (v === 5 && !roomy) || (slide && v !== 10)) continue;   // (a slide's small lane: the one cut-off, CSPH)
           const yy = Math.round(Y(v)) + 0.5;
           ctx.strokeStyle = col(v >= 10 ? '--danger' : '--caution'); ctx.globalAlpha = v >= 10 ? 0.5 : 0.35;
           ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + plotW, yy); ctx.stroke(); ctx.setLineDash([]);
           ctx.globalAlpha = 1;
-          if (label && !narrow && (roomy || v === 10)) {
-            ctx.font = FONT(600, 10); const tw = ctx.measureText(label).width;
-            ctx.fillStyle = surface; ctx.fillRect(L + 6, yy - 6, tw + 8, 12);
-            ctx.fillStyle = col('--danger'); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-            ctx.fillText(label, L + 10, yy); ctx.textBaseline = 'alphabetic';
-          }
+          if (label && !narrow && (roomy || v === 10)) labs.push([label, yy]);
+        }
+        let prevLab = null;   // (the label drawn last: one that would sit on it moves along its own line, past its right end)
+        for (const [label, yy] of labs) {
+          ctx.font = FONT(600, 12); const tw = ctx.measureText(label).width;
+          const lx = labelX(prevLab, yy, L + 6);
+          ctx.fillStyle = surface; ctx.fillRect(lx, yy - 6, tw + 8, 12);
+          ctx.fillStyle = col('--danger'); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          ctx.fillText(label, lx + 4, yy); ctx.textBaseline = 'alphabetic';
+          prevLab = { x1: lx + tw + 8, y: yy };
         }
         const s = data.hvpg;
         if (s.x.length > 1) {
@@ -354,7 +416,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           ctx.lineTo(X(s.x[s.x.length - 1]), Y(0)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
           if (s.lo) band(ctx, s, X, Y, text, 0.1);
           line(ctx, s, X, Y, text, 1.75, plotW);
-          const e = recent(s); ends.push({ y: Y(e), v: e, label: 'HVPG', c: text, lane });
+          const e = range === 'days' ? recent(s) : slide ? steadyHvpg() : hv; ends.push({ y: Y(e), v: e, label: 'HVPG', c: text, lane });   // (the header's own reading)
         }
       } else {
         // the HVPG itself, shaded between wedged and free hepatic pressure
@@ -372,7 +434,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           if (s.lo) band(ctx, s, X, Y, c, 0.16);
           line(ctx, s, X, Y, c, t.id === 'CONF' ? 2 : 1.75, plotW);
           if (range === 'days' && s.x.length < 60) dots(ctx, s, X, Y, c, surface);
-          const e = recent(s); ends.push({ y: Y(e), v: e, label: t.abbr, c, lane });
+          const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : t.day?.(frame.metrics)) ?? recent(s); ends.push({ y: Y(range !== 'days' && slide && Number.isFinite(recent(s)) ? recent(s) : e), v: e, label: t.abbr, c, lane });   // (on a slide, written at the line's end, its steady number; the live readings, so wedged − free is the header's HVPG)
         }
       }
       ctx.restore();
@@ -384,7 +446,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
       }
     }
 
-    ctx.font = FONT(500, 10); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 4, T - 12);
+    ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 4, T - 12);
+    if (slide && lanes.length > 1) ctx.fillText('HVPG, mmHg', 4, lanes[1].top - 10);
 
     // markers: learner changes and events, where they happened
     const allBot = drawMarkers(markLayout, lanes);
@@ -392,24 +455,25 @@ export function createPressureTime({ marks = () => [] } = {}) {
     // live values at the right edge, nudged apart where they would collide (per lane)
     for (const lane of lanes) {
       const es = ends.filter((e) => e.lane === lane).sort((a, b) => a.y - b.y);
-      for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + 15);
-      const over = es.length ? es[es.length - 1].y - lane.bot : 0;
+      for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + (tiny ? 27 : slide ? 18 : 15));
+      const over = es.length ? Math.min(es[es.length - 1].y - lane.bot, es[0].y - (lane.top + 4)) : 0;   // (lifted only as far as the top allows: a short lane lets its last label hang below rather than pile the readings on each other)
       if (over > 0) for (const e of es) e.y -= over;
       for (const e of es) {
         const yy = Math.max(lane.top + 4, e.y);
-        ctx.fillStyle = e.c; ctx.beginPath(); ctx.arc(L + plotW + 9, yy, 3.5, 0, 7); ctx.fill();
+        ctx.fillStyle = e.c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(L + plotW + 4, yy - 1.5, 10, 3, 1.5) : ctx.rect(L + plotW + 4, yy - 1.5, 10, 3); ctx.fill();   // (a short stroke in the trace's colour, not a dot)
         ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
         ctx.font = FONT(650, 12.5); ctx.fillStyle = text;
         const vt = fmt(e.v, 1);
         ctx.fillText(vt, L + plotW + 17, yy);
         // Each line is named at its end (PV, WHVP, FHVP, HVPG), on every screen.
-        const vw = ctx.measureText(vt).width; ctx.font = FONT(600, 11); ctx.fillStyle = e.c === text ? muted : e.c; ctx.fillText(e.label, L + plotW + 20 + vw, yy);
+        const vw = ctx.measureText(vt).width; ctx.font = FONT(600, 12); ctx.fillStyle = e.c === text ? muted : e.c;
+        if (tiny) ctx.fillText(e.label, L + plotW + 17, yy + 12); else ctx.fillText(e.label, L + plotW + 20 + vw, yy);
         ctx.textBaseline = 'alphabetic';
       }
     }
 
     // time axis
-    ctx.fillStyle = faint; ctx.font = FONT(500, 10.5); ctx.textAlign = 'center';
+    ctx.fillStyle = faint; ctx.font = FONT(500, 12); ctx.textAlign = 'center';
     const span = x1 - x0;
     if (range === 'days') {
       const step = nice(span, narrow ? 3 : 5);
@@ -417,11 +481,13 @@ export function createPressureTime({ marks = () => [] } = {}) {
       ctx.textAlign = 'right'; ctx.fillStyle = muted; ctx.fillText(`Day ${Math.round(x1)}`, L + plotW, hh - 6);
     } else {
       const step = range === 'beats' ? (narrow ? 5 : 2) : (narrow ? 60 : 30);
-      for (let s = step; s < span - 1e-9; s += step) {
-        const xx = X(x1 - s);
+      for (let s = step; xNow - s > x0 + 1e-9; s += step) {
+        const xx = X(xNow - s);
+        if (xx < L + 12) break;
         ctx.fillText(range === 'beats' ? `−${s} s` : s % 60 === 0 ? `−${s / 60} min` : `−${s} s`, xx, hh - 6);
       }
-      ctx.textAlign = 'right'; ctx.fillStyle = muted; ctx.fillText('now', L + plotW, hh - 6);
+      const nowX = X(xNow);
+      ctx.textAlign = nowX > L + plotW - 14 ? 'right' : 'center'; ctx.fillStyle = muted; ctx.fillText('now', Math.min(nowX, L + plotW), hh - 6);
     }
 
     // crosshair and its readout card
@@ -440,10 +506,10 @@ export function createPressureTime({ marks = () => [] } = {}) {
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, cw, ch, 10) : ctx.rect(bx, by, cw, ch); ctx.fill();
       ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
       ctx.strokeStyle = grid; ctx.stroke();
-      ctx.textAlign = 'left'; ctx.fillStyle = muted; ctx.font = FONT(600, 11); ctx.fillText(when, bx + padX, by + 18);
+      ctx.textAlign = 'left'; ctx.fillStyle = muted; ctx.font = FONT(600, 12); ctx.fillText(when, bx + padX, by + 18);
       crossRows.forEach((r, i) => {
         const yy = by + 18 + rowH * (i + 1);
-        ctx.fillStyle = r.c; ctx.beginPath(); ctx.arc(bx + padX + 3, yy - 4, 3, 0, 7); ctx.fill();
+        ctx.fillStyle = r.c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx + padX - 1, yy - 5.5, 9, 3, 1.5) : ctx.rect(bx + padX - 1, yy - 5.5, 9, 3); ctx.fill();
         ctx.fillStyle = muted; ctx.font = FONT(500, 12); ctx.fillText(r.label, bx + padX + 12, yy);
         ctx.fillStyle = text; ctx.font = FONT(650, 12); ctx.textAlign = 'right'; ctx.fillText(fmt(r.v, 1), bx + cw - padX, yy); ctx.textAlign = 'left';
       });
@@ -457,7 +523,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const ROW = 13, MAX_ROWS = 4;
   function layoutMarkers(ms, X, right) {
     const ctx = cv.getContext('2d');
-    ctx.font = FONT(600, 10.5);
+    ctx.font = FONT(600, 12);
     const groups = [];
     for (const mk of ms) {
       const xx = Math.round(X(mk.x)) + 0.5, g = groups[groups.length - 1];
@@ -494,7 +560,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       ctx.beginPath(); ctx.moveTo(g.xx, yOf(g) + 4); ctx.lineTo(g.xx, allBot); ctx.stroke();
     }
     ctx.setLineDash([]); ctx.globalAlpha = 1;
-    ctx.font = FONT(600, 10.5); ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    ctx.font = FONT(600, 12); ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
     for (const g of groups) {
       const y = yOf(g);
       ctx.fillStyle = colOf(g); ctx.beginPath(); ctx.arc(g.xx, y, 3, 0, 7); ctx.fill();
@@ -532,7 +598,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       heroDelta.textContent = '';
       return;
     }
-    const v = frame.metrics.hvpg;
+    const v = onSlide() && Number.isFinite(endOf('whvp')) ? steadyHvpg() : frame.metrics.hvpg;
     const txt = fmt(v, 1);
     if (heroVal.textContent !== txt) heroVal.textContent = txt;
     const word = wordOf(v);
@@ -563,7 +629,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const offs = ['hiddenReadouts', 'hvpgMeasured', 'showHvpg'].map((k) => store.on(k, () => { yr.pressure = yr.hvpg = null; }));
   // A new patient (or the same one restarted) starts with empty traces.
   function clear() { clearHemo(); days = []; redraw(); }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, dispose() { offs.forEach((off) => off()); frame = null; } };
+  function pin(fp) { pinned = fp || null; if (frame) redraw(); }
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, dispose() { offs.forEach((off) => off()); io?.disconnect(); frame = null; } };
 }
 
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).

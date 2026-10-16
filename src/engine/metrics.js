@@ -1,16 +1,24 @@
 // Clinical readouts derived from engine state (blueprint §9.1).
 
-import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=34e377149b';
+import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=4044766e96';
 import { clamp } from './physiology.js?v=6fc3ec393a';
+import { tenthGap } from './gap.js?v=3a5947c552';
 
-function varixGrade(d) {
+const STENTS = new Set(['TIPS', 'DIPS']);   // the stents from the portal side: their flow is part arterial (see computeMetrics)
+
+// The grades judge the number every readout prints (a diameter to 0.1 mm, a volume to 0.1 L), so "5.0 mm" is never Small
+// and "5.0 L" never Grade 2.
+const tenth = (v) => Math.round(+v.toFixed(1) * 10) / 10;
+export function varixGrade(d0) {
+  const d = Number.isFinite(d0) ? tenth(d0) : d0;
   if (d < 2.5) return { code: '—', label: 'None' };
   if (d < 5) return { code: 'F1', label: 'Small' };
   if (d < 10) return { code: 'F2', label: 'Large' };
   return { code: 'F3', label: 'Large, coil-shaped' };
 }
 
-function ascitesGrade(V) {
+export function ascitesGrade(V0) {
+  const V = Number.isFinite(V0) ? Math.round(+(V0 / 1000).toFixed(1) * 10) * 100 : V0;
   if (V < 150) return { grade: 0, label: 'None' };
   if (V < 1500) return { grade: 1, label: 'Grade 1 (ultrasound only)' };
   if (V < 5000) return { grade: 2, label: 'Grade 2 (moderate)' };
@@ -28,15 +36,15 @@ export function computeMetrics(eng) {
   let shunted = 0;
   const collateralFlows = {};
   const portalIn = Math.max(0, qf('PRE_R')) + Math.max(0, qf('PRE_L'));
+  let stentQ = 0;
   for (const id of PORTOSYSTEMIC_EDGES) {
     const v = qf(id);
-    // The stent also drains arterial blood that recirculates through the sinusoids, so only the
-    // portal-trunk blood that no longer reaches the sinusoids counts as shunted portal blood.
-    shunted += id === 'TIPS'
-      ? clamp(Math.max(0, qf('PV_TRUNK')) - portalIn - Math.max(0, qf('C3')), 0, Math.max(0, v))
-      : Math.max(0, v);
+    if (STENTS.has(id)) stentQ += Math.max(0, v); else shunted += Math.max(0, v);
     collateralFlows[id] = v;
   }
+  // A stent (TIPS or DIPS) also drains arterial blood that recirculates through the sinusoids and back out by the
+  // portal branches, so only the portal-trunk blood that no longer reaches the sinusoids counts as shunted portal blood.
+  shunted += clamp(Math.max(0, qf('PV_TRUNK')) - portalIn - Math.max(0, qf('C3')), 0, stentQ);
   // Custom shunts the learner has made carry portal blood to systemic veins as well.
   for (const e of EDGES) if (e.shunt === 'custom' && eng.params.customShunts?.[e.id]) shunted += Math.max(0, qf(e.id));
   for (const e of EDGES) if (e.kind === 'collateral') collateralFlows[e.id] = qf(e.id);
@@ -53,7 +61,9 @@ export function computeMetrics(eng) {
   const map = eng.MAPf;
   const ra = P[ni.RA];
   const bv = eng.bloodVolume();
-  const lossPct = clamp((5000 + eng.blood.infused - bv) / 5000 * 100, -50, 100);
+  // Share of the patient's own volume lost (ATLS class), counting what was drawn, not what was given back since.
+  const b = eng.blood, ref = b.ref || 5000;
+  const lossPct = clamp((ref + b.infused - (b.inf0 || 0) - bv) / ref * 100, -50, 100);
   const shock = eng.blood.lost > 0 ? (lossPct >= 40 ? 4 : lossPct >= 30 ? 3 : lossPct >= 15 ? 2 : 1) : 0;
   const hct = eng.hct();
   const heIdx = shuntFraction * (0.6 + 0.8 * p.cirrhosis);
@@ -67,14 +77,16 @@ export function computeMetrics(eng) {
 
   return {
     t: eng.t, day: eng.day,
-    hvpg: hv.hvpg, whvp: hv.whvp, fhvp: hv.fhvp,
+    // (The gradients are the difference of the two readings as every screen shows them, at one decimal: WHVP 16.6 and
+    // FHVP 4.9 read HVPG 11.7 in Tests, Over time, the figure's bracket and the bottom bar alike, never 11.6.)
+    hvpg: tenthGap(hv.whvp, hv.fhvp, hv.hvpg), whvp: hv.whvp, fhvp: hv.fhvp,
     // Liver stiffness (transient elastography, kPa), an estimate from the model. It rises with the sinusoidal
     // gradient (about 20 kPa at an HVPG of 10), flattens above an HVPG of 12 where fibrosis is already
     // advanced, and with congestion at about 2 kPa per mmHg of free hepatic vein pressure above normal
     // (heart failure and hepatic outflow block stiffen the liver too).
     lsm: 5 + 2.2 * Math.max(0, Math.min(hv.hvpg, 12) - 3) + 0.8 * Math.max(0, hv.hvpg - 12) + 2 * Math.max(0, hv.fhvp - 6),
     measured,
-    ppg: P[ni.CONF] - P[ni.IVCS],
+    ppg: tenthGap(P[ni.CONF], P[ni.IVCS], P[ni.CONF] - P[ni.IVCS]),
     pv: P[ni.CONF],
     pvh: P[ni.PVH],
     sv: P[ni.SV],
@@ -83,6 +95,8 @@ export function computeMetrics(eng) {
     pvVel: eng.dopplerVelocity('PV_TRUNK'),
     pvFlowMean: (eng.pvQm ?? qf('PV_TRUNK')) * 0.06,
     pvVelMean: eng.pvVm ?? eng.dopplerVelocity('PV_TRUNK'),
+    // (the vitals over a breath, engine.js controllers: what the bar and Readouts show)
+    vitals: { co: eng.vitM?.[0] ?? co, map: eng.vitM?.[1] ?? map, hr: eng.vitM?.[2] ?? eng.hr, ra: eng.vitM?.[3] ?? ra },
     pvPI: p.pulsatile || eng.beat ? eng.pi.value : null,
     hepaticFlow: hepFlow * 0.06,
     liverPerfPct: (hepFlow / eng.baseHepFlow) * 100,
@@ -97,7 +111,7 @@ export function computeMetrics(eng) {
     spleen: eng.params.splenicRx === 2 ? { length: 0, platelets: 380 } : { length: eng.slow.spleen, platelets: clamp(250 * Math.pow(11 / eng.slow.spleen, 3), 25, 400) },
     map, co, hr: eng.hr, svr: (map - ra) / Math.max(0.5, co),
     heRisk: { index: heIdx, label: heIdx < 0.2 ? 'Low' : heIdx < 0.45 ? 'Moderate' : 'High' },
-    blood: { volume: bv, lossPct, lost: eng.blood.lost, hct, hb: (hct * 100) / 3, shock },
+    blood: { volume: bv + eng.pregnancyPlasma(), lossPct, lost: eng.blood.lost, hct, hb: (hct * 100) / 3, shock },
     bleeding: eng.bleed.active ? { site: eng.bleed.site, rate: eng.Qbleed * 60, total: eng.bleed.total } : null,
     habr: eng.habr, baro: eng.baro,
     splTone: eng.slow.splTone,

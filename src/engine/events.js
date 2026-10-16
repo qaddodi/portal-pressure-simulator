@@ -1,6 +1,6 @@
 // Event detectors with hysteresis (blueprint §10.3). Pure functions of engine state.
 
-import { computeMetrics } from './metrics.js?v=72819396bb';
+import { computeMetrics } from './metrics.js?v=e566c70621';
 
 const COLLATERAL_NAMES = {
   C1b: ['Esophageal varices', 'VAR'], C3: ['Paraumbilical vein (caput medusae)', 'C3'], C4: ['Anorectal varices', 'C4'],
@@ -58,9 +58,33 @@ function defs(m, eng) {
   return list;
 }
 
+// The readings an event compares, averaged over two breaths (8 s of model time): breathing and the heartbeat swing
+// cardiac output, ascites filtration, IAP and the portal velocity across a cut-off several times a breath, which fired
+// "Ascites forming" or "Hyperdynamic circulation" again every few seconds. The average starts over from the reading
+// itself on a new day (the disease clock settles each day), a jump in the model's clock or a restored state; a paused
+// model keeps it. (It lives outside the snapshot: a restored state starts it from its own reading.)
+const TAU = 8;
+const AVG = {
+  co: [(m) => m.co, (s, v) => { s.co = v; }], svr: [(m) => m.svr, (s, v) => { s.svr = v; }], ra: [(m) => m.ra, (s, v) => { s.ra = v; }],
+  hvpg: [(m) => m.hvpg, (s, v) => { s.hvpg = v; }], pvVel: [(m) => m.pvVel, (s, v) => { s.pvVel = v; }],
+  perf: [(m) => m.liverPerfPct, (s, v) => { s.liverPerfPct = v; }], shunt: [(m) => m.shuntFraction, (s, v) => { s.shuntFraction = v; }],
+  rate: [(m) => m.ascites.ratePerDay, (s, v) => { s.ascites.ratePerDay = v; }], iap: [(m) => m.ascites.iap, (s, v) => { s.ascites.iap = v; }],
+};
+function breathAveraged(m, eng, init) {
+  const a = eng.evAvg, day = (eng.day || 0) + (eng.dayFrac || 0), dt = a ? eng.t - a.t : 0;
+  const fresh = init || !a || a.day !== day || dt < 0 || dt > 30;
+  const k = fresh ? 1 : Math.min(1, dt / TAU);
+  const v = {};
+  for (const [key, [get]] of Object.entries(AVG)) { const x = get(m); v[key] = fresh || !Number.isFinite(a.v[key]) ? x : a.v[key] + (x - a.v[key]) * k; }
+  eng.evAvg = { t: eng.t, day, v };
+  const s = { ...m, ascites: { ...m.ascites } };
+  for (const [key, [, set]] of Object.entries(AVG)) if (Number.isFinite(v[key])) set(s, v[key]);
+  return s;
+}
+
 export function detectEvents(eng, init = false) {
   const m = computeMetrics(eng);
-  for (const d of defs(m, eng)) {
+  for (const d of defs(breathAveraged(m, eng, init), eng)) {
     const s = eng.evState[d.id] || (eng.evState[d.id] = { active: false });
     // Hold: the condition must persist for 3 consecutive evaluations before firing or clearing.
     if (!s.active && d.on) {

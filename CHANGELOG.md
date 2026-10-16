@@ -1,7 +1,74 @@
 # Changelog
 
-## Unreleased
+## October 2026
 
+- **Pregnancy, and a Cirrhosis in pregnancy patient.** A new setting, the weeks of pregnancy (0 to 40), changes the
+  circulation as pregnancy does: blood volume up about a third (most of it plasma, so the hemoglobin falls to about 12),
+  cardiac output up about half, the heart about 15 beats a minute faster, splanchnic and systemic vasodilation, and from
+  20 weeks a rising abdominal pressure from the uterus. The new patient (Sinusoidal) has compensated cirrhosis with small
+  varices and an HVPG of about 12 before pregnancy; at 24 weeks the portal inflow is a third higher, HVPG about 13 and
+  the varices large with red wale signs, and propranolol takes them back to small. The weeks are a slider on the heart
+  card (shown for a pregnant patient), in Changes and in Why?. At 0 weeks nothing changes for any other patient.
+  Tests: `tests/pregnancy.test.js`.
+- **Colored by oxygen.** A new view in Colored by shows each vessel's oxygen saturation, 60 to 100 %, from blue
+  (deoxygenated) to cerise red (arterial). The hepatic artery is 98 %, the portal vein about 85 % (gut venous blood),
+  systemic veins about 75 %; the sinusoids mix portal and arterial blood at the portal tract and darken toward the
+  central vein as the liver takes about a quarter of the oxygen, so hepatic venous blood is about 65 %. Saturation
+  mixes flow-weighted at every junction, so when portal flow falls or reverses the hepatic artery's blood fills the
+  sinusoids (the buffer response). The lobule colours its vessels the same way, the vessel card reads the saturation,
+  and "colored by oxygen" in slide words is a cerise pill. Tests: `tests/oxygen.test.js`.
+- **Less work per frame while a glow eases, and for the FibroScan waves.** Hovering, selecting or a slide's glow
+  easing in now rewrites only the glow values of the vessels instead of rebuilding all of them each frame, the FibroScan
+  probe's waves write a path or an opacity only when it changed, hidden SVG tubes under the GPU are written when they
+  show again, label widths and the label check keep their measurements, and fonts and the brand art load from the
+  offline cache at once (refreshed behind it). The picture is the same. Test: `tests/frame-costs-glow.test.js`.
+- **Colour changes no longer redraw every vessel.** When only vessels' colours change (the pulse, the lobule's lymph
+  tint, a lens fade), the vessel layer draws again just the pixels those colours reach, with the same shader, instead
+  of the whole layer: the lymph tint moves all 63 lymph channels at once, which used to redraw over 90 % of the
+  lobule's vessel cells about 12 times a second. Casings, shadows and the space between vessels stay as drawn, so the
+  picture is the same pixel for pixel. Tests: `tests/veins-tint.test.js`, smoke:rows (a colour-only case).
+- **The view switch is its own centred pill, just above the play bar.** On every screen (upright phone and iPad, Mac,
+  iPad and phone held sideways) Circuit, Anatomy, Lobule and Sinusoid sit in one pill, centred on the screen 8 px above
+  the play bar, the selected view in a soft inner pill. It is no longer part of the dock or the Mac's top bar. A card
+  on an upright phone or iPad covers it as it covers the play row. In the sinusoid view the same pill sits centred at
+  the bottom, level with +, − and Fit, which now stand upright at the bottom right on every screen. While presenting,
+  the switch stays in the top bar. Test: smoke "view switch: a centred pill 8 px above the play bar".
+- **The view switch is the bottom bar's first line, one tap away.** On an upright phone or iPad the switch (Circuit,
+  Anatomy, Lobule, Sinusoid) is one slim line at the top of the dock, above the play row: small text, the selected view
+  in a soft pill, no box. A card covers it as it covers the play row. The tab labels sit whole on an iPhone again (the
+  switch had shared the tab row's line, which Safari sized too short), the flat band under the dock shows only while a
+  card is up, and on a 320 px phone both readings fit. The sinusoid view, which hides the dock, puts Lobule and Sinusoid
+  in a pill at the bottom left, level with +, − and Fit. The top bar is two chips again. Mac, iPad and phone held
+  sideways keep the switch in the top bar. The View tab is called **Layers** again (Fit to screen, Turn upright, the
+  layers). Tests: smoke "view switch: one tap" (13 screen sizes, every view) and "every tab and view label sits whole".
+- **Blood loss gives realistic vital signs (ATLS classes).** A 500 mL bleed in a healthy adult used to drop the mean
+  pressure from 93 to 76 and a litre left almost no circulation. Two reflexes now compensate: the venous reservoir
+  (sympathetic venoconstriction moves unstressed blood back into circulation, Gelman 2008) and a volume afferent that
+  speeds the heart before the pressure falls. Healthy, MAP/HR: 500 mL 91/74, 1000 mL 87/92, 1500 mL 79/119, 2000 mL
+  62/168 (ATLS 10th ed.: class I, II, III, IV). Cirrhosis has less reserve and a blunted heart rate; carvedilol blunts
+  it more. The shock class now counts the patient's own blood volume (the plasma expansion of cirrhosis no longer reads
+  as a negative loss). The variceal bleed talk tears a little wider (0.35) so its "Shock before anemia" slide is a class
+  II loss. Test: `tests/bleed.test.js`.
+- **Bottom bar rearranged (option 2).** On an upright phone or tablet the bottom is two bands instead of three: the
+  view switch and Fit no longer float above the dock. A **View** tab replaces Layers and holds the views (Circuit,
+  Anatomy, Lobule, Sinusoid), Fit to screen, Turn upright (circuit) and, under them, the layers of the current view.
+  The play row is one slim line: play, speed, clock and jump, then the two key readings as plain numbers (no bars or
+  rating words; their colour still shows normal, raised or high). A Mac or an iPad held sideways gets the same slim
+  bar, with Compare labelled. The sinusoid view keeps its zoom buttons (+, − back to the lobule, Fit) at the bottom
+  right. Present is unchanged. Tests: smoke "slim play line" and the thumb dock checks.
+- **Language selection removed (for now).** Settings no longer has a Language menu, and the Spanish, French,
+  Portuguese and Arabic interface strings are gone with it, so the app is English only. A language saved in the browser
+  is cleared on load, and a shared link with `?lang=` simply opens in English. Language selection may come back later.
+  Test: `tests/no-language.test.js`.
+- **Student role removed (for now).** Settings no longer has "I am a…" (Student or Instructor), and the role is gone from
+  the app's internals, so everyone gets what Instructor had: every lens in Colored by, pressure values on the figure, the
+  full play bar and History, all procedures in Treat, and Advanced physiology in Settings. "Always show HVPG" is on unless
+  someone turned it off, so the HVPG still shows without measuring, as before. A role saved in the browser is cleared on load. A simpler student mode may
+  come back later. Test: `tests/no-role.test.js`.
+- **No Patient button.** The top bar is Treat, Tests, Settings and Search. The abnormal-results list and its badge
+  are gone (the readouts and instruments already show the numbers). What has been changed, with undo and Clear all, sits
+  closed under the orders in the Treat card. Advanced physiology opens from Settings. Tapping a
+  vessel's details still opens the side panel.
 - **One type scale for the figure and slides.** Figure labels and slide cards now use six text roles (caption, label,
   body, value, big value, title) instead of about 18 loose sizes. Each grows smoothly with the screen (phone 11/12/14/16/20/28 px
   up to laptop 12/14/16/22/32/44; slide cards on a wide screen follow its height). A pill keeps name, reading and unit in
@@ -142,7 +209,7 @@
   "Patient") instead of spaced capitals. Icons come in 16, 20 and 24 (12 for a check mark in a dot),
   down from 17 sizes; corners use the three radius tokens. The lobule card's title is no longer serif.
   A new browser check opens every menu and card and fails on any other size, weight or icon size, or
-  a button without a name. Plan: [docs/MENUS_AND_CARDS_PLAN.md](docs/MENUS_AND_CARDS_PLAN.md).
+  a button without a name. (The working plan has since been removed; see git history.)
 - On a phone held sideways, the zoom buttons step aside when a vessel's card leaves no room for them
   under the top bar.
 - **Into the lobule, a dive.** Choosing *Lobule* flies the camera into the liver (0.9 s) while the lobule grows out of
@@ -542,7 +609,7 @@ patients, lessons and cases are unchanged (content version 2.0).
 
 ## 2.0.0 (content version 2.0), 2026-09
 
-The v2 redesign from [docs/UI_UX_NEXT_LEVEL.md](docs/UI_UX_NEXT_LEVEL.md).
+The v2 redesign (its proposal, `docs/UI_UX_NEXT_LEVEL.md`, is in git history).
 
 - **Interaction:** object → verb. Click a vessel or organ and an action card opens beside it;
   the toolbar and tool modes are gone. Shunts are dragged from source to target.

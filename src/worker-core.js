@@ -1,12 +1,12 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=c5b849e284';
-import { computeMetrics } from './engine/metrics.js?v=72819396bb';
+import { Engine } from './engine/engine.js?v=fb8ce7b2ed';
+import { computeMetrics } from './engine/metrics.js?v=e566c70621';
 import { tenthGap } from './engine/gap.js?v=3a5947c552';
-import { detectEvents } from './engine/events.js?v=a6e16e86ec';
-import { explain } from './engine/explain.js?v=fcd3ca252d';
-import { defaultParams, deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=b2eabea2e1';
+import { detectEvents } from './engine/events.js?v=582dd803a9';
+import { explain } from './engine/explain.js?v=5e3424c840';
+import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=1ee7733788';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
@@ -25,11 +25,36 @@ const fingerprint = (m, e) => {
   const P = e ? e.Pf || e.P : null, a = m.ascites;
   return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg),
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
-    sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, pvVel: m.pvVelMean, map: m.map, hr: m.hr, hb: m.blood.hb, rih: e ? liverRes(e) : null };
+    sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, wall: e ? e.varix('VAR', e.Pf || e.P).ratio : m.varix.ratio, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
+    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, pvVel: m.pvVelMean, map: m.map, hr: m.hr, hb: m.blood.hb, rih: e ? liverRes(e) : null,
+    // (the whole network as it stood, so a slide's callouts and figure labels read its numbers as the tiles do: the same on every screen)
+    at: e ? { P: Float32Array.from(e.Pf || e.P), Q: Float32Array.from(e.Qf || e.Q), D: Float32Array.from(e.edges, (ed) => e.diameter(ed.id)) } : null };
 };
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 const rampAt = (ramp, d, n) => Object.fromEntries(ramp.map(([k, [a, b]]) => [k, a + (b - a) * Math.min(1, d / n)]));
+// The presenter's eased change of patient ('morph'): the live state blended from where it is to a slide's state. Numbers ease
+// (a number only one side has, such as a new thrombus or stenosis, grows from 0); a switch flips halfway; everything else
+// (events, bands, the random state) is the slide's from the start.
+const MORPH_KEYS = ['params', 'V', 'P', 'Q', 'MAPf', 'hr', 'baro', 'habr', 'slow', 'blood', 'iap', 'day', 't'];
+function mix(a, b, k) {
+  if (typeof a === 'number' || typeof b === 'number') {
+    if ((typeof a === 'number' || a === undefined) && (typeof b === 'number' || b === undefined)) return (a ?? 0) + ((b ?? 0) - (a ?? 0)) * k;
+  } else if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length === b.length) return a.map((x, i) => mix(x, b[i], k));
+  } else if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const o = {};
+    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) o[key] = mix(a[key], b[key], k);
+    return o;
+  }
+  return k < 0.5 ? a : b;
+}
+const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });
+const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
+
+// The bedside clock's step (seconds): 4 ms with the pulse on, 20 ms without. At 4× and 8× the pulse takes 8 ms steps, half
+// as many a tick, so a phone keeps up; the beat-averaged readings move by about 0.01 mmHg (MAP and heart rate by 0.15 at
+// most, tests/hemo-step.test.js). 1× and 2× (and every Present slide, which runs at 1×) keep 4 ms.
+export const hemoStep = (pulse, speed) => (pulse ? (speed >= 4 ? 0.008 : 0.004) : 0.02);
 
 export function createCore(post) {
   let eng = new Engine();
@@ -46,6 +71,10 @@ export function createCore(post) {
   let samples = null;
   // The presenter's time-lapse on the live model: days left, and the params ramped day by day (see 'lapse').
   let lapse = null;
+  // The presenter's eased change of patient on the live model: { from, to, t0, ms } (see 'morph').
+  let morph = null;
+  // Until this time (ms) every tick also relaxes the model quietly, so a live change settles while the clock runs on.
+  let relaxUntil = 0;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
   const newSamples = () => ({ t: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
 
@@ -70,6 +99,8 @@ export function createCore(post) {
       changed: frameDirty,
       t: eng.t, day: eng.day, running, speed, clock, probe,
       pulsing: !!(eng.params.pulsatile || eng.beat),
+      resp: !!eng.params.respiration,
+      morphing: !!morph,
       phase: eng.phase(),
       P: Float32Array.from(eng.P),
       Pf: Float32Array.from(eng.Pf || eng.P),
@@ -91,18 +122,38 @@ export function createCore(post) {
     post(f, [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer]);
   }
 
-  let lastFrame = 0;
+  // An engine that throws, or whose pressures or flows stop being numbers, stops the clock and says so once
+  // ('crash'): the figure keeps the last good frame and the page offers Reload or Restart. Loading a patient
+  // (or any state) clears it.
+  let crashed = false;
+  const RECOVER = ['init', 'preset', 'reset', 'restore', 'morph'];
+  const finite = (a) => { for (let i = 0; i < a.length; i++) if (!Number.isFinite(a[i])) return false; return true; };
+  function crash(err) {
+    stop();
+    crashed = true; morph = null; lapse = null; samples = null;
+    post({ type: 'crash', message: String(err && err.stack || err) });
+  }
   function tick() {
+    try { tickOnce(); } catch (err) { crash(err); }
+  }
+
+  let lastFrame = 0;
+  function tickOnce() {
     const now = performance.now();
     const realDt = last == null ? 0 : Math.min(0.1, (now - last) / 1000);
     last = now;
     eng.beat = beat;
-    if (running) {
+    if (morph) {
+      const k = Math.min(1, (now - morph.t0) / morph.ms);
+      eng.restore(k >= 1 ? morph.to : morphAt(morph.from, morph.to, easeInOut(k)));
+      if (k >= 1) morph = null;
+      paramsDirty = true; frameDirty = true;
+    } else if (running) {
       if (clock === 'hemo') {
-        const pulse = eng.params.pulsatile || beat;
-        const h = pulse ? 0.004 : 0.02;
+        if (now < relaxUntil) eng.relax();
+        const h = hemoStep(eng.params.pulsatile || beat, speed);
         let simDt = realDt * speed;
-        let n = Math.min(Math.ceil(simDt / h), pulse ? 700 : 400);
+        let n = Math.min(Math.ceil(simDt / h), h < 0.02 ? 700 : 400);
         const every = Math.max(1, Math.floor(n / 24));
         for (let i = 0; i < n; i++) {
           eng.step(h);
@@ -132,6 +183,7 @@ export function createCore(post) {
         }
       }
     }
+    if (!finite(eng.P) || !finite(eng.Q)) throw new Error('The model produced a pressure or flow that is not a number.');
     if (frameDirty || paramsDirty || eng.newEvents.length || (running && now - lastFrame > 95)) { lastFrame = now; frame(); }
   }
 
@@ -147,7 +199,7 @@ export function createCore(post) {
   }
 
   function start() {
-    if (timer || !running || !visible) return;
+    if (timer || crashed || !running || !visible) return;
     last = null;
     timer = setInterval(tick, 33);
   }
@@ -176,16 +228,20 @@ export function createCore(post) {
       paramsDirty = true;
       start();
     },
-    setParams({ params, settle }) {
+    setParams({ params, settle, ease }) {
+      morph = null;
       // UI-originated: not echoed back (avoids overwriting in-flight edits).
       eng.setParams(sanitizeParams(params));
       if (settle) eng.settle();
+      // ease (ms): the presenter's live buttons and sliders, eased to the new steady state over that long (see tick).
+      relaxUntil = ease > 0 ? performance.now() + ease : 0;
     },
     *preset({ id, days, reqId }) {
+      morph = null;
       yield* eng.loadPresetSteps(id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
       post({ type: 'presetLoaded', reqId, id, params: eng.params });
     },
-    reset() { eng = new Engine(); paramsDirty = true; },
+    reset() { morph = null; eng = new Engine(); paramsDirty = true; },
     run({ running: r, speed: s, clock: c }) {
       if (r !== undefined) running = r;
       if (s !== undefined) speed = s;
@@ -194,14 +250,19 @@ export function createCore(post) {
     // The presenter's time-lapse: days on the disease clock at speed days a second, ramp's params eased over
     // them ({ key: [from, to] }); days 0 stops one under way.
     lapse({ days, speed: s, ramp }) {
+      morph = null;
       lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null } : null;
       running = true; clock = lapse ? 'disease' : 'hemo'; speed = lapse ? s : 1; diseaseAcc = 0;
     },
+    // The presenter's slide that turns breathing off stops it on the live model as the slide begins (only that switch;
+    // a morph under way keeps easing to its own state).
+    breath({ on }) { eng.params.respiration = !!on; paramsDirty = true; },
     visibility({ visible: v }) { visible = v; },
-    // restartClock: the days are the patient's past (a case aging its patient), so the clock and
+    // restartClock: the days are the patient's past (the patient aged before the story starts), so the clock and
     // event log start fresh at day 0 afterwards.
     *advance({ days, untilEvent, restartClock }) {
-      const n0 = eng.eventLog.length;
+      morph = null;
+      const n0 = eng.eventCount;   // (a count, not the log's length: the log is capped at 200)
       let done = 0;
       const max = untilEvent ? 730 : days;
       while (done < max) {
@@ -209,51 +270,38 @@ export function createCore(post) {
         const r = yield* eng.advanceDaySteps(step);
         done += step;
         if (r.ruptured) { clock = 'hemo'; break; }
-        if (untilEvent && eng.eventLog.length > n0) break;
+        if (untilEvent && eng.eventCount > n0) break;
       }
       if (restartClock) { eng.day = 0; eng.t = 0; eng.eventLog = []; eng.newEvents = []; }
       paramsDirty = true;
     },
     settle() { eng.settle(); },
-    action({ action }) { applyAction(eng, action); paramsDirty = true; },
-    // Run the model forward at bedside time (e.g. so a case opens with vitals that match its story).
+    action({ action }) { morph = null; applyAction(eng, action); paramsDirty = true; },
+    // Run the model forward at bedside time (so the vitals have settled before they are shown).
     *preroll({ seconds, reqId }) {
       for (let t = 0; t < seconds; t += 0.1) { eng.step(0.1); yield; }
       paramsDirty = true;
       if (reqId) post({ type: 'prerolled', reqId });
     },
-    // Counterfactual for a case debrief: from a snapshot, replay a plan of timed parameter sets
-    // and actions in a separate engine, and report how the patient would have done.
-    *counterfactual({ snap, plan, seconds, reqId }) {
-      const e = new Engine();
-      e.restore(snap);
-      const steps = plan.slice().sort((a, b) => a.t - b.t);
-      let i = 0, minMap = Infinity, stopAt = null;
-      for (let t = 0, k = 0; t < seconds; t += 0.1, k++) {
-        while (i < steps.length && steps[i].t <= t) {
-          const s0 = steps[i++];
-          if (s0.params) e.setParams(deepMerge(defaultParams(), s0.params));
-          if (s0.action) applyAction(e, s0.action);
-        }
-        e.step(0.1);
-        if (k % 10 === 0) minMap = Math.min(minMap, computeMetrics(e).map);
-        if (stopAt == null && !e.bleed.active && t > 1) stopAt = t;
-        yield;
-      }
-      const m = computeMetrics(e);
-      post({ type: 'counterfactual', reqId, result: { minMap, lost: e.blood.lost, hb: m.blood.hb, map: m.map, bleeding: e.bleed.active, stopAt } });
-    },
-    probe({ id }) { probe = id; },
+    // (The samples already taken belong to the old vessel: they go out under its name first, so the new one's record starts clean.)
+    probe({ id }) { if (id !== probe && samples?.t.length) frame(); probe = id; },
     beat({ on }) { if (beat !== !!on) { beat = !!on; frameDirty = true; } },
     snapshot({ reqId }) { post({ type: 'snapshot', reqId, snap: eng.snapshot() }); },
-    restore({ snap }) { eng.restore(snap); lapse = null; paramsDirty = true; },
+    restore({ snap }) { morph = null; relaxUntil = 0; eng.restore(snap); lapse = null; paramsDirty = true; },
+    // The presenter's change of patient, eased over ms from the live state (wherever it is, a change under way included) to snap.
+    morph({ snap, ms }) {
+      lapse = null; clock = 'hemo'; speed = 1; diseaseAcc = 0; relaxUntil = 0;
+      if (!(ms > 0)) { morph = null; eng.restore(snap); paramsDirty = true; return; }
+      morph = { from: eng.snapshot(), to: snap, t0: performance.now(), ms };
+      running = true; start();
+    },
     explain({ metric, reqId }) {
       const r = explain(eng, metric);
       post({ type: 'explain', reqId, result: r });
     },
     healthyProfile({ reqId }) {
       const h = new Engine();
-      post({ type: 'healthy', reqId, P: Array.from(h.P), Q: Array.from(h.Q), metrics: computeMetrics(h) });
+      post({ type: 'healthy', reqId, P: Array.from(h.P), Q: Array.from(h.Q), D: h.edges.map((e) => h.diameter(e.id)), metrics: computeMetrics(h) });
     },
     // The presenter tour's fingerprint: the live state, or each listed preset loaded fresh.
     metrics({ reqId }) { post({ type: 'metrics', reqId, result: fingerprint(computeMetrics(eng), eng) }); },
@@ -268,8 +316,8 @@ export function createCore(post) {
       post({ type: 'presetMetrics', reqId, result });
     },
     // The presenter's slides, computed off screen so the figure only ever shows finished states: a chain in
-    // which each slide starts from the one before (base: the state before the first), in the order the
-    // lessons use (preset → params → settle → actions → disease days → settle). Each slide is posted as it is
+    // which each slide starts from the one before (base: the state before the first), in a fixed order
+    // (preset → params → settle → actions → disease days → settle). Each slide is posted as it is
     // ready ('seqStep': snapshot, params, fingerprint); 'sequence' ends the chain. A slide the presenter plays
     // as a time-lapse (fine, or a ramp) steps its days one at a time, as the live 'lapse' does.
     *sequence({ steps, base, reqId }) {
@@ -327,9 +375,10 @@ export function createCore(post) {
             }
           }
         }
+        if (RECOVER.includes(msg.type)) crashed = false;
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!['snapshot', 'explain', 'healthyProfile', 'presets', 'counterfactual', 'metrics', 'presetMetrics', 'sequence'].includes(msg.type)) {
+        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence'].includes(msg.type)) {
           frameDirty = true;
           if (visible) { lastFrame = performance.now(); frame(); }
         }

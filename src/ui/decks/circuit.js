@@ -18,11 +18,18 @@ const withPoints = (d) => ({ ...d, slides: d.slides.map((s) => (s.visual ? s : {
 
 export const CIRCUIT = withPoints({
   id: 'circuit', level: 'foundation', title: 'Portal pressure as a circuit', minutes: 10,
+  // (Every slide shares one kicker, so the outline's sections name the slides.)
+  sections: [['Flow and resistance', ['ohm', 'where', 'meal']], ['Cirrhosis', ['resist', 'both']], ['Collaterals', ['parallel']], ['Treatment', ['tips', 'drugs']]],
   objectives: [
     'Read portal pressure as flow times resistance',
     'Explain why a meal raises portal pressure more in cirrhosis',
     'Explain why collaterals fail to decompress the portal system',
     'Place TIPS, propranolol and carvedilol on the flow or resistance side',
+  ],
+  checks: [
+    ['How does pressure relate to flow and resistance?', 'The pressure drop equals flow times resistance: ΔP = Q × R.'],
+    ['Why does a meal raise the gradient more in cirrhosis?', 'The extra flow crosses a higher resistance, so the same rise in flow adds more pressure.'],
+    ['Why does a TIPS lower the gradient when collaterals do not?', 'The stent has far less resistance than the sinusoids or any collateral, so most portal blood goes through it.'],
   ],
   summary: 'Portal hypertension as a circuit: more flow, more resistance, collaterals in parallel, TIPS and the drugs, each read as ΔP = Q × R.',
   slides: [
@@ -30,14 +37,14 @@ export const CIRCUIT = withPoints({
       id: 'ohm', preset: 'healthy', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'ppg'],
       kicker: K, title: 'Pressure falls in proportion to flow and resistance',
       eq: [dP + mo('=') + mi('Q') + mo('×') + '<mi class="eq-wedge">R</mi>', 'ΔP pressure drop · Q flow · R resistance'],
-      line: 'The pressure drop across any segment equals the flow through it times its resistance (ΔP = Q × R). In portal hypertension the drop across the liver is larger because flow, resistance or, usually, both have gone up.',
+      line: 'The pressure drop across any segment equals the flow through it times its resistance (ΔP = Q × R). In portal hypertension the drop across the liver is larger because flow or resistance has risen, usually both.',
       notes: 'The heart is the pump; arterioles, capillaries, sinusoids and veins are resistors in series. The same law as Ohm\'s: the drop in pressure across a segment is the flow through it times its resistance. Portal hypertension is a rise in the drop across the liver, so either the flow or the resistance has risen, and usually both.',
       ask: ['Name the two ways the pressure drop across the liver can rise.', 'More flow through it, or more resistance to that flow.'],
     },
     {
-      id: 'where', view: C, sites: [...R, 'rGut'], terms: ['rGut'], data: 'ladder', key: ['pv', 'hvpg'],
+      id: 'where', lens: 'drop', view: C, sites: [...R, 'rGut'], terms: ['rGut'], data: 'ladder', key: ['pv', 'hvpg'],
       kicker: K, title: 'Most of the pressure drop is across the gut arterioles',
-      line: 'The gut arterioles take most of the arterial pressure, so little is left by the time blood reaches the portal vein. A healthy liver drops it by only a few mmHg more.',
+      line: 'The gut arterioles take most of the arterial pressure, so little is left by the time blood reaches the portal vein. A healthy liver drops it by only a few mmHg more. With the vessels colored by pressure drop, the gut arterioles are darkest.',
       notes: 'Mean arterial pressure is about 90 mmHg; the portal vein is under 10. The splanchnic arterioles are the largest resistance in the circuit and they set the portal inflow. Normal sinusoids are wide and many, so the HVPG is 1 to 5 mmHg.',
       ask: ['Which resistance sets the portal inflow?', 'The splanchnic (gut) arterioles: they are the largest resistance before the portal vein.'],
     },
@@ -51,7 +58,7 @@ export const CIRCUIT = withPoints({
     },
     {
       id: 'resist', preset: 'csph', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
-      compare: [{ label: 'Healthy', params: { cirrhosis: 0 } }, { label: 'Cirrhosis', own: true, params: { cirrhosis: 0.6 } }],
+      whatIf: { label: 'Scarring', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
       kicker: K, site: 'sin', title: 'Cirrhosis raises the resistance in the liver',
       line: 'Scarring raises the resistance several-fold. Part of the rise is vascular tone, which drugs can relax.',
       notes: 'The R term. In cirrhosis about three quarters of the extra resistance is fixed (fibrosis, nodules, capillarized sinusoids) and a quarter is tone: contracted stellate cells and too little nitric oxide in the sinusoids. The tone is what drugs can reverse. The tiles compare with the healthy liver on the first slide; the portal flow is almost the same.',
@@ -65,17 +72,17 @@ export const CIRCUIT = withPoints({
       ask: ['Why does the same meal raise the gradient more in cirrhosis?', 'The same extra flow crosses a higher resistance (ΔP = Q × R).'],
     },
     {
-      id: 'parallel', preset: 'cirr-decomp', view: C, sites: [...R, 'split'], data: 'tiles', tiles: ['shunt', 'liver', 'ppg'], delta: false,
+      id: 'parallel', lens: 'flow', preset: 'cirr-decomp', view: C, sites: [...R, 'split'], data: 'tiles', tiles: ['shunt', 'liver', 'ppg'], delta: false,
       kicker: K, site: 'sin', title: 'Collaterals divert flow without normalizing the gradient',
       eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', '<msub class="eq-wedge"><mi>R</mi><mtext>liver</mtext></msub>') + mo('+') + frac('<mn>1</mn>', '<msub class="eq-var"><mi>R</mi><mtext>collaterals</mtext></msub>'), 'Resistances in parallel: the total is lower than either'],
-      line: 'Collaterals run in parallel with the liver and take much of the portal flow. The rest still crosses the liver\'s high resistance, and total inflow rises as collaterals open.',
+      line: 'Collaterals run in parallel with the liver and take much of the portal flow. The rest still crosses the liver\'s high resistance, and total inflow rises as collaterals open. With the vessels colored by flow, the collaterals carry a large share of the blood.',
       notes: 'Collaterals open where portal and systemic veins meet: the esophagus, the umbilicus, the rectum and behind the gut. They lower the total resistance, but they are narrow and the inflow keeps rising, so the gradient stays high. They also carry blood and its ammonia past the liver, and the liver\'s own share of the portal blood falls.',
       ask: ['Why do collaterals not relieve portal hypertension?', 'Their resistance is still high and the inflow rises with them, so the gradient stays high.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, view: C, sites: R, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: true,
+      id: 'tips', lens: 'flow', params: { tips: { on: true } }, view: C, sites: R, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: true,
       kicker: K, site: 'sin', title: 'TIPS lowers the gradient by bypassing the liver',
-      line: 'A covered stent beside the sinusoids has far less resistance than they or any collateral do. Most portal blood goes through it, and the gradient halves.',
+      line: 'A covered stent beside the sinusoids has far less resistance than they or any collateral do. Most portal blood goes through it, and the gradient halves. With the vessels colored by flow, the stent carries most of the portal blood.',
       notes: 'A covered stent 8 to 10 mm wide has a far lower resistance than the sinusoids or any collateral, so most portal blood takes it. The gradient falls below 12 mmHg; the cost is less portal blood for the liver and a risk of encephalopathy. An 8 mm stent is a compromise between the two.',
       ask: ['What does TIPS cost the liver?', 'Most of its portal blood; and gut blood, with its ammonia, now reaches the brain unfiltered.'],
     },

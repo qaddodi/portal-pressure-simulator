@@ -1,4 +1,5 @@
 // DOM & formatting helpers.
+import { saver } from './frame.js?v=5efaa2bcc9';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
@@ -45,6 +46,8 @@ export function fmt(v, d = 1) {
   // A value that rounds to zero has no sign ("−0" reads as an error).
   return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−');
 }
+/** A value as fmt prints it, as a number, for the word beside it: a tile never reads "5.0 L · Grade 2". (−0 reads as 0.) */
+export const shownOf = (v, d = 1) => (Number.isFinite(v) ? +v.toFixed(d) + 0 : v);
 /** A flow rate in L/min to one decimal. A small but real flow reads "< 0.1" rather than 0.0, so
  *  a trickle through a collateral never looks like none. */
 export function fmtFlow(v) {
@@ -75,28 +78,14 @@ export function uiScale() {
   return w ? b.getBoundingClientRect().width / w || 1 : 1;
 }
 
-// Messages go to a quiet line in the status row above the timeline, never over the figure.
-// When that line is not on screen they show as a card at the top instead.
-let noteTimer = 0;
-function inlineNote(msg, kind) {
-  const row = document.getElementById('vdStatus');
-  if (!row?.closest('.vdock')?.offsetParent) return false;
-  let n = row.querySelector('.vd-note');
-  if (!n) {
-    n = h('span', { class: 'vd-note', role: 'status' });
-    n.addEventListener('click', () => { clearTimeout(noteTimer); n.hidden = true; row.classList.remove('noting'); });
-    row.append(n);
-  }
-  n.className = 'vd-note ' + kind; n.textContent = msg; n.title = msg; n.hidden = false;
-  row.classList.add('noting');
-  clearTimeout(noteTimer);
-  noteTimer = setTimeout(() => { n.hidden = true; row.classList.remove('noting'); }, 4200);
-  return true;
-}
-
-export function toast(msg, kind = '') {
-  if (!msg) return;
-  if (inlineNote(msg, kind)) return;
+// Messages show as a card at the top, below the bars, never over the bottom bar.
+// opts: actions, [[label, fn], …] as buttons after the words (a tap runs it and closes the card); sticky, stays until
+// dismissed; onClose, called once when it goes. Returns a function that closes it.
+export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = {}) {
+  if (!msg) return () => {};
+  // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
+  // (present: a link copied, a slide number typed) show.
+  if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return () => {};
   const wrap = document.getElementById('toasts');
   // One message at a time reads calmer than a growing stack.
   while (wrap.children.length >= 2) wrap.firstChild.remove();
@@ -109,8 +98,16 @@ export function toast(msg, kind = '') {
     Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom / z}px`, bottom: 'auto', height: '', maxWidth: 'none' });
   }
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
-  let timer = 0;
-  const close = () => { clearTimeout(timer); t.classList.add('leaving'); setTimeout(() => t.remove(), 340); };
+  let timer = 0, gone = false;
+  const close = () => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(); t.classList.add('leaving'); setTimeout(() => t.remove(), 340); };
+  if (actions?.length) {
+    t.classList.add('has-acts');
+    t.append(h('span', { class: 'toast-acts' }, ...actions.map(([label, fn]) => {
+      const b = h('button', { class: 'btn sm' }, label);
+      b.addEventListener('click', (e) => { e.stopPropagation(); close(); fn(); });
+      return b;
+    })));
+  }
   const x = h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
   x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
   t.append(x);
@@ -119,24 +116,23 @@ export function toast(msg, kind = '') {
   let sx = 0, sy = 0;
   t.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
   t.addEventListener('pointerup', (e) => { if (Math.abs(e.clientY - sy) > 18 || Math.abs(e.clientX - sx) > 40) close(); });
+  // (A card pushed out by newer ones still counts as closed.)
+  if (onClose) new MutationObserver((_, ob) => { if (!t.isConnected) { ob.disconnect(); if (!gone) { gone = true; clearTimeout(timer); onClose?.(); } } }).observe(wrap, { childList: true });
   wrap.append(t);
   // Fill the docked card: the largest size that fits, stepping down for longer text, never clipped.
   if (wrap.classList.contains('docked')) {
     const m = t.querySelector('.toast-msg');
-    if (msg.length > 60) t.style.height = '84px';
+    if (msg.length > 60 || actions?.length) t.style.height = '84px';
     let px = msg.length <= 28 ? 20 : msg.length <= 60 ? 17 : 15;
-    for (; px > 12; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= t.clientHeight - 8 && m.scrollWidth <= m.clientWidth) break; }
+    const room = t.clientHeight - 8 - (actions?.length ? t.querySelector('.toast-acts').offsetHeight + 6 : 0);
+    for (; px > 12; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= room && m.scrollWidth <= m.clientWidth) break; }
   }
-  timer = setTimeout(close, 4200);
+  if (!sticky) timer = setTimeout(close, 4200);
+  return close;
 }
 
-let liveLast = 0;
-export function announce(msg) {
-  const now = Date.now();
-  if (now - liveLast < 3000) return;
-  liveLast = now;
-  document.getElementById('live').textContent = msg;
-}
+// (Announcements close together are coalesced, never dropped: live.js.)
+export { announce } from './live.js?v=c7e9ac862b';
 
 /** Hover/focus tooltip. `text` may be a string, a function, or { text, key }. `side`: 'right' | 'bottom'. */
 // An ⓘ button: hover (or keyboard focus) shows the tooltip; a tap on touch opens the same text
@@ -192,6 +188,13 @@ export function tooltipFor(el, text, side = 'right') {
 /** Floating menu/popover anchored to an element. Closes on outside click, Escape or re-open. */
 let openMenu = null;
 const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
+// One card or menu at a time over the thumb dock: whatever opens while another is still playing its way out waits
+// until it has gone (--enter-delay, read by the thumb dock's entrance animations), so the two never overlap.
+let goneAt = 0;
+/** Notes that a card or menu is playing its way out for the next ms. */
+export function markGone(ms) { goneAt = Math.max(goneAt, performance.now() + ms); }
+/** Holds a card or menu that is about to come in until the one going out has gone. */
+export function enterAfterGone(el) { el.style.setProperty('--enter-delay', Math.round(Math.max(0, goneAt - performance.now())) + 'ms'); }
 // sheet: on a phone the menu rises as a bottom sheet (full width, its text wraps) instead of a tall
 // popover; pass false for a menu that lays itself out.
 /** The bottom of what is visible: above the on-screen keyboard on iOS, where innerHeight does not shrink. */
@@ -200,30 +203,67 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
   const asSheet = sheet && innerWidth < 768;
   const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : ''), role: 'dialog' }, content);
+  enterAfterGone(el);
   document.body.append(el);
   const put = () => {
     if (asSheet) return;
+    const r = anchor.getBoundingClientRect(), z = uiScale(), w0 = el.offsetWidth * z;
+    let x = align === 'end' ? r.right - w0 : align === 'center' ? r.left + r.width / 2 - w0 / 2 : r.left;
+    // A scrolling menu below its button may use all the room down to the 8 px margin, so it ends whole where it fits; never
+    // over the bottom bar where the two meet (a phone held sideways: Settings had run 87 px over it; sweep 04 #01).
+    let barTop = null;
+    if (place === 'below' && el.classList.contains('app-menu')) {
+      const dock = document.getElementById('vdock'), d = dock?.offsetParent ? dock.getBoundingClientRect() : null, xl = clamp(x, 8, innerWidth - w0 - 8);
+      if (d && d.height && d.left < xl + w0 && d.right > xl && d.top < visibleBottom()) barTop = d.top;
+      el.style.maxHeight = Math.max(160, (barTop ?? visibleBottom()) - r.bottom - 16) / z + 'px';
+    }
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
-    const r = anchor.getBoundingClientRect(), z = uiScale(), mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
-    let x = align === 'end' ? r.right - mr.width : align === 'center' ? r.left + r.width / 2 - mr.width / 2 : r.left;
-    let y = place === 'above' ? r.top - mr.height - 8 : r.bottom + 8;
+    const mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
+    // (A menu from the thumb dock's tab row opens above the whole dock, so it never covers the play bar or HVPG and PPG.)
+    const top = anchor.closest('.thumb-bar') ? Math.min(r.top, anchor.closest('.vdock').getBoundingClientRect().top - 6) : r.top;
+    let y = place === 'above' ? top - mr.height - 8 : r.bottom + 8;
     const vb = visibleBottom();
     if (y + mr.height > vb - 8) y = Math.max(8, r.top - mr.height - 8);
     el.style.left = clamp(x, 8, innerWidth - mr.width - 8) / z + 'px';
     el.style.top = clamp(y, 8, vb - mr.height - 8) / z + 'px';
+    barAt = barTop;
+    clipBar();
   };
+  // Ending just above the bar, the menu's shadow stops at the bar's top edge, so the bar itself stays as it was (sweep 01
+  // review). Measured from the menu as laid out (its height settles after it opens), again whenever it resizes.
+  let barAt = null;
+  const clipBar = () => {
+    const z = uiScale(), gap = barAt == null ? 0 : barAt - (parseFloat(el.style.top) + el.offsetHeight) * z;
+    el.style.clipPath = barAt == null ? '' : `inset(-64px -64px ${(-Math.max(0, gap) / z).toFixed(2)}px -64px)`;
+  };
+  if (el.classList.contains('app-menu')) { const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else clipBar(); }); ro.observe(el); }
   put();
+  // (History's list has its own soft edges at both ends.)
+  if (!el.classList.contains('tl-history')) fadeWhileMore(el);
   if (asSheet) swipeSheet(el, () => closePopover());
   const off = (e) => { if (!el.contains(e.target) && !anchor.contains(e.target)) closePopover(); };
   const esc = (e) => { if (e.key === 'Escape') closePopover(); };
   // The keyboard opening or closing (a search field) moves the visible bottom: place the menu again.
   const vv = window.visualViewport, onVV = () => { if (!asSheet) put(); };
-  setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', esc); }, 0);
+  // (Armed after this task, so the tap that opened the menu does not close it; a close before then cancels it.)
+  const arm = setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', esc); }, 0);
   vv?.addEventListener('resize', onVV);
-  openMenu = { el, anchor, put, cleanup: () => { removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); vv?.removeEventListener('resize', onVV); onClose?.(); } };
+  openMenu = { el, anchor, put, cleanup: () => { clearTimeout(arm); removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); vv?.removeEventListener('resize', onVV); onClose?.(); } };
   anchor.setAttribute('aria-expanded', 'true');
   return el;
 }
+/** A list that scrolls fades at its bottom edge while there is more below it (class .more), as the docked
+ *  cards do, so its last row is never just cut at the edge. Returns the check, to run after the content changes. */
+export function fadeWhileMore(el) {
+  // (--fade-pb: the list's bottom padding, which the fade reaches down through so it ends at the panel's own edge.)
+  const sync = () => { el.classList.toggle('more', el.scrollHeight - el.clientHeight - el.scrollTop > 4); el.style.setProperty('--fade-pb', getComputedStyle(el).paddingBottom); };
+  el.addEventListener('scroll', sync, { passive: true });
+  const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else sync(); });
+  ro.observe(el);
+  sync();
+  return sync;
+}
+export const popoverOpen = () => !!openMenu;
 /** Places the open menu again, after something it is anchored to has moved or resized. */
 export function repositionPopover() { if (openMenu) { openMenu.el.style.left = openMenu.el.style.top = '0px'; openMenu.put(); } }
 export function closePopover() {
@@ -232,9 +272,35 @@ export function closePopover() {
   const el = openMenu.el;
   if (reduceMotionMQ.matches || !el.isConnected) el.remove();
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
-  else { el.classList.add('leaving'); el.inert = true; setTimeout(() => el.remove(), el.dataset.swiped ? 240 : 130); }
+  // (Over the thumb dock it sinks behind the tab row, as the cards do: .2 s.)
+  else { const ms = document.documentElement.classList.contains('thumb-ui') ? 200 : 120; el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? 240 : ms + 10); }
   openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
   openMenu = null;
+}
+/** Over the thumb dock a card slides down behind the tab row by --sink (styles/app.css: it moves the card and cuts it at
+ *  its resting bottom edge together). This eases --sink to px frame by frame, so the move and the cut stay in step on
+ *  iOS too, then calls done. A new drag stops it (stopSink). */
+const sinking = new WeakMap();
+export function stopSink(el) { const a = sinking.get(el); if (a) { cancelAnimationFrame(a.raf); clearTimeout(a.timer); } sinking.delete(el); }
+export function sinkTo(el, px, ms = 220, done) {
+  stopSink(el);
+  const from = parseFloat(el.style.getPropertyValue('--sink')) || 0, t0 = performance.now(), a = {};
+  const finish = () => {
+    if (sinking.get(el) !== a) return;
+    stopSink(el);
+    if (px) el.style.setProperty('--sink', `${px}px`); else el.style.removeProperty('--sink');
+    done?.();
+  };
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / ms);
+    if (k >= 1) { finish(); return; }
+    el.style.setProperty('--sink', `${from + (px - from) * (1 - (1 - k) ** 3)}px`);
+    a.raf = requestAnimationFrame(step);
+  };
+  // (A page whose frames stall, in the background or a busy browser, still lands and closes on time.)
+  a.timer = setTimeout(finish, ms + 120);
+  sinking.set(el, a);
+  a.raf = requestAnimationFrame(step);
 }
 /** A phone's bottom sheet follows a vertical drag from anywhere on it and closes past a short pull (or a quick
  *  flick) down; a short one eases back. Content scrolled away from its top scrolls back first, a sideways drag
@@ -242,6 +308,8 @@ export function closePopover() {
  *  sliding out of sight (data-swiped is set) so the close needs no animation of its own. */
 export function swipeSheet(panel, onClose) {
   let s = null;
+  // Over the thumb dock the sheet slides down behind the tab row: what passes below its resting bottom edge is clipped.
+  const thumbUi = () => document.documentElement.classList.contains('thumb-ui');
   const scroller = (t) => {
     for (let n = t; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return n;
     return null;
@@ -262,19 +330,28 @@ export function swipeSheet(panel, onClose) {
       if (down && e.cancelable) e.preventDefault();
       if (Math.hypot(dx, dy) < 8) return;
       if (!down) { s = null; return; }
-      s.on = true; s.y = t.clientY; s.t = performance.now();
-      panel.style.transition = 'none'; panel.style.animation = 'none';
+      // (Caught while it is still easing back: the pull carries on from where the sheet is, without a jump.)
+      s.on = true; s.y = t.clientY - (parseFloat(panel.style.getPropertyValue('--sink')) || 0); s.t = performance.now();
+      panel.style.transition = 'none'; panel.style.animation = 'none'; stopSink(panel);
     }
     if (e.cancelable) e.preventDefault();
     s.dy = Math.max(0, t.clientY - s.y);
-    panel.style.transform = `translateY(${s.dy}px)`;
+    if (thumbUi()) panel.style.setProperty('--sink', `${s.dy}px`);
+    else panel.style.transform = `translateY(${s.dy}px)`;
   }, { passive: false });
   const end = () => {
     const s0 = s; s = null;
     if (!s0?.on) return;
     const flick = s0.dy > 30 && s0.dy / Math.max(1, performance.now() - s0.t) > 0.6;
+    const gone = flick || s0.dy > Math.min(90, panel.offsetHeight * 0.3);
+    // (Over the thumb dock it sinks behind the tab row: the move and the cut in one value, never one ahead of the other.)
+    if (thumbUi()) {
+      panel.style.transition = '';
+      if (gone) { sinkTo(panel, panel.offsetHeight); panel.dataset.swiped = '1'; onClose(); } else sinkTo(panel, 0);
+      return;
+    }
     panel.style.transition = 'transform .22s var(--ease)';
-    if (flick || s0.dy > Math.min(90, panel.offsetHeight * 0.3)) { panel.style.transform = 'translateY(100%)'; panel.dataset.swiped = '1'; onClose(); }
+    if (gone) { panel.style.transform = 'translateY(100%)'; panel.dataset.swiped = '1'; onClose(); }
     else { panel.style.transform = ''; setTimeout(() => { if (!s) panel.style.transition = ''; }, 240); }
   };
   panel.addEventListener('touchend', end);
@@ -366,7 +443,9 @@ export function fitCanvas(canvas) {
     const b = canvas.getBoundingClientRect(); r = { width: b.width, height: b.height };
     boxes.set(canvas, r); boxObserver.observe(canvas);
   }
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  // The instruments (Doppler, FibroScan, the HVPG tracing, scope, wall, charts) at the screen's own density, up to 3x: a 3x iPhone drew
+  // their words at 2x, slightly soft (#34). Battery saver keeps 2x.
+  const dpr = Math.min(saver() ? 2 : 3, window.devicePixelRatio || 1);
   const w = Math.max(1, Math.round(r.width * dpr)), hh = Math.max(1, Math.round(r.height * dpr));
   if (canvas.width !== w || canvas.height !== hh) { canvas.width = w; canvas.height = hh; }
   const ctx = canvas.getContext('2d');
@@ -435,9 +514,6 @@ export function enhanceRanges(root = document) {
  * so a chart's line, dots, labels and axis glide rather than jump when the model changes. The
  * Pressure card and the lobule's pressure ladder share it. step(target) → { v, moving }.
  */
-/** Steady motion (the flow, a glide toward values that keep moving) is drawn at most 30 times a second, whatever the
- * screen's refresh rate: a little under 33 ms, so a frame lands on the screen's next refresh, not the one after. */
-export const GLIDE_MS = 1000 / 30 - 4;
 export function createEaser(tau = 0.3) {
   let v = null, last = 0;
   return {
@@ -465,3 +541,4 @@ export function restBox(el, q = el.getBoundingClientRect()) {
   const m = new DOMMatrixReadOnly(t), z = el.offsetHeight ? q.height / el.offsetHeight : 1;
   return new DOMRect(q.x - m.e * z, q.y - m.f * z, q.width, q.height);
 }
+

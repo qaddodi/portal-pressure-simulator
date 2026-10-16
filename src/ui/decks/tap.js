@@ -11,11 +11,17 @@ export const TAP = {
     'Use diuretics and TIPS for ascites that keeps coming back',
     'Recognize protein-rich ascites that points to the heart',
   ],
+  checks: [
+    ['How much albumin goes with a large-volume paracentesis?', '6 to 8 g for each liter removed, when more than 5 liters come out.'],
+    ['Why does ascites come back after a tap alone?', 'Sinusoidal pressure and the kidneys\' sodium retention are unchanged. Diuretics or a TIPS keep it away.'],
+    ['High SAAG and ascitic protein of 2.5 g/dL or more. What do you check?', 'The heart. Protein this high means the sinusoid wall is still open, as in heart failure.'],
+  ],
   summary: 'One patient with tense ascites: the diagnostic tap, large-volume paracentesis with albumin, diuretics and TIPS, with the effect of each on the fluid and the pressures.',
   slides: [
     {
       id: 'tense', preset: 'cirr-decomp', params: { diuretics: false }, days: 120, ramp: { albumin: [2.8, 2.4] }, cam: 'fit', terms: { 'renal veins': 'lrv' }, tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'],
       kicker: 'Ascites', site: 'sin', title: 'Grade 3 ascites',
+      vignette: 'A 61-year-old man with alcohol-associated cirrhosis stopped his diuretics 4 months ago. His abdomen is now tense, and he is short of breath lying flat. His albumin is 2.4 g/dL.',
       line: 'Tense ascites raises the pressure inside the abdomen, which presses on the renal veins and the kidneys.',
       notes: 'Decompensated cirrhosis without diuretics for four months, the serum albumin falling. Tense ascites raises intra-abdominal pressure, which lowers kidney perfusion, splints the diaphragm and adds to the pressure on the varices. Breathlessness, early satiety and an umbilical hernia are common. Grade 3 is treated first with large-volume paracentesis.',
       ask: ['Name two effects of tense ascites outside the abdomen.', 'Breathlessness from a splinted diaphragm, and lower kidney perfusion.'],
@@ -38,8 +44,8 @@ export const TAP = {
     {
       id: 'albumin', params: { albumin: 2.74 }, cam: 'fit', data: 'tiles', tiles: ['salb', 'map'], key: ['salb'], delta: true,
       kicker: 'Large-volume paracentesis', site: 'sin', title: 'Albumin with the tap',
-      line: '{6 to 8 g} of albumin for each liter removed, when more than 5 liters come out. It keeps the circulation filled, so the kidneys are spared and the fluid returns more slowly.',
-      caveat: 'The model has no kidneys or renin, so here albumin acts by raising the serum albumin instead.',
+      line: '{6 to 8 g} of albumin for each liter removed, when more than 5 liters come out. It fills the circulation, protects the kidneys and slows the fluid\'s return.',
+      caveat: 'The model has no kidneys or renin, so albumin here just raises the serum albumin.',
       notes: 'For a 6 L tap, about 40 g of 20% albumin, given during or after the tap. Albumin prevents post-paracentesis circulatory dysfunction better than saline or synthetic colloids. Under 5 L, albumin is optional. The model has no kidneys or renin: here albumin raises the serum albumin and the plasma oncotic pressure, and the fluid comes back more slowly on "Ascites returns in two weeks".',
       ask: ['Why give albumin rather than saline after an 8 L tap, and how much?', 'It prevents post-paracentesis circulatory dysfunction better: less kidney injury, less hyponatremia, slower return. About 50 to 65 g, 6 to 8 g for each liter.'],
     },
@@ -54,8 +60,8 @@ export const TAP = {
       id: 'diuretics', params: { diuretics: true }, days: 28, cam: 'fit', tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: true,
       kicker: 'Treatment', site: 'sin', title: 'Diuretics counter the kidneys\' sodium retention',
       line: 'Spironolactone with furosemide, and less salt. The kidneys lose sodium, and water follows: the abdomen is down to {asc}.',
-      notes: 'Spironolactone 100 mg a day, with furosemide 40 mg for recurrent ascites; EASL starts a first episode on spironolactone alone and adds furosemide if weight loss is slow or the potassium rises. Both rise in a 100:40 ratio to 400 and 160 mg. About 2 g of sodium (5 g of salt) a day; no fluid restriction unless the sodium is below 125. Aim for a weight loss of up to 0.5 kg a day without leg edema, 1 kg with it. Stop or reduce for kidney injury, a sodium below 125, encephalopathy or muscle cramps. Diuretics also concentrate the ascites, so its protein rises.',
-      ask: ['Starting doses of spironolactone and furosemide?', 'Spironolactone 100 mg a day, with furosemide 40 mg for recurrent ascites (EASL starts a first episode on spironolactone alone); both rise in a 100:40 ratio to 400 and 160 mg.'],
+      notes: 'Spironolactone 100 mg a day, with furosemide 40 mg for recurrent ascites; outside the US, EASL starts a first episode on spironolactone alone and adds furosemide if weight loss is slow or the potassium rises. Both rise in a 100:40 ratio to 400 and 160 mg. About 2 g of sodium (5 g of salt) a day; no fluid restriction unless the sodium is below 125. Aim for a weight loss of up to 0.5 kg a day without leg edema, 1 kg with it. Stop or reduce for kidney injury, a sodium below 125, encephalopathy or muscle cramps. Diuretics also concentrate the ascites, so its protein rises.',
+      ask: ['Starting doses of spironolactone and furosemide?', 'Spironolactone 100 mg a day, with furosemide 40 mg for recurrent ascites (outside the US, EASL starts a first episode on spironolactone alone); both rise in a 100:40 ratio to 400 and 160 mg.'],
     },
     {
       id: 'tips', params: { tips: { on: true } }, days: 28, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'ppg', 'liver'], key: ['asc'], delta: true,
@@ -67,6 +73,7 @@ export const TAP = {
     {
       id: 'heart', terms: ['sinusoid:lumen'], preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['saag', 'tp'], key: ['tp'],
       kicker: 'Protein-rich fluid', site: 'cardiac', title: 'High-protein ascites: check the heart',
+      vignette: 'A 76-year-old man with no known liver disease has new ascites and swollen legs. He does not drink, and he becomes breathless climbing one flight of stairs.',
       line: 'SAAG {saag}, 1.1 g/dL or more, with protein {tp}, 2.5 g/dL or more. Protein this high means the sinusoid wall is still open, not capillarized.',
       notes: 'Congestion without scarring gives a high-SAAG, high-protein fluid: heart failure, constrictive pericarditis, early Budd–Chiari syndrome. A raised jugular venous pressure and a high BNP point to the heart; a normal one to the hepatic veins (Doppler). Here the treatment is the heart, not TIPS. The ascites talk covers the four patterns of SAAG and protein.',
       ask: ['SAAG 1.5 g/dL and protein 4 g/dL. What do you examine next?', 'The heart: the jugular venous pressure, BNP and an echocardiogram.'],

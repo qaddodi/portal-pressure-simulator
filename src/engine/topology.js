@@ -24,7 +24,9 @@ export const NODES = [
 
   ['SMV', 'Superior mesenteric vein', 9.0, 4, 'abd', 'portal'],
   ['IMV', 'Inferior mesenteric vein', 9.3, 1, 'abd', 'portal'],
-  ['SV', 'Splenic vein', 8.8, 2, 'abd', 'portal'],
+  ['SV', 'Splenic vein', 8.8, 1.5, 'abd', 'portal'],
+  // Midway along the splenic vein, between the spleen and the IMV's junction: where a splenorenal shunt leaves it.
+  ['SVD', 'Splenic vein (midway)', 8.9, 0.5, 'abd', 'portal'],
   ['LGV', 'Left gastric (coronary) vein', 8.6, 0.5, 'abd', 'portal'],
   ['CONF', 'Portal vein (main)', 7.8, 3, 'abd', 'portal'],
   ['PVH', 'Portal vein (hilum)', 7.5, 1.5, 'abd', 'portal'],
@@ -87,10 +89,11 @@ export const EDGES = [
   { id: 'A_EPI', from: 'AO', to: 'EPI', Q: 0.8, kind: 'arteriole', tone: 'systemic', d: 2, label: 'Abdominal-wall arteries' },
 
   // Splanchnic venous drainage
-  { id: 'V_INT', from: 'INT', to: 'SMV', Q: 10.0, kind: 'vein', d: 6, label: 'Jejunal & ileal veins' },
+  { id: 'V_INT', from: 'INT', to: 'SMV', Q: 10.0, kind: 'vein', d: 6, vd: 9.5, label: 'Jejunal & ileal veins' },
   { id: 'V_COL', from: 'COL', to: 'IMV', Q: 1.7, kind: 'vein', d: 4, label: 'Colic veins' },
   { id: 'V_IMV', from: 'IMV', to: 'SV', Q: 1.7, kind: 'vein', d: 5, label: 'Inferior mesenteric vein' },
-  { id: 'V_SPL', from: 'SPL', to: 'SV', Q: 5.0, kind: 'vein', d: 8, label: 'Splenic vein (distal)' },
+  { id: 'V_SPL', from: 'SPL', to: 'SVD', Q: 5.0, kind: 'vein', d: 8, label: 'Splenic vein (distal)' },
+  { id: 'SV_MID', from: 'SVD', to: 'SV', Q: 5.0, kind: 'vein', d: 8, label: 'Splenic vein (mid)' },
   { id: 'V_STO', from: 'STO', to: 'LGV', Q: 1.6, kind: 'vein', d: 3, label: 'Gastric veins' },
   { id: 'SMV_CONF', from: 'SMV', to: 'CONF', Q: 10.0, kind: 'vein', d: 10, label: 'Superior mesenteric vein' },
   { id: 'SV_CONF', from: 'SV', to: 'CONF', Q: 6.7, kind: 'vein', d: 8, label: 'Splenic vein (proximal)' },
@@ -149,7 +152,7 @@ export const EDGES = [
   { id: 'C3', from: 'LPV', to: 'EPI', kind: 'collateral', route: ['LPV', 'ILI'], dMax: 8, Ropen: 0.6, label: 'Paraumbilical vein', code: 'C3' },
   { id: 'C4', from: 'IMV', to: 'ILI', kind: 'collateral', route: ['IMV', 'ILI'], dMax: 5, Ropen: 1.0, label: 'Superior ↔ middle/inferior rectal veins', code: 'C4' },
   { id: 'C5', from: 'GV', to: 'LRV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 7, Ropen: 1.0, open: 6, label: 'Gastrorenal shunt', code: 'C5', variant: true },
-  { id: 'C6', from: 'SV', to: 'LRV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 12, Ropen: 0.1, label: 'Spontaneous splenorenal shunt', code: 'C6', spontaneous: true },
+  { id: 'C6', from: 'SVD', to: 'LRV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 12, Ropen: 0.1, label: 'Spontaneous splenorenal shunt', code: 'C6', spontaneous: true },
   { id: 'C7', from: 'SMV', to: 'IVCI', kind: 'collateral', route: ['SMV', 'IVCI'], dMax: 4, Ropen: 1.5, label: 'Retroperitoneal (Retzius) veins', code: 'C7' },
   { id: 'C9', from: 'IVCI', to: 'AZY', kind: 'collateral', route: ['IVCI', 'SVC'], dMax: 10, Ropen: 0.2, label: 'Ascending lumbar → azygos (caval collateral)', code: 'C9', systemic: true },
   { id: 'C8', from: 'CONF', to: 'PVH', kind: 'collateral', route: ['CONF', 'PVH'], dMax: 6, Ropen: 0.15, label: 'Periportal collaterals (cavernoma)', code: 'C8' },
@@ -166,17 +169,21 @@ export const EDGES = [
   // (Budd–Chiari) and the cava below them is open. The IVC node is the one below the hepatic veins.
   { id: 'DIPS', from: 'PVH', to: 'IVCI', kind: 'shunt', shunt: 'dips', label: 'DIPS' },
   { id: 'S_PC', from: 'CONF', to: 'IVCI', kind: 'shunt', shunt: 'portocaval', d: 14, label: 'Portocaval shunt' },
-  { id: 'S_DSR', from: 'SV', to: 'LRV', kind: 'shunt', shunt: 'dsrs', d: 9, label: 'Distal splenorenal (Warren) shunt' },
+  { id: 'S_DSR', from: 'SVD', to: 'LRV', kind: 'shunt', shunt: 'dsrs', d: 9, label: 'Distal splenorenal (Warren) shunt' },
   { id: 'S_MC', from: 'SMV', to: 'IVCI', kind: 'shunt', shunt: 'mesocaval', d: 10, label: 'Mesocaval shunt' },
 ];
 
 // Custom portosystemic shunts: any portal vessel to any systemic vein, created with the stent
 // tool. Each exists in the topology from the start, closed (zero conductance) until the learner
 // opens it; params.customShunts[id] holds its diameter in mm.
-export const SHUNT_PORTAL = ['SMV', 'IMV', 'SV', 'LGV', 'CONF', 'PVH', 'RPV', 'LPV', 'VAR', 'GV'];
+export const SHUNT_PORTAL = ['SMV', 'IMV', 'SV', 'SVD', 'LGV', 'CONF', 'PVH', 'RPV', 'LPV', 'VAR', 'GV'];
 export const SHUNT_SYSTEMIC = ['RHV', 'MHV', 'LHV', 'IVCI', 'IVCS', 'SVC', 'AZY', 'ILI', 'LRV'];
-const NAMED_SHUNTS = new Set(['RPV>RHV', 'PVH>IVCI', 'RPV>IVCS', 'CONF>IVCI', 'SV>LRV', 'SMV>IVCI']);
+const NAMED_SHUNTS = new Set(['RPV>RHV', 'PVH>IVCI', 'RPV>IVCS', 'CONF>IVCI', 'SV>LRV', 'SVD>LRV', 'SMV>IVCI']);
 const nodeLabel = (id) => { const n = NODES.find((x) => (Array.isArray(x) ? x[0] : x.id) === id); return Array.isArray(n) ? n[1] : n?.label || id; };
+// A node's short name for a stent's course: its id (RPV, RHV), with the hilum portal vein as PV and both IVC levels as IVC.
+const NODE_SHORT = { PVH: 'PV', IVCI: 'IVC', IVCS: 'IVC' };
+// A stent's course from its portal end to its systemic end, read from the model's own connection: "RPV → RHV" for the TIPS.
+export const stentCourse = (e) => `${NODE_SHORT[e.from] || e.from} → ${NODE_SHORT[e.to] || e.to}`;
 export const customShuntId = (p, q) => `X_${p}_${q}`;
 for (const p of SHUNT_PORTAL) for (const q of SHUNT_SYSTEMIC) {
   if (NAMED_SHUNTS.has(`${p}>${q}`)) continue;
@@ -198,7 +205,7 @@ export const TARGETS = {
   hepaticFlow_Lmin: 1.5, pvFlow_Lmin: 1.1, haFlow_Lmin: 0.4,
 };
 
-export const PORTAL_TERRITORY = new Set(['SMV', 'IMV', 'SV', 'LGV', 'CONF', 'PVH', 'RPV', 'LPV', 'VAR', 'GV']);
+export const PORTAL_TERRITORY = new Set(['SMV', 'IMV', 'SV', 'SVD', 'LGV', 'CONF', 'PVH', 'RPV', 'LPV', 'VAR', 'GV']);
 // Edges that carry portal blood into systemic veins (for shunt fraction). Positive sign = toward systemic.
 export const PORTOSYSTEMIC_EDGES = ['C1b', 'C3', 'C4', 'C5', 'C6', 'C7', 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC'];
 export const SPLANCHNIC_ARTERIES = ['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA'];
@@ -208,3 +215,26 @@ export const SPLANCHNIC_ARTERIES = ['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA'];
 // portal vein (Moriyasu 1986), ≈ 0.5 × peak for laminar flow in a smooth stent. The usual Doppler
 // ranges (portal vein 15–40 cm/s, TIPS 90–190 cm/s) are peak velocities.
 export const dopplerK = (e) => (e?.kind === 'shunt' ? 2 : 1 / 0.57);
+// Stents: the TIPS, the DIPS and the shunts drawn with the stent tool. Each is sampled by Doppler at its portal end
+// (proximal), its middle and its systemic end (distal). A narrowing is a short pinch in one of those three
+// segments (params.stenosisSite, distal by default, where a TIPS usually narrows); the rest of the stent keeps its
+// diameter. The drawn path of a stent runs from its portal end, so STENT_SITES places the pinch along it (0–1).
+export const STENT_SITES = { proximal: 1 / 6, mid: 0.5, distal: 5 / 6 };
+export const isStent = (e) => e?.kind === 'shunt' && (e.shunt === 'tips' || e.shunt === 'dips' || e.shunt === 'custom');
+export const stentSite = (p, id) => (STENT_SITES[p?.stenosisSite?.[id]] != null ? p.stenosisSite[id] : 'distal');
+// The thirds of a stent the Doppler gate samples and a slide can highlight (0–1 along its drawn path, from its portal end).
+export const STENT_SPANS = { proximal: [0, 1 / 3], mid: [1 / 3, 2 / 3], distal: [2 / 3, 1] };
+// The segment a Doppler gate names: 'site' follows the stent's narrowing (stentSite); anything else unknown is the mid stent.
+export const stentGate = (gate, p, id) => (gate === 'site' ? stentSite(p, id) : STENT_SPANS[gate] ? gate : 'mid');
+// A stent's velocity at its proximal, mid and distal segments (cm/s), as TIPS Doppler reports it. The same flow
+// passes every point, so velocity goes with 1 / diameter²: v is the velocity in the open stent, and the segment
+// holding a narrowing s (0..1 of the diameter) runs at v / (1 − s)².
+// A working stent still reads a little differently along its length, as on real scans: slowest at the portal end and fastest
+// mid stent (Mitchell et al., Abdom Radiol 2025: 141/185/172 cm/s in 8 mm and 147/149/141 in 10 mm patent stents), so
+// proximal 0.9×, mid 1×, distal 0.95×, well under the 50 cm/s change that suggests stenosis.
+// The spread fades out as a narrowing grows (gone by 30 %), so a narrowed stent reads its slow flow and its jet alone.
+export const STENT_GRADIENT = { proximal: 0.9, mid: 1, distal: 0.95 };
+export const stentSegments = (v, s = 0, site = 'distal') => {
+  const w = Math.max(0, 1 - Math.max(0, s) / 0.3);
+  return ['proximal', 'mid', 'distal'].map((k) => (k === site && s > 0 && s < 0.995 ? v / ((1 - s) * (1 - s)) : v) * (1 + (STENT_GRADIENT[k] - 1) * w));
+};

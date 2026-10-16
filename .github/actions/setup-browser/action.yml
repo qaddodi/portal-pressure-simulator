@@ -1,5 +1,5 @@
 name: Set up Node and Chromium
-description: npm ci, then Chromium for Playwright from a cache keyed on its version (apt only when a library is missing).
+description: npm ci, then Chromium for Playwright from a cache keyed on its version and the runner image (apt only when a library is missing).
 runs:
   using: composite
   steps:
@@ -17,7 +17,8 @@ runs:
       id: playwright-cache
       with:
         path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+        # (ImageOS, e.g. ubuntu24: a new runner image gets its own Chromium rather than one cached on the old image)
+        key: playwright-${{ runner.os }}-${{ env.ImageOS }}-${{ steps.playwright.outputs.version }}
     # Composite steps cannot set timeout-minutes, so `timeout` caps the downloads: a slow mirror
     # then fails this step clearly instead of eating the job.
     - name: Download Chromium

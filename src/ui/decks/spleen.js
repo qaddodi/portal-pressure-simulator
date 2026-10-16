@@ -9,11 +9,17 @@ export const SPLEEN = {
     'Use the platelets and the liver stiffness to decide on a screening endoscopy',
     'Compare partial splenic embolization with splenectomy',
   ],
+  checks: [
+    ['Give two reasons the platelets fall in cirrhosis.', 'The large spleen pools them, and the scarred liver makes less thrombopoietin.'],
+    ['Which results spare a screening endoscopy?', 'Stiffness below 20 kPa with platelets of 150 or more.'],
+    ['What risk does splenectomy carry?', 'Portal vein thrombosis, from blood stagnating in the stump of the splenic vein.'],
+  ],
   summary: 'How the spleen grows as the portal pressure rises, why the platelets fall, when platelets and stiffness can spare an endoscopy, and what splenic embolization and splenectomy do.',
   slides: [
     {
       id: 'normal', preset: 'healthy', cam: 'splenic', terms: ['spleen', 'pv'], data: 'tiles', tiles: ['spleen', 'plt'], key: ['spleen'],
       kicker: 'A growing spleen', title: 'A normal spleen',
+      vignette: 'A 45-year-old woman with obesity and type 2 diabetes has MASLD with raised liver enzymes. Her spleen and platelet count are normal.',
       line: 'The spleen is {spleen} long, the platelets are {plt}, and the [splenic vein](sv) drains it into the portal vein.',
       notes: 'The splenic vein joins the superior mesenteric vein behind the pancreas to form the portal vein. At any time about a third of the body\'s platelets are held in a normal spleen. On ultrasound a length up to about 12 to 13 cm is normal in an adult.',
       ask: ['What share of the body\'s platelets sits in a normal spleen?', 'About a third.'],
@@ -36,9 +42,9 @@ export const SPLEEN = {
     {
       id: 'screen', cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm', 'plt'],
       kicker: 'The platelets', site: 'sin', title: 'Platelets and stiffness: who needs the scope',
-      line: 'Stiffness below 20 kPa with platelets above 150 spares the screening endoscopy. This patient has {lsm} and {plt}: CSPH is likely, so carvedilol starts and no scope is needed.',
-      notes: 'These are the Baveno criteria for sparing a screening endoscopy in compensated advanced chronic liver disease; patients who meet them repeat the stiffness and the platelet count every year. This patient meets neither: a stiffness this high with platelets this low means clinically significant portal hypertension (the model\'s HVPG is above 10 mmHg). A patient with CSPH who can take a non-selective beta-blocker starts carvedilol and needs no screening endoscopy; only those who cannot take one, or in whom CSPH is uncertain (the gray zone), are scoped.',
-      ask: ['Stiffness 14 kPa and platelets 190. Does this patient need a screening endoscopy?', 'No: below 20 kPa with platelets above 150, repeat both tests in a year.'],
+      line: 'Stiffness below 20 kPa with platelets of 150 or more spares the screening endoscopy. The patient has {lsm} and {plt}: CSPH is likely, so carvedilol starts and no scope is needed.',
+      notes: 'These are the Baveno criteria for sparing a screening endoscopy in compensated advanced chronic liver disease; patients who meet them repeat the stiffness and the platelet count every year. The patient meets neither: a stiffness this high with platelets this low means clinically significant portal hypertension (the model\'s HVPG is above 10 mmHg). A patient with CSPH who can take a non-selective beta-blocker starts carvedilol and needs no screening endoscopy; only those who cannot take one, or in whom CSPH is uncertain (the gray zone), are scoped.',
+      ask: ['Stiffness 14 kPa and platelets 190. Does this patient need a screening endoscopy?', 'No: below 20 kPa with platelets of 150 or more, repeat both tests in a year.'],
     },
     {
       id: 'pse', params: { splenicRx: 1 }, cam: 'splenic', tool: { kind: 'doppler', vessel: 'SV_CONF', delta: 'grown' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
@@ -50,15 +56,15 @@ export const SPLEEN = {
     {
       id: 'later', days: 180, lapse: { seconds: 6 }, cam: 'splenic', terms: ['spleen'], data: 'tiles', tiles: ['plt', 'spleen'], key: ['plt'], delta: 'grown',
       kicker: 'Treating the spleen', site: 'sin', title: 'Platelets rise as the spleen shrinks',
-      line: 'With less functioning splenic pulp, fewer platelets are sequestered. Six months on, platelets are {plt} and the spleen is {spleen}. The count can fall again if the remaining spleen regrows.',
+      line: 'With less working pulp, the spleen traps fewer platelets. Six months on, platelets are {plt} and the spleen is {spleen}. The count can fall again if the remaining spleen regrows.',
       notes: 'With less working pulp, fewer platelets are pooled and the count rises over the following weeks. The rise can fade as the remaining spleen grows back. Embolization is used for severe thrombocytopenia or hypersplenism in centers with experience.',
       ask: ['Why do platelets rise after splenic embolization?', 'Less splenic pulp is left to pool them.'],
     },
     {
-      id: 'splenectomy', terms: ['spleen', 'pv'], preset: 'csph', params: { splenicRx: 2 }, cam: 'splenic', data: 'tiles', tiles: ['plt', 'pv'], key: ['plt'],
+      id: 'splenectomy', lens: 'velocity', terms: ['spleen', 'pv'], preset: 'csph', params: { splenicRx: 2 }, cam: 'splenic', data: 'tiles', tiles: ['plt', 'pv'], key: ['plt'],
       kicker: 'Treating the spleen', site: 'sin', title: 'Splenectomy raises platelets but can cause portal vein thrombosis',
-      line: 'With the spleen removed, platelets are no longer sequestered, and the count is {plt}. Blood can stagnate in the stump of the [splenic vein](sv), and the clot can spread into the portal vein.',
-      notes: 'Splenectomy is now rare in cirrhosis: the operation carries real risk, and splenic and portal vein thrombosis is common after it. It keeps a place for bleeding gastric varices caused by splenic vein thrombosis, where the spleen is the source of the high pressure.',
+      line: 'With the spleen gone, platelets have nowhere to pool, and the count is {plt}. Blood can stagnate in the stump of the [splenic vein](sv), and the clot can spread into the portal vein. Colored by velocity, the splenic vein goes still.',
+      notes: 'Splenectomy is now rare in cirrhosis: the operation carries real risk, and splenic and portal vein thrombosis is common after it. It keeps a place for bleeding gastric varices caused by splenic vein thrombosis, where the spleen is the source of the high pressure. On the figure, colored by velocity, the splenic vein goes still and the portal vein slows.',
       ask: ['Which complication of splenectomy do you look for in the weeks after it, and why is it likely here?', 'Splenic and portal vein thrombosis: blood stagnates in the stump of the splenic vein.'],
     },
     {

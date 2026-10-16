@@ -14,7 +14,8 @@
 //   labels                   the stations named on the anatomy (none when absent)
 //   tint                     ['imv']: TARGETS keys whose station label takes its colour though the line never names it
 //   layers                   ['zones']: the lobule's zone bands on (a lobule slide shows none otherwise)
-//   mark                     { edges, label }: a ring and a callout on the figure (hidden until a quiz is answered)
+//   mark                     { edges, label, seg? }: a ring and a callout on the figure; on a stent,
+//                            seg ('proximal' | 'mid' | 'distal' | 'site', the third holding its narrowing) lights and points at that third only
 //   eq                       [MathML, legend?]: an equation under the title (see mi, mo, sub and frac)
 //   kicker, site, title, line, causes
 //                            the words (site: a level of ladder.js SITES; it colours the kicker). The title stands alone without
@@ -24,16 +25,21 @@
 //   data                     'ladder': the pressure ladder and tiles; 'tiles': tiles only (tiles: which, key: what
 //                            to highlight, delta: true or a slide id to show each tile's change from that state; a slide that
 //                            changes the same patient (no preset) counts from the slide before unless it says delta: false;
-//                            brackets: { hvpg | ppg: 'misleads' | 'works' } colours the ladder's bracket red or green, its number in it)
+//                            brackets: { hvpg | ppg: 'misleads' | 'works' } colours the ladder's bracket red or green, its number in it;
+//                            block: a station ('pv' | 'whvp' | 'fhvp' | 'ivc' | 'ra') carrying the block itself, hatched on its node)
 //   tool                     an instrument in the data card, reading the live model (presenter-tools.js): { kind: 'doppler',
-//                            vessel }, { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
+//                            vessel, gate?, points? } (gate: on a stent, the third it samples, 'proximal' | 'mid' (default) | 'distal' | 'site';
+//                            points: true calls out the stent's velocity at all three points on the figure, the sampled one in green), { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
 //                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section); title? names the card; waves: true
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
 //                            (on a phone it folds away behind a Show button; open: true keeps it open there and folds the tiles instead)
+//   lens                     the vessel colours on that slide: 'velocity', 'flow', 'direction', 'heat' (congestion), 'drop'
+//                            (pressure drop), 'delta' (change from healthy), 'oxygen' (oxygen saturation) or 'origin' (blood origin), with a key under the line; pressure when absent
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
-//   tick                     a few words for what happened at this slide's time point, under its line on a talk trace (else its title)
+//   tick                     a few words for what happened at this slide's time point, over its line, at 45°, on a talk trace (else its title)
+//   when                     the time point under that line, in words, when the days so far would repeat the one before (a drug started at the same visit)
 //   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them) play on the
 //                            live figure as a time-lapse, from the slide before's state (from/to: words for the
 //                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
@@ -43,39 +49,46 @@
 //                            compares it with that row instead, its note: the text column's words, or an array of them), 'scale' (scale), 'quadrant'
 //                            (SAAG × protein) or 'walls'; of: the rows, slide ids or { id | preset, name, title, note, blank: [columns] }
 //   compare                  [{ label, params, own? }]: buttons that switch the live model between treatments in real
-//                            time (params: each option's full set of the switched keys; own: the slide's own state)
-//   quiz                     quiz mode (Q) asks this before the answer shows (the camera waits at the whole figure)
+//                            time (params: each option's full set of the switched keys; own: the slide's own state);
+//                            or [{ label, lens, own? }]: buttons that switch the figure's lens, the model untouched;
+//                            or [{ label, gate, own? }]: buttons that move a stent Doppler's gate (see tool), the model untouched
+//   fold                     false: the ladder card never folds its plot behind Show (Sites slide 7 folded on a laptop); its own zoom fits it
 //   caveat                   one short sentence in small print under the line, where the model differs from patients
 //   notes, ask               speaker notes, and [question, expected answer] for the room
+//   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter
+//                            (a dotted path, e.g. 'tips.d', or an array of paths moved together, e.g. both lobes' fibrosis)
+//                            of the live model; the figure and the data card follow it
 //
 // Deck fields: id, level, title, minutes, summary, objectives (3 to 4 short learning objectives), slides, and sections
-// ([name, [kickers]], three to five) when its kicker groups are more than five.
+// ([name, [kickers]], three to five) when its kicker groups are more than five, and checks ([[question, answer]], three
+// or four), the closing quick check.
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=a0bf5a17c7';
-import { SITES } from './decks/sites.js?v=36e6abf616';
-import { HVPG } from './decks/hvpg.js?v=e4c550f298';
-import { ASCITES } from './decks/ascites.js?v=4f7388ad65';
-import { VARICES } from './decks/varices.js?v=904a37fa1c';
-import { TREATMENT } from './decks/treatment.js?v=8b12768e70';
-import { STIFFNESS } from './decks/stiffness.js?v=da30273d27';
-import { ONE_YEAR } from './decks/one-year.js?v=aaf38e4baf';
-import { LOBULE } from './decks/lobule.js?v=262a31ce6b';
-import { SHUNTS } from './decks/shunts.js?v=91699f4277';
-import { TAP } from './decks/tap.js?v=57022d906f';
-import { CIRCUIT } from './decks/circuit.js?v=25877f3594';
-import { DOPPLER } from './decks/doppler.js?v=7eb07fe1b9';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=7499cfd26b';
-import { PREHEPATIC } from './decks/prehepatic.js?v=09eb3594b2';
-import { RIGHT_HEART } from './decks/right-heart.js?v=9076b88b18';
-import { BLEED } from './decks/variceal-bleed.js?v=920b99c0ca';
-import { TWO_INFLOWS } from './decks/two-inflows.js?v=2a19a5fc63';
-import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=a01124f125';
-import { SPLEEN } from './decks/spleen.js?v=c8fca55d38';
-import { NCPH } from './decks/ncph.js?v=8794f0bf6b';
-import { OUTFLOW } from './decks/outflow.js?v=e0f5f66517';
-import { RECOMPENSATION } from './decks/recompensation.js?v=0d5b3fb564';
+import { CIRCULATION } from './decks/circulation.js?v=4e1c0762c5';
+import { SITES } from './decks/sites.js?v=1b05ba2a08';
+import { HVPG } from './decks/hvpg.js?v=cd919eeec5';
+import { ASCITES } from './decks/ascites.js?v=15bbff4e49';
+import { VARICES } from './decks/varices.js?v=243b1724a8';
+import { TREATMENT } from './decks/treatment.js?v=fd11e15e2e';
+import { STIFFNESS } from './decks/stiffness.js?v=f44a1aea03';
+import { ONE_YEAR } from './decks/one-year.js?v=2d269c2aad';
+import { LOBULE } from './decks/lobule.js?v=2179638d8f';
+import { SHUNTS } from './decks/shunts.js?v=0de4e9f8a1';
+import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=461e9a8c10';
+import { TAP } from './decks/tap.js?v=04459c913c';
+import { CIRCUIT } from './decks/circuit.js?v=5b522232db';
+import { DOPPLER } from './decks/doppler.js?v=48cb959b74';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=d72eb14fbd';
+import { PREHEPATIC } from './decks/prehepatic.js?v=54d30be36f';
+import { RIGHT_HEART } from './decks/right-heart.js?v=88b4b09ea2';
+import { BLEED } from './decks/variceal-bleed.js?v=304609cf19';
+import { TWO_INFLOWS } from './decks/two-inflows.js?v=d5912518e2';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=85211432b5';
+import { SPLEEN } from './decks/spleen.js?v=770109c14c';
+import { NCPH } from './decks/ncph.js?v=516acbd224';
+import { OUTFLOW } from './decks/outflow.js?v=6070db53bd';
+import { RECOMPENSATION } from './decks/recompensation.js?v=5b034d13e0';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -103,23 +116,37 @@ const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
 export function withOverview(d) {
   if (!d?.slides?.length || d.slides[0].visual === 'outline') return d;
   const [first, ...rest] = d.slides, keep = !first.lapse && !first.ramp;
-  // The talk's sections: its own (sections: [[name, [kickers]]]), else its kicker groups when there are three to
-  // five; each slide then carries its place (sec: [n, of]) for the running head. Fewer groups: the slide titles.
+  // The talk's sections: its own (sections: [[name, [kickers or slide ids]]], ids for a talk under one kicker), else its
+  // kicker groups when there are three to five; each slide then carries its place (sec: [n, of]) for the running head.
+  // Fewer groups: the slide titles.
   const groups = [...new Set(d.slides.map((s) => s.kicker).filter((k) => k && k !== 'Summary'))];
   const secs = d.sections || (groups.length >= 3 && groups.length <= 5 ? groups.map((g) => [g, [g]]) : null);
   const outline = secs ? secs.map(([n]) => n) : d.slides.filter((s) => s.kicker !== 'Summary').map((s) => s.title);
-  const place = (s) => { const k = secs ? secs.findIndex(([, ks]) => ks.includes(s.kicker)) : -1; return k >= 0 ? { ...s, sec: [k + 1, secs.length] } : s; };
+  const place = (s) => { const k = secs ? secs.findIndex(([, ks]) => ks.includes(s.kicker) || (s.id && ks.includes(s.id))) : -1; return k >= 0 ? { ...s, sec: [k + 1, secs.length] } : s; };
   const open = { id: 'outline', visual: 'outline', outline, objectives: d.objectives || [], kicker: d.title, title: 'Outline and objectives',
     notes: 'Set out the plan of the talk and what the audience should be able to do by the end.',
     ...(keep ? Object.fromEntries(MODEL.filter((k) => first[k] !== undefined).map((k) => [k, first[k]])) : {}) };
-  const firstNow = keep ? Object.fromEntries(Object.entries(first).filter(([k]) => !MODEL.includes(k))) : first;
-  return { ...d, slides: [open, place(firstNow), ...rest.map(place)] };
+  // A first slide that opens with a case keeps its patient too, so it loads that patient afresh behind the case card.
+  const firstNow = keep && !first.vignette ? Object.fromEntries(Object.entries(first).filter(([k]) => !MODEL.includes(k))) : first;
+  // The closing quick check (checks: [[question, answer]]): over the last slide's patient, which it keeps.
+  const check = d.checks?.length ? [{ id: 'check', visual: 'check', checks: d.checks, kicker: 'Quick check', title: 'Check what you remember',
+    line: 'Answer each question in your head, then tap it to see the answer.' }] : [];
+  return { ...d, slides: [open, place(firstNow), ...rest.map(place), ...check] };
+}
+
+// The site tag by a slide's title: the level of its block (its site), on the slides of a deck that teaches more than one
+// level, so the learner always knows which type of portal hypertension the slide is about. A deck about cirrhosis alone
+// (every site sinusoidal) carries none, nor does a slide whose level rail already marks the block, or a visual.
+export const SITE_TAGS = { pre: 'Pre-hepatic', pvt: 'Pre-hepatic', presin: 'Presinusoidal', sin: 'Sinusoidal', postsin: 'Postsinusoidal', post: 'Post-hepatic', cardiac: 'Cardiac' };
+export function siteTag(deck, s) {
+  if (!s?.site || s.rail || s.visual || !deck?.slides?.some((x) => x.site && x.site !== 'sin')) return null;
+  return SITE_TAGS[s.site] ? { site: s.site === 'pvt' ? 'pre' : s.site, name: SITE_TAGS[s.site] } : null;
 }
 
 export const DECKS = [CIRCULATION, SITES, HVPG, ASCITES, VARICES, TREATMENT];
 
 DECKS.push(STIFFNESS, ONE_YEAR, TAP, CIRCUIT, LOBULE, SHUNTS);
-DECKS.push(DOPPLER, ENDOSCOPY);
+DECKS.push(DOPPLER, ENDOSCOPY, TIPS_DOPPLER);
 DECKS.push(PREHEPATIC, RIGHT_HEART, BLEED);
 DECKS.push(TWO_INFLOWS, PVT_CIRRHOSIS, SPLEEN, NCPH, OUTFLOW, RECOMPENSATION);
 
@@ -129,6 +156,6 @@ export const TOPICS = [
   ['causes', 'Causes', [['sites', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH'], ['ncph', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver'], ['outflow', 'Hepatic venous outflow block'], ['lobule', 'Inside the lobule']]],
   ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system'], ['stiffness', 'Stiffness, spleen and platelets'], ['one-year', 'A year of compensated cirrhosis']]],
   ['complications', 'Complications', [['varices', 'Collaterals and varices'], ['endoscopy', 'Endoscopy and the varix'], ['variceal-bleed', 'Acute variceal bleeding'], ['ascites', 'How ascites forms'], ['tap', 'Paracentesis and albumin'], ['spleen', 'The spleen: size and treatment'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis'], ['recompensation', 'Decompensation and recovery']]],
-  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure'], ['shunts', 'Spontaneous shunts and TIPS']]],
+  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure'], ['shunts', 'Spontaneous shunts and TIPS'], ['tips-doppler', 'Doppler after TIPS']]],
 ];
 for (const [topic, , list] of TOPICS) for (const [id, short] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short }); }
