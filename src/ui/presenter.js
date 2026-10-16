@@ -19,11 +19,11 @@ import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b9
 import { sinusoidSupported } from './sinusoid-view.js?v=586978f5cb';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=a57958b150';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=3531082a0b';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=29e4482b7a';
 import { createTools } from './presenter-tools.js?v=74df0ad0d4';
-import { openHandout } from './handout.js?v=481943d374';
+import { openHandout } from './handout.js?v=59b646b943';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=f709ae0429';
 import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
@@ -290,7 +290,18 @@ function wedgeColumn() {
     e.replaceChildren(...[t.slice(0, sp), t.slice(sp + 1)].map((l, i) => el('tspan', { x: W / 2, dy: i ? (1.2 * c).toFixed(1) : 0 }, l)));
     return 2;
   };
-  fitChart(svg, ({ cap: c }) => {
+  // (At a large text size the four names would stand in four rows, a staircase taller than the card: the lettering then steps down,
+  // never under half its role nor 12 px on the screen, until they fit two rows. Lobule slide 8 at 200 % on a 375 px phone ran its
+  // last names under the controls.)
+  fitChart(svg, ({ cap: c0 }, box) => {
+    const ppu = box.width / W || 1, cMin = Math.max(c0 / 2, 12 / ppu);
+    let c = c0;
+    for (; c > cMin; c = Math.max(cMin, c * 0.9)) {
+      names.forEach((n) => fsOf(n.e, c));
+      const ws = names.map((n) => n.e.getComputedTextLength()), xs = names.map((n, i) => inside(n.x, ws[i]));
+      const hit = (i, j) => Math.abs(xs[j] - xs[i]) < (ws[i] + ws[j]) / 2 + 6;
+      if (!(hit(0, 2) || hit(1, 3))) break;
+    }
     const lh = 1.2 * c, nTop = lines(topT, 'Still column: reads the sinusoids', 211, c);
     topT.setAttribute('y', (0.8 * c + 2).toFixed(1));
     const cy = 0.8 * c + 2 + (nTop - 1) * lh + 0.3 * c + 16, base = cy + 16 + 0.8 * c;
@@ -373,6 +384,9 @@ const fitNow = (c) => {
     // their lettering larger in the chart's units, the strips taller, and the card stayed zoomed to half for good.)
     const cellGrid = svg.closest(':is(.pz.stack, .pz.low) .pz-cell')?.parentElement;
     if (cellGrid) wz *= parseFloat(getComputedStyle(cellGrid).zoom) || 1;
+    // (A wide card's opened strip, folded behind Show, keeps its own size whatever the card's zoom (app.css): following the zoom, its
+    // height changed the card's fit, the fit its zoom, and the card never came to rest.)
+    if (svg.matches('.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) > .pz-strip')) wz = 1;
     for (const r of ROLE_NAMES) { pr.style.fontSize = `var(--ch-${r}, var(--s-${r}))`; fs[r] = parseFloat(getComputedStyle(pr).fontSize) * k * wz; }
     pr.remove();
     if (c.fs && ROLE_NAMES.every((r) => Math.abs(c.fs[r] - fs[r]) < 0.01 * fs[r]) && Math.abs(c.w - box.width) + Math.abs(c.h - box.height) < 1) return;
@@ -497,7 +511,7 @@ function bigLadder() {
     b.lbl.setAttribute('y', (above ? r - 0.4 * S.c : r + 0.33 * S.c).toFixed(1));
     b.bar.setAttribute('d', `M${b.x0} ${r - 3}V${r + 3}M${b.x1} ${r - 3}V${r + 3}` + (above ? `M${b.x0} ${r}H${b.x1}` : `M${b.x0} ${r}H${mid - half}M${mid + half} ${r}H${b.x1}`));
   };
-  const layS = (fs) => {
+  const layS = (fs, box) => {
     // (A reading takes the largest role whose two digits still leave the line its gap on each side between stations 70 apart:
     // in a narrow card at a large text size the value role would run the readings into each other.)
     const fit = [fs.val, fs.body, fs.lab, fs.cap].filter((x) => x > 0), v0 = fit.find((x) => est('20', x, 0.62) + 2 * 5 + 10 <= 70) ?? Math.min(...fit);
@@ -506,9 +520,16 @@ function bigLadder() {
     // The names tilt 45° when neighbours would touch, rising from just above their readings (two staggered rows crowded a narrow cell).
     // (Tilted names are parallel strips 70 × sin 45° = 49.5 apart: at a large text size, where letters that tall would touch, the
     // names stand upright instead, 70 apart, at the same size.)
-    const nameW = Math.max(...RUNGS.map(([, a]) => est(a, c, 0.7))), tilt = nameW > 70 - 6;
-    const ang = !tilt ? 0 : 1.1 * c <= 49.5 ? 45 : 90, kc = c;
-    S.ky = ang === 45 ? 0.71 * nameW + 0.9 * c : ang ? nameW + 0.6 * c : 0.8 * c + 1; S.ky2 = S.ky;
+    // (At a large text size the names step down first, never under half their role nor 12 px on the screen, so they stand
+    // upright between stations: tilted, they made the strip twice as tall as its card and cut off its PPG row (recompensation
+    // slide 5 at 200 % on a 375 px phone).)
+    const ppu = box?.width ? box.width / S.W : 0, kMin = ppu ? Math.max(c / 2, 12 / ppu) : c;
+    const wOf = (x) => Math.max(...RUNGS.map(([, a]) => est(a, x, 0.7)));
+    let kc = c;
+    while (wOf(kc) > 70 - 6 && kc > kMin) kc = Math.max(kMin, kc * 0.9);
+    const nameW = wOf(kc), tilt = nameW > 70 - 6;
+    const ang = !tilt ? 0 : 1.1 * kc <= 49.5 ? 45 : 90;
+    S.ky = ang === 45 ? 0.71 * nameW + 0.9 * kc : ang ? nameW + 0.6 * kc : 0.8 * kc + 1; S.ky2 = S.ky;
     S.ny = S.ky2 + 0.3 * c + 0.55 * v + 3;
     // (A phone's site-ladder cell, upright or sideways, writes no names: the rows share one row of names over them, laddersGrid's .pz-grid-head.)
     const bare = !!strip.closest(':is(.pz.stack, .pz.low) .pz-cell');
@@ -624,7 +645,10 @@ function bigLadder() {
       // (A cell its grid leaves no height at all, a phone held sideways, has no room for a plot either: it had drawn nothing.)
       if (cell && box.width > 0 && (box.height <= 0 || PHw < 48)) { for (const x of cell.parentElement.children) x.classList.toggle('strip', x.classList.contains('pz-cell')); PH = 48; }
       // (Too short for a readable plot: the card shows the compact strip instead, until a resize or the next slide.)
-      if (own && box.height > 0 && PHw < 48) el.closest('.pz-data')?.classList.add('strip');
+      // (The card is laid out again at once for its strip: left to the next resize, a strip too tall for its room stood cut off at
+      // the card's foot until then.)
+      const dd = own && box.height > 0 && PHw < 48 ? el.closest('.pz-data') : null;
+      if (dd && !dd.classList.contains('strip')) { dd.classList.add('strip'); dd.dispatchEvent(new Event('pz-strip')); }
       if (own) PH = Math.max(12, PH);
     } else PH = 198;
     const yBot = yTop + PH;
@@ -1878,7 +1902,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         : [(({ site, name } = siteTag(deck, s) || {}) => site ? h('span', { class: 'pz-site', 'data-site': site }, name) : null)(), h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : 'Switch treatment on the live model' },
-            s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
+            s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,
           s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
@@ -2324,6 +2348,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // slide teaches always have room to show: the words' card is capped to what is left (their fit then sets them a little
     // smaller), decided once per slide and size, so it never changes while the slide is in view. (Capped only at 62 % before:
     // with a tall data card, a 667 px iPhone kept 24 to 70 px of figure on a dozen slides and Circuit 2 hid its R liver.)
+    // (Before the words are measured for the phone's cap: measured with the full names on two rows, the card kept 12 px it no longer needed.)
+    abShort(ui.text, p || ui.root.classList.contains('low'));   // (a phone, upright or on its side; a wider card may take two rows of full names)
     const phoneCap = p ? phoneTextCap(lockKey, H, k) : null;
     if (phoneCap != null) ui.text.style.maxHeight = `${phoneCap.toFixed(1)}px`;
     fitCards(ui.text);
@@ -2332,7 +2358,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // On a laptop or tablet the data card always stacks under the words' card, at its width, a gap below it (0.6 of the margin),
     // above the controls; what does not fit is made smaller in fixed steps, never moved to the top right. A card in view that
     // changes place fades out, moves while unseen and fades back in.
-    let below = false, gap = 0, cw = 0, foot = H;
+    let below = false, gap = 0, cw = 0, foot = H, keepH = 0;   // (keepH: the room a ladder folded behind Show keeps, screen px)
     const top0 = cardOn && t ? sl : 0;   // (the cards' top: one margin from the top, as from the side)
     if (cardOn && t && !off(dd)) {
       gap = Math.round(0.6 * sl); cw = t.right - wr.left + pad - sl;
@@ -2360,7 +2386,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // smaller (DK) with the words a little smaller to match. At the last step the pair stays stacked and the data card's own fit does the rest.
       const put = (tk, bk) => { ui.text.style.setProperty('--pz-tk', tk); ui.text.style.setProperty('--pz-bk', bk); t = r(ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
       const title = (bk = 1) => { for (const tk of TK) if (put(tk, bk)) return true; return false; };
-      const step = (s) => { dk = s; ch = colHeight(cw / k, s) * k; };
+      // (A ladder folded behind Show keeps room under the words for its opened strip: the words step down for that, never the
+      // strip squeezed into a header's room. pvt-cirrhosis slide 4 at 200 % on a 1440x900 screen opened into 144 px, its strip zoomed
+      // to half and PPG still cut off at the card's foot.)
+      // (Folded, its tiles stand where the strip shows once opened: the room is the taller of the two.)
+      const foldH = (s) => Math.max(colHeight(cw / k, s), dd.classList.contains('pz-folds') && !dd.classList.contains('has-tool') ? colHeight(cw / k, s, true) : 0);
+      const step = (s) => { dk = s; ch = foldH(s) * k; };
       // (The words' text steps down with the blocks, a little less, so the two cards' type never ends far apart.)
       const ladder = () => {
         for (const [s, bk] of DK) { if (below) break; step(s); below = title(bk); }   // (the data card's blocks a step or two smaller, the words a little: no further, or the words would squeeze)
@@ -2371,7 +2402,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (lock) {
         for (const [n, v] of lock.vars) if (v) ts.setProperty(n, v);
         if (lock.folds) setFolds(true);
-        t = r(ui.text); below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = colHeight(cw / k, dk) * k;
+        t = r(ui.text); below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = foldH(dk) * k;
       } else {
         // (A title a step or two smaller at the one card width, then the steps below; the column never widens.)
         below = title(1);
@@ -2382,6 +2413,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         if (!below) { put(TK[TK.length - 1], DK[DK.length - 1][1]); below = true; }
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
+      keepH = ch;
       if (lockKey && !lock) textLock = { key: lockKey, below, dk, folds: dd.classList.contains('pz-folds'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
     } else dd.style.removeProperty('--pz-dk');
     const isCol = dd.classList.contains('col');
@@ -2421,6 +2453,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (q.width && room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`;
     }
     if (below !== isCol) { void dd.offsetWidth; dd.style.transition = ''; }
+    chipRoom(dd);
     fitCards(ui.data, ui.panel);
     // (A ladder card still too full at its smallest zoom: laid out again, folded, for as long as the slide shows at this size.
     // At 100 % text the card always fits by its own zoom, so it never folds there.)
@@ -2432,7 +2465,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
     let shift = 0;
     if (below && t && !off(dd)) {
-      const stackH = t.height + 2 * pad + gap + dd.offsetHeight * k;
+      // (A ladder folded behind Show is centred by the room it keeps, the same folded or opened, never by its fitted height: that
+      // moved the card, which fitted it again to another height, and an opened strip card at 200 % never came to rest.)
+      const stackH = t.height + 2 * pad + gap + (dd.classList.contains('pz-folds') && !dd.classList.contains('has-tool') ? Math.min(keepH, foot - y) : dd.offsetHeight * k);
       shift = Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
       if (shift > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = `${((foot - y - shift) / k).toFixed(1)}px`; } else shift = 0;
     }
@@ -2471,6 +2506,29 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!dock.drag) dockPaint();
     placeBar();
     dispatchEvent(new Event('pps:occ'));
+  }
+  // A row of choices is one row: where its full names would wrap (five treatments on a 375 to 430 px iPhone), each button that has
+  // one takes its compact label (the full name stays its accessible name and tooltip), never a second row or a smaller size.
+  function abShort(root, may) {
+    for (const row of root.querySelectorAll('.pz-ab')) {
+      const bs = [...row.querySelectorAll('.pz-abb[data-short]')];
+      if (!bs.length) continue;
+      for (const b of bs) b.textContent = b.dataset.full;
+      const tops = () => new Set([...row.querySelectorAll('.pz-abb')].map((b) => Math.round(b.offsetTop))).size;
+      if (may && (tops() > 1 || row.scrollWidth > row.clientWidth + 1)) for (const b of bs) b.textContent = b.dataset.short;
+    }
+    // (A phone on its side: the row of choices at the largest size that holds it on one line, never under 12 px on the screen nor
+    // over its own size; the card's fit, which took the four lens buttons to 11 px at 150 %, never sets it.)
+    if (!ui.root.classList.contains('low')) return;
+    for (const row of root.querySelectorAll(':scope > .pz-ab')) {
+      const b = row.querySelector('.pz-abb'), host = row.parentElement;
+      if (!b || !host.clientWidth) continue;
+      row.style.zoom = '1'; row.style.flexWrap = 'nowrap'; row.style.width = 'max-content'; row.style.maxWidth = 'none';
+      const nat = row.getBoundingClientRect().width + 2, cs = getComputedStyle(host), avail = host.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      row.style.flexWrap = row.style.width = row.style.maxWidth = '';
+      const fs = parseFloat(getComputedStyle(b).fontSize) || 12;
+      row.style.zoom = String(Math.max(12 / fs, Math.min(1, avail / nat)).toFixed(3));
+    }
   }
   // The figure's share of a phone's height (between the data card and the words' glass), and the words' cap that keeps it.
   // Where the figure's share, the data card and the words at 12 px or more cannot all fit, the data card folds to its header
@@ -2519,8 +2577,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const both = H - foot - 16 - 8 - dtop - FIG_MIN(H);
     let data = gone ? 0 : natural(dd, ds), fold = false, tightOn = false;
     if (!gone && (both - data < words || data > dmax + 0.5) && dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip)')) {
-      dd.classList.add('pz-folds');
+      // (Measured shut, whatever Show left: opened as the slide was still arriving, the card measured its full height here, did not
+      // fold, and capped the words to the room left; lobule slide 8 at 200 % on a 390 px iPhone then ran its still column out of its card.)
+      const open = dd.classList.contains('tool-open');
+      dd.classList.add('pz-folds'); dd.classList.remove('tool-open');
       const shut = natural(dd, ds);
+      if (open) dd.classList.add('tool-open');
       if (shut < data - 1) {
         data = shut; fold = true; phoneFoldH = shut / k;
         // (Still short of the figure's share: the folded card takes its compact form, 6 px above and below its header in place
@@ -2528,7 +2590,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         if (both - data < words) { dd.classList.add('pz-ftight'); const tight = natural(dd, ds); data = tight; phoneFoldH = tight / k; tightOn = true; }
         // (Each such slide comes in folded, whatever an earlier slide's Show left open.)
         const b = dd.querySelector('.pz-dh > .pz-fold');
-        dd.classList.remove('tool-open'); if (b) { b.textContent = 'Show'; b.setAttribute('aria-expanded', 'false'); }
+        if (dd.dataset.openFor !== String(want)) { dd.classList.remove('tool-open'); if (b) { b.textContent = 'Show'; b.setAttribute('aria-expanded', 'false'); } }
       } else dd.classList.remove('pz-folds');
     }
     // (Words at 12 px win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card.)
@@ -2542,11 +2604,25 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The stacked data card's fixed block sizes, largest first, and the smallest the words' title goes.
   const DK = [[0.9, 0.95], [0.8, 0.9], [0.7, 0.88], [0.6, 0.88]], TK = [1, 0.95, 0.9, 0.85, 0.8];   // (the data card's block size with the words' text size; the title's steps)
   // The data card's height at width w (page px) under the words: as it would stand there, at full size (unfitted).
-  function colHeight(w, dk = 1) {
+  // A header's Show or Hide keeps its title clear by the chip's own width, not a fixed 64 or 66 px: a larger text size grows the chip,
+  // and a title once ran under it (DOPPLER, TH at 200 % on a 390 px phone). Its words' width goes to the stylesheet in ems of the
+  // header's own type (--pz-chip-em, the wider of Show and Hide), so the room never changes with the card's zoom or a tap.
+  const chipCanvas = document.createElement('canvas').getContext('2d');
+  function chipRoom(dd) {
+    const f = dd.querySelector('.pz-dh > .pz-fold');
+    if (!f || !chipCanvas) return;
+    const cs = getComputedStyle(f), fs = parseFloat(cs.fontSize) || 0, ls = parseFloat(cs.letterSpacing) || 0;
+    if (!fs) return;
+    chipCanvas.font = `${cs.fontWeight} ${fs}px ${cs.fontFamily}`;
+    const w = Math.max(...['Show', 'Hide'].map((t) => { const x = cs.textTransform === 'uppercase' ? t.toUpperCase() : t; return chipCanvas.measureText(x).width + ls * x.length; }));
+    dd.style.setProperty('--pz-chip-em', (w / fs).toFixed(3));
+  }
+  // (open: a ladder folded behind Show, measured as it stands opened, so the room kept under the words holds it when Show is tapped.)
+  function colHeight(w, dk = 1, open = false) {
     // (Unfitted, its zoom (--pz-z) cleared with the fit: kept, the card measured at the last fit's zoom, so the words' step depended on
     // what was fitted before (a live text-size change took a larger title than a fresh load at that size).)
     const d = ui.data, ds = d.style, sv = [d.className, ds.width, ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-dk'), ds.getPropertyValue('--pz-z')];
-    d.classList.add('col'); if (dk < 1) ds.setProperty('--pz-dk', dk); else ds.removeProperty('--pz-dk'); ds.width = `${w}px`; ds.maxHeight = 'none'; ds.removeProperty('--pz-fit'); ds.removeProperty('--pz-z');
+    d.classList.add('col'); if (open) d.classList.add('tool-open'); if (dk < 1) ds.setProperty('--pz-dk', dk); else ds.removeProperty('--pz-dk'); ds.width = `${w}px`; ds.maxHeight = 'none'; ds.removeProperty('--pz-fit'); ds.removeProperty('--pz-z');
     const hh = d.offsetHeight;
     d.className = sv[0]; ds.width = sv[1]; ds.maxHeight = sv[2]; if (sv[3]) ds.setProperty('--pz-fit', sv[3]); if (sv[4]) ds.setProperty('--pz-dk', sv[4]); else ds.removeProperty('--pz-dk'); if (sv[5]) ds.setProperty('--pz-z', sv[5]);
     return hh;
@@ -3051,6 +3127,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const p = partOf(), cs = getComputedStyle(p), from = ['maxHeight', 'opacity', 'marginTop', 'marginBottom'].map((n) => [n, cs[n]]);
       p.style.transition = 'none'; for (const [n] of from) p.style[n] = '';
       data.classList.toggle('tool-open', open); fold.setAttribute('aria-expanded', String(open)); fold.textContent = open ? 'Hide' : 'Show';
+      data.dataset.openFor = String(want);   // (the slide it was tapped on: phoneTextCap keeps it open there)
       delete data.dataset.folding; fitDone.delete(data); layout();
       // (Then back to where the part stood, from which it eases to its rest.)
       data.dataset.folding = '';
@@ -3070,6 +3147,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, ladder.strip, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
     foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); });
     dockTouch(data);
+    data.addEventListener('pz-strip', () => requestAnimationFrame(() => { if (ui) { fitDone.delete(data); layout(); } }));   // (laid out, not a resize: a resize sets every strip back to its plot and measures again)
     // A part that has finished folding or unfolding: fit the card again from full size (a fit taken mid-fold kept the tiles small).
     data.addEventListener('transitionend', (e) => { if (e.propertyName === 'max-height' && e.target.parentElement === data) { if ('folding' in data.dataset) foldStill(); else { fitDone.delete(data); onResize(); } } });
     const veil = h('div', { class: 'pz-veil' }), panel = h('section', { class: 'pz-panel stage-blocker', hidden: true, 'aria-live': 'polite' });

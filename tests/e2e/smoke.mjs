@@ -1431,8 +1431,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const wide = [...document.querySelectorAll('.pz-text *')].filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflow !== 'visible').length;
       return { h: fs('.pz-h'), line: fs('.pz-line'), wide, overlap: !!(t && d && d.width && t.right > d.left && t.left < d.right && t.bottom > d.top && t.top < d.bottom) };
     });
-    // (Sized by the height, an upright iPad's 1180 px set the title at 57 px in a 300 px column.)
-    if (m.h > 40 || m.line > 22) throw new Error(`upright iPad presenter type too large: title ${m.h}px, body ${m.line}px`);
+    // (Sized by the height, an upright iPad's 1180 px set the title at 57 px in a 300 px column. Since 1f25c95 an upright iPad
+    // takes the phone's layout and its 1.7x slide words (a77f314): its body is 23.3 px there, the bound 24.)
+    if (m.h > 40 || m.line > 24) throw new Error(`upright iPad presenter type too large: title ${m.h}px, body ${m.line}px`);
     if (m.overlap) throw new Error('upright iPad presenter: the words overlap the data card');
     if (m.wide) throw new Error(`upright iPad presenter: ${m.wide} element(s) of the words overflow sideways`);
   });
@@ -2483,13 +2484,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (bad.length) throw new Error(bad.slice(0, 3).join(' | '));
   });
 
-  // Drawn slide charts letter from the same scale as drawn: never under 11 px, growing with the text size, no word over
+  // Drawn slide charts letter from the same scale as drawn: never under 12 px, growing with the text size, no word over
   // another or out of its card, on every chart slide at three phones, an iPad and a desktop (tests/e2e/chart-type.mjs).
   // (One check for each deck and text size: the whole sweep is 35 slides at five sizes and two text sizes, some 78 minutes in one piece.)
   if (device === 'desktop') {
     const perDeck = new Map();
     for (const s of await chartTypeSlides()) perDeck.set(s.deck, (perDeck.get(s.deck) || 0) + 1);
-    for (const [deck, count] of perDeck) for (const step of [1, 2]) {
+    for (const [deck, count] of perDeck) for (const step of [1, 1.5, 2]) {
       const name = `chart type: ${deck}'s drawn slide charts on the type scale at ${step * 100} %`;
       CHART_SLIDES.set(name, count);
       await check(device, name, async () => {

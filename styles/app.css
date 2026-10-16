@@ -2134,7 +2134,12 @@ button.finding { cursor: pointer; }
    at a larger one, so the row stays the height of its 34 px buttons and the card's words keep their larger size; the label role
    under 360 px. Its roles are its own, not the slide words' 1.7x, which would not fit four across.) */
 .pz.stack .pz-ab { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
-.pz.stack .pz-text > .pz-ab { zoom: min(1, max(var(--pz-fit, 1), calc(7 / 6 / var(--ts, 1)))); }   /* (a larger text size: the buttons, the label role, never read smaller on the screen than at the usual size's 14 px) */
+.pz.stack .pz-text > .pz-ab { zoom: min(1, max(var(--pz-fit, 1), calc(7 / 6 / var(--ts, 1)))); }
+/* (A phone on its side: the same one row at the roles' own size, not the side panel's 1.4x words, which set the lens buttons
+   at 16.8 px in two rows of two on an 844x390 screen.) */
+.pz.low .pz-ab { --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); }
+.pz.low .pz-abb { font-size: max(var(--s-lab), var(--t-body)); min-height: 34px; padding: .4em .6em; white-space: nowrap; }
+.pz.low .pz-text > .pz-ab { zoom: min(1, max(var(--pz-fit, 1), calc(1 / var(--ts, 1)))); }   /* (the card's fit never takes the buttons under 12 px on the screen: 11 px at 150 % on an 844x390 screen) */   /* (a larger text size: the buttons, the label role, never read smaller on the screen than at the usual size's 14 px) */
 @media (max-width: 359px) {
   /* (a 320 px card fitted smaller keeps its buttons at 12 px on the screen (they had been 9.6): the row zooms no smaller than
      that, and its height is set to what it was at the card's zoom, so the card, the figure above it and the credit stay put) */
@@ -5024,7 +5029,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:is(.stack, .low) .pz-data:is(.has-tool:not(.tool-only), .pz-folds) .pz-dh { padding-inline: 0; flex-wrap: nowrap; }
 .pz:is(.stack, .low) .pz-data:is(.has-tool:not(.tool-only), .pz-folds) .pz-dh::before,
 .pz:is(.stack, .low) .pz-data:is(.has-tool:not(.tool-only), .pz-folds) .pz-dh::after { content: ''; flex: 1 1 0; min-width: 0; }
-.pz:is(.stack, .low) .pz-data:is(.has-tool:not(.tool-only), .pz-folds) .pz-dh::after { min-width: calc(var(--pz-chip-w, 66px) + 8px - 12px); }   /* (the pill, then 8 px; the row's 12 px gap is the rest) */
+.pz:is(.stack, .low) .pz-data:is(.has-tool:not(.tool-only), .pz-folds) .pz-dh::after { min-width: max(66px + 8px - 12px, calc(var(--pz-chip-em, 0) * 1em + 24px / var(--pz-z, 1) + 2px + 8px - 12px)); }   /* (the pill, its words (presenter.js chipRoom), padding and edge, then 8 px; the row's 12 px gap is the rest) */
 /* A phone whose figure, data card and words at 12 px cannot all fit: the data card folds to its header behind Show (presenter.js
    phoneTextCap, pz-folds), the same pill that folds a phone's instrument. It takes its folded size at once (a solid card). */
 /* (Its compact form where even folded it leaves the figure short: 6 px above and below the header, which keeps its full size.) */
@@ -5046,7 +5051,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-dh > .pz-fold { position: absolute; right: -2px; top: 50%; translate: 0 -50%; margin: 0; }
 /* Mac and iPad landscape: when even the smallest steps leave the pair too tall, the instrument folds behind Show as on a phone
    (presenter.js layout, pz-folds), its tiles in a row at the card's full width; Show fades it in, Hide out. */
-.pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh { position: relative; padding-inline: 64px; }
+.pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh { position: relative; padding-inline: max(64px, calc(var(--pz-chip-em, 0) * 1em + 24px / var(--pz-z, 1) + 10px)); }   /* (the chip's own width, its words (presenter.js chipRoom), padding and edge, and 8 px) */
+.pz:not(.stack):not(.low) .pz-data.pz-folds:not(.has-tool) { padding-block: calc(var(--pz-cp) / 2); }   /* (a ladder folded at a larger text size: half the padding above and below, so its strip has the room when shown) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { display: inline-flex; align-items: center; position: absolute; right: -2px; top: 50%; translate: 0 -50%; min-height: 24px; margin: 0; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--accent); font: inherit; letter-spacing: .05em; cursor: pointer; }
 /* (Show and Hide on a wide screen: the nav pill's frosted glass, ink text, 28 px tall as drawn whatever the header's zoom, a 44 px target.) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14);
@@ -5064,7 +5070,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    Shown, the plot takes the tiles' place, as a phone's lead instrument does: the room holds one or the other, never both squeezed.) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds:not(.has-tool):not(.tool-open) > :is(.pz-ladder, .pz-strip), .pz:not(.stack):not(.low) .pz-data.pz-folds:not(.has-tool):not(.tool-open) .pz-lg { display: none; }
 .pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) > .pz-tiles { display: none; }
-.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) > .pz-strip { width: 100%; }   /* (the strip at the card's full width, its words in one row: squeezed by the fit, it stood its labels on end and grew taller) */
+.pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) > .pz-strip { width: 100%; zoom: 1; }   /* (the strip at the card's full width, its words in one row: squeezed by the fit, it stood its labels on end and grew taller) */
 /* (Shown on a wide screen: the unit goes in the header, so it never drops to the brackets' row away from its readings; the drop
    lines are solid hairlines, not rows of dots.) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) .pzs-u, .pz.stack .pz-data:not(.tiles-only):not(.tool-only) > .pz-strip .pzs-u { display: none; }
