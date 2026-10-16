@@ -2182,14 +2182,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
 
   // ── Tissue: plates, collagen, zones, congestion (repainted only when the model changes it) ──
   let worldSc = 0, worldGeo = null, surRd = 0, worldDraws = 0;
-  // Congestion enters the lobule's picture only through congU (the venous pressure's excess over 12 mmHg, capped at 1), and only past
-  // 0.04 (the nutmeg; dead cells past 0.12); the picture is drawn again once congU is more than 0.25 mmHg (1/48) from the value it was
-  // last drawn at. (Keyed on the pressure in half-mmHg steps, a pressure wavering on a step's edge while the model runs redrew the whole
-  // bitmap, up to 3600 px square, over and over, mid-glide too, to the same picture: 20 times in 45 s in compensated cirrhosis, and
-  // in Budd-Chiari, where congU is capped at 1 and the picture cannot change at all.)
-  let congDrawn = 0;
-  const congNow = (m) => (m.congU > 0.04 ? m.congU : 0);
-  const congKey = (m) => { const c = congNow(m); return (c === 0) === (congDrawn === 0) && Math.abs(c - congDrawn) <= 0.25 / 12 ? congDrawn : c; };
+  // Congestion enters the lobule's picture only past congU 0.04 (the nutmeg; dead cells past 0.12), and the picture is drawn again once
+  // the venous pressure moves 0.25 mmHg from the one it was drawn at. (Keyed on half-mmHg steps, a pressure wavering on a step's edge
+  // while the model runs redrew the whole bitmap, up to 3600 px square, over and over, mid-glide too: 20 times in 45 s in compensated
+  // cirrhosis. Half a step from the drawn value, it follows the pressure at least as closely as the steps did.)
+  let congD = 0;
+  const congKey = (m) => { if (!(m.congU > 0.04)) congD = 0; else if (!congD || Math.abs(m.cong - congD) > 0.25) congD = m.cong; return congD.toFixed(3); };
   function paintTissue(W, H, dpr, dark, cs, flatVessels) {
     const m = model, G = geo;
     // The lobule itself is drawn once into a world-space bitmap (at a scale stepped in √2, never below
@@ -2200,9 +2198,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // redrawing it at each √2 step (up to 3600 px square) stalled the glide. It is drawn sharp once the glide lands.
     let sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), 3600 / (2.6 * G.R));
     if (gliding && worldSc && worldCv.width && worldGeo === G) sc = worldSc;
-    const wkOf = () => [G.W, G.H, sc.toFixed(3), dark, qi(inkOf(m.mode, 'pv')), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), congKey(m), m.hide, zonesOn, cs.getPropertyValue('--bg')].join('|');
-    let wk = wkOf();
-    if (wk !== worldKey) { congDrawn = congNow(m); wk = wkOf(); }   // (drawn below at this pressure, whatever asked for the drawing)
+    const wk = [G.W, G.H, sc.toFixed(3), dark, qi(inkOf(m.mode, 'pv')), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), congKey(m), m.hide, zonesOn, cs.getPropertyValue('--bg')].join('|');
     const key = [W, H, dpr, wk, flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
     if (key === tissueKey) return;
     tissueKey = key; tissueVer++; tissueCss = [W, H];

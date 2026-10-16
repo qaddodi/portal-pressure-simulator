@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=2a952639b6';
-import { createLobuleZoom } from './lobule-zoom.js?v=a9d3fe07a4';
+import { createLobuleZoom } from './lobule-zoom.js?v=1b6245f9a1';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
@@ -2921,7 +2921,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // picking organs and for exports.
   const PLATE_RECT = [200, -200, 1020, 1320];
   const PLATE_BASE = 1.2;          // px per world unit of the whole-plate raster
-  let plateViewN = 0;   // sharp view rasters drawn (for the checks)
   let plateTheme = null, plateKey = '', plateSeq = 0, plateBusy = false, plateAgain = false, plateLast = 0, plateTimer = 0, plateView = null, plateViewKey = '', plateSettle = 0;
   const plateOn = () => wrap.classList.contains('gl-plate');
   // Drops the plate rasters and shows the live SVG organs. The vessel layer is redrawn in the same
@@ -3041,35 +3040,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The view in world units (the anatomy is never turned), with a margin, within the plate.
       const r = stageBox(), [ax, ay] = clientToWorldFast(r.left, r.top), [bx, by] = clientToWorldFast(r.right, r.bottom);
       const mx = (bx - ax) * 0.15, my = (by - ay) * 0.15;
-      let x0 = Math.max(PLATE_RECT[0], ax - mx), y0 = Math.max(PLATE_RECT[1], ay - my);
-      let x1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx + mx), y1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by + my);
+      const x0 = Math.max(PLATE_RECT[0], ax - mx), y0 = Math.max(PLATE_RECT[1], ay - my);
+      const x1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx + mx), y1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by + my);
       if (x1 <= x0 || y1 <= y0) return;
       const scale = Math.min(need, 4096 / (x1 - x0), 4096 / (y1 - y0), Math.sqrt(4.2e6 / ((x1 - x0) * (y1 - y0))));
-      // At the screen's own sharpness, the copy lies on the canvas's pixel grid (its edges moved in by under a pixel): each of
-      // its pixels is then one of the screen's, never a blend of two, and stays so through any pan (the figure moves by whole
-      // pixels, see whole() in veins-gl.js), so a copy kept through a pan is exactly the one a new raster there would give.
-      if (scale === need) {
-        const tx = Math.round(vdpr * (CTM.e - wrapRect.left)), ty = Math.round(vdpr * (CTM.f - wrapRect.top));
-        x0 = (Math.ceil(need * x0 + tx) - tx) / need; y0 = (Math.ceil(need * y0 + ty) - ty) / need;
-        x1 = (Math.floor(need * x1 + tx) - tx) / need; y1 = (Math.floor(need * y1 + ty) - ty) / need;
-        if (x1 <= x0 || y1 <= y0) return;
-      }
       const key = `${plateKey}|${x0.toFixed(0)},${y0.toFixed(0)},${x1.toFixed(0)},${y1.toFixed(0)}|${scale.toFixed(2)}`;
       if (key === plateViewKey) return;
       if (plateView && x0 >= plateView[0] && y0 >= plateView[1] && x1 <= plateView[2] && y1 <= plateView[3] && scale <= plateView[4] * 1.05) return;
-      // While a hand still moves the figure, a sharp copy that covers all the screen shows: on the pixel grid at the screen's own
-      // sharpness, it is exactly the picture a new one would give there, drawn a moment after the hand lets go. (Drawn at every
-      // pause, it stalled the next frames of the pan by a raster of the organs, longest over the liver.) A copy held below the
-      // screen's sharpness by the size limit is off the grid after a pan, so it is drawn anew as before.
-      if (handsOn() && scale === need && plateView && plateView[4] === need && Math.max(ax, PLATE_RECT[0]) >= plateView[0] && Math.max(ay, PLATE_RECT[1]) >= plateView[1] &&
-        Math.min(bx, PLATE_RECT[0] + PLATE_RECT[2]) <= plateView[2] && Math.min(by, PLATE_RECT[1] + PLATE_RECT[3]) <= plateView[3]) { schedulePlateView(); return; }
       plateViewKey = key;
-      try { if (await rasterPlate(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; plateViewN++; veinsDirty = true; } } catch { /* the whole-plate raster stays */ }
+      try { if (await rasterPlate(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; } } catch { /* the whole-plate raster stays */ }
     }, 280);
   }
-  // A finger on the figure (that moved in the last two seconds: one whose lift went missing never holds the old copy for long),
-  // a flick still carrying it, a camera glide, or a wheel or trackpad scroll under way.
-  const handsOn = () => (pointers.size > 0 && performance.now() - inputAt < 2000) || glide > 0 || vtGliding || performance.now() - wheelAt < 300;
   function clientToWorldFast(cx, cy) {
     if (!CTM) refreshCTM();
     const { a, b, c, d, e, f } = CTM, det = a * d - b * c || 1, x = cx - e, y = cy - f;
@@ -7384,11 +7365,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
     /** The stage's kept copy of its computed style, for the stage's own element (null for any other): read it instead of a live read. */
-    /** The sharp view raster's world rectangle and scale ([x0, y0, x1, y1, px per unit], or null), how many have been drawn, and the stage's world rectangle. */
-    plateView: () => (plateView ? [...plateView] : null), plateViewRasters: () => plateViewN,
-    // (For the checks: a new sharp copy of the view now, even with a hand on the figure, to compare with the one kept.)
-    plateViewAgain: () => { plateView = null; plateViewKey = ''; schedulePlateView(); },
-    viewWorld: () => { const r = stageBox(); return [...clientToWorldFast(r.left, r.top), ...clientToWorldFast(r.right, r.bottom)]; },
     keptStyle: (el) => (el === wrap ? wrapCS() : null),
     /** Where the sinusoid's reading and lesion pointer meet their sinusoid (see lobule-zoom sinAnchor). */
     lobuleSinAnchor: () => lz?.sinAnchor() ?? null,
