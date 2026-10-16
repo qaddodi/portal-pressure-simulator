@@ -98,6 +98,8 @@ export class Engine {
     this.Cn = new Float64Array(this.N);
     this.wf = new Int8Array(this.E);     // waterfall flag: +1 f→t, −1 t→f
     this.wfx = new Float64Array(this.E); // waterfall external pressure
+    this.vx = new Float64Array(this.E);  // a vein's external pressure (set by computeG)
+    this.wfPrev = new Int8Array(this.E); // the waterfall state of the step before
 
     // Static node constants
     this.nodeC = NODES.map((n) => n.C);
@@ -118,6 +120,7 @@ export class Engine {
       if ((e.Q || e.R) && !(this.Rbase[k] > 0)) throw new Error(`Non-positive baseline resistance on ${e.id}`);
     });
     this.collaterals = EDGES.map((e, k) => (e.kind === 'collateral' ? k : -1)).filter((k) => k >= 0);
+    this.veins = EDGES.map((e, k) => (e.kind === 'vein' || e.kind === 'diode' ? k : -1)).filter((k) => k >= 0);
     this.diodes = EDGES.map((e, k) => (e.kind === 'diode' ? k : -1)).filter((k) => k >= 0);
 
     this.params = params ? structuredClone(params) : defaultParams();
@@ -352,6 +355,7 @@ export class Engine {
           break;
         case 'vein': case 'diode': {
           const x = extE[this.edgeExt[k]];
+          this.vx[k] = x;
           const up = P[f] >= P[t] ? f : t, dn = up === f ? t : f;
           // Starling resistor: downstream end collapsed → flow set by upstream − external pressure.
           if (P[dn] - x < 0 && P[up] - x > 0.5) {
@@ -427,7 +431,7 @@ export class Engine {
   step(dt) {
     const N = this.N, A = this.A, b = this.b, P = this.P, p = this.params;
     this._drug = this.drugEffects();
-    this.pregnancyVolume(dt);
+    if (!this._sub) this.pregnancyVolume(dt);
     const hs = this.heartState();
     this.hr = hs.hr;
     this.cyc = (this.cyc || 0) + dt * hs.hr / 60;
@@ -507,6 +511,20 @@ export class Engine {
       // Re-linearize the vessel conductances about the solved pressures for the next solve.
       Pit.set(b); this.computeG(Pit); G0.set(this.G);
     }
+    // A long quiet step (settling, 5 to 10 s) that carries a vein across its collapse point, the downstream end falling
+    // below or rising above the pressure outside it, can overshoot the far side and flip back on the next step: a
+    // cycle that never settles (end-stage cirrhosis late in pregnancy, the gravid belly at the hepatic veins' edge).
+    // Such a step is taken again as half-second steps, which follow the vein across. (The pregnancy volume step above
+    // stands for the whole step.)
+    const flips = this.quiet && dt > 0.5 && !this._sub && this.collapseFlips(b);
+    this.wfPrev.set(this.wf);
+    if (flips) {
+      this.cyc -= dt * hs.hr / 60;
+      const n = Math.ceil(dt / 0.5);
+      this._sub = true;
+      try { for (let i = 0; i < n; i++) this.step(dt / n); } finally { this._sub = false; }
+      return;
+    }
     const Pn = b;
 
     // Flows & volume update (exactly conservative)
@@ -554,6 +572,18 @@ export class Engine {
   }
 
   pulsing() { return (this.params.pulsatile || this.beat) && !this.quiet; }
+
+  /** Whether solved pressures Pn put any open vein on the other side of its collapse point (computeG's waterfall test). */
+  collapseFlips(Pn) {
+    for (const k of this.veins) {
+      if (this.G[k] === 0) continue;
+      const f = this.edgeF[k], t = this.edgeT[k], x = this.vx[k];
+      const up = Pn[f] >= Pn[t] ? f : t, dn = up === f ? t : f;
+      const w = Pn[dn] - x < 0 && Pn[up] - x > 0.5 ? (up === f ? 1 : -1) : 0;
+      if (w !== this.wf[k] && w === this.wfPrev[k]) return true;
+    }
+    return false;
+  }
 
   liverStiff(i) {
     const k = NODES[i].kind;
