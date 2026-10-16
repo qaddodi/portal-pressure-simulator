@@ -590,7 +590,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   const UNSEEN = new Set(['frame', 'historyTick', 'details', 'found', 'presetLoading', 'presetList', 'lastHVPG', 'speed', 'lapse', 'tool', 'hiddenReadouts', 'hiddenEvents', 'booted']);
   store.on('*', (keys) => { if (!Array.isArray(keys) || keys.some((k) => !UNSEEN.has(k))) { drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); } });
   let lzYield = null;
-  let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
+  let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radVer = 0, radMoved = new Set(), radAll = '', attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
   const worldCv = document.createElement('canvas');   // the lobule's tissue in world space (see paintTissue)
   const tubeData = new Float32Array(MAXT * TUBE_TEXELS * 4), flowData = new Float32Array(MAXT * FLOW_TEXELS * 4);
   // The vessel attributes as last sent (tubeShown), the rows changed since the vessel layer was drawn (glRows), and the
@@ -613,12 +613,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     return gl;
   }
   // (Registered once: one per ensureGL would add another handler on every restore.)
-  glCv.addEventListener('webglcontextrestored', () => { glTried = false; gl = null; binKey = ''; radKey = []; radAll = ''; attrKey = ''; ensureGL(); if (F) update(F); });
+  glCv.addEventListener('webglcontextrestored', () => { glTried = false; gl = null; binKey = ''; radKey = []; radVer++; radAll = ''; attrKey = ''; ensureGL(); if (F) update(F); });
   // Closed: the full-screen canvases and the vessels' GPU buffers are given back (they are sized again on the way in).
   // The world bitmap, the field's tiles and the uploaded network stay, so the next dive has nothing heavy to build.
   const free = (cv) => { if (cv.width || cv.height) { cv.width = 0; cv.height = 0; } };
   function release() {
-    free(tissue); free(fx); free(glCv); free(diveCv); diveCopyKey = '';
+    free(tissue); free(fx); free(glCv); free(diveCv); diveCopyKey = ''; freeCut();
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
     tissueKey = ''; idleDrawn = ''; drawKey = ''; glDirty = true; fxKey = '';
     staged = ''; relLater = false;
@@ -1505,7 +1505,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // Zoomed in, the spot at the middle of the free space, in lobule radii from its centre, and the zoom against the framing:
     // the lobule is built again for the new size, so the view keeps both (its screen numbers alone would show another spot).
     const keep = geo && !atFit && !camAim && !(aimed && fade <= 0.98) ? viewSpot() : null;
-    geo = build(W, H); geoKey = key; binKey = ''; binReach = []; binCache.clear(); radKey = []; radAll = ''; tissueKey = ''; layoutKey = '';
+    geo = build(W, H); geoKey = key; binKey = ''; binReach = []; binCache.clear(); radKey = []; radVer++; radAll = ''; tissueKey = ''; layoutKey = '';
     if (atFit || (aimed && fade <= 0.98)) resetView();
     else if (camAim) { kFit = fitV().k; Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); }
     else if (keep) toSpot(keep);
@@ -1988,7 +1988,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       if (rk0 !== radAll) for (const t of live) {
         const r = Array.from({ length: N }, (_, i) => radiusAt(t, i));
         t.maxR = Math.max(...r);
-        if (radiiChanged(radKey[t.id], r, (rzMoving ? 0.08 : 0.35) / (k * V.k))) { radKey[t.id] = r; g.setRadii(t.id, r); glDirty = true; }
+        if (radiiChanged(radKey[t.id], r, (rzMoving ? 0.08 : 0.35) / (k * V.k))) { radKey[t.id] = r; g.setRadii(t.id, r); glDirty = true; if (!lymphTube(t)) { radVer++; radMoved.add(t.id); } }
         const reach = Math.ceil((t.maxR + (WALL[t.kind] || 0) + 10) / 2) * 2;
         if (reach > (binReach[t.id] || 0)) reachGrew = true;
       }
@@ -2363,9 +2363,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   }
   // A world-space box [x0, y0, x1, y1] round some points.
   const boxOf = (pts) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const [x, y] of pts) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } return [x0, y0, x1, y1]; };
-  let fxKey = '', fxP = null, fxCourses = null, liningKey = '', liningP = null;
+  // The lymph's own channels (the space of Disse, the terminal lymphatics, the lymph vessel): the eraser leaves them be.
+  function lymphTube(t) { return t.lymph || t.kind === 'ly' || t.kind === 'lt' || t.kind === 'lv'; }
+  // A blood vessel's caliber as the vessel layer drew it: the radii it was last sent (sent again once one moves by a set
+  // fraction of a pixel, see drawGL), so the eraser and the lining sit on the vessel as drawn, not on a caliber a step ahead.
+  const drawnR = (t, i) => radKey[t.id]?.[i] ?? radiusAt(t, i);
+  let fxKey = '', fxP = null, fxCourses = null;
   function fxPaths() {
-    const G = geo, key = [geoKey, Object.values(rzOf()).map((x) => x.toFixed(5)).join(','), V.k.toFixed(5)].join('|');
+    const G = geo, key = `${geoKey}|${radVer}|${V.k}`;
     if (key === fxKey && fxP.G === G) return fxP;
     fxKey = key;
     // The eraser's courses: a disc for each vessel seen end-on, and each other blood vessel in thirds (each stroked as wide as
@@ -2373,7 +2378,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (fxCourses?.G !== G) {
       const list = [];
       for (const t of G.tubes) {
-        if (t.lymph || t.kind === 'ly' || t.kind === 'lt' || t.kind === 'lv') continue;
+        if (lymphTube(t)) continue;
         if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd') { list.push({ t, disc: true }); continue; }
         for (let q = 0; q < 3; q++) {
           const i0 = Math.floor((q * (N - 1)) / 3), i1 = Math.floor(((q + 1) * (N - 1)) / 3), p = new Path2D();
@@ -2389,44 +2394,134 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     for (const e of fxCourses.list) {
       const t = e.t, wall = (WALL[t.kind] || 0.8) + 0.6 / V.k;
       if (e.disc) {
-        const [x0, y0] = t.pts[0], p = new Path2D(), r = radiusAt(t, N >> 1) + wall;
-        p.arc(x0, y0, r, 0, TAU); erase.push({ p, w: 0, box: [x0 - r, y0 - r, x0 + r, y0 + r] });
+        const [x0, y0] = t.pts[0], p = new Path2D(), r = drawnR(t, N >> 1) + wall;
+        p.arc(x0, y0, r, 0, TAU); erase.push({ t, p, w: 0, box: [x0 - r, y0 - r, x0 + r, y0 + r] });
         continue;
       }
-      const w = 2 * (radiusAt(t, e.mid) + wall), b = e.box;
-      erase.push({ p: e.p, w, box: [b[0] - w / 2, b[1] - w / 2, b[2] + w / 2, b[3] + w / 2] });
+      const w = 2 * (drawnR(t, e.mid) + wall), b = e.box;
+      erase.push({ t, p: e.p, w, box: [b[0] - w / 2, b[1] - w / 2, b[2] + w / 2, b[3] + w / 2] });
     }
     // The sinusoid lining, a line either side of each sinusoid: one path for the whole of it, and each side on its own
     // with its box (stroked with the default miter joins, which reach at most 10 half-widths past a point).
-    const z = rzOf(), lw = 0.9 / V.k, lk = [geoKey, z.sin.toFixed(5), z.congU.toFixed(5), V.k.toFixed(5)].join('|');
-    if (lk !== liningKey || liningP?.G !== G) {
-      liningKey = lk;
-      const lining = new Path2D(), sides = [], reach = 5 * lw;
-      for (const t of G.tubes) {
-        if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
-        for (const side of [-1, 1]) {
-          const one = new Path2D(), pts = [];
-          t.pts.forEach(([x, y], i) => {
-            if (t.rho[i] < CV_STOP) return;   // stops at the central vein's edge: no spokes into it
-            const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
-            const o = side * (radiusAt(t, i) + lw);
-            const px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
-            if (pts.length) { lining.lineTo(px, py); one.lineTo(px, py); } else { lining.moveTo(px, py); one.moveTo(px, py); }
-            pts.push([px, py]);
-          });
-          if (!pts.length) continue;
-          const b = boxOf(pts);
-          sides.push({ p: one, box: [b[0] - reach, b[1] - reach, b[2] + reach, b[3] + reach] });
-        }
+    const lw = 0.9 / V.k, lining = new Path2D(), sides = [], reach = 5 * lw;
+    for (const t of G.tubes) {
+      if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
+      for (const side of [-1, 1]) {
+        const one = new Path2D(), pts = [];
+        t.pts.forEach(([x, y], i) => {
+          if (t.rho[i] < CV_STOP) return;   // stops at the central vein's edge: no spokes into it
+          const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
+          const o = side * (drawnR(t, i) + lw);
+          const px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
+          if (pts.length) { lining.lineTo(px, py); one.lineTo(px, py); } else { lining.moveTo(px, py); one.moveTo(px, py); }
+          pts.push([px, py]);
+        });
+        if (!pts.length) continue;
+        const b = boxOf(pts);
+        sides.push({ t, p: one, box: [b[0] - reach, b[1] - reach, b[2] + reach, b[3] + reach] });
       }
-      liningP = { G, lining, sides };
     }
-    return (fxP = { G, erase, lining: liningP });
+    return (fxP = { G, key, erase, lining: { lining, sides, lw } });
   }
-  // What part of the world the effects layer shows, with a few device pixels to spare for antialiasing: [x0, y0, x1, y1].
-  let fxAll = false;   // (for the checks: draw the eraser and the lining whole, see fxCheck)
-  const fxView = (W, H, dpr) => { if (fxAll) return [-Infinity, -Infinity, Infinity, Infinity]; const mg = 4 / (dpr * V.k); return [-V.x / V.k - mg, -V.y / V.k - mg, (W - V.x) / V.k + mg, (H - V.y) / V.k + mg]; };
   const meets = (b, v) => b[2] >= v[0] && b[0] <= v[2] && b[3] >= v[1] && b[1] <= v[3];
+  // The eraser and the lining, in world space, each part drawn only where it meets the world box v. The eraser: straight
+  // onto the frame (destination-out), or into a layer of what it cuts (op 'source-over': opaque wherever it erases).
+  function cutVessels(c, v, op = 'destination-out') {
+    c.globalCompositeOperation = op;
+    c.fillStyle = c.strokeStyle = '#000';   // colour-exempt: an eraser (destination-out), or the mask of one
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    for (const { p, w, box } of fxPaths().erase) { if (!meets(box, v)) continue; if (w) { c.lineWidth = w; c.stroke(p); } else c.fill(p); }
+  }
+  function strokeLining(c, v, style) {
+    const { lining, sides, lw } = fxPaths().lining, seen = sides.filter((sd) => meets(sd.box, v));
+    if (!seen.length) return;
+    let path = lining;
+    if (seen.length < sides.length) { path = new Path2D(); for (const sd of seen) path.addPath(sd.p); }
+    c.lineWidth = lw; c.strokeStyle = style; c.stroke(path);
+  }
+  // The eraser and the lining (with the lymph on) are kept in tiles of device pixels, laid out on the world at the vessel
+  // layer's scale and moving with its translation (which it rounds to whole pixels). They follow the drawn calibers, the
+  // zoom and the theme, not each frame: a playing frame (the drops drifting, the calibers easing within a step) lays the
+  // same tiles on again, and a pan at one zoom lays them on whole pixels further along, drawing only tiles new to the
+  // screen. Each tile is drawn whole on its own canvas, a margin wider than it is laid on (near a canvas's edge a path
+  // that runs on past it comes out a little differently), so a tile shows exactly the same pixels wherever the pan has
+  // taken it. cut: opaque wherever the eraser cuts (laid on with destination-out); line: the lining at full strength
+  // (laid on at the seal's). A key met for the first time is drawn straight onto the frame instead (a zoom changes it every
+  // frame: building tiles there would only add to the frame's work); the tiles are built once it holds.
+  const CUT_T = 256, CUT_M = 8, CUT_S = CUT_T + 2 * CUT_M;
+  const cut = { key: '', met: '', P: null, tiles: new Map(), pool: [], ox: null, oy: null, moves: 0 };
+  function freeCut() {
+    for (const t of cut.tiles.values()) for (const cv of [t.cut, t.line]) if (cv) free(cv);
+    for (const cv of cut.pool) free(cv);
+    cut.tiles.clear(); cut.pool = []; cut.key = cut.met = ''; cut.P = null; cut.ox = cut.oy = null; radMoved.clear();
+  }
+  const cutBytes = () => (cut.tiles.size * 2 + cut.pool.length) * CUT_S * CUT_S * 4;
+  function recycleTile(t) { for (const cv of [t.cut, t.line]) if (cv) cut.pool.push(cv); }
+  let fxAll = false, fxFresh = false;   // (for the checks: the eraser and the lining drawn whole, and the tiles drawn afresh; see fxCheck)
+  const ALL = [-Infinity, -Infinity, Infinity, Infinity];
+  // The world box a device-pixel rectangle shows at scale kd and translation (ox, oy), with a few pixels to spare for antialiasing.
+  const cutView = (kd, ox, oy, [x0, y0, x1, y1]) => { if (fxAll) return ALL; const mg = 4 / kd; return [(x0 - ox) / kd - mg, (y0 - oy) / kd - mg, (x1 - ox) / kd + mg, (y1 - oy) / kd + mg]; };
+  // Tile (i, j) covers device pixels [i*T, (i+1)*T) x [j*T, (j+1)*T) of the world at scale kd (before the pan's translation).
+  function drawCutTile(kind, i, j, kd, style) {
+    const cv = cut.pool.pop() || document.createElement('canvas');
+    if (cv.width !== CUT_S || cv.height !== CUT_S) { cv.width = CUT_S; cv.height = CUT_S; }
+    const c = cv.getContext('2d'), tx = CUT_M - i * CUT_T, ty = CUT_M - j * CUT_T;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, CUT_S, CUT_S);
+    c.save();
+    c.setTransform(kd, 0, 0, kd, tx, ty);
+    const v = cutView(kd, tx, ty, [0, 0, CUT_S, CUT_S]);
+    if (kind === 'cut') cutVessels(c, v, 'source-over'); else strokeLining(c, v, style);
+    c.restore();
+    return cv;
+  }
+  // The eraser and the lining on the frame's drops (c holds them, in world space).
+  function cutFrame(c, fw, fh, dpr, dark, seal) {
+    const res = gl?.software ? 0.5 : 1, k = dpr * res, kd = dpr * V.k, ox = Math.round(k * V.x) / res, oy = Math.round(k * V.y) / res;
+    const a = dark ? 0.6 : 0.5, lined = seal > 0.02, full = tk('--lz-collagen', a.toFixed(3));
+    const key = `${geoKey}|${V.k}|${dpr}|${full}`;
+    if (fxFresh) cut.key = '';
+    else if (key !== cut.key && key !== cut.met) {
+      cut.met = key;
+      const v = cutView(kd, ox, oy, [0, 0, fw, fh]);
+      c.save(); c.setTransform(kd, 0, 0, kd, ox, oy); cutVessels(c, v); c.restore();
+      if (lined) { c.save(); c.setTransform(kd, 0, 0, kd, ox, oy); strokeLining(c, v, tk('--lz-collagen', (a * seal).toFixed(3))); c.restore(); }
+      return;
+    }
+    const P = fxPaths();
+    if (key !== cut.key) { for (const t of cut.tiles.values()) recycleTile(t); cut.tiles.clear(); cut.key = key; cut.ox = cut.oy = null; }
+    else if (radMoved.size && cut.P) {
+      // Calibers the vessel layer has drawn anew since the tiles were: only the tiles that a moved vessel's eraser or
+      // lining reaches, before or after the move, are drawn again (the others have nothing of it, either way).
+      const boxes = [];
+      for (const Q of [cut.P, P]) {
+        for (const e of Q.erase) if (radMoved.has(e.t.id)) boxes.push(e.box);
+        for (const sd of Q.lining.sides) if (radMoved.has(sd.t.id)) boxes.push(sd.box);
+      }
+      for (const [id, t] of cut.tiles) {
+        const tv = cutView(kd, CUT_M - t.i * CUT_T, CUT_M - t.j * CUT_T, [0, 0, CUT_S, CUT_S]);
+        if (boxes.some((b) => meets(b, tv))) { recycleTile(t); cut.tiles.delete(id); }
+      }
+    }
+    cut.P = P; radMoved.clear();
+    if (cut.ox !== null && (ox !== cut.ox || oy !== cut.oy)) cut.moves++;
+    cut.ox = ox; cut.oy = oy;
+    const T = CUT_T, i0 = Math.floor(-ox / T), i1 = Math.floor((fw - 1 - ox) / T), j0 = Math.floor(-oy / T), j1 = Math.floor((fh - 1 - oy) / T);
+    const tile = (i, j) => { const id = `${i},${j}`; let t = cut.tiles.get(id); if (!t) cut.tiles.set(id, (t = { i, j, cut: null, line: null })); return t; };
+    c.save();
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.imageSmoothingEnabled = false;
+    c.globalCompositeOperation = 'destination-out';
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const t = tile(i, j); t.cut ||= drawCutTile('cut', i, j, kd); c.drawImage(t.cut, CUT_M, CUT_M, T, T, i * T + ox, j * T + oy, T, T); }
+    if (lined) {
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = seal;
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const t = tile(i, j); t.line ||= drawCutTile('line', i, j, kd, full); c.drawImage(t.line, CUT_M, CUT_M, T, T, i * T + ox, j * T + oy, T, T); }
+    }
+    c.restore();
+    // Tiles more than half a tile off the screen are given back.
+    const h = T / 2, k0 = Math.floor((-h - ox) / T), k1 = Math.floor((fw + h - ox) / T), l0 = Math.floor((-h - oy) / T), l1 = Math.floor((fh + h - oy) / T);
+    for (const [id, t] of cut.tiles) if (t.i < k0 || t.i > k1 || t.j < l0 || t.j > l1) { recycleTile(t); cut.tiles.delete(id); }
+    if (cut.pool.length > 8) cut.pool.splice(8).forEach(free);
+  }
   let fxDrawn = '';
   function paintFx(W, H, dpr, dark, dt, flat) {
     const fw = canvasPx(W, dpr), fh = canvasPx(H, dpr);
@@ -2497,7 +2592,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       c.restore();
     }
     if (lymphOn && !flat && !m.hide) {
-      const p = lyProt(m), still = reduce.matches, lw = 0.9 / V.k, seal = 1 - smooth(0.15, 0.6, p);
+      const p = lyProt(m), still = reduce.matches, seal = 1 - smooth(0.15, 0.6, p);
       // Lymph as drops drifting along the space of Disse and the terminal lymphatics to the portal tract:
       // faster as more fluid filters (the volume); each carries albumin beads, as many as its protein allows
       // (the concentration). A fixed number of drops per vessel (a count that followed the rate would make
@@ -2508,7 +2603,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       const vW = G.R * 0.035 * Math.sqrt(lyV);
       // (Every drop is drawn, on the screen or not: the drops and beads go out as one path each, and a path with fewer
       // circles in it comes out a shade different at a few edges. The eraser and the lining below draw only what reaches the screen.)
-      const view = fxView(W, H, dpr);
       const drops = [];
       for (const t of G.tubes) {
         if (t.kind !== 'ly' && t.kind !== 'lt') continue;
@@ -2544,26 +2638,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       c.fillStyle = tk('--lz-albumin');
       c.fill();
       // The lymph runs beneath the blood: cut the drops away wherever a blood vessel (with its wall)
-      // lies over them, so the arterioles, venules and sinusoids pass on top.
-      c.save();
-      c.globalCompositeOperation = 'destination-out';
-      c.fillStyle = c.strokeStyle = '#000';   // colour-exempt: an eraser (destination-out)
-      c.lineCap = 'round'; c.lineJoin = 'round';
-      for (const { p, w, box } of fxPaths().erase) { if (!meets(box, view)) continue; if (w) { c.lineWidth = w; c.stroke(p); } else c.fill(p); }
-      c.restore();
-      // The sinusoid lining: nothing extra while the fenestrae are open; a thin continuous collagen line
-      // fades in as the sinusoids capillarize and hold protein back.
-      if (seal > 0.02) {
-        c.save();
-        c.lineWidth = lw;
-        c.strokeStyle = tk('--lz-collagen', ((dark ? 0.6 : 0.5) * seal).toFixed(3));
-        const { lining, sides } = fxPaths().lining, seen = sides.filter((sd) => meets(sd.box, view));
-        let path = lining;
-        if (seen.length < sides.length) { path = new Path2D(); for (const sd of seen) path.addPath(sd.p); }
-        c.stroke(path);
-        c.restore();
-      }
-    }
+      // lies over them, so the arterioles, venules and sinusoids pass on top. Then the sinusoid lining: nothing extra while
+      // the fenestrae are open; a thin continuous collagen line fades in as the sinusoids capillarize and hold protein back.
+      cutFrame(c, fw, fh, dpr, dark, seal);
+    } else freeCut();
     if (flat && !m.hide && store.get().layers?.flow !== false) {
       // Red cells along the sinusoids at the model's flow.
       c.fillStyle = tk('--lz-rbc');
@@ -2887,26 +2965,28 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     /** For the checks: bytes held in the lobule's bitmaps (its canvases, world bitmap and field tiles). */
     memBytes(detail = false) {
       const b = (cv) => (cv ? cv.width * cv.height * 4 : 0);
-      const d = { canvases: b(tissue) + b(diveCv) + b(glCv) + b(fx) + b(field), world: b(worldCv), tiles: 0, worldDraws, tileSets: tileSets.size };
+      const d = { canvases: b(tissue) + b(diveCv) + b(glCv) + b(fx) + b(field) + cutBytes(), world: b(worldCv), tiles: 0, worldDraws, tileSets: tileSets.size };
       for (const tiles of tileSets.values()) for (const q of tiles) d.tiles += b(q.cv) + b(q.quiet?.cv) + b(q.liverQ?.cv);
       return detail ? d : d.canvases + d.world + d.tiles;
     },
     /** For the checks: how many times the labels have been placed in full (a pan should only carry them along). */
     labelLayouts: () => layoutN,
-    /** For the checks: the effects layer drawn as a frame draws it (the eraser and lining only where they reach the screen), then
-     *  with all of them: how many bytes differ (0 when nothing on the screen was left out). Drawn at rest (no step in the drops' motion). */
+    /** For the checks: the effects layer drawn as a frame draws it (the eraser and the lining only where they reach the screen, from
+     *  the tiles kept as the pans so far laid them), then with all of them on tiles drawn afresh: how many bytes differ (0 when
+     *  nothing on the screen was left out and every kept tile equals one drawn now). Drawn at rest (no step in the drops' motion).
+     *  kept: how many frames so far laid the kept tiles on at a new spot. */
     fxCheck() {
       if (!geo || !model || fade <= 0.98 || !fx.width) return null;
       const rect = host.getBoundingClientRect(), W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
       const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1), flat = !gl || gl.lost, c = fx.getContext('2d');
       const read = () => { fxDrawn = ''; paintFx(W, H, dpr, isDark(), 0, flat); return c.getImageData(0, 0, fx.width, fx.height).data; };
       const a = read();
-      fxAll = true;
+      fxAll = fxFresh = true;
       const b = read();
-      fxAll = false;
+      fxAll = fxFresh = false;
       let differ = 0;
       for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) differ++;
-      return { bytes: a.length, differ, lymph: lymphOn };
+      return { bytes: a.length, differ, lymph: lymphOn, kept: cut.moves };
     },
     isOpen: () => fade > 0.98,
     isShown: () => fade > 0,
