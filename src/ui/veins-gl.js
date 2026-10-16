@@ -339,6 +339,9 @@ void main() {
 
   // ── Tiers, back to front ──
   vec4 accB = vec4(0.0), accN = vec4(0.0), accT = vec4(0.0);
+  // (A glow asked to lie on top (the Doppler's, wide + 10): over every vessel of its group it crosses, the ones above its own too.)
+  vec4 topC = vec4(0.0);
+  int topGrp = 1;
   float last = -1.0;
   // The frontmost lumen (for the blood drawn in it later) and how much of it shows.
   uint gId = 0u, gId2 = 0u;
@@ -354,7 +357,7 @@ void main() {
     // Every highlight (hover, a slide's or step's vessels, the Doppler's) is this band, in its colour. It goes
     // down with the lit vessel's own tier: over every vessel in the tiers beneath, under the lit vessel itself,
     // so where it crosses another vessel its glow is not cut by that vessel's body.
-    vec4 lg = vec4(0.0);
+    vec4 lg = vec4(0.0), lgU = vec4(0.0);
     for (int s = 0; s < MAXS; s++) {
       if (s >= n || stier[s] != tt) continue;
       vec4 gc = T(sid[s], 10);
@@ -367,13 +370,16 @@ void main() {
         float x = sv[s] * Lh, a = (-ge.x - 1.0) * Lh, b = (-ge.y - 1.0) * Lh, w = min(6.0, 0.08 * Lh);
         ends = (a > 0.5 ? smoothstep(a - w, a + w, x) : 1.0) * (b < Lh - 0.5 ? 1.0 - smoothstep(b - w, b + w, x) : 1.0);
       }
-      float fall = 1.0 - smoothstep(0.0, 12.0 * clamp(ge.w, 0.5, 1.3), e);
+      bool up = ge.w > 5.0;
+      float fall = 1.0 - smoothstep(0.0, 12.0 * clamp(up ? ge.w - 10.0 : ge.w, 0.5, 1.3), e);
       float gv = min(0.9, 0.6 * gc.a) * sa[s] * smoothstep(-0.6, 0.6, e) * fall * ends;
       // None inside another lit vessel's lumen (the cava's two lengths, lit together): each band ends at the
       // other's wall, so a lit vessel's round end does not show as a disc in the next one's lumen.
       for (int u = 0; u < MAXS; u++) if (u != s && u < n && T(sid[u], 10).a > 0.0) gv *= smoothstep(-0.6, 0.6, sd[u] - swall[u]);
-      if (gv > lg.a) lg = vec4((ge.z > 0.5 ? scol[s] : gc.rgb) * gv, gv);
+      if (up) { if (gv > lgU.a) lgU = vec4((ge.z > 0.5 ? scol[s] : gc.rgb) * gv, gv); }
+      else if (gv > lg.a) lg = vec4((ge.z > 0.5 ? scol[s] : gc.rgb) * gv, gv);
     }
+    if (lgU.a > topC.a) { topC = lgU; topGrp = grp; }
     if (lg.a > 0.0) {
       if (grp == 0) accB = over(lg, accB);
       else if (grp == 1) accN = over(lg * min(1.0 / max(netAlpha, 1e-3), 1.0 / lg.a), accN);   // (accN is faded by netAlpha as a whole)
@@ -553,6 +559,11 @@ void main() {
     else if (grp == 1) accN = over(c, accN);
     else accT = over(c, accT);
   }
+  if (topC.a > 0.0) {
+    if (topGrp == 0) accB = over(topC, accB);
+    else if (topGrp == 1) accN = over(topC * min(1.0 / max(netAlpha, 1e-3), 1.0 / topC.a), accN);
+    else accT = over(topC, accT);
+  }
   vec4 o = over(accT, over(accN * netAlpha, over(glow, accB)));
   if (o.a < 0.002) { if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); return; } discard; }
   // Dither by up to a level (triangular noise, fixed per pixel) before the 8-bit layer: the colour and
@@ -729,6 +740,9 @@ uniform float bleedA[10];
 uniform int bleedN;
 uniform vec4 noChev[12];               // world boxes (x0, y0, x1, y1) where no flow arrowhead is drawn: a figure reading sits there
 uniform int noChevN;
+uniform vec4 chevHole[16];             // world boxes the flow's arrowheads keep out of (x0, y0, x1, y1), each grown by chevHoleR;
+uniform float chevHoleR[16];           // a negative radius makes it a line from (x0, y0) to (x1, y1) instead, that far round
+uniform int chevHoleN;
 uniform float rows;
 uniform sampler2D lineL;               // the organ outlines, drawn once per change (premultiplied, device pixels)
 uniform int lineOn;
@@ -1018,6 +1032,15 @@ void main() {
     if (chev == 1 && !hole) {
       vec2 c = chevAt(id1, s1, y1);
       c *= 1.0 - smoothstep(0.02, 0.25, b);   // none where another vessel joins
+      // (none under a stent point's callout or round its dot: stage.js chevHoles)
+      for (int i = 0; i < 16; i++) {
+        if (i >= chevHoleN) break;
+        vec4 h = chevHole[i];
+        float hr = chevHoleR[i], dh;
+        if (hr < 0.0) { vec2 ab = h.zw - h.xy; float t = clamp(dot(w - h.xy, ab) / max(dot(ab, ab), 1e-6), 0.0, 1.0); dh = length(w - h.xy - ab * t) + hr; }
+        else dh = length(max(max(h.xy - w, w - h.zw), 0.0)) - hr;
+        c *= smoothstep(-pxW, pxW, dh);
+      }
       if (c.x + c.y > 0.0) {
         float rv = texelFetch(flow, ivec2(1, id1), 0).w;
         // A faint light rim lifts the head off the lumen; the head itself dark, or orange if reversed.
@@ -1650,6 +1673,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       nc.forEach((b, i) => ncv.set(b, i * 4));
       gl.uniform4fv(U.noChev, ncv);
       gl.uniform1i(U.noChevN, nc.length);
+      const ho = (blood.holes || []).slice(0, 16), hb = new Float32Array(64), hr = new Float32Array(16);
+      ho.forEach((x, i) => { hb.set(x.slice(0, 4), i * 4); hr[i] = x[4] || 0; });
+      gl.uniform4fv(U.chevHole, hb); gl.uniform1fv(U.chevHoleR, hr); gl.uniform1i(U.chevHoleN, ho.length);
       const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };
       bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
       bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2'); bind(9, fluidTex, 'fluidMask');

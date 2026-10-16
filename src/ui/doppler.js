@@ -140,7 +140,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   // The top strip's fitting steps (see fitStrip): [type scale, the direction's short form, the pattern on its own line].
   let stripKey = '', stripStep = 0, dirFull = '—', stripType = '', rng = null;
-  const STEPS = [[1, false, false], [0.9, false, false], [0.9, true, false], [1, false, true], [0.9, false, true], [0.9, true, true], [0.8, true, true]];
+  const STEPS = [[1, false, false], [0.9, false, false], [1, false, true], [0.9, false, true], [0.8, false, true], [0.9, true, true], [0.8, true, true]];
   const SHORT_DIR = { 'Portal → hepatic vein': 'PV → HV', 'Portal → IVC': 'PV → IVC', 'Portal → systemic': 'PV → systemic', 'Systemic → portal': 'Systemic → PV', 'Toward the heart': 'To the heart', 'Not available during time lapse': 'Paused in time lapse' };
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
     h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
@@ -412,7 +412,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // and the figure's callout says "No flow" too.)
     const none = it.dir === 'No flow';
     if (velEl.hidden !== none) velEl.hidden = none;
-    shownVel.set(probe, { v: Math.abs(mean), t: performance.now(), seg: isStentProbe() ? gateOf() : null });
+    // (open: the open stent's velocity, from which the figure's callouts at a stent's three points read what its tiles read.)
+    shownVel.set(probe, { v: Math.abs(mean), t: performance.now(), seg: isStentProbe() ? gateOf() : null, open });
     updateGauge(p, mean, it.expected);   // (the headline's own number: the marker read 23.5 under a headline of 22, sweep batch 04, shot 12)
     set(patternEl, it.pattern);
     // peak: the extreme farthest from zero, whichever the direction
@@ -617,8 +618,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
 
   // The top strip fits its words by fixed steps, never by cutting or dropping one: the type at full size, then at 0.9 (the gaps
-  // and type scale together, --dop-k), then the direction's short form (clinical shorthand, "PV → HV"), and only then the pattern
-  // ("High velocity") on a line of its own under the reading, whole. The card and monitor keep their size; the trace starts under
+  // and type scale together, --dop-k), then the pattern ("High velocity") on a line of its own under the reading, whole, and only
+  // when even that does not fit the direction's short form (clinical shorthand, "PV → HV"): the direction is read in full
+  // wherever a second line makes room for it (Review 16 Oct: "PV → HV · Patent" on a Mac slide). The card and monitor keep their size; the trace starts under
   // the strip. Measured only when its words or width change; a bigger step is taken back only with room to spare, so a reading
   // that changes by a digit does not move the strip (and the trace under it) back and forth.
   function setDir(t) {

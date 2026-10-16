@@ -60,7 +60,7 @@ export const TIPS_DOPPLER = {
     },
     {
       // The gate moves along the stent with the buttons; its third glows in the Doppler's green.
-      id: 'jet', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'mid' },
+      id: 'jet', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'mid', points: true },
       compare: [{ label: 'Proximal', gate: 'proximal' }, { label: 'Mid', gate: 'mid', own: true }, { label: 'Distal', gate: 'distal' }],
       kicker: 'A working TIPS', title: 'The stent is sampled at three points',
       line: 'The Doppler reads the stent at its portal end (proximal), in the middle (mid) and at its hepatic vein end (distal). In a working stent each reads 90 to 190 cm/s, and a velocity under {<90 cm/s} or over {>190 cm/s} at any of them suggests narrowing.',
@@ -93,7 +93,7 @@ export const TIPS_DOPPLER = {
     {
       // A 60 % pinch in the distal third (stenosisSite unset: distal), sampled there: the jet runs over 190 cm/s, the rest under 90.
       id: 'narrow', params: { stenosis: { TIPS: 0.6 } }, days: 180, cam: 'liver', lens: 'velocity',
-      mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'distal' }, data: 'tiles', tiles: ['ppg'], key: ['ppg'], delta: 'stent',
+      mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'distal', points: true }, data: 'tiles', tiles: ['ppg'], key: ['ppg'], delta: 'stent',
       compare: [{ label: 'Proximal', gate: 'proximal' }, { label: 'Mid', gate: 'mid' }, { label: 'Distal', gate: 'distal', own: true }],
       kicker: 'TIPS stenosis', title: 'A narrowed stent runs slow, with a jet',
       line: 'Six months later, fluid reappears around the liver on ultrasound. At the narrowing, in the distal stent, a jet runs over {>190 cm/s}, the proximal and mid stent have slowed under {<90 cm/s}, and the PPG is back to {ppg}.',
@@ -103,7 +103,7 @@ export const TIPS_DOPPLER = {
     },
     {
       // The same 60 % pinch moved along the stent with the buttons: the flow is the same wherever it sits, and the gate follows it.
-      id: 'where', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'site' },
+      id: 'where', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'site', points: true },
       compare: [{ label: 'Proximal', params: { stenosisSite: { TIPS: 'proximal' } } }, { label: 'Mid', params: { stenosisSite: { TIPS: 'mid' } } },
         { label: 'Distal', own: true, params: { stenosisSite: { TIPS: 'distal' } } }],
       kicker: 'TIPS stenosis', title: 'The jet shows where the stent narrows',
@@ -128,7 +128,7 @@ export const TIPS_DOPPLER = {
       ask: ['A TIPS patient rebleeds and the main portal vein has slowed since the baseline study. What do you suspect?', 'Stenosis of the stent.'],
     },
     {
-      id: 'fix', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'site' },
+      id: 'fix', cam: 'liver', lens: 'velocity', mark: { edges: ['TIPS'], label: 'Stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'site', points: true },
       data: 'tiles', tiles: ['ppg'], key: ['ppg'],
       compare: [{ label: 'Narrowed', own: true, params: { stenosis: { TIPS: 0.6 } } }, { label: 'Dilated', params: { stenosis: { TIPS: 0 } } }],
       kicker: 'TIPS stenosis', title: 'Venography confirms it, and the stent is reopened',

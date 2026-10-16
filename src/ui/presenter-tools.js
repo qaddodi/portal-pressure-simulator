@@ -25,7 +25,7 @@ import { store } from './store.js?v=3b659e1968';
 import { h, fmt, clamp } from './util.js?v=2a952639b6';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=3f0e63ce30';
+import { createDoppler } from './doppler.js?v=75fbf25f34';
 import { createFibroScan } from './fibroscan.js?v=bf9de59769';
 import { createPressureTime } from './pressure-time.js?v=7a5fdbe870';
 import { createFlowTime } from './flow-time.js?v=f4004dece2';
@@ -88,7 +88,7 @@ export function createTools({ host, stage }) {
         host.send({ type: 'probe', id: t.vessel || 'PV_TRUNK' });
         // (On a stent, the slide's gate: proximal, mid, distal, or 'site', the third that holds its narrowing.)
         if (store.get().dopGate !== (t.gate || 'mid')) store.set({ dopGate: t.gate || 'mid' });
-        stage?.pinDoppler?.(t.vessel || 'PV_TRUNK');
+        stage?.pinDoppler?.(t.vessel || 'PV_TRUNK', { points: !!t.points });   // (points: the figure calls out all three of a stent's points)
       }
       inst.setWaves?.(!!t.waves);
       if (cur !== inst || slide !== lastSlide) inst.autoWindow?.();   // (a new slide chooses its Doppler window again from the width it is drawn at)

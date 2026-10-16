@@ -3420,6 +3420,91 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(400);
     await shot(page, `${device}-doppler-stent-tiles`);
   });
+  // TIPS Doppler's stent slides (the three points, the narrowed stent, where it narrows, the reopened stent) call out the stent's
+  // velocity at all three points, each reading what the Doppler's tile for that point reads, and only the sampled one in green.
+  await check(device, 'presenter TIPS Doppler: the stent slides call out all three points, matching the Doppler tiles', async (page) => {
+    // (On a phone, each slide twice: as it opens, and with its data card's monitor open, which moves the figure: a point slid off its
+    // dot's line by the open card got past the check once: Review 16 Oct.)
+    for (const n of [5, 9, 10, 13]) for (const unfold of device === 'phone' ? [false, true] : [false]) {
+      await open(page, `?script=tips-doppler&slide=${n}`);
+      if (unfold) {
+        const folded = await page.evaluate(() => { const f = document.querySelector('.pz-data:not(.pz-hide):not([hidden]) .pz-fold'); if (!f?.getClientRects().length || f.getAttribute('aria-expanded') !== 'false') return false; f.click(); return true; });
+        if (!folded) continue;
+        await page.waitForFunction(() => document.querySelector('.pz-data .pz-fold')?.getAttribute('aria-expanded') === 'true');
+        await quiet(page);
+      }
+      const at = unfold ? `slide ${n} (monitor open)` : `slide ${n}`;
+      const picks = await page.$$eval('.pz-abb', (b) => b.length);
+      let first = null;
+      for (let k = 0; k < picks; k++) {
+        await page.evaluate((k) => document.querySelectorAll('.pz-abb')[k].click(), k);
+        // (A phone's data card may fold behind its Show control on a slide whose words are long: the callouts are then only counted.)
+        const ok = await page.waitForFunction((phone) => {
+          const tiles = Object.fromEntries([...document.querySelectorAll('.pz-data .dop-stats > div')].filter((d) => !d.hidden && d.getClientRects().length)
+            .map((d) => [d.querySelector('dt').textContent.trim().toLowerCase(), parseFloat(d.querySelector('dd').textContent)]));
+          const shown = [...document.querySelectorAll('#labels g.lb[data-key^="n:TIPS:"]')].filter((g) => g.style.display !== 'none' && !g.classList.contains('lb-off'));
+          if (shown.length !== 3 || shown.filter((g) => g.querySelector('.lb-gate')).length !== 1) return false;
+          if (phone && !Object.keys(tiles).length) return true;
+          // (A phone names them short: "Prox 99 cm/s".)
+          const names = { tipsproximal: 'proximal', tipsmid: 'mid', tipsdistal: 'distal', prox: 'proximal', mid: 'mid', dist: 'distal' };
+          return shown.every((g) => { const m = g.textContent.match(/^(TIPS ?(?:proximal|mid|distal)|Prox|Mid|Dist)\s*([\d.]+)/); return m && tiles[names[m[1].replace(/ /g, '').toLowerCase()]] === parseFloat(m[2]); });
+        }, device === 'phone', { timeout: 30000 }).then(() => true, () => false);
+        if (!ok) {
+          const got = await page.evaluate(() => [...document.querySelectorAll('#labels g.lb[data-key^="n:TIPS"]')].map((g) => `${g.textContent}${g.classList.contains('lb-off') || g.style.display === 'none' ? ' (hidden)' : ''}`).join(', '));
+          throw new Error(`TIPS Doppler ${at}, button ${k + 1}: the stent's three callouts are not all shown or disagree with the Doppler tiles (${got || 'none'})`);
+        }
+        // (Measured once the labels hold still: two readings half a second apart agree, so a camera still gliding is not measured.)
+        await page.waitForFunction(() => { const now = JSON.stringify(window.pps.stage.labelClearance()), same = now === window.__tipsClear; window.__tipsClear = now; return same; }, null, { polling: 500, timeout: 30000 }).catch(() => {});
+        // (The green name is the point the Doppler samples. After review, 15 Oct: the three stand in order on one side of the stent,
+        // distal at the top, each 16 px at most from its own dot, and none covers another label, a mark or the "60 %", which reads 12 px
+        // at least; and they keep their places when another point is picked.)
+        const got = await page.evaluate(() => {
+          const g = document.querySelector('#labels g.lb[data-key^="n:TIPS:"] .lb-gate')?.closest('g.lb'), st = window.pps.store.get();
+          const gate = st.dopGate === 'site' ? st.params.stenosisSite?.TIPS || 'distal' : st.dopGate;   // (a gate on the narrowing samples the third it sits in)
+          const box = (e) => e.getBoundingClientRect(), meet = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+          const pts = Object.fromEntries(['proximal', 'mid', 'distal'].map((p) => [p, document.querySelector(`#labels g.lb[data-key="n:TIPS:${p}"]`)]));
+          const rs = Object.fromEntries(Object.entries(pts).map(([p, e]) => [p, box(e)]));
+          const others = [...document.querySelectorAll('#labels g.lb:not(.lb-off)')].filter((e) => !e.dataset.key?.startsWith('n:TIPS:') && e.style.display !== 'none' && !e.dataset.key?.startsWith('o:'));
+          const clamps = [...document.querySelectorAll('.clamp-label')];
+          const dots = [...document.querySelectorAll('.leader-dot')].map((d) => { const r = box(d); return [(r.left + r.right) / 2, (r.top + r.bottom) / 2]; });
+          const far = (r) => Math.min(...dots.map(([x, y]) => Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom))));
+          const err = [], list = Object.values(rs), cx = (r) => (r.left + r.right) / 2;
+          if (list.some((a, i) => list.some((b, j) => j > i && meet(a, b)))) err.push('two callouts overlap');
+          if (!(rs.distal.top < rs.mid.top && rs.mid.top < rs.proximal.top)) err.push('the callouts are not in order, distal at the top');
+          const own = (r) => dots.reduce((m, d) => (Math.hypot(Math.max(r.left - d[0], 0, d[0] - r.right), Math.max(r.top - d[1], 0, d[1] - r.bottom)) < Math.hypot(Math.max(r.left - m[0], 0, m[0] - r.right), Math.max(r.top - m[1], 0, m[1] - r.bottom)) ? d : m), dots[0] || [0, 0]);
+          const sides = list.map((r) => Math.sign(cx(r) - own(r)[0]));
+          if (new Set(sides).size > 1) err.push('the callouts are not all on one side of the stent');
+          // (Only the jet may stand farther, just past its narrowing's arrow on its dot's line: 8 px beyond the arrow at most.)
+          const arrows = [...document.querySelectorAll('path.clamp')].map(box);
+          const reach = (r) => { const [x, y] = own(r); return Math.max(16.5, ...arrows.filter((a) => a.top <= y && y <= a.bottom && (cx(r) > x ? a.left >= x - 2 && a.left < r.left : a.right <= x + 2 && a.right > r.right)).map((a) => (cx(r) > x ? a.right - x : x - a.left) + 8)); };
+          for (const [p, r] of Object.entries(rs)) if (far(r) > reach(r)) err.push(`${p} stands ${Math.round(far(r))} px from its dot`);
+          // (Level with its own dot, where the dots stand far enough apart for three level callouts.)
+          const ys = list.map((r) => own(r)[1]).sort((a, b) => a - b);
+          if (ys.every((y, i) => !i || y - ys[i - 1] >= 28)) for (const [p, r] of Object.entries(rs)) if (Math.abs((r.top + r.bottom) / 2 - own(r)[1]) > 4) err.push(`${p} is not level with its dot (${Math.round((r.top + r.bottom) / 2 - own(r)[1])} px)`);
+          // (The slide's mark (Narrowing, Stent) still shows, moved off the column, not dropped or under a card.)
+          const mk = [...document.querySelectorAll('#labels g.lb[data-key^="focus"]')].filter((e) => e.style.display !== 'none');
+          if (st.focus && !mk.some((e) => !e.classList.contains('lb-off'))) err.push("the slide's mark is not shown");
+          // (The monitor's number is the green callout's.)
+          const mon = document.querySelector('.pz-data .dop-vel > b');
+          if (mon?.getClientRects().length && g && Math.abs(parseFloat(mon.textContent.replace('−', '-'))) !== parseFloat(g.querySelector('.lb-val')?.textContent)) err.push(`the monitor reads ${mon.textContent}, the green callout ${g.textContent}`);
+          for (const [p, r] of Object.entries(rs)) for (const o of [...others, ...clamps]) if (meet(r, box(o))) err.push(`${p} covers "${o.textContent.trim().slice(0, 16)}"`);
+          for (const c of clamps) if (box(c).height && parseFloat(getComputedStyle(c).fontSize) * (c.getScreenCTM()?.a || 1) < 11.5) err.push('the "60 %" reads under 12 px');
+          if (!g.dataset.key.endsWith(gate)) err.push(`the green callout (${g.textContent}) is not the sampled ${gate}`);
+          // (Review 16 Oct: the slide's pill and the "60 %" keep 2 px off every vessel as drawn; a pill with no such spot is ringed in the
+          // stage's colour instead, 2 px at least. The three callouts read through their own solid halo.)
+          for (const r of window.pps.stage.labelClearance()) {
+            if (!r.shown || /^n:(TIPS|DIPS):/.test(r.key)) continue;
+            if (r.ring ? r.ring < 2 : r.clear < 2) err.push(`${r.key.replace(/^focus\d*/, 'the mark ').replace(/^60%:.*/, 'the "60 %"')} is ${r.clear} px from ${r.vessel}${r.ring ? ` with a ${r.ring} px ring` : ''}`);
+          }
+          return { err, at: Object.fromEntries(Object.entries(rs).map(([p, r]) => [p, [Math.round(r.left), Math.round(r.top)]])) };
+        });
+        if (got.err.length) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: ${[...new Set(got.err)].join('; ')}`);
+        // (Slides 10 and 13 move or open the narrowing itself with the pick; elsewhere only the sampled point changes, and nothing moves.)
+        if (n !== 10 && n !== 13 && k && Object.entries(got.at).some(([p, [x, y]]) => Math.abs(x - first[p][0]) > 2 || Math.abs(y - first[p][1]) > 2)) throw new Error(`TIPS Doppler ${at}, button ${k + 1}: a callout moved when another point was picked (${JSON.stringify(first)} → ${JSON.stringify(got.at)})`);
+        if (!k) first = got.at;
+      }
+    }
+  });
   // Every phone card and sheet, driven by real touches (the path iOS takes), at the Home Screen app's height and Safari's: a short
   // pull eases back, a pull from Full (slow or a flick) settles at Half, a pull or flick from Half closes, and a new touch while the
   // card is still easing (back, to Half, or away) takes it over. Every frame, every card's slide equals its cut and nothing of a

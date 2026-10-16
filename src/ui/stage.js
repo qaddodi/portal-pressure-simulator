@@ -3,12 +3,12 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=0b72305f30';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf } from './colormap.js?v=e8b507a6fd';
-import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor } from './colormap.js?v=e8b507a6fd';
+import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=2a952639b6';
-import { createLobuleZoom } from './lobule-zoom.js?v=c807117f2a';
+import { createLobuleZoom } from './lobule-zoom.js?v=a9d3fe07a4';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
@@ -17,7 +17,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=fee6b33b7e';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=8aaf1b4428';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
 import { softwareYield, watchPerson } from './sw-yield.js?v=888305f6a2';
@@ -1050,7 +1050,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!l) { l = { v: 0, to: 0, col: g.col, from: null, cu: 1, end: null, span: null }; glow.lit.set(id, l); }
       if (!l.to) l.start = now + (g.at || 0);
       if (l.col !== g.col) { l.from = l.v > 0 && l.col && l.rgb ? l.rgb : null; l.cu = l.from ? 0 : 1; l.col = g.col; }
-      l.to = 1; l.amt = g.amt ?? 1; l.wide = g.wide || 1; l.dur = (g.dur || 450) / 1000;
+      l.to = 1; l.amt = g.amt ?? 1; l.wide = g.wide || 1; l.top = !!g.top; l.dur = (g.dur || 450) / 1000;
       l.endT = [endOf(E[id].e.from), endOf(E[id].e.to)];
       if (!l.end || l.v <= 0) l.end = [...l.endT];
       // A stretch eases along the vessel to its new place (a whole vessel is the stretch 0–1).
@@ -1077,16 +1077,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     glow.raf = moving ? nextFrame(glowStep) : 0;
   }
   // The Doppler's vessel glows in the Doppler's green while its instrument is open; on a stent, only the third its gate samples.
-  const dop = { id: null, want: null, pin: null, key: '', seg: '' };
+  // (points: a slide's Doppler on a stent shows a callout at each of its three points, not just the sampled one.)
+  const dop = { id: null, want: null, pin: null, key: '', seg: '', points: false, all: false };
   const dopGateOf = (id) => (dop.id === id && dop.seg ? dop.seg : '');   // the third of a stent the Doppler samples ('' when it is elsewhere)
   function dopApply() {
     let id = dop.pin ?? dop.want ?? null;
     if (id && !E[id]) id = null;
     const st = store.get(), seg = id && isStent(EDGES[EI[id]]) ? stentGate(st.dopGate, st.params, id) : '';
-    const key = `${id}|${seg}`;
+    const all = !!seg && dop.points && id === dop.pin, key = `${id}|${seg}|${+all}`;
     if (key === dop.key) return;
-    dop.id = id; dop.key = key; dop.seg = seg;
-    setGlowSrc('dop', id ? [{ id, col: 'var(--doppler)', amt: 1.1, wide: 0.8, dur: 360, span: seg ? STENT_SPANS[seg] : null }] : []);
+    dop.id = id; dop.key = key; dop.seg = seg; dop.all = all;
+    // (On top of every vessel it crosses, as a glow should lie (18f2e33): the stent's lit third over the hepatic vein above it, Review 15 Oct.)
+    setGlowSrc('dop', id ? [{ id, col: 'var(--doppler)', amt: 1.1, wide: 0.8, dur: 360, top: true, span: seg ? STENT_SPANS[seg] : null }] : []);
   }
   // A presenter slide's glows (glow: [...] and its terms' vessels), each in its station's colour. Slide, focus and
   // Doppler glows are a slim, soft band (smaller than a hover's), so they mark the vessel without swamping it.
@@ -2845,7 +2847,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (l.col) { const c = toRGB(l.col, cs); l.rgb = l.from && l.cu < 1 ? mix3(l.from, c, easeInOut(l.cu)) : c; }
           // (A stretch is sent as its two ends along the vessel, each as −(1 + u): the shader fades the glow in and out there.)
           const part = kind === 'v' && la && la.span && (la.span[0] > 0.002 || la.span[1] < 0.998);
-          tubeData.set([...(l.col ? l.rgb : [0, 0, 0]), v, part ? -1 - la.span[0] : lend[0], part ? -1 - la.span[1] : lend[1], l.col ? 0 : 1, l.wide], o + 40);
+          tubeData.set([...(l.col ? l.rgb : [0, 0, 0]), v, part ? -1 - la.span[0] : lend[0], part ? -1 - la.span[1] : lend[1], l.col ? 0 : 1, l.wide + (l.top ? 10 : 0)], o + 40);
         } else tubeData.fill(0, o + 40, o + 48);
       }
     }
@@ -4713,6 +4715,35 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The overlays (clamps, clots, stents, varices, caput medusae, balloons, catheter) are rebuilt
   // only when something they draw has visibly changed: the key holds every input, rounded.
   let overlayKey = '', thrombiKey = '';
+  // A stent called out at its three points stands its callouts in a column on one side (ptSide, 'E' | 'W', chosen in layoutLabels);
+  // its narrowing's "60 %" then goes to the other side (clampAway), so the two never meet.
+  let ptSide = null, clampAway = null, clampFor = null;
+  // (The flow's arrowheads stay out from under a stent's called-out points: world boxes [x0, y0, x1, y1, r], round by r; see bloodLook.)
+  let chevHoles = [], holesKey = '';
+  const clampD = new Map();   // (a column's "60 %": how far out it stands, by stenosis, kept across the overlay's rebuilds)
+  // (A new slide (the presenter clears its mark first) starts the stent's column afresh: its callouts, its mark, their side and the
+  // "60 %" are solved for this slide alone, as on a fresh load, never held from the slide before: Review 16 Oct.)
+  store.on('focus', (foc) => {
+    if (foc) return;
+    for (const k of [...labelSol.keys()]) if (/^(n:TIPS:|n:DIPS:|focus)/.test(k)) labelSol.delete(k);
+    ptSide = null; clampD.clear();
+  });
+  // How far a point's callout stands from its dot: clear of the stent's body, its leader 16 px at most.
+  const colGap = (sid) => Math.min(16, ((E[sid]?.width || 4) * CTM.sc) / 2 + 7);
+  // (The "60 %" is drawn in the figure's own units: on a phone's small figure it is scaled up so it reads at least 12 px.)
+  // (Its halo a constant 7 px wide on screen, whatever the zoom: wide enough to fill the counters of "6", "0" and "%" too, so
+  // the figure never shows through inside a digit: Review 16 Oct.)
+  const clampFontAt = (el) => { el.style.fontSize = CTM.sc > 0 && CTM.sc < 1 ? `calc(var(--fs-12) / ${CTM.sc.toFixed(3)})` : ''; el.style.strokeWidth = CTM.sc > 0 ? `${(7 / CTM.sc).toFixed(2)}px` : ''; };
+  function clampLabelAt(el) {
+    const c = el._c;
+    if (!c) return;
+    const away = c.id === clampFor ? clampAway : null;
+    const kept = c.id === clampFor ? clampD.get(c.id) : null, d = c.off + (el._d ?? kept?.d ?? 16), t = el._d != null ? el._t ?? 0 : kept?.t ?? 0;
+    const pos = [1, -1].map((sg) => [c.x + c.nx * sg * d - c.ny * t, c.y + c.ny * sg * d + c.nx * t]);   // (t: slid along the vessel)
+    const k = away && (away === 'W') !== (worldToLocal(...pos[0])[0] < worldToLocal(...pos[1])[0]) ? 1 : 0, left = away === 'W';
+    el.setAttribute('x', pos[k][0] + (left ? -4 : 4)); el.setAttribute('y', pos[k][1] + 4);
+    if (left) el.setAttribute('text-anchor', 'end'); else el.removeAttribute('text-anchor');
+  }
   // A quantized value that only moves once the input has clearly left its step (so a varix whose
   // diameter pulses across a rounding boundary is not rebuilt on every beat).
   const held = {};
@@ -4755,9 +4786,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const bx = x + nx * sgn * (off + 8), by = y + ny * sgn * (off + 8);
         const tx = x + nx * sgn * off, ty = y + ny * sgn * off;
         const ux = dx / n * 4.5, uy = dy / n * 4.5;
-        ov.clamps.append(s('path', { class: 'clamp', d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
+        ov.clamps.append(s('path', { class: 'clamp', 'data-id': id, d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
       }
-      ov.clamps.append(s('text', { class: 'clamp-label', 'text-anchor': 'middle', 'dominant-baseline': 'central', 'data-at': [x, y, nx, ny, off + 8].map((q) => q.toFixed(2)).join(' ') }, document.createTextNode(`${Math.round(v * 100)} %`)));
+      const lab = s('text', { class: 'clamp-label' }, document.createTextNode(`${Math.round(v * 100)} %`));
+      lab.setAttribute('data-at', [x, y, nx, ny, off + 8].map((q) => q.toFixed(2)).join(' '));
+      lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
+      ov.clamps.append(lab);
     }
     placeClampLabels();
     // Thrombus: a lumpy clot lying against one wall of the lumen, drawn as soft stacked layers of one
@@ -4918,13 +4952,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function renderBlock(it) {
     const b = blockEl(it.key, it.cls, it.node, it.onClick);
     b.seen = frameNo;
+    b.g.classList.toggle('ring', / ring\b/.test(it.cls));   // (a slide's pill that could find no spot off the vessels: see the focus callout)
     // A presenter slide's term (presentTerms): the station's label takes the term's colour, eased (.lb.term).
     const tone = it.node ? termTone(it.node) : null;
     if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', `var(--tr-${tone})`); }
     if (!!it.onVessel !== !!b.onVessel) { b.onVessel = !!it.onVessel; b.g.classList.toggle('on-vessel', b.onVessel); }
     // Text and pressure colors change far more often than label structure.
     // Retain the text nodes (and keyboard focus) across numeric updates.
-    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14)]);
+    // (A slide's mark is drawn afresh when its words change: a pill kept from another slide's longer mark could hold its old width
+    // for a while after the new one was set: Review 16 Oct.)
+    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, fill, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14), /^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')) : 0]);
     if (sig !== b.sig) {
       b.sig = sig;
       const kids = [];
@@ -4959,6 +4996,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const line of it.lines) for (const r of line) {
       const sp = b.spans[i++];
       if (sp.textContent !== r.t) sp.textContent = r.t;
+      if ((sp._fill || '') !== (r.fill || '')) { sp._fill = r.fill || ''; sp.style.fill = sp._fill; }
     }
     for (const text of b.textLines) setA(text, 'x', it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : it.swatch ? 7 : 0);
     if (b.bg) { setA(b.bg, 'width', it.w + 2 * it.padX); setA(b.bg, 'height', it.h + 2 * it.padY); }
@@ -4977,10 +5015,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   const rectOf = (it) => ({ x0: it.x - it.padX, y0: it.y - it.padY, x1: it.x + it.w + it.padX, y1: it.y + it.h + it.padY });
   const hits = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+  // Whether the segment (x0, y0) → (x1, y1) passes through the box (clipped against it, Liang–Barsky).
+  const crosses = (x0, y0, x1, y1, b) => {
+    let t0 = 0, t1 = 1;
+    const dx = x1 - x0, dy = y1 - y0;
+    for (const [p, q] of [[-dx, x0 - b.x0], [dx, b.x1 - x0], [-dy, y0 - b.y0], [dy, b.y1 - y0]]) {
+      if (!p) { if (q < 0) return false; continue; }
+      const r = q / p;
+      if (p < 0) t0 = Math.max(t0, r); else t1 = Math.min(t1, r);
+      if (t0 > t1) return false;
+    }
+    return true;
+  };
   const within = (r, B) => r.x0 >= B.x0 && r.y0 >= B.y0 && r.x1 <= B.x1 && r.y1 <= B.y1;
   // Candidate offset of a block around its anchor.
   // A ring's sixteen spots, level ones first (east, west), then ever further from level.
   const RING_DIRS = [0, 8, 1, 15, 7, 9, 2, 14, 6, 10, 3, 13, 5, 11, 4, 12].map((k) => 'R' + k);
+  // Spots for a mark's centre around its station, every 6 px out to 150, nearest first (see the focus callout).
+  const MARK_GRID = [];
+  for (let x = -150; x <= 150; x += 6) for (let y = -150; y <= 150; y += 6) if (Math.hypot(x, y) <= 150 && Math.hypot(x, y) >= 24) MARK_GRID.push([x, y]);
+  MARK_GRID.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
   function offset(dir, it, gap) {
     const { w, h: hh } = it;
     const d = gap * 0.72;
@@ -5159,24 +5213,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + id, now, 6);
   }
   // A TIPS or DIPS shunt's callout: the velocity through it (cm/s), as Doppler reads it (its own mean while it is on that shunt).
-  function velItem(sid, f) {
+  // point: one of the stent's three points ('proximal' | 'mid' | 'distal'), on a slide that calls out all three (dop.all); each
+  // reads what the Doppler's tile for that point reads, and the sampled one is named in the Doppler's green.
+  function velItem(sid, f, point = null) {
     const it = nodeItem('RPV', f, 'inline', stageBox().width < 700);
     const dop = shownVel.get(sid), at = pinned()?.at, now = Math.abs(edgeVel(f, EI[sid])) * dopplerK(EDGES[EI[sid]]);
     const fixed = at && Math.abs(edgeVel(at, EI[sid])) * dopplerK(EDGES[EI[sid]]);   // (the slide's own velocity, as its tiles read the slide)
     const live = Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + sid, now, 6);
     // (Between Doppler reports, the callout reads the third the Doppler samples itself, so it never falls back to the open stent's number.)
-    const gated = dopGateOf(sid), p = f.viewParams || store.get().params;
-    const atGate = gated ? live * stentSegments(1, 1 - (1 - (p?.stenosis?.[sid] || 0)) * (1 - (p?.thrombus?.[sid] || 0)), stentSite(p, sid))[['proximal', 'mid', 'distal'].indexOf(gated)] : live;
-    const vel = dop && performance.now() - dop.t < 1000 ? dop.v : atGate;
+    const gated = dopGateOf(sid), p = f.viewParams || store.get().params, pt = point || gated, fresh = dop && performance.now() - dop.t < 1000;
+    const factor = pt ? stentSegments(1, 1 - (1 - (p?.stenosis?.[sid] || 0)) * (1 - (p?.thrombus?.[sid] || 0)), stentSite(p, sid))[['proximal', 'mid', 'distal'].indexOf(pt)] : 1;
+    // (The sampled point reads the monitor's own number; the other two, the open stent's velocity the monitor's tiles read them from.)
+    const vel = fresh && pt === gated ? dop.v : (fresh && Number.isFinite(dop.open) ? dop.open : live) * factor;
     // (Read by the Doppler at one third of the stent, the callout names it: "TIPS distal".)
-    const seg = gated ? ` ${gated}` : '';
+    const seg = pt ? ` ${pt}` : '', sampled = !!point && point === gated;
+    // (A phone's three points read short, "Prox 99 cm/s", so the column fits beside a small stent.)
+    const name = point && stageBox().width < 700 ? { proximal: 'Prox', mid: 'Mid', distal: 'Dist' }[point] : sid + seg;
     // (An occluded stent reads "No flow", as the Doppler's strip does, not "0 cm/s": under 2 cm/s the Doppler calls a stent occluded.)
     const none = Math.abs(vel) < 2;
-    it.lines = [[{ ...it.lines[0][0], t: sid + seg }, ...(none ? [{ t: 'No flow', size: 14, weight: 650, cls: 'lb-val', gap: 4 }]
-      : [{ t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4 }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }])]];
-    it.key = `n:${sid}`; it.src = ['vel', sid]; it.node = undefined; it.sel = false; it.swatch = null;
+    // (A stent's point: its number in the velocity colours against the stent's own normal, sand slow, teal normal, violet fast
+    // (c8e89a6), drawn toward the text colour (--vel-ink) so it reads on the label's halo, 4.5:1 at least on the light stage; the point sampled is named in bold: Review 15 Oct.)
+    const nv = point ? velNormal(EI[sid], f) : null, tint = nv && !none ? `color-mix(in srgb, ${velocityColor(vel, nv)} var(--vel-ink), var(--text))` : '';
+    it.lines = [[{ ...it.lines[0][0], t: name, ...(sampled ? { weight: 750, cls: 'lb-name lb-gate' } : {}) }, ...(none ? [{ t: 'No flow', size: 14, weight: 650, cls: 'lb-val', gap: 4 }]
+      : [{ t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4, ...(tint ? { fill: tint } : {}) }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }])]];
+    it.key = point ? `n:${sid}:${point}` : `n:${sid}`; it.src = ['vel', sid, point]; it.node = undefined; it.sel = false; it.swatch = null;
     it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-    it.label = none ? `${sid}${seg}: no flow` : `${sid}${seg}: ${fmt(vel, 0)} centimeters per second`;
+    it.label = (none ? `${sid}${seg}: no flow` : `${sid}${seg}: ${fmt(vel, 0)} centimeters per second`) + (sampled ? ', sampled by the Doppler' : '');
     return it;
   }
   // The FibroScan probe's callout: the live stiffness, beside the waves, in their orange. A fixed width (the digits are tabular
@@ -5290,6 +5352,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // searched again until the layout or the zoom genuinely changes (see labelSig). When it is, the
   // solve is sticky: a label keeps its slot unless that slot now collides. Screen-fixed things
   // (panels, cards, the stage edge) never move a label: a label under one is hidden until it clears.
+  let colResolve = 0;   // (when a carried stent column last asked to be placed again: see layoutLabels)
   let labelSol = new Map();   // key → solved slot { wx, wy, dx, dy, dir, pi, w, h, leader, lead } or { drop }
   let solvedFor = null;       // { sig, sc, th } the slots were solved for
   const labelVis = new Map(); // key → shown last frame (hysteresis against blockers)
@@ -5342,7 +5405,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // signature (geometry, widths, selection, layers, levels...), the morph and turn, the floating panels,
   // fonts, theme and the presenter's insets. Otherwise the last layout stands, and only the live values
   // are refreshed in place (see refreshValues); a value whose text changes shape lays the labels out again.
-  let labelKey = null, labelFonts = 0, labelShown = [], chevHoles = [];
+  let labelKey = null, labelFonts = 0, labelShown = [], noChevBoxes = [];
   const stats = { layouts: 0, skips: 0, values: 0, ms: 0 };
   function updateLabels(f, force = false) {
     // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short.
@@ -5357,8 +5420,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else {
       const sc = CTM.sc, th = Math.atan2(CTM.b, CTM.a);
       const csig = calloutSig();
-      const solve = !solvedFor || solvedFor.sig !== sig || solvedFor.csig !== csig || Math.abs(Math.log(sc / solvedFor.sc)) > SOLVE_ZOOM || Math.abs(th - solvedFor.th) > SOLVE_TURN;
-      if (solve || layoutLabels(f, false) === false) { layoutLabels(f, true); solvedFor = { sig, sc, th, csig }; }
+      // (A stent called out at its three points is solved again when the presenter's cards move (the monitor folded or opened): carried,
+      // its callouts and the slide's mark would hide under a card or keep spots chosen for another view: Review 16 Oct.)
+      const ins = dop.all ? [...['--pz-t', '--pz-l', '--pz-b', '--pz-r'].map((k) => Math.round(pzInset(k) / 8)), ...(blockerBoxes || []).flatMap((o) => [o.x0, o.y0, o.x1, o.y1].map((v) => Math.round(v / 8)))].join() : '';   // (and the cards' boxes, which can arrive a frame after the insets)
+      const solve = !solvedFor || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || Math.abs(Math.log(sc / solvedFor.sc)) > SOLVE_ZOOM || Math.abs(th - solvedFor.th) > SOLVE_TURN;
+      if (solve || layoutLabels(f, false) === false) { layoutLabels(f, true); solvedFor = { sig, sc, th, csig, ins }; }
       labelKey = key; stats.layouts++; stats.ms += performance.now() - t0;
     }
     if (sites.list) sitesPaint();
@@ -5370,7 +5436,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const next = [];
     for (const it of labelShown) {
       const [kind, id, mode, compact] = it.src;
-      const n = kind === 'vel' ? velItem(id, f) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
+      const n = kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
       if (it.short) shortenTo(n, it.short);
       if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;
       for (let i = 0; i < n.lines.length; i++) {
@@ -5397,17 +5463,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Vessel geometry as capsules in screen space, bucketed, so a label can ask exactly which vessels it touches.
   const SEG_CELL = 64;
   let segs = [], segGrid = new Map(), segStamp = 0;
+  // (The vessels as drawn: every tube the GPU draws, the liver's grey branches, strands and tributaries included, each at its
+  // drawn radius along its course plus its wall; a label kept clear of these is clear of the picture: Review 16 Oct.)
   function buildSegs() {
     segs = []; segGrid = new Map();
+    const items = glWanted() ? glItems() : Object.values(E).filter((x) => x.vis && geo[x.e.id]?.cur).map((x) => ({ x, obj: x, pts: geo[x.e.id].cur, kind: 'v' }));
     // (A resistor's zigzag stands as a band as wide as its teeth: "4.1" had sat on the liver's.)
-    const zz = [...resMade.values()].filter((g) => g._segs?.length).flatMap((g) => g._segs.map((pts) => ({ pts, width: 22 })));
-    for (const x of [...Object.values(E), ...zz]) {
-      if (x.e && !x.vis) continue;
-      const pts = x.pts || geo[x.e.id].cur, hw = ((x.width || 4) * CTM.sc) / 2;
+    const zz = [...resMade.values()].filter((g) => g._segs?.length).flatMap((g) => g._segs.map((pts) => ({ x: { width: 22 }, obj: { w: 22 }, pts, kind: 'z' })));
+    for (const it of [...items, ...zz]) {
+      const pts = it.pts, x = it.x;
+      if (!pts || pts.length < 2) continue;
+      const R = it.obj.glR, wall = x.isArt ? 0 : x.wallPx || 0, flat = it.kind === 'v' ? (x.width || 4) / 2 : (it.obj.w || 2) / 2;
+      const cum = [0];
+      for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+      const L = cum[cum.length - 1] || 1, rAt = (u) => (R ? R[Math.round(clamp(u, 0, 1) * (R.length - 1))] : flat);
       let prev = worldToLocal(pts[0][0], pts[0][1]);
       for (let i = 1; i < pts.length; i++) {
         const cur = worldToLocal(pts[i][0], pts[i][1]);
-        const sg = { x0: prev[0], y0: prev[1], x1: cur[0], y1: cur[1], hw, stamp: 0 };
+        const hw = (Math.max(rAt(cum[i - 1] / L), rAt(cum[i] / L)) + wall) * CTM.sc;
+        const sg = { x0: prev[0], y0: prev[1], x1: cur[0], y1: cur[1], hw, stamp: 0, id: x.e.id };
         segs.push(sg);
         for (let gx = Math.floor((Math.min(sg.x0, sg.x1) - hw) / SEG_CELL); gx <= Math.floor((Math.max(sg.x0, sg.x1) + hw) / SEG_CELL); gx++) {
           for (let gy = Math.floor((Math.min(sg.y0, sg.y1) - hw) / SEG_CELL); gy <= Math.floor((Math.max(sg.y0, sg.y1) + hw) / SEG_CELL); gy++) {
@@ -5419,12 +5493,59 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
   }
-  // How many vessel segments the box touches, a vessel's own width and `margin` px of air included (`any`: whether one does).
-  const lineHits = (r, margin, any = false) => gridHits(segGrid, SEG_CELL, r, margin, ++segStamp, any);
+  // How many vessel segments the box touches, a vessel's own width and `margin` px of air included (`skip`: true asks only whether
+  // one does; a vessel's id leaves that one out; { only: id } counts just that one).
+  const lineHits = (r, margin, skip = false) => {
+    if (typeof skip === 'boolean') return gridHits(segGrid, SEG_CELL, r, margin, ++segStamp, skip);
+    const stamp = ++segStamp;
+    let n = 0;
+    for (let gx = Math.floor((r.x0 - margin) / SEG_CELL); gx <= Math.floor((r.x1 + margin) / SEG_CELL); gx++) {
+      for (let gy = Math.floor((r.y0 - margin) / SEG_CELL); gy <= Math.floor((r.y1 + margin) / SEG_CELL); gy++) {
+        for (const sg of segGrid.get(gx * 4096 + gy) || []) {
+          if (sg.stamp === stamp) continue;
+          sg.stamp = stamp;
+          if ((skip?.only ? sg.id === skip.only : sg.id !== skip) && segHitsBox(sg, r, sg.hw + margin)) n++;
+        }
+      }
+    }
+    return n;
+  };
   // Do two segments [x0, y0, x1, y1] cross (or touch)?
   function segsCross(a, b) {
     const o = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
     return o(a[0], a[1], a[2], a[3], b[0], b[1]) !== o(a[0], a[1], a[2], a[3], b[2], b[3]) && o(b[0], b[1], b[2], b[3], a[0], a[1]) !== o(b[0], b[1], b[2], b[3], a[2], a[3]);
+  }
+  // For the browser check (Review 16 Oct): every TIPS point callout, the slide's mark and the "60 %" on screen, with its drawn box
+  // (halo or pill edge included) in screen px, its clearance from the nearest drawn vessel (negative: on it), the vessel, and for a
+  // point how far its middle sits from its dot. The "60 %" leaves its own stent out; nothing else does.
+  function clearanceReport() {
+    if (!wrap.isConnected) return [];
+    buildSegs();
+    const wr = wrap.getBoundingClientRect(), out = [{ key: 'stage', top: wr.top, left: wr.left, dots: dop.id && geo[dop.id]?.cur?.length > 1 ? ['proximal', 'mid', 'distal'].map((pt) => worldToLocal(...pointAt(geo[dop.id].cur, STENT_SITES[pt]))) : [] }];
+    const dist = (sg, r) => {
+      if (segHitsBox(sg, r, 0)) return -sg.hw;
+      const pd = (px, py) => { const dx = sg.x1 - sg.x0, dy = sg.y1 - sg.y0, L2 = dx * dx + dy * dy || 1, t = clamp(((px - sg.x0) * dx + (py - sg.y0) * dy) / L2, 0, 1); return Math.hypot(px - sg.x0 - dx * t, py - sg.y0 - dy * t); };
+      const bd = (px, py) => Math.hypot(Math.max(r.x0 - px, 0, px - r.x1), Math.max(r.y0 - py, 0, py - r.y1));
+      return Math.min(bd(sg.x0, sg.y0), bd(sg.x1, sg.y1), pd(r.x0, r.y0), pd(r.x1, r.y0), pd(r.x0, r.y1), pd(r.x1, r.y1)) - sg.hw;
+    };
+    const near = (r, skip) => { let best = { d: Infinity, id: null }; for (const sg of segs) { if (sg.id === skip) continue; const d = dist(sg, r); if (d < best.d) best = { d, id: sg.id }; } return best; };
+    const box = (el, grow) => { const q = el.getBoundingClientRect(); return { x0: q.left - wr.left - grow, y0: q.top - wr.top - grow, x1: q.right - wr.left + grow, y1: q.bottom - wr.top + grow }; };
+    const sid = dop.id, dots = sid && geo[sid]?.cur?.length > 1 ? Object.fromEntries(['proximal', 'mid', 'distal'].map((pt) => [pt, worldToLocal(...pointAt(geo[sid].cur, STENT_SITES[pt]))])) : {};
+    for (const g of document.querySelectorAll('#labels g.lb')) {
+      const key = g.dataset.key || '';
+      if (!/^(n:TIPS:|n:DIPS:|focus)/.test(key)) continue;
+      const shown = g.style.display !== 'none' && !g.classList.contains('lb-off');
+      const pill = g.querySelector('rect.lb-bg'), t = g.querySelector('text');
+      const halo = pill && /^focus/.test(key) ? 0 : (parseFloat(t && getComputedStyle(t).strokeWidth) || 0) / 2;
+      const r = box(pill && /^focus/.test(key) ? pill : t || g, halo), n = near(r, null), pt = key.split(':')[2], d = dots[pt];
+      out.push({ key, shown, box: [r.x0, r.y0, r.x1, r.y1].map((v) => +v.toFixed(1)), clear: +n.d.toFixed(2), vessel: n.id, level: d ? +((r.y0 + r.y1) / 2 - d[1]).toFixed(1) : null, ring: g.classList.contains('ring') ? (parseFloat(pill && getComputedStyle(pill).strokeWidth) || 0) / 2 : 0 });
+    }
+    for (const el of document.querySelectorAll('.clamp-label')) {
+      if (!el.getClientRects().length || !el.textContent) continue;
+      const r = box(el, (parseFloat(getComputedStyle(el).strokeWidth) || 0) * (CTM.sc || 1) / 2), n = near(r, el._c?.id);
+      out.push({ key: `60%:${el._c?.id}`, shown: true, box: [r.x0, r.y0, r.x1, r.y1].map((v) => +v.toFixed(1)), clear: +n.d.toFixed(2), vessel: n.id, level: null });
+    }
+    return out;
   }
   // `solve`: search (stickily) and record the slots; otherwise carry the recorded slots. Returns false
   // when a label turned up that has no slot or no longer fits its slot: the caller then solves.
@@ -5444,6 +5565,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const view = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }, plain = { ...view };   // plain: the whole stage, for the FibroScan callout, which keeps with its probe (see below)
     // A presenter slide's words hold the left (a phone: the top) under a fading shade; labels keep clear of it.
     if (st.presenting) { view.x0 = Math.max(view.x0, pzInset('--pz-l') + 30); view.y0 = Math.max(view.y0, pzInset('--pz-t') + 12); }
+    // (A stent's point, and the slide's mark beside it, come as near the top card as they may come to any card (4 px past its box, and
+    // a pixel to spare), so the point nearest it can still stand level with its dot: Review 16 Oct.)
+    const ptView = { ...view, y0: st.presenting ? Math.max(6, pzInset('--pz-t') + 5) : view.y0 };
+    const viewOf = (it) => (it.key === 'scan' ? plain : it.point || (dop.all && /^focus/.test(it.key)) ? ptView : view);
     const compact = W < 700;
     // Floating panels over the figure (notifications, hint cards, banners): a label under one is hidden.
     // Their boxes are read before this frame's SVG changes (see updateInner), while layout is clean.
@@ -5451,18 +5576,123 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const callouts = calloutBoxes();
     const obstacles = [...blockers, ...callouts];   // what can hide a label this frame
     const placed = solve ? callouts.map((b) => ({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3, call: true })) : [];
+    // (The corner credit, where it shows: a stent's column and the slide's mark beside it keep off it where they can, so it holds its
+    // spot when another point is picked. It moves whenever a label comes to cover it, and does not come back.)
+    const creditBox = solve && dop.all ? (() => { const el = document.querySelector('.stage-credit'), r = el?.getBoundingClientRect(); return r?.width && getComputedStyle(el).opacity !== '0' ? { x0: r.left - wr.left - 10, y0: r.top - wr.top - 10, x1: r.right - wr.left + 10, y1: r.bottom - wr.top + 10 } : null; })() : null;
+    const markDots = solve && dop.all && dop.id && geo[dop.id]?.cur?.length > 1 ? ['proximal', 'mid', 'distal'].map((pt) => worldToLocal(...pointAt(geo[dop.id].cur, STENT_SITES[pt]))) : null;   // (the stent's three dots)
+    const later = [];   // labels placed after the slide's marks (a stent's points other than the sampled one)
+    // Where a stent's point goes when nothing near its third is free: a little farther out on a leader that crosses no label (diagonal
+    // first, which clears a narrowing's clamp above or below its "60 %"), then farther still.
+    const FAR_DIRS = ['SE', 'NE', 'SW', 'NW', 'E', 'W', 'S', 'N'];
+    // (A stent's point with still no room, on a phone's small stent beside its narrowing: the far spots slid up or down a
+    // little, nearest first, so its leader can pass by the narrowing's clamp and its label sit in the gap that is left.)
+    const SLID = (far) => [far + 12, far + 48, far + 84].flatMap((gap) => [-24, 24, -48, 48, -72, 72].map((y) => ({ gap, leader: true, uncrossed: true, shift: [0, y] })));
     let stale = false;
     const prevSol = labelSol, nextSol = solve ? new Map() : labelSol;
-    // Stenosis clamps and their percentages are drawn on the figure; keep labels off them.
-    if (solve && !isImaging()) for (const [id, v] of Object.entries((f.viewParams || st.params).stenosis)) {
-      if (!(v > 0) || !E[id]?.vis) continue;
-      const [sx, sy] = worldToLocal(...pointAt(geo[id].cur, stenosisAt(id, f.viewParams || st.params)));
-      placed.push({ x0: sx - 26, y0: sy - 22, x1: sx + 60, y1: sy + 22 });
-    }
     const out = [];
     let leaders = '';
     let useLines = false, rings = [], ringPts = [];   // rings: the Circuit's stations with a reading (see placeMulti)
+    let clampAlts = [];   // (the column's "60 %": other spots off the vessels, nearest first, for the slide's mark)
     const buildLines = () => { if (solve && !useLines) { useLines = true; buildSegs(); } };
+    // A stent called out at its three points: the three stand in a column beside their own dots, distal to proximal in the stent's
+    // own order, on the side with room (off the cards and the stage edge, over the fewest vessels). The side is chosen from the stent
+    // and the screen alone, never from the point sampled, so nothing moves when another point is picked; the "60 %" takes the other side.
+    if (solve) {
+      const col = dop.all && dop.id && E[dop.id]?.vis && EI[dop.id] >= 0 && geo[dop.id]?.cur?.length > 1 ? dop.id : null;
+      if (col) {
+        buildLines();
+        const tpl = velItem(col, f, 'distal'), h = tpl.h, G = colGap(col);
+        const wT = lineW(tpl.lines[0].map((r) => (r.cls === 'lb-val' ? { ...r, t: '000' } : r)));
+        const score = (side) => ['proximal', 'mid', 'distal'].reduce((n, pt) => {
+          const [ax, ay] = worldToLocal(...pointAt(geo[col].cur, STENT_SITES[pt]));
+          const r = rectOf({ x: side === 'E' ? ax + G : ax - G - wT, y: ay - h / 2, w: wT, h, padX: tpl.padX || 0, padY: tpl.padY || 0 });
+          return n + (within(r, view) ? 0 : 1e3) + (obstacles.some((o) => hits(r, o)) ? 1e3 : 0) + lineHits(r, 2) * 10;
+        }, 0);
+        const e = score('E'), w = score('W');
+        ptSide = clampFor === col && ptSide === 'W' ? (e + 5 < w ? 'E' : 'W') : (w + 5 < e ? 'W' : 'E');   // (a near tie keeps the side it had)
+      } else ptSide = null;
+      const away = col ? (ptSide === 'E' ? 'W' : 'E') : null;
+      if (away !== clampAway || col !== clampFor) { clampAway = away; clampFor = col; for (const el of ov.clamps.querySelectorAll('.clamp-label')) clampLabelAt(el); }
+      for (const el of ov.clamps.querySelectorAll('.clamp-label')) clampFontAt(el);
+      // (The column's "60 %" stands off the vessels on its side (Review 15 Oct: it sat on the grey vein): the nearest spot clear of
+      // every vessel but its stent and of the credit, a step farther out or slid along the stent at a time, up to 64 px each way;
+      // failing that, the one over the fewest.)
+      // (Where the slide's mark points at the narrowing, its leader can only leave along the stent, between the arrows and away from the
+      // other dots: the "60 %" keeps out of that lane where it can, so the mark finds a spot there off the vessels: Review 16 Oct.)
+      const lane = col && (() => {
+        const m = (st.focus ? st.focus.marks || [st.focus] : []).find((k) => k.edges?.[0] === col);
+        if (!m) return null;
+        const pp = f.viewParams || st.params, [x, y, dx, dy] = pointAt(geo[col].cur, stenosisAt(col, pp));
+        const [ox, oy] = worldToLocal(x, y), [mx, my] = worldToLocal(...pointAt(geo[col].cur, m.seg ? STENT_SITES[stentGate(m.seg, pp, col)] : 0.5));
+        if (Math.hypot(mx - ox, my - oy) > 12) return null;
+        const [tx, ty] = worldToLocal(x + dx, y + dy), n = Math.hypot(tx - ox, ty - oy) || 1, [cx, cy] = worldToLocal(...pointAt(geo[col].cur, STENT_SITES.mid));
+        const sg = (cx - ox) * (tx - ox) + (cy - oy) * (ty - oy) > 0 ? -1 : 1;
+        return { ox, oy, ux: (sg * (tx - ox)) / n, uy: (sg * (ty - oy)) / n };
+      })();
+      const inLane = (r) => {
+        if (!lane) return false;
+        const { ox, oy, ux, uy } = lane, sx = Math.max(1, (r.x1 - r.x0) / 8), sy = Math.max(1, (r.y1 - r.y0) / 4);
+        for (let x = r.x0; x <= r.x1 + 0.01; x += sx) for (let y = r.y0; y <= r.y1 + 0.01; y += sy) {
+          const a = (x - ox) * ux + (y - oy) * uy;
+          if (a > 10 && a < 150 && Math.abs((y - oy) * ux - (x - ox) * uy) < 46) return true;
+        }
+        return false;
+      };
+      if (col) for (const el of ov.clamps.querySelectorAll('.clamp-label')) {
+        if (el._c?.id !== col) continue;
+        const k = 1 / Math.max(CTM.sc, 1e-3), steps = [];
+        for (let px = 0; px <= 64; px += 4) for (let tp = -64; tp <= 64; tp += 8) steps.push([px, tp]);
+        steps.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
+        let best = null;
+        // (Where the slide's mark is on this stent, the next few spots off the vessels are kept too: the mark may need the one it takes,
+        // and then the "60 %" moves to the nearest of them that frees it (see the focus callout).)
+        const markOn = (st.focus ? st.focus.marks || [st.focus] : []).some((m) => m.edges?.[0] === col);
+        clampAlts = [];
+        for (const [px, tp] of steps) {
+          if (best && !best.n && (!markOn || clampAlts.length >= 12)) break;
+          el._d = 16 + px * k; el._t = tp * k; clampLabelAt(el);
+          let bb; try { bb = el.getBBox(); } catch { break; }
+          const cs = [[bb.x, bb.y], [bb.x + bb.width, bb.y + bb.height]].map(([x, y]) => worldToLocal(x, y));
+          const r = { x0: Math.min(cs[0][0], cs[1][0]), y0: Math.min(cs[0][1], cs[1][1]), x1: Math.max(cs[0][0], cs[1][0]), y1: Math.max(cs[0][1], cs[1][1]) };
+          const n = lineHits(r, 8, col) + (within(r, view) ? 0 : 1e3) + (creditBox && hits(r, creditBox) ? 100 : 0) + (inLane(r) ? 0.5 : 0);   // (its 3.5 px halo and 2 px of air past it, and a pixel and a half to spare)
+          if (n < 1 && best && best.n < 1) clampAlts.push({ d: el._d, t: el._t, el });
+          if (!best || n < best.n) best = { n, d: el._d, t: el._t };
+        }
+        clampAlts = clampAlts.filter((a) => a.d !== best?.d || a.t !== best?.t);
+        if (best) { clampD.set(col, { d: best.d, t: best.t }); el._d = el._t = undefined; clampLabelAt(el); }
+      }
+    }
+    // Stenosis clamps and their percentages are drawn on the figure; keep labels off them. (Beside a stent called out in a column,
+    // only the clamp's own arrows and its "60 %", so the callout at the narrowing can stand right by its dot.)
+    const boxOfEl = (el, m = 2) => {
+      let b; try { b = el.getBBox(); } catch { return null; }
+      if (!b.width) return null;
+      const cs = [[b.x, b.y], [b.x + b.width, b.y], [b.x, b.y + b.height], [b.x + b.width, b.y + b.height]].map(([x, y]) => worldToLocal(x, y));
+      return { x0: Math.min(...cs.map((c) => c[0])) - m, y0: Math.min(...cs.map((c) => c[1])) - m, x1: Math.max(...cs.map((c) => c[0])) + m, y1: Math.max(...cs.map((c) => c[1])) + m };
+    };
+    if (solve && !isImaging()) for (const [id, v] of Object.entries((f.viewParams || st.params).stenosis)) {
+      if (!(v > 0) || !E[id]?.vis) continue;
+      if (id === clampFor && ptSide) { for (const el of ov.clamps.querySelectorAll(`.clamp[data-id="${id}"]`)) { const b = boxOfEl(el, 0); if (b) placed.push(b); } continue; }
+      const [sx, sy] = worldToLocal(...pointAt(geo[id].cur, stenosisAt(id, f.viewParams || st.params)));
+      placed.push({ x0: sx - 26, y0: sy - 22, x1: sx + 60, y1: sy + 22 });
+    }
+    // (The clamps' "60 %" again on its own: a station inside the clamp's box above may send a long leader out, but never through it,
+    // and no leader passes nearer than 2 px to its halo: Review 15 Oct.)
+    if (solve && !isImaging()) for (const el of ov.clamps.querySelectorAll('.clamp-label')) { const b = boxOfEl(el, 6); if (b) placed.push(el._box = { ...b, lab: true }); }
+    // (The column's narrowing arrows, for the slide's mark: its leader keeps 6 px off them, as drawn (their triangles, not their
+    // boxes, so a leader straight up between them still passes): Review 16 Oct.)
+    const markArrows = solve && dop.all && clampFor && ptSide ? [...ov.clamps.querySelectorAll(`.clamp[data-id="${clampFor}"]`)].map((el) => {
+      const n = (el.getAttribute('d') || '').match(/-?[\d.]+(e-?\d+)?/g)?.map(Number) || [];
+      return n.length >= 6 ? [0, 2, 4].map((k) => worldToLocal(n[k], n[k + 1])) : null;
+    }).filter(Boolean) : [];
+    const triDist = (x, y, tri) => {
+      const side = (a, b) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]), s0 = side(tri[0], tri[1]), s1 = side(tri[1], tri[2]), s2 = side(tri[2], tri[0]);
+      if ((s0 >= 0 && s1 >= 0 && s2 >= 0) || (s0 <= 0 && s1 <= 0 && s2 <= 0)) return 0;
+      return Math.min(...[0, 1, 2].map((k) => {
+        const a = tri[k], b = tri[(k + 1) % 3], ex = b[0] - a[0], ey = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * ex + (y - a[1]) * ey) / (ex * ex + ey * ey || 1)));
+        return Math.hypot(x - a[0] - ex * t, y - a[1] - ey * t);
+      }));
+    };
     // Slots are searched over every (pass, direction) pair at once: an earlier pass always beats a
     // later one (nearer, no leader, clear of vessels), then the direction order decides. The slot a
     // label held before wins as long as it still collides with nothing: no label, no dot, and (in a
@@ -5494,17 +5724,50 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const probe = it.rot ? { ...it, w: it.h, h: it.w } : { ...it, w: wRes };
       let best = null;
       passes.forEach((ps, pi) => pi >= from && pi < to && (ps.dirs || dirs).forEach((dir, i) => {
-        const [dx, dy] = offset(dir, probe, ps.gap);
-        const r = rectOf({ ...probe, x: it.ax + dx, y: it.ay + dy });
+        // (A spot on the grid around the station is tried once, not per direction, and only until one is free: the grid runs nearest
+        // first. The spot the label held is still tried, so it can hold it.)
+        if (ps.skip || (ps.at && (i || (best && !(prev && prev.pi === pi))))) return;
+        let [dx, dy] = ps.at ? [ps.at[0] - probe.w / 2, ps.at[1] - probe.h / 2] : offset(dir, probe, ps.gap);
+        if (ps.shift) { dx += ps.shift[0]; dy += ps.shift[1]; }   // (a slot slid up or down from its compass spot)
+        let r = rectOf({ ...probe, x: it.ax + dx, y: it.ay + dy });
+        // (A stent's point past the stage's edge, or the slide's mark beside it, is tried where the last pass would pull it back to, so it
+        // is never pushed onto its neighbour.)
+        if (it.point || (dop.all && /^focus/.test(it.key))) {
+          const cx = Math.max(ptView.x0 - r.x0, Math.min(0, ptView.x1 - r.x1)), cy = Math.max(ptView.y0 - r.y0, Math.min(0, ptView.y1 - r.y1));
+          if (cx || cy) { dx += cx; dy += cy; r = rectOf({ ...probe, x: it.ax + dx, y: it.ay + dy }); }
+        }
         if (placed.some((p) => (ps.callGap && p.call ? hits(r, { ...p, x0: p.x0 - ps.callGap, x1: p.x1 + ps.callGap }) : hits(r, p)) && !(ps.overZones && p.zone))) return;
-        const V = it.key === 'scan' ? plain : view, inside = within(r, V);
+        if (ps.credit && creditBox && hits(r, creditBox)) return;
+        // (A stent's point, or the slide's mark beside it, never takes a spot a card covers, where it would only hide: the next spot that
+        // shows is better.)
+        // (It keeps 4 px off a card: with 10, a point near the card's edge was slid off its dot's line: Review 16 Oct.)
+        if ((it.point || (dop.all && /^focus/.test(it.key))) && obstacles.some((o) => hits(r, { x0: o.x0 - 4, y0: o.y0 - 4, x1: o.x1 + 4, y1: o.y1 + 4 }))) return;
+        // (A long leader may not run through another label: only boxes clear of its own station count, by 8 px, so a clamp's arrows at
+        // the station do not.)
+        if (ps.uncrossed && placed.some((p) => (p.lab || !(it.ax >= p.x0 - 8 && it.ax <= p.x1 + 8 && it.ay >= p.y0 - 8 && it.ay <= p.y1 + 8)) && crosses(it.ax, it.ay, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, p))) return;
+        // (...nor, the slide's mark's, pass within 18 px of another of the stent's dots: Review 15 Oct.)
+        if (markDots && /^focus/.test(it.key) && !ps.loose) {
+          const le = leaderEnd(r, it.ax, it.ay), ex = le.x - it.ax, ey = le.y - it.ay, L2 = ex * ex + ey * ey || 1;
+          if (markDots.some(([px, py]) => { if (Math.hypot(px - it.ax, py - it.ay) < 4) return false; const t = Math.max(0, Math.min(1, ((px - it.ax) * ex + (py - it.ay) * ey) / L2)); return Math.hypot(px - it.ax - ex * t, py - it.ay - ey * t) < 18; })) return;
+          const L = Math.sqrt(L2);
+          for (let u = 7; ps.clear && u < L && markArrows.length; u += 1.5) {
+            const x = it.ax + (ex * u) / L, y = it.ay + (ey * u) / L;
+            if (markArrows.some((tri) => triDist(x, y, tri) < 6)) return;
+          }
+        }
+        // (The mark moves with the point sampled, so it holds its spot only while its dot stays put.)
+        const moved = dop.all && /^focus/.test(it.key) && prev && Math.hypot(...worldToLocal(prev.wx, prev.wy).map((v, j) => v - (j ? it.ay : it.ax))) > 2;
+        const V = viewOf(it), inside = within(r, V), held = !moved && !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, V));
         const om = ps.strict ? 10 : 0;
         if ((ps.inView && !inside) || ((ps.inView || ps.strict) && obstacles.some((o) => !(o.zone && ps.strict) && hits(r, { x0: o.x0 - om, y0: o.y0 - om, x1: o.x1 + om, y1: o.y1 + om })))) return;   // (in the free space: inside the stage, 10 px from any card, the margin a hidden label needs to show again)
-        const held = !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, V));
         let onLine = 0;
         if (useLines) {
-          // (A clear pass only asks whether any vessel is in the way: the held spot with no air, a fresh one with 3 px.)
-          if (ps.clear) { if (held ? lineHits(r, 0, true) : lineHits(r, 3, true)) return; } else onLine = lineHits(r, 0);
+          // (A clear pass only asks whether any vessel is in the way. The slide's mark beside a stent's three points keeps 2 px off every
+          // vessel as drawn (3 with a pixel to spare; a point's callout 4, its halo included), and its leader 2 px off every vessel but
+          // its stent: Review 15-16 Oct.)
+          const mk = dop.all && /^focus/.test(it.key);
+          if (ps.clear) { if (mk ? lineHits(r, 3, true) : it.point ? lineHits(r, 4, true) : held ? lineHits(r, 0, true) : lineHits(r, 3, true)) return; } else onLine = lineHits(r, 0);
+          if (mk && dop.id && lineHits(r, 3, { only: dop.id })) return;   // (and in any pass, 2 px off its own stent as drawn)
           // (A reading out on a ring is joined to its station by a leader: one that would cross a vessel or a label is no use.)
           // A reading moving off its vessel or rescued (passes from 3 on, and the rescue's: strict) keeps 4 px from every other
           // reading, off every other station's ring and every other reading's leader, and its own leader, if it is far enough out
@@ -5527,8 +5790,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
               }
             }
           }
+          if (ps.clear && mk && ps.lead) {
+            const le = leaderEnd(r, it.ax, it.ay), L = Math.hypot(le.x - it.ax, le.y - it.ay);
+            for (let u = 12; u < L; u += 3) {
+              const x = it.ax + ((le.x - it.ax) * u) / L, y = it.ay + ((le.y - it.ay) * u) / L;
+              if (lineHits({ x0: x, y0: y, x1: x, y1: y }, 2, dop.id)) return;
+            }
+          }
         }
-        const cost = pi * 1e4 + (inside ? 0 : 2e3) + (ps.clear ? 0 : onLine * 12) + i + (ps.bias || 0) - (held ? (ps.clear ? 1e5 : 4) : 0);
+        // (A clear pass may share its tier with others, and then the spot nearest its dot wins among them, whatever its direction.)
+        // (A stent's point holds its spot only against others of the same pass: a slot it was slid to, while a card opened or the
+        // figure moved, never outranks a level one that is free again: Review 16 Oct.)
+        const near = ps.tier != null && ps.clear ? Math.hypot((r.x0 + r.x1) / 2 - it.ax, (r.y0 + r.y1) / 2 - it.ay) * 10 : 0;
+        const cost = (ps.tier ?? pi) * 1e4 + (inside ? 0 : 2e3) + (ps.clear ? 0 : onLine * 12) + i + near + (ps.bias || 0) - (held ? (ps.clear ? (it.point && it.col ? 5e3 : 1e5) : 4) : 0);
         if (!best || cost < best.cost) best = { cost, dx, dy, r, dir, pi, leader: ps.leader };
       }));
       if (!best) {
@@ -5588,7 +5862,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       // A TIPS or DIPS shunt gets its own callout: the velocity through it (cm/s), as Doppler reads it.
       for (const sid of ['TIPS', 'DIPS']) {
-        if (stentReady(sid, f) && EI[sid] >= 0) {
+        if (stentReady(sid, f) && EI[sid] >= 0 && dop.all && dop.id === sid && geo[sid]?.cur?.length > 1) {
+          // (A slide that reads the stent at its three points calls out all three, each at its own third, in a column beside their
+          // dots, before the slide's mark, which finds its place around them.)
+          const vw = labelAnchor(sid, t).w;
+          for (const point of ['proximal', 'mid', 'distal']) {
+            const [ax, ay] = worldToLocal(...pointAt(geo[sid].cur, STENT_SITES[point]));
+            const it = velItem(sid, f, point);
+            it.ax = ax; it.ay = ay; it.vw = vw * CTM.sc; it.pri = 8; it.side = 'R'; it.col = ptSide; it.colGap = colGap(sid);
+            it.canShort = false; it.point = true;   // (a point's name without its number says nothing: whole, or not at all)
+            // (Where a point finds no room in its column, the narrowing's jet tries the spots farther out first.)
+            const pp = f.viewParams || st.params;
+            it.jet = (pp.stenosis?.[sid] || 0) > 0 && stentSite(pp, sid) === point;
+            it.later = false;
+            items.push(it);
+          }
+        } else if (stentReady(sid, f) && EI[sid] >= 0) {
           let { ax, ay, mid, w: vw } = labelAnchor(sid, t);
           // (While the Doppler samples this stent, the callout points at the third its gate reads, where the stent glows.)
           if (dop.id === sid && dop.seg && geo[sid]?.cur?.length > 1) [ax, ay] = worldToLocal(...pointAt(geo[sid].cur, STENT_SITES[dop.seg]));
@@ -5646,11 +5935,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const it of items) placed.push({ x0: it.ax - 4, y0: it.ay - 4, x1: it.ax + 4, y1: it.ay + 4 });
         for (const it of items.sort((a, b) => b.pri - a.pri)) {
           it.align = 'start';
+          if (it.later) { later.push(it); continue; }
+          // (A stent's point: in its column, level with its dot (Review 15 Oct), a little farther out first (16 px at most) to clear its
+          // narrowing's clamp, off the vessels where it can be; slid up or down only where its neighbour leaves no room level.)
+          const COL = [0, -6, 6, -12, 12, -18, 18];
+          // (The jet's dot has its narrowing's arrows beside it: level just past the arrow before sliding off its dot's line.)
+          const level = [...new Set([it.colGap, 12, 14, 16, ...(it.jet ? [20, 24, 28, 32, 36, 40] : [])].filter((g) => g >= it.colGap))];
+          const lv = (credit) => [true, false].flatMap((clear) => level.map((gap) => ({ gap, leader: true, clear, credit })));
+          const sh = (credit) => [true, false].flatMap((clear) => COL.slice(1).map((y) => ({ gap: it.colGap, leader: true, clear, credit, shift: [0, y] })));
+          if (it.point && it.col && placeMulti(it, [it.col], [...lv(true), ...lv(false), ...sh(true), ...sh(false)])) continue;
           const dirs = it.side === 'L' ? ['NW', 'W', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['NE', 'E', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
           // Prefer a spot touching no vessel at all, near first; only then accept one that crosses a vessel.
           const near = 8 + it.vw / 2, far = 24 + it.vw / 2;
           if (it.minor) { placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }]); continue; }
           if (placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, { gap: near, leader: false }, { gap: far, leader: true }])) continue;
+          // (A sampled stent point, or the jet, with no room by its third tries again farther out, once the slide's mark has its place.)
+          if (it.point) { later.unshift(it); continue; }
           if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
         }
       }
@@ -5751,7 +6051,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Then a reading that sits on a vessel moves to the nearest clear spot, the others staying where they are: beside its
       // station, else a little further out with a short leader (one that crosses no vessel first, then one that crosses no
       // label or leader); with no clear spot near it stays where it was, its halo solid and no flow arrowhead under it
-      // (onVessel: renderBlock, chevHoles). (A nearer spot on a vessel used to beat a clear one a little further out:
+      // (onVessel: renderBlock, noChevBoxes). (A nearer spot on a vessel used to beat a clear one a little further out:
       // "7.8 mmHg" ran into the portal trunk, "4.1" sat on the liver's zigzag, and RA's "mmHg" on its branch.)
       // (A spot outside the free space counts too: the reading is later pulled back into view, onto whatever is there.)
       // (All of them leave their spots first, so a reading moving out is not blocked by one that is about to move too.)
@@ -5838,6 +6138,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (!spots.some((u) => { at(u); return place(it, dirs, gaps, false, true); })) { at(laneU[id]); place(it, ['C'], 0, false); }
       }
     }
+    // (Beside a stent's column of three points the slide's mark keeps off the whole column, the gaps between its callouts included, so
+    // the three read as one block in order.)
+    if (solve && ptSide) {
+      const col = out.filter((o) => o.point).map(rectOf);
+      if (col.length > 1) placed.push({ x0: Math.min(...col.map((r) => r.x0)), y0: Math.min(...col.map((r) => r.y0)), x1: Math.max(...col.map((r) => r.x1)), y1: Math.max(...col.map((r) => r.y1)) });
+    }
     // Focus callout
     const foc = st.focus;
     (foc ? foc.marks || [foc] : []).forEach((m, i) => {
@@ -5849,9 +6155,51 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const it = { key: i || m.kind ? `focus${i}${m.kind || ''}` : 'focus', mk: m.kind, cls: 'focus' + (m.kind ? ` k-${m.kind}` : ''), lines: [[{ t: m.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4, ax, ay };
       it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
       // (A free mark stands by itself, with no leader: it names a group of vessels, so a line to the first would single it out.)
-      if (place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], 18 + (E[m.edges[0]].width || 4), true) && !m.free) it.focusLeader = true;
+      const gap = 18 + (E[m.edges[0]].width || 4);
+      // (Beside a stent called out at all three points the mark may stand a little farther off, on a leader that crosses no label.)
+      // (...off the vessels first, even where that takes the credit's corner (the credit finds another), then clear of the credit;
+      // each spot also nudged 8 or 16 px each way, so a pill that would touch a vessel by a pixel or two slides clear; its leader crosses
+      // no label, the "60 %" included, and at each reach it first tries for a leader over no vessel (past the dot's own junction): a
+      // short leader beats a long clean one; within a reach, the spot nearest the dot, nudged or not: Review 15 Oct.)
+      const NUDGE = [[0, 0], [-8, 0], [0, 8], [8, 0], [0, -8], [-16, 0], [0, 16], [16, 0], [0, -16]];
+      // (Where no such spot is off the vessels, any spot within 150 px that is, nearest first, before one over a vessel: Review 16 Oct.)
+      const reach = (clear) => [true, false].flatMap((credit) => [gap, gap + 20, gap + 52, gap + 84, gap + 120].flatMap((g) => (clear ? [true, false] : [false]).map((lead) => ({ gap: g, leader: true, uncrossed: true, clear, lead, credit }))));
+      const passes = dop.all && [...reach(true), { grid: true }, ...reach(false)].flatMap((ps, tier) => (ps.grid ? MARK_GRID.map((at) => ({ at, gap: 0, leader: true, uncrossed: true, clear: true, tier })) : NUDGE.map((shift) => ({ ...ps, shift, tier }))));
+      let marked = dop.all ? placeMulti(it, FAR_DIRS, passes) : place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], gap, true);
+      // (A mark that found no spot off the vessels, where the column's "60 %" blocks its way: the "60 %" tries its next spots off the
+      // vessels, nearest first, and keeps the first that lets the mark stand clear; failing all, both stay as they were: Review 16 Oct.)
+      if (marked && dop.all && clampAlts.length && clampAlts[0].el._box && placed.includes(clampAlts[0].el._box) && !passes[nextSol.get(it.key)?.pi]?.clear) {
+        const el = clampAlts[0].el, keep = clampD.get(el._c.id), old = el._box, at = placed.indexOf(old), clearOnly = passes.map((ps) => (ps.clear ? ps : { ...ps, skip: true }));
+        placed.pop(); out.pop();
+        let freed = false;
+        for (const a of clampAlts) {
+          clampD.set(el._c.id, { d: a.d, t: a.t }); clampLabelAt(el);
+          const b = boxOfEl(el, 6);
+          if (!b || placed.some((p, j) => j !== at && hits(b, p))) continue;
+          placed[at] = el._box = { ...b, lab: true };
+          if (placeMulti(it, FAR_DIRS, clearOnly)) { freed = true; break; }
+        }
+        if (!freed) { clampD.set(el._c.id, keep); clampLabelAt(el); placed[at] = el._box = old; marked = placeMulti(it, FAR_DIRS, passes); }
+      }
+      // (Where no spot is off the vessels (a phone with the monitor open), the pill takes the one over the fewest, and a ring in the
+      // stage's colour keeps them 2 px off its edge, as the column's halo does for its callouts: Review 16 Oct.)
+      // (Nothing of the column hides: a mark with no spot under those rules takes one whose leader may cross a label or pass near
+      // another dot, still off the cards, the labels and its own stent: Review 16 Oct.)
+      if (!marked && dop.all) marked = placeMulti(it, FAR_DIRS, passes.map((ps) => (ps.clear ? { ...ps, skip: true } : { ...ps, uncrossed: false, loose: true })));
+      const sol = marked && dop.all ? nextSol.get(it.key) : null;
+      if (sol && solve) sol.ring = !passes[sol.pi]?.clear && useLines && lineHits(rectOf(it), 3) > 0;   // (only where a vessel comes within reach)
+      if (sol?.ring) it.cls += ' ring';
+      if (marked && !m.free) it.focusLeader = true;
       it.free = !!m.free;
     });
+    // A stent's other two points, where they fit around the sampled point's callout and the slide's mark: off the vessels if they can.
+    later.sort((a, b) => (b.pri - a.pri) || (b.jet - a.jet));
+    for (const it of later) {
+      const near = 8 + it.vw / 2, far = 24 + it.vw / 2;
+      placeMulti(it, ['NE', 'E', 'SE', 'NW', 'W', 'SW', 'N', 'S'], [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, { gap: near, leader: false }, { gap: far, leader: true }])
+        || placeMulti(it, FAR_DIRS, [{ gap: far + 12, leader: true, uncrossed: true }, { gap: far + 48, leader: true, uncrossed: true }])
+        || placeMulti(it, FAR_DIRS, SLID(far));
+    }
     if (stale) return false;
     if (solve) {
       labelSol = nextSol;
@@ -5869,7 +6217,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.live) { it.hide = false; continue; }
       // A label a pan has pushed over the stage edge is pulled back inside (with a leader to its station)
       // so it is never cut off; once its station has left the stage the label goes too.
-      const edge = rectOf(it), V = it.key === 'scan' ? plain : view;
+      const edge = rectOf(it), V = viewOf(it);
       // An organ's name is pinned inside its organ: where a card or the stage edge covers it, it hides with the organ, never slides.
       if (it.cls === 'organ') { const was = labelVis.get(it.key) !== false, m = was ? 0 : 10; it.hide = !within({ x0: edge.x0 - m, y0: edge.y0 - m, x1: edge.x1 + m, y1: edge.y1 + m }, V) || obstacles.some((o) => hits(edge, o)); labelVis.set(it.key, !it.hide); continue; }
       const cx = Math.max(V.x0 - edge.x0, Math.min(0, V.x1 - edge.x1)), cy = Math.max(V.y0 - edge.y0, Math.min(0, V.y1 - edge.y1));
@@ -5878,10 +6226,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if ((cx || cy) && solve && useLines && it.key.startsWith('n:') && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }
       if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; labelVis.set(it.key, false); continue; }
       if (it.sel) { it.hide = false; continue; }
-      const r = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), was = labelVis.get(it.key) !== false, m = was ? 0 : 10;   // (a turned caption: its box turned too)
+      const r = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), was = labelVis.get(it.key) !== false, m = was ? 0 : it.point || (dop.all && /^focus/.test(it.key)) ? 4 : 10;   // (a turned caption: its box turned too; a stent's point or its mark was placed 4 px off the cards)
       // A zone title is a label too: a reading is never hidden by one (the overlap pass below settles any
       // clash, and a reading outranks a zone title); other labels give way to it only where they truly overlap.
       it.hide = !hits(r, stage) || obstacles.some((o) => (o.zone ? !it.key.startsWith('n:') && hits(r, o) : hits(r, { x0: o.x0 - m, y0: o.y0 - m, x1: o.x1 + m, y1: o.y1 + m })));
+      // (A stent's point, or the slide's mark beside it, that the figure's move carried under a card is placed again rather than hidden
+      // (nothing of the column hides: Review 16 Oct); at most every quarter second, so a card still easing cannot keep it searching.)
+      if (it.hide && !solve && dop.all && (it.point || /^focus/.test(it.key)) && performance.now() - colResolve > 250) { colResolve = performance.now(); return false; }
       labelVis.set(it.key, !it.hide);
     }
     // Last pass: no two labels showing may overlap. A pan can pull a label in from the stage edge onto
@@ -5924,11 +6275,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (spot !== null) z._zr = at(spot); else { at(c); z.hide = true; }
     }
     // No flow arrowhead runs under a reading that has to sit on its vessel (veins-gl.js noChev; world boxes, 3 px of air: its halo's reach).
-    chevHoles = out.filter((it) => it.onVessel).slice(0, 12).map((it) => {
+    noChevBoxes = out.filter((it) => it.onVessel).slice(0, 12).map((it) => {
       const r = rectOf(it), c = [[r.x0 - 3, r.y0 - 3], [r.x1 + 3, r.y0 - 3], [r.x0 - 3, r.y1 + 3], [r.x1 + 3, r.y1 + 3]].map(([x, y]) => localToWorld(x, y));
       return [Math.min(...c.map((p) => p[0])), Math.min(...c.map((p) => p[1])), Math.max(...c.map((p) => p[0])), Math.max(...c.map((p) => p[1]))];
     });
-    // Leader lines and anchor dots, for the labels showing.
+    // Leader lines and anchor dots, for the labels showing. (Every line goes down before any dot, so no leader runs over a dot.)
+    // (A stent's point: its dot sits on a solid disc of the stage's colour, and every leader that ends there, its own or the slide's
+    // mark's, stops 2 px outside the disc; one left shorter than 4 px is not drawn: Review 15 Oct.)
+    const DISC = 5, pts = out.filter((it) => it.point && !it.hide);
+    let dots = '';
+    const lineFrom = (it, le) => {
+      let x0 = it.ax, y0 = it.ay;
+      const d = pts.find((p) => Math.hypot(p.ax - x0, p.ay - y0) < DISC + 2);
+      if (d) {
+        const L = Math.hypot(le.x - d.ax, le.y - d.ay);
+        if (L < DISC + 2 + 4) return null;
+        x0 = d.ax + ((le.x - d.ax) / L) * (DISC + 2); y0 = d.ay + ((le.y - d.ay) / L) * (DISC + 2);
+      }
+      return `M${x0.toFixed(1)} ${y0.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}`;
+    };
     for (const it of out) {
       if (it.hide || it.live || it.cls === 'organ' || it.cls === 'lane' || it.key === 'scan') continue;
       let r = rectOf(it);
@@ -5956,12 +6321,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Elsewhere the leader stops on the edge of the letters it meets first, run by run: seenEnd.)
       const le0 = leaderEnd(r, it.ax, it.ay, circuit ? 2 : 6), le = circuit ? le0 : seenEnd(it);
       const far = Math.hypot(le0.x - it.ax, le0.y - it.ay) > 5;
-      if (it.focusLeader) leaders += `<path class="leader focus${it.mk ? ` k-${it.mk}` : ''}" data-k="${it.key}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
       // (In the Circuit a reading more than 10 px from its station is always joined to it, so its ring is never in doubt.)
-      else if ((it.leader && (circuit || far)) || (circuit && Math.hypot(le.x - it.ax, le.y - it.ay) > 10)) leaders += `<path class="leader${it.sel ? ' hl' : ''}" data-k="${it.key}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
+      const dl = (it.focusLeader || (it.leader && (circuit || far)) || (circuit && Math.hypot(le.x - it.ax, le.y - it.ay) > 10)) && lineFrom(it, le);
+      if (dl && it.focusLeader) leaders += `<path class="leader focus${it.mk ? ` k-${it.mk}` : ''}" data-k="${it.key}" d="${dl}"/>`;
+      else if (dl) leaders += `<path class="leader${it.sel ? ' hl' : ''}" data-k="${it.key}" d="${dl}"/>`;
       if (it.focusLeader || it.free) continue;
-      if (!circuit || it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
+      if (it.point) dots += `<circle class="leader-dot-halo" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="${DISC}"/>`;
+      if (!circuit || it.mid) dots += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
     }
+    leaders += dots;
+    // (The flow's arrowheads keep out from under the points' callouts, within 17 px of their dots, and 5 px either side of
+    // every leader that ends at a point, the slide's mark's included, so no line runs through one: Review 15 Oct.)
+    const holes = [], k = 1 / Math.max(CTM.sc, 1e-3);
+    for (const it of pts) {
+      const r = rectOf(it), [ax, ay] = localToWorld(r.x0, r.y0), [bx, by] = localToWorld(r.x1, r.y1), [dx, dy] = localToWorld(it.ax, it.ay);
+      holes.push([Math.min(ax, bx), Math.min(ay, by), Math.max(ax, bx), Math.max(ay, by), 3 * k], [dx, dy, dx, dy, 17 * k]);
+    }
+    for (const it of out) {
+      if (it.hide || it.live || !(it.point || it.focusLeader) || !pts.some((p) => Math.hypot(p.ax - it.ax, p.ay - it.ay) < DISC + 2)) continue;
+      const le = leaderEnd(rectOf(it), it.ax, it.ay), [x0, y0] = localToWorld(it.ax, it.ay), [x1, y1] = localToWorld(le.x, le.y);
+      holes.push([x0, y0, x1, y1, -5 * k]);
+    }
+    const hk = holes.map((h) => h.map((v) => v.toFixed(1)).join(',')).join(';');
+    if (hk !== holesKey) { holesKey = hk; chevHoles = holes; }
     for (const it of out) renderBlock(it);
     const sit = out.find((o) => o.key === 'scan'), sblk = pool.get('scan');
     if (sit && !sit.hide) {
@@ -6122,7 +6504,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function bloodLook() {
     const st = store.get(), b = st.blood || {};
-    return { on: bloodOn(), chev: chevOn() && !cath.st, look: b.look, origin: originOn(), clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), noChev: chevHoles, ...bloodColors() };
+    return { on: bloodOn(), chev: chevOn() && !cath.st, look: b.look, origin: originOn(), clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), noChev: noChevBoxes, holes: chevHoles, ...bloodColors() };
   }
 
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null, lastAnim = true;
@@ -6167,7 +6549,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // A new model frame changes the figure only through the vessel layer (checked by syncVeins), or through the blood's
     // own data (flow, origin streams) and a bleed, while those are shown.
     const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active);
-    const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
+    const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
     if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
@@ -6896,8 +7278,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cathForget() { cath.saved = null; cath.k0 = 0; },
     /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */
     setDoppler(id) { dop.want = id; dopApply(); },
-    /** The presenter's Doppler slide pins its vessel's glow, over whatever Explore's Doppler reads (null: unpin). */
-    pinDoppler(id) { dop.pin = id; dopApply(); },
+    /** The presenter's Doppler slide pins its vessel's glow, over whatever Explore's Doppler reads (null: unpin). points: on a
+     *  stent, the figure calls out all three points it is sampled at, the sampled one named in the Doppler's green. */
+    pinDoppler(id, { points = false } = {}) { dop.pin = id; dop.points = !!id && points; dopApply(); },
     setScanProbe,
     setLabelScale(v) {
       labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
@@ -6998,6 +7381,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; animateVT({ ...to }, ms); },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
+    labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
     /** The stage's kept copy of its computed style, for the stage's own element (null for any other): read it instead of a live read. */
     /** The sharp view raster's world rectangle and scale ([x0, y0, x1, y1, px per unit], or null), how many have been drawn, and the stage's world rectangle. */

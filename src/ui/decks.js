@@ -28,7 +28,8 @@
 //                            brackets: { hvpg | ppg: 'misleads' | 'works' } colours the ladder's bracket red or green, its number in it;
 //                            block: a station ('pv' | 'whvp' | 'fhvp' | 'ivc' | 'ra') carrying the block itself, hatched on its node)
 //   tool                     an instrument in the data card, reading the live model (presenter-tools.js): { kind: 'doppler',
-//                            vessel, gate? } (gate: on a stent, the third it samples, 'proximal' | 'mid' (default) | 'distal' | 'site'), { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
+//                            vessel, gate?, points? } (gate: on a stent, the third it samples, 'proximal' | 'mid' (default) | 'distal' | 'site';
+//                            points: true calls out the stent's velocity at all three points on the figure, the sampled one in green), { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
 //                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section); title? names the card; waves: true
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
 //                            (on a phone it folds away behind a Show button; open: true keeps it open there and folds the tiles instead)
@@ -73,7 +74,7 @@ import { STIFFNESS } from './decks/stiffness.js?v=f44a1aea03';
 import { ONE_YEAR } from './decks/one-year.js?v=9b5e8e66e7';
 import { LOBULE } from './decks/lobule.js?v=2179638d8f';
 import { SHUNTS } from './decks/shunts.js?v=cb9a4f646f';
-import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=cb796e3302';
+import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=cfde14f57a';
 import { TAP } from './decks/tap.js?v=04459c913c';
 import { CIRCUIT } from './decks/circuit.js?v=766499377a';
 import { DOPPLER } from './decks/doppler.js?v=9362620731';
