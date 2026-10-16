@@ -3363,13 +3363,16 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         for (const p of bar.parts) {
           const box = bar.dock;
           if (p.l < box.l - 0.5 || p.r > box.r + 0.5 || p.t < box.t - 0.5 || p.b > box.b + 0.5) throw new Error(`${where}: ${p.q} sticks out of the bottom bar`);
-          if (/tl-(ff|hist|pin)/.test(p.q) && (p.w < 35.5 || p.h < 35.5)) throw new Error(`${where}: ${p.q} is smaller than a 36 px button`);
+          // (The Mac's Pin carries its word in a 34 px bordered button on the one-line play row, 29f1d0f; the icons are 36 px.)
+          const minH = p.q === '.tl-pin' && p.w > 40 ? 33.5 : 35.5;
+          if (/tl-(ff|hist|pin)/.test(p.q) && (p.w < 35.5 || p.h < minH)) throw new Error(`${where}: ${p.q} is smaller than a 36 px button`);
         }
         for (let i = 0; i < bar.parts.length; i++) for (let j = i + 1; j < bar.parts.length; j++) { const a = bar.parts[i], c = bar.parts[j]; if (a.l < c.r - 0.5 && c.l < a.r - 0.5 && a.t < c.b - 0.5 && c.t < a.b - 0.5) throw new Error(`${where}: ${a.q} overlaps ${c.q}`); }
         if (w < 768 && hgt > 500) {
           if (new Set(r.tiles.map((t) => Math.round(t.t))).size > 1) throw new Error(`${where}: the readouts do not line up (tops ${r.tiles.map((t) => Math.round(t.t))})`);
           if (new Set(r.tiles.map((t) => Math.round(t.h))).size > 1) throw new Error(`${where}: the readouts differ in height`);
-          for (const t of r.tiles) { const v = t.parts.find((p) => p.q === 'v'), s = t.parts.find((p) => p.q === 's') || t.parts.find((p) => p.q === 'rb'); if (Math.abs(v.l - s.l) > 1) throw new Error(`${where}: the rating of "${t.id}" is not under its value`); }
+          // (The one-line play row, 29f1d0f, shows no rating under a value; where one shows, it sits under it.)
+          for (const t of r.tiles) { const v = t.parts.find((p) => p.q === 'v'), s = t.parts.find((p) => p.q === 's') || t.parts.find((p) => p.q === 'rb'); if (v && s && Math.abs(v.l - s.l) > 1) throw new Error(`${where}: the rating of "${t.id}" is not under its value`); }
         }
         seen.push({ q, tiles: r.tiles.map((t) => [t.id, Math.round(t.l), Math.round(t.t), Math.round(t.w), Math.round(t.h)].join(':')).join(' '), strip: Math.round(r.strip.h) });
       }

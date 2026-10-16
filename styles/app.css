@@ -5634,6 +5634,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .app.thumb .vdock .readouts:not(.all) .metric .k { font-size: 10px; letter-spacing: 0; }
   .app.thumb .vdock .readouts:not(.all) .metric .v { font-size: 15px; }
 }
+.app:not(.presenting) .vdock .readouts:not(.all) .metric .val { display: inline-block; min-width: 2.15em; text-align: left; font-variant-numeric: tabular-nums; }   /* (room for two digits and a tenth, "16.9", so a readout keeps its width from 2.5 to 28.8; the spare room falls after the value) */
+@media (min-width: 1000px) {   /* (a Mac, where the unit shows: the room is kept after "mmHg" instead, so the unit stays beside its value) */
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric .val { min-width: 0; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric .v { display: inline-block; min-width: 4.175em; }
+}
 @media (min-width: 1000px) {   /* (a Mac from 1024 px, an iPad held sideways) */
   .app:not(.thumb):not(.presenting) .vdock { width: max-content; max-width: calc(100% - 2 * var(--gap)); }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) :is(.ro-tiles, .metric) { flex: none; }
