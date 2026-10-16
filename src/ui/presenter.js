@@ -2178,7 +2178,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   document.fonts?.ready.then(() => { for (const c of [ui?.text, ui?.data, ui?.panel]) if (c && !c.hidden) { fitEquations(c); } });
   function fitCards(...els) {
     for (const el of els) {
-      if (!el || el.hidden) continue;
+      if (!el || el.hidden || 'folding' in el.dataset) continue;   // (a part mid-fold: the card keeps the fit it will rest with)
       const sig = fitSig(el);
       if (fitDone.get(el) === sig) continue;
       const was = parseFloat(el.style.getPropertyValue('--pz-fit')) || 1;
@@ -2248,7 +2248,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     fitRO.disconnect();
     for (const el of [ui.text, ui.data, ui.panel]) for (const c of el.children) fitRO.observe(c);
     // A slide that keeps its figure clear of the cards frames it again as the cards settle to their size (a chart arriving, a line wrapping).
-    const again = () => { if (!ui) return; if (!shown) { clearT = setTimeout(again, 150); return; }   // (a slide still coming in: once it is in)
+    const again = () => { if (!ui) return; if (!shown || 'folding' in ui.data.dataset) { clearT = setTimeout(again, 150); return; }   // (a slide still coming in: once it is in; a card still folding or pulled: once it rests, so the figure and its labels hold still under the finger)
       if (cardSig() !== framedSig) reframe(400); };   // (only when the cards really changed: the camera framed them once; any slide, so a card that grew never covers its box)
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
     // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
@@ -2371,7 +2371,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dd.style.maxHeight = below ? `${((foot - y) / k).toFixed(1)}px` : '';
     // (A phone: the data card ends 8 px short of the teaching card (16 px above the words), however much it holds: an opened instrument had grown over the words.)
     // (And leaves the figure its share: FIG_MIN between the two cards.)
-    if (p && t) { const cs = getComputedStyle(dd), room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8 - (phoneCap != null && !dd.classList.contains('tool-open') ? FIG_MIN(H) / k : 0)); if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
+    if (p && t) { const cs = getComputedStyle(dd); let room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8 - (phoneCap != null && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? FIG_MIN(H) / k : 0));
+      // (A folded card is its header and Show, at full size: never fitted into less. Squeezed under a tall teaching card,
+      // a 320 px iPhone's folded Doppler card was zoomed to half, its title 6 px.)
+      if (phoneCap != null && phoneFoldH && dd.classList.contains('pz-folds') && !dd.classList.contains('tool-open')) room = Math.max(room, Math.ceil(phoneFoldH));
+      if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
     if (!p && !below && ui.fk.dataset.empty == null && !ui.bar.hidden) {
       const f = ui.fk, was = f.hidden; f.hidden = false; const q = f.getBoundingClientRect(); f.hidden = was;
@@ -2434,10 +2438,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // Where the figure's share, the data card and the words at 12 px or more cannot all fit, the data card folds to its header
   // behind Show (the button that already folds a phone's instrument): the card takes its folded size at once, never easing in view.
   const FIG_MIN = (H) => Math.round(Math.max(170, 0.3 * H));
-  let phoneLock = null;
+  let phoneLock = null, phoneFoldH = 0;   // (phoneFoldH: the folded card's height at full size, css px; 0 when it is not folded)
   function phoneTextCap(key, H, k) {
     const dd = ui.data, ds = dd.style, gone = dd.hidden || 'gone' in dd.dataset;
-    if (key && phoneLock?.key === key) { dd.classList.toggle('pz-folds', phoneLock.fold); return phoneLock.cap; }
+    if (key && phoneLock?.key === key) { dd.classList.toggle('pz-folds', phoneLock.fold); phoneFoldH = phoneLock.foldH; return phoneLock.cap; }
+    phoneFoldH = 0;
     dd.classList.remove('pz-folds');
     const natural = (el, st) => {   // (as it stands unfitted and uncapped)
       const sv = [st.maxHeight, st.getPropertyValue('--pz-fit'), st.getPropertyValue('--pz-z')];
@@ -2459,9 +2464,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     let data = gone ? 0 : share(natural(dd, ds)), fold = false;
     if (!gone && both - data < words && dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip)')) {
       dd.classList.add('pz-folds');
-      const folded = share(natural(dd, ds));
+      const shut = natural(dd, ds), folded = share(shut);
       if (folded < data - 1) {
-        data = folded; fold = true;
+        data = folded; fold = true; phoneFoldH = shut / k;
         // (Each such slide comes in folded, whatever an earlier slide's Show left open.)
         const b = dd.querySelector('.pz-dh > .pz-fold');
         dd.classList.remove('tool-open'); if (b) { b.textContent = 'Show'; b.setAttribute('aria-expanded', 'false'); }
@@ -2469,7 +2474,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     // (Words at 12 px win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card.)
     const cap = Math.max(120, Math.min(H - foot - 16 - 16 - data, Math.max(Math.min(Number.isFinite(own) ? own : 0.62 * H, both - data), words))) / k;
-    if (key) phoneLock = { key, cap, fold };
+    if (key) phoneLock = { key, cap, fold, foldH: phoneFoldH };
     return cap;
   }
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
@@ -2922,7 +2927,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A phone's foldable card also opens and closes by a swipe anywhere on it: down pulls the folded part open, up pushes it
   // shut, following the finger, and it eases the rest of the way on release. A swipe the fold can't take (up on a shut card)
   // is left to the card's dock drag; sideways moves are left alone, so slide swipes and the figure pan work as before.
-  function foldTouch(el, btn, setFold, part) {
+  function foldTouch(el, btn, setFold, part, hold) {
     let g = null;
     el.addEventListener('touchstart', (e) => {
       g = null;
@@ -2937,7 +2942,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (!g.on) {
         if (Math.abs(dy) < 8) return;
         if (Math.abs(dx) > Math.abs(dy) || (dy > 0) === g.shown) { g = null; return; }   // (sideways, or nothing to fold that way)
-        g.on = true; g.p.style.transition = 'none';
+        g.on = true; g.p.style.transition = 'none'; hold(true);
       }
       e.stopImmediatePropagation();
       if (e.cancelable) e.preventDefault();
@@ -2951,12 +2956,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       e.stopImmediatePropagation();
       const last = gg.pts.at(-1), from = gg.pts.find((q) => last[0] - q[0] <= 100) || last;
       const v = last[0] > from[0] ? (last[1] - from[1]) / (last[0] - from[0]) : 0;
-      const show = Math.abs(v) > 0.4 ? v > 0 : gg.u > 0.5;
-      // (From where the finger left it to the class's own state: the part's transition eases the rest.)
+      // (A card folded behind Show has nothing to follow the finger: a pull of 24 px or more opens it, a push shuts it.)
+      const show = Math.abs(v) > 0.4 ? v > 0 : gg.full ? gg.u > 0.5 : gg.shown ? last[1] > -24 : last[1] >= 24;
+      // (From where the finger left it to the class's own state: the part's transition eases the rest. setFold reads where
+      // the finger left it before letting go of it.)
+      const lead = el.classList.contains('tool-lead');
+      if ((show !== lead) !== gg.open) { setFold(show !== lead); return; }
       gg.p.getBoundingClientRect(); gg.p.style.transition = '';
       gg.p.style.maxHeight = ''; gg.p.style.opacity = '';
-      const lead = el.classList.contains('tool-lead');
-      if ((show !== lead) !== gg.open) setFold(show !== lead);
+      hold(false);
     };
     el.addEventListener('touchend', end, { passive: true });
     el.addEventListener('touchcancel', end, { passive: true });
@@ -2970,17 +2978,36 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const tools = createTools({ host, stage });
     // On a phone an instrument above tiles folds away (the tiles keep the reading), so the figure is not a strip between
     // two cards; the button opens it, and it stays open for the rest of the talk.
+    // The card is fitted once, as it will rest, before the part moves, and keeps that fit until the part is still: its words,
+    // tiles and pictures hold their size through the whole open and close. (Fitted as the part eased or followed the finger,
+    // the card measured itself against a cap meant for the other state; an iPhone's Doppler card shrank to half mid-pull, then
+    // grew back once open.)
+    const partOf = () => (data.classList.contains('tool-lead') ? tiles.el : tools.el);
     const setFold = (open) => {
+      const p = partOf(), cs = getComputedStyle(p), from = ['maxHeight', 'opacity', 'marginTop', 'marginBottom'].map((n) => [n, cs[n]]);
+      p.style.transition = 'none'; for (const [n] of from) p.style[n] = '';
       data.classList.toggle('tool-open', open); fold.setAttribute('aria-expanded', String(open)); fold.textContent = open ? 'Hide' : 'Show';
-      setTimeout(() => { fitDone.delete(data); onResize(); }, reduce.matches ? 0 : 400);
+      delete data.dataset.folding; fitDone.delete(data); layout();
+      // (Then back to where the part stood, from which it eases to its rest.)
+      data.dataset.folding = '';
+      for (const [n, v] of from) p.style[n] = v;
+      p.getBoundingClientRect(); p.style.transition = ''; for (const [n] of from) p.style[n] = '';
+      clearTimeout(foldT); foldT = setTimeout(foldStill, reduce.matches ? 0 : 450);
+    };
+    let foldT = 0;
+    const foldStill = () => {
+      clearTimeout(foldT);
+      if (!('folding' in data.dataset)) return;
+      if (partOf().getAnimations?.().some((a) => a.playState === 'running')) { foldT = setTimeout(foldStill, 100); return; }   // (still easing: a slow frame)
+      delete data.dataset.folding; fitDone.delete(data); onResize();
     };
     const fold = h('button', { class: 'pz-fold', type: 'button', 'aria-expanded': 'false', onclick: () => setFold(!data.classList.contains('tool-open')) }, 'Show');
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-gone': '', hidden: true, 'aria-label': 'The numbers' },
       h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, ladder.strip, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
-    foldTouch(data, fold, setFold, () => (data.classList.contains('tool-lead') ? tiles.el : tools.el));
+    foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); });
     dockTouch(data);
     // A part that has finished folding or unfolding: fit the card again from full size (a fit taken mid-fold kept the tiles small).
-    data.addEventListener('transitionend', (e) => { if (e.propertyName === 'max-height' && e.target.parentElement === data) { fitDone.delete(data); onResize(); } });
+    data.addEventListener('transitionend', (e) => { if (e.propertyName === 'max-height' && e.target.parentElement === data) { if ('folding' in data.dataset) foldStill(); else { fitDone.delete(data); onResize(); } } });
     const veil = h('div', { class: 'pz-veil' }), panel = h('section', { class: 'pz-panel stage-blocker', hidden: true, 'aria-live': 'polite' });
     const prog = h('div', { class: 'pz-prog', 'aria-hidden': 'true' }, h('i'));
     const bar = h('div', { class: 'pz-bar stage-blocker', role: 'toolbar', 'aria-label': 'Presenter' });

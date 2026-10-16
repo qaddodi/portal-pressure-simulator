@@ -1899,6 +1899,77 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     gap = await cardGap(page); if (gap) throw new Error(`after dragging shut: ${gap}`);
   });
 
+  // A phone's data card keeps its parts' size the whole way open and shut, pulled or tapped: it is fitted as it will rest before the
+  // part moves. (Refitted as the finger pulled, the 440 px iPhone's Doppler card met the shut card's cap and shrank its tiles and
+  // words mid-pull, then grew back once open.) A folded card's header and Show stay full size (a 320 px folded header had zoomed to half).
+  if (device === 'phone') await check(device, 'presenter: a phone data card holds its size while it opens and shuts', async (page) => {
+    const bad = [];
+    const look = () => page.evaluate(() => {
+      const d = document.querySelector('.pz-data'), tile = d.querySelector('.pz-tiles .pz-tile'), dh = d.querySelector('.pz-dh');
+      return { fit: d.style.getPropertyValue('--pz-fit') || '1', z: d.style.getPropertyValue('--pz-z') || '1', tile: tile ? Math.round(tile.getBoundingClientRect().height) : 0,
+        dh: +(parseFloat(getComputedStyle(dh).fontSize) * (parseFloat(getComputedStyle(dh).zoom) || 1)).toFixed(1), open: d.classList.contains('tool-open') };
+    });
+    const same = (a, b) => a.fit === b.fit && a.z === b.z && Math.abs(a.tile - b.tile) <= 1 && a.dh === b.dh;
+    const show = (o) => `fit ${o.fit}, zoom ${o.z}, tile ${o.tile} px, header ${o.dh} px`;
+    for (const [w, h] of [[440, 956], [390, 844]]) {
+      await page.setViewportSize({ width: w, height: h });
+      await open(page);
+      await page.evaluate(() => window.pps.presenter.start('prehepatic', 1));
+      await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover')
+        && document.querySelector('.pz-data .pz-fold')?.offsetWidth, null, { timeout: 60000 });
+      await page.waitForTimeout(1500);
+      const shut = await look();
+      // Pulled open by the finger: sampled at each step of the pull, then at rest.
+      const during = await page.evaluate(async () => {
+        const d = document.querySelector('.pz-data'), b = d.querySelector('.pz-tiles').getBoundingClientRect(), x = b.left + b.width / 2, y0 = b.top + b.height / 2, out = [];
+        const fire = (type, y) => { const t = new Touch({ identifier: 1, target: d, clientX: x, clientY: y });
+          d.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true })); };
+        const raf = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const labs = () => [...document.querySelectorAll('#labels .lb:not(.lb-off)')].filter((l) => +getComputedStyle(l).opacity > 0.5 && l.getBoundingClientRect().width).map((l) => l.textContent.trim().split(/\s/)[0]).sort().join('+');
+        const snap = () => { const tile = d.querySelector('.pz-tiles .pz-tile'); out.push({ fit: d.style.getPropertyValue('--pz-fit') || '1', z: d.style.getPropertyValue('--pz-z') || '1', tile: Math.round(tile.getBoundingClientRect().height), labs: labs() }); };
+        out.labs = labs();
+        fire('touchstart', y0);
+        for (let i = 1; i <= 16; i++) { fire('touchmove', y0 + 15 * i); await raf(); snap(); }
+        await new Promise((r) => setTimeout(r, 150));
+        fire('touchend', y0 + 240);
+        for (let i = 0; i < 12; i++) { await raf(); snap(); }
+        return { out, labs: out.labs };
+      });
+      // (The figure holds still under the finger: the labels showing before the pull still show a quarter of the way in. A camera
+      // that glided mid-pull faded them all.)
+      const quarter = during.out.slice(0, 4).find((o) => o.labs !== during.labs);
+      if (quarter) bad.push(`${w}: a quarter into the pull the figure labels were ${quarter.labs || 'none'}, before it ${during.labs}`);
+      await page.waitForTimeout(1200);
+      const opened = await look();
+      if (!opened.open) bad.push(`${w}: pulling the card down did not open it`);
+      for (const o of during.out) if (!same({ ...o, dh: opened.dh }, opened) && !same({ ...o, dh: opened.dh }, { ...shut, dh: opened.dh })) { bad.push(`${w}: mid-pull ${show({ ...o, dh: opened.dh })}; shut ${show(shut)}, open ${show(opened)}`); break; }
+      // Tapped Hide, then Show: the fit is the resting one from the first frame.
+      for (const want of [false, true]) {
+        const frames = await page.evaluate(async () => {
+          const d = document.querySelector('.pz-data'), out = [];
+          d.querySelector('.pz-fold').click();
+          for (let i = 0; i < 30; i++) { await new Promise((r) => requestAnimationFrame(r)); const tile = d.querySelector('.pz-tiles .pz-tile'); out.push({ fit: d.style.getPropertyValue('--pz-fit') || '1', z: d.style.getPropertyValue('--pz-z') || '1', tile: Math.round(tile.getBoundingClientRect().height) }); }
+          return out;
+        });
+        await page.waitForTimeout(1200);
+        const rest = await look();
+        if (rest.open !== want) bad.push(`${w}: ${want ? 'Show' : 'Hide'} left the card ${rest.open ? 'open' : 'shut'}`);
+        const odd = frames.find((o) => !same({ ...o, dh: rest.dh }, rest));
+        if (odd) bad.push(`${w}: ${want ? 'opening' : 'shutting'} by tap passed through ${show({ ...odd, dh: rest.dh })}; rests at ${show(rest)}`);
+      }
+    }
+    // A folded card (a 320 px iPhone, TIPS Doppler slide 9): its header at full size, 12 px words or more.
+    await page.setViewportSize({ width: 320, height: 568 });
+    await open(page);
+    await page.evaluate(() => window.pps.presenter.start('tips-doppler', 8));
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover')
+      && document.querySelector('.pz-data .pz-fold')?.offsetWidth, null, { timeout: 60000 });
+    await page.waitForTimeout(1500);
+    const f = await look();
+    if (await page.evaluate(() => document.querySelector('.pz-data').classList.contains('pz-folds')) && f.dh < 12) bad.push(`320: the folded card's header is ${f.dh} px`);
+    if (bad.length) throw new Error(bad.join('\n'));
+  });
+
   await check(device, 'presenter: summary table returns after back then forward', async (page) => {
     await open(page, '?home=present');
     await page.waitForSelector('.umenu .um-row[data-k="d:lobule"]');

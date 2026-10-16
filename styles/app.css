@@ -4926,6 +4926,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* (A card with Show/Hide keeps its title centred like every other card: the pill sits at the right end, the same room kept at
    the left, so the title is centred on the card.) */
 .pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-dh { position: relative; padding-inline: 64px; justify-content: center; text-align: center; }
+/* (A title too wide to stay centred between equal margins gives way to the left, never toward the pill: two spacers share the
+   room equally, the right one never under the pill's width plus 8 px. A 320 px phone's "DOPPLER, THE TIPS" stood 2 px from Show.) */
+.pz:is(.stack, .low) .pz-data:is(.has-tool:not(.tool-only), .pz-folds) .pz-dh { padding-inline: 0; flex-wrap: nowrap; }
+.pz:is(.stack, .low) .pz-data:is(.has-tool:not(.tool-only), .pz-folds) .pz-dh::before,
+.pz:is(.stack, .low) .pz-data:is(.has-tool:not(.tool-only), .pz-folds) .pz-dh::after { content: ''; flex: 1 1 0; min-width: 0; }
+.pz:is(.stack, .low) .pz-data:is(.has-tool:not(.tool-only), .pz-folds) .pz-dh::after { min-width: calc(var(--pz-chip-w, 66px) + 8px - 12px); }   /* (the pill, then 8 px; the row's 12 px gap is the rest) */
 /* A phone whose figure, data card and words at 12 px cannot all fit: the data card folds to its header behind Show (presenter.js
    phoneTextCap, pz-folds), the same pill that folds a phone's instrument. It takes its folded size at once (a solid card). */
 .pz.stack .pz-data.pz-folds .pz-dh { position: relative; padding-inline: 72px; min-height: calc(30px / var(--pz-z, 1)); align-items: center; }   /* (as tall as its chip: a chip reaching past its header read as overflow, and the fit shrank the card to half) */
