@@ -2678,15 +2678,27 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => [...document.querySelectorAll('#treatCard .chg .chg-n')].some((e) => e.textContent.includes('Carvedilol')), null, { timeout: 5000 })
       .catch((e) => { throw new Error('the Treat card does not list Carvedilol under Changes', { cause: e }); });
     await shot(page, `${device}-treat`);
-    await page.keyboard.press('Escape');
-    await page.waitForSelector('#treatCard', { state: 'hidden' });
+    // A card is put away as its user would: Escape on a Mac or iPad, a pull down on the card's head on a phone (no X there since
+    // da7516d; the thumb dock's gesture).
+    const thumb = await page.evaluate(() => document.querySelector('#app').classList.contains('thumb'));
+    const pullAway = async (sel) => {
+      await page.waitForFunction((sel) => !document.querySelector(sel).getAnimations().length, sel);
+      const cdp = await page.context().newCDPSession(page);
+      const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+      const [x, y] = await page.evaluate((sel) => { const b = document.querySelector(sel).getBoundingClientRect(); return [b.left + b.width / 2, b.top + 16]; }, sel);
+      await touch('touchStart', x, y);
+      for (let i = 1; i <= 20; i++) { await touch('touchMove', x, y + 320 * i / 20); await page.waitForTimeout(25); }
+      await page.waitForTimeout(150);
+      await touch('touchEnd');
+    };
+    if (thumb) await pullAway('#treatCard'); else await page.keyboard.press('Escape');
+    await page.waitForSelector('#treatCard', { state: 'hidden', timeout: 10000 });
     // Advanced physiology: in Settings; it opens in the side panel.
     await tapTool(page, '#btnSettings');
     await page.locator('.menu-item', { hasText: 'Advanced physiology' }).click();
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('panel-open') && document.querySelector('#panelTitle').textContent.includes('Advanced physiology'));
     if (!(await page.$('#panel .adv-body input[type="range"]'))) throw new Error('advanced physiology has no controls');
-    // (a phone's dock cards have no X since da7516d: Escape closes it there)
-    if (await page.isVisible('#panelClose')) await page.click('#panelClose'); else await page.keyboard.press('Escape');
+    if (thumb) await pullAway('#panel'); else await page.click('#panelClose');
     await page.waitForFunction(() => !document.querySelector('#app').classList.contains('panel-open'), null, { timeout: 5000 })
       .catch((e) => { throw new Error('the side panel does not close', { cause: e }); });
   });
