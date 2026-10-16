@@ -4896,15 +4896,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const gLeaders = s('g', { class: 'lb-leaders' });
   const gLabels = s('g', { class: 'lb-blocks' });
   const gScan = s('g', { class: 'lb-scan off' }, s('path', { class: 'leader scan' }), s('circle', { class: 'leader-dot scan', r: 2.6 }));   // the FibroScan callout's leader: its own layer, so it eases with the probe
-  // A reading that has to sit on its vessel (layoutLabels, onVessel) takes a solid halo in the stage's colour, the shape of its
-  // text: its glyphs closed (grown by 8 px, then shrunk by 6, so the gaps between digits and between its two lines fill: no vessel
-  // sliver shows through "8.8") and so 2 px beyond their outline, drawn behind all of them at once. Never a chip: a wider one
-  // erased vessels, coils and station rings a long way from the text.
-  const onvHalo = s('filter', { id: 'lb-onv', x: '-10%', y: '-20%', width: '120%', height: '140%', 'color-interpolation-filters': 'sRGB' },
-    s('feMorphology', { in: 'SourceAlpha', operator: 'dilate', radius: 8 }), s('feMorphology', { operator: 'erode', radius: 6, result: 'grown' }),
-    s('feFlood', { class: 'lb-onv-flood' }),
-    s('feComposite', { in2: 'grown', operator: 'in', result: 'halo' }), s('feMerge', {}, s('feMergeNode', { in: 'halo' }), s('feMergeNode', { in: 'SourceGraphic' })));
-  labelSvg.append(s('defs', {}, onvHalo), gLeaders, gScan, gLabels);
+  // (A reading that has to sit on its vessel (layoutLabels, onVessel) takes a wide text halo in the stage's colour: .on-vessel in
+  // app.css. Never an SVG filter: the grown-glyph filter drew dark boxes on iPhone and was redrawn on every frame: 16 Oct.)
+  labelSvg.append(gLeaders, gScan, gLabels);
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   const measure = document.createElement('canvas').getContext('2d');
   const widths = new Map();

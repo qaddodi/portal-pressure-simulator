@@ -4033,7 +4033,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const res = [];
           for (const g of document.querySelectorAll('#labels g.lb[data-key^="n:"]')) {
             if (getComputedStyle(g).display === 'none' || +getComputedStyle(g).opacity < 0.5) continue;
-            if (g.classList.contains('on-vessel')) { if (!getComputedStyle(g).filter.includes('lb-onv')) res.push({ k: g.dataset.key.slice(2), t: 'halo', x: 0, y: 0, w: 0, h: 0, thin: true }); continue; }
+            if (g.classList.contains('on-vessel')) { if ([...g.querySelectorAll('text')].some((t) => parseFloat(getComputedStyle(t).strokeWidth) < 7 || getComputedStyle(t).stroke === 'none')) res.push({ k: g.dataset.key.slice(2), t: 'halo', x: 0, y: 0, w: 0, h: 0, thin: true }); continue; }
             for (const sp of g.querySelectorAll('tspan')) { const b = sp.getBoundingClientRect(); if (b.width > 1) res.push({ k: g.dataset.key.slice(2), t: sp.textContent, x: b.left, y: b.top + b.height * 0.22, w: b.width, h: b.height * 0.62 }); }
           }
           for (const e of document.querySelectorAll('#labels, .cath-labels')) e.style.visibility = 'hidden';

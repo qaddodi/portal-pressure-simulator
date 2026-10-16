@@ -2521,12 +2521,11 @@ button.finding { cursor: pointer; }
 .band-sheen { display: none; }
 .org-form { opacity: .55; }
 #labels .lb.inline.bare text { stroke: var(--label-halo); stroke-width: max(2.5px, calc(4px * var(--lbk, 1))); }
-/* A reading with no clear spot near its station sits on its vessel (stage.js layoutLabels, onVessel): a solid halo in the
-   stage's own colour keeps every glyph clean, and no flow arrowhead runs under it. Circuit only (.cmap): in Anatomy the stage's
-   colour over the liver drew a dark box with tabs behind "Sinusoids R" and "RHV" (16 Oct); there the readings keep their own
-   text halo, as before the Circuit readings v4. */
-.cmap #labels .lb.on-vessel { filter: url(#lb-onv); }
-#labels .lb-onv-flood { flood-color: var(--stage-bg); }
+/* A reading with no clear spot near its station sits on its vessel (stage.js layoutLabels, onVessel): a wide halo in the stage's
+   own colour round each glyph, 7 px as the stent callouts below, knocks the vessel out behind the words with no box, and no flow
+   arrowhead runs under it. Circuit only (.cmap). Never an SVG filter: the grown-glyph filter (#lb-onv) drew dark rectangles behind
+   the readings on iPhone, over the liver in Anatomy and over the zone bands in the Circuit, and was redrawn on every frame (16 Oct). */
+.cmap #labels .lb.on-vessel text { stroke: var(--stage-bg); stroke-width: 7px; stroke-linejoin: round; paint-order: stroke; }
 /* A stent's three point callouts stay level beside their dots, over whatever vessel runs there: a solid halo in the stage's colour,
    7 px wide, knocks the vessel out behind and between the glyphs, so they read as the Circuit readings do, with no box (Review 16 Oct). */
 #labels .lb.inline:is([data-key^="n:TIPS:"], [data-key^="n:DIPS:"]) text { stroke: var(--stage-bg); stroke-width: 7px; stroke-linejoin: round; }
