@@ -17,7 +17,7 @@ import { createChart } from './chart.js?v=503fcce935';
 import { createMenu } from './menu.js?v=f8afed30cc';
 import { caption } from './a11y.js?v=5be217ba8e';
 import { startLMS } from './lms.js?v=284ef81e94';
-import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=b7973f9435';
+import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=f84a878db7';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX } from './colormap.js?v=ec83805fb9';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
@@ -1586,7 +1586,7 @@ function scrollToSection(section) { if (section) nextFrame(() => $(`#modal [data
 const pmid = (id) => h('a', { href: `https://pubmed.ncbi.nlm.nih.gov/${id}/`, target: '_blank', rel: 'noopener' }, `PMID ${id}`);
 function openAbout(section) {
   openModal('About the model', h('div', {},
-    h('p', {}, 'Created by ', h('b', {}, AUTHOR), '. ', h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'See all of the author’s teaching tools'), '.'),
+    h('p', {}, 'Created by ', h('b', {}, AUTHOR), '. ', h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'See all of the author’s teaching\u00a0tools'), '.'),
     h('p', {}, `The model, patients and presentations are dated ${CONTENT_UPDATED} and change only when that date does, so a class taught on them behaves the same all term.`),
     h('h3', {}, 'The model'),
     h('p', {}, 'A lumped-parameter hemodynamic network of the splanchnic, portal, hepatic and systemic veins with the heart, arterial inflow and the hepatic arterial buffer; collateral recruitment and remodeling on a disease clock; Starling filtration and lymph for ascites; Laplace wall tension for varices; blood volume, bleeding and transfusion. Every number on screen comes out of it; nothing is scripted.'),
