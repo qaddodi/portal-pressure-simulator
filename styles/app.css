@@ -4752,7 +4752,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .topbar[data-fit] .lg-scale { width: 56px; }
   .topbar[data-fit] #viewSeg button { padding: 6px 7px; }
   .app.dock-open:has(#dock.side:not([data-state="peek"])) .instrument-workspace.side { bottom: calc(env(safe-area-inset-bottom) + 6px); }
-  .app.dock-open:has(#dock.side) .vdock { right: calc(env(safe-area-inset-right) + var(--side-ws-w, 340px) + 14px); }
+  .app.dock-open:has(#dock.side) .vdock { right: calc(env(safe-area-inset-right) + var(--side-ws-w, 340px) + 14px); width: auto; }   /* (width: auto lets `right` hold over the slim bar's fixed 640 px from 768 px wide, 88e0a8d: an 844 px phone's bar ran under the card) */
   .app.dock-open:has(#dock.side) .vdock .readouts { display: none; }
   .instrument-workspace.side .dop-vessel { min-width: 84px; }
   .instrument-workspace.side .dop-tint { gap: 5px; padding: 0 8px; }
@@ -5452,8 +5452,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   /* A short card (Half on a small phone, or with Safari's toolbar showing): the picture on the left, the tiles two by two on its
      right, so every tile stays in view without scrolling; the caption keeps just the equation. */
   @container tpane (max-height: 330px) and (min-width: 280px) {
-    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view { grid-template-columns: minmax(0, 1fr) minmax(0, 62%); grid-template-rows: minmax(0, 1fr) auto; gap: 8px 10px; }
-    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage { --stage-min: 90px; grid-row: 1 / span 2; justify-content: center; }
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view { grid-template-columns: minmax(0, 1fr) minmax(0, 62%); grid-template-rows: minmax(0, 1fr); gap: 8px 10px; }   /* (one row: the empty second row's 8 px gap made a 664 px phone's Half card scroll by 6 px) */
+    #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage { --stage-min: 90px; grid-row: 1; justify-content: center; }
     #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh - 24px, var(--stage-min))); }
     #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .wall-cap { display: none; }
     #app.thumb .dock-pane[data-pane="endoscopy"] > .wall-view .endo-read { grid-column: 2; grid-row: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); align-self: center; }
