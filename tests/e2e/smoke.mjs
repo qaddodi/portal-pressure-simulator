@@ -114,8 +114,10 @@ const barFit = (page) => page.evaluate(() => {
   if (bar.classList.contains('phone')) {
     // (Inside the teaching card at its lower right, 13 px in from its corner: 21 px from the screen's edge on a phone, 13 from
     // the card's on an upright iPad, where it also sits 29 px up, 8 px inside the card raised above the progress line;
-    // styles/app.css .pz.stack .pz-bar and .pz.stack.tab .pz-bar.)
-    const tab = !!document.querySelector('.pz.stack.tab'), inR = tab ? innerWidth * 0.15 + 13 : 21, inB = tab ? 29 : 21;
+    // styles/app.css .pz.stack .pz-bar and .pz.stack.tab .pz-bar. A phone taller than 600 px carries the credit's 20 px row at the
+    // card's foot, so its pill stands 41 px up: b1d5216, .pz-cred.)
+    const tab = !!document.querySelector('.pz.stack.tab'), cred = !tab && !!document.querySelector('.pz-shade.stack .pz-cred')?.offsetWidth;
+    const inR = tab ? innerWidth * 0.15 + 13 : 21, inB = tab ? 29 : cred ? 41 : 21;
     if (Math.abs(innerWidth - b.right - inR) > 1.5) return `the pill is ${Math.round(innerWidth - b.right)} px from the right edge, not ${Math.round(inR)}`;
     if (Math.abs(innerHeight - b.bottom - inB) > 1.5) return `the pill is ${Math.round(innerHeight - b.bottom)} px from the bottom, not ${inB}`;
     const small = [...bar.querySelectorAll('button')].find((c) => { const r = c.getBoundingClientRect(); return r.width < 44 || r.height < 44; });
@@ -2683,7 +2685,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.locator('.menu-item', { hasText: 'Advanced physiology' }).click();
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('panel-open') && document.querySelector('#panelTitle').textContent.includes('Advanced physiology'));
     if (!(await page.$('#panel .adv-body input[type="range"]'))) throw new Error('advanced physiology has no controls');
-    await page.click('#panelClose');
+    // (a phone's dock cards have no X since da7516d: Escape closes it there)
+    if (await page.isVisible('#panelClose')) await page.click('#panelClose'); else await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#app').classList.contains('panel-open'), null, { timeout: 5000 })
+      .catch((e) => { throw new Error('the side panel does not close', { cause: e }); });
   });
   // The slim play line (15 Oct, option 2): play, speed, clock and jump, then the two key readings as plain numbers on the
   // same row, with no bars or rating words, all inside the bar and not overlapping, on a narrow and a tall phone, a Mac and
@@ -3788,7 +3793,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.click(`.instr-tab[data-instrument="${id}"]`);
       // (A slow page draws few frames: wait for the transition to finish, not a fixed time.)
       await page.waitForTimeout(100);
-      await page.waitForFunction(() => !document.querySelector('.pz-check').getAnimations({ subtree: true }).length, null, { timeout: 20000 });
+      await page.waitForFunction(() => !document.querySelector('#dock').getAnimations({ subtree: true }).length, null, { timeout: 20000 });   // (the Tests card; 26b17c4b had copied the quick check's .pz-check here, absent outside Present)
       const off = await page.evaluate((id) => {
         const pane = document.querySelector(`#pane-${id}`), view = pane.firstElementChild, R = (e) => e.getBoundingClientRect();
         const inner = R(pane).right - parseFloat(getComputedStyle(pane).paddingRight) - (pane.offsetWidth - pane.clientWidth);
@@ -3806,7 +3811,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           // a picture's box and the notes beside or under it; side by side, the right-most reaches the edge
           const kids = [...view.children].filter(vis);
           const two = Math.max(...kids.map((e) => R(e).left)) - Math.min(...kids.map((e) => R(e).left)) > 60;
-          rows = two ? [[kids.reduce((a, b) => (R(b).right > R(a).right ? b : a)), inner]] : kids.map((e) => [e, inner]);
+          // (a box set to bleed into the card's padding, as a phone's HVPG monitor does by 10 px since da7516d, reaches exactly that far)
+          const edge = (e) => inner - Math.min(0, parseFloat(getComputedStyle(e).marginRight) || 0);
+          rows = two ? [kids.reduce((a, b) => (R(b).right > R(a).right ? b : a))].map((e) => [e, edge(e)]) : kids.map((e) => [e, edge(e)]);
         }
         return rows.filter(([e]) => vis(e)).map(([e, ref]) => [String(e.className).split(' ')[0], +(R(e).right - ref).toFixed(1)]).filter(([, d]) => Math.abs(d) > 1);
       }, id);
