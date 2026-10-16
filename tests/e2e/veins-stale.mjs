@@ -1,7 +1,7 @@
 // Nothing stale in the vessel layers: the figure and the lobule redraw only the vessels that changed (veins-gl drawRows).
 // After each change below, the picture as it stands must
 // equal a whole redraw of it, pixel for pixel: colours moving while playing (checked at the pause), a paused change, a
-// lens switch, a theme switch, a resize, Blur effect off, a pan, the anatomy → lobule → anatomy round trip, and the lobule
+// lens switch, a theme switch, a resize, Blur effect off, a pan, a drag while playing, the anatomy → lobule → anatomy round trip, and the lobule
 // playing, its lens switched, zoomed in and panned.
 //
 //   node tests/e2e/veins-stale.mjs [dir]
@@ -59,6 +59,15 @@ try {
   for (let i = 0; i < 20; i++) { await page.mouse.move(280 + 4 * i, 230 + 2 * i); await page.waitForTimeout(16); }
   await page.mouse.up();
   await same('anatomy, a pan');
+  // Dragged while the model plays: the moved layer has the changed vessels' cells drawn again (veins-gl draw's rows).
+  await page.evaluate(() => window.pps.stage.zoomIn()); await page.waitForTimeout(2000);
+  await run(true); await page.waitForTimeout(1500);
+  await page.mouse.move(280, 230); await page.mouse.down();
+  for (let i = 0; i < 40; i++) { await page.mouse.move(280 - 3 * i, 230 + i); await page.waitForTimeout(30); }
+  await page.mouse.up();
+  await run(false);
+  await same('anatomy, dragged while playing');
+  await page.evaluate(() => window.pps.stage.zoomOut()); await page.waitForTimeout(2000);
   await run(true); await page.waitForTimeout(3000);
   await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
   await page.waitForTimeout(10000); await page.waitForTimeout(6000); await run(false);

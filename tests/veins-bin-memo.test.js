@@ -50,25 +50,43 @@ test('the figure uploads the vessel geometry only when binning gave a new result
   assert.match(stage, /binVeins\([^;]*, binMemo\);\s*\n\s*if \(bins !== binShown\) \{ binShown = bins; veins\.setGeometry\(bins\); \}/);
 });
 
-test('each cell lists its segments in runs of one vessel, each run bounded around its start', async () => {
+test('each cell lists each vessel under a head circle, then in runs of one vessel, each run bounded around its start', async () => {
   const { RUN } = await import('../src/ui/veins-bin.js');
   const b = binVeins(scene(0.4).tubes, scene(0.4).joins);
-  let runs = 0;
+  let runs = 0, heads = 0;
   for (let c = 0; c < b.nCells; c++) {
     const s0 = b.cells[c * 6 + 2], n = b.cells[c * 6 + 3];
+    let groupEnd = s0;
     for (let e = s0; e < s0 + n;) {
-      const q0 = e * 8, len = b.ent[q0 + 7], rho = b.ent[q0 + 6];
-      assert.ok(len >= 1 && len <= RUN && e + len <= s0 + n, 'a run stays inside its cell');
+      const q0 = e * 8;
+      if (e === groupEnd) {
+        // A head: segment index -1, the stretch's length, every point of the stretch inside its circle.
+        assert.equal(b.ent[q0 + 5], -1, 'each vessel\'s stretch starts with a head');
+        const len = b.ent[q0 + 7];
+        assert.ok(len >= 1 && e + 1 + len <= s0 + n, 'a stretch stays inside its cell');
+        for (let k = e + 1; k <= e + len; k++) {
+          const q = k * 8;
+          assert.equal(b.ent[q + 4], b.ent[q0 + 4], 'a stretch is one vessel');
+          assert.notEqual(b.ent[q + 5], -1);
+          for (const [x, y] of [[b.ent[q], b.ent[q + 1]], [b.ent[q + 2], b.ent[q + 3]]]) assert.ok(Math.hypot(x - b.ent[q0], y - b.ent[q0 + 1]) <= b.ent[q0 + 2], 'every point of the stretch lies within its head circle');
+        }
+        if (e + 1 + len < s0 + n) assert.notEqual(b.ent[(e + 1 + len) * 8 + 4], b.ent[q0 + 4], 'a stretch holds all of the vessel\'s run of the list');
+        groupEnd = e + 1 + len; heads++; e++;
+        continue;
+      }
+      const len = b.ent[q0 + 7], rho = b.ent[q0 + 6];
+      assert.ok(len >= 1 && len <= RUN && e + len <= groupEnd, 'a run stays inside its stretch');
       for (let k = e; k < e + len; k++) {
         const q = k * 8;
         assert.equal(b.ent[q + 4], b.ent[q0 + 4], 'a run is one vessel');
         if (k > e) assert.equal(b.ent[q + 7], 0, 'only a run\'s first entry carries it');
         for (const [x, y] of [[b.ent[q], b.ent[q + 1]], [b.ent[q + 2], b.ent[q + 3]]]) assert.ok(Math.hypot(x - b.ent[q0], y - b.ent[q0 + 1]) <= rho, 'every point of the run lies within its radius');
       }
-      // A run ends at RUN segments or where the vessel changes.
-      if (len < RUN && e + len < s0 + n) assert.notEqual(b.ent[(e + len) * 8 + 4], b.ent[q0 + 4]);
+      // A run ends at RUN segments or where the stretch ends.
+      if (len < RUN) assert.equal(e + len, groupEnd);
       runs++; e += len;
     }
+    assert.equal(groupEnd, s0 + n);
   }
-  assert.ok(runs > 0);
+  assert.ok(runs > 0 && heads > 0);
 });

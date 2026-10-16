@@ -28,7 +28,7 @@
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=6c39f43ddf';
 import { cssRGB } from './util.js?v=e387ad7347';
-import { CELL, ENT_W, binVeins } from './veins-bin.js?v=6be68b8c72';
+import { CELL, ENT_W, binVeins } from './veins-bin.js?v=b63648e412';
 
 export { binVeins };
 
@@ -174,6 +174,13 @@ void main() {
       if (id >= 0) { clip = T(id, 5); dotted = (int(T(id, 2).z + 0.5) & ${F_DOTTED}) != 0; rmx = texelFetch(rmax, ivec2(0, id), 0).r; }
     }
     if (k == cnt) break;
+    // The head of this vessel's stretch of the list (segment index -1: a circle holding every point of the stretch, and
+    // its length; see veins-bin). When every point lies out of reach, by the wall and by the shadow, the vessel would not
+    // be kept here whatever its segments, so they are passed over.
+    if (B.y < -0.5) {
+      if (length(p - A.xy) - A.z - rmx > reach + 0.01 && length(ps - A.xy) - A.z - rmx > reach + 0.01) k += int(B.w + 0.5);
+      continue;
+    }
     // A run of this vessel's segments (B.w of them, every point within B.z of this one's start: see veins-bin) that lies
     // wholly past what could change anything here is passed over: each of its segments would be farther than this
     // vessel's nearest so far by more than the 12 the along-course blend reads, and its shadow farther than the nearest
@@ -1331,6 +1338,23 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   // The binned cells on the CPU, and (built when first asked) each vessel row's cells: a row's attributes can change
   // only the pixels of the cells that list it, since each pixel is drawn from its own cell's list alone.
   let cellsCPU = null, entCPU = null, rowCells = null;
+  // The rows whose radii changed since the layer was last drawn: a partial redraw has to include them all.
+  const radRows = new Set();
+  const radCovered = (rows) => !radRows.size || (!!rows && [...radRows].every((r) => rows.includes(r)));
+  // Draws the marked cells again over the layer (written whole: a pixel left empty is written empty).
+  function cellsPass(m, look, { mark, k }) {
+    if (k) {
+      const sub = new Float32Array(k * 6);
+      for (let c = 0, j = 0; c < nCells; c++) if (mark[c]) { sub.set(cellsCPU.subarray(c * 6, c * 6 + 6), j); j += 6; }
+      gl.bindBuffer(gl.ARRAY_BUFFER, partBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, sub, gl.DYNAMIC_DRAW);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.viewport(0, 0, fboW, fboH);
+      vesselPass(m, look, partVAO, k, true);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+    partCells += k;
+  }
   function cellsOfRows(rows) {
     if (!rowCells) {
       rowCells = new Map();
@@ -1423,7 +1447,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       rmaxOne[0] = Math.max(...radRow);
       gl.bindTexture(gl.TEXTURE_2D, rmaxTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, 1, 1, gl.RED, gl.FLOAT, rmaxOne);
-      fboOK = false;
+      // (A vessel's radii change only the pixels of the cells that list it, as its attributes do: drawRows may stand in
+      // for a whole draw when it is given this row.)
+      radRows.add(row);
     },
     /** Every vessel's attributes: nTubes × TUBE_TEXELS × 4 floats. */
     setTubes(data) {
@@ -1478,15 +1504,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
      * Renders the vessel layer (offscreen) and then the picture. `m`: world → device-pixel
      * transform [a, b, c, d, e, f]; `look`: the theme's inks and the per-tier opacity and group.
      */
-    draw(m, look, blood) {
+    draw(m, look, blood, rows = null) {
       m = whole(m);
       ensureFBO();
       const lk = lookKey(look);
       const dx = baseM ? m[4] - baseM[4] : 0, dy = baseM ? m[5] - baseM[5] : 0;
       // A pan at the same scale, with nothing else changed since the layer was drawn whole: the layer is moved by those
-      // whole pixels and only the strips it uncovers are drawn (see shiftLayer). Otherwise it is drawn whole.
-      const pan = fboOK && !tubesNew && lk === drawnLook && (dx || dy) && Math.abs(dx) < fboW / 2 && Math.abs(dy) < fboH / 2 && m.slice(0, 4).every((v, i) => v === baseM[i]);
-      if (pan) shiftLayer(m, look, dx, dy);
+      // whole pixels and only the strips it uncovers are drawn (see shiftLayer). Otherwise it is drawn whole. `rows`
+      // (as drawRows takes them): the vessels whose attributes alone changed since the last draw, when the caller knows
+      // them all; the moved layer then has their cells drawn again too (a model playing while the figure is dragged).
+      let part = null;
+      const panAt = fboOK && radCovered(rows) && lk === drawnLook && (dx || dy) && Math.abs(dx) < fboW / 2 && Math.abs(dy) < fboH / 2 && m.slice(0, 4).every((v, i) => v === baseM[i]);
+      if (panAt && rows?.length) { part = cellsOfRows(rows); if (part.k > nCells * 0.6) part = null; }
+      const pan = panAt && (!(tubesNew || radRows.size) || part);
+      if (pan) { shiftLayer(m, look, dx, dy); if (part) cellsPass(m, look, part); }
       else {
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
         gl.viewport(0, 0, fboW, fboH);
@@ -1495,7 +1526,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         gl.clearBufferuiv(gl.COLOR, 2, [0, 0, 0, 0]);
         vesselPass(m, look, vao, nCells);
       }
-      baseM = m; drawnLook = lk; tubesNew = false;
+      baseM = m; drawnLook = lk; tubesNew = false; radRows.clear();
       fboOK = true;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       this.composite(look, blood, true);
@@ -1504,27 +1535,17 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
      * Redraws only the cells that list the vessel rows given (their attributes changed: a colour, a fade), then the
      * picture as a frame of the moving blood does. The vessel layer ends exactly as draw() would leave it: a pixel is
      * drawn from its own cell's list alone, so a row can change only its own cells. Allowed only when nothing else the
-     * vessel pass reads changed since the last whole draw: transform `m` and size (checked here), geometry, radii and
-     * organ covers (each clears fboOK) and `look` (the caller checks it). `full`: as composite's. Returns false, drawing nothing, when it
+     * vessel pass reads changed since the last whole draw: transform `m` and size (checked here), geometry and organ
+     * covers (each clears fboOK) and `look` (the caller checks it); `rows` must include every row whose radii changed. `full`: as composite's. Returns false, drawing nothing, when it
      * cannot stand in for draw() or would cover most of the cells anyway: the caller then calls draw().
      */
     drawRows(m, look, blood, rows, full = false) {
       m = whole(m);
-      if (!fboOK || lost || fboW !== canvas.width || fboH !== canvas.height || !baseM || m.some((v, i) => v !== baseM[i])) return false;
-      const { mark, k } = cellsOfRows(rows);
-      if (k > nCells * 0.6) return false;
-      tubesNew = false;
-      if (k) {
-        const sub = new Float32Array(k * 6);
-        for (let c = 0, j = 0; c < nCells; c++) if (mark[c]) { sub.set(cellsCPU.subarray(c * 6, c * 6 + 6), j); j += 6; }
-        gl.bindBuffer(gl.ARRAY_BUFFER, partBuf);
-        gl.bufferData(gl.ARRAY_BUFFER, sub, gl.DYNAMIC_DRAW);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-        gl.viewport(0, 0, fboW, fboH);
-        vesselPass(m, look, partVAO, k, true);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      }
-      partCells += k;
+      if (!fboOK || lost || fboW !== canvas.width || fboH !== canvas.height || !baseM || m.some((v, i) => v !== baseM[i]) || !radCovered(rows)) return false;
+      const part = cellsOfRows(rows);
+      if (part.k > nCells * 0.6) return false;
+      tubesNew = false; radRows.clear();
+      cellsPass(m, look, part);
       this.composite(look, blood, full);
       return true;
     },

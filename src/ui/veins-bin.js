@@ -72,9 +72,15 @@ export function binVeins(tubes, joins, memo = null) {
       jCell.push(cy * nx + cx, ji);
     }
   });
-  // Pass 2: counting sort by cell (stable).
-  const NC = nx * ny, segCount = new Int32Array(NC), jCount = new Int32Array(NC);
-  for (let k = 0; k < nSeg; k++) segCount[cellOf[k]]++;
+  // Pass 2: counting sort by cell (stable). Each vessel's stretch of a cell's list (a run of one vessel id) starts with a head
+  // entry (see below), counted here with the stretch.
+  const NC = nx * ny, segCount = new Int32Array(NC), jCount = new Int32Array(NC), lastId = new Float64Array(NC).fill(-Infinity);
+  for (let k = 0; k < nSeg; k++) {
+    const c = cellOf[k];
+    const id = tubes[tubeOf[k]].id;
+    if (lastId[c] !== id) { lastId[c] = id; segCount[c]++; }
+    segCount[c]++;
+  }
   for (let k = 0; k < jCell.length; k += 2) jCount[jCell[k]]++;
   const segStart = new Int32Array(NC), jStart = new Int32Array(NC);
   let o = 0, nCells = 0;
@@ -84,25 +90,47 @@ export function binVeins(tubes, joins, memo = null) {
   const rows = Math.max(1, Math.ceil((nEnt * 2) / ENT_W));
   const ent = new Float32Array(rows * ENT_W * 4);
   const fillS = segStart.slice(), fillJ = jStart.slice();
+  lastId.fill(-Infinity);
   for (let k = 0; k < nSeg; k++) {
-    const e = fillS[cellOf[k]]++, t = tubes[tubeOf[k]], i = segOf[k], a = t.pts[i], b = t.pts[i + 1], q = e * 8;
+    const c = cellOf[k], t = tubes[tubeOf[k]];
+    if (lastId[c] !== t.id) { lastId[c] = t.id; const h = fillS[c]++ * 8; ent[h + 4] = t.id; ent[h + 5] = -1; }
+    const e = fillS[c]++, i = segOf[k], a = t.pts[i], b = t.pts[i + 1], q = e * 8;
     ent[q] = a[0]; ent[q + 1] = a[1]; ent[q + 2] = b[0]; ent[q + 3] = b[1];
     ent[q + 4] = t.id; ent[q + 5] = i;
   }
-  // Each cell's list in runs of up to RUN segments of one vessel: the run's first entry holds (in its two spare floats) a
-  // radius around its start that holds every point of the run, and the run's length, so the shader can pass over a run
-  // that lies wholly too far away to change anything (veins-gl).
+  // A radius that holds every point measured, nudged past float32 rounding (the shader reads it as float32).
+  const up = (r) => (Math.fround(r) < r ? r * (1 + 1e-6) + 1e-6 : r);
+  // Each vessel's stretch of a cell's list starts with a head entry: a circle (centre, radius) holding every point of the
+  // stretch, and the stretch's length (segment index -1 marks it), so the shader can pass over a vessel that lies wholly
+  // out of reach of a pixel. Then the stretch in runs of up to RUN segments: the run's first entry holds (in its two spare
+  // floats) a radius around its start that holds every point of the run, and the run's length, so the shader can pass
+  // over a run that lies wholly too far away to change anything (veins-gl).
   for (let c = 0; c < NC; c++) {
     const e1 = segStart[c] + segCount[c];
     for (let e = segStart[c]; e < e1;) {
+      if (ent[e * 8 + 5] === -1) {
+        const h = e * 8, id = ent[h + 4];
+        let g = e + 1, bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+        for (; g < e1 && ent[g * 8 + 4] === id && ent[g * 8 + 5] !== -1; g++) {
+          const q = g * 8;
+          bx0 = Math.min(bx0, ent[q], ent[q + 2]); bx1 = Math.max(bx1, ent[q], ent[q + 2]);
+          by0 = Math.min(by0, ent[q + 1], ent[q + 3]); by1 = Math.max(by1, ent[q + 1], ent[q + 3]);
+        }
+        const cx = Math.fround((bx0 + bx1) / 2), cy = Math.fround((by0 + by1) / 2);
+        let R = 0;
+        for (let f = e + 1; f < g; f++) { const q = f * 8; R = Math.max(R, Math.hypot(ent[q] - cx, ent[q + 1] - cy), Math.hypot(ent[q + 2] - cx, ent[q + 3] - cy)); }
+        ent[h] = cx; ent[h + 1] = cy; ent[h + 2] = up(R); ent[h + 7] = g - e - 1;
+        e++;
+        continue;
+      }
       const q0 = e * 8, id = ent[q0 + 4], ax = ent[q0], ay = ent[q0 + 1];
       let n = 0, rho = 0;
-      while (n < RUN && e + n < e1 && ent[(e + n) * 8 + 4] === id) {
+      while (n < RUN && e + n < e1 && ent[(e + n) * 8 + 4] === id && ent[(e + n) * 8 + 5] !== -1) {
         const q = (e + n) * 8;
         rho = Math.max(rho, Math.hypot(ent[q] - ax, ent[q + 1] - ay), Math.hypot(ent[q + 2] - ax, ent[q + 3] - ay));
         n++;
       }
-      ent[q0 + 6] = Math.fround(rho) < rho ? rho * (1 + 1e-6) + 1e-6 : rho; ent[q0 + 7] = n;
+      ent[q0 + 6] = up(rho); ent[q0 + 7] = n;
       e += n;
     }
   }

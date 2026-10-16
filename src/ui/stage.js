@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=e387ad7347';
-import { createLobuleZoom } from './lobule-zoom.js?v=4ed7b491e8';
+import { createLobuleZoom } from './lobule-zoom.js?v=2924f1f4d7';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { gridHits } from './seg-hits.js?v=e7cde76929';
@@ -17,7 +17,7 @@ import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=d6132a61ff';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=bfe532e819';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
 import { portalSplit } from './table-marks.js?v=f709ae0429';
@@ -2683,7 +2683,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const o = it.obj, R = eased.get(o) || o.glR0, k = R.join(',');
       if (o.glRSent === k) continue;
       o.glRSent = k; o.glR = R; o.glMaxR = Math.max(...R);
-      veins.setRadii(it.row, R); tubesNew = true;
+      // (A vessel's new radii change only its own cells: drawn again as a colour change is, see drawVeins.)
+      veins.setRadii(it.row, R); veinsRows.add(it.row);
     }
     glRadDirty = false;
     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.
@@ -2851,9 +2852,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (veins.drawRows(T, vLook, bloodLook(), rows, fullComposite)) return true;
     }
     if (key !== veinsDrawKey && plateOn()) schedulePlateView();
+    // (Moved with only some vessels' attributes changed, those vessels are named: a drag while the model plays still
+    // moves the drawn layer, and draws their cells again, rather than drawing it all.)
+    const rows = veinsDirty ? null : [...veinsRows];
     veinsDirty = false; veinsDrawKey = key; veinsRows.clear();
     glM = [m.a, m.b, m.c, m.d, m.e - wrapRect.left, m.f - wrapRect.top];
-    veins.draw(T, vLook, bloodLook());
+    veins.draw(T, vLook, bloodLook(), rows);
     return true;
   }
   function clearJoins() {

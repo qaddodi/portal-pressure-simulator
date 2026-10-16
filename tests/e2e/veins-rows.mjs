@@ -72,17 +72,24 @@ try {
     const whole = g.snapshot();
     // Nothing changed at all: no cells drawn, the picture as it was.
     const c1 = g.partCells, okNone = g.drawRows(m, look, blood, []), none = g.snapshot(), noneCells = g.partCells - c1;
-    // Refusals: another transform, new radii.
+    // Refusals: another transform; new radii for a vessel not named.
     const okMoved = g.drawRows([1.2, 0, 0, 1.2, 0, 0], look, blood, [0]);
     g.draw(m, look, blood);
     g.setRadii(1, Array(N_SAMPLES).fill(11));
-    const okRadii = g.drawRows(m, look, blood, [1]);
+    const okRadii = g.drawRows(m, look, blood, [3]);
+    g.draw(m, look, blood);
+    const preRad = g.snapshot();
+    // New radii for a vessel that is named: its cells alone are drawn again, to the picture a whole redraw gives.
+    g.setRadii(2, Array(N_SAMPLES).fill(12));
+    const okRadiiNamed = g.drawRows(m, look, blood, [2]), radPart = g.snapshot();
+    g.draw(m, look, blood);
+    const radWhole = g.snapshot();
     // (The two pictures compared pixel by pixel: how many differ, by how much at most, and where.)
     const px = async (url) => { const im = new Image(); im.src = url; await im.decode(); const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const x = c.getContext('2d'); x.drawImage(im, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
     const A = await px(partial), B = await px(whole); let nd = 0, md = 0, bx = [1e9, 1e9, 0, 0];
     for (let i = 0; i < A.length; i += 4) { const d = Math.max(...[0, 1, 2, 3].map((k) => Math.abs(A[i + k] - B[i + k]))); if (d) { nd++; md = Math.max(md, d); const x = (i / 4) % cv.width, y = Math.floor(i / 4 / cv.width); bx = [Math.min(bx[0], x), Math.min(bx[1], y), Math.max(bx[2], x), Math.max(bx[3], y)]; } }
     const diff = { pixels: nd, most: md, box: bx };
-    return { diff, okRows, okNone, okMoved, okRadii, same: partial === whole, changed: partial !== before, noneSame: none === whole, noneCells, cells, nCells: g.nCells };
+    return { diff, okRows, okNone, okMoved, okRadii, okRadiiNamed, radSame: radPart === radWhole, radChanged: radWhole !== preRad, same: partial === whole, changed: partial !== before, noneSame: none === whole, noneCells, cells, nCells: g.nCells };
   });
   if (r.skip) console.log(`skipped: ${r.skip}`);
   else {
@@ -93,7 +100,10 @@ try {
     if (!(r.cells > 0 && r.cells < r.nCells)) fail(`the partial redraw drew ${r.cells} of ${r.nCells} cells`);
     if (!r.okNone || r.noneCells || !r.noneSame) fail('a redraw of no rows changed something');
     if (r.okMoved) fail('drawRows accepted a different transform');
-    if (r.okRadii) fail('drawRows accepted a change of radii');
+    if (r.okRadii) fail('drawRows accepted a change of radii to a vessel it was not given');
+    if (!r.okRadiiNamed) fail('drawRows refused a change of radii to a vessel it was given');
+    if (!r.radSame) fail('the redraw of a vessel with new radii differs from a whole redraw');
+    if (!r.radChanged) fail('the new radii did not change the picture (the check would prove nothing)');
   }
 } finally {
   await browser.close();
