@@ -56,7 +56,7 @@ What changed:
 The sections below describe the earlier scheduling work, still in place.
 
 
-The simulation timestep and physiological equations are unchanged by the performance work.
+The physiological equations are unchanged by the performance work. The timestep is unchanged at 1× and 2× (so every Present slide, which runs at 1×): 4 ms with the pulse on, 20 ms without. At 4× and 8× the pulse takes 8 ms steps (`hemoStep()` in `src/worker-core.js`), half the work a tick, so phones keep up; beat-averaged pressures move by about 0.01 mmHg, MAP and heart rate by 0.15 at most (`tests/hemo-step.test.js`).
 
 - Running model frames are still published approximately ten times per second. Explicit actions publish immediately, including while paused.
 - Paused and hidden pages stop the simulation timer. Returning to the page resumes without integrating time spent hidden. Long jobs already in progress finish in command order.

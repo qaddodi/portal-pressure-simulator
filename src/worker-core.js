@@ -51,6 +51,11 @@ function mix(a, b, k) {
 const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });
 const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
 
+// The bedside clock's step (seconds): 4 ms with the pulse on, 20 ms without. At 4× and 8× the pulse takes 8 ms steps, half
+// as many a tick, so a phone keeps up; the beat-averaged readings move by about 0.01 mmHg (MAP and heart rate by 0.15 at
+// most, tests/hemo-step.test.js). 1× and 2× (and every Present slide, which runs at 1×) keep 4 ms.
+export const hemoStep = (pulse, speed) => (pulse ? (speed >= 4 ? 0.008 : 0.004) : 0.02);
+
 export function createCore(post) {
   let eng = new Engine();
   let running = true;
@@ -146,10 +151,9 @@ export function createCore(post) {
     } else if (running) {
       if (clock === 'hemo') {
         if (now < relaxUntil) eng.relax();
-        const pulse = eng.params.pulsatile || beat;
-        const h = pulse ? 0.004 : 0.02;
+        const h = hemoStep(eng.params.pulsatile || beat, speed);
         let simDt = realDt * speed;
-        let n = Math.min(Math.ceil(simDt / h), pulse ? 700 : 400);
+        let n = Math.min(Math.ceil(simDt / h), h < 0.02 ? 700 : 400);
         const every = Math.max(1, Math.floor(n / 24));
         for (let i = 0; i < n; i++) {
           eng.step(h);
