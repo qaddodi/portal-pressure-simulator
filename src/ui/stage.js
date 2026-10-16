@@ -26,7 +26,7 @@ import { softwareYield } from './sw-yield.js?v=8ed814fc6a';
 import { portalSplit } from './table-marks.js?v=f709ae0429';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
-import { balloonRy } from './hvpg-balloon.js?v=44bd4eca4b';
+import { balloonRy, routeRadii } from './hvpg-balloon.js?v=0f8da50742';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -4359,30 +4359,33 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The route, with the lengths where its parts start: neck, SVC, IVC, right hepatic vein, the branch,
   // and the lumen's radius at each point (as the GPU draws it), so the balloon and the still column fill
-  // the vein exactly. Held for the procedure: a vessel's drawn caliber pulses with its pressure.
+  // the vein exactly. The course is held for the procedure; the radii follow the vessels' drawn caliber
+  // live (it eases with the pressure), see cathLive.
+  const cathRadOf = (id, f) => {
+    const R = E[id].glR;
+    if (!R?.length) return Math.max(0.5, E[id].width / 2);
+    const x = clamp(f, 0, 1) * (R.length - 1), i = Math.min(R.length - 2, Math.floor(x));
+    return lerp(R[i], R[i + 1], x - i);
+  };
   function cathRoute() {
     if (morph > 0.01 || CATH_IDS.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
     if (cath.route) return cath.route;
-    const radOf = (id, f) => {
-      const R = E[id].glR;
-      if (!R?.length) return Math.max(0.5, E[id].width / 2);
-      const x = clamp(f, 0, 1) * (R.length - 1), i = Math.min(R.length - 2, Math.floor(x));
-      return lerp(R[i], R[i + 1], x - i);
-    };
-    const svc = geo.SVC_RA.cur, top = svc[0], pts = [], rad = [], marks = [];
+    const radOf = cathRadOf;
+    const svc = geo.SVC_RA.cur, top = svc[0], pts = [], rad = [], src = [], marks = [];
+    const at = (id, f) => { src.push([id, f]); return radOf(id, f); };
     const add = (id, rev) => {
       const P = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P), n = c[c.length - 1] || 1;
       marks.push(pts.length);
-      for (let i = 1; i < P.length; i++) { pts.push(P[i]); rad.push(radOf(id, rev ? 1 - c[i] / n : c[i] / n)); }
+      for (let i = 1; i < P.length; i++) { pts.push(P[i]); rad.push(at(id, rev ? 1 - c[i] / n : c[i] / n)); }
     };
     marks.push(0);
-    for (const q of [[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top]) { pts.push(q); rad.push(radOf('SVC_RA', 0)); }
+    for (const q of [[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top]) { pts.push(q); rad.push(at('SVC_RA', 0)); }
     add('SVC_RA', false); add('IVCS_RA', true);
     // On down the middle of the IVC to the level where the right hepatic vein opens into it.
     const ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
     if (geo.IVC_IS?.cur?.length && E.IVC_IS) {
       const P = geo.IVC_IS.cur.slice().reverse(), c = lenTo(P), n = c[c.length - 1] || 1;
-      for (let i = 1; i < P.length && P[i][1] < ost[1] - 4; i++) { pts.push(P[i]); rad.push(radOf('IVC_IS', 1 - c[i] / n)); }
+      for (let i = 1; i < P.length && P[i][1] < ost[1] - 4; i++) { pts.push(P[i]); rad.push(at('IVC_IS', 1 - c[i] / n)); }
     }
     add('RHV_IVC', true); add('POST_R_RHV', true);
     // The vessels' courses meet at corners (the IVC turns into the hepatic vein at its side): the
@@ -4390,11 +4393,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // as the vein there, so the curve stays inside the lumen.
     const c0 = lenTo(pts), H = 1.2, n = Math.max(2, Math.ceil(c0[c0.length - 1] / H) + 1);
     let P = [], Rr = [], j = 1;
+    const map = [];   // each resampled point's two source points and the mix between them
     for (let i = 0; i < n; i++) {
       const d = (c0[c0.length - 1] * i) / (n - 1);
       while (j < c0.length - 1 && c0[j] < d) j++;
       const u = c0[j] > c0[j - 1] ? clamp((d - c0[j - 1]) / (c0[j] - c0[j - 1]), 0, 1) : 0;
-      P.push([lerp(pts[j - 1][0], pts[j][0], u), lerp(pts[j - 1][1], pts[j][1], u)]); Rr.push(lerp(rad[j - 1], rad[j], u));
+      P.push([lerp(pts[j - 1][0], pts[j][0], u), lerp(pts[j - 1][1], pts[j][1], u)]); Rr.push(lerp(rad[j - 1], rad[j], u)); map.push(j, u);
     }
     const idx = marks.map((m) => Math.round((c0[Math.min(m, c0.length - 1)] / c0[c0.length - 1]) * (n - 1)));
     const raw = P;   // the vessels' own centrelines, where the walls are (the balloon is fitted between them)
@@ -4411,9 +4415,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const cum = lenTo(P), L = (i) => cum[Math.min(idx[i], cum.length - 1)];
     // The tip reads in the trunk of the right hepatic vein, about two thirds of the way out from the IVC.
     const hv0 = L(3), hv1 = L(4);
-    const r = { pts: P, raw, rad: Rr, cum, total: cum[cum.length - 1], start: L(1) * 0.55, free: hv0 + (hv1 - hv0) * 0.62, hv0, hvEnd: hv1 };
+    const r = { pts: P, raw, rad: Rr.slice(), src, map, refs: null, cum, total: cum[cum.length - 1], start: L(1) * 0.55, free: hv0 + (hv1 - hv0) * 0.62, hv0, hvEnd: hv1 };
     if (E.RHV_IVC.glR?.length) cath.route = r;
     return r;
+  }
+  // The route's lumen radii from the vessels' drawn caliber now, so the balloon and the still column hug the
+  // walls as the vein widens and narrows (re-read only when a vessel's radii were sent again).
+  function cathLive(r) {
+    const ids = [...new Set(r.src.map((q) => q[0]))], refs = ids.map((id) => E[id]?.glR);
+    if (r.refs && refs.every((R, i) => R === r.refs[i])) return;
+    r.refs = refs;
+    routeRadii(r.src, r.map, cathRadOf, r.rad);
   }
   /** The point, direction, the vein's own centre (w) and lumen radius at length d along the route. */
   function cathAt(r, d) {
@@ -4431,6 +4443,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cath.g.style.display = r && !gpu ? '' : 'none';
     cath.labels.hidden = !r;
     if (!r) { if (veins?.canCath) veins.setCath(null); return; }
+    cathLive(r);
     if (!CTM) refreshCTM();
     // A blocked hepatic vein: the tip only reaches the ostium and probes it (st.probe 0..1 nudges it in).
     const end = st.ostium ? r.hv0 - 2 : r.free;

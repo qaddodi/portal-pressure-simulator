@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { balloonRy, BALLOON_MARGIN } from '../src/ui/hvpg-balloon.js';
+import { balloonRy, routeRadii, BALLOON_MARGIN } from '../src/ui/hvpg-balloon.js';
 
 // A vein as a centreline with a lumen radius, sampled by length: at(d) as stage.js's route gives it.
 const straight = (rOf) => (d) => ({ p: [d, 0], t: [1, 0], w: [d, 0], r: rOf(d) });
@@ -45,4 +45,25 @@ test('a deflated balloon keeps its own size, and never goes thinner than the sha
   const at = straight(() => 10);
   assert.equal(balloonRy(at, 50, 5, 1.8), 1.8);
   assert.equal(balloonRy(straight(() => 1), 50, 16, 11.2, { floor: 1.5 }), 1.5);
+});
+
+test('the balloon follows the vein as it widens and narrows, frame by frame', () => {
+  // A route along one vein: source points every 10 units, resampled every 1; the vein's caliber eases over time.
+  const src = Array.from({ length: 11 }, (_, i) => ['RHV', i / 10]), map = [], pts = [];
+  for (let d = 0; d <= 100; d++) { const j = Math.min(10, Math.floor(d / 10) + 1); map.push(j, (d - (j - 1) * 10) / 10); pts.push(d); }
+  const rad = [];
+  let prev = null;
+  for (let frame = 0; frame <= 60; frame++) {
+    const r0 = 10 + 4 * Math.sin(frame / 6);   // the vein breathing between 6 and 14
+    routeRadii(src, map, (id, f) => r0 * (1 - 0.1 * f), rad);
+    const at = (d) => { const i = Math.max(0, Math.min(100, Math.round(d))); return { p: [d, 0], t: [1, 0], w: [d, 0], r: rad[i] }; };
+    const ry = balloonRy(at, 50, 16, 1e9);
+    // It hugs the walls: at least as tall as the narrowest lumen it covers allows, never past the lumen at its middle.
+    const narrowest = Math.min(...rad.slice(34, 67));
+    assert.ok(ry <= rad[50] * BALLOON_MARGIN + 1e-9, `frame ${frame}`);
+    assert.ok(ry >= narrowest * BALLOON_MARGIN * 0.97, `frame ${frame}`);
+    assert.ok(inside(at, 50, 16, ry), `frame ${frame}`);
+    if (prev) assert.ok(Math.sign(ry - prev.ry) === Math.sign(r0 - prev.r0) || Math.abs(r0 - prev.r0) < 1e-9, `frame ${frame}: the balloon moves with the vein`);
+    prev = { ry, r0 };
+  }
 });

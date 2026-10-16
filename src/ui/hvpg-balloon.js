@@ -22,3 +22,18 @@ export function balloonRy(at, dC, rx, ryWant, { margin = BALLOON_MARGIN, floor =
   }
   return Math.max(floor, Math.min(ryWant, lim));
 }
+
+/**
+ * The route's lumen radii read again from the vessels' caliber now (it eases with the pressure), so the balloon
+ * follows the walls as the vein widens and narrows. src: each source point's [vessel id, fraction along it];
+ * map: for each route sample, j and u in turn (it lies between source points j - 1 and j, u of the way);
+ * radOf(id, f): that vessel's lumen radius there now. Writes into out (one radius per route sample) and returns it.
+ */
+export function routeRadii(src, map, radOf, out = []) {
+  const rs = src.map(([id, f]) => radOf(id, f));
+  for (let i = 0, k = 0; k < map.length; i++, k += 2) {
+    const j = map[k], u = map[k + 1];
+    out[i] = rs[j - 1] + (rs[j] - rs[j - 1]) * u;
+  }
+  return out;
+}
