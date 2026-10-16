@@ -531,7 +531,9 @@ function legendModel() {
 function renderLegend() {
   const { m, ref } = legendModel();
   const el = $('#legend');
-  const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: grad } }),
+  // (Every number is centred on its tick; the scale stands in from its neighbours by half its end numbers' width (ch: a digit,
+  // the scale's own font being the numbers'), so the first and last are never pulled in off their ticks: "30" had sat 7.5 px left of its tick.)
+  const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale', style: { marginLeft: `${String(nums[0]?.[1] ?? '').length / 2}ch`, marginRight: `${String(nums.at(-1)?.[1] ?? '').length / 2}ch` } }, h('div', { class: 'lg-bar', style: { background: grad } }),
     ticks.map((p) => h('span', { class: 'lg-tick', style: { left: p + '%' } })),
     nums.map(([p, t, opt]) => h('span', { class: 'lg-num' + (p >= 95 ? ' end' : p <= 1 ? ' start' : '') + (opt ? ' opt' : ''), style: { left: p + '%' } }, t)));
   // Where the full title is hidden (narrow screens), a two-word caption keeps the lens and its unit.
