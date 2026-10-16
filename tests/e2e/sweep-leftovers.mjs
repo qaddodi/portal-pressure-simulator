@@ -4,7 +4,8 @@
 //   3. the quick check leaves no empty band under its last question (phones);
 //   4. the patient's name in the top bar shows whole, never cut with "…" (every patient, sideways phones, iPad, Mac);
 //   5. the menu's titles show whole (phones);
-//   6. the summary table's "vs …" lines are 12 px or more (Mac).
+//   6. the summary table's "vs …" lines are 12 px or more (Mac);
+//   7. Compare keeps 12 px from the divider before the bar's readings.
 //
 //   node tests/e2e/sweep-leftovers.mjs
 import { chromium } from 'playwright';
@@ -111,6 +112,14 @@ for (const size of [[1440, 900], [1280, 800]]) {
   for (const v of r) { if (v.fs < 12) fail(`${size} circuit 10: a "vs" line is ${v.fs} px`); if (v.cut) fail(`${size} circuit 10: a "vs" line is cut`); }
   const scroll = await page.evaluate(() => { const t = document.querySelector('.pz-table'); return t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1; });
   if (scroll) fail(`${size} circuit 10: the table scrolls`);
+  await close();
+}
+
+// 7. Compare keeps the bar's 12 px clearance from the divider before the readings (Mac, iPad on its side).
+for (const size of [[1024, 768], [1440, 900], [1180, 820]]) {
+  const { page, close } = await open(size, '?preset=cirr-decomp');
+  const gap = await page.evaluate(() => document.querySelector('.vdock .readouts').getBoundingClientRect().left - document.querySelector('.vdock .tl-pin').getBoundingClientRect().right);
+  if (gap < 11.5) fail(`${size}: Compare is ${gap.toFixed(1)} px from the divider`);
   await close();
 }
 

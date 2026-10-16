@@ -5714,7 +5714,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .app:not(.thumb):not(.presenting) .vdock .tl-pin { width: auto; height: 34px; padding: 0 10px; gap: 6px; margin-left: 4px; border: 1px solid var(--border); color: var(--text); font-weight: 600; }
   .app:not(.thumb):not(.presenting) .vdock .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric :is(.v, .unit) { overflow: visible; }
-  .app:not(.thumb):not(.presenting) .vdock .stage-bar.bottom { height: 52px; min-height: 52px; padding-right: 4px; }
+  .app:not(.thumb):not(.presenting) .vdock .stage-bar.bottom { height: 52px; min-height: 52px; padding-right: 12px; }   /* (Compare ends 12 px before the divider, the gap between the bar's other controls: it was 4, sweep 16 Oct) */
   .app:not(.thumb):not(.presenting) .vdock .timeline .tl-jumps { margin-left: 0; }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) { width: auto; padding: 0 0 0 6px; container-type: normal; }   /* (no right padding: the last reading's own room keeps it as far from the bar's end as play is from its start) */
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .ro-group { padding: 0 2px; justify-content: center; flex: none; }
