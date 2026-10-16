@@ -11,6 +11,7 @@ import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, re
 import { createLobuleZoom } from './lobule-zoom.js?v=fc40358700';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
+import { fluidTarget } from './fluid-step.js?v=96d8c45961';
 import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns } from './plate-copy.js?v=8a7456e9fc';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -3809,8 +3810,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     liftDiaphragm(shrink, sc);
     syncSelLine();
     // The shown ascites eases to the model's volume (stepFluid), so a tap or diuretics never pops the level.
-    if (ascTarget === null) ascShown = f.slow.ascites;
-    ascTarget = f.slow.ascites;
+    // (In steps of FLUID_STEP from the volume drawn: the model's trickle each update must not count as the fluid moving.)
+    const asc = fluidTarget(ascTarget, f.slow.ascites);
+    if (ascTarget === null) ascShown = asc;
+    ascTarget = asc;
     drawAscites();
     syncSelFluid();
     platePoke();
