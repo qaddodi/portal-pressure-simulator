@@ -1359,7 +1359,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     }
     partCells += k;
   }
-  function cellsOfRows(rows) {
+  // The cells of those rows that reach the layer in transform m (device pixels), and how many of all the cells do: the
+  // vessel pass draws nothing outside the layer, so a cell past its edges is left out of a partial pass, and how much of
+  // the layer a partial pass would redraw is judged by the cells on it (zoomed in, most of the figure's cells are off it).
+  function cellsOfRows(rows, m) {
     if (!rowCells) {
       rowCells = new Map();
       for (let c = 0; c < nCells; c++) {
@@ -1375,10 +1378,21 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         }
       }
     }
+    const on = (c) => {
+      const x = cellsCPU[c * 6], y = cellsCPU[c * 6 + 1];
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const [u, v] of [[x, y], [x + CELL, y], [x, y + CELL], [x + CELL, y + CELL]]) {
+        const X = m[0] * u + m[2] * v + m[4], Y = m[1] * u + m[3] * v + m[5];
+        x0 = Math.min(x0, X); x1 = Math.max(x1, X); y0 = Math.min(y0, Y); y1 = Math.max(y1, Y);
+      }
+      return x1 > -2 && x0 < fboW + 2 && y1 > -2 && y0 < fboH + 2;
+    };
     const mark = new Uint8Array(nCells);
-    let k = 0;
-    for (const r of rows) for (const c of rowCells.get(r) || []) if (!mark[c]) { mark[c] = 1; k++; }
-    return { mark, k };
+    let k = 0, shown = 0;
+    for (let c = 0; c < nCells; c++) if (on(c)) { mark[c] = 2; shown++; }
+    for (const r of rows) for (const c of rowCells.get(r) || []) if (mark[c] === 2) { mark[c] = 1; k++; }
+    for (let c = 0; c < nCells; c++) if (mark[c] === 2) mark[c] = 0;
+    return { mark, k, many: k > shown * 0.85 };
   }
   // The vessel pass over `count` cells of vertex array `va`, into the bound vessel framebuffer (draw() clears it first).
   function vesselPass(m, look, va, count, redraw = false) {
@@ -1519,7 +1533,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       // them all; the moved layer then has their cells drawn again too (a model playing while the figure is dragged).
       let part = null;
       const panAt = fboOK && radCovered(rows) && lk === drawnLook && (dx || dy) && Math.abs(dx) < fboW / 2 && Math.abs(dy) < fboH / 2 && m.slice(0, 4).every((v, i) => v === baseM[i]);
-      if (panAt && rows?.length) { part = cellsOfRows(rows); if (part.k > nCells * 0.6) part = null; }
+      if (panAt && rows?.length) { part = cellsOfRows(rows, m); if (part.many) part = null; }
       const pan = panAt && (!(tubesNew || radRows.size) || part);
       if (pan) { shiftLayer(m, look, dx, dy); if (part) cellsPass(m, look, part); }
       else {
@@ -1546,8 +1560,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     drawRows(m, look, blood, rows, full = false) {
       m = whole(m);
       if (!fboOK || lost || fboW !== canvas.width || fboH !== canvas.height || !baseM || m.some((v, i) => v !== baseM[i]) || !radCovered(rows)) return false;
-      const part = cellsOfRows(rows);
-      if (part.k > nCells * 0.6) return false;
+      const part = cellsOfRows(rows, m);
+      if (part.many) return false;
       tubesNew = false; radRows.clear();
       cellsPass(m, look, part);
       this.composite(look, blood, full);
