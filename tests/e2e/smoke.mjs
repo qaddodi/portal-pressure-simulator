@@ -110,8 +110,12 @@ const leaderFrames = (page, ms) => page.evaluate((ms) => new Promise((done) => {
     if (el.matches('.lz-lab') && (document.getElementById('app').dataset.lit || '').split(' ').includes(el.dataset.target)) {
       const r = el.getBoundingClientRect(), pill = getComputedStyle(el, '::before'), px = Math.max(0, -parseFloat(pill.left) || 0), py = Math.max(0, -parseFloat(pill.top) || 0);
       add(r.left - px, r.right + px, r.top - py, r.bottom + py);
+      // (Its corners are rounded: a leader stopping on the square corner stops short of what is seen.)
+      parts[0].rr = Math.min(parseFloat(pill.borderTopLeftRadius) || 0, (r.width + 2 * px) / 2, (r.height + 2 * py) / 2);
       return b;
     }
+    // (The slide's pointer pill: its own rounded box.)
+    if (el.matches('.lz-call')) { const r = el.getBoundingClientRect(); add(r.left, r.right, r.top, r.bottom); parts[0].rr = Math.min(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0, r.width / 2, r.height / 2); return b; }
     if (el.matches('.lz-lab')) { for (const p of el.querySelectorAll('.n, .v')) { const r = p.getBoundingClientRect(); if (r.width) add(r.left, r.right, r.top, r.bottom); } return b; }
     // (Letter by letter: where each sits from the text's own layout, how high and low its ink reaches from the font.)
     for (const tx of el.querySelectorAll('text')) {
@@ -146,28 +150,34 @@ const leaderFrames = (page, ms) => page.evaluate((ms) => new Promise((done) => {
   };
   const tick = () => {
     const t = Math.round(performance.now() - t0), labs = [];
-    for (const el of document.querySelectorAll('.lz-lab, #labels g.lb')) {
+    for (const el of document.querySelectorAll('.lz-lab, .lz-call.on, #labels g.lb')) {
       // (One fading in counts as its leader's label; only those seen count as labels a leader must not cross.)
       if (el.hidden || el.matches('.lb-off, .organ')) continue;
       const b = ink(el);
-      if (b) labs.push({ k: el.dataset.target || el.dataset.key, n: el.textContent.trim().slice(0, 20), o: op(el), ...b });
+      if (b) labs.push({ k: el.matches('.lz-call') ? 'lesion' : el.dataset.target || el.dataset.key, n: el.textContent.trim().slice(0, 20), o: op(el), ...b });
     }
-    for (const ln of document.querySelectorAll('.lz-leaders line.leader, #labels path.leader:not(.scan)')) {
+    for (const ln of document.querySelectorAll('.lz-leaders line.leader, .lz-call-l.on, #labels path.leader:not(.scan)')) {
       if (ln.style.display === 'none' || op(ln) < 0.05) continue;
       const m = ln.getScreenCTM(); if (!m) continue;
       const at = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
       const n = ln.tagName === 'line' ? ['x1', 'y1', 'x2', 'y2'].map((a) => +ln.getAttribute(a)) : ln.getAttribute('d').match(/-?[\d.]+/g).map(Number);
       const p = at(n[0], n[1]), q = at(n[n.length - 2], n[n.length - 1]);
       // (Measured against each run of letters, not the box round them all: a name, its number and its unit.)
-      const gap = (b) => Math.min(...b.parts.map((c) => Math.hypot(Math.max(c.l - q[0], 0, q[0] - c.r), Math.max(c.t - q[1], 0, q[1] - c.b))));
-      const thru = (b) => Math.max(...b.parts.map((c) => under(p, q, c)));
-      const key = ln.dataset.target || ln.dataset.k, own = labs.find((b) => b.k === key);
+      // (A rounded pill by its signed distance: outside > 0; how far the leader runs inside it, in quarter-pixel steps.)
+      const sd = (c, x, y) => { const ux = Math.abs(x - (c.l + c.r) / 2) - ((c.r - c.l) / 2 - c.rr), uy = Math.abs(y - (c.t + c.b) / 2) - ((c.b - c.t) / 2 - c.rr); return Math.hypot(Math.max(ux, 0), Math.max(uy, 0)) + Math.min(Math.max(ux, uy), 0) - c.rr; };
+      const len = Math.hypot(q[0] - p[0], q[1] - p[1]), steps = Math.max(1, Math.ceil(len * 4));
+      const inRound = (c) => { let n = 0; for (let i = 0; i <= steps; i++) if (sd(c, p[0] + (q[0] - p[0]) * i / steps, p[1] + (q[1] - p[1]) * i / steps) < 0) n++; return n * len / steps; };
+      const gap = (b) => Math.min(...b.parts.map((c) => (c.rr ? Math.max(0, sd(c, q[0], q[1])) : Math.hypot(Math.max(c.l - q[0], 0, q[0] - c.r), Math.max(c.t - q[1], 0, q[1] - c.b)))));
+      const thru = (b) => Math.max(...b.parts.map((c) => (c.rr ? inRound(c) : under(p, q, c))));
+      const key = ln.matches('.lz-call-l') ? 'lesion' : ln.dataset.target || ln.dataset.k, own = labs.find((b) => b.k === key);
       const note = (k, v) => { if (!out.has(k)) out.set(k, `${k} (${v.toFixed(1)} px, at ${t} ms)`); };
       if (!own) { note(`the ${key} leader shows without its label`, 0); continue; }
       // (3 px of play: the letters' halo and side bearings, larger while the labels are drawn larger in a dive.)
-      const play = 3 * own.sc;
+      // (A pill's outline is drawn exactly where it is measured: 1 px.)
+      const play = own.parts[0]?.rr ? 1 : 3 * own.sc;
       if (gap(own) > play) note(`the "${own.n}" leader stops short of its label`, gap(own));
-      if (thru(own) > play) note(`the "${own.n}" leader runs in under its label`, thru(own));
+      // (The pointer's leader runs to the middle of its solid pill, hidden under it.)
+      if (key !== 'lesion' && thru(own) > play) note(`the "${own.n}" leader runs in under its label`, thru(own));
       for (const b of labs) if (b !== own && b.o >= 0.05 && thru(b) > 0.5) note(`the "${own.n}" leader crosses "${b.n}"`, thru(b));
     }
     if (t < ms) requestAnimationFrame(tick); else done([...out.values()]);
@@ -4500,6 +4510,19 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(800);
     await look('zooming in on the anatomy', 2400, async () => { for (let i = 0; i < 4; i++) { await page.evaluate(() => document.getElementById('zoomIn').click()); await page.waitForTimeout(250); } });
     await look('zoomed in', 600);
+    // A label the slide's words light: its leader stops on the pill's rounded outline, at 100 % and 200 % text.
+    await open(page, '?script=hvpg&slide=7');
+    await page.waitForFunction(() => window.pps.stage.lobuleSettled?.() && [...document.querySelectorAll('.lz.on .lz-lab')].some((e) => !e.hidden) && +getComputedStyle(document.querySelector('.lz-call.on') || document.body).opacity > 0.9 && !!document.querySelector('.lz-call.on'), null, { timeout: 60000 });
+    await page.waitForTimeout(1200);
+    if (!(await page.evaluate(() => (document.getElementById('app').dataset.lit || '').includes('lobule:')))) throw new Error('HVPG slide 7 lights no lobule label');
+    await look('a lit label (HVPG slide 7)', 800);
+    await look('a lit label at 200 % text', 2000, () => page.evaluate(() => window.pps.stage.setLabelScale(2)));
+    // At rest no leader is hidden for a label passing over it: a label's own pill once hid its leader (it counted
+    // the pill's square corner as another label).
+    await page.waitForTimeout(800);
+    const hid = await page.evaluate(() => [...document.querySelectorAll('.lz-leaders line.leader.lz-hid')].filter((l) => l.style.display !== 'none').map((l) => l.dataset.target));
+    if (hid.length) bad.push(`at rest, 200 % text: the ${hid.join(', ')} leader is hidden`);
+    await page.evaluate(() => window.pps.stage.setLabelScale(1));
     if (bad.length) throw new Error(bad.slice(0, 8).join('; '));
   });
 }
@@ -4642,7 +4665,7 @@ const MEASURED = {
   'zooming out ends on the whole figure: pinch, wheel and the − button, from a fresh page': 90000,   // (about 5 minutes here, on a software renderer)
   'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text': 90000,   // (one device pixel per pixel on a phone: about 65 s here)
   'presenter: lobule labels never touch, leaders never cross': 140000,
-  'leaders reach their labels in every frame: lobule dive, glide and rise, anatomy zoom': 90000,
+  'leaders reach their labels in every frame: lobule dive, glide and rise, anatomy zoom': 120000,
   'lobule: the sinusoid reading and its lesion pointer point at the middle of a sinusoid': 150000,
   'liver lobule: GPU vessels, pressure drops, caption, cards, zones': 160000,
   'corner credit never touches a card': 130000,

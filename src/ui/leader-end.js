@@ -2,11 +2,23 @@
 // on the edge of what is seen of it (`box`, { x0, y0, x1, y1 }: a pill's outline, or the letters' own box for a label
 // drawn as haloed text), so it reaches the label in every frame and never runs in under the letters.
 // Null when the spot lies inside the box: there is no leader to draw.
+// A pill's rounded corners (`box.r`, the corner radius) are followed too: a leader towards a corner stops on its curve,
+// not on the square corner a few pixels short of it.
 export function leaderEnd(box, ax, ay) {
   const cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2;
   const hw = (box.x1 - box.x0) / 2, hh = (box.y1 - box.y0) / 2;
   const dx = ax - cx, dy = ay - cy;
-  const t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
+  let t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
+  const r = Math.min(box.r || 0, hw, hh);
+  if (r > 0 && t < Infinity) {
+    // The corner circle's middle, on the side the line leaves by; a point past it on both axes is on the curve.
+    const qx = cx + Math.sign(dx) * (hw - r), qy = cy + Math.sign(dy) * (hh - r), px = cx + dx * t, py = cy + dy * t;
+    if (dx && dy && Math.abs(px - cx) > hw - r && Math.abs(py - cy) > hh - r) {
+      // |c + d·s − q| = r, the far root.
+      const ox = cx - qx, oy = cy - qy, a = dx * dx + dy * dy, b = ox * dx + oy * dy, c = ox * ox + oy * oy - r * r;
+      t = (-b + Math.sqrt(Math.max(0, b * b - a * c))) / a;
+    }
+  }
   return t >= 1 ? null : { x: cx + dx * t, y: cy + dy * t };
 }
 

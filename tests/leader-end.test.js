@@ -73,3 +73,18 @@ test('a zone name never sits on the slide\'s lesion ring', () => {
   assert.match(lz, /placeZones\(fr0, hx, hy, callRingAt\(fr0\)\)/);
   assert.match(lz, /tries\.find\(\(p\) => !ringDepth\(lesion, boxAt\(p\)\)\)/);
 });
+
+test('a leader towards a pill\'s rounded corner stops on the curve, not the square corner short of it', () => {
+  // (HVPG slide 7 at 200 % on a phone: the Sinusoids leader stopped about 5 px off its lit pill's corner.)
+  const pill = { x0: 0, y0: 0, x1: 100, y1: 40, r: 12 };
+  for (const [ax, ay] of [[130, -30], [120, -5], [-40, 70], [104, 46]]) {
+    const e = leaderEnd(pill, ax, ay);
+    const qx = Math.min(Math.max(e.x, 12), 88), qy = Math.min(Math.max(e.y, 12), 28);
+    const off = Math.hypot(e.x - qx, e.y - qy) - 12;
+    const onCurve = Math.abs(e.x - qx) > 1e-9 && Math.abs(e.y - qy) > 1e-9;
+    assert.ok(!onCurve || Math.abs(off) < 1e-6, `end (${e.x.toFixed(2)}, ${e.y.toFixed(2)}) is ${off.toFixed(2)} px off the curve`);
+  }
+  // Square boxes are unchanged, and a side hit stays on the side.
+  assert.deepEqual(leaderEnd({ ...pill, r: 0 }, 150, 20), { x: 100, y: 20 });
+  assert.deepEqual(leaderEnd(pill, 150, 20), { x: 100, y: 20 });
+});

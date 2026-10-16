@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=3b659e1968';
 import { fibroReading } from './clock.js?v=af6de95a7c';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=2a952639b6';
-import { createLobuleZoom } from './lobule-zoom.js?v=3c962cb54b';
+import { createLobuleZoom } from './lobule-zoom.js?v=9219a00a66';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
@@ -23,7 +23,7 @@ import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } fr
 import { softwareYield, watchPerson } from './sw-yield.js?v=888305f6a2';
 import { portalSplit } from './table-marks.js?v=f709ae0429';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
-import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=41874d9ac9';
+import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;

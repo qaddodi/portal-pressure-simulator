@@ -31,7 +31,7 @@ import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
 import { createSinusoidView } from './sinusoid-view.js?v=586978f5cb';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
-import { leaderEnd, runInside } from './leader-end.js?v=41874d9ac9';
+import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -413,15 +413,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const w = part === 'triad' ? [lerp(tri[0], g.cx, 0.12), lerp(tri[1], g.cy, 0.12)] : part === 'central' ? [g.cx, g.cy] : [lerp(tri[0], g.cx, 0.5), lerp(tri[1], g.cy, 0.5)];
     const f = freeRect(), mx = (f.l + f.r) / 2;
     let my = (f.t + f.b) / 2, k = clamp(kFit * zoom, kFit, kFit * KMAX);
-    // A free space too short for a label above or below what the slide is about, clear of the disc no label may cover
+    // A free space too short for a row of labels above or below what the slide is about, clear of the disc no label may cover
     // (a phone at a large text size, under the slide's words): it is framed at the top of the free space, at the same zoom,
     // so one row of labels fits below it rather than every label being left out. (The same sums as layoutLabels: a label's
-    // height at this text size, its margins and the free space's padding.)
+    // height at this text size and its margins.)
     const disc = part === 'triad' ? (g.rt || 6) * 2.4 : part === 'central' ? g.rcv0 * 1.7 : 0;
     if (disc) {
       const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, H = f.b - f.t;
-      const row = 21 * lk + 2 * Math.max(4 + 2 * lk, 5 * lk + 5) + 2 * (8 + 4 * lk) + 8;
-      if (H < 2 * Math.max(14, disc * k) + 2 * row) my = f.t + Math.min(H / 2, Math.max(14, disc * k) + 4);
+      const row = 21 * lk + 2 * Math.max(4 + 2 * lk, 5 * lk + 5);
+      if (H / 2 - Math.max(14, disc * k) < row) my = f.t + Math.min(H / 2, Math.max(14, disc * k) + 4);
     }
     const saved = { ...V };
     Object.assign(V, { k, x: mx - w[0] * k, y: my - w[1] * k }); clampV();
@@ -1461,14 +1461,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (labels.classList.contains('lz-ease')) { syncLeaders(); glideUntil = performance.now() + 480; if (!glideRaf) glideRaf = requestAnimationFrame(glideLeaders); }
   }
   // A label's letters: its box less the padding.
-  // A label the slide's words light sits in its pill (styles: 4 × 5 px past its box at --label-k 1): the leader stops on the pill.
+  // A label the slide's words light sits in its pill (its ::before, past the box at every side, with rounded corners):
+  // the leader stops on the pill's outline.
   const lettersOf = (L, l, t, w, hh) => {
     if ((document.getElementById('app')?.dataset.lit || '').split(' ').includes(L.el.dataset.target)) {
-      const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1;
-      return { x0: l - 4 * lk, y0: t - 5 * lk, x1: l + w + 4 * lk, y1: t + hh + 5 * lk };
+      const p = getComputedStyle(L.el, '::before'), px = (v) => parseFloat(v) || 0;
+      return { x0: l + px(p.left), y0: t + px(p.top), x1: l + w - px(p.right), y1: t + hh - px(p.bottom), r: px(p.borderTopLeftRadius), L };
     }
     const [pl, pr, pt, pb] = L.pad || [0, 0, 0, 0];
-    return { x0: l + pl, y0: t + pt, x1: l + w - pr, y1: t + hh - pb };
+    return { x0: l + pl, y0: t + pt, x1: l + w - pr, y1: t + hh - pb, L };
   };
   // A leader's end: on the edge of its label's letters, on the way to the label's middle. While another label lies across
   // it (one gliding past), the leader is hidden, and eases back once clear: a leader never runs across a label.
@@ -1476,7 +1477,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const e = leaderEnd(ink, L.a[0], L.a[1]);
     if (!e) { L.line.style.display = 'none'; return; }
     L.line.setAttribute('x2', e.x); L.line.setAttribute('y2', e.y);
-    L.line.classList.toggle('lz-hid', inks.some((o) => o !== ink && runInside(L.a, [e.x, e.y], o) > 0.5));
+    L.line.classList.toggle('lz-hid', inks.some((o) => o.L !== L && runInside(L.a, [e.x, e.y], o) > 0.5));
   }
   let glideRaf = 0, glideUntil = 0;
   // The glide cut short (its time is up): the labels land at once, and their leaders with them.
