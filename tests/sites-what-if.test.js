@@ -64,3 +64,9 @@ test('Sites slide 7 (sinusoidal obstruction syndrome) never folds its ladder beh
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(src, /ladderFold !== foldKey && slides\[want\]\?\.fold !== false/);
 });
+
+test('on a phone a what-if slider takes a full line under its label', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.pz\.stack \.pzi-t \{ flex: 1 0 100%; \}/);
+  assert.match(css, /\.pz-wi \{[^}]*flex-wrap: wrap/);
+});

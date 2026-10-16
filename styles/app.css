@@ -2106,6 +2106,8 @@ button.finding { cursor: pointer; }
 .pzi-v { min-width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pz.stack .pz-wi { width: 100%; padding: .3em .8em; gap: .3em .7em; border-radius: 18px; }
 .pz.stack .pzi-l { flex-direction: row; align-items: baseline; gap: .5em; }
+/* (A phone: the slider takes a line of its own at the card's width, its end words at the track's ends; on one line with the label the track was a stub.) */
+.pz.stack .pzi-t { flex: 1 0 100%; }
 /* The quick check: numbered questions; a tap opens the answer under its question (it eases open, never jumps). */
 .pz-check { margin: 0; padding: 0; list-style: none; counter-reset: pzc; display: flex; flex-direction: column; min-height: 0; overflow: auto; font: 400 var(--s-body)/1.35 var(--font-display); color: var(--text); }
 .pz.stack .pz-check { font-size: var(--s-lab); }   /* (a phone: the controls' pill sits below the card now, so the list keeps no room for it: 48 px of it left an empty band under the last question, sweep 16 Oct) */
