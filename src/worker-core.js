@@ -1,11 +1,12 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=8fdce0dba8';
-import { computeMetrics } from './engine/metrics.js?v=37f639c3dd';
-import { detectEvents } from './engine/events.js?v=120d432c34';
-import { explain } from './engine/explain.js?v=b07ad76de1';
-import { defaultParams, deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=2ab3fe1eb2';
+import { Engine } from './engine/engine.js?v=c5b849e284';
+import { computeMetrics } from './engine/metrics.js?v=72819396bb';
+import { tenthGap } from './engine/gap.js?v=3a5947c552';
+import { detectEvents } from './engine/events.js?v=a6e16e86ec';
+import { explain } from './engine/explain.js?v=fcd3ca252d';
+import { defaultParams, deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=b2eabea2e1';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
@@ -22,7 +23,7 @@ function liverRes(e) {
 }
 const fingerprint = (m, e) => {
   const P = e ? e.Pf || e.P : null, a = m.ascites;
-  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg,
+  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg),
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
     sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
     pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, pvVel: m.pvVelMean, map: m.map, hr: m.hr, hb: m.blood.hb, rih: e ? liverRes(e) : null };
@@ -280,14 +281,23 @@ export function createCore(post) {
         if (st.params) { e.setParams(deepMerge(e.params, st.params)); e.settle(); }
         for (const a of [st.action || []].flat()) applyAction(e, a);
         const ramp = st.ramp ? Object.entries(st.ramp) : null, fine = !!(ramp || st.fine);
+        // trail: two readings on each day of the time-lapse, [day, a, b] (the presenter's flow-time chart): the fingerprint
+        // keys st.trail names, or (true) the portal pressure and flow.
+        const tk = Array.isArray(st.trail) ? st.trail : ['pv', 'pvFlow'];
+        const at = (d, m) => { const f = fingerprint(m, e); return [d, ...tk.map((k) => f[k])]; }, trail = st.trail && st.days ? [at(0, computeMetrics(e))] : null;
+        // start: a time-lapse with its own params plays from here (params set and settled, no day run yet), not from the slide before.
+        const start = st.fine && st.days && st.params ? { snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(e), e) } : null;
         for (let done = 0; done < (st.days || 0);) {
           const n = fine ? 1 : Math.min(30, st.days - done);
           if (ramp) e.setParams(deepMerge(e.params, rampAt(ramp, done + 1, st.days)));
           yield* e.advanceDaySteps(n, { noRupture: true, silent: true });
           done += n;
+          if (trail && done < st.days) trail.push(at(done, computeMetrics(e)));
         }
         if (st.preset || st.params || st.action || st.days) e.settle();
-        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(e), e) });
+        const m = computeMetrics(e);
+        if (trail) trail.push(at(st.days, m));
+        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start });
         yield;
       }
       post({ type: 'sequence', reqId });
@@ -324,7 +334,7 @@ export function createCore(post) {
           if (visible) { lastFrame = performance.now(); frame(); }
         }
       }
-      catch (err) { post({ type: 'error', message: String(err && err.stack || err) }); }
+      catch (err) { post({ type: 'error', reqId: msg.reqId, message: String(err && err.stack || err) }); }   // reqId: the waiting request settles
       resolve();
     }
     busy = false;

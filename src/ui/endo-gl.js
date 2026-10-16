@@ -6,6 +6,8 @@
 // the four columns a deflation (0 engorged .. 1 strangulated) and up to four knuckle strengths
 // (0 none .. 1 a cinched band with its dusky knuckle).
 
+import { cssRGB } from './util.js?v=b1761ad19c';
+
 const TAU = Math.PI * 2;
 const NCOL = 4;
 
@@ -24,7 +26,9 @@ function columnConsts() {
 }
 
 const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
-const FS = `
+// The colours are tokens (--endo-* in styles/tokens.css), written into the shader when it is built.
+const G = (n) => cssRGB(n).map((v) => v.toFixed(1)).join(', '), G01 = (n) => cssRGB(n).map((v) => (v / 255).toFixed(4)).join(', ');
+const FS = () => `
 precision highp float;
 uniform float uSize, uGrow, uVis, uRed;
 uniform vec4 uC0[4];
@@ -120,12 +124,12 @@ void main() {
 
   // Squamous mucosa: pale pink-salmon close to the lens, warmer and redder with depth. Past the
   // serrated Z-line (the squamocolumnar junction) the gastric cardia shows as deeper salmon-red.
-  vec3 ALB = vec3(226.0, 150.0, 132.0), DEEP = vec3(150.0, 52.0, 50.0);
+  vec3 ALB = vec3(${G('--endo-mucosa')}), DEEP = vec3(${G('--endo-mucosa-deep')});
   float tint = sst(1.2, 7.0, z);
   vec3 col = mix(ALB, DEEP, tint * vec3(0.7, 0.8, 0.65));
   float zl = 5.2 + 0.9 * (nz(th / TAU * 11.0, 0.5, 11.0) - 0.5) + 0.35 * (nz(th / TAU * 31.0, 2.5, 31.0) - 0.5);
   float zline = sst(zl - 0.25, zl + 0.25, z);
-  col = mix(col, vec3(200.0, 70.0, 60.0), zline * 0.85);
+  col = mix(col, vec3(${G('--endo-zline')}), zline * 0.85);
   float mott = nz(th / TAU * 14.0, z * 0.9, 14.0) * 0.6 + nz(th / TAU * 40.0, z * 2.5, 40.0) * 0.4;
   float grain = nz(th / TAU * 160.0, z * 11.0, 160.0);
   float mm = 0.93 + 0.12 * mott + 0.06 * (grain - 0.5) + 0.04 * (hsh(gl_FragCoord.xy) - 0.5);
@@ -136,7 +140,7 @@ void main() {
   float n2 = nz(th / TAU * 90.0, z * 4.2 + 3.0 * n1, 90.0);
   float r1 = 1.0 - abs(n1 * 2.0 - 1.0), r2 = 1.0 - abs(n2 * 2.0 - 1.0);
   float vs = (sst(0.93, 0.995, r1) * 0.16 + sst(0.95, 0.995, r2) * 0.1) * (1.0 - sst(2.2, 5.0, z)) * sst(0.5, 0.75, z);
-  col = mix(col, vec3(184.0, 84.0, 92.0), vs);
+  col = mix(col, vec3(${G('--endo-vessels')}), vs);
 
   float dfc = 0.0;
   if (cc >= 0.0) for (int i = 0; i < 4; i++) if (float(i) == cc) dfc = uDef[i];
@@ -145,8 +149,8 @@ void main() {
     vn = min(1.0, uVis * vein * (0.45 + 0.7 * uGrow));
     // A small varix shows white under thick mucosa; a large, thin-walled one shows blue.
     float crest = exp(-pow(abs(uu) / 0.55, 2.0));
-    vec3 V = mix(vec3(214.0, 178.0, 176.0), vec3(80.0, 90.0, 172.0), sst(0.1, 0.5, uGrow));
-    col = mix(col, V + vec3(30.0, 26.0, 18.0) * crest * sst(0.2, 0.6, uGrow), vn * 0.74);
+    vec3 V = mix(vec3(${G('--endo-varix-small')}), vec3(${G('--endo-varix')}), sst(0.1, 0.5, uGrow));
+    col = mix(col, V + vec3(${G('--endo-crest')}) * crest * sst(0.2, 0.6, uGrow), vn * 0.74);
     if (uRed > 0.01) {
       float rs = uRed * (1.0 - dfc) * (1.0 - zline);
       // Red wale marks: thin, broken red whip-marks running along the crest.
@@ -156,7 +160,7 @@ void main() {
       float wm = max(streak, streak2 * 0.8) * sst(0.0, 0.5, rs);
       // Cherry-red spots: small round dots on the varix, more of them as the wall nears its limit.
       float spot = sst(0.95 - 0.05 * rs, 0.98 - 0.03 * rs, nz(th / TAU * 220.0, z * 11.0, 220.0)) * vn * sst(0.2, 0.7, rs);
-      col = mix(col, vec3(158.0, 26.0, 42.0), max(wm * 0.6 * vn, spot * 0.75) * sst(0.25, 0.5, uGrow));
+      col = mix(col, vec3(${G('--endo-red-wale')}), max(wm * 0.6 * vn, spot * 0.75) * sst(0.25, 0.5, uGrow));
     }
   }
   float ao = 1.0;
@@ -167,7 +171,7 @@ void main() {
     float kk = kns, q = qm;
     if (q >= 1.0) {
       float halo = (1.0 - sst(1.0, 3.0, q)) * 0.3 * kk;
-      col = mix(col, vec3(200.0, 78.0, 96.0), halo);
+      col = mix(col, vec3(${G('--endo-band-halo')}), halo);
     }
     if (q < 1.12) {
       float g = max(0.0, 1.0 - q);
@@ -183,21 +187,21 @@ void main() {
     // The band: a ring that cinches in from a wide loop to the base of the knuckle.
     float rr0 = 1.0 + (1.0 - kk) * 0.5;
     float ring = exp(-pow((sqrt(q) - rr0) / 0.05, 2.0)) * sst(0.0, 0.25, kk);
-    col = mix(col, vec3(26.0, 16.0, 20.0), ring * 0.8);
+    col = mix(col, vec3(${G('--endo-band')}), ring * 0.8);
   }
 
   // Light from the scope tip: steep falloff with distance, and what light comes back from deep in
   // the lumen is reddened by the tissue.
   float diff = min(1.1, NL * 0.72 + 0.3) * atten;
-  vec3 lc = mix(vec3(1.0, 0.97, 0.93), vec3(1.0, 0.7, 0.6), sst(1.5, 8.0, z));
+  vec3 lc = mix(vec3(${G01('--endo-light-near')}), vec3(${G01('--endo-light-far')}), sst(1.5, 8.0, z));
   // Wet mucus film: patchy, so the highlights break up as they do on real tissue.
   float wet = sst(0.35, 0.75, nz(th / TAU * 20.0, z * 1.4, 20.0)) * 0.8 + 0.2;
   float spec = min(0.5, pow(NH, 200.0) * 0.35 + pow(NL, 90.0) * 0.32 * wet + pow(NL, 18.0) * 0.03) * gloss * atten * wet;
   float glint = sst(0.93, 0.98, nz(th / TAU * 80.0, z * 7.0, 80.0)) * 0.18 * atten * pow(NL, 4.0);
   float sheen = 0.08 + 0.1 * nz(th / TAU * 9.0, z * 0.7, 9.0);
-  vec3 rgb = (col / 255.0) * diff * ao * lc + vec3(spec * 0.95 + glint * 0.85) * vec3(1.0, 0.98, 0.95) + vec3(sheen * 0.04, sheen * 0.025, sheen * 0.025);
+  vec3 rgb = (col / 255.0) * diff * ao * lc + vec3(spec * 0.95 + glint * 0.85) * vec3(${G01('--endo-glint')}) + vec3(sheen * 0.04, sheen * 0.025, sheen * 0.025);
   float lum = sst(5.5, 18.0, z);
-  rgb = mix(rgb, vec3(0.045, 0.01, 0.012), lum);
+  rgb = mix(rgb, vec3(${G01('--endo-lumen')}), lum);
   rgb *= 1.0 - 0.58 * sst(0.64, 1.0, rho);
   rgb = vec3(pow(min(1.2, rgb.r), 0.82), pow(min(1.2, rgb.g), 0.92), pow(min(1.2, rgb.b), 0.9));
   gl_FragColor = vec4(min(rgb, 1.0), 1.0);
@@ -209,7 +213,7 @@ export function createEndoGL() {
   const gl = cv.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true });
   if (!gl) return null;
   const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; };
-  const vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS);
+  const vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS());
   if (!vs || !fs) return null;
   const pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
   if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return null;
@@ -223,6 +227,8 @@ export function createEndoGL() {
   gl.uniform4fv(u.c0, new Float32Array(c0)); gl.uniform4fv(u.c1, new Float32Array(c1));
   return {
     canvas: cv,
+    /** Free the GL context now (a presenter copy that is done), rather than whenever the browser gets to it. */
+    dispose() { gl.getExtension('WEBGL_lose_context')?.loseContext(); cv.width = cv.height = 0; },
     // Raw RGBA of the last frame (for tests).
     pixels() { const n = cv.width, a = new Uint8Array(n * n * 4); gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, a); return a; },
     // st: { grow, vis, red (0..1 red-sign strength), def: [4], kn: [16] }; draws into the shared canvas at res x res.

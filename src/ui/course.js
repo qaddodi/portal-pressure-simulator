@@ -3,9 +3,9 @@
 // where the card at the bottom owns the screen and the rest of the chrome is hidden.
 // Progress lives on this device in pps.course; plans/course-api.md documents the shapes.
 
-import { store } from './store.js?v=5edd069b32';
-import { h, svgIcon } from './util.js?v=045e641b44';
-import { CASE_UNITS } from './cases/units.js?v=bde5f54566';
+import { store } from './store.js?v=7fb7280c05';
+import { h, svgIcon } from './util.js?v=b1761ad19c';
+import { CASE_UNITS } from './cases/units.js?v=cead89ea1e';
 
 // A unit: id, n (its number), part ('A' mechanism, 'B' clinic), title, objective (what the student
 // can do after it), minutes, keyPoints (three margin notes, kept for the summary page) and steps
@@ -182,7 +182,6 @@ export const UNITS = [
     objective: 'Recognise refractory ascites and weigh TIPS against paracentesis and albumin.' },
 ].map((u) => ({ steps: stub(u.objective), keyPoints: [], ...u, ...caseUnit(u.id), unit: u.n, pearls: null }));
 export const FINAL = { id: 'final', title: 'Final assessment', minutes: 15, objective: 'Ten mixed vignettes; pass at 70 %.' };
-export const PARTS = { A: 'Mechanism', B: 'Clinic' };
 
 // ── Progress ────────────────────────────────────────
 // pps.course = { done: { [unitId]: { score, date } }, at: { [unitId]: stepIndex }, unlockAll }
@@ -229,7 +228,6 @@ export function setUnitSurface(on, opts = {}) {
   app.classList.toggle('unit-try', !!on && !!opts.try);
   if (was !== !!on) { store.set({ unitSurface: !!on }); dispatchEvent(new Event('resize')); }
 }
-export const unitSurfaceOn = () => !!document.getElementById('app')?.classList.contains('unit-on');
 
 /** "Unit 3 · 4 of 7" and a thin bar: the progress line at the top of a unit's card. */
 export function unitBar(unit, idx, total) {

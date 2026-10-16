@@ -1,7 +1,7 @@
 // C7. Abdominal pain and a clot: acute portal vein thrombosis (anticoagulate, watch for ischaemia)
 // and chronic cavernoma (treat the varices; an HVPG will be normal and still mislead).
 
-import { DX_HIDDEN, fill } from './kit.js?v=4db57f825c';
+import { DX_HIDDEN, fill } from './kit.js?v=be90db496b';
 
 const A = {
   vid: 'acute', preset: 'pvt-acute', acute: true,

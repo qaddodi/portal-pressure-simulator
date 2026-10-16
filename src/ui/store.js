@@ -1,6 +1,6 @@
 // Tiny observable store + parameter history (undo/redo, blueprint §3).
 
-import { defaultParams, deepMerge } from '../engine/scenario.js?v=2ab3fe1eb2';
+import { defaultParams, deepMerge } from '../engine/scenario.js?v=b2eabea2e1';
 
 const listeners = new Map();
 const state = {
@@ -16,7 +16,7 @@ const state = {
   layers: { flow: true, chips: true, collaterals: false, organs: true, labels: true, grid: false },
   labelLevel: (() => { try { const v = localStorage.getItem('pps.labels'); return ['key', 'all', 'none'].includes(v) ? v : 'key'; } catch { return 'key'; } })(),   // station labels: key | all | none (Blood menu)
   lobuleLayers: { zones: false, lymph: true },   // the Lobule view's own layers (toolbar Layers menu): zone bands, hepatic lymph
-  blood: { look: 'shimmer', phasic: false, chevrons: false },   // look: parcels | shimmer
+  blood: { look: 'shimmer', phasic: false, chevrons: false, keyChevrons: false },   // look: parcels | shimmer
   colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction
   params: defaultParams(),
   frame: null,

@@ -5,8 +5,8 @@
 // Three clocks stay separate: `presetDays` is native pre-aging inside the preset load, `days` is
 // extra disease days AFTER the patch, and observation seconds belong to the caller (hemodynamic time).
 
-import { store, updateParams, replaceParams } from './store.js?v=5edd069b32';
-import { host } from './host.js?v=5f360b39e4';
+import { store, updateParams } from './store.js?v=7fb7280c05';
+import { host } from './host.js?v=e46f50c36e';
 
 /**
  * @param step { preset?, presetDays?, params?, action?, days?, label? }
@@ -22,11 +22,4 @@ export async function runSequence(step, { loadPreset, action }, { reset = true }
   if (step.preset || step.params || step.days) host.send({ type: 'settle' });
   const { snap } = await host.request('snapshot');
   return { snap, params: structuredClone(store.get().params), presetId: store.get().presetId };
-}
-
-/** Put the worker and the UI back on a state `runSequence` returned. */
-export function restoreSequence(s) {
-  host.send({ type: 'restore', snap: s.snap });
-  replaceParams(structuredClone(s.params));
-  store.set({ presetId: s.presetId, historyTick: (store.get().historyTick || 0) + 1 });
 }

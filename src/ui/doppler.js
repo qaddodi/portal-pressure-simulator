@@ -4,11 +4,13 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES, dopplerK } from '../engine/topology.js?v=706a39d50b';
-import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=045e641b44';
-import { FONT } from './charts.js?v=17c82c589c';
-import { logAction } from './store.js?v=5edd069b32';
-import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=fe9fd40247';
+import { EDGES, dopplerK } from '../engine/topology.js?v=34e377149b';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=b1761ad19c';
+import { FONT } from './charts.js?v=e073763634';
+import { logAction } from './store.js?v=7fb7280c05';
+import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=abf1691da6';
+import { frameFor } from './frame.js?v=0db47e99bf';
+const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
@@ -93,36 +95,82 @@ export function createDoppler({ onProbe }) {
   // The report
   const dirEl = h('b', { class: 'dop-dir' }, '—');
   const velEl = h('span', { class: 'dop-vel' }, h('b', {}, '—'), h('small', {}, 'cm/s mean'));
-  const rangeEl = h('span', { class: 'dop-range' });
+  // Normal-range gauge: a track with the usual band shaded and a marker for the current mean.
+  const bandEl = h('i', { class: 'dop-band' });
+  const markEl = h('i', { class: 'dop-mark' });
+  const gLo = h('span', { class: 'dop-g-lo' }); const gHi = h('span', { class: 'dop-g-hi' }); const gZero = h('span', { class: 'dop-g-zero' }, '0');
+  const rangeEl = h('div', { class: 'dop-range', hidden: true }, h('div', { class: 'dop-track' }, bandEl, markEl), h('div', { class: 'dop-ticks' }, gZero, gLo, gHi));
   const patternEl = h('div', { class: 'dop-pattern' });
   const noteEl = h('p', { class: 'dop-note' });
   const statEls = {};
   const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI'].map((k) => {
     const dd = h('dd', {}, '—'); const wrap = h('div', {}, h('dt', {}, k), dd); statEls[k] = { dd, wrap }; return wrap;
   }));
-  const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, rangeEl), patternEl, stats, noteEl);
+  const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
     h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
 
   // ── Samples ───────────────────────────────────────
   let buf = [];
   let probe = null, frame = null;
+  // Time lapse (the disease clock) has no bedside samples: the model jumps a day at a time. The
+  // trace keeps scrolling at bedside speed by replaying the last recorded beats (the template),
+  // scaled so their mean eases to the vessel's current mean velocity. Synthetic times run on from
+  // the record; once bedside time resumes, its samples are shifted (tOff) to follow on.
+  let tOff = 0, tpl = null, synth = null;
   sync();
+  function startSynth() {
+    const tEnd = buf[buf.length - 1][0];
+    let i = buf.length - 1; while (i > 0 && buf[i - 1][0] >= tEnd - 3) i--;
+    const pts = buf.slice(i);
+    const L = pts[pts.length - 1][0] - pts[0][0];
+    if (pts.length < 8 || L < 1) return null;
+    const mean = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    tpl = { t0: pts[0][0], L, pts, mean };
+    return { t: tEnd, wall: performance.now(), mean, target: mean };
+  }
+  function tplAt(t) {
+    const { t0, L, pts } = tpl;
+    const x = t0 + (((t - t0) % L) + L) % L;
+    let lo = 0, hi = pts.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (pts[m][0] <= x) lo = m; else hi = m; }
+    const [ta, va] = pts[lo], [tb, vb] = pts[hi];
+    const v = tb > ta ? va + (vb - va) * clamp((x - ta) / (tb - ta), 0, 1) : va;
+    // Cross-fade the last 0.25 s of the loop into its start, so the seam does not step.
+    const w = (x - (t0 + L - 0.25)) / 0.25;
+    return w > 0 ? v * (1 - w) + pts[0][1] * w : v;
+  }
+  function runSynth() {
+    const now = performance.now();
+    const dt = Math.min(0.25, (now - synth.wall) / 1000);
+    synth.wall = now;
+    const m0 = tpl.mean;
+    const ratio = Math.abs(m0) > 2;
+    for (let k = 0, n = Math.ceil(dt / 0.02); k < n; k++) {
+      synth.t += dt / n;
+      synth.mean += (synth.target - synth.mean) * Math.min(1, (dt / n) * 3);
+      const v = tplAt(synth.t);
+      buf.push([synth.t, ratio ? v * synth.mean / m0 : v - m0 + synth.mean]);
+    }
+  }
   function ingest(f) {
     frame = f;
-    if (f.probe !== probe) { buf = []; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
-    // Time lapse (the disease clock) has no bedside samples: drop the old trace at once, so the
-    // unavailable state shows on entry rather than only after the vessel changes.
-    const paused = f.clock === 'disease';
-    if (paused && buf.length) { buf = []; tDisp = null; }
-    if (el.classList.contains('dop-paused') !== paused) {
-      el.classList.toggle('dop-paused', paused);
-      box.classList.remove('dop-fade'); void box.offsetWidth; box.classList.add('dop-fade');
-    }
+    if (f.probe !== probe) { buf = []; wl = null; tOff = 0; synth = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
     const s = f.samples;
-    if (!s || paused || !s.t.length) return;
-    if (buf.length && s.t[0] < buf[buf.length - 1][0] - 1e-9) buf = [];
-    for (let i = 0; i < s.t.length; i++) if (!buf.length || s.t[i] > buf[buf.length - 1][0]) buf.push([s.t[i], s.vel[i]]);
+    if (f.clock === 'disease') {
+      if (!synth && buf.length) synth = startSynth();
+      if (!synth) return;
+      if (s?.vel?.length) synth.target = s.vel[s.vel.length - 1];
+      if (f.running) runSynth();
+    } else {
+      if (synth && s?.t.length) { tOff = synth.t + 0.02 - s.t[0]; synth = null; }
+      if (!s || !s.t.length) return;
+      // Model time stepped back (a state loaded, as at the end of a presenter time-lapse): carry
+      // the trace on from where it is instead of starting over.
+      if (buf.length && s.t[0] + tOff < buf[buf.length - 1][0] - 1e-9) tOff = buf[buf.length - 1][0] + 0.02 - s.t[0];
+      for (let i = 0; i < s.t.length; i++) { const t = s.t[i] + tOff; if (!buf.length || t > buf[buf.length - 1][0]) buf.push([t, s.vel[i]]); }
+    }
+    if (!buf.length) return;
     const tNow = buf[buf.length - 1][0];
     let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
     if (cut) buf.splice(0, cut);
@@ -186,9 +234,9 @@ export function createDoppler({ onProbe }) {
       pattern = `Resistive index ${fmt(ri, 2)}`;
       note = 'The hepatic artery buffers falling portal inflow by dilating (the hepatic arterial buffer response).';
     } else if (p.kind === 'tips') {
-      dir = a < 2 ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = a < 2 || r.mean < 0 ? 'critical' : a < 50 || a > 250 ? 'caution' : 'ok';
-      pattern = a < 2 ? 'Occluded' : a < 50 ? 'Low velocity' : a > 250 ? 'High velocity' : 'Patent';
-      note = a < 2 ? 'No flow in the stent: occluded.' : 'Shunt velocities under about 50 or over 250 cm/s suggest stenosis.';
+      dir = a < 2 ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = a < 2 || r.mean < 0 ? 'critical' : a < 90 || a > 190 ? 'caution' : 'ok';
+      pattern = a < 2 ? 'Occluded' : a < 90 ? 'Low velocity' : a > 190 ? 'High velocity' : 'Patent';
+      note = a < 2 ? 'No flow in the stent: occluded.' : 'Stent velocities under 90 or over 190 cm/s, or a change of more than 50 cm/s from the baseline scan, suggest stenosis.';
     } else if (p.kind === 'ivc') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
       pattern = r.vminMean < -1 ? 'Phasic, with reversal' : pi > 0.3 ? 'Phasic' : 'Continuous';
@@ -201,12 +249,39 @@ export function createDoppler({ onProbe }) {
     return { dir, sev, pattern, note, pi };
   }
 
+  // A tile value: the number, with its unit small beside it.
+  function setStat(dd, v, unit = '') {
+    const key = `${v}|${unit}`;
+    if (dd.dataset.v === key) return;
+    dd.dataset.v = key; dd.textContent = v;
+    if (unit) dd.append(' ', h('small', {}, unit));
+  }
+
+  // Place the normal band and the current mean on one scale: 0 to ~1.7x the top of the usual range, widened
+  // when the mean falls outside (reversed flow reaches below zero). The marker eases there with CSS.
+  function updateGauge(p, mean) {
+    if (!p.normal) { rangeEl.hidden = true; velEl.dataset.out = 'false'; return; }
+    const [n0, n1] = p.normal;
+    const hi = Math.max(Math.round(n1 * 1.7), Math.ceil(mean * 1.1));
+    const lo = Math.min(0, Math.floor(mean * 1.1));
+    const pos = (v) => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
+    rangeEl.hidden = false;
+    rangeEl.dataset.out = velEl.dataset.out = mean < n0 || mean > n1 ? 'true' : 'false';
+    bandEl.style.left = `${pos(n0)}%`; bandEl.style.width = `${pos(n1) - pos(n0)}%`;
+    markEl.style.left = `${pos(mean)}%`;
+    gZero.style.left = `${pos(0)}%`; gLo.style.left = `${pos(n0)}%`; gHi.style.left = `${pos(n1)}%`;
+    set2(gLo, String(n0)); set2(gHi, `${n1} cm/s`);
+    rangeEl.title = `Usual ${n0}–${n1} cm/s`;
+  }
+  const set2 = (e, t) => { if (e.textContent !== t) e.textContent = t; };
+
   function updateReport() {
     const r = reading();
     if (!r) {
       dirEl.textContent = frame?.clock === 'disease' ? 'Not available during time lapse' : 'Acquiring…'; dirEl.dataset.sev = '';
-      for (const e of [velEl.firstChild, rangeEl, patternEl, noteEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
-      for (const k in statEls) statEls[k].dd.textContent = '—';
+      rangeEl.hidden = true; velEl.dataset.out = 'false';
+      for (const e of [velEl.firstChild, patternEl, noteEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
+      for (const k in statEls) setStat(statEls[k].dd, '—');
       return;
     }
     const p = meta();
@@ -214,20 +289,20 @@ export function createDoppler({ onProbe }) {
     const set = (e, t) => { if (e.textContent !== t) e.textContent = t; };
     set(dirEl, it.dir); dirEl.dataset.sev = it.sev;
     set(velEl.firstChild, num(r.mean, Math.abs(r.mean) < 10 ? 1 : 0));
-    set(rangeEl, p.normal ? `Usual ${p.normal[0]}–${p.normal[1]} cm/s` : '');
+    updateGauge(p, r.mean);
     set(patternEl, it.pattern);
     // peak: the extreme farthest from zero, whichever the direction
     const [pk, tr] = Math.abs(r.vmax) >= Math.abs(r.vmin) ? [r.vmax, r.vmin] : [r.vmin, r.vmax];
-    set(statEls.Peak.dd, `${num(pk)} cm/s`);
-    set(statEls.Trough.dd, `${num(tr)} cm/s`);
-    set(statEls.Pulsatility.dd, fmt(it.pi, 2));
-    // Congestion index (portal vein): cross-sectional area / mean velocity, normal < 0.07 cm·s
+    setStat(statEls.Peak.dd, num(pk), 'cm/s');
+    setStat(statEls.Trough.dd, num(tr), 'cm/s');
+    setStat(statEls.Pulsatility.dd, fmt(it.pi, 2));
+    // Congestion index (portal vein): cross-sectional area / mean velocity, about 0.07 cm·s in health, over 0.1 suggests portal hypertension
     const isPV = probe === 'PV_TRUNK';
     statEls.CI.wrap.hidden = !isPV;
     if (isPV && frame) {
       const D = Math.max(0.5, frame.D[EI[probe]]) / 10, area = Math.PI * D * D / 4;
       const vm = Math.abs(r.mean) / dopplerK(EDGES[EI[probe]]);   // Moriyasu's index uses the mean across the lumen
-      set(statEls.CI.dd, vm > 0.3 ? `${fmt(area / vm, 2)} cm·s` : '—');
+      vm > 0.3 ? setStat(statEls.CI.dd, fmt(area / vm, 2), 'cm·s') : setStat(statEls.CI.dd, '—');
     }
     set(noteEl, it.note);
     const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
@@ -261,7 +336,7 @@ export function createDoppler({ onProbe }) {
   const LN10_10 = 10 / Math.LN10;
   const GAIN = 1.1;                 // display gain on the grey map
   const PAD = 96;                   // the noise texture is this much larger than the display
-  const live = () => !!frame?.running && frame.clock !== 'disease';
+  const live = () => !!frame?.running;
   const expo = () => -Math.log(1 - Math.random() * 0.999999);
   const mk = (w, h) => typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
 
@@ -390,23 +465,24 @@ export function createDoppler({ onProbe }) {
   }
 
   function draw(now = performance.now()) {
+    labBusy = false;
     const { ctx, w, h: hh } = fitCanvas(cv);
     const dpr = cv.width / Math.max(1, w);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = cssVar('--black'); ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const padL = 12, padR = 46, padT = 26, padB = 20;
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
     if (w < 60 || hh < 60) return;
     const label = probe ? EDGES[EI[probe]].label : '';
-    ctx.font = FONT(600, 11); ctx.fillStyle = 'rgba(255,255,255,.86)'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.font = FONT(600, 11); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(label, padL, 13);
     const lw = ctx.measureText(label).width;
-    ctx.font = FONT(500, 11); ctx.fillStyle = 'rgba(255,255,255,.5)';
+    ctx.font = FONT(500, 11); ctx.fillStyle = cssAlpha('--white', .5);
     ctx.fillText(`${mode === 'spectrum' ? 'PW' : 'PW + CD'}  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, padL + lw + 12, 13);
     if (buf.length < 2) {
       tDisp = null;
-      ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.55)';
+      ctx.textAlign = 'center'; ctx.fillStyle = cssAlpha('--white', .55);
       ctx.fillText(frame?.clock === 'disease' ? 'Doppler samples at the bedside: return to the seconds clock.' : 'Acquiring…', w / 2, hh / 2);
       return;
     }
@@ -472,13 +548,13 @@ export function createDoppler({ onProbe }) {
     // the wall filter removes the noise near the baseline as well as the slow signal
     const wfPx = Math.max(1.2, 0.025 * scale) * g.rPxPerV * 1.6, by = dy + g.rBase;
     const wg = ctx.createLinearGradient(0, by - wfPx, 0, by + wfPx);
-    wg.addColorStop(0, 'rgba(0,0,0,0)'); wg.addColorStop(0.5, 'rgba(0,0,0,.9)'); wg.addColorStop(1, 'rgba(0,0,0,0)');
+    wg.addColorStop(0, cssAlpha('--black', 0)); wg.addColorStop(0.5, cssAlpha('--black', .9)); wg.addColorStop(1, cssAlpha('--black', 0));
     ctx.fillStyle = wg; ctx.fillRect(dx, Math.max(dy, by - wfPx), RW, Math.min(dy + RH, by + wfPx) - Math.max(dy, by - wfPx));
     ctx.imageSmoothingEnabled = true;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Baseline
-    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(padL, padT + baseY, W, 1);
+    ctx.fillStyle = cssAlpha('--white', .8); ctx.fillRect(padL, padT + baseY, W, 1);
     // Velocity scale on the right
     ctx.font = FONT(500, 10.5); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     // ticks: a labelled tick every 1, 2, 5, 10, 20, 50 ... cm/s (the first that gives at most five a side), a half tick between
@@ -487,26 +563,42 @@ export function createDoppler({ onProbe }) {
       const v = k * minor, y = padT + baseY - v * pxPerV;
       if (y < padT - 1 || y > padT + H + 1) continue;
       const major = k % 2 === 0;
-      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
-      if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = 'rgba(255,255,255,.78)'; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
+      ctx.fillStyle = cssAlpha('--white', .55); ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
+      if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = cssAlpha('--white', .78); ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
     }
-    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
+    ctx.fillStyle = cssAlpha('--white', .5); ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
     if (waves && meta().kind === 'hepatic') {
       // The hepatic vein's waves named at their peaks (a presenter slide asks for it): the a-wave reversal on the
-      // atrial side of the baseline, then the S and D forward waves of the same beat, small and faded.
-      ctx.font = FONT(600, 11); ctx.textAlign = 'center';
-      const at = (t, v) => [padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr, padT + baseY - v * k * pxPerV];
-      for (const [t, v, name] of hvWaves(tNow - sweepSeconds, tNow, sgn)) {
-        // (The a-wave's letter sits just past the baseline on its side, clear of the spectrum, even when it barely crosses.)
-        const up = name === 'a', [x, y0] = at(t, v), y = up ? Math.min(y0, padT + baseY) : y0;
-        if (x < padL + 6 || x > padL + W - 6) continue;
-        const ty = clamp(y + (up ? -4 : 4), padT + (up ? 12 : 0), padT + H - (up ? 0 : 12));
-        ctx.textBaseline = up ? 'bottom' : 'top'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(name, x, ty);
-        ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillText(name, x, ty);
+      // atrial side of the baseline, then the S, v and D forward waves of the same beat. One beat is named at a time.
+      // Its letters are pinned to that beat's own moments, so they scroll with it; when the beat is about to leave the
+      // screen they fade out, and the newest whole beat gets them, fading in. Nothing glides or pops.
+      const dtL = labAt ? Math.min(0.1, (now - labAt) / 1000) : 0; labAt = now;
+      const edge = tNow - sweepSeconds + 0.7;                 // a beat starting before this is about to leave
+      if (wl && (wl.sgn !== sgn || wl.pts[0][0] < edge)) wl.out = true;
+      if (!wl || (wl.out && wl.alpha <= 0)) {
+        wl = null;
+        const pts = hvWaves(tNow - sweepSeconds, tNow, sgn);
+        if (pts.length && pts[0][0] >= edge) wl = { pts, sgn, alpha: 0, out: false };
       }
-    }
+      if (wl) {
+        wl.alpha = clamp(wl.alpha + (wl.out ? -1 : 1) * dtL / 0.4, 0, 1);
+        labBusy = wl.out ? wl.alpha > 0 : wl.alpha < 1;
+        const A = wl.alpha * wl.alpha * (3 - 2 * wl.alpha);
+        ctx.font = FONT(700, 13); ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        const at = (t, v) => [padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr, padT + baseY - v * k * pxPerV];
+        for (const [t, v, name] of wl.pts) {
+          // (The a-wave's letter sits just past the baseline on its side, clear of the spectrum, even when it barely crosses.)
+          const up = name === 'a', [x, y0] = at(t, v), y = up ? Math.min(y0, padT + baseY) : y0;
+          if (x < padL + 2 || x > padL + W - 2) continue;
+          const ty = clamp(y + (up ? -5 : 5), padT + (up ? 14 : 0), padT + H - (up ? 0 : 14));
+          ctx.textBaseline = up ? 'bottom' : 'top';
+          ctx.lineWidth = 4; ctx.strokeStyle = cssAlpha('--black', 0.9 * A); ctx.strokeText(name, x, ty);
+          ctx.fillStyle = cssAlpha('--white', A); ctx.fillText(name, x, ty);
+        }
+      }
+    } else { wl = null; }
     // One tick a second along the bottom, scrolling with the trace
-    ctx.fillStyle = 'rgba(255,255,255,.4)';
+    ctx.fillStyle = cssAlpha('--white', .4);
     for (let sec = Math.ceil(tNow - sweepSeconds); sec <= tNow; sec++) {
       const x = (RW - 1 - (cNow - Math.floor(sec * g.cps))) / dpr;
       ctx.fillRect(Math.round(padL + x), padT + H + 5, 1, 4);
@@ -516,11 +608,12 @@ export function createDoppler({ onProbe }) {
 
   // The dock asks for a redraw with each model frame (~10 a second); the picture itself runs on
   // animation frames while the model is live and the dock keeps asking, and stops when it doesn't.
-  // ── Hepatic vein waves: a, S and D in each whole beat on screen ──
+  // ── Hepatic vein waves: a, S, v and D in each whole beat on screen ──
   // Beats are cut at the a-waves (the reversals, toward the probe's atrial side); between two, the two deepest
   // forward troughs are S (first) and D, with the a-wave that opens the beat. Read from a lightly smoothed trace; nothing is named when the pattern
   // is not triphasic (no clear reversal, or a single forward wave).
   let waves = false;
+  let wl = null, labAt = 0, labBusy = false;   // the beat whose waves are named: {pts, sgn, alpha, out}
   function hvWaves(t0, t1, sgn) {
     const p = buf.filter(([t]) => t >= t0 && t <= t1);
     if (p.length < 12) return [];
@@ -532,8 +625,11 @@ export function createDoppler({ onProbe }) {
     const crest = (i) => { for (let j = i - 1; j >= 0 && p[i][0] - p[j][0] < 0.3; j--) if (y[j] > y[i]) return false; for (let j = i + 1; j < y.length && p[j][0] - p[i][0] < 0.3; j++) if (y[j] > y[i]) return false; return true; };
     const aI = [];
     for (let i = 1; i < y.length - 1; i++) if (y[i] > bot * 0.15 && ext(i, 1) && crest(i) && (!aI.length || p[i][0] - p[aI.at(-1)][0] > 0.35)) aI.push(i);
-    // Only the newest whole beat is named, as a textbook marks one cycle: every beat at once crowds the trace.
+    // Only the newest settled whole beat is named, as a textbook marks one cycle: every beat at once crowds the trace.
+    // A beat is named once its closing a-wave has settled (the last 0.35 s of the record can still change), so the letters never shift afterwards.
+    const tEnd = p[p.length - 1][0] - 0.35;
     for (let b = aI.length - 2; b >= 0; b--) {
+      if (p[aI[b + 1]][0] > tEnd) continue;
       const lows = [];
       for (let i = aI[b] + 1; i < aI[b + 1]; i++) if (y[i] < bot * 0.25 && ext(i, -1)) lows.push(i);
       // Keep the deepest trough of each dip (troughs closer than 0.12 s are one wave), then the two deepest dips.
@@ -541,7 +637,10 @@ export function createDoppler({ onProbe }) {
       for (const i of lows) { const d = dips.at(-1); if (d && p[i][0] - p[d][0] < 0.12) { if (y[i] < y[d]) dips[dips.length - 1] = i; } else dips.push(i); }
       if (dips.length < 2) continue;
       const two = [...dips].sort((m, n) => y[m] - y[n]).slice(0, 2).sort((m, n) => m - n);
-      return [[p[aI[b]][0], y[aI[b]], 'a'], [p[two[0]][0], y[two[0]], 'S'], [p[two[1]][0], y[two[1]], 'D']];
+      // v: the turn toward the baseline between S and D (the highest point between their troughs).
+      let v = two[0] + 1;
+      for (let i = two[0] + 1; i < two[1]; i++) if (y[i] > y[v]) v = i;
+      return [[p[aI[b]][0], y[aI[b]], 'a'], [p[two[0]][0], y[two[0]], 'S'], [p[v][0], y[v], 'v'], [p[two[1]][0], y[two[1]], 'D']];
     }
     return [];
   }
@@ -550,17 +649,17 @@ export function createDoppler({ onProbe }) {
     raf = 0;
     if (!frame || !cv.isConnected || !cv.offsetParent) return;
     draw(now);
-    if (live() && now - askedAt < 400) raf = requestAnimationFrame(loop);
+    if ((live() && now - askedAt < 400) || labBusy) raf = nextFrame(loop);
   }
   function redraw() {
     if (!frame) return;
     updateReport();
     askedAt = performance.now();
-    if (!raf) raf = requestAnimationFrame(loop);
+    if (!raf) raf = nextFrame(loop);
   }
   function update(f) { ingest(f); redraw(); }
-  function clear() { buf = []; redraw(); }
-  /** Name the hepatic vein's a, S and D waves on the trace (the Presenter's waveform slides). */
+  function clear() { buf = []; wl = null; redraw(); }
+  /** Name the hepatic vein's a, S, v and D waves on the trace (the Presenter's waveform slides). */
   function setWaves(on) { if (waves !== !!on) { waves = !!on; ringKey = null; redraw(); } }
   return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves };
 }

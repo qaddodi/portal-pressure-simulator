@@ -1,16 +1,21 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=5edd069b32';
-import { EDGES } from '../engine/topology.js?v=706a39d50b';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=045e641b44';
-import { lobuleFlows } from './lobule-model.js?v=e0a6918f70';
-import { createProfile } from './charts.js?v=17c82c589c';
-import { createPressureTime } from './pressure-time.js?v=a37b68e463';
-import { createFibroScan } from './fibroscan.js?v=b4b6e62ca6';
-import { createHvpgProcedure } from './hvpg-proc.js?v=ba33a59e09';
-import { createDoppler } from './doppler.js?v=a8f829ca25';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=831d9047a4';
+import { store, hiddenNow } from './store.js?v=7fb7280c05';
+import { EDGES } from '../engine/topology.js?v=34e377149b';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=b1761ad19c';
+import { lobuleFlows } from './lobule-model.js?v=ef674ee7ff';
+import { createProfile } from './charts.js?v=e073763634';
+import { createPressureTime } from './pressure-time.js?v=a1bb3a4807';
+import { createFibroScan } from './fibroscan.js?v=1b0c346f76';
+import { createHvpgProcedure } from './hvpg-proc.js?v=b87658d79c';
+import { createDoppler } from './doppler.js?v=b26ba3e4f5';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=9feb441f21';
+import { frameFor } from './frame.js?v=0db47e99bf';
+const nextFrame = frameFor('dock');
+
+// A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
+const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -120,6 +125,10 @@ export function readoutValue(t, m, hidden) {
 const ALIAS = { flow: 'profile', perfusion: 'profile', chart: 'profile' };
 
 export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
+  // One app-wide relayout for a burst of changes (a mode change also changes the role and the lobule): every resize
+  // listener (the figure, the timeline, the presenter) runs once, not once per key.
+  let rzT = 0;
+  const resizeSoon = () => { clearTimeout(rzT); rzT = setTimeout(() => dispatchEvent(new Event('resize')), 30); };
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   // A phone's four tiles are narrow: short names and status words where the long ones would be cut off.
@@ -150,7 +159,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // Student mode keeps the two gradients (HVPG, PPG) and no "all readouts" chevron (CSS).
   const syncLobule = () => { const st = store.get(), on = !!st.lobule, pri = on ? LOBULE_PRIMARY : st.role === 'student' && st.mode === 'explore' ? STUDENT_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
   // A paused model sends no frames: fill the tiles from the last one at once (no dashes).
-  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); setTimeout(() => dispatchEvent(new Event('resize')), 30); });
+  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
   syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
@@ -175,7 +184,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       strip.animate({ height: [`${h0}px`, `${h1}px`] }, { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = () => dispatchEvent(new Event('resize'));
       strip.style.overflow = 'hidden'; setTimeout(() => { strip.style.overflow = ''; }, 300);
     }
-    setTimeout(() => dispatchEvent(new Event('resize')), 30);
+    resizeSoon();
   };
   moreBtn.addEventListener('click', () => setAll(!strip.classList.contains('all'), true));
   // Drag the strip up to open it, down to close it (touch only; where the chevron is shown). It follows
@@ -246,18 +255,19 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
-        if (x.val.textContent !== '?') x.val.textContent = '?';
+        setText(x.val, '?');
         s = 'Not measured';
         sev = 'none';
         x.hist.length = 0;
       } else {
         const txt = fmt(v, t.d);
-        if (x.val.textContent !== txt) x.val.textContent = txt;
+        setText(x.val, txt);
         const a = lz ? [f, st0] : [m];
         s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(v, ...a);
         sev = t.st(v, ...a);
         const w = pos(t, v), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
-        x.fill.style.left = Math.min(w, o) + '%'; x.fill.style.width = Math.abs(w - o) + '%';
+        const fl = Math.min(w, o) / 100, fw = Math.abs(w - o) / 100;
+        if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
       }
       el.classList.toggle('hidden-val', v == null);
       const trend = v == null || measured ? '' : trendOf(x, v, now);
@@ -288,7 +298,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     for (const x of vitEls) {
       const hid = hidden?.has(x.v.hideKey);
       const txt = hid ? '?' : fmt(x.v.v(m), x.v.d);
-      if (x.val.textContent !== txt) x.val.textContent = txt;
+      setText(x.val, txt);
       x.el.classList.toggle('bad', !hid && x.v.bad(m));
     }
   }
@@ -341,7 +351,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
   let heightRatio = typeof saved.h === 'number' ? saved.h : null, widthPx = typeof saved.w === 'number' ? saved.w : null;
   const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx })); } catch { /* storage unavailable */ } };
-  const sideMQ = matchMedia('(min-width: 700px) and (orientation: landscape)');
+  // A phone held sideways (667x375 and up) docks on the right too, like a narrow iPad: the figure keeps the full height.
+  const sideMQ = matchMedia('(min-width: 700px) and (orientation: landscape), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
+  const sidewaysMQ = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
   const isSide = () => sideMQ.matches;
 
   const live = h('span', { class: 'workspace-live', 'aria-live': 'off' });
@@ -398,7 +410,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function setEndoSub(v) {
     endoSub = v; endoPane.dataset.sub = v;
     for (const b of endoSwitch.children) b.setAttribute('aria-pressed', String(b.dataset.view === v));
-    if (frame) requestAnimationFrame(() => (v === 'wall' ? wall : endoscopy).update(frame));
+    if (frame) nextFrame(() => (v === 'wall' ? wall : endoscopy).update(frame));
   }
   endoPane.prepend(endoSwitch); endoPane.append(wall.el); endoPane.dataset.sub = endoSub;
   const comparison = h('div', { class: 'workspace-comparison', hidden: true });
@@ -421,7 +433,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   function queueRefresh() {
     if (resizeFrame) return;
-    resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; refresh(); });
+    resizeFrame = nextFrame(() => { resizeFrame = 0; refresh(); });
   }
   const css = (k) => parseFloat(getComputedStyle(app).getPropertyValue(k)) || 0;
   function updateSize() {
@@ -430,8 +442,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     workspace.dataset.safe = side ? 'right' : 'bottom';
     divider.setAttribute('aria-orientation', side ? 'vertical' : 'horizontal');
     if (side) {
-      const W = stageWrap.clientWidth, w = clamp(widthPx ?? Math.max(440, W * 0.38), 360, Math.max(360, W * 0.62));
+      const W = stageWrap.clientWidth, w = clamp(widthPx ?? (sidewaysMQ.matches ? Math.max(340, W * 0.45) : Math.max(440, W * 0.38)), sidewaysMQ.matches ? 320 : 360, Math.max(360, W * 0.62));
       workspace.style.setProperty('--instrument-w', `${Math.round(w)}px`);
+      app.style.setProperty('--side-ws-w', `${Math.round(w)}px`);   // (a sideways phone's play bar ends at the card)
       divider.setAttribute('aria-valuenow', String(Math.round((w / W) * 100)));
     } else {
       // The sheet rises from above the vitals dock, at most to just under the top bar.
@@ -449,7 +462,48 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);
       divider.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
     }
+    fitHeight();
   }
+  // A tab whose picture keeps its own shape (Ascites has none to stretch; HVPG and FibroScan are boxes of a fixed
+  // aspect) has nothing to fill a tall card with, so its card is only as tall as its content: the height eases to
+  // fit, and eases back for any other tab. A sheet the learner has resized keeps their height, a lesson's sheet
+  // keeps its own, and when the content would not fit even the full card its picture shrinks as it always did.
+  const FIT = ['abdomen', 'hvpg', 'fibroscan'];
+  const fitView = (id) => byId[id].el.firstElementChild;
+  let fitTimer = 0;
+  function fitHeight() {
+    const id = open.length === 1 && FIT.includes(open[0]) && state === 'open' ? open[0] : null;
+    for (const o of FIT) if (o !== id) fitView(o).classList.remove('nat');
+    const view = id ? fitView(id) : null;
+    const lessonSheet = app.dataset.mode === 'learn' && !isSide() && matchMedia('(max-width: 767px)').matches;
+    // On a phone HVPG and FibroScan fill the sheet by design; only Ascites fits there.
+    let fits = !!view && !lessonSheet && !sidewaysMQ.matches && (isSide() || heightRatio == null) && (id === 'abdomen' || matchMedia('(min-width: 768px)').matches);
+    if (view) view.classList.toggle('nat', fits);   // nat: the view at its natural height, to measure it
+    fits = fits && view.offsetHeight > 0;
+    const on = workspace.classList.contains('fit');
+    if (!fits && !on) return;
+    clearTimeout(fitTimer);
+    if (!workspace.offsetParent) return;   // the dock is closed (display: none): nothing to fit
+    const cs = getComputedStyle(workspace);
+    const full = isSide() ? workspace.offsetParent.clientHeight - parseFloat(cs.top) - parseFloat(cs.bottom) : parseFloat(workspace.style.getPropertyValue('--instrument-h')) || workspace.offsetHeight;
+    let need = 0;
+    if (fits) {
+      const pcs = getComputedStyle(view.parentElement);
+      const measure = () => Math.ceil(workspace.offsetHeight - body.clientHeight + parseFloat(pcs.paddingTop) + parseFloat(pcs.paddingBottom) + view.offsetHeight);
+      need = measure();
+      // too tall for the card (a short window): leave it to scale as it always did
+      if (need > full + 1 && id !== 'abdomen') { view.classList.remove('nat'); fits = false; }
+    }
+    if (!on) { workspace.style.setProperty('--fit-h', `${workspace.offsetHeight}px`); workspace.classList.add('fit'); void workspace.offsetHeight; }
+    if (!fits) {
+      workspace.style.setProperty('--fit-h', `${Math.round(full)}px`);
+      fitTimer = setTimeout(() => workspace.classList.remove('fit'), 400);
+      return;
+    }
+    workspace.style.setProperty('--fit-h', `${Math.round(Math.min(full, Math.max(140, need)))}px`);
+  }
+  const fitWatch = new ResizeObserver(() => fitHeight());
+  for (const id of FIT) fitWatch.observe(fitView(id));
   function setState(next) {
     state = next;
     workspace.dataset.state = state;
@@ -460,7 +514,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     endPick();
     updateHeader(); layout();
     queueRefresh();
-    setTimeout(() => dispatchEvent(new Event('resize')), 30);
+    resizeSoon();
   }
   const canSplit = () => (isSide() ? stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') >= 620 : body.clientWidth >= 1000 || workspace.clientWidth >= 1000) || state === 'focus';
   // Pressure and Over time read as one story: where the card is roomy (desktop, iPad landscape) they open
@@ -485,6 +539,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       tabEls[id].b.dataset.slot = on && open.length > 1 && !isPair() ? String(at + 1) : '';
     }
     remember();
+    fitHeight();
     queueRefresh();
     onLayout?.();
   }

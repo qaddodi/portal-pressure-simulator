@@ -51,7 +51,7 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 | `ask` | `[question, expected answer]` | none | Question for the room. Give every content slide one. The handout test requires `ask[0]` to appear. |
 | `quiz` | string | none | If present, quiz mode (Q) shows this question first with the figure at "fit", and the answer slide on the next click. |
 | `rail` | `true` \| `'all'` | none | `true`: the six levels with this slide's `site` marked; `'all'`: all six levels named. |
-| `column` | `true` | none | Draws the wedge-pressure column illustration (portal vein, sinusoids, central venule, balloon) in the text panel. |
+| `column` | `true` | none | Draws the wedge-pressure column illustration (portal vein, sinusoids, central vein, balloon) in the text panel. |
 
 ### 3.2 Model state (section 4)
 
@@ -109,7 +109,7 @@ Typical "meal" lapse (used by several decks): `days: 8, ramp: { splanchnicTone: 
 ### 5.2 Layers and lobule callouts
 
 * `layers: ['zones']` turns the lobule's zone 1 / 3 bands on for the slide (needed for the `lobule:zone1` / `lobule:zone3` labels). Other lobule slides have them off; the viewer's own layers return when the show ends. (The code also mentions a `'lymph'` layer in the engine note; only `'zones'` is read by the current presenter code.)
-* `callout: { at, label }` on a lobule slide: a red "block" callout in the lobule. `at` values used: `'triad'` (portal tract), `'sin'` (sinusoids), `'cv'` (central venules). Example: `callout: { at: 'sin', label: 'Block: sinusoids' }`.
+* `callout: { at, label }` on a lobule slide: a red "block" callout in the lobule. `at` values used: `'triad'` (portal tract), `'sin'` (sinusoids), `'cv'` (central veins). Example: `callout: { at: 'sin', label: 'Block: sinusoids' }`.
 
 ### 5.3 Station labels
 
@@ -228,7 +228,7 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 | `sinusoid:lymph` | ivc | lymph |
 | `sinusoid:lumen` | wedge | sinusoid(s) |
 
-**Vocabulary for lines:** portal vein (PV) · sinusoids = wedged pressure (WHVP) · hepatic vein = free pressure (FHVP) · IVC · right atrium (RA). In the lobule the figure says "Portal venule" and "Central venule"; lines pointing at those labels use the same words (the tract holds the venule). Use American spelling (esophagus, hemoglobin, gray).
+**Vocabulary for lines:** portal vein (PV) · sinusoids = wedged pressure (WHVP) · hepatic vein = free pressure (FHVP) · IVC · right atrium (RA). In the lobule the figure says "Portal venule" and "Central vein"; lines pointing at those labels use the same words (the tract holds the venule). Use American spelling (esophagus, hemoglobin, gray).
 
 ---
 
@@ -370,7 +370,7 @@ Figure label text on the anatomy is the SHORT name. Station labels hidden on the
 | `VAR` | Esophageal varices | Esoph. varices | varix |
 | `GV` | Gastric fundal varices | Fundal varices | varix |
 | `SIN_R` / `SIN_L` | Sinusoids, right / left lobe (inlet) | Sinusoids R / L | liver |
-| `CV_R` / `CV_L` | Central venules, right / left lobe | Central v. R / L | liver |
+| `CV_R` / `CV_L` | Central veins, right / left lobe | Central v. R / L | liver |
 | `W_R` `W_M` `W_L` | Wedge compartment (RHV, MHV, LHV) | Wedge R / M / L | wedge |
 | `RHV` `MHV` `LHV` | Right / middle / left hepatic vein | RHV / MHV / LHV | hepatic vein |
 | `IVCI` | IVC (renal level) | Lower IVC | vein |
@@ -386,7 +386,7 @@ Figure label text on the anatomy is the SHORT name. Station labels hidden on the
 
 Organ captions drawn on the plate: Liver, Stomach, Spleen, Colon, Kidney, Small bowel, Esophagus, Right atrium.
 On the circuit view the zones are captioned: Splanchnic beds · Portal veins · Liver · sinusoids · Hepatic veins · IVC · Heart.
-Normal station pressures (mmHg): AO 93, PV (CONF) 7.8, SIN_R 7.0, central venules 4.8, RHV 4.1, IVCS 3.5, RA 3.0. The model's healthy targets: HVPG 3, PV 7.5, FHVP 4, RA 3, IVC 3.5.
+Normal station pressures (mmHg): AO 93, PV (CONF) 7.8, SIN_R 7.0, central veins 4.8, RHV 4.1, IVCS 3.5, RA 3.0. The model's healthy targets: HVPG 3, PV 7.5, FHVP 4, RA 3, IVC 3.5.
 
 ### 8.5 Vessels (edge ids for `mark.edges`, `glow`, `tool.vessel`)
 
@@ -579,7 +579,11 @@ export const CLOT_DEMO = {
 
 ## 13. Importing in the app (what the in-app import accepts)
 
-**A full deck file (sections 2 to 11) cannot be imported in the app.** Menu › Present › "Your scripts" › **Import** reads a `.json` file (a file picker only; there is no paste box), and a shared link `…/#script=<encoded>` adds the same kind of script to the recipient's library. Both accept a **script**, which is a different, smaller format, stored in the browser (`pps.scripts`) on that device only.
+**A full deck file (sections 2 to 11) can be imported in the app.** Menu › Present › "Your scripts" › **Import** opens a dialog: choose a file (`.js` deck, or `.json` deck or script) or paste its contents, then "Add to your scripts". The deck keeps every feature (term pills, live values, marks, tools, visuals, time-lapses) and is stored in the browser (`pps.scripts`) on that device only.
+
+The `.js` is **read as data, never run** (`src/ui/deck-source.js`). It accepts what the built-in decks use: `const` declarations, `export const` / `export default`, objects, arrays, strings and template literals, numbers, spreads, `+ - * / %`, comparisons, `&& || ??`, `? :`, arrow functions with an expression body (`(x) => …`, `(d) => ({ … })`), and the array methods `map filter flatMap concat slice join includes some every find`. `mi mo mn sub frac` are built in, so a deck may use them without defining them. Refused, with the line number: `import`, `function` declarations, block-bodied arrows, `new`, `this`, globals (`window`, `document`, `Math`, …), methods other than those listed, and `__proto__ / constructor / prototype`. The deck is the exported object with a `slides` array (else the last such `const`); it needs a `title`, and each slide a `title`. Import adds a copy each time; "Export" writes it back as JSON, which imports again.
+
+The older **script** format (below) is still accepted, and a shared link `…/#script=<encoded>` adds a script or an imported deck to the recipient's library.
 
 Script file (`*.pps-script.json`):
 
@@ -604,4 +608,4 @@ Script file (`*.pps-script.json`):
 * Every imported slide shows the pressure ladder (`data: 'ladder'`) beside the figure, and the camera is `'fit'` on the circuit view.
 * Import adds a copy each time with a new id (`my-…`) and never overwrites; "Export" in the same menu writes this format. The deck's Outline slide is added automatically, as for built-in decks.
 
-**Therefore:** to give another person or AI-written deck the full features (term pills, live values, marks, tools, visuals, time-lapses), it must be added as a code deck (section 12). Use the script format only for quick, ladder-only slides. **Gap:** there is no importer for the full deck format; adding one would need an app change.
+**Therefore:** paste or choose a deck `.js` to present it in full without changing the app; add it as a code deck (section 12) only to make it built in for everyone.

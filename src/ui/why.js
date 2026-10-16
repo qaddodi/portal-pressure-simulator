@@ -1,7 +1,7 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
-import { host } from './host.js?v=5f360b39e4';
-import { h, fmt, svgIcon, uiScale } from './util.js?v=045e641b44';
+import { host } from './host.js?v=e46f50c36e';
+import { h, fmt, svgIcon, uiScale, visibleBottom } from './util.js?v=b1761ad19c';
 
 export function createWhy(pop) {
   let openFor = null, anchorEl = null;
@@ -13,7 +13,7 @@ export function createWhy(pop) {
     pop.style.left = x / z + 'px';
     const ph = (pop.offsetHeight || 260) * z;
     const below = r.bottom + 10;
-    pop.style.top = (below + ph > innerHeight - 8 ? Math.max(8, r.top - ph - 10) : below) / z + 'px';
+    pop.style.top = (below + ph > visibleBottom() - 8 ? Math.max(8, r.top - ph - 10) : below) / z + 'px';
   }
   const head = (title) => h('header', {}, h('h3', {}, svgIcon('bulb'), title), h('button', { class: 'ib', 'aria-label': 'Close', onclick: close }, svgIcon('close')));
   async function open(metric, anchor) {
@@ -22,7 +22,9 @@ export function createWhy(pop) {
     pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'Reverting each change on a scratch copy of the model…'), h('div', { class: 'skeleton', style: { width: '90%' } }), h('div', { class: 'skeleton', style: { width: '70%' } }), h('div', { class: 'skeleton', style: { width: '80%' } }));
     pop.classList.add('show');
     place(anchor);
-    const { result: r } = await host.request('explain', { metric });
+    let r = null;
+    try { ({ result: r } = await host.request('explain', { metric })); }
+    catch { if (openFor === metric) pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'The model could not work this out right now.')); return; }
     if (openFor !== metric || !r) return;
     const maxAbs = Math.max(1e-6, ...r.contributions.map((c) => Math.abs(c.delta)), Math.abs(r.total));
     const tiny = Math.pow(10, -r.digits) * 0.5;

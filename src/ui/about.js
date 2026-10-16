@@ -2,9 +2,9 @@
 // is happening to it in this patient right now (reversed flow, a clot, a collateral opening). The
 // first sentence is fixed; the rest is read from the live model.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=706a39d50b';
-import { fmt, clamp } from './util.js?v=045e641b44';
-import { LABEL_VESSEL } from './anatomy.js?v=f43ab79a81';
+import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=34e377149b';
+import { fmt, clamp } from './util.js?v=b1761ad19c';
+import { LABEL_VESSEL } from './anatomy.js?v=6e4d654280';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

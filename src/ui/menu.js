@@ -4,10 +4,12 @@
 // same content as a bottom sheet. Hovering a row (or focusing it with the arrow keys) previews it beside
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
-import { store } from './store.js?v=5edd069b32';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet } from './util.js?v=045e641b44';
-import { SNAPSHOTS } from './snapshots.js?v=d3e900d9e9';
-import { pressureColor } from './colormap.js?v=7616551729';
+import { store } from './store.js?v=7fb7280c05';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom } from './util.js?v=b1761ad19c';
+import { SNAPSHOTS } from './snapshots.js?v=c8cbaabb1f';
+import { pressureColor } from './colormap.js?v=a65dea21ce';
+import { frameFor } from './frame.js?v=0db47e99bf';
+const nextFrame = frameFor('menu');
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 // Where each group's resistance sits along the pathway from the gut to the heart.
@@ -93,7 +95,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   function deckRow(d, lib, script) {
     const row = h('button', { class: 'um-row', 'data-k': (script ? 's:' : 'd:') + d.id, 'aria-current': lib.current() === d.id ? 'true' : null, onclick: () => { close(); lib.start(d.id); } },
       svgIcon('play', 'um-play'), h('span', { class: 'um-t' }, script ? d.title : d.short || d.title),
-      script ? h('span', { class: 'um-m' }, `${d.steps.length} slides`) : dots(d.level, lib.levels),
+      script ? h('span', { class: 'um-m' }, `${(d.steps || d.deck.slides).length} slides`) : dots(d.level, lib.levels),
       script ? null : h('span', { class: 'um-m' }, `${d.minutes} min`));
     row.dataset.find = fold([d.title, d.short, script ? 'script' : ''].join(' ')); row.dataset.more = fold(d.summary);
     const info = h('button', { class: 'um-info', 'aria-label': `About ${d.short || d.title}`, 'aria-expanded': 'false', onclick: () => toggleInline(li, () => (script ? scriptPreview(d, lib) : deckPreview(d, lib)), info) }, icon('info'));
@@ -109,8 +111,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     hoverable(row, () => patientPreview(p), 'patients');
     return h('li', {}, row);
   }
-  const deckPreview = (d, lib) => h('div', { class: 'um-pv-in' },
-    lib.still(d),
+  const deckPreview = (d, lib) => h('div', { class: 'um-pv-in pt' },
     h('span', { class: 'um-pv-meta' }, `${lib.levels[d.level] || ''} · ${d.slides.length + 1} slides · ${d.minutes} min`),
     h('h3', {}, d.title), h('p', {}, d.summary || ''),
     d.objectives?.length ? h('ul', {}, d.objectives.map((o) => h('li', {}, o))) : null,
@@ -119,11 +120,11 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareDeck(d) }, svgIcon('share', 'mi-ic'), 'Copy link'),
       h('button', { class: 'btn ghost sm', title: 'Speaker notes and questions for the room, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
   const scriptPreview = (s, lib) => h('div', { class: 'um-pv-in' },
-    h('span', { class: 'um-pv-meta' }, `Your script · ${s.steps.length} slides`),
+    h('span', { class: 'um-pv-meta' }, `${s.deck ? 'Your deck' : 'Your script'} · ${(s.steps || s.deck.slides).length} slides`),
     h('h3', {}, s.title), h('p', {}, s.summary || ''),
     h('div', { class: 'um-acts' },
       h('button', { class: 'btn sm primary', onclick: () => { close(); lib.start(s.id); } }, svgIcon('play', 'mi-ic'), 'Present'),
-      h('button', { class: 'btn sm', onclick: () => lib.addStep(s.id) }, 'Add current state'),
+      s.deck ? null : h('button', { class: 'btn sm', onclick: () => lib.addStep(s.id) }, 'Add current state'),
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareScript(s) }, 'Share link'),
       h('button', { class: 'btn ghost sm', onclick: () => lib.exportScript(s) }, 'Export'),
       h('button', { class: 'btn ghost sm', onclick: () => lib.scriptNotes(s) }, 'Print notes'),
@@ -159,7 +160,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const z = uiScale(), pr = el.getBoundingClientRect(), rr = row.getBoundingClientRect(), w = 360 * z, ph = pv.offsetHeight * z;
     let x = pr.right + 8;
     if (x + w > innerWidth - 8) x = Math.max(8, innerWidth - w - 8);   // (no room beside the panel: over its right edge)
-    const y = clamp(rr.top - 40 * z, 8, innerHeight - ph - 8);
+    const y = clamp(rr.top - 40 * z, 8, visibleBottom() - ph - 8);
     pv.style.left = x / z + 'px'; pv.style.top = y / z + 'px';
     pv.classList.add('on');
   }
@@ -177,7 +178,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (was) return;
     const box = h('div', { class: 'um-inline' }, h('div', {}, make()));
     li.append(box); btn.setAttribute('aria-expanded', 'true');
-    requestAnimationFrame(() => requestAnimationFrame(() => box.classList.add('on')));
+    nextFrame(() => nextFrame(() => box.classList.add('on')));
   }
   const $$rows = () => (el ? [...el.querySelectorAll('.um-row')] : []);
 
@@ -186,17 +187,15 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const st = store.get(), cur = st.mode === 'cases' ? null : st.presetId;
     const groups = {};
     for (const p of st.presetList || []) (groups[p.group] ||= []).push(p);
-    const patients = h('section', { class: 'um-col', 'data-col': 'patients', 'aria-labelledby': 'umPatients' },
-      h('header', { class: 'um-h' }, svgIcon('scenario', 'um-hi'), h('b', { id: 'umPatients' }, 'Patients'), h('small', {}, `${(st.presetList || []).length} patients`)),
+    const patients = h('section', { class: 'um-col', 'data-col': 'patients' },
       Object.entries(groups).map(([g, ps]) => h('div', { class: 'um-g' },
         h('div', { class: 'um-gl', id: 'umg-' + g }, h('b', {}, g), h('span', {}, GROUP_WHERE[g] || '')),
         h('ul', { 'aria-labelledby': 'umg-' + g }, ps.map((p) => patientRow(p, cur))))));
     let present;
-    if (!lib) present = h('section', { class: 'um-col', 'data-col': 'present' }, h('header', { class: 'um-h' }, svgIcon('projector', 'um-hi'), h('b', {}, 'Present')), h('p', { class: 'um-note' }, 'Loading…'));
+    if (!lib) present = h('section', { class: 'um-col', 'data-col': 'present' }, h('p', { class: 'um-note' }, 'Loading…'));
     else {
       const mine = lib.mine;
-      present = h('section', { class: 'um-col', 'data-col': 'present', 'aria-labelledby': 'umPresent' },
-        h('header', { class: 'um-h' }, svgIcon('projector', 'um-hi'), h('b', { id: 'umPresent' }, 'Present'), h('small', {}, `${lib.decks.length} presentations`)),
+      present = h('section', { class: 'um-col', 'data-col': 'present' },
         lib.topics.map(([k, name, list]) => h('div', { class: 'um-g' },
           h('div', { class: 'um-gl', id: 'umt-' + k }, h('b', {}, name)),
           h('ul', { 'aria-labelledby': 'umt-' + k }, list.map(([id]) => lib.decks.find((d) => d.id === id)).filter(Boolean).map((d) => deckRow(d, lib)))),
@@ -205,7 +204,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
           h('div', { class: 'um-gl', id: 'umt-mine' }, h('b', {}, 'Your scripts'),
             h('span', { class: 'um-gacts' },
               h('button', { class: 'um-link', title: 'A new script from the current model', onclick: () => lib.newScript() }, icon('plus'), 'New'),
-              h('button', { class: 'um-link', title: 'Import a script file', onclick: () => lib.importFile() }, icon('download'), 'Import'))),
+              h('button', { class: 'um-link', title: 'Import a deck file or a script', onclick: () => lib.importFile() }, icon('download'), 'Import'))),
           mine.length ? h('ul', { 'aria-labelledby': 'umt-mine' }, mine.map((s) => deckRow(s, lib, true)))
             : h('p', { class: 'um-note' }, 'Capture states of the model and play them like a presentation.')));
     }
@@ -338,7 +337,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         if (section === 'scripts') el.querySelector('.um-g.scripts')?.scrollIntoView({ block: 'start', behavior: reduce.matches ? 'auto' : 'smooth' });
         else el.querySelector(`.um-col[data-col="${tab}"] .um-row[aria-current="true"]`)?.scrollIntoView({ block: 'nearest' });
       };
-      requestAnimationFrame(scrollTo);
+      nextFrame(scrollTo);
     },
     close,
     toggle(section) { if (open) close(); else this.open(section); },

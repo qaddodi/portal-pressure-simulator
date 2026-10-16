@@ -56,7 +56,6 @@ export const plt = (m) => Math.round(m.spleen.platelets / 2) * 2;
 export const pltRow = (m) => { const n = plt(m); return ['Platelets', `${n} ×10⁹/L`, n < 50 ? 'bad' : n < 150 ? 'warn' : '']; };
 export const spleenCm = (m) => Math.round(m.spleen.length);
 export const lsm = (m) => Math.round(m.lsm);
-export const hbRow = (m) => { const h = m.blood?.hb ?? 14; return ['Hemoglobin', `${h.toFixed(1)} g/dL`, h < 8 ? 'bad' : h < 12 ? 'warn' : '']; };
 /** Endoscopy wording for the esophageal varices the model has. */
 export function esoText(m) {
   const g = m.varix.grade.label;
@@ -75,5 +74,3 @@ export function fill(x, c) {
   return x.replace(/\{plt\}/g, plt(c.m)).replace(/\{spl\}/g, spleenCm(c.m)).replace(/\{lsm\}/g, lsm(c.m)).replace(/\{alb\}/g, c.params.albumin.toFixed(1))
     .replace(/\{eso\}/g, esoText(c.m)).replace(/\{eso-\}/g, esoText(c.m).toLowerCase());
 }
-
-export const ZERO = 0;

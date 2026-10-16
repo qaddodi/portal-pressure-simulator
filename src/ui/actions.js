@@ -3,12 +3,12 @@
 // palette, lessons and cases all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=706a39d50b';
-import { store, updateParams, hiddenNow } from './store.js?v=5edd069b32';
-import { fmt, fmtFlow, clamp, toast } from './util.js?v=045e641b44';
-import { aboutVessel, aboutOrgan } from './about.js?v=5cd9e1d9c6';
-import { lobuleState } from './lobule-model.js?v=e0a6918f70';
-import { LABEL_VESSEL } from './anatomy.js?v=f43ab79a81';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=34e377149b';
+import { store, updateParams, hiddenNow } from './store.js?v=7fb7280c05';
+import { fmt, fmtFlow, clamp, toast } from './util.js?v=b1761ad19c';
+import { aboutVessel, aboutOrgan } from './about.js?v=b51139478a';
+import { lobuleState } from './lobule-model.js?v=ef674ee7ff';
+import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=6e4d654280';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -39,7 +39,7 @@ const NODE_SEL = {
   CONF: ['edge', 'PV_TRUNK'], PVH: ['edge', 'PV_TRUNK'], SV: ['edge', 'SV_CONF'], SMV: ['edge', 'SMV_CONF'], IMV: ['edge', 'V_IMV'], LGV: ['edge', 'LGV_CONF'],
   RPV: ['edge', 'PVH_R'], LPV: ['edge', 'PVH_L'], RHV: ['edge', 'RHV_IVC'], MHV: ['edge', 'MHV_IVC'], LHV: ['edge', 'LHV_IVC'], IVCS: ['edge', 'IVCS_RA'], IVCI: ['edge', 'IVC_IS'],
   SVC: ['edge', 'SVC_RA'], AZY: ['edge', 'AZY_SVC'], ILI: ['edge', 'ILI_IVC'], LRV: ['edge', 'LRV_IVC'], KID_L: ['edge', 'V_KID_L'], COL: ['edge', 'V_COL'], INT: ['edge', 'V_INT'],
-  SIN_R: ['organ', 'liver'], SIN_L: ['organ', 'liver'], CV_R: ['organ', 'liver'], CV_L: ['organ', 'liver'], HA: ['organ', 'liver'],
+  SIN_R: ['edge', 'SIN_RR'], SIN_L: ['edge', 'SIN_LL'], CV_R: ['organ', 'liver'], CV_L: ['organ', 'liver'], HA: ['organ', 'liver'],
   RA: ['organ', 'heart'], VAR: ['organ', 'varices'], GV: ['organ', 'gastric'], STO: ['organ', 'gastric'], SPL: ['organ', 'spleen'], EPI: ['organ', 'abdomen'],
 };
 /** The structure a selection stands for (liver micro-vessels are the liver; stations their vessel). */
@@ -55,7 +55,8 @@ export function normalizeSel(sel) {
     if (!e) return null;
     // A central vein that runs into a hepatic vein is that hepatic vein to the eye: it opens the vein's card and frames it.
     if (POST_TO_HV[e.id]) return { type: 'edge', id: POST_TO_HV[e.id] };
-    if (e.kind === 'liver') return { type: 'organ', id: 'liver', lobe: e.lobe === 'L' ? 'L' : e.lobe === 'R' ? 'R' : null, zone: e.zone };
+    // The drawn sinusoids are a vessel of their own, each side its own target; the liver's other micro-vessels are the liver.
+    if (e.kind === 'liver' && !SIN_EDGES.has(e.id)) return { type: 'organ', id: 'liver', lobe: e.lobe === 'L' ? 'L' : e.lobe === 'R' ? 'R' : null, zone: e.zone };
   }
   return sel;
 }
@@ -115,6 +116,13 @@ export function cardFor(selIn, ctx) {
       verbs.push({ type: 'button', id: 'remove', key, label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams({ [key]: false }, { label: `Remove ${e.label}` }); ctx.select(null); } });
     }
     verbs.push(doppler);
+  } else if (SIN_EDGES.has(id)) {
+    // Each side's sinusoids: their own card, read at the station, with the liver's cirrhosis and its lobule.
+    kicker = 'Liver microcirculation'; why = 'hvpg';
+    verbs.push({ type: 'stat', label: 'Flow', value: (f) => `${fmtFlow(bedStats(e, f).q)} L/min` });
+    verbs.push({ type: 'stat', label: 'Drop to central vein', value: (f) => `${fmt(bedStats(e, f).dp, 1)} mmHg` });
+    verbs.push({ type: 'stat', label: 'Resistance', value: (f) => { const r = bedStats(e, f).r; return r == null ? '—' : `${fmt(r, 1)} mmHg·min/L`; } });
+    verbs.push(...organCard({ type: 'organ', id: 'liver' }, ctx).verbs);
   } else {
     kicker = SHUNT_PORTAL.includes(e.from) || SHUNT_PORTAL.includes(e.to) ? 'Vein · portal system' : 'Vein · systemic';
     if (HEP_VEIN[id]) { kicker = 'Hepatic vein'; why = 'hvpg'; }
@@ -125,7 +133,7 @@ export function cardFor(selIn, ctx) {
     if (id === 'SV_CONF' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => ctx.select({ type: 'organ', id: 'spleen' }) });
   }
   // Dye into this vessel, beside Doppler: a few seconds a press, or as long as it is held.
-  if (ctx.injectDye) {
+  if (ctx.injectDye && !SIN_EDGES.has(id)) {
     const dye = { type: 'dye', id: 'dye', label: 'Inject dye', icon: 'drop', run: (o) => ctx.injectDye(id, o), release: () => ctx.releaseDye(), busy: () => ctx.dyeInjecting(), showIf: () => ctx.canDye?.() !== false };
     const at = verbs.indexOf(doppler);
     if (at >= 0) verbs.splice(at + 1, 0, dye); else verbs.push(dye);
@@ -158,10 +166,18 @@ export function edgeValue(e, f, lens, ref) {
     const d = r != null && Math.abs(r) > 0.3 ? ((Math.abs(q) - Math.abs(r * 0.06)) / Math.abs(r * 0.06)) * 100 : null;
     return { v: fmtFlow(Math.abs(q)), u: 'L/min', d: d != null && Math.abs(d) >= 5 ? `${d > 0 ? '▲' : '▼'} ${Math.round(Math.abs(d))} %` : null, up: d > 0 };
   }
+  if (lens === 'velocity' && e.kind === 'liver') return { v: '—', u: 'cm/s' };   // a lumped bed has no one velocity
   if (lens === 'velocity') { const D = Math.max(0.5, f.D[k]) / 10; return { v: fmt(Math.abs((q / 0.06) / (Math.PI * D * D / 4)), 0), u: 'cm/s' }; }
   if (lens === 'drop') return { v: fmt(P1 - P2, 1), u: 'mmHg drop' };
   const r = ref ? (st ? ref[NI[st]] : (ref[NI[e.from]] + ref[NI[e.to]]) / 2) : null;
   return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r };
+}
+
+// A capillary bed (each side's sinusoids) is lumped in the model: no one diameter or velocity, so it reads as its
+// flow, the pressure it drops from the portal venules' end to the central vein, and its resistance (ΔP / Q).
+export function bedStats(e, f) {
+  const k = EI[e.id], PF = f.Pf || f.P, q = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06, dp = PF[NI[e.from]] - PF[NI[e.to]];
+  return { q, dp, r: q > 0.005 ? dp / q : null };
 }
 
 function varixVerbs(site, ctx) {
@@ -207,7 +223,7 @@ function organCard(sel, ctx) {
     const vx = (f) => (eso ? f.metrics.varix : f.metrics.gastricVarix);
     const verbs = varixVerbs(eso ? 'eso' : 'gas', ctx);
     if (!eso) verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: 'Occlude the gastrorenal shunt (BRTO)', icon: 'occlude', showIf: (p) => p.spontaneous.C5 !== false, get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, hist: 'BRTO' });
-    verbs.push(stat('Grade', (f) => { const v = vx(f); return v.d < 2.4 ? 'none' : `${v.grade.code} · ${fmt(v.d, 1)} mm`; }), stat('Wall stress (model)', (f) => `${Math.round(vx(f).ratio * 100)} % of rupture`));
+    verbs.push(stat('Grade', (f) => { const v = vx(f); return v.d < 2.4 ? 'none' : `${v.grade.code} · ${fmt(v.d, 1)} mm`; }));
     if (eso) verbs.push({ type: 'link', label: 'Coronary vein', run: () => ctx.select({ type: 'edge', id: 'LGV_CONF' }) });
     else verbs.push({ type: 'link', label: 'Short gastric veins', run: () => ctx.select({ type: 'edge', id: 'C2' }) });
     return {

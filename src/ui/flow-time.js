@@ -1,0 +1,178 @@
+// Portal pressure and portal flow around a meal, on one chart (the presenter's flow-time tool). Flow sits in the upper
+// band on its own tight scale (L/min, right) so its rise reads clearly; pressure sits in the lower band on a scale from
+// zero (mmHg, left), so its small rise reads as small. The two never cross.
+// Time is a teaching scale in minutes: a fasting baseline before the meal (a dashed line at 0), the slide's time-lapse
+// spread over the rise, then the state it reaches held to the end. The values are the model's own: the off-screen chain
+// keeps the portal pressure and flow on each day of the time-lapse (worker-core's trail), read here once a minute
+// (straight between days). The lines draw from left to right as the time-lapse plays, easing after its clock.
+// The same chart plots a disease time-lapse (clock 'days'): two of the slide's own readings, one point per model day from
+// day 0 to its last, drawn as it plays (Ascites builds: ascites over sinusoidal pressure; varices: varix over HVPG).
+import { frameFor } from './frame.js?v=0db47e99bf';
+const nextFrame = frameFor('flow-time');
+
+// (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
+const fmt = (v, d) => v.toFixed(d), clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+// Minutes on the teaching clock: fasting from `from` to 0, the rise over `rise`, the state reached held to `end`.
+export const MINUTES = { from: -10, rise: 30, end: 40 };
+// The lines a chart can plot (fingerprint keys): name, unit, decimals, colour and a scale on the model's value.
+// A chart's lines are [lower, upper]: the lower a pressure on a scale from zero, the upper on its own tight scale.
+export const LINE = {
+  pv: ['Portal pressure', 'mmHg', 1, '--tr-pv'], pvFlow: ['Portal flow', 'L/min', 2, '--tr-hv'],
+  sin: ['Sinusoids', 'mmHg', 1, '--tr-wedge'], asc: ['Ascites', 'L', 1, '--tr-hv', 0.001],
+  hvpg: ['HVPG', 'mmHg', 1, '--tr-wedge'], varix: ['Varix', 'mm', 1, '--tr-var'],
+};
+export const MEAL_LINES = ['pv', 'pvFlow'];
+const NICE = [1, 2, 2.5, 5, 10];
+const niceStep = (raw) => { const p = Math.pow(10, Math.floor(Math.log10(raw))); return NICE.find((s) => s * p >= raw - 1e-9) * p; };
+const ticksOf = (lo, hi, step) => Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, k) => +(lo + k * step).toPrecision(6));
+// Flow: a tight scale around its values (about four steps), so the rise fills most of its band.
+function flowScale(v) {
+  const a = Math.min(...v), b = Math.max(...v), step = niceStep(Math.max(1e-6, (b - a) / 4));
+  const lo = Math.max(0, Math.floor(a / step + 1e-9) * step), hi = Math.ceil(b / step - 1e-9) * step;
+  const ticks = ticksOf(lo, hi, step);
+  return { min: ticks[0], max: ticks.at(-1), ticks };
+}
+// Pressure: from zero, so its rise keeps its true size.
+function pressureScale(v) {
+  const top = Math.max(...v), step = niceStep(top / 2), ticks = ticksOf(0, Math.ceil(top / step - 1e-9) * step, step);
+  return { min: 0, max: ticks.at(-1), ticks };
+}
+
+/** trail: [[day, lower, upper], ...] → { min (the clock: minutes, or days), pv (the lower line), flow (the upper), one
+ *  value a step from ax.from to ax.end, each one's scale, and ax }. On the meal clock the trail's first day is the meal
+ *  (0 min), its last the end of the rise; on the 'days' clock each model day is its own step. lines: their scales. */
+export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES) {
+  const pts = (trail || []).filter((r) => r && Number.isFinite(r[1]) && Number.isFinite(r[2]));
+  if (pts.length < 2) return null;
+  const d0 = pts[0][0], span = Math.max(1e-6, pts.at(-1)[0] - d0);
+  const ax = clock === 'days' ? { from: 0, rise: Math.max(1, Math.round(span)), end: Math.max(1, Math.round(span)) } : MINUTES;
+  const x = lines.map((k) => LINE[k]?.[4] ?? 1);
+  const at = (j, m) => {
+    const d = d0 + span * clamp(m / ax.rise, 0, 1), k = clamp(pts.findIndex((r) => r[0] >= d), 1, pts.length - 1);
+    const f = clamp((d - pts[k - 1][0]) / Math.max(1e-9, pts[k][0] - pts[k - 1][0]), 0, 1);
+    return (pts[k - 1][j] + (pts[k][j] - pts[k - 1][j]) * f) * x[j - 1];
+  };
+  const min = Array.from({ length: ax.end - ax.from + 1 }, (_, k) => ax.from + k);
+  const pv = min.map((m) => at(1, m)), flow = min.map((m) => at(2, m));
+  return { min, pv, flow, pScale: pressureScale(pv), fScale: flowScale(flow), ax };
+}
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+const sv = (tag, attrs = {}, ...kids) => {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
+  el.append(...kids.flat().filter((k) => k != null));
+  return el;
+};
+// The plot: flow's band at the top, pressure's below it, the minutes under both.
+// (On a phone the bands are shorter, the letters the same: the card leaves the figure a band between it and the words.)
+const W = 420, L = 40, R = W - 52, T = 80, narrow = typeof matchMedia === 'function' ? matchMedia('(max-width: 699px)') : { matches: false };
+let B, H, FB, PB;
+const setGeo = () => { [FB, PB, B] = narrow.matches ? [[T, 150], [166, 214], 214] : [[T, 176], [204, 276], 276]; H = B + 30; };
+setGeo();
+const linesOf = (keys) => keys.map((key, j) => { const [name, unit, d, c] = LINE[key];
+  return j ? ['flow', 'fScale', FB, c, name, unit, d] : ['pv', 'pScale', PB, c, name, unit, d]; });
+const dec = (sc) => (sc.ticks.some((v) => Math.abs(v * 10 - Math.round(v * 10)) > 1e-6) ? 2 : sc.ticks.some((v) => v % 1) ? 1 : 0);
+
+export function createFlowTime() {
+  const el = document.createElement('div');
+  el.className = 'pz-flowtime';
+  let ser = null, parts = null, shown = 0, goal = 0, raf = 0, sig = '', clock = 'meal', keys = MEAL_LINES, LINES = linesOf(keys);
+  const ax = () => ser?.ax || MINUTES;
+  const X = (m) => L + (R - L) * (m - ax().from) / (ax().end - ax().from);
+  const Yof = (band, sc) => (v) => band[1] - (band[1] - band[0]) * clamp((v - sc.min) / (sc.max - sc.min), 0, 1);
+  const val = (arr, m) => { const j = clamp(Math.floor(m - ax().from), 0, arr.length - 2); return arr[j] + (arr[j + 1] - arr[j]) * clamp(m - ax().from - j, 0, 1); };
+  function build() {
+    const lines = LINES.map(([k, s, band, c, , unit, d]) => ({ k, unit, d, Y: Yof(band, ser[s]),
+      path: sv('path', { class: 'ptk-line', style: `stroke: var(${c})` }),
+      dot: sv('circle', { class: 'pft-dot', r: 6.5, style: `fill: var(${c})` }),
+      val: sv('text', { class: 'pft-v', style: `fill: var(${c})` }) }));
+    // The fasting values at the start: flow's under its line, pressure's over its line (the gap between the bands).
+    // (Short bands on a phone: when the two would meet, pressure's goes under its line too.)
+    const y0 = Object.fromEntries(lines.map((l) => [l.k, l.Y(ser[l.k][0])])), meet = Math.abs((y0.flow + 20) - (y0.pv - 10)) < 18;
+    const start = lines.map((l) => { const v = ser[l.k][0], y = l.Y(v);
+      return [sv('circle', { class: 'pft-start', cx: X(ax().from), cy: y, r: 4.5, style: `stroke: var(${LINES.find((x) => x[0] === l.k)[3]})` }),
+        sv('text', { class: 'pft-v0', x: X(ax().from) + 2, y: l.k === 'flow' || meet ? y + 20 : y - 10, style: `fill: var(${LINES.find((x) => x[0] === l.k)[3]})` }, `${fmt(v, l.d)} ${l.unit}`)]; });
+    const [lp, lf] = lines;
+    // Each band's gridlines, its numbers on its own side in its own colour.
+    // (Five or more lines: every other one numbered, so the numbers never crowd.)
+    const grid = (sc, Y, x, anchor, c) => sc.ticks.map((v, j) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: L, x2: R, y1: Y(v), y2: Y(v) }),
+      sc.ticks.length > 4 && (sc.ticks.length - 1 - j) % 2 ? null : sv('text', { x, y: Y(v) + 5, 'text-anchor': anchor, style: `fill: var(${c})` }, fmt(v, dec(sc)))));
+    const legend = LINES.map(([, , , c, name, unit], k) => sv('g', { class: 'pft-key', transform: `translate(${k ? R : L} 0)` },
+      sv('line', { x1: k ? -24 : 0, x2: k ? 0 : 24, y1: 16, y2: 16, style: `stroke: var(${c})` }),
+      sv('text', { x: k ? -32 : 32, y: 21, 'text-anchor': k ? 'end' : 'start', style: `fill: var(${c})` }, name),
+      sv('text', { class: 'ptk-ax', x: k ? -32 : 32, y: 40, 'text-anchor': k ? 'end' : 'start' }, `${unit}, ${k ? 'right' : 'left'}`)));
+    const meal = clock !== 'days', mins = [], step = meal ? 10 : niceStep(ax().end / 4);
+    for (let m = ax().from; m <= ax().end + 1e-9; m += step) mins.push(m);
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img' },
+      grid(ser.fScale, lf.Y, R + 8, 'start', '--tr-hv'), grid(ser.pScale, lp.Y, L - 8, 'end', '--tr-pv'), legend,
+      sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
+      mins.map((m) => sv('text', { class: 'pft-tk', x: X(m), y: B + 22, 'text-anchor': 'middle' }, m > 0 ? `+${m}` : m < 0 ? `−${-m}` : '0')),
+      sv('text', { class: 'ptk-ax', x: R + 8, y: B + 5 }, meal ? 'min' : 'days'),
+      // Fasting, then the meal: a dashed line at 0 min.
+      meal ? [sv('text', { class: 'pft-t', x: (X(MINUTES.from) + X(0)) / 2, y: T - 14, 'text-anchor': 'middle' }, 'Fasting'),
+        sv('line', { class: 'pft-meal', x1: X(0), x2: X(0), y1: T - 30, y2: B }),
+        sv('text', { class: 'pft-t meal', x: X(0) + 7, y: T - 14 }, 'Meal')] : null,
+      lines.map((l) => l.path), start, lines.map((l) => [l.dot, l.val]));
+    return { svg, lines };
+  }
+  // Draw the lines up to minute m, each line's value over its head (flipped left near the right edge).
+  function paint(m) {
+    if (!parts) return;
+    const heads = parts.lines.map((l) => {
+      const arr = ser[l.k], p = ser.min.filter((x) => x < m).map((x, j) => [X(x), l.Y(arr[j])]);
+      p.push([X(m), l.Y(val(arr, m))]);
+      l.path.setAttribute('d', p.map(([x, y], j) => `${j ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''));
+      const [hx, hy] = p.at(-1), v = val(arr, m), left = hx > R - 100;
+      l.dot.setAttribute('cx', hx.toFixed(1)); l.dot.setAttribute('cy', hy.toFixed(1));
+      l.val.setAttribute('x', (hx + (left ? -10 : 10)).toFixed(1)); l.val.setAttribute('y', (hy - 12).toFixed(1));
+      l.val.setAttribute('text-anchor', left ? 'end' : 'start');
+      l.val.textContent = `${fmt(v, l.d)} ${l.unit}`;
+      l.val.classList.toggle('off', m - ax().from < 0.36 * (ax().end - ax().from));   // (near the start the first value is already there)
+      return v;
+    });
+    // (Two heads close together, the bands short on a phone: the lower band's value goes under its head, clear of the other.)
+    const [a, b] = parts.lines.map((l) => +l.val.getAttribute('y'));
+    if (Math.abs(a - b) < 22) { const lo = parts.lines[a > b ? 0 : 1]; lo.val.setAttribute('y', (+lo.dot.getAttribute('cy') + 26).toFixed(1)); }
+    parts.svg.setAttribute('aria-label', `${LINES[0][4]} and ${LINES[1][4].toLowerCase()} ${clock === 'days' ? `over ${ax().end} days` : 'around a meal'}: `
+      + LINES.map(([k, , , , name, unit, d], j) => `${name.toLowerCase()} ${fmt(ser[k][0], d)} to ${fmt(heads[j], d)} ${unit}`).join(', '));
+    parts.svg.dataset.points = String(ser.min.filter((x) => x < m).length + 1);   // (the points drawn so far, of data-of: the browser checks read them)
+    parts.svg.dataset.of = String(ser.min.length);
+  }
+  // The heads glide after the goal (never a jump).
+  function tick() {
+    raf = 0;
+    shown += (goal - shown) * (matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 0.16);
+    if (Math.abs(goal - shown) < 0.001 * (ax().end - ax().from)) shown = goal;
+    paint(shown);
+    if (shown !== goal) raf = nextFrame(tick);
+  }
+  // k: how far along the time-lapse (0 to 1): its minutes on the rise; once it has ended, the held state to the end.
+  const minuteOf = (k) => (k >= 1 ? ax().end : ax().rise * clamp(k, 0, 1));
+  return {
+    el,
+    /** trail: the time-lapse's [[day, lower, upper]] (null: not computed yet; undefined: keep the one drawn);
+     *  k: how far along it to draw (0 to 1); spec: { clock: 'meal' | 'days', lines: [lower, upper] } (undefined: keep
+     *  the one drawn). A new trail fades in over the old chart. */
+    set(trail, k = 1, spec) {
+      if (spec) { clock = spec.clock || 'meal'; keys = spec.lines || MEAL_LINES; el.classList.toggle('days', clock === 'days'); }
+      const s2 = trail === undefined ? sig : trail ? JSON.stringify([clock, keys, narrow.matches, trail[0], trail.at(-1)]) : '';
+      if (s2 !== sig) {
+        sig = s2; setGeo(); LINES = linesOf(keys); ser = flowTimeSeries(trail, clock, keys);
+        const old = [...el.children];
+        parts = ser ? build() : null;
+        if (parts) {
+          parts.svg.classList.add('in'); el.append(parts.svg);
+          nextFrame(() => nextFrame(() => parts?.svg.classList.remove('in')));
+        }
+        setTimeout(() => old.forEach((o) => o.remove()), 480);
+        shown = goal = minuteOf(k); paint(shown);
+        return;
+      }
+      goal = minuteOf(k);
+      if (!raf) raf = nextFrame(tick);
+    },
+    update() {}, clear() {},
+  };
+}

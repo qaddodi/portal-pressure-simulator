@@ -10,7 +10,7 @@
 // result(c, picks) → { title, text, table? } after advancing the clock; the change tables come from c.skip.
 // `over` overrides the case variant (its `results` merge into the case's own).
 
-import { pltRow } from './kit.js?v=4db57f825c';
+import { pltRow } from './kit.js?v=be90db496b';
 
 const f0 = (x) => x.toFixed(0), f2 = (x) => x.toFixed(2);
 const arrow = (a, b, fmt = f0) => `${fmt(a)} → ${fmt(b)}`;

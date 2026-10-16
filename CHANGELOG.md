@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+- **One type scale for the figure and slides.** Figure labels and slide cards now use six text roles (caption, label,
+  body, value, big value, title) instead of about 18 loose sizes. Each grows smoothly with the screen (phone 11/12/14/16/20/28 px
+  up to laptop 12/14/16/22/32/44; slide cards on a wide screen follow its height). A pill keeps name, reading and unit in
+  proportion, so a unit is never larger than its number. Text size now runs 100–200 % (100 % is the design size; a size saved
+  below it reads as 100 %), so nothing drops under 11 px. The map's labels no longer change size between views. The four drawn
+  slide charts (scale, ladders, SAAG map, walls) keep their own lettering for now. Tests: `tests/e2e/type-scale.mjs` (in smoke).
+- **Caudate lobe.** Shown only on the slides about it, eased in and out: on "The caudate lobe still drains" a soft
+  dome of the liver's own tone (no outline) beside the IVC with three fine, tapered caudate veins that merge into the
+  IVC's wall below the hepatic veins, colored from the pressure they drain at; on the DIPS slide the lobe alone, with
+  the tract running through it. In Budd–Chiari it is larger as its veins take over the outflow. Nothing changes in
+  Explore or on other slides. Test: `tests/caudate.test.js`.
+
+- **Corner credit on a phone held sideways.** In Present the credit sat on the words' glass pane at the lower left. The pane now
+  counts as a card: the credit moves along the figure's edge to the first free spot beside it, and sets itself on two
+  lines when only a narrow strip of figure is left between the pane and a data card. The credit check now also runs at
+  844×390 and 932×430. Tests: `tests/credit.test.js`, `tests/e2e/smoke.mjs`.
+
+- **FibroScan callout.** Wherever the FibroScan probe and its shear waves show on the figure (Explore with the FibroScan card
+  open, and every FibroScan slide), an orange pill beside the waves reads the live stiffness (for example "12.5 kPa"), with
+  a leader to the waves. It is placed by the figure's label solver before the other labels, so it keeps clear of them, the
+  probe, the cards and the credit; the probe carries no text label of its own; the number eases as the value changes, and the pill and leader fade in
+  and out with the probe. In a quiz slide it waits with the card until the answer. The schistosomiasis and congestion
+  slides' cards now list the liver stiffness too. Check: "FibroScan callout beside the waves" in `tests/e2e/smoke.mjs`.
+
+- **Import a deck file in Present.** Menu › Present › Your scripts › *Import* opens a dialog: choose a deck `.js`
+  (written like the built-in decks in `src/ui/decks/`) or a `.json` deck or script, or paste its contents. A deck keeps
+  every feature (tiles, tools, term pills, equations, visuals, time-lapses) and is stored on that device like a script.
+  The `.js` is read as data and never run (`src/ui/deck-source.js`, a small interpreter for the subset the decks use;
+  `mi mo mn sub frac` are built in); `import`, `new`, globals and functions with a `{ }` body are refused with the line
+  number. Section 13 of `docs/deck-authoring-guide.md` lists what it accepts. Tests: `tests/deck-source.test.js`.
+
+- **Every deck in its own file.** The six decks that were written inside `src/ui/decks.js` (circulation, sites, hvpg,
+  ascites, varices, treatment) moved to `src/ui/decks/<id>.js` like the other eleven; `decks.js` now only lists them,
+  with the topics, regions and the outline slide. The decks themselves are unchanged.
+
+- **Presenter data card: no overlap beside a tool.** With a tool (the abdomen) and several tiles, the tiles were forced
+  onto one row and their names and ratings ran over each other. They now keep about 9.5em each and wrap to a second row;
+  on a phone the rating wraps inside its tile; the tool's tap chips put the name over the number when narrow; and a
+  portrait-tablet card scrolls instead of clipping its bottom.
+
 - **Explore for instructors.** Explore has a *Present* button and a *Case library* for instructors only. The library
   lists the eight cases cut from the course; the course's own four sit below it. Presenter keeps two tours,
   *Sites of portal hypertension* and *Acute variceal bleeding*; the other two are cut. The last card of every unit has

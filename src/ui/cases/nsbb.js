@@ -1,7 +1,7 @@
 // C8. The beta blocker that became a problem: carvedilol in advanced cirrhosis with low pressure,
 // low sodium and a rising creatinine. The chart has the signs; the learner has to see them.
 
-import { DX_HIDDEN } from './kit.js?v=4db57f825c';
+import { DX_HIDDEN } from './kit.js?v=be90db496b';
 
 const PT = { name: 'George Miller', age: 66, sex: 'M', setting: 'Medical ward', problem: 'Ascites that no longer responds. Light-headed on standing.' };
 

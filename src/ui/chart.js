@@ -8,12 +8,15 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor)
 
-import { store, updateParams, hiddenNow } from './store.js?v=5edd069b32';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=045e641b44';
-import { DRUGS } from '../engine/scenario.js?v=2ab3fe1eb2';
-import { TILES, VITALS, readoutValue } from './dock.js?v=cc13479fce';
-import { activeInterventions } from './inspector.js?v=7eaae98614';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=6ac4d44543';
+import { store, updateParams, hiddenNow } from './store.js?v=7fb7280c05';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=b1761ad19c';
+import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
+import { TILES, VITALS, readoutValue } from './dock.js?v=a4462cda94';
+import { activeInterventions } from './inspector.js?v=58d14bee0e';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=9266baba58';
+
+// Text that changes is rewritten in its text node (setting textContent replaces the node on every paint).
+const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -47,6 +50,11 @@ const FIND = {
   hb: (v) => ['Severe anemia', `Hemoglobin ${n1(v)} g/dL (< 7).`],
 };
 
+// A vital sign that has crossed its cut-off stays a finding until it is clearly back (the beat lifts cardiac output
+// across 6.5 and back several times a minute), so the count does not flicker.
+const STAY = { map: (m) => m.map < 67, hr: (m) => m.hr > 107, co: (m) => m.co > 6.3, ra: (m) => m.ra > 9.7, hb: (m) => m.blood.hb < 7.2 };
+const vitalOn = new Set();
+
 /** Every abnormal readout as a finding, most severe first: [{ id, sev, txt: [title, detail] }]. */
 export function computeFindings(m, hidden) {
   const found = [];
@@ -59,7 +67,9 @@ export function computeFindings(m, hidden) {
     if (txt) found.push({ id: t.id, sev, txt });
   }
   for (const x of VITALS) {
-    if (hidden?.has(x.hideKey) || !x.bad(m)) continue;
+    const on = x.bad(m) || (vitalOn.has(x.id) && !!STAY[x.id]?.(m));
+    if (on) vitalOn.add(x.id); else vitalOn.delete(x.id);
+    if (hidden?.has(x.hideKey) || !on) continue;
     found.push({ id: x.id, sev: 'danger', txt: FIND[x.id](x.v(m), m) });
   }
   return found.sort((a, b) => RANK[b.sev] - RANK[a.sev]);
@@ -147,8 +157,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
         let e = els.get(x.id);
         if (!e) { e = row(x.id); els.set(x.id, e); }
         if (e.el.dataset.sev !== x.sev) e.el.dataset.sev = x.sev;
-        if (e.title.textContent !== x.txt[0]) e.title.textContent = x.txt[0];
-        if (e.detail.textContent !== x.txt[1]) e.detail.textContent = x.txt[1];
+        setText(e.title, x.txt[0]); setText(e.detail, x.txt[1]);
       }
       const key = found.map((x) => x.id).join();
       if (key !== order) { order = key; list.replaceChildren(...found.map((x) => els.get(x.id).el)); empty.hidden = found.length > 0; }
