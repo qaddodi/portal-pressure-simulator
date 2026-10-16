@@ -2062,7 +2062,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       if (rk0 !== radAll) for (const t of live) {
         const r = Array.from({ length: N }, (_, i) => radiusAt(t, i));
         t.maxR = Math.max(...r);
-        if (radiiChanged(radKey[t.id], r, (rzMoving ? 0.08 : 0.35) / (k * V.k))) { radKey[t.id] = r; g.setRadii(t.id, r); glDirty = true; }
+        // (A vessel's new radii change only the cells that list it, as a colour change does: those cells alone are drawn
+        // again, or the layer moved on a pan, never the whole layer for it. A reach that outgrows its cells re-bins below.)
+        if (radiiChanged(radKey[t.id], r, (rzMoving ? 0.08 : 0.35) / (k * V.k))) { radKey[t.id] = r; g.setRadii(t.id, r); glRows.add(t.id); }
         const reach = Math.ceil((t.maxR + (WALL[t.kind] || 0) + 10) / 2) * 2;
         if (reach > (binReach[t.id] || 0)) reachGrew = true;
       }
