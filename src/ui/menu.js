@@ -5,9 +5,9 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=65ec443c0e';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore } from './util.js?v=db566eed84';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore } from './util.js?v=4c3d80678b';
 import { SNAPSHOTS } from './snapshots.js?v=01db65d6d0';
-import { pressureColor } from './colormap.js?v=165ccda767';
+import { pressureColor } from './colormap.js?v=1cefa5f7d8';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 const nextFrame = frameFor('menu');
 
@@ -313,13 +313,14 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   }
 
   return {
-    // section: 'present' | 'patients' | 'scripts' (scrolled into view); opts.mark: a script id to highlight.
+    // section: 'present' | 'patients' | 'scripts' (scrolled into view); opts.mark: a script id to highlight;
+    // opts.query: words to start the search with (a mistyped ?preset= link).
     open(section, opts = {}) {
       if (leaveT) { clearTimeout(leaveT); leaveT = 0; document.querySelectorAll('.umenu.out, .um-scrim.out').forEach((x) => x.remove()); }
       mark = opts.mark || null;
       if (section) setTab(section === 'patients' ? 'patients' : 'present');
       if (!open) {
-        open = true; query = '';
+        open = true; query = opts.query || '';
         const sheet = sheetMQ.matches, lib = libraryNow();
         el = build(lib);
         if (sheet) { el.classList.add('sheet'); back = h('div', { class: 'um-scrim', onclick: () => close() }); document.body.append(back); }

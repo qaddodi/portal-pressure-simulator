@@ -128,13 +128,8 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   return close;
 }
 
-let liveLast = 0;
-export function announce(msg) {
-  const now = Date.now();
-  if (now - liveLast < 3000) return;
-  liveLast = now;
-  document.getElementById('live').textContent = msg;
-}
+// (Announcements close together are coalesced, never dropped: live.js.)
+export { announce } from './live.js?v=c7e9ac862b';
 
 /** Hover/focus tooltip. `text` may be a string, a function, or { text, key }. `side`: 'right' | 'bottom'. */
 // An ⓘ button: hover (or keyboard focus) shows the tooltip; a tap on touch opens the same text
@@ -247,9 +242,10 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   const esc = (e) => { if (e.key === 'Escape') closePopover(); };
   // The keyboard opening or closing (a search field) moves the visible bottom: place the menu again.
   const vv = window.visualViewport, onVV = () => { if (!asSheet) put(); };
-  setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', esc); }, 0);
+  // (Armed after this task, so the tap that opened the menu does not close it; a close before then cancels it.)
+  const arm = setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', esc); }, 0);
   vv?.addEventListener('resize', onVV);
-  openMenu = { el, anchor, put, cleanup: () => { removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); vv?.removeEventListener('resize', onVV); onClose?.(); } };
+  openMenu = { el, anchor, put, cleanup: () => { clearTimeout(arm); removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); vv?.removeEventListener('resize', onVV); onClose?.(); } };
   anchor.setAttribute('aria-expanded', 'true');
   return el;
 }

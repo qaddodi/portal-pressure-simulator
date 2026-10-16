@@ -534,6 +534,10 @@ div.vital { cursor: default; }
 .v-hit:focus { outline: none; }
 /* Keyboard focus: a soft accent band along the vessel (the hit path is 20 px wide), so a sighted keyboard user sees where they are. */
 #world .v-hit:focus-visible { stroke: color-mix(in srgb, var(--accent) 55%, transparent); stroke-width: 26; transition: stroke .2s var(--ease); }
+/* Organ keyboard stops (stage.js): invisible and pointerless; their focus shows as the organ's hover outline, never a ring. */
+#world .org-key { fill: none; stroke: none; }
+#world .org-key:focus, #world .org-key:focus-visible { outline: none; }
+#stage.circuit #organKeys { visibility: hidden; }
 /* Hit priority: the portal tree and hepatic outflow take a wide target; quiet context veins and
    vessels behind the organs only a narrow one, so a click near them rarely lands there by accident. */
 #world .vg.ctx .v-hit, #world #backEdges .v-hit { stroke-width: 8; }

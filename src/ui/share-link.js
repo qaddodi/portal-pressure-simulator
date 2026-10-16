@@ -18,13 +18,15 @@ export function parseShare(code) {
   } catch { return null; }
 }
 
-/** Only the parts of a payload the app can use: a known patient (else healthy), params as an object, a known view,
+/** Only the parts of a payload the app can use: a known patient (else healthy, with `missing` naming the unknown one), params as an object, a known view,
  *  a selection of a known kind, and a camera with finite numbers and a sane zoom. Anything else is left out. */
 export function cleanShare(s, presetIds = null) {
   if (!isObj(s)) return null;
   const out = {};
   const known = (id) => typeof id === 'string' && /^[\w-]{1,60}$/.test(id) && (!presetIds || presetIds.includes(id));
   out.preset = known(s.preset) ? s.preset : 'healthy';
+  // (A patient the link names but the app does not have is reported, never swapped for another without a word.)
+  if (s.preset != null && !known(s.preset)) out.missing = String(s.preset).slice(0, 60);
   if (isObj(s.params)) out.params = s.params;
   if (VIEWS.has(s.view)) out.view = s.view;
   if (isObj(s.sel) && SEL_TYPES.has(s.sel.type) && (s.sel.type === 'lobule' || typeof s.sel.id === 'string')) out.sel = s.sel;

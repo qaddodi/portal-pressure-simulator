@@ -23,7 +23,7 @@ test('a link with __proto__ or constructor keys cannot reach Object.prototype', 
 test('view, selection, camera and patient are checked against what the app can show', () => {
   const ids = ['healthy', 'cirr-decomp'];
   const c = cleanShare({ preset: 'nope', view: 'sideways', sel: { type: 'evil', id: 'x' }, cam: { k: NaN, x: 0, y: 0 }, params: 'x' }, ids);
-  assert.deepEqual(c, { preset: 'healthy' });
+  assert.deepEqual(c, { preset: 'healthy', missing: 'nope' }, 'an unknown patient is named, so the app can say so');
   assert.deepEqual(cleanShare({ cam: { k: 1e9, x: 0, y: 0 } }, ids), { preset: 'healthy' });
   assert.deepEqual(cleanShare({ cam: { k: 1, x: Infinity, y: 0 } }, ids), { preset: 'healthy' });
   assert.equal(parseShare('!!!'), null);
