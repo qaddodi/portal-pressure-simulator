@@ -57,3 +57,10 @@ test('the controls teach their slides: portal pressure follows the clot and the 
   for (const k of ['pv', 'whvp', 'fhvp', 'ra']) assert.ok(fail[k] - normal[k] > 1, `${k} falls with a normal heart (${fail[k]} → ${normal[k]})`);
   assert.ok(Math.abs(fail.hvpg - normal.hvpg) < 1.5 && fail.hvpg < 5, `HVPG stays put (${fail.hvpg}, ${normal.hvpg})`);
 });
+
+test('Sites slide 7 (sinusoidal obstruction syndrome) never folds its ladder behind Show; every other slide keeps the fold', () => {
+  assert.equal(slide('postsin').fold, false);
+  for (const s of SITES.slides) if (s.id !== 'postsin') assert.equal(s.fold, undefined, s.id);
+  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  assert.match(src, /ladderFold !== foldKey && slides\[want\]\?\.fold !== false/);
+});

@@ -52,6 +52,7 @@
 //                            time (params: each option's full set of the switched keys; own: the slide's own state);
 //                            or [{ label, lens, own? }]: buttons that switch the figure's lens, the model untouched;
 //                            or [{ label, gate, own? }]: buttons that move a stent Doppler's gate (see tool), the model untouched
+//   fold                     false: the ladder card never folds its plot behind Show (Sites slide 7 folded on a laptop); its own zoom fits it
 //   caveat                   one short sentence in small print under the line, where the model differs from patients
 //   notes, ask               speaker notes, and [question, expected answer] for the room
 //   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter
@@ -65,7 +66,7 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=4e1c0762c5';
-import { SITES } from './decks/sites.js?v=86397f1de8';
+import { SITES } from './decks/sites.js?v=1b05ba2a08';
 import { HVPG } from './decks/hvpg.js?v=cd919eeec5';
 import { ASCITES } from './decks/ascites.js?v=15bbff4e49';
 import { VARICES } from './decks/varices.js?v=243b1724a8';

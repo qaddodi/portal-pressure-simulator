@@ -19,11 +19,11 @@ import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b9
 import { sinusoidSupported } from './sinusoid-view.js?v=be7cf93fb4';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=921111661d';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=099d4c9922';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=50c4e675b4';
 import { createTools } from './presenter-tools.js?v=af6f232a6d';
-import { openHandout } from './handout.js?v=9336c6bb0a';
+import { openHandout } from './handout.js?v=8d40c56b0e';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=ca12af9a8d';
@@ -2469,7 +2469,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // At 100 % text the card always fits by its own zoom, so it never folds there.)
     // (Not while the leaving slide's card is still out, its charts lettered for the old size: only the new card, being fitted unseen
     // (pz-prep) or in view.)
-    if (below && ladderFold !== foldKey && (ui.root.classList.contains('pz-prep') || !dd.classList.contains('pz-hide')) && !dd.classList.contains('has-tool') && !dd.classList.contains('tiles-only') && !dd.classList.contains('tool-only')
+    if (below && ladderFold !== foldKey && slides[want]?.fold !== false && (ui.root.classList.contains('pz-prep') || !dd.classList.contains('pz-hide')) && !dd.classList.contains('has-tool') && !dd.classList.contains('tiles-only') && !dd.classList.contains('tool-only')
       && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-folds') && (({ v, h }) => v > 1 || h > 1)(overflowOf(dd))) { ladderFold = foldKey; textLock = null; layout(); return; }
     // The stacked pair shorter than the screen is centred top to bottom as one (equal room above and below, never closer than one margin
     // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
