@@ -2093,7 +2093,7 @@ button.finding { cursor: pointer; }
    44 px tall; the words end that much less a line above the bottom, so only their last line meets it (see clearPill). */
 .pz-pillgap { display: none; }
 .pz.stack .pz-pillgap { display: inline-block; width: calc((var(--pz-pill-w, 160px) + 4px) / var(--pz-fit, 1)); height: calc(var(--pz-reach, 32px) / var(--pz-fit, 1)); vertical-align: bottom; }   /* (as tall as the pill reaches into the words, so its line is the only one it meets) */
-.pz.stack .pz-pillclr { margin-bottom: calc((var(--pz-reach, 32px) + var(--pz-fkrow, 0px)) / var(--pz-fit, 1)); }   /* (in the card's own px: its contents are zoomed by --pz-fit) */   /* (a box keeps its full width and ends just above the pill) */
+.pz.stack .pz-pillclr { margin-bottom: calc((var(--pz-reach, 32px) + var(--pz-fkrow, 0px) + 6px) / var(--pz-fit, 1)); }   /* (in the card's own px: its contents are zoomed by --pz-fit) */   /* (a box keeps its full width and ends 8 px above the pill: the reach carries 3, plus 6 (the card's zoom rounds it under 8 by a fraction); it had been 5 px, sweep 03 #23) */
 .pz.stack .pz-stk:has(> .pz-pillgap) { flex-wrap: wrap; overflow: visible; }
 .pz.stack .pz-bar.idle { opacity: 1; pointer-events: auto; transform: none; }
 /* (The phone's pill looks small, 38 px tall with the count and the two buttons close together (Mohammad, 15 Oct), but every button keeps its 44 px tap box: a negative margin pulls the box's spare 3 to 4 px over the pill's own edge.) */
@@ -2133,7 +2133,7 @@ button.finding { cursor: pointer; }
      that, and its height is set to what it was at the card's zoom, so the card, the figure above it and the credit stay put) */
   .pz.stack .pz-text > .pz-ab { --abz: max(var(--pz-fit, 1), calc(1 / var(--ts, 1))); zoom: var(--abz); padding: calc(3px * var(--pz-fit, 1) / var(--abz)) 3px; }
   .pz.stack .pz-abb { font-size: var(--s-lab); min-height: calc(34px * var(--pz-fit, 1) / var(--abz)); padding-block: 0; }
-  .pz.stack .pz-text > .pz-ab.pz-pillclr { margin-bottom: calc((var(--pz-reach, 32px) + var(--pz-fkrow, 0px)) / var(--abz)); }   /* (its gap above the pill in its own zoom) */
+  .pz.stack .pz-text > .pz-ab.pz-pillclr { margin-bottom: calc((var(--pz-reach, 32px) + var(--pz-fkrow, 0px) + 6px) / var(--abz)); }   /* (its gap above the pill in its own zoom) */
 }
 /* A what-if slider: the same frosted pill as the treatment buttons, its name, the track between its two ends, and the value. */
 .pz-wi { display: flex; align-items: center; gap: .5em .9em; flex-wrap: wrap; padding: .45em 1.05em; width: min(100%, 34em); box-sizing: border-box; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; font: 600 var(--s-lab)/1.15 var(--font-ui); color: var(--text); }
@@ -5441,7 +5441,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack.fk-up .pz-fk { bottom: calc(65px + var(--pz-sb)); scale: var(--pz-fk-s, 1); transform-origin: 0 100%; }
 /* Two lines beside the pill: as tall as its row, bottoms level (presenter.js fitKey). */
 .pz.stack.fk-two .pz-fk:not(.grad) { bottom: calc(21px + var(--pz-sb)); max-width: var(--pz-fk-room, 200px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; border-radius: calc(var(--r-card) + 2px); padding-block: .3em .34em; }
-.pz.stack:is(.fk-up, .fk-two) .pz-pillclr { margin-bottom: calc((var(--pz-reach, 32px) + var(--pz-fkrow, 0px)) / var(--pz-fit, 1)); }
+.pz.stack:is(.fk-up, .fk-two) .pz-pillclr { margin-bottom: calc((var(--pz-reach, 32px) + var(--pz-fkrow, 0px) + 6px) / var(--pz-fit, 1)); }
 
 /* ── Tests card on a phone (15 Oct, Mohammad) ─────────────────────
    The scope fills the card's width (its height the room left), the band button sits right under it, and the five
