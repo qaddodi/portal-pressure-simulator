@@ -1,9 +1,10 @@
 // Offline support. Stamped files (…?v=<hash>) never change, so they are served from the cache
-// first; everything else (the page itself, fonts, icons) is served from the network when there
-// is one and from the cache when there isn't, so the simulator keeps working in an exam hall
-// with poor Wi-Fi. Bump CACHE to drop old entries.
+// first; fonts and the brand art from the cache, refreshed behind it; everything else (the page
+// itself, the manifest) from the network when there is one and from the cache when there isn't,
+// so the simulator keeps working in an exam hall with poor Wi-Fi. Bump CACHE to drop old entries.
 const CACHE = 'pps-v3';
 const STAMP = /[?&]v=[0-9a-f]{6,}/;
+const STATIC = /\/(fonts|brand)\//;
 const SHELL = ['./', 'index.html', 'fonts/fonts.css', 'manifest.webmanifest', 'brand/mark.svg', 'brand/icon-192.png'];
 
 // A new stamp of a file replaces the older ones, so the cache holds one copy per file instead of one per release.
@@ -24,6 +25,14 @@ self.addEventListener('fetch', (e) => {
   const stamped = STAMP.test(req.url);
   if (stamped) {
     e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy).then(() => prune(c, req.url))); } return res; })));
+    return;
+  }
+  // Fonts and the brand art (unstamped, and they hardly ever change) come from the cache at once and are refreshed behind it
+  // for the next visit, instead of waiting on the network on every load.
+  const path = new URL(req.url).pathname;
+  if (STATIC.test(path)) {
+    const refresh = fetch(req, { cache: 'no-cache' }).then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); } return res; });
+    e.respondWith(caches.match(req).then((hit) => { if (hit) { e.waitUntil(refresh.catch(() => {})); return hit; } return refresh.catch(() => Response.error()); }));
     return;
   }
   // Revalidate with the server rather than trusting the HTTP cache, so an installed app picks up

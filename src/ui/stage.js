@@ -28,6 +28,8 @@ import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_E
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonRy, routeRadii } from './hvpg-balloon.js?v=0f8da50742';
 import { layoutWatch } from './idle-keys.js?v=27f599b5bc';
+import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
+import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -967,6 +969,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // browser restyle and repaint the figure. Writes go through a per-element cache, pressures
   // used for color are rounded to 0.25 mmHg and widths to 0.25 px (well below what shows).
   const setA = (el, k, v) => { const c = el._a || (el._a = {}); if (c[k] === v) return; c[k] = v; el.setAttribute(k, v); };
+  // While the GPU draws the vessels (gl-on), their SVG walls, strands, feeders, heat halos and selection rings are display:none
+  // (app.css): their widths and colours are held and written when the SVG shows them again (syncVeins, flushTubes). The lumens are
+  // always written (credit.js reads a lit lumen's width), and so are the gradient stops.
+  let tubesHidden = false;
+  const tubesHeld = new Set();
+  const setT = (el, k, v) => {
+    if (tubesHidden) { (el._held ||= {})[k] = v; tubesHeld.add(el); return; }
+    if (el._held) delete el._held[k];
+    setA(el, k, v);
+  };
+  function flushTubes() {
+    for (const el of tubesHeld) { for (const k in el._held) setA(el, k, el._held[k]); el._held = null; }
+    tubesHeld.clear();
+  }
   // Colors follow the beat-filtered mean pressure (the scale shows mean venous pressure) in
   // 0.5 mmHg steps, so a vessel's gradient is not rewritten on every heartbeat; widths move in
   // 0.5 px steps once settled (below, with hysteresis), so tubes are not rebuilt either.
@@ -2143,6 +2159,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Widths and coils ease toward their targets in time (~0.25 s), not per model update.
     const nowW = performance.now(), kW = -Math.expm1(-Math.min(0.1, (nowW - (wAt || nowW)) / 1000) / 0.25);
     wAt = nowW; widthEasing = false;
+    tubesHidden = wrap.classList.contains('gl-on');
     const st = store.get();
     const p = f.viewParams || st.params;
     const t = easeInOut(morph);
@@ -2220,7 +2237,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The liver's own small vessels (portal venules, central veins) are the liver to the pointer in the anatomy:
       // no hover, no tap on them; it falls through to the organ. The sinusoids are a vessel of their own.
       cls(x, 'no-hit', LIVER_EDGES.has(e.id) && !SIN_EDGES.has(e.id) && t < 0.5);
-      if (x.isArt) { setA(x.wall, 'stroke-width', w.toFixed(1)); continue; }
+      if (x.isArt) { setT(x.wall, 'stroke-width', w.toFixed(1)); continue; }
       x.pmid = (P1 + P2) / 2;
       const baseD = IVC_EDGES.has(e.id) ? E.IVC_IS.e.d : e.d || (e.dMax ? dMinOf(e) : 3);   // one wall thickness along the whole cava
       // The circuit is a map: a slightly wider border (drawn by the GPU, as one shape with filleted
@@ -2228,11 +2245,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const wallT = (e.kind === 'liver' ? 0.7 : clamp(0.9 * Math.sqrt(baseD / Math.max(0.3, D)), 0.8, 1.6)) * (1 + 0.45 * t);
       if (x.wallPx == null || Math.abs(wallT - x.wallPx) >= 0.1) x.wallPx = Math.round(wallT * 20) / 20;
       const wallPx = x.wallPx;
-      setA(x.wall, 'stroke-width', (w + 2 * wallPx).toFixed(1));
+      setT(x.wall, 'stroke-width', (w + 2 * wallPx).toFixed(1));
       setA(x.lumen, 'stroke-width', w.toFixed(1));
       if (x.cbr) for (const cb of x.cbr) cb.w = Math.max(1.2, w * cb.k);
       if (x.strands) x.strands.forEach((sd, i) => {
-        setA(sd.lumen, 'stroke-width', Math.max(1.6, w * sd.k).toFixed(1)); setA(sd.wall, 'stroke-width', (Math.max(1.6, w * sd.k) + 2 * wallPx).toFixed(1));
+        setT(sd.lumen, 'stroke-width', Math.max(1.6, w * sd.k).toFixed(1)); setT(sd.wall, 'stroke-width', (Math.max(1.6, w * sd.k) + 2 * wallPx).toFixed(1));
         sd.live = e.code === 'C1' ? clamp(i + 1 - (f.bands || 0), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - i, 0, 1) : 1;   // cavernoma: one strand beside the main channel when acute, the rest grow in with the remodeling
         const vis = sd.live > 0.02 ? '' : 'none', op = sd.live < 1 ? sd.live.toFixed(2) : '';
         for (const el of [sd.lumen, sd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
@@ -2256,7 +2273,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const lv = fd.when ? live : 1;   // only the conditional feeders come and go
           const fw = Math.max(1.2, w * cfg.k * fd.fk * (fd.when ? 0.5 + 0.5 * lv : 1));
           fd.live = lv; fd.w = fw;
-          setA(fd.lumen, 'stroke-width', fw.toFixed(1)); setA(fd.wall, 'stroke-width', (fw + 2 * wallPx).toFixed(1));
+          setT(fd.lumen, 'stroke-width', fw.toFixed(1)); setT(fd.wall, 'stroke-width', (fw + 2 * wallPx).toFixed(1));
           const vis = lv > 0.02 ? '' : 'none', op = lv < 1 ? lv.toFixed(2) : '';
           for (const el of [fd.lumen, fd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
         }
@@ -2274,11 +2291,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.col = [c1, c2];
       if (x.feeders) for (const fd of x.feeders) {
         if (fd.src) { fd.col = [mode === 'pressure' ? pressureColor(qP(PM[NI[fd.src]])) : c1, c1]; setA(fd.st0, 'stop-color', fd.col[0]); setA(fd.st1, 'stop-color', c1); }
-        else if (FEEDERS[e.id].tone === 'end') { fd.col = [c2, c2]; setA(fd.lumen, 'stroke', c2); }   // a network that leaves the vessel's end takes that end's color
+        else if (FEEDERS[e.id].tone === 'end') { fd.col = [c2, c2]; setT(fd.lumen, 'stroke', c2); }   // a network that leaves the vessel's end takes that end's color
       }
       // Flow marks are white on dark lumens and ink on pale ones.
       x.inkDark = mode === 'pressure' ? luminance(pressureColor((P1 + P2) / 2)) > 0.36 : luminance(c1) > 0.36;
-      if (x.heat && mode === 'heat') { setA(x.heat, 'stroke', c1); setA(x.heat, 'stroke-width', (w + 15).toFixed(1)); const ho = mode === 'heat' && ref ? (0.67 * clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1)).toFixed(2) : '0'; if (x.heat._op !== ho) { x.heat._op = ho; x.heat.style.opacity = ho; } }
+      if (x.heat && mode === 'heat') { setT(x.heat, 'stroke', c1); setT(x.heat, 'stroke-width', (w + 15).toFixed(1)); const ho = mode === 'heat' && ref ? (0.67 * clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1)).toFixed(2) : '0'; if (x.heat._op !== ho) { x.heat._op = ho; x.heat.style.opacity = ho; } }
       x.heatA = x.heat && mode === 'heat' && ref ? clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1) : 0; x.heatCol = c1;
       if (e.kind === 'collateral') {
         const fr = shownFrac(e.id, f);
@@ -2296,7 +2313,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // A selected side's sinusoids glow as one soft band over the whole network (the ring would be cut off square
       // where the strands leave the vessel), eased in and out by the glow engine.
       if (SIN_EDGES.has(e.id) && selOn !== !!x.selGlow) { x.selGlow = selOn; setGlowSrc('sel', [...SIN_EDGES].filter((id) => E[id]?.selGlow).map((id) => ({ id, col: null, amt: 1.5, wide: 1.2, dur: 450 }))); }
-      if (selOn) setA(x.sel, 'stroke-width', (w + 12).toFixed(1));
+      if (selOn) setT(x.sel, 'stroke-width', (w + 12).toFixed(1));
       x.dopW = w;
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
@@ -2696,11 +2713,49 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return joins;
   }
   let tubesShown = null, tubesLook = '', tubesNew = true;
+  // A glow or hover easing (glowStep, vhStep) changes only the glow texels of the tube data. While nothing else the whole sync
+  // reads has changed since it last ran (the same vessels, model frame, morph, layout, colours, plate, lens, catheter, classes),
+  // those texels alone are written again (writeGlowTexels, as the whole sync writes them) and only the rows that changed are
+  // drawn again: the same tube data and the same picture as a whole sync, without rebuilding ~300 items each frame of an ease.
+  let glowMemo = null;
+  const IVC_LIST = [...IVC_EDGES];
+  // Each item's classes the whole sync reads (selected, hovered, ghost; on its own and the cava's upper stretch), and the cava's.
+  function glowBits(items) {
+    const b = new Uint8Array(items.length + IVC_LIST.length), on = (g, c) => (g?.classList.contains(c) ? 1 : 0);
+    items.forEach((it, i) => { const g = it.x.g, r = it.ra?.g; b[i] = on(g, 'is-sel') | on(g, 'hl') << 1 | on(g, 'coll-ghost') << 2 | on(r, 'is-sel') << 3 | on(r, 'hl') << 4 | (it.x.lifted ? 32 : 0) | (it.x.reveal ? 64 : 0); });
+    IVC_LIST.forEach((id, i) => { const g = E[id]?.g; b[items.length + i] = on(g, 'is-sel') | on(g, 'hl') << 1; });
+    return b;
+  }
+  function glowOnlyOk(t) {
+    const m = glowMemo;
+    if (!m || !veins || veins.lost || !vLook || tubesNew || lensFrom || !tubesShown || tubesShown.length !== tubeData.length) return false;
+    if (m.t !== t || m.F !== F || m.geo !== geometryVersion || m.netA !== netA || m.cs !== wrapCS() || m.mode !== layerMode() || m.origin !== originOn()) return false;
+    if (m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== wrap.className || m.reach !== (m.mode === 'heat' ? 40 : glow.lit.size ? 20 : 11)) return false;
+    const b = glowBits(m.items);
+    for (let i = 0; i < b.length; i++) if (b[i] !== m.bits[i] || b[i] & 64) return false;   // (a vessel drawing on changes with the clock: whole syncs)
+    return true;
+  }
+  /** The glow-only sync: true when it stood in for syncVeins (see glowMemo). */
+  function syncGlowOnly(t) {
+    if (!glowOnlyOk(t)) return false;
+    glowSync = false;
+    const cs = glowMemo.cs, rgbCs = (c) => toRGB(c, cs), W = TUBE_TEXELS * 4;
+    let changed = false;
+    for (const it of glowMemo.items) {
+      if (it.kind !== 'v' && it.kind !== 's') continue;
+      const o = it.row * W;
+      writeGlowTexels(tubeData, o, it.kind, it.x.e.id, it.ra?.e.id, it.obj.len, glow.lit, vh.amt, rgbCs, easeInOut);
+      for (let i = o + 39; i < o + 48; i++) if (tubeData[i] !== tubesShown[i]) { veinsRows.add(it.row); tubesShown.set(tubeData.subarray(o, o + W), o); changed = true; break; }
+    }
+    if (changed) veins.setTubes(tubeData);
+    return true;
+  }
   function syncVeins(t) {
     if (!veins || veins.lost) return;
     glowSync = false;
     const on = glWanted(t);
     wrap.classList.toggle('gl-on', on);
+    if (!on) { tubesHidden = false; if (tubesHeld.size) flushTubes(); }
     if (!on && tubesStale) { tubesStale = false; updateGeometry(true); }
     const plateWas = plateOn();
     wrap.classList.toggle('gl-plate', on && veins.hasPlate(0));
@@ -2785,6 +2840,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const T0 = easeInOut(morph), now = performance.now();
     const artery = toRGB('var(--artery)', cs);
     const originMode = originOn();
+    const rgbCs = (c) => toRGB(c, cs);
     tubeData.fill(0);
     // Hovering or selecting any part of the IVC shows it whole: no veil, and no fades on it or on the tributaries joining it.
     let ivcOn = false, ivcSel = false;
@@ -2863,21 +2919,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (tb) tint = tint ? [Math.min(tint[0] < 0 ? 0 : tint[0], m(tb[0], f, 1 - f)), Math.max(tint[1], m(tb[1], f, 1 - f))] : [m(tb[0], f, 1 - f), m(tb[1], f, 1 - f)];
       }
       if (tint) tubeData.set([...toRGB(cathTint.col, cs), 1, tint[0], tint[1], cathTint.soft, 0], o + 32);
-      const hov = (kind === 'v' || kind === 's') && Math.max(vh.amt.get(id) || 0, ra ? vh.amt.get(ra.e.id) || 0 : 0);
-      if (hov) tubeData[o + 39] = easeInOut(hov);
-      if (kind === 'v' || kind === 's') {
-        const la = glow.lit.get(id), lb = ra && glow.lit.get(ra.e.id), l = la || lb;
-        // A strand's glow fades out toward both its ends, where it meets its own glowing vessel: run on, it would be
-        // cut off square by the strand's cells at the junction.
-        const lend = kind === 's' ? [0.3 * obj.len, 0.3 * obj.len] : la && lb ? [la.end[0], lb.end[1]] : l?.end;
-        const v = l ? easeInOut(Math.max(0, l.v)) * l.amt : 0;
-        if (v > 0) {
-          if (l.col) { const c = toRGB(l.col, cs); l.rgb = l.from && l.cu < 1 ? mix3(l.from, c, easeInOut(l.cu)) : c; }
-          // (A stretch is sent as its two ends along the vessel, each as −(1 + u): the shader fades the glow in and out there.)
-          const part = kind === 'v' && la && la.span && (la.span[0] > 0.002 || la.span[1] < 0.998);
-          tubeData.set([...(l.col ? l.rgb : [0, 0, 0]), v, part ? -1 - la.span[0] : lend[0], part ? -1 - la.span[1] : lend[1], l.col ? 0 : 1, l.wide + (l.top ? 10 : 0)], o + 40);
-        } else tubeData.fill(0, o + 40, o + 48);
-      }
+      writeGlowTexels(tubeData, o, kind, id, ra?.e.id, obj.len, glow.lit, vh.amt, rgbCs, easeInOut);
     }
     // (Uploaded only when some vessel's attributes changed: most model frames in a steady state change none.)
     const tubesChanged = !tubesShown || tubesShown.length !== tubeData.length || tubeData.some((v, i) => v !== tubesShown[i]);
@@ -2909,6 +2951,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
     tubesNew = false;
+    glowMemo = { items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins.hasPlate(0), cls: wrap.className, bits: glowBits(items), reach: vLook.reach };
     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
     if (!plateWas && plateOn()) drawVeins();
   }
@@ -4284,14 +4327,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; scan.el.classList.remove('tap'); void scan.el.offsetWidth; scan.el.classList.add('tap'); }   // the probe itself shakes once a second; the waves keep their own rhythm
     const span = clamp(scan.v * 2.5, 70, SCAN_SPAN);   // slow fronts fade sooner, so a healthy liver shows a few calm arcs, not a crowd
     scan.fronts = scan.fronts.map((r) => r + scan.v * dt).filter((r) => r < span);
-    const g = scan.el.querySelectorAll('.sp-waves g'), gap = clamp(scan.v * SCAN_EVERY * 0.4, 2, SCAN_GAP);   // the ripples tighten when fronts are close, so neighbours never merge
-    g.forEach((el, i) => {
+    const gap = clamp(scan.v * SCAN_EVERY * 0.4, 2, SCAN_GAP);   // the ripples tighten when fronts are close, so neighbours never merge
+    // (The packets' elements are looked up once, and an opacity or a path is written only when its text changed: an idle packet
+    // stays at 0 without a write each frame. The same values as before, so the same picture.)
+    scan.packs ||= wavePacks(scan.el);
+    scan.packs.forEach((w, i) => {
       const r = scan.fronts[i];
-      if (r == null) { el.style.opacity = 0; return; }
+      if (r == null) { paintWave(w, '0'); return; }
       const u = r / span, fade = Math.sin(Math.PI * Math.min(1, u * 1.15 + 0.04)) ** 1.2 * (1 - u * 0.35);
-      el.style.opacity = fade.toFixed(3);
       // A short packet: the crest, with a faint ripple ahead and behind.
-      [...el.children].forEach((pth, j) => pth.setAttribute('d', scanArc(Math.max(1, r + (j - 1) * gap))));
+      paintWave(w, fade.toFixed(3), (j) => scanArc(Math.max(1, r + (j - 1) * gap)));
     });
     scan.raf = nextFrame(scanTick);
   }
@@ -4365,7 +4410,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     scan.leaving = true; scan.k = null;
     pool.get('scan')?.g.classList.add('lb-off'); gScan.classList.add('off');
     setTimeout(() => { if (scan.on) return; scan.leaving = false; const b = pool.get('scan'); if (b) b.g.style.display = 'none'; }, 700);
-    const el = scan.el; scan.el = null; scan.fronts = []; scan.v = 0; scan.next = 0; scan.nextTap = 0;
+    const el = scan.el; scan.el = null; scan.packs = null; scan.fronts = []; scan.v = 0; scan.next = 0; scan.nextTap = 0;
     if (scan.raf) { cancelFrame(scan.raf); scan.raf = 0; }
     if (el) { el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); }, 500); }
   }
@@ -4951,11 +4996,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const measure = document.createElement('canvas').getContext('2d');
   const widths = new Map();
   function textW(t, size, weight = 500, track = 0) {
-    const k = `${weight}|${size}|${track}|${t}`;
-    let w = widths.get(k);
     // Labels draw tabular digits (every digit as wide as a zero), so measure them that way too:
-    // a value ticking from 6.0 to 6.1 then keeps its width and its label stays put.
-    if (w == null) { measure.font = `${weight} ${size}px ${FONT}`; w = measure.measureText(t.replace(/\d/g, '0')).width + track * size * t.length; widths.set(k, w); }
+    // a value ticking from 6.0 to 6.1 then keeps its width and its label stays put. (Kept by that text too, so a ticking
+    // value is measured once, not once for every value it passes through.)
+    const z = t.replace(/\d/g, '0'), k = `${weight}|${size}|${track}|${z}`;
+    let w = widths.get(k);
+    if (w == null) { measure.font = `${weight} ${size}px ${FONT}`; w = measure.measureText(z).width + track * size * z.length; widths.set(k, w); }
     return w;
   }
   document.fonts?.ready?.then(() => { widths.clear(); labelFonts++; if (F) updateLabels(F); });
@@ -5464,10 +5510,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!c || x.reveal || f.morphing || x.width !== x.wT) { stentCalm.set(sid, now); return false; }
     return now - c >= STENT_CALM_MS;
   }
+  // The narrowings' part of the signature, kept per object: a change of parameters always makes new objects (updateParams
+  // clones them, and each model frame brings its own), so the same object always gives the same text.
+  const paramJSONs = new WeakMap();
+  const paramJSON = (o) => { if (!o || typeof o !== 'object') return JSON.stringify(o); let j = paramJSONs.get(o); if (j === undefined) paramJSONs.set(o, (j = JSON.stringify(o))); return j; };
   function labelSig(f) {
     const st = store.get(), t = easeInOut(morph);
     const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
-    return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, JSON.stringify((f.viewParams || st.params).stenosis), JSON.stringify((f.viewParams || st.params).stenosisSite),
+    return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
       isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, scan.on, scan.cover, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join(''), dop.key].join('|');
   }
   // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
@@ -6635,7 +6685,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (F) stepBlood(dt);
     const fluidMoved = stepFluid(dt, st);
     // The vessel layer is redrawn only when something in it changed; the blood every frame.
-    if (glowSync) syncVeins(easeInOut(morph));
+    if (glowSync && !syncGlowOnly(easeInOut(morph))) syncVeins(easeInOut(morph));
     olStep(now);
     if (drawVeins(fluidMoved)) { noteDraw('stage'); swYield?.drew(now); }
     else if (veins && !veins.lost && vLook && F) { veins.composite(vLook, bloodLook(), fluidMoved); noteDraw('stage'); swYield?.drew(now); }

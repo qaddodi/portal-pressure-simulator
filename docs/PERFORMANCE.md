@@ -29,6 +29,12 @@ What changed:
   writes their colour; casings, shadows and the space between vessels depend on no lumen colour and
   stay as drawn. So a tint that moves every lymph channel at once no longer redraws the whole layer.
   The picture is a whole redraw's, pixel for pixel (`npm run smoke:rows`; `tests/veins-tint.test.js`).
+- **A glow easing rewrites only the glow.** While a hover, selection, slide or Doppler glow eases,
+  only the glow texels of the tube data change. When nothing else the vessel sync reads has changed
+  since it last ran (vessels, model frame, morph, layout, colours, plate, lens, catheter, classes),
+  `syncGlowOnly` in `stage.js` writes those texels alone, with the helper the whole sync uses
+  (`glow-texels.js`), and only the changed rows are drawn again; otherwise the whole sync runs.
+  The same tube data, so the same picture (`tests/frame-costs-glow.test.js`).
 - **Full detail, always.** Outside Battery saver the figure, the lobule and the FibroScan never
   lower their own resolution or frame rate: no governor steps them down when frames run long, and
   zooming in keeps every pixel. Levels older builds stored (`pps.quality`, `pps.q`) are removed at

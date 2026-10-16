@@ -2,6 +2,11 @@
 
 ## October 2026
 
+- **Less work per frame while a glow eases, and for the FibroScan waves.** Hovering, selecting or a slide's glow
+  easing in now rewrites only the glow values of the vessels instead of rebuilding all of them each frame, the FibroScan
+  probe's waves write a path or an opacity only when it changed, hidden SVG tubes under the GPU are written when they
+  show again, label widths and the label check keep their measurements, and fonts and the brand art load from the
+  offline cache at once (refreshed behind it). The picture is the same. Test: `tests/frame-costs-glow.test.js`.
 - **Colour changes no longer redraw every vessel.** When only vessels' colours change (the pulse, the lobule's lymph
   tint, a lens fade), the vessel layer draws again just the pixels those colours reach, with the same shader, instead
   of the whole layer: the lymph tint moves all 63 lymph channels at once, which used to redraw over 90 % of the
