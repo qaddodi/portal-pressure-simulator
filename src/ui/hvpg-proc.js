@@ -9,7 +9,7 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, fitCanvas, clamp, icon, cssVar } from './util.js?v=e387ad7347';
-import { FONT } from './charts.js?v=f7e80d0688';
+import { FONT } from './charts.js?v=65a7c122ce';
 import { pressureColor } from './colormap.js?v=ec83805fb9';
 import { store, logAction, hiddenNow } from './store.js?v=3b659e1968';
 import { shownOr } from './shown.js?v=82ef5e29ec';
@@ -151,19 +151,20 @@ export function createHvpgProcedure() {
   function paintSide() {
     const ph = phase(), st = store.get();
     // Before any measurement, with the readouts on show (Settings, or measured once for this patient), the three read live,
-    // the HVPG as the bar shows it and the wedged pressure as the free one plus it, so the row and the bar agree (sweep
+    // the free and wedged pressures as the bar reads them and the HVPG as their difference, so the row and the bar agree (sweep
     // batch 03, shots 05 and 30: dashes here beside HVPG 0.9 on the bar).
     const open = ph === 'idle' && !!st.frame?.metrics && !hiddenNow(st)?.has('trueHVPG');
     let v = values();
-    if (open) { const f1 = Math.round(v.fhvp * 10) / 10, g1 = Math.round(shownOr('hvpg', v.hvpg) * 10) / 10; v = { fhvp: f1, hvpg: g1, whvp: f1 + g1 }; }
+    if (open) { const f1 = Math.round(shownOr('fhvp', v.fhvp) * 10) / 10, w1 = Math.round(shownOr('whvp', v.whvp) * 10) / 10; v = { fhvp: f1, whvp: w1, hvpg: Math.round((w1 - f1) * 10) / 10 }; }
     const shown = open ? { fhvp: true, whvp: true, hvpg: true }
       : { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.callout), hvpg: ph === 'result' && (t0 == null || t >= T.sum) };
     for (const k of ['fhvp', 'whvp', 'hvpg']) {
       const txt = shown[k] ? fmt(v[k], 1) : '—';
       if (vals[k].textContent !== txt) {
         vals[k].textContent = txt;
-        // The difference arrives after the two readings have settled: it fades and rises in, never pops.
-        if (k === 'hvpg' && shown.hvpg) { vals.hvpg.classList.remove('in'); void vals.hvpg.offsetWidth; vals.hvpg.classList.add('in'); }
+        // The difference arrives after the two readings have settled: it fades and rises in, never pops. (Not a live reading:
+        // restarted with every new tenth, its fade held it blank on Mac, iPad and sideways, sweep 2 review item 5.)
+        if (k === 'hvpg' && shown.hvpg && !open) { vals.hvpg.classList.remove('in'); void vals.hvpg.offsetWidth; vals.hvpg.classList.add('in'); }
       }
     }
     // This runs on every model frame: write only what changed. Rewriting the button's label each frame

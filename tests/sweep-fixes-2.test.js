@@ -19,15 +19,23 @@ test('the value the bottom bar shows is the one the chart and the HVPG tab read'
   setShown('hvpg', NaN);
   assert.equal(shownOr('hvpg', 7), 7);
   assert.match(dock, /setShown\(t\.id, v\)/);
-  assert.match(charts, /shownOr\(d\.m, m\[d\.m\]\)/);
-  assert.match(hvpg, /shownOr\('hvpg'/);
+  assert.match(charts, /shownOr\(d\.hiM, m\[d\.hiM\]\)/);
+  assert.match(charts, /tenthGap\(/);   // (each bracket is the difference of the two readings shown at its ends)
+  assert.match(hvpg, /shownOr\('whvp', v\.whvp\)/);
+  assert.match(hvpg, /shownOr\('fhvp', v\.fhvp\)/);
 });
 
 test('the Pressure chart writes its numbers to one decimal at 12 px, and keeps every value off the pills', () => {
   for (const m of charts.matchAll(/FONT\(\d+, ([\d.]+)\)/g)) assert.ok(+m[1] >= 12, `chart font ${m[1]} px`);
   assert.match(charts, /const txt = fmt\(now\[d\.i\], 1\)/);
-  assert.match(charts, /r\.x0 < o\.x1 \+ 2 && r\.x1 > o\.x0 - 2/);   // (2 px clear)
-  assert.match(charts, /v\.alt\.find\(free\)/);
+  // (Sweep 2 review items 1, 2 and 21: the pills 4 px clear of the curve, the dots, the values and each other, the values 4 px
+  // clear of the curve and the dots; no spot left means the strip, never a label on the line.)
+  assert.match(charts, /const overlap4 = \(r, o\) => r\.x0 < o\.x1 \+ 4/);
+  assert.match(charts, /taken\.some\(\(o\) => overlap4\(r, o\)\) \|\| claimed\.some\(\(o\) => overlap4\(r, o\)\) \|\| nearCurve\(r, 4\)/);
+  assert.match(charts, /\|\| nearCurve\(q, 4\)/);
+  assert.match(charts, /if \(!best\) \{ fail = true;/);
+  assert.match(charts, /if \(fail && !predict\?\.on\) \{ toStrip\(\); return; \}/);
+  assert.doesNotMatch(charts, /__cf|__why/);
 });
 
 test('the stylesheet sets no word under 12 px (the legend and the data card strip belong to their own fixes)', () => {
@@ -67,6 +75,6 @@ test('a figure label under the open menu is hidden, not left as a sliver', () =>
 test('a Pressure chart too short for its plot shows the compact strip, and the full chart where it has room', () => {
   assert.match(charts, /const PLOT_MIN = 130;/);
   assert.match(charts, /const stripNow = \(g\) => !predict\?\.on && g\.hh - g\.T - g\.B < PLOT_MIN;/);
-  assert.match(charts, /if \(strip\) \{ drawStrip\(ctx, c, w, hh\); return; \}/);
+  assert.match(charts, /if \(stripNow\(g\) \|\| \(formLock\.strip && !predict\?\.on\)\) \{ toStrip\(\); return; \}/);
   assert.match(charts, /cv\.animate\?\.\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/);   // (eased, never a jump)
 });

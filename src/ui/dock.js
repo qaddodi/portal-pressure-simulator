@@ -5,17 +5,18 @@ import { store, hiddenNow } from './store.js?v=3b659e1968';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf } from './util.js?v=e387ad7347';
 import { lobuleFlows } from './lobule-model.js?v=d3b27f8085';
-import { createProfile } from './charts.js?v=f7e80d0688';
-import { createPressureTime } from './pressure-time.js?v=9c678579b0';
-import { createFibroScan } from './fibroscan.js?v=67d5b21a61';
-import { createHvpgProcedure } from './hvpg-proc.js?v=d012b37a8b';
-import { createDoppler } from './doppler.js?v=a489d97e37';
+import { createProfile } from './charts.js?v=65a7c122ce';
+import { createPressureTime } from './pressure-time.js?v=a126f206ad';
+import { createFibroScan } from './fibroscan.js?v=7caa447b61';
+import { createHvpgProcedure } from './hvpg-proc.js?v=b091e5d0df';
+import { createDoppler } from './doppler.js?v=c4e8e071ba';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=424d548aef';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=286f27989d';
 import { createReadoutsPane } from './readouts-pane.js?v=366cc67e8d';
 import { frameFor } from './frame.js?v=5efaa2bcc9';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';
+import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -135,6 +136,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   let rzT = 0;
   const resizeSoon = () => { clearTimeout(rzT); rzT = setTimeout(() => dispatchEvent(new Event('resize')), 30); };
   // ── Readout strip ─────────────────────────────────
+  const ends = { pv: {}, ivc: {}, whvp: {}, fhvp: {} };   // (the gradients' readings, each with the tiles' running mean)
   const tileEls = {};
   // A phone's four tiles are narrow: short names and status words where the long ones would be cut off.
   const narrow = matchMedia('(max-width: 1279px)');   // phones, tablets and narrow windows: short readout names
@@ -197,6 +199,17 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const hidden = hiddenNow(st0);
     const A = st0.compareSnap?.metrics || null;
     const now = performance.now();
+    // The gradients' two readings each get the tiles' running mean, and the gradient is their difference as shown (one
+    // decimal): the Pressure chart writes the same two readings at its brackets' ends, so its labels, the bar and the
+    // readings add up (sweep 2 review item 13: PPG 17.8 beside 22.9 and 5.5).
+    const sm = {};
+    for (const k of ['pv', 'ivc', 'whvp', 'fhvp']) {
+      const raw = m?.[k], e = ends[k];
+      let v = raw;
+      if (Number.isFinite(raw) && Number.isFinite(e.sm) && st0.running && Math.abs(raw - e.sm) < 2) v = e.sm + (raw - e.sm) * Math.min(1, (now - e.smT) / 1200);
+      e.sm = v; e.smT = now; sm[k] = v; setShown(k, v);
+    }
+    const gap = { hvpg: tenthGap(sm.whvp, sm.fhvp, null), ppg: tenthGap(sm.pv, sm.ivc, null) };
     for (const x of Object.values(tileEls)) {
       const { el, t } = x;
       const lz = t.group === 'lobule';
@@ -205,7 +218,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // The beat swings every value a little: the tile shows a running mean (about a second), so the
       // number stays steady; a real step (beyond a tenth of the scale) or a paused model shows at once.
       let v = raw;
-      if (raw != null && x.sm != null && st0.running && t.scale && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200);
+      const live = !lz && t.id in gap && raw != null && raw === t.v(m) && gap[t.id] != null;   // (a live gradient, not a measured one)
+      if (live) v = gap[t.id];
+      else if (raw != null && x.sm != null && st0.running && t.scale && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200);
       x.sm = v; x.smT = now;
       if (!lz) setShown(t.id, v);
       const measured = !lz && v != null && hidden?.has(t.hideKey);
