@@ -513,9 +513,9 @@ export class Engine {
     }
     // A long quiet step (settling, 5 to 10 s) that carries a vein across its collapse point, the downstream end falling
     // below or rising above the pressure outside it, can overshoot the far side and flip back on the next step: a
-    // cycle that never settles (end-stage cirrhosis late in pregnancy, the gravid belly at the hepatic veins' edge).
-    // Such a step is taken again as half-second steps, which follow the vein across. (The pregnancy volume step above
-    // stands for the whole step.)
+    // cycle that never settles (a tense belly, from ascites or late pregnancy, holds the hepatic veins at that edge).
+    // When the solved step sends a vein back to the state it had the step before, the step is taken again as half-second
+    // steps, which follow the vein across. (The pregnancy volume step above stands for the whole step.)
     const flips = this.quiet && dt > 0.5 && !this._sub && this.collapseFlips(b);
     this.wfPrev.set(this.wf);
     if (flips) {

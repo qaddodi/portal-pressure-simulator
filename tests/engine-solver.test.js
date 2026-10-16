@@ -71,7 +71,7 @@ test('T18 at 0.004 s with the heartbeat, paired extremes: finite and steady', ()
 });
 
 test('T18 at 0.5 s and 5 s (quiet, as relax and settle step), paired extremes: finite and converged', () => {
-  for (const dt of [0.5, 5]) for (const x of PAIRED.filter((x) => !(x.gestation && x.cirrhosis > 0.85))) {
+  for (const dt of [0.5, 5]) for (const x of PAIRED) {
     const e = new Engine();
     e.setParams(deepMerge(defaultParams(), x));
     e.quiet = true;
@@ -84,10 +84,9 @@ test('T18 at 0.5 s and 5 s (quiet, as relax and settle step), paired extremes: f
   }
 });
 
-// Known: end-stage cirrhosis late in pregnancy (cirrhosis 0.9 or more, 40 weeks) does not settle at 5 or 10 s steps. The
-// gravid belly collapses the hepatic veins at the edge of their waterfall, and the step flips between collapsed and open.
-// Left for its own fix (the pregnancy patient itself, cirrhosis 0.62 at 24 weeks, settles).
-test('T18 at 5 s and 10 s, end-stage cirrhosis at 40 weeks: converged', { todo: 'hepatic-vein waterfall flips at large steps' }, () => {
+// End-stage cirrhosis late in pregnancy: the gravid belly holds the hepatic veins at their collapse point, where a long
+// settling step used to flip them between collapsed and open on every step, so the state never settled.
+test('T18 at 5 s and 10 s, end-stage cirrhosis at 40 weeks: converged', () => {
   for (const dt of [5, 10]) for (const cirrhosis of [0.9, 1]) {
     const e = new Engine();
     e.setParams(deepMerge(defaultParams(), { cirrhosis, gestation: 40 }));
