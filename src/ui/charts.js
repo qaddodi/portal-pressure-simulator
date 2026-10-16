@@ -114,6 +114,65 @@ export function createProfile() {
     return { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY, roomy };
   }
 
+  // The compact strip (as a ladder card picks its full plot or its strip by size, a667e9f): where the plot would be too short
+  // for its axis numbers, the LIVER caption and both pills to stand clear (a 320 px phone's half sheet, about 40 px), five
+  // stations in a row, their names over their readings, with the HVPG and PPG as brackets under them. The full chart returns
+  // as soon as the plot has its room (the sheet pulled up). Never while a prediction is being drawn on the plot.
+  const STRIP = ['CONF', 'SIN_R', 'RHV', 'IVCS', 'RA'], STRIP_NAME = { CONF: 'Portal v.', SIN_R: 'Sinusoid', RHV: 'RHV', IVCS: 'IVC', RA: 'RA' };
+  const PLOT_MIN = 130;   // (two pill rows of 24, the LIVER caption, and the stations' own spread)
+  let wasStrip = null;
+  const stripNow = (g) => !predict?.on && g.hh - g.T - g.B < PLOT_MIN;
+  function drawStrip(ctx, c, w, hh) {
+    const PM = F.Pf || F.P, m = F.metrics || {}, hid = hiddenNow();
+    // (Columns share out the row by their names' widths, so every two names keep the same clear gap: evenly spaced, "Portal v."
+    // and "Sinusoid" touched on a 320 px phone.)
+    const x0 = 12, x1 = w - 12;
+    ctx.font = FONT(600, 12);
+    const nw = STRIP.map((n) => ctx.measureText(STRIP_NAME[n]).width), gap = Math.max(0, (x1 - x0 - nw.reduce((a, b) => a + b, 0)) / STRIP.length);
+    const cx = []; let at = x0 + gap / 2; nw.forEach((q) => { cx.push(at + q / 2); at += q + gap; });
+    const X = (i) => cx[i];
+    const rows = { k: 18, v: 44, hvpg: 72, ppg: 98 }, sc = Math.min(1, Math.max(0.8, hh / 112));   // (rows close up a little in a shorter box)
+    for (const r in rows) rows[r] = Math.round(rows[r] * sc);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    // The names, then the readings joined by a line in the pressure's colour that stops short of each number.
+    ctx.fillStyle = c.muted; ctx.font = FONT(600, 12);
+    STRIP.forEach((n, i) => ctx.fillText(STRIP_NAME[n], X(i), rows.k));
+    ctx.font = FONT(700, 15);
+    const vals = STRIP.map((n) => PM[NI[n]]), txt = vals.map((v) => fmt(v, 1)), tw = txt.map((t) => ctx.measureText(t).width);
+    ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    for (let i = 0; i < STRIP.length - 1; i++) {
+      const a = X(i) + tw[i] / 2 + 6, b = X(i + 1) - tw[i + 1] / 2 - 6;
+      if (b - a < 4) continue;
+      const gr = ctx.createLinearGradient(a, 0, b, 0); gr.addColorStop(0, pressureColor(vals[i])); gr.addColorStop(1, pressureColor(vals[i + 1]));
+      ctx.strokeStyle = gr; ctx.beginPath(); ctx.moveTo(a, rows.v - 5); ctx.lineTo(b, rows.v - 5); ctx.stroke();
+    }
+    ctx.fillStyle = c.text;
+    txt.forEach((t, i) => ctx.fillText(t, X(i), rows.v));
+    // The brackets: the name and reading in the line's gap when the bracket has room, else just past its right end.
+    const dims = curPath().dims || [];
+    for (const d of dims) {
+      if (d.hide && hid?.has(d.hide)) continue;
+      const a = STRIP.indexOf(d.hi), b = STRIP.indexOf(d.lo);
+      if (a < 0 || b < 0) continue;
+      const v = d.m && m[d.m] != null ? shownOr(d.m, m[d.m]) : PM[NI[d.hi]] - PM[NI[d.lo]];
+      const col = v >= d.bad ? c.danger : v >= d.warn ? c.caution : c.muted;
+      const yy = d.k === 'HVPG' ? rows.hvpg : rows.ppg, bx0 = X(a), bx1 = X(b), name = `${d.k} `, num = fmt(v, 1);
+      ctx.font = FONT(600, 12); const w1 = ctx.measureText(name).width; ctx.font = FONT(700, 12.5); const w2 = ctx.measureText(num).width;
+      const lw = w1 + w2, inl = bx1 - bx0 - lw - 16 >= 8, lx = inl ? (bx0 + bx1) / 2 - lw / 2 : bx1 + 8;
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.lineCap = 'butt'; ctx.beginPath();
+      ctx.moveTo(bx0, yy - 4); ctx.lineTo(bx0, yy + 4); ctx.moveTo(bx1, yy - 4); ctx.lineTo(bx1, yy + 4); ctx.moveTo(bx0, yy);
+      if (inl) { ctx.lineTo(lx - 6, yy); ctx.moveTo(lx + lw + 6, yy); }
+      ctx.lineTo(bx1, yy); ctx.stroke();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = c.muted; ctx.font = FONT(600, 12); ctx.fillText(name, lx, yy + 0.5);
+      ctx.fillStyle = col === c.muted ? c.text : col; ctx.font = FONT(700, 12.5); ctx.fillText(num, lx + w1, yy + 0.5);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    }
+    // The unit under the last station, on the PPG row (whose bracket ends at the IVC).
+    ctx.fillStyle = c.faint; ctx.font = FONT(500, 12); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText('mmHg', x1, rows.ppg + 0.5); ctx.textBaseline = 'alphabetic';
+  }
+
   function draw() {
     if (!F) return;
     const c = theme();
@@ -121,6 +180,11 @@ export function createProfile() {
     const g = geometry();
     const { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY, roomy } = g;
     ctx.clearRect(0, 0, w, hh);
+    const strip = stripNow(g);
+    if (wasStrip !== null && strip !== wasStrip) cv.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' });   // (a short fade as it changes form)
+    wasStrip = strip;
+    legend.style.display = strip ? 'none' : '';   // (the strip draws no lines to key)
+    if (strip) { drawStrip(ctx, c, w, hh); return; }
     ctx.font = FONT(500, 12);
     // grid (solid hairlines): absolute pressure has no clinical threshold, so none is drawn
     ctx.strokeStyle = c.border; ctx.fillStyle = c.faint; ctx.lineWidth = 1;

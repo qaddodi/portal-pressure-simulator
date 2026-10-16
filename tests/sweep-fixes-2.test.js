@@ -63,3 +63,10 @@ test('a figure label under the open menu is hidden, not left as a sliver', () =>
   assert.match(main, /function labelsUnderMenu\(on\)/);
   assert.match(css, /#labels \.lb\.under-menu \{ visibility: hidden; \}/);
 });
+
+test('a Pressure chart too short for its plot shows the compact strip, and the full chart where it has room', () => {
+  assert.match(charts, /const PLOT_MIN = 130;/);
+  assert.match(charts, /const stripNow = \(g\) => !predict\?\.on && g\.hh - g\.T - g\.B < PLOT_MIN;/);
+  assert.match(charts, /if \(strip\) \{ drawStrip\(ctx, c, w, hh\); return; \}/);
+  assert.match(charts, /cv\.animate\?\.\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/);   // (eased, never a jump)
+});
