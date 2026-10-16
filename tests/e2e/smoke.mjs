@@ -2594,9 +2594,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (stations !== 'lobule:arteriole:hidden,lobule:central,lobule:ductule:hidden,lobule:lymph,lobule:sinusoid,lobule:triad') throw new Error(`station cards missing (${stations})`);
     // The card is gone: nothing floats beside the lobule but its labels.
     if (await page.locator('.lz-side').count()) throw new Error('the lobule still has its card');
-    // The strip reads the lobule's flows here.
+    // The strip reads the lobule's two flows here, as the anatomy's reads HVPG and PPG (the slim bar, 88e0a8d: arterial inflow and
+    // lymph are in Tests > Readouts).
     const tiles = await page.evaluate(() => [...document.querySelectorAll('#strip .metric.primary')].filter((e) => e.offsetWidth).map((e) => e.dataset.id).join());
-    if (tiles !== 'lz-sin,lz-pv,lz-art,lz-ly') throw new Error(`the strip should show the lobule's flows, got ${tiles}`);
+    if (tiles !== 'lz-sin,lz-pv') throw new Error(`the strip should show the lobule's flows, got ${tiles}`);
     // A part of the lobule opens the same action card as the anatomy, with its fibrosis slider.
     await page.locator('.lz-lab').nth(1).evaluate((el) => el.click());   // its value updates live, so it never holds still for a pointer click
     await page.waitForSelector('.action-card:not([hidden])');
@@ -2655,7 +2656,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Leaving the lobule closes its card.
     await page.evaluate(() => document.querySelector('.lz-lab:not([hidden])').click());   // its value updates live, so it never holds still for a pointer click
     await page.waitForSelector('.action-card:not([hidden])');
-    await pickView(page, 'anatomic');
+    // (the switch's own click: on a phone the docked card covers the view pill, so a click at its spot lands on the card)
+    await page.$eval('#viewSeg [data-view="anatomic"]', (b) => b.click());
     await page.waitForFunction(() => !window.pps.stage.lobuleOpen(), null, { timeout: 15000 });
     if (await page.evaluate(() => window.pps.store.get().selection?.type === 'lobule')) throw new Error('the lobule card stayed open after leaving');
   });
