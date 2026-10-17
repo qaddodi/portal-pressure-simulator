@@ -19,19 +19,19 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=c0226d6397';
+import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { store } from './store.js?v=31ee79b6ab';
 import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=1ff0bc103e';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=35beae4693';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline } from './lobule-look.js?v=240bbb6cad';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=0140acc352';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=5c9a375f49';
+import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=6289ea8edf';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=c22aa33027';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=170817db7c';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=c9037b1484';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=1f05278710';
-import { createSinusoidView } from './sinusoid-view.js?v=9b15f12b42';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=5efaa2bcc9';
+import { createSinusoidView } from './sinusoid-view.js?v=a1e1bd8275';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=67ca200c87';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');
 

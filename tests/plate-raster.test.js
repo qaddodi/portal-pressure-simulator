@@ -9,11 +9,11 @@ import { readFileSync } from 'node:fs';
 const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 
 test('a plate raster draws into a canvas of its own and sends it as pixel strips, one per frame', () => {
-  assert.match(stage, /const c = document\.createElement\('canvas'\);\n\s+c\.width = W; c\.height = H;\n\s+const g = c\.getContext\('2d', \{ willReadFrequently: true \}\);\n\s+g\.drawImage\(img, 0, 0, W, H\);/);
+  assert.match(stage, /const c = document\.createElement\('canvas'\);\n\s+c\.width = W; c\.height = H;\n\s+const g = c\.getContext\('2d', \{ willReadFrequently: true \}\);\n\s+gpuProbe\.time\(null, 'organ picture: draw', \(\) => g\.drawImage\(img, 0, 0, W, H\)\);/);
   const body = stage.slice(stage.indexOf('async function rasterPlate'), stage.indexOf('function plateStateKey'));
   assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(y\) await new Promise\(\(res\) => nextFrame\(res\)\);/);
   assert.match(body, /if \(seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost\) return false;/, 'a raster overtaken on its way in is given up');
-  assert.match(body, /v\.plateRows\(job, y, rows, premultiply\(g\.getImageData\(0, y, W, rows\)\.data\)\);/);
+  assert.match(body, /v\.plateRows\(job, y, rows, gpuProbe\.time\(null, 'organ picture: read', \(\) => premultiply\(g\.getImageData\(0, y, W, rows\)\.data\)\)\);/);
   assert.match(body, /v\.setPlate\(slot, job, rect\); job = null;/, 'shown only once every strip is in');
   assert.match(body, /finally \{ if \(job && !v\.lost\) v\.dropJob\(job\); c\.width = c\.height = 0; \}/);
   assert.doesNotMatch(stage, /veins\.setPlate\(slot, c,/);

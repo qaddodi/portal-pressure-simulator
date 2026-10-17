@@ -4,9 +4,9 @@ import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
 import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=1ee7733788';
 import { store, updateParams, hiddenNow } from './store.js?v=31ee79b6ab';
-import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=0140acc352';
+import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=6289ea8edf';
 import { liveBalance } from './balance-hold.js?v=ea4d9121d2';
-import { frameFor, cancelFrame } from './frame.js?v=5efaa2bcc9';
+import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('inspector');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

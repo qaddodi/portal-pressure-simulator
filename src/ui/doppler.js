@@ -5,11 +5,11 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=0140acc352';
-import { FONT } from './charts.js?v=89e7b4137f';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=6289ea8edf';
+import { FONT } from './charts.js?v=62190cc40d';
 import { logAction, shownVel, store } from './store.js?v=31ee79b6ab';
-import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=bc285aa69c';
-import { frameFor, noteDraw, paceMs } from './frame.js?v=5efaa2bcc9';
+import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=3f30485331';
+import { frameFor, noteDraw, paceMs } from './frame.js?v=67ca200c87';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
 const nextFrame = frameFor('doppler');
