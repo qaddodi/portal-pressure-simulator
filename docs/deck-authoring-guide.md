@@ -327,6 +327,8 @@ Visuals may also carry `cam` (how the dimmed figure is framed).
 
 `compare: [{ label, params, own? }, …]`: buttons switch the live model between treatments in real time. `params`: each option's **full set of the switched keys** (switch off the others: e.g. every drug flag), `own: true` marks the option that is the slide's own state. Use with `data` so the numbers update.
 
+A button can name another patient instead: `compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }]`. The live model eases to that patient (computed with the slide's states), and the `own` button eases back to the slide's exact state. The ladder's station `block` shows only on the slide's own state, unless the patient option names its own `block` (Sites, Right heart failure).
+
 ---
 
 ## 8. Catalogue
