@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=a11d7ef88d';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=953252dc4f';
+import { createStage } from './stage.js?v=f0d7499a4b';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
 import { sinusoidSupported } from './sinusoid-view.js?v=bd8ad917b0';
 import { createInspector } from './inspector.js?v=3335dc9d13';
@@ -39,6 +39,7 @@ import { ORIGINS } from './blood.js?v=cc7febbf07';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=1ee7733788';
 import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=67ca200c87';
+import { easeIO3, pillState, foldPill, stopFold } from './pill-motion.js?v=4f63ed214c';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -218,7 +219,20 @@ async function main() {
   });
 
   // The Sinusoid button shows only in the Lobule view: it is one level further down.
-  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); const sinWas = app.classList.contains('sin-focus'), pillFrom = sinWas !== !!(st.lobule && st.sinusoid) ? viewPillRect() : null; app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); if (pillFrom) { syncThumb(); glideViewPill(pillFrom, !sinWas); getComputedStyle($('#viewSeg')).color; } $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#btnSinPlay').hidden = !(st.lobule && st.sinusoid); const inSin = !!(st.lobule && st.sinusoid); $('#zoomIn').disabled = inSin; for (const [id, off, on] of [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoomFit', 'Fit the figure to the view', 'Back out to the lobule']]) { $(id).title = inSin ? on : off; $(id).setAttribute('aria-label', inSin ? on : off); } };
+  // (Each change of its buttons plays as one move, pillChange: into or out of the sinusoid the bars slide away or back and the
+  // pill glides with them; with the lobule the Sinusoid button slides out of the pill or back into it.)
+  const syncViewSeg = () => {
+    const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view, inSin = !!(st.lobule && st.sinusoid);
+    const sinBtn = $('#viewSeg [data-view="sinusoid"]'), sinHide = !st.lobule || !sinusoidSupported();
+    // (Out of the sinusoid also when the way back to the anatomy dropped its class first, stage.js: the pill is still in its sinusoid home.)
+    const sinWas = app.classList.contains('sin-focus') || $('#viewSeg').parentElement?.id === 'sinViews';
+    if (sinWas !== inSin || sinBtn.hidden !== sinHide) {
+      pillChange(() => { sinBtn.hidden = sinHide; app.classList.toggle('sin-focus', inSin); }, sinWas !== inSin ? (inSin ? 'in' : 'out') : sinHide ? 'up' : 'down');
+    }
+    $$('#viewSeg button[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur)));
+    $('#btnSinPlay').hidden = !inSin; $('#zoomIn').disabled = inSin;
+    for (const [id, off, on] of [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoomFit', 'Fit the figure to the view', 'Back out to the lobule']]) { $(id).title = inSin ? on : off; $(id).setAttribute('aria-label', inSin ? on : off); }
+  };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
   // Without WebGL2 the Sinusoid button is hidden: say why, once, the first time the Lobule view opens.
@@ -1090,11 +1104,13 @@ function wireFloating() {
     // hang below them: there the framing keeps 24 px.)
     const nbvPad = innerHeight <= 500 && innerWidth > innerHeight ? '24' : '12';
     if ($('#nbViews') && $('#nbViews').dataset.safePad !== nbvPad) $('#nbViews').dataset.safePad = nbvPad;
-    // (Its place at rest: less the shift of a glide into or out of the sinusoid, glideViewPill.)
+    // (Its place at rest: less the shift of a glide into or out of the sinusoid, sinMotion.)
     const nbv = $('#nbViews'), nbvH = nbv && nbv.offsetHeight ? Math.max(0, vd.getBoundingClientRect().top - nbv.getBoundingClientRect().top + (pillEl === nbv ? pillShiftY : 0) + 8) : 0;
-    if (!vd.classList.contains('mini') && vd.offsetHeight) vd.dataset.fullH = String(vd.offsetHeight + nbvH);
-    const vdTop = vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top + nbvH : 0;
-    const vdock = vd.offsetHeight ? Math.max(vd.offsetHeight + nbvH, vdTop - gap) : 0, wide = !isPhone();
+    // (The dock as it rests: none in the sinusoid view, also while it slides away; less its slide while it comes back.)
+    const vdH = app.classList.contains('sin-focus') ? 0 : vd.offsetHeight, vdSlide = +vd.dataset.slideY || 0;
+    if (!vd.classList.contains('mini') && vdH) vd.dataset.fullH = String(vdH + nbvH);
+    const vdTop = vdH ? $('#stageView').getBoundingClientRect().bottom - (vd.getBoundingClientRect().top - vdSlide) + nbvH : 0;
+    const vdock = vdH ? Math.max(vdH + nbvH, vdTop - gap) : 0, wide = !isPhone();
     // The top bar keeps one row when everything fits at its natural width (with a little to spare,
     // so it does not flip back and forth), else the view and legend move to a second row.
     // Off a phone the bar first compacts step by step (data-fit 1-3: shorter patient name, icon-only
@@ -1147,7 +1163,7 @@ function wireFloating() {
     // screen's bottom, since the sheets are fixed to it and the dock sits above the home indicator's safe area.)
     // The cards and sheets sit on the tab row's top edge, over the play bar (which they cover), and slide away behind
     // the tab row: --nb-occ from the app's bottom (the cards), --thumb-occ from the screen's (the menu sheets).
-    const nbR = thumb && vd.offsetHeight ? $('#thumbBar').getBoundingClientRect() : null;
+    const nbR = thumb && vdH ? (({ x, y, width, height }) => new DOMRect(x, y - vdSlide, width, height))($('#thumbBar').getBoundingClientRect()) : null;
     // (8 px clear of it: the tab row is its own rounded piece while a card is up, 15 Oct.)
     const ar = app.getBoundingClientRect();
     const nbOcc = px(nbR && nbR.height ? ar.bottom - nbR.top + 8 : 0);
@@ -1362,7 +1378,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   // (Opening sizes the sheet at once: its height eases only for a change while it is open, so it never comes in
   // at the last size it had and shrinks into place, and the figure frames once.)
-  return { open: () => { if (isPhone()) { size = half(); el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { stopSink(el); el.style.removeProperty('--sink'); el.style.transform = ''; el.style.height = ''; el.style.clipPath = ''; } };
+  return { open: () => { if (isPhone()) { size = half(); el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { stopSink(el); el.style.removeProperty('--sink'); el.style.translate = ''; el.style.height = ''; el.style.clipPath = ''; } };
 }
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
@@ -1385,43 +1401,91 @@ function syncThumb() {
   // centred at the bottom, level with the zoom group. While presenting it stays in the top bar.
   const pres = app.classList.contains('presenting');
   const seg = $('#viewSeg'), home = pres ? $('#stageTop .sb-left') : app.classList.contains('sin-focus') ? $('#sinViews') : $('#nbViews');
-  if (home && seg.parentElement !== home) home.append(seg);
+  if (home && seg.parentElement !== home) { if (pres) stopFold(); home.append(seg); }
 }
 // Into or out of the sinusoid the view pill changes home (above the dock, or centred at the bottom where the hidden dock was):
 // instead of jumping there it glides from where it was, on the sinusoid zoom's own clock and curve (lobule-zoom.js: 1150 ms in,
 // 950 out, a cubic ease in and out), and its selected button crossfades over the same time (17 Oct, Mohammad: the pill "should
-// transition as well nicely elegantly"). Its new place is read every frame, as the dock's space is published a frame later,
-// so the glide eases onto wherever the pill settles (a late move early on, while the ease is still near its start, is not seen).
-// (It moves by transform, never the translate property: on a phone or upright iPad the dock eases its parts' translate over
-// .24 s after a .1 s wait (a card sinking away), which held the pill still all the way out of the sinusoid and let it jump after.)
+// transition as well nicely elegantly"). The bars go the same way (17 Oct, Mohammad: "the bars should probably slide out when
+// going into sinusoid and slide back in when going out", the pill gliding "with them same speed"): the dock slides down off the
+// screen as the zoom goes in, and back up into place as it comes out, on the same clock and curve, while Anatomy and Circuit fold
+// into the pill (pill-motion.js) and back out of it. The pill's new place is read every frame, less its own shift and the dock's,
+// so it eases onto where it rests even as the space it rests in is published a frame later.
+// (Both move by transform or translate on boxes no rule eases: on a phone or upright iPad the dock eases its parts' translate
+// over .24 s after a .1 s wait (a card sinking away), which held a glide written there still and let it jump after the zoom.)
+// The framing reads both at rest: the dock counts as gone from the moment it starts sliding away (vd-out), and while either
+// moves its shift on screen is in data-slide-y, which the published space (publish) and the figure's framing (stage.js) take off.
 const PILL_IN = 1150, PILL_OUT = 950;
-const easeIO3 = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
+// With the lobule the Sinusoid button slides out of the pill or back into it, on the clock of the dive into the lobule and the
+// rise out of it (stage.js DIVE_MS, RISE_MS) and the same curve (17 Oct, Mohammad: it "should slide out not just appear snap").
+const LOBULE_IN = 1600, LOBULE_OUT = 1000;
 let pillRaf = 0, pillEl = null, pillShiftY = 0;   // (pillShiftY: the glide's vertical shift now, in screen px)
+let barY = 0;   // (the dock's slide now, in its own px: 0 at rest, down is positive)
+const pillHome = () => { const b = $('#viewSeg')?.parentElement; return b && (b.id === 'nbViews' || b.id === 'sinViews') && b.offsetWidth ? b : null; };
 function viewPillRect() {
-  const box = $('#viewSeg')?.parentElement;
-  if (!box || (box.id !== 'nbViews' && box.id !== 'sinViews') || !box.offsetWidth) return null;
+  const box = pillHome();
+  if (!box) return null;
   const r = box.getBoundingClientRect();
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
-function glideViewPill(from, intoSin) {
+// One change of the pill's buttons: kind 'in' / 'out' (into or out of the sinusoid), 'down' / 'up' (into or out of the lobule).
+// What the pill draws is read first, then the buttons change, then all of it plays from there to where it now rests.
+function pillChange(change, kind) {
+  const seg = $('#viewSeg'), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, sin = kind === 'in' || kind === 'out';
+  const box0 = pillHome(), before = reduce || !box0 ? null : pillState(seg, box0), from = sin ? viewPillRect() : null;
+  // (Into the sinusoid the dock stays shown, out of the framing, while it slides away.)
+  if (kind === 'in' && !reduce) $('#vdock').classList.add('vd-out');
+  change();
+  syncThumb();
+  const box1 = pillHome();
+  if (before && box1) foldPill(seg, box1, before, kind === 'in' ? PILL_IN : kind === 'out' ? PILL_OUT : kind === 'down' ? LOBULE_IN : LOBULE_OUT);
+  else stopFold();
+  if (sin) { sinMotion(from, kind === 'in'); getComputedStyle(seg).color; }   // (styles settled in the new home before the pressed button changes, so it crossfades)
+}
+function sinMotion(from, intoSin) {
   cancelFrame(pillRaf); pillRaf = 0;
-  if (pillEl) { pillEl.style.transform = ''; pillEl.classList.remove('vp-glide'); pillEl = null; pillShiftY = 0; }
-  const box = $('#viewSeg').parentElement;
-  if (!box || (box.id !== 'nbViews' && box.id !== 'sinViews') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const ms = intoSin ? PILL_IN : PILL_OUT, t0 = performance.now();
+  if (pillEl) { pillEl.style.transform = ''; pillEl.classList.remove('vp-glide'); delete pillEl.dataset.slideY; pillEl = null; pillShiftY = 0; }
+  const vd = $('#vdock'), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, ms = intoSin ? PILL_IN : PILL_OUT, t0 = performance.now();
+  // The dock: from where it is drawn now (at rest, part way, or off the screen) to off the screen, or back to rest.
+  const leaving = vd.classList.contains('vd-out');
+  let bars = !reduce && !app.classList.contains('presenting') && vd.offsetHeight > 0, y0 = barY, y1 = 0, bz = 1;
+  if (bars) {
+    const r = vd.getBoundingClientRect();
+    bz = vd.currentCSSZoom || r.height / vd.offsetHeight || 1;
+    // (Its top, at rest, to past the screen's foot, with its shadow; never short of it, whichever px the interface zoom leaves.)
+    const left = innerHeight - (r.top - barY * bz), off = Math.max(left, left / bz) + 24;
+    if (intoSin) y1 = off; else if (!leaving) y0 = off;
+    if (!intoSin) vd.classList.remove('vd-out');
+  } else {
+    vd.classList.remove('vd-out'); barY = 0; vd.style.translate = ''; delete vd.dataset.slideY;
+  }
+  // The pill.
+  const box = from && !reduce ? pillHome() : null, inDock = !!box && vd.contains(box);
   let shift = [0, 0];
-  pillEl = box; box.style.setProperty('--vp-ms', `${ms}ms`); box.classList.add('vp-glide');
+  if (box) { pillEl = box; box.style.setProperty('--vp-ms', `${ms}ms`); box.classList.add('vp-glide'); }
   const step = (now) => {
-    const u = Math.min(1, (now - t0) / ms), el = pillEl;
-    if (!el) return;
-    // (Where it lies now, less the glide's own shift (read, not cleared, so no extra layout runs); px on screen turned into
-    // the box's own px, under the interface zoom.)
-    const r = el.getBoundingClientRect(), z = el.currentCSSZoom || (el.offsetWidth ? r.width / el.offsetWidth : 1) || 1;
-    if (u >= 1 || !r.width) { el.style.transform = ''; el.classList.remove('vp-glide'); pillEl = null; pillRaf = 0; pillShiftY = 0; return; }
-    const cx = r.left + r.width / 2 - shift[0] * z, cy = r.top + r.height / 2 - shift[1] * z, k = 1 - easeIO3(u);
-    shift = [(from.x - cx) * k / z, (from.y - cy) * k / z];
-    el.style.transform = `translate(${shift[0].toFixed(2)}px, ${shift[1].toFixed(2)}px)`; pillShiftY = shift[1] * z;
-    pillRaf = nextFrame(step);
+    const u = Math.min(1, (now - t0) / ms), e = easeIO3(u);
+    if (bars) {
+      barY = u >= 1 ? 0 : y0 + (y1 - y0) * e;
+      vd.style.translate = u >= 1 ? '' : `0 ${barY.toFixed(2)}px`;
+      if (u >= 1) delete vd.dataset.slideY; else vd.dataset.slideY = (barY * bz).toFixed(2);
+      if (u >= 1 && intoSin) vd.classList.remove('vd-out');   // (gone: the sinusoid view's rule hides it now)
+    }
+    const el = pillEl;
+    if (el) {
+      // (Where it lies now, less the glide's own shift and the dock's (read, not cleared, so no extra layout runs); px on screen
+      // turned into the box's own px, under the interface zoom.)
+      const r = el.getBoundingClientRect(), z = el.currentCSSZoom || (el.offsetWidth ? r.width / el.offsetWidth : 1) || 1;
+      if (u >= 1 || !r.width) { el.style.transform = ''; el.classList.remove('vp-glide'); delete el.dataset.slideY; pillEl = null; pillShiftY = 0; }
+      else {
+        const dock = inDock && bars ? barY * bz : 0;
+        const cx = r.left + r.width / 2 - shift[0] * z, cy = r.top + r.height / 2 - shift[1] * z - dock, k = 1 - e;
+        shift = [(from.x - cx) * k / z, (from.y - cy) * k / z];
+        el.style.transform = `translate(${shift[0].toFixed(2)}px, ${shift[1].toFixed(2)}px)`; pillShiftY = shift[1] * z;
+        el.dataset.slideY = (pillShiftY + dock).toFixed(2);
+      }
+    }
+    if (u < 1 && (bars || pillEl)) pillRaf = nextFrame(step); else pillRaf = 0;
   };
   step(t0);
 }
@@ -1445,9 +1509,9 @@ function wireThumbBar() {
   const layers = tab('layers', 'layers', 'Layers', menuTab(openLayersMenu));
   const more = tab('settings', 'gear', 'Settings', menuTab((a) => openSettings(a, true)));
   for (const b of [hist, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
-  $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews', 'data-safe': 'bottom', 'data-safe-pad': '12' }));
+  $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews', 'data-safe': 'bottom', 'data-safe-pad': '12' }, h('span', { class: 'vp-face', 'aria-hidden': 'true' })));
   $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, layers, more));
-  $('#stageView').append(h('div', { class: 'sin-views float-ui stage-blocker', id: 'sinViews' }));
+  $('#stageView').append(h('div', { class: 'sin-views float-ui stage-blocker', id: 'sinViews' }, h('span', { class: 'vp-face', 'aria-hidden': 'true' })));
   // The tabs follow the cards they open (and History's count), however those were opened or closed.
   const sync = () => {
     const t = String(treatOpen()), i = String(app.classList.contains('dock-open'));

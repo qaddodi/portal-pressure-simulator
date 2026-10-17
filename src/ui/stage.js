@@ -1293,13 +1293,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // sheets over the figure), and the figure never shrinks to a sliver for them.
   // The space the cards leave above them and below the top bars, as it really is (no softening): the HVPG
   // procedure keeps its zoomed view and readings inside it. A phone's sheet and a tablet's wide card count as bottom.
+  // (A piece sliding with the sinusoid zoom, main.js sinMotion: the dock as it slides away (vd-out) no longer counts, and while
+  // the dock or the view pill slides back, data-slide-y holds its shift on screen, so it counts where it will rest.)
+  const slideRest = (el, q) => { const y = +el.dataset.slideY || 0; return y ? new DOMRect(q.x, q.y - y, q.width, q.height) : q; };
   function cardSpace() {
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
-      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving')) continue;
+      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
       if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
-      const q = el.getBoundingClientRect();
+      const q = slideRest(el, el.getBoundingClientRect());
       if (!q.width || !q.height) continue;
       const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top - (+el.dataset.safePad || 0), y1 = q.bottom - wr.top;
       if (y1 <= 0 || y0 >= H) continue;
@@ -1318,9 +1321,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wide = W >= 768 || (W > H && H <= 500 && W >= 640);
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
-      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving')) continue;
+      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
       if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
-      let q = el.getBoundingClientRect();
+      let q = slideRest(el, el.getBoundingClientRect());
       if (!q.width || !q.height) continue;
       // (data-safe-rest: a card whose own transform only eases it in or out counts where it rests, so the camera frames once.)
       if ('safeRest' in el.dataset) q = restBox(el, q);

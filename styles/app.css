@@ -1321,7 +1321,13 @@ button.finding { cursor: pointer; }
 .sv-region-hep { color: var(--sv-hepatocyte); }
 /* The sinusoid view is a focused mode: only the way back to the lobule and the pressure legend stay (no lens to pick). The zoom pill keeps its place at the bottom right: its minus and fit step back out to the lobule, its plus rests (there is nothing closer to go to). */
 #zoomPill .ib:disabled { opacity: .35; pointer-events: none; }
-#app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #zoomPill #rotateCircuit, #vdock, #dock, #panel, #treatCard, #stageCenter) { display: none !important; }
+#app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #zoomPill #rotateCircuit, #dock, #panel, #treatCard, #stageCenter) { display: none !important; }
+/* (The dock too, once it has slid away: main.js sinMotion keeps it shown, out of the framing and out of reach, while it slides
+   down off the screen with the zoom into the sinusoid (vd-out), and slides it back up with the zoom out. Its views pill has moved
+   to the sinusoid view's own home meanwhile.) */
+#app.sin-focus #vdock:not(.vd-out) { display: none !important; }
+#app.sin-focus #vdock { pointer-events: none; }
+#app.sin-focus .vdock > .nb-views { display: none; }
 #app.sin-focus #btnLayers { pointer-events: none; cursor: default; }
 #app.sin-focus #btnLayers .chev { display: none; }
 .sv-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; color: var(--text-2); transition: opacity .6s var(--ease); }
@@ -5494,10 +5500,14 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    the bottom, level with the zoom group (+, − back to the lobule, Fit) at the bottom right. While presenting the switch
    stays in the top bar. */
 .nb-views, .sin-views { display: none; }
-.app:not(.presenting) .vdock:not(.mini) > .nb-views, #app.sin-focus:not(.presenting) .sin-views { display: flex; position: absolute; left: 0; right: 0; width: max-content; max-width: calc(100vw - 16px); margin: 0 auto; padding: 6px; border-radius: 21px; background: var(--glass); box-shadow: 0 0 1px rgb(var(--night-rgb) / .04), inset 0 0 0 1px var(--hairline); }   /* (a full pill, 42 px tall; only a 1 px contact shade, so the 8 px gap and the bar's edge keep the canvas's colour) */
+.app:not(.presenting) .vdock:not(.mini) > .nb-views, #app.sin-focus:not(.presenting) .sin-views { display: flex; position: absolute; left: 0; right: 0; width: max-content; max-width: calc(100vw - 16px); margin: 0 auto; padding: 6px; border-radius: 21px; isolation: isolate; }
+/* The pill's face: its glass, on a box of its own behind the buttons, so it can grow and shrink about its centre as buttons come
+   and go (pill-motion.js) while the buttons keep their places. (A full pill, 42 px tall; only a 1 px contact shade, so the 8 px
+   gap and the bar's edge keep the canvas's colour.) */
+:is(.nb-views, .sin-views) > .vp-face { position: absolute; z-index: -1; top: 0; bottom: 0; left: 50%; width: 100%; translate: -50% 0; border-radius: inherit; background: var(--glass); box-shadow: 0 0 1px rgb(var(--night-rgb) / .04), inset 0 0 0 1px var(--hairline); pointer-events: none; }
 .app:not(.presenting) .vdock:not(.mini) > .nb-views { bottom: calc(100% + 8px); }   /* (8 px above the play bar) */
 #app.sin-focus:not(.presenting) .sin-views { z-index: var(--z-hud); bottom: calc(var(--bot-occ, 120px) + 8px); }
-:is(.nb-views, .sin-views) #viewSeg { display: flex; gap: 2px; min-width: 0; height: auto; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:is(.nb-views, .sin-views) #viewSeg { position: relative; display: flex; gap: 2px; min-width: 0; height: auto; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
 :is(.nb-views, .sin-views) #viewSeg button { position: relative; flex: 0 0 auto; min-width: 0; min-height: 0; height: 30px; padding: 0 14px; border-radius: 15px; font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; white-space: nowrap; }
 /* (The painted pill is 30 px; the touch reaches 6 px past it above and below, to the pill's edge, unseen.) */
 :is(.nb-views, .sin-views) #viewSeg button::after { content: ""; position: absolute; inset: -6px 0; }
