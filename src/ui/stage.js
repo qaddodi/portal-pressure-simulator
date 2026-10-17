@@ -3272,9 +3272,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // included; opacity multiplies alpha as the matrix's alpha row did. A colour the grey cannot read keeps the filter.
   const organDimFx = defs.querySelector('#organDim feColorMatrix');
   let organDimKey = '', greyList = null, greyFilter = false;
+  // (While dimmed the groups' opacity transition (app.css, .5 s) is off: it would start each dim from full strength, a flash of
+  // the undimmed organs at every patient change. The dim eases on the plate's own clock, as the filter's did.)
   function paintOrganAlpha() {
-    const a = String(organMorphA * organDimA);
-    for (const g of [gOrgans, gBackdrop]) if (g.style.opacity !== a) g.style.opacity = a;
+    const a = String(organMorphA * organDimA), tr = organDimA !== 1 ? 'none' : '';
+    for (const g of [gOrgans, gBackdrop]) {
+      if (g.style.transition !== tr) g.style.transition = tr;
+      if (g.style.opacity !== a) g.style.opacity = a;
+    }
   }
   // Every colour the organs paint with (shapes, their gradients' stops and patterns' contents), as computed with no grey on.
   const GREY_TAGS = new Set(['path', 'circle', 'ellipse', 'rect', 'polygon', 'polyline', 'line', 'text', 'tspan', 'use', 'stop']);
