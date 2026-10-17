@@ -33,3 +33,9 @@ test('the GPU fills a plate texture of its own and swaps it in whole', () => {
   assert.match(gl, /setPlate\(slot, job, rect\) \{\n\s+if \(plates\[slot\]\) gl\.deleteTexture\(plates\[slot\]\.tex\);\n\s+plates\[slot\] = \{ tex: job\.tex, rect \};/);
   assert.doesNotMatch(gl, /UNPACK_PREMULTIPLY_ALPHA_WEBGL, true/, 'the strips come premultiplied');
 });
+
+test('an ease that outgrows the plate shows on the live drawing, and the plate is drawn again once it settles', () => {
+  // (Held, the organs inside the plate stood still while their outlines moved through a fill played over days, then jumped.)
+  const poke = stage.slice(stage.indexOf('function platePoke'), stage.indexOf('const key = plateStateKey();', stage.indexOf('function platePoke')));
+  assert.match(poke, /if \(lvMoving \|\| fluidEasing\(\)\) \{ if \(plateKey && veins\.hasPlate\(0\) && plateStateKey\(\) !== plateKey\) hidePlate\(\); return; \}/);
+});

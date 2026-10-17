@@ -3177,7 +3177,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function platePoke() {
     // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
     if (lobuleOn && !lz?.isOpen()) return;
-    if (lvMoving || fluidEasing() || !veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden()) return;
+    if (!veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden()) return;
+    // An ease that outgrows the plate (a fill played over days, a liver that changes in small steps) shows on the live drawing
+    // as it goes, and the plate is drawn again once it settles: held, the organs inside it stood still while their outlines
+    // moved, then jumped to the new shape at the end (Ascites deck slide 5, 17 Oct).
+    if (lvMoving || fluidEasing()) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); return; }
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
     readFluidInk(wrapCS());
