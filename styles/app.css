@@ -1718,6 +1718,8 @@ button.finding { cursor: pointer; }
 .pz-case-tag { --site: var(--accent); align-self: center; font-size: calc(var(--s-body) * 1.15); }
 .pz-case { --case-max: 2.5; }
 .pz.stack .pz-case { --case-max: 2; }   /* (a phone: the case words a fifth smaller, so the card no longer fills the screen) */
+/* An upright tablet: the case card is the teaching card's width (70%, centred as it is), as tall as its words need, centred both ways (Mohammad, 17 Oct). */
+.pz.stack.tab .pz-case { width: 70%; }
 .pz-case-p { margin: 0; text-align: center; font: 500 calc(var(--s-body) * var(--case-k, var(--case-max)))/1.25 var(--font-display); letter-spacing: -.01em; color: var(--text); text-wrap: pretty; }
 .pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity .5s var(--ease); }
 .pz-veil.on { opacity: 1; }

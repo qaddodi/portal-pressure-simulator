@@ -70,6 +70,15 @@ test('the case text is 2.5x the teaching card body, and eases down only to fit t
   assert.match(src, /c\.scrollHeight > c\.clientHeight \+ 1; k -= 0\.1\) c\.style\.setProperty\('--case-k'[^\n]*\n\s*c\.classList\.add\('on'\)/);
 });
 
+test('on an upright tablet the case card is the teaching card\'s width, its own height, centred both ways', () => {
+  // The teaching card there spans 70% (15% each side); the case card matches it, centred by inset 0 and auto margins.
+  assert.match(css, /\.pz-shade\.stack\.tab \{ left: 15%; right: 15%; \}/);
+  assert.match(css, /\.pz\.stack\.tab \.pz-case \{ width: 70%; \}/);
+  const rule = css.match(/\.pz-case \{[^}]*\}/)[0];
+  assert.match(rule, /position: absolute; inset: 0; margin: auto;/);
+  assert.match(rule, /height: fit-content/);
+});
+
 test('the Case pill is set at the teaching card body size or larger, not the small site-tag size', () => {
   assert.match(css, /\.pz-case-tag \{[^}]*font-size: calc\(var\(--s-body\) \* 1\.15\)/);
 });
