@@ -77,7 +77,7 @@ out vec4 o;
 ${COMMON}
 uniform int uPass;              // 0: the tissue; 1: the cells that lie over the moving particles (stellate, Kupffer)
 uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uFlow, uLym, uLyF, uDir, uDark, uShim, uStreak;
-uniform vec3 cBg, cShade, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cFen, cHscQ, cHscA, cHscN, cKup, cKupN, cKupE, cRbc, cEndF, cEndE;
+uniform vec3 cBg, cShade, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoS, cEndoE, cEndoN, cHscQ, cHscA, cHscN, cKup, cKupN, cKupE, cRbc, cEndF, cEndE;
 uniform float aBm;
 uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
 uniform vec2 uEndA;              // how much each end's name shows (0 to 1): its arrow fades with it
@@ -135,49 +135,47 @@ float poreOpen(int j, int sd, out float px) {
   float th = 0.12 + 0.28 * abs(float(k) - 5.0) + 0.18 * h1(G, sd + 4);
   return ${PORE_W.toFixed(2)} * smoothstep(th - 0.06, th + 0.06, uPor);
 }
-// The endothelium of a lining at |y| = a (lumen face at hw): one thin, even sheet, the open fenestrae cut through it
-// as small round-ended pores (they close, one by one, as it defenestrates), and the flat nuclei bulging gently into
-// the lumen; with little detail (as the lobule draws it) a hairline casing.
-// dP is the open fenestrae's windows (each pore filled, a little past the sheet's faces, so it reads at any pressure,
-// and clear of the nuclei, which cover their pores as before); pF eases the nearest one in and out as it opens and closes.
-float sdEndo(float x, float a, float hw, int sd, int nsd, bool skipK, float det, out float dN, out float dP, out float pF) {
-  float th = mix(0.1, 0.16, det) * (1.0 + 0.45 * (1.0 - uPor));   // half its thickness (a little thicker as it capillarizes)
+// The endothelium of a lining at |y| = a (lumen face at hw): one thin, solid sheet in section, cut through by real gaps
+// where its fenestrae are open (the plasma runs through them; they close, one by one, as it defenestrates), each cell
+// swelling over its flat nucleus, which bulges into the lumen, with a fine junction midway to the next cell; a little
+// thicker as it capillarizes. With little detail (as the lobule draws it) a hairline casing.
+// dN is the nucleus, dJ the junctions between cells.
+float endoTh(float det) { return mix(0.1, 0.19, det) * (1.0 + mix(0.45, 0.63, det) * (1.0 - uPor)); }   // half its thickness
+float nucAt(int n, int nsd) { return 38.0 * float(n) + 8.0 + 22.0 * h1(n, nsd); }
+float sdEndo(float x, float a, float hw, int sd, int nsd, bool skipK, float det, out float dN, out float dJ) {
+  float th = endoTh(det);
   float ay = a - (hw + ENDO * 0.5), d = abs(ay) - th;
-  dN = 1e3; dP = 1e3; pF = 0.0;
+  dN = 1e3; dJ = 1e3;
   if (det < 0.02) return d;
   int j = int(floor(x / SLOT));
   for (int k = -1; k <= 1; k++) {
     float px;
     float w = poreOpen(j + k, sd, px) * det;
-    if (w > 0.02) {
-      d = smax(d, -(abs(x - px) - 0.5 * w), th);
-      vec2 b = vec2(0.5 * w, th + 0.14);
-      float dw = sdRB(vec2(x - px, ay), b, 0.45 * min(b.x, b.y));
-      if (dw < dP) { dP = dw; pF = smoothstep(0.02, 0.14, w); }
-    }
+    if (w > 0.02) d = smax(d, -(abs(x - px) - 0.5 * w), th);   // a gap with rounded lips
   }
   if (nsd > 0) {
     int n = int(floor(x / 38.0));
     for (int k = -1; k <= 1; k++) {
-      float c = 38.0 * float(n + k) + 8.0 + 22.0 * h1(n + k, nsd);
+      float c = nucAt(n + k, nsd);
+      float m = 0.5 * (c + nucAt(n + k + 1, nsd));
+      dJ = min(dJ, sdTaper(vec2(x - m, ay), vec2(-0.5, -th), vec2(0.5, th), 0.0, 0.0));
       if (skipK && abs(c - uXk) < 12.0) continue;
-      float dB = sdE(vec2(x - c, a - (hw + ENDO * 0.5)), vec2(4.6, th + 0.55 * det));
-      d = smin(d, dB, 1.6);
-      dP = max(dP, -dB);
-      dN = min(dN, sdE(vec2(x - c, a - (hw + ENDO * 0.5) + 0.12 * det), vec2(3.0, 0.32 * det + 0.01)));
+      vec2 q = vec2(x - c, ay + 0.38 * det);   // the body and nucleus sit toward the lumen
+      d = smin(d, sdE(q, vec2(3.3, th + 0.55 * det)), 0.9);
+      dN = min(dN, sdE(q, vec2(2.3, 0.42 * det + 0.01)));
     }
   }
   return d;
 }
-// The endothelial cells: one flat, slightly translucent sheet (the lumen and Disse tint it; no outline), the nucleus a
-// deeper, smooth lens. Each open fenestra is a flat pale window through the sheet with a thin rim in the nucleus ink,
-// in its own colour rather than the blood's, so it stays plain against red blood at a high pressure as at a low one.
-vec3 endoInk(vec3 under, float d, float dN, float dP, float pF, float x, float det) {
-  vec3 c = mix(under, mix(cEndo, cEndoN, 0.3 * det), cov(d) * mix(0.95, 0.85, det));
-  c = mix(c, mix(cEndoN, cEndo, 0.4), cov(dN) * 0.8);
-  c = mix(c, cEndoN, line(dN, 0.05) * 0.35 * det);
-  c = mix(c, cFen, cov(dP) * pF * det);
-  return mix(c, cEndoN, line(dP, 0.07) * 0.85 * pF * det);
+// The endothelial cells: one solid sheet with a thin dark border round the whole cell (both faces, the lips of every
+// open pore and the swell over the nucleus), the nucleus a deeper lens with its own rim, the junctions in the border ink.
+// The border and the sheet's own colour come in with the detail; without it the casing is drawn as before.
+vec3 endoInk(vec3 under, float d, float dN, float dJ, float det) {
+  vec3 c = mix(under, cEndoE, cov(d - max(0.1, 2.4 * uPx) * det) * det);
+  c = mix(c, mix(cEndo, cEndoS, det), cov(d) * mix(0.95, 1.0, det));
+  c = mix(c, cEndoN, cov(dN));
+  c = mix(c, mix(cEndoN, cEndoE, 0.6), line(dN, 0.05) * det);
+  return mix(c, cEndoE, line(dJ, 0.09) * cov(d) * det);
 }
 
 // ── The lumen, flat as the lobule's: pressure colour, a thin light line and a thin dark one, the streaks ──
@@ -418,7 +416,8 @@ void main() {
       c = mix(c, cEndF, cov(dA) * 0.5 * uEnd.w * (i == 0 ? uEndA.x : uEndA.y));
     }
   }
-  else if (a < wi) c = mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (a - hw) / ENDO);
+  // Under the lining: as the detail comes in, the blood up to the sheet's outer face (what an open pore shows), the lymph beyond.
+  else if (a < wi) c = mix(mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (a - hw) / ENDO), mix(cLymph, cLumen, cov(a - (hw + ENDO * 0.5 + endoTh(det)))), det);
   else if (a < hi) c = disse(x, a, wi, hi, side, true, det);
   else {
     float v = a - hi;
@@ -433,8 +432,8 @@ void main() {
       else if (b < D + 2.0 * E + 2.0 * L) {
         float yl = b - (D + E + L), al = abs(yl);
         c = al < L ? lumen(x, yl, L, 40) : mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (al - L) / E);
-        float dN, dP, pF, de = sdEndo(x, al, L, side < 0 ? 7 : 9, 0, false, 0.0, dN, dP, pF);
-        c = endoInk(c, de, dN, dP, pF, x, 0.0);
+        float dN, dJ, de = sdEndo(x, al, L, side < 0 ? 7 : 9, 0, false, 0.0, dN, dJ);
+        c = endoInk(c, de, dN, dJ, 0.0);
       }
       else if (b < 2.0 * D + 2.0 * E + 2.0 * L) c = disse(x, b - (D + 2.0 * E + 2.0 * L) + E, E, D + E, side, false, 0.0);
       else c = plate(x, b - (2.0 * D + 2.0 * E + 2.0 * L), sd + 13, 0.0);
@@ -442,8 +441,8 @@ void main() {
   }
   // The main lining over all that.
   if (a < wi + 0.6 && a > hw - 1.4) {
-    float dN, dP, pF, de = sdEndo(x, a, hw, side < 0 ? ${SEED.poreUp} : ${SEED.poreDn}, side < 0 ? ${SEED.nucUp} : ${SEED.nucDn}, side > 0, det, dN, dP, pF);
-    c = endoInk(c, de, dN, dP, pF, x, det);
+    float dN, dJ, de = sdEndo(x, a, hw, side < 0 ? ${SEED.poreUp} : ${SEED.poreDn}, side < 0 ? ${SEED.nucUp} : ${SEED.nucDn}, side > 0, det, dN, dJ);
+    c = endoInk(c, de, dN, dJ, det);
   }
   // Focus: beyond this sinusoid's own plates the tissue fades to dark (the page in dark mode, a deep shade in light).
   float f0 = uLum + ENDO + disseW(0.0) + HEP * 0.85;

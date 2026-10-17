@@ -208,7 +208,7 @@
   --lz-streak-shadow: rgba(60, 30, 50, .35); --lz-lymph: rgba(150, 186, 140, .42); --lz-albumin: var(--albumin); --lz-albumin-ring: rgba(255, 255, 255, .95);
   --lz-collagen: #966828; --lz-rbc: rgba(150, 18, 40, .8);
   /* sinusoid art (WebGL): cells, lymph by protein (low, mid, high), albumin */
-  --sv-gl-nucleus: #844664; --sv-gl-basement: #967646; --sv-gl-bile: var(--bile-duct); --sv-gl-endothelium: #B8B0CC; --sv-gl-fenestra: #EEF2FA;
+  --sv-gl-nucleus: #844664; --sv-gl-basement: #967646; --sv-gl-bile: var(--bile-duct); --sv-gl-endothelium: #B8B0CC; --sv-gl-endo-sheet: #D2CBE6; --sv-gl-endo-edge: #5A5082;
   --sv-gl-endo-nucleus: #8072A0; --sv-gl-hsc-quiet: #E0B896; --sv-gl-hsc-active: #BE805E;
   --sv-gl-hsc-nucleus: #925A42; --sv-gl-kupffer: #B296D6; --sv-gl-kupffer-nucleus: #6C509C;
   --sv-gl-kupffer-edge: #60468E; --sv-gl-rbc: #CC4A50; --sv-gl-albumin: var(--albumin); --sv-gl-albumin-edge: #8C4C00;
@@ -266,7 +266,7 @@
     --collagen: rgb(199, 186, 153); --lz-field-sin-pale: #2E1A26; --lz-septum: rgb(199, 186, 153); --lz-zone-line: rgba(255, 255, 255, .3); --lz-nodule-ink: rgba(30, 14, 28, .22); --lz-nodule-shadow: rgba(0, 0, 0, .5); --lz-plate-line: rgba(255, 255, 255, .1);
     --lz-duct-cell: #8E9150; --lz-duct-edge: rgba(36, 38, 16, .55); --lz-duct-nucleus: #3E4120; --lz-duct-lumen: #2C2F16;
     --lz-lymph: rgba(214, 236, 204, .42); --lz-albumin-ring: rgba(20, 14, 4, .9); --lz-collagen: #E8C48C; --lz-rbc: rgba(255, 120, 140, .9);
-    --sv-gl-nucleus: #281222; --sv-gl-basement: #CCBC8E; --bile-duct: #969C50; --sv-gl-endothelium: #7A749C; --sv-gl-fenestra: #B8C6E2;
+    --sv-gl-nucleus: #281222; --sv-gl-basement: #CCBC8E; --bile-duct: #969C50; --sv-gl-endothelium: #7A749C; --sv-gl-endo-sheet: #A39CCB; --sv-gl-endo-edge: #2C2650;
     --sv-gl-endo-nucleus: #544A78; --sv-gl-hsc-quiet: #B08666; --sv-gl-hsc-active: #A0664A;
     --sv-gl-hsc-nucleus: #60382A; --sv-gl-kupffer: #846AB0; --sv-gl-kupffer-nucleus: #4A3674;
     --sv-gl-kupffer-edge: #3A2A60; --sv-gl-rbc: #B03E48; --albumin: #F2B64A; --sv-gl-albumin-edge: #6E3A00;
@@ -313,7 +313,7 @@
   --collagen: rgb(199, 186, 153); --lz-field-sin-pale: #2E1A26; --lz-septum: rgb(199, 186, 153); --lz-zone-line: rgba(255, 255, 255, .3); --lz-nodule-ink: rgba(30, 14, 28, .22); --lz-nodule-shadow: rgba(0, 0, 0, .5); --lz-plate-line: rgba(255, 255, 255, .1);
   --lz-duct-cell: #8E9150; --lz-duct-edge: rgba(36, 38, 16, .55); --lz-duct-nucleus: #3E4120; --lz-duct-lumen: #2C2F16;
   --lz-lymph: rgba(214, 236, 204, .42); --lz-albumin-ring: rgba(20, 14, 4, .9); --lz-collagen: #E8C48C; --lz-rbc: rgba(255, 120, 140, .9);
-  --sv-gl-nucleus: #281222; --sv-gl-basement: #CCBC8E; --bile-duct: #969C50; --sv-gl-endothelium: #7A749C; --sv-gl-fenestra: #B8C6E2;
+  --sv-gl-nucleus: #281222; --sv-gl-basement: #CCBC8E; --bile-duct: #969C50; --sv-gl-endothelium: #7A749C; --sv-gl-endo-sheet: #A39CCB; --sv-gl-endo-edge: #2C2650;
   --sv-gl-endo-nucleus: #544A78; --sv-gl-hsc-quiet: #B08666; --sv-gl-hsc-active: #A0664A;
   --sv-gl-hsc-nucleus: #60382A; --sv-gl-kupffer: #846AB0; --sv-gl-kupffer-nucleus: #4A3674;
   --sv-gl-kupffer-edge: #3A2A60; --sv-gl-rbc: #B03E48; --albumin: #F2B64A; --sv-gl-albumin-edge: #6E3A00;

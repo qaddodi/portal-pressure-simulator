@@ -24,7 +24,7 @@ import { pressureColor } from './colormap.js?v=831ae6121c';
 import { isPaused } from './clock.js?v=520596240b';
 import { store } from './store.js?v=31ee79b6ab';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=4a08720f77';
+import { createSinusoidGL, poreAt, poreOpenness, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=7360dfe571';
 import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=67ca200c87';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 const nextFrame = frameFor('sinusoid-view');
@@ -251,7 +251,7 @@ export function createSinusoidView({ host }) {
       cNuc: t('--sv-gl-nucleus'),
       cCol: t('--collagen'), cBm: t('--sv-gl-basement'), aBm: dark ? 0.6 : 0.8,
       cBile: t('--sv-gl-bile'),
-      cEndo: t('--sv-gl-endothelium'), cEndoN: t('--sv-gl-endo-nucleus'), cFen: t('--sv-gl-fenestra'),
+      cEndo: t('--sv-gl-endothelium'), cEndoS: t('--sv-gl-endo-sheet'), cEndoE: t('--sv-gl-endo-edge'), cEndoN: t('--sv-gl-endo-nucleus'),
       cHscQ: t('--sv-gl-hsc-quiet'), cHscA: t('--sv-gl-hsc-active'), cHscN: t('--sv-gl-hsc-nucleus'),
       cKup: t('--sv-gl-kupffer'), cKupN: t('--sv-gl-kupffer-nucleus'), cKupE: t('--sv-gl-kupffer-edge'),
       cRbc: t('--sv-gl-rbc'),

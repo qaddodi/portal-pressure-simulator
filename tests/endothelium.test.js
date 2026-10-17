@@ -1,6 +1,6 @@
-// The sinusoid's open fenestrae stay plain however red the blood: each is a flat window in its own colour
-// (--sv-gl-fenestra) with a rim in the endothelial nucleus ink, not a gap that shows the blood's colour through it.
-// The window must stand at 3:1 or better against the blood from 12 mmHg up and against its own rim, in every theme.
+// The sinusoid's lining, as an electron micrograph section draws it: a thin solid sheet with a dark border round each
+// cell, cut through by real gaps where the fenestrae are open (the blood shows through them), and a nucleus that
+// bulges into the lumen. The border must stand at 3:1 or better against the sheet, in every theme.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -21,29 +21,30 @@ const hex = (s) => { assert.match(s, /^#[0-9a-f]{6}$/i, `a solid colour, got ${s
 const lum = (c) => { const l = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2]; };
 const ratio = (a, b) => { const [x, y] = [lum(hex(a)), lum(hex(b))].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
-test('the fenestra window reads against high-pressure blood and its rim in every theme', () => {
-  const ramp = light['--ramp-pressure'].split(',').map((s) => s.trim().split(/\s+/)).map(([h, p]) => [Number(p), h]);
-  const high = ramp.filter(([p]) => p >= 12).map(([, h]) => h);
-  assert.ok(high.length >= 2, 'the ramp has its high-pressure stops');
+test('the endothelial cell reads by its border and nucleus in every theme', () => {
   for (const [name, T] of Object.entries(THEMES)) {
-    const fen = T['--sv-gl-fenestra'];
-    assert.ok(fen, `${name}: --sv-gl-fenestra is set`);
-    for (const h of high) assert.ok(ratio(fen, h) >= 3, `${name}: window ${fen} vs blood ${h} is ${ratio(fen, h).toFixed(2)}`);
-    assert.ok(ratio(fen, T['--sv-gl-endo-nucleus']) >= 3, `${name}: window vs rim`);
+    const sheet = T['--sv-gl-endo-sheet'], edge = T['--sv-gl-endo-edge'];
+    assert.ok(sheet && edge, `${name}: the sheet and its border are set`);
+    assert.ok(ratio(sheet, edge) >= 3, `${name}: border ${edge} vs sheet ${sheet} is ${ratio(sheet, edge).toFixed(2)}`);
+    assert.ok(ratio(sheet, T['--sv-gl-endo-nucleus']) >= 2.5, `${name}: nucleus vs sheet is ${ratio(sheet, T['--sv-gl-endo-nucleus']).toFixed(2)}`);
   }
 });
 
-test('the system dark theme carries the same fenestra colour as the chosen dark theme', () => {
+test('the system dark theme carries the same endothelium as the chosen dark theme', () => {
   const sys = tokens.slice(tokens.indexOf('@media (prefers-color-scheme: dark)'));
-  assert.match(sys.slice(0, sys.indexOf('--sv-gl-endo-nucleus')), new RegExp(`--sv-gl-fenestra: ${THEMES.dark['--sv-gl-fenestra']};`));
+  const head = sys.slice(0, sys.indexOf('--sv-gl-endo-nucleus'));
+  for (const k of ['--sv-gl-endo-sheet', '--sv-gl-endo-edge']) assert.match(head, new RegExp(`${k}: ${THEMES.dark[k]};`));
 });
 
-test('the shader fills each open fenestra with its window colour and rim, fading as it closes', () => {
-  assert.match(view, /cFen: t\('--sv-gl-fenestra'\)/);
-  assert.match(gl, /uniform vec3 [^;]*\bcFen\b/);
-  assert.match(gl, /mix\(c, cFen, cov\(dP\) \* pF \* det\)/);
-  assert.match(gl, /mix\(c, cEndoN, line\(dP, [\d.]+\) \* [\d.]+ \* pF \* det\)/);
-  assert.match(gl, /pF = smoothstep\(/);
+test('an open fenestra is a real gap in the sheet, and the whole cell has a border', () => {
+  assert.match(view, /cEndoS: t\('--sv-gl-endo-sheet'\), cEndoE: t\('--sv-gl-endo-edge'\)/);
+  assert.match(gl, /uniform vec3 [^;]*\bcEndoS, cEndoE\b/);
+  assert.ok(!/cFen|--sv-gl-fenestra/.test(gl + view + tokens), 'no window fill left');
+  assert.ok(gl.includes('if (w > 0.02) d = smax(d, -(abs(x - px) - 0.5 * w), th);'), 'each open pore cuts through the sheet');
+  // The border sits outside the sheet's edge (its faces, the pores' lips, the swell over the nucleus), with the detail.
+  assert.ok(gl.includes('vec3 c = mix(under, cEndoE, cov(d - max(0.1, 2.4 * uPx) * det) * det);'));
+  // Under the sheet an open pore shows the blood up to the sheet's outer face.
+  assert.ok(gl.includes('mix(cLymph, cLumen, cov(a - (hw + ENDO * 0.5 + endoTh(det))))'));
 });
 
 test('each sieve plate is an even row of same-size pores that closes from its ends inward', async () => {
