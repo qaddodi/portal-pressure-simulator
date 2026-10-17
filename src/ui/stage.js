@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=0140acc352';
-import { createLobuleZoom } from './lobule-zoom.js?v=6023406a80';
+import { createLobuleZoom } from './lobule-zoom.js?v=d85818795b';
 import { runFlick, FLICK } from './flick.js?v=c0226d6397';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -20,7 +20,8 @@ import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=4924cba97d';
+import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=170817db7c';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=1f05278710';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=5efaa2bcc9';
@@ -3058,8 +3059,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Drops the plate rasters and shows the live SVG organs. The vessel layer is redrawn in the same
   // task (after the model update in progress), so no frame shows the SVG organs over the old GPU
   // plate: the two, and the ascites, would add up to a bright flash.
-  let plateRedraw = false;
+  let plateRedraw = false, plateDrops = 0;
   function hidePlate() {
+    plateDrops++;   // (a raster still on its way in is of the state before: rasterPlate gives it up)
     veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = ''; plateCopy = null;
     wrap.classList.remove('gl-plate'); veinsDirty = true; syncPlateLook();
     if (inUpdate) plateRedraw = true; else drawVeins();
@@ -3128,20 +3130,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   async function rasterPlate(slot, rect, scale) {
     const W = Math.max(1, Math.round(rect[2] * scale)), H = Math.max(1, Math.round(rect[3] * scale));
-    const seq = plateSeq;
+    const seq = plateSeq, drops = plateDrops;
     const url = URL.createObjectURL(new Blob([plateMarkup(rect, W, H, slot === 0)], { type: 'image/svg+xml' }));
     try {
       const img = new Image();
       await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
       if (seq !== plateSeq || !veins || veins.lost) return false;
+      // Drawn into a canvas kept in memory and sent as pixels, a strip per frame (plate-upload.js): a canvas handed to the
+      // GPU stalled Safari for up to 750 ms. The raster shown meanwhile stays until the last strip is in.
       const c = document.createElement('canvas');
       c.width = W; c.height = H;
-      c.getContext('2d').drawImage(img, 0, 0, W, H);
-      veins.setPlate(slot, c, rect);
-      // (Its memory is given back a moment later, not at once: Chrome copies a canvas into a texture on the GPU after the call
-      // returns, and a canvas emptied right away left the texture blank, so the organs vanished at a Retina size.)
-      setTimeout(() => { c.width = c.height = 0; }, 1000);
-      return true;
+      const g = c.getContext('2d', { willReadFrequently: true });
+      g.drawImage(img, 0, 0, W, H);
+      const v = veins;
+      let job = v.plateJob(W, H);
+      try {
+        for (const [y, rows] of plateStrips(W, H)) {
+          if (y) await new Promise((res) => nextFrame(res));
+          if (seq !== plateSeq || drops !== plateDrops || v !== veins || v.lost) return false;
+          v.plateRows(job, y, rows, premultiply(g.getImageData(0, y, W, rows).data));
+        }
+        v.setPlate(slot, job, rect); job = null;
+        return true;
+      } finally { if (job && !v.lost) v.dropJob(job); c.width = c.height = 0; }
     } finally { URL.revokeObjectURL(url); }
   }
   // What the plate shows, in coarse steps: re-rasterize when it changes.

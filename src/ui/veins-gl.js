@@ -1605,15 +1605,27 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
       organRect = rect; fboOK = false;
     },
-    /** A plate raster (0: the whole plate, 1: a sharper one of the view) and the world rectangle it spans. */
-    setPlate(slot, source, rect) {
-      const t = plates[slot]?.tex || dataTex(gl, gl.LINEAR);
-      gl.bindTexture(gl.TEXTURE_2D, t);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-      plates[slot] = { tex: t, rect };
+    /**
+     * A plate raster on its way in (plate-upload.js): a W × H texture of its own, filled by plateRows and shown by setPlate.
+     * The texture shown meanwhile stays as it was.
+     */
+    plateJob(W, H) {
+      const tex = dataTex(gl, gl.LINEAR);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      return { tex, W };
     },
+    /** Rows y to y + rows of a plate raster on its way in: premultiplied RGBA pixels. */
+    plateRows(job, y, rows, pixels) {
+      gl.bindTexture(gl.TEXTURE_2D, job.tex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, y, job.W, rows, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    },
+    /** Shows a filled plate raster (0: the whole plate, 1: a sharper one of the view) over the world rectangle it spans. */
+    setPlate(slot, job, rect) {
+      if (plates[slot]) gl.deleteTexture(plates[slot].tex);
+      plates[slot] = { tex: job.tex, rect };
+    },
+    /** A plate raster given up on its way in. */
+    dropJob(job) { gl.deleteTexture(job.tex); },
     /**
      * The peritoneal cavity (the ascites is drawn inside it) over a world rectangle: its half-width about the rectangle's
      * middle at rows evenly from its top to its bottom (anatomy.js cavityHalfWidths).
@@ -1871,7 +1883,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   };
   // (Timed for the debug overlay's GPU readout: gpu-probe.js. Off, each call costs one check.)
   const steps = { draw: 'vessels', drawRows: 'vessels', composite: 'picture', setGeometry: 'uploads', setRadii: 'uploads', setTubes: 'uploads',
-    setOrgans: 'uploads', setPlate: 'uploads', setFluidSpans: 'uploads', setFluidCells: 'uploads', setFlow: 'uploads', setDye: 'uploads' };
+    setOrgans: 'uploads', plateJob: 'uploads', plateRows: 'uploads', setPlate: 'uploads', setFluidSpans: 'uploads', setFluidCells: 'uploads', setFlow: 'uploads', setDye: 'uploads' };
   for (const [k, name] of Object.entries(steps)) {
     const f = api[k];
     api[k] = function (...a) { return gpuProbe.on ? gpuProbe.time(gl, name, () => f.apply(this, a)) : f.apply(this, a); };
