@@ -1621,8 +1621,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
 
   // ── The case card ──
   // (caseLift: set while a case card is up; the first Next, swipe (on the card or anywhere) or tap on the card lifts it rather than changing the slide.)
-  // The card goes up first and the new patient loads behind it. The slide then goes on as usual behind the card: its words are
-  // fitted unseen and the camera glides once to the slide's own framing, so after the tap there is no second move (see caseEnd).
+  // The card goes up first; behind it the camera eases out to the whole patient, and only once it is still does the new patient
+  // grow in, seen around the card (a camera move over a changing patient paints the organs whole every frame). The slide's words
+  // are fitted unseen meanwhile; the tap lifts the card, the camera makes one eased zoom to the slide's own framing, and the
+  // slide's cards come in once it has landed (see caseLifted, caseEnd).
   let caseLift = null, caseCard = null;
   async function caseRun(s, si, st, cut) {
     const c = ui.vcase, ms = reduce.matches ? 0 : 450;
@@ -1640,11 +1642,27 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     caseLift = () => caseGone(card);
     await wait(ms);
     if (cut()) return false;
-    // Behind the card: out of the liver, the new patient eased in.
+    // The leaving slide's cards (faded out, still in place) no longer count for the framing: the wide view is the whole patient
+    // around the case card. (The new slide's words set their own space again before the zoom to the slide: settleRun.)
+    ui.safe.hidden = true;
+    if (ui.data.classList.contains('pz-hide') && !ui.data.hidden) { ui.data.hidden = true; ui.tools.hide(); }
+    // Behind the card: out of the liver, and out to the whole patient (unless the card was already lifted: the slide goes on from here).
     await toAnatomy(null); if (cut()) return false;
+    if (!card.lifted) {
+      const gl = reduce.matches ? 300 : 1500;
+      stage.fitSlow(gl); await wait(gl);
+      await until(() => cut() || !stage.gliding(), 600); if (cut()) return false;
+    }
+    // Then, the camera still, the new patient eases in.
     liveOff = false; shownState = -1;
     if (!await morphTo(st, cut, reduce.matches ? 0 : 1200)) return false;
     shownState = si;
+    // (The fit follows what the new patient draws, a growing ascites or spleen: once the organs are back on their GPU copy, one
+    // short ease takes it in, and none when it already fits.)
+    if (!card.lifted) {
+      await until(() => cut() || card.lifted || stage.organsSettled(), CATH_SETTLE_MS); if (cut()) return false;
+      if (!card.lifted) stage.fitSlow(reduce.matches ? 300 : 900);
+    }
     if (view.classList.contains('pz-out')) figureIn(); else loading(false);
     return !cut();
   }
@@ -1688,6 +1706,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     c.style.removeProperty('transform'); c.style.removeProperty('opacity');
     card.dx = 0;
     setTimeout(() => { if (!card.flown && !card.drag) c.style.removeProperty('transition'); }, 380);
+  }
+  // Before the slide's camera move: waits for the tap (the card fades as the camera sets off), and for the organs to be back on
+  // their GPU copy, so the zoom to the slide is smooth even after a quick tap while the patient was still easing in.
+  async function caseLifted(cut) {
+    const card = caseCard;
+    if (!card) return;
+    if (!card.lifted) await until(() => cut() || card.lifted, 864e5);
+    if (cut()) return;
+    await until(() => cut() || stage.organsSettled(), CATH_SETTLE_MS);
   }
   // Once the slide is ready behind the card (patient in, camera landed): waits for the tap, then lifts the card whole before the slide's cards come in.
   async function caseEnd(cut) {
@@ -1864,6 +1891,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // frame paints again whole, its diaphragm mask stretched over the abdomen by the flank: the route's glide ran at about 1 fps (HVPG
     // slide 9, Budd–Chiari). So the catheter sets off once the organs are back on the GPU copy, as every other slide's camera moves over it.
     if (ct && swap && glide) { await until(() => cut() || stage.organsSettled(), CATH_SETTLE_MS); if (cut()) return; }
+    // Behind a case card the camera holds the whole patient until the tap; then it zooms to the slide as the card fades.
+    if (caseCard) { await caseLifted(cut); if (cut()) return; }
     if (ct) await cathTo(ct, st.fp, cut);
     else if (lead) await lead;
     else if (cam) await camera(cam, s, cut);
