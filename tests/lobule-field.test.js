@@ -48,7 +48,7 @@ test('in dark mode the field lobules\' capillarized sinusoids are dark (they rec
 });
 
 test('every zoom into the lobule draws it first, for where it lands, then zooms; the anatomy returns after landing', () => {
-  assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);[^\n]*\n\s+if \(fade > 0 \|\| !F\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true;/);
+  assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);[^\n]*\n\s+if \(fade > 0 \|\| !F\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true; snapState\(\);/);
   assert.match(lz, /idleDrawn = ''; draw\(0\); diveDrawn = true; staged = api\.viewKey\(\); relLater = true;/);
   assert.match(lz, /if \(fade <= 0 && !staging\) return;/, 'update fills in the model while staging');
   // Both ways in (a tap or slide, and a pinch) draw it before their zoom's clock starts.
@@ -56,7 +56,7 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
   assert.match(stage, /lz\.prewarm\(diveLand\.r\);\n\s+lz\.stage\(\);\n\s+cancelFrame\(vtAnim\);/);
   assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = !on && riseAt'), 'drawn before the zoom is timed');
   // The frame it starts to fade in draws nothing new when the framing still matches.
-  assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ if \(!raf\) raf = nextFrame\(loop\); \} else \{ diveDrawn = false; if \(F\) update\(F\); \}/);
+  assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ if \(!raf\) raf = nextFrame\(loop\); \} else \{ diveDrawn = false; snapState\(\); if \(F\) update\(F\); \}/);
   // Its memory is given back when the zoom returns to the anatomy (never mid-zoom); the idle preparation keeps nothing.
   assert.match(lz, /if \(was > 0\) \{ if \(diveScaled\) relLater = true; else release\(\); \}/);
   assert.match(lz, /if \(!diveScaled && fade <= 0\) \{ staged = ''; if \(relLater\) \{ relLater = false; release\(\); \} \}/);

@@ -860,8 +860,19 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   const zoneOf = (q) => (q > 0.66 ? 1 : q > 0.36 ? 2 : 3);
 
   // ── Model → lobule ──
-  const easeP = createEaser();
+  let easeP = createEaser();
   let easeRaf = 0;
+  // Out of sight (closed, or drawn ahead for a dive): what the lobule showed on its last visit was never seen since, so nothing
+  // eases or crossfades from it. The pressures, the calibers and the tissue take the patient's state at once; otherwise a
+  // patient made cirrhotic in the anatomy dove into a healthy lobule (the dive only magnifies its first frame) that snapped
+  // to cirrhosis as it landed.
+  function snapState() {
+    easeP = createEaser(); rz = null;
+    xfT0 = 0; free(worldOld); free(xfCv); surOld = null; surT0 = 0; snapNext = true;
+  }
+  // (snapNext: reopened without a picture drawn ahead, the first frame is already fading in, but shows nothing seen before either.)
+  let snapNext = false;
+  const unseen = () => fade <= 0 || staging || snapNext;
   function update(f) {
     drawVersion++;
     F = f;
@@ -1574,6 +1585,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const cs = getComputedStyle(host);
     const g = ensureGL();
     paintTissue(W, H, dpr, dark, cs, !g);
+    snapNext = false;
     layoutLabels();
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
     paintFx(W, H, dpr, dark, dt, !g || g.lost);
@@ -1616,7 +1628,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // (With some hysteresis: a value wavering on a step boundary must not flip between two sets of tiles, redrawing them mid-dive.)
   const fsLast = {};
   const fsQ = (k, x) => { const v = x || 0, o = fsLast[k]; return o !== undefined && Math.abs(v - o) < 0.09 ? o : (fsLast[k] = Math.round(v * 8) / 8); };
-  const fieldState = () => { const m = model || (F ? lobuleState(F, store.get()) : null); return m ? { su: fsQ('su', m.septU), pre: fsQ('pre', m.fibPre), post: fsQ('post', m.fibPost), sin: fsQ('sin', m.fibSin), cong: fsQ('cong', m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
+  // (Closed, the lobule's model is its last visit's, not this patient's: the field follows the latest frame instead.)
+  let fsM = null, fsKey = [];
+  const closedModel = () => {
+    const st = store.get(), k = [F, st.params, st.healthy, st.imaging];
+    if (k.some((x, i) => x !== fsKey[i])) { fsKey = k; fsM = lobuleState({ ...F, P: F.Pf || F.P }, st); }
+    return fsM;
+  };
+  const fieldState = () => { const m = !unseen() && model ? model : F ? closedModel() : model; return m ? { su: fsQ('su', m.septU), pre: fsQ('pre', m.fibPre), post: fsQ('post', m.fibPost), sin: fsQ('sin', m.fibSin), cong: fsQ('cong', m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
   // later: the open lobule asks (#27). A tissue state that changes mid-animation (a time-lapse, a slide's morph) needs new tiles, each
   // tens of ms to draw: the open lobule keeps showing the last state's tile (its quiet surround changes slowly) while the new one is
   // drawn between frames, then redraws with it.
@@ -1903,6 +1922,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     }, null);
     q.push(() => {   // the landed lobule: its state, then the tissue, then one full frame
       const st = store.get();
+      snapState();
       model = lobuleState({ ...F, P: F.Pf || F.P }, st);
       const cv = (n, d) => cs.getPropertyValue(n).trim() || d;
       model.inks = { normal: cv('--flow-normal'), reversed: cv('--flow-reversed'), portal: cv('--vein-portal'), systemic: cv('--vein-systemic') };
@@ -1932,7 +1952,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   function stage() {
     while (warm());   // the dive's field tiles (built ahead while idle, so usually nothing left), the vessels' WebGL
     if (fade > 0 || !F) return;
-    flowA = 0; flowT = 0; resetView(); staging = true;
+    flowA = 0; flowT = 0; resetView(); staging = true; snapState();
     try { update(F); } finally { staging = false; }
     if (!model) return;
     idleDrawn = ''; draw(0); diveDrawn = true; staged = api.viewKey(); relLater = true;
@@ -2251,9 +2271,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       // (Mid-glide, the tile it had is stretched rather than a larger one drawn; a new tissue state's tiles are built between frames, see fieldTile.)
       const want = gliding && surRd ? surRd : rd * 0.55;
       if (!gliding) surRd = rd * 0.55;
-      const t = fieldTile(cs, dark, want, true), q = quietTile(t, shadeOf(rgb01(bg), dark));
+      const t = fieldTile(cs, dark, want, !unseen()), q = quietTile(t, shadeOf(rgb01(bg), dark));
       // (A new state's tiles fade in over the last state's; a new size of the same state just takes over: the same picture.)
-      if (surNow && t.set !== surNow.set && surNow.q.cv?.width) { surOld = surNow.q; surT0 = now; }
+      if (surNow && t.set !== surNow.set && surNow.q.cv?.width && !unseen()) { surOld = surNow.q; surT0 = now; }
       surNow = { set: t.set, q };
       const su = surT0 ? xfU(surT0, now) : 1;
       if (su >= 1) { surT0 = 0; surOld = null; }
@@ -2265,7 +2285,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       // The tissue's state changed (not just the scale it is drawn at): the old picture stays under the new one as it fades in.
       // (A change while one is fading in redraws the incoming picture in place and lets the fade run on, so a state that keeps
       // moving, as the pressures glide after a new patient, never restarts it.)
-      if (worldState && ws !== worldState && worldGeo === G && worldCv.width && !(xfT0 && now - xfT0 < XF_MS)) { [worldOld, worldCv] = [worldCv, worldOld]; worldOldSc = worldSc; xfT0 = now; }
+      if (worldState && ws !== worldState && !unseen() && worldGeo === G && worldCv.width && !(xfT0 && now - xfT0 < XF_MS)) { [worldOld, worldCv] = [worldCv, worldOld]; worldOldSc = worldSc; xfT0 = now; }
       worldKey = wk; worldState = ws;
       worldSc = sc; worldGeo = G; worldDraws++;
       const n = Math.ceil(2 * B * sc);
@@ -2919,7 +2939,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       // (Its flow marks start faded and ease in once it has landed: left at full from an earlier visit, they made every frame of the
       // dive's first 0.3 s redraw the whole lobule at full size.)
       // (Drawn ahead in the dive (staged), and still framed the same: nothing more to draw, the loop just starts.)
-      if (fade > 0 && was === 0) { flowA = 0; flowT = 0; resetView(); relLater = false; if (staged && staged === api.viewKey() && model) { if (!raf) raf = nextFrame(loop); } else { diveDrawn = false; if (F) update(F); } staged = ''; }
+      if (fade > 0 && was === 0) { flowA = 0; flowT = 0; resetView(); relLater = false; if (staged && staged === api.viewKey() && model) { if (!raf) raf = nextFrame(loop); } else { diveDrawn = false; snapState(); if (F) update(F); } staged = ''; }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { stopInertia(); if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
       // (Mid-zoom out, the canvases are given back when the zoom ends: freeing them there is one more thing in a moving frame.)
