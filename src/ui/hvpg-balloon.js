@@ -37,3 +37,31 @@ export function routeRadii(src, map, radOf, out = []) {
   }
   return out;
 }
+
+/**
+ * The balloon's outline as it inflates: samples along it, each { c: the centre point, t: the unit direction it runs,
+ * h: its half width there, s: where along it (-1 at the back, 1 at the front) }. Deflated (bl 0) it is the ellipse
+ * ry0 tall on the catheter's course; inflated (bl 1) it is wedged: it lies on the vein's own centreline, follows the
+ * vein's direction and fills the lumen to the wall at every point it covers (half width the lumen's radius there),
+ * with rounded ends. at, dC, rx as balloonRy; floor: never thinner than this (the shaft it sits on).
+ */
+export function balloonOutline(at, dC, rx, ry0, bl, { floor = 0, n = 40 } = {}) {
+  const out = [], p = 2 + 2 * bl, e = Math.max(1.2, rx * 0.1);
+  for (let i = 0; i <= n; i++) {
+    // Denser toward the ends, where the outline turns.
+    const s = -Math.cos((Math.PI * i) / n), d = dC + rx * s, q = at(d);
+    const w = q.w || q.p, a = at(d - e), b = at(d + e), wa = a.w || a.p, wb = b.w || b.p;
+    let vx = wb[0] - wa[0], vy = wb[1] - wa[1], l = Math.hypot(vx, vy);
+    if (l < 1e-9) { vx = q.t[0]; vy = q.t[1]; l = 1; }
+    let tx = q.t[0] + (vx / l - q.t[0]) * bl, ty = q.t[1] + (vy / l - q.t[1]) * bl;
+    const tl = Math.hypot(tx, ty) || 1;
+    tx /= tl; ty /= tl;
+    const c = [q.p[0] + (w[0] - q.p[0]) * bl, q.p[1] + (w[1] - q.p[1]) * bl];
+    // Never past the wall: what the lumen leaves on the far side of the centre's offset from the vein's own centre.
+    const off = Math.hypot(c[0] - w[0], c[1] - w[1]);
+    const prof = Math.abs(s) >= 1 ? 0 : (1 - Math.abs(s) ** p) ** (1 / p);
+    const h = Math.max(Math.min(ry0 + (q.r - ry0) * bl, q.r - off), floor) * prof;
+    out.push({ c, t: [tx, ty], h, s });
+  }
+  return out;
+}

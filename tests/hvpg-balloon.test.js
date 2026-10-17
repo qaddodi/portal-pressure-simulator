@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { balloonRy, routeRadii, BALLOON_MARGIN } from '../src/ui/hvpg-balloon.js';
+import { balloonRy, balloonOutline, routeRadii, BALLOON_MARGIN } from '../src/ui/hvpg-balloon.js';
 
 // A vein as a centreline with a lumen radius, sampled by length: at(d) as stage.js's route gives it.
 const straight = (rOf) => (d) => ({ p: [d, 0], t: [1, 0], w: [d, 0], r: rOf(d) });
@@ -65,5 +65,43 @@ test('the balloon follows the vein as it widens and narrows, frame by frame', ()
     assert.ok(inside(at, 50, 16, ry), `frame ${frame}`);
     if (prev) assert.ok(Math.sign(ry - prev.ry) === Math.sign(r0 - prev.r0) || Math.abs(r0 - prev.r0) < 1e-9, `frame ${frame}: the balloon moves with the vein`);
     prev = { ry, r0 };
+  }
+});
+
+// A catheter running off the vein's centre (its course is smoothed through the bends), at a slant to the vein.
+const offCentre = (base, dy, slope) => (d) => { const q = base(d); return { ...q, p: [q.w[0], q.w[1] + dy + slope * (d - 50)], t: [1 / Math.hypot(1, slope), slope / Math.hypot(1, slope)] }; };
+
+test('a wedged balloon fills the vein wall to wall, on its centreline and along its direction', () => {
+  for (const [name, at] of [['straight', straight((d) => 12 - 0.05 * (d - 30))], ['bending', arc(70, () => 10)], ['off-centre', offCentre(straight(() => 10), 2.5, 0.08)]]) {
+    const dC = 50, rx = 16, ol = balloonOutline(at, dC, rx, 3, 1);
+    for (const o of ol) {
+      const q = at(dC + rx * o.s);
+      // On the vein's own centre, across its direction (the side normal is perpendicular to the vein).
+      assert.ok(Math.hypot(o.c[0] - q.w[0], o.c[1] - q.w[1]) < 1e-9, `${name}: centred at s=${o.s}`);
+      const a = at(dC + rx * o.s - 1.6), b = at(dC + rx * o.s + 1.6), vx = b.w[0] - a.w[0], vy = b.w[1] - a.w[1];
+      assert.ok(Math.abs(o.t[0] * vy - o.t[1] * vx) / Math.hypot(vx, vy) < 1e-6, `${name}: follows the vein at s=${o.s}`);
+      // Never past the wall, and touching it over the balloon's middle (no gap between latex and wall).
+      assert.ok(o.h <= q.r + 1e-9, `${name}: inside at s=${o.s}`);
+      if (Math.abs(o.s) <= 0.6) assert.ok(o.h >= q.r * 0.96, `${name}: hugs the wall at s=${o.s} (${o.h} of ${q.r})`);
+    }
+    // Rounded ends that close on the centreline.
+    assert.equal(ol[0].h, 0); assert.equal(ol[ol.length - 1].h, 0);
+    assert.ok(ol[0].s === -1 && ol[ol.length - 1].s === 1);
+  }
+});
+
+test('a deflated balloon is the small ellipse on the catheter, and it grows to the walls without crossing them', () => {
+  const at = offCentre(straight(() => 10), 2, 0.05), dC = 50, rx = 6, ry0 = 2;
+  for (const o of balloonOutline(at, dC, rx, ry0, 0)) {
+    const q = at(dC + rx * o.s);
+    assert.ok(Math.hypot(o.c[0] - q.p[0], o.c[1] - q.p[1]) < 1e-9);
+    assert.ok(Math.abs(o.h - ry0 * Math.sqrt(1 - o.s * o.s)) < 1e-9);
+  }
+  for (let k = 0; k <= 20; k++) {
+    const bl = k / 20;
+    for (const o of balloonOutline(at, dC, 16, ry0, bl)) {
+      const q = at(dC + 16 * o.s), off = Math.hypot(o.c[0] - q.w[0], o.c[1] - q.w[1]);
+      assert.ok(o.h + off <= q.r + 1e-9, `bl ${bl}: inside the lumen at s=${o.s}`);
+    }
   }
 });

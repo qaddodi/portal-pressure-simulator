@@ -29,7 +29,7 @@ import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=e25caf9bf9';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
-import { balloonRy, routeRadii } from './hvpg-balloon.js?v=0f8da50742';
+import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { layoutWatch } from './idle-keys.js?v=27f599b5bc';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
@@ -4291,7 +4291,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const g = s('g', { class: 'cath', 'aria-hidden': 'true' });
     const column = s('path', { class: 'cath-column' }), column2 = s('path', { class: 'cath-column' });
     const shadow = s('path', { class: 'cath-shadow' }), body = s('path', { class: 'cath-body' });
-    const balloon = s('ellipse', { class: 'cath-balloon' }), ring = s('circle', { class: 'cath-ring' }), tip = s('circle', { class: 'cath-tip' });
+    const balloon = s('path', { class: 'cath-balloon' }), ring = s('circle', { class: 'cath-ring' }), tip = s('circle', { class: 'cath-tip' });
     g.append(column, column2, shadow, body, balloon, ring, tip);
     g.style.display = 'none';
     gOver.append(g);
@@ -4850,9 +4850,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const bl = clamp(st.balloon || 0, 0, 1);
     if (bl > 0.001) {
       const gap = rc * 4.2, Rb = cathAt(r, tipD - gap - rFree(r) * 1.6).r;
-      const rx = lerp(rc * 3.4, Rb * 1.6, bl), dC = tipD - gap - rx, bc = cathAt(r, dC);
-      const ry = balloonRy((d) => cathAt(r, d), dC, rx, lerp(rc * 1.35, Rb, bl), { floor: rc * 1.05 });
-      disc(bc.p, bc.t, rx, ry, 5, [0.99, 0.9, 0.7], 0.55 + 0.45 * bl);   // latex
+      const rx = lerp(rc * 3.4, Rb * 1.6, bl), dC = tipD - gap - rx;
+      const at = (d) => cathAt(r, d), ry0 = balloonRy(at, dC, rx, rc * 1.35, { floor: rc * 1.05 });
+      // Bent with the vein: a strip whose sides are the outline, its local coords on the unit circle at the
+      // sides so it shades and edges as the latex disc does.
+      const first = begin();
+      for (const o of balloonOutline(at, dC, rx, ry0, bl, { floor: rc * 1.05 })) {
+        const nx = -o.t[1], ny = o.t[0], v = Math.sqrt(Math.max(0, 1 - o.s * o.s));
+        for (const side of [-1, 1]) V.push(o.c[0] + nx * o.h * side, o.c[1] + ny * o.h * side, o.t[0], o.t[1], o.s, v * side);
+      }
+      draws.push({ mode: 5, first, count: begin() - first, col: [0.99, 0.9, 0.7], alpha: (0.55 + 0.45 * bl) * op });   // latex
     }
     // The tip reading: two ripples running out from it.
     if (st.ring) {
@@ -4867,20 +4874,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const rFree = (r) => cathAt(r, r.free).r;
   // Without WebGL: the same catheter in SVG.
   function cathSVG(st, r, tipD, cw, wHV) {
-    const body = cutLen(r.pts, r.cum, 0, tipD), d = polyD(body), tp = body[body.length - 1], pre = body[Math.max(0, body.length - 3)];
+    const body = cutLen(r.pts, r.cum, 0, tipD), d = polyD(body), tp = body[body.length - 1];
     for (const el of [cath.shadow, cath.body]) el.setAttribute('d', d);
     cath.shadow.setAttribute('stroke-width', (cw * 1.6).toFixed(2)); cath.body.setAttribute('stroke-width', cw.toFixed(2));
-    const ang = Math.atan2(tp[1] - pre[1], tp[0] - pre[0]), ux = Math.cos(ang), uy = Math.sin(ang);
     cath.tip.setAttribute('cx', tp[0].toFixed(2)); cath.tip.setAttribute('cy', tp[1].toFixed(2)); cath.tip.setAttribute('r', (cw * 0.85).toFixed(2));
     cath.ring.setAttribute('cx', tp[0].toFixed(2)); cath.ring.setAttribute('cy', tp[1].toFixed(2));
     cath.ring.setAttribute('r', (cw * (1.8 + 0.8 * (st.pulse || 0))).toFixed(2)); cath.ring.style.display = st.ring ? '' : 'none';
     cath.ring.style.stroke = st.ring || '';
-    const bl = clamp(st.balloon || 0, 0, 1), rx = wHV * (0.45 + 0.35 * bl), bcx = tp[0] - ux * (rx + cw * 1.5), bcy = tp[1] - uy * (rx + cw * 1.5);
-    const ry = balloonRy((d) => cathAt(r, d), tipD - rx - cw * 1.5, rx, cw * 0.65 + (wHV * 0.47 - cw * 0.65) * bl, { floor: cw * 0.55 });
+    // The balloon: inflated, it lies along the vein and fills it wall to wall (see balloonOutline).
+    const bl = clamp(st.balloon || 0, 0, 1), rx = wHV * (0.45 + 0.35 * bl), dC = tipD - rx - cw * 1.5, at = (d) => cathAt(r, d);
+    const ry0 = balloonRy(at, dC, rx, cw * 0.65, { floor: cw * 0.55 }), ol = balloonOutline(at, dC, rx, ry0, bl, { floor: cw * 0.55 });
+    const side = (k) => ol.map((o) => [o.c[0] - o.t[1] * o.h * k, o.c[1] + o.t[0] * o.h * k]);
     cath.balloon.style.display = bl > 0 ? '' : 'none';
-    cath.balloon.setAttribute('cx', bcx.toFixed(2)); cath.balloon.setAttribute('cy', bcy.toFixed(2));
-    cath.balloon.setAttribute('rx', rx.toFixed(2)); cath.balloon.setAttribute('ry', ry.toFixed(2));
-    cath.balloon.setAttribute('transform', `rotate(${(ang * 180 / Math.PI).toFixed(1)} ${bcx.toFixed(2)} ${bcy.toFixed(2)})`);
+    cath.balloon.setAttribute('d', bl > 0 ? `${polyD([...side(1), ...side(-1).reverse()])}Z` : '');
     const col = clamp(st.column || 0, 0, 1), reach = tipD + (r.total - tipD) * col;
     const a = cutLen(r.pts, r.cum, tipD, reach);
     cath.column.setAttribute('d', a.length > 1 ? polyD(a) : ''); cath.column.setAttribute('stroke-width', (wHV * 0.82).toFixed(2));
