@@ -1503,8 +1503,10 @@ button.finding { cursor: pointer; }
 :is(.pz-shade.pz-card:not(.stack), .pz:not(.stack):not(.low) .pz-panel) { --pz-tabh: calc(var(--pz-cp) * .72); --pz-tabf: max(12px, calc(var(--pz-tabh) * .56)); }
 :root[data-theme="dark"] :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); } }
-.pz-tabname { position: absolute; top: 0; right: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55); border-radius: 0 0 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: 600 var(--pz-tabf)/1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
+.pz-tabname { position: absolute; top: 0; right: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55 - .05em) 0 calc(var(--pz-tabh) * .55); border-radius: 0 0 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: 600 var(--pz-tabf)/1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
 .pz-shade.stack .pz-tabname { border-top-right-radius: 17px; }   /* (the glass's own corner, inside its 1 px border) */
+/* (The glass's lit top edge runs on over the tab unbroken: the tab's darker patch would dim it to a step where the tab begins.) */
+.pz-shade:is(.stack, .pz-card) .pz-tabname { box-shadow: inset 0 1px 0 var(--pz-glass-edge); }
 .pz-shade.pz-card:not(.stack) .pz-tabname { border-top-right-radius: calc(clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px) - 1px); }
 .pz-panel > .pz-tabname { zoom: 1; }   /* (the panel's corner clips it to its curve; its fit zoom never shrinks the tab under 12 px) */
 .pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px), calc(var(--pz-tabh) + 10px)); }
