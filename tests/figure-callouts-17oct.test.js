@@ -82,3 +82,14 @@ test('a key\'s named swatches travel together: when it wraps, its name takes one
   assert.match(css, /\.pz\.stack:is\(\.fk-two, \.fk-wrap\) \.pz-fk:not\(\.grad\) \.pz-lens-items \{ flex-wrap: wrap; row-gap: \.1em; flex-basis: 100%; \}/);
   assert.match(presenter, /queueMicrotask\(\(\) => \{ if \(ui\) clearPill\(\); \}\);/, 'fitted again once its own words are in');
 });
+
+test('a phone key on the pill\'s row is the pill\'s twin, and comes in with the teaching card', () => {
+  const pill = css.match(/\.pz\.stack \.pz-bar \{([^}]*)\}/)[1];
+  assert.match(pill, /height: 38px;/);
+  assert.match(pill, /bottom: calc\(21px \+ var\(--pz-sb\)\);/);
+  assert.match(css, /\.pz\.stack:not\(\.fk-up\) \.pz-fk \{ bottom: calc\(21px \+ var\(--pz-sb\)\); min-height: 38px; padding-block: 0;/);
+  assert.doesNotMatch(css.match(/\.pz\.stack\.fk-two \.pz-fk:not\(\.grad\) \{([^}]*)\}/)[1], /bottom|padding-block|border-radius/, 'two lines keep the pill\'s box');
+  assert.match(presenter, /h2 <= barH \+ 1\.5/, 'two lines only where they fit the pill\'s height');
+  assert.match(presenter, /createFigureKey\(\{ el: fk, app, watch: \[text, root\], ready: \(\) => !text\.hidden && !text\.classList\.contains\('pz-leave'\) && !root\.classList\.contains\('pz-prep'\) \}\)/);
+  assert.match(css, /\.pz-fk\.on \{ opacity: 1; transition: opacity \.5s var\(--ease\) \.12s; \}/);
+});

@@ -1564,8 +1564,8 @@ button.finding { cursor: pointer; }
 /* A slide's colour key (presenter.js keyNodes), a small frosted pill on the figure, not in the teaching card: the lens named, then its
    ends, as the Explore legend shows them. src/ui/figure-key.js puts it on bare background, never over a vessel or a card; it
    sits on one line, or stacked in a short column where the line will not fit. It fades in and out, and never takes a tap. */
-.pz-fk { position: absolute; left: 0; top: 0; translate: var(--fx, 0px) var(--fy, 0px); display: flex; flex-wrap: nowrap; align-items: center; gap: .55em; box-sizing: border-box; padding: .22em .75em .26em; border-radius: var(--r-pill); white-space: nowrap; font: 400 max(12px, calc(var(--s-cap) * .9))/1.25 var(--font-ui); color: var(--text-2); background: color-mix(in srgb, var(--surface) 62%, transparent); -webkit-backdrop-filter: blur(10px) saturate(1.15); backdrop-filter: blur(10px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); box-shadow: 0 1px 6px rgb(var(--black-rgb) / .12); pointer-events: none; opacity: 0; transition: opacity .25s var(--ease); }
-.pz-fk.on { opacity: 1; }
+.pz-fk { position: absolute; left: 0; top: 0; translate: var(--fx, 0px) var(--fy, 0px); display: flex; flex-wrap: nowrap; align-items: center; gap: .55em; box-sizing: border-box; padding: .22em .75em .26em; border-radius: var(--r-pill); white-space: nowrap; font: 400 max(12px, calc(var(--s-cap) * .9))/1.25 var(--font-ui); color: var(--text-2); background: color-mix(in srgb, var(--surface) 62%, transparent); -webkit-backdrop-filter: blur(10px) saturate(1.15); backdrop-filter: blur(10px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); box-shadow: 0 1px 6px rgb(var(--black-rgb) / .12); pointer-events: none; opacity: 0; transition: opacity .32s var(--ease); }
+.pz-fk.on { opacity: 1; transition: opacity .5s var(--ease) .12s; }   /* (in with the teaching card: its pace and start, presenter.js cardsIn; out at the card's own .32 s) */
 .pz-fk[hidden] { display: none; }
 .pz-fk b { font-weight: 600; color: var(--text); margin-right: .1em; }
 .pz-fk.col { flex-direction: column; align-items: flex-start; gap: .12em; padding: .35em .75em .4em; border-radius: calc(var(--r-card) + 2px); }
@@ -5576,13 +5576,17 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @media (prefers-reduced-transparency: reduce) { .pz:not(.stack) .pz-fk { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* A phone's colour key sits at the words' bottom-left corner, on the nav pill's row (figure-key.js fades it in once the cards have landed). */
 .pz.stack .pz-fk { left: 21px; top: auto; bottom: calc(26px + var(--pz-sb)); translate: none; z-index: 1; }
+/* On the nav pill's row the key is the pill's twin: the same 38 px height, bottom and centre line, its corners, its words centred,
+   one line or two (Mohammad, 17 Oct: a two-line key stood taller and higher than the pill). A key with more than fits that height
+   takes its own row above (presenter.js fitKey). */
+.pz.stack:not(.fk-up) .pz-fk { bottom: calc(21px + var(--pz-sb)); min-height: 38px; padding-block: 0; align-content: center; justify-content: center; line-height: 1.2; border-radius: var(--r-sheet); }
 .pz.stack.tab .pz-fk { left: calc(15% + 13px); }
 /* Too wide for the room beside the nav pill: its own row just above the pill's row, never under it (presenter.js fitKey), one line where
    it fits, else wrapped to the card's width (never shrunk: shrunk, its words had gone under 12 px). */
 .pz.stack.fk-up .pz-fk { bottom: calc(65px + var(--pz-sb)); }
 .pz.stack.fk-up.fk-wrap .pz-fk:not(.grad) { max-width: var(--pz-fk-room, 280px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; border-radius: calc(var(--r-card) + 2px); padding-block: .3em .34em; }
 /* Two lines beside the pill: as tall as its row, bottoms level (presenter.js fitKey). */
-.pz.stack.fk-two .pz-fk:not(.grad) { bottom: calc(21px + var(--pz-sb)); max-width: var(--pz-fk-room, 200px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; border-radius: calc(var(--r-card) + 2px); padding-block: .3em .34em; }
+.pz.stack.fk-two .pz-fk:not(.grad) { max-width: var(--pz-fk-room, 200px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; }   /* (its height, bottom and corners: the pill's, above) */
 .pz.stack:is(.fk-up, .fk-two) .pz-pillclr { margin-bottom: calc((var(--pz-reach-box, 37px) + var(--pz-fkrow, 0px)) / var(--pz-fit, 1)); }
 
 /* ── Tests card on a phone (15 Oct, Mohammad) ─────────────────────

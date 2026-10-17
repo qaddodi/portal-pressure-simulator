@@ -29,7 +29,7 @@ import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=e25caf9bf9';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
-import { createFigureKey } from './figure-key.js?v=8d06c01d83';
+import { createFigureKey } from './figure-key.js?v=96997852c4';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdbfc9ab38';
 const nextFrame = frameFor('presenter');
@@ -3063,7 +3063,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!on) { set(false, false); return; }
     const was = fk.hidden; fk.hidden = false; set(false, false);
     const wr = restRect(root), k = wr.width / (root.clientWidth || wr.width) || 1;
-    const w = fk.offsetWidth, h1 = fk.offsetHeight, l = parseFloat(getComputedStyle(fk).left) || 21;
+    const w = fk.offsetWidth, l = parseFloat(getComputedStyle(fk).left) || 21;
     const bar = ui.bar.getBoundingClientRect(), barH = bar.height / k;
     const room = (bar.left - wr.left) / k - l - 8, full = root.clientWidth - 2 * l;
     let row;
@@ -3080,7 +3080,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     } else {
       fk.style.setProperty('--pz-fk-room', `${Math.floor(room)}px`); set(true, false);
       const w2 = fk.scrollWidth, h2 = fk.offsetHeight;
-      if (w2 <= room + .5 && h2 <= Math.max(barH + 6, h1 * 2.3)) { balanceKey(fk, room); row = Math.max(0, h2 - barH) + 2; }
+      if (w2 <= room + .5 && h2 <= barH + 1.5) {   // (two lines inside the pill's own height, the two read as one row)
+        balanceKey(fk, room); row = Math.max(0, h2 - barH) + 2; }
       else {
         // (Wider than the card too: wrapped to its width, at its own size; it had been scaled down, its words under 12 px.)
         if (w > full) fk.style.setProperty('--pz-fk-room', `${Math.floor(full)}px`);
@@ -3441,7 +3442,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
-    const figKey = createFigureKey({ el: fk, app });
+    // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
+    const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
     return { root, shade, safe, load, text, data, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.

@@ -6,7 +6,9 @@ import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('figkey');
 
 // el: the key's element (inside the presenter's layer, beside the nav pill); app: the app's root (its pz-moving class marks a slide change).
-export function createFigureKey({ el, app }) {
+// ready (optional): whether the teaching card is in, or coming in; the key then comes and goes with that card, in its fade (Mohammad,
+// 17 Oct: the key had popped in after the card), and watch lists the elements whose classes say so.
+export function createFigureKey({ el, app, ready = null, watch = [] }) {
   let on = false, raf = 0, hideT = 0, swapT = 0;
   const empty = () => el.dataset.empty != null;
   // Out of sight (fading), and out of the way once it has faded.
@@ -18,8 +20,9 @@ export function createFigureKey({ el, app }) {
   function check() {
     raf = 0;
     if (empty() || !el.parentElement?.offsetParent) return;
-    // A slide change: out of sight until the cards are in and the camera has settled.
-    if (app.classList.contains('pz-moving')) { if (on) off(); return; }
+    // With the card: in as it comes in, out as it leaves. (Without one: a slide change keeps it out of sight until the cards are in
+    // and the camera has settled.)
+    if (ready ? !ready() : app.classList.contains('pz-moving')) { if (on) off(); return; }
     if (on) return;
     clearTimeout(hideT); el.classList.remove('col'); el.hidden = false; void el.offsetWidth; el.classList.add('on'); on = true;
     dispatchEvent(new Event('pps:occ'));   // (the credit and the figure's labels keep clear of it)
@@ -29,6 +32,7 @@ export function createFigureKey({ el, app }) {
   addEventListener('resize', onEvent);
   const mo = new MutationObserver(onEvent);
   mo.observe(app, { attributes: true, attributeFilter: ['class'] });
+  for (const w of watch) mo.observe(w, { attributes: true, attributeFilter: ['class'] });
   return {
     // The key's words changed (a new slide, or another lens), or it has none.
     // fill() writes the new words: at once when the key is out of sight, else once it has faded.
