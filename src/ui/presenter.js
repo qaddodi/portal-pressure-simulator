@@ -2339,13 +2339,57 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // An upright phone or tablet opens the readings on a card of their own under the instrument's (Mohammad, 17 Oct: "The top data
   // card doesn't truly open as an extended card under the Doppler. It should. ... first close up is to close this under side card";
   // the iPhone too, 17 Oct): the one card's glass is drawn as two pieces (styles/app.css .pz.stack.stack .pz-sheet), the
-  // instrument's down to --pz-top. A push up, or a tap on the handle, from fully open tucks the readings' card away; the next closes
+  // instrument's and the readings'. A push up, or a tap on the handle, from fully open tucks the readings' card away; the next closes
   // the instrument card. A pull down on the closed card brings the instrument card out, and the same pull carried on brings the
   // readings' card out after it (dockTouch, sheetPull: "if I keep sliding I can open both in one swipe").
   const splitSheet = (d) => !!ui?.root.classList.contains('stack') && d.classList.contains('pz-sheet');
-  // (The part's top and bottom margins, open and tucked, styles/app.css .pz.stack.stack .pz-sheet: 22 px over the first of the
-  // pressure strip and the tiles, 16 px under the last.)
-  const tabMargins = (d, p) => ({ open: [p.classList.contains('pz-strip') || d.classList.contains('tiles-only') ? 22 : 0, 16], shut: [-6, 0] });
+  // The readings' card slides out from behind the instrument card and back under it, one solid piece (Mohammad, 17 Oct: "The secondary
+  // card should actually be hidden underneath the other card not just pop into existence"): --pz-u on the card is how far out it is,
+  // set frame by frame by the finger or here, never by a CSS transition (the card is frosted glass); styles/app.css works out both
+  // pieces of glass, the readings' place and where they are cut at the instrument card's foot from it. (d: how far it travels, the
+  // readings' share of the card's height; h0: the card's height with them tucked, css px; raf: the ease running.)
+  const slip = { d: null, h0: null, raf: 0 };
+  const underU = (d) => (d.classList.contains('pz-sliding') ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : d.classList.contains('tool-open') ? 1 : 0);
+  function slideUnder(from, to, ms = 360) {
+    const d = ui.data;
+    cancelFrame(slip.raf);
+    if (reduce.matches) ms = 0; else ms *= Math.max(0.4, Math.abs(to - from));
+    d.classList.add('pz-sliding'); d.style.setProperty('--pz-u', from.toFixed(4));
+    const t0 = performance.now();
+    const step = (now) => {
+      const t = ms ? clamp((now - t0) / ms, 0, 1) : 1;
+      if (t < 1) { d.style.setProperty('--pz-u', (from + (to - from) * (1 - (1 - t) ** 3)).toFixed(4)); slip.raf = nextFrame(step); }
+      else stopUnder();
+    };
+    slip.raf = nextFrame(step);
+  }
+  // (At rest the card's class says where the readings are: tool-open, out.)
+  function stopUnder() {
+    cancelFrame(slip.raf);
+    if (!ui?.data.classList.contains('pz-sliding')) return;
+    ui.data.style.removeProperty('--pz-u'); ui.data.classList.remove('pz-sliding');
+  }
+  // How far the readings' card travels: the card's height with them out less its height without them, read in the card's own px (its
+  // parts are zoomed by the fit, so their own boxes are not read). (--pz-o: a second part's place under the first, for its cut.)
+  function measureUnder(d) {
+    const parts = [...d.children].filter((c) => c.matches('.pz-strip, .pz-tiles') && getComputedStyle(c).display !== 'none');
+    if (!parts.length || !d.getClientRects().length) return;
+    const kw = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1, hh = () => d.getBoundingClientRect().height / kw;
+    // (Without the card's height cap, which is the tucked card's: out, the card is fitted again. The card's own style changes only
+    // for the measure, so its watcher is not told: told, it measured again, for ever.)
+    const was = parts.map((c) => c.style.cssText), cap = d.style.maxHeight;
+    d.style.maxHeight = 'none';
+    parts[0].style.marginTop = '22px';   // (out: styles/app.css)
+    const h1 = hh(), z = (parseFloat(getComputedStyle(parts[0]).zoom) || 1) * kw;
+    const o = parts[1] ? (parts[1].getBoundingClientRect().top - parts[0].getBoundingClientRect().top) / z : 0;
+    for (const c of parts) c.style.display = 'none';
+    const h0 = hh();
+    parts.forEach((c, i) => { c.style.cssText = was[i]; });
+    d.style.maxHeight = cap; ui.lipMO?.takeRecords();
+    slip.h0 = h0;
+    if (Math.abs((slip.d ?? -1) - (h1 - h0)) > 0.05) { slip.d = h1 - h0; d.style.setProperty('--pz-d', `${slip.d.toFixed(2)}px`); }
+    if (parts[1] && parts[1].style.getPropertyValue('--pz-o') !== `${o.toFixed(2)}px`) parts[1].style.setProperty('--pz-o', `${o.toFixed(2)}px`);
+  }
   const dockVec = () => {
     const d = ui.data;
     if (phone()) return [0, GRIP - (lipOn(d) ? LIP : 0) - (d.offsetTop + d.offsetHeight)];   // (closed: the sheet's edge and 10 px of the card show)
@@ -2365,21 +2409,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const d = ui?.data, l = ui?.lip;
     if (!l || d.hidden || !d.classList.contains('pz-sheet')) return;
     const px = (v) => `${v.toFixed(1)}px`;
-    const split = splitSheet(d), open = d.classList.contains('tool-open');
-    const top = split && !dock.lvl ? sheetTop(d) : null;   // (read before the writes below; it never moves while the card docks)
-    l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(d.offsetTop + d.offsetHeight);
+    const split = splitSheet(d), open = d.classList.contains('tool-open'), sliding = d.classList.contains('pz-sliding');
+    if (split && !sliding && !dock.lvl) measureUnder(d);   // (read before the writes below; it never changes while the card docks)
+    const u = sliding ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : 0;
+    // (Sliding, at the readings' card's foot to the fraction of a px: the card's own box height is whole px.)
+    l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(d.offsetTop + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : d.offsetHeight));
     l.style.translate = d.style.translate;
+    if (sliding) l.style.setProperty('--pz-u', u.toFixed(4)); else l.style.removeProperty('--pz-u');
     const say = dock.to === 1 ? 'Open the card' : open ? (split ? 'Hide the readings' : 'Close the card') : split && dock.down === want ? 'Close the card' : 'Show the rest of the card';
     if (l.getAttribute('aria-label') !== say) l.setAttribute('aria-label', say);
-    if (top && d.style.getPropertyValue('--pz-top') !== top) d.style.setProperty('--pz-top', top);
-  }
-  // Where an upright phone's or tablet's instrument card ends (--pz-top, in the card's own px from its padding edge): under the instrument,
-  // plus the card's 10 px foot (styles/app.css). Read from the screen boxes, as the parts are zoomed by the fit.
-  function sheetTop(d) {
-    const t = ui.tools.el;
-    if (!t.getClientRects().length || !d.offsetHeight) return null;
-    const r = d.getBoundingClientRect(), k = r.height / d.offsetHeight || 1;
-    return `${((t.getBoundingClientRect().bottom - r.top) / k - d.clientTop + 10).toFixed(1)}px`;
   }
   function dockTo(to, ms = 380) {
     cancelFrame(dock.raf);
@@ -2667,7 +2705,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     dd0.classList.toggle('pz-sheet', sheet);
     if ((p || low) && dd0.classList.contains('pz-folds')) { dd0.classList.remove('pz-folds'); footFold(); }   // (a wider screen's fold, left by a window made narrow)
-    if (sheet && dd0.classList.contains('tool-open') && dd0.dataset.openFor !== String(want)) dd0.classList.remove('tool-open');
+    if (sheet && dd0.classList.contains('tool-open') && dd0.dataset.openFor !== String(want)) { stopUnder(); dd0.classList.remove('tool-open'); }
     const phoneCap = p ? phoneTextCap(lockKey, H, k) : null;
     if (phoneCap != null) ui.text.style.maxHeight = `${phoneCap.toFixed(1)}px`;
     if (p) autoDock(phoneShut); else if (!low) autoDock(false);
@@ -3474,25 +3512,27 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function foldTouch(el, btn, setFold, part, hold, ...more) {
     let g = null;
     const on = (type, fn, opts) => { for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };
+    // (Upright, the readings' card follows the finger over the whole of its travel, from wherever it is: an ease the finger catches
+    // is taken up where it stands.)
     const grab = (x, y, open) => {
       const p = part(), split = splitSheet(el);
-      return { x, y, p, open, shown: open, split, m: split ? tabMargins(el, p) : null, full: Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
+      return { x, y, p, open, shown: open, split, u0: split ? underU(el) : open ? 1 : 0, full: split ? slip.d || p.scrollHeight : Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
     };
-    const take = (gg) => { gg.on = true; gg.p.style.transition = 'none'; hold(true); };
+    const take = (gg) => { gg.on = true; if (gg.split) cancelFrame(slip.raf); else gg.p.style.transition = 'none'; hold(true); };
     // (dy: how far the finger has moved since the part began to follow it, down positive.)
     const follow = (gg, dy) => {
-      const u = clamp((gg.shown ? gg.full : 0) + dy, 0, gg.full) / (gg.full || 1);
+      const u = clamp(gg.u0 * gg.full + dy, 0, gg.full) / (gg.full || 1);
       gg.u = u; gg.pts.push([performance.now(), dy]);
+      if (gg.split) { el.classList.add('pz-sliding'); el.style.setProperty('--pz-u', u.toFixed(4)); return; }
       gg.p.style.maxHeight = `${(u * gg.full).toFixed(1)}px`; gg.p.style.opacity = u.toFixed(3);
-      // (Upright, the readings' card grows and shrinks with them: their margins are its padding, tabMargins.)
-      if (gg.split) { const m = (i) => `${(gg.m.shut[i] + (gg.m.open[i] - gg.m.shut[i]) * u).toFixed(1)}px`; gg.p.style.marginTop = m(0); gg.p.style.marginBottom = m(1); }
     };
-    // (From where the finger left it to the class's own state: the part's transition eases the rest. setFold reads where
-    // the finger left it before letting go of it.)
+    // (From where the finger left it to the class's own state: the part's transition, or the readings' card's slide, eases the
+    // rest. setFold reads where the finger left it before letting go of it.)
     const settle = (gg, show) => {
       if (show !== gg.open) { if (gg.split && !show) dock.down = want; setFold(show); return; }
+      if (gg.split) { slideUnder(gg.u ?? gg.u0, gg.open ? 1 : 0); hold(false); return; }
       gg.p.getBoundingClientRect(); gg.p.style.transition = '';
-      gg.p.style.maxHeight = ''; gg.p.style.opacity = ''; gg.p.style.marginTop = ''; gg.p.style.marginBottom = '';
+      gg.p.style.maxHeight = ''; gg.p.style.opacity = '';
       hold(false);
     };
     // (The closed card's own pull hands on to the readings once the instrument card is out, dockTouch.)
@@ -3546,6 +3586,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A phone's sheet holds what is under the instrument: its tiles, or its pressure strip when it has none.)
     const partOf = () => (data.classList.contains('tool-lead') || (data.classList.contains('pz-sheet') && !data.classList.contains('tool-only')) ? (tiles.el.querySelector('.pz-tile') ? tiles.el : ladder.strip) : tools.el);
     const setFold = (open) => {
+      // (Upright: fitted at rest as it will be, then the readings' card slides there from wherever it stood, slideUnder.)
+      if (splitSheet(data)) {
+        const u0 = underU(data);
+        stopUnder();
+        data.classList.toggle('tool-open', open); fold.setAttribute('aria-expanded', String(open)); fold.textContent = open ? 'Hide' : 'Show';
+        data.dataset.openFor = String(want);
+        delete data.dataset.folding; fitDone.delete(data); layout();
+        measureUnder(data);
+        data.dataset.folding = '';
+        slideUnder(u0, open ? 1 : 0);
+        clearTimeout(foldT); foldT = setTimeout(foldStill, reduce.matches ? 0 : 450);
+        return;
+      }
       const p = partOf(), cs = getComputedStyle(p), from = ['maxHeight', 'opacity', 'marginTop', 'marginBottom'].map((n) => [n, cs[n]]);
       p.style.transition = 'none'; for (const [n] of from) p.style[n] = '';
       data.classList.toggle('tool-open', open); fold.setAttribute('aria-expanded', String(open)); fold.textContent = open ? 'Hide' : 'Show';
@@ -3581,7 +3634,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); }, lip);
     dockTouch(data, lip);
     // (Shown with the sheet only, and kept at the card's foot as the card grows or shrinks, a part easing open included.)
-    new MutationObserver(() => { lip.hidden = data.hidden || !data.classList.contains('pz-sheet'); placeLip(); }).observe(data, { attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
+    const lipMO = new MutationObserver(() => { lip.hidden = data.hidden || !data.classList.contains('pz-sheet'); placeLip(); });
+    lipMO.observe(data, { attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
     const lipRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => placeLip()) : null;
     lipRO?.observe(data, { box: 'border-box' });
     data.addEventListener('pz-strip', () => requestAnimationFrame(() => { if (ui) { fitDone.delete(data); layout(); } }));   // (laid out, not a resize: a resize sets every strip back to its plot and measures again)
@@ -3611,7 +3665,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
-    return { root, shade, safe, load, text, data, lip, lipRO, setFold, partOf, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
+    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, setFold, partOf, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)
