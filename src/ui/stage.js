@@ -1264,6 +1264,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function freeCentre() { const ins = safeInsets(), b = stageBox(); return [b.left + (ins.l + ins.W - ins.r) / 2, b.top + (ins.t + ins.H - ins.b) / 2]; }
   // A zoom step by the buttons glides there instead of jumping.
   function animZoomAt(cx, cy, factor) {
+    fitted = false;
     if (lobuleOn) return;
     if (scrubS > 0 || canScrub(factor)) { scrubGlide(factor); return; }
     const [vx, vy] = clientToVB(cx, cy), base = vtTarget && vtAnim ? vtTarget : vt;
@@ -1454,7 +1455,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Fit shows the whole figure. On a narrow screen the circuit opens as a close-up of the portal vein
   // and liver (see defaultVT), which is not a fit: there Fit shows the entire map, and tapping it
   // again returns to the close-up, so the button always does something visible.
-  let fitTo = null;   // where the last fit or refit took the view (see closeView)
+  // Whether the view is a fit (Fit, a refit for the cards, the anatomy's home framing) rather than one the learner zoomed or
+  // panned: a pinch, a drag, the wheel or a zoom step clears it. The tools' own camera trips (the HVPG catheter's route and
+  // close-up, there and back) leave it as it was, so a card closed after a measurement still fits (see closeView).
+  let fitted = false;
   const fit = () => {
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view). Inside the sinusoid it steps back out to the lobule.
     if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.fitView(); return; }
@@ -1465,7 +1469,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const at = vtGliding ? vtTarget : vt;
     const to = circuit && !near(focus, whole) ? (near(at, whole) ? focus : whole) : focus;
     if (!circuit) homeAt = to;
-    fitTo = to;
+    fitted = true;
     // It glides there, as the zoom buttons do (reduced motion: a short glide).
     animateVT(to, 420);
   };
@@ -1475,17 +1479,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lobuleOn) return;
     const to = defaultVT(morphTarget === 1);
     if (morphTarget !== 1) homeAt = to;
-    fitTo = to;
+    fitted = true;
+    // (Mid-measurement the catheter's camera keeps the view: its trip back ends on the new fit instead of the old one.)
+    if (cath.saved) { cath.saved = to; return; }
     if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, 420);
   }
-  // The Tests card closed. A fitted view (the last fit or refit, or the anatomy's home) is fitted again to the space the card
-  // leaves; a view the learner zoomed or panned stays where it is, and the home framing is let go so the looks that follow
-  // the card leaving (resize, pps:occ) leave it alone too. Every way of closing it (the Tests button, its close button, Esc,
-  // a swipe) comes here, so a swipe and a tap end the same. Gives back true when it fits.
+  // The Tests card closed. A fitted view (see fitted) is fitted again to the space the card leaves, whatever the tools did
+  // with the camera meanwhile; a view the learner zoomed or panned stays where it is, and the home framing is let go so the
+  // looks that follow the card leaving (resize, pps:occ) leave it alone too. Every way of closing it (the Tests button, its
+  // close button, Esc, a swipe) comes here, so they all end the same. Gives back true when it fits.
   function closeView() {
     if (lobuleOn) return false;
-    const at = vtGliding ? vtTarget : vt;
-    if ((fitTo && sameView(at, fitTo)) || (morphTarget === 0 && homeAt && sameView(at, homeAt))) return true;
+    if (fitted) return true;
     homeAt = null;
     return false;
   }
@@ -1712,7 +1717,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (!store.get().lobule) document.getElementById('app')?.classList.remove('sin-focus');
         cancelFrame(vtAnim); vtGliding = false;
         refreshCTM(); const zOld = Math.log(CTM.sc);
-        const d = defaultVT(false); vt = { ...d }; homeAt = d; applyVT(); CTM = null; refreshCTM();
+        const d = defaultVT(false); vt = { ...d }; homeAt = d; fitted = true; applyVT(); CTM = null; refreshCTM();
         // The plate stopped updating under the lobule, so it still holds the old zoom's culling and detail: bring it up to date for the fit now, not when the zoom lands.
         if (F && !inUpdate) { catchUp = true; try { update(F); } finally { catchUp = false; } }
         // The next slide's own framing, if it asked for one: the rise lands there, not at the fit.
@@ -1746,7 +1751,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // Out of the lobule the anatomy always ends on its full fit, not where the dive began (often the liver close-up).
         // (Already taken to its fit when the way out began; measuring it again here read the floating pieces mid-change and sent the view down, then back.)
         if (riseUsed) riseUsed = false;   // (the rise already landed on the slide's own framing)
-        else if (morphTarget === 0) { if (liverBox() && sameView(vt, homeAt || vt)) homeAt = { ...vt }; else { const d = defaultVT(false); homeAt = d; if (!sameView(vt, d)) animateVT(d, 450); } }
+        else if (morphTarget === 0) { if (liverBox() && sameView(vt, homeAt || vt)) homeAt = { ...vt }; else { const d = defaultVT(false); homeAt = d; fitted = true; if (!sameView(vt, d)) animateVT(d, 450); } }
       }
     };
     step(t0);
@@ -1813,6 +1818,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { k, x: from.x + (to.x - from.x) * a, y: from.y + (to.y - from.y) * a };
   }
   function zoomToBox(x0, y0, x1, y1) {
+    fitted = false;
     const k = clamp(Math.min(VIEW.w / (x1 - x0), VIEW.h / (y1 - y0)) * 0.9, 1, 5);
     animateVT({ k, x: VIEW.w / 2 - ((x0 + x1) / 2) * k, y: VIEW.h / 2 - ((y0 + y1) / 2) * k }, 400);
   }
@@ -1841,6 +1847,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
   }
   function frameBox(box, ms = 1300, kMax = 4, clear = false) {
+    fitted = false;
     if (morphTarget !== 0) return;
     const to = boxVT(box, kMax, clear);
     if (to && !sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms);
@@ -1860,6 +1867,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function zoomLiver() {
     if (store.get().lobule) store.set({ lobule: false });
     const lb = liverBox(); if (!lb) return;
+    fitted = false;
     const b = svg.viewBox.baseVal;
     animateVT(vtFor(lb.x + lb.w / 2, lb.y + lb.h / 2, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 0.92, 2, 3)));
   }
@@ -2133,7 +2141,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     nextFrame(() => {
       // (Set outright, so a glide still under way (a refit as the bars came in) stops here: left running it never landed,
       // stayed 'gliding' for good, and the zoom-out spring and the pans' bounds waited on it, so a pinch out stayed stuck.)
-      if (morphTarget === 0 && !userMoved) { cancelFrame(vtAnim); vtGliding = false; vt = homeAt = vtTarget = defaultVT(false); applyVT(); CTM = null; }
+      if (morphTarget === 0 && !userMoved) { cancelFrame(vtAnim); vtGliding = false; vt = homeAt = vtTarget = defaultVT(false); fitted = true; applyVT(); CTM = null; }
       showFigure();
     });
   }
@@ -2197,7 +2205,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (home && now - homeCheck > 500 && watch.due()) {
       homeCheck = now;
       const d = defaultVT(false);
-      if (!sameView(d, homeAt)) { homeAt = d; animateVT(d, 400); }
+      if (!sameView(d, homeAt)) { homeAt = d; fitted = true; animateVT(d, 400); }
     }
   }
   // (The first look when the size has held for 200 ms: a turn fires several resizes, and a glide after each moved the camera
@@ -7232,7 +7240,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (wheelMute) { if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     // The hand takes over from any camera glide (as a press does): the glide would overwrite each step of the scroll or pinch.
     if (vtGliding) { cancelFrame(vtAnim); vtGliding = false; camSettle(); }
-    stopGlide(); userMoved = true;
+    stopGlide(); userMoved = true; fitted = false;
     const dx = wheelPx(ev, ev.deltaX), dy = wheelPx(ev, ev.deltaY);
     if (ev.ctrlKey || ev.metaKey) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -50, 50) * 0.01), true); settleSoon(); return; }
     if (now - wheelAt > 250) {
@@ -7314,7 +7322,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let to = { ...vt };
     const k = clamp(vt.k, K_MIN, K_MAX);
     // At or past the fit zoom (zoomed out, or panned about at the fit), the view springs back to the fit framing, as in the lobule view.
-    { const d = defaultVT(morphTarget === 1); if (vt.k <= d.k * 1.001) { if (!sameView(d, vt)) animateVT(d, 420); return; } }
+    { const d = defaultVT(morphTarget === 1); if (vt.k <= d.k * 1.001) { fitted = true; if (!sameView(d, vt)) animateVT(d, 420); return; } }
     if (k !== vt.k) {
       const [cx, cy] = freeCentre(), [vx, vy] = clientToVB(cx, cy);
       to = { k, x: vx - ((vx - vt.x) / vt.k) * k, y: vy - ((vy - vt.y) / vt.k) * k };
@@ -7421,7 +7429,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       const k = softK(drag.k0 * d / drag.d0);
       const [vx, vy] = clientToVBFast(mx, my);
-      vt = { k, x: vx - drag.wx * k, y: vy - drag.wy * k };
+      vt = { k, x: vx - drag.wx * k, y: vy - drag.wy * k }; fitted = false;
       applyVT(); CTM = null;
       return;
     }
@@ -7435,7 +7443,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         return;
       }
       if (drag.moved && scrubS === 0) {
-        vt = softPan({ k: vt.k, x: drag.vx + (ev.clientX - drag.x) / drag.s0, y: drag.vy + (ev.clientY - drag.y) / drag.s0 });
+        vt = softPan({ k: vt.k, x: drag.vx + (ev.clientX - drag.x) / drag.s0, y: drag.vy + (ev.clientY - drag.y) / drag.s0 }); fitted = false;
         applyVT(); CTM = null;
         const now = performance.now();
         drag.trail.push([now, ev.clientX, ev.clientY]);
@@ -7695,7 +7703,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.
       const wasOut = target === 1 && (fromLobule || at.k <= 1.001 || (homeAt && sameView(at, homeAt)));   // the whole plate (or less) is showing
       const d = wasOut ? circWhole() : defaultVT(target === 1);
-      if (target === 0) homeAt = d;   // back to the anatomy: always its home framing
+      if (target === 0) { homeAt = d; fitted = true; }   // back to the anatomy: always its home framing
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
     },
     relayout() { refreshCTM(); if (F) updateLabels(F, true); },
@@ -7771,7 +7779,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (It used to shrink past it to 0.6× about the middle and stay there: a small figure off to one side that nothing put back.)
       const circuit = morphTarget === 1, d = defaultVT(circuit), whole = circuit ? circWhole() : d, lo = whole.k < d.k ? whole : d;
       const base = vtGliding && vtTarget ? vtTarget : vt;
-      if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; if (!sameView(lo, base)) animateVT(lo, 260); return; }
+      if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; fitted = true; if (!sameView(lo, base)) animateVT(lo, 260); return; }
       const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);
     },
     fit, refit, closeView,
@@ -7823,14 +7831,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !chainOut && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
     /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
     riseTo, holdHome,
-    fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitTo = to; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
+    fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
     cameraState: () => ({ ...(vtGliding && vtTarget ? vtTarget : vt) }),
     /** The organs are drawn from the GPU copy again after a patient change (or never will be: no WebGL), so a camera move costs only the GPU's draw. */
     organsSettled: () => plateOn() || !glWanted(),
     /** The camera is still gliding (a slide's cards wait for it to land). */
     gliding: () => vtGliding,
-    setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; animateVT({ ...to }, ms); },
+    setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; fitted = false; animateVT({ ...to }, ms); },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
     labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)

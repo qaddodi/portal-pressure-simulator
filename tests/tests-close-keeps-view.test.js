@@ -21,13 +21,22 @@ test('every close path runs through setPanelTab', () => {
   assert.match(dock, /function toggle\(\) \{\n {4}if \(isVisible\(\)\) close\(\);/, 'the Tests button closes through close()');
 });
 
-test('closeView: a fitted view fits again, a moved one is kept and lets go of home', () => {
+test('closeView fits again a fitted view, whatever the tools did with the camera; a moved one is kept', () => {
   const fn = stage.match(/function closeView\(\) \{[\s\S]*?\n {2}\}/)[0];
-  assert.match(fn, /\(fitTo && sameView\(at, fitTo\)\) \|\| \(morphTarget === 0 && homeAt && sameView\(at, homeAt\)\)\) return true;/);
-  assert.match(fn, /homeAt = null;\n {4}return false;/);
-  // every fit records where it went
-  assert.match(stage, /function refit\(\) \{[\s\S]*?fitTo = to;[\s\S]*?\n {2}\}/);
-  assert.match(stage, /const fit = \(\) => \{[\s\S]*?fitTo = to;[\s\S]*?\n {2}\};/);
-  assert.match(stage, /fitSlow\(ms = 1300\) \{[^\n]*fitTo = to;/);
+  assert.match(fn, /if \(fitted\) return true;\n {4}homeAt = null;\n {4}return false;/);
+  // every fit marks the view fitted
+  assert.match(stage, /function refit\(\) \{[\s\S]*?fitted = true;[\s\S]*?\n {2}\}/);
+  assert.match(stage, /const fit = \(\) => \{[\s\S]*?fitted = true;[\s\S]*?\n {2}\};/);
+  assert.match(stage, /fitSlow\(ms = 1300\) \{[^\n]*fitted = true;/);
+  assert.match(stage, /if \(!sameView\(d, homeAt\)\) \{ homeAt = d; fitted = true;/, 'home following');
+  // a pinch, a drag, the wheel and the zoom steps mark it moved
+  assert.match(stage, /vt = \{ k, x: vx - drag\.wx \* k, y: vy - drag\.wy \* k \}; fitted = false;/);
+  assert.match(stage, /vt = softPan\([^\n]*\); fitted = false;/);
+  assert.match(stage, /stopGlide\(\); userMoved = true; fitted = false;/);
+  assert.match(stage, /function animZoomAt\(cx, cy, factor\) \{\n {4}fitted = false;/);
+  // the catheter's camera never touches it; a refit mid-measurement moves where its trip back ends
+  const cam = stage.match(/function cathFocus\([\s\S]*?\n {2}\}/)[0] + stage.match(/function cathFollow\(\) \{[\s\S]*?\n {2}\}/)[0];
+  assert.doesNotMatch(cam, /fitted/);
+  assert.match(stage, /if \(cath\.saved\) \{ cath\.saved = to; return; \}/);
   assert.match(stage, /fit, refit, closeView,/);
 });
