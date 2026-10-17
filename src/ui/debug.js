@@ -8,7 +8,8 @@ try { st = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { st = {
 let stamps = [], cv = null, hist = [], el = null, raf = 0, last = 0, fps = 0, ms = 0, getZoom = null;
 // GPU time per step (gpu-probe.js): each frame's interval with the steps' times in it; the slowest in the last 10 s stays shown.
 let frames = [], prevT = 0;
-const WORST_MS = 10000;
+const WORST_MS = 10000, SLOW_MS = 50;
+const sumFrames = (fs) => { const parts = {}; for (const f of fs) for (const [k, v] of Object.entries(f.parts)) parts[k] = (parts[k] || 0) + v; return { dt: fs.reduce((a, f) => a + f.dt, 0), parts }; };
 // (What the steps leave of the frame is the rest of the page: its other script, style, layout, painting and compositing.)
 const stepsText = (f) => Object.entries({ ...f.parts, 'rest of page': Math.max(0, f.dt - Object.values(f.parts).reduce((a, b) => a + b, 0)) }).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(' · ') || 'none';
 const any = () => OPTS.some(([k]) => st[k]);
@@ -54,6 +55,9 @@ function tick(t) {
     const now = frames[frames.length - 1], worst = frames.reduce((a, b) => (b.dt > a.dt ? b : a));
     L.push(`frame ${now.dt.toFixed(0)} ms: ${stepsText(now)}`);
     L.push(`slowest in 10 s, ${worst.dt.toFixed(0)} ms: ${stepsText(worst)}`);
+    // Every slow frame of the 10 s added up, step by step: where a lag that lasts goes, not only its worst moment.
+    const slow = frames.filter((f) => f.dt > SLOW_MS);
+    if (slow.length) L.push(`${slow.length} slow frames in 10 s, ${slow.reduce((a, f) => a + f.dt, 0).toFixed(0)} ms: ${stepsText(sumFrames(slow))}`);
   }
   if (st.res) L.push(`pixel ratio ${devicePixelRatio} · ${Math.round(innerWidth * devicePixelRatio)}×${Math.round(innerHeight * devicePixelRatio)}`);
   if (el) {

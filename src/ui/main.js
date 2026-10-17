@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=1226b7a59c';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=aaf1639975';
 import { initTopbarMotion } from './topbar-motion.js?v=f095540bb8';
 import { ORIGINS } from './blood.js?v=1f05278710';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
