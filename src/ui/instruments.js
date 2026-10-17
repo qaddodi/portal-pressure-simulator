@@ -6,7 +6,8 @@ import { pressureColor } from './colormap.js?v=5c9a375f49';
 import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=0140acc352';
 import { simTime, isPaused } from './clock.js?v=520596240b';
 import { createEndoGL } from './endo-gl.js?v=76052b39ce';
-import { renderEndo } from './endo-render.js?v=676ebdcdee';
+import { renderEndo } from './endo-render.js?v=d8affca4c5';
+import { endoGrow } from './endo-size.js?v=824631d0bc';
 import { FONT } from './charts.js?v=89e7b4137f';
 import { store, updateParams, varicesPresent } from './store.js?v=31ee79b6ab';
 import { balanceHold } from './balance-hold.js?v=ea4d9121d2';
@@ -93,7 +94,7 @@ export function createEndoscopy({ onAction }) {
     const kb = 1 - Math.exp(-dt / 1.2);
     if (!mv) mv = { d: vx.d, ratio: vx.ratio };
     else { mv.d += (vx.d - mv.d) * kb; mv.ratio += (vx.ratio - mv.ratio) * kb; }
-    const gNow = clamp((mv.d - 2) / 10, 0, 1);
+    const gNow = endoGrow(mv.d); // (endo-size.js: a large varix, 5 mm or more, is drawn plainly large)
     peak = bands > 0 ? Math.max(peak, gNow) : gNow;
     const tg = peak, tv = bands > 0 ? 1 : clamp((mv.d - 2.5) / 1.0, 0, 1);
     // Stigmata follow the modeled wall stress: they start below the red-wale threshold (70 % of the

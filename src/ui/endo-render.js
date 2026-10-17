@@ -165,7 +165,7 @@ export function renderEndo(res, p) {
           const s2 = Math.exp(-Math.pow((o.u + 0.35 + off) / 0.07, 2)) * sstep(0.66, 0.84, nz(o.c * 17 + 9, z * 3.4, 4096));
           const wm = Math.max(s1, s2 * 0.8) * sstep(0, 0.5, rs);
           const spot = sstep(0.95 - 0.05 * rs, 0.98 - 0.03 * rs, nz(th / TAU * 220, z * 11, 220)) * vein * sstep(0.2, 0.7, rs);
-          // (Full from 5 mm (grow 0.3, instruments.js), so a large varix the model gives red wale signs shows them plainly.)
+          // (Full from grow 0.3, below the 5 mm of a large varix (endo-size.js), so a large varix the model gives red wale signs shows them plainly.)
           const rr = Math.max(wm * 0.6 * vein, spot * 0.75) * sstep(0.1, 0.3, grow);
           r0 = mix(r0, 158, rr); g0 = mix(g0, 26, rr); b0 = mix(b0, 42, rr);
         }

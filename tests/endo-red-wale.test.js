@@ -4,11 +4,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { endoGrow } from '../src/ui/endo-size.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 
 test('red wale marks are full from the 5 mm of a large varix', () => {
-  const grow5 = (() => { const m = src('instruments.js').match(/gNow = clamp\(\(mv\.d - ([\d.]+)\) \/ ([\d.]+), 0, 1\)/); return (5 - +m[1]) / +m[2]; })();
+  const grow5 = endoGrow(5);
   const gl = src('endo-gl.js').match(/spot \* 0\.75\) \* sst\(([\d.]+), ([\d.]+), uGrow\)/);
   const cpu = src('endo-render.js').match(/spot \* 0\.75\) \* sstep\(([\d.]+), ([\d.]+), grow\)/);
   assert.ok(gl && cpu, 'both drawings gate the marks by size');
