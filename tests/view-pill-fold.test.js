@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { foldPlan, faceClip, easeIO3 } from '../src/ui/pill-motion.js';
+import { foldPlan, faceClip, easeIO3, FOLD_MS, FOLD_EASE } from '../src/ui/pill-motion.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const main = read('../src/ui/main.js');
@@ -92,9 +92,12 @@ test('the row is cut to the face, which at rest is the pill itself', () => {
 });
 
 test('the fold is wired to every change of the pill\'s buttons, on the zoom\'s clock', () => {
-  const dive = stage.match(/const DIVE_MS = (\d+), RISE_MS = (\d+);/);
-  assert.match(main, new RegExp(`const LOBULE_IN = ${dive[1]}, LOBULE_OUT = ${dive[2]};`), 'the Sinusoid button on the dive\'s clock');
-  assert.match(main, /foldPill\(seg, box1, before, kind === 'in' \? PILL_IN : kind === 'out' \? PILL_OUT : kind === 'down' \? LOBULE_IN : LOBULE_OUT\);/);
+  // (17 Oct, Mohammad: the folding "should be faster and eased".) Quicker than the zoom out (950 ms) and the dive, on the app's ease.
+  assert.ok(FOLD_MS >= 300 && FOLD_MS <= 500, `${FOLD_MS} ms`);
+  assert.ok(FOLD_MS < +main.match(/PILL_OUT = (\d+)/)[1] / 2 && FOLD_MS < +stage.match(/RISE_MS = (\d+)/)[1] / 2);
+  assert.equal(FOLD_EASE, read('../styles/tokens.css').match(/--ease: (cubic-bezier\([^)]*\))/)[1]);
+  assert.match(motion, /const opt = \{ duration: ms, easing: FOLD_EASE \}/);
+  assert.match(main, /if \(before && box1\) foldPill\(seg, box1, before\);/);
   assert.match(main, /sinWas !== inSin \? \(inSin \? 'in' : 'out'\) : sinHide \? 'up' : 'down'/);
   // Only compositor work on the buttons: transform, opacity and the row's clip; the face is a box with nothing in it.
   assert.doesNotMatch(motion.match(/export function foldPill[\s\S]*$/)[0], /\b(left|width|margin|padding)\b[^\n]*animate|animate\(\[\{ (left|margin|padding)/);

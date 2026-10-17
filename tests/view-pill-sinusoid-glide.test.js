@@ -64,8 +64,8 @@ test('the pill starts where it was drawn and reads its resting place each frame,
   assert.ok(change.indexOf("classList.add('vd-out')") < change.indexOf('change();'), 'into the sinusoid the dock stays to slide away');
   const m = fn('sinMotion');
   assert.match(m, /prefers-reduced-motion: reduce/, 'reduced motion: the pill and the dock just take their places');
-  assert.match(m, /cy = r\.top \+ r\.height \/ 2 - shift\[1\] \* z - dock/, 'less its own shift and the dock\'s');
-  assert.match(m, /const dock = inDock && bars \? barY \* bz : 0;/);
+  assert.match(m, /glideShift\(r\.top \+ r\.height \/ 2, shift\[1\], z, dock, from\.y, k\)\.shift/, 'less its own shift and the dock\'s');
+  assert.match(m, /const dock = inDock && bars \? barY \* bz : 0, k = 1 - e;/);
   // A move reversed part way starts from where the dock is drawn, not from its far end.
   assert.match(m, /if \(intoSin\) y1 = off; else if \(!leaving\) y0 = off;/);
   // The dock's published height reads the pill at rest, not mid-glide (the lobule's framing depends on it).

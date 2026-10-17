@@ -3,7 +3,7 @@
 // (.vp-face, the glass behind the buttons) grows or shrinks about its centre, the buttons that stay slide to their new
 // places, and a button that comes or goes travels with its nearest neighbour that stays, uncovered or covered by the
 // moving edge of the face: the Sinusoid button slides out from behind Lobule, Anatomy and Circuit fold in behind it
-// (17 Oct, Mohammad). All of it on one clock and curve, given by the caller (the zoom's, so it plays in step with it).
+// (17 Oct, Mohammad). All of it on one clock and curve (FOLD_MS, FOLD_EASE), while the pill as a whole glides with the zoom.
 //
 // Only transform, opacity and clip-path move the buttons (no layout per frame, and nothing the dock's ResizeObserver
 // sees); the face is an absolutely placed box with nothing inside, so its width eases at no cost to anything else.
@@ -12,6 +12,21 @@
 
 export const easeIO3 = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
 export const EASE_IO3 = 'cubic-bezier(.65, 0, .35, 1)';   // (easeIO3 as a CSS curve)
+// The fold is quicker than the zoom it plays in (17 Oct, Mohammad: "should be faster and eased"), on the app's own ease
+// (tokens.css --ease: quick off the mark, settling gently), so the buttons have folded well before the pill lands.
+export const FOLD_MS = 420, FOLD_EASE = 'cubic-bezier(.2, .8, .2, 1)';
+
+/**
+ * One frame of the pill's glide (main.js sinMotion), on one axis, all in screen px. at: the pill's centre as drawn now, which
+ * holds its own shift (shift × z: its transform, in its own px, under the interface zoom z) and the slide of the dock it sits on
+ * (dock); from: where it was when the move began; k: the share of the way still to go (1 − ease). Its resting place is what is
+ * left; the shift returned draws it at from + (rest − from)(1 − k), whatever the dock under it is doing. (The dock's slide is taken
+ * off too: the pill rides on it, so leaving it in drew the pill off the screen with the dock, out of the sinusoid, 17 Oct.)
+ */
+export function glideShift(at, shift, z, dock, from, k) {
+  const rest = at - shift * z - dock;
+  return { rest, shift: ((from - rest) * k - dock) / z };
+}
 
 /**
  * The fold, worked out. before / after: the buttons drawn then and at rest, each { key, l, r, o } (left and right edges in the
@@ -69,7 +84,7 @@ export function pillState(seg, box) {
  * Plays the fold from `before` (pillState, taken before the buttons changed) to the pill as it now rests in `box`, over ms.
  * (A running fold is taken over: its picture was in `before`.)
  */
-export function foldPill(seg, box, before, ms) {
+export function foldPill(seg, box, before, ms = FOLD_MS) {
   stopFold();
   const after = pillState(seg, box);
   if (!after || !(ms > 0)) return;
@@ -77,7 +92,7 @@ export function foldPill(seg, box, before, ms) {
   const plan = foldPlan(before.btns, after.btns, order);
   const moves = Math.abs(before.w - after.w) > 0.5 || [...plan.values()].some((p) => p.kind !== 'stay' || Math.abs(p.dx0) > 0.5 || p.o0 < 0.99);
   if (!moves) return;
-  const opt = { duration: ms, easing: EASE_IO3 }, keep = (a) => { running.add(a); a.onfinish = a.oncancel = () => running.delete(a); return a; };
+  const opt = { duration: ms, easing: FOLD_EASE }, keep = (a) => { running.add(a); a.onfinish = a.oncancel = () => running.delete(a); return a; };
   keep(box.querySelector(':scope > .vp-face').animate([{ width: `${before.w.toFixed(2)}px` }, { width: `${after.w.toFixed(2)}px` }], opt));
   const real = (k) => seg.querySelector(`:scope > button[data-view="${k}"]`);
   for (const [k, p] of plan) {

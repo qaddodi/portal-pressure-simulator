@@ -39,7 +39,7 @@ import { ORIGINS } from './blood.js?v=cc7febbf07';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=1ee7733788';
 import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=67ca200c87';
-import { easeIO3, pillState, foldPill, stopFold } from './pill-motion.js?v=4f63ed214c';
+import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=0f61f910f1';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -1179,6 +1179,7 @@ function wireFloating() {
   const pubVals = {};
   let pubSig = '';
   const soon = () => { if (!pubRaf) pubRaf = nextFrame(publish); };
+  publishNow = () => { if (pubRaf) { cancelFrame(pubRaf); publish(); } };
   const ro = new ResizeObserver(soon);
   for (const id of ['#topbar', '#vdock', '#dock', '#panel', '#treatCard', '.tb-id', '.top-right', '.topbar .sb-right', '#viewSeg']) ro.observe($(id));
   new MutationObserver(soon).observe(app, { attributes: true, attributeFilter: ['class'] });
@@ -1420,9 +1421,10 @@ function syncThumb() {
 // The framing reads both at rest: the dock counts as gone from the moment it starts sliding away (vd-out), and while either
 // moves its shift on screen is in data-slide-y, which the published space (publish) and the figure's framing (stage.js) take off.
 const PILL_IN = 1150, PILL_OUT = 950;
-// With the lobule the Sinusoid button slides out of the pill or back into it, on the clock of the dive into the lobule and the
-// rise out of it (stage.js DIVE_MS, RISE_MS) and the same curve (17 Oct, Mohammad: it "should slide out not just appear snap").
-const LOBULE_IN = 1600, LOBULE_OUT = 1000;
+// (With the lobule the Sinusoid button slides out of the pill or back into it, 17 Oct, Mohammad: it "should slide out not just
+// appear snap"; the fold, there and into or out of the sinusoid, is pill-motion.js FOLD_MS, quicker than the zoom.)
+// (publishNow: the space the floating pieces leave, published at once if it waits for a frame, wireFloating.)
+let publishNow = () => {};
 let pillRaf = 0, pillEl = null, pillShiftY = 0;   // (pillShiftY: the glide's vertical shift now, in screen px)
 let barY = 0;   // (the dock's slide now, in its own px: 0 at rest, down is positive)
 const pillHome = () => { const b = $('#viewSeg')?.parentElement; return b && (b.id === 'nbViews' || b.id === 'sinViews') && b.offsetWidth ? b : null; };
@@ -1442,7 +1444,7 @@ function pillChange(change, kind) {
   change();
   syncThumb();
   const box1 = pillHome();
-  if (before && box1) foldPill(seg, box1, before, kind === 'in' ? PILL_IN : kind === 'out' ? PILL_OUT : kind === 'down' ? LOBULE_IN : LOBULE_OUT);
+  if (before && box1) foldPill(seg, box1, before);
   else stopFold();
   if (sin) { sinMotion(from, kind === 'in'); getComputedStyle(seg).color; }   // (styles settled in the new home before the pressed button changes, so it crossfades)
 }
@@ -1469,6 +1471,10 @@ function sinMotion(from, intoSin) {
   if (box) { pillEl = box; box.style.setProperty('--vp-ms', `${ms}ms`); box.classList.add('vp-glide'); }
   const step = (now) => {
     const u = Math.min(1, (now - t0) / ms), e = easeIO3(u);
+    // (The sinusoid view's pill rests on the space the dock leaves, published on a frame of its own, asked for after this one: it
+    // is published first, here, so the pill is never drawn for a frame at the old space and then jumps, 17 Oct. Not in the change's
+    // own task, the first call: there the zoom's own listeners may not have run yet.)
+    if (now > t0) publishNow();
     if (bars) {
       barY = u >= 1 ? 0 : y0 + (y1 - y0) * e;
       vd.style.translate = u >= 1 ? '' : `0 ${barY.toFixed(2)}px`;
@@ -1477,14 +1483,13 @@ function sinMotion(from, intoSin) {
     }
     const el = pillEl;
     if (el) {
-      // (Where it lies now, less the glide's own shift and the dock's (read, not cleared, so no extra layout runs); px on screen
-      // turned into the box's own px, under the interface zoom.)
+      // (Where it lies now, less the glide's own shift and the dock's (read, not cleared, so no extra layout runs), drawn on its
+      // own path from where it was to where it rests, under the interface zoom: pill-motion.js glideShift.)
       const r = el.getBoundingClientRect(), z = el.currentCSSZoom || (el.offsetWidth ? r.width / el.offsetWidth : 1) || 1;
       if (u >= 1 || !r.width) { el.style.transform = ''; el.classList.remove('vp-glide'); delete el.dataset.slideY; pillEl = null; pillShiftY = 0; }
       else {
-        const dock = inDock && bars ? barY * bz : 0;
-        const cx = r.left + r.width / 2 - shift[0] * z, cy = r.top + r.height / 2 - shift[1] * z - dock, k = 1 - e;
-        shift = [(from.x - cx) * k / z, (from.y - cy) * k / z];
+        const dock = inDock && bars ? barY * bz : 0, k = 1 - e;
+        shift = [glideShift(r.left + r.width / 2, shift[0], z, 0, from.x, k).shift, glideShift(r.top + r.height / 2, shift[1], z, dock, from.y, k).shift];
         el.style.transform = `translate(${shift[0].toFixed(2)}px, ${shift[1].toFixed(2)}px)`; pillShiftY = shift[1] * z;
         el.dataset.slideY = (pillShiftY + dock).toFixed(2);
       }
