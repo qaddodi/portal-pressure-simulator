@@ -336,7 +336,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
 
   const live = h('span', { class: 'workspace-live', 'aria-live': 'off' });
   // The head is the same as Findings' and Treat's: icon, name, a quiet status, close.
-  const titleEl = h('h2', { class: 'dock-title card-title' }, svgIcon('gauge'), h('span', {}, 'Tests'), h('span', { class: 'dt-l' }));
+  const titleEl = h('h2', { class: 'dock-title card-title' }, h('span', {}, 'Tests'), h('span', { class: 'dt-l' }));
   const closeBtn = h('button', { class: 'ib card-close workspace-close', 'aria-label': 'Close Tests', title: 'Close (Esc)', onclick: close }, svgIcon('close'));
   const divider = h('div', { class: 'workspace-divider', role: 'separator', tabindex: '0', 'aria-label': 'Instruments size' }, h('span'));
   workspace.prepend(divider);

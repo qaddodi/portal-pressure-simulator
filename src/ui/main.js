@@ -7,13 +7,13 @@ import { createStage } from './stage.js?v=9e8142c995';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
 import { sinusoidSupported } from './sinusoid-view.js?v=9273baf980';
 import { createInspector } from './inspector.js?v=be805a3bca';
-import { createDock, CUTOFFS } from './dock.js?v=d14677fb0b';
+import { createDock, CUTOFFS } from './dock.js?v=7a1b7e05cf';
 import { setHvpgStage } from './hvpg-proc.js?v=e6a5c61948';
 import { createWhy } from './why.js?v=e89fe568a5';
 import { createTimeline, LAPSES } from './timeline.js?v=afd6c5fe28';
 import { createCompare } from './compare.js?v=9ba156c497';
 import { createCard } from './card.js?v=c3d551213a';
-import { createChart } from './chart.js?v=0dd6eef613';
+import { createChart } from './chart.js?v=7c51bc5b6a';
 import { createMenu } from './menu.js?v=2526f9f399';
 import { caption } from './a11y.js?v=49987e10af';
 import { startLMS } from './lms.js?v=284ef81e94';
@@ -1452,7 +1452,7 @@ function openTreat() {
   const [tabs, pane] = chart.treatBody(sync, () => {});
   const body = h('div', { class: 'tc-body' }, pane, chart.treatChanges(sync));
   const grab = el.querySelector('.sheet-grab');
-  el.replaceChildren(...[grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('pill'), h('span', {}, 'Treat')), count,
+  el.replaceChildren(...[grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, h('span', {}, 'Treat')), count,
     h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat({ focus: true }) }, icon('close'))), tabs, body].filter(Boolean));
   paintCount();
   treatOff?.();
@@ -1492,7 +1492,7 @@ function openHistory() {
   const el = $('#historyCard');
   const body = h('div', { class: 'tc-body' });
   const paint = () => { const top = body.scrollTop; body.replaceChildren(timeline.historyBody()); body.scrollTop = top; };
-  el.replaceChildren(h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('clock'), h('span', {}, 'History')),
+  el.replaceChildren(h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, h('span', {}, 'History')),
     h('button', { class: 'ib card-close', 'aria-label': 'Close History', title: 'Close (Esc)', onclick: () => closeHistory({ focus: true }) }, icon('close'))), body);
   paint();
   // (A change or an event adds a row; the count beside the button moves with every entry, including a finished snapshot.)

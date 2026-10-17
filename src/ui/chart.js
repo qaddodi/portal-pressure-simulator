@@ -76,7 +76,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       if (count) { count.textContent = mine.length; count.hidden = !mine.length; }
     };
     live.push(paint);
-    const sec = section('changes', 'Changes', 'sliders', '0', list, empty, clear);
+    const sec = section('changes', 'Changes', null, '0', list, empty, clear);
     count = sec.querySelector('summary .count');
     count.classList.add('fd-count');
     return sec;
@@ -89,7 +89,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const live = sync;
     const p0 = store.get().params;
     const drugChip = (k, label, note, get, set) => {
-      const b = h('button', { class: 'order-chip', 'aria-pressed': String(!!get(p0)), title: note }, h('span', { class: 'oc-dot' }, icon('check')), h('span', { class: 'oc-t' }, label));
+      const b = h('button', { class: 'order-chip', 'aria-pressed': String(!!get(p0)), title: note }, h('span', { class: 'oc-t' }, label), h('span', { class: 'oc-dot' }, icon('check')));
       b.addEventListener('click', () => updateParams((pp) => { set(pp, !get(pp)); return pp; }, { label }));
       live.push(() => b.setAttribute('aria-pressed', String(!!get(store.get().params))));
       return b;
@@ -139,15 +139,15 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       proc('needle', 'Paracentesis', 'drain ascites', () => select({ type: 'organ', id: 'abdomen' })));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
     // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
-    const panes = [['drugs', 'pill', 'Drugs', drugs], ['fluids', 'drop', 'Fluids', fluids], ['procs', 'band', 'Procedures', procs]];
+    const panes = [['drugs', 'Drugs', drugs], ['fluids', 'Fluids', fluids], ['procs', 'Procedures', procs]];
     const tabs = h('div', { class: 'instr-tabs treat-tabs', role: 'tablist', 'aria-label': 'Treatments' });
     // All three panes share one grid cell, the others hidden but still laid out, so the card is as tall as the tallest
     // tab on every tab and never changes height when a tab is picked (review #20).
-    const body = h('div', { class: 'treat-pane' }, panes.map((x) => x[3]));
+    const body = h('div', { class: 'treat-pane' }, panes.map((x) => x[2]));
     const show = (id) => {
       treatTab = id;
       for (const b of tabs.children) b.setAttribute('aria-selected', String(b.dataset.tab === id));
-      for (const [pid, , , el] of panes) { const off = pid !== id; el.classList.toggle('tp-off', off); el.inert = off; el.setAttribute('aria-hidden', String(off)); }
+      for (const [pid, , el] of panes) { const off = pid !== id; el.classList.toggle('tp-off', off); el.inert = off; el.setAttribute('aria-hidden', String(off)); }
       if (body.isConnected) spare();
     };
     // The spare room under a shorter tab goes to the card's foot, under Changes, rather than sitting as a band between
@@ -155,15 +155,16 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     // what the tallest tab needs more, so the card's frame still holds still from tab to tab.
     const spare = () => {
       if (!body.isConnected) { ro?.disconnect(); return; }
-      const on = panes.find((x) => x[0] === treatTab)?.[3];
-      const tall = Math.max(...panes.map((x) => x[3].offsetHeight)), own = on?.offsetHeight ?? tall, cs = getComputedStyle(body);
+      const on = panes.find((x) => x[0] === treatTab)?.[2];
+      const tall = Math.max(...panes.map((x) => x[2].offsetHeight)), own = on?.offsetHeight ?? tall, cs = getComputedStyle(body);
       const pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
       body.style.height = `${own + pad}px`;
       body.parentElement?.style.setProperty('--tp-spare', `${tall - own}px`);
     };
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(spare) : null;
-    for (const x of panes) ro?.observe(x[3]);
-    for (const [id, ic, label] of panes) tabs.append(h('button', { class: 'instr-tab', role: 'tab', 'data-tab': id, 'aria-selected': 'false', onclick: () => show(id) }, svgIcon(ic), h('span', {}, label)));
+    for (const x of panes) ro?.observe(x[2]);
+    // Words only: the three names always fit, so an icon beside each would only repeat it (design giveaway DG5, 17 Oct).
+    for (const [id, label] of panes) tabs.append(h('button', { class: 'instr-tab', role: 'tab', 'data-tab': id, 'aria-selected': 'false', onclick: () => show(id) }, h('span', {}, label)));
     show(treatTab);
     return [tabs, body];
   }

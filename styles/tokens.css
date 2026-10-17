@@ -28,7 +28,7 @@
   --accent-ink: #2442AE;
   --accent-soft: rgba(49, 85, 209, .09);
   --accent-line: rgba(49, 85, 209, .32);
-  --focus: #3B82F6;
+  --focus: #3155D1;   /* (the accent itself, not a UI kit's stock blue: DG3) */
 
   /* status (always paired with a label or icon) */
   --ok: #178A63;

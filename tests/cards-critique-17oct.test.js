@@ -37,8 +37,8 @@ test('Volume and Output get a plain bar: no bands, no cut-offs (D4)', () => {
   for (const k of ['bv', 'co']) { assert.ok(SCALE[k], k); assert.deepEqual(SCALE[k][2], []); assert.deepEqual(bandsOf(k), []); }
 });
 
-test('phone cards of tiles alone drop their header, folded cards keep it (D1)', () => {
-  assert.match(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.tiles-only:not\(\.has-tool\):not\(\.pz-folds\) > \.pz-dh \{ display: none; \}/);
+test('cards of tiles alone drop their header on every screen, folded cards keep it (D1, DG2)', () => {
+  assert.match(css, /\n\.pz \.pz-data\.tiles-only:not\(\.has-tool\):not\(\.pz-folds\) > \.pz-dh \{ display: none; \}/);
 });
 
 test('a key tile keeps its colours while the others turn grey: no accent line or ring (D5, revised)', () => {
