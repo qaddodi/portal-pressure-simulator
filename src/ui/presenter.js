@@ -1556,7 +1556,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
 
   // ── The case card ──
-  // (caseLift: set while a case card is up; Next, a swipe on or a tap on the card lifts it rather than changing the slide.)
+  // (caseLift: set while a case card is up; the first Next, swipe (on the card or anywhere) or tap on the card lifts it rather than changing the slide.)
   // The card goes up first and the new patient loads behind it. The slide then goes on as usual behind the card: its words are
   // fitted unseen and the camera glides once to the slide's own framing, so after the tap there is no second move (see caseEnd).
   let caseLift = null, caseCard = null;
@@ -1569,9 +1569,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     c.style.removeProperty('--case-k');
     for (let k = parseFloat(getComputedStyle(c).getPropertyValue('--case-max')) || 2.5; k > 1.2 && c.scrollHeight > c.clientHeight + 1; k -= 0.1) c.style.setProperty('--case-k', k.toFixed(1));
     c.classList.add('on');
-    // Lifting works from the moment the card is up: a tap/Next/swipe while the patient still loads behind it is remembered, and the card lifts once loading ends (into this same slide, never the next).
+    // Lifting works from the moment the card is up: a tap, Next or a swipe anywhere fades it out at once, as a fling does, even
+    // while the patient still loads behind it (the slide goes on into this same slide, its cards once loading ends). After
+    // that Next and a swipe act as on any other slide.
     const card = caseCard = { c, ms, lifted: false };
-    caseLift = () => { card.lifted = true; };
+    caseLift = () => caseGone(card);
     await wait(ms);
     if (cut()) return false;
     // Behind the card: out of the liver, the new patient eased in.
@@ -1581,6 +1583,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     shownState = si;
     if (view.classList.contains('pz-out')) figureIn(); else loading(false);
     return !cut();
+  }
+  // Lifted (tap, Next, a swipe anywhere): the card fades out now, as caseShut would, while the slide carries on behind it.
+  function caseGone(card) {
+    if (caseLift && caseCard === card) caseLift = null;
+    card.lifted = true;
+    if (card.flown) return;
+    card.c.classList.remove('on');
+    card.flown = performance.now() + card.ms;
   }
   // The card leaves: no longer a case card for Next to lift; it fades out and is hidden once it has.
   // A card already flung off waits only for the rest of its flight.
@@ -1606,7 +1616,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       : `transform ${ms}ms cubic-bezier(.33,${clamp(0.33 * slope, 0.12, 0.9).toFixed(2)},.45,1), opacity ${ms}ms cubic-bezier(.4,0,.6,1)`;
     if (!reduce.matches) c.style.transform = `translateX(${dir * dist}px) rotate(${dir * 10}deg)`;
     c.style.opacity = '0';
-    card.flown = performance.now() + ms; card.lifted = true;
+    card.flown = performance.now() + ms; caseGone(card);
   }
   function caseBack(card) {
     const c = card.c;

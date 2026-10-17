@@ -110,11 +110,25 @@ test('the case card follows a finger and a fling lifts it like a tap, also durin
   assert.match(src, /onclick: \(\) => \{ if \(performance\.now\(\) - caseDragAt > 400\) caseLift\?\.\(\); \}/);
   const fly = src.slice(src.indexOf('function caseFly('), src.indexOf('function caseBack('));
   // Flying off only marks the card lifted: no camera move, no slide change; caseEnd still waits for the glide to land.
-  assert.match(fly, /card\.lifted = true/);
+  assert.match(fly, /caseGone\(card\)/);
   assert.doesNotMatch(fly, /camera\(|go\(|next\(/);
   // Once flown, Next/caseShut wait only for the rest of the flight, and the next case card comes back whole.
   assert.match(src, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;/);
   assert.match(src, /for \(const k of \['transform', 'transition', 'opacity'\]\) c\.style\.removeProperty\(k\);/);
+});
+
+test('a tap, Next or a swipe anywhere lifts the case card at once, even while the patient loads; the next one moves on', () => {
+  assert.match(src, /caseLift = \(\) => caseGone\(card\);/);
+  const gone = src.slice(src.indexOf('function caseGone('), src.indexOf('function caseShut('));
+  // It fades now (no waiting for the load to end), and Next and swipes go back to changing slides.
+  assert.match(gone, /if \(caseLift && caseCard === card\) caseLift = null;/);
+  assert.match(gone, /card\.lifted = true;/);
+  assert.match(gone, /card\.c\.classList\.remove\('on'\);\s*card\.flown = performance\.now\(\) \+ card\.ms;/);
+  assert.doesNotMatch(gone, /go\(|next\(|camera\(/);
+  // A swipe off the card goes through the slide swipe, which calls next() (so caseLift) like any slide.
+  assert.match(src, /if \(d > 0\) next\(\); else if \(d < 0\) prev\(\);/);
+  // The fading card lets touches and clicks through.
+  assert.match(css, /\.pz-case:not\(\.on\) \{ pointer-events: none; \}/);
 });
 
 test('a flung case card glides off and fades over a visible time, and is hidden only after its flight', async () => {
