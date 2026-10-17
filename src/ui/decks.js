@@ -68,7 +68,7 @@
 import { CIRCULATION } from './decks/circulation.js?v=2f65734bbf';
 import { SITES } from './decks/sites.js?v=98b5f1258b';
 import { HVPG } from './decks/hvpg.js?v=a8f955db72';
-import { ASCITES } from './decks/ascites.js?v=2f2e660422';
+import { ASCITES } from './decks/ascites.js?v=bd86d17809';
 import { VARICES } from './decks/varices.js?v=b6bdf79a93';
 import { TREATMENT } from './decks/treatment.js?v=5117b0cceb';
 import { STIFFNESS } from './decks/stiffness.js?v=8dbf15924f';
