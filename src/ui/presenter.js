@@ -45,6 +45,7 @@ const ALIAS = { 'where-block': 'sites', bleed: 'treatment' };
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+const FLOW_FOLD = matchMedia('(max-height: 960px)');   // (an upright phone's after-meal chart alone in its card goes on the card's sheet: styles/app.css)
 const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
 /** Poll (not frames: a hidden tab runs none) until fn() holds or ms pass. */
 async function until(fn, ms = 3000) { const t0 = performance.now(); while (!fn() && performance.now() - t0 < ms) await wait(40); }
@@ -2277,10 +2278,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // the full-height glass panel at the left edge). (An upright phone keeps its words' panel at the foot either way.)
   const TEXT_CARD = true;
   const LOW_M = 10;   // (a phone held sideways: its teaching card's margin from the top and bottom, css px; styles/app.css .pz.low)
-  const dock = { lvl: 0, to: 0, raf: 0 };
+  // (auto: closed by the layout, a slide whose card does not fit beside the words and the figure; autoKey: the slide it closed on.
+  // A card the reader closed stays closed from slide to slide; one the layout closed opens again on the next slide that fits.)
+  const dock = { lvl: 0, to: 0, raf: 0, auto: false, autoKey: '' };
+  // A phone's card with a second part (an instrument's tiles, or the instrument under its tiles) keeps that part on a sheet
+  // tucked under it: the sheet's edge (LIP px, .pz-lip) shows below the card and carries the handle (Mohammad, 17 Oct: "round 2 A").
+  // Pulled down or tapped, the sheet comes out flush with the card; pushed up, the card slides away to its handle. No Show or Hide.
+  const LIP = 24;
+  const lipOn = (d) => d.classList.contains('pz-sheet') && !d.classList.contains('tool-open');
   const dockVec = () => {
     const d = ui.data;
-    if (phone()) return [0, GRIP - (d.offsetTop + d.offsetHeight)];
+    if (phone()) return [0, GRIP - (lipOn(d) ? LIP : 0) - (d.offsetTop + d.offsetHeight)];   // (closed: the sheet's edge and 10 px of the card show)
     if (d.classList.contains('under') || d.classList.contains('col')) return [GRIP - (d.offsetLeft + d.offsetWidth), 0];
     return [wrap.clientWidth - GRIP - d.offsetLeft, 0];
   };
@@ -2289,10 +2297,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const [x, y] = dockVec();
     ui.data.style.translate = dock.lvl ? `${(x * dock.lvl).toFixed(1)}px ${(y * dock.lvl).toFixed(1)}px` : '';
     ui.data.classList.toggle('docked', dock.to === 1);
+    const say = dock.to === 1 ? 'Open the card' : ui.data.classList.contains('tool-open') ? 'Close the card' : 'Show the rest of the card';
+    if (ui.lip.getAttribute('aria-label') !== say) ui.lip.setAttribute('aria-label', say);
   };
   function dockTo(to, ms = 380) {
     cancelFrame(dock.raf);
     dock.to = to;
+    // (Closed from either open state; it opens again on its first step, the sheet tucked under it.)
+    if (to === 1 && ui?.data.classList.contains('pz-sheet') && ui.data.classList.contains('tool-open')) ui.setFold(false);
     if (reduce.matches) ms = 0;
     const from = dock.lvl, t0 = performance.now();
     const step = (now) => {
@@ -2304,6 +2316,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dock.raf = nextFrame(step);
     layout();   // (the figure frames itself for where the card is going)
     clearTimeout(dock.fit); dock.fit = setTimeout(() => ui && onResize(), 60);
+  }
+  // A slide whose data card does not fit (phoneTextCap, lowData) comes in closed, its handle showing, never folded to its header
+  // behind Show; the next slide that fits brings it back. (After the pass that asked: dockTo lays the cards out again.)
+  function autoDock(shut) {
+    const key = `${gen}:${want}`, d = ui.data, ms = d.classList.contains('pz-hide') || d.hidden ? 0 : 380;
+    if (shut && dock.to === 0 && dock.autoKey !== key) { dock.autoKey = key; dock.auto = true; queueMicrotask(() => ui && dockTo(1, ms)); }
+    else if (!shut && dock.auto && dock.to === 1) { dock.auto = false; queueMicrotask(() => ui && dockTo(0, ms)); }
   }
   // The cards never scroll: when a card's contents are taller or wider than the card, their zoom (--pz-fit) drops until they fit.
   // The height is summed from the children's own boxes (a slide-up does not change a box's height), never read from
@@ -2378,27 +2397,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A phone on its side: its data card's lettering never under 12 px on the screen (critique I1, 17 Oct: it had zoomed to 8 px,
   // Varices 7, TIPS 3 and 11, Stiffness 4 and 8, Circuit 5). A card too tall for its room first stands its tiles tighter (.pz-lt:
   // less padding, the numbers a step smaller; .pz-lt2: smaller again, the names and units at their size), then zooms only as far as
-  // its smallest lettering allows, then folds to its header behind Show, as an upright phone's does (each such slide comes in
-  // folded). Opened there by a tap, it zooms to fit as a last resort: the reader asked for it, over the figure. Returns the
-  // smallest zoom the fit may take.
+  // its smallest lettering allows, then comes in closed at the right, its edge and handle showing, as an upright phone's does
+  // (autoDock; never folded to its header behind Show). Brought back, or opened fully, it zooms to fit as a last resort: the
+  // reader asked for it, over the figure. Returns the smallest zoom the fit may take.
   function lowData(el) {
     const pr = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--s-cap)' }); el.append(pr);
     const cap = parseFloat(getComputedStyle(pr).fontSize) || 12; pr.remove();
     const floor = cap > 12 ? Math.ceil(12 / cap * 1000) / 1000 : 1;
     const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1; };
     const chosen = el.classList.contains('tool-open') && el.dataset.openFor === String(want);
-    if (!chosen) el.classList.remove('pz-folds');
+    const done = (shut, z) => { autoDock(shut); return z; };
     el.classList.remove('pz-lt', 'pz-lt2');
-    for (const c of ['pz-lt', 'pz-lt2']) { if (fits()) return floor; el.classList.add(c); }
+    for (const c of ['pz-lt', 'pz-lt2']) { if (fits()) return done(false, floor); el.classList.add(c); }
     if (chosen) return 0.5;
-    if (fits()) return floor;
-    if (floor < 1) { el.style.setProperty('--pz-fit', String(floor)); const ok = fits(); el.style.removeProperty('--pz-fit'); if (ok) return floor; }
-    if (!el.querySelector(':scope > :not(.pz-dh):not(.pz-grip)')) return 0.5;
-    el.classList.remove('pz-lt', 'pz-lt2');
-    el.classList.add('pz-folds'); el.classList.remove('tool-open');
-    const b = el.querySelector('.pz-dh > .pz-fold');
-    if (b) { b.textContent = 'Show'; b.setAttribute('aria-expanded', 'false'); }
-    return floor;
+    if (fits()) return done(false, floor);
+    if (floor < 1) { el.style.setProperty('--pz-fit', String(floor)); const ok = fits(); el.style.removeProperty('--pz-fit'); if (ok) return done(false, floor); }
+    return done(!!el.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)'), 0.5);
   }
   function fitCards(...els) {
     for (const el of els) {
@@ -2561,8 +2575,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // with a tall data card, a 667 px iPhone kept 24 to 70 px of figure on a dozen slides and Circuit 2 hid its R liver.)
     // (Before the words are measured for the phone's cap: measured with the full names on two rows, the card kept 12 px it no longer needed.)
     abShort(ui.text, p || ui.root.classList.contains('low'));   // (a phone, upright or on its side; a wider card may take two rows of full names)
+    // (A phone's card with a second part keeps that part on its sheet (.pz-lip, dockVec); each slide arrives partly open.)
+    const dd0 = ui.data, sheet = (p || low) && dd0.classList.contains('has-tool') && (!dd0.classList.contains('tool-only') || (p && FLOW_FOLD.matches && !!dd0.querySelector(':scope > .pz-tool[data-kind="flowtime"]')));
+    dd0.classList.toggle('pz-sheet', sheet);
+    if ((p || low) && dd0.classList.contains('pz-folds')) { dd0.classList.remove('pz-folds'); footFold(); }   // (a wider screen's fold, left by a window made narrow)
+    if (sheet && dd0.classList.contains('tool-open') && dd0.dataset.openFor !== String(want)) dd0.classList.remove('tool-open');
     const phoneCap = p ? phoneTextCap(lockKey, H, k) : null;
     if (phoneCap != null) ui.text.style.maxHeight = `${phoneCap.toFixed(1)}px`;
+    if (p) autoDock(phoneShut); else if (!low) autoDock(false);
     // A phone held sideways: its card stands level with the data card at the top right (one margin from the top without one), its
     // top padding tall enough for the deck's tab beside the title (padT), one margin from the foot. The words' room is set before
     // they are fitted, the same room the card is given below, so they are fitted once to the room they keep.
@@ -2665,15 +2685,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     dd.style.maxHeight = below ? `${((foot - y) / k).toFixed(1)}px` : '';
     // (A phone: the data card ends 8 px short of the teaching card (16 px above the words), however much it holds: an opened instrument had grown over the words.)
     // (And leaves the figure its share: FIG_MIN between the two cards.)
-    if (p && t) { const cs = getComputedStyle(dd); let room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8 - (phoneCap != null && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? FIG_MIN(H) / k : 0));
-      // (A folded card is its header and Show, at full size: never fitted into less. Squeezed under a tall teaching card,
-      // a 320 px iPhone's folded Doppler card was zoomed to half, its title 6 px.)
-      if (phoneCap != null && phoneFoldH && dd.classList.contains('pz-folds') && !dd.classList.contains('tool-open')) room = Math.max(room, Math.ceil(phoneFoldH));
+    // (Partly open, its sheet's edge (LIP) stands below it in that room too. A card that came in closed (phoneShut) leaves the figure
+    // its share only while closed: brought back by the reader it may cover the figure, never the words.)
+    if (p && t) { const cs = getComputedStyle(dd); const room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8 - (lipOn(dd) ? LIP : 0) - (phoneCap != null && !phoneShut && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? FIG_MIN(H) / k : 0));
       if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
     if (!p && !below && ui.fk.dataset.empty == null && !ui.bar.hidden) {
       const f = ui.fk, was = f.hidden; f.hidden = false; const q = f.getBoundingClientRect(); f.hidden = was;
-      const cs = getComputedStyle(dd), room = Math.floor((q.top - wr.top) / k - (parseFloat(cs.top) || 0) - 8);
+      const cs = getComputedStyle(dd), room = Math.floor((q.top - wr.top) / k - (parseFloat(cs.top) || 0) - 8 - (lipOn(dd) ? LIP : 0));
       if (q.width && room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`;
     }
     if (below !== isCol) { void dd.offsetWidth; dd.style.transition = ''; }
@@ -2736,7 +2755,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const set = (k, v) => app.style.setProperty(k, `${Math.max(0, Math.round(v))}px`);
     set('--pz-l', frameL);
     set('--pz-r', !p && d ? W - (ui.data.offsetLeft + dock.to * dv[0]) * k + 8 : 0);   // (where the card comes to rest: past its entry shift, at its dock)
-    set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
+    set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight + (lipOn(ui.data) ? LIP : 0) + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
     set('--pz-b', p && t ? B + 34 : 0);
     if (!dock.drag) dockPaint();
     placeBar();
@@ -2769,16 +2788,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // Where the figure's share, the data card and the words at 12 px or more cannot all fit, the data card folds to its header
   // behind Show (the button that already folds a phone's instrument): the card takes its folded size at once, never easing in view.
   const FIG_MIN = (H) => Math.round(Math.max(170, 0.3 * H));
-  let phoneLock = null, phoneFoldH = 0;   // (phoneFoldH: the folded card's height at full size, css px; 0 when it is not folded)
+  let phoneLock = null, phoneShut = false;   // (phoneShut: the slide's data card comes in closed (autoDock), too tall beside the words and the figure)
   function phoneTextCap(key, H, k) {
     const dd = ui.data, ds = dd.style, gone = dd.hidden || 'gone' in dd.dataset;
     const held = key && phoneLock?.key === key ? phoneLock : null;
     // (Also while a what-if slider or a compare button drives the live model (liveOff): its data card changes only its numbers,
     // and re-planned on every live reading that measured a pixel taller, the words' cap stepped and the teaching card shook
     // under the finger on a phone, Sites 4's clot slider. The plan made as the slide came in holds until the next slide.)
-    if (held && (held.fold || gone || liveOff)) { dd.classList.toggle('pz-folds', held.fold); dd.classList.toggle('pz-ftight', held.tight); phoneFoldH = held.foldH; return held.cap; }
-    phoneFoldH = 0;
-    dd.classList.remove('pz-folds', 'pz-ftight');
+    if (held && (held.shut || gone || liveOff)) { phoneShut = held.shut; return held.cap; }
+    phoneShut = false;
     const natural = (el, st) => {   // (as it stands unfitted and uncapped)
       const sv = [st.maxHeight, st.getPropertyValue('--pz-fit'), st.getPropertyValue('--pz-z')];
       st.maxHeight = 'none'; st.removeProperty('--pz-fit'); st.removeProperty('--pz-z');
@@ -2789,7 +2807,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Kept while the slide shows, unless its data card grew past what was planned for it, an instrument or chart built after
     // the slide arrived: Doppler 5 on a 320 px iPhone was planned at 148 px and grew to 284, over the figure's share.)
     // (Not for an instrument the reader opened: that grows by choice, over the figure, and closes again.)
-    if (held) { if (dd.classList.contains('tool-open') || natural(dd, ds) <= held.data + 1) { dd.classList.remove('pz-folds'); phoneFoldH = 0; return held.cap; } }
+    const lip = lipOn(dd) ? LIP * k : 0;
+    if (held) { if (dd.classList.contains('tool-open') || natural(dd, ds) + lip <= held.data + 1) return held.cap; }
     const ts = ui.text.style, was = ts.maxHeight;
     ts.maxHeight = '';
     const css = getComputedStyle(ui.text), own = parseFloat(css.maxHeight) * (css.maxHeight.endsWith('%') ? H / 100 : 1), foot = (parseFloat(css.bottom) || 0) * k;
@@ -2809,34 +2828,34 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     })() : natural(ui.text, ts)) + 4;
     if (ptk) ts.setProperty('--pz-ptk', ptk); else ts.removeProperty('--pz-ptk');
     // (The words' glass starts 16 px above them, the data card ends 8 px above that and stands its own top (8 px) from the
-    // screen's top: the same room the layout gives it below.) The data card shows at full size or folds: never shrunk to fit.
-    // It folds where it and the words at 12 px cannot both fit beside the figure's share, or where it is taller than its own
-    // cap (styles/app.css max-height). (Capped at 45 % of the shared room before, its own fit doing the rest: Treatment 2 on a
-    // 667 px iPhone came in at half size, and the 8 px of its top left out shrank hvpg 5's card to 78 % on a 844 px one.)
+    // screen's top: the same room the layout gives it below.) The data card shows at full size or comes in closed: never shrunk to fit.
+    // It comes in closed (autoDock, its edge and handle at the top) where it and the words at 12 px cannot both fit beside the figure's
+    // share, or where it is taller than its own cap (styles/app.css max-height). (Capped at 45 % of the shared room before, its own fit
+    // doing the rest: Treatment 2 on a 667 px iPhone came in at half size, and the 8 px of its top left out shrank hvpg 5's card to 78 % on a 844 px one.)
+    // (Never folded to its header behind Show any more: Mohammad, 17 Oct, "The data card should not glitch like this on the iPhone".)
     const dcs = getComputedStyle(dd), dtop = (parseFloat(dcs.top) || 0) * k;
     const dmax = (() => { const sv = ds.maxHeight; ds.maxHeight = ''; const m = getComputedStyle(dd).maxHeight; ds.maxHeight = sv; return m === 'none' ? Infinity : m.endsWith('%') ? parseFloat(m) * H / 100 : parseFloat(m) * k; })();
     const both = H - foot - 16 - 8 - dtop - FIG_MIN(H);
-    let data = gone ? 0 : natural(dd, ds), fold = false, tightOn = false;
-    if (!gone && (both - data < words || data > dmax + 0.5) && dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip)')) {
-      // (Measured shut, whatever Show left: opened as the slide was still arriving, the card measured its full height here, did not
-      // fold, and capped the words to the room left; lobule slide 8 at 200 % on a 390 px iPhone then ran its still column out of its card.)
-      const open = dd.classList.contains('tool-open');
-      dd.classList.add('pz-folds'); dd.classList.remove('tool-open');
-      const shut = natural(dd, ds);
-      if (open) dd.classList.add('tool-open');
-      if (shut < data - 1) {
-        data = shut; fold = true; phoneFoldH = shut / k;
-        // (Still short of the figure's share: the folded card takes its compact form, 6 px above and below its header in place
-        // of 10, the header and its Show chip at full size.)
-        if (both - data < words) { dd.classList.add('pz-ftight'); const tight = natural(dd, ds); data = tight; phoneFoldH = tight / k; tightOn = true; }
-        // (Each such slide comes in folded, whatever an earlier slide's Show left open.)
-        const b = dd.querySelector('.pz-dh > .pz-fold');
-        if (dd.dataset.openFor !== String(want)) { dd.classList.remove('tool-open'); if (b) { b.textContent = 'Show'; b.setAttribute('aria-expanded', 'false'); } }
-      } else dd.classList.remove('pz-folds');
-    }
-    // (Words at 12 px win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card.)
-    const cap = Math.max(120, Math.min(H - foot - 16 - 8 - dtop - data, Math.max(Math.min(Number.isFinite(own) ? own : 0.62 * H, both - data), words))) / k;
-    if (key) phoneLock = { key, cap, fold, tight: tightOn, foldH: phoneFoldH, data };
+    // (Measured as the slide arrives, partly open with its sheet's edge below it, whatever the reader opened: the part's ease held
+    // back so the measure sees where it rests.)
+    const arriving = () => {
+      const p = dd.classList.contains('pz-sheet') && dd.classList.contains('tool-open') ? dd.querySelector(dd.classList.contains('tool-lead') ? ':scope > .pz-tiles' : ':scope > .pz-tool') : null;
+      if (!p) return natural(dd, ds) + lip;
+      const tr = p.style.transition; p.style.transition = 'none'; dd.classList.remove('tool-open');
+      const v = natural(dd, ds) + LIP * k;
+      dd.classList.add('tool-open'); void p.offsetHeight; p.style.transition = tr;
+      return v;
+    };
+    const data = gone ? 0 : arriving(), sheetLip = dd.classList.contains('pz-sheet') ? LIP * k : 0;
+    const shut = !gone && (both - data < words || data - sheetLip > dmax + 0.5) && !!dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)');
+    phoneShut = shut;
+    // (Words at 12 px win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card. Closed,
+    // the card leaves them all but its edge (GRIP) at the top, and brought back it stands over the figure down to the words.)
+    const room = H - foot - 16 - 8, mine = Number.isFinite(own) ? own : 0.62 * H;
+    const cap = Math.max(120, shut
+      ? Math.min(room - GRIP * k, Math.max(Math.min(mine, room - dtop - Math.min(data, dmax + sheetLip)), words))
+      : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), words))) / k;
+    if (key) phoneLock = { key, cap, shut, data };
     return cap;
   }
   // The free area: the open rectangles of the figure the words, the data card (where it comes to rest) and the controls leave,
@@ -2875,7 +2894,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     let dk = null, pill = null;
     if (!d.hidden && !('gone' in d.dataset) && !d.classList.contains('under') && !d.classList.contains('col')) {
       const x = d.offsetLeft + dock.to * dockVec()[0];
-      obs.push(dk = { l: x * k, t: d.offsetTop * k, r: (x + d.offsetWidth) * k, b: (d.offsetTop + d.offsetHeight) * k });
+      obs.push(dk = { l: x * k, t: d.offsetTop * k, r: (x + d.offsetWidth) * k, b: (d.offsetTop + d.offsetHeight + (lipOn(d) ? LIP : 0)) * k });   // (and its sheet's edge below it, .pz-lip)
     }
     if (!ui.bar.hidden && ui.bar.offsetWidth) { const q = ui.bar.getBoundingClientRect(); obs.push(pill = { l: q.left - wr.left, t: q.top - wr.top, r: q.right - wr.left, b: q.bottom - wr.top }); }
     // (The colour key stands on the pill: the two are one obstacle. Measured where it will show, even before it fades in.)
@@ -3330,8 +3349,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         const now = performance.now(), end = gg.pts.at(-1), from = gg.pts.find((q) => end[0] - q[0] <= 100) || end;
         const v = end[0] > from[0] ? (end[1] - from[1]) / (end[0] - from[0]) : 0;
         const flick = now - end[0] < 100 && Math.abs(v) > 0.5 ? Math.sign(v / gg.vec[gg.vec[1] ? 1 : 0]) : 0;   // (toward docking is +1)
+        dock.auto = false;   // (the reader's own choice: kept from slide to slide, autoDock)
         dockTo(flick > 0 ? 1 : flick < 0 ? 0 : dock.lvl > 0.5 ? 1 : 0, 300);
-      } else if (dock.to === 1 && dt < 500) dockTo(0);
+      } else if (dock.to === 1 && dt < 500) { dock.auto = false; dock.tapAt = performance.now(); dockTo(0); }   // (tapAt: the click that follows is this tap's, .pz-lip)
     }, { passive: true });
     el.addEventListener('touchcancel', () => { if (g?.on) dockTo(dock.to, 300); reset(); }, { passive: true });
   }
@@ -3339,14 +3359,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A phone's foldable card also opens and closes by a swipe anywhere on it: down pulls the folded part open, up pushes it
   // shut, following the finger, and it eases the rest of the way on release. A swipe the fold can't take (up on a shut card)
   // is left to the card's dock drag; sideways moves are left alone, so slide swipes and the figure pan work as before.
+  // (A card with its part on a sheet (.pz-sheet): a pull down brings the sheet out; any push up, partly or fully open, closes the
+  // whole card by the dock drag, and it opens again partly, dockTo.)
   function foldTouch(el, btn, setFold, part, hold) {
     let g = null;
     el.addEventListener('touchstart', (e) => {
       g = null;
-      if (e.touches.length !== 1 || !btn.offsetWidth || dock.lvl > 0 || btn.contains(e.target)) return;
-      const t = e.touches[0], p = part(), open = el.classList.contains('tool-open');
-      const shown = open !== el.classList.contains('tool-lead');   // (tool-lead: there the tiles fold, shut while the tool is open)
-      g = { x: t.clientX, y: t.clientY, p, open, shown, full: Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };
+      const sheet = el.classList.contains('pz-sheet'), open = el.classList.contains('tool-open');
+      if (e.touches.length !== 1 || (!btn.offsetWidth && !sheet) || (sheet && open) || dock.lvl > 0 || btn.contains(e.target)) return;
+      const t = e.touches[0], p = part();
+      g = { x: t.clientX, y: t.clientY, p, open, shown: open, full: Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
     }, { passive: true });
     el.addEventListener('touchmove', (e) => {
       if (!g) return;
@@ -3372,8 +3394,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const show = Math.abs(v) > 0.4 ? v > 0 : gg.full ? gg.u > 0.5 : gg.shown ? last[1] > -24 : last[1] >= 24;
       // (From where the finger left it to the class's own state: the part's transition eases the rest. setFold reads where
       // the finger left it before letting go of it.)
-      const lead = el.classList.contains('tool-lead');
-      if ((show !== lead) !== gg.open) { setFold(show !== lead); return; }
+      if (show !== gg.open) { setFold(show); return; }
       gg.p.getBoundingClientRect(); gg.p.style.transition = '';
       gg.p.style.maxHeight = ''; gg.p.style.opacity = '';
       hold(false);
@@ -3399,7 +3420,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const p = partOf(), cs = getComputedStyle(p), from = ['maxHeight', 'opacity', 'marginTop', 'marginBottom'].map((n) => [n, cs[n]]);
       p.style.transition = 'none'; for (const [n] of from) p.style[n] = '';
       data.classList.toggle('tool-open', open); fold.setAttribute('aria-expanded', String(open)); fold.textContent = open ? 'Hide' : 'Show';
-      data.dataset.openFor = String(want);   // (the slide it was tapped on: phoneTextCap keeps it open there)
+      data.dataset.openFor = String(want);   // (the slide it was tapped on: kept open there, layout and phoneTextCap)
       delete data.dataset.folding; fitDone.delete(data); layout();
       // (Then back to where the part stood, from which it eases to its rest.)
       data.dataset.folding = '';
@@ -3415,8 +3436,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       delete data.dataset.folding; fitDone.delete(data); onResize();
     };
     const fold = h('button', { class: 'pz-fold', type: 'button', 'aria-expanded': 'false', onclick: () => setFold(!data.classList.contains('tool-open')) }, 'Show');
+    // A phone's sheet under the card (.pz-sheet, dockVec): its edge carries the handle. A tap steps through the three states, as the
+    // card's own pulls and pushes do: partly open, fully open, closed to its edge at the top, partly open again.
+    const lip = h('button', { class: 'pz-lip stage-blocker', type: 'button', 'aria-label': 'Show the rest of the card', onclick: () => {
+      if (performance.now() - (dock.tapAt || 0) < 700) return;   // (a touch that already opened the closed card, dockTouch)
+      if (dock.to === 1) { dock.auto = false; dockTo(0); } else if (data.classList.contains('tool-open')) { dock.auto = false; dockTo(1); } else setFold(true);
+    } });
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-gone': '', hidden: true, 'aria-label': 'The numbers' },
-      h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, ladder.strip, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
+      h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, ladder.strip, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }), lip);
     foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); });
     dockTouch(data);
     data.addEventListener('pz-strip', () => requestAnimationFrame(() => { if (ui) { fitDone.delete(data); layout(); } }));   // (laid out, not a resize: a resize sets every strip back to its plot and measures again)
@@ -3444,7 +3471,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
-    return { root, shade, safe, load, text, data, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
+    return { root, shade, safe, load, text, data, lip, setFold, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)
@@ -3535,7 +3562,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelFrame(fitRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
-    clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;
+    clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
     pillW = 0; ui?.tools.dispose(); ui?.figKey.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);

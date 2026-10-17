@@ -53,12 +53,12 @@ test('a sideways phone: figure terms are coloured text with no underline, and th
   const term = css.match(/\.pz-term:not\(\.pz-lens-t\) \{[^}]*\}/)[0];
   assert.match(term, /background: none;/);
   assert.doesNotMatch(term, /text-decoration/, 'terms carry no underline (Mohammad, 17 Oct)');
-  // (Tighter tiles first, then the zoom only to the 12 px floor, then the card folds behind Show.)
+  // (Tighter tiles first, then the zoom only to the 12 px floor, then the card comes in closed at the right, never behind Show.)
   const low = js.match(/function lowData\(el\) \{[\s\S]*?\n {2}\}/)[0];
   assert.match(low, /const floor = cap > 12 \? Math\.ceil\(12 \/ cap \* 1000\) \/ 1000 : 1;/);
   assert.match(low, /for \(const c of \['pz-lt', 'pz-lt2'\]\)/);
-  assert.match(low, /el\.classList\.add\('pz-folds'\); el\.classList\.remove\('tool-open'\);/);
+  assert.match(low, /return done\(!!el\.querySelector\(':scope > :not\(\.pz-dh\):not\(\.pz-grip\):not\(\.pz-lip\)'\), 0\.5\);/);
+  assert.doesNotMatch(low, /pz-folds/, 'never folded to its header');
   assert.match(js, /const lowFloor = el === ui\.data && ui\.root\.classList\.contains\('low'\) \? lowData\(el\) : 0;/);
-  assert.match(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.pz-folds:not\(\.tool-open\) > :not\(\.pz-dh\):not\(\.pz-grip\) \{ display: none; \}/);
-  assert.match(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.pz-folds \.pz-dh > \.pz-fold \{/);
+  assert.doesNotMatch(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.pz-folds/, 'no Show or Hide on a phone');
 });

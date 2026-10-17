@@ -27,11 +27,12 @@ test("the top bar lens caption is 12 px", () => {
   assert.doesNotMatch(css, /\.lg-num \{ font-size: 11px/);
 });
 
-test("a phone's data card title wraps instead of being cut, and a folded card keeps its header", () => {
+test("a phone's data card title wraps instead of being cut, and a card that does not fit comes in closed, never cut to its header", () => {
   const r = css.match(/\.pz\.stack \.pz-dh > span:first-child \{[^}]*\}/)?.[0] ?? '';
   assert.ok(r, 'the phone title rule is missing');
   assert.doesNotMatch(r, /ellipsis|nowrap/);
-  assert.match(js, /room = Math\.max\(room, Math\.ceil\(phoneFoldH\)\)/, 'a folded card is never cut below its folded height');
+  assert.match(js, /if \(p\) autoDock\(phoneShut\); else if \(!low\) autoDock\(false\);/, 'too tall beside the words and the figure: it comes in closed');
+  assert.doesNotMatch(js, /phoneFoldH|pz-ftight/, 'never folded to its header behind Show (Mohammad, 17 Oct)');
 });
 
 test('the lens legend centres every number on its tick, the end ones too, with room beside the scale', () => {
