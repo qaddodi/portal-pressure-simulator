@@ -1448,6 +1448,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (morphTarget !== 1) homeAt = to;
     if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, 420);
   }
+  // The Tests card closed: the view stays where it is (no glide back to the fit). The home framing is let go, so the looks
+  // that follow the card leaving (resize, pps:occ) leave it alone too; the next card that opens or Fit sets it again.
+  function keepView() { if (!lobuleOn) homeAt = null; }
 
   // Turn the circuit upright (flow bottom to top) or back to wide. Shown whole, it stays whole (fitted
   // to the new shape); zoomed in, it keeps the zoom and turns about the point at the middle of the
@@ -7637,7 +7640,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; if (!sameView(lo, base)) animateVT(lo, 260); return; }
       const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);
     },
-    fit, refit,
+    fit, refit, keepView,
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),
