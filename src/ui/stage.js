@@ -4377,7 +4377,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return q ? [[[q[0] - q[2] * 34, q[1] - q[3] * 34], [q[0] + q[2] * 34, q[1] + q[3] * 34]]] : [];
     })();
     const lit = resLit.get(k);
-    g.classList.toggle('lit', !!lit); g.style.setProperty('--res-c', lit ? `var(--tr-${lit})` : 'var(--text)');
+    g.classList.toggle('lit', !!lit); g.style.setProperty('--res-c', lit ? toneCol(lit) : 'var(--text)');
     g._segs = segs;   // (the figure's labels keep off the zigzags too: buildSegs)
     const path = segs.map(([a, b]) => zig(a, b)).join(' ');
     if (g.dataset.d !== path) { g.dataset.d = path; g.replaceChildren(s('path', { class: 'res-halo', d: path }), s('path', { class: 'res-line', d: path })); }
@@ -5364,7 +5364,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     b.g.classList.toggle('ring', / ring\b/.test(it.cls));   // (a slide's pill that could find no spot off the vessels: see the focus callout)
     // A presenter slide's term (presentTerms): the station's label takes the term's colour, eased (.lb.term).
     const tone = it.node ? termTone(it.node) : null;
-    if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', `var(--tr-${tone})`); }
+    if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', toneCol(tone)); }   // (a tone may name its own token, '--tour-sys' for the right atrium: as var(--tr---tour-sys) it was unset and the label fell back to black, dark on dark in the dark theme)
     if (!!it.onVessel !== !!b.onVessel) { b.onVessel = !!it.onVessel; b.g.classList.toggle('on-vessel', b.onVessel); }
     // Text and pressure colors change far more often than label structure.
     // Retain the text nodes (and keyboard focus) across numeric updates. (A run's class is its colour, as its fill is: a change
