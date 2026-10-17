@@ -791,6 +791,34 @@ function bigTiles() {
   const ratedShown = (k, f) => (f[k] != null ? rated(k, { ...f, [k]: tileShown(k, f[k]) }) : rated(k, f));
   // Where a value sits on its tile's bar, 0 to 100 (shown units, held inside the bar).
   const at = (k, v) => { const [a, b] = SCALE[k], x = TILE[k]?.x ?? 1; return Math.min(100, Math.max(0, ((v * x - a) / (b - a)) * 100)); };
+  // A number and its unit always fit inside their tile: where the tile is too narrow for them at the layout's size, both
+  // shrink together (the unit never below 12 px; the number then takes the rest of the cut). Measured with the wider of the
+  // number shown and the one it counts to, so the count never runs past the edge; again when the row changes size.
+  function fit() {
+    for (const p of parts) {
+      const vu = p.v.parentNode;
+      p.v.style.fontSize = p.u.style.fontSize = p.v.style.lineHeight = '';
+      const cs = getComputedStyle(p.tile), room = p.tile.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth);
+      if (!(room > 0)) continue;
+      const cur = p.v.textContent, wide = (p.fin || '').length > cur.length ? p.fin : cur;
+      p.v.textContent = wide;
+      const vw = p.v.getBoundingClientRect().width, uw = p.u.hidden ? 0 : p.u.getBoundingClientRect().width;
+      const gap = p.u.hidden ? 0 : parseFloat(getComputedStyle(vu).columnGap) || 0;
+      p.v.textContent = cur;
+      const need = vw + gap + uw;
+      if (need <= room) continue;
+      const vs = getComputedStyle(p.v), vf = parseFloat(vs.fontSize), uf = parseFloat(getComputedStyle(p.u).fontSize);
+      let k = (room - 1) / need, ku = k;
+      if (uf * ku < 12) { ku = Math.min(1, 12 / uf); k = Math.max(0, (room - 1 - uw * ku) / (vw + gap)); }
+      p.v.style.lineHeight = vs.lineHeight;   // (the line keeps its height, so the tile and its card never change size)
+      p.v.style.fontSize = `${Math.max(12, Math.floor(vf * k * 10) / 10)}px`;
+      if (ku < 1) p.u.style.fontSize = `${Math.floor(uf * ku * 10) / 10}px`;
+    }
+  }
+  let fitRaf = 0;
+  const fitSoon = () => { cancelFrame(fitRaf); fitRaf = nextFrame(fit); };
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fitSoon).observe(el);
+  document.fonts?.ready?.then(fitSoon);
   function build(ks, withRef) {
     const bars = ks.some((k) => SCALE[k]);
     parts = ks.map((k) => {
@@ -860,7 +888,9 @@ function bigTiles() {
       paintBands(f);
       const to = Object.fromEntries([...ks, 'asc'].map((k) => [k, f[k]]));
       if (ref) for (const k of ks) to['ref_' + k] = ref[k];
+      for (const p of parts) p.fin = tileVal(p.k, to[p.k]);
       draw(to, ms);
+      fitSoon();
     },
   };
 }
