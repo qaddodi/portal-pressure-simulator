@@ -1572,6 +1572,10 @@ button.finding { cursor: pointer; }
 .pz-lens-bar { width: 4.4em; height: .55em; border-radius: var(--r-pill); flex: none; }
 .pz-lens-sw { width: 1.1em; height: .4em; border-radius: .2em; flex: none; }
 .pz-lens-k { display: inline-flex; align-items: center; gap: .35em; white-space: nowrap; }
+.pz-lens-items { display: inline-flex; align-items: center; gap: .55em; min-width: 0; }   /* (a key's named swatches, kept together: presenter.js keyNodes) */
+/* A key that wraps beside a phone's nav pill: its name on one line, its swatches together on the next (wrapped, evenly, only when
+   even a line of their own is too narrow: presenter.js balanceKey). */
+.pz.stack:is(.fk-two, .fk-wrap) .pz-fk:not(.grad) .pz-lens-items { flex-wrap: wrap; row-gap: .1em; flex-basis: 100%; }
 .pz-lens-ends { display: inline-flex; align-items: center; gap: .4em; white-space: nowrap; }   /* ("Low ▬▬ High": the pressure-drop key's ends, at the key's own size, 12 px or more) */
 .pz-lens-k + .pz-lens-k { margin-left: .15em; }
 .pz-fk.col .pz-lens-k + .pz-lens-k { margin-left: 0; }

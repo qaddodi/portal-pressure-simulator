@@ -76,3 +76,9 @@ test('colour keys: a wrapped key is balanced, upright iPad gives it its own row,
   assert.match(presenter, /const KEY_ENDS = new Set\(\['drop'\]\);/);
   assert.match(css, /\.pz-lens-ends \{ display: inline-flex;/);
 });
+
+test('a key\'s named swatches travel together: when it wraps, its name takes one line and its swatches the next', () => {
+  assert.match(presenter, /\[h\('span', \{ class: 'pz-lens-items' \}, \.\.\.bar\.map\(/);
+  assert.match(css, /\.pz\.stack:is\(\.fk-two, \.fk-wrap\) \.pz-fk:not\(\.grad\) \.pz-lens-items \{ flex-wrap: wrap; row-gap: \.1em; flex-basis: 100%; \}/);
+  assert.match(presenter, /queueMicrotask\(\(\) => \{ if \(ui\) clearPill\(\); \}\);/, 'fitted again once its own words are in');
+});

@@ -97,7 +97,9 @@ function keyNodes(k) {
   const scale = () => h('i', { class: 'pz-lens-bar', style: { background: bar() } });
   return [h('b', {}, name[0].toUpperCase() + name.slice(1)),
     ...(typeof bar === 'function' ? [KEY_ENDS.has(k) ? h('span', { class: 'pz-lens-ends' }, h('span', {}, lo), scale(), h('span', {}, hi)) : scale()]
-      : bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, sw(v), h('span', {}, t))))];
+      // (The named swatches travel as one group: a key that wraps sets its name on one line and all its swatches on the next, never
+      // one swatch left alone under the others: Mohammad, 17 Oct, "Reversed" had dropped under "Direction · Usual".)
+      : [h('span', { class: 'pz-lens-items' }, ...bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, sw(v), h('span', {}, t))))])];
 }
 // A string with its disease names set in a pill (see diseases.js).
 const diseaseNodes = (t) => diseasePieces(t).map(([x, dz]) => (dz ? h('span', { class: 'pz-dz' }, x) : x));
@@ -1464,6 +1466,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.text.classList.toggle('pz-keyed', !!k);
     ui.figKey.set(!!k, () => {
       ui.fk.replaceChildren(...(k ? keyNodes(k) : []));
+      // (The key's words can arrive after the fit below, once the old key has faded: fitted again for its own words, not the old ones.)
+      queueMicrotask(() => { if (ui) clearPill(); });
       ui.fk.classList.toggle('grad', !!k && typeof (LENS_KEY[k] || PRESSURE_KEY)[1] === 'function');
       { const [nm, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY; ui.fk.setAttribute('aria-label', `Vessels colored by ${nm}${typeof bar === 'function' ? `, ${lo} to ${hi}` : ''}`); }
     });
