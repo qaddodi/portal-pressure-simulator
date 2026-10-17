@@ -31,6 +31,7 @@ import { portalSplit } from './table-marks.js?v=e25caf9bf9';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
+import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { layoutWatch } from './idle-keys.js?v=27f599b5bc';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
@@ -4934,14 +4935,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     disc(tp.p, tp.t, rc, rc, 4, shaft, 1);
     // The balloon sits just behind the tip; inflated, it fills the vein and wedges, held inside its walls.
     const bl = clamp(st.balloon || 0, 0, 1);
+    cath.balBox = null;
     if (bl > 0.001) {
       const gap = rc * 4.2, Rb = cathAt(r, tipD - gap - rFree(r) * 1.6).r;
       const rx = lerp(rc * 3.4, Rb * 1.6, bl), dC = tipD - gap - rx;
       const at = (d) => cathAt(r, d), ry0 = balloonRy(at, dC, rx, rc * 1.35, { floor: rc * 1.05 });
       // Bent with the vein: a strip whose sides are the outline, its local coords on the unit circle at the
       // sides so it shades and edges as the latex disc does.
-      const first = begin();
-      for (const o of balloonOutline(at, dC, rx, ry0, bl, { floor: rc * 1.05 })) {
+      const first = begin(), ol = balloonOutline(at, dC, rx, ry0, bl, { floor: rc * 1.05 });
+      cath.balBox = outlineBox(ol);   // (the readings keep clear of it)
+      for (const o of ol) {
         const nx = -o.t[1], ny = o.t[0], v = Math.sqrt(Math.max(0, 1 - o.s * o.s));
         for (const side of [-1, 1]) V.push(o.c[0] + nx * o.h * side, o.c[1] + ny * o.h * side, o.t[0], o.t[1], o.s, v * side);
       }
@@ -4971,6 +4974,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const bl = clamp(st.balloon || 0, 0, 1), rx = wHV * (0.45 + 0.35 * bl), dC = tipD - rx - cw * 1.5, at = (d) => cathAt(r, d);
     const ry0 = balloonRy(at, dC, rx, cw * 0.65, { floor: cw * 0.55 }), ol = balloonOutline(at, dC, rx, ry0, bl, { floor: cw * 0.55 });
     const side = (k) => ol.map((o) => [o.c[0] - o.t[1] * o.h * k, o.c[1] + o.t[0] * o.h * k]);
+    cath.balBox = bl > 0 ? outlineBox(ol) : null;   // (the readings keep clear of it)
     cath.balloon.style.display = bl > 0 ? '' : 'none';
     cath.balloon.setAttribute('d', bl > 0 ? `${polyD([...side(1), ...side(-1).reverse()])}Z` : '');
     const col = clamp(st.column || 0, 0, 1), reach = tipD + (r.total - tipD) * col;
@@ -5086,21 +5090,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const bw = box.offsetWidth, bh = box.offsetHeight, top = Math.max(70, sp.t + 6), gap = lim < 440 ? 40 : 64;
       const R = rows.map((r) => [r.offsetLeft, r.offsetTop, r.offsetWidth, r.offsetHeight]);   // (read before any write below)
       // Above the readings, centred between them; below them when there is no room above. Either way it sits in the
-      // free figure, clear of the cards, the slide's panel and its controls: when centred it would go under one, it
-      // slides sideways to the nearest clear spot (its leaders stay on the vein), above before below.
-      const cx0 = (A.tip[0] + A.ahead[0]) / 2 - bw / 2, xMin = 28, xMax = Math.max(28, W - bw - 12), yMax = Math.max(top, lim - bh - 12);
-      const yUp = Math.min(A.tip[1], A.ahead[1]) - bh - gap, yDown = clamp(Math.max(A.tip[1], A.ahead[1]) + gap, top, yMax);
-      const bl = readBlockers(), hit = (x0, y0) => bl.reduce((n, b) => n + Math.max(0, Math.min(x0 + bw, b.x1 + 4) - Math.max(x0, b.x0 - 4)) * Math.max(0, Math.min(y0 + bh, b.y1 + 4) - Math.max(y0, b.y0 - 4)), 0);
-      let best = null;
-      for (const [y0, pen] of (yUp >= top ? [[yUp, 0], [yDown, 60]] : [[yDown, 0], [clamp(yUp, top, yMax), 60]])) {
-        scan: for (let d = 0; d <= W; d += 8) for (const sx of d ? [-1, 1] : [1]) {
-          const x0 = cx0 + sx * d; if (x0 < xMin || x0 > xMax) continue;
-          const c = hit(x0, y0) * 1e3 + d + pen;
-          if (!best || c < best.c) best = { c, x: x0, y: y0 };
-          if (!hit(x0, y0)) break scan;
-        }
+      // free figure, clear of the cards, the slide's panel and its controls, and never over what it names: the tip,
+      // the wedged balloon and the point ahead (cath-place.js). Its leaders stay on the vein.
+      const keep = [...['tip', 'ahead'].map((k) => ({ x0: A[k][0] - 8, y0: A[k][1] - 8, x1: A[k][0] + 8, y1: A[k][1] + 8 }))];
+      if (cath.balBox) {
+        const b = cath.balBox, cs = [[b.x0, b.y0], [b.x1, b.y0], [b.x0, b.y1], [b.x1, b.y1]].map(([px, py]) => worldToLocal(px, py));
+        keep.push({ x0: Math.min(...cs.map((c) => c[0])), y0: Math.min(...cs.map((c) => c[1])), x1: Math.max(...cs.map((c) => c[0])), y1: Math.max(...cs.map((c) => c[1])) });
       }
-      let x = best ? best.x : clamp(cx0, xMin, xMax), y = clamp(best ? best.y : yUp, top, yMax);   // (room on the left for a leader)
+      let { x, y } = placeSummary({ A, bw, bh, W, top, lim, gap, blockers: readBlockers(), keep });
       [x, y] = cathGlide(box, x, y, (A.tip[0] + A.ahead[0]) / 2, (A.tip[1] + A.ahead[1]) / 2);
       box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
       el._box = { x0: x, y0: y, x1: x + bw, y1: y + bh };
