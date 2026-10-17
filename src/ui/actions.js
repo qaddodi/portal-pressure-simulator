@@ -75,7 +75,7 @@ export function cardFor(selIn, ctx) {
     get: (p) => p.thrombus[id] || 0, set: (p, v) => { if (v <= 0.004) delete p.thrombus[id]; else p.thrombus[id] = +v.toFixed(2); }, hist: `${e.label}: thrombus`,
     info: 'Occlusive thrombus. With anticoagulation it recanalizes slowly on the disease clock.' };
   const doppler = { type: 'button', id: 'doppler', label: 'Doppler', icon: 'doppler', run: () => { ctx.probe(id); ctx.showPane('doppler'); ctx.select(null); } };
-  const shunt = ctx.canShunt(id) ? { type: 'button', id: 'shunt', label: 'Create shunt…', icon: 'stent', run: () => ctx.startShunt(id) } : null;
+  const shunt = ctx.canShunt(id) ? { type: 'button', id: 'shunt', label: 'Add shunt', icon: 'stent', run: () => ctx.startShunt(id) } : null;
   let kicker, why = 'pv';
   if (isArt) {
     kicker = 'Artery';

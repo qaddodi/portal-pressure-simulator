@@ -1053,20 +1053,17 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .action-card.docked .ac-status { grid-column: 1; grid-row: 2; min-width: 0; }
 .action-card.docked .ac-status:empty { display: none; }
 .action-card.docked .ac-top:has(.ac-status:not(:empty)) .ac-kicker { display: none; }
-.action-card.docked .ac-status .pill { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.action-card.docked .ac-status .pill { max-width: 100%; white-space: normal; overflow-wrap: break-word; }
 .action-card.docked .ac-scroll { padding: 0 12px 10px; position: relative; }
 .action-card.docked .ac-body { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 5px; padding: 3px 0 2px; }
 /* Sliders, readouts and notes take the whole row; buttons and switches sit two to a row. */
 .action-card.docked .ac-body > .ac-slider, .action-card.docked .ac-body > .ac-row, .action-card.docked .ac-body > .ac-link, .action-card.docked .ac-body > .ac-btn-wrap.wide,
 .action-card.docked .ac-body > .ac-drain, .action-card.docked .ac-body > .ac-btn-wrap:has(.ac-note:not([hidden])), .action-card.docked .ac-body > .ac-about { grid-column: 1 / -1; }
-/* On a phone the explanation shows one line (tap for the rest), so the controls stay in view. */
-.action-card.docked .ac-about:not(.full) { line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
-.action-card.docked .ac-about:not(.full) p { display: inline; } .action-card.docked .ac-about:not(.full) p + p::before { content: ' '; }
 .action-card.docked .ac-btn, .action-card.docked .ac-toggle { min-height: 34px; padding: 3px 10px; }
 /* Three buttons in a row share it as compact tiles: the icon over the name. */
 .action-card.docked .ac-body > .ac-btns.tri { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
 .action-card.docked .ac-btns.tri .ac-btn { flex-direction: column; justify-content: center; gap: 1px; min-height: 42px; padding: 3px 4px; font-size: var(--fs-12); text-align: center; }
-.action-card.docked .ac-btns.tri .ac-bl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.action-card.docked .ac-btns.tri .ac-bl { flex: none; max-width: 100%; white-space: normal; overflow-wrap: break-word; line-height: 1.2; }
 .action-card.docked .ac-toggle .ac-tl { line-height: 1.2; }
 .action-card.docked .ac-seg button { padding: 4px 6px; }
 .action-card.docked .ac-row { gap: 3px; }
@@ -3873,8 +3870,9 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
   grid-column: 1; grid-row: 1; padding: 0; font-size: var(--fs-14); line-height: 1.3;
 }
 .action-card.docked .ac-foot.in-head { grid-column: 2; grid-row: 1; gap: 2px; }
-.action-card.docked .ac-foot.in-head .link { width: 36px; min-height: 36px; padding: 0; justify-content: center; border-radius: var(--r-card); }
-.action-card.docked .ac-foot.in-head .ac-link-text { display: none; }
+.action-card.docked .ac-foot.in-head .link { min-height: 36px; padding: 0 2px 0 8px; gap: 2px; border-radius: var(--r-card); white-space: nowrap; }
+/* The header link is a word ("Details ›" or "Why?"), not a bare glyph. */
+.action-card.docked .ac-foot.in-head .link > .mi-ic:first-child { display: none; }
 .action-card.docked .ac-close { grid-column: 3; grid-row: 1; width: 36px; height: 36px; margin: 0; }
 .action-card.docked .ac-value { grid-column: 1; grid-row: 2; justify-self: start; min-width: 0; flex-wrap: wrap; }
 .action-card.docked .ac-value b { font-size: var(--fs-16); }

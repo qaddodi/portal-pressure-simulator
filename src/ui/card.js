@@ -5,7 +5,7 @@
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
 import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange } from './util.js?v=1b66c4ae69';
-import { cardFor, normalizeSel } from './actions.js?v=5742b3e1c9';
+import { cardFor, normalizeSel } from './actions.js?v=9caf30bfda';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -134,9 +134,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       } else { statRun = btnRun = null; body.append(node); }
     }
     // Why? and Details are written twice and shown once: in the header on a phone (where a row of their own would
-    // be a strip of wasted sheet) and at the foot on a desktop.
+    // be a strip of wasted sheet) and at the foot on a desktop. The phone header has one word link: Details when there
+    // is one (its "Why this value?" holds the Why), otherwise Why?.
     const mkFoot = (where) => h('div', { class: 'ac-foot ' + where },
-      h('button', { class: 'link', 'aria-label': 'Why?', title: 'Why?', onclick: (e) => onWhy(m.why, e.currentTarget) }, svgIcon('bulb', 'mi-ic'), h('span', { class: 'ac-link-text' }, 'Why?')),
+      where === 'in-head' && !m.noDetails ? null : h('button', { class: 'link', 'aria-label': 'Why?', title: 'Why?', onclick: (e) => onWhy(m.why, e.currentTarget) }, svgIcon('bulb', 'mi-ic'), h('span', { class: 'ac-link-text' }, 'Why?')),
       m.noDetails ? null : h('button', { class: 'link', 'aria-label': 'Details', title: 'Details', onclick: () => onDetails(selRef) }, h('span', { class: 'ac-link-text' }, 'Details'), svgIcon('chev-right', 'mi-ic')));
     const foot = mkFoot('at-foot');
     // One compact phone sheet: drag the header down to dismiss.
@@ -212,7 +213,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (v.type === 'about') {
       // What this is and what is happening to it now, in plain words (as the lobule's cards).
       const box = h('div', { class: 'ac-about' });
-      box.addEventListener('click', () => box.classList.toggle('full'));
       live.push(() => {
         const t = v.text(store.get().frame) || [], sig = t.join('\n');
         if (box._sig !== sig) { box._sig = sig; box.replaceChildren(t.map((x) => h('p', {}, x))); }
