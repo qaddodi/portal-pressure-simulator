@@ -39,10 +39,11 @@ test('closing the card leaves its edge and the sheet\'s at the top, and it opens
   assert.match(js, /if \(phone\(\)\) return \[0, GRIP - \(lipOn\(d\) \? LIP : 0\) - \(d\.offsetTop \+ d\.offsetHeight\)\];/);
   assert.match(js, /if \(to === 1 && ui\?\.data\.classList\.contains\('pz-sheet'\) && ui\.data\.classList\.contains\('tool-open'\)\) ui\.setFold\(false\);/);
   // (The handle's tap steps through the three states: partly, fully, closed, then partly again.)
-  assert.match(js, /if \(dock\.to === 1\) \{ dock\.auto = false; dockTo\(0\); \} else if \(data\.classList\.contains\('tool-open'\)\) \{ dock\.auto = false; dockTo\(1\); \} else setFold\(true\);/);
+  // (An upright tablet's tucks its readings' card away first: tests/upright-tablet-phone.test.js.)
+  assert.match(js, /if \(dock\.to === 1\) \{ dock\.auto = false; dockTo\(0\); \}\n\s*else if \(data\.classList\.contains\('tool-open'\)\) \{ if \(tab\) \{ dock\.down = want; setFold\(false\); \} else \{ dock\.auto = false; dockTo\(1\); \} \}\n\s*else if \(tab && dock\.down === want\) \{ dock\.auto = false; dockTo\(1\); \}\n\s*else setFold\(true\);/);
   assert.match(js, /if \(performance\.now\(\) - \(dock\.tapAt \|\| 0\) < 700\) return;/, 'a touch that already opened it is not taken twice');
   // (A pull down on a partly open card brings the sheet out; a push up from either open state is the dock drag.)
-  assert.match(js, /\(!btn\.offsetWidth && !sheet\) \|\| \(sheet && open\)/);
+  assert.match(js, /\(!btn\.offsetWidth && !sheet\) \|\| \(sheet && open && !tab\)/, 'a phone\'s open sheet: the push up is the dock drag');
 });
 
 test('a slide whose card does not fit comes in closed, and the next one that fits brings it back', () => {

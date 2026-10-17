@@ -7,6 +7,12 @@ for (const m of ['replaceChildren', 'append', 'prepend']) {
   Element.prototype[m] = function (...kids) { return orig.apply(this, kids.flat(Infinity).filter((k) => k != null && k !== false)); };
 }
 
+// The phone's layout: a phone held upright or on its side, and a tablet held upright (Mohammad, 17 Oct: the upright iPad takes
+// the phone's cards, sheets, bottom bar and menus). Every phone block in styles/app.css carries the same upright clause.
+export const UPRIGHT_MQ = '(max-width: 1100px) and (orientation: portrait)';
+export const PHONE_MQ = `(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), ${UPRIGHT_MQ}`;
+export const isPhoneLayout = () => matchMedia(PHONE_MQ).matches;
+
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -201,7 +207,7 @@ export function enterAfterGone(el) { el.style.setProperty('--enter-delay', Math.
 export const visibleBottom = () => { const v = window.visualViewport; return v ? Math.min(innerHeight, v.offsetTop + v.height) : innerHeight; };
 export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
-  const asSheet = sheet && innerWidth < 768;
+  const asSheet = sheet && (innerWidth < 768 || matchMedia(UPRIGHT_MQ).matches);
   // (from-dock: over the thumb dock a sheet, or a menu from the dock, rises from behind the tab row; one from the top bar,
   // the Colored-by key on an upright iPad, pops in where it rests, as everywhere else, never sliding up from below it.)
   const fromDock = asSheet || !!anchor.closest?.('.vdock');

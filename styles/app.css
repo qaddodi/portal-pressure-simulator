@@ -766,7 +766,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .lens-d { font-size: var(--fs-12); line-height: 1.35; color: var(--text-2); }
 /* A phone lists the lenses in one column, one compact row each: the color bar, the name, and the
    description on one line under it. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .lens-grid { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 0 4px 4px; }
   .lens { grid-template-columns: 36px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; row-gap: 0; align-items: center; padding: 6px 8px; border-color: transparent; background: transparent; }
   .lens.on { box-shadow: none; }
@@ -868,13 +868,13 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 }
 
 /* Where the side panel covers most of the figure, a scrim behind it closes it on a tap. */
-@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .panel-scrim { display: block; position: fixed; inset: 0; z-index: var(--z-panel); background: var(--scrim-panel); opacity: 0; visibility: hidden; transition: opacity .3s var(--ease), visibility .3s; }
   .app.panel-open .panel-scrim { opacity: 1; visibility: visible; }
 }
 /* ── Phone (< 768): the figure takes the screen, the readout row under it; the side panel
    (chart | instruments) slides over from the right when the Chart button opens it ─ */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .app { --top-h: 52px; --gap: 8px; }
   .topbar { padding: calc(var(--safe-top) + 8px) calc(env(safe-area-inset-right) + 8px) 0 calc(env(safe-area-inset-left) + 8px); gap: 6px; }
   .scenario-v { font-size: var(--fs-14); }
@@ -1173,7 +1173,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .cmp-section { padding: 16px 20px; border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 12px; background: color-mix(in srgb, var(--accent) 3%, var(--surface)); }
 .cmp-top { display: flex; align-items: center; justify-content: space-between; }
 @media (max-width: 1100px) { .tl-pin span { display: none; } }
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .stage-bar.bottom { height: 54px; padding: 0 8px; }
   .timeline { gap: 8px; }
   .tl-speed, .tl-time { display: none; }
@@ -2598,7 +2598,7 @@ button.finding { cursor: pointer; }
 /* Phones: the figure fits the width with a 12 px margin, centered between the top bar and the
    transport; the readouts are a carousel of whole cards that snaps card by card, with the next
    card peeking in at the edge; the full patient name heads the side-panel sheet. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .stage-view svg#stage, .stage-view svg#stageOver { left: 12px; width: calc(100% - 24px); overflow: visible; }
 }
 
@@ -2963,7 +2963,7 @@ button.finding { cursor: pointer; }
   .app.instrument-focus { grid-template-columns: minmax(0, 1fr); }
   .instrument-workspace .dock-head { padding-inline: 12px; }
 }
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .measure-launch { width: 36px; min-height: 36px; padding: 0; }
   .measure-launch > span { display: none; }
   .instrument-workspace .dock-head { height: 48px; gap: 4px; flex-wrap: wrap; padding-inline: 8px; }
@@ -3008,7 +3008,7 @@ button.finding { cursor: pointer; }
 .pt-chip[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }
 .pt-chip[aria-pressed="true"] i { background: var(--chip); }
 @media (hover: hover) { .pt-chip:hover { border-color: var(--border-strong); } }
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .pt-num { font-size: var(--fs-28); }
   .pt-hero { flex-basis: 100%; }
   .pt-range button { min-height: 28px; padding-inline: 10px; }
@@ -3211,7 +3211,7 @@ button.finding { cursor: pointer; }
 
 /* Phone and small landscape: the chart and Treat open as bottom sheets with three heights
    (peek, half, full); a drag on the handle moves between them. */
-@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .top-right.float-pill { gap: 0; padding: 3px; }
   .tb-sep, .tb-act > span { display: none; }
   .tb-act { padding: 0 8px; height: 38px; }
@@ -3260,7 +3260,7 @@ button.finding { cursor: pointer; }
   .app.dock-open .stage-clock { display: none; }
   .app.panel-open .instrument-workspace.float-ui { right: 6px; }
 }
-@media (min-width: 768px) { .sheet-grab { display: none; } }
+@media (min-width: 768px) and (orientation: landscape), (min-width: 1101px) { .sheet-grab { display: none; } }
 
 /* ── Floating layout, second pass ─────────────────────
    One system for every floating piece: pills 12 px round, cards 16 px, the same shadow, controls
@@ -3489,7 +3489,7 @@ button.finding { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .instrument-workspace.float-ui.entering, .instrument-workspace .dock-pane.active, .treat-card, .app.panel-open .panel { animation: none; } }
 
 /* Phone and small landscape */
-@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .app { --pill-h: 42px; --ctl-h: 36px; }
   .menu-btn { padding: 0 4px 0 3px; gap: 4px; }
   .topbar .sb-right { padding: 0 2px; }
@@ -3506,12 +3506,12 @@ button.finding { cursor: pointer; }
 }
 
 /* A phone: the second row shortens the legend; the zoom pill steps aside for a sheet of instruments. */
-@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .lg-scale { width: 88px; }
   .topbar .sb-right { min-width: 0; }
   .app.dock-open .zoom-pill { display: none; }
 }
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .topbar .lg-cats { gap: 8px; font-size: var(--fs-12); }
   .topbar .lg-cats span { gap: 4px; }
   .topbar .lg-cats i { width: 12px; }
@@ -3519,7 +3519,7 @@ button.finding { cursor: pointer; }
 }
 
 /* A phone: the patient pill clips rather than wrap. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .tb-id { overflow: hidden; }
 }
 /* A phone in landscape: a compact play bar beside the four readouts. */
@@ -3545,7 +3545,7 @@ button.finding { cursor: pointer; }
   .vdock:not(.mini) .readouts:not(.all) .metric.primary { text-align: center; }
   .vdock:not(.mini) .readouts:not(.all) .metric.primary .v { justify-content: center; }
 }
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .topbar[data-fit] #viewSeg button { padding: 6px 7px; }
   .topbar .stage-bar.top { gap: 6px; min-width: 0; }
   .topbar .sb-right { flex: 0 1 auto; min-width: 0; overflow: hidden; }
@@ -3635,7 +3635,7 @@ button.finding { cursor: pointer; }
 .tl-time { min-width: 0; text-align: left; }
 .timeline .tl-jumps { margin-left: auto; }   /* no event track: the clock stays by play, the buttons sit right */
 .tl-time .tl-t-short { display: none; }
-@media (max-width: 767px) { .vdock .tl-time .tl-t-short { display: inline; } }
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) { .vdock .tl-time .tl-t-short { display: inline; } }
 .tl-speed::after { content: ''; width: 0; height: 0; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; border-top: 4px solid currentColor; opacity: .55; margin-left: 2px; }
 @media (hover: hover) { .tl-speed:hover { border-color: var(--accent-line); color: var(--accent-ink); background: var(--accent-soft); } }
 
@@ -3661,7 +3661,7 @@ button.finding { cursor: pointer; }
 }
 
 /* A phone: the clock is in the play bar (short form), not floating over the figure. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .stage-clock { display: none !important; }
   .vdock .tl-time { display: inline; min-width: 0; }
   .vdock .tl-time .tl-t-long { display: none; }
@@ -3687,7 +3687,7 @@ button.finding { cursor: pointer; }
 
 /* Sliders follow a finger anywhere on the track (util.js enhanceRanges), so the page must not scroll from them. */
 input[type="range"] { touch-action: none; }
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .tl-speed { display: none; }
   .readouts:not(.all) .metric .v { font-size: var(--fs-16); }
   .readouts:not(.all) .metric .v .unit { margin-left: 2px; }
@@ -3735,7 +3735,7 @@ input[type="range"] { touch-action: none; }
 .metric .tr { opacity: .8; }
 @media (max-width: 1100px) { .tl-hl { display: none; } }
 /* A phone: the clock moves into the play bar (no loose clock on the figure); Restart is in More. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .stage-clock { display: none !important; }
   .vdock .timeline .tl-time { display: inline; font-size: var(--fs-12); color: var(--text-2); }
   .timeline .tl-restart { display: none; }
@@ -3746,21 +3746,21 @@ input[type="range"] { touch-action: none; }
 .vdock .tl-time { font-size: var(--fs-14); color: var(--text); min-width: 0; }
 .timeline .tl-restart { display: none; }
 @media (max-width: 1599px) { .vdock .tl-pin span { display: none; } .vdock .tl-pin { padding: 0 8px; } }
-@media (min-width: 768px) { .tl-phone-only { display: none !important; } }
-@media (max-width: 767px) {
+@media (min-width: 768px) and (orientation: landscape), (min-width: 1101px) { .tl-phone-only { display: none !important; } }
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .vdock .tl-pin { display: none; }
   .readouts:not(.all) .metric .v { font-size: var(--fs-16); }
   .metric .v .unit { margin-left: 2px; }
 }
 /* Phone: a readout tile in two short lines, its name, value and rating on one, the bar under them (a narrow tile wraps the rating). */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .readouts:not(.all) .metric { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
   .readouts:not(.all) .metric .k { flex: 0 1 auto; }
   .readouts:not(.all) .metric .v { flex: none; }
   .readouts:not(.all) .metric .s { order: 1; flex: 0 1 auto; margin-left: auto; }
   .readouts:not(.all) .metric .rb { order: 2; flex: 1 1 100%; margin: 3px 0 4px; }
 }
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .vdock .timeline { gap: 6px; }
   .vdock .tl-hist { padding: 0 6px; gap: 4px; }
 }
@@ -3775,7 +3775,7 @@ input[type="range"] { touch-action: none; }
 input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 [contenteditable]:not([contenteditable="false"]) * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 /* A phone keeps the three pressures in the collapsed strip; portal flow waits behind the chevron. */
-@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .readouts:not(.all) .ro-group[data-group="flow"] { display: none; }
 }
 
@@ -3798,7 +3798,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .treat-card { animation: var(--card-in) var(--card-t) var(--ease); }
 .instrument-workspace.float-ui.entering, .instrument-workspace.float-ui.side.entering { animation: var(--card-in) var(--card-t) var(--ease); }
 #panel.card-leaving, #treatCard.card-leaving, #dock.card-leaving { display: flex !important; visibility: visible !important; pointer-events: none; animation: var(--card-out) .18s var(--ease) forwards !important; }
-@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .panel, .treat-card, .instrument-workspace.float-ui:not(.side) { --card-in: sheetUp; --card-out: sheetDown; --card-t: .28s; }
   .panel, .treat-card { transform: none; transition: height .22s var(--ease); }
   .panel .panel-head { touch-action: none; border-radius: 0; }
@@ -3842,7 +3842,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .topbar[data-fit="3"] #viewSeg button { padding-left: 10px; padding-right: 10px; }
 .topbar[data-fit="3"] .lg-scale { width: 112px; }
 /* A phone: the lens pill is all key (a tap opens the lenses), so the five origins fit beside Blood. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .topbar .lens-btn { padding: 0 4px; }
   .topbar .legend { padding: 0; }
   /* The five origins in two compact rows: a short coloured stroke and its name. */
@@ -4085,7 +4085,7 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .vdock.mini .timeline { flex: none; justify-content: flex-start; gap: 8px; }
 .vdock.mini .tl-time { display: inline !important; min-width: 0; text-align: left; }
 /* The zoom controls drop to the lower-right corner, level with the pill, while the figure is being moved. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .app.figure-focus .zoom-pill:not(.under-sheet) { bottom: calc(env(safe-area-inset-bottom) + 6px + 6px); }
 }
 .topbar .stage-bar.top { transition: opacity .28s var(--ease), transform .28s var(--ease), visibility .28s; }   /* (visibility last, so the fade-out finishes before it flips) */
@@ -4099,7 +4099,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* Phone: a slimmer card header. The title is centred on the row; the close button sits in the
    right corner with a 44px tap area inside the header row, clear of the tabs under it;
    a quiet status (e.g. "2 running") sits in the left corner. The Tests row never scrolls. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .card-head.card-head { position: relative; min-height: 44px; padding: 0 44px !important; justify-content: center; }
   /* No visible drag handle: the title row drags the sheet. The button stays for keyboard resizing, only seen on focus. */
   .panel-grab, .sheet-grab { position: absolute; top: 0; left: 50%; width: 56px; height: 10px; z-index: 2; transform: translateX(-50%); opacity: 0; transition: opacity .15s var(--ease); }
@@ -4268,7 +4268,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* The Pressure switch sits above Over time: the trace takes what is left under it, not a whole pane's height. */
 .instrument-workspace .dock-pane.active > .instrument-view.pt { flex: 1 1 auto; min-height: 0; }
 /* Scope on a tablet sheet: the view is sized to the sheet's height, the readings beside it wide enough not to wrap. */
-@media (min-width: 768px) {
+@media (min-width: 768px) and (orientation: landscape), (min-width: 1101px) {
   .instrument-workspace.float-ui:not(.side) .dock-pane .instrument-view > .chart-box:not(.square) { max-height: calc(100cqh - 52px); }
 }
 /* In a short narrow card (a phone sheet at its middle height) the explanatory lines step aside so the picture keeps its room. */
@@ -4285,13 +4285,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* the note under FibroScan's map keeps stepping aside in a short window, as the container rule does when the pane is sized by the card */
 @media (max-height: 850px) { .instrument-view.nat[data-pane="fibroscan"] > .ctl-sub { display: none; } }
 /* An upright iPad's sheet: FibroScan's map takes the height of the sheet instead of the width of its column. */
-@media (min-width: 768px) {
+@media (min-width: 768px) and (orientation: landscape), (min-width: 1101px) {
   .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"]:not(.nat) { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); }
   .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"]:not(.nat) .fibroscan-box { width: 100%; height: 100% !important; max-height: none; }
 }
 /* A phone's sheet is capped in height, so its rows and gaps are a little tighter and the whole card still fits without scrolling. */
 .dock-pane:has(> .instrument-view.ab) { --ab-g: 12px; --ab-rg: 10px; --ab-row: 42px; --ab-big: 28px; --ab-sb-w: 40px; --ab-sb-h: 34px; padding-top: 12px; padding-bottom: 8px; container-type: inline-size; }
-@media (min-width: 768px) { .dock-pane:has(> .instrument-view.ab) { --ab-g: 16px; --ab-rg: 12px; --ab-row: 44px; --ab-big: 30px; --ab-sb-w: 44px; --ab-sb-h: 36px; padding-top: 16px; padding-bottom: 12px; } }
+@media (min-width: 768px) and (orientation: landscape), (min-width: 1101px) { .dock-pane:has(> .instrument-view.ab) { --ab-g: 16px; --ab-rg: 12px; --ab-row: 44px; --ab-big: 30px; --ab-sb-w: 44px; --ab-sb-h: 36px; padding-top: 16px; padding-bottom: 12px; } }
 .instrument-view.ab, .instrument-workspace.float-ui .dock-pane > .instrument-view.ab { display: block; flex: none; min-height: 0; }
 .ab-main { display: grid; grid-template-columns: minmax(0, 1fr); }
 .ab-read { display: grid; gap: var(--ab-rg, 10px); align-content: start; min-width: 0; }
@@ -4644,14 +4644,14 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace .hvpg-box > canvas { background: var(--mon-bg); }
 /* Phone sheet: Doppler and FibroScan fill the card's width and the height left under their header, so the
    picture uses the whole card at every sheet height (both draw to any shape); the shapes above stay for wider cards. */
-@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .instrument-workspace.float-ui:not(.side) :is(.dop-box, .fibroscan-box) { aspect-ratio: auto; flex: 1 1 0 !important; min-height: 100px !important; max-height: none; }
   .instrument-workspace.float-ui:not(.side) .fibroscan-box { min-height: 180px !important; }
   .instrument-workspace.float-ui:not(.side) :is(.dop-box, .fibroscan-box) > canvas { width: 100%; height: 100%; }
 }
 /* Doppler readings on a phone sheet (portrait and on its side): direction and mean are sized as readings, never as headings,
    so the spectrum above them keeps the height. */
-@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .instrument-workspace.float-ui:not(.side) .dop-dir { font-size: var(--fs-16); gap: 6px; }
   .instrument-workspace.float-ui:not(.side) .dop-vel b { font-size: var(--fs-20); }
   .instrument-workspace.float-ui:not(.side) .dop-velrow { margin-top: 0; }
@@ -4661,6 +4661,16 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace.side { --one-col: 1; }
 .instrument-workspace.side :is(.instrument-view, .dop-main, .hv-main, .ab-main) { grid-template-columns: minmax(0, 1fr); }
 .instrument-workspace.side .instrument-view > .chart-side { grid-column: auto; }
+/* An upright tablet's Tests card is the phone's sheet, so it keeps the phone's one column at its greater width (Mohammad, 17 Oct:
+   "replicate the phone cards"): each picture runs the card's width with its readings under it, as on an iPhone, never a small
+   picture beside a column of readings. (The iPhone's sheet is under 620 px, so it is one column already.) */
+@media (min-width: 768px) and (max-width: 1100px) and (orientation: portrait) {
+  .app.thumb .instrument-workspace.float-ui:not(.side) { --one-col: 1; }
+  .app.thumb .instrument-workspace.float-ui:not(.side) :is(.instrument-view, .dop-main, .hv-main, .ab-main) { grid-template-columns: minmax(0, 1fr); }
+  .app.thumb .instrument-workspace.float-ui:not(.side) .instrument-view > .chart-side { grid-column: auto; }
+  .app.thumb .instrument-workspace.float-ui:not(.side) .ab-read { padding-right: 0; }
+  .app.thumb .instrument-workspace.float-ui:not(.side) .ab-ctl { margin-top: var(--ab-g); padding: calc(var(--ab-g) - 5px) 0 0; border-top: 1px solid var(--hairline); border-left: 0; align-content: start; }
+}
 
 /* A slide's terms inside the liver (presenter.js TARGETS, .app[data-lit~=<target>]):
    the label takes the term's colour (--term-c) with a soft glow, eased in and out. */
@@ -4913,7 +4923,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    its unit, the meter, the rating right under it), so nothing wraps, the ratings sit with their values and the three line up.
    Every line is one line high at all times, so the bar never shifts as the numbers change. The info line keeps to one line (tap
    it for the rest). */
-@media (max-width: 767px) and (min-height: 501px) {
+@media (max-width: 767px) and (min-height: 501px), (max-width: 1100px) and (orientation: portrait) {
   .readouts:not(.all) .ro-row { padding: 0 2px 0 0; }
   .readouts:not(.all) .ro-group { padding: 6px 2px 4px; }
   .readouts:not(.all) .metric { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 0; padding: 2px 6px; }
@@ -5097,6 +5107,35 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.pz-turning .pz-lip, .pz.pz-turning .pz-lip::before { transition: none !important; }
 .pz.stack .pz-data.pz-sheet > .pz-grip { display: none; }   /* (its handle is the sheet's) */
 .pz.stack .pz-data.pz-sheet:not(.tool-open) { padding-bottom: 10px; }   /* (an upright tablet's too: no handle in its foot to clear) */
+/* An upright tablet opens the readings on a card of their own under the instrument's (Mohammad, 17 Oct: "The top data card doesn't
+   truly open as an extended card under the Doppler. It should."). The tiles stay in the one card, so its fit and measures are as
+   before; its glass is drawn as two pieces instead: the instrument's card down to --pz-top (presenter.js tabTop: under the
+   instrument, plus its 10 px foot) and, 8 px below it, the readings' card, which is nothing while they are tucked away and grows
+   with them as they ease open (their margins are its padding: 10 px over them, and 26 px under them for the handle, which sits in
+   its foot). A push up or a tap on the handle tucks it away first; the next closes the instrument card (presenter.js tabSheet). */
+.pz.stack.tab .pz-data.pz-sheet.pz-sheet { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
+.pz.stack.tab .pz-data.pz-sheet::before, .pz.stack.tab .pz-data.pz-sheet::after { content: ''; position: absolute; left: -1px; right: -1px; z-index: -1; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: inherit;
+  background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15);
+  box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: none; }
+.pz.stack.tab .pz-data.pz-sheet::before { top: -1px; height: calc(var(--pz-top, 100%) + 1px); }
+.pz.stack.tab .pz-data.pz-sheet::after { bottom: -1px; height: max(0px, calc(100% + 1px - var(--pz-top, 100%) - 8px)); }
+.pz.stack.tab .pz-data.pz-sheet.tool-open { padding-bottom: 10px; }
+.pz.stack.tab .pz-data.pz-sheet.tool-open > .pz-strip, .pz.stack.tab .pz-data.pz-sheet.tiles-only.tool-open > .pz-tiles { margin-top: 22px; }
+.pz.stack.tab .pz-data.pz-sheet.tool-open > .pz-tiles, .pz.stack.tab .pz-data.pz-sheet.tool-open > .pz-strip:has(+ .pz-tiles[data-n="0"]) { margin-bottom: 16px; }
+/* (Inside a fading card a glass piece loses its blur until the fade ends, so here the card stays opaque and its parts and its two
+   pieces fade, the card hidden once they have gone. The readings fade by their own ease.) */
+.pz.stack.tab .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform .32s var(--ease), visibility 0s linear .32s; }
+.pz.stack.tab .pz-data.pz-sheet:not(.pz-hide) { visibility: visible; transition: transform .5s var(--ease) .12s, visibility 0s linear 0s; }
+.pz.stack.tab .pz-data.pz-sheet::before, .pz.stack.tab .pz-data.pz-sheet::after, .pz.stack.tab .pz-data.pz-sheet > :is(.pz-dh, .pz-tool) { transition: opacity .32s var(--ease); }
+.pz.stack.tab .pz-data.pz-sheet:not(.pz-hide)::before, .pz.stack.tab .pz-data.pz-sheet:not(.pz-hide)::after, .pz.stack.tab .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool) { transition-duration: .5s; transition-delay: .12s; }
+.pz.stack.tab .pz-data.pz-sheet.pz-hide::before, .pz.stack.tab .pz-data.pz-sheet.pz-hide::after, .pz.stack.tab .pz-data.pz-sheet.pz-hide > :is(.pz-dh, .pz-tool, .pz-tiles, .pz-strip) { opacity: 0; }
+.pz.pz-turning .pz-data.pz-sheet::before, .pz.pz-turning .pz-data.pz-sheet::after, .pz.pz-turning .pz-data.pz-sheet > :is(.pz-dh, .pz-strip) { transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .pz.stack.tab > .pz-data.pz-sheet.pz-hide { transition: visibility 0s linear .3s !important; }
+  .pz.stack.tab > .pz-data.pz-sheet::before, .pz.stack.tab > .pz-data.pz-sheet::after, .pz.stack.tab > .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-tiles, .pz-strip) { transition: opacity .3s var(--ease) !important; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.stack.tab .pz-data.pz-sheet::before, .pz.stack.tab .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@media (prefers-reduced-transparency: reduce) { .pz.stack.tab .pz-data.pz-sheet::before, .pz.stack.tab .pz-data.pz-sheet::after { background: var(--surface-2); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* Mac and iPad landscape: when even the smallest steps leave the pair too tall, the instrument folds behind Show as on a phone
    (presenter.js layout, pz-folds), its tiles in a row at the card's full width; Show fades it in, Hide out. */
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh { position: relative; padding-inline: max(64px, calc(var(--pz-chip-em, 0) * 1em + 24px / var(--pz-z, 1) + 10px)); }   /* (the chip's own width, its words (presenter.js chipRoom), padding and edge, and 8 px) */
@@ -5389,13 +5428,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    nothing floats above it. */
 .vdock:not(.mini) { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "st st" "tl ro"; }
 .vdock:not(.mini) .readouts { width: auto; border-left: 1px solid var(--hairline); border-bottom: 0; }
-@media (min-width: 768px) {
+@media (min-width: 768px) and (orientation: landscape), (min-width: 1101px) {
   .vdock:not(.mini) { width: min(calc(100% - 2 * var(--gap)), 640px); grid-template-columns: minmax(0, 1fr) auto; }
   .vdock:not(.mini) .readouts { width: 274px; }   /* the strip is a size container, so it needs a set width */
   .vdock:not(.mini) .readouts .metric.primary { flex: 0 0 128px; width: 128px; }
 }
 /* A phone: each key tile is its name over its value (colored by its rating) and the bar; no unit or rating words. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .vdock:not(.mini) .stage-bar.bottom { padding: 0 4px 0 6px; }
   .vdock:not(.mini) .readouts .metric { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 0; padding: 2px 4px; }
   .vdock:not(.mini) .readouts .metric .s,
@@ -5468,7 +5507,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 :is(.nb-views, .sin-views).vp-glide #viewSeg button { transition-duration: var(--vp-ms, .95s); transition-timing-function: cubic-bezier(.65, 0, .35, 1); }
 @media (max-width: 359px) { :is(.nb-views, .sin-views) #viewSeg button { padding: 0 10px; font-size: var(--fs-12); } }   /* (the full 14 px pill is 340 px wide with four buttons, so it fits from 360 up) */
 /* A phone: the cards (Tests, Treat, Details) and the menus sit above the dock, inset like it, round on every corner. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) {
     left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px) !important; bottom: var(--nb-occ, calc(var(--vdock-h) + 14px)) !important;
     border-radius: var(--r-sheet) !important; padding-bottom: 0; max-height: calc(100% - var(--top-safe) - var(--nb-occ, var(--vdock-h)) - 22px);
@@ -5480,11 +5519,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .app.thumb :is(.panel-grab, .sheet-grab) { pointer-events: none; }
   html.thumb-ui .menu.as-sheet { box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--thumb-occ, 0px); max-height: calc(100dvh - var(--thumb-occ, 0px) - max(72px, var(--thumb-top, 0px) + 8px)); padding-bottom: 10px; border-radius: var(--r-sheet); }
 }
-/* A tablet held upright: Treat opens above the dock, at the right, instead of under the top bar. */
-@media (min-width: 768px) {
-  .app.thumb .treat-card { top: auto; bottom: var(--nb-occ, calc(var(--vdock-h) + var(--gap) + 8px)); left: var(--nb-l, auto); right: var(--nb-r, var(--gap)); width: auto; }
-  .app.thumb .instrument-workspace.float-ui:not(.side) { bottom: var(--nb-occ) !important; left: var(--nb-l) !important; right: var(--nb-r) !important; width: auto !important; transform: none !important; }
-}
 /* The sinusoid view hides the dock: its history, play, settings and search come back to the top bar, after the key. */
 #app.thumb.sin-focus .top-right { display: flex !important; margin-left: auto; }
 /* (The key keeps its size: when the three do not fit one row, those four buttons take a second, at the right, rather than
@@ -5495,7 +5529,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    and never less than a compact key, so on a phone those four buttons go to the second row.) */
 #app.thumb.sin-focus .topbar .stage-bar.top { flex: 1 1 0; min-width: 112px; }
 /* (A phone from 360 px: the key's card on the first row and the buttons' card under it take one width, their edges lined up.) */
-@media (min-width: 360px) and (max-width: 767px) {
+@media (min-width: 360px) and (max-width: 767px), (min-width: 360px) and (max-width: 1100px) and (orientation: portrait) {
   #app.thumb.sin-focus .topbar .stage-bar.top .sb-right, #app.thumb.sin-focus .top-right { width: 156px; box-sizing: border-box; }
   #app.thumb.sin-focus .top-right { justify-content: space-between; }
 }
@@ -5564,7 +5598,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* (15 Oct, Mohammad) A vessel's or organ's card on a phone is one of these cards too: it sits whole on the tab row's top
    edge (the play bar steps aside, above), rises from behind the tab row and sinks back behind it, and stays out of the
    way while Details is up over it. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .app.thumb:not(.dock-open) .action-card.docked {
     left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--nb-occ, calc(var(--vdock-h) + 14px));
     border-radius: var(--r-sheet); height: auto; max-height: min(46%, 400px, calc(100% - var(--top-safe, 0px) - var(--nb-occ, var(--vdock-h)) - 22px));
@@ -5575,7 +5609,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   .app.thumb .action-card.docked .ac-close { display: none; }
   .app.thumb .action-card.docked .ac-top { grid-template-columns: minmax(0, 1fr) auto; }
 }
-@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference), (max-width: 1100px) and (orientation: portrait) and (prefers-reduced-motion: no-preference) {
   .app.thumb:not(.dock-open) .action-card.docked { animation: thumbIn .26s var(--ease) var(--enter-delay, 0ms) backwards; }
   .app.thumb:not(.dock-open) .action-card.docked.ac-leaving { animation: thumbOut .18s var(--ease) forwards; }
 }
@@ -5633,7 +5667,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* ── Tests card on a phone (15 Oct, Mohammad) ─────────────────────
    The scope fills the card's width (its height the room left), the band button sits right under it, and the five
    readings stand compact under the button, three and two. The X goes from every dock card: a pull down closes it. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   #app.thumb .card-close { display: none !important; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(110px, 1fr) auto auto; gap: 10px; }
   #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { grid-column: 1; grid-row: 1; }
@@ -5837,7 +5871,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .app.thumb .vdock .readouts:not(.all) .metric .k { flex: none; overflow: visible; }
 .app.thumb .vdock .timeline .tl-jumps { margin-left: 0; }
 /* A phone: the clock keeps only its own width (not the Mac's 64 px column), so the lobule's two readings fit whole. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .app.thumb .vdock .timeline .tl-time { min-width: 0; margin-left: 6px; }
   .app.thumb .vdock .readouts:not(.all) { padding-right: 6px; }
   .app.thumb .vdock .readouts:not(.all) .ro-tiles { column-gap: 2px; }   /* (a number stays 8 px from the next tile's flash; sweep 01 #17) */
@@ -5926,7 +5960,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* The colour key in the top bar is never squeezed (16 Oct): its scale keeps its width, and so its numbers, on every phone,
    upright or sideways; the patient's name gives way instead (its short form, on up to two 12 px lines). */
 .lg-scale { flex: none; }
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   /* (The bar is not a size container here, so it is as wide as its key: a container is zero wide until it is given room.) */
   .app.thumb .topbar { flex-wrap: nowrap; }
   .app.thumb .topbar .stage-bar.top { container-type: normal; }
@@ -5947,7 +5981,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 }
 /* The sinusoid view brings history, play, settings and search back to the top bar: they take their own row under the key,
    at the right, as before, and the key keeps its whole width on the first row, as in the other views. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   #app.thumb.sin-focus .topbar { flex-wrap: wrap; }
   #app.thumb.sin-focus .topbar .stage-bar.top { flex: 0 1 auto; min-width: min-content; }
   #app.thumb.sin-focus .topbar .stage-bar.top .sb-right { width: auto; }

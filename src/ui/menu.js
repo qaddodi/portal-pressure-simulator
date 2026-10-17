@@ -5,9 +5,9 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore } from './util.js?v=46bfee79f0';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=e68e61f355';
 import { SNAPSHOTS } from './snapshots.js?v=f018995b4c';
-import { pressureColor } from './colormap.js?v=9921766237';
+import { pressureColor } from './colormap.js?v=dc70e98890';
 import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('menu');
 
@@ -58,7 +58,7 @@ const matches = (hay, words) => words.every((w) => hay.includes(w));
 
 export function createMenu({ anchor, library, libraryNow, onPreset, share, help, onToggle }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  const sheetMQ = matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
+  const sheetMQ = matchMedia(PHONE_MQ);
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
   let el = null, back = null, pv = null, open = false, leaveT = 0, hoverT = 0, hideT = 0, pvKey = null, mark = null, query = '', tab = 'present';
 

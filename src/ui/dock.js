@@ -3,16 +3,16 @@
 
 import { store, hiddenNow } from './store.js?v=31ee79b6ab';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf } from './util.js?v=46bfee79f0';
-import { lobuleFlows } from './lobule-model.js?v=43f9e6e653';
-import { createProfile } from './charts.js?v=bfdef0de4d';
-import { createPressureTime } from './pressure-time.js?v=f73de0d36f';
-import { createFibroScan } from './fibroscan.js?v=40abc65b89';
-import { createHvpgProcedure } from './hvpg-proc.js?v=5d68d58a18';
-import { createDoppler } from './doppler.js?v=c3946955ea';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout } from './util.js?v=e68e61f355';
+import { lobuleFlows } from './lobule-model.js?v=b399f2c364';
+import { createProfile } from './charts.js?v=e809fe2a94';
+import { createPressureTime } from './pressure-time.js?v=9ffea856d7';
+import { createFibroScan } from './fibroscan.js?v=25856e9e44';
+import { createHvpgProcedure } from './hvpg-proc.js?v=977f3848e6';
+import { createDoppler } from './doppler.js?v=95cb39219d';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b3a28c0df6';
-import { createReadoutsPane } from './readouts-pane.js?v=953ea4e75f';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=5cf84c64d1';
+import { createReadoutsPane } from './readouts-pane.js?v=42ebad422b';
 import { frameFor } from './frame.js?v=67ca200c87';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';
@@ -489,8 +489,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     } else {
       // The sheet rises from above the vitals dock, at most to just under the top bar.
       const max = stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') - 40;
-      // A tablet held upright keeps more than half the stage for the figure, so its vessel labels stay legible.
-      const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : matchMedia('(orientation: portrait)').matches ? 0.4 : 0.46);
+      // (A tablet held upright takes the phone's sheet: main.js sheetBehaviour sets its Half and Full heights.)
+      const ratio = heightRatio ?? (isPhoneLayout() ? 0.56 : 0.46);
       const height = Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
       workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);
       divider.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
@@ -680,7 +680,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     updateSize();
     const h0 = workspace.clientHeight, side = isSide() && state !== 'focus';
     // As a tall card the plots take a sensible share of the height, so a pair still fits.
-    const plot = side ? clamp((body.clientHeight / (open.length > 1 ? 2 : 1)) - 90, 190, 380) : clamp(h0 - (innerWidth >= 768 ? 190 : 150), 190, 420);   // a tablet's sheet has a taller header and tab row
+    const plot = side ? clamp((body.clientHeight / (open.length > 1 ? 2 : 1)) - 90, 190, 380) : clamp(h0 - (isPhoneLayout() ? 150 : 190), 190, 420);   // a tablet's sheet has a taller header and tab row (an upright one is a phone's)
     workspace.style.setProperty('--plot-h', `${plot}px`);
     workspace.style.setProperty('--square-size', `${clamp(side ? workspace.clientWidth - 80 : h0 - 160, 220, 380)}px`);
     layout();

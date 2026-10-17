@@ -4,8 +4,8 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange } from './util.js?v=46bfee79f0';
-import { cardFor, normalizeSel } from './actions.js?v=b81d3f09a2';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout } from './util.js?v=e68e61f355';
+import { cardFor, normalizeSel } from './actions.js?v=f13b3bbfdb';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -349,7 +349,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
   function position() {
     if (!model || el.hidden) return;
-    if (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)').matches) {
+    if (isPhoneLayout()) {
       if (el.parentNode !== dockHost) dockHost.append(el);
       el.style.left = ''; el.style.top = ''; el.classList.add('docked'); leader.replaceChildren(); return;
     }
