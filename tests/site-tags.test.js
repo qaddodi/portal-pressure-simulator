@@ -27,7 +27,13 @@ test('decks that teach more than one level tag their slides; cirrhosis-only deck
   assert.deepEqual(siteTag(by('prehepatic'), by('prehepatic').slides[0]), { site: 'pre', name: 'Pre-hepatic' });
 });
 
-test('the teaching card renders the tag above the title', () => {
+test('the teaching card shows the tag as a corner tab in the level\'s colour, the title first in the words', () => {
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src, /siteTag\(deck, s\)[^\n]*'pz-site'[^\n]*h\('h1', \{ class: 'pz-h' \}, \.\.\.diseaseNodes\(nb\(s\.title\)\)\)/);
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(src, /const lvl = s\.visual \? null : siteTag\(deck, s\), stab = ui\.shade\.querySelector\('\.pz-sitetab'\);/);
+  assert.match(src, /stab\.dataset\.site = lvl\.site; stab\.textContent = lvl\.name;/);
+  assert.match(src, /text\.replaceChildren\(\.\.\.\[h\('h1', \{ class: 'pz-h' \}, \.\.\.diseaseNodes\(nb\(s\.title\)\)\)/);
+  // (the deck tab's mirror: top left, flush, only its bottom right corner rounded, tinted in the level's colour)
+  assert.match(css, /\.pz-sitetab \{ position: absolute; top: 0; left: 0;[^}]*border-radius: 0 0 calc\(var\(--pz-tabh\) \* \.5\) 0; background: color-mix\(in srgb, var\(--site\) 16%, transparent\);[^}]*font: var\(--caps-w\) var\(--pz-tabf\)\/1 var\(--font-ui\)/);
+  assert.match(css, /\.pz-shade:is\(\.stack, \.pz-card\) \.pz-sitetab \{ box-shadow: inset 0 1px 0 var\(--pz-glass-edge\); \}/);
 });

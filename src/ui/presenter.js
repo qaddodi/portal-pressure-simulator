@@ -1995,6 +1995,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function wordsIn(s, st, i, fresh = false, lap = false, now = st) {
     if (!ui) return;
     const { text, panel, data } = ui;
+    // The slide's level (Presinusoidal, Cardiac...) is a tab in the glass's top left corner, the deck tab's mirror in the level's
+    // colour (17 Oct), not a pill over the title: set with the words, gone on a visual slide.
+    const lvl = s.visual ? null : siteTag(deck, s), stab = ui.shade.querySelector('.pz-sitetab');
+    if (stab) { stab.hidden = !lvl?.site; if (lvl?.site) { stab.dataset.site = lvl.site; stab.textContent = lvl.name; } }
     // (the panel's own is let go once its new content is in, so it never fades back in with the old; behind a case card the words
     // stay out, never shown for a moment while they are fitted, until the card is lifted: cardsIn)
     if (!caseCard) text.classList.remove('pz-leave');
@@ -2013,7 +2017,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     } else {
       panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); ui.veil.classList.remove('on');
       text.hidden = false;
-      text.replaceChildren(...[(({ site, name } = siteTag(deck, s) || {}) => site ? h('span', { class: 'pz-site', 'data-site': site }, name) : null)(), h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
+      text.replaceChildren(...[h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
@@ -2530,7 +2534,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const vm = LOW_M * k;
     let padT = 0;
     if (cardOn && low) {
-      const pad0 = (ui.text.offsetLeft - ui.shade.offsetLeft) * k, tab = ui.shade.querySelector('.pz-tabname');
+      const pad0 = (ui.text.offsetLeft - ui.shade.offsetLeft) * k, tab = ui.shade.querySelector('.pz-tabname') || ui.shade.querySelector('.pz-sitetab:not([hidden])');
       padT = Math.max(pad0, tab?.offsetHeight ? (tab.offsetHeight + 6) * k : 0);
       const top = off(ui.data) ? vm : r(ui.data).top - wr.top;
       ui.text.style.maxHeight = `${Math.max(0, (H - top - padT - pad0 - vm) / k).toFixed(1)}px`;
@@ -2680,13 +2684,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.shade.style.width = !p && t ? `${(card || L + 36) / k}px` : '';
     ui.shade.style.height = !p && cardOn && t ? `${(t.height + pad + padT) / k}px` : '';
     // (A phone's glass reaches 16 px above the words, or the deck's tab and 8 px more: the tab never meets the title.)
-    const tabEl = ui.shade.querySelector('.pz-tabname'), tabH = tabEl?.offsetHeight || 0;
-    let lift = p && t ? Math.max(16, tabH + 8) : 16;
-    // (A slide's level tag shares the deck tab's strip, at its left, centred on the tab's height, rather than taking a row of its
-    // own under it: the card is that row shorter, about 26 px on an iPhone (17 Oct, "Phone teaching card wastes space", P1).
-    // Kept on its own row where it would come within 10 px of the tab, a long deck name on a narrow phone.)
-    const site = p && t && tabH ? ui.text.querySelector(':scope > .pz-site') : null;
-    if (site && site.getBoundingClientRect().right + 10 * k <= tabEl.getBoundingClientRect().left) lift = Math.max(4, (tabH - site.offsetHeight) / 2) - site.offsetTop;
+    // (The level's tab and the deck's share the glass's top edge; where they would come within 8 px of each other, a long deck
+    // name on a narrow phone, the deck's gives way: the level is what the slide teaches.)
+    const tabEl = ui.shade.querySelector('.pz-tabname'), stab = ui.shade.querySelector('.pz-sitetab:not([hidden])');
+    ui.shade.classList.remove('pz-tabs-tight');
+    if (t && stab && tabEl && stab.getBoundingClientRect().right + 8 * k > tabEl.getBoundingClientRect().left) ui.shade.classList.add('pz-tabs-tight');
+    const tabH = Math.max(tabEl && !ui.shade.classList.contains('pz-tabs-tight') ? tabEl.offsetHeight : 0, stab?.offsetHeight || 0);
+    const lift = p && t ? Math.max(16, tabH + 8) : 16;
     ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
@@ -3388,7 +3392,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const blackEl = h('div', { class: 'pz-black', 'aria-hidden': 'true', onclick: () => toggleBlack(false) });
     // The shade sits under the corner credit (both at figure level, the credit later), the slide over both.
     // (An iPhone's credit: one 12 px line at the teaching card's foot, the same on every slide; styles/app.css .pz-cred.)
-    const shade = h('div', { class: 'pz-shade' }, deckTab(), h('span', { class: 'pz-cred', 'aria-hidden': 'true' }, wrap.querySelector('.stage-credit')?.textContent.trim() || ''));
+    const shade = h('div', { class: 'pz-shade' }, deckTab(), h('span', { class: 'pz-sitetab', hidden: true }), h('span', { class: 'pz-cred', 'aria-hidden': 'true' }, wrap.querySelector('.stage-credit')?.textContent.trim() || ''));
     // What the figure frames itself clear of: the words, the glass and its shadow.
     const safe = h('div', { class: 'pz-safe', 'aria-hidden': 'true', hidden: true });
     const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));

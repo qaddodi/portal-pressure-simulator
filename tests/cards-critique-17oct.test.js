@@ -41,11 +41,9 @@ test('cards of tiles alone drop their header on every screen, folded cards keep 
   assert.match(css, /\n\.pz \.pz-data\.tiles-only:not\(\.has-tool\):not\(\.pz-folds\) > \.pz-dh \{ display: none; \}/);
 });
 
-test('a key tile keeps its colours while the others turn grey: no accent line or ring (D5, revised)', () => {
-  assert.ok(!/\.pz-tile\.key \{[^}]*--key-w/.test(css), 'no accent line or ring on a key tile');
-  assert.match(css, /\.pz-tile\.key \.pzt-k \{ color: var\(--text\); \}/);
-  assert.match(css, /\.pz-tiles:has\(\.pz-tile\.key\) \.pz-tile:not\(\.key\) :is\(\.pzt-v, \.pzt-r\) \{ color: var\(--text-2\); \}/);
-  assert.match(css, /\.pz-tiles:has\(\.pz-tile\.key\) \.pz-tile:not\(\.key\) \.pzt-bar \{ filter: grayscale\(1\); opacity: \.7; \}/);
+test('no tile is marked: no accent line, ring, full-ink name or greyed neighbours (D5, 17 Oct)', () => {
+  assert.ok(!/\.pz-tile\.key/.test(css), 'no key tile styling');
+  assert.ok(!/\.pz-tiles:has\(\.pz-tile\.key\)/.test(css), 'no greyed neighbours');
 });
 
 test('a card title never breaks at its hyphen, and a sideways phone takes the short title (I7)', () => {
@@ -70,7 +68,8 @@ test('what-if: a label naming the unit shows the bare number, on the label\'s ro
   assert.match(css, /\.pz\.stack \.pz-wi > \.pzi-t \{ order: 1; \}/);
 });
 
-test('a phone card\'s level tag shares the deck tab\'s strip unless it would meet the tab (P1)', () => {
-  assert.match(js, /const site = p && t && tabH \? ui\.text\.querySelector\(':scope > \.pz-site'\) : null;/);
-  assert.match(js, /site\.getBoundingClientRect\(\)\.right \+ 10 \* k <= tabEl\.getBoundingClientRect\(\)\.left\) lift = Math\.max\(4, \(tabH - site\.offsetHeight\) \/ 2\) - site\.offsetTop;/);
+test('the level tab and the deck tab share the glass\'s top edge; the deck\'s gives way where they would meet (P1)', () => {
+  assert.match(js, /stab\.getBoundingClientRect\(\)\.right \+ 8 \* k > tabEl\.getBoundingClientRect\(\)\.left\) ui\.shade\.classList\.add\('pz-tabs-tight'\);/);
+  assert.match(js, /const lift = p && t \? Math\.max\(16, tabH \+ 8\) : 16;/);
+  assert.match(css, /\.pz-sitetab\[hidden\], \.pz-shade\.pz-tabs-tight \.pz-tabname \{ display: none; \}/);
 });

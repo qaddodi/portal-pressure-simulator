@@ -34,8 +34,8 @@ test('the teaching card and the visual slides carry the deck name in a corner ta
   assert.doesNotMatch(rule, /ellipsis|overflow: hidden/);
   assert.match(css, /--pz-tabf: calc\(12px \* var\(--ts, 1\)\)/);
   assert.match(css, /--pz-tabf: max\(12px, /);
-  // (The site tag stays on the left, over the title.)
-  assert.match(src, /siteTag\(deck, s\)[^\n]*'pz-site'[^\n]*h\('h1', \{ class: 'pz-h' \}/);
+  // (The site tag stays on the left, over the title: the deck tab's mirror in the top left corner.)
+  assert.match(src, /h\('span', \{ class: 'pz-sitetab', hidden: true \}\)/);
 });
 
 test('over the thumb dock only a sheet or a menu from the dock rises from behind the tab row; a top-bar menu pops in place', () => {
