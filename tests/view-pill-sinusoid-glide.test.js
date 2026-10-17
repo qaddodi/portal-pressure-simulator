@@ -39,3 +39,19 @@ test('the glide lands exactly on the pill\'s resting place, and starts exactly w
   assert.equal(at(1), rest);
   for (let u = 0.05; u < 1; u += 0.05) assert.ok(at(u) >= at(u - 0.05), 'one way, no overshoot');
 });
+
+// (17 Oct, Mohammad: out of the sinusoid the pill stayed put and jumped after the zoom.) On a phone or upright iPad the dock eases
+// its parts' translate property after a wait; a glide written to translate was held back by it, so the glide uses transform, which
+// no rule on the pill or its homes transitions.
+test('the glide moves the pill by transform, which nothing on its homes eases', () => {
+  const glide = main.match(/function glideViewPill\(from, intoSin\) \{([\s\S]*?)\n\}/)[1];
+  assert.match(glide, /el\.style\.transform = `translate\(/);
+  assert.doesNotMatch(glide, /style\.translate/);
+  // Every rule that reaches the pill's homes (the dock's children, the views pills, the floating pieces) eases no transform.
+  for (const rule of css.match(/[^{}]*\{[^{}]*\}/g)) {
+    const [sel, body] = rule.split('{');
+    if (!/\.vdock[^,]*>|\.nb-views|\.sin-views|#nbViews|#sinViews|\.float-ui/.test(sel)) continue;
+    const tr = body.match(/transition(-property)?:([^;}]*)/);
+    if (tr) assert.doesNotMatch(tr[2], /transform|\ball\b/, sel.trim());
+  }
+});

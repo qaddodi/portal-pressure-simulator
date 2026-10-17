@@ -1366,7 +1366,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   // (Opening sizes the sheet at once: its height eases only for a change while it is open, so it never comes in
   // at the last size it had and shrinks into place, and the figure frames once.)
-  return { open: () => { if (isPhone()) { size = half(); el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { stopSink(el); el.style.removeProperty('--sink'); el.style.translate = ''; el.style.height = ''; el.style.clipPath = ''; } };
+  return { open: () => { if (isPhone()) { size = half(); el.style.transition = 'none'; apply(); void el.offsetHeight; el.style.transition = ''; } }, closed: () => { stopSink(el); el.style.removeProperty('--sink'); el.style.transform = ''; el.style.height = ''; el.style.clipPath = ''; } };
 }
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
@@ -1396,6 +1396,8 @@ function syncThumb() {
 // 950 out, a cubic ease in and out), and its selected button crossfades over the same time (17 Oct, Mohammad: the pill "should
 // transition as well nicely elegantly"). Its new place is read every frame, as the dock's space is published a frame later,
 // so the glide eases onto wherever the pill settles (a late move early on, while the ease is still near its start, is not seen).
+// (It moves by transform, never the translate property: on a phone or upright iPad the dock eases its parts' translate over
+// .24 s after a .1 s wait (a card sinking away), which held the pill still all the way out of the sinusoid and let it jump after.)
 const PILL_IN = 1150, PILL_OUT = 950;
 const easeIO3 = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
 let pillRaf = 0, pillEl = null, pillShiftY = 0;   // (pillShiftY: the glide's vertical shift now, in screen px)
@@ -1407,7 +1409,7 @@ function viewPillRect() {
 }
 function glideViewPill(from, intoSin) {
   cancelFrame(pillRaf); pillRaf = 0;
-  if (pillEl) { pillEl.style.translate = ''; pillEl.classList.remove('vp-glide'); pillEl = null; pillShiftY = 0; }
+  if (pillEl) { pillEl.style.transform = ''; pillEl.classList.remove('vp-glide'); pillEl = null; pillShiftY = 0; }
   const box = $('#viewSeg').parentElement;
   if (!box || (box.id !== 'nbViews' && box.id !== 'sinViews') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const ms = intoSin ? PILL_IN : PILL_OUT, t0 = performance.now();
@@ -1419,10 +1421,10 @@ function glideViewPill(from, intoSin) {
     // (Where it lies now, less the glide's own shift (read, not cleared, so no extra layout runs); px on screen turned into
     // the box's own px, under the interface zoom.)
     const r = el.getBoundingClientRect(), z = el.currentCSSZoom || (el.offsetWidth ? r.width / el.offsetWidth : 1) || 1;
-    if (u >= 1 || !r.width) { el.style.translate = ''; el.classList.remove('vp-glide'); pillEl = null; pillRaf = 0; pillShiftY = 0; return; }
+    if (u >= 1 || !r.width) { el.style.transform = ''; el.classList.remove('vp-glide'); pillEl = null; pillRaf = 0; pillShiftY = 0; return; }
     const cx = r.left + r.width / 2 - shift[0] * z, cy = r.top + r.height / 2 - shift[1] * z, k = 1 - easeIO3(u);
     shift = [(from.x - cx) * k / z, (from.y - cy) * k / z];
-    el.style.translate = `${shift[0].toFixed(2)}px ${shift[1].toFixed(2)}px`; pillShiftY = shift[1] * z;
+    el.style.transform = `translate(${shift[0].toFixed(2)}px, ${shift[1].toFixed(2)}px)`; pillShiftY = shift[1] * z;
     pillRaf = nextFrame(step);
   };
   step(t0);
