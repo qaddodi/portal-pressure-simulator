@@ -12,6 +12,7 @@ import { createLobuleZoom } from './lobule-zoom.js?v=ee55c97c7e';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
+import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
 import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns } from './plate-copy.js?v=8a7456e9fc';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -2181,7 +2182,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function update(f) {
     stageWake();
     inUpdate = true;
-    try { gpuProbe.time(null, 'update (script)', () => updateInner(f)); } finally { inUpdate = false; }
+    try { gpuProbe.time(null, 'update (script)', () => updateInner(f)); } finally { inUpdate = false; fxAt = null; }
     if (plateRedraw) { plateRedraw = false; drawVeins(); }
     // The first framing waits for the patient (the first frames are drawn before it has loaded, without its
     // ascites or spleen), and the figure stays hidden until it is framed, so it appears once, in place.
@@ -2220,9 +2221,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   });
   addEventListener('pps:occ', () => { clearTimeout(homeOccT); homeOccT = setTimeout(lookHome, 150); });
 
+  // Hidden under the lobule or the sinusoid, the anatomy and the circuit are not drawn, but they go on following the patient:
+  // the liver's shape, congestion and tint and the ascites ease on the same clock, with no drawing, so on the way out they show
+  // the state reached by then (part way if the change is still easing), not an ease that only starts from the patient before.
+  // (since: when it was covered; pAt: the last change of the patient's settings while covered, from which the quicker eases
+  // and a vessel's drawing on or off are timed when it is shown again.)
+  const hid = { at: 0, since: 0, p: null, pAt: 0 };
+  function followHidden(f) {
+    const now = performance.now(), dt = hid.at ? (now - hid.at) / 1000 : 0, p = f.viewParams || store.get().params;
+    if (!hid.at) hid.since = now;
+    else if (p !== hid.p) hid.pAt = now;
+    hid.at = now; hid.p = p;
+    easeLiver(f, p, dt);
+    const asc = fluidTarget(ascTarget, f.slow.ascites);
+    if (ascTarget === null) ascShown = asc;
+    ascTarget = asc;
+    if (ascShown !== ascTarget) ({ shown: ascShown, vel: ascVel } = fluidSpringFor(ascShown, ascVel, ascTarget, dt));
+  }
   function updateInner(f) {
     // In the lobule, or diving into it (the anatomy is only magnified, then covered), the plate is left as it is
-    // (reading the cards' boxes and restyling it each model frame stalled the zoom); it catches up on the way out.
+    // (reading the cards' boxes and restyling it each model frame stalled the zoom); it catches up on the way out,
+    // with its eases already where they have got to (followHidden).
     const under = (lobuleOn || lz?.isOpen()) && !catchUp;
     // The cards' boxes, read at most every 100 ms (each read forces a layout in the middle of the model's frames);
     // a card that opens, closes or moves announces itself (pps:occ, resize) and is read at once.
@@ -2230,9 +2249,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!under && (blockersStale || (performance.now() - blockersAt > 100 && watch.due()))) { blockerBoxes = readBlockers(); blockersAt = performance.now(); blockersStale = false; }
     F = f;
     lz?.update(f);
-    if (under) return;
-    // Widths and coils ease toward their targets in time (~0.25 s), not per model update.
-    const nowW = performance.now(), kW = -Math.expm1(-Math.min(0.1, (nowW - (wAt || nowW)) / 1000) / 0.25);
+    if (under) { followHidden(f); return; }
+    // Widths and coils ease toward their targets in time (~0.25 s), not per model update. Shown again after being covered,
+    // they have eased for as long as they were covered since the patient's settings last changed.
+    const nowW = performance.now();
+    let dtW = Math.min(0.1, (nowW - (wAt || nowW)) / 1000);
+    if (hid.at) { followHidden(f); dtW = (nowW - Math.max(wAt, hid.pAt)) / 1000; fxAt = Math.max(hid.since, hid.pAt); plateStale = true; hid.at = 0; hid.p = null; hid.pAt = 0; }
+    const kW = -Math.expm1(-dtW / 0.25);
     wAt = nowW; widthEasing = false;
     tubesHidden = wrap.classList.contains('gl-on');
     const st = store.get();
@@ -3226,6 +3249,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Hidden (the home page over the app), every organ would rasterize invisible: wait until the figure shows.
   const figureHidden = () => wrapCS().getPropertyValue('visibility') === 'hidden';
+  let plateStale = false;
   function platePoke() {
     // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
     if (lobuleOn && !lz?.isOpen()) return;
@@ -3234,6 +3258,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // as it goes, and the plate is drawn again once it settles: held, the organs inside it stood still while their outlines
     // moved, then jumped to the new shape at the end (Ascites deck slide 5, 17 Oct).
     if (lvMoving || fluidEasing()) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); return; }
+    const stale = plateStale; plateStale = false;
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
     readFluidInk(wrapCS());
@@ -3242,7 +3267,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const theme = wrapCS().getPropertyValue('--stage-bg');
     const themed = plateTheme !== null && theme !== plateTheme;
     plateTheme = theme;
-    if (themed && veins.hasPlate(0)) {
+    // Shown again after being covered while the patient changed (followHidden): the raster still holds the patient before, so
+    // the live drawing, already of the patient now, shows until it is rasterized again.
+    if ((themed || stale) && veins.hasPlate(0)) {
       hidePlate();
     }
     if (plateBusy) { plateAgain = true; return; }
@@ -3434,8 +3461,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const track = {};
   const appEl = document.getElementById('app');
   const quietFx = () => reduceMotion.matches || isImaging();
+  // A vessel that opened or closed while the figure was covered draws on or off from that moment, not when it is shown again (followHidden).
+  let fxAt = null;
   function trackChanges(f) {
-    const now = performance.now();
+    const now = fxAt ?? performance.now();
     const quiet = quietFx();
     for (const x of Object.values(E)) {
       const e = x.e;
@@ -3451,7 +3480,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const canFade = (x) => !x.isArt && (x.e.kind === 'collateral' || x.e.kind === 'shunt' || NEEDS_C3.has(x.e.id));
   function startExit(x, f) {
     const q = f.Qf ? f.Qf[EI[x.e.id]] : f.Q[EI[x.e.id]];
-    x.reveal = { t0: performance.now(), dur: x.e.kind === 'shunt' ? 700 : 1100, dir: q >= 0 ? 1 : -1, out: true };
+    x.reveal = { t0: fxAt ?? performance.now(), dur: x.e.kind === 'shunt' ? 700 : 1100, dir: q >= 0 ? 1 : -1, out: true };
   }
   // When the retraction ends: hide the vessel, or leave the dotted outline of a closed collateral.
   function finishExit(x) {
@@ -4060,34 +4089,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const el of diaEls) el.setAttribute('d', d);
   }
 
-  function updateOrgans(f, p, t) {
-    const k = 1 - t;
-    const imaging = isImaging();
+  // Targets that follow the running model's pressures move only in steps (with hysteresis), so a
+  // pressure wavering with the cycle never keeps the liver easing, and its plate being dropped and
+  // rasterized again, over and over.
+  // An end (0 or 1) is reached at once but left only on a clear move, so a value hovering just
+  // past an end never flips to it and back.
+  const stepHeld = (prev, v, tol) => (prev === null || Math.abs(v - prev) > ((prev === 0 || prev === 1) ? 2 * tol : tol) || (v === 0 && prev !== 0) || (v === 1 && prev !== 1) ? v : prev);
+  // The liver's shape (cirrhosis), congestion and tint, eased toward the patient over `dt` seconds: [cT, gT, tT], their targets.
+  function easeLiver(f, p, dt) {
     // The heart-cycle-averaged pressures: the beat must not swing the liver's look.
     const PA = f.Pf || f.P;
     const psin = Math.max(PA[NI.SIN_R], PA[NI.SIN_L]);
-    // Targets that follow the running model's pressures move only in steps (with hysteresis), so a
-    // pressure wavering with the cycle never keeps the liver easing, and its plate being dropped and
-    // rasterized again, over and over.
-    // An end (0 or 1) is reached at once but left only on a clear move, so a value hovering just
-    // past an end never flips to it and back.
-    const held = (prev, v, tol) => (prev === null || Math.abs(v - prev) > ((prev === 0 || prev === 1) ? 2 * tol : tol) || (v === 0 && prev !== 0) || (v === 1 && prev !== 1) ? v : prev);
-    lvTT = held(lvTT, clamp((psin - 8) / 16, 0, 1), 0.1);
-    const tT = imaging ? 0 : lvTT * 0.5;
+    lvTT = stepHeld(lvTT, clamp((psin - 8) / 16, 0, 1), 0.1);
+    const tT = isImaging() ? 0 : lvTT * 0.5;
     const hp = store.get().healthy?.P;
     const cvUp = hp ? Math.max(PA[NI.CV_R] - hp[NI.CV_R], PA[NI.CV_L] - hp[NI.CV_L]) : 0;
-    lvGT = held(lvGT, clamp((cvUp - 4) / 10, 0, 1), 0.03);
+    lvGT = stepHeld(lvGT, clamp((cvUp - 4) / 10, 0, 1), 0.03);
     const cT = Math.min(1, p.cirrhosis), gT = lvGT;
-    const now = performance.now();
     if (lvC === null || reduceMotion.matches || !figureShown) { lvC = cT; lvG = gT; lvT = tT; }   // under the loading screen nothing is seen easing
-    else {
-      const e = -Math.expm1(-Math.min(0.1, (now - lvAt) / 1000) / 0.4);
-      lvC += (cT - lvC) * e; lvG += (gT - lvG) * e; lvT += (tT - lvT) * e;
-      if (Math.abs(cT - lvC) < 0.004) lvC = cT;
-      if (Math.abs(gT - lvG) < 0.004) lvG = gT;
-      if (Math.abs(tT - lvT) < 0.004) lvT = tT;
-    }
-    lvAt = now;
+    else { lvC = easeTo(lvC, cT, dt); lvG = easeTo(lvG, gT, dt); lvT = easeTo(lvT, tT, dt); }
+    lvAt = performance.now();
+    return [cT, gT, tT];
+  }
+  function updateOrgans(f, p, t) {
+    const k = 1 - t;
+    const imaging = isImaging();
+    const [cT, gT, tT] = easeLiver(f, p, Math.min(0.1, (performance.now() - lvAt) / 1000));
     // The congestion tint eases here, not by a CSS transition: the plate raster reads the value
     // it shows, and a fade in progress at that moment would be baked in (re-rastered over and
     // over, the tint flickered between mid-fade values).
@@ -4113,7 +4140,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     {
       // The caudate lobe grows as its veins carry the liver's outflow: from twice their normal flow, fully at four times.
       const hq = store.get().healthy?.Q?.[EI.CAUD], PA2 = f.Pf || f.P;
-      caudK = held(caudK, hq ? clamp((Math.abs((f.Qf || f.Q)[EI.CAUD] / hq) - 2) / 2, 0, 1) : 0, 0.05);
+      caudK = stepHeld(caudK, hq ? clamp((Math.abs((f.Qf || f.Q)[EI.CAUD] / hq) - 2) / 2, 0, 1) : 0, 0.05);
       caud.sync(pressureColor(qP(PA2[NI.IVCS] + 0.5)), caudK);
     }
     const c3 = recruitFrac('C3', f);
@@ -4219,11 +4246,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (held && Math.abs(clamp(ascTarget / 8500, 0, 1) * 34 - bulgeQ) > 3 && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
       // A critically damped spring on the drawn scale (volume^0.6), so the fluid fills in from the pelvis and
       // drains out smoothly, starting and stopping gently, instead of jumping in or out of existence.
-      const w = 4.2, h = Math.min(dt, 0.05), vs = Math.pow(ascShown, 0.6), vt = Math.pow(ascTarget, 0.6);
-      ascVel += (-w * w * (vs - vt) - 2 * w * ascVel) * h;
-      const nv = Math.max(0, vs + ascVel * h);
-      if (Math.abs(nv - vt) < 0.2 && Math.abs(ascVel) < 0.5) { ascShown = ascTarget; ascVel = 0; }
-      else ascShown = Math.pow(nv, 1 / 0.6);
+      ({ shown: ascShown, vel: ascVel } = fluidSpring(ascShown, ascVel, ascTarget, dt));
       drawAscites(); moved = true;   // (its platePoke rasterizes once the fluid is within a step of its volume)
     }
     const run = st.running && !reduceMotion.matches;
