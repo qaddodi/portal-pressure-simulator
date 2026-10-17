@@ -224,13 +224,17 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
       if (below < el.scrollHeight * z && r.top - 16 > below) { at = 'above'; barTop = null; el.style.maxHeight = (r.top - 16) / z + 'px'; }
       else el.style.maxHeight = Math.max(160, below) / z + 'px';
     }
+    // A menu from the thumb dock's tab row sits on the tab row's top edge, 8 px clear of it, over the play bar (which steps
+    // aside), like the cards and the phone's sheets: it rises from behind the tab row and is cut on its top line. (Above
+    // the whole dock, it had risen out of thin air over the faded play bar, its cut-off shadow left as a ghost there.)
+    const bar = anchor.closest('.thumb-bar'), tabTop = bar ? bar.getBoundingClientRect().top : null;
+    if (bar && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) / z + 'px';
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
     const mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
-    // (A menu from the thumb dock's tab row opens above the whole dock, so it never covers the play bar or HVPG and PPG.)
-    const top = anchor.closest('.thumb-bar') ? Math.min(r.top, anchor.closest('.vdock').getBoundingClientRect().top - 6) : r.top;
-    let y = at === 'above' ? top - mr.height - 8 : r.bottom + 8;
+    const top = bar ? tabTop : r.top;
+    let y = at === 'above' || bar ? top - mr.height - 8 : r.bottom + 8;
     const vb = visibleBottom();
-    if (y + mr.height > vb - 8) y = Math.max(8, r.top - mr.height - 8);
+    if (y + mr.height > vb - 8) y = Math.max(8, top - mr.height - 8);
     el.style.left = clamp(x, 8, innerWidth - mr.width - 8) / z + 'px';
     el.style.top = clamp(y, 8, vb - mr.height - 8) / z + 'px';
     barAt = barTop;
