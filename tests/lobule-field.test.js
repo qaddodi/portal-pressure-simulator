@@ -17,7 +17,7 @@ test('the dive fades the lobules away from the landing one, in and out, rising t
   assert.match(stage, /focus: smoothT\(0\.\d+, 0\.8, t\)/, 'focus follows the dive clock, so the rise out reverses it');
   assert.match(lz, /const f = clamp\(d\.focus \?\? d\.quiet, 0, 1\)/);
   // At focus 1 the clear circle is the lobule view's resting surround (rd × 1.1), so the landing has no jump.
-  assert.match(lz, /Math\.log\(Math\.min\(diag \* 0\.45, rd \* 1\.1\)\), f\)/);
+  assert.match(lz, /Math\.log\(Math\.min\(Math\.hypot\(W, H\) \* dpr \* 0\.45, rd \* 1\.1\)\), f\)\)/);
   assert.match(lz, /fieldFade\(c, shadeOf\(rgb01\(bg\), dark\), ox, oy, rdv, 1,/, 'the resting view keeps the faded surround');
   assert.match(lz, /ox = ocx \* dpr, oy = ocy \* dpr, rdv = R \* V\.k \* dpr/, 'centred on the lobule, at its radius on screen');
 });
@@ -79,4 +79,16 @@ test('the lobule\'s fibrous bands are a deeper tan in light and Soft, the collag
   assert.match(lz, /const COL = rgb01\(v\('--lz-septum'\)\);/);
   assert.match(lz, /const COLa = cssRGB01\('--lz-septum'\), edges/);
   assert.match(lz, /const DIS = rgb01\(v\('--collagen'\)\), col = \(a\) => css\(DIS, a\);/, 'the space of Disse lining is unchanged');
+});
+
+test('the dive\'s field fills each pixel only with the passes that change it (the same picture)', () => {
+  // The fade adds nothing inside its clear circle, and at full strength lays the page's colour whole past its outer edge.
+  assert.match(lz, /fieldFade\(c, shadeOf\(bg, dark\), fx0, fy0, rd, fq, field\.width, field\.height, r0, \[r0 - 1, far\]\);/);
+  assert.match(lz, /const fadeWhole = f > 0 && fq >= 1,/);
+  assert.match(lz, /if \(fadeWhole\) \{ c\.save\(\); c\.beginPath\(\); c\.arc\(fx0, fy0, r0 \* \(3\.2 \/ 1\.1\) \+ 2, 0, TAU\); c\.clip\(\); \}/);
+  // An opaque quieted tile at full strength covers the liver-toned one.
+  assert.match(lz, /if \(!\(d\.quiet >= 1\)\) fieldFill\(c, liverTile\(/);
+  // The emerging mask is whole inside rho × 0.35: it is applied only past that circle.
+  assert.match(lz, /c\.arc\(d\.ox \* dpr, d\.oy \* dpr, Math\.max\(0, rho \* 0\.35 - 1\), 0, TAU\); c\.clip\('evenodd'\);\n\s+c\.globalCompositeOperation = 'destination-in';/);
+  assert.match(lz, /mg\.addColorStop\(0, 'rgba\(0,0,0,1\)'\); mg\.addColorStop\(1, 'rgba\(0,0,0,0\)'\);/);
 });

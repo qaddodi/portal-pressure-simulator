@@ -1867,23 +1867,33 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const c = field.getContext('2d');
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.globalCompositeOperation = 'source-over';
-    // The surrounding lobules start drained and tinted like the liver being zoomed into (its fill, in
-    // whichever theme), so the dive reads as one tissue; the lobule's own colours come in over it.
-    fieldFill(c, liverTile(t, cs, dark, bg), d.x * dpr, d.y * dpr, rd, field.width, field.height);
-    // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
-    if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), d.x * dpr, d.y * dpr, rd, field.width, field.height); c.globalAlpha = 1; }
     // Focus: as the zoom goes on, the lobules away from the one being landed on fade into the page, the clear circle
     // closing in on it (from most of the screen to the lobule view's own surround, which it matches at focus 1).
-    const f = clamp(d.focus ?? d.quiet, 0, 1);
-    if (f > 0) { const diag = Math.hypot(W, H) * dpr, r0 = Math.exp(lerp(Math.log(diag * 0.45), Math.log(Math.min(diag * 0.45, rd * 1.1)), f)); fieldFade(c, shadeOf(bg, dark), d.x * dpr, d.y * dpr, rd, Math.max(f, d.quiet), field.width, field.height, r0); }
+    // (Each pixel gets only the passes that change it, as in paintTissue: the same picture. The fade adds nothing inside its
+    // clear circle; at full strength it lays the page's colour whole past its outer edge, so the tiles stop there; and an opaque
+    // quieted tile at full strength covers the liver-toned one.)
+    const f = clamp(d.focus ?? d.quiet, 0, 1), fq = Math.max(f, d.quiet), fx0 = d.x * dpr, fy0 = d.y * dpr;
+    const r0 = f > 0 ? Math.exp(lerp(Math.log(Math.hypot(W, H) * dpr * 0.45), Math.log(Math.min(Math.hypot(W, H) * dpr * 0.45, rd * 1.1)), f)) : 0;
+    const fadeWhole = f > 0 && fq >= 1, far = Math.hypot(field.width, field.height) + Math.hypot(fx0, fy0) + 4;
+    if (fadeWhole) { c.save(); c.beginPath(); c.arc(fx0, fy0, r0 * (3.2 / 1.1) + 2, 0, TAU); c.clip(); }
+    // The surrounding lobules start drained and tinted like the liver being zoomed into (its fill, in
+    // whichever theme), so the dive reads as one tissue; the lobule's own colours come in over it.
+    if (!(d.quiet >= 1)) fieldFill(c, liverTile(t, cs, dark, bg), fx0, fy0, rd, field.width, field.height);
+    // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
+    if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), fx0, fy0, rd, field.width, field.height); c.globalAlpha = 1; }
+    if (fadeWhole) c.restore();
+    if (f > 0) fieldFade(c, shadeOf(bg, dark), fx0, fy0, rd, fq, field.width, field.height, r0, [r0 - 1, far]);
     // Emerging: the field spreads out from the dive point as it fades in.
     if (d.a < 1) {
       const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a + 2 * smooth(0.7, 1, d.a));   // (the last stretch spreads it past every corner, so dropping the mask at a = 1 changes nothing seen)
       const mg = c.createRadialGradient(d.ox * dpr, d.oy * dpr, rho * 0.35, d.ox * dpr, d.oy * dpr, rho);
       mg.addColorStop(0, 'rgba(0,0,0,1)'); mg.addColorStop(1, 'rgba(0,0,0,0)');   // colour-exempt: a mask
+      // (Only past the circle where the mask is still whole: inside it the mask keeps every pixel as it is.)
+      c.save(); c.beginPath(); c.rect(0, 0, field.width, field.height); c.moveTo(d.ox * dpr + rho * 0.35 - 1, d.oy * dpr); c.arc(d.ox * dpr, d.oy * dpr, Math.max(0, rho * 0.35 - 1), 0, TAU); c.clip('evenodd');
       c.globalCompositeOperation = 'destination-in';
       c.fillStyle = mg; c.fillRect(0, 0, field.width, field.height);
       c.globalCompositeOperation = 'source-over';
+      c.restore();
     }
     fieldOp = Math.min(1, d.a * 1.25);
     field.style.opacity = fieldOp.toFixed(3);
