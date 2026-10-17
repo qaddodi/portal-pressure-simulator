@@ -35,6 +35,7 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=1f05278710';
 import { cssRGB } from './util.js?v=0140acc352';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=2bc0d36839';
+import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 
 export { binVeins };
 
@@ -1565,7 +1566,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     software = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
   } catch { software = false; }
 
-  return {
+  const api = {
     get lost() { return lost; },
     /** Whether the browser renders WebGL on the CPU. */
     software,
@@ -1716,11 +1717,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const hard = hasHard(), glow = hasSoft(), layer = hard && !cath;
       const vk = `${lineVer}|${m.join(',')}|${canvas.width}x${canvas.height}`;
       if (layer) {
-        if (vk !== lineKey) { renderLayer(lineLayer, m, false); lineKey = vk; full = true; }
+        if (vk !== lineKey) { gpuProbe.time(gl, 'outline layer', () => renderLayer(lineLayer, m, false)); lineKey = vk; full = true; }
       } else if (!hard) { freeLayer(lineLayer); lineKey = ''; }
       // (The glow lies behind the organs, so the catheter never draws over it: its layer holds whatever the catheter does.)
       if (glow) {
-        if (vk !== glowKey) { renderLayer(glowLayer, m, true); glowKey = vk; full = true; }
+        if (vk !== glowKey) { gpuProbe.time(gl, 'glow layer', () => renderLayer(glowLayer, m, true)); glowKey = vk; full = true; }
       } else { freeLayer(glowLayer); glowKey = ''; }
       if (linesWas && !lines) full = true;
       linesWas = !!lines;
@@ -1794,8 +1795,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         if (fl?.ripple && nFluid) { gl.bindVertexArray(fluidVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nFluid); }
       }
       gl.bindVertexArray(null);
-      if (cath) drawCath(m);
-      if (hard && !layer) drawLines(m, false);
+      if (cath) gpuProbe.time(gl, 'catheter', () => drawCath(m));
+      if (hard && !layer) gpuProbe.time(gl, 'outlines', () => drawLines(m, false));
     },
     /** Whether organ outlines can be drawn here (else stage.js keeps its SVG ones). */
     get canLines() { return !!lineP; },
@@ -1868,4 +1869,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       lost = true;
     },
   };
+  // (Timed for the debug overlay's GPU readout: gpu-probe.js. Off, each call costs one check.)
+  const steps = { draw: 'vessels', drawRows: 'vessels', composite: 'picture', setGeometry: 'uploads', setRadii: 'uploads', setTubes: 'uploads',
+    setOrgans: 'uploads', setPlate: 'uploads', setFluidSpans: 'uploads', setFluidCells: 'uploads', setFlow: 'uploads', setDye: 'uploads' };
+  for (const [k, name] of Object.entries(steps)) {
+    const f = api[k];
+    api[k] = function (...a) { return gpuProbe.on ? gpuProbe.time(gl, name, () => f.apply(this, a)) : f.apply(this, a); };
+  }
+  return api;
 }

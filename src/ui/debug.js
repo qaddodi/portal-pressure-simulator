@@ -1,10 +1,16 @@
 // Debug overlay: FPS and frame time, zoom, pixel ratio and build. Off by default; choices persist.
 import { cssVar, cssAlpha } from './util.js?v=0140acc352';
+import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 const KEY = 'pps.debug';
-const OPTS = [['fps', 'FPS and frame time'], ['zoom', 'Zoom level and scale'], ['res', 'Render resolution scale'], ['graph', 'Frame graph']];
+const OPTS = [['fps', 'FPS and frame time'], ['zoom', 'Zoom level and scale'], ['res', 'Render resolution scale'], ['graph', 'Frame graph'], ['gpu', 'GPU time per step']];
 let st = {};
 try { st = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { st = {}; }
 let stamps = [], cv = null, hist = [], el = null, raf = 0, last = 0, fps = 0, ms = 0, getZoom = null;
+// GPU time per step (gpu-probe.js): each frame's interval with the steps' times in it; the slowest in the last 10 s stays shown.
+let frames = [], prevT = 0;
+const WORST_MS = 10000;
+// (What the steps leave of the frame is the rest of the page: its other script, style, layout, painting and compositing.)
+const stepsText = (f) => Object.entries({ ...f.parts, 'rest of page': Math.max(0, f.dt - Object.values(f.parts).reduce((a, b) => a + b, 0)) }).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(' · ') || 'none';
 const any = () => OPTS.some(([k]) => st[k]);
 export const debugOptions = () => OPTS;
 export const debugOn = (k) => !!st[k];
@@ -15,6 +21,8 @@ export function setDebug(k, on) {
   sync();
 }
 function sync() {
+  gpuProbe.on = !!st.gpu;
+  if (!st.gpu) { gpuProbe.take(); frames = []; prevT = 0; }
   if (!any()) { cancelAnimationFrame(raf); raf = 0; el?.remove(); el = null; return; }
   if (!el) {
     el = document.createElement('div');
@@ -30,6 +38,11 @@ function tick(t) {
   raf = requestAnimationFrame(tick);
   stamps.push(t);
   while (stamps[0] < t - 1000) stamps.shift();
+  if (st.gpu) {
+    if (prevT) frames.push({ t, dt: t - prevT, parts: gpuProbe.take() });
+    while (frames.length && frames[0].t < t - WORST_MS) frames.shift();
+  }
+  prevT = t;
   if (t - last < 100) return;
   last = t;
   fps = stamps.length > 1 ? ((stamps.length - 1) * 1000) / (t - stamps[0]) : 0; ms = fps ? 1000 / fps : 0;
@@ -37,6 +50,11 @@ function tick(t) {
   const L = [];
   if (st.fps) L.push(`${fps.toFixed(0)} fps · ${ms.toFixed(1)} ms`);
   if (st.zoom) { let z = ''; try { z = getZoom ? Number(getZoom()).toFixed(2) : ''; } catch { /* no stage yet */ } L.push(`zoom ${z}×`); }
+  if (st.gpu && frames.length) {
+    const now = frames[frames.length - 1], worst = frames.reduce((a, b) => (b.dt > a.dt ? b : a));
+    L.push(`frame ${now.dt.toFixed(0)} ms: ${stepsText(now)}`);
+    L.push(`slowest in 10 s, ${worst.dt.toFixed(0)} ms: ${stepsText(worst)}`);
+  }
   if (st.res) L.push(`pixel ratio ${devicePixelRatio} · ${Math.round(innerWidth * devicePixelRatio)}×${Math.round(innerHeight * devicePixelRatio)}`);
   if (el) {
     let tn = el.firstChild;
