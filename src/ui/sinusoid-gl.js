@@ -19,12 +19,17 @@ const hsh = (x) => {
 export const h1 = (i, s) => (hsh((Math.imul((i + 1048576) >>> 0, 0x9e3779b1) ^ hsh(s)) >>> 0) >>> 8) / 16777216;
 export const SLOT = 1;                    // fenestra slots (µm), ten to a stretch of lining with a sieve plate in it
 export const CELL = 24;                   // hepatocyte pitch along a plate (µm)
-/** The fenestra in slot j of a lining (seed), or null: its centre, full width and closing threshold. */
+/** The fenestra in slot j of a lining (seed), or null: its centre, full width and closing threshold. Each sieve plate is
+ * five evenly spaced pores of one size; as the lining defenestrates a plate closes from its ends inward (the outer pair,
+ * then the inner pair, its middle pore last), so what stays open is always an even row, never scattered ticks. */
+export const PORE_W = 0.6;
 export function poreAt(j, sd) {
   const G = Math.floor(j / 10), k = j - 10 * G;
-  if (h1(G, sd) >= 0.8 || k < 3 || k > 7 || h1(j, sd + 1) >= 0.8) return null;
-  return { x: SLOT * j + 0.5 + 0.2 * (h1(j, sd + 2) - 0.5), w: 0.32 + 0.16 * h1(j, sd + 3), th: h1(j, sd + 4) };
+  if (h1(G, sd) >= 0.8 || k < 3 || k > 7) return null;
+  return { x: SLOT * j + 0.5, w: PORE_W, th: 0.12 + 0.28 * Math.abs(k - 5) + 0.18 * h1(G, sd + 4) };
 }
+/** How open a fenestra is (0 to 1) at the lining's open share por: shut or open, with a short ease between. */
+export const poreOpenness = (th, por) => { const t = Math.min(1, Math.max(0, (por - th + 0.06) / 0.12)); return t * t * (3 - 2 * t); };
 /** Boundary j of a plate's cells (seed). */
 export const cellEdge = (j, sd) => CELL * j + 7 * (h1(j, sd) - 0.5);
 /** The cell of a plate (seed) holding x: its ends and its nucleus (u along, v across, radius, two nuclei). */
@@ -125,10 +130,10 @@ float disseW(float x) { return DISSE * (1.0 + 0.25 * uCol) + 0.2 * sin(x * 0.07)
 float poreOpen(int j, int sd, out float px) {
   int G = int(floor(float(j) / 10.0)), k = j - 10 * G;
   px = 0.0;
-  if (h1(G, sd) >= 0.8 || k < 3 || k > 7 || h1(j, sd + 1) >= 0.8) return 0.0;
-  px = SLOT * float(j) + 0.5 + 0.2 * (h1(j, sd + 2) - 0.5);
-  float th = h1(j, sd + 4);
-  return (0.32 + 0.16 * h1(j, sd + 3)) * smoothstep(th - 0.14, th + 0.14, uPor);
+  if (h1(G, sd) >= 0.8 || k < 3 || k > 7) return 0.0;
+  px = SLOT * float(j) + 0.5;
+  float th = 0.12 + 0.28 * abs(float(k) - 5.0) + 0.18 * h1(G, sd + 4);
+  return ${PORE_W.toFixed(2)} * smoothstep(th - 0.06, th + 0.06, uPor);
 }
 // The endothelium of a lining at |y| = a (lumen face at hw): one thin, even sheet, the open fenestrae cut through it
 // as small round-ended pores (they close, one by one, as it defenestrates), and the flat nuclei bulging gently into
@@ -146,7 +151,7 @@ float sdEndo(float x, float a, float hw, int sd, int nsd, bool skipK, float det,
     float w = poreOpen(j + k, sd, px) * det;
     if (w > 0.02) {
       d = smax(d, -(abs(x - px) - 0.5 * w), th);
-      vec2 b = vec2(0.5 * w, th + 0.12);
+      vec2 b = vec2(0.5 * w, th + 0.14);
       float dw = sdRB(vec2(x - px, ay), b, 0.45 * min(b.x, b.y));
       if (dw < dP) { dP = dw; pF = smoothstep(0.02, 0.14, w); }
     }

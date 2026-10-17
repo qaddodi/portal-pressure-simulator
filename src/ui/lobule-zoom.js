@@ -30,7 +30,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=c9037b1484';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=1f05278710';
-import { createSinusoidView } from './sinusoid-view.js?v=a1e1bd8275';
+import { createSinusoidView } from './sinusoid-view.js?v=f2aa605969';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=67ca200c87';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 const nextFrame = frameFor('lobule-zoom');

@@ -24,7 +24,7 @@ import { pressureColor } from './colormap.js?v=c22aa33027';
 import { isPaused } from './clock.js?v=520596240b';
 import { store } from './store.js?v=31ee79b6ab';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=2577d004ce';
+import { createSinusoidGL, poreAt, poreOpenness, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=4a08720f77';
 import { frameFor, noteDraw, saver, paceMs } from './frame.js?v=67ca200c87';
 import { softwareGL, softwareYield } from './sw-yield.js?v=e580a095b1';
 const nextFrame = frameFor('sinusoid-view');
@@ -271,7 +271,7 @@ export function createSinusoidView({ host }) {
   const albs = [], movers = [];   // movers: { kind: 'a' albumin | 'b' albumin turned back, side, x, y (depth in Disse, 0…1), t, ph }
   const rnd = rng(17);
   { const R = rng(23); for (let i = 0; i < 150; i++) albs.push({ u: R(), y: R() * 1.9 - 0.95, ph: R() * Math.PI * 2 }); }
-  const poreW = (p) => p.w * smooth(p.th - 0.14, p.th + 0.14, S.por);
+  const poreW = (p) => p.w * poreOpenness(p.th, S.por);
   function pickPore(side, albumin) {
     const pores = geo.pores[side < 0 ? 0 : 1];
     let tot = 0;

@@ -45,3 +45,25 @@ test('the shader fills each open fenestra with its window colour and rim, fading
   assert.match(gl, /mix\(c, cEndoN, line\(dP, [\d.]+\) \* [\d.]+ \* pF \* det\)/);
   assert.match(gl, /pF = smoothstep\(/);
 });
+
+test('each sieve plate is an even row of same-size pores that closes from its ends inward', async () => {
+  const { poreAt, poreOpenness, SEED } = await import('../src/ui/sinusoid-gl.js');
+  for (const sd of [SEED.poreUp, SEED.poreDn]) {
+    let plates = 0;
+    for (let G = -20; G < 20; G++) {
+      const row = [3, 4, 5, 6, 7].map((k) => poreAt(10 * G + k, sd));
+      if (!row[0]) { assert.ok(row.every((p) => !p), 'a plate is whole or absent'); continue; }
+      plates++;
+      const w = row[0].w;
+      row.forEach((p, i) => { assert.equal(p.w, w, 'one size'); if (i) assert.ok(Math.abs(p.x - row[i - 1].x - 1) < 1e-9, 'even spacing'); });
+      assert.ok(row[2].th < row[1].th && row[1].th === row[3].th && row[1].th < row[0].th && row[0].th === row[4].th, 'ends close first');
+      for (const p of row) assert.ok(poreOpenness(p.th, 1) > 0.999 && poreOpenness(p.th, 0) < 1e-9, 'open when healthy, shut when sealed');
+      for (const por of [0.2, 0.5, 0.8]) {
+        const open = row.map((p) => poreOpenness(p.th, por) > 0.5);
+        assert.deepEqual(open, [...open].reverse(), `what stays open at ${por} is centred in the plate`);
+      }
+    }
+    assert.ok(plates > 20, 'most stretches of lining carry a plate');
+  }
+  assert.ok(gl.includes('float th = 0.12 + 0.28 * abs(float(k) - 5.0) + 0.18 * h1(G, sd + 4);'), 'the shader closes the same pores');
+});
