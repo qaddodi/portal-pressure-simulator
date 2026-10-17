@@ -46,7 +46,7 @@ test('behind the case card the camera glides once, to the slide\'s own framing; 
   // The slide's own camera move runs with the card still up; the card lifts only once it has landed, just before the slide's cards come in.
   assert.match(src, /await settleRun\(\);\s*if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\); \}/);
   // (Between the patient's change and the lift, only the waits for a quiet figure, so the cards' fade is seen: slide-fade.test.js.)
-  assert.match(src, /if \(later\) \{ if \(!await morphTo\(st, cut\)\) return; shownState = own \? -1 : si; \}\s*(?:\/\/[^\n]*\n\s*)*if \(swap\) \{ await until\(\(\) => cut\(\) \|\| stage\.organsSettled\(\), 1500\); if \(cut\(\)\) return; \}\s*await smooth\(cut\); if \(cut\(\)\) return;\s*await caseEnd\(cut\); if \(cut\(\)\) return;\s*bare = false; layout\(\); cardsIn\(\);/);
+  assert.match(src, /if \(later\) \{ if \(!await morphTo\(st, cut\)\) return; shownState = own \? -1 : si; \}\s*(?:\/\/[^\n]*\n\s*)*if \(swap\) \{ await until\(\(\) => cut\(\) \|\| stage\.organsSettled\(\), 1500\); if \(cut\(\)\) return; \}\s*await unseen\(cut\); if \(cut\(\)\) return;\s*await caseEnd\(cut\); if \(cut\(\)\) return;\s*bare = false; layout\(\); cardsIn\(\);/);
   const gl = src.indexOf("await until(() => cut() || !stage.gliding(), 1500)");
   assert.ok(gl > 0 && gl < src.indexOf('await caseEnd(cut); if (cut()) return;\n      bare = false'));
   // A move cut short, or one that ends otherwise, never leaves the card up.

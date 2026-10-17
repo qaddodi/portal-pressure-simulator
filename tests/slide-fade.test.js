@@ -19,7 +19,7 @@ test('the cards start fading out, and are painted fading, before the figure chan
 
 test('the cards fade in only once the figure paints smoothly (after a new patient, once its organs are redrawn)', () => {
   const settle = run.indexOf('if (swap) { await until(() => cut() || stage.organsSettled(), 1500)');
-  const quiet = run.indexOf('await smooth(cut); if (cut()) return;'), inn = run.indexOf('bare = false; layout(); cardsIn();');
+  const quiet = run.indexOf('await unseen(cut); if (cut()) return;'), inn = run.indexOf('bare = false; layout(); cardsIn();');
   assert.ok(settle > 0 && quiet > settle && inn > quiet);
   // (Two frames in a row under 40 ms apart, at most 700 ms: paging is never held long; a hidden tab still moves on.)
   assert.match(src, /async function smooth\(cut, ms = 700\)[\s\S]*?t - last < 40/);
@@ -33,4 +33,8 @@ test('with reduced motion the cards still fade (opacity only, no slide)', () => 
   assert.match(block, /\.pz > :is\(\.pz-text, \.pz-data, \.pz-panel\), \.pz-text > \.pz-leave, \.pz-shade \{ transform: none !important; \}/);
   // (The data card waits out its fade before it is hidden, reduced motion or not.)
   assert.match(src, /data\.hidden = true; ui\?\.tools\.hide\(\); \} \}, 320\);/);
+});
+
+test('the cards are refitted and laid out at their final size while still unseen, then fade in', () => {
+  assert.match(src, /async function unseen\(cut\) \{\s*if \(ui\) \{ reFit\(\); layout\(\); await painted\(\); await painted\(\); if \(cut\(\) \|\| !ui\) return; layout\(\); \}\s*await smooth\(cut\);/);
 });

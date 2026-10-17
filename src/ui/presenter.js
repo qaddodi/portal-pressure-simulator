@@ -1813,7 +1813,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // The cards fade in once the figure is quiet: after a new patient, once the organs' picture is redrawn (its long frame
       // had eaten the fade), and in any case only when frames come smoothly (see smooth).
       if (swap) { await until(() => cut() || stage.organsSettled(), 1500); if (cut()) return; }
-      await smooth(cut); if (cut()) return;
+      await unseen(cut); if (cut()) return;
       await caseEnd(cut); if (cut()) return;
       bare = false; layout(); cardsIn();
       // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
@@ -1861,6 +1861,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (The cards were fitted unseen; once in place, every ladder asks again whether its plot fits, before the next paint.)
   const reFit = () => { for (const x of document.querySelectorAll('.pz-data.strip, .pz-cell.strip')) x.classList.remove('strip'); fitted.forEach(fitNow); };
   function cardsIn() { if (ui) { reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
+  // The last refits that used to run as the cards came in (a ladder's strip given back its plot, the charts lettered again, the
+  // layout their new sizes call for, a frame later) run while the cards are still unseen, so they come in at their final size and
+  // never snap to it in view (an upright iPad's teaching card did). cardsIn's own reFit then finds nothing left to change.
+  async function unseen(cut) {
+    if (ui) { reFit(); layout(); await painted(); await painted(); if (cut() || !ui) return; layout(); }
+    await smooth(cut);
+  }
   // A time-lapse whose data card is only numbers holds that card back (unseen, at its resting place) until the days have run.
   function releaseData() { if (!ui || !('hold' in ui.data.dataset)) return; delete ui.data.dataset.hold; if (ui.data.dataset.prep) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } }
   // While bare, the new slide's cards are fitted at their resting place but unseen, and the camera frames around them (see transitionRun).
