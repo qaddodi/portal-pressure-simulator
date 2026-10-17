@@ -2743,6 +2743,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const tabEl = ui.shade.querySelector('.pz-tabname'), stab = ui.shade.querySelector('.pz-sitetab:not([hidden])');
     ui.shade.classList.remove('pz-tabs-tight');
     if (t && stab && tabEl && stab.getBoundingClientRect().right + 8 * k > tabEl.getBoundingClientRect().left) ui.shade.classList.add('pz-tabs-tight');
+    // (The glass's lit top edge stops where each tab begins, so a tab's colour meets the card's outline with nothing between.)
+    ui.shade.style.setProperty('--pz-lit-l', `${((stab?.getBoundingClientRect().width || 0) / k).toFixed(2)}px`);
+    ui.shade.style.setProperty('--pz-lit-r', `${((tabEl?.getBoundingClientRect().width || 0) / k).toFixed(2)}px`);
     const tabH = Math.max(tabEl && !ui.shade.classList.contains('pz-tabs-tight') ? tabEl.offsetHeight : 0, stab?.offsetHeight || 0);
     const lift = p && t ? Math.max(16, tabH + 8) : 16;
     ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT) / k}px` : '';

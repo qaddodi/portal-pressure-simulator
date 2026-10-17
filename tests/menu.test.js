@@ -29,7 +29,7 @@ test('the teaching card and the visual slides carry the deck name in a corner ta
   // (Flush with the card's top and right edges, only its bottom left corner rounded, never under 12 px, never cut short.)
   const rule = css.match(/\n\.pz-tabname \{([^}]*)\}/)?.[1] || '';
   assert.match(rule, /top: 0; right: 0;/);
-  assert.match(rule, /border-radius: 0 0 0 /);
+  assert.match(rule, /border-radius: 0 var\(--pz-tab-ro, 0px\) 0 /);
   assert.match(rule, /white-space: nowrap/);
   assert.doesNotMatch(rule, /ellipsis|overflow: hidden/);
   assert.match(css, /--pz-tabf: calc\(12px \* var\(--ts, 1\)\)/);
