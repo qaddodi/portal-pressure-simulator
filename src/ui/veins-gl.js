@@ -1765,7 +1765,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform4f(U.plateRect1, ...(plates[1]?.rect || [0, 0, 1, 1]));
       gl.uniform4f(U.fluidRect, ...(fluidRect || [0, 0, 1, 1]));
       gl.uniform4f(U.fluidS, ...(fl?.s || [0, 0, 0, 0]));
-      gl.uniform4f(U.fluidInk, ...(fl && pm ? fl.ink : [0, 0, 0, 0]));
+      // (The fluid is drawn here with the plate off too, the live organs showing under the canvas: one look while the plate is
+      // down for a slow fill and after it lands, where the page's SVG copy had a brighter surface line; Ascites slide 5, 17 Oct.)
+      gl.uniform4f(U.fluidInk, ...(fl ? fl.ink : [0, 0, 0, 0]));
       gl.uniform1i(U.blood, blood.on ? 1 : 0);
       gl.uniform1i(U.chev, blood.chev ? 1 : 0);
       gl.uniform1i(U.still, blood.still ? 1 : 0);
