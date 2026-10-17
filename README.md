@@ -118,7 +118,8 @@ more); only Battery saver lowers either. See [docs/PERFORMANCE.md](docs/PERFORMA
   (Menu › Present › Your scripts › *Import*). *Print notes* prints each deck's speaker notes and questions, one row per slide.
 - **Guidelines:** clinical content follows Baveno VIII and, where US practice differs, AASLD 2024.
 - **Writing decks:** [docs/deck-authoring-guide.md](docs/deck-authoring-guide.md) (format and
-  layout rules) and [docs/ai-humanizer.md](docs/ai-humanizer.md) (how slide wording should read).
+  layout rules) and [docs/ai-humanizer.md](docs/ai-humanizer.md) (how slide wording should read);
+  [docs/design-humanizer.md](docs/design-humanizer.md) covers how the interface should look.
 
 ## For institutions
 
@@ -158,6 +159,7 @@ For preparing a class, `window.pps` in the browser console exposes `loadPreset`,
 | [CHANGELOG.md](CHANGELOG.md) | What changed, release by release |
 | [docs/deck-authoring-guide.md](docs/deck-authoring-guide.md) | How to write a presentation deck |
 | [docs/ai-humanizer.md](docs/ai-humanizer.md) | Style rules for slide wording |
+| [docs/design-humanizer.md](docs/design-humanizer.md) | Visual rules that keep the interface from looking machine-made |
 | [docs/DESIGN_BLUEPRINT.md](docs/DESIGN_BLUEPRINT.md) | The original design spec; its model sections (§7, §12) are what the code comments cite |
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Rendering and simulation scheduling |
 | [docs/LMS.md](docs/LMS.md) | Deep links and SCORM packaging |
