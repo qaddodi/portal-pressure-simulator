@@ -35,10 +35,11 @@ test('the teaching card shows the tag as a corner tab in the level\'s colour, th
   assert.match(src, /text\.replaceChildren\(\.\.\.\[h\('h1', \{ class: 'pz-h' \}, \.\.\.diseaseNodes\(nb\(s\.title\)\)\)/);
   // (the deck tab's mirror: top left, flush, only its bottom right corner rounded, tinted in the level's colour)
   assert.match(css, /\.pz-sitetab \{ position: absolute; top: 0; left: 0;[^}]*border-radius: 0 0 calc\(var\(--pz-tabh\) \* \.5\) 0; background: color-mix\(in srgb, var\(--site\) 16%, transparent\);[^}]*font: var\(--caps-w\) var\(--pz-tabf\)\/1 var\(--font-ui\)/);
-  // (on the glass both tabs cover its border to meet its outer edge and curve, the lit top edge drawn on them one pixel down)
-  assert.match(css, /\.pz-shade:is\(\.stack, \.pz-card\) :is\(\.pz-tabname, \.pz-sitetab\) \{ top: -1px; height: calc\(var\(--pz-tabh\) \+ 1px\);[^}]*linear-gradient\(transparent 1px, var\(--pz-glass-edge\) 1px 2px, transparent 2px\)/);
-  assert.match(css, /\.pz-shade:is\(\.stack, \.pz-card\) \.pz-tabname \{ right: -1px;/);
-  assert.match(css, /\.pz-shade:is\(\.stack, \.pz-card\) \.pz-sitetab \{ left: -1px;/);
+  // (on the glass both tabs meet its outer edge and curve but keep their fill off its border, so the card's outline runs on
+  // round them; the lit top edge is drawn just inside the border, round the glass's inner curve, as the glass draws its own)
+  assert.match(css, /\.pz-shade:is\(\.stack, \.pz-card\) :is\(\.pz-tabname, \.pz-sitetab\) \{ top: -1px; height: calc\(var\(--pz-tabh\) \+ 1px\); border-top: 1px solid transparent; background-clip: padding-box; box-shadow: inset 0 1px 0 var\(--pz-glass-edge\); \}/);
+  assert.match(css, /\.pz-shade:is\(\.stack, \.pz-card\) \.pz-tabname \{ right: -1px; border-right: 1px solid transparent; \}/);
+  assert.match(css, /\.pz-shade:is\(\.stack, \.pz-card\) \.pz-sitetab \{ left: -1px; border-left: 1px solid transparent; \}/);
   assert.match(css, /\.pz-shade\.stack \.pz-sitetab \{ border-top-left-radius: 18px; \}/);
   assert.match(css, /\.pz-shade\.pz-card:not\(\.stack\) \.pz-tabname \{ border-top-right-radius: clamp\(16px, calc\(2\.2 \* var\(--pzh\) \/ var\(--vz\)\), 28px\); \}/);
 });
