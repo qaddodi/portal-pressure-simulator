@@ -47,6 +47,15 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
 /** Poll (not frames: a hidden tab runs none) until fn() holds or ms pass. */
 async function until(fn, ms = 3000) { const t0 = performance.now(); while (!fn() && performance.now() - t0 < ms) await wait(40); }
+/** One painted frame (or 100 ms: a hidden tab paints none). */
+const painted = () => new Promise((r) => { const t = setTimeout(r, 100); nextFrame(() => { clearTimeout(t); r(); }); });
+/** Until the page paints two frames in a row promptly, or ms pass. A card's fade is timed by the clock, not by the frames shown:
+ *  one begun just before a long frame (a new organ picture, a lens repainting the figure) is over when that frame lands, and the
+ *  card seems to pop. Begun once the frames come smoothly, it is seen whole. */
+async function smooth(cut, ms = 700) {
+  const t0 = performance.now(); await painted(); let last = performance.now();
+  while (!cut() && performance.now() - t0 < ms) { await painted(); const t = performance.now(); if (t - last < 40) return; last = t; }
+}
 const LOBULE_CAM = /^(lobule|sinusoid)/;
 
 // ── Numbers ────────────────────────────────────────
@@ -1692,6 +1701,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const inLiver = store.get().lobule || store.get().sinusoid;
     const litNext = !s.visual ? slideTargets(s).lit.join(' ') : '';
     if (inLiver && !booting && (hushed || cam !== lastCam || litNext !== (app.dataset.lit || '') || s.visual || ct)) hush();
+    // The cards fade out first, and are on screen fading (two frames painted) before anything changes on the figure: the marks,
+    // the lens and the glows can each cost a long frame, which would otherwise swallow the fade.
+    const outAt = performance.now(), outMs = wordsOut(s);
+    if (outMs) { await painted(); await painted(); }
     // Words out, and the marks: they belong to the slide that is leaving.
     store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     // The slide's lens: the figure crossfades to its colours (stage.js) while the old words leave. A question, or a
@@ -1700,7 +1713,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
-    await wordsOut(s);
+    await wait(Math.max(0, outMs - (performance.now() - outAt)));
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
     if (cut()) return;
@@ -1787,6 +1800,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (cut()) return;
       // The camera is still: the patient changes now, unhurried, and the cards come in only once it has.
       if (later) { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; }
+      // The cards fade in once the figure is quiet: after a new patient, once the organs' picture is redrawn (its long frame
+      // had eaten the fade), and in any case only when frames come smoothly (see smooth).
+      if (swap) { await until(() => cut() || stage.organsSettled(), 1500); if (cut()) return; }
+      await smooth(cut); if (cut()) return;
       await caseEnd(cut); if (cut()) return;
       bare = false; layout(); cardsIn();
       // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
@@ -1858,8 +1875,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const shortSide = matchMedia('(orientation: landscape) and (max-height: 500px)');
   const sinTiles = (s) => s.data === 'tiles' && !s.visual && /^sinusoid/.test(s.cam || '');
   const under = (s) => sinTiles(s) && !shortSide.matches && phone();
-  async function wordsOut(next) {
-    if (!ui) return;
+  // (Starts the cards' fade out and returns how long it runs, ms: 0 when nothing is showing.)
+  function wordsOut(next) {
+    if (!ui) return 0;
     const out = [ui.text, ui.panel], data = ui.data;
     // The data card leaves with the words on every slide change, whole (the same ease and pace), and comes back in with the new cards:
     // never left standing while the words go, nor changed in place.
@@ -1867,14 +1885,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (dataOut) { data.classList.add('pz-hide'); delete data.dataset.colswap; }
     // Leaving a visual for the figure: the veil lifts with the panel, not after it.
     if (!next?.visual) ui.veil.classList.remove('on');
-    if (!dataOut && out.every((el) => el.hidden || !el.childElementCount)) return;
+    if (!dataOut && out.every((el) => el.hidden || !el.childElementCount)) return 0;
     // The catheter's monitor stays up from one measuring slide to the next: only the words around it go.
     const keep = mon && next?.monitor && !next.visual && mon.el.parentNode === ui.text;
     for (const el of out) {
       if (keep && el === ui.text) { for (const c of el.children) if (c !== mon.el) c.classList.add('pz-leave'); }
       else el.classList.add('pz-leave');
     }
-    await wait(reduce.matches ? 0 : 340);   // (the words leave at the data card's pace)
+    return 340;   // (the words leave at the data card's pace; with reduced motion they still fade, without sliding: app.css)
   }
   // A slide's tiles can say how far each number moved: from the slide before (delta: true) or a named one. A slide that
   // changes the same patient (a drug, an action, days) counts from the slide before unless it says delta: false.
@@ -2000,7 +2018,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     } else if (!data.hidden) {
       data.dataset.gone = '';
       data.classList.add('pz-hide'); delete data.dataset.colswap;
-      setTimeout(() => { if (data.classList.contains('pz-hide')) { data.hidden = true; ui?.tools.hide(); } }, reduce.matches ? 0 : 320);
+      setTimeout(() => { if (data.classList.contains('pz-hide')) { data.hidden = true; ui?.tools.hide(); } }, 320);
     }
     layout();
   }

@@ -2422,6 +2422,10 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-text, .pz.stack .pz-data { pointer-events: auto; }
 @media (prefers-reduced-motion: reduce) {
   .pz *, .pz, .app.presenting #stageView { animation: none !important; transition: none !important; }
+  /* The slide's cards still fade from one slide to the next, only without sliding: a fade is not motion, and a card that pops
+     in and out is harder to follow. */
+  .pz > :is(.pz-text, .pz-data, .pz-panel), .pz-text > *, .pz-shade { transition: opacity .3s var(--ease) !important; }
+  .pz > :is(.pz-text, .pz-data, .pz-panel), .pz-text > .pz-leave, .pz-shade { transform: none !important; }
 }
 /* Menu › Present: the presentations and your scripts. */
 .pz-deck { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-sheet); background: var(--surface); overflow: hidden; }
