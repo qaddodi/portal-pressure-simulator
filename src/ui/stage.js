@@ -645,9 +645,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   // The capsule's sheen: broad soft reflections on the domes of both lobes.
   // The organs' dim and grey on the live drawing (syncOrganDim), over the plate's rectangle (PLATE_RECT), as the GPU copy has it.
-  // (Its region is fitted to the view while it is on: fitOrganDim.)
-  const ORGAN_DIM_RECT = [200, -200, 1020, 1320];
-  defs.insertAdjacentHTML('beforeend', `<filter id="organDim" filterUnits="userSpaceOnUse" x="${ORGAN_DIM_RECT[0]}" y="${ORGAN_DIM_RECT[1]}" width="${ORGAN_DIM_RECT[2]}" height="${ORGAN_DIM_RECT[3]}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix"/></filter>`);
+  defs.insertAdjacentHTML('beforeend', '<filter id="organDim" filterUnits="userSpaceOnUse" x="200" y="-200" width="1020" height="1320" color-interpolation-filters="sRGB"><feColorMatrix type="matrix"/></filter>');
   defs.insertAdjacentHTML('beforeend', '<radialGradient id="lvSheen"><stop offset="0" class="lv-sh0"/><stop offset=".55" class="lv-sh1"/><stop offset="1" class="lv-sh2"/></radialGradient>');
   lv.gloss.append(s('ellipse', { cx: 468, cy: 236, rx: 118, ry: 34, transform: 'rotate(-6 468 236)', fill: 'url(#lvSheen)' }),
     s('ellipse', { cx: 752, cy: 262, rx: 66, ry: 16, transform: 'rotate(22 752 262)', fill: 'url(#lvSheen)' }));
@@ -1182,7 +1180,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // card) follows the artwork on the very next frame of a pan or zoom, not on the next model
   // update: a view change schedules one coalesced sync per animation frame.
   let viewRaf = 0, viewVersion = 0, CTM = null, wrapRect = null;
-  let organDimOn = false, organDimRect = '', organMorphA = 1, organDimA = 1;   // (fitOrganDim: the view's first transform is set before the filter exists)
   let drawOnce = false;   // draw the vessels once through the dive's freeze: the camera moved while hidden
   let stageWake = () => {};   // set once the frame loop exists: anything that may need a redraw calls it
   let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
@@ -1205,7 +1202,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     worldOver?.setAttribute('transform', world.getAttribute('transform'));
     syncSemantic();
     CTM = null; viewVersion++; stageWake();
-    fitOrganDim();
     if (!viewRaf) viewRaf = nextFrame(syncView);
   };
   function syncView() {
@@ -1230,8 +1226,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const r = wrap.getBoundingClientRect(), q = svg.getBoundingClientRect();
     if (tf) svg.style.transform = tf; box = { left: r.left, top: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom, sx: q.left - r.left, sy: q.top - r.top, sw: q.width, sh: q.height }; };
   const stageBox = () => { if (!box) measureBox(); return box; };
-  new ResizeObserver(() => { box = null; CTM = null; fitOrganDim(); }).observe(wrap);
-  addEventListener('resize', () => { box = null; CTM = null; fitOrganDim(); });
+  new ResizeObserver(() => { box = null; CTM = null; }).observe(wrap);
+  addEventListener('resize', () => { box = null; CTM = null; });
   addEventListener('scroll', () => { box = null; CTM = null; }, true);
   let ctmLast = null;
   function refreshCTM() {
@@ -2048,7 +2044,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       nodeEls[n.id].c.setAttribute('cx', x); nodeEls[n.id].c.setAttribute('cy', y);
     }
     setViewBox(t);
-    organMorphA = 1 - t; paintOrganAlpha();
+    gOrgans.style.opacity = String(1 - t);
+    gBackdrop.style.opacity = String(1 - t);
     gGhost.style.opacity = String(1 - t);
     gAscites.style.opacity = String(1 - t);
     svg.classList.toggle('circuit', t > 0.5);
@@ -3099,7 +3096,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (inlineStyles(g, c, 'visible') === false) continue;
         c.removeAttribute('opacity');   // the plate fades with the morph on the GPU
         c.removeAttribute('filter');    // and dims and greys there too (syncOrganDim)
-        for (const k of c.children) if (k.getAttribute('filter') === 'url(#organDim)') k.removeAttribute('filter');
         for (const el of [...c.querySelectorAll('[data-pc="drop"]')]) el.remove();
         dropInvisible(c);
         for (const el of c.querySelectorAll('[data-pc~="fold"]')) foldOpacity(el);
@@ -3264,50 +3260,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vLook.netAlpha = netA;
   }
   // The live SVG organs (shown while the GPU copy is off: a patient change, a theme switch, no WebGL) take the same dim and
-  // grey, on the same eased values (organ-dim.js). Only while they show: a filter on the hidden groups would still be built on
-  // every repaint (as their masks were, app.css).
-  // The grey is an SVG filter on each organ (and each backdrop shape), the dim the groups' opacity: a filter on the whole group
-  // made Safari draw every organ again on every frame of a change in any lens but Pressure (a cirrhosis slider, HVPG 8 to 9,
-  // 17 Oct), where a filter on each organ is drawn again only for the organ that changed. The same picture: the grey mixes
-  // each colour toward its luma, which gives the same result over each organ as over the group, and a group's opacity
-  // multiplies its alpha as the matrix's alpha row did.
+  // grey, on the same eased values, through an SVG filter (organ-dim.js). Only while they show: a filter on the hidden groups
+  // would still be built on every repaint (as their masks were, app.css).
   const organDimFx = defs.querySelector('#organDim feColorMatrix');
   let organDimKey = '';
-  const organParts = () => [...gOrgans.children, ...gBackdrop.children];
-  function paintOrganAlpha() {
-    const a = String(organMorphA * organDimA);
-    for (const g of [gOrgans, gBackdrop]) if (g.style.opacity !== a) g.style.opacity = a;
-  }
   function syncOrganDim() {
     if (plateDim == null || reduceMotion.matches) [plateDim, plateSat, netA] = plateTargets();
     const on = !plateOn() && (plateDim < 1 || plateSat < 1);
-    const grey = on && plateSat < 1;
-    const key = on ? `${plateDim}|${grey ? organDimMatrix(1, plateSat) : ''}` : '';
+    const key = on ? organDimMatrix(plateDim, plateSat) : '';
     if (key === organDimKey) return;
-    const wasGrey = organDimOn;
-    organDimKey = key; organDimOn = grey;
-    organDimA = on ? plateDim : 1; paintOrganAlpha();
-    if (grey) { organDimFx.setAttribute('values', organDimMatrix(1, plateSat)); fitOrganDim(); }
-    if (grey !== wasGrey) for (const el of organParts()) { if (grey) el.setAttribute('filter', 'url(#organDim)'); else el.removeAttribute('filter'); }
-  }
-  // The filter's region is the part of the plate on screen, with a margin, not the whole plate: Safari draws a filtered
-  // organ again over its whole region whenever it changes, and zoomed in (a slide's camera on the heart or
-  // a route) that region was many times the screen. The colour matrix works pixel by pixel, so what shows is the same.
-  // Fitted in the same task as each view change (applyVT, a resize), before the browser paints.
-  function fitOrganDim() {
-    if (!organDimOn) return;
-    const r = stageBox(), corners = [[r.left, r.top], [r.right, r.top], [r.left, r.bottom], [r.right, r.bottom]].map(([x, y]) => clientToWorldFast(x, y));
-    const xs = corners.map((q) => q[0]), ys = corners.map((q) => q[1]);
-    let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-    const mx = (x1 - x0) * 0.1 + 8, my = (y1 - y0) * 0.1 + 8;
-    x0 = Math.max(ORGAN_DIM_RECT[0], Math.floor(x0 - mx)); y0 = Math.max(ORGAN_DIM_RECT[1], Math.floor(y0 - my));
-    x1 = Math.min(ORGAN_DIM_RECT[0] + ORGAN_DIM_RECT[2], Math.ceil(x1 + mx)); y1 = Math.min(ORGAN_DIM_RECT[1] + ORGAN_DIM_RECT[3], Math.ceil(y1 + my));
-    const k = [x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0)].join(' ');
-    if (k === organDimRect) return;
-    organDimRect = k;
-    const [x, y, w, h] = k.split(' ');
-    const el = organDimFx.parentNode;
-    el.setAttribute('x', x); el.setAttribute('y', y); el.setAttribute('width', w); el.setAttribute('height', h);
+    organDimKey = key;
+    if (on) organDimFx.setAttribute('values', key);
+    for (const g of [gOrgans, gBackdrop]) { if (on) g.setAttribute('filter', 'url(#organDim)'); else g.removeAttribute('filter'); }
   }
   const plateEasing = () => { if (plateDim == null) return false; const [d, s, n] = plateTargets(); return d !== plateDim || s !== plateSat || n !== netA; };
   // Timed on the clock with an ease in and out (PLATE_FADE), so the organs fade to grey and back smoothly at any frame rate.
