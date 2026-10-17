@@ -41,10 +41,11 @@ test('phone cards of tiles alone drop their header, folded cards keep it (D1)', 
   assert.match(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.tiles-only:not\(\.has-tool\):not\(\.pz-folds\) > \.pz-dh \{ display: none; \}/);
 });
 
-test('a key tile has a top accent line, not a ring (D5)', () => {
-  assert.match(css, /\.pz-tile\.key \{ --key-w: 2px; \}/);
-  assert.match(css, /box-shadow: inset 0 var\(--key-w, 0px\) 0 0 var\(--accent\)/);
-  assert.ok(!/inset 0 0 0 var\(--key-w/.test(css));
+test('a key tile keeps its colours while the others turn grey: no accent line or ring (D5, revised)', () => {
+  assert.ok(!/\.pz-tile\.key \{[^}]*--key-w/.test(css), 'no accent line or ring on a key tile');
+  assert.match(css, /\.pz-tile\.key \.pzt-k \{ color: var\(--text\); \}/);
+  assert.match(css, /\.pz-tiles:has\(\.pz-tile\.key\) \.pz-tile:not\(\.key\) :is\(\.pzt-v, \.pzt-r\) \{ color: var\(--text-2\); \}/);
+  assert.match(css, /\.pz-tiles:has\(\.pz-tile\.key\) \.pz-tile:not\(\.key\) \.pzt-bar \{ filter: grayscale\(1\); opacity: \.7; \}/);
 });
 
 test('a card title never breaks at its hyphen, and a sideways phone takes the short title (I7)', () => {

@@ -1660,10 +1660,14 @@ button.finding { cursor: pointer; }
 .pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
 .pz-tiles[data-n="0"] { display: none; }   /* (a ladder alone: its brackets give the HVPG and PPG) */
 .pz-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh) / var(--vz)), 18px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease), box-shadow .4s var(--ease); }
-/* A tile the slide is about: a 2 px accent line along its top edge (an inset shadow, so the box never changes size) and its name in
-   full ink, not a ring that read as "selected" (critique D5, 17 Oct). */
-.pz-tile.key { --key-w: 2px; }
+/* A tile the slide is about keeps its colours and its name in full ink; beside it the other tiles step back to grey, as the readings
+   around the one that matters do on a monitor. No line, ring or box: the 2 px top accent line read as stock generated design
+   (critique D5, revised 17 Oct). (Not in high contrast, whose status words are filled pills.) */
 .pz-tile.key .pzt-k { color: var(--text); }
+.app:not(.pz-hi) .pz-data .pz-tiles:has(.pz-tile.key) .pz-tile:not(.key) :is(.pzt-v, .pzt-r) { color: var(--text-2); }
+.app:not(.pz-hi) .pz-data .pz-tiles:has(.pz-tile.key) .pz-tile:not(.key) .pzt-bar { filter: grayscale(1); opacity: .7; }
+.pz-tile .pzt-r { transition: color .4s var(--ease); }
+.pz-tile .pzt-bar { transition: filter .4s var(--ease), opacity .4s var(--ease); }
 .pzt-k { font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-2); overflow-wrap: break-word; }
 /* The number shrinks with its tile (30cqi) and the unit drops under it rather than leave the box. */
 .pzt-vu { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: center; gap: 0 .3em; min-width: 0; }
