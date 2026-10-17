@@ -35,6 +35,7 @@ import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
+import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -1180,6 +1181,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // card) follows the artwork on the very next frame of a pan or zoom, not on the next model
   // update: a view change schedules one coalesced sync per animation frame.
   let viewRaf = 0, viewVersion = 0, CTM = null, wrapRect = null;
+  let organMorphA = 1, organDimA = 1;   // the organs' fade with the morph and their dim (syncOrganDim), as the groups' opacity
   let drawOnce = false;   // draw the vessels once through the dive's freeze: the camera moved while hidden
   let stageWake = () => {};   // set once the frame loop exists: anything that may need a redraw calls it
   let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
@@ -2044,8 +2046,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       nodeEls[n.id].c.setAttribute('cx', x); nodeEls[n.id].c.setAttribute('cy', y);
     }
     setViewBox(t);
-    gOrgans.style.opacity = String(1 - t);
-    gBackdrop.style.opacity = String(1 - t);
+    organMorphA = 1 - t; paintOrganAlpha();
     gGhost.style.opacity = String(1 - t);
     gAscites.style.opacity = String(1 - t);
     svg.classList.toggle('circuit', t > 0.5);
@@ -3075,6 +3076,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function plateBuild(key) {
     const was = plateOn();
     wrap.classList.remove('gl-plate');
+    // (The copy takes the organs' own colours, as the GPU greys and dims it itself: the live grey comes off for it.)
+    const greyed = !!greyList;
+    if (greyed) { greyClear(); organDimKey = ''; }
     const ser = new XMLSerializer(), parts = [], subs = [];
     try {
       const dc = defs.cloneNode(true); inlineStyles(defs, dc);
@@ -3116,7 +3120,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const t = organG.liver.getAttribute('transform') || '', m = t.match(/^translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\) translate\([-\d.]+ [-\d.]+\)$/);
       const toLiver = !t ? (r) => r : m ? (r) => { const [cx, cy, k] = m.slice(1).map(Number); return [cx + (r[0] - cx) / k, cy + (r[1] - cy) / k, r[2] / k, r[3] / k]; } : null;
       return { key, seq: plateSeq, head, parts, subs, toLiver };
-    } finally { if (was) wrap.classList.add('gl-plate'); }
+    } finally { if (was) wrap.classList.add('gl-plate'); if (greyed) syncOrganDim(); }
   }
   function plateMarkup(rect, W, H, fresh) {
     const key = plateStateKey();
@@ -3260,18 +3264,82 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vLook.netAlpha = netA;
   }
   // The live SVG organs (shown while the GPU copy is off: a patient change, a theme switch, no WebGL) take the same dim and
-  // grey, on the same eased values, through an SVG filter (organ-dim.js). Only while they show: a filter on the hidden groups
-  // would still be built on every repaint (as their masks were, app.css).
+  // grey, on the same eased values (organ-dim.js), only while they show. The grey is each fill, stroke and gradient stop's own
+  // colour made grey (organ-grey.js), and the dim the groups' opacity: no filter. A filter over the organs made Safari draw
+  // every organ again on each frame of a change in any lens but Pressure (a cirrhosis slider, HVPG 8 to 9, 17 Oct), and one on
+  // each organ came on a frame late in Safari (the organs flashed to colour). The same picture as the filter's: the grey is
+  // linear in each colour and keeps alpha, so greying each paint equals greying their composite, overlaps and translucency
+  // included; opacity multiplies alpha as the matrix's alpha row did. A colour the grey cannot read keeps the filter.
   const organDimFx = defs.querySelector('#organDim feColorMatrix');
-  let organDimKey = '';
+  let organDimKey = '', greyList = null, greyFilter = false;
+  function paintOrganAlpha() {
+    const a = String(organMorphA * organDimA);
+    for (const g of [gOrgans, gBackdrop]) if (g.style.opacity !== a) g.style.opacity = a;
+  }
+  // Every colour the organs paint with (shapes, their gradients' stops and patterns' contents), as computed with no grey on.
+  const GREY_TAGS = new Set(['path', 'circle', 'ellipse', 'rect', 'polygon', 'polyline', 'line', 'text', 'tspan', 'use', 'stop']);
+  function greyRead() {
+    const list = [], refs = [], seen = new Set();
+    const visit = (el) => {
+      if (!GREY_TAGS.has(el.localName)) return true;
+      const cs = getComputedStyle(el);
+      for (const p of el.localName === 'stop' ? ['stop-color'] : ['fill', 'stroke']) {
+        const v = cs.getPropertyValue(p).trim();
+        if (!v || v === 'none') continue;
+        const id = paintRef(v);
+        if (id) { refs.push(id); continue; }   // (a gradient or pattern: its own colours are greyed)
+        const c = parseColor(v);
+        if (!c) return false;
+        list.push({ el, p, c, was: el.style.getPropertyValue(p), pri: el.style.getPropertyPriority(p) });
+      }
+      return true;
+    };
+    for (const el of [...gBackdrop.querySelectorAll('*'), ...gOrgans.querySelectorAll('*')]) if (!visit(el)) return null;
+    while (refs.length) {
+      const id = refs.pop();
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const r = svg.querySelector(`[id="${id}"]`);
+      if (r) for (const el of r.querySelectorAll('*')) if (!visit(el)) return null;
+    }
+    return list;
+  }
+  function greyClear() {
+    if (!greyList) return;
+    for (const g of greyList) { if (g.was) g.el.style.setProperty(g.p, g.was, g.pri); else g.el.style.removeProperty(g.p); }
+    greyList = null;
+  }
+  function greySet(sat) {
+    if (greyFilter) { organDimFx.setAttribute('values', organDimMatrix(1, sat)); return; }
+    for (const g of greyList) g.el.style.setProperty(g.p, greyOf(g.c, sat), 'important');
+  }
+  // The colours are read again when what they depend on changes (the theme, the stage's classes), before the next paint.
+  const greyDeps = () => { const r = document.documentElement; return `${wrap.className}|${r.className}|${r.dataset.theme || ''}|${matchMedia('(prefers-color-scheme: dark)').matches}`; };
+  let greyAt = '';
+  const greyStale = () => { if (greyList && greyDeps() !== greyAt) { greyClear(); organDimKey = ''; syncOrganDim(); } };
+  new MutationObserver(greyStale).observe(wrap, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(greyStale).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });   // (not its style: label sizes change there on every frame of a glide)
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', greyStale);
+  function greyOn(sat) {
+    if (!greyFilter && !greyList) {
+      greyList = greyRead(); greyAt = greyDeps();
+      if (!greyList) { greyFilter = true; for (const g of [gOrgans, gBackdrop]) g.setAttribute('filter', 'url(#organDim)'); }
+    }
+    greySet(sat);
+  }
+  function greyOff() {
+    greyClear();
+    if (greyFilter) { greyFilter = false; for (const g of [gOrgans, gBackdrop]) g.removeAttribute('filter'); }
+  }
   function syncOrganDim() {
     if (plateDim == null || reduceMotion.matches) [plateDim, plateSat, netA] = plateTargets();
     const on = !plateOn() && (plateDim < 1 || plateSat < 1);
-    const key = on ? organDimMatrix(plateDim, plateSat) : '';
+    const grey = on && plateSat < 1;
+    const key = on ? `${plateDim}|${grey ? plateSat : 1}` : '';
     if (key === organDimKey) return;
     organDimKey = key;
-    if (on) organDimFx.setAttribute('values', key);
-    for (const g of [gOrgans, gBackdrop]) { if (on) g.setAttribute('filter', 'url(#organDim)'); else g.removeAttribute('filter'); }
+    organDimA = on ? plateDim : 1; paintOrganAlpha();
+    if (grey) greyOn(plateSat); else greyOff();
   }
   const plateEasing = () => { if (plateDim == null) return false; const [d, s, n] = plateTargets(); return d !== plateDim || s !== plateSat || n !== netA; };
   // Timed on the clock with an ease in and out (PLATE_FADE), so the organs fade to grey and back smoothly at any frame rate.
