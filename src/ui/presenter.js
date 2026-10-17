@@ -2379,7 +2379,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // for the measure, so its watcher is not told: told, it measured again, for ever.)
     const was = parts.map((c) => c.style.cssText), cap = d.style.maxHeight;
     d.style.maxHeight = 'none';
-    parts[0].style.marginTop = '22px';   // (out: styles/app.css)
+    parts[0].style.marginTop = '4px';   // (out: styles/app.css)
     const h1 = hh(), z = (parseFloat(getComputedStyle(parts[0]).zoom) || 1) * kw;
     const o = parts[1] ? (parts[1].getBoundingClientRect().top - parts[0].getBoundingClientRect().top) / z : 0;
     for (const c of parts) c.style.display = 'none';
