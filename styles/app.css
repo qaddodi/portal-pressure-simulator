@@ -2166,6 +2166,18 @@ button.finding { cursor: pointer; }
   .pz-table td.asc { font-size: var(--s-lab); }
   .pz-table td.note { padding-left: 31px; font-size: var(--s-lab); }
   .pz-table .pz-foot { position: static; }}
+/* An upright tablet's table with few columns and a text note or two (Doppler, TIPS Doppler, Endoscopy, Shunts) keeps the sideways
+   layout: each note in its own column under its heading, and each row's kicker in its site's colour over the name (Mohammad, 17 Oct:
+   the stacked rows dropped both). Tables with more columns keep the compact rows; a phone keeps them too (no room for the columns). */
+@media (min-width: 700px) and (max-width: 1100px) and (orientation: portrait) {
+  .pz-table.notecols tr { grid-template-columns: minmax(8.5rem, 1.25fr) repeat(var(--nc, 1), minmax(4.5rem, .55fr)) repeat(var(--nn, 1), minmax(0, 1.5fr)); }
+  .pz-table.notecols thead tr { align-items: end; }
+  .pz-table.notecols thead th.nh:not(.num) { display: block; text-align: left; padding-inline: .75em; }
+  .pz-table.notecols tbody th[scope="row"] { display: block; }
+  .pz .pz-table.notecols tbody th .pz-kick { display: block; width: auto; background: none; font-size: var(--s-cap); letter-spacing: var(--caps-ls); overflow-wrap: normal; }
+  .pz-table.notecols .tn { margin-top: .15em; }
+  .pz-table.notecols td.note { grid-column: auto; padding: .55em .75em; font-size: var(--s-lab); text-align: left; }
+}
 .pz.stack .pz-visual { flex: none; }   /* (a phone scrolls the card rather than squeeze the chart over its words) */
 .pz.stack .pz-data.tiles-only .pzt-v { font-size: var(--s-title); }
 /* (A card of tiles alone drops its "The patient" header on every screen: the tiles name themselves, and a generic name in capitals
