@@ -44,9 +44,9 @@ test('behind the case card the camera glides once, to the slide\'s own framing; 
   assert.doesNotMatch(run, /camera\(/);
   assert.doesNotMatch(run, /lifted\)/);
   // The slide's own camera move runs with the card still up; the card lifts only once it has landed, just before the slide's cards come in.
-  assert.match(src, /await settleRun\(\);\s*if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\); \}/);
+  assert.match(src, /await settleRun\(\);\s*if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
   // (Between the patient's change and the lift, only the waits for a quiet figure, so the cards' fade is seen: slide-fade.test.js.)
-  assert.match(src, /if \(later\) \{ if \(!await morphTo\(st, cut\)\) return; shownState = own \? -1 : si; \}\s*(?:\/\/[^\n]*\n\s*)*if \(swap\) \{ await until\(\(\) => cut\(\) \|\| stage\.organsSettled\(\), 1500\); if \(cut\(\)\) return; \}\s*await unseen\(cut\); if \(cut\(\)\) return;\s*await caseEnd\(cut\); if \(cut\(\)\) return;\s*bare = false; layout\(\); cardsIn\(\);/);
+  assert.match(src, /if \(later\) \{ if \(!await morphTo\(st, cut\)\) return; shownState = own \? -1 : si; \}\s*(?:\/\/[^\n]*\n\s*)*if \(swap\) \{ await until\(\(\) => cut\(\) \|\| stage\.organsSettled\(\), 1500\); if \(cut\(\)\) return; \}\s*await unseen\(cut\); if \(cut\(\)\) return;\s*await caseEnd\(cut\); if \(cut\(\)\) return;\s*bare = false; cardsIn\(\{ i: to, gen: g \}\);/);
   const gl = src.indexOf("await until(() => cut() || !stage.gliding(), 1500)");
   assert.ok(gl > 0 && gl < src.indexOf('await caseEnd(cut); if (cut()) return;\n      bare = false'));
   // A move cut short, or one that ends otherwise, never leaves the card up.
@@ -155,6 +155,6 @@ test('no slide card shows while a case card is up, a catheter slide included; th
   assert.doesNotMatch(src.slice(src.indexOf('function wordsIn('), src.indexOf('function wordsIn(') + 400), /^\s*text\.classList\.remove\('pz-leave'\);/m);
   assert.match(src, /if \(bare \|\| caseCard\) \{ ui\.text\.classList\.add\('pz-leave'\); ui\.root\.dataset\.bare = ''; \}/);
   // A non-bare slide brings its cards in only after caseEnd (the lift), and cardsIn is what lets the words go.
-  assert.match(src, /if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\); \}/);
-  assert.match(src, /function cardsIn\(\) \{ if \(ui\) \{ reFit\(\); if \(!bare\) \{ ui\.text\.classList\.remove\('pz-leave'\);/);
+  assert.match(src, /if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
+  assert.match(src, /function cardsIn\(at\) \{ if \(ui\) \{ if \(at\) \{ entering = at; layout\(\); \} reFit\(\); if \(!bare\) \{ ui\.text\.classList\.remove\('pz-leave'\);/);
 });

@@ -1170,6 +1170,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let deck = null, slides = [], states = [], waiters = [], stateOf = [], base = null, extraOf = new Map();
   // `gen` counts redraws asked of the slide in place: a transition under way for an older one starts over.
   let want = 0, shown = null, shownState = -1, busy = false, gen = 0, redrawn = -1;   // (redrawn: the cards drawn again for a new text size, see pps:labelscale)
+  let entering = null;   // (the slide whose cards are coming in, from their last unseen layout: its sizes hold from there, see layout's lockKey)
   let ui = null, black = false, digits = '', digitT = 0;
   let saved = null, layersBefore = null;   // (the viewer's own lobule layers, put back when the show ends)
   // High contrast: a deeper shade, stronger text, ratings as filled chips (pz-hi). Off for now; no control offers it.
@@ -1760,7 +1761,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const g = gen, s = slides[to], cut = () => !deck || want !== to || gen !== g;
     // The slide on screen is leaving, so a move cut short never counts as showing it: going back and forward again to that
     // slide (summary table included) draws it afresh instead of leaving the half-changed screen.
-    shown = null;
+    shown = null; entering = null;
     const cam = s.visual ? s.cam || null : s.cam || 'fit';
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     // Coming back to it from a later slide shows its end at once: it plays only going forward.
@@ -1849,7 +1850,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // card they also stay out until it is lifted, a catheter slide's included: its words would otherwise come in under the case.)
     if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
     await settleRun();
-    if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn(); }
+    if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn({ i: to, gen: g }); }
     if (cut()) return;
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual) app.dataset.lit = slideTargets(s).lit.join(' ');
@@ -1878,7 +1879,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (swap) { await until(() => cut() || stage.organsSettled(), 1500); if (cut()) return; }
       await unseen(cut); if (cut()) return;
       await caseEnd(cut); if (cut()) return;
-      bare = false; layout(); cardsIn();
+      bare = false; cardsIn({ i: to, gen: g });
       // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
       await wait(60); await until(() => cut() || !cardsEntering(), 1200);
       if (cut()) return;
@@ -1923,7 +1924,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The fonts in and two frames for the cards' charts and refits to run, then one last fit; then the cards show (eased in).
   // (The cards were fitted unseen; once in place, every ladder asks again whether its plot fits, before the next paint.)
   const reFit = () => { for (const x of document.querySelectorAll('.pz-data.strip, .pz-cell.strip')) x.classList.remove('strip'); fitted.forEach(fitNow); };
-  function cardsIn() { if (ui) { reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
+  // (at: the slide coming in. Its last layout, here while it is still unseen, keys the words' lock, so the size the cards come in
+  // at is the size they keep: keyed only once the slide was shown, the passes while the cards eased in measured afresh, and on a
+  // tight iPad a reading settling or a chart lettered stepped the title or folded the ladder, so the card came in and then snapped.)
+  function cardsIn(at) { if (ui) { if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
   // The last refits that used to run as the cards came in (a ladder's strip given back its plot, the charts lettered again, the
   // layout their new sizes call for, a frame later) run while the cards are still unseen, so they come in at their final size and
   // never snap to it in view (an upright iPad's teaching card did). cardsIn's own reFit then finds nothing left to change.
@@ -2580,7 +2584,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The words' sizes settle once per slide, before its cards enter: a later pass (a reading ticking, the data card growing)
     // keeps them, so the teaching card's text never changes size while it is in view. (A new text size in Settings is a new layout:
     // kept, a card folded at 200% stayed folded back at 100%.)
-    const lockKey = shown ? `${shown.gen}:${shown.i}:${W.toFixed(0)}x${H.toFixed(0)}:${stage.labelScale()}` : null, lock = lockKey && textLock?.key === lockKey ? textLock : null;
+    const at = shown || entering, lockKey = at ? `${at.gen}:${at.i}:${W.toFixed(0)}x${H.toFixed(0)}:${stage.labelScale()}` : null, lock = lockKey && textLock?.key === lockKey ? textLock : null;
     // (A ladder's fold holds for the slide being drawn, from its first measure: keyed by the slide wanted, not the one shown, so
     // the fold found while its cards come in is kept once it shows. Keyed by the slide shown, the card unfolded for a moment
     // as it came in at 200%, then folded again.)
@@ -2732,7 +2736,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Not while the leaving slide's card is still out, its charts lettered for the old size: only the new card, being fitted unseen
     // (pz-prep) or in view.)
     if (below && ladderFold !== foldKey && slides[want]?.fold !== false && (ui.root.classList.contains('pz-prep') || !dd.classList.contains('pz-hide')) && !dd.classList.contains('has-tool') && !dd.classList.contains('tiles-only') && !dd.classList.contains('tool-only')
-      && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-folds') && (({ v, h }) => v > 1 || h > 1)(overflowOf(dd))) { ladderFold = foldKey; textLock = null; layout(); return; }
+      && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-folds') && !lock && (({ v, h }) => v > 1 || h > 1)(overflowOf(dd))) { ladderFold = foldKey; textLock = null; layout(); return; }
     // The stacked pair shorter than the screen is centred top to bottom as one (equal room above and below, never closer than one margin
     // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
     let shift = 0;
@@ -3568,7 +3572,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     lastAt = -1;
     saved = before;
     if (saved && !saved.cards) saved.cards = stashCards?.();
-    deck = d; slides = d.mine ? d.slides : withOverview(d).slides; shown = null; shownState = -1; black = false; app.classList.remove('pz-blacked');
+    deck = d; slides = d.mine ? d.slides : withOverview(d).slides; shown = null; entering = null; shownState = -1; black = false; app.classList.remove('pz-blacked');
     closeHome?.();
     const st0 = store.get();
     if (!layersBefore) layersBefore = { ...st0.lobuleLayers };
@@ -3593,7 +3597,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!deck) return;
     if (cover) coverDown(true);
     stopLapse(); cathStop(); abSlow(); liveOff = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
-    deck = null; shown = null; want = 0;
+    deck = null; shown = null; entering = null; want = 0;
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);

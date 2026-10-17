@@ -97,3 +97,15 @@ test('a data card folded for the slide at this size stays folded until the words
   assert.match(js, /foldHeld = dd\.classList\.contains\('pz-folds'\) \? foldKey : null;/);
   assert.doesNotMatch(js, /if \(!lock && dd\.classList\.contains\('pz-folds'\)\) setFolds\(false\);/, 'never unfolded unconditionally on an unlocked pass');
 });
+
+// iPad decks (Mohammad, 17 Oct): "the teaching card appears then it snaps to its size". The words' lock was keyed only once the
+// slide was shown, so every pass while the cards eased in measured afresh. It is now keyed from the cards' last unseen layout.
+test('the teaching card keeps the size it came in at: the lock starts with the last unseen layout', () => {
+  assert.match(js, /const at = shown \|\| entering, lockKey = at \? `\$\{at\.gen\}:\$\{at\.i\}:/);
+  assert.match(js, /function cardsIn\(at\) \{ if \(ui\) \{ if \(at\) \{ entering = at; layout\(\); \} reFit\(\);/, 'keyed before the cards show');
+  assert.match(js, /bare = false; cardsIn\(\{ i: to, gen: g \}\);/);
+  assert.match(js, /if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
+  assert.match(js, /shown = null; entering = null;\n/, 'a new slide starts unlocked');
+  assert.match(js, /if \(bare\) \{ bare = false; layout\(\); cardsIn\(\); \}/, 'a cut transition never locks the next slide early');
+  assert.match(js, /!dd\.classList\.contains\('pz-folds'\) && !lock && \(\(\{ v, h \}\) => v > 1 \|\| h > 1\)\(overflowOf\(dd\)\)\) \{ ladderFold = foldKey;/, 'a ladder never folds once its slide\'s sizes are locked');
+});
