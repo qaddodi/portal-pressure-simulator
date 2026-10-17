@@ -33,18 +33,19 @@ test('the teaching card shows the tag as a corner tab in the level\'s colour, th
   assert.match(src, /const lvl = s\.visual \? null : siteTag\(deck, s\) \|\| railLvl, stab = ui\.shade\.querySelector\('\.pz-sitetab'\);/);
   assert.match(src, /stab\.dataset\.site = lvl\.site; stab\.textContent = lvl\.name;/);
   assert.match(src, /text\.replaceChildren\(\.\.\.\[h\('h1', \{ class: 'pz-h' \}, \.\.\.diseaseNodes\(nb\(s\.title\)\)\)/);
-  // (the deck tab's mirror: top left, flush, its outer top corner from the same variable and its bottom right corner rounded,
-  // tinted in the level's colour)
-  assert.match(css, /\.pz-sitetab \{ position: absolute; top: 0; left: 0;[^}]*border-radius: var\(--pz-tab-ro, 0px\) 0 calc\(var\(--pz-tabh\) \* \.5\) 0; background: color-mix\(in srgb, var\(--site\) 16%, transparent\);[^}]*font: var\(--caps-w\) var\(--pz-tabf\)\/1 var\(--font-ui\)/);
-  assert.match(css, /\n\.pz-tabname \{ position: absolute; top: 0; right: 0;[^}]*border-radius: 0 var\(--pz-tab-ro, 0px\) 0 calc\(var\(--pz-tabh\) \* \.5\);/);
-  // (on the glass both tabs sit inside its outline, their outer corner on its inner curve: no clipping, no per-side offsets)
-  assert.match(css, /\.pz-shade:is\(\.stack, \.pz-card\) \{ --pz-tab-ro: calc\(var\(--pz-r\) - 1px\); \}/);
+  // (the deck tab's mirror: top left, the same way in from the edges, its outer top corner from the same variable and its
+  // bottom right corner rounded, tinted in the level's colour)
+  assert.match(css, /\.pz-sitetab \{ position: absolute; top: var\(--pz-tab-gap, 0px\); left: var\(--pz-tab-gap, 0px\);[^}]*border-radius: var\(--pz-tab-ro, 0px\) 0 calc\(var\(--pz-tabh\) \* \.5\) 0; background: color-mix\(in srgb, var\(--site\) 16%, transparent\);[^}]*font: var\(--caps-w\) var\(--pz-tabf\)\/1 var\(--font-ui\)/);
+  assert.match(css, /\n\.pz-tabname \{ position: absolute; top: var\(--pz-tab-gap, 0px\); right: var\(--pz-tab-gap, 0px\);[^}]*border-radius: 0 var\(--pz-tab-ro, 0px\) 0 calc\(var\(--pz-tabh\) \* \.5\);/);
+  // (on the glass both tabs sit a 2 px strip of glass inside its outline, so the outline shows against them, their outer
+  // corner concentric with the glass's: no clipping, no per-side offsets)
+  assert.match(css, /\.pz-shade:is\(\.stack, \.pz-card\) \{ --pz-tab-gap: 2px; --pz-tab-ro: calc\(var\(--pz-r\) - 1px - var\(--pz-tab-gap\)\); \}/);
   assert.doesNotMatch(css, /\.pz-shade:is\(\.stack, \.pz-card\) \{ overflow: hidden; \}/);
   assert.doesNotMatch(css, /\.pz-shade:is\(\.stack, \.pz-card\) :is\(\.pz-tabname, \.pz-sitetab\) \{/);
   assert.doesNotMatch(css, /\.pz-(tabname|sitetab) \{ border-top-(left|right)-radius/);
-  // (the glass's lit top edge is drawn once, over the plain glass only, cut where each tab begins, so nothing pale runs
-  // between a tab and the outline; the glass itself no longer draws it)
-  assert.match(css, /\.pz-shade:is\(\.stack, \.pz-card\)::after \{ --pz-lit-mask: linear-gradient\(to right, transparent calc\(1px \+ var\(--pz-lit-l, 0px\)\), #000 0 calc\(100% - 1px - var\(--pz-lit-r, 0px\)\), transparent 0\);\s*content: ""; position: absolute; inset: -1px; border: 1px solid transparent; border-radius: inherit; box-shadow: inset 0 1px 0 var\(--pz-glass-edge\); -webkit-mask-image: var\(--pz-lit-mask\); mask-image: var\(--pz-lit-mask\);/);
+  // (the glass's lit top edge is drawn once, over the plain glass only, cut over each tab and its strip, so nothing pale runs
+  // above a tab; the glass itself no longer draws it)
+  assert.match(css, /\.pz-shade:is\(\.stack, \.pz-card\)::after \{ --pz-lit-mask: linear-gradient\(to right, transparent calc\(1px \+ var\(--pz-tab-gap\) \+ var\(--pz-lit-l, 0px\)\), #000 0 calc\(100% - 1px - var\(--pz-tab-gap\) - var\(--pz-lit-r, 0px\)\), transparent 0\);\s*content: ""; position: absolute; inset: -1px; border: 1px solid transparent; border-radius: inherit; box-shadow: inset 0 1px 0 var\(--pz-glass-edge\); -webkit-mask-image: var\(--pz-lit-mask\); mask-image: var\(--pz-lit-mask\);/);
   for (const sel of ['.pz-shade.stack {', '.pz-shade.pz-card:not(.stack) {']) {
     const at = css.indexOf('\n' + sel), rule = css.slice(at, css.indexOf('}', at));
     assert.ok(at >= 0, sel);
@@ -53,6 +54,8 @@ test('the teaching card shows the tag as a corner tab in the level\'s colour, th
   }
   assert.match(src, /ui\.shade\.style\.setProperty\('--pz-lit-l', `\$\{\(\(stab\?\.getBoundingClientRect\(\)\.width \|\| 0\) \/ k\)\.toFixed\(2\)\}px`\);/);
   assert.match(src, /ui\.shade\.style\.setProperty\('--pz-lit-r', `\$\{\(\(tabEl\?\.getBoundingClientRect\(\)\.width \|\| 0\) \/ k\)\.toFixed\(2\)\}px`\);/);
+  // (a phone's title keeps its 8 px below the tabs' bottom edge, strip included)
+  assert.match(src, /tabEl\.offsetTop \+ tabEl\.offsetHeight : 0, stab \? stab\.offsetTop \+ stab\.offsetHeight : 0\);/);
 });
 
 test('a slide with a level rail names its level in the corner tab where the rail is hidden (phone or iPad held upright)', () => {

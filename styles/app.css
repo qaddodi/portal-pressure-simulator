@@ -1530,24 +1530,25 @@ button.finding { cursor: pointer; }
 :is(.pz-shade.pz-card:not(.stack):not(.low), .pz:not(.stack):not(.low) .pz-panel) { --pz-tabh: calc(var(--pz-cp) * .72); --pz-tabf: max(12px, calc(var(--pz-tabh) * .56)); }
 :root[data-theme="dark"] :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); } }
-.pz-tabname { position: absolute; top: 0; right: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55 - .05em) 0 calc(var(--pz-tabh) * .55); border-radius: 0 var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
+.pz-tabname { position: absolute; top: var(--pz-tab-gap, 0px); right: var(--pz-tab-gap, 0px); z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55 - .05em) 0 calc(var(--pz-tabh) * .55); border-radius: 0 var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
 .pz-panel > .pz-tabname { zoom: 1; }   /* (the panel's corner clips it to its curve; its fit zoom never shrinks the tab under 12 px) */
 .pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px), calc(var(--pz-tabh) + 10px)); }
 .pz.stack .pz-panel.tabbed { padding-top: calc(var(--pz-tabh) + 10px); }
 .app.pz-hi .pz-tabname { color: var(--text); }
-/* The slide's level (presenter.js wordsIn): the deck tab's mirror in the glass's top left corner, flush with its top and left
-   edges, only its bottom right corner rounded, the same height and words, tinted in the level's own colour. */
-.pz-sitetab { position: absolute; top: 0; left: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55) 0 calc(var(--pz-tabh) * .55 - .05em); border-radius: var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5) 0; background: color-mix(in srgb, var(--site) 16%, transparent); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); pointer-events: none; user-select: none; }
+/* The slide's level (presenter.js wordsIn): the deck tab's mirror in the glass's top left corner, the same way in from its top
+   and left edges, only its bottom right corner rounded, the same height and words, tinted in the level's own colour. */
+.pz-sitetab { position: absolute; top: var(--pz-tab-gap, 0px); left: var(--pz-tab-gap, 0px); z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55) 0 calc(var(--pz-tabh) * .55 - .05em); border-radius: var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5) 0; background: color-mix(in srgb, var(--site) 16%, transparent); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); pointer-events: none; user-select: none; }
 .pz-sitetab[hidden], .pz-shade.pz-tabs-tight .pz-tabname { display: none; }
 .pz-shade:not(.stack) .pz-sitetab[data-rail] { display: none; }   /* (where the level rail shows, it names the level) */
 .app.pz-hi .pz-sitetab { color: var(--text); }
-/* (On the glass both tabs sit inside its 1 px outline, flush with it: each tab's outer top corner takes the glass's inner curve
-   (its corner radius less the outline), so the tab's colour runs right up to the outline and stops there, top, side and corner,
-   with no clipping. The glass's lit top edge lights the plain glass only: drawn once over the glass's own shape and cut where
-   each tab begins (--pz-lit-l and --pz-lit-r, the tabs' widths: presenter.js layout), so no pale line runs between a tab and
-   the outline.) */
-.pz-shade:is(.stack, .pz-card) { --pz-tab-ro: calc(var(--pz-r) - 1px); }
-.pz-shade:is(.stack, .pz-card)::after { --pz-lit-mask: linear-gradient(to right, transparent calc(1px + var(--pz-lit-l, 0px)), #000 0 calc(100% - 1px - var(--pz-lit-r, 0px)), transparent 0);
+/* (On the glass both tabs sit inside its 1 px outline with a 2 px strip of plain glass between, top, side and corner
+   (--pz-tab-gap): the outline is about as dark as the tab colours, so where a tab touched it the two read as one and the tab
+   seemed to run over it (17 Oct). Each tab's outer top corner takes the glass's curve less the outline and the strip, so the
+   strip keeps one width round the bend. The glass's lit top edge lights the plain glass only: drawn once over the glass's own
+   shape and cut over each tab and its strip (--pz-lit-l and --pz-lit-r, the tabs' widths: presenter.js layout), so no pale
+   line runs above a tab.) */
+.pz-shade:is(.stack, .pz-card) { --pz-tab-gap: 2px; --pz-tab-ro: calc(var(--pz-r) - 1px - var(--pz-tab-gap)); }
+.pz-shade:is(.stack, .pz-card)::after { --pz-lit-mask: linear-gradient(to right, transparent calc(1px + var(--pz-tab-gap) + var(--pz-lit-l, 0px)), #000 0 calc(100% - 1px - var(--pz-tab-gap) - var(--pz-lit-r, 0px)), transparent 0);
   content: ""; position: absolute; inset: -1px; border: 1px solid transparent; border-radius: inherit; box-shadow: inset 0 1px 0 var(--pz-glass-edge); -webkit-mask-image: var(--pz-lit-mask); mask-image: var(--pz-lit-mask); pointer-events: none; }
 .pz-kick[data-site="none"] { color: var(--text-3); }
 .pz-h { margin: 0; font: 540 var(--s-title)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
