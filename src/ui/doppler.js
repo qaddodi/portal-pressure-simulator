@@ -140,6 +140,17 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   // The top strip's fitting steps (see fitStrip): [type scale, the direction's short form, the pattern on its own line].
   let stripKey = '', stripStep = 0, dirFull = '—', stripType = '', rng = null;
+  // Whether the monitor is on screen, and the widths the strip is fitted to, as the browser reports them when they change: read
+  // on every frame (offsetParent, clientWidth), they made the browser lay the page out mid-frame, after the figure's own writes.
+  // (No observers, as in a bare test page: read as before.)
+  let seen = false, repW = -1, cvW = -1;
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was) redraw(); }) : null;
+  io?.observe(cv);
+  const shown = () => cv.isConnected && (io ? seen : !!cv.offsetParent);
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {
+    for (const e of es) { const w = e.borderBoxSize?.[0]?.inlineSize ?? e.contentRect.width; if (e.target === report) repW = w; else cvW = w; }
+  }) : null;
+  ro?.observe(report, { box: 'border-box' }); ro?.observe(cv, { box: 'border-box' });
   const STEPS = [[1, false, false], [0.9, false, false], [1, false, true], [0.9, false, true], [0.8, false, true], [0.9, true, true], [0.8, true, true]];
   const SHORT_DIR = { 'Portal → hepatic vein': 'PV → HV', 'Portal → IVC': 'PV → IVC', 'Portal → systemic': 'PV → systemic', 'Systemic → portal': 'Systemic → PV', 'Toward the heart': 'To the heart', 'Not available during time lapse': 'Paused in time lapse' };
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
@@ -647,7 +658,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     return w + spare <= have && (!wrap || !p || p.width + 14 + spare <= have);
   }
   function fitStrip() {
-    const key = `${report.clientWidth}|${cv.clientWidth}|${stripType}|${dirFull}|${velEl.hidden ? '' : velEl.textContent}|${patternEl.textContent}`;
+    const key = `${ro ? repW : report.clientWidth}|${ro ? cvW : cv.clientWidth}|${stripType}|${dirFull}|${velEl.hidden ? '' : velEl.textContent}|${patternEl.textContent}`;
     if (key === stripKey) return;
     stripKey = key;
     // (the room is the monitor picture's, 12 px in from its right edge, where the report is wider than it: a phone held sideways)
@@ -695,7 +706,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
     if (ovOn) {
       const k0 = stripKey; fitStrip();
-      if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4; if (ovKey !== ovLast || t > ovTop || t < ovTop - 4) ovTop = t; }
+      // (No word of the strip laid out yet gives no bottom: the strip keeps its last height. Taken as is, an infinite height made the
+      // trace's image fail to build, a monitor drawn while hidden.)
+      if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4; if (Number.isFinite(t) && (ovKey !== ovLast || t > ovTop || t < ovTop - 4)) ovTop = t; }
     } else {
       ovTop = 26;
       if (stripStep) { stripStepSet(0); stripKey = ''; }   // (off the strip the words are always whole and full size)
@@ -703,7 +716,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     ovLast = ovKey;
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
-    if (w < 60 || hh < 60) return;
+    if (w < 60 || hh < 60 || !Number.isFinite(H) || !Number.isFinite(W)) return;
     if (pickNext) pickWindow();
     const label = probe ? probeName(meta()) + (isStentProbe() ? ` · ${SEGS.find(([v]) => v === gateOf())[1]}` : '') : '';
     ctx.font = FONT(600, 12); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
@@ -904,7 +917,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let raf = 0, askedAt = 0, paintAt = 0, reportDue = false;
   function loop(now) {
     raf = 0;
-    if (!frame || !cv.isConnected || !cv.offsetParent) { if (reportDue) { reportDue = false; updateReport(); } return; }
+    if (!frame || !shown()) { if (reportDue) { reportDue = false; updateReport(); } return; }
     // The running trace scrolls on every frame the screen offers (15 a second in Battery saver). Its samples are the model's,
     // whatever the frame rate: each frame adds only the columns its elapsed time covers. A change while paused draws at once.
     if (live() && !labBusy && now - paintAt < paceMs()) { raf = nextFrame(loop); return; }
@@ -918,7 +931,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function redraw() {
     if (!frame) return;
     reportDue = true;
-    if (!cv.isConnected || !cv.offsetParent) { reportDue = false; updateReport(); }
+    if (!shown()) { reportDue = false; updateReport(); }
     askedAt = performance.now();
     if (!raf) raf = nextFrame(loop);
   }

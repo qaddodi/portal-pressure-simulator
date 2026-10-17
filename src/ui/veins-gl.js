@@ -1215,7 +1215,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
   for (let i = 0; i < 3; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 2, gl.FLOAT, false, 24, i * 8); }
   gl.bindVertexArray(null);
-  let lines = null, linesWas = false, lineVer = 0, lineSig = '', lineKey = '', glowKey = '';
+  let lines = null, linesWas = false, lineVer = 0, lineSig = '', lineKey = '', glowKey = '', lastMk = '';
   // The outlines are drawn into a layer of their own when they change, and the composite lays it over the picture: the
   // cells-only pass then keeps them, so an open organ card no longer repaints the whole picture every frame. Glows
   // (draws marked soft) have a layer too, which the composite lays under the organs.
@@ -1725,12 +1725,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       cathWas = !!cath;
       // The organ outlines (over the vessels) are a layer redrawn when they or the view change, with one whole repaint
       // then and once after they go. Under the catheter's passes they are drawn last, as before, over it.
-      const m = baseM;
-      const hard = hasHard(), glow = hasSoft(), layer = hard && !cath;
-      const vk = `${lineVer}|${m.join(',')}|${canvas.width}x${canvas.height}`;
+      const m = baseM, mk = m.join(',');
+      // While the view moves (a pan, a zoom, a slide's camera glide) every frame is a whole repaint anyway, so the outlines are drawn
+      // straight onto it, as under the catheter, instead of into their layer first: that was one more full-screen pass a frame. The
+      // layer is made again on the first frame the view holds still, and that frame is a whole repaint too.
+      const moving = mk !== lastMk;
+      lastMk = mk;
+      const hard = hasHard(), glow = hasSoft(), layer = hard && !cath && !moving;
+      const vk = `${lineVer}|${mk}|${canvas.width}x${canvas.height}`;
       if (layer) {
         if (vk !== lineKey) { gpuProbe.time(gl, 'outline layer', () => renderLayer(lineLayer, m, false)); lineKey = vk; full = true; }
       } else if (!hard) { freeLayer(lineLayer); lineKey = ''; }
+      else if (moving) { lineKey = ''; full = true; }
       // (The glow lies behind the organs, so the catheter never draws over it: its layer holds whatever the catheter does.)
       if (glow) {
         if (vk !== glowKey) { gpuProbe.time(gl, 'glow layer', () => renderLayer(glowLayer, m, true)); glowKey = vk; full = true; }

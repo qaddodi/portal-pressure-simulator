@@ -23,7 +23,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=a6b2ad6236';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=dbd36a1b67';
-import { createTools } from './presenter-tools.js?v=fe18559da3';
+import { createTools } from './presenter-tools.js?v=e89550d1aa';
 import { openHandout } from './handout.js?v=95026eb257';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -2097,8 +2097,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
       if (s.tool) ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1 }); else ui.tools.hide();
       if (s.tool) ui.tools.ghost(toolGhost(s, i));
-      // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
-      const ms = fresh ? 0 : undefined;
+      // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them. So
+      // too while the new cards wait, unseen, for the camera to land (bare): their count ran unseen beside the glide, a frame's
+      // work each frame of it, and was over before they came in.)
+      const ms = fresh || (bare && ui.root.classList.contains('pz-prep')) ? 0 : undefined;
       abBlk = null;   // (the slide's own button is pressed again)
       if (lad) ui.ladder.set(now.fp, { key: s.key || [], ms, brackets: s.brackets, block: s.block });
       if (s.data) ui.tiles.set(now.fp, tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
