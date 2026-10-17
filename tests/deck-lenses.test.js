@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { EDGES, NODES } from '../src/engine/topology.js';
 import { deepMerge } from '../src/engine/scenario.js';
-import { originFractions } from '../src/ui/blood.js';
+import { originFractions, oxygenSat, SAT } from '../src/ui/blood.js';
 import { DECKS } from '../src/ui/decks.js';
 
 const KNOWN = ['velocity', 'flow', 'direction', 'heat', 'drop', 'delta', 'oxygen', 'origin'];
@@ -79,4 +79,16 @@ test('Right heart: congestion reaches the upper body with TR, not with an IVC we
   for (const n of ['SVC', 'IVCI', 'CONF']) assert.ok(rise(tr, n) > 8, `TR: ${n} backed up`);
   assert.ok(rise(web, 'IVCI') > 8 && rise(web, 'CONF') > 6, 'web: veins below it backed up');
   assert.ok(Math.abs(rise(web, 'SVC')) < 2, 'web: the upper body is clear');
+});
+
+// The oxygen buttons (deck review L1, L2, L4, 17 Oct): what the words say each one shows.
+test('Oxygen: zone 3 darkest, portal blood a little darker than arterial, reversed portal vein carries arterial blood out', () => {
+  const sat = (e, id) => { const o = oxygenSat(EDGES, NODES, e.Q, e.P), k = e.ei[id]; return [o.edge[2 * k], o.edge[2 * k + 1]]; };
+  const z = run('lobule', 'zones'), [inR, outR] = sat(z, 'SIN_RR');
+  assert.ok(outR < inR - 0.15, `sinusoids darken toward the central vein: ${inR} → ${outR}`);
+  const m = run('two-inflows', 'meet'), pv = sat(m, 'PV_TRUNK')[1], art = sat(m, 'A_HEP')[1];
+  assert.ok(pv > 0.8 && pv < art && art - pv < 0.15, `portal ${pv}, arterial ${art}`);
+  const f = run('two-inflows', 'fugal');
+  assert.ok(f.Q[f.ei.PV_TRUNK] < 0, 'the portal vein drains the liver');
+  assert.ok(Math.min(...sat(f, 'PV_TRUNK')) > SAT.artery - 0.03, `it carries arterial blood: ${sat(f, 'PV_TRUNK')}`);
 });
