@@ -383,7 +383,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   }
   // When the free space changes (a card opens, the readouts expand), a fitted lobule follows it.
   let refitLater = false;
-  function refit() { if (!geo || rubber || sinU > 0 || sinTo) { refitLater = !!geo; return; }   // not while in or on the way to the sinusoid: the zoom holds the lobule still
+  function refit() { if (geo && reaimOut()) return;
+    if (!geo || rubber || sinU > 0 || sinTo) { refitLater = !!geo; return; }   // not while in or on the way to the sinusoid: the zoom holds the lobule still
     // A new size: the lobule is built for it first (ensureGeo keeps the spot in view), so the framing below never mixes the old build with the new space.
     { const r = host.getBoundingClientRect(); if (r.width >= 2 && r.height >= 2) ensureGeo(Math.round(r.width), Math.round(r.height)); }
     // (Mid-glide to a station, the glide's target follows the new space: clampV would read the glide's first, still unzoomed frames as the fit
@@ -2871,10 +2872,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     }
     return { th, run };
   }
-  function diveGeometry() {
+  // (keep: an earlier geometry whose sinusoid end is kept, so only the lobule end moves.)
+  function diveGeometry(keep) {
     const G = geo, t = G.tubes[sinPick.tube], [, u] = distTo(t.pts, sinPick.w[0], sinPick.w[1]);
     const i = clamp(Math.round(u * (N - 1)), 1, N - 2), { th, run } = straightRun(t, i);
-    const p = toScreen(at(t.pts, u)), F = sv.frame();
+    const p = toScreen(at(t.pts, u)), F = keep ? { x: keep.c[0], y: keep.c[1], ang: keep.ang, k: keep.k, lumen: keep.lumen } : sv.frame();
     const rot = Math.atan2(Math.sin(F.ang - th), Math.cos(F.ang - th));
     const Z = clamp(F.lumen / Math.max(0.05, 2 * radiusAt(t, i) * V.k), 1.5, 400);
     // The zoom is one similarity, from the lobule as it is to the sinusoid view as it rests (p to the view's
@@ -2884,7 +2886,23 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const bx = c[0] - (m * p[0] - n * p[1]), by = c[1] - (n * p[0] + m * p[1]);
     const a = 1 - m, b = n, det = a * a + b * b;   // (I − M) q = c − M p, with I − M = [a b; −b a]
     const q = [(a * bx - b * by) / det, (b * bx + a * by) / det];
-    return { p, c, q, rot, Z, run, k: F.k, ang: F.ang };
+    return { p, c, q, rot, Z, run, k: F.k, ang: F.ang, lumen: F.lumen };
+  }
+  // On the way back out, the space the lobule lands in opens just after the zoom starts (the dock, and on a phone or upright
+  // iPad the top bar's second row, come back as the sinusoid view closes, a frame later). The zoom is aimed afresh at the
+  // lobule's new framing then, keeping its sinusoid end, so it lands there in one move: it used to land on the old framing
+  // and then pan (and zoom) to the new one (17 Oct, Mohammad). (Early in the zoom the two paths nearly coincide: at its start
+  // both are the sinusoid view exactly, whatever the lobule's framing, so the switch is not seen.)
+  function reaimOut() {
+    if (sinTo !== 0 || sinU <= 0 || !sinDive || rubber) return false;
+    const r = host.getBoundingClientRect();
+    if (`${Math.max(1, Math.round(r.width))}x${Math.max(1, Math.round(r.height))}` !== geoKey) return false;   // a new size: built for it once the zoom has landed, as before
+    const F0 = fitV(); kFit = F0.k;
+    if (atFit) Object.assign(V, F0); else clampV();
+    sinDive = diveGeometry(sinDive);
+    // (The lobule is drawn once more at its new framing, still under the zoom's transform.)
+    diveDrawn = false; refitLater = false; viewChanged(); placeSinusoid();
+    return true;
   }
   function placeSinusoid() {
     const u = sinU, rm = reduce.matches;
