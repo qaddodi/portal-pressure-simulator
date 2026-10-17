@@ -456,6 +456,11 @@ export function fitCanvas(canvas) {
   return { ctx, w: r.width, h: r.height };
 }
 
+/** A slider's fill follows its value: the wrapper (.range-wrap, styles/app.css) draws them from --p, 0 to 1. */
+export function paintRange(input, f) {
+  input.parentElement?.style.setProperty('--p', String(Math.min(1, Math.max(0, f))));
+}
+
 /** Every range slider in the app, at once (call once):
  *  - a finger anywhere on the track moves the thumb there and drags it (iOS only lets the thumb itself be dragged);
  *  - Shift + arrow keys step ten times as far; the wheel adjusts a slider that has focus;
@@ -472,8 +477,9 @@ export function enhanceRanges(root = document) {
     input.dispatchEvent(new Event('input', { bubbles: true }));
     if (commit) input.dispatchEvent(new Event('change', { bubbles: true }));
   };
-  const fromX = (input, cx) => {
-    const r = input.getBoundingClientRect(), min = +input.min || 0, max = +(input.max || 100), th = 22;
+  // (th: the thumb's width, the slider's --tw, 18 px or 22 px on a phone: its centre runs from th / 2 to the far end less th / 2.)
+  const fromX = (input, cx, th) => {
+    const r = input.getBoundingClientRect(), min = +input.min || 0, max = +(input.max || 100);
     return min + clamp((cx - r.left - th / 2) / Math.max(1, r.width - th), 0, 1) * (max - min);
   };
   root.addEventListener('pointerdown', (e) => {
@@ -481,9 +487,10 @@ export function enhanceRanges(root = document) {
     if (e.pointerType !== 'touch' || !isRange(input)) return;
     e.preventDefault();
     input.focus({ preventScroll: true });
-    setTo(input, fromX(input, e.clientX));
+    const th = parseFloat(getComputedStyle(input).getPropertyValue('--tw')) || 18;
+    setTo(input, fromX(input, e.clientX, th));
     try { input.setPointerCapture(e.pointerId); } catch { /* gone */ }
-    const move = (ev) => { if (ev.pointerId === e.pointerId) setTo(input, fromX(input, ev.clientX)); };
+    const move = (ev) => { if (ev.pointerId === e.pointerId) setTo(input, fromX(input, ev.clientX, th)); };
     const up = (ev) => {
       if (ev.pointerId !== e.pointerId) return;
       input.removeEventListener('pointermove', move); input.removeEventListener('pointerup', up); input.removeEventListener('pointercancel', up);

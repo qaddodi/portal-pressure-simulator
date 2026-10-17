@@ -649,19 +649,30 @@ div.vital { cursor: default; }
 .reset-btn { width: 18px; height: 18px; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--accent); display: none; place-items: center; border-radius: 4px; }
 .reset-btn svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .ctl.changed .reset-btn { display: grid; }
-.range-wrap { touch-action: none; position: relative; height: 20px; display: flex; align-items: center; }
-.range-wrap .normal { position: absolute; top: 50%; height: 10px; transform: translateY(-50%); border-radius: 3px; background: color-mix(in srgb, var(--ok) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 28%, transparent); pointer-events: none; }
+/* Every slider is the data tiles' scale bar made draggable (Mohammad's pick B, 17 Oct): the same 6 px track, a solid dot for
+   now and, on a slide's what-if, a ring where the slide started. The wrapper draws the track and the fill from --p (0 to 1, set
+   with the value) and the input on top keeps a clear track, so the drawing and the thumb line up: the thumb's centre runs
+   from half its width to the far end less half its width (--tw), as the browser places it. A normal range is the tiles'
+   green band on the track, and that slider draws no fill. */
+.range-wrap { touch-action: none; position: relative; isolation: isolate; height: 20px; display: flex; align-items: center; --tw: 18px; --p: 0; }
+.range-wrap::before, .range-wrap::after { content: ''; position: absolute; left: 0; top: 50%; height: 6px; margin-top: -3px; border-radius: 3px; pointer-events: none; z-index: 0; }
+.range-wrap::before { right: 0; background: color-mix(in srgb, var(--text) 10%, transparent); }
+.range-wrap::after { width: calc(var(--tw) / 2 + (100% - var(--tw)) * var(--p)); background: color-mix(in srgb, var(--accent) 60%, transparent); }
+.range-wrap:has(> .normal)::after { display: none; }
+.range-wrap .normal { position: absolute; top: 50%; height: 6px; margin-top: -3px; z-index: 0; border-radius: 3px; background: color-mix(in srgb, var(--ok) 60%, transparent); pointer-events: none; }
+.range-wrap .sl-start { position: absolute; top: 50%; left: calc(var(--tw) / 2 + (100% - var(--tw)) * var(--s, 0)); width: 12px; height: 12px; margin: -6px 0 0 -6px; z-index: 1; box-sizing: border-box; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 50%, transparent); background: var(--surface); pointer-events: none; }
 /* Dragging a slider never scrolls the card, panel or page under the finger. */
 .range-wrap, input[type=range] { touch-action: none; }
-input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; height: 20px; margin: 0; position: relative; cursor: pointer; --pct: 0%; }
-input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--pct), var(--surface-3) var(--pct)); }
-input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--pct), var(--surface-3) var(--pct)); }
-input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--light-ink); border: 0; margin-top: -8px; box-shadow: 0 0 0 1.5px var(--accent), 0 1px 3px rgb(var(--black-rgb) / .2); transition: transform var(--t-fast); }
-input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--light-ink); border: 0; box-shadow: 0 0 0 1.5px var(--accent), 0 1px 3px rgb(var(--black-rgb) / .2); }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; height: 20px; margin: 0; position: relative; z-index: 2; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; background: transparent; }
+input[type=range]::-moz-range-track { height: 6px; background: transparent; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; margin-top: calc(3px - var(--tw, 18px) / 2); box-shadow: 0 0 0 3px var(--surface); transition: transform .15s var(--ease); }
+input[type=range]::-moz-range-thumb { width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; box-shadow: 0 0 0 3px var(--surface); }
 input[type=range]:active::-webkit-slider-thumb { transform: scale(1.12); }
 input[type=range]:disabled { cursor: not-allowed; opacity: .45; }
 input[type=range]:focus-visible { outline: none; }
-input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--focus), 0 0 0 5px var(--accent-soft); }
+input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--focus); }
+input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--focus); }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .switch { position: relative; width: 34px; height: 20px; flex: none; }
 .switch input { opacity: 0; width: 100%; height: 100%; margin: 0; position: absolute; cursor: pointer; z-index: var(--z-figure); }
@@ -895,7 +906,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .p-head { padding: 12px 16px 12px; }
   .p-body { padding: 4px 16px 24px; }
   .changes { padding-left: 16px; padding-right: 16px; }
-  input[type=range]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -8px; }
+  .range-wrap { --tw: 22px; }   /* (a bigger dot to grab on a phone; the drawing follows --tw) */
   .range-wrap, input[type=range] { height: 28px; }
   .section > summary { padding: 16px 0; min-height: 48px; }
 }
@@ -1732,7 +1743,6 @@ button.finding { cursor: pointer; }
 .pz-ab { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; width: fit-content; max-width: 100%; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; }
 /* (In the teaching card the switch sits centred, with no shadow: the card's own layer clipped a shadow to a hard-edged box.) */
 .pz-text .pz-ab { margin-inline: auto; align-self: center; box-shadow: none; background: none; border-color: transparent; }   /* (in the card: no track round the choices, the card is their ground; DG4 17 Oct) */
-.pz-text .pz-wi { box-shadow: none; }   /* (as the buttons: the card clipped its shadow into a square-cornered band under it, I6 17 Oct) */
 .pz-abb { appearance: none; border: 0; border-radius: 999px; padding: .5em 1.05em; min-height: 40px; font: 600 var(--s-lab)/1.1 var(--font-ui); color: var(--text-2); background: transparent; cursor: pointer; text-decoration-line: underline; text-decoration-thickness: 2px; text-decoration-color: transparent; text-underline-offset: .32em; transition: background-color .3s var(--ease), color .3s var(--ease), box-shadow .3s var(--ease), text-decoration-color .3s var(--ease); }
 @media (hover: hover) { .pz-abb:hover { color: var(--text); background: var(--hairline); } }
 /* The chosen option reads in full ink with an accent underline, the others in grey: no filled pill, an iOS switch's look (DG4). */
@@ -2168,14 +2178,18 @@ button.finding { cursor: pointer; }
   .pz.stack .pz-text > .pz-ab.pz-pillclr { margin-bottom: calc((var(--pz-reach-box, 37px) + var(--pz-fkrow, 0px)) / var(--abz)); }   /* (its gap above the pill in its own zoom) */
 }
 /* A what-if slider: the same frosted pill as the treatment buttons, its name, the track between its two ends, and the value. */
-.pz-wi { display: flex; align-items: center; gap: .5em .9em; flex-wrap: wrap; padding: .45em 1.05em; width: min(100%, 34em); box-sizing: border-box; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; font: 600 var(--s-lab)/1.15 var(--font-ui); color: var(--text); }
-.pzi-l { display: flex; flex-direction: column; gap: .1em; white-space: nowrap; }
+/* A what-if sits on the card with no box of its own (the card is its ground, as for the choice buttons, DG4): "What if" and its name
+   on the first row, with the value at the right where it has one; the track on a line of its own at the card's width, and
+   its end words small under its two ends, on every screen (Mohammad's pick B, 17 Oct). */
+.pz-wi { display: flex; align-items: baseline; gap: .35em .7em; flex-wrap: wrap; padding: 0; width: 100%; box-sizing: border-box; pointer-events: auto; font: 600 var(--s-lab)/1.15 var(--font-ui); color: var(--text); }
+.pzi-l { display: flex; align-items: baseline; gap: .5em; flex: 1 1 auto; min-width: 0; white-space: nowrap; }
 .pzi-k { font: 600 var(--s-cap)/1 var(--font-ui); color: var(--text-2); }   /* (a label, so ink: the slider beside it carries the accent, DG3) */
-.pzi-t { flex: 1 1 10em; min-width: 0; display: flex; align-items: center; gap: .6em; }
-.pzi-t .range-wrap { flex: 1; min-width: 4em; }
-.pzi-e { font: 500 var(--s-cap)/1 var(--font-ui); color: var(--text-2); white-space: nowrap; }
+.pzi-t { flex: 1 0 100%; order: 1; min-width: 0; display: grid; grid-template-columns: 1fr 1fr; align-items: center; row-gap: .25em; }
+.pzi-t .range-wrap { grid-column: 1 / -1; grid-row: 1; min-width: 0; }
+.pzi-e { grid-row: 2; justify-self: start; font: 500 var(--s-cap)/1 var(--font-ui); color: var(--text-2); white-space: nowrap; }
+.pzi-e:last-child { grid-column: 2; justify-self: end; }
 .pzi-v { min-width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pz.stack .pz-wi { width: 100%; padding: .3em .8em; gap: .3em .7em; border-radius: 18px; }
+.pz.stack .pz-wi { gap: .3em .7em; }
 .pz.stack .pzi-l { flex-direction: row; align-items: baseline; gap: .5em; }
 /* (A phone: the slider takes a line of its own at the card's width, its end words at the track's ends; on one line with the label the track was a stub.) */
 .pz.stack .pzi-t { flex: 1 0 100%; }

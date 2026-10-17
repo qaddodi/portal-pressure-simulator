@@ -14,16 +14,16 @@
 
 import { store, replaceParams } from './store.js?v=31ee79b6ab';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox } from './util.js?v=a60727fe1b';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange } from './util.js?v=1b66c4ae69';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=9273baf980';
+import { sinusoidSupported } from './sinusoid-view.js?v=54548ee400';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=3ab8e3ccf5';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=e6a5c61948';
-import { createTools } from './presenter-tools.js?v=c7cb8abaa9';
+import { createHvpgMonitor } from './hvpg-proc.js?v=b0f4bd2a3c';
+import { createTools } from './presenter-tools.js?v=e570efd46d';
 import { openHandout } from './handout.js?v=e7760e75f2';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -31,7 +31,7 @@ import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, di
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { createFigureKey } from './figure-key.js?v=8d06c01d83';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=831ae6121c';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=cdbfc9ab38';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1502,7 +1502,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A label that already names the unit, "Weeks pregnant", shows the bare number: "24", not "24 weeks".)
     const bare = !!w.unit && w.label.toLowerCase().startsWith(w.unit.toLowerCase());
     const fmtV = (x) => (w.unit ? `${fmt(x, w.step >= 1 ? 0 : 1)}${bare ? '' : ` ${w.unit}`}` : '');
-    const paint = (x) => { input.style.setProperty('--pct', `${((x - w.min) / (w.max - w.min)) * 100}%`); out.textContent = fmtV(x); };
+    // The tiles' scale bar made draggable: a dot for now, and a ring where the slide started, which stays behind as the learner
+    // drags, so the distance moved shows (Mohammad's pick B, 17 Oct).
+    const frac = (x) => (x - w.min) / (w.max - w.min);
+    const track = h('div', { class: 'range-wrap', style: { '--s': String(clamp(frac(v0), 0, 1)) } }, h('span', { class: 'sl-start', 'aria-hidden': 'true' }), input);
+    const paint = (x) => { paintRange(input, frac(x)); out.textContent = fmtV(x); };
     let raf = 0;
     input.addEventListener('input', () => {
       paint(+input.value);
@@ -1513,7 +1517,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     paint(v0);
     return h('div', { class: 'pz-wi', role: 'group', 'aria-label': `What if: ${w.label}` },
       h('span', { class: 'pzi-l' }, h('span', { class: 'pzi-k' }, 'What if'), w.label),
-      h('div', { class: 'pzi-t' }, w.ends ? h('span', { class: 'pzi-e' }, w.ends[0]) : null, h('div', { class: 'range-wrap' }, input), w.ends ? h('span', { class: 'pzi-e' }, w.ends[1]) : null),
+      h('div', { class: 'pzi-t' }, w.ends ? h('span', { class: 'pzi-e' }, w.ends[0]) : null, track, w.ends ? h('span', { class: 'pzi-e' }, w.ends[1]) : null),
       w.unit ? out : null);
   }
   function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; paintChrome(); }

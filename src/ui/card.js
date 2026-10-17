@@ -4,8 +4,8 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink } from './util.js?v=a60727fe1b';
-import { cardFor, normalizeSel } from './actions.js?v=c5f1a99585';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange } from './util.js?v=1b66c4ae69';
+import { cardFor, normalizeSel } from './actions.js?v=5742b3e1c9';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -232,7 +232,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       const lab = typeof v.label === 'function' ? v.label() : v.label;
       const input = h('input', { type: 'range', min: v.min, max: v.max, step: v.step, 'aria-label': lab, 'data-def': v.def ?? null });
       const val = h('span', { class: 'ctl-val' });
-      const paint = (x) => { input.value = x; val.textContent = v.format(x); input.style.setProperty('--pct', `${((x - v.min) / (v.max - v.min)) * 100}%`); row.classList.toggle('changed', v.def != null && Math.abs(x - v.def) > 1e-9); };
+      const paint = (x) => { input.value = x; val.textContent = v.format(x); paintRange(input, (x - v.min) / (v.max - v.min)); row.classList.toggle('changed', v.def != null && Math.abs(x - v.def) > 1e-9); };
       let fresh = true;
       input.addEventListener('pointerdown', () => { fresh = true; });
       input.addEventListener('keydown', () => { fresh = true; });
@@ -306,14 +306,15 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (v.type === 'drain') {
       const vol = h('input', { type: 'range', min: 1, max: 10, step: 0.5, value: 5, 'aria-label': 'Volume to drain (L)' });
       const volLbl = h('span', { class: 'ctl-val' });
-      const paintVol = () => { volLbl.textContent = `${(+vol.value).toFixed(1)} L`; vol.style.setProperty('--pct', `${((+vol.value - 1) / 9) * 100}%`); };
+      const volWrap = h('div', { class: 'range-wrap' }, vol);
+      const paintVol = () => { volLbl.textContent = `${(+vol.value).toFixed(1)} L`; paintRange(vol, (+vol.value - 1) / 9); };
       vol.addEventListener('input', paintVol); paintVol();
       const alb = h('input', { type: 'checkbox', checked: true });
       const go = h('button', { class: 'ac-btn' }, svgIcon('needle', 'ac-ic'), h('span', { class: 'ac-bl' }, 'Drain'));
       go.addEventListener('click', () => ctx.action({ kind: 'paracentesis', mL: +vol.value * 1000, albumin: alb.checked }));
       actionable.push({ el: go, run: () => go.click(), focus: () => go.focus() });
       return h('div', { class: 'ac-drain' },
-        h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, svgIcon('needle', 'ac-ic'), 'Paracentesis'), volLbl), h('div', { class: 'range-wrap' }, vol),
+        h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, svgIcon('needle', 'ac-ic'), 'Paracentesis'), volLbl), volWrap,
         h('div', { class: 'ac-drain-row' }, h('label', { class: 'check-row' }, alb, 'Albumin 8 g/L'), go));
     }
     return null;

@@ -4,7 +4,7 @@ import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
 import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=1ee7733788';
 import { store, updateParams, hiddenNow } from './store.js?v=31ee79b6ab';
-import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=a60727fe1b';
+import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=1b66c4ae69';
 import { liveBalance } from './balance-hold.js?v=ea4d9121d2';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('inspector');
@@ -86,11 +86,13 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     const reset = h('button', { class: 'reset-btn', title: 'Reset', 'aria-label': `Reset ${label}` }, icon('reset'));
     const wrap = h('div', { class: 'ctl' },
       h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, label, info ? infoButton(info) : null, reset), val),
-      h('div', { class: 'range-wrap' }, normal ? h('span', { class: 'normal', title: 'Normal range', style: { left: `calc(${((normal[0] - min) / (max - min)) * 100}% + 2px)`, width: `calc(${((normal[1] - normal[0]) / (max - min)) * 100}% - 4px)` } }) : null, input),
+      // (The normal range is the tiles' green band on the track, placed on the thumb's own scale: its centre runs from half the
+      // thumb's width, --tw, to the far end less half of it.)
+      h('div', { class: 'range-wrap' }, normal ? h('span', { class: 'normal', title: 'Normal range', style: { left: `calc(var(--tw) / 2 + (100% - var(--tw)) * ${(normal[0] - min) / (max - min)})`, width: `calc((100% - var(--tw)) * ${(normal[1] - normal[0]) / (max - min)})` } }) : null, input),
       sub ? h('div', { class: 'ctl-sub' }, sub) : null);
     const paint = (v) => {
       input.value = v; val.textContent = format(v);
-      input.style.setProperty('--pct', `${((v - min) / (max - min)) * 100}%`);
+      paintRange(input, (v - min) / (max - min));
       wrap.classList.toggle('changed', def != null && Math.abs(v - def) > 1e-9);
     };
     let fresh = true;

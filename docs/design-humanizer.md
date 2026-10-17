@@ -97,7 +97,7 @@ a glow, a badge). Prefer the first.
 |---|---|---|
 | A stock line icon beside every heading, tab and button | Icon packs applied by default | Icons only where the word does not fit (a bottom tab bar, a gear, a close X) |
 | An icon in a tinted circle or rounded square | Feature-grid template | The icon alone, or no icon |
-| A segmented control with a bright filled pill for the choice | iOS template in a teaching card | Quieter selected state: ink text with an underline or a neutral fill |
+| A segmented control with a bright filled pill for the choice | iOS template in a teaching card | Quieter selected state: ink text with an accent underline |
 | Toggles drawn as chips with a radio circle inside | Chip-with-checkbox hybrid | A plain row with a check, or a switch |
 | Emoji in the interface | Never seen in a textbook | None (also a writing rule) |
 
@@ -106,6 +106,7 @@ a glow, a badge). Prefer the first.
 | Machine-made look | Why it gives itself away | Human |
 |---|---|---|
 | A gauge, ring or progress bar for a single number | Chart as ornament | The number, with its threshold if it matters |
+| A stock slider (white thumb with a coloured ring and a drop shadow, inside its own box) | Form-kit control dropped into a teaching card | The tiles' scale bar made draggable: the same 6 px track, a solid dot for now, a ring where the slide started |
 | A scale bar with no labels, or labels that look like readings | Decoration that only looks like data | Bands at the real cut-offs with their numbers, or no numbers at all |
 | A legend far from what it explains | Template layout | Label the thing directly, with a short leader if needed (atlas style) |
 | Labels with heavy outlines or halos everywhere | Meme-caption look | A thin halo only where a label crosses art; otherwise plain text on a clear spot |
@@ -146,7 +147,7 @@ unless he changes them; you may point out the tension, but do not "fix" them on 
 
 **Anatomy term in a sentence**
 - Before: "the ( splenic vein )" in a tinted rounded chip.
-- After: "the splenic vein" in the vessel's colour with a thin underline, still tappable.
+- After: "the splenic vein" in the vessel's colour, and the vessel glows in that colour on the figure while the slide is up.
 
 **Figure callout**
 - Before: "Esoph. varices **18.4** mmHg ▲ 11.0" with a white outline.
