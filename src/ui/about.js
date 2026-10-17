@@ -83,7 +83,7 @@ export function aboutVessel(e, f, st) {
   if (p.stenosis?.[e.id] > 0.05) out.push(`Narrowed by ${Math.round(p.stenosis[e.id] * 100)} %: resistance rises with the fourth power of the radius.`);
   if (st.healthy?.P && !isArt && !st.imaging) {
     // The same breath-smoothed pressure, at the same station, as the card's chip (actions.js edgeValue),
-    // and its rounded rise, so the sentence and the ▲ always agree.
+    // and its rounded rise, so the sentence and the card's change (+n) always agree.
     const stn = Object.keys(LABEL_VESSEL).find((n) => LABEL_VESSEL[n] === e.id);
     const at = (PP) => (stn ? PP[NI[stn]] : (PP[NI[e.from]] + PP[NI[e.to]]) / 2);
     const rise = Math.round(at(f.Pf || f.P) - at(st.healthy.P));

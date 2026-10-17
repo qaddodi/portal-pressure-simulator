@@ -6,19 +6,19 @@ import { store, updateParams, replaceParams, bindParamSender, clearHistory, logA
 import { createStage } from './stage.js?v=0b21d0d64a';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
 import { sinusoidSupported } from './sinusoid-view.js?v=54548ee400';
-import { createInspector } from './inspector.js?v=21d673d02d';
+import { createInspector } from './inspector.js?v=43bae64ba4';
 import { createDock, CUTOFFS } from './dock.js?v=f2abe6e67a';
 import { setHvpgStage } from './hvpg-proc.js?v=b0f4bd2a3c';
 import { createWhy } from './why.js?v=b136afcfd8';
-import { createTimeline, LAPSES } from './timeline.js?v=abc5f6bfb1';
-import { createCompare } from './compare.js?v=0f3244cfbd';
-import { createCard } from './card.js?v=aba43e81c1';
-import { createChart } from './chart.js?v=f303a3d954';
+import { createTimeline, LAPSES } from './timeline.js?v=430d1e0ffa';
+import { createCompare } from './compare.js?v=012794be8c';
+import { createCard } from './card.js?v=30d436d2bd';
+import { createChart } from './chart.js?v=3a1a60d6a0';
 import { createMenu } from './menu.js?v=bb11665a4e';
 import { caption } from './a11y.js?v=838f067ada';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=9caf30bfda';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=39c8942b80';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=cdbfc9ab38';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
@@ -141,7 +141,13 @@ async function main() {
     // Back from a selection's details: to the pinned comparison if there is one, else the panel closes.
     onBack: () => { if (store.get().compareSnap) store.set({ details: null }); else closePanel(); },
   });
-  store.on('details', (d) => { const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare'; });
+  store.on('details', (d) => {
+    const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare';
+    // A vessel, compartment or organ is the panel's title itself (its name, its kind small above it), so "Details" is
+    // left to screen readers there (17 Oct, V9).
+    const named = ['edge', 'node', 'organ'].includes(d?.type);
+    $('#panelTitle')?.classList.toggle('sr-only', named); $('#panel')?.classList.toggle('named', named);
+  });
   // The figure's labels the open menu covers are hidden while it is open: one tucked under its edge showed a sliver, the "S" of
   // Sinusoids R between the screen edge and the menu (sweep batches 02 and 04). The labels keep their places.
   function labelsUnderMenu(on) {

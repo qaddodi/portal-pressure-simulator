@@ -5,7 +5,7 @@
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
 import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange } from './util.js?v=1b66c4ae69';
-import { cardFor, normalizeSel } from './actions.js?v=9caf30bfda';
+import { cardFor, normalizeSel } from './actions.js?v=39c8942b80';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -100,20 +100,21 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     el.dataset.card = (normalizeSel(sel) || sel).type || 'vessel';
     model = m; selRef = sel; live = []; syncs = []; actionable = [];
     const close = h('button', { class: 'ib ac-close', 'aria-label': 'Close', title: 'Close (Esc)', onclick: () => store.set({ selection: null }) }, icon('close'));
-    const valEl = h('div', { class: 'ac-value' });
-    const pillEl = h('div', { class: 'ac-status' });
+    // The reading, then its status as a coloured word (as the data card tiles' status words).
+    const numEl = h('span', { class: 'ac-num' }), pillEl = h('span', { class: 'ac-state' });
+    const valEl = h('div', { class: 'ac-value' }, numEl, pillEl);
     live.push(() => {
       const f = store.get().frame;
       if (!f) return;
-      if (lens() === 'neutral' && model.why !== 'spleen' && model.why !== 'ascites') { if (valEl._sig !== 'n') { valEl._sig = 'n'; valEl.replaceChildren(h('span', { class: 'ac-unmeasured' }, 'Pressure unmeasured')); } }
+      if (lens() === 'neutral' && model.why !== 'spleen' && model.why !== 'ascites') { if (valEl._sig !== 'n') { valEl._sig = 'n'; numEl.replaceChildren(h('span', { class: 'ac-unmeasured' }, 'Pressure unmeasured')); } }
       else {
         const v = m.value(f, lens(), refP());
         const sig = `${v.v}|${v.u}|${v.d || ''}|${v.up ? 1 : 0}`;
-        if (valEl._sig !== sig) { valEl._sig = sig; valEl.replaceChildren(h('b', {}, v.v), h('span', { class: 'unit' }, v.u), v.d ? h('span', { class: 'ac-delta ' + (v.up ? 'up' : 'down') }, v.d) : null); }
+        if (valEl._sig !== sig) { valEl._sig = sig; numEl.replaceChildren(h('b', {}, v.v), h('span', { class: 'unit' }, v.u), v.d ? h('span', { class: 'ac-delta ' + (v.up ? 'up' : 'down') }, v.d) : null); }
       }
       const s = m.status?.(f);
-      if (s) { if (pillEl._s !== s.join()) { pillEl.replaceChildren(h('span', { class: 'pill ' + s[0] }, s[1])); pillEl._s = s.join(); } }
-      else if (pillEl._s) { pillEl.replaceChildren(); pillEl._s = ''; }
+      if (s) { if (pillEl._s !== s.join()) { pillEl.className = 'ac-state st-word ' + s[0]; pillEl.textContent = s[1]; pillEl._s = s.join(); } }
+      else if (pillEl._s) { pillEl.className = 'ac-state'; pillEl.textContent = ''; pillEl._s = ''; }
     });
     const body = h('div', { class: 'ac-body' });
     // Readouts that follow one another sit side by side on a phone (a lone one takes the whole row).
@@ -143,7 +144,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // One compact phone sheet: drag the header down to dismiss.
     const top = h('div', { class: 'ac-top' },
       h('header', { class: 'ac-head' }, h('div', { class: 'ac-titles' }, h('span', { class: 'ac-kicker' }, m.kicker), h('h3', {}, m.title)), mkFoot('in-head'), close),
-      h('div', { class: 'ac-readout' }, valEl, pillEl));
+      h('div', { class: 'ac-readout' }, valEl));
     wireSheet(top);
     const scroller = h('div', { class: 'ac-scroll' }, body);
     scroller.addEventListener('scroll', syncMore, { passive: true });
