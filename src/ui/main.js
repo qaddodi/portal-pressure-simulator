@@ -3,14 +3,14 @@
 
 import { startHost, host } from './host.js?v=a11d7ef88d';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=dec3d47ebe';
+import { createStage } from './stage.js?v=3c84e7334f';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
 import { sinusoidSupported } from './sinusoid-view.js?v=433d1751b0';
 import { createInspector } from './inspector.js?v=88f7e0df12';
-import { createDock, CUTOFFS } from './dock.js?v=7528675206';
+import { createDock, CUTOFFS } from './dock.js?v=faebac46a5';
 import { setHvpgStage } from './hvpg-proc.js?v=dbd36a1b67';
 import { createWhy } from './why.js?v=15a1d1daf4';
-import { createTimeline, LAPSES } from './timeline.js?v=f616f16840';
+import { createTimeline, LAPSES } from './timeline.js?v=d624c64c6b';
 import { createCompare } from './compare.js?v=321cdb5ab8';
 import { createCard } from './card.js?v=6abd270930';
 import { createChart } from './chart.js?v=8e82e2deae';
@@ -165,7 +165,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=dd8c7fe403'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=114d08a1fe'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

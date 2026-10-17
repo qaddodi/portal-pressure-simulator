@@ -169,7 +169,9 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     const t0 = performance.now();
     const tick = (now) => {
       const u = clamp((now - t0) / 900, 0, 1);
-      if (days !== 'event') timeLong.textContent = timeShort.textContent = `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
+      // (Written only when the day shown changes: most frames of the count keep it.)
+      const t = `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
+      if (days !== 'event' && (timeLong.textContent !== t || timeShort.textContent !== t)) timeLong.textContent = timeShort.textContent = t;
       if (u < 1) nextFrame(tick); else jumping = false;
     };
     nextFrame(tick);

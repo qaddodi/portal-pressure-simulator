@@ -91,8 +91,10 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       if (A && v != null && !measured) {
         const d = v - t.v(A);
         const same = Math.abs(d) < Math.pow(10, -t.d) * 0.5;
-        x.cmp.textContent = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`;
-        x.cmp.className = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
+        // (Written only when they change: each model frame rewrote every tile's.)
+        const ct = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`, cc = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
+        if (x.cmp.textContent !== ct) x.cmp.textContent = ct;
+        if (x.cmp.className !== cc) x.cmp.className = cc;
         x.st.hidden = true;
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
       // A new band must hold for a moment before the tile takes it, so a value on a cut-off does not flicker (paused: at once).

@@ -4599,8 +4599,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // is on screen; without one it falls back to the model's eased value.
   function scanShow(cardTxt) {
     if (!scan.el) return;
-    const card = fibroReading.cv, live = card?.isConnected && card.offsetParent !== null && fibroReading.txt != null;
-    const k = scan.k, txt = cardTxt ?? (live ? fibroReading.txt : k == null ? '--' : k.toFixed(1));
+    // (Whether a card is on screen is asked only when its number is not given: the card's own frame gives it, and asking laid the page out.)
+    const card = fibroReading.cv, live = () => card?.isConnected && card.offsetParent !== null && fibroReading.txt != null;
+    const k = scan.k, txt = cardTxt ?? (live() ? fibroReading.txt : k == null ? '--' : k.toFixed(1));
     const sv = scan.el.querySelector('.sp-val');
     if (sv.textContent !== txt) sv.textContent = txt;
   }

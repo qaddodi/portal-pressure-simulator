@@ -1423,7 +1423,7 @@ button.finding { cursor: pointer; }
 .app.presenting #labels .lb { animation: pz-fade .5s var(--ease) both; }
 .app.presenting #stageView { touch-action: none; }   /* no browser pan or pinch on the figure; the slide swipe reads touch events */
 .app.presenting .stage-credit { z-index: calc(var(--z-hud) + 1); }   /* over the slide's veil (outline slides); src/ui/credit.js keeps it clear of the cards */
-.app.presenting:has(.pz-black.on) .stage-credit { opacity: 0; }
+.app.presenting.pz-blacked .stage-credit { opacity: 0; }   /* (set with the black screen's own .on, presenter.js toggleBlack) */
 @keyframes pz-fade { from { opacity: 0; } }
 @keyframes pz-in { from { opacity: 0; transform: translateY(14px); } }
 .pz { position: absolute; inset: 0; z-index: var(--z-hud); pointer-events: none; color: var(--text); }
@@ -4163,6 +4163,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-load i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 12%, transparent); border-top-color: color-mix(in srgb, var(--text) 52%, transparent); animation: pz-spin 1.1s linear infinite; }
 @keyframes pz-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pz-load i { animation: pz-breathe 1.6s ease-in-out infinite; } @keyframes pz-breathe { 50% { opacity: .35; } } }
+.pz-load.idle i { animation: none; }   /* faded out: the spinner rests (presenter.js), so nothing turns unseen through the talk */
 
 /* Home: the sheet eases in and out, and a page change inside it fades and rises (never a pop). */
 @keyframes homeIn { from { opacity: 0; transform: translateY(10px); } }

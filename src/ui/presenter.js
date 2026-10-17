@@ -14,7 +14,7 @@
 
 import { store, replaceParams } from './store.js?v=31ee79b6ab';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange } from './util.js?v=033af35443';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar } from './util.js?v=033af35443';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
 import { sinusoidSupported } from './sinusoid-view.js?v=433d1751b0';
 import { NODES } from '../engine/topology.js?v=4044766e96';
@@ -23,7 +23,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=a6b2ad6236';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=dbd36a1b67';
-import { createTools } from './presenter-tools.js?v=37c8ce9a22';
+import { createTools } from './presenter-tools.js?v=fe18559da3';
 import { openHandout } from './handout.js?v=95026eb257';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -429,12 +429,17 @@ const fitNow = (c) => {
   }
 };
 // A vertical hairline's x, in a chart's units, moved to whole device pixels so its 1 px stroke draws crisp, not smeared over two.
-const snapX = (svg, x) => {
-  const m = svg.getScreenCTM?.(), d = Math.round(globalThis.devicePixelRatio || 1) || 1;
+// (snapAt takes the chart's matrix as already read: a frame that snaps several lines reads it once, not once per line after
+// its own writes, each of which made the browser lay the page out again.)
+const snapAt = (m, x) => {
+  const d = Math.round(globalThis.devicePixelRatio || 1) || 1;
   if (!m || !m.a) return x;
   const L = Math.round((m.a * x + m.e) * d - d / 2);
   return ((L + d / 2) / d - m.e) / m.a;
 };
+// An attribute or a text written only when it changes (a tween's frame rewrote every one of them, same or not).
+const setA = (e, k, v) => { v = String(v); if (e.getAttribute(k) !== v) e.setAttribute(k, v); };
+const setT = (e, t) => { t = String(t); if (e.textContent !== t) e.textContent = t; };
 const est = (t, px, w = 0.6) => String(t).length * px * w;   // (a run's width: Inter averages about 0.6 em a character, 0.66 bold capitals)
 function fitChart(svg, lay) {
   const c = { svg, lay, fs: null };
@@ -707,44 +712,48 @@ function bigLadder() {
     draw.again();
   };
   fitChart(el, layL);
+  let say0 = '';
   const draw = tweener((f) => {
     top = clamp(f.top || 12, 12, 50);
     const sparse = every(tTo);
+    // (Each chart's matrix is read once in the frame, at its first use: the chart's own writes in the frame do not move it.)
+    let mE, mS;
+    const snapE = (x) => snapAt(mE === undefined ? (mE = el.getScreenCTM?.() || null) : mE, x), snapS = (x) => snapAt(mS === undefined ? (mS = strip.getScreenCTM?.() || null) : mS, x);
     for (const g of grid) {
-      g.line.setAttribute('y1', Y(g.v).toFixed(1)); g.line.setAttribute('y2', Y(g.v).toFixed(1)); g.txt.setAttribute('y', (Y(g.v) + 0.36 * c).toFixed(1));
+      setA(g.line, 'y1', Y(g.v).toFixed(1)); setA(g.line, 'y2', Y(g.v).toFixed(1)); setA(g.txt, 'y', (Y(g.v) + 0.36 * c).toFixed(1));
       // (A plot too short for two rows of numbers names only its zero line.)
-      g.g.setAttribute('opacity', (clamp(f['g' + g.v] ?? 0, 0, 1) * (g.v % (stepOf(tTo) * sparse) === 0 && (g.v === 0 || PH >= 2.4 * c) ? 1 : 0)).toFixed(3));
+      setA(g.g, 'opacity', (clamp(f['g' + g.v] ?? 0, 0, 1) * (g.v % (stepOf(tTo) * sparse) === 0 && (g.v === 0 || PH >= 2.4 * c) ? 1 : 0)).toFixed(3));
     }
-    bands.forEach((b) => { b.r.setAttribute('y', (Y(top) - 6).toFixed(1)); b.r.setAttribute('height', (Y(0) - Y(top) + 6).toFixed(1)); });
+    bands.forEach((b) => { setA(b.r, 'y', (Y(top) - 6).toFixed(1)); setA(b.r, 'height', (Y(0) - Y(top) + 6).toFixed(1)); });
     drawBase();
     const y = RUNGS.map(([k]) => Y(f[k]));
-    line.setAttribute('d', y.map((yy, i) => `${i ? 'L' : 'M'}${X(i)} ${yy.toFixed(1)}`).join(' '));
+    setA(line, 'd', y.map((yy, i) => `${i ? 'L' : 'M'}${X(i)} ${yy.toFixed(1)}`).join(' '));
     if (blockAt >= 0) {
       const yt = y[blockAt] - 12, yb = Math.max(Y(0), y[blockAt] + 12);   // (starts just above the node, so its reading stays clear)
       nodeBlk.setAttribute('x', (X(blockAt) - 0.12 * step).toFixed(1)); nodeBlk.setAttribute('width', (0.46 * step).toFixed(1));
-      nodeBlk.setAttribute('y', yt.toFixed(1)); nodeBlk.setAttribute('height', (yb - yt).toFixed(1));
+      setA(nodeBlk, 'y', yt.toFixed(1)); setA(nodeBlk, 'height', (yb - yt).toFixed(1));
     }
-    pts.forEach((p, i) => { p.c.setAttribute('cy', y[i].toFixed(1)); p.v.setAttribute('y', (y[i] - 12.5 - 0.22 * l).toFixed(1)); p.v.textContent = fmt(f[RUNGS[i][0]], 0); });
+    pts.forEach((p, i) => { setA(p.c, 'cy', y[i].toFixed(1)); setA(p.v, 'y', (y[i] - 12.5 - 0.22 * l).toFixed(1)); setT(p.v, fmt(f[RUNGS[i][0]], 0)); });
     // The strip: readings in the nodes, the fall on each connector (from the rounded readings, so it adds up).
     const raw = conns.map((_, i) => Math.max(0, f[RUNGS[i][0]] - f[RUNGS[i + 1][0]]));
-    spts.forEach((p, i) => { p.v.textContent = fmt(f[RUNGS[i][0]], 0); });
+    spts.forEach((p, i) => { setT(p.v, fmt(f[RUNGS[i][0]], 0)); });
     placeLine();
     conns.forEach((c, i) => {
       // A big fall is shaded, as on the ladder; no fall is written as a number.
-      c.band.setAttribute('opacity', clamp((raw[i] - 4) / 3, 0, 1).toFixed(3));
+      setA(c.band, 'opacity', clamp((raw[i] - 4) / 3, 0, 1).toFixed(3));
     });
     bands.forEach((b, i) => {
       const d = f[RUNGS[i][0]] - f[RUNGS[i + 1][0]];
-      b.g.setAttribute('opacity', clamp((d - 4) / 3, 0, 1).toFixed(3));
+      setA(b.g, 'opacity', clamp((d - 4) / 3, 0, 1).toFixed(3));
     });
     // Each span fades out when a level is not measurable (Budd-Chiari has no wedge). Its leaders end on the points.
     // Each pill is coloured by its own number against its own cut-offs; a slide's verdict (brackets: { hvpg: 'misleads' })
     // only marks it.
     const put = (b, hi, lo, v, rate) => {
       const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v);
-      b.g.setAttribute('opacity', ok ? 1 : 0);
+      setA(b.g, 'opacity', ok ? 1 : 0);
       if (!ok) return;
-      b.lead.setAttribute('d', `M${snapX(el, b.x0).toFixed(2)} ${(b.by ?? b.row) - 6}V${(Y(hi) + 12).toFixed(1)}M${snapX(el, b.x1).toFixed(2)} ${(b.by ?? b.row) - 6}V${(Y(lo) + 12).toFixed(1)}`);
+      setA(b.lead, 'd', `M${snapE(b.x0).toFixed(2)} ${(b.by ?? b.row) - 6}V${(Y(hi) + 12).toFixed(1)}M${snapE(b.x1).toFixed(2)} ${(b.by ?? b.row) - 6}V${(Y(lo) + 12).toFixed(1)}`);
       const say = verdict[b.name.toLowerCase()];
       b.g.dataset.rate = rate;
       b.g.classList.toggle('says', !!say);
@@ -758,11 +767,11 @@ function bigLadder() {
     // The strip's brackets: name, reading and its rating (coloured by its own number; a slide's verdict only marks it).
     const putS = (b, hi, lo, v, k) => {
       const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v), [rate] = rateOf(k, { [k]: v });
-      b.g.setAttribute('opacity', ok ? 1 : 0);
+      setA(b.g, 'opacity', ok ? 1 : 0);
       if (!ok) return;
       b.g.dataset.rate = rate || 'ok';
       const num = ' ' + fmt(v, 0);
-      b.t[0].textContent = b.name; b.t[1].textContent = num;
+      setT(b.t[0], b.name); setT(b.t[1], num);
       b.len = est(b.name, S.c, 0.64) + est(num, S.c, 0.52); lay(b);
       // The leaders run from the bracket's ends up to the readings, broken 4 px round the label where it sits above the bar
       // and wider than it (its tick lines ran through "HVPG", text-200 review P3). The label's own box where it is drawn, else
@@ -773,7 +782,7 @@ function bigLadder() {
       bb ||= { x0: mid - b.len / 2, x1: mid + b.len / 2, y0: ly - 0.8 * S.c, y1: ly + 0.25 * S.c };
       const top = S.ny + 0.5 * S.v + 2;
       const leg = (x) => {
-        const sx = snapX(strip, x).toFixed(2);
+        const sx = snapS(x).toFixed(2);
         if (!b.above || x < bb.x0 - 4 || x > bb.x1 + 4) return `M${sx} ${b.row - 5}V${top}`;
         // (from the bar up to 4 px under the label, and from 4 px over it up to the reading, each where it has length)
         return (b.row - 5 - (bb.y1 + 4) > 1 ? `M${sx} ${b.row - 5}V${(bb.y1 + 4).toFixed(1)}` : '') + (bb.y0 - 4 - top > 1 ? `M${sx} ${(bb.y0 - 4).toFixed(1)}V${top}` : '');
@@ -783,7 +792,7 @@ function bigLadder() {
     putS(hvS, f.whvp, f.fhvp, gH, 'hvpg'); putS(ppS, f.pv, f.ivc, gP, 'ppg');
     const say = 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '
       + `HVPG ${fmt(gH, 0)}, PPG ${fmt(gP, 0)} mmHg.`;
-    el.setAttribute('aria-label', say); strip.setAttribute('aria-label', say);
+    if (say !== say0) { say0 = say; el.setAttribute('aria-label', say); strip.setAttribute('aria-label', say); }
   });
   layL({ cap: 17, lab: 25 }); layS({ cap: 11, lab: 12, val: 15 });
   return {
@@ -866,22 +875,22 @@ function bigTiles() {
     el.dataset.n = String(parts.length);
     draw = tweener((f) => parts.forEach((p) => {
       const [cls, word] = ratedShown(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
-      p.v.textContent = none ? '—' : tileVal(p.k, f[p.k]);
+      setT(p.v, none ? '—' : tileVal(p.k, f[p.k]));
       p.u.hidden = none || !p.T.u;
-      p.r.textContent = word;
-      p.tile.dataset.rate = cls || (none ? 'none' : 'plain');
+      setT(p.r, word);
+      setA(p.tile, 'data-rate', cls || (none ? 'none' : 'plain'));
       const r0 = f['ref_' + p.k];
       if (p.S) {
         const on = !none && f[p.k] != null, w = on ? at(p.k, f[p.k]) : 0;
         p.now.hidden = !on;
         // (The marks stay whole inside the track: a value past either end of the scale, as platelets of 380 on a bar
         // that stops at 300, rests against that end instead of running half off it. Sweep, 16 Oct.)
-        p.now.style.left = `clamp(6px, ${w}%, calc(100% - 6px))`;
+        if (p.now._w !== w) { p.now._w = w; p.now.style.left = `clamp(6px, ${w}%, calc(100% - 6px))`; }   // (written only when it moves)
         if (p.was) {
           const ok = on && r0 != null, w0 = ok ? at(p.k, r0) : 0;
           p.was.hidden = p.link.hidden = !ok;
-          p.was.style.left = `clamp(4.5px, ${w0}%, calc(100% - 4.5px))`;
-          p.link.style.left = Math.min(w, w0) + '%'; p.link.style.width = Math.abs(w - w0) + '%';
+          if (p.was._w !== w0) { p.was._w = w0; p.was.style.left = `clamp(4.5px, ${w0}%, calc(100% - 4.5px))`; }
+          if (p.link._w !== w || p.link._w0 !== w0) { p.link._w = w; p.link._w0 = w0; p.link.style.left = Math.min(w, w0) + '%'; p.link.style.width = Math.abs(w - w0) + '%'; }
         }
       }
       if (r0 == null || f[p.k] == null) return;
@@ -1273,7 +1282,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // ── The figure's moves ──
   const fadeMs = () => (reduce.matches ? 0 : 420);
   // A quiet arc over the figure's free space while a new patient settles (it fades in and out with the dim, never pops).
-  const loading = (on) => ui?.load.classList.toggle('on', on);
+  const loading = (on) => { ui?.load.classList.toggle('on', on); if (on) ui?.load.classList.remove('idle'); };
   async function figureOut() { loading(true); view.classList.add('pz-out'); await wait(fadeMs()); }
   function figureIn() { view.classList.remove('pz-out'); loading(false); }
   // (next: the slide being moved to, if it frames the plate, so the way out of the lobule lands on that framing
@@ -1357,7 +1366,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const cath = { on: false, raf: 0, t0: 0, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null };
   // The still column is shaded in the catheter's wedge colour (the WHVP callout's), so it reads as the catheter's
   // column of still blood, not as one more pressure on the map.
-  const wedgeInk = () => getComputedStyle(document.documentElement).getPropertyValue('--tr-wedge').trim();
+  // (Read through the token cache, which a theme change clears: read afresh, it made every catheter frame restyle the page.)
+  const wedgeInk = () => cssVar('--tr-wedge');
   function cathTrack(k, to, ms, delay = 0) { cath.tr[k] = { from: cath.v[k], to, t0: performance.now() + delay, ms: reduce.matches ? 0 : ms }; }
   function cathLabels() {
     const f = cath.fp, v = cath.v;
@@ -3192,7 +3202,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.text.classList.add('pz-leave');
     widthT = setTimeout(() => { apply(); nextFrame(() => { if (!had) ui?.text.classList.remove('pz-leave'); }); }, 240);
   }
-  function toggleBlack(on = !black) { black = on; ui?.black.classList.toggle('on', black); }
+  // (The page carries it too, for the credit's rule: a :has() over the whole page was looked at again on every "on" anywhere in it.)
+  function toggleBlack(on = !black) { black = on; ui?.black.classList.toggle('on', black); app.classList.toggle('pz-blacked', black && !!ui); }
   function fullscreen() { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); }
   addEventListener('pointermove', () => { if (deck) wake(); });
   addEventListener('pointerdown', () => { if (deck) wake(); });
@@ -3483,7 +3494,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const shade = h('div', { class: 'pz-shade' }, deckTab(), h('span', { class: 'pz-sitetab', hidden: true }), h('span', { class: 'pz-cred', 'aria-hidden': 'true' }, wrap.querySelector('.stage-credit')?.textContent.trim() || ''));
     // What the figure frames itself clear of: the words, the glass and its shadow.
     const safe = h('div', { class: 'pz-safe', 'aria-hidden': 'true', hidden: true });
-    const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));
+    // (Once faded out, its spinner stops (idle) until it is shown again: it had turned, unseen, for the whole talk.)
+    const idle = (e) => { if (e.target === load && e.propertyName === 'opacity' && !load.classList.contains('on')) load.classList.add('idle'); };
+    const load = h('div', { class: 'pz-load idle', 'aria-hidden': 'true', ontransitionend: idle, ontransitioncancel: idle }, h('i'));
     const jump = h('nav', { class: 'pz-jump stage-blocker', hidden: true, 'aria-label': 'Slides' });
     const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, 'aria-live': 'polite', onclick: () => { if (performance.now() - caseDragAt > 400) caseLift?.(); } });
     // The slide's colour key, small on the figure (src/ui/figure-key.js fades it in; its words are set by figKey). The figure's labels keep clear of it (stage-blocker).
@@ -3553,7 +3566,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     lastAt = -1;
     saved = before;
     if (saved && !saved.cards) saved.cards = stashCards?.();
-    deck = d; slides = d.mine ? d.slides : withOverview(d).slides; shown = null; shownState = -1; black = false;
+    deck = d; slides = d.mine ? d.slides : withOverview(d).slides; shown = null; shownState = -1; black = false; app.classList.remove('pz-blacked');
     closeHome?.();
     const st0 = store.get();
     if (!layersBefore) layersBefore = { ...st0.lobuleLayers };
@@ -3587,7 +3600,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
-    pillW = 0; ui?.tools.dispose(); ui?.figKey.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null;
+    pillW = 0; ui?.tools.dispose(); ui?.figKey.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.setProjection(false);
