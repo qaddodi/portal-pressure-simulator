@@ -749,7 +749,7 @@ uniform sampler2D plate0, plate1;
 uniform vec4 plateRect0, plateRect1;
 uniform int plates;                    // bit 0: whole plate, bit 1: sharp view
 uniform float plateAlpha, plateSat;
-uniform sampler2D fluidMask;           // the peritoneal cavity (alpha), over fluidRect
+uniform highp sampler2D fluidMask;     // the peritoneal cavity: its half-width about the middle of fluidRect, row by row down it
 uniform vec4 fluidRect;
 uniform vec4 fluidS;                   // ascites: floor, height, ripple amplitude, ripple phase (world units, radians)
 uniform vec4 fluidInk;                 // its straw color (straight) and opacity at depth; a = 0: none
@@ -1023,7 +1023,15 @@ void main() {
       float c = (w.x - 712.0) / 400.0;
       float s = fluidS.x - fluidS.y * (0.8 + 0.2 * c * c) + (sin(w.x / 38.0 + fluidS.w) * 0.7 + sin(w.x / 23.0 - fluidS.w * 1.3) * 0.3) * fluidS.z;
       float d = w.y - s;
-      float e = smoothstep(-pxW, pxW, d) * texture(fluidMask, fu).a;
+      // Inside the cavity: the row's half-width (between the two nearest rows) less the distance from the mirror line, over
+      // the edge's slope there to give the distance across it, smoothed over a world unit or a pixel, whichever is more
+      // (the raster it replaces was a world unit to the texel).
+      float nR = float(textureSize(fluidMask, 0).x), fy = fu.y * (nR - 1.0);
+      int r0 = int(min(floor(fy), nR - 2.0));
+      float h0 = texelFetch(fluidMask, ivec2(r0, 0), 0).r, h1 = texelFetch(fluidMask, ivec2(r0 + 1, 0), 0).r;
+      float sl = (h1 - h0) * (nR - 1.0) / fluidRect.w;
+      float cav = (mix(h0, h1, fy - float(r0)) - abs(w.x - fluidRect.x - 0.5 * fluidRect.z)) / sqrt(1.0 + sl * sl);
+      float e = smoothstep(-pxW, pxW, d) * clamp(0.5 + cav / max(pxW, 1.0), 0.0, 1.0);
       if (e > 0.0) {
         float a = fluidInk.a * (0.5 + 0.5 * clamp(d / max(fluidS.y, 1.0), 0.0, 1.0)) + fluidInk.a * 0.5 * exp(-d * d / 14.0);
         a = min(a, 1.0) * e;
@@ -1280,7 +1288,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindBuffer(gl.ARRAY_BUFFER, fluidBuf);
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0); gl.vertexAttribDivisor(1, 1);
   gl.bindVertexArray(null);
-  const fluidTex = dataTex(gl, gl.LINEAR);
+  const fluidTex = dataTex(gl);
   let fluidRect = null, nFluid = 0;
   const compVAO = gl.createVertexArray();
   gl.bindVertexArray(compVAO);
@@ -1605,11 +1613,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       plates[slot] = { tex: t, rect };
     },
-    /** The peritoneal cavity as an alpha bitmap over a world rectangle (the ascites is drawn inside it). */
-    setFluidMask(source, rect) {
+    /**
+     * The peritoneal cavity (the ascites is drawn inside it) over a world rectangle: its half-width about the rectangle's
+     * middle at rows evenly from its top to its bottom (anatomy.js cavityHalfWidths).
+     */
+    setFluidSpans(halfWidths, rect) {
       gl.bindTexture(gl.TEXTURE_2D, fluidTex);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, halfWidths.length, 1, 0, gl.RED, gl.FLOAT, halfWidths);
       fluidRect = rect;
     },
     /** World origins (x, y pairs) of the cells the ascites surface ripples through. */

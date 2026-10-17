@@ -468,6 +468,38 @@ export const BACKDROP = {
 export const flankPath = (b = 0) => `M336 470 C ${324 - b} 610 ${330 - b} 780 ${372 - b * 0.4} 954 C 470 1012 954 1012 ${1052 + b * 0.4} 954 C ${1094 + b} 780 ${1100 + b} 610 1088 470`;
 export const abdomenOutline = (b = 0) => `M336 440 L${flankPath(b).slice(1)} L1088 440 Z`;
 export const ABDOMEN_CLIP = abdomenOutline(0);
+
+// The same cavity as half-widths about x = 712 (its mirror line), one per row: n rows evenly from y0 to y0 + h. Each row
+// crosses it once (the flanks and both halves of the floor run steadily down), so a row's half-width is the whole shape:
+// the GPU fills the fluid from these at each bulge step, a few KB, where a raster of the outline was a slow upload in
+// Safari on every step of an ease. Rows above the top edge (y 440) or below the floor's lowest point hold the half-width
+// continued past the edge (negative), so the row between crosses zero where the outline does.
+export function cavityHalfWidths(b, y0, h, n) {
+  const cub = (p0, p1, p2, p3, t) => { const s = 1 - t; return s * s * s * p0 + 3 * s * s * t * p1 + 3 * s * t * t * p2 + t * t * t * p3; };
+  // The left half of the outline from the top of the flank down to the floor's lowest point (x 712): its flank cubic, then the
+  // first half of the floor's.
+  const xs = [], ys = [], K = 512;
+  for (let i = 0; i <= K; i++) { const t = i / K; xs.push(cub(336, 324 - b, 330 - b, 372 - b * 0.4, t)); ys.push(cub(470, 610, 780, 954, t)); }
+  for (let i = 1; i <= K; i++) { const t = 0.5 * i / K; xs.push(cub(372 - b * 0.4, 470, 954, 1052 + b * 0.4, t)); ys.push(cub(954, 1012, 1012, 954, t)); }
+  const yEnd = ys[ys.length - 1];
+  const out = new Float32Array(n);
+  let j = 0;
+  for (let i = 0; i < n; i++) {
+    const y = y0 + h * i / (n - 1);
+    if (y < 440) out[i] = 376 - 1e3 * (440 - y);
+    else if (y <= 470) out[i] = 376;
+    else if (y >= yEnd) {
+      // Past the lowest point, continued at the slope of the last stretch above it.
+      const k = ys.length - 1, sl = (xs[k] - xs[k - 1]) / (ys[k] - ys[k - 1]);
+      out[i] = (712 - xs[k]) - sl * (y - ys[k]);
+    } else {
+      while (ys[j + 1] < y) j++;
+      const f = (y - ys[j]) / (ys[j + 1] - ys[j]);
+      out[i] = 712 - (xs[j] + f * (xs[j + 1] - xs[j]));
+    }
+  }
+  return out;
+}
 export const ABDOMEN_FLOOR = 950;
 export const SPLEEN_CENTER = [1040, 362];
 
