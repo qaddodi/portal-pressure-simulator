@@ -83,3 +83,17 @@ test('oxygen: its ramp runs blue to red and its pill colour is its own', () => {
   const taken = ['--lens-heat', '--vel-normal', '--lens-flow', '--flow-reversed', '--lens-drop', '--origin-spleen'].map((t) => tokens.match(new RegExp(`${t}: (#[0-9A-F]{6})`, 'i'))[1].toUpperCase());
   assert.ok(!taken.includes(pill), 'distinct from the other views\' pills');
 });
+
+// Mohammad, 17 Oct: in the Oxygen lens the figure's labels read the oxygen saturation (% O₂), not pressure, from the same
+// saturation the lens colours by: the anatomy's station labels and the lobule's Portal venule, Sinusoids and Central vein.
+test('oxygen: the labels read % O₂ in the Oxygen lens, from the value the lens colours by', () => {
+  const stage = src('src/ui/stage.js'), lz = src('src/ui/lobule-zoom.js');
+  const runs = stage.slice(stage.indexOf('function layerRuns('), stage.indexOf('function shortenItem('));
+  assert.match(runs, /lm !== 'oxygen'/, 'the oxygen lens has its own label runs');
+  assert.match(runs, /oxygenFor\(EDGES, NODES, f\)\.node\[NI\[id\]\]/, 'anatomy labels read the station node\'s saturation');
+  assert.match(runs, /'% O₂'/);
+  const mv = lz.slice(lz.indexOf('const mv = (key, v, r) =>'), lz.indexOf("setLab('triad'"));
+  assert.match(mv, /m\.mode === 'oxygen' && m\.oxy/, 'lobule labels switch to oxygen in the Oxygen lens');
+  assert.match(mv, /'% O₂'/);
+  assert.match(src('src/ui/lobule-model.js'), /m\.oxy = \[node\[NI\[S\.pv\]\], node\[NI\[S\.sin\]\], node\[NI\[S\.cv\]\]\]/, 'portal venule, sinusoids, central vein in that order');
+});

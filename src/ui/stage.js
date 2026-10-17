@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=6289ea8edf';
-import { createLobuleZoom } from './lobule-zoom.js?v=961dbc7380';
+import { createLobuleZoom } from './lobule-zoom.js?v=3c0e973b3e';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -5409,12 +5409,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   // Flow layer: blood entering the station (L/min) and its change; velocity layer: the fastest
-  // velocity in a vessel at the station as the Doppler reads it (peak, cm/s). Other layers read pressure.
+  // velocity in a vessel at the station as the Doppler reads it (peak, cm/s); oxygen layer: the blood's
+  // oxygen saturation at the station (%), the value the lens colours by. Other layers read pressure.
   function layerRuns(f, id, compact) {
     const lm = layerMode();
-    if (lm !== 'flow' && lm !== 'velocity') return null;
+    if (lm !== 'flow' && lm !== 'velocity' && lm !== 'oxygen') return null;
     if (!store.get().layers.chips) return null;
     const big = { size: 14, weight: 650, cls: 'lb-val' }, unit = { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
+    if (lm === 'oxygen') {
+      const sat = oxygenFor(EDGES, NODES, f).node[NI[id]];
+      return { runs: [{ ...big, t: fmt(sat * 100, 0) }, { ...unit, t: '% O₂' }], color: oxygenColor(sat) };
+    }
     if (lm === 'flow') {
       const v = throughput(f.Qf || f.Q, id);
       const runs = [{ ...big, t: fmtFlow(v) }, { ...unit, t: 'L/min' }];

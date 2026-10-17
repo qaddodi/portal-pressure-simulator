@@ -915,6 +915,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // On a slide, once settled the sinusoids read the slide's own value, as its tile does (lobule and sinusoid labels agree with it).
     { const st = store.get(), fs = st.presenting && st.presentFp?.sin; if (Number.isFinite(fs) && Math.abs(m.P2 - fs) < 0.6) m.P2 = fs; }
     tissue.setAttribute('aria-label', m.hide ? 'Liver lobule. Pressures not measured.'
+      : m.mode === 'oxygen' && m.oxy ? `Liver lobule: oxygen saturation in the portal venule ${fmt(m.oxy[0] * 100, 0)}, sinusoids ${fmt(m.oxy[1] * 100, 0)}, central vein ${fmt(m.oxy[2] * 100, 0)} percent.`
       : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`);
     // Station cards on the figure.
     // Labels as in the anatomy: the station, its pressure, and the change from healthy once it reaches
@@ -922,6 +923,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // In the Change view the bar takes the change's colour, as the vessels do.
     const mv = (key, v, r) => {
       if (m.hide) return ['?', '', '', null];
+      // (Colored by oxygen: the station's oxygen saturation, the value the lens colours it by.)
+      if (m.mode === 'oxygen' && m.oxy) { const sat = m.oxy[{ triad: 0, sin: 1, cv: 2 }[key]]; badges[key] = null; return [fmt(sat * 100, 0), '% O₂', '', oxygenColor(sat)]; }
       const d = r != null ? v - r : 0, on = m.cmp ? 1 : 5, off = m.cmp ? 0.7 : 4;
       const shown = Math.abs(d) >= on || (badges[key] === m.cmp && Math.abs(d) >= off);
       badges[key] = shown ? m.cmp : null;
