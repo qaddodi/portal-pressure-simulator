@@ -47,8 +47,8 @@ test('one callout per point, at its own third, the three in a column beside thei
   assert.match(stage, /for \(const a of clampAlts\)/);
   assert.match(stage, /it\.cls \+= ' ring'/);
   assert.match(css, /\.lb\.focus\.ring \.lb-bg \{ stroke: var\(--stage-bg\); stroke-width: 4px; paint-order: stroke; \}/);
-  assert.match(stage, /if \(it\.point\) dots \+= `<circle class="leader-dot-halo"/);
-  assert.match(stage, /leaders \+= dots;/);
+  assert.match(stage, /if \(it\.point\) dots\.push\(\{ k: 'h:' \+ it\.key, tag: 'circle', at: \{ class: 'leader-dot-halo'/);
+  assert.match(stage, /leaders\.push\(\.\.\.dots\);/);
   assert.match(stage, /x0 = d\.ax \+ \(\(le\.x - d\.ax\) \/ L\) \* \(DISC \+ 2\)/);
   assert.match(read('styles/app.css'), /\.leader-dot-halo \{ fill: var\(--stage-bg\); \}/);
   // (The flow's arrowheads keep out from under the callouts and 12 px round each dot.)

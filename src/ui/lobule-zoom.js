@@ -231,14 +231,23 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   store.on('lobuleLayers', () => syncLayers());
   // A presenter slide's pointer at the lesion (D4): { at: 'triad' | 'sin' | 'cv', label, kind: block | treat | note }.
   const callEl = h('div', { class: 'lz-call', 'aria-hidden': 'true' }), callLine = s('line', { class: 'lz-call-l' }), callRing = s('circle', { class: 'lz-call-r' });
-  let call = null;
+  let call = null, callWant = null, callSwap = 0;
   store.on('presentFp', () => { if (model) panel(); });   // (a slide's settled values arrive: the sinusoid label reads as its tile)
-  store.on('lobuleCallout', () => {
-    const c = store.get().lobuleCallout || null;
-    if (JSON.stringify(c) === JSON.stringify(call)) return;
+  // A pointer that changes while it shows (another spot, other words) fades out first, then fades in with its new words at its new
+  // spot: its ring, line and pill never jump there (17 Oct: "resistance and labels and callouts all snap").
+  const callSet = (c) => {
     call = c;
     if (c) { callEl.textContent = c.label; callEl.dataset.kind = callLine.dataset.kind = callRing.dataset.kind = c.kind || 'block'; }
     viewChanged();
+  };
+  store.on('lobuleCallout', () => {
+    const c = store.get().lobuleCallout || null;
+    if (JSON.stringify(c) === JSON.stringify(callWant)) return;
+    callWant = c;
+    const fading = !!callSwap;
+    clearTimeout(callSwap); callSwap = 0;
+    if (c && !reduce.matches && (fading || (call && callEl.classList.contains('on')))) { if (call) callSet(null); callSwap = setTimeout(() => { callSwap = 0; callSet(callWant); }, 500); return; }
+    callSet(c);
   });
 
   const phoneMQ = matchMedia('(max-width: 720px)');

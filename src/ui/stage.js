@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=46bfee79f0';
-import { createLobuleZoom } from './lobule-zoom.js?v=a887a8d547';
+import { createLobuleZoom } from './lobule-zoom.js?v=8e4d144da8';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -4393,7 +4393,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function resPaint(k, d, ratio) {
     let g = resMade.get(k);
     const want = sites.list?.includes(k) && ratio != null;
-    if (!want) { if (g) { resMade.delete(k); g.style.opacity = 0; setTimeout(() => g.remove(), 600); } return; }
+    if (!want) { if (g) { resMade.delete(k); g.style.opacity = 0; setTimeout(() => g.remove(), 700); } return; }   // (faded out whole first: .res-one, .6 s)
     if (!g) { g = s('g', { class: 'res-one' }); g.style.opacity = 0; resG.append(g); resMade.set(k, g); nextFrame(() => nextFrame(() => { g.style.opacity = 1; })); }
     const segs = d.res === 'liver' ? [[[812, 303], [888, 303]], [[812, 387], [888, 387]]] : (() => {
       const q = d.res === 'gut' ? geo.A_SMA?.cur && pointAt(geo.A_SMA.cur, 0.5) : geo.C1b && pointAt(geo.C1b.cur, 0.5);
@@ -4414,7 +4414,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const el = document.createElement('div');
     el.className = 'cath-labels site-labels'; el.setAttribute('aria-hidden', 'true');
     wrap.append(el);
-    return { el, list: null, fp: null, made: new Map() };
+    return { el, list: null, fp: null, made: new Map(), dy: null, dyG: null };
   })();
   // A slide's numbers (its fingerprint, or a what-if's or time-lapse's since): the tiles show them, and a callout or figure
   // label that agrees with the model reads them too, so a laptop and a tablet show the same number at the same moment.
@@ -4464,10 +4464,51 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const ahead = el.dataset.at === 'ahead' && !el.classList.contains('above');
     return ahead ? { x0: bx, y0: y, x1: bx + w, y1: y + 18 + h } : { x0: bx, y0: y - 18 - h, x1: bx + w, y1: y };
   }
+  // A site's reading that leaves fades out whole, its glass too (cath-leave), and is removed once faded.
+  function siteLeave(k, el) {
+    if (sites.made.get(k) === el) sites.made.delete(k);
+    el.classList.add('cath-leave');
+    setTimeout(() => { el._glass?.dispose(); el.remove(); }, reduceMotion.matches ? 0 : 700);
+  }
+  // A reading's number counts to a new value over 950 ms, eased, as the data card's tiles count (presenter.js tweener), so a slide's
+  // or a patient's change never swaps it at once; within tol of the number shown (the live model breathing, a slider being dragged)
+  // it simply follows. A reading just shown, hidden, or under reduced motion takes its number at once.
+  const COUNT_MS = 950, LABEL_GLIDE_MS = 450;   // (LABEL_GLIDE_MS: the figure's labels glide as long: labelGlide)
+  let sitesRaf = 0;
+  const sitesAgain = () => { if (!sitesRaf) sitesRaf = nextFrame(() => { sitesRaf = 0; if (F && sites.list) { refreshCTM(); sitesPaint(); } }); };
+  function siteCount(el, to, tol) {
+    if (!Number.isFinite(to)) { el._nv = null; el._ng = null; return to; }
+    if (el._nv == null || reduceMotion.matches || el.classList.contains('off')) { el._ng = null; return (el._nv = to); }
+    const now = performance.now();
+    let g = el._ng;
+    if (g ? Math.abs(to - g.to) > tol : Math.abs(to - el._nv) > tol) g = el._ng = { from: el._nv, to, t0: now };
+    if (!g) return (el._nv = to);
+    g.to = to;
+    const u = clamp((now - g.t0) / COUNT_MS, 0, 1);
+    el._nv = g.from + (g.to - g.from) * easeInOut(u);
+    if (u < 1) sitesAgain(); else el._ng = null;
+    return el._nv;
+  }
+  // The resistors' group, moved clear of the cards, glides to its new place when a slide's change moves it (a reading joining or leaving
+  // the group); while the camera moves it keeps with the circuit exactly, as before.
+  let resCam = '';
+  function resShift(dy) {
+    const cam = [CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join(), still = cam === resCam;
+    resCam = cam;
+    const now = performance.now();
+    if (sites.dy == null || !still || reduceMotion.matches || camMove) { sites.dyG = null; return (sites.dy = dy); }
+    let g = sites.dyG;
+    if (Math.abs(dy - (g ? g.to : sites.dy)) > 0.5) g = sites.dyG = { from: sites.dy, to: dy, t0: now };
+    if (!g) return (sites.dy = dy);
+    const u = clamp((now - g.t0) / LABEL_GLIDE_MS, 0, 1);
+    sites.dy = g.from + (g.to - g.from) * easeInOut(u);
+    if (u < 1) sitesAgain(); else sites.dyG = null;
+    return sites.dy;
+  }
   function sitesPaint() {
     const want = sites.list || [], made = sites.made;
     for (const k of [...resMade.keys()]) if (!want.includes(k)) resPaint(k, SITE_DEF[k], null);
-    for (const [k, el] of made) if (!want.includes(k)) { made.delete(k); el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); }, 500); }
+    for (const [k, el] of made) if (!want.includes(k)) siteLeave(k, el);
     if (!F || !want.length) return;
     const { width: W, height: H } = stageBox(), t = easeInOut(morph);   // (the cached box: reading the wrap's each model frame forced a layout)
     // (Never nearer a screen edge than the slides' one margin, as the cards and the figure's labels keep: 17 Oct design review.)
@@ -4478,10 +4519,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const ko = keyPillBox();
     // The resistors' readings stand as one group (side by side under an upright circuit, stacked above a level one, the gut's
     // the farthest out): where the group's box would reach under the slide's cards, the whole group moves into the free space.
-    let resDy = 0, resKeyed = null;
+    let resDy = 0, resKeyed = null, resH = 0;
     const ra0 = want.some((k) => SITE_DEF[k]?.res) ? resAt() : null;
     if (ra0) {
-      const rh = Math.max(0, ...[...made].filter(([k]) => SITE_DEF[k]?.res).map(([, el]) => el._h || 0));
+      const rh = resH = Math.max(0, ...[...made].filter(([k]) => SITE_DEF[k]?.res).map(([, el]) => el._h || 0));
       const on = (k) => want.includes(k) && resRatio(SITE_DEF[k].res) != null;
       const gut = on('rGut'), coll = on('rColl');
       // (The key goes with the reading at the group's outer edge: the top one of a level circuit, else under the row of an upright one.)
@@ -4490,6 +4531,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (rh && ra0.up) resDy = Math.min(0, y1 - (ra0.y + (gut ? 2 * rh + 18 : rh + 10) + kh));
       else if (rh) resDy = Math.max(0, y0 - (ra0.y - (gut ? 3 * rh + 24 : coll ? 2 * rh + 18 : rh + 12) - kh));
     }
+    // (Readings not measured yet take their place at once next frame: a group just come never slides in from where it was not.)
+    resDy = ra0 && resH ? resShift(resDy) : ((sites.dy = null), resDy);
     for (const k of want) {
       const d = SITE_DEF[k];
       if (!d || (d.node && !NODE_POS[d.node])) continue;
@@ -4515,7 +4558,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Live readings, like the data card: the slide's numbers (fp) only while the model still agrees with them, so a
       // what-if slider moves the callouts as it moves the tiles.
       if (d.split) splitTo(el, clamp((Number.isFinite(sites.fp?.shunt) ? sites.fp.shunt : beatMean('shunt', F.metrics?.shuntFraction, 2)) ?? 0, 0, 1));   // (the slide's own share, the tile's number; a what-if or a time-lapse moves it with the tiles)
-      const b = el.querySelector('b'), v = d.split ? null : d.res ? (ratio == null ? '' : '×' + fmt(ratio, ratio < 10 ? 1 : 0)) : fmt(siteLive(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : pinned()?.at?.P[NI[d.node]], (F.Pf || F.P)[NI[d.node]], breath(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : (F.Pf || F.P)[NI[d.node]])), 1);
+      // (A new number counts there, as the data card's tiles do, never jumps: siteCount.)
+      const n = d.split ? null : d.res ? (ratio == null ? null : siteCount(el, ratio, 0.15)) : siteCount(el, siteLive(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : pinned()?.at?.P[NI[d.node]], (F.Pf || F.P)[NI[d.node]], breath(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : (F.Pf || F.P)[NI[d.node]])), 0.5);
+      const b = el.querySelector('b'), v = d.split ? null : d.res ? (n == null ? '' : '×' + fmt(n, n < 10 ? 1 : 0)) : fmt(n, 1);
       if (v != null && b.textContent !== v) b.textContent = v;
       const ra = d.res ? resAt() : null;
       if (ra) { el.classList.toggle('low', ra.up); el.classList.toggle('keyed', k === resKeyed); }
@@ -5380,7 +5425,60 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return b;
   }
   let frameNo = 0;
-  const termTone = (id) => { const st = store.get(); return (st.presenting && st.presentTerms?.[id]) || null; };
+  // A label the layout moves (a slide's or a patient's change found it a new spot) glides there instead of jumping (17 Oct: "labels and
+  // callouts all snap"). It keeps its offset from the point it names, so it still follows the camera exactly and only a change of that
+  // offset eases; labels with no point (the organs' names, the lanes) glide only while the camera is still. A label just shown, or one
+  // laid out while the figure is hidden (the presenter's camera move, the catheter, the lobule), takes its spot at once.
+  let glideCam = '', glideRaf = 0;
+  const glideAt = (g, now) => { const u = easeInOut(clamp((now - g.t0) / LABEL_GLIDE_MS, 0, 1)); return [g.fx + (g.tx - g.fx) * u, g.fy + (g.ty - g.fy) * u]; };
+  function labelGlide(out) {
+    const now = performance.now(), cam = [CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join();
+    const still = cam === glideCam;
+    glideCam = cam;
+    const snap = reduceMotion.matches || camMove || wrap.classList.contains('cam-move') || wrap.classList.contains('cath-on') || !!lz?.isOpen();
+    let moving = false;
+    for (const it of out) {
+      const b = pool.get(it.key);   // (a label with no block yet is new: it fades in where it stands)
+      if (!b) continue;
+      if (it.hide || it.live || it.fixedLead || it.key === 'scan') { b.gl = null; b.at = null; continue; }
+      const rel = Number.isFinite(it.ax) && Number.isFinite(it.ay) && it.cls !== 'organ' && it.cls !== 'lane';
+      const ox = rel ? it.ax : 0, oy = rel ? it.ay : 0, tx = it.x - ox, ty = it.y - oy;
+      if (!b.at || snap || b.rot !== !!it.rot || b.rel !== rel || (!rel && !still)) b.gl = null;
+      else {
+        let g = b.gl;
+        const [px, py] = g ? [g.tx, g.ty] : b.at;
+        if (Math.hypot(tx - px, ty - py) > 0.5) { const [sx, sy] = g ? glideAt(g, now) : b.at; g = b.gl = { fx: sx, fy: sy, tx, ty, t0: now }; }
+        if (g && now - g.t0 >= LABEL_GLIDE_MS) b.gl = g = null;
+        if (g) { g.tx = tx; g.ty = ty; const [sx, sy] = glideAt(g, now); it.x = ox + sx; it.y = oy + sy; moving = true; }
+      }
+      b.at = [tx, ty]; b.rel = rel; b.rot = !!it.rot;
+    }
+    // (Laid out again each frame until every glide lands; nothing else runs the layout while the figure is still.)
+    if (moving && !glideRaf) glideRaf = nextFrame(() => { glideRaf = 0; if (F && !camMove) updateLabels(F, true); });
+  }
+  // The leader lines and their dots, kept by the label they belong to: a new one fades in, one no longer wanted fades out, and the
+  // rest are moved in place (rebuilt wholesale, they popped in and out with every change).
+  const leadEls = new Map();
+  function paintLeaders(want) {
+    const keep = new Set(want.map((w) => w.k)), els = [];
+    for (const w of want) {
+      let el = leadEls.get(w.k);
+      if (el && el.tagName !== w.tag) { el.remove(); el = null; }
+      if (!el) { el = s(w.tag, {}); leadEls.set(w.k, el); }
+      if (el._gone) { clearTimeout(el._gone); el._gone = 0; el.classList.remove('ld-gone'); }
+      for (const [a, v] of Object.entries(w.at)) setA(el, a, v);
+      els.push(el);
+    }
+    // (A new one goes in just before the next one wanted that is already in, so every line still lies under every dot.)
+    for (let i = els.length - 1, next = null; i >= 0; i--) { if (!els[i].isConnected) gLeaders.insertBefore(els[i], next); next = els[i]; }
+    for (const [k, el] of leadEls) {
+      if (keep.has(k) || el._gone) continue;
+      if (reduceMotion.matches) { el.remove(); leadEls.delete(k); continue; }
+      el.classList.add('ld-gone');
+      el._gone = setTimeout(() => { if (leadEls.get(k) === el && el._gone) { el.remove(); leadEls.delete(k); } }, 360);
+    }
+  }
+  const termTone =(id) => { const st = store.get(); return (st.presenting && st.presentTerms?.[id]) || null; };
   function renderBlock(it) {
     const b = blockEl(it.key, it.cls, it.node, it.onClick);
     b.seen = frameNo;
@@ -5422,6 +5520,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       if (it.swatch) kids.unshift(s('rect', { class: 'lb-sw', x: it.align === 'end' ? it.w - 3 : 0, y: 1, width: 3, height: Math.max(8, it.h - 2), rx: 1.5 }));
       b.g.replaceChildren(...kids);
+      // (A slide's mark that stays but takes new words fades the new words in, never swaps them in at once.)
+      const words = /^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')).join('\n') : null;
+      if (words != null && b.words != null && words !== b.words && b.g.style.display !== 'none' && !reduceMotion.matches) b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' });
+      b.words = words;
       b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
       b.bg = b.g.querySelector('.lb-bg');
     }
@@ -5444,6 +5546,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // A turned caption reads bottom to top: its box's top-left is (x, y), and its text runs up from the bottom.
     setA(b.g, 'transform', it.rot ? `translate(${it.x.toFixed(1)} ${(it.y + it.w).toFixed(1)}) rotate(-90)` : `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
+    b.gone = null;
     b.g.style.display = '';
   }
 
@@ -6046,7 +6149,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let stale = false;
     const prevSol = labelSol, nextSol = solve ? new Map() : labelSol;
     const out = [];
-    let leaders = '';
+    const leaders = [];   // { k, tag, at }: every line, then every dot (paintLeaders)
     let useLines = false, rings = [], ringPts = [];   // rings: the Circuit's stations with a reading (see placeMulti)
     let clampAlts = [];   // (the column's "60 %": other spots off the vessels, nearest first, for the slide's mark)
     const buildLines = () => { if (solve && !useLines) { useLines = true; buildSegs(); } };
@@ -6380,7 +6483,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             // Left column: the line starts at the label's left edge, under the text, so it never ends at the right.
             const ly = side === 'L' ? it.y + it.h : it.y + Math.min(it.h / 2, 16);
             const x0 = side === 'L' ? it.x : rx + 4;
-            leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${x0.toFixed(1)} ${ly.toFixed(1)} L${elbow.toFixed(1)} ${ly.toFixed(1)} L${it.ax.toFixed(1)} ${it.ay.toFixed(1)}"/><circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
+            leaders.push({ k: 'al:' + it.key, tag: 'path', at: { class: `leader${it.sel ? ' hl' : ''}`, d: `M${x0.toFixed(1)} ${ly.toFixed(1)} L${elbow.toFixed(1)} ${ly.toFixed(1)} L${it.ax.toFixed(1)} ${it.ay.toFixed(1)}` } },
+              { k: 'ad:' + it.key, tag: 'circle', at: { class: 'leader-dot', cx: it.ax.toFixed(1), cy: it.ay.toFixed(1), r: '2.4' } });
+            it.fixedLead = true;   // (its leader is drawn here, from where it stands now: it never glides away from it)
             placed.push(rectOf(it));
             out.push(it);
           }
@@ -6759,8 +6864,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Leader lines and anchor dots, for the labels showing. (Every line goes down before any dot, so no leader runs over a dot.)
     // (A stent's point: its dot sits on a solid disc of the stage's colour, and every leader that ends there, its own or the slide's
     // mark's, stops 2 px outside the disc; one left shorter than 4 px is not drawn: Review 15 Oct.)
+    labelGlide(out);
     const DISC = 5, pts = out.filter((it) => it.point && !it.hide);
-    let dots = '';
+    const dots = [];
     const lineFrom = (it, le) => {
       let x0 = it.ax, y0 = it.ay;
       const d = pts.find((p) => Math.hypot(p.ax - x0, p.ay - y0) < DISC + 2);
@@ -6800,13 +6906,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const far = Math.hypot(le0.x - it.ax, le0.y - it.ay) > 5;
       // (In the Circuit a reading more than 10 px from its station is always joined to it, so its ring is never in doubt.)
       const dl = (it.focusLeader || (it.leader && (circuit || far)) || (circuit && Math.hypot(le.x - it.ax, le.y - it.ay) > 10)) && lineFrom(it, le);
-      if (dl && it.focusLeader) leaders += `<path class="leader focus${it.mk ? ` k-${it.mk}` : ''}" data-k="${it.key}" d="${dl}"/>`;
-      else if (dl) leaders += `<path class="leader${it.sel ? ' hl' : ''}" data-k="${it.key}" d="${dl}"/>`;
+      if (dl) leaders.push({ k: 'l:' + it.key, tag: 'path', at: { class: it.focusLeader ? `leader focus${it.mk ? ` k-${it.mk}` : ''}` : `leader${it.sel ? ' hl' : ''}`, 'data-k': it.key, d: dl } });
       if (it.focusLeader || it.free) continue;
-      if (it.point) dots += `<circle class="leader-dot-halo" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="${DISC}"/>`;
-      if (!circuit || it.mid) dots += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
+      const cx = it.ax.toFixed(1), cy = it.ay.toFixed(1);
+      if (it.point) dots.push({ k: 'h:' + it.key, tag: 'circle', at: { class: 'leader-dot-halo', cx, cy, r: String(DISC) } });
+      if (!circuit || it.mid) dots.push({ k: 'd:' + it.key, tag: 'circle', at: { class: 'leader-dot', cx, cy, r: '2.4' } });
     }
-    leaders += dots;
+    leaders.push(...dots);
     // (The flow's arrowheads keep out from under the points' callouts, within 17 px of their dots, and 5 px either side of
     // every leader that ends at a point, the slide's mark's included, so no line runs through one: Review 15 Oct.)
     const holes = [], k = 1 / Math.max(CTM.sc, 1e-3);
@@ -6831,9 +6937,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       gScan.classList.remove('off');
     } else { gScan.classList.add('off'); if (sblk && sblk.seen !== frameNo) sblk.g.classList.add('lb-off'); }   // no callout this frame (circuit view, covered): it fades, never pops
     labelShown = out.filter((it) => it.src && !it.hide);
-    for (const [k, b] of pool) if (b.seen !== frameNo && !(k === 'scan' && (scan.leaving || scan.on))) b.g.style.display = 'none';
+    // A label no longer wanted fades out (lb-off), then leaves; one wanted again before then simply fades back (renderBlock).
+    for (const [k, b] of pool) {
+      if (b.seen === frameNo || (k === 'scan' && (scan.leaving || scan.on))) continue;
+      b.at = null; b.gl = null;
+      if (b.gone || b.g.style.display === 'none') continue;
+      if (reduceMotion.matches || camMove) { b.g.style.display = 'none'; continue; }
+      b.g.classList.add('lb-off');
+      const tok = b.gone = {};
+      setTimeout(() => { if (b.gone === tok) { b.gone = null; b.g.style.display = 'none'; } }, 360);
+    }
     glass.hidden = !out.some((it) => it.key === 'liver' && !it.hide);
-    if (gLeaders._last !== leaders) { gLeaders.innerHTML = leaders; gLeaders._last = leaders; }
+    paintLeaders(leaders);
     return true;
   }
   const nodeVisible = (id) => !(ANAT_HIDDEN_NODES.has(id) && morph < 0.5) && ALL_EDGES.some((e) => (e.from === id || e.to === id) && E[e.id]?.vis);
@@ -7752,7 +7867,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setResGlow(list) { resLit = new Map((list || []).map((r) => [r.id, r.tone])); if (sites.list) sitesPaint(); },
     pinOrgans(list) { pinOrgans(list); },
     siteFp(fp) { slideFp = fp; if (sites.list) sites.fp = fp; },   // (the numbers the slide's tiles now show: a what-if, a time-lapse)
-    setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (fp) slideFp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const k of [...sites.made.keys()]) { const el = sites.made.get(k); sites.made.delete(k); el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); }, 500); } else { refreshCTM(); sitesPaint(); } },
+    setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (fp) slideFp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const [k, el] of [...sites.made]) siteLeave(k, el); else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
     cathFocus,
     cathFollow,

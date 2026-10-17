@@ -183,9 +183,13 @@ svg { flex: none; }
 .lg-note svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
 
 /* SVG label layer (screen space) */
-#labels .lb { transition: opacity .15s ease; }
+/* Labels fade in where they come, fade out where they go (stage.js renderBlock, layoutLabels), and glide when moved (labelGlide);
+   their leader lines and dots fade with them (paintLeaders). */
+#labels .lb { transition: opacity .3s var(--ease); animation: pz-fade .3s var(--ease) both; }
 #labels .lb.lb-off { opacity: 0; pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { #labels .lb { transition: none; } }
+.lb-leaders > * { transition: opacity .3s var(--ease); animation: pz-fade .3s var(--ease) both; }
+.lb-leaders > .ld-gone { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { #labels .lb, .lb-leaders > * { transition: none; animation: none; } }
 /* The halo grows with the text (--lbk: the labels' size, set by the stage), so large text still reads over the art. */
 #labels text { font-family: var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--label-halo); stroke-width: max(2px, calc(3px * var(--lbk, 1))); stroke-linejoin: round; }
 #labels .lb.inline text, #labels .lb.focus text { stroke: none; }
@@ -2779,7 +2783,12 @@ button.finding { cursor: pointer; }
 .cath-label.wedge { --c: var(--tr-wedge); }
 .cath-label.ghost { --lo: .5; }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
-.cath-label.site { transition: scale .6s var(--ease) .35s, box-shadow .6s var(--ease) .35s; } .cath-label.site > * { transition: opacity .6s var(--ease) .35s; }
+.cath-label.site { transition: scale .6s var(--ease) .35s, box-shadow .6s var(--ease) .35s, translate .45s var(--ease); } .cath-label.site > * { transition: opacity .6s var(--ease) .35s; }
+/* One leaving fades out whole and at once (no entrance pause), its glass and shadow with it; the glass is hidden outright only once
+   faded (stage.js siteLeave removes it after). */
+.cath-label.site.cath-leave { --lo: 0; box-shadow: var(--shadow-cath-label-off); }
+.cath-label.site.cath-leave, .cath-label.site.cath-leave > * { transition-delay: 0s; }
+.cath-label.site.cath-leave > .cl-glass { visibility: hidden; transition: opacity .6s var(--ease), visibility 0s linear .6s; }
 .cath-label.site.pv { --c: var(--tr-pv); } .cath-label.site.ivc { --c: var(--tr-ivc); }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
 .scan-probe { --scan: var(--fibroscan); /* the orange of the FibroScan card's readout (ORANGE in fibroscan.js) */ position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity .6s var(--ease); pointer-events: none; }
@@ -2843,7 +2852,7 @@ button.finding { cursor: pointer; }
 /* The circuit's resistors: a zigzag over the vessel, heavier as its resistance rises (eased, never a jump). */
 .res-one { transition: opacity .6s var(--ease); }
 .res-one path { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; transition: stroke-width .8s var(--ease); }
-.res-one .res-halo { stroke: var(--stage-bg, var(--bg)); stroke-width: calc(var(--res-w, 1.5px) + 3px); opacity: .85; }
+.res-one .res-halo { stroke: var(--stage-bg, var(--bg)); stroke-width: calc(var(--res-w, 1.5px) + 3px); opacity: .85; transition: stroke-width .8s var(--ease), stroke .6s var(--ease), opacity .6s var(--ease); }
 .res-one .res-line { stroke: var(--res-c, var(--text)); stroke-width: var(--res-w, 1.5px); opacity: .8; transition: stroke-width .8s var(--ease), stroke .6s var(--ease), opacity .6s var(--ease); }
 .res-one.lit .res-line { opacity: 1; stroke-width: calc(var(--res-w, 1.5px) + 1.5px); }
 .res-one.lit .res-halo { stroke: var(--res-c); stroke-width: calc(var(--res-w, 1.5px) + 9px); opacity: .22; }
@@ -2890,7 +2899,7 @@ button.finding { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .hvpg-kv dd.in { animation-name: fadeIn; } }
 /* A small rise from just below, never a scale: scale composes with the positioning transform and would slide the box in from the corner. */
 .cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { top: 6px; }
-@media (prefers-reduced-motion: reduce) { .cath-label, .cath-sum-box { transition-property: opacity; } .cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { top: 0; } }
+@media (prefers-reduced-motion: reduce) { .cath-label, .cath-label.site, .cath-sum-box { transition-property: opacity; } .cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { top: 0; } }
 /* HVPG procedure (Measure › HVPG): the monitor canvas, the readings and the four steps. */
 .instrument-view[data-pane="hvpg"] { gap: 10px; }
 .instrument-view[data-pane="hvpg"] > .hvpg-bar { grid-column: 1 / -1; }

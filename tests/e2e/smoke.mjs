@@ -204,7 +204,7 @@ const leaderFrames = (page, ms) => page.evaluate((ms) => new Promise((done) => {
       const b = ink(el);
       if (b) labs.push({ k: el.matches('.lz-call') ? 'lesion' : el.dataset.target || el.dataset.key, n: el.textContent.trim().slice(0, 20), o: op(el), ...b });
     }
-    for (const ln of document.querySelectorAll('.lz-leaders line.leader, .lz-call-l.on, #labels path.leader:not(.scan)')) {
+    for (const ln of document.querySelectorAll('.lz-leaders line.leader, .lz-call-l.on, #labels path.leader:not(.scan, .ld-gone)')) {
       if (ln.style.display === 'none' || op(ln) < 0.05) continue;
       const m = ln.getScreenCTM(); if (!m) continue;
       const at = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
@@ -387,7 +387,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         const M = [ax - ox, ay - oy, bx - ox, by - oy, ox, oy];
         const c = (e) => { const r = e.getBoundingClientRect(); return [r.left + r.width / 2 - wr.left, r.top + r.height / 2 - wr.top]; };
         const svgMarks = [...document.querySelectorAll('#overlays > g:not(.res-zz) :is(path, circle, ellipse, rect)')].filter((e) => !e.closest('[class*="cath"]') && !e.hasAttribute('data-gl') && getComputedStyle(e).visibility !== 'hidden' && e.getBoundingClientRect().width > 0).map((e) => e.getAttribute('class') || e.tagName);
-        return { M, gl: st.glMatrix(), bands: [...document.querySelectorAll('.band-ring, .stent-mark')].map(c), dots: [...document.querySelectorAll('#labels .leader-dot:not(.scan)')].map(c), svgMarks };
+        return { M, gl: st.glMatrix(), bands: [...document.querySelectorAll('.band-ring, .stent-mark')].map(c), dots: [...document.querySelectorAll('#labels .leader-dot:not(.scan, .ld-gone)')].map(c), svgMarks };
       });
       const fail = [];
       const near = (p, q, tol) => Math.hypot(p[0] - q[0], p[1] - q[1]) <= tol;
@@ -3402,7 +3402,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (await page.$('#pane-doppler .dop-gate')) throw new Error('the stent Doppler still has a separate spot dropdown');
     const tap = (sel) => (device === 'phone' ? page.tap(sel) : page.click(sel));
     // (The figure's TIPS callout points at the sampled third: its anchor dot moves along the stent with the gate.)
-    const dots = () => page.evaluate(() => [...document.querySelectorAll('circle.leader-dot')].map((c) => `${c.getAttribute('cx')},${c.getAttribute('cy')}`).join(' '));
+    const dots = () => page.evaluate(() => [...document.querySelectorAll('circle.leader-dot:not(.ld-gone)')].map((c) => `${c.getAttribute('cx')},${c.getAttribute('cy')}`).join(' '));
     const anchors = {};
     for (const seg of ['proximal', 'distal', 'mid']) {
       await tap(`#pane-doppler .dop-seg[title*="${seg}"]`);
@@ -3466,7 +3466,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           const rs = Object.fromEntries(Object.entries(pts).map(([p, e]) => [p, box(e)]));
           const others = [...document.querySelectorAll('#labels g.lb:not(.lb-off)')].filter((e) => !e.dataset.key?.startsWith('n:TIPS:') && e.style.display !== 'none' && !e.dataset.key?.startsWith('o:'));
           const clamps = [...document.querySelectorAll('.clamp-label')];
-          const dots = [...document.querySelectorAll('.leader-dot')].map((d) => { const r = box(d); return [(r.left + r.right) / 2, (r.top + r.bottom) / 2]; });
+          const dots = [...document.querySelectorAll('.leader-dot:not(.ld-gone)')].map((d) => { const r = box(d); return [(r.left + r.right) / 2, (r.top + r.bottom) / 2]; });
           const far = (r) => Math.min(...dots.map(([x, y]) => Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom))));
           const err = [], list = Object.values(rs), cx = (r) => (r.left + r.right) / 2;
           if (list.some((a, i) => list.some((b, j) => j > i && meet(a, b)))) err.push('two callouts overlap');
@@ -4098,7 +4098,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
             if (xy && !covered(lr.left + x, lr.top + y)) miss.push([k, `${at}: ${k} is left out`]);
           }
           const inBox = (x, y, b) => x > b.x0 && x < b.x1 && y > b.y0 && y < b.y1;
-          for (const p of document.querySelectorAll('#labels path.leader')) {
+          for (const p of document.querySelectorAll('#labels path.leader:not(.ld-gone)')) {
             const L = p.getTotalLength(), ctm = p.getScreenCTM();
             if (L < 1) continue;
             const pt = (u) => { const q = p.getPointAtLength(u); return new DOMPoint(q.x, q.y).matrixTransform(ctm); };
