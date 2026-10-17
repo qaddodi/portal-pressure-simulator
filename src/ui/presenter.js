@@ -45,7 +45,6 @@ const ALIAS = { 'where-block': 'sites', bleed: 'treatment' };
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-const FLOW_FOLD = matchMedia('(max-height: 960px)');   // (an upright phone's after-meal chart alone in its card goes on the card's sheet: styles/app.css)
 const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
 /** Poll (not frames: a hidden tab runs none) until fn() holds or ms pass. */
 async function until(fn, ms = 3000) { const t0 = performance.now(); while (!fn() && performance.now() - t0 < ms) await wait(40); }
@@ -2281,9 +2280,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (auto: closed by the layout, a slide whose card does not fit beside the words and the figure; autoKey: the slide it closed on.
   // A card the reader closed stays closed from slide to slide; one the layout closed opens again on the next slide that fits.)
   const dock = { lvl: 0, to: 0, raf: 0, auto: false, autoKey: '' };
-  // A phone's card with a second part (an instrument's tiles, or the instrument under its tiles) keeps that part on a sheet
-  // tucked under it: the sheet's edge (LIP px, .pz-lip) shows below the card and carries the handle (Mohammad, 17 Oct: "round 2 A").
-  // Pulled down or tapped, the sheet comes out flush with the card; pushed up, the card slides away to its handle. No Show or Hide.
+  // A phone's instrument card with readings shows the instrument first and keeps its tiles (or pressure strip) on a sheet tucked
+  // under it: the sheet's edge (LIP px, .pz-lip) shows below the card and carries the handle (Mohammad, 17 Oct: "round 2 A"; "I thought
+  // the Doppler will show first with an indication for a card under it?"). Pulled down or tapped, the sheet comes out flush with
+  // the card; pushed up, the card slides away to its handle. No Show or Hide.
   const LIP = 24;
   const lipOn = (d) => d.classList.contains('pz-sheet') && !d.classList.contains('tool-open');
   const dockVec = () => {
@@ -2299,7 +2299,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.data.classList.toggle('docked', dock.to === 1);
     const say = dock.to === 1 ? 'Open the card' : ui.data.classList.contains('tool-open') ? 'Close the card' : 'Show the rest of the card';
     if (ui.lip.getAttribute('aria-label') !== say) ui.lip.setAttribute('aria-label', say);
+    placeLip();
   };
+  // The sheet's edge is the card's sibling, not its child: inside the card, the card's glass clipped it away on an iPhone (802e093,
+  // no edge and no handle under Doppler 7). It stands at the card's foot at the card's width, and moves with the card's own drag.
+  function placeLip() {
+    const d = ui?.data, l = ui?.lip;
+    if (!l || d.hidden || !d.classList.contains('pz-sheet')) return;
+    const px = (v) => `${v.toFixed(1)}px`;
+    l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(d.offsetTop + d.offsetHeight);
+    l.style.translate = d.style.translate;
+  }
   function dockTo(to, ms = 380) {
     cancelFrame(dock.raf);
     dock.to = to;
@@ -2576,7 +2586,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Before the words are measured for the phone's cap: measured with the full names on two rows, the card kept 12 px it no longer needed.)
     abShort(ui.text, p || ui.root.classList.contains('low'));   // (a phone, upright or on its side; a wider card may take two rows of full names)
     // (A phone's card with a second part keeps that part on its sheet (.pz-lip, dockVec); each slide arrives partly open.)
-    const dd0 = ui.data, sheet = (p || low) && dd0.classList.contains('has-tool') && (!dd0.classList.contains('tool-only') || (p && FLOW_FOLD.matches && !!dd0.querySelector(':scope > .pz-tool[data-kind="flowtime"]')));
+    const dd0 = ui.data, sheet = p && dd0.classList.contains('has-tool') && !dd0.classList.contains('tool-only');
     dd0.classList.toggle('pz-sheet', sheet);
     if ((p || low) && dd0.classList.contains('pz-folds')) { dd0.classList.remove('pz-folds'); footFold(); }   // (a wider screen's fold, left by a window made narrow)
     if (sheet && dd0.classList.contains('tool-open') && dd0.dataset.openFor !== String(want)) dd0.classList.remove('tool-open');
@@ -2842,7 +2852,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Measured as the slide arrives, partly open with its sheet's edge below it, whatever the reader opened: the part's ease held
     // back so the measure sees where it rests.)
     const arriving = () => {
-      const p = dd.classList.contains('pz-sheet') && dd.classList.contains('tool-open') ? dd.querySelector(dd.classList.contains('tool-lead') ? ':scope > .pz-tiles' : ':scope > .pz-tool') : null;
+      const p = dd.classList.contains('pz-sheet') && dd.classList.contains('tool-open') ? ui.partOf() : null;
       if (!p) return natural(dd, ds) + lip;
       const tr = p.style.transition; p.style.transition = 'none'; dd.classList.remove('tool-open');
       const v = natural(dd, ds) + LIP * k;
@@ -3320,15 +3330,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   addEventListener('keydown', onKey, true);
 
   // The card's own touch: along its axis it follows the finger (docking past half way or on a quick flick); a tap on the sliver opens it.
-  function dockTouch(el) {
+  function dockTouch(el, ...more) {   // (more: the card's sheet edge, its sibling, takes the same touch)
     let g = null;
     const reset = () => { g = null; dock.drag = false; };
-    el.addEventListener('touchstart', (e) => {
+    const on = (type, fn, opts) => { for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };
+    on('touchstart', (e) => {
       if (e.touches.length !== 1 || !deck) { reset(); return; }
       const t = e.touches[0], vec = dockVec(), k = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1;
       g = { x: t.clientX, y: t.clientY, t: performance.now(), lvl0: dock.lvl, vec, k, on: false, last: 0 };
     }, { passive: true });
-    el.addEventListener('touchmove', (e) => {
+    on('touchmove', (e) => {
       if (!g) return;
       if (e.touches.length > 1) { reset(); return; }
       const t = e.touches[0], dx = t.clientX - g.x, dy = t.clientY - g.y, vert = !!g.vec[1];
@@ -3343,7 +3354,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       (g.pts ||= []).push([performance.now(), along]);
       dockPaint();
     }, { passive: false });
-    el.addEventListener('touchend', (e) => {
+    on('touchend', (e) => {
       const gg = g; reset();
       if (!gg || e.touches.length) return;
       const dt = performance.now() - gg.t;
@@ -3356,7 +3367,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         dockTo(flick > 0 ? 1 : flick < 0 ? 0 : dock.lvl > 0.5 ? 1 : 0, 300);
       } else if (dock.to === 1 && dt < 500) { dock.auto = false; dock.tapAt = performance.now(); dockTo(0); }   // (tapAt: the click that follows is this tap's, .pz-lip)
     }, { passive: true });
-    el.addEventListener('touchcancel', () => { if (g?.on) dockTo(dock.to, 300); reset(); }, { passive: true });
+    on('touchcancel', () => { if (g?.on) dockTo(dock.to, 300); reset(); }, { passive: true });
   }
 
   // A phone's foldable card also opens and closes by a swipe anywhere on it: down pulls the folded part open, up pushes it
@@ -3364,16 +3375,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // is left to the card's dock drag; sideways moves are left alone, so slide swipes and the figure pan work as before.
   // (A card with its part on a sheet (.pz-sheet): a pull down brings the sheet out; any push up, partly or fully open, closes the
   // whole card by the dock drag, and it opens again partly, dockTo.)
-  function foldTouch(el, btn, setFold, part, hold) {
+  function foldTouch(el, btn, setFold, part, hold, ...more) {
     let g = null;
-    el.addEventListener('touchstart', (e) => {
+    const on = (type, fn, opts) => { for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };
+    on('touchstart', (e) => {
       g = null;
       const sheet = el.classList.contains('pz-sheet'), open = el.classList.contains('tool-open');
       if (e.touches.length !== 1 || (!btn.offsetWidth && !sheet) || (sheet && open) || dock.lvl > 0 || btn.contains(e.target)) return;
       const t = e.touches[0], p = part();
       g = { x: t.clientX, y: t.clientY, p, open, shown: open, full: Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
     }, { passive: true });
-    el.addEventListener('touchmove', (e) => {
+    on('touchmove', (e) => {
       if (!g) return;
       const t = e.touches[0], dy = t.clientY - g.y, dx = t.clientX - g.x;
       if (!g.on) {
@@ -3402,8 +3414,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       gg.p.style.maxHeight = ''; gg.p.style.opacity = '';
       hold(false);
     };
-    el.addEventListener('touchend', end, { passive: true });
-    el.addEventListener('touchcancel', end, { passive: true });
+    on('touchend', end, { passive: true });
+    on('touchcancel', end, { passive: true });
   }
 
   // ── Start and stop ──
@@ -3418,7 +3430,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // tiles and pictures hold their size through the whole open and close. (Fitted as the part eased or followed the finger,
     // the card measured itself against a cap meant for the other state; an iPhone's Doppler card shrank to half mid-pull, then
     // grew back once open.)
-    const partOf = () => (data.classList.contains('tool-lead') ? tiles.el : tools.el);
+    // (A phone's sheet holds what is under the instrument: its tiles, or its pressure strip when it has none.)
+    const partOf = () => (data.classList.contains('tool-lead') || (data.classList.contains('pz-sheet') && !data.classList.contains('tool-only')) ? (tiles.el.querySelector('.pz-tile') ? tiles.el : ladder.strip) : tools.el);
     const setFold = (open) => {
       const p = partOf(), cs = getComputedStyle(p), from = ['maxHeight', 'opacity', 'marginTop', 'marginBottom'].map((n) => [n, cs[n]]);
       p.style.transition = 'none'; for (const [n] of from) p.style[n] = '';
@@ -3441,14 +3454,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const fold = h('button', { class: 'pz-fold', type: 'button', 'aria-expanded': 'false', onclick: () => setFold(!data.classList.contains('tool-open')) }, 'Show');
     // A phone's sheet under the card (.pz-sheet, dockVec): its edge carries the handle. A tap steps through the three states, as the
     // card's own pulls and pushes do: partly open, fully open, closed to its edge at the top, partly open again.
-    const lip = h('button', { class: 'pz-lip stage-blocker', type: 'button', 'aria-label': 'Show the rest of the card', onclick: () => {
+    const lip = h('button', { class: 'pz-lip stage-blocker', type: 'button', hidden: true, 'aria-label': 'Show the rest of the card', onclick: () => {
       if (performance.now() - (dock.tapAt || 0) < 700) return;   // (a touch that already opened the closed card, dockTouch)
       if (dock.to === 1) { dock.auto = false; dockTo(0); } else if (data.classList.contains('tool-open')) { dock.auto = false; dockTo(1); } else setFold(true);
     } });
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-gone': '', hidden: true, 'aria-label': 'The numbers' },
-      h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, ladder.strip, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }), lip);
-    foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); });
-    dockTouch(data);
+      h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, ladder.strip, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
+    foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); }, lip);
+    dockTouch(data, lip);
+    // (Shown with the sheet only, and kept at the card's foot as the card grows or shrinks, a part easing open included.)
+    new MutationObserver(() => { lip.hidden = data.hidden || !data.classList.contains('pz-sheet'); placeLip(); }).observe(data, { attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
+    const lipRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => placeLip()) : null;
+    lipRO?.observe(data, { box: 'border-box' });
     data.addEventListener('pz-strip', () => requestAnimationFrame(() => { if (ui) { fitDone.delete(data); layout(); } }));   // (laid out, not a resize: a resize sets every strip back to its plot and measures again)
     // A part that has finished folding or unfolding: fit the card again from full size (a fit taken mid-fold kept the tiles small).
     data.addEventListener('transitionend', (e) => { if (e.propertyName === 'max-height' && e.target.parentElement === data) { if ('folding' in data.dataset) foldStill(); else { fitDone.delete(data); onResize(); } } });
@@ -3467,14 +3484,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const vcase = h('section', { class: 'pz-case stage-blocker', hidden: true, 'aria-live': 'polite', onclick: () => { if (performance.now() - caseDragAt > 400) caseLift?.(); } });
     // The slide's colour key, small on the figure (src/ui/figure-key.js fades it in; its words are set by figKey). The figure's labels keep clear of it (stage-blocker).
     const fk = h('div', { class: 'pz-fk stage-blocker', role: 'img', hidden: true, 'data-empty': '' });
-    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, panel, vcase, prog, bar, jump, blackEl);
+    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, data, lip, panel, vcase, prog, bar, jump, blackEl);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave'))).observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
-    return { root, shade, safe, load, text, data, lip, setFold, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
+    return { root, shade, safe, load, text, data, lip, lipRO, setFold, partOf, vcase, fk, figKey, dhT, dhL, ladder, tiles, tools, veil, panel, prog, bar, black: blackEl, jump };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)
@@ -3566,7 +3583,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
-    pillW = 0; ui?.tools.dispose(); ui?.figKey.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
+    pillW = 0; ui?.tools.dispose(); ui?.figKey.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.setProjection(false);

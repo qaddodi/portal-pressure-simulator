@@ -2034,19 +2034,17 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data.pz-hide { transform: translateY(-18px); }
 .pz.stack .pz-dh { font-size: var(--s-cap); }
 .pz-fold { display: none; }
-/* (A phone, upright or on its side, keeps its instrument on the sheet under the card (.pz-sheet, below), never behind Show.) */
-.pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-tool { max-height: 60vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
-.pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only):not(.tool-open) .pz-tool { max-height: 0; opacity: 0; margin-bottom: -6px; }
-/* An instrument that is the slide's point (tool open: true) stays open on a phone and the tiles fold instead (the line's pill keeps the
-   reading); the scope then sits as a compact row, the view beside its grade and size, so the figure keeps most of the screen. */
-.pz:is(.stack, .low) .pz-data.has-tool.tool-lead:not(.tool-only):not(.tool-open) .pz-tool { max-height: 60vh; opacity: 1; margin-bottom: 0; }
-.pz:is(.stack, .low) .pz-data.tool-lead .pz-tiles { max-height: 40vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
-.pz:is(.stack, .low) .pz-data.tool-lead:not(.tool-open) .pz-tiles { max-height: 0; opacity: 0; margin-top: -6px; }
-.pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
-.pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .endo-stage { flex: none; width: 42%; min-height: 0; }
-.pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; }
-.pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .chart-side { flex: 1; min-width: 0; }
-.pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .endo-pos { display: none; }
+/* A phone, upright or on its side, always shows the instrument first; its tiles, or its pressure strip, go on the sheet under the
+   card (.pz-sheet, below), never behind Show (Mohammad, 17 Oct: "I thought the Doppler will show first with an indication for a
+   card under it?"). The scope sits as a compact row there, the view beside its grade and size, so the figure keeps most of the screen. */
+.pz.stack .pz-data:is(.tool-lead, .pz-sheet) > .pz-tiles { max-height: 40vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
+.pz.stack .pz-data:is(.tool-lead, .pz-sheet) > .pz-strip { max-height: 40vh; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
+.pz.stack .pz-data:is(.tool-lead, .pz-sheet):not(.tool-open) > :is(.pz-tiles, .pz-strip) { max-height: 0; opacity: 0; margin-top: -6px; overflow: hidden; }
+.pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
+.pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .endo-stage { flex: none; width: 42%; min-height: 0; }
+.pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; }
+.pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .chart-side { flex: 1; min-width: 0; }
+.pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .endo-pos { display: none; }
 /* A phone's pressure card: the ladder becomes a strip (one row of stations, no axis or gridlines), shorter than the chart. */
 .pz-strip { display: none; width: 100%; height: auto; overflow: visible; }
 .pz.stack .pz-data > .pz-ladder { display: none; }
@@ -2390,12 +2388,7 @@ button.finding { cursor: pointer; }
 .pz-flowtime { display: grid; }
 .pz:not(.stack) .pz-data.has-tool:has(.pz-tool[data-kind="flowtime"] .pz-flowtime:not(.days)) { width: clamp(340px, 44vw, 480px); }   /* (wide enough for its words on an iPad held upright; a disease time-lapse's short names keep the card's own width) */
 .pz-flowtime svg { grid-area: 1 / 1; width: 100%; height: auto; overflow: visible; transition: opacity .42s var(--ease); }
-@media (max-height: 960px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }/* A phone with the after-meal chart alone in the card: the chart goes on the card's sheet (the words leave no room for it and the
-   veins both), as an instrument above tiles does on every phone (.pz-sheet). */
-@media (max-height: 960px) {
-  .pz.stack .pz-data.tool-only:has(.pz-tool[data-kind="flowtime"]) .pz-tool { max-height: 60vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
-  .pz.stack .pz-data.tool-only:has(.pz-tool[data-kind="flowtime"]):not(.tool-open) .pz-tool { max-height: 0; opacity: 0; margin-bottom: -6px; }
-}
+@media (max-height: 960px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }/* (A phone with the after-meal chart alone in the card shows it as any instrument: too tall beside the words, the card comes in closed.) */
 .pz-flowtime svg.in { opacity: 0; }
 .pft-key line { stroke-width: 4; stroke-linecap: round; }
 .pft-key text:not(.ptk-ax) { font: 700 calc(17px * var(--svk, 1)) var(--font-ui); }
@@ -4951,56 +4944,56 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool > .pz-ghost { display: none; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tiles:not([data-n="0"]) { overflow: clip; }
 /* The header's two sizes, shared by every instrument: the reading's number, everything else small. */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-vel b, .ab-big > b, .pt-num) { font: 600 var(--pz-num)/1 var(--font-ui); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-vel small, .ab-big > b small, .pt-v small, .pt-k, .pt-sev, .dop-dir, .ab-grade, .endo-stress-v, .endo-grade, .endo-grade *, .endo-chip-v, .endo-read dt) { font: 600 var(--bs)/1.25 var(--font-ui); letter-spacing: 0; white-space: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool :is(.dop-vel small, .ab-big > b small, .pt-v small) { margin-left: .3em; font-weight: 500; color: var(--text-3); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool :is(.dop-vel b, .ab-big > b, .pt-num) { font: 600 var(--pz-num)/1 var(--font-ui); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool :is(.dop-vel small, .ab-big > b small, .pt-v small, .pt-k, .pt-sev, .dop-dir, .ab-grade, .endo-stress-v, .endo-grade, .endo-grade *, .endo-chip-v, .endo-read dt) { font: 600 var(--bs)/1.25 var(--font-ui); letter-spacing: 0; white-space: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool :is(.dop-vel small, .ab-big > b small, .pt-v small) { margin-left: .3em; font-weight: 500; color: var(--text-3); }
 /* Doppler: "−12 cm/s mean" and "● Hepatofugal" over the trace. */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-main { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr) auto; align-items: baseline; gap: 6px 12px; min-height: 0; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { display: contents; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { grid-area: 1 / 1; margin: 0; flex-wrap: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { grid-area: 1 / 2; justify-self: end; gap: .45em; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-box { grid-area: 2 / 1 / 3 / -1; align-self: stretch; width: 100%; height: auto; min-height: calc((58cqi + var(--dop-free, 0px)) * var(--pz-fit, 1)); aspect-ratio: auto; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] :is(.dop-range, .dop-stats, .dop-note) { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-main { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr) auto; align-items: baseline; gap: 6px 12px; min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { grid-area: 1 / 1; margin: 0; flex-wrap: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { grid-area: 1 / 2; justify-self: end; gap: .45em; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-box { grid-area: 2 / 1 / 3 / -1; align-self: stretch; width: 100%; height: auto; min-height: calc((58cqi + var(--dop-free, 0px)) * var(--pz-fit, 1)); aspect-ratio: auto; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] :is(.dop-range, .dop-stats, .dop-note) { display: none; }
 /* (The waveform's name, "Phasic", "Reversed S", is the trace's caption, under it at the small size.) */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { display: contents; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel { grid-area: 1 / 1; white-space: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-pattern { grid-area: 3 / 1 / 4 / -1; margin: 0; font: 600 var(--bs)/1.25 var(--font-ui); color: var(--text-2); white-space: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-pattern:empty { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel { grid-area: 1 / 1; white-space: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-pattern { grid-area: 3 / 1 / 4 / -1; margin: 0; font: 600 var(--bs)/1.25 var(--font-ui); color: var(--text-2); white-space: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-pattern:empty { display: none; }
 
 /* Beat by beat: "HVPG 6.7 mmHg" and "● Subclinical" over the trace. */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-height: 0; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-head { flex-wrap: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-hero { display: contents; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 0 .5em; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-k { color: var(--text-2); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-sev { justify-self: end; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-delta { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-box { flex: 1 0 auto; height: calc(72cqi * var(--pz-fit, 1)); min-height: 0; aspect-ratio: auto; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-head { flex-wrap: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-hero { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 0 .5em; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-k { color: var(--text-2); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-sev { justify-self: end; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-delta { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-box { flex: 1 0 auto; height: calc(72cqi * var(--pz-fit, 1)); min-height: 0; aspect-ratio: auto; }
 /* Scope and varix wall: the grade, or the wall stress, over the picture; the picture as large as the column. */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .pz-inst { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto minmax(0, 1fr); align-items: baseline; gap: 6px 12px; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) :is(.chart-side, .endo-read) { display: contents; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read > div { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { grid-area: 3 / 1 / 4 / -1; align-self: center; width: calc(min(100cqi, calc(30 * var(--pzh))) * var(--pz-fit, 1)); margin: 0 auto; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-pos { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read > :is(.endo-g:not(.wall-law), .endo-stress, .endo-red) { display: flex; align-items: baseline; gap: .5em; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read dt { color: var(--text-2); letter-spacing: .04em; text-transform: uppercase; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-g { grid-area: 1 / 1; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-area: 1 / 2; justify-self: end; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-more { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress.endo-stress { grid-area: 1 / 1 / 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 6px 12px; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > dt { flex: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > .endo-bar { grid-column: 1 / -1; display: block; width: 100%; height: 6px; margin: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .pz-inst { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto minmax(0, 1fr); align-items: baseline; gap: 6px 12px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) :is(.chart-side, .endo-read) { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read > div { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { grid-area: 3 / 1 / 4 / -1; align-self: center; width: calc(min(100cqi, calc(30 * var(--pzh))) * var(--pz-fit, 1)); margin: 0 auto; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-pos { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read > :is(.endo-g:not(.wall-law), .endo-stress, .endo-red) { display: flex; align-items: baseline; gap: .5em; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-read dt { color: var(--text-2); letter-spacing: .04em; text-transform: uppercase; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-g { grid-area: 1 / 1; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-area: 1 / 2; justify-self: end; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-more { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress.endo-stress { grid-area: 1 / 1 / 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 6px 12px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > dt { flex: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > .endo-bar { grid-column: 1 / -1; display: block; width: 100%; height: 6px; margin: 0; }
 /* Abdomen: "7.5 L" and "● Grade 3" over the belly, drawn large. */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab, .ab-main) { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-read { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol-l { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-gauge { grid-area: 1 / 1; height: 100%; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-big { justify-content: space-between; flex-wrap: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly { height: 100%; width: auto; max-height: min(46cqi, calc(16 * var(--pzh))); aspect-ratio: 1; }   /* (sized by the card's own room, never by --pz-fit, so it never jumps smaller after the fit) */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab-trend, .ab-iap, .ab-tiles) { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab, .ab-main) { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-read { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-vol-l { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-gauge { grid-area: 1 / 1; height: 100%; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-big { justify-content: space-between; flex-wrap: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly { height: 100%; width: auto; max-height: min(46cqi, calc(16 * var(--pzh))); aspect-ratio: 1; }   /* (sized by the card's own room, never by --pz-fit, so it never jumps smaller after the fit) */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] :is(.ab-trend, .ab-iap, .ab-tiles) { display: none; }
 /* (The beat-by-beat trace's Smooth switch is the Explore pane's, not a slide's.) */
 .pz-tool .pt-smooth { display: none; }
 /* (Beside an instrument the tile column is a little wider, so every tile's name stays on one line.) */
@@ -5027,6 +5020,20 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack .pz-data.has-tool { --pz-num: var(--pz-pnum); }
 .pz.stack .pz-data.has-tool > .pz-tool { --bs: var(--pz-psm); container-type: inline-size; font-size: var(--bs); }
 .pz.stack .pz-data.has-tool > .pz-tool > .pz-ghost { display: none; }
+/* A phone on its side: the same compact instrument as upright, shorter, with its tiles under it, all shown at once (no sheet:
+   Mohammad, 17 Oct, "Compact and they all show no need to open or pull"). */
+.pz.low .pz-data { --pz-psm: max(12px, var(--s-cap)); --pz-pnum: var(--s-big); }
+.pz.low .pz-data.has-tool { --pz-num: var(--pz-pnum); }
+.pz.low .pz-data.has-tool > .pz-tool { --bs: var(--pz-psm); container-type: inline-size; font-size: var(--bs); }
+.pz.low .pz-data.has-tool > .pz-tool > .pz-ghost { display: none; }
+.pz.low.low .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box { min-height: 0; height: 120px; }
+.pz.low.low .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 96px; aspect-ratio: auto; }
+.pz.low.low .pz-data.has-tool.has-tool .pz-tool[data-kind="beats"] .pt-box { height: 96px; min-height: 0; }
+.pz.low.low .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { width: min(30cqi, 84px); }
+.pz.low.low .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage .chart-box.square { width: 100%; height: auto; min-height: 0; aspect-ratio: 1; max-width: none; overflow: hidden; }
+.pz.low.low .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage .chart-box.square > canvas { width: 100%; height: 100%; }
+.pz.low.low .pz-data.has-tool.has-tool .pz-tool[data-kind="trace"] .chart-box { height: 104px; }
+.pz.low.low .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { max-height: 104px; }
 /* (A phone's Doppler and FibroScan give way when the card is short, but by their pictures: the instrument's own zoom stops at .85,
    so its words stay 10 px or more on the screen (they were 7.9 at the fit's .65), and the rest of the fit shortens the picture.) */
 .pz.stack:not(.low) .pz-data.has-tool.has-tool > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"]) { --tz: max(var(--pz-fit, 1), .85); zoom: var(--tz); }
@@ -5040,24 +5047,27 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-dh { position: relative; padding-inline: 0; flex-wrap: nowrap; justify-content: center; text-align: center; }
 .pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-dh::before,
 .pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-dh::after { content: ''; flex: 1 1 0; min-width: 0; }
-/* A phone's card with a second part (an instrument's tiles, or the instrument under its tiles) keeps that part on a sheet tucked
-   under it (presenter.js: layout sets pz-sheet, the lip is .pz-lip). Partly open, as a slide arrives, the sheet's edge stands 24 px
-   below the card, a little narrower and darker, the handle bar in it: the step between the two edges says there is more underneath
-   (Mohammad, 17 Oct, round 2 A: "How will we know that we can open it further without the show hide?"). Fully open, the sheet comes
-   out flush with the card, at its full width and in its colour, the step gone and the handle in the card's foot. Closed, the card
-   slides up to its edge and the sheet's (dockVec). A slide whose card does not fit comes in closed, never folded behind Show. */
+/* A phone's instrument card keeps its readings on a sheet tucked under it (presenter.js: layout sets pz-sheet; the sheet's edge, .pz-lip,
+   is the card's sibling, placed at its foot by placeLip: inside the card, the card's glass clipped it away on an iPhone). Partly
+   open, as a slide arrives, the edge stands 24 px below the card, a little narrower and darker, the handle bar in it: the step between
+   the two edges says there is more underneath (Mohammad, 17 Oct, round 2 A: "How will we know that we can open it further without the
+   show hide?"). Fully open, the sheet is flush with the card, the step gone and the handle in the card's foot. Closed, the card slides
+   up to its edge and the sheet's (dockVec). A slide whose card does not fit comes in closed, never folded behind Show. */
 .pz-lip { display: none; }
-.pz:is(.stack, .low) .pz-data.pz-sheet:not(.tool-open) { overflow-y: visible; }
-.pz:is(.stack, .low) .pz-data.pz-sheet > .pz-lip { display: block; position: absolute; top: 100%; left: 14px; right: 14px; height: 24px; margin: 0; padding: 0; zoom: 1;
-  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent); border-top: 0; border-radius: 0 0 16px 16px;
-  background: color-mix(in srgb, var(--surface-2) 94%, transparent); box-shadow: 0 6px 14px -8px var(--pz-glass-drop), 0 1px 2px var(--pz-glass-drop);
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
-  transition: left .36s var(--ease), right .36s var(--ease), translate .36s var(--ease), background-color .36s var(--ease), border-color .36s var(--ease), box-shadow .36s var(--ease); }
-.pz:is(.stack, .low) .pz-data.pz-sheet > .pz-lip::before { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 4px; translate: -50% -50%; border-radius: 2px; background: color-mix(in srgb, var(--text) 32%, transparent); }
-.pz:is(.stack, .low) .pz-data.pz-sheet > .pz-lip::after { content: ''; position: absolute; inset: -6px -14px -10px; }   /* (a 40 px target) */
+.pz:is(.stack, .low) .pz-lip:not([hidden]) { display: block; position: absolute; height: 24px; margin: 0; padding: 0; border: 0; background: none; pointer-events: auto; touch-action: none;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .5s var(--ease) .12s, transform .5s var(--ease) .12s, margin-top .36s var(--ease); }
+.pz:is(.stack, .low) .pz-lip::before { content: ''; position: absolute; inset: 0 14px; border: 1px solid color-mix(in srgb, var(--text) 9%, transparent); border-top: 0; border-radius: 0 0 16px 16px;
+  background: color-mix(in srgb, var(--surface-2) 94%, transparent); box-shadow: 0 6px 14px -8px rgb(var(--black-rgb) / .14), 0 1px 2px rgb(var(--black-rgb) / .14);
+  transition: inset .36s var(--ease), background-color .36s var(--ease), border-color .36s var(--ease), box-shadow .36s var(--ease); }
+.pz:is(.stack, .low) .pz-lip::after { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 4px; translate: -50% -50%; border-radius: 2px; background: color-mix(in srgb, var(--text) 32%, transparent); }
 .pz:is(.stack, .low) .pz-data.pz-sheet.tool-open { padding-bottom: 26px; }
-.pz:is(.stack, .low) .pz-data.pz-sheet.tool-open > .pz-lip { left: 0; right: 0; translate: 0 -24px; background-color: transparent; border-color: transparent; box-shadow: none; }
-.app.pz-hi .pz:is(.stack, .low) .pz-data.pz-sheet:not(.tool-open) > .pz-lip { border-color: color-mix(in srgb, var(--text) 32%, transparent); }
+.pz:is(.stack, .low) .pz-data.tool-open + .pz-lip { margin-top: -24px; }
+.pz:is(.stack, .low) .pz-data.tool-open + .pz-lip::before { inset: 0; background-color: transparent; border-color: transparent; box-shadow: none; }
+.app.pz-hi .pz:is(.stack, .low) .pz-data:not(.tool-open) + .pz-lip::before { border-color: color-mix(in srgb, var(--text) 32%, transparent); }
+/* (It comes and goes with the card: the same fade and the same small shift.) */
+.pz .pz-data.pz-hide + .pz-lip:not([hidden]) { opacity: 0; transform: translateX(18px); pointer-events: none; transition: opacity .32s var(--ease), transform .32s var(--ease), margin-top .36s var(--ease); }
+.pz.stack .pz-data.pz-hide + .pz-lip { transform: translateY(-18px); }
+.pz.pz-turning .pz-lip, .pz.pz-turning .pz-lip::before { transition: none !important; }
 .pz.stack .pz-data.pz-sheet > .pz-grip { display: none; }   /* (its handle is the sheet's) */
 .pz.stack .pz-data.pz-sheet:not(.tool-open) { padding-bottom: 10px; }   /* (an upright tablet's too: no handle in its foot to clear) */
 /* Mac and iPad landscape: when even the smallest steps leave the pair too tall, the instrument folds behind Show as on a phone
@@ -5146,24 +5156,24 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* (The reading, the flow's direction and the waveform's name sit in the monitor's top strip, as a scanner shows its
    measurements: "28 cm/s  ● Hepatopetal · Phasic". The trace takes the rows they used to fill (--dop-free); doppler.js reads
    --dop-ov and draws its own label and settings along the bottom strip instead.) */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] { --dop-free: calc(var(--pz-num) + 1.25 * var(--bs) + 12px); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-main { grid-template-rows: minmax(0, 1fr); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-box { --dop-ov: 1; grid-area: 1 / 1 / 2 / -1; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { grid-area: 1 / 1 / 2 / -1; align-self: start; position: relative; z-index: 1; display: flex; flex-direction: row; flex-wrap: nowrap; align-items: baseline; gap: 0 calc(.6em * var(--dop-k, 1)); white-space: nowrap; overflow: hidden; min-width: 0; padding: 8px 12px 0 12px; pointer-events: none; color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { display: contents; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel { order: 0; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel small { color: rgb(var(--white-rgb) / .6); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { order: 1; color: var(--white); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir:is([data-sev="danger"], [data-sev="critical"]) { color: color-mix(in srgb, var(--danger) 70%, var(--white)); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-pattern { order: 2; color: rgb(var(--white-rgb) / .8); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-pattern::before { content: '·'; margin-right: .45em; color: rgb(var(--white-rgb) / .6); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] { --dop-free: calc(var(--pz-num) + 1.25 * var(--bs) + 12px); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-main { grid-template-rows: minmax(0, 1fr); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-box { --dop-ov: 1; grid-area: 1 / 1 / 2 / -1; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { grid-area: 1 / 1 / 2 / -1; align-self: start; position: relative; z-index: 1; display: flex; flex-direction: row; flex-wrap: nowrap; align-items: baseline; gap: 0 calc(.6em * var(--dop-k, 1)); white-space: nowrap; overflow: hidden; min-width: 0; padding: 8px 12px 0 12px; pointer-events: none; color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-velrow { display: contents; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel { order: 0; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel small { color: rgb(var(--white-rgb) / .6); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { order: 1; color: var(--white); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir:is([data-sev="danger"], [data-sev="critical"]) { color: color-mix(in srgb, var(--danger) 70%, var(--white)); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-pattern { order: 2; color: rgb(var(--white-rgb) / .8); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-pattern::before { content: '·'; margin-right: .45em; color: rgb(var(--white-rgb) / .6); }
 /* (The strip is always one line: where it is too narrow, doppler.js lowers --dop-k, which shrinks the gaps and the type together.) */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report > * { flex: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel b { font-size: calc(var(--pz-num) * var(--dop-k, 1)); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] :is(.dop-vel small, .dop-dir, .dop-pattern) { font-size: max(12px, calc(var(--bs) * var(--dop-k, 1))); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { gap: calc(.45em * var(--dop-k, 1)); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report > * { flex: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-vel b { font-size: calc(var(--pz-num) * var(--dop-k, 1)); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] :is(.dop-vel small, .dop-dir, .dop-pattern) { font-size: max(12px, calc(var(--bs) * var(--dop-k, 1))); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { gap: calc(.45em * var(--dop-k, 1)); }
 @container (max-width: 240px) { .pz-tool[data-kind="doppler"] .dop-mean { display: none; } }   /* (a narrow Doppler reads "cm/s": the word mean ran into its status) */
-@container (max-width: 240px) { :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { grid-area: 3 / 2; } }   /* (a narrow Doppler: its status under the trace, beside the pattern's name, so the reading keeps its line) */
+@container (max-width: 240px) { :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-dir { grid-area: 3 / 2; } }   /* (a narrow Doppler: its status under the trace, beside the pattern's name, so the reading keeps its line) */
 /* Three tiles in a narrow row (a tablet's card, a phone): one line each, never wrapped; a long name gives way to its short
    one (table-marks.js TILE n), drawn in its place (the full name stays the tile's text, for screen readers). */
 @container pzd (max-width: 419px) {
@@ -5199,15 +5209,15 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-k.short::after { content: attr(data-s); font-size: var(--pz-sm); letter-spacing: .03em; }
 }
 @container (max-width: 300px) { .pz:not(.stack):not(.low) .pz-data.pz-data.pz-data .pz-tool[data-kind="beats"] .pt-head { grid-template-columns: auto minmax(0, 1fr); } .pz:not(.stack):not(.low) .pz-data.pz-data.pz-data .pz-tool[data-kind="beats"] .pt-sev { grid-column: 1 / -1; justify-self: start; } }   /* (a narrow tracing: its status under the HVPG, not over its unit) */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { container-type: normal; }   /* (laid out as contents it has no box: as a container it hid the instrument's own width from its queries) */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report { container-type: normal; }   /* (laid out as contents it has no box: as a container it hid the instrument's own width from its queries) */
 .pz-tool .ab-big > b[data-sev="caution"] { color: var(--caution); } .pz-tool .ab-big > b[data-sev="danger"] { color: var(--danger); }   /* (the reading in its tile's colour) */
 /* (Inside the beaker the litres read white on a dark outline, centred, as every instrument writes over its picture; the beaker and
    its grade sit together in the middle of the card, the beaker sized by the card's room so it never collapses on a phone.) */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big { justify-content: center; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b, :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b[data-sev] { color: var(--text); text-shadow: 0 0 4px var(--surface), 0 0 2px var(--surface); white-space: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b small { color: var(--text-2); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-gauge { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly { flex: 0 1 auto; min-height: 0; height: min(46cqi, calc(16 * var(--pzh))); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big { justify-content: center; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b, :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b[data-sev] { color: var(--text); text-shadow: 0 0 4px var(--surface), 0 0 2px var(--surface); white-space: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly > .ab-big > b small { color: var(--text-2); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-gauge { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="abdomen"] .ab-belly { flex: 0 1 auto; min-height: 0; height: min(46cqi, calc(16 * var(--pzh))); }
 /* (Beside the tiles the beaker fills most of its half: as tall as the tile column, which sets the row. The tool takes no height of its own
    (contain: size), so the card never resizes for it, and the beaker is a square sized by that height; its litres, grade and rate scale with it.) */
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool[data-kind="abdomen"] { align-self: stretch; contain: size; min-height: calc(16 * var(--pzh)); display: flex; }
@@ -5241,33 +5251,34 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .dock-pane > .instrument-view.ab .ab-belly > .ab-big > .ab-rate[data-dir] > .ab-rate-a { margin-right: .3em; color: inherit; }
 }
 /* (The Doppler strip's pattern word gives way first, with an ellipsis, so the strip never shrinks its type below three quarters.) */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report > .dop-pattern { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report > .dop-pattern { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* (Where even the direction's short form at 0.9 cannot hold the pattern beside the reading, doppler.js sets .dop-wrap: the pattern takes a
    line of its own under the reading, whole, in the top strip. The monitor keeps its size; the trace starts under the strip.) */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report.dop-wrap { flex-wrap: wrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report.dop-wrap .dop-pattern { flex: 0 0 100%; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report.dop-wrap { flex-wrap: wrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report.dop-wrap .dop-pattern { flex: 0 0 100%; }
 #app .instrument-workspace .instrument-view.dop .dop-report.dop-wrap .dop-pattern { grid-row: 2; grid-column: 1 / -1; padding-top: 2px; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report.dop-wrap .dop-pattern::before, #app .instrument-workspace .instrument-view.dop .dop-report.dop-wrap .dop-pattern::before { content: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-report.dop-wrap .dop-pattern::before, #app .instrument-workspace .instrument-view.dop .dop-report.dop-wrap .dop-pattern::before { content: none; }
 /* (Beside an instrument a tile's number and unit sit closer, so "−0.6 L/min" keeps clear of the tile's edge.) */
 .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tiles .pzt-vu { gap: 0 .12em; }
 /* (The beat-by-beat lanes never get too flat to tell the lines apart.) */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-box { min-height: 170px; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: inline; }   /* (named, "Stigmata ● None", so it never reads as a second grade) */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="beats"] .pt-box { min-height: 170px; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="scope"] .endo-read > .endo-red > dt { display: inline; }   /* (named, "Stigmata ● None", so it never reads as a second grade) */
 
 .wall-big, .wall-sev { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > :is(dt, .endo-stress-v) { display: none; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > .wall-big { display: block; grid-column: 1; font: 600 var(--pz-num)/1 var(--font-ui); letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > .wall-big small { margin-left: .3em; font: 500 var(--bs)/1 var(--font-ui); letter-spacing: 0; color: var(--text-3); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > .wall-sev { display: inline-flex; align-items: center; grid-column: 2; font: 600 var(--bs)/1.25 var(--font-ui); color: var(--text-2); white-space: nowrap; }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] :is(.wall-big, .wall-sev)[data-sev="ok"] { --sev: var(--ok); } :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] :is(.wall-big, .wall-sev)[data-sev="caution"] { --sev: var(--caution); } :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] :is(.wall-big, .wall-sev)[data-sev="danger"] { --sev: var(--danger); } :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] :is(.wall-big, .wall-sev)[data-sev="critical"] { --sev: var(--critical); }
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] :is(.wall-big, .wall-sev):not([data-sev="ok"]) { color: var(--sev); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > :is(dt, .endo-stress-v) { display: none; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > .wall-big { display: block; grid-column: 1; font: 600 var(--pz-num)/1 var(--font-ui); letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > .wall-big small { margin-left: .3em; font: 500 var(--bs)/1 var(--font-ui); letter-spacing: 0; color: var(--text-3); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] .endo-read > .endo-stress > .wall-sev { display: inline-flex; align-items: center; grid-column: 2; font: 600 var(--bs)/1.25 var(--font-ui); color: var(--text-2); white-space: nowrap; }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] :is(.wall-big, .wall-sev)[data-sev="ok"] { --sev: var(--ok); } :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] :is(.wall-big, .wall-sev)[data-sev="caution"] { --sev: var(--caution); } :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] :is(.wall-big, .wall-sev)[data-sev="danger"] { --sev: var(--danger); } :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] :is(.wall-big, .wall-sev)[data-sev="critical"] { --sev: var(--critical); }
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] :is(.wall-big, .wall-sev):not([data-sev="ok"]) { color: var(--sev); }
 .pz-tool[data-kind="wall"] canvas { font-size: var(--pz-sm, var(--pz-psm, 12px)); }   /* (the wall's reading: one number top left, its state top right, the labels on the drawing at the card's small size) */
-@container (max-width: 300px) { :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="wall"] .wall-of { display: none; } }   /* (a narrow screen: "169 %", its state beside it) */
-:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-mean { display: none; }   /* (the reading is the mean: "cm/s" alone, so its state never runs into it) */
+@container (max-width: 300px) { :is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="wall"] .wall-of { display: none; } }   /* (a narrow screen: "169 %", its state beside it) */
+:is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool[data-kind="doppler"] .dop-mean { display: none; }   /* (the reading is the mean: "cm/s" alone, so its state never runs into it) */
 .pz.stack .pz-dh > span:first-child { min-width: 0; hyphens: manual; text-wrap: balance; }   /* (a phone's title: one short line where it fits, else two balanced lines, never cut with an ellipsis (a 320 px phone had shown "DOPPLER, THE ...")) */
 /* The over-time chart is drawn at its own size in pixels, in the card's small type: its box sets the size (shorter as the card fits). */
 .pz-flowtime { font-size: var(--pz-sm, var(--pz-psm, 12px)); height: calc(var(--ft-h, max(60cqi, 15em)) * var(--pz-fit, 1)); min-height: 9em; }
 .pz.stack .pz-flowtime { --ft-h: min(54cqi, 180px); }
+.pz.low .pz-data.has-tool .pz-flowtime { --ft-h: min(48cqi, 140px); min-height: 0; }   /* (a phone on its side: short enough to sit with its tiles, all shown) */
 .pz-flowtime svg, .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="flowtime"] .pz-flowtime svg { width: 100%; height: 100%; max-height: none; }
 .pz-flowtime :is(.pft-key text, .pft-t, .pft-tk, .pft-v0, .ptk-grid text, .ptk-ax) { font-size: 1em; }
 .pz-flowtime .pft-v { font-size: 1.1em; } .pz-flowtime .ptk-ax { letter-spacing: .04em; }

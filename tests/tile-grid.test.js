@@ -58,7 +58,7 @@ test('an instrument with tiles: the instrument on the left, the tiles stacked be
 });
 
 test('every instrument is one screen: a reading top left, its status top right, the picture under them, words zoomed only as a last resort', () => {
-  const B = '.pz:not(.stack):not(.low) .pz-data.pz-beside', S = ':is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool) .pz-tool';
+  const B = '.pz:not(.stack):not(.low) .pz-data.pz-beside', S = ':is(.pz:not(.stack):not(.low) .pz-data.pz-beside, .pz:not(.stack):not(.low) .pz-data.has-tool, .pz.stack .pz-data.has-tool, .pz.low .pz-data.has-tool) .pz-tool';
   assert.ok(css.includes(`${B} > .pz-tool { --bs: var(--pz-sm);`));
   assert.ok(css.includes(`.pz:not(.stack):not(.low) .pz-data.col.pz-beside > * { zoom: var(--pz-z, 1); }`), 'the card fit shortens the picture; the words zoom only past its last step');
   assert.ok(css.includes(`${S}[data-kind="doppler"] .dop-report { display: contents; }`));

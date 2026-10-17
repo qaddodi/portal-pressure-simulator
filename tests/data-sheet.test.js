@@ -7,16 +7,25 @@ import { readFileSync } from 'node:fs';
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 
-test('a phone card with a second part keeps it on a sheet whose edge carries the handle', () => {
-  assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| low\) && dd0\.classList\.contains\('has-tool'\) && \(!dd0\.classList\.contains\('tool-only'\)/);
+test('a phone instrument card shows the instrument first, its readings on a sheet whose edge carries the handle', () => {
+  assert.match(js, /const dd0 = ui\.data, sheet = p && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'upright only: on its side the card shows everything');
   assert.match(js, /dd0\.classList\.toggle\('pz-sheet', sheet\);/);
   assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) dd0\.classList\.remove\('tool-open'\);/, 'each slide arrives partly open');
-  assert.match(js, /tiles\.el, h\('span', \{ class: 'pz-grip', 'aria-hidden': 'true' \}\), lip\);/);
-  const lip = css.match(/\.pz:is\(\.stack, \.low\) \.pz-data\.pz-sheet > \.pz-lip \{[^}]*\}/)?.[0] ?? '';
-  assert.match(lip, /top: 100%; left: 14px; right: 14px; height: 24px;/, 'a little narrower than the card, 24 px under it');
-  assert.match(lip, /background: color-mix\(in srgb, var\(--surface-2\) 94%, transparent\)/, 'a little darker');
-  assert.match(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.pz-sheet:not\(\.tool-open\) \{ overflow-y: visible; \}/, 'the edge shows outside the card');
-  assert.match(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.pz-sheet\.tool-open > \.pz-lip \{ left: 0; right: 0; translate: 0 -24px;/, 'fully open: flush, the step gone');
+  // (Mohammad, 17 Oct: "I thought the Doppler will show first": the sheet holds the tiles, or the strip, never the instrument.)
+  assert.match(js, /\(data\.classList\.contains\('pz-sheet'\) && !data\.classList\.contains\('tool-only'\)\) \? \(tiles\.el\.querySelector\('\.pz-tile'\) \? tiles\.el : ladder\.strip\) : tools\.el\);/);
+  assert.match(css, /\.pz\.stack \.pz-data:is\(\.tool-lead, \.pz-sheet\):not\(\.tool-open\) > :is\(\.pz-tiles, \.pz-strip\) \{ max-height: 0; opacity: 0;/);
+  assert.doesNotMatch(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.has-tool:not\(\.tool-only\):not\(\.tool-open\) \.pz-tool \{ max-height: 0/, 'the instrument never folds away on a phone');
+  assert.doesNotMatch(css, /tool-only:has\(\.pz-tool\[data-kind="flowtime"\]\):not\(\.tool-open\) \.pz-tool/, 'nor the after-meal chart alone');
+  // (The edge is the card's sibling, kept at its foot: inside the card, its glass clipped it away on an iPhone.)
+  assert.match(js, /fk, text, data, lip, panel,/);
+  assert.match(js, /l\.style\.left = px\(d\.offsetLeft\); l\.style\.width = px\(d\.offsetWidth\); l\.style\.top = px\(d\.offsetTop \+ d\.offsetHeight\);/);
+  assert.match(js, /l\.style\.translate = d\.style\.translate;/, 'it moves with the card');
+  assert.match(js, /dockTouch\(data, lip\);/, 'and takes the card\'s own pulls and pushes');
+  const edge = css.match(/\.pz:is\(\.stack, \.low\) \.pz-lip::before \{[^}]*\}/)?.[0] ?? '';
+  assert.match(edge, /inset: 0 14px;/, 'a little narrower than the card');
+  assert.match(edge, /background: color-mix\(in srgb, var\(--surface-2\) 94%, transparent\)/, 'a little darker');
+  assert.match(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.tool-open \+ \.pz-lip \{ margin-top: -24px; \}/, 'fully open: in the card\'s foot');
+  assert.match(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.tool-open \+ \.pz-lip::before \{ inset: 0; background-color: transparent;/, 'flush, the step gone');
   assert.match(css, /\.pz-lip \{ display: none; \}/, 'only on a phone');
 });
 
@@ -44,4 +53,13 @@ test('a slide whose card does not fit comes in closed, and the next one that fit
   assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data \};/);
   // (Brought back, it may cover the figure, never the words: the figure's share is kept only while it fits.)
   assert.match(js, /!phoneShut && !dd\.classList\.contains\('tool-open'\)/);
+});
+
+// A phone on its side shows the compact instrument with its tiles, all at once (Mohammad, 17 Oct: "Compact and they all show no
+// need to open or pull"): the upright phone's compact instrument layouts, shorter.
+test('a sideways phone shows the compact instrument and its tiles together, no sheet', () => {
+  assert.match(css, /, \.pz\.stack \.pz-data\.has-tool, \.pz\.low \.pz-data\.has-tool\) \.pz-tool\[data-kind="doppler"\] \.dop-report \{ display: contents; \}/);
+  assert.match(css, /\.pz\.low\.low \.pz-data\.has-tool\.has-tool \.pz-tool\[data-kind="doppler"\] \.dop-box \{ min-height: 0; height: 120px; \}/);
+  assert.match(css, /\.pz\.low\.low \.pz-data\.has-tool\.has-tool \.pz-tool\[data-kind="beats"\] \.pt-box \{ height: 96px; min-height: 0; \}/);
+  assert.match(css, /\.pz\.stack \.pz-data:is\(\.tool-lead, \.pz-sheet\):not\(\.tool-open\) > :is\(\.pz-tiles, \.pz-strip\)/, 'the tiles fold only upright');
 });
