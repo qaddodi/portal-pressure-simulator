@@ -12,6 +12,9 @@ for (const m of ['replaceChildren', 'append', 'prepend']) {
 export const UPRIGHT_MQ = '(max-width: 1100px) and (orientation: portrait)';
 export const PHONE_MQ = `(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), ${UPRIGHT_MQ}`;
 export const isPhoneLayout = () => matchMedia(PHONE_MQ).matches;
+// (A tablet held upright: the phone's layout, scaled to the tablet: its bottom bar and cards take 70 % of the width, centred, as
+// its deck cards do, and its cards the phone's share of the height, never the whole screen. styles/app.css, main.js sheetBehaviour.)
+export const TABLET_UP_MQ = '(min-width: 768px) and (max-width: 1100px) and (orientation: portrait)';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));

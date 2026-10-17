@@ -5624,6 +5624,18 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   .app.thumb:not(.dock-open) .action-card.docked.ac-leaving { animation: thumbOut .18s var(--ease) forwards; }
 }
 
+/* (17 Oct, Mohammad) An upright iPad has the iPhone's bottom bar and cards, "scaled down proportionally, similar to how much we
+   scaled down the teaching cards on ipad": the bar, the cards over it and the menu sheets take the deck cards' 70 % of the width,
+   centred. Heights: "proportional to the ipad proportions vertically ... and not fill the whole screen ever": a card's Full
+   stops at 62 % of the screen (main.js sheetBehaviour: Half 45 %, an iPhone's share), the figure in view above it. */
+@media (min-width: 768px) and (max-width: 1100px) and (orientation: portrait) {
+  .app.thumb .vdock:not(.mini) { left: 15%; right: 15%; }
+  .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) { left: 15% !important; right: 15% !important; max-height: min(62%, calc(100% - var(--top-safe) - var(--nb-occ, var(--vdock-h)) - 22px)); }
+  .app.thumb:not(.dock-open) .action-card.docked { left: 15% !important; right: 15%; }
+  html.thumb-ui .menu.as-sheet { left: 15% !important; right: 15%; max-height: min(62dvh, calc(100dvh - var(--thumb-occ, 0px) - max(72px, var(--thumb-top, 0px) + 8px))); }
+  html.thumb-ui .menu.as-sheet .tl-pop.tl-history { max-height: calc(62dvh - 24px); }   /* (History's list scrolls under its head, as on the phone) */
+}
+
 /* ── History beside Treat and Tests (15 Oct) ───────────────────────
    History left the play bar: on a Mac, an iPad held sideways and a phone held sideways it is a top-bar button
    beside Treat and Tests (its card opens in Treat's place on the right); upright, it is a tab in the thumb dock. */

@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=a11d7ef88d';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=f0d7499a4b';
+import { createStage } from './stage.js?v=22b8e65e8f';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
-import { sinusoidSupported } from './sinusoid-view.js?v=bd8ad917b0';
-import { createInspector } from './inspector.js?v=3335dc9d13';
-import { createDock, CUTOFFS } from './dock.js?v=2c7389f290';
-import { setHvpgStage } from './hvpg-proc.js?v=977f3848e6';
-import { createWhy } from './why.js?v=671530e1b1';
-import { createTimeline, LAPSES } from './timeline.js?v=e624515d07';
-import { createCompare } from './compare.js?v=a3178192c2';
-import { createCard } from './card.js?v=9427d99e8d';
-import { createChart } from './chart.js?v=d262238e13';
-import { createMenu } from './menu.js?v=2b33ef13e9';
-import { caption } from './a11y.js?v=9e2e3c605e';
+import { sinusoidSupported } from './sinusoid-view.js?v=4a03f06c56';
+import { createInspector } from './inspector.js?v=a76df8ce13';
+import { createDock, CUTOFFS } from './dock.js?v=7d70f321b8';
+import { setHvpgStage } from './hvpg-proc.js?v=25ab51200f';
+import { createWhy } from './why.js?v=b3b6b86275';
+import { createTimeline, LAPSES } from './timeline.js?v=c3ced4cc28';
+import { createCompare } from './compare.js?v=4f9e3ffc58';
+import { createCard } from './card.js?v=479c8029c0';
+import { createChart } from './chart.js?v=e7e4d425b3';
+import { createMenu } from './menu.js?v=eb5bf122a7';
+import { caption } from './a11y.js?v=b52b293825';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=f13b3bbfdb';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=dc70e98890';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=8c47a67864';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=c330997f74';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=e68e61f355';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=441d0bcc83';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=2bd3e2a34c';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=ef1883db0c';
 import { initTopbarMotion } from './topbar-motion.js?v=b33007f264';
 import { ORIGINS } from './blood.js?v=cc7febbf07';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=81d542624e'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=071395fe12'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -174,7 +174,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=d1fb6244b8'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=93e9ea2b9c'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1263,10 +1263,14 @@ function wireFloating() {
 // Over the thumb dock (an upright phone) a sheet has two heights, Half and Full, as shares of the room between the
 // top bar and the dock: the release is measured against that same room, so it lands where the finger left it.
 // No visible grabber over the thumb dock: a drag from anywhere moves the sheet (a tap on a tab still picks it); the hidden button toggles them from the keyboard.
+const tabletMQ = matchMedia(TABLET_UP_MQ);
 function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {
-  const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1];
+  const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1], TABLET = [0.45, 0.62];
   const thumb = () => app.classList.contains('thumb') && isPhone();
-  const stops = () => (thumb() ? THUMB : SIZES);
+  // (17 Oct, Mohammad: an upright iPad's cards open "proportional to the ipad proportions vertically" and never fill the whole
+  // screen: Half takes the share of the screen's height an iPhone's Half takes, 45 %, and Full stops at 62 %, the figure in view
+  // above it. As shares of the room, like the phone's, so a drag and its release are measured the same way.)
+  const stops = () => (!thumb() ? SIZES : tabletMQ.matches ? TABLET.map((s) => Math.min(1, (s * app.clientHeight) / (room() || app.clientHeight))) : THUMB);
   const half = () => stops().length - 2;
   // The room a thumb sheet may fill: the CSS cap (100% - top bar - tab row - 22 px, styles/app.css thumb block).
   const room = () => (thumb() ? app.clientHeight - (parseFloat(app.style.getPropertyValue('--top-safe')) || 0) - (parseFloat(app.style.getPropertyValue('--nb-occ')) || 0) - 22 : 0);

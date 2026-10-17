@@ -72,3 +72,22 @@ test('the first close tucks the readings\' card away, the next closes the instru
   assert.match(js, /dock\.to = to;\n\s*if \(!to\) dock\.down = -1;/, 'opened again, the cycle starts over');
   assert.match(js, /open \? \(tab \? 'Hide the readings' : 'Close the card'\) : tab && dock\.down === want \? 'Close the card' : 'Show the rest of the card'/);
 });
+
+// (Mohammad, 17 Oct: the iPhone's bottom bar on an upright iPad, "scaled down proportionally, similar to how much we scalled down
+// the teaching cards on ipad", "but also height wise too", "and not fill the whole screen ever, the ipad is too tall for that".)
+test('an upright tablet\'s bottom bar and cards take the deck cards\' 70 % of the width, and never the whole height', () => {
+  assert.match(util, /export const TABLET_UP_MQ = '\(min-width: 768px\) and \(max-width: 1100px\) and \(orientation: portrait\)';/);
+  assert.match(css, /\.pz\.stack\.tab \.pz-data \{ left: 15%; right: 15%; \}/, 'the deck cards\' share');
+  const m = css.match(/@media \(min-width: 768px\) and \(max-width: 1100px\) and \(orientation: portrait\) \{\n {2}\.app\.thumb \.vdock:not\(\.mini\) \{ left: 15%; right: 15%; \}[\s\S]*?\n\}/)?.[0] ?? '';
+  assert.ok(m, 'the block');
+  assert.match(m, /\.app\.thumb :is\(\.panel, \.treat-card, \.instrument-workspace\.float-ui:not\(\.side\)\) \{ left: 15% !important; right: 15% !important; max-height: min\(62%, /, 'Details, Treat and Tests');
+  assert.match(m, /\.app\.thumb:not\(\.dock-open\) \.action-card\.docked \{ left: 15% !important; right: 15%; \}/, 'the vessel card');
+  assert.match(m, /html\.thumb-ui \.menu\.as-sheet \{ left: 15% !important; right: 15%; max-height: min\(62dvh, /, 'the menus and History');
+  // (After the phone's own rules, which it overrides at the same weight.)
+  assert.ok(css.indexOf(m) > css.lastIndexOf('html.thumb-ui .menu.as-sheet { box-shadow'), 'after the phone\'s menu sheet');
+  assert.ok(css.indexOf(m) > css.lastIndexOf('.app.thumb:not(.dock-open) .action-card.docked {\n'), 'after the phone\'s vessel card');
+  const main = read('../src/ui/main.js');
+  assert.match(main, /const tabletMQ = matchMedia\(TABLET_UP_MQ\);/);
+  assert.match(main, /THUMB = \[0\.62, 1\], TABLET = \[0\.45, 0\.62\];/, 'Half an iPhone\'s 45 % of the screen, Full 62 %');
+  assert.match(main, /const stops = \(\) => \(!thumb\(\) \? SIZES : tabletMQ\.matches \? TABLET\.map\(\(s\) => Math\.min\(1, \(s \* app\.clientHeight\) \/ \(room\(\) \|\| app\.clientHeight\)\)\) : THUMB\);/, 'as shares of the room, as the phone\'s');
+});
