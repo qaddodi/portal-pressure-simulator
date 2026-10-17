@@ -2513,7 +2513,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
   }
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
-  let textLock = null, ladderFold = null;
+  let textLock = null, ladderFold = null, foldHeld = null;   // (foldHeld: the foldKey the data card was last folded for, layout)
   let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0, fitKids = [], clearFor = null;
   const fitWatch = () => {
     fitRO ||= new ResizeObserver(() => {
@@ -2629,7 +2629,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         if (tl) { void tl.offsetHeight; tl.style.transition = ''; }
         footFold();
       };
-      if (!lock && dd.classList.contains('pz-folds')) setFolds(false);
+      // (A card already folded for this slide at this size stays folded until the slide is shown and its words lock: unfolded
+      // and folded again on every pass, the foot row under the words was made anew each time, the words fitted without it, and
+      // the next pass came at once; the data card flashed in and out and the words' card jumped until the slide had settled.
+      // Sites 9 on a Mac, 17 Oct.)
+      const held = !lock && foldHeld === foldKey && dd.classList.contains('pz-folds');
+      if (!lock && !held && dd.classList.contains('pz-folds')) setFolds(false);
       const q = ui.bar.hidden || !ui.bar.offsetWidth ? null : ui.bar.getBoundingClientRect();
       foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl;
       let ch = colHeight(cw / k) * k, dk = 1;
@@ -2659,15 +2664,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         t = r(ui.text); below = lock.below; dk = lock.dk; cw = t.right - wr.left + pad - sl; ch = foldH(dk) * k;
       } else {
         // (A title a step or two smaller at the one card width, then the steps below; the column never widens.)
+        if (held) { step(1); footFold(); }
         below = title(1);
         if (!below) ladder();
-        if (!below && canFold) { setFolds(true); ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); step(1); below = title(1); if (!below) ladder(); }
+        if (!below && canFold && !held) { setFolds(true); ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); step(1); below = title(1); if (!below) ladder(); }
         // (Still too tall at the smallest step: the pair stays stacked at the one card width, the title and blocks at their
         // smallest steps; the data card is never moved to the top right, its own fit (fitCards) makes the rest fit its room.)
         if (!below) { put(TK[TK.length - 1], DK[DK.length - 1][1]); below = true; }
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
       keepH = ch;
+      foldHeld = dd.classList.contains('pz-folds') ? foldKey : null;
       if (lockKey && !lock) textLock = { key: lockKey, below, dk, folds: dd.classList.contains('pz-folds'), vars: ['--pz-tk', '--pz-bk'].map((n) => [n, ts.getPropertyValue(n)]) };
     } else dd.style.removeProperty('--pz-dk');
     const isCol = dd.classList.contains('col');

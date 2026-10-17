@@ -46,7 +46,7 @@ test('a slide Doppler card lays its readings two across so labels and values nev
 
 // iPad landscape (15 Oct): when the smallest steps still leave the pair too tall, the instrument folds behind Show, as on a phone.
 test('a pair that does not fit at the smallest steps folds the instrument behind Show on a wide screen', () => {
-  assert.match(js, /if \(!below && canFold\) \{ setFolds\(true\);[^\n]*below = title\(1\); if \(!below\) ladder\(\); \}/);
+  assert.match(js, /if \(!below && canFold && !held\) \{ setFolds\(true\);[^\n]*below = title\(1\); if \(!below\) ladder\(\); \}/);
   assert.match(js, /canFold = \(dd\.classList\.contains\('has-tool'\) \|\| \(!dd\.classList\.contains\('tiles-only'\) && ladderFold === foldKey\)\) && !dd\.classList\.contains\('tool-only'\) && !dd\.classList\.contains\('tool-lead'\)/);
   assert.match(js, /if \(lock\.folds\) setFolds\(true\);/, 'the fold is part of the slide\'s locked layout');
   assert.match(js, /folds: dd\.classList\.contains\('pz-folds'\)/);
@@ -84,4 +84,16 @@ test('a sideways phone puts its words in the floating card, level with the data 
   assert.match(css, /\.pz\.low \{ --pz-cp: 14px; \}/, 'the data card keeps its 14 px padding');
   assert.match(css, /\.pz\.pz-card:not\(\.stack\):not\(\.low\) \.pz-text \{ --s-title:/, 'the wide sizes leave the sideways phone its own');
   assert.match(css, /\.pz-shade\.pz-card\.pz-leave:not\(\.stack\) \{ opacity: 0 !important;/, 'it fades out whole, behind a case card too');
+});
+
+// Sites 9 on a Mac (17 Oct): a ladder card folded behind Show was unfolded and folded again on every layout pass until the slide
+// was shown, its foot row under the words made anew each time; the words fitted without the row and the next pass came at once,
+// so the data card flashed in and out and the teaching card jumped. A card folded for this slide at this size stays folded.
+test('a data card folded for the slide at this size stays folded until the words lock', () => {
+  assert.match(js, /const held = !lock && foldHeld === foldKey && dd\.classList\.contains\('pz-folds'\);/);
+  assert.match(js, /if \(!lock && !held && dd\.classList\.contains\('pz-folds'\)\) setFolds\(false\);/);
+  assert.match(js, /if \(held\) \{ step\(1\); footFold\(\); \}/);
+  assert.match(js, /if \(!below && canFold && !held\) \{ setFolds\(true\);/);
+  assert.match(js, /foldHeld = dd\.classList\.contains\('pz-folds'\) \? foldKey : null;/);
+  assert.doesNotMatch(js, /if \(!lock && dd\.classList\.contains\('pz-folds'\)\) setFolds\(false\);/, 'never unfolded unconditionally on an unlocked pass');
 });
