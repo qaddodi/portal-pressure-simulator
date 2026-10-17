@@ -1562,12 +1562,14 @@ button.finding { cursor: pointer; }
 .pz-line b { font-weight: 600; color: var(--text); }
 /* A slide's colour key (presenter.js keyNodes), a small frosted pill on the figure, not in the teaching card: the lens named, then its
    ends, as the Explore legend shows them. src/ui/figure-key.js puts it on bare background, never over a vessel or a card; it
-   sits on one line, or stacked in a short column where the line will not fit. It fades in and out, and never takes a tap. */
-.pz-fk { position: absolute; left: 0; top: 0; translate: var(--fx, 0px) var(--fy, 0px); display: flex; flex-wrap: nowrap; align-items: center; gap: .55em; box-sizing: border-box; padding: .22em .75em .26em; border-radius: var(--r-pill); white-space: nowrap; font: 400 max(12px, calc(var(--s-cap) * .9))/1.25 var(--font-ui); color: var(--text-2); background: color-mix(in srgb, var(--surface) 62%, transparent); -webkit-backdrop-filter: blur(10px) saturate(1.15); backdrop-filter: blur(10px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); box-shadow: 0 1px 6px rgb(var(--black-rgb) / .12); pointer-events: none; opacity: 0; transition: opacity .32s var(--ease); }
+   sits on one line, or stacked in a short column where the line will not fit. It fades in and out, and never takes a tap.
+   Its shell is the nav pill's, in every theme and on every screen: the same glass, outline, edge highlight, shadow, 16 px corners
+   and 14 px sides (Mohammad, 17 Oct: "Unify the style of those pills"). */
+.pz-fk { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); position: absolute; left: 0; top: 0; translate: var(--fx, 0px) var(--fy, 0px); display: flex; flex-wrap: nowrap; align-items: center; gap: .55em; box-sizing: border-box; padding: .22em 14px .26em; border-radius: var(--r-sheet); white-space: nowrap; font: 400 max(12px, calc(var(--s-cap) * .9))/1.25 var(--font-ui); color: var(--text-2); background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: none; opacity: 0; transition: opacity .32s var(--ease); }
 .pz-fk.on { opacity: 1; transition: opacity .5s var(--ease) .12s; }   /* (in with the teaching card: its pace and start, presenter.js cardsIn; out at the card's own .32 s) */
 .pz-fk[hidden] { display: none; }
 .pz-fk b { font-weight: 600; color: var(--text); margin-right: .1em; }
-.pz-fk.col { flex-direction: column; align-items: flex-start; gap: .12em; padding: .35em .75em .4em; border-radius: calc(var(--r-card) + 2px); }
+.pz-fk.col { flex-direction: column; align-items: flex-start; gap: .12em; padding: .35em 14px .4em; }
 .pz-lens-bar { width: 4.4em; height: .55em; border-radius: var(--r-pill); flex: none; }
 .pz-lens-sw { width: 1.1em; height: .4em; border-radius: .2em; flex: none; }
 .pz-lens-k { display: inline-flex; align-items: center; gap: .35em; white-space: nowrap; }
@@ -1578,8 +1580,9 @@ button.finding { cursor: pointer; }
 .pz-lens-ends { display: inline-flex; align-items: center; gap: .4em; white-space: nowrap; }   /* ("Low ▬▬ High": the pressure-drop key's ends, at the key's own size, 12 px or more) */
 .pz-lens-k + .pz-lens-k { margin-left: .15em; }
 .pz-fk.col .pz-lens-k + .pz-lens-k { margin-left: 0; }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-fk { background: color-mix(in srgb, var(--surface) 92%, transparent); } }
-@media (prefers-reduced-transparency: reduce) { .pz-fk { background: color-mix(in srgb, var(--surface) 92%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-fk { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@media (prefers-reduced-transparency: reduce) { .pz-fk { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+.app.pz-hi .pz-fk { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
 /* (A slide with a colour key keeps its words' card to half the screen on a phone: the key is about the figure, so the figure must stay in view; the words fit a little smaller.) */
 .pz.stack .pz-text.pz-keyed { max-height: 50%; }
 .pz-caveat { margin: .5em 0 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
@@ -1966,8 +1969,8 @@ button.finding { cursor: pointer; }
 .pz-prog i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: color-mix(in srgb, var(--text) 42%, transparent); transition: width .5s var(--ease); }   /* (quiet ink: the accent is kept for what the learner touches, DG3) */
 .pz-bar { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); position: absolute; left: 50%; bottom: 22px; translate: -50% 0; display: flex; align-items: center; gap: 4px; padding: 5px; max-width: calc(100% - 24px); overflow-x: auto; background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-card); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; transition: opacity .3s var(--ease), transform .3s var(--ease), background-color .3s var(--ease), border-color .3s var(--ease); }
 /* The presenter bar is the same frosted glass as the data card: quiet controls, a soft accent on Next, no solid blocks. */
-:root[data-theme="dark"] .pz-bar { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-bar { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
+:root[data-theme="dark"] :is(.pz-bar, .pz-fk) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-bar, .pz-fk) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-bar { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-bar { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 .app.pz-hi .pz-bar { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
@@ -5559,13 +5562,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 :root[data-noglass] #labels :is(.lb.focus, .lb.term) text { fill: var(--lbc) !important; stroke: var(--label-halo) !important; }
 @keyframes glow-in { from { filter: drop-shadow(0 0 5px transparent) drop-shadow(0 0 12px transparent); } }
 /* The figure key: a small pill, its name with the colour scale under it (no "None" or "Large" words; a key of named swatches keeps its names). */
-.pz-fk.grad, .pz-fk.grad.col { flex-direction: column; align-items: center; gap: .2em; padding: .28em .7em .34em; border-radius: calc(var(--r-card) + 2px); font-size: max(12px, calc(var(--s-cap) * .78)); }   /* (the 12 px floor: a key's words had read 11 px, and 10 here) */
+.pz-fk.grad, .pz-fk.grad.col { flex-direction: column; align-items: center; gap: .2em; padding: .28em 14px .34em; font-size: max(12px, calc(var(--s-cap) * .78)); }   /* (the 12 px floor: a key's words had read 11 px, and 10 here) */
 .pz-fk.grad .pz-lens-bar { width: 4em; height: .5em; }
 /* A wider screen's colour key (Mac, iPad, a phone held sideways) sits right on top of the nav pill at the lower right: right-aligned with it,
    a small gap above it, the pill's own glass and corners (Mohammad, 15 Oct). Its own width; it moves with the pill. */
-.pz:not(.stack) .pz-fk { left: auto; top: auto; right: var(--pz-cm); bottom: calc(max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) + 44px + 8px); translate: none; border-radius: var(--r-sheet); background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz:not(.stack) .pz-fk { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
-@media (prefers-reduced-transparency: reduce) { .pz:not(.stack) .pz-fk { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+.pz:not(.stack) .pz-fk { left: auto; top: auto; right: var(--pz-cm); bottom: calc(max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) + 44px + 8px); translate: none; border-radius: var(--r-sheet); }   /* (its glass, edge and shadow: the base rule's, the nav pill's own) */
 /* A phone's colour key sits at the words' bottom-left corner, on the nav pill's row (figure-key.js fades it in once the cards have landed). */
 .pz.stack .pz-fk { left: 21px; top: auto; bottom: calc(26px + var(--pz-sb)); translate: none; z-index: 1; }
 /* On the nav pill's row the key is the pill's twin: the same 38 px height, bottom and centre line, its corners, its words centred,
@@ -5576,7 +5577,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* Too wide for the room beside the nav pill: its own row just above the pill's row, never under it (presenter.js fitKey), one line where
    it fits, else wrapped to the card's width (never shrunk: shrunk, its words had gone under 12 px). */
 .pz.stack.fk-up .pz-fk { bottom: calc(65px + var(--pz-sb)); }
-.pz.stack.fk-up.fk-wrap .pz-fk:not(.grad) { max-width: var(--pz-fk-room, 280px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; border-radius: calc(var(--r-card) + 2px); padding-block: .3em .34em; }
+.pz.stack.fk-up.fk-wrap .pz-fk:not(.grad) { max-width: var(--pz-fk-room, 280px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; padding-block: .3em .34em; }
 /* Two lines beside the pill: as tall as its row, bottoms level (presenter.js fitKey). */
 .pz.stack.fk-two .pz-fk:not(.grad) { max-width: var(--pz-fk-room, 200px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; }   /* (its height, bottom and corners: the pill's, above) */
 .pz.stack:is(.fk-up, .fk-two) .pz-pillclr { margin-bottom: calc((var(--pz-reach-box, 37px) + var(--pz-fkrow, 0px)) / var(--pz-fit, 1)); }
