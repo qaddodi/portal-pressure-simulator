@@ -160,7 +160,7 @@ void main() {
       float wm = max(streak, streak2 * 0.8) * sst(0.0, 0.5, rs);
       // Cherry-red spots: small round dots on the varix, more of them as the wall nears its limit.
       float spot = sst(0.95 - 0.05 * rs, 0.98 - 0.03 * rs, nz(th / TAU * 220.0, z * 11.0, 220.0)) * vn * sst(0.2, 0.7, rs);
-      col = mix(col, vec3(${G('--endo-red-wale')}), max(wm * 0.6 * vn, spot * 0.75) * sst(0.25, 0.5, uGrow));
+      col = mix(col, vec3(${G('--endo-red-wale')}), max(wm * 0.6 * vn, spot * 0.75) * sst(0.1, 0.3, uGrow));
     }
   }
   float ao = 1.0;
