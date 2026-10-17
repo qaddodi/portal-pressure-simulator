@@ -65,7 +65,7 @@ test('a ladder card folds its plot only when its own fit fails, and shown it swa
 test('a phone keeps the words\' height cap while a what-if slider or compare button drives the live model', () => {
   // (Re-planned on each live reading, the cap stepped as the data card's numbers changed and the teaching card shook under the finger.)
   assert.match(js, /if \(held && \(held\.fold \|\| gone \|\| liveOff\)\) \{ dd\.classList\.toggle\('pz-folds', held\.fold\); dd\.classList\.toggle\('pz-ftight', held\.tight\); phoneFoldH = held\.foldH; return held\.cap; \}/);
-  assert.match(js, /async function liveSet\(s, i, patch\) \{[^}]*liveOff = true;/);
+  assert.match(js, /async function liveSet\(s, i, patch, dv = 0\) \{[^}]*liveOff = true;/);
 });
 
 // A phone held sideways (Mohammad, 17 Oct, I23): the words sit in the floating card as on every other screen, not a panel at the

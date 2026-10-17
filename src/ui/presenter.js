@@ -20,11 +20,11 @@ import { sinusoidSupported } from './sinusoid-view.js?v=54548ee400';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=3ab8e3ccf5';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=85e78f2d09';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=b0f4bd2a3c';
 import { createTools } from './presenter-tools.js?v=e570efd46d';
-import { openHandout } from './handout.js?v=e7760e75f2';
+import { openHandout } from './handout.js?v=53572ba828';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=e25caf9bf9';
@@ -1120,7 +1120,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=80c60be020', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=16127676c3', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1133,7 +1133,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=2945437dac');
+        const { createCore } = await import('../worker-core.js?v=431e9bfead');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1454,11 +1454,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // sweep faster while it settles); the ladder and tiles follow it.
   function abPick(s, i, k) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
-    ui?.text.querySelectorAll('.pz-abb').forEach((b, j) => b.setAttribute('aria-pressed', String(j === k)));
+    const bs = [...(ui?.text.querySelectorAll('.pz-abb') || [])], was = bs.findIndex((b) => b.getAttribute('aria-pressed') === 'true');
+    bs.forEach((b, j) => b.setAttribute('aria-pressed', String(j === k)));
     if (s.compare[k].lens) { lensPick(s.compare[k].lens); return; }
     // A gate button ({ label, gate }): the Doppler samples that third of the stent; the model is untouched.
     if (s.compare[k].gate) { store.set({ dopGate: s.compare[k].gate }); return; }
-    liveSet(s, i, s.compare[k].params);
+    // (volume: the mL the option's patient holds above a normal circulation; a failing heart's retained fluid goes with it,
+    // so a normal heart reads normal pressures. The change is from the option pressed until now.)
+    const dv = was >= 0 ? (s.compare[k].volume ?? 0) - (s.compare[was].volume ?? 0) : 0;
+    liveSet(s, i, s.compare[k].params, dv);
   }
   // The slide's colour key on the figure (null: none); another lens fades the old key out, the new one in.
   function paintKey(k) {
@@ -1479,12 +1483,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (store.get().colorMode !== lens) store.set({ colorMode: lens });
     paintKey(lens);
   }
-  async function liveSet(s, i, patch) {
+  async function liveSet(s, i, patch, dv = 0) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     const g = ++abGen, ref = refOf(s, i), mine = () => g === abGen && shown?.i === i && !!deck;
     liveOff = true;
     replaceParams(merge(structuredClone(store.get().params), patch));
     host.send({ type: 'setParams', params: store.get().params, settle: false, ease: 1200 });
+    if (dv) host.send({ type: 'action', action: { kind: 'volume', mL: dv } });
     host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
     for (const t0 = performance.now(); performance.now() - t0 < 7000 && mine();) {
       await wait(150);
@@ -3069,7 +3074,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.prog.style.setProperty('--p', String((i + 1) / n));
     const ph = phone(), skip = lapseOn && lapseLeft > 0, last = i === n - 1 && !skip;
     // The count opens the slide list (G).
-    const countBtn = h('button', { class: 'pzb-n', 'aria-label': `Slide ${i + 1} of ${n}: list the slides`, title: 'Slide list (G)', 'aria-expanded': String(!ui.jump.hidden), onclick: () => toggleJump() }, `${i + 1} / ${n}`);
+    // (A list still fading out after a pick counts as closed: the count must not stay grey, as if the list were open, on the slide picked.)
+    const countBtn = h('button', { class: 'pzb-n', 'aria-label': `Slide ${i + 1} of ${n}: list the slides`, title: 'Slide list (G)', 'aria-expanded': String(!ui.jump.hidden && !ui.jump.classList.contains('pz-leave')), onclick: () => toggleJump() }, `${i + 1} / ${n}`);
     ui.bar.classList.toggle('phone', ph); ui.bar.classList.toggle('pzb-pill', !ph);
     ui.bar.dataset.kind = pillKind();
     const prevBtn = () => h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0, onclick: prev }, icon('chev-left'));

@@ -34,6 +34,9 @@ test('the heart buttons: the failing heart is the slide\'s own patient, the norm
   assert.equal(c.filter((o) => o.own).length, 1);
   for (const [k, v] of Object.entries(own.params)) assert.equal(p[k], v, `failing heart ${k}`);
   for (const [k, v] of Object.entries(c.find((o) => !o.own).params)) assert.equal(d[k], v, `normal heart ${k}`);
+  // The failing heart holds the preset's retained fluid; the normal heart none.
+  assert.equal(own.volume, PRESETS.find((x) => x.id === 'rhf').volume);
+  assert.equal(c.find((o) => !o.own).volume, 0);
   // Both buttons switch the same keys, so either can follow the other.
   assert.deepEqual(Object.keys(c[0].params).sort(), Object.keys(c[1].params).sort());
 });
@@ -53,9 +56,15 @@ test('the controls teach their slides: portal pressure follows the clot and the 
   const [fib, clear] = (await runSteps([{ preset: 'schisto' }, { params: patchOf(sch, sch.min) }])).map(pick);
   assert.ok(fib.pv - clear.pv > 5, `portal pressure falls with the fibrosis (${fib.pv} → ${clear.pv})`);
   assert.ok(Math.abs(fib.hvpg - clear.hvpg) < 1.5 && fib.hvpg < 5 && clear.hvpg < 5, `HVPG stays near normal (${fib.hvpg}, ${clear.hvpg})`);
-  const [fail, normal] = (await runSteps([{ preset: 'rhf' }, { params: c.find((o) => !o.own).params }])).map(pick);
+  const own = c.find((o) => o.own), nrm = c.find((o) => !o.own), dv = (o) => ({ kind: 'volume', mL: o.volume });
+  const [fail, normal, again] = (await runSteps([{ preset: 'rhf' }, { params: nrm.params, action: dv({ volume: nrm.volume - own.volume }) },
+    { params: own.params, action: dv({ volume: own.volume - nrm.volume }) }])).map(pick);
   for (const k of ['pv', 'whvp', 'fhvp', 'ra']) assert.ok(fail[k] - normal[k] > 1, `${k} falls with a normal heart (${fail[k]} → ${normal[k]})`);
   assert.ok(Math.abs(fail.hvpg - normal.hvpg) < 1.5 && fail.hvpg < 5, `HVPG stays put (${fail.hvpg}, ${normal.hvpg})`);
+  // A normal heart reads a normal right atrium: the failing heart's retained fluid goes with it (Mohammad, 17 Oct: RA 15.8
+  // under "Normal heart" was not a normal heart), and the failing heart brings it back to the slide's own numbers.
+  assert.ok(normal.ra < 6 && normal.ivc < 6, `normal right atrium and IVC (${normal.ra}, ${normal.ivc})`);
+  for (const k of ['pv', 'fhvp', 'ra']) assert.ok(Math.abs(again[k] - fail[k]) < 0.3, `${k} back to the slide's (${fail[k]} → ${again[k]})`);
 });
 
 test('Sites slide 7 (sinusoidal obstruction syndrome) never folds its ladder behind Show; every other slide keeps the fold', () => {
@@ -69,4 +78,17 @@ test('on a phone a what-if slider takes a full line under its label', () => {
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.pz\.stack \.pzi-t \{ flex: 1 0 100%; \}/);
   assert.match(css, /\.pz-wi \{[^}]*flex-wrap: wrap/);
+});
+
+test('a compare button moves the retained fluid by the difference from the option pressed until now', () => {
+  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const core = readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8');
+  assert.match(src, /\(s\.compare\[k\]\.volume \?\? 0\) - \(s\.compare\[was\]\.volume \?\? 0\)/);
+  assert.match(src, /if \(dv\) host\.send\(\{ type: 'action', action: \{ kind: 'volume', mL: dv \} \}\)/);
+  assert.match(core, /case 'volume': e\.addVolume\(a\.mL, 0\.35, true\)/);
+});
+
+test('the slide count is not left grey (as if the list were open) on a slide picked from the slide list', () => {
+  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  assert.match(src, /'aria-expanded': String\(!ui\.jump\.hidden && !ui\.jump\.classList\.contains\('pz-leave'\)\)/);
 });
