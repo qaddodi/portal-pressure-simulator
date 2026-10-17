@@ -37,3 +37,13 @@ test('the teaching card and the visual slides carry the deck name in a corner ta
   // (The site tag stays on the left, over the title.)
   assert.match(src, /siteTag\(deck, s\)[^\n]*'pz-site'[^\n]*h\('h1', \{ class: 'pz-h' \}/);
 });
+
+test('over the thumb dock only a sheet or a menu from the dock rises from behind the tab row; a top-bar menu pops in place', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const util = readFileSync(new URL('../src/ui/util.js', import.meta.url), 'utf8');
+  assert.match(util, /const fromDock = asSheet \|\| !!anchor\.closest\?\.\('\.vdock'\);/);
+  // (The Colored-by menu on an upright iPad opened from the top bar but slid up from under its spot, its card cut away and its shadow showing.)
+  assert.doesNotMatch(css, /html\.thumb-ui \.menu(?!\.from-dock)[ ,{]/);
+  assert.match(css, /html\.thumb-ui \.menu\.from-dock \{ animation: thumbIn/);
+  assert.match(css, /html\.thumb-ui \.menu\.from-dock \{ translate: 0 var\(--sink, 0px\); \}/);
+});

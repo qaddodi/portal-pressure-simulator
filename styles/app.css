@@ -5363,13 +5363,15 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @property --sink { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
 @keyframes thumbIn { from { --sink: 100%; } }
 @keyframes thumbOut { to { --sink: 100%; } }
-.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui), html.thumb-ui .menu { translate: 0 var(--sink, 0px); }
-.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)), html.thumb-ui .menu { clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% - var(--sink, 0px) + 8px), var(--r-sheet) calc(100% - var(--sink, 0px) + 8px), calc(var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), 0 calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px)); }
+/* (Only a menu that opens from the dock, class from-dock (util.js popover), rises and sinks this way: the Colored-by menu
+   from the top bar of an upright iPad had slid up from under its spot, its card cut away but its shadow showing, 17 Oct.) */
+.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui), html.thumb-ui .menu.from-dock { translate: 0 var(--sink, 0px); }
+.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)), html.thumb-ui .menu.from-dock { clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% - var(--sink, 0px) + 8px), var(--r-sheet) calc(100% - var(--sink, 0px) + 8px), calc(var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), 0 calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px)); }
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
 @media (prefers-reduced-motion: no-preference) {
   #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn .26s var(--ease) var(--enter-delay, 0ms) backwards; }
-  html.thumb-ui .menu, html.thumb-ui .menu.as-sheet { animation: thumbIn .26s var(--ease) var(--enter-delay, 0ms) backwards; }
-  html.thumb-ui .menu.leaving, html.thumb-ui .menu.as-sheet.leaving { animation: thumbOut .18s var(--ease) forwards; }
+  html.thumb-ui .menu.from-dock { animation: thumbIn .26s var(--ease) var(--enter-delay, 0ms) backwards; }
+  html.thumb-ui .menu.from-dock.leaving { animation: thumbOut .18s var(--ease) forwards; }
 }
 /* (15 Oct, Mohammad) No card may ever be drawn over the tab row, at any moment (open, close, drag, switch). So the
    whole thumb dock is stacked above every card, and its play-bar half steps out of the way instead: the dock's glass

@@ -202,7 +202,10 @@ export const visibleBottom = () => { const v = window.visualViewport; return v ?
 export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
   const asSheet = sheet && innerWidth < 768;
-  const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : ''), role: 'dialog' }, content);
+  // (from-dock: over the thumb dock a sheet, or a menu from the dock, rises from behind the tab row; one from the top bar,
+  // the Colored-by key on an upright iPad, pops in where it rests, as everywhere else, never sliding up from below it.)
+  const fromDock = asSheet || !!anchor.closest?.('.vdock');
+  const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : '') + (fromDock ? ' from-dock' : ''), role: 'dialog' }, content);
   enterAfterGone(el);
   document.body.append(el);
   const put = () => {
@@ -273,7 +276,7 @@ export function closePopover() {
   if (reduceMotionMQ.matches || !el.isConnected) el.remove();
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
   // (Over the thumb dock it sinks behind the tab row, as the cards do: .2 s.)
-  else { const ms = document.documentElement.classList.contains('thumb-ui') ? 200 : 120; el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? 240 : ms + 10); }
+  else { const ms = document.documentElement.classList.contains('thumb-ui') && el.classList.contains('from-dock') ? 200 : 120; el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? 240 : ms + 10); }
   openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
   openMenu = null;
 }
