@@ -1435,6 +1435,17 @@ button.finding { cursor: pointer; }
 .pz.pz-card:not(.stack) .pz-text, .pz.pz-card:not(.stack) .pz-data.under { left: calc(var(--pz-cm) + var(--pz-cp)); }
 /* (The teaching card sits at the top left on every slide, one margin from the top as from the side, with or without a data card.) */
 .pz.pz-card:not(.stack) .pz-text { top: calc(var(--pz-cm) + var(--pz-cp)); bottom: auto; margin-block: 0; width: calc(var(--pz-cw) - 2 * var(--pz-cp)); max-height: calc(100% - 2 * var(--pz-cm) - 2 * var(--pz-cp)); }
+/* A phone held sideways (Mohammad, 17 Oct, I23): the words sit in the same floating card as on every other screen, not a
+   full-height panel at the edge. Fitted to a 390 px tall screen: 10 px from the top and bottom, 14 px of padding (the data
+   card's own, so the two cards' text edges match), clear of the notch or Dynamic Island on the left, and about 340 px wide as
+   the panel was. The deck's tab is the phone's own (12 px words) in the card's top right corner; the layout keeps the title
+   clear of it (presenter.js layout, padT). The data card stays a card of its own at the top right: there is no height to
+   stack it under the words. */
+.pz.low { --pz-cp: 14px; }
+.pz.low .pz-text, .pz-shade.low { --pz-cm: 10px; --pz-cp: 14px; --pz-cw: min(340px, calc(42vw / var(--vz) + 28px)); }
+.pz-shade.pz-card.low { left: max(10px, env(safe-area-inset-left, 0px)); }
+.pz.pz-card.low .pz-text { left: calc(max(10px, env(safe-area-inset-left, 0px)) + var(--pz-cp)); }
+.pz-shade.low { --pz-tabh: calc(var(--pz-tabf) * 1.6); }
 /* The data card is the same glass: see-through tint, the same blur, crisp edge with a hairline highlight, soft shadow. */
 .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 /* Tiles sit lighter than the glass around them in light mode, darker in dark mode. */
@@ -1469,23 +1480,26 @@ button.finding { cursor: pointer; }
 .pz, .pz-text, .pz-panel { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1) * var(--pk, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1) * var(--pk, 1));
   --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1) * var(--pk, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1) * var(--pk, 1));
   --s-big: calc(clamp(28px, calc(4.622 * var(--pzh) / var(--vz)), 56px) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(clamp(32px, calc(6.356 * var(--pzh) / var(--vz)), 77px) * var(--ts, 1) * var(--pk, 1)); }
-.pz.pz-card:not(.stack) .pz-text { --s-title: calc(clamp(32px, calc(5.546 * var(--pzh) / var(--vz)), 67px) * var(--ts, 1) * var(--pk, 1) * var(--pz-tk, 1));
+/* (A wide screen's card; a phone held sideways keeps the phone's sizes, .pz.low below, in its card too.) */
+.pz.pz-card:not(.stack):not(.low) .pz-text { --s-title: calc(clamp(32px, calc(5.546 * var(--pzh) / var(--vz)), 67px) * var(--ts, 1) * var(--pk, 1) * var(--pz-tk, 1));
   --s-cap: max(12px, calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)));
   --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1));
   --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1) * var(--pk, 1) * var(--pz-bk, 1)); }
 .pz.stack, .pz.stack .pz-text, .pz.stack .pz-panel { --s-cap: calc(var(--t-cap) * var(--ts, 1) * var(--pk, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1) * var(--pk, 1)); --s-body: calc(var(--t-body) * var(--ts, 1) * var(--pk, 1));
   --s-val: calc(var(--t-val) * var(--ts, 1) * var(--pk, 1)); --s-big: calc(var(--t-big) * var(--ts, 1) * var(--pk, 1)); --s-title: calc(var(--t-title) * var(--ts, 1) * var(--pk, 1)); }
-/* A phone: the slide's words (its bottom panel, and the title panel) 1.7 times the roles' size upright, which reads about
-   twice as large as before (the panel used to zoom its words down to fit 40 % of the screen; it may now take 62 %); the data
-   card keeps the roles' size. On its side 1.3 times, as more does not fit 390 px of height. */
-.pz.stack .pz-text, .pz.stack .pz-panel { --pk: 1.7; }
+/* A phone: the slide's words (its bottom panel, and the title panel) 1.45 times the roles' size upright: a 17.4 px body and a
+   23.2 px title on a 390 px phone (Mohammad, 17 Oct: "17 px body"; 1.7 before, a 20.4 px body that took most of the screen); the
+   data card keeps the roles' size. An upright iPad its own 1.39, a 19 px body as on an iPad held sideways (it took the phone's
+   1.7 before, a 23 px body). On its side 1.3 times, as more does not fit 390 px of height. */
+.pz.stack .pz-text, .pz.stack .pz-panel { --pk: 1.45; }
+.pz.stack.tab .pz-text, .pz.stack.tab .pz-panel { --pk: 1.39; }
 @media (orientation: landscape) and (max-height: 500px) { .pz-text, .pz-panel { --pk: 1.3; } }
 /* A phone held sideways (or a window under 500 px tall): the words use the phone's sizes, 1.4 times the roles, as upright
    (a 22 px line under a 42 px title no longer crowds a 300 px column); the title is the value role, the lines the label role. */
 .pz.low .pz-text { --pk: 1.4; --s-cap: calc(var(--t-cap) * var(--ts, 1) * var(--pk)); --s-lab: calc(var(--t-lab) * var(--ts, 1) * var(--pk)); --s-body: calc(var(--t-body) * var(--ts, 1) * var(--pk));
   --s-val: calc(var(--t-val) * var(--ts, 1) * var(--pk)); --s-big: calc(var(--t-big) * var(--ts, 1) * var(--pk)); --s-title: calc(var(--t-title) * var(--ts, 1) * var(--pk)); }
-.pz.low .pz-text .pz-h { font-size: var(--s-val); }
-.pz.low .pz-text :is(.pz-line, .pz-kick, .pz-eqk, .pz-check) { font-size: var(--s-lab); }
+.pz.low .pz-text .pz-h { font-size: calc(var(--s-val) * var(--pz-ptk, 1)); }
+.pz.low .pz-text :is(.pz-line, .pz-kick, .pz-check) { font-size: var(--s-lab); }
 .pz.low .pz-text .pz-eq math { font-size: calc(var(--s-lab) * 1.1 * var(--eq-k, 1)); }
 @media (orientation: landscape) and (max-height: 500px) { .pz:not(.stack) .pz-data { top: 8px; max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px); max-width: calc(58vw - 50px); }
   .pz:not(.stack) .pz-data > .pz-ladder { display: none; } .pz:not(.stack) .pz-data:not(.tiles-only):not(.tool-only) > .pz-strip { display: block; } }   /* (beside the words, never over them; the phone's pressure strip, not the tall ladder) *//* (Except the summary table: its five to seven columns only fit a phone at the roles' own size.) */
@@ -1503,7 +1517,7 @@ button.finding { cursor: pointer; }
    A laptop's or tablet's: about three quarters of the card's padding tall (--pz-cp), its words about half of that. A phone
    on its side: its full-height panel's top right, above the words' top gap. */
 .pz-shade, .pz-panel { --pz-tabf: calc(12px * var(--ts, 1)); --pz-tabh: calc(var(--pz-tabf) * 1.85); --pz-tab-bg: color-mix(in srgb, var(--text) 8%, transparent); }
-:is(.pz-shade.pz-card:not(.stack), .pz:not(.stack):not(.low) .pz-panel) { --pz-tabh: calc(var(--pz-cp) * .72); --pz-tabf: max(12px, calc(var(--pz-tabh) * .56)); }
+:is(.pz-shade.pz-card:not(.stack):not(.low), .pz:not(.stack):not(.low) .pz-panel) { --pz-tabh: calc(var(--pz-cp) * .72); --pz-tabf: max(12px, calc(var(--pz-tabh) * .56)); }
 :root[data-theme="dark"] :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); } }
 .pz-tabname { position: absolute; top: 0; right: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55 - .05em) 0 calc(var(--pz-tabh) * .55); border-radius: 0 0 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
@@ -1520,7 +1534,7 @@ button.finding { cursor: pointer; }
 /* No rule under the title (17 Oct): its old room stays as space before the body. */
 .pz-text .pz-h, .pz-ph .pz-h { padding-bottom: calc(.3em + 2px); }
 .pz.stack .pz-h { padding-bottom: calc(.22em + 2px); }
-.pz-line { margin: 0; font: 400 var(--s-body)/1.38 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
+.pz-line { margin: 0; font: 400 var(--s-body)/1.4 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
 /* Body emphasis: key terms in the heading colour, values in a quiet pill with even figures. */
 .pz-line b { font-weight: 600; color: var(--text); }
 /* A slide's colour key (presenter.js keyNodes), a small frosted pill on the figure, not in the teaching card: the lens named, then its
@@ -1543,9 +1557,12 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-text.pz-keyed { max-height: 50%; }
 .pz-caveat { margin: .5em 0 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
 .pz-val { display: inline-block; padding: .02em .42em .06em; border-radius: var(--r-pill); background: color-mix(in srgb, var(--text) 7%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
-/* Every pill (value or term) is one box: the same size, line height and padding, so they match in height; a little room either side, and a taller line where a line holds one so pills on adjacent lines never touch. */
-.pz-val, .pz-term { display: inline-block; box-sizing: border-box; padding: .1em .5em; margin-inline: .14em; font-size: 1em; line-height: 1.2; vertical-align: baseline; }
-.pz-line:has(.pz-val, .pz-term) { line-height: 1.68; }
+/* Every pill (value or view name) is one box: the same size, line height and padding, so they match in height; slim enough to sit
+   inside the line's own 1.4 spacing, so a line holding one is spaced like any other and pills on adjacent lines never touch (M3).
+   Room after it, none before (the space before it is its gap, and a pill that starts a line sits on the text's edge), and only a
+   hair before a stop after it ("11.6 mmHg." not "11.6 mmHg ."). */
+.pz-val, .pz-term { display: inline-block; box-sizing: border-box; padding: .04em .45em; margin-inline: 0 .14em; font-size: 1em; line-height: 1.15; vertical-align: baseline; }
+.pz-stop > :is(.pz-val, .pz-term) { margin-inline-end: .08em; }
 .pz-eq { margin: 0; color: var(--text); }
 .pz-eq math { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", math; font-size: calc(var(--s-val) * var(--eq-k, 1)); math-style: normal; }
 .pz:not(.stack) .pz-eq math { font-size: calc(var(--s-body) * 1.15 * var(--eq-k, 1)); }   /* (a wide screen: a little above the line's size, as on a phone; STIX runs small) */
@@ -1556,6 +1573,10 @@ button.finding { cursor: pointer; }
 /* A pill in a station's colour (--tone): a live value ({pv}) or a term that points at the figure ([portal vein](pv)). */
 .pz-val.tone, .pz-term { background: color-mix(in srgb, var(--tone) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 50%, transparent); color: color-mix(in srgb, var(--tone) 72%, var(--text)); }
 .pz-term { border-radius: var(--r-pill); font-weight: 650; white-space: nowrap; }
+/* A word that points at the figure ([portal vein](pv)) is not a pill: coloured text in its station's colour with a thin underline
+   in that colour (Mohammad, 17 Oct, "Underline terms"). Pills stay for numbers and view names; disease names keep their violet. */
+.pz-term:not(.pz-lens-t) { display: inline; padding: 0; margin: 0; border-radius: 0; background: none; box-shadow: none; font-weight: 600; color: color-mix(in srgb, var(--tone) 80%, var(--text)); text-decoration-line: underline; text-decoration-color: color-mix(in srgb, var(--tone) 60%, transparent); text-decoration-thickness: max(1.5px, .07em); text-underline-offset: .2em; }
+.app.pz-hi .pz-term:not(.pz-lens-t) { box-shadow: none; text-decoration-color: var(--tone); }
 /* A disease name: a soft tinted pill, inline and with no vertical padding that counts, so a line never grows or shifts. */
 .pz-dz { padding: 0 .3em; margin-inline: -.04em; border-radius: .5em; font-weight: 600; color: color-mix(in srgb, var(--disease) 62%, var(--text)); background: color-mix(in srgb, var(--disease) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--disease) 36%, transparent); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 /* In a title the name is only tinted: a box round big, tightly leaded letters would be clipped at the card's top. */
@@ -1599,6 +1620,13 @@ button.finding { cursor: pointer; }
 .pz.low .pz-rail-liver { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
 .pz.low .pz-rail-liver span { font-size: var(--s-body); }
 .pz.low .pz-rail .n { right: 100%; translate: 50% 0; top: calc(1.1em + 2px); }   /* (each name's lower-left end at its bar's left edge, so the first stays inside the card; 6 px under the bars) */
+/* (A phone on its side with one level lit (I12, 17 Oct): only that level is named, flat under its bar and kept inside the card at
+   either end; six tilted names took about a quarter of the teaching card. Its row is only as tall as the one name.) */
+.pz.low .pz-rail.one li { min-height: calc(var(--t-cap) * var(--ts, 1) * 2.7); }
+.pz.low .pz-rail.one li:not(.on) .n { display: none; }
+.pz.low .pz-rail.one li.on .n { right: auto; left: 50%; translate: -50% 0; rotate: none; transform-origin: 50% 0; }
+.pz.low .pz-rail.one li.on:first-child .n { left: 0; translate: none; }
+.pz.low .pz-rail.one li.on:last-child .n { left: auto; right: 0; translate: none; }
 /* The data card: the pressure ladder and its tiles. */
 .pz-data { position: absolute; right: var(--pz-cm); top: var(--pz-cm); width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); max-height: calc(100% - 2 * var(--pz-cm)); --pz-gap: clamp(8px, calc(1.6 * var(--pzh) / var(--vz)), 20px); display: flex; flex-direction: column; gap: var(--pz-gap); padding: clamp(14px, calc(2.1 * var(--pzh) / var(--vz)), 28px); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--border); border-radius: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); box-shadow: var(--shadow-3); transition: opacity .32s var(--ease), transform .32s var(--ease); }
 .pz-data.pz-hide { opacity: 0; transform: translateX(18px); }
@@ -1960,12 +1988,15 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh) / var(--vz)), 20px)); left: 21px; right: 21px; top: auto; bottom: calc(max(26px, 65px - var(--pz-lh)) + var(--pz-sb)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: var(--s-lab); }
-.pz.stack .pz-h { font-size: var(--s-val); }
+.pz.stack .pz-h { font-size: calc(var(--s-val) * var(--pz-ptk, 1)); }
 .pz.stack .pz-line { font-size: var(--s-lab); }
-/* (A phone's lines run the card's full width: balancing and pretty-wrapping shorten lines well before the edge, so the words wrap plainly, first-fit.) */
+/* (A phone's lines run the card's full width: balancing and pretty-wrapping shorten lines well before the edge, so the words wrap plainly, first-fit.
+   An upright iPad's wider card wraps them pretty, so its last line never holds one word alone, A11; presenter.js rich() glues a short last word on every screen.) */
 .pz.stack .pz-h, .pz.stack .pz-line { text-wrap: wrap; }
+.pz.stack.tab .pz-line { text-wrap: pretty; }
 .pz.stack .pz-eq math { font-size: calc(var(--s-lab) * 1.1 * var(--eq-k, 1)); }   /* (a phone's equation matches its line to the eye: STIX's letters are about 6 to 15% shorter than the UI font's at one size, so 1.1 times the line's size, not more) */
-.pz.stack .pz-eqk { font-size: var(--s-lab); }
+/* (A phone's captions under the words, an equation's key and a caveat, about 0.8 of the line's size and never under 12 px: at the line's own size they read as more body text, I12.) */
+.pz:is(.stack, .low) .pz-text :is(.pz-eqk, .pz-caveat) { font-size: max(12px, calc(var(--s-lab) * .8)); }
 .pz.stack .pz-causes, .pz.stack .pz-rail { display: none; }
 .pz.stack .pz-data { --s-cap: calc(var(--t-cap) * var(--ts, 1) * 1.15); --s-lab: calc(var(--t-lab) * var(--ts, 1) * 1.15); }
 .pz.stack.tab .pz-data { --s-cap: calc(var(--t-cap) * var(--ts, 1) * 1.3); --s-lab: calc(var(--t-lab) * var(--ts, 1) * 1.3); }
@@ -2169,6 +2200,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-ab { gap: 2px; padding: 3px; justify-content: center; flex-wrap: wrap; }/* A title that would run past two lines in the side pane steps down a size. */
 .pz:not(.stack) .pz-text .pz-h.long { font-size: var(--s-big); }
 .pz.pz-card:not(.stack) .pz-text .pz-h.long { font-size: calc(var(--s-big) * var(--pz-tk, 1)); }   /* (a long title gives way too when the cards stack) */
+.pz.pz-card.low .pz-text .pz-h.long { font-size: calc(var(--s-val) * var(--pz-ptk, 1)); }   /* (a phone on its side: a long title is never set larger; it steps down like any tight slide's, presenter.js fitCards) */
 /* A slide's instrument (tool) in the data card: the instrument as the app draws it, without its controls. */
 .pz-data.has-tool { width: clamp(340px, 32vw, 620px); }
 /* An instrument with tiles under it (desktop): a narrower card with the tiles side by side, so the figure keeps more of the middle. */

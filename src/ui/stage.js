@@ -5170,7 +5170,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const ux = dx / n * 4.5, uy = dy / n * 4.5;
         ov.clamps.append(s('path', { class: 'clamp', 'data-id': id, d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
       }
-      const lab = s('text', { class: 'clamp-label' }, document.createTextNode(`${Math.round(v * 100)} %`));
+      const lab = s('text', { class: 'clamp-label' }, document.createTextNode(`${Math.round(v * 100)}%`));
       lab.setAttribute('data-at', [x, y, nx, ny, off + 8].map((q) => q.toFixed(2)).join(' '));
       lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
       ov.clamps.append(lab);

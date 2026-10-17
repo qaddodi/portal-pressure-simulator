@@ -37,7 +37,7 @@ test('the handout prints each line\'s values and words, never a raw placeholder'
   }
   assert.equal(lineText('An HVPG of {hvpg} in the [portal vein](pv), under {<15 cm/s}; {6 to 8 g}; before {ppg@a}.', { hvpg: 11.64 }, (id) => (id === 'a' ? { ppg: 4.25 } : null)),
     'An HVPG of 11.6 mmHg in the portal vein, under 15 cm/s; 6 to 8 g; before 4.3 mmHg.');
-  assert.equal(lineText('{asc} and {plt} and {shunt}', { asc: 4300, plt: 92.4, shunt: 0.715 }), '4.3 L and 92 ×10³/µL and 72%');
+  assert.equal(lineText('{asc} and {plt} and {shunt}', { asc: 4300, plt: 92.4, shunt: 0.715 }), '4.3 L and 92,000/µL and 72%');
 });
 test('every slide of every deck prints its figure, except the outline and the quick check', () => {
   const dir = new URL('../brand/handout/', import.meta.url), want = new Set();

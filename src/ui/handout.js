@@ -8,6 +8,7 @@
 import { download } from './download.js?v=3564e5bf8c';
 import { LEVELS, withOverview } from './decks.js?v=3ab8e3ccf5';
 import { TILE } from './table-marks.js?v=e25caf9bf9';
+import { plateletText } from './glue.js?v=5a0f63226b';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -85,7 +86,7 @@ const fig = (base, d, s) => (base && !d.mine && s.id && !NO_FIGURE.has(s.visual)
 export function lineText(t, fp = null, at = () => null) {
   // (to the slide's decimals, with a true minus and no "−0", as util.js fmt writes it; that module needs a page)
   const num = (v, dp) => { const t = v.toFixed(dp); return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−'); };
-  const val = (k, f) => { const T = TILE[k], v = f?.[k]; return v == null || !Number.isFinite(v) ? '—' : `${num(v * (T.x || 1), T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`; };
+  const val = (k, f) => { const T = TILE[k], v = f?.[k]; return v == null || !Number.isFinite(v) ? '—' : k === 'plt' ? plateletText(v) : `${num(v * (T.x || 1), T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`; };
   return String(t ?? '').replace(/\[([^\]]+)\]\([\w:]+\)/g, '$1').replace(/\{([^}]+)\}/g, (_, mk) => {
     if (TILE[mk]) return val(mk, fp);
     const m = mk.match(/^(\w+)@([\w-]+)$/);

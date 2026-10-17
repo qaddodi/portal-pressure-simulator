@@ -19,11 +19,12 @@ import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b9
 import { sinusoidSupported } from './sinusoid-view.js?v=9273baf980';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
+import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=3ab8e3ccf5';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=e6a5c61948';
 import { createTools } from './presenter-tools.js?v=c7cb8abaa9';
-import { openHandout } from './handout.js?v=cdd17c3338';
+import { openHandout } from './handout.js?v=e7760e75f2';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=e25caf9bf9';
@@ -60,7 +61,6 @@ const LOBULE_CAM = /^(lobule|sinusoid)/;
 
 // ── Numbers ────────────────────────────────────────
 const RUNGS = [['pv', 'PV'], ['whvp', 'WHVP'], ['fhvp', 'FHVP'], ['ivc', 'IVC'], ['ra', 'RA']];
-// A name joined by an en dash (Budd–Chiari) never breaks at the dash.
 // A slide's equation (decks.js eq: [MathML, legend]): typeset by the browser's own MathML, the legend under it.
 function equation([ml, legend]) {
   const box = h('div', { class: 'pz-eq' });
@@ -101,7 +101,6 @@ function keyNodes(k) {
 }
 // A string with its disease names set in a pill (see diseases.js).
 const diseaseNodes = (t) => diseasePieces(t).map(([x, dz]) => (dz ? h('span', { class: 'pz-dz' }, x) : x));
-const nb = (t) => (t || '').replace(/(\p{L})–(\p{L})/gu, '$1–\u2060$2');
 // A slide's line, typeset. One value goes in a quiet pill: the one the deck marks with {braces}, else the first
 // value with a unit (a line of cut-offs leaves the rest to its scale). The slide's own key terms (its highlighted
 // tiles, or `bold`) are bold wherever the line names them; the first mention of a term students meet for the first
@@ -129,7 +128,7 @@ const TARGETS = {
   fhvp: { node: 'RHV', edges: ['RHV_IVC'], tone: 'hv', words: 'FHVP|free pressure' },
   hv: { node: 'RHV', edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], tone: 'hv', words: 'hepatic veins?' },
   ivc: { node: 'IVCS', edges: ['IVCS_RA', 'IVC_IS'], tone: 'ivc', words: 'IVC|inferior vena cava' },
-  ra: { node: 'RA', organ: 'heart', tone: 'ra', words: 'right atrium' },
+  ra: { node: 'RA', organ: 'heart', tone: '--tour-sys', words: 'right atrium' },
   varix: { node: 'VAR', edges: ['C1a', 'C1b'], tone: 'var', words: 'esophageal varices|varices|varix' },
   gv: { node: 'GV', edges: ['C2'], tone: 'var', words: 'gastric varices|fundal varices' },
   lgv: { node: 'LGV', edges: ['LGV_CONF', 'V_STO'], tone: 'var', words: 'left gastric vein|coronary vein' },
@@ -147,7 +146,7 @@ const TARGETS = {
   // The caudate lobe with its veins draining into the IVC; caudateLobe: the lobe alone (a DIPS runs through it).
   caudate: { organ: 'caudate', tone: 'hv', words: 'caudate lobe' },
   caudateLobe: { organ: 'caudate-lobe', tone: 'hv', words: 'caudate lobe' },
-  heart: { organ: 'heart', tone: 'ra', words: 'heart' },
+  heart: { organ: 'heart', tone: '--tour-sys', words: 'heart' },
   // Inside the liver (lit: the lobule's and the sinusoid's own labels take the colour and a soft glow, .app[data-lit]).
   'lobule:triad': { lit: true, tone: 'pv', words: 'portal tracts?|portal triads?|portal venules?' },
   'lobule:arteriole': { lit: true, tone: '--artery', words: 'hepatic arterioles?|arterioles?' },
@@ -177,7 +176,7 @@ for (const e of ['C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'S_PC', 'S_DSR', 'S_M
 // A live value's colour ({pv}): the station it is read at; a value with no station (HVPG) is a plain pill.
 // The station label each site reading would repeat (an IVC web's lower reading is its own place, so it has none).
 export const SITE_NODE = { pv: 'CONF', ivc: 'IVCS', ra: 'RA' };
-const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc', ra: 'ra' };
+const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc', ra: '--tour-sys' };
 // A reading with no station of its own (a size: the spleen, the varices) takes its status colour, as its card
 // shows it, on its pill and on its organ's outline; neutral while it is normal.
 const BY_RATE = new Set(['spleen', 'varix', 'gv']), RATE_TONE = { hi: '--danger', mid: '--caution' };
@@ -234,7 +233,8 @@ function liveVal(k, s, fp) {
   const T = TILE[k], v = fp?.[k];
   if (v == null || !Number.isFinite(v)) return '…';
   const d = T.d ?? 1;
-  return `${fmt(v * (T.x || 1), d)}${T.u ? ` ${T.u}` : ''}`;
+  if (k === 'plt') return plateletText(v);   // (in running text "88,000/µL"; the tile keeps ×10³/µL)
+  return `${fmt(v * (T.x || 1), d)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`;   // ("75%": no space before the sign)
 }
 // A line, typeset (see above). Also: {pv} a live value, {>=10 mmHg} a cut-off (outlined), and a term that points
 // at the figure, [portal vein](pv) or through the slide's terms field, as a pill in its station's colour.
@@ -262,7 +262,7 @@ function rich(t, s = {}, fp = null) {
   // A pill keeps the word before it and the stop after it on its line (a no-break space, one unbreakable span).
   const glue = () => { const prev = out[out.length - 1]; if (typeof prev === 'string') out[out.length - 1] = prev.replace(/ $/, '\u00a0'); };
   const pill = (v, stop, cls = '', tone = null) => { glue();
-    pills++; return h('span', { class: 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, style: tone ? `--tone: ${toneVar(tone)}` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
+    pills++; return h('span', { class: stop ? 'pz-nw pz-stop' : 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, style: tone ? `--tone: ${toneVar(tone)}` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
   const termPill = (w, k) => { const tone = TARGETS[k].organ === 'spleen' ? (fp && rateTone('spleen', fp)) || '--text-2' : TARGETS[k].tone;   // (the spleen's word, as its outline)
     return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: ${toneVar(tone)}` }, w); };
   while ((m = re.exec(t))) {
@@ -281,14 +281,21 @@ function rich(t, s = {}, fp = null) {
     else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(mk.replace(/^(?:>=|<=|[<>≥≤])\s*/, ''), mkStop, ' cut'));
     else if (mk) out.push(pill(mk, mkStop, ' cut'));   // (a number typed in braces, {6 to 8 g}: a rule, outlined; only a live value is the patient)
     else if (val) out.push(pill(val, valStop, ' cut'));   // (a typed number is a rule or a figure from the literature, not the patient: outlined)
-    else if (dz) out.push(h('span', { class: 'pz-dz' }, dz));
+    else if (dz) out.push(h('span', { class: dz.length <= 25 ? 'pz-dz pz-nw' : 'pz-dz' }, dz));   // (a name never splits across two lines, "heart | failure"; a long one may, rather than run past a narrow card)
     else { seen.add(w); bold++; out.push(h('b', {}, key || term)); }
     at = m.index + all.length;
     // (A term pill keeps the stop or bracket after it on its line.)
     const last = out[out.length - 1];
-    if (last?.classList?.contains('pz-term') && /^[),.;:]+/.test(t.slice(at))) { const st = t.slice(at).match(/^[),.;:]+/)[0]; out[out.length - 1] = h('span', { class: 'pz-nw' }, last, st); at += st.length; }
+    if (last?.classList?.contains('pz-term') && /^[),.;:]+/.test(t.slice(at))) { const st = t.slice(at).match(/^[),.;:]+/)[0]; out[out.length - 1] = h('span', { class: 'pz-nw pz-stop' }, last, st); at += st.length; }
   }
   out.push(t.slice(at));
+  // (The last line never holds a word or a pill alone: the line's last plain space is a no-break space when what follows it is short.)
+  for (let i = out.length - 1, tail = 0; i >= 0 && tail <= 12; i--) {
+    const x = out[i], j = typeof x === 'string' ? x.lastIndexOf(' ') : -1;
+    if (j < 0) { tail += typeof x === 'string' ? x.length : x.textContent.length; continue; }
+    if (tail + x.length - j - 1 <= 12 && /\S/.test(x.slice(0, j))) out[i] = `${x.slice(0, j)}\u00a0${x.slice(j + 1)}`;
+    break;
+  }
   return out;
 }
 // The still column inside the lobule (D5), for a wedge slide with column: true: the balloon stops the hepatic vein,
@@ -1572,7 +1579,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let caseLift = null, caseCard = null;
   async function caseRun(s, si, st, cut) {
     const c = ui.vcase, ms = reduce.matches ? 0 : 450;
-    c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, 'Case'), h('p', { class: 'pz-case-p' }, s.vignette));
+    c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, 'Case'), h('p', { class: 'pz-case-p' }, nb(s.vignette)));
     for (const k of ['transform', 'transition', 'opacity']) c.style.removeProperty(k);   // (a card flung off last time comes back whole)
     c.hidden = false; void c.offsetWidth;
     // The words run 2.5x the teaching card's; on a short or narrow screen they ease down just enough to fit the card's room (set before it enters, so nothing resizes on screen).
@@ -2010,7 +2017,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
-          s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), s.causes.join(', ')) : null]);
+          s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null);
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
@@ -2223,9 +2230,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // stays at the edge: a tap or a drag on the sliver brings it back. It follows the finger, eases to rest, and stays put from
   // slide to slide until brought back. (Driven from script, frame by frame: the card is frosted glass.)
   const GRIP = 34;
-  // On a laptop or tablet the words sit on a floating card like the data card (false: the full-height glass panel at the left edge).
-  // (A phone, upright or sideways, keeps its words' panel either way.)
+  // On a laptop or tablet, and on a phone held sideways (I23, 17 Oct), the words sit on a floating card like the data card (false:
+  // the full-height glass panel at the left edge). (An upright phone keeps its words' panel at the foot either way.)
   const TEXT_CARD = true;
+  const LOW_M = 10;   // (a phone held sideways: its teaching card's margin from the top and bottom, css px; styles/app.css .pz.low)
   const dock = { lvl: 0, to: 0, raf: 0 };
   const dockVec = () => {
     const d = ui.data;
@@ -2358,16 +2366,25 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
       const all = el.querySelector('.pz-check'); all?.classList.add('pzc-all', 'pzc-still');
       // (A phone's words never fit below 12 px: the card's height cap leaves them that room, phoneTextCap.)
-      const ln = el === ui.text && phone() ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(getComputedStyle(ln).fontSize) : 0;
-      const kMin = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : 0.5;
+      // (A phone's words, upright or on its side: one body size per layout. A tight slide's title steps down first (--pz-ptk, the
+      // titles' fixed steps), then the whole card by one step (0.9); only a slide that still does not fit goes further, to 12 px on
+      // the screen, and on its side, where no cap keeps that room, past it as a last resort rather than run out of its card.)
+      const small = el === ui.text && (phone() || ui.root.classList.contains('low'));
+      const ln = small ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(getComputedStyle(ln).fontSize) : 0;
+      const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : 0.5;
+      const mins = small ? [...new Set([Math.max(floor, 0.9), floor, phone() ? floor : 0.5])] : [floor];
       let k = 1, over = 1;   // (over: the largest fit tried that still overflowed)
       const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1 ? null : o; };
-      for (let n = 0; n < 8 && k > kMin; n++) {
-        const o = fits();
-        if (!o) break;
-        over = k;
-        k = Math.max(kMin, k * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
-        el.style.setProperty('--pz-fit', k.toFixed(3));
+      if (small) { el.style.removeProperty('--pz-ptk'); for (const tk of TK.slice(1)) { if (!fits()) break; el.style.setProperty('--pz-ptk', tk); } }
+      for (const kMin of mins) {
+        for (let n = 0; n < 8 && k > kMin; n++) {
+          const o = fits();
+          if (!o) break;
+          over = k;
+          k = Math.max(kMin, k * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
+          el.style.setProperty('--pz-fit', k.toFixed(3));
+        }
+        if (!fits()) break;
       }
       // (The steps above scale by how far the card overflows, but smaller words wrap into fewer lines, so a step overshoots:
       // a phone's words that fit at 0.62 came in at 0.5, under 12 px. Once a fit fits, the largest that still fits is found
@@ -2449,9 +2466,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const p = phone(), wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = wr.width / (wrap.clientWidth || wr.width) || 1;
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
     ui.root.classList.toggle('tab', p && tabUp()); ui.shade.classList.toggle('tab', p && tabUp());
-    const cardOn = TEXT_CARD && !p && !(W > H && H <= 500);   // (a phone held sideways keeps its panel too)
+    const low = !p && W > H && H <= 500;   // (a phone held sideways: its instruments fold behind Show)
+    const cardOn = TEXT_CARD && !p;   // (a phone held sideways too: its words in a floating card, not a panel at the edge)
     ui.root.classList.toggle('pz-card', cardOn); ui.shade.classList.toggle('pz-card', cardOn);
-    ui.root.classList.toggle('low', !p && W > H && H <= 500);   // (a phone held sideways: its instruments fold behind Show)
+    ui.root.classList.toggle('low', low); ui.shade.classList.toggle('low', low);
     const off = (el) => el.hidden || (el === ui.data ? 'gone' in el.dataset : el.classList.contains('pz-hide'));   // (a card only easing out and back in for the next slide still counts, where it rests: the camera frames once)
     const r = (el) => (off(el) ? null : restBox(el));
     // The words' sizes settle once per slide, before its cards enter: a later pass (a reading ticking, the data card growing)
@@ -2476,15 +2494,27 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     abShort(ui.text, p || ui.root.classList.contains('low'));   // (a phone, upright or on its side; a wider card may take two rows of full names)
     const phoneCap = p ? phoneTextCap(lockKey, H, k) : null;
     if (phoneCap != null) ui.text.style.maxHeight = `${phoneCap.toFixed(1)}px`;
+    // A phone held sideways: its card stands level with the data card at the top right (one margin from the top without one), its
+    // top padding tall enough for the deck's tab beside the title (padT), one margin from the foot. The words' room is set before
+    // they are fitted, the same room the card is given below, so they are fitted once to the room they keep.
+    const vm = LOW_M * k;
+    let padT = 0;
+    if (cardOn && low) {
+      const pad0 = (ui.text.offsetLeft - ui.shade.offsetLeft) * k, tab = ui.shade.querySelector('.pz-tabname');
+      padT = Math.max(pad0, tab?.offsetHeight ? (tab.offsetHeight + 6) * k : 0);
+      const top = off(ui.data) ? vm : r(ui.data).top - wr.top;
+      ui.text.style.maxHeight = `${Math.max(0, (H - top - padT - pad0 - vm) / k).toFixed(1)}px`;
+    }
     fitCards(ui.text);
     let t = r(ui.text);
     const sl = ui.shade.offsetLeft * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style;
+    if (!(cardOn && low)) padT = pad;
     // On a laptop or tablet the data card always stacks under the words' card, at its width, a gap below it (0.6 of the margin),
     // above the controls; what does not fit is made smaller in fixed steps, never moved to the top right. A card in view that
     // changes place fades out, moves while unseen and fades back in.
     let below = false, gap = 0, cw = 0, foot = H, keepH = 0;   // (keepH: the room a ladder folded behind Show keeps, screen px)
     const top0 = cardOn && t ? sl : 0;   // (the cards' top: one margin from the top, as from the side)
-    if (cardOn && t && !off(dd)) {
+    if (cardOn && !low && t && !off(dd)) {
       gap = Math.round(0.6 * sl); cw = t.right - wr.left + pad - sl;
       // (Folding the instrument behind Show is the last step, below: each new measure starts unfolded. It snaps while the card is
       // measured, so the measure sees where it rests; a tap on Show or Hide then eases it.)
@@ -2602,10 +2632,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // The words' card is only as tall as the words. With a data card beside or under it, its top is level with the data
     // card's place at the top right and the words start one padding below it; without one, the words stay centred and the card wraps them.
     // (With no data card the card is centred top to bottom, never closer than one margin to either edge.)
-    const lvl = cardOn && t ? (d && !below ? d.top - wr.top : off(dd) ? Math.max(sl, (H - t.height - 2 * pad) / 2) : top0 + shift) + pad : null;
+    // (A phone held sideways: level with the data card at the top right, or centred with no data card, one margin (LOW_M) from the
+    // top and the foot; the deck's tab sits in its taller top padding, padT.)
+    const lvl = cardOn && low && t ? (d ? d.top - wr.top : Math.max(vm, (H - t.height - pad - padT) / 2)) + padT
+      : cardOn && t ? (d && !below ? d.top - wr.top : off(dd) ? Math.max(sl, (H - t.height - 2 * pad) / 2) : top0 + shift) + pad : null;
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
     if (lvl != null) ts.marginBlock = '0';
-    ts.maxHeight = lvl != null ? `${((H - lvl - pad - sl) / k).toFixed(1)}px` : phoneCap != null ? `${phoneCap.toFixed(1)}px` : '';   // (one margin at the bottom too)
+    ts.maxHeight = lvl != null ? `${((H - lvl - pad - (low ? vm : sl)) / k).toFixed(1)}px` : phoneCap != null ? `${phoneCap.toFixed(1)}px` : '';   // (one margin at the bottom too)
     if (t) t = r(ui.text);   // (always: the words may already stand there, and the glass is sized to where they are)
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
@@ -2615,10 +2648,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The words' card: as far past the words on the right as its left edge is before them.)
     const card = cardOn && t ? L + pad - sl : 0;
     ui.shade.style.width = !p && t ? `${(card || L + 36) / k}px` : '';
-    ui.shade.style.height = !p && cardOn && t ? `${(t.height + 2 * pad) / k}px` : '';
+    ui.shade.style.height = !p && cardOn && t ? `${(t.height + pad + padT) / k}px` : '';
     // (A phone's glass reaches 16 px above the words, or the deck's tab and 8 px more: the tab never meets the title.)
     const lift = p && t ? Math.max(16, (ui.shade.querySelector('.pz-tabname')?.offsetHeight || 0) + 8) : 16;
-    ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - pad) / k}px` : '';
+    ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'bottom' : 'left';
@@ -2690,6 +2723,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const line = ui.text.querySelector('.pz-line, p'), body = line ? parseFloat(getComputedStyle(line).fontSize) : 0;
     // (Measured at that floor, not scaled from the full size: zoomed down, the lines take more words each and the card comes
     // out shorter than its full height times the zoom. Scaled, HVPG 5 on a 667 px iPhone asked 263 px for words that take 230.)
+    // (With the title at its smallest step: a tight slide's title steps down before its words do, fitCards.)
+    const ptk = ts.getPropertyValue('--pz-ptk'); ts.setProperty('--pz-ptk', String(TK[TK.length - 1]));
     const floor = body > 12 ? Math.ceil(12 / body * 1000) / 1000 : 1, words = (floor < 1 ? (() => {
       const sv = [ts.maxHeight, ts.getPropertyValue('--pz-fit'), ts.getPropertyValue('--pz-z')];
       ts.maxHeight = 'none'; ts.removeProperty('--pz-z'); ts.setProperty('--pz-fit', String(floor));
@@ -2697,6 +2732,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       ts.maxHeight = sv[0]; if (sv[1]) ts.setProperty('--pz-fit', sv[1]); else ts.removeProperty('--pz-fit'); if (sv[2]) ts.setProperty('--pz-z', sv[2]);
       return v;
     })() : natural(ui.text, ts)) + 4;
+    if (ptk) ts.setProperty('--pz-ptk', ptk); else ts.removeProperty('--pz-ptk');
     // (The words' glass starts 16 px above them, the data card ends 8 px above that and stands its own top (8 px) from the
     // screen's top: the same room the layout gives it below.) The data card shows at full size or folds: never shrunk to fit.
     // It folds where it and the words at 12 px cannot both fit beside the figure's share, or where it is taller than its own
@@ -2866,7 +2902,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!shown) return;   // (a slide on its way in lays out at the new size anyway)
     // (Nothing fitted at the old size carries over: each card's fit, the words' steps (a title judged long or not at the old
     // step had kept that size), and each ladder's choice of plot or strip.)
-    for (const el of [ui.text, ui.data, ui.panel]) { fitDone.delete(el); for (const n of ['--pz-fit', '--pz-z', '--pz-tk', '--pz-bk', '--pz-dk']) el.style.removeProperty(n); }
+    for (const el of [ui.text, ui.data, ui.panel]) { fitDone.delete(el); for (const n of ['--pz-fit', '--pz-z', '--pz-tk', '--pz-bk', '--pz-dk', '--pz-ptk']) el.style.removeProperty(n); }
     // (The ladder and strip are kept from slide to slide: their lettering and its height, set for the old size, go too, so they
     // are measured from nothing, as on a fresh load. Kept, the 200% card's words took a larger title step than a fresh load's.)
     for (const e of ui.data.querySelectorAll('svg')) { e.style.removeProperty('--lad-fixed'); for (const t of e.querySelectorAll('text[style]')) t.style.removeProperty('font-size'); }
