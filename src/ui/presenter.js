@@ -20,7 +20,7 @@ import { sinusoidSupported } from './sinusoid-view.js?v=54548ee400';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=3ab8e3ccf5';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=3ab8e3ccf5';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=b0f4bd2a3c';
 import { createTools } from './presenter-tools.js?v=e570efd46d';
@@ -1997,8 +1997,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const { text, panel, data } = ui;
     // The slide's level (Presinusoidal, Cardiac...) is a tab in the glass's top left corner, the deck tab's mirror in the level's
     // colour (17 Oct), not a pill over the title: set with the words, gone on a visual slide.
-    const lvl = s.visual ? null : siteTag(deck, s), stab = ui.shade.querySelector('.pz-sitetab');
-    if (stab) { stab.hidden = !lvl?.site; if (lvl?.site) { stab.dataset.site = lvl.site; stab.textContent = lvl.name; } }
+    // (A slide with a level rail names its level on the rail, which a phone held upright hides: there the tab names it instead.)
+    const railLvl = !s.visual && s.rail && s.rail !== 'all' && SITE_TAGS[s.site] ? { site: s.site === 'pvt' ? 'pre' : s.site, name: SITE_TAGS[s.site] } : null;
+    const lvl = s.visual ? null : siteTag(deck, s) || railLvl, stab = ui.shade.querySelector('.pz-sitetab');
+    if (stab) { stab.hidden = !lvl?.site; stab.toggleAttribute('data-rail', !!lvl && lvl === railLvl); if (lvl?.site) { stab.dataset.site = lvl.site; stab.textContent = lvl.name; } }
     // (the panel's own is let go once its new content is in, so it never fades back in with the old; behind a case card the words
     // stay out, never shown for a moment while they are fitted, until the card is lifted: cardsIn)
     if (!caseCard) text.classList.remove('pz-leave');
