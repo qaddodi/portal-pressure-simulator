@@ -5113,35 +5113,36 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.pz-turning .pz-lip, .pz.pz-turning .pz-lip::before { transition: none !important; }
 .pz.stack .pz-data.pz-sheet > .pz-grip { display: none; }   /* (its handle is the sheet's) */
 .pz.stack .pz-data.pz-sheet:not(.tool-open) { padding-bottom: 10px; }   /* (an upright tablet's too: no handle in its foot to clear) */
-/* An upright tablet opens the readings on a card of their own under the instrument's (Mohammad, 17 Oct: "The top data card doesn't
-   truly open as an extended card under the Doppler. It should."). The tiles stay in the one card, so its fit and measures are as
+/* An upright phone or tablet opens the readings on a card of their own under the instrument's (Mohammad, 17 Oct: "The top data card
+   doesn't truly open as an extended card under the Doppler. It should."; the iPhone too, 17 Oct). The tiles stay in the one card, so its fit and measures are as
    before; its glass is drawn as two pieces instead: the instrument's card down to --pz-top (presenter.js tabTop: under the
    instrument, plus its 10 px foot) and, 8 px below it, the readings' card, which is nothing while they are tucked away and grows
    with them as they ease open (their margins are its padding: 10 px over them, and 26 px under them for the handle, which sits in
-   its foot). A push up or a tap on the handle tucks it away first; the next closes the instrument card (presenter.js tabSheet). */
-.pz.stack.tab .pz-data.pz-sheet.pz-sheet { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
-.pz.stack.tab .pz-data.pz-sheet::before, .pz.stack.tab .pz-data.pz-sheet::after { content: ''; position: absolute; left: -1px; right: -1px; z-index: -1; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: inherit;
+   its foot). A push up or a tap on the handle tucks it away first; the next closes the instrument card (presenter.js splitSheet).
+   (.stack.stack: the weight the upright tablet's rules had, over the phone's own sheet rules.) */
+.pz.stack.stack .pz-data.pz-sheet.pz-sheet { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
+.pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { content: ''; position: absolute; left: -1px; right: -1px; z-index: -1; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: inherit;
   background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15);
   box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: none; }
-.pz.stack.tab .pz-data.pz-sheet::before { top: -1px; height: calc(var(--pz-top, 100%) + 1px); }
-.pz.stack.tab .pz-data.pz-sheet::after { bottom: -1px; height: max(0px, calc(100% + 1px - var(--pz-top, 100%) - 8px)); }
-.pz.stack.tab .pz-data.pz-sheet.tool-open { padding-bottom: 10px; }
-.pz.stack.tab .pz-data.pz-sheet.tool-open > .pz-strip, .pz.stack.tab .pz-data.pz-sheet.tiles-only.tool-open > .pz-tiles { margin-top: 22px; }
-.pz.stack.tab .pz-data.pz-sheet.tool-open > .pz-tiles, .pz.stack.tab .pz-data.pz-sheet.tool-open > .pz-strip:has(+ .pz-tiles[data-n="0"]) { margin-bottom: 16px; }
+.pz.stack.stack .pz-data.pz-sheet::before { top: -1px; height: calc(var(--pz-top, 100%) + 1px); }
+.pz.stack.stack .pz-data.pz-sheet::after { bottom: -1px; height: max(0px, calc(100% + 1px - var(--pz-top, 100%) - 8px)); }
+.pz.stack.stack .pz-data.pz-sheet.tool-open { padding-bottom: 10px; }
+.pz.stack.stack .pz-data.pz-sheet.tool-open > .pz-strip, .pz.stack.stack .pz-data.pz-sheet.tiles-only.tool-open > .pz-tiles { margin-top: 22px; }
+.pz.stack.stack .pz-data.pz-sheet.tool-open > .pz-tiles, .pz.stack.stack .pz-data.pz-sheet.tool-open > .pz-strip:has(+ .pz-tiles[data-n="0"]) { margin-bottom: 16px; }
 /* (Inside a fading card a glass piece loses its blur until the fade ends, so here the card stays opaque and its parts and its two
    pieces fade, the card hidden once they have gone. The readings fade by their own ease.) */
-.pz.stack.tab .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform .32s var(--ease), visibility 0s linear .32s; }
-.pz.stack.tab .pz-data.pz-sheet:not(.pz-hide) { visibility: visible; transition: transform .5s var(--ease) .12s, visibility 0s linear 0s; }
-.pz.stack.tab .pz-data.pz-sheet::before, .pz.stack.tab .pz-data.pz-sheet::after, .pz.stack.tab .pz-data.pz-sheet > :is(.pz-dh, .pz-tool) { transition: opacity .32s var(--ease); }
-.pz.stack.tab .pz-data.pz-sheet:not(.pz-hide)::before, .pz.stack.tab .pz-data.pz-sheet:not(.pz-hide)::after, .pz.stack.tab .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool) { transition-duration: .5s; transition-delay: .12s; }
-.pz.stack.tab .pz-data.pz-sheet.pz-hide::before, .pz.stack.tab .pz-data.pz-sheet.pz-hide::after, .pz.stack.tab .pz-data.pz-sheet.pz-hide > :is(.pz-dh, .pz-tool, .pz-tiles, .pz-strip) { opacity: 0; }
+.pz.stack.stack .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform .32s var(--ease), visibility 0s linear .32s; }
+.pz.stack.stack .pz-data.pz-sheet:not(.pz-hide) { visibility: visible; transition: transform .5s var(--ease) .12s, visibility 0s linear 0s; }
+.pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after, .pz.stack.stack .pz-data.pz-sheet > :is(.pz-dh, .pz-tool) { transition: opacity .32s var(--ease); }
+.pz.stack.stack .pz-data.pz-sheet:not(.pz-hide)::before, .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide)::after, .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool) { transition-duration: .5s; transition-delay: .12s; }
+.pz.stack.stack .pz-data.pz-sheet.pz-hide::before, .pz.stack.stack .pz-data.pz-sheet.pz-hide::after, .pz.stack.stack .pz-data.pz-sheet.pz-hide > :is(.pz-dh, .pz-tool, .pz-tiles, .pz-strip) { opacity: 0; }
 .pz.pz-turning .pz-data.pz-sheet::before, .pz.pz-turning .pz-data.pz-sheet::after, .pz.pz-turning .pz-data.pz-sheet > :is(.pz-dh, .pz-strip) { transition: none !important; }
 @media (prefers-reduced-motion: reduce) {
-  .pz.stack.tab > .pz-data.pz-sheet.pz-hide { transition: visibility 0s linear .3s !important; }
-  .pz.stack.tab > .pz-data.pz-sheet::before, .pz.stack.tab > .pz-data.pz-sheet::after, .pz.stack.tab > .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-tiles, .pz-strip) { transition: opacity .3s var(--ease) !important; }
+  .pz.stack.stack > .pz-data.pz-sheet.pz-hide { transition: visibility 0s linear .3s !important; }
+  .pz.stack.stack > .pz-data.pz-sheet::before, .pz.stack.stack > .pz-data.pz-sheet::after, .pz.stack.stack > .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-tiles, .pz-strip) { transition: opacity .3s var(--ease) !important; }
 }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.stack.tab .pz-data.pz-sheet::before, .pz.stack.tab .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
-@media (prefers-reduced-transparency: reduce) { .pz.stack.tab .pz-data.pz-sheet::before, .pz.stack.tab .pz-data.pz-sheet::after { background: var(--surface-2); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@media (prefers-reduced-transparency: reduce) { .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface-2); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* Mac and iPad landscape: when even the smallest steps leave the pair too tall, the instrument folds behind Show as on a phone
    (presenter.js layout, pz-folds), its tiles in a row at the card's full width; Show fades it in, Hide out. */
 .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh { position: relative; padding-inline: max(64px, calc(var(--pz-chip-em, 0) * 1em + 24px / var(--pz-z, 1) + 10px)); }   /* (the chip's own width, its words (presenter.js chipRoom), padding and edge, and 8 px) */

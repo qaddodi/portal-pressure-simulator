@@ -2326,21 +2326,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const LOW_M = 10;   // (a phone held sideways: its teaching card's margin from the top and bottom, css px; styles/app.css .pz.low)
   // (auto: closed by the layout, a slide whose card does not fit beside the words and the figure; autoKey: the slide it closed on.
   // A card the reader closed stays closed from slide to slide; one the layout closed opens again on the next slide that fits.)
-  // (down: on an upright tablet, the slide whose readings' card was just tucked away by a tap on the handle, so the next tap closes
+  // (down: on an upright phone or tablet, the slide whose readings' card was just tucked away by a tap on the handle, so the next tap closes
   // the instrument card; cleared when the card opens again and by a new slide.)
   const dock = { lvl: 0, to: 0, raf: 0, auto: false, autoKey: '', down: -1 };
+  let sheetPull = null;   // (the readings' own pull, foldTouch: the closed card's pull carried on brings them out after it)
   // A phone's instrument card with readings shows the instrument first and keeps its tiles (or pressure strip) on a sheet tucked
   // under it: the sheet's edge (LIP px, .pz-lip) shows below the card and carries the handle (Mohammad, 17 Oct: "round 2 A"; "I thought
   // the Doppler will show first with an indication for a card under it?"). Pulled down or tapped, the sheet comes out flush with
   // the card; pushed up, the card slides away to its handle. No Show or Hide.
   const LIP = 24;
   const lipOn = (d) => d.classList.contains('pz-sheet') && !d.classList.contains('tool-open');
-  // An upright tablet opens the readings on a card of their own under the instrument's (Mohammad, 17 Oct: "The top data card
-  // doesn't truly open as an extended card under the Doppler. It should. ... first close up is to close this under side card"):
-  // the one card's glass is drawn as two pieces (styles/app.css .pz.stack.tab .pz-sheet), the instrument's down to --pz-top. A push
-  // up, or a tap on the handle, from fully open tucks the readings' card away; the next closes the instrument card.
-  const tabSheet = (d) => !!ui?.root.classList.contains('tab') && d.classList.contains('pz-sheet');
-  // (The part's top and bottom margins, open and tucked, styles/app.css .pz.stack.tab .pz-sheet: 22 px over the first of the
+  // An upright phone or tablet opens the readings on a card of their own under the instrument's (Mohammad, 17 Oct: "The top data
+  // card doesn't truly open as an extended card under the Doppler. It should. ... first close up is to close this under side card";
+  // the iPhone too, 17 Oct): the one card's glass is drawn as two pieces (styles/app.css .pz.stack.stack .pz-sheet), the
+  // instrument's down to --pz-top. A push up, or a tap on the handle, from fully open tucks the readings' card away; the next closes
+  // the instrument card. A pull down on the closed card brings the instrument card out, and the same pull carried on brings the
+  // readings' card out after it (dockTouch, sheetPull: "if I keep sliding I can open both in one swipe").
+  const splitSheet = (d) => !!ui?.root.classList.contains('stack') && d.classList.contains('pz-sheet');
+  // (The part's top and bottom margins, open and tucked, styles/app.css .pz.stack.stack .pz-sheet: 22 px over the first of the
   // pressure strip and the tiles, 16 px under the last.)
   const tabMargins = (d, p) => ({ open: [p.classList.contains('pz-strip') || d.classList.contains('tiles-only') ? 22 : 0, 16], shut: [-6, 0] });
   const dockVec = () => {
@@ -2362,17 +2365,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const d = ui?.data, l = ui?.lip;
     if (!l || d.hidden || !d.classList.contains('pz-sheet')) return;
     const px = (v) => `${v.toFixed(1)}px`;
-    const tab = tabSheet(d), open = d.classList.contains('tool-open');
-    const top = tab && !dock.lvl ? tabTop(d) : null;   // (read before the writes below; it never moves while the card docks)
+    const split = splitSheet(d), open = d.classList.contains('tool-open');
+    const top = split && !dock.lvl ? sheetTop(d) : null;   // (read before the writes below; it never moves while the card docks)
     l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(d.offsetTop + d.offsetHeight);
     l.style.translate = d.style.translate;
-    const say = dock.to === 1 ? 'Open the card' : open ? (tab ? 'Hide the readings' : 'Close the card') : tab && dock.down === want ? 'Close the card' : 'Show the rest of the card';
+    const say = dock.to === 1 ? 'Open the card' : open ? (split ? 'Hide the readings' : 'Close the card') : split && dock.down === want ? 'Close the card' : 'Show the rest of the card';
     if (l.getAttribute('aria-label') !== say) l.setAttribute('aria-label', say);
     if (top && d.style.getPropertyValue('--pz-top') !== top) d.style.setProperty('--pz-top', top);
   }
-  // Where an upright tablet's instrument card ends (--pz-top, in the card's own px from its padding edge): under the instrument,
+  // Where an upright phone's or tablet's instrument card ends (--pz-top, in the card's own px from its padding edge): under the instrument,
   // plus the card's 10 px foot (styles/app.css). Read from the screen boxes, as the parts are zoomed by the fit.
-  function tabTop(d) {
+  function sheetTop(d) {
     const t = ui.tools.el;
     if (!t.getClientRects().length || !d.offsetHeight) return null;
     const r = d.getBoundingClientRect(), k = r.height / d.offsetHeight || 1;
@@ -2656,9 +2659,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     abShort(ui.text, p || ui.root.classList.contains('low'));   // (a phone, upright or on its side; a wider card may take two rows of full names)
     // (A phone's card with a second part keeps that part on its sheet (.pz-lip, dockVec); each slide arrives partly open.)
     const dd0 = ui.data, sheet = p && dd0.classList.contains('has-tool') && !dd0.classList.contains('tool-only');
-    // (An upright tablet's sheet stays opaque while it is out and fades its parts instead, styles/app.css: a card that becomes one,
-    // or stops being one, while it is out takes its new state at once, so its glass never shows, fading, between two slides.)
-    if (sheet !== dd0.classList.contains('pz-sheet') && ui.root.classList.contains('tab') && dd0.classList.contains('pz-hide')) {
+    // (An upright phone's or tablet's sheet stays opaque while it is out and fades its parts instead, styles/app.css: a card that
+    // becomes one, or stops being one, while it is out takes its new state at once, so its glass never shows, fading, between two slides.)
+    if (sheet !== dd0.classList.contains('pz-sheet') && p && dd0.classList.contains('pz-hide')) {
       const was = dd0.style.transition;
       dd0.style.transition = 'none'; dd0.classList.toggle('pz-sheet', sheet); void dd0.offsetWidth; dd0.style.transition = was;
     }
@@ -3433,6 +3436,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       dock.lvl = clamp(g.lvl0 + g.dl, 0, 1);
       (g.pts ||= []).push([performance.now(), along]);
       dockPaint();
+      // Upright, a pull down on the closed card carried on past where the instrument card rests brings the readings' card out
+      // after it, following the same finger (Mohammad, 17 Oct: "when I open I open the main card first but if I keep sliding I
+      // can open both in one swipe"). Back above that point, they tuck away again under the finger.
+      const past = (g.lvl0 + g.dl) * comp;   // (px beyond the card's rest, down positive; comp is the closed card's offset, up)
+      if (g.lvl0 > 0 && vert && sheetPull && (g.pull || (past > 0 && splitSheet(el) && !el.classList.contains('tool-open')))) {
+        g.pull ||= sheetPull.begin();
+        sheetPull.follow(g.pull, Math.max(0, past));
+      }
     }, { passive: false });
     on('touchend', (e) => {
       const gg = g; reset();
@@ -3444,28 +3455,55 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         const v = end[0] > from[0] ? (end[1] - from[1]) / (end[0] - from[0]) : 0;
         const flick = now - end[0] < 100 && Math.abs(v) > 0.5 ? Math.sign(v / gg.vec[gg.vec[1] ? 1 : 0]) : 0;   // (toward docking is +1)
         dock.auto = false;   // (the reader's own choice: kept from slide to slide, autoDock)
-        dockTo(flick > 0 ? 1 : flick < 0 ? 0 : dock.lvl > 0.5 ? 1 : 0, 300);
+        const to = flick > 0 ? 1 : flick < 0 ? 0 : dock.lvl > 0.5 ? 1 : 0;
+        // (Pulled on into the readings: they come out with a quick flick down or past half way, the card always with them;
+        // otherwise they tuck away from where the finger left them, the card easing to where it goes.)
+        if (gg.pull) { const show = !to && (flick < 0 || gg.pull.u > 0.5); dockTo(to, 300); sheetPull.settle(gg.pull, show); }
+        else dockTo(to, 300);
       } else if (dock.to === 1 && dt < 500) { dock.auto = false; dock.tapAt = performance.now(); dockTo(0); }   // (tapAt: the click that follows is this tap's, .pz-lip)
     }, { passive: true });
-    on('touchcancel', () => { if (g?.on) dockTo(dock.to, 300); reset(); }, { passive: true });
+    on('touchcancel', () => { if (g?.on) dockTo(dock.to, 300); if (g?.pull) sheetPull.settle(g.pull, false); reset(); }, { passive: true });
   }
 
   // A phone's foldable card also opens and closes by a swipe anywhere on it: down pulls the folded part open, up pushes it
   // shut, following the finger, and it eases the rest of the way on release. A swipe the fold can't take (up on a shut card)
   // is left to the card's dock drag; sideways moves are left alone, so slide swipes and the figure pan work as before.
   // (A card with its part on a sheet (.pz-sheet): a pull down brings the sheet out; any push up, partly or fully open, closes the
-  // whole card by the dock drag, and it opens again partly, dockTo. On an upright tablet a push up from fully open tucks the
-  // readings' card away first, tabSheet.)
+  // whole card by the dock drag, and it opens again partly, dockTo. Upright, a push up from fully open tucks the readings' card
+  // away first, and a pull down on the closed card carried on past its rest brings them out in the same pull, splitSheet.)
   function foldTouch(el, btn, setFold, part, hold, ...more) {
     let g = null;
     const on = (type, fn, opts) => { for (const t of [el, ...more]) t.addEventListener(type, fn, opts); };
+    const grab = (x, y, open) => {
+      const p = part(), split = splitSheet(el);
+      return { x, y, p, open, shown: open, split, m: split ? tabMargins(el, p) : null, full: Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
+    };
+    const take = (gg) => { gg.on = true; gg.p.style.transition = 'none'; hold(true); };
+    // (dy: how far the finger has moved since the part began to follow it, down positive.)
+    const follow = (gg, dy) => {
+      const u = clamp((gg.shown ? gg.full : 0) + dy, 0, gg.full) / (gg.full || 1);
+      gg.u = u; gg.pts.push([performance.now(), dy]);
+      gg.p.style.maxHeight = `${(u * gg.full).toFixed(1)}px`; gg.p.style.opacity = u.toFixed(3);
+      // (Upright, the readings' card grows and shrinks with them: their margins are its padding, tabMargins.)
+      if (gg.split) { const m = (i) => `${(gg.m.shut[i] + (gg.m.open[i] - gg.m.shut[i]) * u).toFixed(1)}px`; gg.p.style.marginTop = m(0); gg.p.style.marginBottom = m(1); }
+    };
+    // (From where the finger left it to the class's own state: the part's transition eases the rest. setFold reads where
+    // the finger left it before letting go of it.)
+    const settle = (gg, show) => {
+      if (show !== gg.open) { if (gg.split && !show) dock.down = want; setFold(show); return; }
+      gg.p.getBoundingClientRect(); gg.p.style.transition = '';
+      gg.p.style.maxHeight = ''; gg.p.style.opacity = ''; gg.p.style.marginTop = ''; gg.p.style.marginBottom = '';
+      hold(false);
+    };
+    // (The closed card's own pull hands on to the readings once the instrument card is out, dockTouch.)
+    sheetPull = { begin: () => { const gg = grab(0, 0, false); take(gg); return gg; }, follow, settle };
     on('touchstart', (e) => {
       g = null;
       const sheet = el.classList.contains('pz-sheet'), open = el.classList.contains('tool-open');
-      const tab = tabSheet(el);
-      if (e.touches.length !== 1 || (!btn.offsetWidth && !sheet) || (sheet && open && !tab) || dock.lvl > 0 || btn.contains(e.target)) return;
-      const t = e.touches[0], p = part();
-      g = { x: t.clientX, y: t.clientY, p, open, shown: open, tab, m: tab ? tabMargins(el, p) : null, full: Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
+      const split = splitSheet(el);
+      if (e.touches.length !== 1 || (!btn.offsetWidth && !sheet) || (sheet && open && !split) || dock.lvl > 0 || btn.contains(e.target)) return;
+      const t = e.touches[0];
+      g = grab(t.clientX, t.clientY, open);
     }, { passive: true });
     on('touchmove', (e) => {
       if (!g) return;
@@ -3473,15 +3511,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (!g.on) {
         if (Math.abs(dy) < 8) return;
         if (Math.abs(dx) > Math.abs(dy) || (dy > 0) === g.shown) { g = null; return; }   // (sideways, or nothing to fold that way)
-        g.on = true; g.p.style.transition = 'none'; hold(true);
+        take(g);
       }
       e.stopImmediatePropagation();
       if (e.cancelable) e.preventDefault();
-      const u = clamp((g.shown ? g.full : 0) + dy, 0, g.full) / (g.full || 1);
-      g.u = u; g.pts.push([performance.now(), dy]);
-      g.p.style.maxHeight = `${(u * g.full).toFixed(1)}px`; g.p.style.opacity = u.toFixed(3);
-      // (An upright tablet's readings' card grows and shrinks with them: their margins are its padding, tabMargins.)
-      if (g.tab) { const m = (i) => `${(g.m.shut[i] + (g.m.open[i] - g.m.shut[i]) * u).toFixed(1)}px`; g.p.style.marginTop = m(0); g.p.style.marginBottom = m(1); }
+      follow(g, dy);
     }, { passive: false });
     const end = (e) => {
       const gg = g; g = null;
@@ -3491,12 +3525,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const v = last[0] > from[0] ? (last[1] - from[1]) / (last[0] - from[0]) : 0;
       // (A card folded behind Show has nothing to follow the finger: a pull of 24 px or more opens it, a push shuts it.)
       const show = Math.abs(v) > 0.4 ? v > 0 : gg.full ? gg.u > 0.5 : gg.shown ? last[1] > -24 : last[1] >= 24;
-      // (From where the finger left it to the class's own state: the part's transition eases the rest. setFold reads where
-      // the finger left it before letting go of it.)
-      if (show !== gg.open) { if (gg.tab && !show) dock.down = want; setFold(show); return; }
-      gg.p.getBoundingClientRect(); gg.p.style.transition = '';
-      gg.p.style.maxHeight = ''; gg.p.style.opacity = ''; gg.p.style.marginTop = ''; gg.p.style.marginBottom = '';
-      hold(false);
+      settle(gg, show);
     };
     on('touchend', end, { passive: true });
     on('touchcancel', end, { passive: true });
@@ -3540,11 +3569,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // card's own pulls and pushes do: partly open, fully open, closed to its edge at the top, partly open again.
     const lip = h('button', { class: 'pz-lip stage-blocker', type: 'button', hidden: true, 'aria-label': 'Show the rest of the card', onclick: () => {
       if (performance.now() - (dock.tapAt || 0) < 700) return;   // (a touch that already opened the closed card, dockTouch)
-      // (An upright tablet's: partly open, fully open, partly open (its readings' card tucked away), closed, partly open again.)
-      const tab = tabSheet(data);
+      // (Upright: partly open, fully open, partly open (its readings' card tucked away), closed, partly open again.)
+      const split = splitSheet(data);
       if (dock.to === 1) { dock.auto = false; dockTo(0); }
-      else if (data.classList.contains('tool-open')) { if (tab) { dock.down = want; setFold(false); } else { dock.auto = false; dockTo(1); } }
-      else if (tab && dock.down === want) { dock.auto = false; dockTo(1); }
+      else if (data.classList.contains('tool-open')) { if (split) { dock.down = want; setFold(false); } else { dock.auto = false; dockTo(1); } }
+      else if (split && dock.down === want) { dock.auto = false; dockTo(1); }
       else setFold(true);
     } });
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-gone': '', hidden: true, 'aria-label': 'The numbers' },
