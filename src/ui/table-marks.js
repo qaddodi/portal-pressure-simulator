@@ -61,6 +61,9 @@ export const TILE = {
   salb: { t: 'Serum albumin', n: 'Albumin', s: 'Blood', u: 'g/dL', better: 1 },
   ivc: { t: 'IVC pressure', n: 'IVC', s: 'Pressure', u: 'mmHg', better: -1 },
   hb: { t: 'Hemoglobin', n: 'Hb', s: 'Blood', u: 'g/dL', better: 1 },
+  // (Unrated: in pregnancy both rise as they should, so neither is good or bad.)
+  co: { t: 'Cardiac output', n: 'Output', s: 'Heart', u: 'L/min' },
+  bv: { t: 'Blood volume', n: 'Volume', s: 'Whole blood', u: 'L', x: 0.001 },
 };
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
 // A value as its tile prints it (the tile's scale and decimals), back in the model's units: a tile's word judges the number it
