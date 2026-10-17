@@ -4482,6 +4482,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .endo-grade { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: var(--fs-16); color: var(--text-2); }
 .endo-grade b { font-size: 26px; font-weight: 700; line-height: 1.05; letter-spacing: -.01em; color: var(--text); }
 .endo-grade span { font-weight: 600; color: var(--text); }
+/* The grade's and the stigmata's colour ease as the varix changes (the reduced-motion rule below turns them off). */
+.endo-grade :is(b, span), .endo-chip-v { transition: color .3s var(--ease); }
 .endo-grade b:empty { display: none; }
 /* The grade's state in its own words' colour (no dot): amber or red past normal, the theme's ink when normal. */
 .endo-grade[data-sev="caution"] { --sev-ink: color-mix(in srgb, var(--caution) 80%, var(--text)); }

@@ -8,6 +8,7 @@ import { simTime, isPaused } from './clock.js?v=520596240b';
 import { createEndoGL } from './endo-gl.js?v=2be398d950';
 import { renderEndo } from './endo-render.js?v=0c2b949e28';
 import { endoGrow } from './endo-size.js?v=824631d0bc';
+import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from './endo-motion.js?v=fdca92fc81';
 import { FONT } from './charts.js?v=8cf1c83f89';
 import { store, updateParams, varicesPresent } from './store.js?v=31ee79b6ab';
 import { balanceHold } from './balance-hold.js?v=ea4d9121d2';
@@ -66,7 +67,22 @@ export function createEndoscopy({ onAction }) {
   const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
   const gl = createEndoGL(), glOut = document.createElement('canvas');
   let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null;
-  const dark = matchMedia('(prefers-color-scheme: dark)');
+  const dark = matchMedia('(prefers-color-scheme: dark)'), still = matchMedia('(prefers-reduced-motion: reduce)');
+  // The field as it showed before its bitmap last changed (fadeCv), the new one fading in over it from fadeT0
+  // (endo-motion.js); the balloon's and the jet's strength (0..1) easing toward on or off. On the display clock, so a
+  // paused model still finishes a fade.
+  const fadeCv = document.createElement('canvas');
+  let fadeT0 = -1, shown = null, fadeA = 1, balA = 0, jetA = 0, uiT = 0;
+  // Before the field's bitmap changes: keep what is on screen now (the old field, with any fade still under way).
+  function keep(img, res) {
+    const t = performance.now();
+    if (!shown || still.matches) { fadeT0 = -1; return; }   // (the first field: drawn as it is)
+    if (fadeCv.width !== res) { fadeCv.width = fadeCv.height = res; fadeT0 = -1; }   // (a new size starts its copy afresh)
+    const c = fadeCv.getContext('2d'), a = fadeT0 < 0 ? 1 : fadeIn(t - fadeT0);
+    if (fadeT0 < 0) c.clearRect(0, 0, res, res);
+    c.globalAlpha = a; c.drawImage(img, 0, 0, res, res); c.globalAlpha = 1;
+    fadeT0 = t;
+  }
   // An eased tween toward a target value: cur follows from -> to over dur ms after a delay.
   const tw = (v) => ({ v, from: v, to: v, t0: 0, dur: 1, delay: 0, cur: v });
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -121,9 +137,9 @@ export function createEndoscopy({ onAction }) {
     if (Math.abs(tv - an.v) < 0.0008) an.v = tv;
     if (Math.abs(tr - an.r) < 0.0008) an.r = tr;
     let busy = an.g !== tg || an.v !== tv || an.r !== tr;
-    // The band snaps on and the banded vein starts deflating at once, in about half a second.
-    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 500, 0) || busy;
-    for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, 1, 0) || busy;
+    // The banded vein starts deflating at once; its band cinches in from a wide loop a beat later (endo-motion.js).
+    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, DEFLATE_MS, 0) || busy;
+    for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, BAND_MS, knT[i] ? BAND_DELAY_MS : 0) || busy;
     if (busy && !raf && !isPaused()) raf = nextFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
@@ -134,6 +150,7 @@ export function createEndoscopy({ onAction }) {
       held = [an.g, an.v, an.r].map((x, i) => (held && Math.abs(x * 32 - held[i]) < 1.5 ? held[i] : Math.round(x * 32)));
       const gk = [res, ...held, ...[...an.def.map((t) => t.cur), ...an.kn.map((t) => t.cur)].map((x) => Math.round(x * 32))].join('|');
       if (gk !== glKey) {
+        if (glKey) keep(glOut, res); else fadeT0 = -1;
         glKey = gk;
         gl.render(res, { grow: an.g, vis: an.v, red: an.r, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
         if (glOut.width !== res) glOut.width = glOut.height = res;
@@ -145,27 +162,43 @@ export function createEndoscopy({ onAction }) {
       // No WebGL: the CPU renderer draws the target state without transitions.
       const r2 = Math.min(res, 300), gq = Math.round(tg * 14) / 14;
       const key = [r2, gq, bands, Math.round(tv * 10), Math.round(tr * 8)].join('|');
+      if (cache.key !== key) { if (cache.img) keep(cache.img, res); }
       if (cache.key !== key) cache = { key, img: renderEndo(r2, { grow: gq, bands, vis: tv, red: Math.round(tr * 8) / 8 }) };
       img = cache.img;
     }
     // Nothing on the field changed since the last paint (the same bitmap, size, balloon and theme, no bleeding): it is left
     // as it is. It is asked for on every frame of the model, and a full repaint each time (a scaled bitmap and the rim) held
     // a phone's or a browser without a GPU's main thread for most of every frame.
-    const bleeding = !!(f.bleed?.active && f.bleed.site === 'VAR'), root = document.documentElement;
-    const sig = [cv.width, cv.height, w, hh, gl ? glKey : cache.key, !!f.params?.balloonEso, root.getAttribute('data-theme'), root.className, dark.matches].join('|');
-    if (!bleeding && sig === painted) return;
-    painted = bleeding ? '' : sig;
+    const bleeding = !!(f.bleed?.active && f.bleed.site === 'VAR'), balloon = !!f.params?.balloonEso, root = document.documentElement;
+    // The new field fades in over the old; the balloon and the jet ease in and out (endo-motion.js).
+    const tu = performance.now(), du = uiT ? Math.min(100, tu - uiT) : 0; uiT = tu;
+    if (still.matches) { fadeT0 = -1; balA = +balloon; jetA = +bleeding; }
+    else { balA = glide(balA, +balloon, du); jetA = glide(jetA, +bleeding, du); }
+    fadeA = fadeT0 < 0 ? 1 : fadeIn(tu - fadeT0);
+    if (fadeA >= 1) fadeT0 = -1;
+    shown = img;
+    const moving = fadeT0 >= 0 || balA !== +balloon || jetA !== +bleeding;
+    if (moving && !raf) raf = nextFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
+    if (!moving) uiT = 0;   // (the next ease starts from its first frame, not from the last one painted)
+    const sig = [cv.width, cv.height, w, hh, gl ? glKey : cache.key, balloon, root.getAttribute('data-theme'), root.className, dark.matches].join('|');
+    if (!bleeding && !moving && sig === painted) return;
+    painted = bleeding || moving ? '' : sig;
     ctx.clearRect(0, 0, w, hh);
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
     ctx.imageSmoothingQuality = 'high';
+    if (fadeA < 1) { ctx.drawImage(fadeCv, cx - R, cy - R, 2 * R, 2 * R); ctx.globalAlpha = fadeA; }
     ctx.drawImage(img, cx - R, cy - R, 2 * R, 2 * R);
-    if (f.params?.balloonEso) {
+    ctx.globalAlpha = 1;
+    if (balA > 0) {
       const g = ctx.createRadialGradient(cx - R * 0.2, cy - R * 0.2, R * 0.1, cx, cy, R * 0.85);
       g.addColorStop(0, cssVar('--scope-balloon-hi')); g.addColorStop(1, cssVar('--scope-balloon-lo'));
+      ctx.globalAlpha = balA;
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 0.82, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.lineWidth = 2; ctx.stroke();
+      ctx.globalAlpha = 1;
     }
-    if (f.bleed?.active && f.bleed.site === 'VAR') {
+    if (jetA > 0) {
+      ctx.globalAlpha = jetA;
       // Active bleeding: a jet from the ruptured column and blood pooling dependently.
       bleedT = (bleedT + 1) % 1000;
       const jx = cx + R * 0.28, jy = cy + R * 0.05;
@@ -175,6 +208,7 @@ export function createEndoscopy({ onAction }) {
       const jr = rnd(77), sway = 0.1 * Math.sin(bleedT * 0.02);
       ctx.fillStyle = cssVar('--scope-blood-jet');
       for (let i = 0; i < 70; i++) { const u = jr(), a = -1.9 + sway + (jr() - 0.5) * 0.5; ctx.beginPath(); ctx.arc(jx + Math.cos(a) * u * R * 0.5, jy + Math.sin(a) * u * R * 0.5 + u * u * R * 0.4, 1.2 + 2.2 * (1 - u), 0, Math.PI * 2); ctx.fill(); }
+      ctx.globalAlpha = 1;
     }
     ctx.restore();
     ctx.strokeStyle = cssVar('--scope-rim'); ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
