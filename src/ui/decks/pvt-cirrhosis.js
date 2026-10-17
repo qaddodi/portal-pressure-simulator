@@ -52,7 +52,7 @@ export const PVT_CIRRHOSIS = {
       ask: ['Should anticoagulation wait for the endoscopy?', 'No: give variceal prophylaxis, but do not let the endoscopy delay anticoagulation.'],
     },
     {
-      id: 'band', terms: ['varix'], tick: 'Banding', action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],
+      id: 'band', terms: ['varix'], tick: 'Banding', action: [BAND, BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],
       kicker: 'Before anticoagulation', site: 'sin', title: 'Banding before anticoagulation',
       line: 'Banding shrinks the varices to {varix}. With prophylaxis in place, anticoagulation starts.',
       notes: 'A non-selective beta-blocker or band ligation are both acceptable prophylaxis for large varices; carvedilol also lowers the portal pressure. Banding just before anticoagulation leaves ulcers that can bleed on it, so a beta-blocker, if tolerated, avoids that. For the anticoagulant, low molecular weight heparin or a vitamin K antagonist can be used, and a direct oral anticoagulant in Child–Pugh A, with caution in B, and not in C.',

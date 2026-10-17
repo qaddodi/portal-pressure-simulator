@@ -50,12 +50,12 @@ export const TREATMENT = {
       ask: ['What is given with terlipressin for HRS-AKI?', 'Albumin.'],
     },
     {
-      id: 'band', terms: ['varix'], params: { drugs: { terlipressin: false } }, action: [{ kind: 'band' }, { kind: 'band' }, { kind: 'band' }], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' },
+      id: 'band', terms: ['varix'], params: { drugs: { terlipressin: false } }, action: [{ kind: 'band' }, { kind: 'band' }, { kind: 'band' }, { kind: 'band' }], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' },
       data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'target',
       kicker: 'Endoscopy', site: 'sin', title: 'Banding closes varices but leaves the pressure high',
       line: 'The pressure that made the varices is unchanged, so new ones form unless it is lowered too. The banded columns thrombose and shrink.',
       caveat: 'The model\'s HVPG rises about 1 mmHg after banding; that is not why varices return.',
-      notes: 'Band ligation is repeated every 2 to 4 weeks until the varices are gone, followed by surveillance endoscopy. It stops an acute bleed and prevents rebleeding, but it does nothing to lower the portal pressure: the collateral closes, its flow is redirected and the pressure rises slightly (in the model, HVPG by about 1 mmHg after three bands; small studies measuring HVPG before and after eradication report rises of about 1 to 2 mmHg). Varices come back because the pressure that made them is still there. After a bleed, banding is combined with a non-selective beta-blocker.',
+      notes: 'Band ligation is repeated every 2 to 4 weeks until the varices are gone, followed by surveillance endoscopy. It stops an acute bleed and prevents rebleeding, but it does nothing to lower the portal pressure: the collateral closes, its flow is redirected and the pressure rises slightly (in the model, HVPG by about 1.5 mmHg after four bands; small studies measuring HVPG before and after eradication report rises of about 1 to 2 mmHg). Varices come back because the pressure that made them is still there. After a bleed, banding is combined with a non-selective beta-blocker.',
       ask: ['Why combine banding with a beta-blocker after a bleed?', 'Banding removes the varices, not the high pressure that makes new ones; the beta-blocker lowers it.'],
     },
     {

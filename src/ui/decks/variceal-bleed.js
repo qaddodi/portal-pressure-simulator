@@ -59,7 +59,7 @@ export const BLEED = {
       ask: ['What hemoglobin target is used in variceal bleeding, and why not more?', '7 to 8 g/dL, transfusing below 7. Extra volume raises the portal pressure and the risk of an early rebleed.'],
     },
     {
-      id: 'band', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
+      id: 'band', terms: ['varix'], action: [BAND, BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'Bands stop the bleeding',
       line: 'Endoscopy within 12 hours, once the blood pressure holds. Banding does not lower portal pressure; the HVPG rises slightly as the varix closes. If bleeding continues, an esophageal stent or a balloon tube bridges to a rescue TIPS.',
       notes: 'Band ligation controls most variceal bleeds. If bleeding cannot be controlled, a covered self-expanding esophageal stent (preferred over a balloon tube where available) buys time as a bridge to a rescue TIPS. Banding does not lower the portal pressure; over the following days it raises the HVPG slightly as the varix closes.',
