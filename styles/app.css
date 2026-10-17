@@ -809,6 +809,11 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 
 .modal-back { position: fixed; inset: 0; background: var(--scrim); z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) 16px 16px; }
 .modal-back.show { display: grid; animation: fade .2s var(--ease); }
+/* Closing: the scrim fades and the dialog sinks back the way it came, then it is hidden (util.js closeModal). */
+/* (Own exit keyframes: the same name played in reverse would not restart, and would land on its last frame at once.) */
+.modal-back.leaving { display: grid; pointer-events: none; animation: fadeOut var(--t-out) var(--ease-in) forwards; }
+.modal-back.leaving .modal { animation: popOut var(--t-out) var(--ease-in) forwards; }
+@keyframes fadeOut { to { opacity: 0; } }
 @keyframes fade { from { opacity: 0; } }
 .modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(calc(88dvh / var(--vz)), 900px); overflow: auto; animation: pop .22s var(--ease); }
 .modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); }
@@ -960,7 +965,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .action-card {
   position: absolute; z-index: var(--z-hud); width: 300px; max-height: calc(100% - 16px); display: flex; flex-direction: column; overflow: hidden;
   background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
-  padding: 0; animation: acIn .12s var(--ease); font-size: var(--fs-14); transition: left .18s var(--ease), top .18s var(--ease);
+  padding: 0; animation: acIn .24s var(--ease); font-size: var(--fs-14); transition: left .18s var(--ease), top .18s var(--ease);
 }
 /* One fixed size per kind of card, whatever text it holds: the header and foot keep their place, the controls scroll inside. */
 .action-card { height: min(600px, calc(calc(100vh / var(--vz)) - 150px)); max-height: none; }
@@ -972,6 +977,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .ac-top { flex: none; padding: 12px 16px 0; }
 .ac-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px; }
 @keyframes acIn { from { opacity: 0; transform: translateY(4px); } }
+@keyframes acOut { to { opacity: 0; transform: translateY(4px); } }
+.action-card.ac-leaving:not(.docked) { pointer-events: none; animation: acOut var(--t-out) var(--ease-in) forwards; }
 .ac-head { display: flex; align-items: flex-start; gap: 8px; }
 .ac-titles { flex: 1; min-width: 0; }
 .ac-kicker { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
@@ -3445,7 +3452,7 @@ button.finding { cursor: pointer; }
 
 /* Zoom: one small pill on the right, clear of the dock and of any card on the right. */
 .zoom-pill { position: absolute; z-index: var(--z-hud); display: flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
-  right: calc(env(safe-area-inset-right) + var(--gap) + var(--right-occ, 0px)); bottom: calc(var(--bot-occ, 120px) + 8px); transition: opacity .25s var(--ease), translate .2s var(--ease); translate: 0 calc(-1 * var(--sheet-h, 0px)); }
+  right: calc(env(safe-area-inset-right) + var(--gap) + var(--right-occ, 0px)); bottom: calc(var(--bot-occ, 120px) + 8px); transition: opacity .25s var(--ease), translate .2s var(--ease), right .3s var(--ease); translate: 0 calc(-1 * var(--sheet-h, 0px)); }   /* (right: it glides aside with a side card, as the figure does, instead of jumping by the card's width) */
 .zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { position: static; translate: none; width: 36px; height: 36px; min-width: 0; min-height: 0; box-shadow: none; background: transparent; right: auto; bottom: auto; }
 @media (hover: hover) { .zoom-pill .ib:hover { background: var(--surface-3); } }
 .zoom-pill .stage-rotate { display: none; }
@@ -3489,6 +3496,7 @@ button.finding { cursor: pointer; }
 .instrument-workspace .dock-body.stack { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
 .instrument-workspace .dock-body.stack .dock-pane + .dock-pane { border-left: 0; border-top: 1px solid var(--hairline); }
 .instrument-workspace .dock-pane.active { animation: paneIn .18s var(--ease); }
+.instrument-workspace .dock-pane.active.landed { animation: none; }   /* (swiped in: already in place, dock.js endSwipe) */
 @container ws (max-width: 560px) {
   .workspace-live { display: none; }
 }
@@ -3803,13 +3811,13 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .app.panel-open .panel { visibility: visible; animation: var(--card-in) var(--card-t) var(--ease); }
 .treat-card { animation: var(--card-in) var(--card-t) var(--ease); }
 .instrument-workspace.float-ui.entering, .instrument-workspace.float-ui.side.entering { animation: var(--card-in) var(--card-t) var(--ease); }
-#panel.card-leaving, #treatCard.card-leaving, #dock.card-leaving { display: flex !important; visibility: visible !important; pointer-events: none; animation: var(--card-out) .18s var(--ease) forwards !important; }
+#panel.card-leaving, #treatCard.card-leaving, #historyCard.card-leaving, #dock.card-leaving { display: flex !important; visibility: visible !important; pointer-events: none; animation: var(--card-out) .18s var(--ease) forwards !important; }
 @media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .panel, .treat-card, .instrument-workspace.float-ui:not(.side) { --card-in: sheetUp; --card-out: sheetDown; --card-t: .28s; }
   .panel, .treat-card { transform: none; transition: height .22s var(--ease); }
   .panel .panel-head { touch-action: none; border-radius: 0; }
 }
-@media (prefers-reduced-motion: reduce) { .app.panel-open .panel, .treat-card, .instrument-workspace.float-ui.entering, #panel.card-leaving, #treatCard.card-leaving, #dock.card-leaving { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .app.panel-open .panel, .treat-card, .instrument-workspace.float-ui.entering, #panel.card-leaving, #treatCard.card-leaving, #historyCard.card-leaving, #dock.card-leaving { animation: none !important; } }
 
 /* Findings: what has been changed, with its value; a tap on × takes it back. */
 .chg-list { display: flex; flex-direction: column; }
@@ -3917,7 +3925,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 @keyframes acSheetIn { from { opacity: 0; transform: translateY(calc(100% + 12px)); } to { opacity: 1; transform: translateY(0); } }
 @keyframes acSheetOut { to { opacity: 0; transform: translateY(calc(100% + 12px)); } }
 .action-card.docked { animation: acSheetIn .22s var(--ease); }
-.action-card.docked.ac-leaving { pointer-events: none; animation: acSheetOut .18s var(--ease) forwards; }
+.action-card.docked.ac-leaving { pointer-events: none; animation: acSheetOut .18s var(--ease) forwards; }   /* (its .18s: the play bar's return waits for it, timeline-return.test.js) */
 @media (prefers-reduced-motion: reduce) {
   .action-card.docked, .action-card.docked.ac-leaving { animation: none; }
 }
@@ -4079,7 +4087,7 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .vdock.mini { grid-template-columns: auto; grid-template-areas: "tl"; right: auto; width: max-content; }   /* a small pill in the lower-left corner: the lower-right is the zoom controls' */
 .vdock.mini .readouts { display: none; }
 .vdock.mini .stage-bar.bottom { height: 54px; min-height: 54px; padding: 0 12px 0 4px; }
-.app.figure-focus .zoom-pill { transition: opacity .25s var(--ease), translate .2s var(--ease), bottom .2s var(--ease), font-size .3s var(--ease); }
+.app.figure-focus .zoom-pill { transition: opacity .25s var(--ease), translate .2s var(--ease), bottom .2s var(--ease), right .3s var(--ease), font-size .3s var(--ease); }
 /* The credit is never animated: no glide, no fade, no scale ease. When it must move it vanishes at once, stays hidden until the
    cards and camera settle, and appears at once at its new spot (src/ui/credit.js). */
 .stage-credit { transition: none; }

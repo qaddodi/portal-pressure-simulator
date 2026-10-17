@@ -224,6 +224,9 @@
   /* One clock for a lens switch or a selection: the organs and vessels ease together (stage.js LENS_FADE = PLATE_FADE, an ease in and out). */
   --view-fade: .3s; --ease-io: cubic-bezier(.455, .03, .515, .955);
   --t-fast: .16s; --t: .24s;
+  /* Leaving: starts gently and gets out of the way (the entering curve, --ease, is fastest in its first frame, so a close that
+     used it felt abrupt). Exits run a little quicker than entrances. */
+  --ease-in: cubic-bezier(.4, 0, 1, 1); --t-out: .2s;
 
   color-scheme: light;
 }

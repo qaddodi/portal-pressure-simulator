@@ -4,8 +4,8 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout } from './util.js?v=441d0bcc83';
-import { cardFor, normalizeSel } from './actions.js?v=8c47a67864';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout } from './util.js?v=0d25d9306b';
+import { cardFor, normalizeSel } from './actions.js?v=1fc7f1e75a';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -73,9 +73,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     stopSheetGesture();
     if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; el.style.removeProperty('--sink'); }   // (pulled away: already out of sight behind the tab row)
     if (!el.hidden && !el.classList.contains('ac-leaving')) {
-      if (isDocked() && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // (Docked, it sinks away; a desktop card fades out where it stands: it had closed in one frame.)
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
         el.classList.add('ac-leaving');
-        closeTimer = setTimeout(() => { el.hidden = true; el.classList.remove('ac-leaving'); }, 180);
+        closeTimer = setTimeout(() => { el.hidden = true; el.classList.remove('ac-leaving'); }, isDocked() ? 180 : 200);
       } else el.hidden = true;
     }
     model = null; live = []; syncs = []; actionable = [];
@@ -148,7 +149,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     wireSheet(top);
     const scroller = h('div', { class: 'ac-scroll' }, body);
     scroller.addEventListener('scroll', syncMore, { passive: true });
+    const swap = !el.hidden && !same;
     el.replaceChildren(top, scroller, foot);
+    // Another vessel picked while the card is open: its contents fade in, rather than the words changing in one frame.
+    if (swap) for (const c of el.children) c.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' });
     el.setAttribute('aria-label', `${m.title}: actions`);
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.

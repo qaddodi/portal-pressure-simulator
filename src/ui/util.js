@@ -401,14 +401,18 @@ export function openModal(title, body, { wide = false, sub = null, bare = false 
   modal.setAttribute('aria-label', title || 'Dialog');
   const close = h('button', { class: 'ib', 'aria-label': 'Close', onclick: closeModal }, icon('close'));
   modal.append(h('header', {}, h('div', { style: { flex: 1, minWidth: 0 } }, bare ? null : h('h2', {}, title), sub ? h('div', { class: 'sub' }, sub) : null), close), h('div', { class: 'body' }, body));
+  clearTimeout(modalLeaveT); back.classList.remove('leaving');
   back.classList.add('show');
   back.onclick = (e) => { if (e.target === back) closeModal(); };
   (modal.querySelector('.body button, .body [tabindex]') || close).focus({ preventScroll: true });
 }
+let modalLeaveT = 0;
 export function closeModal() {
   const back = document.getElementById('modalBack');
   if (!back.classList.contains('show')) return;
-  back.classList.remove('show');
+  // (It fades out as it faded in, then is hidden: closed in one frame, Help, About and every dialog blinked out.)
+  back.classList.remove('show'); back.classList.add('leaving');
+  clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => back.classList.remove('leaving'), 220);
   modalReturn?.focus?.({ preventScroll: true });
 }
 export const isModalOpen = () => document.getElementById('modalBack').classList.contains('show');

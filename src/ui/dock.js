@@ -3,16 +3,16 @@
 
 import { store, hiddenNow } from './store.js?v=31ee79b6ab';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout } from './util.js?v=441d0bcc83';
-import { lobuleFlows } from './lobule-model.js?v=a9433fa689';
-import { createProfile } from './charts.js?v=548886ec6c';
-import { createPressureTime } from './pressure-time.js?v=da864bda7d';
-import { createFibroScan } from './fibroscan.js?v=0d472c35c8';
-import { createHvpgProcedure } from './hvpg-proc.js?v=25ab51200f';
-import { createDoppler } from './doppler.js?v=c414ace265';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout } from './util.js?v=0d25d9306b';
+import { lobuleFlows } from './lobule-model.js?v=443e18a24c';
+import { createProfile } from './charts.js?v=249ee985ae';
+import { createPressureTime } from './pressure-time.js?v=be46ea6dbb';
+import { createFibroScan } from './fibroscan.js?v=25271d240a';
+import { createHvpgProcedure } from './hvpg-proc.js?v=0bd39f8de9';
+import { createDoppler } from './doppler.js?v=301c2909de';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=548f04a3a9';
-import { createReadoutsPane } from './readouts-pane.js?v=8b235f7fc7';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=de33e5d213';
+import { createReadoutsPane } from './readouts-pane.js?v=a48e291993';
 import { frameFor } from './frame.js?v=67ca200c87';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';
@@ -420,6 +420,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;
     const done = () => {
       clearTimeout(timer); settle = null;
+      // (The pane that slid in is already in place: it must not play its entrance again once the drag's classes go, a blink.)
+      if (go) s.nb?.classList.add('landed');
       clearSwipe([s.cur, s.nb]);
       if (go) { pick(TABS[s.j]); tabEls[TABS[s.j]].b.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); }
     };
@@ -605,6 +607,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     open = [open.find((x) => tabOf(x) === id) || id];
     if (state === 'peek') setState('open');
     layout();
+    for (const p of workspace.querySelectorAll('.dock-pane.landed:not(.active)')) p.classList.remove('landed');
     workspace.querySelector('.dock-body')?.scrollTo?.(0, 0);
   }
   function openGrid(anchor, { alongside = false } = {}) {

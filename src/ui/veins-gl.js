@@ -33,7 +33,7 @@
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=cc7febbf07';
-import { cssRGB } from './util.js?v=441d0bcc83';
+import { cssRGB } from './util.js?v=0d25d9306b';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=2bc0d36839';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 
