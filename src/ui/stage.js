@@ -981,6 +981,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // browser restyle and repaint the figure. Writes go through a per-element cache, pressures
   // used for color are rounded to 0.25 mmHg and widths to 0.25 px (well below what shows).
   const setA = (el, k, v) => { const c = el._a || (el._a = {}); if (c[k] === v) return; c[k] = v; el.setAttribute(k, v); };
+  // (The same, checked against the element itself, for attributes other code writes too: the organs' each model update, and every
+  // frame of a liver's or the fluid's ease, were written again with the values they had, and Safari repainted them each time.)
+  const putA = (el, k, v) => { v = String(v); if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
   // While the GPU draws the vessels (gl-on), their SVG walls, strands, feeders, heat halos and selection rings are display:none
   // (app.css): their widths and colours are held and written when the SVG shows them again (syncVeins, flushTubes). The lumens are
   // always written (credit.js reads a lit lumen's width), and so are the gradient stops.
@@ -2093,6 +2096,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     stageWrap.classList.toggle('cmap', t > 0.5);
     gGrid.style.opacity = String(t);
     gNodes.style.opacity = String(t);
+    // (Faded out whole, the circuit's grid and dots are hidden too (app.css, once their fade has run): at opacity 0 Safari still
+    // painted the grid's patterned frames under the anatomy on every frame the figure moved.)
+    gGrid.classList.toggle('gone', t === 0); gNodes.classList.toggle('gone', t === 0);
     CTM = null;
   }
   const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
@@ -4092,10 +4098,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lvMoving = moving;
     if (moving) widthEasing = true;
     morphLiver(lvC, lvG, moving);
-    for (const el of [lv.nut, lv.nutNet, lv.gloss]) el.style.visibility = imaging ? 'hidden' : '';
+    for (const el of [lv.nut, lv.nutNet, lv.gloss]) if (el.style.visibility !== (imaging ? 'hidden' : '')) el.style.visibility = imaging ? 'hidden' : '';
     // A cirrhotic liver shrinks a little; a congested one swells.
     const shrink = 1 - 0.035 * lvC + 0.035 * lvG;
-    organG.liver.setAttribute('transform', `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`);
+    putA(organG.liver, 'transform', `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`);
     {
       // The caudate lobe grows as its veins carry the liver's outflow: from twice their normal flow, fully at four times.
       const hq = store.get().healthy?.Q?.[EI.CAUD], PA2 = f.Pf || f.P;
@@ -4103,7 +4109,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       caud.sync(pressureColor(qP(PA2[NI.IVCS] + 0.5)), caudK);
     }
     const c3 = recruitFrac('C3', f);
-    abdWall.setAttribute('opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
+    putA(abdWall, 'opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
     // The umbilicus is a landmark only for the paraumbilical vein that runs to it: with that vein closed, it was a lone ring
     // in the empty abdomen beside the gut (sweep batches 02–04). It fades in as the vein opens, as the caput's veins do, in
     // quarter steps (the organs' raster is drawn again at each step: plateStateKey).
@@ -4112,8 +4118,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (organEls.umbilicus.getAttribute('opacity') !== op) organEls.umbilicus.setAttribute('opacity', op);
     }
     const sc = f.slow.spleen / 11;
-    organG.spleen.setAttribute('transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
-    organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
+    putA(organG.spleen, 'transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
+    if (organG.spleen.style.opacity !== (p.splenicRx === 2 ? '0.14' : '')) organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
     liftDiaphragm(shrink, sc);
     syncSelLine();
     // The shown ascites eases to the model's volume (stepFluid), so a tap or diuretics never pops the level.
@@ -4150,7 +4156,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const raw = u * 34;
     if (Math.abs(raw - bulgeQ) > 0.4 || (raw < 0.5 && bulgeQ !== 0)) bulgeQ = Math.round(raw * 2) / 2;
     const bulge = bulgeQ;
-    flank.setAttribute('d', u < 0.04 ? '' : flankPath(bulge));
+    putA(flank, 'd', u < 0.04 ? '' : flankPath(bulge));
     const d = abdomenOutline(bulge);
     if (fluidMaskB !== bulge) { fluidMaskB = bulge; abdomenClipEl.setAttribute('d', d); abdomenEl.setAttribute('d', d); }
     if (veins && !veins.lost && (fluidMaskOf !== veins || fluidMaskOfB !== bulge)) {
@@ -4161,23 +4167,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const R = [284, 430, 856, 600];
       veins.setFluidSpans(cavityHalfWidths(bulge, R[1], R[3], R[3] * 2 + 1), R);
     }
-    organG.bowel.setAttribute('transform', `translate(0 ${(-bulge / 34 * 26).toFixed(1)})`);
+    putA(organG.bowel, 'transform', `translate(0 ${(-bulge / 34 * 26).toFixed(1)})`);
     // The fluid level rises on a compressed scale (u^0.6), so a grade 1–2 effusion is a visible pool, not a sliver. Near the
     // top of the scale (about 8.5 L) the surface reaches the lower edge of the spleen: clearly concave (about 100 units
     // lower in the middle than at the flanks), the same on both sides.
     const uv = Math.pow(u, 0.6);
     fluidH = uv * 485; fluidAmp = 2 * Math.min(1, uv * 4);
     fluidSurf = null;
-    if (fluidFade() <= 0) { ascitesPath.setAttribute('d', ''); ascitesLine.setAttribute('d', ''); }
+    if (fluidFade() <= 0) { putA(ascitesPath, 'd', ''); putA(ascitesLine, 'd', ''); }
     else {
       const floor = ABDOMEN_FLOOR + 5, ph = reduceMotion.matches || plateOn() ? 0 : fluidPhase();
       const surf = (x) => fluidSurfAt(x, ph);
       fluidSurf = surf;
       let line = '';
       for (let x = 296; x <= 1128; x += 8) line += `${x === 296 ? 'M' : ' L'}${x} ${surf(x).toFixed(1)}`;
-      ascitesLine.setAttribute('d', line);
-      gAscites.style.setProperty('--fluid-fade', fluidFade().toFixed(3));
-      ascitesPath.setAttribute('d', `${line} L 1128 ${floor + 70} L 296 ${floor + 70} Z`);   // down past the rounded pelvic floor; the clip shapes it
+      putA(ascitesLine, 'd', line);
+      if (gAscites.style.getPropertyValue('--fluid-fade') !== fluidFade().toFixed(3)) gAscites.style.setProperty('--fluid-fade', fluidFade().toFixed(3));
+      putA(ascitesPath, 'd', `${line} L 1128 ${floor + 70} L 296 ${floor + 70} Z`);   // down past the rounded pelvic floor; the clip shapes it
       // The cells the rippling surface (and its light band) passes through, redrawn each frame on the GPU.
       if (veins && !veins.lost && Math.abs(fluidH - fluidBandH) > 0.25) {
         fluidBandH = fluidH;

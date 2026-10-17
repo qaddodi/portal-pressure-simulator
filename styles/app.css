@@ -593,6 +593,7 @@ div.vital { cursor: default; }
 .thrombus-core { fill: var(--thrombus); fill-opacity: .6; }
 .node-dot { fill: var(--stage-bg); stroke: var(--text); stroke-width: 1.6; }
 .circuit-only { opacity: 0; transition: opacity .4s; }
+:is(#grid, #nodes).gone { visibility: hidden; transition: opacity .4s, visibility 0s .4s; }   /* (at opacity 0, after the fade: stage.js setViewBox) */
 .circuit .circuit-only { opacity: 1; }
 .band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; }
 .balloon-shape { fill: var(--balloon); fill-opacity: .8; stroke: var(--balloon-line); stroke-width: 1.4; }
