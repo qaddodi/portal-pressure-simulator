@@ -27,7 +27,7 @@ function sync() {
   if (!any()) { cancelAnimationFrame(raf); raf = 0; el?.remove(); el = null; return; }
   if (!el) {
     el = document.createElement('div');
-    el.style.cssText = 'position:fixed;left:8px;top:calc(64px + env(safe-area-inset-top));z-index:2147483000;pointer-events:none;padding:4px 8px;border-radius:8px;background:rgb(var(--black-rgb) / .65);color:var(--white);font:600 11px/1.5 ui-monospace,monospace;white-space:pre';
+    el.style.cssText = 'position:fixed;left:8px;top:calc(64px + env(safe-area-inset-top));z-index:2147483000;pointer-events:none;padding:4px 8px;border-radius:8px;background:rgb(var(--black-rgb) / .65);color:var(--white);font:600 11px/1.5 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-width:calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right));box-sizing:border-box';
     el.setAttribute('aria-hidden', 'true');
     document.body.append(el);
   }
