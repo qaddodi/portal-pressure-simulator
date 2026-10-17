@@ -1574,10 +1574,11 @@ button.finding { cursor: pointer; }
 /* A pill in a station's colour (--tone): a live value ({pv}) or a term that points at the figure ([portal vein](pv)). */
 .pz-val.tone, .pz-term { background: color-mix(in srgb, var(--tone) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 50%, transparent); color: color-mix(in srgb, var(--tone) 72%, var(--text)); }
 .pz-term { border-radius: var(--r-pill); font-weight: 650; white-space: nowrap; }
-/* A word that points at the figure ([portal vein](pv)) is not a pill: coloured text in its station's colour with a thin underline
-   in that colour (Mohammad, 17 Oct, "Underline terms"). Pills stay for numbers and view names; disease names keep their violet. */
-.pz-term:not(.pz-lens-t) { display: inline; padding: 0; margin: 0; border-radius: 0; background: none; box-shadow: none; font-weight: 600; color: color-mix(in srgb, var(--tone) 80%, var(--text)); text-decoration-line: underline; text-decoration-color: color-mix(in srgb, var(--tone) 60%, transparent); text-decoration-thickness: max(1.5px, .07em); text-underline-offset: .2em; }
-.app.pz-hi .pz-term:not(.pz-lens-t) { box-shadow: none; text-decoration-color: var(--tone); }
+/* A word that points at the figure ([portal vein](pv)) is not a pill: coloured text in its station's colour, no underline
+   (Mohammad, 17 Oct: "Underline terms", then "Remove the underlining please"). Pills stay for numbers and view names; disease
+   names keep their violet. */
+.pz-term:not(.pz-lens-t) { display: inline; padding: 0; margin: 0; border-radius: 0; background: none; box-shadow: none; font-weight: 600; color: color-mix(in srgb, var(--tone) 80%, var(--text)); }
+.app.pz-hi .pz-term:not(.pz-lens-t) { box-shadow: none; color: color-mix(in srgb, var(--tone) 65%, var(--text)); }
 /* A disease name: a soft tinted pill, inline and with no vertical padding that counts, so a line never grows or shifts. */
 .pz-dz { padding: 0 .3em; margin-inline: -.04em; border-radius: .5em; font-weight: 600; color: color-mix(in srgb, var(--disease) 62%, var(--text)); background: color-mix(in srgb, var(--disease) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--disease) 36%, transparent); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 /* In a title the name is only tinted: a box round big, tightly leaded letters would be clipped at the card's top. */
@@ -5019,23 +5020,24 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:is(.stack, .low) .pz-data:is(.has-tool:not(.tool-only), .pz-folds) .pz-dh::after { content: ''; flex: 1 1 0; min-width: 0; }
 .pz:is(.stack, .low) .pz-data:is(.has-tool:not(.tool-only), .pz-folds) .pz-dh::after { min-width: max(66px + 8px - 12px, calc(var(--pz-chip-em, 0) * 1em + 24px / var(--pz-z, 1) + 2px + 8px - 12px)); }   /* (the pill, its words (presenter.js chipRoom), padding and edge, then 8 px; the row's 12 px gap is the rest) */
 /* A phone whose figure, data card and words at 12 px cannot all fit: the data card folds to its header behind Show (presenter.js
-   phoneTextCap, pz-folds), the same pill that folds a phone's instrument. It takes its folded size at once (a solid card). */
+   phoneTextCap, pz-folds), the same pill that folds a phone's instrument. It takes its folded size at once (a solid card).
+   A phone on its side too, where its data card does not fit at 12 px (presenter.js lowData). */
 /* (Its compact form where even folded it leaves the figure short: 6 px above and below the header, which keeps its full size.) */
 .pz.stack .pz-data.pz-ftight { padding-top: 6px; padding-bottom: 6px; }
-.pz.stack .pz-data.pz-folds .pz-dh { position: relative; padding-inline: 72px; min-height: calc(30px / var(--pz-z, 1)); align-items: center; }   /* (as tall as its chip: a chip reaching past its header read as overflow, and the fit shrank the card to half) */
+.pz:is(.stack, .low) .pz-data.pz-folds .pz-dh { position: relative; padding-inline: 72px; min-height: calc(30px / var(--pz-z, 1)); align-items: center; }   /* (as tall as its chip: a chip reaching past its header read as overflow, and the fit shrank the card to half) */
 /* (Show and Hide here: the same chip as a wide card's (5134168): the nav pill's frosted glass, ink text, 30 px tall as drawn, a 44 px target.) */
-.pz.stack .pz-data.pz-folds .pz-dh > .pz-fold { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14);
+.pz:is(.stack, .low) .pz-data.pz-folds .pz-dh > .pz-fold { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14);
   display: inline-flex; align-items: center; position: absolute; right: 0; top: 50%; translate: 0 -50%; margin: 0; min-height: calc(30px / var(--pz-z, 1)); padding: 0 calc(12px / var(--pz-z, 1));
   border-radius: 999px; font: inherit; font-weight: 600; letter-spacing: .05em; color: var(--text); cursor: pointer;
   background: color-mix(in srgb, var(--pz-chip, color-mix(in srgb, var(--surface-2) 80%, var(--chip-warm))) 92%, transparent);
   -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
   box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 6px 16px -6px var(--pz-glass-drop), 0 1px 3px -1px var(--pz-glass-drop); }
-.pz.stack .pz-data.pz-folds .pz-dh > .pz-fold::before { content: ''; position: absolute; inset: calc(-8px / var(--pz-z, 1)) calc(-4px / var(--pz-z, 1)); }
-:root[data-theme="dark"] .pz.stack .pz-data.pz-folds .pz-dh > .pz-fold { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); --pz-chip: var(--surface-2); }
-:root[data-theme="soft"] .pz.stack .pz-data.pz-folds .pz-dh > .pz-fold { --pz-chip: var(--surface-2); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz.stack .pz-data.pz-folds .pz-dh > .pz-fold { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); --pz-chip: var(--surface-2); } }
-.app.pz-hi .pz.stack .pz-data.pz-folds .pz-dh > .pz-fold { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
-.pz.stack .pz-data.pz-folds:not(.tool-open) > :not(.pz-dh):not(.pz-grip) { display: none; }
+.pz:is(.stack, .low) .pz-data.pz-folds .pz-dh > .pz-fold::before { content: ''; position: absolute; inset: calc(-8px / var(--pz-z, 1)) calc(-4px / var(--pz-z, 1)); }
+:root[data-theme="dark"] .pz:is(.stack, .low) .pz-data.pz-folds .pz-dh > .pz-fold { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); --pz-chip: var(--surface-2); }
+:root[data-theme="soft"] .pz:is(.stack, .low) .pz-data.pz-folds .pz-dh > .pz-fold { --pz-chip: var(--surface-2); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz:is(.stack, .low) .pz-data.pz-folds .pz-dh > .pz-fold { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); --pz-chip: var(--surface-2); } }
+.app.pz-hi .pz:is(.stack, .low) .pz-data.pz-folds .pz-dh > .pz-fold { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
+.pz:is(.stack, .low) .pz-data.pz-folds:not(.tool-open) > :not(.pz-dh):not(.pz-grip) { display: none; }
 .pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-dh > .pz-fold { position: absolute; right: -2px; top: 50%; translate: 0 -50%; margin: 0; }
 /* Mac and iPad landscape: when even the smallest steps leave the pair too tall, the instrument folds behind Show as on a phone
    (presenter.js layout, pz-folds), its tiles in a row at the card's full width; Show fades it in, Hide out. */
@@ -5160,6 +5162,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack) .pz-data .pz-tiles .pz-tile:has(.pzt-bar) { gap: 0; padding-block: 6px; }
 .pz:not(.stack) .pz-data .pz-tiles .pz-tile:has(.pzt-bar) .pzt-k { margin: 0; }
 .pz:not(.stack) .pz-data .pz-tiles .pz-tile:has(.pzt-bar) .pzt-bar { margin-top: 3px; }
+/* A phone on its side, a data card too tall for its room (presenter.js lowData, critique I1): its tiles stand tighter and their
+   numbers a step smaller (.pz-lt), then smaller again (.pz-lt2), so the card fits without zooming its 12 px names and units under 12. */
+.pz.low .pz-data.pz-lt { --pz-gap: 6px; }
+.pz.low .pz-data.pz-lt .pz-tiles { gap: 6px; }
+.pz.low:not(.stack) .pz-data.pz-lt .pz-tiles .pz-tile { padding-block: 4px; }
+.pz.low:not(.stack) .pz-data.pz-lt.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v { font-size: var(--s-big); }
+.pz.low:not(.stack) .pz-data.pz-lt.pz-lt2.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v, .pz.low:not(.stack) .pz-data.pz-lt.pz-lt2 .pz-tiles .pzt-v { font-size: var(--s-val); }
 .pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow .pz-tiles .pz-tile:has(.pzt-bar) { gap: 0; padding-block: 5px; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow .pz-tiles .pz-tile:has(.pzt-bar) .pzt-k { margin: 0; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside.pz-narrow .pz-tiles .pz-tile:has(.pzt-bar) .pzt-bar { margin-top: 2px; }

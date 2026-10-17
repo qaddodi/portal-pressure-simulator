@@ -39,11 +39,26 @@ test('phone slide words at 1.45, upright iPad at 1.39, one line spacing with sli
 // A tight phone slide (upright or on its side): the title steps down first, then the body by one step, and only then further.
 test('a tight phone slide shrinks its title first and its body by one step before anything else', () => {
   const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(js, /const mins = small \? \[\.\.\.new Set\(\[Math\.max\(floor, 0\.9\), floor, phone\(\) \? floor : 0\.5\]\)\] : \[floor\];/);
+  assert.match(js, /const mins = small \? \[\.\.\.new Set\(\[Math\.max\(floor, 0\.9\), floor, phone\(\) \? floor : 0\.5\]\)\] : \[lowFloor \|\| floor\];/);
   assert.match(js, /if \(small\) \{ el\.style\.removeProperty\('--pz-ptk'\); for \(const tk of TK\.slice\(1\)\)/);
   assert.match(css, /\.pz\.stack \.pz-h \{ font-size: calc\(var\(--s-val\) \* var\(--pz-ptk, 1\)\); \}/);
 });
 
 test('a phone\'s captions under the words read smaller than the words, never under 12 px', () => {
   assert.match(css, /\.pz:is\(\.stack, \.low\) \.pz-text :is\(\.pz-eqk, \.pz-caveat\) \{ font-size: max\(12px, calc\(var\(--s-lab\) \* \.8\)\); \}/);
+});
+
+test('a sideways phone: figure terms are coloured text with no underline, and the data card never zooms its lettering under 12 px', () => {
+  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const term = css.match(/\.pz-term:not\(\.pz-lens-t\) \{[^}]*\}/)[0];
+  assert.match(term, /background: none;/);
+  assert.doesNotMatch(term, /text-decoration/, 'terms carry no underline (Mohammad, 17 Oct)');
+  // (Tighter tiles first, then the zoom only to the 12 px floor, then the card folds behind Show.)
+  const low = js.match(/function lowData\(el\) \{[\s\S]*?\n {2}\}/)[0];
+  assert.match(low, /const floor = cap > 12 \? Math\.ceil\(12 \/ cap \* 1000\) \/ 1000 : 1;/);
+  assert.match(low, /for \(const c of \['pz-lt', 'pz-lt2'\]\)/);
+  assert.match(low, /el\.classList\.add\('pz-folds'\); el\.classList\.remove\('tool-open'\);/);
+  assert.match(js, /const lowFloor = el === ui\.data && ui\.root\.classList\.contains\('low'\) \? lowData\(el\) : 0;/);
+  assert.match(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.pz-folds:not\(\.tool-open\) > :not\(\.pz-dh\):not\(\.pz-grip\) \{ display: none; \}/);
+  assert.match(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.pz-folds \.pz-dh > \.pz-fold \{/);
 });

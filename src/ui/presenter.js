@@ -2332,6 +2332,31 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // (An equation typeset before the math font arrives is wider or narrower than it ends up: fitted again once the fonts are in.)
   document.fonts?.ready.then(() => { for (const c of [ui?.text, ui?.data, ui?.panel]) if (c && !c.hidden) { fitEquations(c); } });
+  // A phone on its side: its data card's lettering never under 12 px on the screen (critique I1, 17 Oct: it had zoomed to 8 px,
+  // Varices 7, TIPS 3 and 11, Stiffness 4 and 8, Circuit 5). A card too tall for its room first stands its tiles tighter (.pz-lt:
+  // less padding, the numbers a step smaller; .pz-lt2: smaller again, the names and units at their size), then zooms only as far as
+  // its smallest lettering allows, then folds to its header behind Show, as an upright phone's does (each such slide comes in
+  // folded). Opened there by a tap, it zooms to fit as a last resort: the reader asked for it, over the figure. Returns the
+  // smallest zoom the fit may take.
+  function lowData(el) {
+    const pr = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--s-cap)' }); el.append(pr);
+    const cap = parseFloat(getComputedStyle(pr).fontSize) || 12; pr.remove();
+    const floor = cap > 12 ? Math.ceil(12 / cap * 1000) / 1000 : 1;
+    const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1; };
+    const chosen = el.classList.contains('tool-open') && el.dataset.openFor === String(want);
+    if (!chosen) el.classList.remove('pz-folds');
+    el.classList.remove('pz-lt', 'pz-lt2');
+    for (const c of ['pz-lt', 'pz-lt2']) { if (fits()) return floor; el.classList.add(c); }
+    if (chosen) return 0.5;
+    if (fits()) return floor;
+    if (floor < 1) { el.style.setProperty('--pz-fit', String(floor)); const ok = fits(); el.style.removeProperty('--pz-fit'); if (ok) return floor; }
+    if (!el.querySelector(':scope > :not(.pz-dh):not(.pz-grip)')) return 0.5;
+    el.classList.remove('pz-lt', 'pz-lt2');
+    el.classList.add('pz-folds'); el.classList.remove('tool-open');
+    const b = el.querySelector('.pz-dh > .pz-fold');
+    if (b) { b.textContent = 'Show'; b.setAttribute('aria-expanded', 'false'); }
+    return floor;
+  }
   function fitCards(...els) {
     for (const el of els) {
       if (!el || el.hidden || 'folding' in el.dataset) continue;   // (a part mid-fold: the card keeps the fit it will rest with)
@@ -2370,9 +2395,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // titles' fixed steps), then the whole card by one step (0.9); only a slide that still does not fit goes further, to 12 px on
       // the screen, and on its side, where no cap keeps that room, past it as a last resort rather than run out of its card.)
       const small = el === ui.text && (phone() || ui.root.classList.contains('low'));
+      const lowFloor = el === ui.data && ui.root.classList.contains('low') ? lowData(el) : 0;
       const ln = small ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(getComputedStyle(ln).fontSize) : 0;
       const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : 0.5;
-      const mins = small ? [...new Set([Math.max(floor, 0.9), floor, phone() ? floor : 0.5])] : [floor];
+      const mins = small ? [...new Set([Math.max(floor, 0.9), floor, phone() ? floor : 0.5])] : [lowFloor || floor];
       let k = 1, over = 1;   // (over: the largest fit tried that still overflowed)
       const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1 ? null : o; };
       if (small) { el.style.removeProperty('--pz-ptk'); for (const tk of TK.slice(1)) { if (!fits()) break; el.style.setProperty('--pz-ptk', tk); } }
