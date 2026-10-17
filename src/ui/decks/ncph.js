@@ -30,7 +30,7 @@ export const NCPH = {
     {
       id: 'tract', lens: 'drop', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['pv', 'sin'], key: ['pv'],
       kicker: 'Where the resistance sits', site: 'presin', title: 'The resistance is in the portal tracts',
-      line: 'Schistosome eggs lodge in the small portal venules; granulomas and scar narrow them, while the sinusoids beyond stay at {sin}. With the vessels colored by pressure drop, the large drop sits in the portal venules.',
+      line: 'Schistosome eggs lodge in the small portal venules; granulomas and scar narrow them, while the sinusoids beyond stay at {sin}. Colored by pressure drop, the large drop sits in the portal venules.',
       notes: 'Schistosoma mansoni and japonicum live in the mesenteric veins, and their eggs are carried to the liver and trapped in the portal venules. Granulomas form around them and heal as periportal (pipestem) fibrosis. The sinusoids and the liver cells are spared, which is why liver function lasts and ascites is rare.',
       ask: ['Why does liver function last for years in schistosomiasis?', 'The resistance is in the portal venules; the sinusoids and liver cells are spared.'],
     },
@@ -62,7 +62,7 @@ export const NCPH = {
       line: 'Propranolol cuts the inflow from the gut: the portal vein pressure falls to {pv}, and with it the tension in the varix wall.',
       caveat: 'The model shrinks the varices. In patients the beta-blocker lowers the pressure, but no one re-scopes to watch them shrink.',
       notes: 'Bleeding prophylaxis in non-cirrhotic portal hypertension follows the rules for cirrhosis: a non-selective beta-blocker or banding for large varices, and both after a bleed. In schistosomiasis, praziquantel treats the infection, but established portal hypertension still needs its own treatment.',
-      ask: ['Does variceal prophylaxis differ from cirrhosis in the patient?', 'No: a non-selective beta-blocker or banding, as in cirrhosis, because the varices come from the same high portal pressure.'],
+      ask: ['Is variceal prophylaxis any different here from cirrhosis?', 'No: a non-selective beta-blocker or banding, as in cirrhosis, because the varices come from the same high portal pressure.'],
     },
     {
       id: 'band', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],

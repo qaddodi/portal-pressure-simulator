@@ -43,7 +43,7 @@ export const TIPS_DOPPLER = {
       compare: [{ label: 'Before TIPS', own: true, params: { tips: { on: false, d: 8 }, splanchnicTone: 1, habrStrength: 1, apShunt: 0 } },
         { label: 'With TIPS', params: { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5 } }],
       kicker: 'Before TIPS', title: 'Most portal blood already bypasses the liver',
-      line: 'Colored by blood origin, gut and spleen blood reaches the heart through the varices, and {shunt} of it bypasses the liver before the TIPS. With the stent the share rises only a little, but the route moves from the varices to the stent.',
+      line: 'Colored by blood origin, gut and spleen blood reaches the heart through the varices, and {shunt} of it bypasses the liver before the TIPS. The stent raises that share only a little but moves its route to the stent.',
       notes: 'In decompensated cirrhosis, collaterals already carry about three quarters of the gut and spleen blood past the liver, mostly through the gastroesophageal varices. A TIPS adds a wider route with less resistance, so the shunted share rises only a little, to almost 90%, while flow through the varices falls and the PPG falls with it. More blood now reaches the heart without passing through the liver, which is why hepatic encephalopathy can follow a TIPS. Tap the buttons to compare the circulation before and with the stent; over the following weeks the varices shrink further.',
       ask: ['Why does the shunted share rise only a little after a TIPS?', 'The collaterals were already carrying most of the gut blood past the liver; the stent mainly moves that flow off the varices.'],
     },

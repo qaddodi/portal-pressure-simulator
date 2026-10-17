@@ -27,7 +27,7 @@ export const RIGHT_HEART = {
       id: 'tr', lens: 'heat', terms: ['hv'], preset: 'rhf', cam: 'hepatic', whatIf: { label: 'Tricuspid leak', param: 'tr', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] }, labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['ra', 'hvpg'], key: ['ra'],
       kicker: 'Heart failure', site: 'cardiac', title: 'Tricuspid regurgitation reverses the S wave',
       vignette: 'A 72-year-old woman with long-standing atrial fibrillation has leg edema, ascites and a raised JVP with large v waves. Her liver pulses under the examining hand.',
-      line: 'Severe tricuspid regurgitation drives blood back into the hepatic veins in systole. The [right atrium](ra) reads {ra}. With the vessels colored by congestion, every vein from the heart back to the gut is backed up.',
+      line: 'Severe tricuspid regurgitation drives blood back into the hepatic veins in systole. The [right atrium](ra) reads {ra}. Colored by congestion, every vein from the heart back to the gut is backed up.',
       notes: 'With a leaking tricuspid valve the ventricle ejects into the atrium and the hepatic veins as well as the lungs, so the S wave shrinks, then reverses. At the bedside this is the large v wave in the jugular vein and a pulsatile liver. A high right atrial pressure without regurgitation makes the trace more pulsatile, with a tall a wave; a flat trace points to the liver, not the heart.',
       ask: ['What happens to the S wave of the hepatic vein in severe tricuspid regurgitation?', 'It reverses: flow goes back toward the liver in systole.'],
     },

@@ -53,8 +53,8 @@ export const TAP = {
       id: 'back', days: 14, cam: 'fit', tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: true,
       kicker: 'Two weeks later', site: 'sin', title: 'Ascites returns in two weeks',
       line: 'Sinusoidal pressure and renal sodium retention have not changed, so lymph keeps leaking from the liver. Without diuretics, the abdomen holds {asc} again.',
-      notes: 'The sinusoidal pressure and the kidneys\' sodium retention are unchanged, so lymph keeps weeping from the liver. Here she has had no diuretics at all.',
-      ask: ['The fluid is back two weeks after the tap. Is this refractory ascites?', 'No: she has had no diuretics. Refractory means it returns within four weeks despite the highest diuretic doses and salt restriction, or diuretics cannot be taken.'],
+      notes: 'The sinusoidal pressure and the kidneys\' sodium retention are unchanged, so lymph keeps weeping from the liver. Here he has had no diuretics at all.',
+      ask: ['The fluid is back two weeks after the tap. Is this refractory ascites?', 'No: he has had no diuretics. Refractory means it returns within four weeks despite the highest diuretic doses and salt restriction, or diuretics cannot be taken.'],
     },
     {
       id: 'diuretics', params: { diuretics: true }, days: 28, cam: 'fit', tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: true,

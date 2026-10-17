@@ -37,7 +37,7 @@ export const CIRCULATION = {
     {
       id: 'ladder', lens: 'drop', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg', 'ppg'],
       kicker: 'The portal circulation', title: 'Normal pressures from the portal vein to the right atrium',
-      line: 'About {pv} in the [portal vein](pv) and {ra} in the [right atrium](ra). Healthy [sinusoids](sin) barely resist, so the portal pressure gradient is only {ppg}. With the vessels colored by pressure drop, every vein stays pale.',
+      line: 'About {pv} in the [portal vein](pv) and {ra} in the [right atrium](ra). Healthy [sinusoids](sin) barely resist, so the portal pressure gradient is only {ppg}. Colored by pressure drop, every vein stays pale.',
       notes: 'The ladder reads four stations: the portal vein, the wedged hepatic vein (which reads the sinusoids), the free hepatic vein and the right atrium. The dashed line is the healthy reference, used on every slide. In health the whole fall from the portal vein to the IVC, the portal pressure gradient (PPG), is 5 mmHg or less, and the hepatic venous pressure gradient (HVPG), the fall across the sinusoids, is 1 to 5 mmHg. The wedge is a balloon reading of the sinusoids; the HVPG and PPG deck explains it.',
       ask: ['What is the normal portal pressure gradient?', '5 mmHg or less, because healthy sinusoids barely resist the flow.'],
     },
@@ -73,7 +73,7 @@ export const CIRCULATION = {
       id: 'flow', lens: 'flow', terms: ['sin'], days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'portal', clear: true, labels: ['SMV', 'CONF'], glow: ['smv', 'sv', { id: 'imv', soft: true }, { id: 'lgv', soft: true }], tool: { kind: 'flowtime' },
       kicker: 'Hemodynamics', title: 'After a meal flow rises, but the pressure barely moves',
       eq: ['<mrow><mi mathvariant="normal">Δ</mi><mi>P</mi></mrow>' + mo('=') + mi('Q') + mo('×') + mi('R'), 'ΔP pressure drop across the liver · Q portal flow · R hepatic resistance'],
-      line: 'Pressure equals flow times resistance. Normal sinusoids have so little resistance that nearly doubling the flow adds almost no pressure. With the vessels colored by flow, the gut veins and the portal vein deepen as the flow rises.',
+      line: 'Pressure equals flow times resistance. Normal sinusoids have so little resistance that nearly doubling the flow adds almost no pressure. Colored by flow, the gut veins and the portal vein deepen as the flow rises.',
       caveat: 'The model shows a smaller rise in flow, about a quarter.',
       notes: 'Watch the portal flow tile and the vessels speed up as the meal is digested, while the portal pressure rises by under a millimeter. Pressure is flow times resistance, and normal sinusoids have very little resistance, so even a large rise in flow adds little pressure. In cirrhosis the resistance is high, so the same meal raises the HVPG by a couple of mmHg; this is why flow matters most once the resistance has risen; in most portal hypertension the resistance rises first. Later the splanchnic arterioles dilate for good and the extra inflow keeps the pressure high even after collaterals open. Treatments work on one side or the other: beta-blockers and vasoactive drugs such as octreotide cut inflow; TIPS goes around the resistance.',
       ask: ['What does the meal tell you about a healthy liver?', 'That its resistance is very low: a large rise in flow adds almost no pressure.'],

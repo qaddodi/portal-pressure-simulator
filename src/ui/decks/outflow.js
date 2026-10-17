@@ -29,7 +29,7 @@ export const OUTFLOW = {
     {
       id: 'caudate', lens: 'flow', cam: 'liver', terms: ['ivc', 'caudate'], mark: { edges: ['CAUD'], label: 'Caudate veins', kind: 'note' },
       kicker: 'Hepatic veins', site: 'post', title: 'The caudate lobe still drains',
-      line: 'Short caudate veins run straight into the IVC, below the clots, so the caudate lobe keeps its outflow and enlarges while the rest of the liver congests. With the vessels colored by flow, the caudate\'s own veins carry the liver\'s outflow.',
+      line: 'Short caudate veins run straight into the IVC, below the clots, so the caudate lobe keeps its outflow and enlarges while the rest of the liver congests. Colored by flow, the caudate\'s own veins carry the liver\'s outflow.',
       notes: 'The caudate lobe drains through several short veins directly into the IVC, so it escapes the clot in the three main hepatic veins. Over weeks it enlarges while the rest of the liver shrinks. On imaging, caudate hypertrophy with patchy enhancement and no visible hepatic veins is characteristic; a large caudate can in turn compress the IVC.',
       ask: ['Why does the caudate lobe enlarge in Budd–Chiari syndrome?', 'Its veins drain straight into the IVC, below the resistance, so it keeps its outflow and grows.'],
     },
@@ -50,7 +50,7 @@ export const OUTFLOW = {
     {
       id: 'dips', lens: 'flow', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc', 'caudateLobe'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' }, data: 'tiles', tiles: ['pv', 'asc', 'liver'], key: ['pv'], delta: 'bcs',
       kicker: 'Opening the outflow', site: 'post', title: 'When no vein opens, a DIPS drains the liver into the IVC',
-      line: 'A direct intrahepatic portosystemic shunt (DIPS) runs from the portal vein through the caudate lobe into the IVC; colored by flow, it carries most of the liver’s outflow. Two months later the portal pressure is {pv} and the ascites has nearly gone.',
+      line: 'A direct intrahepatic portosystemic shunt (DIPS) runs from the portal vein through the caudate lobe into the IVC. Colored by flow, it carries most liver outflow. Two months on, portal pressure is {pv} and the ascites has nearly gone.',
       notes: 'A standard TIPS runs from a hepatic vein to the portal vein, so when all three hepatic veins are clotted the stent is placed from the IVC through the liver to the portal vein instead (a direct intrahepatic portosystemic shunt). The portal vein becomes the liver\'s outflow, and the congestion and ascites resolve. Like any shunt it diverts portal blood from the liver, so encephalopathy is watched for. On the figure, colored by flow, the shunt carries most of the liver’s outflow.',
       ask: ['Why can a standard TIPS not be placed when all three hepatic veins are clotted?', 'It needs a hepatic vein to start from; the stent goes from the IVC instead.'],
     },

@@ -80,7 +80,7 @@ export const ONE_YEAR = {
       kicker: 'Summary', site: 'sin', title: 'Pressures over the year',
       line: 'The pressures at every slide, from day 0 to carvedilol. The catheter, FibroScan, scope, Doppler and ultrasound each picked up the same rise.',
       notes: 'The catheter measures the gradient; FibroScan and the platelets estimate it; the scope shows its effect on the varices; Doppler shows the slower inflow; ultrasound finds the first fluid. In practice the cheap tests are repeated each year and the catheter is kept for uncertain cases.',
-      ask: ['Which test would you repeat each year in the patient, and why?', 'Stiffness and platelets: cheap and repeatable, and a rise warns that the disease is advancing.'],
+      ask: ['Which test would you repeat each year in this case, and why?', 'Stiffness and platelets: cheap and repeatable, and a rise warns that the disease is advancing.'],
     },
   ],
 };
