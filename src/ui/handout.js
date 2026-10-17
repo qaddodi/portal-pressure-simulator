@@ -6,7 +6,7 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=59b7d8eda8';
+import { LEVELS, withOverview } from './decks.js?v=94c6eae04e';
 import { TILE } from './table-marks.js?v=1d77d9a6e6';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

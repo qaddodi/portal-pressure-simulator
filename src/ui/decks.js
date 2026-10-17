@@ -89,7 +89,7 @@ import { SPLEEN } from './decks/spleen.js?v=d17310ff56';
 import { NCPH } from './decks/ncph.js?v=6888d8cd3c';
 import { OUTFLOW } from './decks/outflow.js?v=2fd8eb2851';
 import { RECOMPENSATION } from './decks/recompensation.js?v=5d88408232';
-import { PREGNANCY_DECK } from './decks/pregnancy.js?v=da1cfaa315';
+import { PREGNANCY_DECK } from './decks/pregnancy.js?v=f2102190f8';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

@@ -84,7 +84,7 @@ export const PREGNANCY_DECK = {
     },
     {
       id: 'summary', visual: 'table', cols: ['hvpg', 'ppg', 'varix', 'pvFlow', 'hr'], asc: false, rowHead: 'Time',
-      of: [{ id: 'before', title: 'Before pregnancy' }, { id: 'weeks', title: '24 weeks' }, { id: 'propranolol', title: '24 weeks, propranolol' },
+      of: [{ id: 'before', kicker: 'Baseline', title: 'Before pregnancy' }, { id: 'weeks', title: '24 weeks' }, { id: 'propranolol', title: '24 weeks, propranolol' },
         { id: 'delivery', title: '38 weeks, propranolol' }, { id: 'after', title: 'After delivery' }],
       kicker: 'Summary', title: 'Pregnancy loads a stiff liver',
       line: 'Volume and portal inflow rise through the second trimester and the varices grow; propranolol brings the pressure back down.',
