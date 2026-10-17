@@ -26,9 +26,9 @@ test('the teaching card and the visual slides carry the deck name in a corner ta
   assert.match(src, /const deckTab = [^\n]*deck\?\.head \|\| \(deck\?\.title\?\.length <= 24/);
   assert.match(src, /h\('div', \{ class: 'pz-shade' \}, deckTab\(\)/);
   assert.match(src, /const tab = s\.visual !== 'outline' && deckTab\(\)/);
-  // (In the card's top right corner, only its bottom left corner rounded, never under 12 px, never cut short.)
+  // (Flush with the card's top and right edges, only its bottom left corner rounded, never under 12 px, never cut short.)
   const rule = css.match(/\n\.pz-tabname \{([^}]*)\}/)?.[1] || '';
-  assert.match(rule, /top: var\(--pz-tab-gap, 0px\); right: var\(--pz-tab-gap, 0px\);/);
+  assert.match(rule, /top: 0; right: 0;/);
   assert.match(rule, /border-radius: 0 var\(--pz-tab-ro, 0px\) 0 /);
   assert.match(rule, /white-space: nowrap/);
   assert.doesNotMatch(rule, /ellipsis|overflow: hidden/);

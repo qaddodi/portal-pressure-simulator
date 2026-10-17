@@ -1440,9 +1440,9 @@ button.finding { cursor: pointer; }
   --pz-cm: clamp(16px, min(calc(2.6vw / var(--vz)), calc(1.8 * var(--pz-b))), 60px);   /* (one margin: sides, top, bottom and the nav pill) */
   --pz-cp: clamp(18px, calc(1.4 * var(--pz-b)), 40px);   /* (one padding, both cards) */
   --pz-cw: min(calc(clamp(340px, min(calc(38vw / var(--vz)), calc(23.5 * var(--pz-b))), 640px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); }   /* (one card width, about 40 characters of body text) */
-.pz-shade.pz-card:not(.stack) { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); --pz-r: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); left: var(--pz-cm); top: var(--pz-cm); bottom: var(--pz-cm); background: color-mix(in srgb, var(--surface) 58%, transparent); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--pz-r); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
-:root[data-theme="dark"] .pz-shade.pz-card:not(.stack) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.pz-card:not(.stack) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
+.pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .14); --pz-r: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); left: var(--pz-cm); top: var(--pz-cm); bottom: var(--pz-cm); background: color-mix(in srgb, var(--surface) 58%, transparent); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
+:root[data-theme="dark"] .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.pz-card:not(.stack) { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade.pz-card:not(.stack) { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 /* A card never changes shape in view: its size snaps while it is gone, and it leaves and arrives like the data card. */
@@ -1538,26 +1538,23 @@ button.finding { cursor: pointer; }
 :is(.pz-shade.pz-card:not(.stack):not(.low), .pz:not(.stack):not(.low) .pz-panel) { --pz-tabh: calc(var(--pz-cp) * .72); --pz-tabf: max(12px, calc(var(--pz-tabh) * .56)); }
 :root[data-theme="dark"] :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); } }
-.pz-tabname { position: absolute; top: var(--pz-tab-gap, 0px); right: var(--pz-tab-gap, 0px); z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55 - .05em) 0 calc(var(--pz-tabh) * .55); border-radius: 0 var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
+.pz-tabname { position: absolute; top: 0; right: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55 - .05em) 0 calc(var(--pz-tabh) * .55); border-radius: 0 var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
 .pz-panel > .pz-tabname { zoom: 1; }   /* (the panel's corner clips it to its curve; its fit zoom never shrinks the tab under 12 px) */
 .pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px), calc(var(--pz-tabh) + 10px)); }
 .pz.stack .pz-panel.tabbed { padding-top: calc(var(--pz-tabh) + 10px); }
 .app.pz-hi .pz-tabname { color: var(--text); }
-/* The slide's level (presenter.js wordsIn): the deck tab's mirror in the glass's top left corner, the same way in from its top
-   and left edges, only its bottom right corner rounded, the same height and words, tinted in the level's own colour. */
-.pz-sitetab { position: absolute; top: var(--pz-tab-gap, 0px); left: var(--pz-tab-gap, 0px); z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55) 0 calc(var(--pz-tabh) * .55 - .05em); border-radius: var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5) 0; background: color-mix(in srgb, var(--site) 16%, transparent); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); pointer-events: none; user-select: none; }
+/* The slide's level (presenter.js wordsIn): the deck tab's mirror in the glass's top left corner, flush with its top and left
+   edges, only its bottom right corner rounded, the same height and words, tinted in the level's own colour. */
+.pz-sitetab { position: absolute; top: 0; left: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55) 0 calc(var(--pz-tabh) * .55 - .05em); border-radius: var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5) 0; background: color-mix(in srgb, var(--site) 16%, transparent); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); pointer-events: none; user-select: none; }
 .pz-sitetab[hidden], .pz-shade.pz-tabs-tight .pz-tabname { display: none; }
 .pz-shade:not(.stack) .pz-sitetab[data-rail] { display: none; }   /* (where the level rail shows, it names the level) */
 .app.pz-hi .pz-sitetab { color: var(--text); }
-/* (On the glass both tabs sit inside its 1 px outline with a 2 px strip of plain glass between, top, side and corner
-   (--pz-tab-gap): the outline is about as dark as the tab colours, so where a tab touched it the two read as one and the tab
-   seemed to run over it (17 Oct). Each tab's outer top corner takes the glass's curve less the outline and the strip, so the
-   strip keeps one width round the bend. The glass's lit top edge lights the plain glass only: drawn once over the glass's own
-   shape and cut over each tab and its strip (--pz-lit-l and --pz-lit-r, the tabs' widths: presenter.js layout), so no pale
-   line runs above a tab.) */
-.pz-shade:is(.stack, .pz-card) { --pz-tab-gap: 2px; --pz-tab-ro: calc(var(--pz-r) - 1px - var(--pz-tab-gap)); }
-.pz-shade:is(.stack, .pz-card)::after { --pz-lit-mask: linear-gradient(to right, transparent calc(1px + var(--pz-tab-gap) + var(--pz-lit-l, 0px)), #000 0 calc(100% - 1px - var(--pz-tab-gap) - var(--pz-lit-r, 0px)), transparent 0);
-  content: ""; position: absolute; inset: -1px; border: 1px solid transparent; border-radius: inherit; box-shadow: inset 0 1px 0 var(--pz-glass-edge); -webkit-mask-image: var(--pz-lit-mask); mask-image: var(--pz-lit-mask); pointer-events: none; }
+/* (On the glass both tabs fill their corners inside its one outline: each tab's outer top corner takes the glass's inner
+   curve (its corner radius less the outline), so the tab's colour runs right up to the outline and stops there, top, side and
+   corner, with no clipping. The outline is the glass's only edge line, dark enough to show against the tab colours (22 %
+   text: at 10 % it matched them and vanished beside a tab, 17 Oct), and there is no lit top edge, so nothing runs between a
+   tab and the outline and the edge reads the same all the way round.) */
+.pz-shade:is(.stack, .pz-card) { --pz-tab-ro: calc(var(--pz-r) - 1px); }
 .pz-kick[data-site="none"] { color: var(--text-3); }
 .pz-h { margin: 0; font: 540 var(--s-title)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
 /* No rule under the title (17 Oct): its old room stays as space before the body. */
@@ -2012,12 +2009,12 @@ button.finding { cursor: pointer; }
 /* An upright phone: the words sit in a teaching card at the bottom, the same glass, margin and corners as the data card at
    the top, so the figure shows between the two. presenter.js sets its top (16 px above the words); it never changes shape in
    view: it leaves and arrives like the data card (a fade with a short slide toward its own edge) and snaps its size while gone. */
-.pz-shade.stack { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); --pz-r: 18px; width: auto !important; left: 8px; right: 8px; top: auto; bottom: calc(8px + var(--pz-sb)); height: auto; background: color-mix(in srgb, var(--surface) 58%, transparent); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--pz-r) var(--pz-r) var(--pz-card-br) var(--pz-card-br); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); transition: opacity .32s var(--ease), transform .32s var(--ease), filter .4s var(--ease); }
+.pz-shade.stack { --pz-glass-drop: rgb(var(--black-rgb) / .14); --pz-r: 18px; width: auto !important; left: 8px; right: 8px; top: auto; bottom: calc(8px + var(--pz-sb)); height: auto; background: color-mix(in srgb, var(--surface) 58%, transparent); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r) var(--pz-r) var(--pz-card-br) var(--pz-card-br); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); transition: opacity .32s var(--ease), transform .32s var(--ease), filter .4s var(--ease); }
 :root.iphone-app { --pz-sb: 0px; --pz-card-br: calc(var(--screen-r) - 8px); }   /* (8 px is the card's gap to the screen's edge: styles above) */
 .pz-shade.stack:not(.pz-leave) { transition-duration: .5s, .5s, .4s; transition-delay: .12s, .12s, 0s; }
 .pz-shade.stack.pz-leave { opacity: 0 !important; transform: translateY(18px); transition-delay: 0s; }
-:root[data-theme="dark"] .pz-shade.stack { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.stack { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
+:root[data-theme="dark"] .pz-shade.stack { --pz-glass-drop: rgb(var(--black-rgb) / .45); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.stack { --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.stack { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade.stack { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 .pz.stack .pz-text.pz-leave, .pz.stack .pz-text > .pz-leave { transform: translateY(18px); }
