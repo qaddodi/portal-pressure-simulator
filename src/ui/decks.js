@@ -50,6 +50,9 @@
 //                            (SAAG × protein) or 'walls'; of: the rows, slide ids or { id | preset, name, title, note, blank: [columns] }
 //   compare                  [{ label, params, own? }]: buttons that switch the live model between treatments in real
 //                            time (params: each option's full set of the switched keys; own: the slide's own state);
+//                            or [{ label, preset, block? }, { label, own: true }]: buttons that ease the live model to another
+//                            patient (a preset, computed with the slide's states; block: its ladder's station block, none if
+//                            left out) and back to the slide's own state;
 //                            or [{ label, lens, own? }]: buttons that switch the figure's lens, the model untouched;
 //                            or [{ label, gate, own? }]: buttons that move a stent Doppler's gate (see tool), the model untouched
 //   fold                     false: the ladder card never folds its plot behind Show (Sites slide 7 folded on a laptop); its own zoom fits it
@@ -66,7 +69,7 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { CIRCULATION } from './decks/circulation.js?v=2f65734bbf';
-import { SITES } from './decks/sites.js?v=6d5c2ffbb1';
+import { SITES } from './decks/sites.js?v=a5b326f03e';
 import { HVPG } from './decks/hvpg.js?v=a8f955db72';
 import { ASCITES } from './decks/ascites.js?v=bd86d17809';
 import { VARICES } from './decks/varices.js?v=b6bdf79a93';

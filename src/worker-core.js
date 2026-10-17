@@ -219,7 +219,6 @@ export function createCore(post) {
       case 'valsalva': e.startValsalva(a.sec || 10); break;
       case 'rupture': e.rupture(a.site || 'VAR', a.tear || 0.6); break;
       case 'stopBleed': e.stopBleed('clot'); break;
-      case 'volume': e.addVolume(a.mL, 0.35, true); break;   // (the body's own volume, as a preset's: the reflexes reset to it)
     }
   }
 

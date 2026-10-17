@@ -20,11 +20,11 @@ import { sinusoidSupported } from './sinusoid-view.js?v=54548ee400';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=85e78f2d09';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=a6b2ad6236';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=b0f4bd2a3c';
 import { createTools } from './presenter-tools.js?v=e570efd46d';
-import { openHandout } from './handout.js?v=53572ba828';
+import { openHandout } from './handout.js?v=95026eb257';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=e25caf9bf9';
@@ -1120,7 +1120,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=16127676c3', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=80c60be020', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1133,7 +1133,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=431e9bfead');
+        const { createCore } = await import('../worker-core.js?v=2945437dac');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1190,7 +1190,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     stateOf = []; let last = 0;
     slides.forEach((s, i) => { if (changes(s) || i === 0) last = i; stateOf[i] = last; });
     // Patients a visual compares that no slide shows ({ preset, params?, days? } rows): computed after the slides, each fresh.
-    const extraRows = slides.flatMap((s) => (s.of || []).filter((o) => typeof o === 'object' && o.preset && !o.id));
+    // (And the patients a compare slide's buttons switch to: { label, preset }.)
+    const extraRows = slides.flatMap((s) => [...(s.of || []).filter((o) => typeof o === 'object' && o.preset && !o.id), ...(s.compare || []).filter((o) => o.preset)]);
     const extra = [...new Map(extraRows.map((o) => [xKey(o), o])).values()];
     extraOf = new Map(extra.map((o, k) => [xKey(o), slides.length + k]));
     const hit = key && cache.get(key);
@@ -1454,15 +1455,38 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // sweep faster while it settles); the ladder and tiles follow it.
   function abPick(s, i, k) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
-    const bs = [...(ui?.text.querySelectorAll('.pz-abb') || [])], was = bs.findIndex((b) => b.getAttribute('aria-pressed') === 'true');
-    bs.forEach((b, j) => b.setAttribute('aria-pressed', String(j === k)));
+    ui?.text.querySelectorAll('.pz-abb').forEach((b, j) => b.setAttribute('aria-pressed', String(j === k)));
     if (s.compare[k].lens) { lensPick(s.compare[k].lens); return; }
     // A gate button ({ label, gate }): the Doppler samples that third of the stent; the model is untouched.
     if (s.compare[k].gate) { store.set({ dopGate: s.compare[k].gate }); return; }
-    // (volume: the mL the option's patient holds above a normal circulation; a failing heart's retained fluid goes with it,
-    // so a normal heart reads normal pressures. The change is from the option pressed until now.)
-    const dv = was >= 0 ? (s.compare[k].volume ?? 0) - (s.compare[was].volume ?? 0) : 0;
-    liveSet(s, i, s.compare[k].params, dv);
+    // A patient button ({ label, preset, block? }): the live model eases to that patient, computed with the slide's states,
+    // and the slide's own button eases back to the slide's own state. A normal heart is then a healthy circulation (none of
+    // the failing heart's retained fluid or ascites is left behind), and the failing heart is the slide's numbers exactly.
+    if (s.compare[k].preset || (s.compare[k].own && s.compare.some((o) => o.preset))) { livePatient(s, i, s.compare[k]); return; }
+    liveSet(s, i, s.compare[k].params);
+  }
+  // The ladder's block on a station (block: 'ra') follows the button pressed: a patient button gives its own (none, unless it
+  // names one), the slide's own button the slide's. Cleared when a slide is shown afresh, its own button pressed.
+  let abBlk = null;
+  const blockOf = (s) => (abBlk?.s === s ? abBlk.block : s.block);
+  async function livePatient(s, i, o) {
+    const g = ++abGen, mine = () => g === abGen && shown?.i === i && slides[i] === s && !!deck;
+    const st = await stateReady(o.preset ? extraOf.get(xKey(o)) : stateOf[i]);
+    if (!st || !mine()) return;
+    liveOff = true;
+    abBlk = { s, block: o.preset ? o.block ?? null : s.block };
+    const ref = refOf(s, i);
+    let easing = true;
+    (async () => {
+      while (easing && mine()) {
+        await wait(150);
+        const fr = store.get().frame;
+        if (easing && fr?.metrics && mine()) dataTo(s, liveFp(fr), ref, 280);
+      }
+    })();
+    const done = await morphTo(st, () => !mine(), reduce.matches ? 0 : 1200, false);
+    easing = false;
+    if (done && mine()) { dataTo(s, st.fp, ref, 280); abSlow(); }
   }
   // The slide's colour key on the figure (null: none); another lens fades the old key out, the new one in.
   function paintKey(k) {
@@ -1483,13 +1507,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (store.get().colorMode !== lens) store.set({ colorMode: lens });
     paintKey(lens);
   }
-  async function liveSet(s, i, patch, dv = 0) {
+  async function liveSet(s, i, patch) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     const g = ++abGen, ref = refOf(s, i), mine = () => g === abGen && shown?.i === i && !!deck;
     liveOff = true;
     replaceParams(merge(structuredClone(store.get().params), patch));
     host.send({ type: 'setParams', params: store.get().params, settle: false, ease: 1200 });
-    if (dv) host.send({ type: 'action', action: { kind: 'volume', mL: dv } });
     host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
     for (const t0 = performance.now(); performance.now() - t0 < 7000 && mine();) {
       await wait(150);
@@ -1546,7 +1569,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const tileKeys = (s) => (s.tiles || []).filter((k) => !(s.tool?.kind === 'flowtime' && s.tool.lines?.includes(k) && !phone()));   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
   function dataTo(s, f, ref, ms) {
     if (!ui) return;
-    if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets, block: s.block });
+    if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets, block: blockOf(s) });
     if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
     ui.tools.pin(f);   // (an instrument's reading is the tiles' number)
     stage.siteFp?.(f);   // (and a callout's)
@@ -2066,6 +2089,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (s.tool) ui.tools.ghost(toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
       const ms = fresh ? 0 : undefined;
+      abBlk = null;   // (the slide's own button is pressed again)
       if (lad) ui.ladder.set(now.fp, { key: s.key || [], ms, brackets: s.brackets, block: s.block });
       if (s.data) ui.tiles.set(now.fp, tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
       ui.tools.pin(now.fp);
