@@ -335,7 +335,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         addEventListener('resize', place);
         addEventListener('keydown', typed, true);
         onToggle?.(true, sheet);
-        if (sheet) el.querySelector('.um-x').focus({ preventScroll: true }); else el.querySelector('.um-q').focus({ preventScroll: true });
+        // Only a mouse or trackpad puts the caret in the search: on a touch screen (iPhone, iPad either way round)
+        // focusing it pops the on-screen keyboard, so the close button takes focus and the keyboard waits for a tap there.
+        el.querySelector(sheet || !fine.matches ? '.um-x' : '.um-q').focus({ preventScroll: true });
         if (!lib) library().then(() => { if (open) render(); scrollTo(); });
         dragToClose(el);
       }

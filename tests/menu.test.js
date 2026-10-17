@@ -47,3 +47,14 @@ test('over the thumb dock only a sheet or a menu from the dock rises from behind
   assert.match(css, /html\.thumb-ui \.menu\.from-dock \{ animation: thumbIn/);
   assert.match(css, /html\.thumb-ui \.menu\.from-dock \{ translate: 0 var\(--sink, 0px\); \}/);
 });
+
+// Opening the menu on a touch screen (iPad sideways included, which gets the panel, not the sheet) never focuses the
+// search, so the on-screen keyboard stays down until the search itself is tapped; a mouse or trackpad still types at once.
+test('the menu focuses its search on open only with a fine pointer, never on a touch screen', () => {
+  const src = readFileSync(new URL('../src/ui/menu.js', import.meta.url), 'utf8');
+  assert.match(src, /const fine = matchMedia\('\(hover: hover\) and \(pointer: fine\)'\);/);
+  const open = src.slice(src.indexOf('    open(section, opts = {}) {'), src.indexOf('const scrollTo = () =>'));
+  const focuses = open.match(/\.focus\([^)]*\)/g) || [];
+  assert.equal(focuses.length, 1, 'one focus call on open');
+  assert.match(open, /el\.querySelector\(sheet \|\| !fine\.matches \? '\.um-x' : '\.um-q'\)\.focus\(\{ preventScroll: true \}\);/);
+});
