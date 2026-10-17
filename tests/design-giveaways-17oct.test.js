@@ -20,11 +20,11 @@ test('DG3: the accent is kept for controls: the progress line and the "What if" 
   assert.match(tokens, /--focus: #3155D1;/);
 });
 
-test('DG4: a chosen slide button is ink with an accent underline, not a filled accent pill, and the card draws no track', () => {
+test('DG4: each slide choice is its own outlined button; the chosen one is ink with an accent edge, not a filled accent pill, and the card draws no track', () => {
   const on = rule('.pz-abb[aria-pressed="true"] {');
   assert.ok(!/background/.test(on), 'no fill');
-  assert.match(on, /text-decoration-color: var\(--accent\)/);
-  assert.match(rule('.pz-abb {'), /text-decoration-color: transparent;[^}]*transition:[^}]*text-decoration-color/, 'the underline eases in');
+  assert.match(on, /border-color: var\(--accent\)/);
+  assert.match(rule('.pz-abb {'), /border: 1px solid [^;]+;[^}]*transition:[^}]*border-color/, 'every option has its own edge, and the chosen edge eases in');
   assert.match(rule('.pz-text .pz-ab {'), /background: none; border-color: transparent;/);
 });
 

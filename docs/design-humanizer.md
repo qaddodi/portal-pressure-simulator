@@ -97,7 +97,7 @@ a glow, a badge). Prefer the first.
 |---|---|---|
 | A stock line icon beside every heading, tab and button | Icon packs applied by default | Icons only where the word does not fit (a bottom tab bar, a gear, a close X) |
 | An icon in a tinted circle or rounded square | Feature-grid template | The icon alone, or no icon |
-| A segmented control with a bright filled pill for the choice | iOS template in a teaching card | Quieter selected state: ink text with an accent underline |
+| A segmented control with a bright filled pill for the choice | iOS template in a teaching card | Separate outlined buttons, so each plainly reads as tappable; the chosen one in full ink with an accent edge |
 | Toggles drawn as chips with a radio circle inside | Chip-with-checkbox hybrid | A plain row with a check, or a switch |
 | Emoji in the interface | Never seen in a textbook | None (also a writing rule) |
 
@@ -155,7 +155,7 @@ unless he changes them; you may point out the tension, but do not "fix" them on 
 
 **Choice buttons in a teaching card**
 - Before: "Normal heart | **Failing heart**" with the choice in a bright accent-filled pill inside a bordered track.
-- After: two plain text buttons, the chosen one in full ink with a short underline.
+- After: two separate buttons with a thin outline, the chosen one in full ink with an accent edge. (Plain text with an underline was tried and did not read as something to tap.)
 
 ## Final pass
 
