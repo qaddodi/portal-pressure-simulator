@@ -214,17 +214,21 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     let x = align === 'end' ? r.right - w0 : align === 'center' ? r.left + r.width / 2 - w0 / 2 : r.left;
     // A scrolling menu below its button may use all the room down to the 8 px margin, so it ends whole where it fits; never
     // over the bottom bar where the two meet (a phone held sideways: Settings had run 87 px over it; sweep 04 #01).
-    let barTop = null;
+    let barTop = null, at = place;
     if (place === 'below' && el.classList.contains('app-menu')) {
       const dock = document.getElementById('vdock'), d = dock?.offsetParent ? dock.getBoundingClientRect() : null, xl = clamp(x, 8, innerWidth - w0 - 8);
       if (d && d.height && d.left < xl + w0 && d.right > xl && d.top < visibleBottom()) barTop = d.top;
-      el.style.maxHeight = Math.max(160, (barTop ?? visibleBottom()) - r.bottom - 16) / z + 'px';
+      // A button low on the screen (the deck nav pill's gear on a Mac or iPad) opens it above, at its full height: below
+      // it the room was the 160 px floor, which cut Settings off at "Text size on the figure".
+      const below = (barTop ?? visibleBottom()) - r.bottom - 16;
+      if (below < el.scrollHeight * z && r.top - 16 > below) { at = 'above'; barTop = null; el.style.maxHeight = (r.top - 16) / z + 'px'; }
+      else el.style.maxHeight = Math.max(160, below) / z + 'px';
     }
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
     const mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
     // (A menu from the thumb dock's tab row opens above the whole dock, so it never covers the play bar or HVPG and PPG.)
     const top = anchor.closest('.thumb-bar') ? Math.min(r.top, anchor.closest('.vdock').getBoundingClientRect().top - 6) : r.top;
-    let y = place === 'above' ? top - mr.height - 8 : r.bottom + 8;
+    let y = at === 'above' ? top - mr.height - 8 : r.bottom + 8;
     const vb = visibleBottom();
     if (y + mr.height > vb - 8) y = Math.max(8, r.top - mr.height - 8);
     el.style.left = clamp(x, 8, innerWidth - mr.width - 8) / z + 'px';

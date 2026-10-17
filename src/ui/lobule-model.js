@@ -6,7 +6,7 @@
 // liver's flow).
 
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { clamp } from './util.js?v=1b66c4ae69';
+import { clamp } from './util.js?v=033af35443';
 import { oxygenFor } from './blood.js?v=1f05278710';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
