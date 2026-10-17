@@ -69,3 +69,8 @@ test('what-if: a label naming the unit shows the bare number, on the label\'s ro
   assert.match(js, /const bare = !!w\.unit && w\.label\.toLowerCase\(\)\.startsWith\(w\.unit\.toLowerCase\(\)\)/);
   assert.match(css, /\.pz\.stack \.pz-wi > \.pzi-t \{ order: 1; \}/);
 });
+
+test('a phone card\'s level tag shares the deck tab\'s strip unless it would meet the tab (P1)', () => {
+  assert.match(js, /const site = p && t && tabH \? ui\.text\.querySelector\(':scope > \.pz-site'\) : null;/);
+  assert.match(js, /site\.getBoundingClientRect\(\)\.right \+ 10 \* k <= tabEl\.getBoundingClientRect\(\)\.left\) lift = Math\.max\(4, \(tabH - site\.offsetHeight\) \/ 2\) - site\.offsetTop;/);
+});

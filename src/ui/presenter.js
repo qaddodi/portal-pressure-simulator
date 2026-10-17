@@ -2676,7 +2676,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.shade.style.width = !p && t ? `${(card || L + 36) / k}px` : '';
     ui.shade.style.height = !p && cardOn && t ? `${(t.height + pad + padT) / k}px` : '';
     // (A phone's glass reaches 16 px above the words, or the deck's tab and 8 px more: the tab never meets the title.)
-    const lift = p && t ? Math.max(16, (ui.shade.querySelector('.pz-tabname')?.offsetHeight || 0) + 8) : 16;
+    const tabEl = ui.shade.querySelector('.pz-tabname'), tabH = tabEl?.offsetHeight || 0;
+    let lift = p && t ? Math.max(16, tabH + 8) : 16;
+    // (A slide's level tag shares the deck tab's strip, at its left, centred on the tab's height, rather than taking a row of its
+    // own under it: the card is that row shorter, about 26 px on an iPhone (17 Oct, "Phone teaching card wastes space", P1).
+    // Kept on its own row where it would come within 10 px of the tab, a long deck name on a narrow phone.)
+    const site = p && t && tabH ? ui.text.querySelector(':scope > .pz-site') : null;
+    if (site && site.getBoundingClientRect().right + 10 * k <= tabEl.getBoundingClientRect().left) lift = Math.max(4, (tabH - site.offsetHeight) / 2) - site.offsetTop;
     ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
