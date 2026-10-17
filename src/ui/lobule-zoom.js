@@ -1835,10 +1835,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
   // The surround fades into the page (light in light mode, dark in dark mode).
   const shadeOf = (bg) => bg;
-  function fieldFade(c, bg, x, y, rd, q, w, h, r0 = rd * 1.1) {
+  // ring: [inner, outer] radii, to fill only that annulus (where the fade changes anything; see paintTissue).
+  function fieldFade(c, bg, x, y, rd, q, w, h, r0 = rd * 1.1, ring = null) {
     const vg = c.createRadialGradient(x, y, r0, x, y, r0 * (3.2 / 1.1));
     vg.addColorStop(0, css(bg, 0)); vg.addColorStop(0.5, css(bg, 0.72 * q)); vg.addColorStop(1, css(bg, q));
-    c.fillStyle = vg; c.fillRect(0, 0, w, h);
+    c.fillStyle = vg;
+    if (!ring) { c.fillRect(0, 0, w, h); return; }
+    c.beginPath(); c.arc(x, y, ring[1], 0, TAU); if (ring[0] > 0) { c.moveTo(x + ring[0], y); c.arc(x, y, ring[0], 0, TAU); } c.fill('evenodd');
   }
   // d: { a: opacity 0..1, x, y: where the settling lobule's centre is (stage px), r: its radius on
   // screen, ox, oy: the point it emerges from, quiet: 0..1, the surround drained as the lobule view's is,
@@ -2264,25 +2267,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const bg = v('--stage-bg', v('--bg'));
-    c.fillStyle = bg; c.fillRect(0, 0, W, H);
     const { R, cx, cy } = G;
-    // The neighbours are the dive's field, carried on: the same tissue, in the same state, fading into
-    // the page with distance from this lobule (so zooming out, they fade away completely).
-    {
-      c.setTransform(1, 0, 0, 1, 0, 0);
-      const [sx, sy] = toScreen([cx, cy]), rd = R * V.k * dpr;
-      // (Mid-glide, the tile it had is stretched rather than a larger one drawn; a new tissue state's tiles are built between frames, see fieldTile.)
-      const want = gliding && surRd ? surRd : rd * 0.55;
-      if (!gliding) surRd = rd * 0.55;
-      const t = fieldTile(cs, dark, want, !unseen()), q = quietTile(t, shadeOf(rgb01(bg), dark));
-      // (A new state's tiles fade in over the last state's; a new size of the same state just takes over: the same picture.)
-      if (surNow && t.set !== surNow.set && surNow.q.cv?.width && !unseen()) { surOld = surNow.q; surT0 = now; }
-      surNow = { set: t.set, q };
-      const su = surT0 ? xfU(surT0, now) : 1;
-      if (su >= 1) { surT0 = 0; surOld = null; }
-      fieldFill(c, q, sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
-      if (surOld?.cv?.width) { c.globalAlpha = 1 - su; fieldFill(c, surOld, sx * dpr, sy * dpr, rd, W * dpr, H * dpr); c.globalAlpha = 1; }
-    }
     const B = 1.3 * R, bx = cx - B, by = cy - B;
     if (wk !== worldKey) {
       // The tissue's state changed (not just the scale it is drawn at): the old picture stays under the new one as it fades in.
@@ -2297,6 +2282,47 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       w.setTransform(1, 0, 0, 1, 0, 0); w.clearRect(0, 0, n, n);
       w.setTransform(sc, 0, 0, sc, -bx * sc, -by * sc);
       paintLobule(w, m, G, dark, cs, bg, v);
+    }
+    // Each pixel is filled only by the passes that can change it (a slide's camera gliding inside the lobule lagged: Safari
+    // draws these canvases on the CPU, so every full-screen pass costs tens of ms there). The same picture, pixel for pixel:
+    // past the focus fade's outer edge it lays the page's colour at full strength, so only the page's colour goes there; inside
+    // its inner edge it adds nothing, so it is not laid there; and the surround is not filled under the lobule's opaque middle,
+    // which the lobule's bitmap covers whole (kept a few pixels in from its edge, past any smoothing of the bitmap's edge).
+    // (Not mid-crossfade: two pictures mixed may leave its middle a hair short of opaque.)
+    const [ocx, ocy] = toScreen([cx, cy]), ox = ocx * dpr, oy = ocy * dpr, rdv = R * V.k * dpr, fIn = rdv * 1.1, fOut = rdv * 3.2;
+    const reach = Math.max(...[[0, 0], [tw, 0], [0, th], [tw, th]].map(([x, y]) => Math.hypot(x - ox, y - oy)));
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.fillStyle = bg;
+    if (reach > fOut + 1) { c.beginPath(); c.rect(0, 0, tw, th); c.moveTo(ox + fOut + 1, oy); c.arc(ox, oy, fOut + 1, 0, TAU); c.fill('evenodd'); }
+    const crossfading = !!(xfT0 && now - xfT0 < XF_MS && worldOld.width && worldOldSc);
+    // The neighbours are the dive's field, carried on: the same tissue, in the same state, fading into
+    // the page with distance from this lobule (so zooming out, they fade away completely).
+    {
+      c.save();
+      c.beginPath(); c.arc(ox, oy, fOut + 2, 0, TAU);
+      if (!crossfading) {
+        // (The bitmap's pixels are 1/worldSc wide: a few of them in from its edge, as many screen pixels as they span, and 2 more.)
+        const mg = 2 + 3 * Math.max(1, (dpr * V.k) / worldSc);
+        G.lobules[0].corners.forEach(([x, y], i) => {
+          const [px, py] = toScreen([x, y]), dx = px * dpr - ox, dy = py * dpr - oy, d = Math.hypot(dx, dy) || 1, f = Math.max(0, 1 - mg / d);
+          c[i ? 'lineTo' : 'moveTo'](ox + dx * f, oy + dy * f);
+        });
+        c.closePath();
+      }
+      c.clip('evenodd');
+      const [sx, sy] = toScreen([cx, cy]), rd = R * V.k * dpr;
+      // (Mid-glide, the tile it had is stretched rather than a larger one drawn; a new tissue state's tiles are built between frames, see fieldTile.)
+      const want = gliding && surRd ? surRd : rd * 0.55;
+      if (!gliding) surRd = rd * 0.55;
+      const t = fieldTile(cs, dark, want, !unseen()), q = quietTile(t, shadeOf(rgb01(bg), dark));
+      // (A new state's tiles fade in over the last state's; a new size of the same state just takes over: the same picture.)
+      if (surNow && t.set !== surNow.set && surNow.q.cv?.width && !unseen()) { surOld = surNow.q; surT0 = now; }
+      surNow = { set: t.set, q };
+      const su = surT0 ? xfU(surT0, now) : 1;
+      if (su >= 1) { surT0 = 0; surOld = null; }
+      fieldFill(c, q, sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
+      if (surOld?.cv?.width) { c.globalAlpha = 1 - su; fieldFill(c, surOld, sx * dpr, sy * dpr, rd, W * dpr, H * dpr); c.globalAlpha = 1; }
+      c.restore();
     }
     c.setTransform(1, 0, 0, 1, 0, 0);
     {
@@ -2315,7 +2341,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       }
     }
     // Focus: the surround fades into the page (as the dive's field does at its end).
-    { c.setTransform(1, 0, 0, 1, 0, 0); const [sx, sy] = toScreen([cx, cy]); fieldFade(c, shadeOf(rgb01(bg), dark), sx * dpr, sy * dpr, R * V.k * dpr, 1, W * dpr, H * dpr); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
+    // (Only between its inner edge and the outer one: inside it adds nothing, outside the page's colour is already there.)
+    { c.setTransform(1, 0, 0, 1, 0, 0); if (fIn - 1 < reach) fieldFade(c, shadeOf(rgb01(bg), dark), ox, oy, rdv, 1, W * dpr, H * dpr, fIn, [fIn - 1, fOut + 4]); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
     if (flatVessels) paintFlatVessels(c, cs);
     if (diveRim) diveCopy();
   }

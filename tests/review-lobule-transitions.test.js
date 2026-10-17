@@ -148,3 +148,22 @@ test('a patient changed while the lobule is closed dives into that patient\'s lo
   assert.match(lz, /const fieldState = \(\) => \{ const m = !unseen\(\) && model \? model : F \? closedModel\(\) : model;/);
   assert.match(lz, /fsM = lobuleState\(\{ \.\.\.F, P: F\.Pf \|\| F\.P \}, st\);/);
 });
+
+test('the lobule\'s tissue fills each pixel only with the passes that change it, so a slide\'s camera glide stays smooth (Mohammad, 17 Oct)', () => {
+  const s = lz.indexOf('function paintTissue('), e = lz.indexOf('function diveCopy(');
+  const pt = lz.slice(s, e);
+  // No whole-screen fill of the page's colour: only past the focus fade's outer edge, where the fade would lay it at full strength anyway.
+  assert.doesNotMatch(pt, /c\.fillStyle = bg; c\.fillRect\(0, 0, W, H\);/);
+  assert.match(pt, /if \(reach > fOut \+ 1\) \{ c\.beginPath\(\); c\.rect\(0, 0, tw, th\); c\.moveTo\(ox \+ fOut \+ 1, oy\); c\.arc\(ox, oy, fOut \+ 1, 0, TAU\); c\.fill\('evenodd'\); \}/);
+  // The surround: inside the fade's outer edge, and not under the lobule's opaque middle unless two pictures are crossfading.
+  assert.match(pt, /c\.beginPath\(\); c\.arc\(ox, oy, fOut \+ 2, 0, TAU\);\n\s+if \(!crossfading\) \{/);
+  assert.match(pt, /const mg = 2 \+ 3 \* Math\.max\(1, \(dpr \* V\.k\) \/ worldSc\);/);
+  assert.match(pt, /c\.clip\('evenodd'\);/);
+  assert.ok(pt.indexOf('if (wk !== worldKey) {') < pt.indexOf('const crossfading'), 'the bitmap (and any crossfade it starts) is settled before the surround leaves a hole for it');
+  // The fade: the annulus from its inner edge to past the surround's clip, so the clip's soft edge is covered at full strength.
+  assert.match(pt, /fieldFade\(c, shadeOf\(rgb01\(bg\), dark\), ox, oy, rdv, 1, W \* dpr, H \* dpr, fIn, \[fIn - 1, fOut \+ 4\]\)/);
+  assert.match(lz, /const vg = c\.createRadialGradient\(x, y, r0, x, y, r0 \* \(3\.2 \/ 1\.1\)\);\n\s+vg\.addColorStop\(0, css\(bg, 0\)\);/, 'clear at the inner edge, the page colour at full strength past 3.2 radii');
+  assert.match(pt, /fIn = rdv \* 1\.1, fOut = rdv \* 3\.2;/);
+  // The lobule's bitmap is opaque inside its own outline (filled first, at 1.015 of the hexagon, full strength).
+  assert.match(lz, /const px = l\.x \+ \(x - l\.x\) \* 1\.015, py = l\.y \+ \(y - l\.y\) \* 1\.015;[^\n]*c\.fill\(\); \}/);
+});

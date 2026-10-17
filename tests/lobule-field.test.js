@@ -18,7 +18,8 @@ test('the dive fades the lobules away from the landing one, in and out, rising t
   assert.match(lz, /const f = clamp\(d\.focus \?\? d\.quiet, 0, 1\)/);
   // At focus 1 the clear circle is the lobule view's resting surround (rd × 1.1), so the landing has no jump.
   assert.match(lz, /Math\.log\(Math\.min\(diag \* 0\.45, rd \* 1\.1\)\), f\)/);
-  assert.match(lz, /fieldFade\(c, shadeOf\(rgb01\(bg\), dark\), sx \* dpr, sy \* dpr, R \* V\.k \* dpr, 1,/, 'the resting view keeps the faded surround');
+  assert.match(lz, /fieldFade\(c, shadeOf\(rgb01\(bg\), dark\), ox, oy, rdv, 1,/, 'the resting view keeps the faded surround');
+  assert.match(lz, /ox = ocx \* dpr, oy = ocy \* dpr, rdv = R \* V\.k \* dpr/, 'centred on the lobule, at its radius on screen');
 });
 
 test('the dive does no full-size redraws or hidden compositing mid-zoom', () => {
