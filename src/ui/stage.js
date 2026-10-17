@@ -1451,6 +1451,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Fit shows the whole figure. On a narrow screen the circuit opens as a close-up of the portal vein
   // and liver (see defaultVT), which is not a fit: there Fit shows the entire map, and tapping it
   // again returns to the close-up, so the button always does something visible.
+  let fitTo = null;   // where the last fit or refit took the view (see closeView)
   const fit = () => {
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view). Inside the sinusoid it steps back out to the lobule.
     if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.fitView(); return; }
@@ -1461,6 +1462,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const at = vtGliding ? vtTarget : vt;
     const to = circuit && !near(focus, whole) ? (near(at, whole) ? focus : whole) : focus;
     if (!circuit) homeAt = to;
+    fitTo = to;
     // It glides there, as the zoom buttons do (reduced motion: a short glide).
     animateVT(to, 420);
   };
@@ -1470,11 +1472,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lobuleOn) return;
     const to = defaultVT(morphTarget === 1);
     if (morphTarget !== 1) homeAt = to;
+    fitTo = to;
     if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, 420);
   }
-  // The Tests card closed: the view stays where it is (no glide back to the fit). The home framing is let go, so the looks
-  // that follow the card leaving (resize, pps:occ) leave it alone too; the next card that opens or Fit sets it again.
-  function keepView() { if (!lobuleOn) homeAt = null; }
+  // The Tests card closed. A fitted view (the last fit or refit, or the anatomy's home) is fitted again to the space the card
+  // leaves; a view the learner zoomed or panned stays where it is, and the home framing is let go so the looks that follow
+  // the card leaving (resize, pps:occ) leave it alone too. Every way of closing it (the Tests button, its close button, Esc,
+  // a swipe) comes here, so a swipe and a tap end the same. Gives back true when it fits.
+  function closeView() {
+    if (lobuleOn) return false;
+    const at = vtGliding ? vtTarget : vt;
+    if ((fitTo && sameView(at, fitTo)) || (morphTarget === 0 && homeAt && sameView(at, homeAt))) return true;
+    homeAt = null;
+    return false;
+  }
 
   // Turn the circuit upright (flow bottom to top) or back to wide. Shown whole, it stays whole (fitted
   // to the new shape); zoomed in, it keeps the zoom and turns about the point at the middle of the
@@ -7750,7 +7761,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; if (!sameView(lo, base)) animateVT(lo, 260); return; }
       const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);
     },
-    fit, refit, keepView,
+    fit, refit, closeView,
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),
@@ -7799,7 +7810,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cameraZoom: () => ((diveT <= 0 || diveT >= 1) && !chainOut && !lz?.sinBusy() ? null : (refreshCTM(), Math.log(CTM.sc) + diveZ + lz.sinZoom() + zShift)),
     /** The next way out of the lobule lands on this box of the plate (or the fit, for null or 'fit'): one zoom, no stop between. */
     riseTo, holdHome,
-    fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
+    fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; fitTo = to; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
     cameraState: () => ({ ...(vtGliding && vtTarget ? vtTarget : vt) }),
     /** The organs are drawn from the GPU copy again after a patient change (or never will be: no WebGL), so a camera move costs only the GPU's draw. */

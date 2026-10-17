@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=a11d7ef88d';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=94bb3744ba';
+import { createStage } from './stage.js?v=0b21d0d64a';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
 import { sinusoidSupported } from './sinusoid-view.js?v=54548ee400';
 import { createInspector } from './inspector.js?v=21d673d02d';
@@ -1049,9 +1049,9 @@ function setPanelTab(tab) {
   if (instr && !was) dockSheet?.open();
   if (!instr && was) dockSheet?.closed();
   if (was !== instr) {
-    // Opening Tests frames the figure into the space left; closing it keeps the view where it is (Mohammad, 17 Oct),
-    // and drops a refit still pending from the open.
-    if (instr) refitStage(); else { clearTimeout(refitT); stage?.keepView(); }
+    // Opening Tests frames the figure into the space left. Closing it (any way) fits again only a view that was fitted;
+    // one the learner zoomed or panned stays where it is, and a refit still pending from the open is dropped (Mohammad, 17 Oct).
+    if (instr || stage?.closeView()) refitStage(); else clearTimeout(refitT);
     const f = store.get().frame; if (f && instr) nextFrame(() => dock.update(f, true));
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
   }
