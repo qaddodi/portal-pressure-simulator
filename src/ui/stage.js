@@ -2,13 +2,13 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=358b572182';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=297b77ad88';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=831ae6121c';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=a60727fe1b';
-import { createLobuleZoom } from './lobule-zoom.js?v=66a35b38b1';
+import { createLobuleZoom } from './lobule-zoom.js?v=8226429148';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -1383,6 +1383,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const f = (pl - ax0) / (ax1 - ax0), wx = (ax0 - ox) / s0, wy = ((ay0 + ay1) / 2 - oy) / s0;
     return { k: v.k * f, x: wx - f * (wx - v.x), y: wy - f * (wy - v.y) };
   }
+  // On a slide, the circuit as drawn (its header row down to its lowest open vessel) stands centred in the height the cards leave,
+  // above the nav pill, at the same size: framed for every collateral, a circuit with few open sat high over a bare band (17 Oct
+  // design review, iPad on its side). Read from the vessels' circuit courses, which never morph, so it frames once.
+  function centreDrawn(v) {
+    if (!store.get().presenting) return v;
+    const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
+    if (!W || !H) return v;
+    let bot = -Infinity;
+    for (const x of Object.values(E)) {
+      if (!x.vis || x.g.classList.contains('coll-ghost')) continue;
+      for (const p of geo[x.e.id]?.C || []) if (p[1] > bot) bot = p[1];
+    }
+    if (!Number.isFinite(bot)) return v;
+    const [, vy, vw, vh] = VB_CIRC, s0 = Math.min(W / vw, H / vh), oy = (H - vh * s0) / 2 - vy * s0;
+    const sy = (Y) => oy + s0 * (v.y + v.k * Y);
+    const ins = safeInsets(), top = sy(vy), end = Math.min(sy(vy + vh), sy(bot) + 30);
+    let floor = H - ins.b;
+    for (const el of [document.querySelector('.pz-bar.pzb-pill'), document.getElementById('zoomPill')]) {
+      const r = el?.getBoundingClientRect();
+      if (r?.width && getComputedStyle(el).visibility !== 'hidden') floor = Math.min(floor, r.top - wr.top - 8);
+    }
+    const hi = floor - end, dy = Math.min(hi, Math.max(ins.t + 4 - top, (ins.t + floor) / 2 - (top + end) / 2));   // (never past the pill, nor its top under a card)
+    return hi > 0 && dy > 0 ? { k: v.k, x: v.x, y: v.y + dy / s0 } : v;
+  }
   // The whole map, in the space the cards leave and clear of the zoom pill.
   const circWhole = () => clearPill(insetVT({ k: 1, x: 0, y: 0 }, circVB()), circVB());
   function defaultVT(circuit) {
@@ -1418,7 +1442,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const W = ins.W - ins.l - ins.r, H = ins.H - ins.t - ins.b;
     const s0 = Math.min(W / VB_CIRC[2], H / VB_CIRC[3]);
     // (With a card at the side the whole map is shown: the close-up is for a narrow screen with nothing over it.)
-    if (ins.l || ins.r || VB_CIRC[3] * s0 > 0.62 * H) return clearPill(insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC), VB_CIRC);
+    if (ins.l || ins.r || VB_CIRC[3] * s0 > 0.62 * H) return centreDrawn(clearPill(insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC), VB_CIRC));
     const k = clamp((0.94 * H) / (VB_CIRC[3] * s0), 1, 3);
     const cx = VB_CIRC[0] + VB_CIRC[2] / 2, cy = VB_CIRC[1] + VB_CIRC[3] / 2;
     const fx = 640, fy = cy;
@@ -4276,10 +4300,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // split: where portal blood goes, the share that bypasses the liver over a bar split into the liver's and the shunts' shares.
     split: { node: 'PVH', kicker: 'Portal blood', cls: 'split', split: true, below: true },
     // (Both readings stand above the liver's column, clear of the station labels; the zigzags mark where each resistor is.)
-    rLiver: { kicker: 'R liver', cls: 'res', unit: 'vs healthy liver', res: 'liver' },
-    rColl: { kicker: 'R collaterals', cls: 'res coll', unit: 'vs healthy liver', res: 'coll' },
+    // (Named in full, each ratio bare; "vs healthy liver" is said once, in the group's key: 17 Oct design review.)
+    rLiver: { kicker: 'Liver resistance', cls: 'res', unit: '', res: 'liver' },
+    rColl: { kicker: 'Collateral resistance', cls: 'res coll', unit: '', res: 'coll' },
     // The gut's arterioles (the splanchnic arteries in parallel), in series before the liver: most of the pressure falls here.
-    rGut: { kicker: 'R gut arterioles', cls: 'res gut', unit: 'vs healthy liver', res: 'gut' } };
+    rGut: { kicker: 'Gut arteriole resistance', cls: 'res gut', unit: '', res: 'gut' } };
+  // The resistors' key, under the one reading at the group's outer edge (resKeyed).
+  const RES_KEY = '× healthy liver’s resistance';
   // Where the resistors' readings stand (stage-local): centred over the circuit, above it, or below it once it is turned upright.
   function resAt() {
     const c = [[60, 40], [1360, 40], [60, 640], [1360, 640]].map(([x, y]) => worldToLocal(x, y)), ys = c.map((p) => p[1]);
@@ -4332,6 +4359,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Heavier as the resistance rises: 1.5 px at the healthy liver's, about 4 px at four times it (eased by CSS).
     g.style.setProperty('--res-w', `${clamp(1.5 + 1.25 * Math.log2(Math.max(0.25, ratio)), 0.8, 5).toFixed(2)}px`);
   }
+  // The wide screen's nav pill, read with the cards (readBlockers): its gap from the stage's right edge is the slides' one margin
+  // (--pz-cm), and its top bounds the row the figure's readings keep clear of. Null when no pill shows (a phone, or no slide).
+  let pillEdge = null;
   const sites = (() => {
     const el = document.createElement('div');
     el.className = 'cath-labels site-labels'; el.setAttribute('aria-hidden', 'true');
@@ -4374,7 +4404,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const i = d.res === 'gut' ? 2 : d.res === 'coll' ? 1 : 0;
       if (low) { by = i === 2 ? y + h + 18 : y + 10; if (i === 0) bx = cx - w - 10; else if (i === 1) bx = cx + 10; }
       else by = y - (i + 1) * h - 12 - 6 * i;
-      return { x0: bx, y0: by, x1: bx + w, y1: by + h };
+      const b = { x0: bx, y0: by, x1: bx + w, y1: by + h };
+      // (The key, centred on the group: above the outermost reading of a level circuit, under the group of an upright one.)
+      if (el.classList.contains('keyed')) {
+        const kw = (el._kwid || 0) / 2;
+        b.x0 = Math.min(b.x0, cx - kw); b.x1 = Math.max(b.x1, cx + kw);
+        if (low) b.y1 = by + 2 * h + 4; else b.y0 = by - h - 4;
+      }
+      return b;
     }
     const ahead = el.dataset.at === 'ahead' && !el.classList.contains('above');
     return ahead ? { x0: bx, y0: y, x1: bx + w, y1: y + 18 + h } : { x0: bx, y0: y - 18 - h, x1: bx + w, y1: y };
@@ -4385,19 +4422,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const [k, el] of made) if (!want.includes(k)) { made.delete(k); el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); }, 500); }
     if (!F || !want.length) return;
     const { width: W, height: H } = stageBox(), t = easeInOut(morph);   // (the cached box: reading the wrap's each model frame forced a layout)
-    const x0 = pzInset('--pz-l') + 8, x1 = W - pzInset('--pz-r') - 8, y0 = pzInset('--pz-t') + 8, y1 = H - pzInset('--pz-b') - 8;
+    // (Never nearer a screen edge than the slides' one margin, as the cards and the figure's labels keep: 17 Oct design review.)
+    const M = pillEdge ? pillEdge.m : 8;
+    const x0 = Math.max(M, pzInset('--pz-l') + 8), x1 = W - Math.max(M, pzInset('--pz-r') + 8), y0 = Math.max(M, pzInset('--pz-t') + 8), y1 = H - pzInset('--pz-b') - 8;
     // (A wider screen's colour key stands on the nav pill at the lower right (presenter.js): one box, kept clear of every callout;
     // read at most twice a second, not each model frame.)
     const ko = keyPillBox();
     // The resistors' readings stand as one group (side by side under an upright circuit, stacked above a level one, the gut's
     // the farthest out): where the group's box would reach under the slide's cards, the whole group moves into the free space.
-    let resDy = 0;
+    let resDy = 0, resKeyed = null;
     const ra0 = want.some((k) => SITE_DEF[k]?.res) ? resAt() : null;
     if (ra0) {
       const rh = Math.max(0, ...[...made].filter(([k]) => SITE_DEF[k]?.res).map(([, el]) => el._h || 0));
-      const gut = want.includes('rGut') && resRatio('gut') != null, coll = want.includes('rColl') && resRatio('coll') != null;
-      if (rh && ra0.up) resDy = Math.min(0, y1 - (ra0.y + (gut ? 2 * rh + 18 : rh + 10)));
-      else if (rh) resDy = Math.max(0, y0 - (ra0.y - (gut ? 3 * rh + 24 : coll ? 2 * rh + 18 : rh + 12)));
+      const on = (k) => want.includes(k) && resRatio(SITE_DEF[k].res) != null;
+      const gut = on('rGut'), coll = on('rColl');
+      // (The key goes with the reading at the group's outer edge: the top one of a level circuit, else under the row of an upright one.)
+      resKeyed = (ra0.up ? ['rGut', 'rLiver', 'rColl'] : ['rGut', 'rColl', 'rLiver']).find(on) || null;
+      const kh = resKeyed ? rh + 4 : 0;
+      if (rh && ra0.up) resDy = Math.min(0, y1 - (ra0.y + (gut ? 2 * rh + 18 : rh + 10) + kh));
+      else if (rh) resDy = Math.max(0, y0 - (ra0.y - (gut ? 3 * rh + 24 : coll ? 2 * rh + 18 : rh + 12) - kh));
     }
     for (const k of want) {
       const d = SITE_DEF[k];
@@ -4411,6 +4454,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const sm = document.createElement('small'); sm.textContent = d.kicker;
         const b = document.createElement('b'), u = document.createElement('span'); u.textContent = d.unit ?? 'mmHg';
         el.append(sm, b, u);
+        if (d.res) { const kk = document.createElement('i'); kk.className = 'res-k'; kk.textContent = RES_KEY; el.append(kk); }
         if (d.split) {
           b.innerHTML = '<span class="sp-h"><em class="sp-n"></em>% bypasses the liver</span>'
             + '<span class="sp-bar"><i class="sp-l"></i><i class="sp-s"></i></span>'
@@ -4426,7 +4470,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const b = el.querySelector('b'), v = d.split ? null : d.res ? (ratio == null ? '' : '×' + fmt(ratio, ratio < 10 ? 1 : 0)) : fmt(siteLive(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : pinned()?.at?.P[NI[d.node]], (F.Pf || F.P)[NI[d.node]], breath(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : (F.Pf || F.P)[NI[d.node]])), 1);
       if (v != null && b.textContent !== v) b.textContent = v;
       const ra = d.res ? resAt() : null;
-      if (ra) el.classList.toggle('low', ra.up);
+      if (ra) { el.classList.toggle('low', ra.up); el.classList.toggle('keyed', k === resKeyed); }
       const [x, y] = ra ? [ra.x, ra.y + resDy] : worldToLocal(...nodePos(d.node, t));
       // Off the free space (or a resistor with nothing to show, or out of the circuit), the reading waits hidden; above
       // its point unless the top is covered (decided once, so it never jumps).
@@ -4434,7 +4478,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (el._below == null && el.offsetHeight) { el._below = d.below ? y + 18 + el.offsetHeight < y1 : y - 18 - el.offsetHeight < y0; el.dataset.at = el._below ? 'ahead' : ''; }
       // (Its width read again only when its words or classes change: a read after each frame's new number forced a layout.)
       const wk = `${el.className}|${el.textContent}|${W}|${labelBase()}|${labelFonts}`;
-      if (el._wk !== wk || !el._half) { el._wk = wk; el._half = el.offsetWidth / 2; el._h = el.offsetHeight; }
+      if (el._wk !== wk || !el._half) { el._wk = wk; el._half = el.offsetWidth / 2; el._h = el.offsetHeight; el._kwid = d.res ? el.querySelector('.res-k')?.offsetWidth || 0 : 0; }
       const half = el._half, cx = clamp(x, Math.min(x0 + half, (x0 + x1) / 2), Math.max(x1 - half, (x0 + x1) / 2));
       el._box = el.classList.contains('off') ? null : calloutBox(el, d, cx, y, half, el._h || 0);
       el.style.setProperty('--ax', `${(x - cx).toFixed(1)}px`);
@@ -4554,12 +4598,42 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // so the corners bound the rounded body: near the screen's top edge, a phone on its side, the probe lies flatter, down to 10°, so the whole
   // body stays 4 px or more below the top edge; the left edge wins where both press. Laid flatter, its cable runs on to the
   // screen's edge, so it does not end in mid-air.)
+  // The probe's body (its four corners, 92 px back along it and 13 px either side of the tip's line) turned to deg, stage-local.
+  function scanBody(tx, y, deg) {
+    const a = deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), xs = [], ys = [];
+    for (const [u, v] of [[-92, -13], [-92, 13], [-2, -13], [-2, 13]]) { xs.push(tx + u * c - v * sn); ys.push(y + u * sn + v * c); }
+    return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+  }
+  // The slide's cards the probe keeps clear of, one margin out (read at most four times a second).
+  let scCards = [], scCardsAt = -1e9;
+  function scanCards() {
+    const now = performance.now();
+    if (now - scCardsAt < 250) return scCards;
+    scCardsAt = now;
+    if (!store.get().presenting) return (scCards = []);
+    const wr = wrap.getBoundingClientRect(), m = pillEdge ? pillEdge.m : 8;
+    scCards = [...document.querySelectorAll('.pz-shade, .pz-data.stage-blocker, .pz-panel.stage-blocker')].map((el) => {
+      if (el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || el.classList.contains('pz-leave') || +getComputedStyle(el).opacity < 0.5) return null;
+      const q = el.getBoundingClientRect();
+      return q.width ? { x0: q.left - wr.left - m, y0: q.top - wr.top - m, x1: q.right - wr.left + m, y1: q.bottom - wr.top + m } : null;
+    }).filter(Boolean);
+    return scCards;
+  }
   function scanTurn(tx, y = Infinity) {
     const r = (d) => d * Math.PI / 180, left = (d) => tx - 92 * Math.cos(r(d)) - 13 * Math.sin(r(d)) >= SCAN_EDGE, top = (d) => y - 76 * Math.sin(r(d)) - 13.8 * Math.cos(r(d)) >= 4;
     const bodyLeft = (d) => tx - 76 * Math.cos(r(d)) - 13.8 * Math.sin(r(d)) >= 4;   // (laid flatter, the cable runs off the edge, so only the body must stay on screen)
     let deg = 45;
     while (deg < 80 && !left(deg)) deg += 5;
     if (left(deg)) while (deg > 10 && !top(deg) && bodyLeft(deg - 5)) deg -= 5;
+    // (Where a slide's card (its glass, the deck tab included) comes within one margin of the probe's body, the probe turns, nearest
+    // first, to an angle that keeps its body and reading clear of every card and on screen; with none, it stays and its head fades
+    // under the card (scanHead): 17 Oct design review, the probe lay on the teaching card's tab.)
+    const cards = scanCards(), clear = (d) => !cards.length || !cards.some((b) => { const q = scanBody(tx, y, d); return b.x0 < q.x1 && b.x1 > q.x0 && b.y0 < q.y1 && b.y1 > q.y0; });
+    if (!clear(deg)) {
+      const alt = [];
+      for (let d = 10; d <= 80; d += 5) if (d !== deg && bodyLeft(d) && y - 76 * Math.sin(r(d)) - 13.8 * Math.cos(r(d)) >= 4 && clear(d)) alt.push(d);
+      if (alt.length) deg = alt.sort((a, b) => Math.abs(a - deg) - Math.abs(b - deg) || b - a)[0];
+    }
     if (deg !== scan.deg) { scan.deg = deg; scan.el.style.setProperty('--sp-turn', `${deg}deg`); }
     // (From the tip, the cable starts 74 px back: it runs on until it crosses the top or the left edge, 8 px past it.)
     const run = Math.min((y + 8) / Math.sin(r(deg)), (tx + 8) / Math.cos(r(deg))) - 74;
@@ -5262,7 +5336,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!!it.onVessel !== !!b.onVessel) { b.onVessel = !!it.onVessel; b.g.classList.toggle('on-vessel', b.onVessel); }
     // Text and pressure colors change far more often than label structure.
     // Retain the text nodes (and keyboard focus) across numeric updates. (A run's class is its colour, as its fill is: a change
-    // badge turning from ▲ to ▼ swaps its class on the same tspan rather than building the label again: 16 Oct.)
+    // badge turning from + to − swaps its class on the same tspan rather than building the label again: 16 Oct.)
     // (A slide's mark is drawn afresh when its words change: a pill kept from another slide's longer mark could hold its old width
     // for a while after the new one was set: Review 16 Oct.)
     const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, fill, cls, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK, fontPx(14), /^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')) : 0]);
@@ -5387,7 +5461,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return sum * 0.06;
   }
 
-  // A change badge (▲ 3) appears at `on` and goes only below `off`: a value hovering at the
+  // A change badge (+3) appears at `on` and goes only below `off`: a value hovering at the
   // threshold would otherwise add and drop the badge every beat, and its label would jump.
   const badges = new Map();
   const DELTA_MIN = 5;
@@ -5404,9 +5478,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // of a normal HVPG); while comparing, every change from the pinned moment is shown. Deltas
     // are neutral ink: red is kept for crossed thresholds.
     const ref = REF()?.[NI[id]], cmp = !!store.get().compareSnap;
-    if (ref != null && badge((cmp ? 'pc:' : 'p:') + id, Math.abs(P - ref), cmp ? 1 : DELTA_MIN, cmp ? 0.7 : DELTA_MIN - 1)) runs.push({ t: `${P > ref ? '▲' : '▼'} ${fmt(Math.abs(P - ref), 1)}`, size: 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
+    if (ref != null && deltaHere(id) && badge((cmp ? 'pc:' : 'p:') + id, Math.abs(P - ref), cmp ? 1 : DELTA_MIN, cmp ? 0.7 : DELTA_MIN - 1)) runs.push({ t: signed(P - ref, fmt(Math.abs(P - ref), 1)), size: 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
     return runs;
   }
+  // A change reads "+7.9" or "−7.9", in the reading's own colour (17 Oct design review: an arrowed change beside every reading doubled the
+  // numbers on the figure). On a slide only the stations its words point at carry it (presentTerms); every callout keeps its reading.
+  const signed = (d, txt) => `${d > 0 ? '+' : '−'}${txt}`;
+  const deltaHere = (id) => !store.get().presenting || !!termTone(id);
 
   // Flow layer: blood entering the station (L/min) and its change; velocity layer: the fastest
   // velocity in a vessel at the station as the Doppler reads it (peak, cm/s); oxygen layer: the blood's
@@ -5426,7 +5504,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const refQ = store.get().healthy?.Q;
       if (refQ && !store.get().compareSnap) {
         const r = throughput(refQ, id);
-        if (r > 0.02 && badge('q:' + id, Math.abs(v - r) / r, 0.3, 0.25)) runs.push({ t: `${v > r ? '▲' : '▼'} ${Math.round(Math.abs(v - r) / r * 100)}%`, size: 10.5, weight: 650, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
+        if (r > 0.02 && deltaHere(id) && badge('q:' + id, Math.abs(v - r) / r, 0.3, 0.25)) runs.push({ t: signed(v - r, `${Math.round(Math.abs(v - r) / r * 100)}%`), size: 10.5, weight: 650, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
       }
       return { runs, color: flowColor(v) };
     }
@@ -5589,6 +5667,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     .map((el) => el._box ? `${el.className}:${Math.round(el._box.x1 - el._box.x0)}x${Math.round(el._box.y1 - el._box.y0)}` : '').join('|');
   function readBlockers() {
     const wr = stageBox();
+    { const r = store.get().presenting && document.querySelector('.pz-bar.pzb-pill')?.getBoundingClientRect();
+      pillEdge = r?.width ? { m: Math.max(6, Math.round(wr.right - r.right)), top: r.top - wr.top } : null; }
     // (The teaching card's glass, .pz-shade, too: on a phone it reaches 16 px above the words, and a label kept off only the words
     // tucked its top under the glass, SMALL BOWEL on PVT 5 and STOMACH on Variceal bleed 3.)
     return [...document.querySelectorAll('.stage-blocker:not([hidden]), .pz-shade')].map((el) => {
@@ -5879,7 +5959,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const W = wr.width, H = wr.height;
     // A solve prefers slots that sit inside the stage as it is now, but never depends on the panels, and a pan
     // alone never searches again. A label a pan later pushes past the edge is pulled back in (see below).
-    const view = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }, plain = { ...view };   // plain: the whole stage, for the FibroScan callout, which keeps with its probe (see below)
+    // (On a wide screen's slide the readings keep the slides' one margin from every edge, as the cards do, and stay above the nav
+    // pill's row: 17 Oct design review, a reading had stood 8 px from the right edge, and another level with the pill.)
+    const M = st.presenting && pillEdge ? pillEdge.m : 6;
+    const view = { x0: M, y0: M, x1: W - M, y1: H - M }, plain = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };   // plain: the whole stage, for the FibroScan callout, which keeps with its probe (see below)
+    if (st.presenting && pillEdge) view.y1 = Math.max(H * 0.5, Math.min(view.y1, pillEdge.top - 8));
     // A presenter slide's words hold the left (a phone: the top) under a fading shade; labels keep clear of it.
     if (st.presenting) { view.x0 = Math.max(view.x0, pzInset('--pz-l') + 30); view.y0 = Math.max(view.y0, pzInset('--pz-t') + 12); }
     // (A stent's point, and the slide's mark beside it, come as near the top card as they may come to any card (4 px past its box, and
@@ -6312,7 +6396,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           // Upright, a zone is a horizontal band: its title runs up the map's left edge (text turned to read
           // bottom to top), centred on the band.
           it.rot = true;
-          if (solve) placed.push({ ...zoneAt((a + b) / 2, (ay0 + by) / 2), zone: true });
+          // (On a slide the readings keep out of the whole title column, not just the title's box: 17 Oct design review.)
+          if (solve) { const zb = zoneAt((a + b) / 2, (ay0 + by) / 2); placed.push(st.presenting ? { x0: -1e4, y0: Math.min(ay0, by), x1: zb.x1 + 2, y1: Math.max(ay0, by), zone: true } : { ...zb, zone: true }); }
           const zx = Math.max(it.h / 2 + 8, (a + b) / 2), zr = zoneAt(zx, (ay0 + by) / 2);
           // (It may slide along its band: see the last pass.)
           it._slide = { at: (c) => zoneAt(zx, c), c: (ay0 + by) / 2, lo: Math.min(ay0, by) + it.w / 2 + 3, hi: Math.max(ay0, by) - it.w / 2 - 3 };
@@ -6320,7 +6405,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           continue;
         }
         if (b - a > it.w + 6) {
-          if (solve) placed.push({ ...zoneAt((a + b) / 2, by), zone: true });
+          // (On a slide the readings keep out of the whole header row over the zone, not just the title's box: a reading and its
+          // leader had crossed "Portal veins", and the resistances had sat in the row: 17 Oct design review.)
+          if (solve) { const zb = zoneAt((a + b) / 2, by), y1 = Math.max(zb.y1, zoneAt((a + b) / 2, Math.max(14, by)).y1); placed.push(st.presenting ? { x0: a, y0: -1e4, x1: b, y1: y1 + 2, zone: true } : { ...zb, zone: true }); }
           const zy = Math.max(14, by), zr = zoneAt((a + b) / 2, zy);
           it._slide = { at: (c) => zoneAt(c, zy), c: (a + b) / 2, lo: a + it.w / 2 + 3, hi: b - it.w / 2 - 3 };
           if (within(zr, { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }) && !blockers.some((o) => hits(zr, o)) && !callouts.some((o) => hits(zr, o))) { out.push(it); obstacles.push({ ...zr, zone: true }); it._zr = zr; }
@@ -6433,6 +6520,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       // Any reading left touching a vessel (within 3 px) takes the solid halo.
       if (solve && useLines) for (const { it } of plan) if (out.includes(it) && it._r && !it.onVessel && lineHits(it._r, 3)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }
+      // One unit rule for the whole circuit (17 Oct design review): where any reading had to drop its unit for room, every reading
+      // shows its number alone ("Gut bed 21.1" had stood beside "SMV 18.7 mmHg"). Each one only narrows, toward its station, so it
+      // runs into nothing it had cleared; its slot keeps the width it reserved, so the next frames carry it unchanged.
+      if (solve) {
+        const shown = plan.map(({ it }) => it).filter((it) => out.includes(it) && it.canShort);
+        const bare = (l) => l.some((r) => r.cls === 'lb-val') && l.some((r, i) => i && r.cls !== 'lb-val' && r.cls !== 'lb-name');
+        if (shown.some((it) => it.short === 1)) for (const it of shown) {
+          if (it.short) continue;
+          const w0 = it.w;
+          if (it.one && bare(it.lines[0])) { it.lines = [it.lines[0].filter((r, i) => !i || r.cls === 'lb-val')]; it.w = lineW(it.lines[0]); it.short = 1; }
+          else if (!it.one && it.lines.length === 2 && bare([it.lines[0][0], ...it.lines[1]])) shortenItem(it);
+          else continue;
+          const dw = w0 - it.w;
+          it.x += it.dir?.includes('W') ? dw : it.dir?.includes('E') ? 0 : dw / 2;
+          const sol = nextSol.get(it.key);
+          if (sol && !sol.drop) sol.short = 1;
+        }
+      }
       // Collateral and shunt lanes, captioned along their run.
       for (const [id, cap] of Object.entries(LANE_CAPTIONS)) {
         const x = E[id];

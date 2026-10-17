@@ -928,7 +928,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       const d = r != null ? v - r : 0, on = m.cmp ? 1 : 5, off = m.cmp ? 0.7 : 4;
       const shown = Math.abs(d) >= on || (badges[key] === m.cmp && Math.abs(d) >= off);
       badges[key] = shown ? m.cmp : null;
-      return [fmt(v, 1), 'mmHg', shown ? `${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d), 0)}` : '', m.mode === 'delta' ? deltaColor(qP(d)) : pc(v)];
+      return [fmt(v, 1), 'mmHg', shown ? `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), 0)}` : '', m.mode === 'delta' ? deltaColor(qP(d)) : pc(v)];
     };
     setLab('triad', 'Portal venule', 'Portal venule', ...mv('triad', m.P1, m.R[0]));
     setLab('sin', 'Sinusoids', 'Sinusoids', ...mv('sin', m.P2, m.R[1]));
@@ -987,7 +987,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     }
     L.txt = txt; L.u = u;
     L.lk = `${name}|${short}|${uk}|${v === ''}|${!!d}`;   // what the layout depends on (a value of new length clears layoutKey above)
-    L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('▲') ? 'up' : 'down'} ${d.slice(2)} ${model?.cmp ? 'since then' : 'from healthy'}` : ''}. Show details`);
+    L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('+') ? 'up' : 'down'} ${d.slice(1)} ${model?.cmp ? 'since then' : 'from healthy'}` : ''}. Show details`);
   }
   // Which portal venule and which sinusoid carry the label: at first the left portal venule and the
   // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays

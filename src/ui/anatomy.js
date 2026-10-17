@@ -558,12 +558,14 @@ export const PROFILE_PATHS = [
       { k: 'PPG', hi: 'CONF', lo: 'IVCS', m: 'ppg', warn: 6, bad: 12 }] },
 ];
 
+// Figure callouts name each station in full, without abbreviations that end in a full stop (17 Oct design review: "Varices", not
+// "Esoph. varices"; "Right sinusoids", not "Sinusoids R"). SMV, IMV, IVC and SVC stay as the clinical names they are.
 export const SHORT = {
-  AO: 'Aorta', HA: 'Hep. artery', INT: 'Gut bed', COL: 'Colon', SPL: 'Spleen', STO: 'Stomach', SMV: 'SMV', IMV: 'IMV', SV: 'Splenic v.',
-  LGV: 'L. gastric v.', CONF: 'Portal v.', PVH: 'PV hilum', RPV: 'R portal', LPV: 'L portal', VAR: 'Esoph. varices', GV: 'Fundal varices',
-  SIN_R: 'Sinusoids R', SIN_L: 'Sinusoids L', CV_R: 'Central v. R', CV_L: 'Central v. L', W_R: 'Wedge R', W_M: 'Wedge M', W_L: 'Wedge L',
-  RHV: 'RHV', MHV: 'MHV', LHV: 'LHV', IVCI: 'Lower IVC', IVCS: 'IVC', RA: 'RA', SVC: 'SVC', AZY: 'Azygos', UPPV: 'Upper body',
-  LOWV: 'Lower body', ILI: 'Iliac v.', EPI: 'Umbilicus', KID_L: 'L kidney', KID_R: 'R kidney', LRV: 'L renal v.', RRV: 'R renal v.',
+  AO: 'Aorta', HA: 'Hepatic artery', INT: 'Gut bed', COL: 'Colon', SPL: 'Spleen', STO: 'Stomach', SMV: 'SMV', IMV: 'IMV', SV: 'Splenic vein',
+  LGV: 'Left gastric vein', CONF: 'Portal vein', PVH: 'Hilar portal vein', RPV: 'Right portal vein', LPV: 'Left portal vein', VAR: 'Varices', GV: 'Fundal varices',
+  SIN_R: 'Right sinusoids', SIN_L: 'Left sinusoids', CV_R: 'Right central vein', CV_L: 'Left central vein', W_R: 'Right wedge', W_M: 'Middle wedge', W_L: 'Left wedge',
+  RHV: 'Right hepatic vein', MHV: 'Middle hepatic vein', LHV: 'Left hepatic vein', IVCI: 'Lower IVC', IVCS: 'IVC', RA: 'Right atrium', SVC: 'SVC', AZY: 'Azygos', UPPV: 'Upper body',
+  LOWV: 'Lower body', ILI: 'Iliac vein', EPI: 'Umbilicus', KID_L: 'Left kidney', KID_R: 'Right kidney', LRV: 'Left renal vein', RRV: 'Right renal vein',
 };
 
 // Chips shown by default (major vessels)

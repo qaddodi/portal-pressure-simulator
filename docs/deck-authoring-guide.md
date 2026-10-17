@@ -154,7 +154,7 @@ Use it where the colour is the point of the slide (a reversed branch on `'direct
 
 `labels: ['CONF', 'SIN_R', 'RHV', 'RA']`: the stations named on the anatomy figure (none shown if absent; **only the stations you list, plus those your terms point at, appear**). `tint: ['imv']` takes the colour of a target's station label although the line never names it (the label is on, in its station colour). Valid ids are node ids (section 8.4). Only labels the anatomy draws appear. On the circuit view the labels are the circuit's own.
 `VAR` (esophageal varices) is hidden when the patient has no varices; `GV` is hidden when there are no fundal varices.
-On ladder (`data: 'ladder'`) and catheter (`cath`) slides the figure automatically renames to "Sinusoids R · WHVP" and "RHV · FHVP".
+On ladder (`data: 'ladder'`) and catheter (`cath`) slides the figure automatically renames to "Right sinusoids · WHVP" and "Right hepatic vein · FHVP".
 
 ### 5.5 Glow, highlights and term pills
 
@@ -233,15 +233,15 @@ A term becomes a pill in its **station colour**; the station's figure label take
 | `sin` (`SIN_R`) | Sinusoids | liver outlined | wedge | sinusoid(s), sinusoidal pressure |
 | `whvp` | Sinusoids | liver outlined | wedge | WHVP, wedged pressure |
 | `fhvp` (`RHV`) | RHV | `RHV_IVC` | hv | FHVP, free pressure |
-| `hv` | RHV | `RHV_IVC`, `MHV_IVC`, `LHV_IVC` | hv | hepatic vein(s) |
+| `hv` | Right hepatic vein | `RHV_IVC`, `MHV_IVC`, `LHV_IVC` | hv | hepatic vein(s) |
 | `ivc` (`IVCS`) | IVC | `IVCS_RA`, `IVC_IS` | ivc | IVC, inferior vena cava |
-| `ra` (`RA`) | RA | whole heart lit by a soft glow (`heart`; `heart-ra` still names it) | ra | right atrium |
-| `varix` (`VAR`) | Esoph. varices | `C1a`, `C1b` | var | esophageal varices, varices, varix |
+| `ra` (`RA`) | Right atrium | whole heart lit by a soft glow (`heart`; `heart-ra` still names it) | ra | right atrium |
+| `varix` (`VAR`) | Varices | `C1a`, `C1b` | var | esophageal varices, varices, varix |
 | `gv` (`GV`) | Fundal varices | `C2` | var | gastric varices, fundal varices |
-| `lgv` (`LGV`) | L. gastric v. | `LGV_CONF`, `V_STO` | var | left gastric vein, coronary vein |
+| `lgv` (`LGV`) | Left gastric vein | `LGV_CONF`, `V_STO` | var | left gastric vein, coronary vein |
 | `azy` (`AZY`) | Azygos | `AZY_SVC` | var | azygos (vein) |
-| `lpv` (`LPV`) | L portal | `PVH_L` | pv | left portal vein |
-| `lrv` (`LRV`) | L renal v. | `LRV_IVC`, `V_KID_L` | ivc | left renal vein |
+| `lpv` (`LPV`) | Left portal vein | `PVH_L` | pv | left portal vein |
+| `lrv` (`LRV`) | Left renal vein | `LRV_IVC`, `V_KID_L` | ivc | left renal vein |
 | `spleen` | none | spleen outlined | sv | spleen |
 | `liver` | none | liver outlined | wedge | liver |
 | `heart` | none | heart outlined | ra | heart |
@@ -410,27 +410,27 @@ Figure label text on the anatomy is the SHORT name. Station labels hidden on the
 | `STO` | Gastric bed | Stomach | bed |
 | `SMV` | Superior mesenteric vein | SMV | portal |
 | `IMV` | Inferior mesenteric vein | IMV | portal |
-| `SV` | Splenic vein | Splenic v. | portal |
-| `LGV` | Left gastric (coronary) vein | L. gastric v. | portal |
-| `CONF` | Portal vein (main) | Portal v. | portal |
-| `PVH` | Portal vein (hilum) | PV hilum | portal |
-| `RPV` | Right portal vein | R portal | portal |
-| `LPV` | Left portal vein | L portal | portal |
-| `VAR` | Esophageal varices | Esoph. varices | varix |
+| `SV` | Splenic vein | Splenic vein | portal |
+| `LGV` | Left gastric (coronary) vein | Left gastric vein | portal |
+| `CONF` | Portal vein (main) | Portal vein | portal |
+| `PVH` | Portal vein (hilum) | Hilar portal vein | portal |
+| `RPV` | Right portal vein | Right portal vein | portal |
+| `LPV` | Left portal vein | Left portal vein | portal |
+| `VAR` | Esophageal varices | Varices | varix |
 | `GV` | Gastric fundal varices | Fundal varices | varix |
-| `SIN_R` / `SIN_L` | Sinusoids, right / left lobe (inlet) | Sinusoids R / L | liver |
-| `CV_R` / `CV_L` | Central veins, right / left lobe | Central v. R / L | liver |
-| `W_R` `W_M` `W_L` | Wedge compartment (RHV, MHV, LHV) | Wedge R / M / L | wedge |
-| `RHV` `MHV` `LHV` | Right / middle / left hepatic vein | RHV / MHV / LHV | hepatic vein |
+| `SIN_R` / `SIN_L` | Sinusoids, right / left lobe (inlet) | Right / Left sinusoids | liver |
+| `CV_R` / `CV_L` | Central veins, right / left lobe | Right / Left central vein | liver |
+| `W_R` `W_M` `W_L` | Wedge compartment (RHV, MHV, LHV) | Right / Middle / Left wedge | wedge |
+| `RHV` `MHV` `LHV` | Right / middle / left hepatic vein | Right / Middle / Left hepatic vein | hepatic vein |
 | `IVCI` | IVC (renal level) | Lower IVC | vein |
 | `IVCS` | IVC (suprahepatic) | IVC | vein |
-| `RA` | Right atrium | RA | heart |
+| `RA` | Right atrium | Right atrium | heart |
 | `SVC` | Superior vena cava | SVC | vein |
 | `AZY` | Azygos vein | Azygos | vein |
-| `ILI` | Iliac veins | Iliac v. | vein |
+| `ILI` | Iliac veins | Iliac vein | vein |
 | `EPI` | Epigastric / umbilical veins | Umbilicus | vein |
-| `KID_L` | Left kidney | L kidney | bed |
-| `LRV` | Left renal vein | L renal v. | vein |
+| `KID_L` | Left kidney | Left kidney | bed |
+| `LRV` | Left renal vein | Left renal vein | vein |
 | `AO` `HA` `UPPV` `LOWV` `KID_R` `RRV` | Aorta, hepatic artery, upper-/lower-body veins, right kidney, right renal vein | (hidden on the anatomy) | |
 | `SVD` | Splenic vein (midway), where the splenorenal shunts leave | (hidden) | portal |
 
@@ -486,7 +486,7 @@ Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; bleeding risk rises 
 
 1. **One idea per slide.** Title stands alone, one sentence in `line`, ≤ 4 `causes`, one card.
 2. **One name per station.** Use the vocabulary in section 6.3 (portal vein, sinusoids/WHVP, hepatic vein/FHVP, IVC, right atrium/RA). Do not rename a station within a deck.
-3. **No repeated pointer.** Never add a `note` mark or label that names what a station label already names on that slide (e.g. VAR is labelled "Esoph. varices", so no "Esophageal varices" pointer). `block` and `treat` marks say something new (Clot, Banded varices), so they stay.
+3. **No repeated pointer.** Never add a `note` mark or label that names what a station label already names on that slide (e.g. VAR is labelled "Varices", so no "Esophageal varices" pointer). `block` and `treat` marks say something new (Clot, Banded varices), so they stay.
 4. **Definitions are fixed:** **HVPG = WHVP − FHVP**, cut-offs **amber 5, red 10**. **PPG = portal vein − IVC**, cut-offs **amber 6, red 12**. In equations write `HVPG = WHVP − FHVP` and `PPG = P_portal vein − P_IVC`. Never define HVPG as portal minus hepatic or PPG as portal minus RA.
 5. **Endoscopy is esophagus-only.** The scope tool and any endoscopy words refer to the lower esophagus; do not add gastric endoscopy.
 6. **Use live values.** Say numbers through `{hvpg}` / `{ppg}` / `{pv}` etc. and rules through `{>=10 mmHg}`; do not type measured numbers that the model produces. Write cut-off words around the outlined pill ("above {>=5 mmHg}").

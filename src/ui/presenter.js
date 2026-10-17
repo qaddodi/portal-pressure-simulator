@@ -21,8 +21,8 @@ import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=3ab8e3ccf5';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=df80f3523c';
-import { createTools } from './presenter-tools.js?v=7fe4828a5e';
+import { createHvpgMonitor } from './hvpg-proc.js?v=e6a5c61948';
+import { createTools } from './presenter-tools.js?v=c7cb8abaa9';
 import { openHandout } from './handout.js?v=cdd17c3338';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -76,7 +76,7 @@ const LENS_KEY = {
   flow: ['flow volume', () => flowCss('to right'), 'Little', 'Much'],
   direction: ['direction', [['--flow-normal', 'Usual'], ['--flow-reversed', 'Reversed']]],
   heat: ['congestion', () => heatCss('to right'), 'None', 'Backed up'],
-  drop: ['pressure drop', () => dropCss('to right'), 'None', 'Large'],
+  drop: ['pressure drop', () => dropCss('to right'), 'Low', 'High'],
   delta: ['change', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
   oxygen: ['oxygen', () => oxygenCss('to right'), 'Low', 'High'],
   origin: ['origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen'], ['--origin-artery', 'Artery'], ['--origin-systemic', 'Systemic']]],
@@ -87,12 +87,16 @@ const PRESSURE_KEY = ['pressure', () => gradientCss('to right', 30), 'Low', 'Hig
 const lensButtons = (s) => !!s.compare?.some((o) => o.lens);
 const gateButtons = (s) => !!s.compare?.some((o) => o.gate);
 // The key for the small pill on the figure (figure-key.js): the lens named, then its colour scale under it (a gradient has no end words; named swatches keep their names).
+// (The pressure-drop key also names its ends, "Low ▬▬ High", as the velocity key does: a bare green bar did not say which end was
+// which (17 Oct design review). The other scales keep the bar alone.)
+const KEY_ENDS = new Set(['drop']);
 function keyNodes(k) {
-  const [name, bar] = LENS_KEY[k] || PRESSURE_KEY;
+  const [name, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY;
   const sw = (v) => h('i', { class: 'pz-lens-sw', style: { background: `var(${v})` } });
   // (Each swatch stays on one line with its words: "Low ▬▬ High" as one piece, a short stroke with its name.)
+  const scale = () => h('i', { class: 'pz-lens-bar', style: { background: bar() } });
   return [h('b', {}, name[0].toUpperCase() + name.slice(1)),
-    ...(typeof bar === 'function' ? [h('i', { class: 'pz-lens-bar', style: { background: bar() } })]
+    ...(typeof bar === 'function' ? [KEY_ENDS.has(k) ? h('span', { class: 'pz-lens-ends' }, h('span', {}, lo), scale(), h('span', {}, hi)) : scale()]
       : bar.map(([v, t]) => h('span', { class: 'pz-lens-k' }, sw(v), h('span', {}, t))))];
 }
 // A string with its disease names set in a pill (see diseases.js).
@@ -2927,6 +2931,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (was && was !== box) was.classList.remove('pz-pillclr');
     box?.classList.add('pz-pillclr');
   }
+  // A key that wraps is balanced: the narrowest width that keeps its number of lines, so no line is left with one word ("Systemic"
+  // alone under the other origins, "Reversed" under "Usual": 17 Oct design review). Its lines and height stay as they were.
+  function balanceKey(fk, maxW) {
+    const h0 = fk.offsetHeight;
+    let lo = Math.floor(maxW / 2), hi = Math.floor(maxW);
+    while (hi - lo > 2) {
+      const mid = (lo + hi) >> 1;
+      fk.style.setProperty('--pz-fk-room', `${mid}px`);
+      if (fk.offsetHeight > h0 + 1) lo = mid; else hi = mid;
+    }
+    fk.style.setProperty('--pz-fk-room', `${hi}px`);
+  }
   // A phone's docked colour key and the nav pill never overlap. It sits on one line beside the pill when it fits; else on two lines
   // beside it (fk-two, as tall as the pill's row); else on its own row just above the pill's row (fk-up; a 320 px phone), one line,
   // shrunk to the card's width if even that is too narrow. The words end above whatever the key takes (--pz-fkrow).
@@ -2943,14 +2959,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Beside the pill on one line, a key taller than the pill's row (a larger text size: its name over its scale) reaches above
     // it: the words end 8 px above the key, not 3 px above the pill (Circulation 3 at 150 %: the buttons sat on the key).)
     if (w <= room) row = Math.max(0, Math.ceil((bar.top - fk.getBoundingClientRect().top) / k + 5));
-    else {
+    else if (root.classList.contains('tab')) {
+      // (An upright iPad has the width for the key on its own row above the pill, one line across the card, rather than two lines
+      // squeezed beside it: 17 Oct design review. Wrapped, and balanced, only if even the card's width is too narrow.)
+      if (w > full) fk.style.setProperty('--pz-fk-room', `${Math.floor(full)}px`);
+      set(false, true, w > full);
+      if (w > full) balanceKey(fk, full);
+      row = Math.ceil(fk.offsetHeight) + 12;
+    } else {
       fk.style.setProperty('--pz-fk-room', `${Math.floor(room)}px`); set(true, false);
       const w2 = fk.scrollWidth, h2 = fk.offsetHeight;
-      if (w2 <= room + .5 && h2 <= Math.max(barH + 6, h1 * 2.3)) row = Math.max(0, h2 - barH) + 2;
+      if (w2 <= room + .5 && h2 <= Math.max(barH + 6, h1 * 2.3)) { balanceKey(fk, room); row = Math.max(0, h2 - barH) + 2; }
       else {
         // (Wider than the card too: wrapped to its width, at its own size; it had been scaled down, its words under 12 px.)
         if (w > full) fk.style.setProperty('--pz-fk-room', `${Math.floor(full)}px`);
         set(false, true, w > full);
+        if (w > full) balanceKey(fk, full);
         row = Math.ceil(fk.offsetHeight) + 12;
       }
     }

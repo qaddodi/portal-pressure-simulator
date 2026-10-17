@@ -194,7 +194,7 @@ svg { flex: none; }
 .lb-name { fill: var(--text-2); }
 .lb-val { fill: var(--text); }
 .lb-unit { fill: var(--text-3); }
-.lb-delta { fill: var(--text-2); }
+.lb-delta { fill: var(--text); }   /* (a change is in its reading's colour: 17 Oct design review) */
 .lb-alert { fill: var(--danger); }
 .lb-rev { fill: var(--flow-reversed); }
 .lb-organ { fill: var(--text-3); }
@@ -1400,8 +1400,8 @@ button.finding { cursor: pointer; }
 .app.presenting #labels .lb.focus.k-note .lb-bg { fill: var(--surface); stroke: var(--text-2); stroke-width: 1; } .app.presenting #labels .lb.focus.k-note text { fill: var(--text); }
 .app.presenting #labels .leader.focus.k-note { stroke: var(--text-2); }
 /* A slide's term (a pill in the words): the station's label in the same colour, eased in. */
-#labels .lb .lb-name, #labels .lb .lb-val { transition: fill .5s var(--ease); }
-#labels .lb.term .lb-name, #labels .lb.term .lb-val, #labels .lb.term .lb-unit { fill: var(--term); }
+#labels .lb .lb-name, #labels .lb .lb-val, #labels .lb .lb-delta { transition: fill .5s var(--ease); }
+#labels .lb.term .lb-name, #labels .lb.term .lb-val, #labels .lb.term .lb-unit, #labels .lb.term .lb-delta { fill: var(--term); }
 #labels .lb.term .lb-name { font-weight: 700; }
 .app.presenting #labels .lb { animation: pz-fade .5s var(--ease) both; }
 .app.presenting #stageView { touch-action: none; }   /* no browser pan or pinch on the figure; the slide swipe reads touch events */
@@ -1534,6 +1534,7 @@ button.finding { cursor: pointer; }
 .pz-lens-bar { width: 4.4em; height: .55em; border-radius: var(--r-pill); flex: none; }
 .pz-lens-sw { width: 1.1em; height: .4em; border-radius: .2em; flex: none; }
 .pz-lens-k { display: inline-flex; align-items: center; gap: .35em; white-space: nowrap; }
+.pz-lens-ends { display: inline-flex; align-items: center; gap: .4em; white-space: nowrap; }   /* ("Low ▬▬ High": the pressure-drop key's ends, at the key's own size, 12 px or more) */
 .pz-lens-k + .pz-lens-k { margin-left: .15em; }
 .pz-fk.col .pz-lens-k + .pz-lens-k { margin-left: 0; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-fk { background: color-mix(in srgb, var(--surface) 92%, transparent); } }
@@ -2756,6 +2757,13 @@ button.finding { cursor: pointer; }
 .cath-label.site.res b, .app.presenting .cath-label.site.res b { color: var(--text); font-size: calc(var(--t-val) * var(--label-scale, 1)); }
 .cath-label.site.res b + span, .app.presenting .cath-label.site.res b + span { color: var(--text-3); font-size: calc(var(--t-cap) * var(--label-scale, 1)); margin: 0; }
 .cath-label.site.res b + span:empty { display: none; }
+/* The resistors' key ("× healthy liver's resistance"), said once for the group (17 Oct design review): above the outermost reading of a
+   level circuit, under the readings of an upright one, centred on the group either way (stage.js calloutBox keeps labels off it). */
+.cath-label.site.res .res-k { display: none; }
+.cath-label.site.res.keyed .res-k { display: block; position: absolute; left: 50%; bottom: calc(100% + 4px); translate: -50% 0; font-style: normal; white-space: nowrap; color: var(--text-3); font-size: calc(var(--t-cap) * var(--label-scale, 1)); font-weight: 600; letter-spacing: .02em; }
+.app .cath-label.site.res.low.keyed .res-k { bottom: auto; top: calc(100% + 4px); }
+.app .cath-label.site.res.low.keyed:not(.coll, .gut) .res-k { left: calc(100% + 10px); }
+.app .cath-label.site.res.coll.low.keyed .res-k { left: -10px; }
 /* The circuit's resistors: a zigzag over the vessel, heavier as its resistance rises (eased, never a jump). */
 .res-one { transition: opacity .6s var(--ease); }
 .res-one path { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; transition: stroke-width .8s var(--ease); }
@@ -3481,7 +3489,7 @@ button.finding { cursor: pointer; }
 .lz-lab small { font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--text-3); }
 /* A label whose structure is off screen waits at the edge with a small arrow pointing the way (lobule-zoom.js layoutLabels). */
 .lz-lab.edge .n::before { content: ""; position: absolute; left: 50%; top: 50%; width: 9px; height: 10px; background: var(--text-2); clip-path: polygon(0 0, 100% 50%, 0 100%); transform: translate(-50%, -50%) rotate(var(--edge-a, 0rad)) translateX(var(--edge-r, 40px)); pointer-events: none; }
-.lz-lab .d { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 650; color: var(--text-2); margin-left: 4px; }
+.lz-lab .d { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 650; color: var(--text); margin-left: 4px; }   /* (a change, "+3", in its reading's colour) */
 .lz-lab .n-short { display: none; }
 .lz-lab.stack .v { display: grid; grid-template-columns: auto auto; justify-content: center; align-items: baseline; column-gap: 2.5px; }   /* (a grid: the label is only as wide as its longer line, not as wide as both readings side by side) */
 .lz-lab.stack .u2 { grid-column: 1 / -1; justify-self: center; }
