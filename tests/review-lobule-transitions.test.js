@@ -167,3 +167,11 @@ test('the lobule\'s tissue fills each pixel only with the passes that change it,
   // The lobule's bitmap is opaque inside its own outline (filled first, at 1.015 of the hexagon, full strength).
   assert.match(lz, /const px = l\.x \+ \(x - l\.x\) \* 1\.015, py = l\.y \+ \(y - l\.y\) \* 1\.015;[^\n]*c\.fill\(\); \}/);
 });
+
+test('holding only the ductules, the lobule\'s effects layer clears only where they were, not the whole screen each camera frame', () => {
+  assert.match(lz, /if \(fxBoxes\) \{ c\.setTransform\(1, 0, 0, 1, 0, 0\); for \(const \[x0, y0, x1, y1\] of fxBoxes\) c\.clearRect\(x0, y0, x1 - x0, y1 - y0\);[^\n]*\n\s+else c\.clearRect\(0, 0, W, H\);\n\s+fxBoxes = moving \? null : \[\];/);
+  assert.match(lz, /fx\.width = fw; fx\.height = fh; fxDrawn = ''; fxBoxes = null;/, 'a resized layer starts from a full clear');
+  // Each ductule's box: its outer ring plus the stroke, on screen, and 3 px more.
+  assert.match(lz, /e = \(r \+ c\.lineWidth\) \* V\.k \* dpr \+ 3/);
+  assert.match(lz, /return \{ lumen, cells, nuc, disc: \[x, y, rout\] \};/);
+});

@@ -2544,7 +2544,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       }
       const nuc = new Path2D(), rn = rm, nr = hw * 0.34;   // diameter about a third of the cell's width
       for (let i = 0; i < NC; i++) { const a = ((i + 0.5) / NC) * TAU2 + tr.i, nx = x + Math.cos(a) * rn, ny = y + Math.sin(a) * rn; nuc.moveTo(nx + nr, ny); nuc.arc(nx, ny, nr, 0, TAU2); }
-      return { lumen, cells, nuc };
+      return { lumen, cells, nuc, disc: [x, y, rout] };
     });
     return (ductP = { G, key, duct });
   }
@@ -2615,9 +2615,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   const fxView = (W, H, dpr) => { if (fxAll) return [-Infinity, -Infinity, Infinity, Infinity]; const mg = 4 / (dpr * V.k); return [-V.x / V.k - mg, -V.y / V.k - mg, (W - V.x) / V.k + mg, (H - V.y) / V.k + mg]; };
   const meets = (b, v) => b[2] >= v[0] && b[0] <= v[2] && b[3] >= v[1] && b[1] <= v[3];
   let fxDrawn = '';
+  let fxBoxes = null;   // (device-pixel boxes round all the layer holds, when that is only the ductules; null: anything)
   function paintFx(W, H, dpr, dark, dt, flat) {
     const fw = canvasPx(W, dpr), fh = canvasPx(H, dpr);
-    if (fx.width !== fw || fx.height !== fh) { fx.width = fw; fx.height = fh; fxDrawn = ''; }
+    if (fx.width !== fw || fx.height !== fh) { fx.width = fw; fx.height = fh; fxDrawn = ''; fxBoxes = null; }
     const G = geo, m = model;
     // With nothing moving on this layer (no lymph, WebGL vessels), it holds only the ductules' epithelium: drawn again only when
     // the view, a caliber or the theme changes, not every frame (clearing and redrawing a full-screen canvas the screen then re-uploads).
@@ -2627,7 +2628,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     fxDrawn = fk;
     const c = fx.getContext('2d');
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.clearRect(0, 0, W, H);
+    // Holding only the ductules (nothing moving), the layer is clear but for them: only where they were drawn is cleared, not the
+    // whole screen each frame a pan or a slide's camera moves (the same picture; any other layer drawn last clears it all).
+    if (fxBoxes) { c.setTransform(1, 0, 0, 1, 0, 0); for (const [x0, y0, x1, y1] of fxBoxes) c.clearRect(x0, y0, x1 - x0, y1 - y0); c.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    else c.clearRect(0, 0, W, H);
+    fxBoxes = moving ? null : [];
     c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
     if (!m.hide) {
       // The bile ductule is lined all round by a simple cuboidal epithelium: wedge-shaped cells side by side
@@ -2636,6 +2641,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       c.lineWidth = Math.max(0.3, G.R * 0.0013); c.strokeStyle = cellEdge; c.globalAlpha = 0.72;   // a little faded, so the ductule sits back in the tract
       // One ring of 16 cuboidal cells round each: as deep as they are wide, so each nucleus has room (a third of the cell's width).
       for (const d of fxDuct().duct) {
+        if (fxBoxes) { const [x, y, r] = d.disc, e = (r + c.lineWidth) * V.k * dpr + 3, X = (x * V.k + V.x) * dpr, Y = (y * V.k + V.y) * dpr; fxBoxes.push([Math.floor(X - e), Math.floor(Y - e), Math.ceil(X + e), Math.ceil(Y + e)]); }
         c.fillStyle = lumen; c.fill(d.lumen);
         c.fillStyle = cellFill;
         for (const p of d.cells) { c.fill(p); c.stroke(p); }
