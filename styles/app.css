@@ -1274,7 +1274,7 @@ button.finding { cursor: pointer; }
 .sv:not(.on) .lz-leaders { opacity: 0; } .sv:not(.on) .lz-labels { --lab-o: 0; }
 /* Each part named in place, as the organs and the lobule's zones are: spaced small capitals on a halo, the reading beneath. */
 .sv-region { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; pointer-events: none; white-space: nowrap; line-height: 1.15; text-align: center;
-  font: 650 calc(var(--t-cap) * var(--label-scale, 1)) var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--text-2);
+  font: var(--caps-w) calc(var(--t-cap) * var(--label-scale, 1)) var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-2);
   --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
   -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 .sv-region .v { letter-spacing: 0; text-transform: none; font-weight: 500; font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--text-2); }
@@ -1349,7 +1349,7 @@ button.finding { cursor: pointer; }
 @media (hover: hover) { .lz-lab:hover { border-color: var(--accent); outline: none; } }
 /* Zone names: no chip, just letters in the band, as the organs are named (small capitals on a soft halo). */
 .lz-zone { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 0; pointer-events: none; white-space: nowrap; line-height: 1.15;
-  font: 650 calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)) var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--zc);
+  font: var(--caps-w) calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)) var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--zc);
   --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
   -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 :root[data-theme="dark"] .lz-zone b { font-weight: 700; }
@@ -1438,10 +1438,10 @@ button.finding { cursor: pointer; }
 /* The data card is the same glass: see-through tint, the same blur, crisp edge with a hairline highlight, soft shadow. */
 .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .14); background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 /* Tiles sit lighter than the glass around them in light mode, darker in dark mode. */
-.pz-data .pz-tile, .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--white) 78%, transparent); box-shadow: inset 0 0 0 var(--key-w, 0px) var(--accent), inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent); }
-:root[data-theme="soft"] .pz-data .pz-tile, :root[data-theme="soft"] .pz-data .pz-tool .endo-read > div { background: var(--tile-bg); box-shadow: inset 0 0 0 var(--key-w, 0px) var(--accent), inset 0 0 0 1px var(--tile-edge); }
-:root[data-theme="dark"] .pz-data .pz-tile, :root[data-theme="dark"] .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--black) 30%, transparent); box-shadow: inset 0 0 0 var(--key-w, 0px) var(--accent), inset 0 0 0 1px color-mix(in srgb, var(--white) 7%, transparent); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-data .pz-tile, :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--black) 30%, transparent); box-shadow: inset 0 0 0 var(--key-w, 0px) var(--accent), inset 0 0 0 1px color-mix(in srgb, var(--white) 7%, transparent); } }
+.pz-data .pz-tile, .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--white) 78%, transparent); box-shadow: inset 0 var(--key-w, 0px) 0 0 var(--accent), inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent); }
+:root[data-theme="soft"] .pz-data .pz-tile, :root[data-theme="soft"] .pz-data .pz-tool .endo-read > div { background: var(--tile-bg); box-shadow: inset 0 var(--key-w, 0px) 0 0 var(--accent), inset 0 0 0 1px var(--tile-edge); }
+:root[data-theme="dark"] .pz-data .pz-tile, :root[data-theme="dark"] .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--black) 30%, transparent); box-shadow: inset 0 var(--key-w, 0px) 0 0 var(--accent), inset 0 0 0 1px color-mix(in srgb, var(--white) 7%, transparent); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-data .pz-tile, :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--black) 30%, transparent); box-shadow: inset 0 var(--key-w, 0px) 0 0 var(--accent), inset 0 0 0 1px color-mix(in srgb, var(--white) 7%, transparent); } }
 :root[data-theme="dark"] .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 /* A faint halo of the page colour keeps the words crisp over a busy figure. */
@@ -1492,7 +1492,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-table { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); }
 @media (orientation: landscape) and (max-height: 500px) { .pz .pz-table { --s-cap: calc(clamp(12px, calc(1.733 * var(--pzh) / var(--vz)), 21px) * var(--ts, 1)); --s-lab: calc(clamp(14px, calc(2.022 * var(--pzh) / var(--vz)), 24.5px) * var(--ts, 1));
   --s-body: calc(clamp(17px, calc(2.311 * var(--pzh) / var(--vz)), 28px) * var(--ts, 1)); --s-val: calc(clamp(20px, calc(3.178 * var(--pzh) / var(--vz)), 38.5px) * var(--ts, 1)); } }
-.pz-kick { display: flex; align-items: center; gap: .55em; font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--site, var(--text-3)); }
+.pz-kick { display: flex; align-items: center; gap: .55em; font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--site, var(--text-3)); }
 /* The site tag above a slide's title: which level the block sits at, a quiet pill in the level's colour, smaller than any text on the card. */
 .pz-site { align-self: flex-start; display: inline-flex; align-items: center; gap: .45em; margin-bottom: -.15em; padding: .2em .6em; border-radius: var(--r-pill); font: 600 max(9px, calc(var(--s-cap) * .75))/1.1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--site) 80%, var(--text)); background: color-mix(in srgb, var(--site) 13%, transparent); }
 .pz:not(.stack) .pz-site { font-size: var(--s-cap); }   /* (a wide screen: the caption's size, the smallest on the card, never under 12 px) */
@@ -1506,7 +1506,7 @@ button.finding { cursor: pointer; }
 :is(.pz-shade.pz-card:not(.stack), .pz:not(.stack):not(.low) .pz-panel) { --pz-tabh: calc(var(--pz-cp) * .72); --pz-tabf: max(12px, calc(var(--pz-tabh) * .56)); }
 :root[data-theme="dark"] :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); } }
-.pz-tabname { position: absolute; top: 0; right: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55 - .05em) 0 calc(var(--pz-tabh) * .55); border-radius: 0 0 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: 600 var(--pz-tabf)/1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
+.pz-tabname { position: absolute; top: 0; right: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55 - .05em) 0 calc(var(--pz-tabh) * .55); border-radius: 0 0 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
 .pz-shade.stack .pz-tabname { border-top-right-radius: 17px; }   /* (the glass's own corner, inside its 1 px border) */
 /* (The glass's lit top edge runs on over the tab unbroken: the tab's darker patch would dim it to a step where the tab begins.) */
 .pz-shade:is(.stack, .pz-card) .pz-tabname { box-shadow: inset 0 1px 0 var(--pz-glass-edge); }
@@ -1516,10 +1516,10 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-panel.tabbed { padding-top: calc(var(--pz-tabh) + 10px); }
 .app.pz-hi .pz-tabname { color: var(--text); }
 .pz-kick[data-site="none"] { color: var(--text-3); }
-.pz-h { margin: 0; font: 600 var(--s-title)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
-/* A short neutral rule closes the title off from the body. */
-.pz-text .pz-h::after, .pz-ph .pz-h::after { content: ""; display: block; width: 2.2rem; height: 2px; margin-top: .3em; border-radius: 1px; background: color-mix(in srgb, var(--text) 22%, transparent); }
-.pz.stack .pz-h::after { margin-top: .22em; width: 1.6rem; }
+.pz-h { margin: 0; font: 540 var(--s-title)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
+/* No rule under the title (17 Oct): its old room stays as space before the body. */
+.pz-text .pz-h, .pz-ph .pz-h { padding-bottom: calc(.3em + 2px); }
+.pz.stack .pz-h { padding-bottom: calc(.22em + 2px); }
 .pz-line { margin: 0; font: 400 var(--s-body)/1.38 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
 /* Body emphasis: key terms in the heading colour, values in a quiet pill with even figures. */
 .pz-line b { font-weight: 600; color: var(--text); }
@@ -1558,11 +1558,11 @@ button.finding { cursor: pointer; }
 /* A disease name: a soft tinted pill, inline and with no vertical padding that counts, so a line never grows or shifts. */
 .pz-dz { padding: 0 .3em; margin-inline: -.04em; border-radius: .5em; font-weight: 600; color: color-mix(in srgb, var(--disease) 62%, var(--text)); background: color-mix(in srgb, var(--disease) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--disease) 36%, transparent); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 /* In a title the name is only tinted: a box round big, tightly leaded letters would be clipped at the card's top. */
-.pz-h .pz-dz { padding: 0; margin: 0; background: none; box-shadow: none; border-radius: 0; font-weight: inherit; color: color-mix(in srgb, var(--disease) 82%, var(--text)); }
+.pz-h .pz-dz { padding: 0; margin: 0; background: none; box-shadow: none; border-radius: 0; font-weight: inherit; color: inherit; }   /* (titles stay one colour; disease names keep their violet in the body) */
 /* A cut-off ({>=10 mmHg}): an outline, no fill. Filled is this patient, outlined is the rule. */
 .pz-val.cut { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent); color: var(--text-2); }
 .app.pz-hi .pz-val.tone, .app.pz-hi .pz-term { box-shadow: inset 0 0 0 1.5px var(--tone); }
-.pz-sub { display: block; margin-bottom: .55em; font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .09em; text-transform: uppercase; color: var(--text-3); }
+.pz-sub { display: block; margin-bottom: .55em; font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }
 /* A slide's causes: one plain line in the small size, its heading inline (no pills: four pills took four rows). */
 .pz-causes { margin: 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
 .pz-causes .pz-sub { display: inline; margin: 0 .5em 0 0; }
@@ -1574,7 +1574,7 @@ button.finding { cursor: pointer; }
 .pz-rail-liver i { flex: 1 1 0; align-self: stretch; box-sizing: border-box; min-width: 0; border: 2px solid var(--border-strong); border-bottom: 0; }
 .pz-rail-liver i:first-child { border-right: 0; border-radius: .55em 0 0 0; }
 .pz-rail-liver i:last-child { border-left: 0; border-radius: 0 .55em 0 0; }
-.pz-rail-liver span { flex: none; margin-top: -.8em; padding: 0 .5em; font: 600 1em/1.3 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.pz-rail-liver span { flex: none; margin-top: -.8em; padding: 0 .5em; font: var(--caps-w) 1em/1.3 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }
 .pz-rail ol { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; margin: 0; padding: 0; list-style: none; }
 .pz-rail li { display: flex; flex-direction: column; align-items: center; gap: .5em; min-width: 0; text-align: center; }
 .pz-rail li > i { position: relative; width: 100%; height: .62em; border-radius: .31em; background: var(--site); opacity: .28; transition: opacity .4s var(--ease); }
@@ -1602,7 +1602,7 @@ button.finding { cursor: pointer; }
 .pz-data { position: absolute; right: var(--pz-cm); top: var(--pz-cm); width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); max-height: calc(100% - 2 * var(--pz-cm)); --pz-gap: clamp(8px, calc(1.6 * var(--pzh) / var(--vz)), 20px); display: flex; flex-direction: column; gap: var(--pz-gap); padding: clamp(14px, calc(2.1 * var(--pzh) / var(--vz)), 28px); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--border); border-radius: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); box-shadow: var(--shadow-3); transition: opacity .32s var(--ease), transform .32s var(--ease); }
 .pz-data.pz-hide { opacity: 0; transform: translateX(18px); }
 .pz.pz-card:not(.stack) .pz-data { padding: var(--pz-cp); }   /* (the same padding as the teaching card, so the two cards' text edges line up) */
-.pz-dh { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; text-align: center; gap: 4px 12px; font: 600 var(--s-cap)/1.25 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); }
+.pz-dh { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; text-align: center; gap: 4px 12px; font: var(--caps-w) var(--s-cap)/1.25 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }
 .pz-lg { display: inline-flex; align-items: center; gap: .45em; letter-spacing: 0; text-transform: none; font-weight: 500; }
 .pz-lg i.now { width: 1.4em; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--tour-portal), var(--tour-sys)); }
 .pz-lg i.base { width: 1.4em; border-top: 2px dashed var(--text-3); margin-left: .5em; }
@@ -1631,8 +1631,11 @@ button.finding { cursor: pointer; }
 .pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
 .pz-tiles[data-n="0"] { display: none; }   /* (a ladder alone: its brackets give the HVPG and PPG) */
 .pz-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh) / var(--vz)), 18px) clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh) / var(--vz)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease), box-shadow .4s var(--ease); }
-.pz-tile.key { border-color: var(--accent); --key-w: 1px; }   /* (a highlighted tile keeps its fill: a 3px accent edge, 2px border + 1px ring inside it, so the box never changes size) */
-.pzt-k { font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); overflow-wrap: break-word; }
+/* A tile the slide is about: a 2 px accent line along its top edge (an inset shadow, so the box never changes size) and its name in
+   full ink, not a ring that read as "selected" (critique D5, 17 Oct). */
+.pz-tile.key { --key-w: 2px; }
+.pz-tile.key .pzt-k { color: var(--text); }
+.pzt-k { font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-2); overflow-wrap: break-word; }
 /* The number shrinks with its tile (30cqi) and the unit drops under it rather than leave the box. */
 .pzt-vu { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: center; gap: 0 .3em; min-width: 0; }
 .pzt-v { font: 600 min(var(--s-big), 24cqi)/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); transition: color .4s var(--ease); }
@@ -1665,7 +1668,7 @@ button.finding { cursor: pointer; }
 .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) { width: fit-content; max-width: clamp(300px, calc(25vw / var(--vz)), 500px); }
 .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pz-tile { container-type: normal; }
 .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v { font-size: var(--s-big); }
-.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v { font-size: var(--s-title); min-width: 3.6ch; }
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pzt-v { font-size: var(--s-title); min-width: 3.6ch; text-align: right; }   /* (its room held for the counting number, which sits at the right of it so the unit follows it straight on: "75%", never "75 … %", I5 17 Oct) */
 @media (orientation: portrait) { .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) { max-width: min(62vw, 520px); } }
 @media (min-width: 1100px) {
   .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool):has(.pz-tiles[data-n="2"]) { max-width: min(46vw, 640px); }
@@ -1694,6 +1697,7 @@ button.finding { cursor: pointer; }
 .pz-ab { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; width: fit-content; max-width: 100%; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; }
 /* (In the teaching card the switch sits centred, with no shadow: the card's own layer clipped a shadow to a hard-edged box.) */
 .pz-text .pz-ab { margin-inline: auto; align-self: center; box-shadow: none; }
+.pz-text .pz-wi { box-shadow: none; }   /* (as the buttons: the card clipped its shadow into a square-cornered band under it, I6 17 Oct) */
 .pz-abb { appearance: none; border: 0; border-radius: 999px; padding: .5em 1.05em; min-height: 40px; font: 600 var(--s-lab)/1.1 var(--font-ui); color: var(--text-2); background: transparent; cursor: pointer; transition: background-color .3s var(--ease), color .3s var(--ease), box-shadow .3s var(--ease); }
 @media (hover: hover) { .pz-abb:hover { color: var(--text); background: var(--hairline); } }
 .pz-abb[aria-pressed="true"] { color: var(--on-accent); background: var(--accent); box-shadow: var(--shadow-1); }
@@ -1733,11 +1737,10 @@ button.finding { cursor: pointer; }
 .pz-panel .pz-line { max-width: 70ch; }
 /* The opening slide: the deck's own title, centred and large, a short hairline under it; the slide's running head and heading are quieter below. It fades in with the slide. */
 .pz-panel[data-visual="outline"] .pz-ph { align-items: center; text-align: center; gap: clamp(8px, calc(1.4 * var(--pzh) / var(--vz)), 16px); padding-top: clamp(4px, calc(1.6 * var(--pzh) / var(--vz)), 22px); }
-.pz-panel .pz-dtitle { margin: 0; max-width: 20ch; font: 600 var(--s-title)/1.05 var(--font-display); letter-spacing: -.022em; text-wrap: balance; color: var(--text); animation: pz-in .6s var(--ease) both; }
+.pz-panel .pz-dtitle { margin: 0; max-width: 20ch; font: 540 var(--s-title)/1.05 var(--font-display); letter-spacing: -.022em; text-wrap: balance; color: var(--text); animation: pz-in .6s var(--ease) both; }
 .pz-panel .pz-dtitle::after { content: ""; display: block; width: 3rem; height: 2px; margin: .42em auto 0; border-radius: 1px; background: var(--accent); opacity: .55; }
 .pz-panel[data-visual="outline"] .pz-kick { justify-content: center; margin-top: clamp(6px, calc(1.6 * var(--pzh) / var(--vz)), 22px); }
-.pz-panel[data-visual="outline"] .pz-ph .pz-h { font-size: var(--s-body); font-weight: 500; color: var(--text-2); }
-.pz-panel[data-visual="outline"] .pz-ph .pz-h::after { display: none; }
+.pz-panel[data-visual="outline"] .pz-ph .pz-h { padding-bottom: 0; font-size: var(--s-body); font-weight: 500; color: var(--text-2); }
 .pz.stack .pz-panel .pz-dtitle { font-size: var(--s-big); text-wrap: wrap; max-width: none; }
 .pz.stack .pz-panel[data-visual="outline"] .pz-ph { align-items: stretch; text-align: left; padding-top: 0; }
 .pz.stack .pz-panel[data-visual="outline"] .pz-kick { justify-content: flex-start; margin-top: 0; }
@@ -1772,7 +1775,7 @@ button.finding { cursor: pointer; }
 .pz-table { overflow: auto; border: 1px solid var(--border); border-radius: clamp(12px, calc(1.8 * var(--pzh) / var(--vz)), 20px); }
 .pz-table table { width: 100%; border-collapse: collapse; font: 500 var(--s-body)/1.25 var(--font-ui); }
 .pz-table th, .pz-table td { padding: .55em .75em; text-align: left; vertical-align: middle; }
-.pz-table thead th { background: var(--surface-2); font: 600 var(--s-cap)/1.2 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
+.pz-table thead th { background: var(--surface-2); font: var(--caps-w) var(--s-cap)/1.2 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
 .pz-table .num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pz-table tbody tr { border-top: 1px solid var(--border); cursor: pointer; transition: background-color .2s var(--ease); }
 @media (hover: hover) { .pz-table tbody tr:hover { background: var(--accent-soft); } }
@@ -2100,6 +2103,9 @@ button.finding { cursor: pointer; }
   .pz-table .pz-foot { position: static; }}
 .pz.stack .pz-visual { flex: none; }   /* (a phone scrolls the card rather than squeeze the chart over its words) */
 .pz.stack .pz-data.tiles-only .pzt-v { font-size: var(--s-title); }
+/* (A phone's card of tiles alone drops its "The patient" header: the tiles name themselves, and the row goes to the figure. A card
+   folded behind Show keeps it, as the row that holds the chip. Critique D1, 17 Oct.) */
+.pz:is(.stack, .low) .pz-data.tiles-only:not(.has-tool):not(.pz-folds) > .pz-dh { display: none; }
 .pz.stack .pz-data.tiles-only .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
 .pz.stack .pz-tiles[data-n="4"], .pz.stack .pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* (four in a row cannot hold their numbers on a phone) */
 .pz.stack .pz-lapse { font-size: var(--s-body); }
@@ -2124,7 +2130,7 @@ button.finding { cursor: pointer; }
 /* A what-if slider: the same frosted pill as the treatment buttons, its name, the track between its two ends, and the value. */
 .pz-wi { display: flex; align-items: center; gap: .5em .9em; flex-wrap: wrap; padding: .45em 1.05em; width: min(100%, 34em); box-sizing: border-box; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; font: 600 var(--s-lab)/1.15 var(--font-ui); color: var(--text); }
 .pzi-l { display: flex; flex-direction: column; gap: .1em; white-space: nowrap; }
-.pzi-k { font: 600 var(--s-cap)/1 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--accent-ink, var(--accent)); }
+.pzi-k { font: 600 var(--s-cap)/1 var(--font-ui); color: var(--accent-ink, var(--accent)); }
 .pzi-t { flex: 1 1 10em; min-width: 0; display: flex; align-items: center; gap: .6em; }
 .pzi-t .range-wrap { flex: 1; min-width: 4em; }
 .pzi-e { font: 500 var(--s-cap)/1 var(--font-ui); color: var(--text-2); white-space: nowrap; }
@@ -2133,6 +2139,9 @@ button.finding { cursor: pointer; }
 .pz.stack .pzi-l { flex-direction: row; align-items: baseline; gap: .5em; }
 /* (A phone: the slider takes a line of its own at the card's width, its end words at the track's ends; on one line with the label the track was a stub.) */
 .pz.stack .pzi-t { flex: 1 0 100%; }
+/* (Its value sits at the right of the label's row, near the eye, and the track takes the line under both: one row fewer, C2 17 Oct.) */
+.pz.stack .pzi-l { flex: 1 1 auto; min-width: 0; }
+.pz.stack .pz-wi > .pzi-t { order: 1; }
 /* The quick check: numbered questions; a tap opens the answer under its question (it eases open, never jumps). */
 .pz-check { margin: 0; padding: 0; list-style: none; counter-reset: pzc; display: flex; flex-direction: column; min-height: 0; overflow: auto; font: 400 var(--s-body)/1.35 var(--font-display); color: var(--text); }
 .pz.stack .pz-check { font-size: var(--s-lab); }   /* (a phone: the controls' pill sits below the card now, so the list keeps no room for it: 48 px of it left an empty band under the last question, sweep 16 Oct) */
@@ -4098,7 +4107,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-sk { --sk: var(--s-body); font: 500 var(--sk)/1.3 var(--font-ui); color: var(--text); padding: .4em 0 0; }
 .pzk-names, .pzk-bar, .pzk-axis { position: relative; margin: 0 1.2em; }
 .pzk-names { display: grid; align-items: end; min-height: 1.6em; padding-bottom: .3em; box-sizing: border-box; }
-.pzk-names span { padding: 0 .2em; text-align: center; font-weight: 600; font-size: var(--s-cap); line-height: 1.15; letter-spacing: .08em; text-transform: uppercase; }
+.pzk-names span { padding: 0 .2em; text-align: center; font-weight: var(--caps-w); font-size: var(--s-cap); line-height: 1.15; letter-spacing: var(--caps-ls); text-transform: uppercase; }
 .pzk-names [data-rate="ok"] { color: var(--ok); } .pzk-names [data-rate="mid"] { color: var(--caution); } .pzk-names [data-rate="hi"], .pzk-names [data-rate="top"] { color: var(--danger); }
 .pzk-bar { height: 1.5em; }
 .pzk-bar i { position: absolute; top: .25em; bottom: .25em; }
@@ -4848,6 +4857,14 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    (the report is a narrow container there, so the Explore pane's four-across query had matched it). */
 .pz:not(.stack) .pz-tool .dop .dop-report .dop-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
 .pz:not(.stack) .pz-tool .dop .dop-report .dop-stats :is(dt, dd) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* (A phone on its side: one line with the direction, the speed and the pattern, the speed's scale under it, then Max, Trough and
+   Pulsatility in three equal columns; no caption, which repeated the slide's own sentence. Critique I19, 17 Oct.) */
+.pz.low .pz-tool .dop .dop-report { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
+.pz.low .pz-tool .dop .dop-report > .dop-velrow { display: contents; }
+.pz.low .pz-tool .dop .dop-report > :is(.dop-range, .dop-stats) { flex: 1 0 100%; }
+.pz.low .pz-tool .dop .dop-report .dop-pattern { margin: 0; }
+.pz.low .pz-tool .dop .dop-report .dop-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px 12px; margin-top: 4px; padding: 6px 0 0; border-left: 0; border-top: 1px solid var(--hairline); }
+.pz.low .pz-tool .dop .dop-report .dop-note { display: none; }
 /* Every instrument beside its tiles (Mac and iPad landscape, Mohammad 14 Oct: "not just fixing fibroscan but everything"): drawn
    like the FibroScan he approved. The instrument is a screen on the left: one reading top left (the number at the tiles' size,
    its unit small), its status top right, the picture as large as the column allows under them. Its other readings and
@@ -4991,6 +5008,18 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 :root[data-theme="soft"] .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { --pz-chip: var(--surface-2); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); --pz-chip: var(--surface-2); } }
 .app.pz-hi .pz:not(.stack):not(.low) .pz-data.pz-folds .pz-dh > .pz-fold { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
+/* (A folded ladder card with nothing else in it: its name and Show in the teaching card's foot (presenter.js footFold), the card itself
+   out of view until it is opened, and then without a chip of its own: the foot's button reads Hide. Critique A7, 17 Oct.) */
+.pz:not(.stack):not(.low) .pz-data.pz-folds.pz-footfold:not(.tool-open) { opacity: 0 !important; pointer-events: none; }
+.pz:not(.stack):not(.low) .pz-data.pz-folds.pz-footfold .pz-dh > .pz-fold { display: none; }
+.pz:not(.stack):not(.low) .pz-data.pz-folds.pz-footfold .pz-dh { padding-inline: 0; }
+.pz-tfold { display: none; }
+.pz:not(.stack):not(.low) .pz-text > .pz-tfold { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; }
+.pz-tfold .pz-sub { margin: 0; }
+.pz-tfold-b { position: relative; flex: none; display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--accent); font: 600 max(12px, var(--s-cap))/1 var(--font-ui); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .22s var(--ease); }
+.pz-tfold-b::before { content: ''; position: absolute; inset: -8px -4px; }   /* (a 44 px target round a 28 px chip) */
+@media (hover: hover) { .pz-tfold-b:hover { background: var(--surface-2); } }
+.app.pz-hi .pz-tfold-b { color: var(--text); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
 .pz:not(.stack):not(.low) .pz-data.pz-folds > .pz-tool { overflow: hidden; transition: opacity .26s var(--ease); }   /* (the card takes its new size at once, a solid object, never easing its size in view; the instrument fades in) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds:not(.tool-open) > .pz-tool { max-height: 0; opacity: 0; margin-bottom: calc(-1 * var(--pz-gap)); }
 /* (A ladder card folds its plot (or strip) and key the same way, at once: its tiles stay in a row under the header with the readings.
@@ -5003,6 +5032,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) .pzs-u, .pz.stack .pz-data:not(.tiles-only):not(.tool-only) > .pz-strip .pzs-u { display: none; }
 .pz:not(.stack):not(.low) .pz-data.pz-folds.tool-open:not(.has-tool) .pz-dh > span:first-child::after,
 .pz.stack .pz-data:not(.tiles-only):not(.tool-only):has(> .pz-strip) .pz-dh > span:first-child::after { content: ' (mmHg)'; text-transform: none; letter-spacing: normal; }   /* (a phone's strip too: its unit had sat alone on a line at the right) */
+/* (A phone on its side shows the compact strip too, which draws no dashed healthy line: no Patient/Healthy key, and its unit in the
+   header as upright, not alone under RA. Critique I8, 17 Oct.) */
+.pz.low .pz-data:not(.tiles-only):not(.tool-only):not(.has-tool) .pz-lg, .pz.low .pz-data:not(.tiles-only):not(.tool-only):not(.has-tool) > .pz-strip .pzs-u { display: none; }
+.pz.low .pz-data:not(.tiles-only):not(.tool-only):not(.has-tool) .pz-dh > span:first-child::after { content: ' (mmHg)'; text-transform: none; letter-spacing: normal; }
 /* (Folded, the tile at the card's full width keeps its scale bar 12 px from its sides and 8 px under its numbers, as drawn.) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds:not(.has-tool):not(.tool-open) > .pz-tiles .pz-tile:has(.pzt-bar) { padding-inline: calc(13px / var(--pz-z, 1)); padding-bottom: calc(10px / var(--pz-z, 1)); }
 /* (An instrument alone, or over a ladder, is the same screen at the card's full width.) */
@@ -5181,21 +5214,21 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz.stack .pz-data .pz-tiles .pzt-bar { font-size: var(--pz-psm); margin-top: .25em; }
 .pzt-bar.empty { visibility: hidden; }
 .pzt-bar [hidden] { display: none; }
-/* (The dot, 12 px with its 2 px ring, overhangs the 5 px track by 4 px above and 8 px below: the track sits 4 px into the bar and the
+/* (The dot, 12 px with its 2 px ring, overhangs the 6 px track by 5 px above and below: the track sits 4 px into the bar and the
    cut-off numbers start under the ring, so the dot never touches the rating over the bar or a number under it. iPad, 16 Oct.) */
-.pzb-track { position: absolute; left: 0; right: 0; top: 4px; height: 5px; }
+.pzb-track { position: absolute; left: 0; right: 0; top: 4px; height: 6px; }
 .pzb-zs { position: absolute; inset: 0; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--text) 8%, transparent); }
 .pzb-z { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--text-3) 30%, transparent); transition: background-color .4s var(--ease); }
-.pzb-z[data-rate="ok"] { background: color-mix(in srgb, var(--ok) 38%, transparent); }
-.pzb-z[data-rate="mid"] { background: color-mix(in srgb, var(--caution) 42%, transparent); }
-.pzb-z[data-rate="hi"] { background: color-mix(in srgb, var(--danger) 40%, transparent); }
+.pzb-z[data-rate="ok"] { background: color-mix(in srgb, var(--ok) 60%, transparent); }
+.pzb-z[data-rate="mid"] { background: color-mix(in srgb, var(--caution) 62%, transparent); }
+.pzb-z[data-rate="hi"] { background: color-mix(in srgb, var(--danger) 60%, transparent); }
 .pzb-t { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--surface); }
 .pzb-l { position: absolute; top: 15px; line-height: 1.05; translate: -50% 0; white-space: nowrap; }
 .pzb-l.lo { translate: 0 0; }
 .pzb-l.hi { translate: -100% 0; }
 .pzb-l.off { visibility: hidden; }
-.pzb-link { position: absolute; top: 1.5px; height: 2px; background: color-mix(in srgb, var(--text) 45%, transparent); }
-.pzb-was, .pzb-now { position: absolute; top: 2.5px; translate: -50% -50%; border-radius: 50%; box-sizing: border-box; }
+.pzb-link { position: absolute; top: 2px; height: 2px; background: color-mix(in srgb, var(--text) 45%, transparent); }
+.pzb-was, .pzb-now { position: absolute; top: 3px; translate: -50% -50%; border-radius: 50%; box-sizing: border-box; }
 .pzb-was { width: 9px; height: 9px; border: 2px solid color-mix(in srgb, var(--text) 50%, transparent); background: var(--surface); }
 .pzb-now { width: 12px; height: 12px; background: var(--text-3); box-shadow: 0 0 0 2px var(--surface); transition: background-color .4s var(--ease); }
 .pz-tile:is([data-rate="ok"], [data-rate="lo"]) .pzb-now { background: var(--ok); }

@@ -31,7 +31,7 @@ export const PREGNANCY_DECK = {
     },
     {
       id: 'weeks', params: { gestation: 24 }, cam: 'fit', labels: ['VAR', 'CONF'],
-      whatIf: { label: 'Pregnancy', param: 'gestation', min: 0, max: 40, step: 1, unit: 'weeks' },
+      whatIf: { label: 'Weeks pregnant', param: 'gestation', min: 0, max: 40, step: 1, unit: 'weeks' },
       data: 'tiles', tiles: ['bv', 'co', 'varix'], key: ['bv', 'co'], delta: 'before',
       kicker: 'Pregnancy', site: 'sin', title: 'Pregnancy fills the circulation',
       line: 'At 24 weeks the blood volume is {bv} and the cardiac output {co}. Drag the weeks and watch the varix grow.',

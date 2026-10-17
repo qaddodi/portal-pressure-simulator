@@ -64,10 +64,11 @@ test('the pill colour is a token with a value in the light and both dark blocks'
   assert.ok(!/\.pz-dz \{[^}]*(?:padding: [^0;]|display:|line-height)/.test(app));
 });
 
-test('a title only tints the name: no box, padding or shadow that a card edge could clip', () => {
+test('a title keeps one colour: its disease name takes the title\'s ink, with no box, padding or shadow (Mohammad, 17 Oct)', () => {
   const app = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   const rule = app.match(/\.pz-h \.pz-dz \{([^}]*)\}/)?.[1] || '';
-  assert.ok(/background: none/.test(rule) && /box-shadow: none/.test(rule) && /padding: 0;/.test(rule) && /var\(--disease\)/.test(rule));
+  assert.ok(/background: none/.test(rule) && /box-shadow: none/.test(rule) && /padding: 0;/.test(rule) && /color: inherit/.test(rule));
+  assert.ok(!/var\(--disease\)/.test(rule), 'no violet in a title');
 });
 
 test('a body pill adds no vertical padding or margin, so it stays inside its line and the card', () => {

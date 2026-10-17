@@ -19,14 +19,14 @@ import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b9
 import { sinusoidSupported } from './sinusoid-view.js?v=9273baf980';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=102ed45d41';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag } from './decks.js?v=3ab8e3ccf5';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=df80f3523c';
 import { createTools } from './presenter-tools.js?v=7fe4828a5e';
-import { openHandout } from './handout.js?v=e93401572c';
+import { openHandout } from './handout.js?v=cdd17c3338';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=1d77d9a6e6';
+import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=e25caf9bf9';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { createFigureKey } from './figure-key.js?v=8d06c01d83';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
@@ -491,7 +491,11 @@ function bigLadder() {
     b.x0 = X(b.i0); b.x1 = X(b.i1); b.mid = (b.x0 + b.x1) / 2;
     // The label sits in the line's gap when the line keeps at least 10 a side; otherwise the line runs unbroken
     // across the span (raised a little) and the label is centred just under it, so it never sits on a drop line.
-    const w = est(b.label, c, 0.64) + 0.9 * c, r = b.row, inl = b.x1 - b.x0 - w >= 20;
+    const w = est(b.label, c, 0.64) + 0.9 * c, r = b.row;
+    // (The PPG's label sits in its first stretch, portal vein to WHVP, where it fits there: centred, it stood straight under the
+    // HVPG's, both on the same middle, and the two read as one stack. Critique A6, 17 Oct.)
+    if (b.i0 === 0 && b.i1 - b.i0 > 2 && X(1) - X(0) - w >= 20) b.mid = (X(0) + X(1)) / 2;
+    const inl = b.x1 - b.x0 - w >= 20;
     b.by = inl ? r : r - 0.5 * c;
     const by = b.by.toFixed(1);
     b.bar.setAttribute('d', `M${b.x0} ${(b.by - 5).toFixed(1)}V${(b.by + 5).toFixed(1)}M${b.x1} ${(b.by - 5).toFixed(1)}V${(b.by + 5).toFixed(1)}M${b.x0} ${by}`
@@ -636,7 +640,7 @@ function bigLadder() {
   const layL = (fs, box) => {
     c = fs.cap; l = fs.lab; ph = 1.75 * c;
     // (The first reading, centred on its station, stays clear of the axis numbers to its left.)
-    tx = est('50', c) + 4; gx = tx + 0.5 * c; x0 = Math.max(gx + 12, tx + 6 + 0.62 * l);
+    tx = est('50', c) + 4; gx = tx + 0.5 * c; x0 = Math.max(gx + 12, gx + 8 + 0.66 * l);   // (its outline included: "18" by the axis's "20" read as one, critique A6)
     const xr = W - Math.max(56, Math.max(est('WHVP', c, 0.66) / 2, est('20', l) / 2) + 8);
     step = (xr - x0) / 4;
     // (Two rows only when two neighbouring names, as drawn, would come closer than a quarter letter.)
@@ -1484,7 +1488,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const patchOf = (x) => paths.reduce((a, path) => merge(a, path.reduceRight((o, k) => ({ [k]: o }), x)), {});
     const out = h('output', { class: 'pzi-v' });
     const input = h('input', { type: 'range', min: w.min, max: w.max, step: w.step ?? (w.max - w.min) / 20, value: v0, 'aria-label': `What if: ${w.label}` });
-    const fmtV = (x) => (w.unit ? `${fmt(x, w.step >= 1 ? 0 : 1)} ${w.unit}` : '');
+    // (A label that already names the unit, "Weeks pregnant", shows the bare number: "24", not "24 weeks".)
+    const bare = !!w.unit && w.label.toLowerCase().startsWith(w.unit.toLowerCase());
+    const fmtV = (x) => (w.unit ? `${fmt(x, w.step >= 1 ? 0 : 1)}${bare ? '' : ` ${w.unit}`}` : '');
     const paint = (x) => { input.style.setProperty('--pct', `${((x - w.min) / (w.max - w.min)) * 100}%`); out.textContent = fmtV(x); };
     let raf = 0;
     input.addEventListener('input', () => {
@@ -1937,7 +1943,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     'Doppler, right hepatic vein': 'Doppler, right HV', 'Doppler, middle hepatic vein': 'Doppler, middle HV', 'Doppler, left hepatic vein': 'Doppler, left HV', 'Doppler, inferior vena cava': 'Doppler, IVC',
     'Doppler, paraumbilical vein': 'Doppler, umbilical v.', 'Two years on one chart': 'Two years', 'The course on one chart': 'The course', 'Pressure over the talk': 'Pressure so far',
     'Pressures over the year': 'The year' };
-  const cardTitle = (s) => { const t = fullTitle(s); return phone() && t.length > 20 ? SHORT_TITLE[t] || t.replace(/ over the (days|year|talk)$/, '').replace(/,.*$/, '') : t; };
+  // (A phone on its side takes the short title too: its long one wrapped there, at its hyphen, "CROSS-" over "SECTION". A title's
+  // hyphen never breaks, on any screen: a non-breaking one. Critique I7, 17 Oct.)
+  const cardTitle = (s) => {
+    const t = fullTitle(s), small = phone() || (innerWidth > innerHeight && innerHeight <= 500);
+    return (small && t.length > 20 ? SHORT_TITLE[t] || t.replace(/ over the (days|year|talk)$/, '').replace(/,.*$/, '') : t).replace(/-/g, '\u2011');
+  };
   // The talk so far, for a pressure trace: every state up to slide i, once each.
   // Each carries its time point (the deck's days so far) and what happened there (the first tick among its slides, else its title).
   const whenOf = (k) => {
@@ -2014,7 +2025,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       data.classList.remove('strip');   // (a squashed ladder's strip lasts one slide)
       data.classList.toggle('pz-beside', (!!s.tool || lad) && !!s.data && tileKeys(s).length > 0);
       data.toggleAttribute('data-beside', data.classList.contains('pz-beside'));
-      data.classList.remove('pz-folds');   // (Mac and iPad landscape: folded behind Show only when the pair would not fit, set in layout)
+      data.classList.remove('pz-folds', 'pz-footfold');   // (Mac and iPad landscape: folded behind Show only when the pair would not fit, set in layout)
       data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: every instrument with tiles has them stacked beside it; its own readings fold to a short list under its picture)
       data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
       data.dataset.tool = ui.tools.sig(s.tool);
@@ -2324,18 +2335,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         const t = k.parentElement, cs = getComputedStyle(t), room = t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
         if (room > 0 && k.scrollWidth > room + 0.5) k.classList.add('short');
       }
-      // (A scale bar's cut-off numbers stay inside the bar, and one within 8 px of the number before it is left out: sweep batch 03,
-      // 0.1 and 1.5 sat 6 px apart and read as one.)
+      // (A scale bar's cut-off numbers stay inside the bar, and where two would come within 8 px of each other the bar shows none of
+      // them: sweep batch 03, 0.1 and 1.5 sat 6 px apart and read as one, and a lone survivor read as a mystery value (critique D2,
+      // 17 Oct). The coloured bands still show where the cut-offs fall.)
       for (const bar of el.querySelectorAll('.pz-tiles .pzt-bar')) {
-        const B = bar.getBoundingClientRect();
-        let end = -Infinity;
-        for (const l of bar.querySelectorAll('.pzb-l')) {
+        const B = bar.getBoundingClientRect(), ls = [...bar.querySelectorAll('.pzb-l')];
+        let end = -Infinity, clash = false;
+        for (const l of ls) {
           l.classList.remove('lo', 'hi', 'off');
           let r = l.getBoundingClientRect();
           if (!r.width) continue;
           if (r.left < B.left) { l.classList.add('lo'); r = l.getBoundingClientRect(); } else if (r.right > B.right) { l.classList.add('hi'); r = l.getBoundingClientRect(); }
-          if (r.left < end + 8) l.classList.add('off'); else end = r.right;
+          if (r.left < end + 8) clash = true; else end = r.right;
         }
+        if (clash) for (const l of ls) l.classList.add('off');
       }
       fitHeads(el);
       // (A quick check is fitted with every answer open: its words keep one size however many are revealed.)
@@ -2406,6 +2419,25 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (clearFor !== ui) { clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text); clearFor = ui; }
     ui.data.ontransitionend = ui.text.ontransitionend = soon;   // (a card slides into place: its edge is where it ends, not where it was measured)
   };
+  // A folded ladder card with nothing else in it (no tiles, no instrument) is no card of its own on a wide screen: its name and
+  // Show sit in the teaching card's foot, and the card shows only once opened, with its strip (critique A7, Sites 5 and 9 on a
+  // sideways iPad, 17 Oct). The row stays while the card is open, its button reading Hide, so the words' card never changes size.
+  // Called wherever the card folds or unfolds in layout, before the words are measured.
+  function footFold() {
+    const dd = ui.data, on = dd.classList.contains('pz-folds') && !dd.classList.contains('has-tool') && dd.dataset.tn === '0';
+    dd.classList.toggle('pz-footfold', on);
+    let row = ui.text.querySelector(':scope > .pz-tfold');
+    if (!on) { row?.remove(); return; }
+    const chip = dd.querySelector('.pz-dh > .pz-fold'), open = dd.classList.contains('tool-open');
+    if (!row) {
+      const b = h('button', { type: 'button', class: 'pz-tfold-b', onclick: () => { chip?.click(); footFold(); } });
+      row = h('p', { class: 'pz-tfold' }, h('span', { class: 'pz-sub' }), b);
+      ui.text.append(row);
+    }
+    row.firstChild.textContent = ui.dhT.textContent;
+    const b = row.lastChild;
+    b.textContent = open ? 'Hide' : 'Show'; b.setAttribute('aria-expanded', String(open));
+  }
   function layout() {
     if (!ui) return;
     // Under interface zoom the page is scaled by k: rects are screen px, inline sizes are the page's own (screen / k).
@@ -2457,11 +2489,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // 1440x900 screen left the card 232 px, too short for the plot even at the card's smallest zoom.)
       const canFold = (dd.classList.contains('has-tool') || (!dd.classList.contains('tiles-only') && ladderFold === foldKey)) && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead');
       const setFolds = (on) => {
-        if (dd.classList.contains('pz-folds') === on) return;   // (unchanged: a pass mid-ease must not cut a Show or Hide short)
+        if (dd.classList.contains('pz-folds') === on) { footFold(); return; }   // (unchanged: a pass mid-ease must not cut a Show or Hide short)
         const tl = dd.querySelector(':scope > .pz-tool');
         if (tl) tl.style.transition = 'none';
         dd.classList.toggle('pz-folds', on); dd.classList.toggle('pz-beside', !on && dd.hasAttribute('data-beside'));
         if (tl) { void tl.offsetHeight; tl.style.transition = ''; }
+        footFold();
       };
       if (!lock && dd.classList.contains('pz-folds')) setFolds(false);
       const q = ui.bar.hidden || !ui.bar.offsetWidth ? null : ui.bar.getBoundingClientRect();
