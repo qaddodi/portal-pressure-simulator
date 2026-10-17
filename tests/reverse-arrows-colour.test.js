@@ -47,6 +47,7 @@ test('reduced motion follows the signal at once', () => {
 });
 
 test('the stage passes the colour signal to the stream', () => {
-  assert.match(STAGE, /const rt = isReversed\(EDGES\[k\], RF\) \? 1 : 0;\s*const sm = advanceStream\([^;]*rev: !!rt \}\);/);
+  // (One options object for the whole loop: its rev is set from the same signal just before each vessel's step.)
+  assert.match(STAGE, /const rt = isReversed\(EDGES\[k\], RF\) \? 1 : 0;\s*so\.large = LARGE\[k\]; so\.rev = !!rt;\s*const sm = advanceStream\([^;]*, so\);/);
   assert.match(STAGE, /mode === 'direction'\) \{ const rev = isReversed\(e, f\)/);
 });

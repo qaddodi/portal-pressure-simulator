@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=a11d7ef88d';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=eff735c9bd';
+import { createStage } from './stage.js?v=363c6dccb6';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
 import { sinusoidSupported } from './sinusoid-view.js?v=4a03f06c56';
 import { createInspector } from './inspector.js?v=a76df8ce13';
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=ef1883db0c';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=8449c1049f';
 import { initTopbarMotion } from './topbar-motion.js?v=b33007f264';
 import { ORIGINS } from './blood.js?v=cc7febbf07';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';

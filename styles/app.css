@@ -5651,6 +5651,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 :root[data-noglass] *, :root[data-noglass] *::before, :root[data-noglass] *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 :root[data-noglass] :is(.lb-glass, .sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast) { background: var(--surface); }
 :root[data-noglass] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .cl-glass) { background: var(--surface); }
+/* (The upright split sheet's two glass pieces: its own fill is none, the pieces carry the glass, so they turn solid with the rest.) */
+:root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::before, :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface); }
 /* (Settings › Blur effect off.) Labels lose their pill and glow in their own colour instead. The lit lobule and sinusoid names: the
    text glows in the term's colour, faded in and out with the pill's own --pill-o. */
 :root[data-noglass] :is(.lz-lab, .lz-zone, .sv-region)::before { inset: calc(-1 * var(--pill-y) - 9px) calc(-1 * var(--pill-x) - 20px); border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--term-c, var(--accent)) 62%, transparent) 15%, transparent 100%) !important; box-shadow: none !important; }   /* (a soft cloud, not a pill: it fades with the label's own --pill-o, so it eases in and out with the pill's timing) */

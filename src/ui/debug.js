@@ -66,10 +66,11 @@ function tick(t) {
     tn.nodeValue = L.join('\n');
   }
   if (cv) {
-    const g = cv.getContext('2d'), Y = (f) => 40 - Math.min(f, 60) * (38 / 60) - 1;
+    // (The scale tops at 120 once a frame rate over 60 has been seen in the window, so a ProMotion screen's 120 shows as 120.)
+    const top = hist.some((v) => v > 66) ? 120 : 60, g = cv.getContext('2d'), Y = (f) => 40 - Math.min(f, top) * (38 / top) - 1;
     g.clearRect(0, 0, 240, 40);
     g.strokeStyle = cssAlpha('--white', 0.25); g.lineWidth = 1; g.beginPath();
-    for (const f of [30, 60]) { g.moveTo(0, Y(f)); g.lineTo(240, Y(f)); }
+    for (const f of top > 60 ? [30, 60, 120] : [30, 60]) { g.moveTo(0, Y(f)); g.lineTo(240, Y(f)); }
     g.stroke();
     g.strokeStyle = cssVar('--debug-line'); g.lineWidth = 1.5; g.beginPath();
     hist.forEach((v, i) => { const x = (i / 149) * 240; i ? g.lineTo(x, Y(v)) : g.moveTo(x, Y(v)); });

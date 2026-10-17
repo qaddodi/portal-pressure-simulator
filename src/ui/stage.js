@@ -908,8 +908,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     E[e.id] = { e, g, gc, gs, gh, tipFade, groups: isArt ? [g] : [gs, gc, g, gh], heat, grad, st0, st1, halo, sel, shadow, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
   }
   ALL_EDGES.forEach((e, i) => { E[e.id].row = i; });
+  // (Every vessel, in E's order, as one list kept from here on: E is built once above and never gains or loses a key, so the
+  // per-frame loops below need not build Object.values(E) again on every frame.)
+  const EV = Object.values(E);
   // Draw order within each tier: the portal tree in front (it lies anterior to the IVC).
-  for (const x of Object.values(E)) if (!x.isArt && (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SMV_CONF', 'SV_CONF'].includes(x.e.id))) { gShadowL.append(x.gs); gCaseL.append(x.gc); gEdges.append(x.g); gHiFront.append(x.gh); x.front = true; x.g.dataset.front = '1'; }
+  for (const x of EV) if (!x.isArt && (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SMV_CONF', 'SV_CONF'].includes(x.e.id))) { gShadowL.append(x.gs); gCaseL.append(x.gc); gEdges.append(x.g); gHiFront.append(x.gh); x.front = true; x.g.dataset.front = '1'; }
   // Highlights of the middle tier sit above its lumens and below the front tier's; the front tier's above all.
   gEdges.insertBefore(gHiMid, gEdges.querySelector('[data-front]'));
   gEdges.append(gHiFront);
@@ -961,7 +964,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function setLevel(x, l) { if ((x.level ?? 1) === l) return; x.level = l; place(x); }
   function syncLift() {
-    for (const x of Object.values(E)) {
+    for (const x of EV) {
       // (The sinusoids cross nothing, so they stay on their tier: lifted, the tier below would redraw their junctions
       // as hard-edged patches.)
       // (A selected vessel stays in its own tier, so it joins its neighbours as every vessel does, and stands out of the dimmed
@@ -972,12 +975,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Within the focus tier the portal tree stays in front (as in the resting order), so a
     // lifted collateral (paraumbilical) never draws over a lifted portal vein.
-    for (const x of Object.values(E)) if (x.lifted && x.front && !x.isArt && !x.back) { gTopS.append(x.gs); gTopC.append(x.gc); gTopL.append(x.g); gTopH.append(x.gh); }
+    for (const x of EV) if (x.lifted && x.front && !x.isArt && !x.back) { gTopS.append(x.gs); gTopC.append(x.gc); gTopL.append(x.g); gTopH.append(x.gh); }
   }
   const cls = (x, c, on) => { for (const g of x.groups) g.classList.toggle(c, on); };
   const setStyle = (x, k, v) => { if (x['_s' + k] === v) return; x['_s' + k] = v; for (const g of x.groups) g.style[k] = v; };
   // Context veins are always translucent; collaterals start faint until the model says otherwise.
-  for (const x of Object.values(E)) if (!x.isArt) { if (CONTEXT_EDGES.has(x.e.id) && !IVC_EDGES.has(x.e.id)) setLevel(x, 0.6); else if (x.e.kind === 'collateral') setLevel(x, 0.3); }
+  for (const x of EV) if (!x.isArt) { if (CONTEXT_EDGES.has(x.e.id) && !IVC_EDGES.has(x.e.id)) setLevel(x, 0.6); else if (x.e.kind === 'collateral') setLevel(x, 0.3); }
   // Performance: every model frame (≈10 a second) would otherwise rewrite hundreds of SVG
   // attributes with values that differ only in the third decimal, and each write makes the
   // browser restyle and repaint the figure. Writes go through a per-element cache, pressures
@@ -1400,7 +1403,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
     if (!W || !H) return v;
     let bot = -Infinity;
-    for (const x of Object.values(E)) {
+    for (const x of EV) {
       if (!x.vis || x.g.classList.contains('coll-ghost')) continue;
       for (const p of geo[x.e.id]?.C || []) if (p[1] > bot) bot = p[1];
     }
@@ -1966,7 +1969,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
     vBinKey = ''; binShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
-    for (const x of Object.values(E)) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) { o.glRadKey = null; o.glRSent = null; }
+    for (const x of EV) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) { o.glRadKey = null; o.glRSent = null; }
     if (F) update(F);
   });
   wrap.dataset.quality = String(quality);
@@ -2050,7 +2053,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lastMorph = t;
     const svgTubes = !wrap.classList.contains('gl-on');
     if (!svgTubes) tubesStale = true;
-    for (const x of full ? Object.values(E) : only) {
+    for (const x of full ? EV : only) {
       const g = geo[x.e.id];
       let pts;
       if (t === 0) pts = g.A; else if (t === 1) pts = g.C; else pts = g.A.map((p, i) => [lerp(p[0], g.C[i][0], t), lerp(p[1], g.C[i][1], t)]);
@@ -2179,6 +2182,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     prepIdle(run);
   }
   let catchUp = false, wAt = 0, widthEasing = false;
+  // (What the last full update was drawn from, and whether a coil or an organ was still easing then: see stepWidths.)
+  let widthF = null, widthVer = -1, widthCTM = null, coilEasing = false, organsEasing = false, storeVer = 0;
   // A presenter's slide change holds the fit still while it runs: the words leaving or arriving change the space the camera
   // frames into, and a fit that followed them would glide the figure before the slide's own move (a dive, a rise) starts.
   let homeHeld = 0;
@@ -2242,6 +2247,49 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     ascTarget = asc;
     if (ascShown !== ascTarget) ({ shown: ascShown, vel: ascVel } = fluidSpringFor(ascShown, ascVel, ascTarget, dt));
   }
+  // What follows from a vessel's drawn width (its hit stroke, casing, lumen, the liver branches, braided strands and drawn-in
+  // tributaries): written by the model's update and by the width step between model frames (stepWidths) alike.
+  function widthWrites(x, w, t, f, k) {
+    const e = x.e;
+    // The hit stroke is never thinner than the drawn tube (the IVC is wide, behind the liver) and never under ~10 px on screen.
+    { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id), hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((CTM && CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; x.hit.style.strokeWidth = hw; } }
+    if (x.isArt) { setT(x.wall, 'stroke-width', w.toFixed(1)); return; }
+    const wallPx = x.wallPx;
+    setT(x.wall, 'stroke-width', (w + 2 * wallPx).toFixed(1));
+    setA(x.lumen, 'stroke-width', w.toFixed(1));
+    if (x.cbr) for (const cb of x.cbr) cb.w = Math.max(1.2, w * cb.k);
+    if (x.strands) x.strands.forEach((sd, i) => {
+      setT(sd.lumen, 'stroke-width', Math.max(1.6, w * sd.k).toFixed(1)); setT(sd.wall, 'stroke-width', (Math.max(1.6, w * sd.k) + 2 * wallPx).toFixed(1));
+      sd.bead = e.id === 'C1a' ? Math.round(varixBead(f.metrics?.varix?.d) * (1 - t) * 100) / 100 : 0;   // (in hundredths: the radii are sent again only when it moves a step)
+      sd.live = e.code === 'C1' ? clamp(i + 1 - (f.bands || 0), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - i, 0, 1) : 1;   // cavernoma: one strand beside the main channel when acute, the rest grow in with the remodeling
+      const vis = sd.live > 0.02 ? '' : 'none', sop = sd.live * (SIN_EDGES.has(e.id) ? SIN_PERFUSION.fade : 1), op = sop < 1 ? sop.toFixed(2) : '';
+      for (const el of [sd.lumen, sd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
+    });
+    if (x.feeders) {
+      const cfg = FEEDERS[e.id];
+      let live = 1;
+      if (cfg.when === 'caudate') {
+        const ref = store.get().healthy?.Q?.[k], q = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
+        live = ref ? clamp((q / Math.abs(ref) - 2) / 2, 0, 1) : 0;
+      } else if (cfg.when === 'caput') {
+        // Caput medusae: the epigastric network fills in as the paraumbilical route opens.
+        live = clamp((recruitFrac('C3', f) - 0.15) / 0.3, 0, 1);
+      }
+      // A trunk that a collateral carries on (the azygos, with the ascending lumbar veins) is
+      // connected: it is drawn to its end; otherwise it fades out.
+      const conn = FEEDER_CONNECTOR[e.id], joined = !!conn && collOpen(conn, f);
+      x.feedJoined = joined;
+      for (const fd of x.feeders) {
+        if (fd.fadeMask) for (const el of [fd.wall, fd.lumen]) { if (joined) el.removeAttribute('mask'); else if (!el.hasAttribute('mask')) el.setAttribute('mask', fd.fadeMask); }
+        const lv = fd.when ? live : 1;   // only the conditional feeders come and go
+        const fw = Math.max(1.2, w * cfg.k * fd.fk * (fd.when ? 0.5 + 0.5 * lv : 1));
+        fd.live = lv; fd.w = fw;
+        setT(fd.lumen, 'stroke-width', fw.toFixed(1)); setT(fd.wall, 'stroke-width', (fw + 2 * wallPx).toFixed(1));
+        const vis = lv > 0.02 ? '' : 'none', op = lv < 1 ? lv.toFixed(2) : '';
+        for (const el of [fd.lumen, fd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
+      }
+    }
+  }
   function updateInner(f) {
     // In the lobule, or diving into it (the anatomy is only magnified, then covered), the plate is left as it is
     // (reading the cards' boxes and restyling it each model frame stalled the zoom); it catches up on the way out,
@@ -2260,7 +2308,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let dtW = Math.min(0.1, (nowW - (wAt || nowW)) / 1000);
     if (hid.at) { followHidden(f); dtW = (nowW - Math.max(wAt, hid.pAt)) / 1000; fxAt = Math.max(hid.since, hid.pAt); plateStale = true; hid.at = 0; hid.p = null; hid.pAt = 0; }
     const kW = -Math.expm1(-dtW / 0.25);
-    wAt = nowW; widthEasing = false;
+    wAt = nowW; widthEasing = false; coilEasing = false; organsEasing = false;
     tubesHidden = wrap.classList.contains('gl-on');
     const st = store.get();
     const p = f.viewParams || st.params;
@@ -2282,17 +2330,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
     // collateral tortuosity
     const coiling = [];
-    for (const x of Object.values(E)) {
+    for (const x of EV) {
       if (x.e.kind !== 'collateral' || x.e.spontaneous || STRAIGHT_COLL.has(x.e.id)) continue;
       const w = shownFrac(x.e.id, f) > 0.25 ? 1.5 + 3.5 * shownFrac(x.e.id, f) : 0;
       // Eased toward its target (a change of over 0.6 starts it), so the vessel coils gradually.
       const g = geo[x.e.id];
       if (g.wigT == null || Math.abs(w - g.wigT) > 0.6) g.wigT = w;
-      if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; coiling.push(x); if (g.wig !== g.wigT) widthEasing = true; }
+      if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; coiling.push(x); if (g.wig !== g.wigT) widthEasing = coilEasing = true; }
     }
     updateGeometry(false, coiling);
 
-    for (const x of Object.values(E)) {
+    for (const x of EV) {
       const e = x.e;
       let vis = edgeVisible(x, f);
       const wasDrawn = !!x.drawn;   // on screen in the previous frame (not merely flagged visible)
@@ -2336,53 +2384,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (x.width !== x.wT) { const d = x.wT - x.width; x.width = Math.abs(d) < 0.02 ? x.wT : x.width + d * kW; if (x.width !== x.wT) widthEasing = true; }
       w = x.width;
       x.wMode = mode;
-      // The hit stroke is never thinner than the drawn tube (the IVC is wide, behind the liver) and never under ~10 px on screen.
-      { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id), hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((CTM && CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; x.hit.style.strokeWidth = hw; } }
       // The liver's own small vessels (portal venules, central veins) are the liver to the pointer in the anatomy:
       // no hover, no tap on them; it falls through to the organ. The sinusoids are a vessel of their own.
       cls(x, 'no-hit', LIVER_EDGES.has(e.id) && !SIN_EDGES.has(e.id) && t < 0.5);
-      if (x.isArt) { setT(x.wall, 'stroke-width', w.toFixed(1)); continue; }
-      x.pmid = (P1 + P2) / 2;
-      const baseD = IVC_EDGES.has(e.id) ? E.IVC_IS.e.d : e.d || (e.dMax ? dMinOf(e) : 3);   // one wall thickness along the whole cava
-      // The circuit is a map: a slightly wider border (drawn by the GPU, as one shape with filleted
-      // joins) gives its lines their weight.
-      const wallT = (e.kind === 'liver' ? 0.7 : clamp(0.9 * Math.sqrt(baseD / Math.max(0.3, D)), 0.8, 1.6)) * (1 + 0.45 * t);
-      if (x.wallPx == null || Math.abs(wallT - x.wallPx) >= 0.1) x.wallPx = Math.round(wallT * 20) / 20;
-      const wallPx = x.wallPx;
-      setT(x.wall, 'stroke-width', (w + 2 * wallPx).toFixed(1));
-      setA(x.lumen, 'stroke-width', w.toFixed(1));
-      if (x.cbr) for (const cb of x.cbr) cb.w = Math.max(1.2, w * cb.k);
-      if (x.strands) x.strands.forEach((sd, i) => {
-        setT(sd.lumen, 'stroke-width', Math.max(1.6, w * sd.k).toFixed(1)); setT(sd.wall, 'stroke-width', (Math.max(1.6, w * sd.k) + 2 * wallPx).toFixed(1));
-        sd.bead = e.id === 'C1a' ? Math.round(varixBead(f.metrics?.varix?.d) * (1 - t) * 100) / 100 : 0;   // (in hundredths: the radii are sent again only when it moves a step)
-        sd.live = e.code === 'C1' ? clamp(i + 1 - (f.bands || 0), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - i, 0, 1) : 1;   // cavernoma: one strand beside the main channel when acute, the rest grow in with the remodeling
-        const vis = sd.live > 0.02 ? '' : 'none', sop = sd.live * (SIN_EDGES.has(e.id) ? SIN_PERFUSION.fade : 1), op = sop < 1 ? sop.toFixed(2) : '';
-        for (const el of [sd.lumen, sd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
-      });
-      if (x.feeders) {
-        const cfg = FEEDERS[e.id];
-        let live = 1;
-        if (cfg.when === 'caudate') {
-          const ref = store.get().healthy?.Q?.[k], q = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
-          live = ref ? clamp((q / Math.abs(ref) - 2) / 2, 0, 1) : 0;
-        } else if (cfg.when === 'caput') {
-          // Caput medusae: the epigastric network fills in as the paraumbilical route opens.
-          live = clamp((recruitFrac('C3', f) - 0.15) / 0.3, 0, 1);
-        }
-        // A trunk that a collateral carries on (the azygos, with the ascending lumbar veins) is
-        // connected: it is drawn to its end; otherwise it fades out.
-        const conn = FEEDER_CONNECTOR[e.id], joined = !!conn && collOpen(conn, f);
-        x.feedJoined = joined;
-        for (const fd of x.feeders) {
-          if (fd.fadeMask) for (const el of [fd.wall, fd.lumen]) { if (joined) el.removeAttribute('mask'); else if (!el.hasAttribute('mask')) el.setAttribute('mask', fd.fadeMask); }
-          const lv = fd.when ? live : 1;   // only the conditional feeders come and go
-          const fw = Math.max(1.2, w * cfg.k * fd.fk * (fd.when ? 0.5 + 0.5 * lv : 1));
-          fd.live = lv; fd.w = fw;
-          setT(fd.lumen, 'stroke-width', fw.toFixed(1)); setT(fd.wall, 'stroke-width', (fw + 2 * wallPx).toFixed(1));
-          const vis = lv > 0.02 ? '' : 'none', op = lv < 1 ? lv.toFixed(2) : '';
-          for (const el of [fd.lumen, fd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
-        }
+      if (!x.isArt) {
+        x.pmid = (P1 + P2) / 2;
+        const baseD = IVC_EDGES.has(e.id) ? E.IVC_IS.e.d : e.d || (e.dMax ? dMinOf(e) : 3);   // one wall thickness along the whole cava
+        // The circuit is a map: a slightly wider border (drawn by the GPU, as one shape with filleted
+        // joins) gives its lines their weight.
+        const wallT = (e.kind === 'liver' ? 0.7 : clamp(0.9 * Math.sqrt(baseD / Math.max(0.3, D)), 0.8, 1.6)) * (1 + 0.45 * t);
+        if (x.wallPx == null || Math.abs(wallT - x.wallPx) >= 0.1) x.wallPx = Math.round(wallT * 20) / 20;
       }
+      widthWrites(x, w, t, f, k);
+      if (x.isArt) continue;
       let c1, c2;
       if (mode === 'pressure') { c1 = pressureColor(qP(P1)); c2 = pressureColor(qP(P2)); }
       else if (mode === 'drop') { c1 = c2 = dropColor(P1 - P2); }
@@ -2436,7 +2450,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
     const jw = {};
-    for (const x of Object.values(E)) {
+    for (const x of EV) {
       if (!x.vis || x.isArt || x.g.classList.contains('coll-ghost')) continue;
       (jw[x.e.from] ||= []).push(x.width); (jw[x.e.to] ||= []).push(x.width);
     }
@@ -2446,7 +2460,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // dashed stroke from its first frame (never first as a full tube that then vanishes).
     trackChanges(f, p);
     stepReveals(performance.now());
-    for (const x of Object.values(E)) if (x.vis && !x.isArt) renderTube(x, p, t, J);
+    for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J);
     if (glWanted(t)) clearJoins(); else updateJoins(t);
     // A selected vessel stays bright while the rest of the network recedes.
     wrap.classList.toggle('has-sel', st.selection?.type === 'edge' && !!E[st.selection.id]?.vis);
@@ -2460,6 +2474,65 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     updateBridges(t);
     updateLabels(f);
     updateOrgans(f, p, t);
+    widthF = f; widthVer = storeVer; widthCTM = CTM;
+  }
+
+  // Between the model's frames, while only vessel widths are still easing (the breath moves the cava's and the hepatic veins'
+  // targets by half a pixel or more on every breath, so they seldom rest), each display frame steps the widths and writes only
+  // what follows from them: the strokes, the tubes and their joins, the vessel layer's radii, the bridges, the narrowings'
+  // marks, and the labels when a width has moved far enough to lay them out again (sigWidth). Everything else the update
+  // computes comes from the model's frame and the settings, which have not changed since the last full update, so it would be
+  // written again with the same values. Anything else under way (a new frame or setting, a pan, a coil, the liver or the fluid
+  // easing, a vessel drawing on or off, a card moving, the lobule) takes the full update, as before: the same picture, frame
+  // for frame, for less work.
+  function stepWidths() {
+    const f = F;
+    if (!f || f !== widthF || storeVer !== widthVer || !CTM || CTM !== widthCTM || coilEasing || organsEasing || catchUp) return false;
+    if (lobuleOn || lz?.isOpen() || hid.at || plateStale || plateRedraw || blockersStale || (performance.now() - blockersAt > 100 && watch.due())) return false;
+    if (ascShown !== ascTarget || morph !== morphTarget || tubesHidden !== wrap.classList.contains('gl-on') || EV.some((x) => x.reveal)) return false;
+    stageWake();
+    inUpdate = true;
+    try { gpuProbe.time(null, 'width step (script)', () => stepWidthsInner(f)); } finally { inUpdate = false; fxAt = null; }
+    firstFrame();
+    prepLobule();
+    followHome();
+    return true;
+  }
+  function stepWidthsInner(f) {
+    const nowW = performance.now();
+    const kW = -Math.expm1(-Math.min(0.1, (nowW - (wAt || nowW)) / 1000) / 0.25);
+    wAt = nowW; widthEasing = false;
+    const t = easeInOut(morph), mode = layerMode();
+    let moved = false, labels = !!sites.list || scan.on || !!camMove || !!E.TIPS?.vis || !!E.DIPS?.vis;
+    for (const x of EV) {
+      if (!x.vis || x.width === x.wT) continue;
+      const d = x.wT - x.width;
+      x.width = Math.abs(d) < 0.02 ? x.wT : x.width + d * kW;
+      if (x.width !== x.wT) widthEasing = true;
+      moved = true;
+      const w = x.width;
+      widthWrites(x, w, t, f, EI[x.e.id]);
+      if (x.isArt) continue;
+      if (x.heat && mode === 'heat') setT(x.heat, 'stroke-width', (w + 15).toFixed(1));
+      if (x.sel.classList.contains('on')) setT(x.sel, 'stroke-width', (w + 12).toFixed(1));
+      x.dopW = w;
+      if (!labels) { const sw = sigW.get(x.e.id); labels = sw == null || Math.abs(w - sw) >= 2; }
+    }
+    if (!moved) return;
+    const jw = {};
+    for (const x of EV) {
+      if (!x.vis || x.isArt || x.g.classList.contains('coll-ghost')) continue;
+      (jw[x.e.from] ||= []).push(x.width); (jw[x.e.to] ||= []).push(x.width);
+    }
+    const J = {};
+    for (const [n, ws] of Object.entries(jw)) { ws.sort((a, b) => b - a); J[n] = ws[1] ?? ws[0]; }
+    const p = f.viewParams || store.get().params;
+    for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J);
+    if (glWanted(t)) clearJoins(); else updateJoins(t);
+    syncVeins(t);
+    updateOverlays(f, p, lerp(1, 0.8, t), t);
+    updateBridges(t);
+    if (labels) updateLabels(f);
   }
 
   // Each vein is a filled tube whose radius eases from the junction width at either end to its
@@ -2534,7 +2607,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Built from the anatomy's courses (joins are drawn only there).
   let near = null, nearVersion = -1;
   function buildNear() {
-    const xs = Object.values(E).filter((x) => !x.isArt && geo[x.e.id].cur);
+    const xs = EV.filter((x) => !x.isArt && geo[x.e.id].cur);
     const box = new Map(xs.map((x) => {
       const P = geo[x.e.id].cur;
       return [x, [Math.min(...P.map((q) => q[0])) - 14, Math.min(...P.map((q) => q[1])) - 14, Math.max(...P.map((q) => q[0])) + 14, Math.max(...P.map((q) => q[1])) + 14]];
@@ -2588,7 +2661,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function updateJoins(t) {
     if (t === 0 && nearVersion !== geometryVersion) { buildNear(); nearVersion = geometryVersion; }
-    for (const x of Object.values(E)) {
+    for (const x of EV) {
       const ends = joinEnds(x, t);
       const pts = geo[x.e.id].cur;
       const key = ends.length && pts ? ends.join() + '|' + Math.round(x.width) + '|' + geometryVersion : '';
@@ -2689,7 +2762,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function glItems() {
     const items = [];
     const anat = morph < 0.5;
-    for (const x of Object.values(E)) {
+    for (const x of EV) {
       const pts = geo[x.e.id].cur;
       if (!x.vis || !pts || (!x.isArt && !x.rOf)) continue;
       items.push({ x, obj: x, row: x.row, pts, kind: 'v' });
@@ -2852,7 +2925,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and none of the selection does.
   function selEnd(id, n) {
     let other = false;
-    for (const y of Object.values(E)) {
+    for (const y of EV) {
       if (y.e.id === id || !y.vis || (y.e.from !== n && y.e.to !== n)) continue;
       if (vh.sel.has(y.e.id)) return 0;
       if (!y.g.classList.contains('coll-ghost')) other = true;
@@ -3122,7 +3195,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return true;
   }
   function clearJoins() {
-    for (const x of Object.values(E)) if (x.joinKey) { x.joinKey = ''; for (const g of x.groups) g.removeAttribute('mask'); }
+    for (const x of EV) if (x.joinKey) { x.joinKey = ''; for (const g of x.groups) g.removeAttribute('mask'); }
   }
 
   // ── The plate on the GPU ─────────────────────────────
@@ -3470,7 +3543,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function trackChanges(f) {
     const now = fxAt ?? performance.now();
     const quiet = quietFx();
-    for (const x of Object.values(E)) {
+    for (const x of EV) {
       const e = x.e;
       const q = f.Qf ? f.Qf[EI[e.id]] : f.Q[EI[e.id]];
       const open = x.vis && !x.g.classList.contains('coll-ghost') && !x.reveal?.out;
@@ -3495,7 +3568,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const REVEAL_PARTS = ['shadow', 'wall', 'lumen', 'shade', 'sheen'];
   function stepReveals(now) {
     let finished = false;
-    for (const x of Object.values(E)) {
+    for (const x of EV) {
       if (!x.reveal) continue;
       const r = x.reveal;
       const u = clamp((now - r.t0) / r.dur, 0, 1);
@@ -3513,7 +3586,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Rebuild at once so the vessel turns from the drawn-on stroke into its shaded tube on the
     // same frame, rather than holding the stroke until the next model update.
     if (finished && F && !inUpdate) update(F);
-    else if (veins && !inUpdate && Object.values(E).some((x) => x.reveal)) syncVeins(easeInOut(morph));
+    else if (veins && !inUpdate && EV.some((x) => x.reveal)) syncVeins(easeInOut(morph));
   }
   // Δ halos: after a change, the three places whose pressure moved most get a brief ring and
   // their change in mmHg, once the model has had a moment to respond. Answers "what did that do?"
@@ -3932,7 +4005,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function updateBridges(t) {
     // The GPU draws crossings itself (each tier passes over the one below with its own border).
     if (wrap.classList.contains('gl-on')) { if (bridgeKey) { bridgeKey = ''; gBridges.replaceChildren(); } return; }
-    const vis = t === 1 ? Object.values(E).filter((x) => x.vis && !x.isArt && !x.g.classList.contains('coll-ghost') && x.g.style.display !== 'none') : [];
+    const vis = t === 1 ? EV.filter((x) => x.vis && !x.isArt && !x.g.classList.contains('coll-ghost') && x.g.style.display !== 'none') : [];
     const key = vis.map((x) => x.e.id + ':' + x.width.toFixed(0)).join(',');
     if (key === bridgeKey) return;
     bridgeKey = key;
@@ -4123,7 +4196,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // it shows, and a fade in progress at that moment would be baked in (re-rastered over and
     // over, the tint flickered between mid-fade values).
     liverTint.style.opacity = (lvT * k).toFixed(3);
-    if (lvT !== tT) widthEasing = true;
+    if (lvT !== tT) widthEasing = organsEasing = true;
     const moving = lvC !== cT || lvG !== gT;
     // While it eases, the live drawing shows (a raster would move in steps); the plate is
     // rasterized again once it settles.
@@ -4135,7 +4208,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (moving && (retarget || Math.max(Math.abs(cT - lvC), Math.abs(gT - lvG)) > 0.08) && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
     if (lvMoving && !moving) lvStillAt = performance.now();
     lvMoving = moving;
-    if (moving) widthEasing = true;
+    if (moving) widthEasing = organsEasing = true;
     morphLiver(lvC, lvG, moving);
     for (const el of [lv.nut, lv.nutNet, lv.gloss]) if (el.style.visibility !== (imaging ? 'hidden' : '')) el.style.visibility = imaging ? 'hidden' : '';
     // A cirrhotic liver shrinks a little; a congested one swells.
@@ -5667,7 +5740,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return { runs, color: flowColor(v) };
     }
     let best = 0, bestK = -1, tubes = 0, bed = false;
-    for (const x of Object.values(E)) {
+    for (const x of EV) {
       if (!x.vis || x.isArt || (x.e.from !== id && x.e.to !== id)) continue;
       if (x.e.kind === 'liver') { bed = true; continue; }
       if (x.g.classList.contains('coll-ghost') || x.e.id === 'TIPS' || x.e.id === 'DIPS') continue;   // the TIPS and DIPS shunts have their own velocity label
@@ -5677,7 +5750,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // (A station named for a vessel reads that vessel, so "Portal v." is the portal vein the Doppler samples, not a faster
     // collateral or tributary joining it.)
-    const own = STATION_VESSEL[id], ox = own && Object.values(E).find((x) => x.e.id === own && x.vis);
+    const own = STATION_VESSEL[id], ox = own && EV.find((x) => x.e.id === own && x.vis);
     if (ox) { bestK = EI[own]; best = Math.abs(edgeVel(f, bestK)) * dopplerK(EDGES[bestK]); }
     if (bestK >= 0) best = shownVelOf(EDGES[bestK].id, f, best);
     // A microvascular bed has no single velocity; a station whose only vessels are closed
@@ -5952,7 +6025,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const paramJSON = (o) => { if (!o || typeof o !== 'object') return JSON.stringify(o); let j = paramJSONs.get(o); if (j === undefined) paramJSONs.set(o, (j = JSON.stringify(o))); return j; };
   function labelSig(f) {
     const st = store.get(), t = easeInOut(morph);
-    const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
+    const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
       isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, ['TIPS', 'DIPS'].map((id) => +stentReady(id, f)).join(''), dop.key].join('|');
   }
@@ -6022,7 +6095,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // drawn radius along its course plus its wall; a label kept clear of these is clear of the picture: Review 16 Oct.)
   function buildSegs() {
     segs = []; segGrid = new Map();
-    const items = glWanted() ? glItems() : Object.values(E).filter((x) => x.vis && geo[x.e.id]?.cur).map((x) => ({ x, obj: x, pts: geo[x.e.id].cur, kind: 'v' }));
+    const items = glWanted() ? glItems() : EV.filter((x) => x.vis && geo[x.e.id]?.cur).map((x) => ({ x, obj: x, pts: geo[x.e.id].cur, kind: 'v' }));
     // (A resistor's zigzag stands as a band as wide as its teeth: "4.1" had sat on the liver's.)
     const zz = [...resMade.values()].filter((g) => g._segs?.length).flatMap((g) => g._segs.map((pts) => ({ x: { width: 22 }, obj: { w: 22 }, pts, kind: 'z' })));
     for (const it of [...items, ...zz]) {
@@ -6987,7 +7060,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // A drawn end is free when no other drawn vessel ends there: parcels fade in or out at it.
   function syncEnds() {
-    const list = Object.values(E).filter((x) => x.vis && !x.isArt && !x.g.classList.contains('coll-ghost'));
+    const list = EV.filter((x) => x.vis && !x.isArt && !x.g.classList.contains('coll-ghost'));
     const key = geometryVersion + '|' + morph.toFixed(2) + '|' + list.map((x) => x.e.id).join(',');
     if (key === endsKey) return;
     endsKey = key;
@@ -7006,6 +7079,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.freeTo = !joined(x, x.e.to, P[P.length - 1]);
     }
   }
+  const streamOpts = { phasic: false, speed: 1, large: true, still: false, rev: false };
   function stepBlood(dt) {
     const st = store.get(), b = st.blood || {};
     const moving = st.running && !reduceMotion.matches;
@@ -7016,12 +7090,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (Reduced motion: the streams stand still but follow the flow's direction at once, and nothing eases.)
     const still = st.running && reduceMotion.matches;
     const ease = reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.5), RF = { Qf };
+    // (One options object and one key-chevrons answer for the whole loop, not one per vessel per frame: advanceStream reads
+    // the options at once and keeps none of them.)
+    const so = streamOpts, key = keyOnly();
+    so.phasic = !!b.phasic; so.speed = speed; so.still = still;
     for (let k = 0; k < EDGES.length; k++) {
       // One signal turns both: the reversed colour and the way the blood and its chevrons run (isReversed).
       const rt = isReversed(EDGES[k], RF) ? 1 : 0;
-      const sm = advanceStream(streams[k], velOf(k, Qf[k]), velOf(k, F.Q[k]), moving ? dt : 0, { phasic: !!b.phasic, speed, large: LARGE[k], still, rev: !!rt });
+      so.large = LARGE[k]; so.rev = !!rt;
+      const sm = advanceStream(streams[k], velOf(k, Qf[k]), velOf(k, F.Q[k]), moving ? dt : 0, so);
       sm.rev = sm.rev == null ? rt : sm.rev + (rt - sm.rev) * ease;
-      const ct = !keyOnly() || keyChevron(EDGES[k], laneOpen) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
+      const ct = !key || keyChevron(EDGES[k], laneOpen) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
       sm.chevK = sm.chevK == null ? ct : sm.chevK + (ct - sm.chevK) * ease;
     }
     if (!veins) return;
@@ -7039,7 +7118,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // finest, 28 units) for 0.8 L/min or more, one level coarser for each halving, at most 3.
       flowData[o + 13] = chevFlowLevel(q);
     };
-    if (on) for (const x of Object.values(E)) {
+    if (on) for (const x of EV) {
       if (!x.vis || x.isArt || x.reveal || x.g.classList.contains('coll-ghost')) continue;
       const k = EI[x.e.id], q = Qf[k];
       // A braided collateral's channels share its flow by cross-section.
@@ -7063,7 +7142,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       if (moving) bolus.step(dt, net);
       dyeData.fill(0);
-      for (const x of Object.values(E)) {
+      for (const x of EV) {
         if (!x.vis || x.isArt) continue;
         if (!bolus.field(EI[x.e.id], net, dyeRow)) continue;
         dyeData.set(dyeRow, x.row * DYE_BINS);
@@ -7138,12 +7217,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active);
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { sleep(); return; }
+    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);
-    } else if (widthEasing && F) update(F);   // a width still easing to its target: one step a frame
+    } else if (widthEasing && F && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
     if (rotU !== rotTarget) {
       rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
       setViewBox(easeInOut(morph));
@@ -7170,6 +7249,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); nextFrame(animate); }
   stageWake = wake;
   store.on('*', wake);
+  store.on('*', () => { storeVer++; });
   document.addEventListener('visibilitychange', wake);
   new MutationObserver(wake).observe(wrap, { attributes: true, attributeFilter: ['class'] });
   if (appEl) new MutationObserver(wake).observe(appEl, { attributes: true, attributeFilter: ['class'] });
@@ -7731,7 +7811,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cancelShunt(true);
     const [wx, wy] = pointAt(geo[src].cur, 0.5);
     const targets = new Map();
-    for (const x of Object.values(E)) {
+    for (const x of EV) {
       if (!x.vis || x.isArt || x.e.id === src || x.e.kind === 'shunt' || x.e.kind === 'liver') continue;
       const [tx, ty] = pointAt(geo[x.e.id].cur, 0.5);
       const r = shuntRule(src, x.e.id, wx, wy, tx, ty);
