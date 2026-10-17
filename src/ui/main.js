@@ -38,7 +38,7 @@ import { initTopbarMotion } from './topbar-motion.js?v=b33007f264';
 import { ORIGINS } from './blood.js?v=cc7febbf07';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=1ee7733788';
-import { frameFor, perf as framePerf } from './frame.js?v=67ca200c87';
+import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -218,7 +218,7 @@ async function main() {
   });
 
   // The Sinusoid button shows only in the Lobule view: it is one level further down.
-  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); $('#btnSinPlay').hidden = !(st.lobule && st.sinusoid); const inSin = !!(st.lobule && st.sinusoid); $('#zoomIn').disabled = inSin; for (const [id, off, on] of [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoomFit', 'Fit the figure to the view', 'Back out to the lobule']]) { $(id).title = inSin ? on : off; $(id).setAttribute('aria-label', inSin ? on : off); } };
+  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); const sinWas = app.classList.contains('sin-focus'), pillFrom = sinWas !== !!(st.lobule && st.sinusoid) ? viewPillRect() : null; app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); if (pillFrom) { syncThumb(); glideViewPill(pillFrom, !sinWas); getComputedStyle($('#viewSeg')).color; } $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#btnSinPlay').hidden = !(st.lobule && st.sinusoid); const inSin = !!(st.lobule && st.sinusoid); $('#zoomIn').disabled = inSin; for (const [id, off, on] of [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoomFit', 'Fit the figure to the view', 'Back out to the lobule']]) { $(id).title = inSin ? on : off; $(id).setAttribute('aria-label', inSin ? on : off); } };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
   // Without WebGL2 the Sinusoid button is hidden: say why, once, the first time the Lobule view opens.
@@ -1090,7 +1090,8 @@ function wireFloating() {
     // hang below them: there the framing keeps 24 px.)
     const nbvPad = innerHeight <= 500 && innerWidth > innerHeight ? '24' : '12';
     if ($('#nbViews') && $('#nbViews').dataset.safePad !== nbvPad) $('#nbViews').dataset.safePad = nbvPad;
-    const nbv = $('#nbViews'), nbvH = nbv && nbv.offsetHeight ? Math.max(0, vd.getBoundingClientRect().top - nbv.getBoundingClientRect().top + 8) : 0;
+    // (Its place at rest: less the shift of a glide into or out of the sinusoid, glideViewPill.)
+    const nbv = $('#nbViews'), nbvH = nbv && nbv.offsetHeight ? Math.max(0, vd.getBoundingClientRect().top - nbv.getBoundingClientRect().top + (pillEl === nbv ? pillShiftY : 0) + 8) : 0;
     if (!vd.classList.contains('mini') && vd.offsetHeight) vd.dataset.fullH = String(vd.offsetHeight + nbvH);
     const vdTop = vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top + nbvH : 0;
     const vdock = vd.offsetHeight ? Math.max(vd.offsetHeight + nbvH, vdTop - gap) : 0, wide = !isPhone();
@@ -1389,6 +1390,42 @@ function syncThumb() {
   const pres = app.classList.contains('presenting');
   const seg = $('#viewSeg'), home = pres ? $('#stageTop .sb-left') : app.classList.contains('sin-focus') ? $('#sinViews') : $('#nbViews');
   if (home && seg.parentElement !== home) home.append(seg);
+}
+// Into or out of the sinusoid the view pill changes home (above the dock, or centred at the bottom where the hidden dock was):
+// instead of jumping there it glides from where it was, on the sinusoid zoom's own clock and curve (lobule-zoom.js: 1150 ms in,
+// 950 out, a cubic ease in and out), and its selected button crossfades over the same time (17 Oct, Mohammad: the pill "should
+// transition as well nicely elegantly"). Its new place is read every frame, as the dock's space is published a frame later,
+// so the glide eases onto wherever the pill settles (a late move early on, while the ease is still near its start, is not seen).
+const PILL_IN = 1150, PILL_OUT = 950;
+const easeIO3 = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
+let pillRaf = 0, pillEl = null, pillShiftY = 0;   // (pillShiftY: the glide's vertical shift now, in screen px)
+function viewPillRect() {
+  const box = $('#viewSeg')?.parentElement;
+  if (!box || (box.id !== 'nbViews' && box.id !== 'sinViews') || !box.offsetWidth) return null;
+  const r = box.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+function glideViewPill(from, intoSin) {
+  cancelFrame(pillRaf); pillRaf = 0;
+  if (pillEl) { pillEl.style.translate = ''; pillEl.classList.remove('vp-glide'); pillEl = null; pillShiftY = 0; }
+  const box = $('#viewSeg').parentElement;
+  if (!box || (box.id !== 'nbViews' && box.id !== 'sinViews') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const ms = intoSin ? PILL_IN : PILL_OUT, t0 = performance.now();
+  let shift = [0, 0];
+  pillEl = box; box.style.setProperty('--vp-ms', `${ms}ms`); box.classList.add('vp-glide');
+  const step = (now) => {
+    const u = Math.min(1, (now - t0) / ms), el = pillEl;
+    if (!el) return;
+    // (Where it lies now, less the glide's own shift (read, not cleared, so no extra layout runs); px on screen turned into
+    // the box's own px, under the interface zoom.)
+    const r = el.getBoundingClientRect(), z = el.currentCSSZoom || (el.offsetWidth ? r.width / el.offsetWidth : 1) || 1;
+    if (u >= 1 || !r.width) { el.style.translate = ''; el.classList.remove('vp-glide'); pillEl = null; pillRaf = 0; pillShiftY = 0; return; }
+    const cx = r.left + r.width / 2 - shift[0] * z, cy = r.top + r.height / 2 - shift[1] * z, k = 1 - easeIO3(u);
+    shift = [(from.x - cx) * k / z, (from.y - cy) * k / z];
+    el.style.translate = `${shift[0].toFixed(2)}px ${shift[1].toFixed(2)}px`; pillShiftY = shift[1] * z;
+    pillRaf = nextFrame(step);
+  };
+  step(t0);
 }
 function wireThumbBar() {
   const tab = (id, ic, label, onclick) => h('button', { class: 'nb-tab', type: 'button', 'data-tab': id, onclick }, svgIcon(ic), h('span', { class: 'nb-l' }, label));

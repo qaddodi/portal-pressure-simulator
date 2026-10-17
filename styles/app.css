@@ -5440,6 +5440,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* (The painted pill is 30 px; the touch reaches 6 px past it above and below, to the pill's edge, unseen.) */
 :is(.nb-views, .sin-views) #viewSeg button::after { content: ""; position: absolute; inset: -6px 0; }
 :is(.nb-views, .sin-views) #viewSeg button[aria-pressed="true"] { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; color: var(--text); }
+/* Into or out of the sinusoid (main.js glideViewPill): the pill glides to its new home and the selected button crossfades
+   on the zoom's clock and curve. */
+:is(.nb-views, .sin-views).vp-glide #viewSeg button { transition-duration: var(--vp-ms, .95s); transition-timing-function: cubic-bezier(.65, 0, .35, 1); }
 @media (max-width: 359px) { :is(.nb-views, .sin-views) #viewSeg button { padding: 0 10px; font-size: var(--fs-12); } }   /* (the full 14 px pill is 340 px wide with four buttons, so it fits from 360 up) */
 /* A phone: the cards (Tests, Treat, Details) and the menus sit above the dock, inset like it, round on every corner. */
 @media (max-width: 767px) {
