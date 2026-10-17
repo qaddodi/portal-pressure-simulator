@@ -1544,18 +1544,11 @@ button.finding { cursor: pointer; }
 .pz-sitetab[hidden], .pz-shade.pz-tabs-tight .pz-tabname { display: none; }
 .pz-shade:not(.stack) .pz-sitetab[data-rail] { display: none; }   /* (where the level rail shows, it names the level) */
 .app.pz-hi .pz-sitetab { color: var(--text); }
-/* (On the glass both tabs reach its outer edge and follow its outer curve, but leave its 1 px border to the glass: a clear
-   border on the tab's top and outer side keeps the fill off it, so the card's own outline runs on round the tab exactly as
-   it does elsewhere, with no darker rim poking above or beside the card, and the fill takes the glass's inner curve. The
-   lit top edge is drawn on them where the glass draws its own, just inside the border and round the same curve, so it
-   runs on unbroken; the tab's darker patch would otherwise dim it to a step where the tab begins.) */
-.pz-shade:is(.stack, .pz-card) :is(.pz-tabname, .pz-sitetab) { top: -1px; height: calc(var(--pz-tabh) + 1px); border-top: 1px solid transparent; background-clip: padding-box; box-shadow: inset 0 1px 0 var(--pz-glass-edge); }
-.pz-shade:is(.stack, .pz-card) .pz-tabname { right: -1px; border-right: 1px solid transparent; }
-.pz-shade:is(.stack, .pz-card) .pz-sitetab { left: -1px; border-left: 1px solid transparent; }
-.pz-shade.stack .pz-tabname { border-top-right-radius: 18px; }
-.pz-shade.stack .pz-sitetab { border-top-left-radius: 18px; }
-.pz-shade.pz-card:not(.stack) .pz-tabname { border-top-right-radius: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); }
-.pz-shade.pz-card:not(.stack) .pz-sitetab { border-top-left-radius: clamp(16px, calc(2.2 * var(--pzh) / var(--vz)), 28px); }
+/* (On the glass the card's own rounded edge cuts both tabs' outer corners: each tab sits flush in its corner with only its
+   inner bottom corner rounded, and the glass clips it to its curve, so the tab follows the card exactly on either side. The
+   lit top edge is drawn on the tabs in the same row as the glass's own, which their fill would otherwise dim.) */
+.pz-shade:is(.stack, .pz-card) { overflow: hidden; }
+.pz-shade:is(.stack, .pz-card) :is(.pz-tabname, .pz-sitetab) { box-shadow: inset 0 1px 0 var(--pz-glass-edge); }
 .pz-kick[data-site="none"] { color: var(--text-3); }
 .pz-h { margin: 0; font: 540 var(--s-title)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
 /* No rule under the title (17 Oct): its old room stays as space before the body. */
