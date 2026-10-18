@@ -61,7 +61,9 @@ const main = read('src/ui/main.js'), timeline = read('src/ui/timeline.js'), pres
 test('swapFade fades the old content out, fills, and fades the new in; a hidden or unchanged one fills at once', () => {
   const f = util.slice(util.indexOf('export function swapFade'), util.indexOf('export const popoverOpen'));
   assert.match(f, /if \(job\) \{ job\.fill = fill; return; \}/);
-  assert.match(f, /if \(instant \|\| !el\.animate \|\| !el\.isConnected \|\| !el\.firstChild \|\| !el\.getClientRects\(\)\.length\) \{ fill\(\); return; \}/);
+  assert.match(f, /if \(instant \|\| !el\.animate \|\| !el\.isConnected \|\| !el\.firstChild \|\| !hasBox\(el\)\) \{ fill\(\); return; \}/);
+  // A hidden one: no box (display: none on it or an ancestor), read without laying the page out where the browser can.
+  assert.match(util, /export const hasBox = \(el\) => \(el\.checkVisibility \? el\.checkVisibility\(\) : el\.getClientRects\(\)\.length > 0\);/);
   assert.match(f, /easing: 'cubic-bezier\(\.4, 0, 1, 1\)', fill: 'forwards'/);
   assert.match(f, /a\.finished\.then\(done, done\);/);
 });

@@ -3,16 +3,16 @@
 
 import { store, hiddenNow } from './store.js?v=31ee79b6ab';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=48e920f20a';
-import { lobuleFlows } from './lobule-model.js?v=8186da6fb8';
-import { createProfile } from './charts.js?v=5027295320';
-import { createPressureTime } from './pressure-time.js?v=d3051adb2c';
-import { createFibroScan } from './fibroscan.js?v=d5ce96f9e7';
-import { createHvpgProcedure } from './hvpg-proc.js?v=7a0e32244d';
-import { createDoppler } from './doppler.js?v=b221f78b41';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=8f78c493e2';
+import { lobuleFlows } from './lobule-model.js?v=7b6ec0affc';
+import { createProfile } from './charts.js?v=6c730aa7db';
+import { createPressureTime } from './pressure-time.js?v=7980960ea7';
+import { createFibroScan } from './fibroscan.js?v=293c417eb3';
+import { createHvpgProcedure } from './hvpg-proc.js?v=127bc7bca4';
+import { createDoppler } from './doppler.js?v=03c0a9bfca';
 import { ownsSideways, pageGo } from './swipe.js?v=60b2fc909b';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=26fba45221';
-import { createReadoutsPane } from './readouts-pane.js?v=a6fbd3eedf';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=a52fa65f40';
+import { createReadoutsPane } from './readouts-pane.js?v=c73097d270';
 import { frameFor } from './frame.js?v=67ca200c87';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';
@@ -471,8 +471,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   body.addEventListener('scroll', () => { holdUntil = performance.now() + 200; }, { capture: true, passive: true });
   body.addEventListener('touchstart', () => { touching = true; }, { passive: true });
   for (const t of ['touchend', 'touchcancel']) body.addEventListener(t, () => { touching = false; holdUntil = performance.now() + 200; clearTimeout(catchUp); catchUp = setTimeout(refresh, 260); }, { passive: true });
+  // Whether the card is displayed (offsetParent: not display: none), kept by an observer: read on every model frame, after
+  // the tiles' writes, it made the browser restyle and lay the page out in the middle of the frame (round 2 review, P5). A
+  // card that comes into view catches up at once.
+  let displayed = null;
+  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const b = es[es.length - 1].contentRect, on = b.width > 0 || b.height > 0; if (on !== displayed) { displayed = on; if (on) queueRefresh(); } }).observe(workspace);
+  const isDisplayed = () => (displayed == null ? !!workspace.offsetParent : displayed);
   function refresh() {
-    if (!frame || !isVisible() || state === 'peek' || !workspace.offsetParent) return;
+    if (!frame || !isVisible() || state === 'peek' || !isDisplayed()) return;
     for (const id of open) {
       const p = byId[id];
       if (id !== 'scope' && id !== 'doppler' && holding() && p.el.scrollHeight > p.el.clientHeight + 1) continue;

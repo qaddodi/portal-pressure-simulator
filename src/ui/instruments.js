@@ -2,14 +2,14 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { pressureColor } from './colormap.js?v=497f25528b';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=48e920f20a';
+import { pressureColor } from './colormap.js?v=9e13050734';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=8f78c493e2';
 import { simTime, isPaused } from './clock.js?v=520596240b';
-import { createEndoGL } from './endo-gl.js?v=56bc8bac2f';
-import { renderEndo } from './endo-render.js?v=ec3508c900';
+import { createEndoGL } from './endo-gl.js?v=45c4cd6885';
+import { renderEndo } from './endo-render.js?v=7368336f70';
 import { endoGrow } from './endo-size.js?v=824631d0bc';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from './endo-motion.js?v=fdca92fc81';
-import { FONT } from './charts.js?v=5027295320';
+import { FONT } from './charts.js?v=6c730aa7db';
 import { store, updateParams, varicesPresent } from './store.js?v=31ee79b6ab';
 import { balanceHold } from './balance-hold.js?v=ea4d9121d2';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';

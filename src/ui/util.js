@@ -301,6 +301,10 @@ export function fadeWhileMore(el) {
   sync();
   return sync;
 }
+// Whether an element has a box (neither it nor an ancestor display: none), as getClientRects().length says, without laying
+// the page out: checkVisibility needs only styles. (Each read in the middle of a model frame, after its writes, laid the
+// page out: 1-2 ms each, several a frame in the Tests card's tiles; round 2 review, P5.)
+export const hasBox = (el) => (el.checkVisibility ? el.checkVisibility() : el.getClientRects().length > 0);
 // One swap at a time per element: its newest content goes in when the old has faded.
 const fadeIns = new WeakMap();   // (swapFade: each element's fade-in, cancelled when the next swap lands)
 const swaps = new WeakMap();
@@ -310,7 +314,7 @@ const swaps = new WeakMap();
 export function swapFade(el, fill, { instant = false, out = 120, inn = 180 } = {}) {
   const job = swaps.get(el);
   if (job) { job.fill = fill; return; }
-  if (instant || !el.animate || !el.isConnected || !el.firstChild || !el.getClientRects().length) { fill(); return; }
+  if (instant || !el.animate || !el.isConnected || !el.firstChild || !hasBox(el)) { fill(); return; }
   const me = { fill };
   swaps.set(el, me);
   // (From wherever the element is now: a fade-in still under way included, so a quick second swap never jumps to full.)
@@ -408,7 +412,7 @@ export function swapText(el, txt, then) {
   const job = swaps.get(el);
   if (job ? job.txt === txt : el.textContent === txt) return;
   const fill = () => { el.textContent = txt; then?.(); };
-  if (!job && !el.firstChild && txt && el.animate && el.isConnected && el.getClientRects().length) {
+  if (!job && !el.firstChild && txt && el.animate && el.isConnected && hasBox(el)) {
     fill(); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' }); return;
   }
   swapFade(el, fill);
@@ -447,7 +451,7 @@ export function countTo(el, v, d = 1, { eased = false } = {}) {
     c.from = c.shown; c.to = v; c.t0 = performance.now(); return;
   }
   const same = c.shown != null && fmt(c.shown, d) === fmt(v, d);
-  if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !el.getClientRects().length) { c.shown = v; putNum(el, fmt(v, d)); return; }
+  if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !hasBox(el)) { c.shown = v; putNum(el, fmt(v, d)); return; }
   c.from = c.shown; c.to = v; c.t0 = performance.now();
   rolling.add(el);
   if (!rollRaf) rollRaf = requestAnimationFrame(rollStep);
