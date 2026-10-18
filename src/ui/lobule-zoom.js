@@ -21,7 +21,7 @@
 
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { store } from './store.js?v=31ee79b6ab';
-import { radiiChanged, canvasPx, fxMoves } from './lobule-render-cache.js?v=99394e5079';
+import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=57ef9d0e5a';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=a34d56286c';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped, bandOutline } from './lobule-look.js?v=240bbb6cad';
@@ -255,6 +255,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // diveCopy). With only a CSS mask on the tissue, Safari now and then dropped the mask for a frame: the whole bitmap, a pale card of
   // the lobules around the landing one, flashed on and off through the zoom.
   const diveCv = h('canvas', { class: 'lz-canvas lz-dive', 'aria-hidden': 'true', style: { visibility: 'hidden' } });
+  const rimCv = document.createElement('canvas');   // the lobule's own layer, faded the other way (see diveCopy)
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, diveCv, glCv, fx, leaders, labels);
   // The dive's field (below the view): the liver's lobules, few and large, that the camera falls through (those away from the landing lobule fade as it nears).
   const field = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
@@ -644,7 +645,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // The world bitmap, the field's tiles and the uploaded network stay, so the next dive has nothing heavy to build.
   const free = (cv) => { if (cv.width || cv.height) { cv.width = 0; cv.height = 0; } };
   function release() {
-    free(tissue); free(fx); free(glCv); free(diveCv); diveCopyKey = '';
+    free(tissue); free(fx); free(glCv); free(diveCv); free(rimCv); diveCopyKey = '';
     gl?.trim?.();   // (the vessels' framebuffer: the shaders and the uploaded network are kept)
     tissueKey = ''; idleDrawn = ''; drawKey = ''; glDirty = true; fxKey = '';
     staged = ''; relLater = false;
@@ -2402,8 +2403,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
         x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1 - u; x.drawImage(worldOld, 0, 0, n, xfCv.height);
         x.globalCompositeOperation = 'lighter'; x.globalAlpha = u; x.drawImage(worldCv, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
         c.drawImage(xfCv, sx * dpr, sy * dpr, side, side);
+        worldAt = { cv: xfCv, x: sx * dpr, y: sy * dpr, side };
       } else {
         c.drawImage(worldCv, sx * dpr, sy * dpr, side, side);
+        worldAt = { cv: worldCv, x: sx * dpr, y: sy * dpr, side };
         if (xfT0) { xfT0 = 0; free(worldOld); free(xfCv); }   // (faded in: the old picture is given back)
       }
     }
@@ -2411,26 +2414,47 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // (Only between its inner edge and the outer one: inside it adds nothing, outside the page's colour is already there.)
     { c.setTransform(1, 0, 0, 1, 0, 0); if (fIn - 1 < reach) fieldFade(c, shadeOf(rgb01(bg), dark), ox, oy, rdv, 1, W * dpr, H * dpr, fIn, [fIn - 1, fOut + 4]); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
     if (flatVessels) paintFlatVessels(c, cs);
+    flatAt = flatVessels ? { cs, m: [dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y] } : null;
     if (diveRim) diveCopy();
   }
-  // The tissue as the dive shows it scaled down: cleared past the soft rim its mask keeps (opaque to 1.02 of the lobule's radius, gone
-  // by 1.2), so a mask the browser drops for a frame shows no more than that rim. Inside it the copy is the tissue pixel for pixel, and
-  // the mask does the fading, exactly as before. Made once per drawing of the tissue (one copy and one fill), not per frame.
-  let tissueVer = 0, tissueCss = [1, 1], diveRim = null, diveCopyKey = '';
+  // The tissue as the dive shows it scaled down. Past the lobule's rim the bitmap holds the lobule view's own surround (a pale card,
+  // scaled down), so that is faded out, opaque to 1.02 of the lobule's radius and gone by 1.2 (DIVE_RIM). The lobule's own drawing
+  // stays whole there: its portal tracts reach about 1.2 R in portal fibrosis (and the arteriole, ductule and lymphatic sit just past
+  // the corners), and faded with the surround they were cut back through the whole zoom, then popped in when it landed. So the copy is
+  // diveRimMix: the tissue × the fade, plus the lobule's own layer (the world bitmap, and the flat vessels without WebGL) × the rest.
+  // Baked into the copy rather than a CSS mask, which Safari now and then dropped for a frame (the whole pale card flashed). Made
+  // once per drawing of the tissue, not per frame.
+  let tissueVer = 0, tissueCss = [1, 1], diveRim = null, diveCopyKey = '', worldAt = null, flatAt = null;
   function diveCopy() {
     if (!diveRim || !tissue.width) return;
     const { x, y, r } = diveRim, key = [tissueVer, tissue.width, tissue.height, x, y, r].join('|');
     if (key === diveCopyKey) return;
     diveCopyKey = key;
-    if (diveCv.width !== tissue.width || diveCv.height !== tissue.height) { diveCv.width = tissue.width; diveCv.height = tissue.height; }
+    const tw = tissue.width, th = tissue.height, ks = [tw / tissueCss[0], th / tissueCss[1]];
+    if (diveCv.width !== tw || diveCv.height !== th) { diveCv.width = tw; diveCv.height = th; }
+    // (In the tissue's CSS pixels, as the mask was: the canvas is stretched over the view's box.)
+    const rimFade = (q) => { const g = q.createRadialGradient(x, y, r * DIVE_RIM.solid, x, y, r * DIVE_RIM.clear); g.addColorStop(0, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)'); return g; };   // colour-exempt: a mask
     const c = diveCv.getContext('2d');
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.globalCompositeOperation = 'copy'; c.drawImage(tissue, 0, 0);
-    // (In the tissue's CSS pixels, as the mask was: the canvas is stretched over the view's box.)
-    c.setTransform(tissue.width / tissueCss[0], 0, 0, tissue.height / tissueCss[1], 0, 0);
-    // (2 px past the mask's end, so the circle's soft edge falls where the mask is already clear.)
-    c.globalCompositeOperation = 'destination-in'; c.fillStyle = '#000'; c.beginPath(); c.arc(x, y, r * 1.2 + 2, 0, TAU); c.fill();   // colour-exempt: a mask
-    c.globalCompositeOperation = 'source-over'; c.setTransform(1, 0, 0, 1, 0, 0);
+    c.setTransform(ks[0], 0, 0, ks[1], 0, 0);
+    c.globalCompositeOperation = 'destination-in'; c.fillStyle = rimFade(c); c.fillRect(0, 0, tissueCss[0], tissueCss[1]);
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    // The lobule's own layer, only in its box (nothing of it lies outside), cleared where the tissue is kept whole.
+    const w = worldAt, bx = Math.max(0, Math.floor(w?.x ?? 0)), by = Math.max(0, Math.floor(w?.y ?? 0));
+    const bw = w ? Math.min(tw, Math.ceil(w.x + w.side)) - bx : 0, bh = w ? Math.min(th, Math.ceil(w.y + w.side)) - by : 0;
+    if (w?.cv.width && bw > 0 && bh > 0) {
+      if (rimCv.width !== tw || rimCv.height !== th) { rimCv.width = tw; rimCv.height = th; }
+      const q = rimCv.getContext('2d');
+      q.setTransform(1, 0, 0, 1, 0, 0); q.globalCompositeOperation = 'source-over'; q.clearRect(bx, by, bw, bh);
+      q.drawImage(w.cv, w.x, w.y, w.side, w.side);
+      if (flatAt) { q.setTransform(...flatAt.m); paintFlatVessels(q, flatAt.cs); }
+      q.setTransform(ks[0], 0, 0, ks[1], 0, 0);
+      q.globalCompositeOperation = 'destination-out'; q.fillStyle = rimFade(q); q.fillRect(bx / ks[0], by / ks[1], bw / ks[0], bh / ks[1]);
+      q.globalCompositeOperation = 'source-over'; q.setTransform(1, 0, 0, 1, 0, 0);
+      c.globalCompositeOperation = 'lighter'; c.drawImage(rimCv, bx, by, bw, bh, bx, by, bw, bh);
+    }
+    c.globalCompositeOperation = 'source-over';
   }
   // The lobule in world space (plates, septa, tracts, lymph): drawn into the cached bitmap.
   function paintLobule(c, m, G, dark, cs, bg, v) {
@@ -3102,17 +3126,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       if (!diveScaled && fade <= 0) { staged = ''; if (relLater) { relLater = false; release(); } }   // the dive is over with the lobule unseen
       // Landed with a Sinusoid tap waiting (made during the dive): on into the sinusoid now.
       sinOnLanding();
-      // Scaled down, the tissue's own page fill would show as a pale card: a soft round mask keeps only the lobule and its rim, on the
-      // tissue's copy cleared past that rim (diveCopy), so a dropped mask cannot bring the card back. (The vessels' canvas has nothing past the rim.)
+      // Scaled down, the tissue's own page fill would show as a pale card: the tissue's copy keeps only the lobule, its own drawing and
+      // a soft rim (diveCopy). (The vessels' canvas holds only the lobule's own vessels, so it is shown whole, as at rest: masked
+      // with the rim, the triads' arterioles, ductules and lymphatics just past the corners were faded through the zoom and popped in.)
       const r = geo ? geo.R * V.k : 0, rim = k < 0.9999 && r > 0;
-      const mask = rim ? `radial-gradient(circle at ${x.toFixed(1)}px ${y.toFixed(1)}px, #000 ${(r * 1.02).toFixed(1)}px, transparent ${(r * 1.2).toFixed(1)}px)` : '';   // colour-exempt: a mask
       diveRim = rim ? { x: +x.toFixed(1), y: +y.toFixed(1), r: +r.toFixed(1) } : null;
       if (rim) diveCopy();
-      else if (diveCv.width) { free(diveCv); diveCopyKey = ''; }
+      else if (diveCv.width) { free(diveCv); free(rimCv); diveCopyKey = ''; }
       const show = rim && diveCopyKey ? diveCv : tissue;
       if (tissue.style.visibility !== (show === tissue ? '' : 'hidden')) { tissue.style.visibility = show === tissue ? '' : 'hidden'; diveCv.style.visibility = show === diveCv ? '' : 'hidden'; }
       for (const e of [tissue, diveCv, glCv, fx, leaders, labels]) {
-        if (e === glCv || e === diveCv) { e.style.maskImage = mask; e.style.webkitMaskImage = mask; }
         if (k >= 0.9999) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
         // Scaled about its own centre, which sits where the field's lobule at the dive's focus is (tx, ty), so it morphs out of that one.
         e.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`;
