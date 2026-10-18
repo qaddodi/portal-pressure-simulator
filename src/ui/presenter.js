@@ -2426,7 +2426,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!l || d.hidden || !d.classList.contains('pz-sheet')) return;
     const px = (v) => `${v.toFixed(1)}px`;
     const split = splitSheet(d), open = d.classList.contains('tool-open'), sliding = d.classList.contains('pz-sliding');
-    if (split && !sliding && !dock.lvl) measureUnder(d);   // (read before the writes below; it never changes while the card docks)
+    // (Read before the writes below, with the card at rest, open or closed: it never changes while the card docks. Skipped while
+    // closed, a slide that came in with its card closed kept its readings in the card's flow and the whole card shrank to fit them,
+    // to 74 % on Varices 3 at 375 x 667, until it was opened.)
+    if (split && !sliding && dock.lvl === dock.to) measureUnder(d);
     const u = sliding ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : 0;
     // (Sliding, at the readings' card's foot to the fraction of a px: the card's own box height is whole px.)
     l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(d.offsetTop + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : d.offsetHeight));
@@ -2459,6 +2462,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const key = `${gen}:${want}`, d = ui.data, ms = d.classList.contains('pz-hide') || d.hidden ? 0 : 380;
     if (shut && dock.to === 0 && dock.autoKey !== key) { dock.autoKey = key; dock.auto = true; queueMicrotask(() => ui && dockTo(1, ms)); }
     else if (!shut && dock.auto && dock.to === 1) { dock.auto = false; queueMicrotask(() => ui && dockTo(0, ms)); }
+  }
+  // A phone on its side: a table card's title that ends clear of the deck's tab stands level with it, the tab in the corner beside
+  // it, not under it (the six site rows of Sites 10 at 667 x 375 lost their last row to the tab's height). Decided once a slide,
+  // and given up for good on the slide should the fitted title reach the tab (then fitted again under it). True while it stands beside.
+  let besideKey = '', besideNo = '';
+  function tabBeside() {
+    const pn = ui.panel, key = `${gen}:${want}`, tb = pn.classList.contains('tabbed') && pn.querySelector(':scope > .pz-tabname'), t1 = pn.querySelector(':scope > .pz-ph > .pz-h');
+    let on = false;
+    if (tb && t1 && besideNo !== key) {
+      const rg = document.createRange(); rg.selectNodeContents(t1);
+      const clear = rg.getBoundingClientRect().right <= tb.getBoundingClientRect().left - 8;
+      if (clear) { on = true; besideKey = key; } else if (besideKey === key) { besideNo = key; besideKey = ''; }
+    }
+    pn.classList.toggle('tab-beside', on);
+    return on;
   }
   // The cards never scroll: when a card's contents are taller or wider than the card, their zoom (--pz-fit) drops until they fit.
   // The height is summed from the children's own boxes (a slide-up does not change a box's height), never read from
@@ -2854,6 +2872,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (below !== isCol) { void dd.offsetWidth; dd.style.transition = ''; }
     chipRoom(dd);
+    const beside = low && tabBeside();
     fitCards(ui.data, ui.panel);
     // (A ladder card still too full at its smallest zoom: laid out again, folded, for as long as the slide shows at this size.
     // At 100 % text the card always fits by its own zoom, so it never folds there.)
@@ -2861,6 +2880,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (pz-prep) or in view.)
     if (below && ladderFold !== foldKey && slides[want]?.fold !== false && (ui.root.classList.contains('pz-prep') || !dd.classList.contains('pz-hide')) && !dd.classList.contains('has-tool') && !dd.classList.contains('tiles-only') && !dd.classList.contains('tool-only')
       && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-folds') && (!lock || !shown) && (({ v, h }) => v > 1 || h > 1)(overflowOf(dd))) { ladderFold = foldKey; textLock = null; layout(); return; }
+    if (beside && !tabBeside()) { fitDone.delete(ui.panel); fitCards(ui.panel); }
     // (Locked, it still folds until the slide is shown: its strip, lettered again as the cards came in, had overflowed and stayed
     // under 12 px, Recompensation 2 at 200 %.)
     // (A folded instrument card whose pressure strip fits only zoomed down, under 12 px at 200 % (Where is the resistance 10): the strip

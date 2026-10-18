@@ -309,6 +309,9 @@ const cardGap = (page) => page.evaluate(() => {
   const d = document.querySelector('.pz-data:not(.pz-hide):not([hidden])');
   if (!d || !d.offsetHeight) return null;
   const b = d.getBoundingClientRect(), parts = [...d.children].filter((c) => { const s = getComputedStyle(c), r = c.getBoundingClientRect(); return s.display !== 'none' && s.position !== 'absolute' && r.height > 0.5; });
+  // (An open sheet's handle, .pz-lip, sits over the card's foot by design: it counts as contents.)
+  const lip = d.nextElementSibling;
+  if (lip?.matches('.pz-lip:not([hidden])') && getComputedStyle(lip).display !== 'none') { const r = lip.getBoundingClientRect(); if (r.height > 0.5 && r.top >= b.top && r.bottom <= b.bottom + 1) parts.push(lip); }
   if (!parts.length) return null;
   const top = Math.min(...parts.map((c) => c.getBoundingClientRect().top)) - b.top - d.clientTop;
   const bottom = b.bottom - d.clientTop - Math.max(...parts.map((c) => c.getBoundingClientRect().bottom));
@@ -1089,6 +1092,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         // (After a key, first the move has to begin: the old slide's words leave before it, which on a loaded software
         // renderer can hold the view as it was for longer than the stillness looked for below.)
         if (from) for (let t0 = Date.now(); (await viewKey()) === from && Date.now() - t0 < 60000;) await page.waitForTimeout(400);
+        // (A case card holds the slide's own zoom until it is tapped away, as a person does (3c79c6f): tapped once it shows, and the
+        // slide waited for as gotoSlide does.)
+        if (from && !explore) await page.waitForFunction(() => { document.querySelector('.pz-case.on')?.click(); return !window.pps.presenter.busy(); }, null, { timeout: 120000, polling: 100 });
         let last = '', same = 0;
         for (let i = 0; i < 120 && same < 6; i++) {
           await page.waitForTimeout(400);
@@ -1146,7 +1152,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   await check(device, 'circuit turns upright and back', async (page) => {
     await open(page, '?preset=csph');
-    if (await page.$eval('#rotateCircuit', (b) => getComputedStyle(b).display) !== 'none') throw new Error('turn button shows in the anatomy');
+    // (Out of the circuit it is folded away in the zoom pill, no size and hidden, as it folds and opens (61f5c59), not taken out of the layout.)
+    if (await page.$eval('#rotateCircuit', (b) => { const s = getComputedStyle(b); return s.display !== 'none' && s.visibility !== 'hidden' && b.getBoundingClientRect().width > 0; })) throw new Error('turn button shows in the anatomy');
     await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
     // Animations step with the frames: wait for where they end, not a fixed time (CI has no GPU).
     const ratio = () => { const s = document.querySelector('#stage'); return s.viewBox.baseVal.height / s.viewBox.baseVal.width; };
@@ -2116,12 +2123,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // A phone's data card opens and shuts by dragging its lower edge (as well as Show/Hide), its parts at full size after each.
   if (device === 'phone') await check(device, 'presenter: a phone drags the data card open and shut', async (page) => {
     await open(page);
-    await page.evaluate(() => window.pps.presenter.start('stiffness', 3));
+    await page.evaluate(() => window.pps.presenter.start('prehepatic', 1));   // (a card with a second part: stiffness 4's is its tiles alone now)
+    // (A phone's card keeps its second part on a sheet under it, pulled out by the finger or a tap on its handle, no Show or Hide:
+    // 802e093. Its open state is still the card's fold, aria-expanded, kept in step for readers.)
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover')
-      && [...document.querySelectorAll('.pz-fold')].some((f) => f.offsetWidth), null, { timeout: 60000 });
+      && document.querySelector('.pz-data.pz-sheet')?.offsetWidth, null, { timeout: 60000 });
     await page.waitForTimeout(800);
     const drag = (dy) => page.evaluate(async (dy) => {
-      const d = [...document.querySelectorAll('.pz-data')].find((x) => x.querySelector('.pz-fold')?.offsetWidth), b = d.getBoundingClientRect();
+      const d = document.querySelector('.pz-data.pz-sheet'), b = d.getBoundingClientRect();
       const x = b.left + b.width / 2, y0 = dy > 0 ? b.top + b.height / 2 : b.bottom - 20;   // (anywhere on the card)
       const fire = (type, y) => { const t = new Touch({ identifier: 1, target: d, clientX: x, clientY: y });
         d.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true })); };
@@ -2130,7 +2139,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await new Promise((r) => setTimeout(r, 150));   // (a slow release: decided by how far it got)
       fire('touchend', y0 + dy);
     }, dy);
-    const state = () => page.evaluate(() => document.querySelector('.pz-data .pz-fold[aria-expanded]') && [...document.querySelectorAll('.pz-fold')].find((f) => f.offsetWidth).getAttribute('aria-expanded'));
+    const state = () => page.evaluate(() => document.querySelector('.pz-data.pz-sheet .pz-fold')?.getAttribute('aria-expanded'));
     await drag(260); await page.waitForTimeout(900);
     if (await state() !== 'true') throw new Error('dragging the card edge down did not open it');
     let gap = await cardGap(page); if (gap) throw new Error(`after dragging open: ${gap}`);
@@ -2156,7 +2165,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await open(page);
       await page.evaluate(() => window.pps.presenter.start('prehepatic', 1));
       await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover')
-        && document.querySelector('.pz-data .pz-fold')?.offsetWidth, null, { timeout: 60000 });
+        && document.querySelector('.pz-data.pz-sheet')?.offsetWidth, null, { timeout: 60000 });
       await page.waitForTimeout(1500);
       const shut = await look();
       // Pulled open by the finger: sampled at each step of the pull, then at rest.
@@ -2183,19 +2192,22 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const opened = await look();
       if (!opened.open) bad.push(`${w}: pulling the card down did not open it`);
       for (const o of during.out) if (!same({ ...o, dh: opened.dh }, opened) && !same({ ...o, dh: opened.dh }, { ...shut, dh: opened.dh })) { bad.push(`${w}: mid-pull ${show({ ...o, dh: opened.dh })}; shut ${show(shut)}, open ${show(opened)}`); break; }
-      // Tapped Hide, then Show: the fit is the resting one from the first frame.
+      // Its handle tapped, tucking the sheet, then again, bringing it out (802e093: no Hide or Show): the fit is the resting one from the first frame.
       for (const want of [false, true]) {
+        // (Its handle steps open, tucked, closed, partly open, open: from tucked, the next tap closes the card, and one more brings it
+        // back partly open, the sheet tucked, from where the measured tap brings the sheet out.)
+        if (want) for (let k = 0; k < 2; k++) { await page.evaluate(() => document.querySelector('.pz-lip').click()); await page.waitForTimeout(1200); }
         const frames = await page.evaluate(async () => {
           const d = document.querySelector('.pz-data'), out = [];
-          d.querySelector('.pz-fold').click();
+          document.querySelector('.pz-lip').click();
           for (let i = 0; i < 30; i++) { await new Promise((r) => requestAnimationFrame(r)); const tile = d.querySelector('.pz-tiles .pz-tile'); out.push({ fit: d.style.getPropertyValue('--pz-fit') || '1', z: d.style.getPropertyValue('--pz-z') || '1', tile: Math.round(tile.getBoundingClientRect().height) }); }
           return out;
         });
         await page.waitForTimeout(1200);
         const rest = await look();
-        if (rest.open !== want) bad.push(`${w}: ${want ? 'Show' : 'Hide'} left the card ${rest.open ? 'open' : 'shut'}`);
+        if (rest.open !== want) bad.push(`${w}: a tap on the handle (${want ? 'out' : 'tuck'}) left the card ${rest.open ? 'open' : 'shut'}`);
         const odd = frames.find((o) => !same({ ...o, dh: rest.dh }, rest));
-        if (odd) bad.push(`${w}: ${want ? 'opening' : 'shutting'} by tap passed through ${show({ ...odd, dh: rest.dh })}; rests at ${show(rest)}`);
+        if (odd) bad.push(`${w}: ${want ? 'opening' : 'shutting'} by a handle tap passed through ${show({ ...odd, dh: rest.dh })}; rests at ${show(rest)}`);
       }
     }
     // A folded card (a 320 px iPhone, TIPS Doppler slide 9): its header at full size, 12 px words or more.
@@ -2203,7 +2215,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await open(page);
     await page.evaluate(() => window.pps.presenter.start('tips-doppler', 8));
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover')
-      && document.querySelector('.pz-data .pz-fold')?.offsetWidth, null, { timeout: 60000 });
+      && document.querySelector('.pz-data.pz-sheet')?.offsetWidth, null, { timeout: 60000 });
     await page.waitForTimeout(1500);
     const f = await look();
     if (await page.evaluate(() => document.querySelector('.pz-data').classList.contains('pz-folds')) && f.dh < 12) bad.push(`320: the folded card's header is ${f.dh} px`);

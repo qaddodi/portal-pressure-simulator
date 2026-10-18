@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=cbadfc09b2';
-import { createLobuleZoom } from './lobule-zoom.js?v=21ba0ee7e0';
+import { createLobuleZoom } from './lobule-zoom.js?v=89c5905f95';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -4820,7 +4820,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`;
       // Over the key or the nav pill: the callout steps left, its pointer still on its point; with no room there, a callout above
       // its point rises just clear of them. (Its height and its top's offset from its point are read with its width.)
-      if (el._kt == null || el._kw !== wk) { el._kw = wk; const q = el.getBoundingClientRect(), wb = stageBox(); el._kt = q.top - wb.top - y; el._kh = q.height; }
+      // (A reading's own offset is known from its side of the point, app.css data-at: read off the screen, it was read part way through
+      // the .45 s glide to that side, and a callout below its point counted as above it, its foot on the key: Shunts 2 sideways.)
+      if (el._kt == null || el._kw !== wk + el.dataset.at) {
+        el._kw = wk + el.dataset.at;
+        if (d.res) { const q = el.getBoundingClientRect(), wb = stageBox(); el._kt = q.top - wb.top - y; el._kh = q.height; }
+        else { el._kh = el.offsetHeight; el._kt = el.dataset.at === 'ahead' && !el.classList.contains('above') ? 18 : -18 - el._kh; }
+      }
       if (ko && !el.classList.contains('off')) {
         const r = { l: cx - half, r: cx + half, t: y + el._kt, b: y + el._kt + el._kh };
         if (r.r > ko.l - 8 && r.l < ko.r + 8 && r.b > ko.t - 8 && r.t < ko.b + 8) {
@@ -4830,6 +4836,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             el.style.transform = `translate(${(cx - dx).toFixed(1)}px, ${y.toFixed(1)}px)`;
             if (el._box) el._box = { ...el._box, x0: el._box.x0 - dx, x1: el._box.x1 - dx };
           } else if (!el._below && r.t - dy >= y0 - 8) { el.style.transform = `translate(${cx.toFixed(1)}px, ${(y - dy).toFixed(1)}px)`; if (el._box) el._box = { ...el._box, y0: el._box.y0 - dy, y1: el._box.y1 - dy }; }
+          // (One below its point, as the portal blood's share is, with no room to the left: it turns to stand above its point when
+          // that is clear, once (Shunts 2 on a phone held sideways, its foot on the key).)
+          else if (el._below && !el._turned && y - 18 - el._kh >= y0) { el._turned = true; el._below = false; el.dataset.at = ''; }
         }
       }
     }

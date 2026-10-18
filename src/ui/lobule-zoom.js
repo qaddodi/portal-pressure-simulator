@@ -1130,6 +1130,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     for (const e of [callEl, callLine, callRing]) e.classList.toggle('on', on);
     if (!on) return null;
     const { a, rr } = ring;
+    // (A phone on its side keeps the data card's whole column out of the free space, though the card stands at its top only: the
+    // pill may also stand below that card, clear of it, the key and the nav pill by their cost as cards. Kept to the free space's
+    // 80 px strip there, Sites 6 had no clear spot and set it on the nav pill.)
+    if (document.querySelector('.pz.low')) fr = { ...fr, r: Math.max(fr.r, geo.W - cssN('--right-occ') - 12) };
     // Never wider than the free space: a long line wraps instead of running off the screen.
     const fit = `${Math.max(120, Math.round(fr.r - fr.l - 20))}px`;
     if (callEl.style.maxWidth !== fit) callEl.style.maxWidth = fit;
