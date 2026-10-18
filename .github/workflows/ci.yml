@@ -201,6 +201,10 @@ jobs:
         run: npm run smoke:idle
       - name: A redraw of only the vessels that changed matches a whole redraw; nothing stale after any change
         run: npm run smoke:rows
+      - name: The breathing widths' fast path draws what the full update would (six cases)
+        run: npm run smoke:widths
+        env:
+          N: 10
 
   # Pan and pinch: the figure and the lobule follow the hand, and the moving picture is never undrawn or softer than a
   # whole draw of the same view.
