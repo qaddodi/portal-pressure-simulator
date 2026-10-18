@@ -2112,6 +2112,8 @@ button.finding { cursor: pointer; }
 .pz.stack .pzt-v { font-size: var(--s-title); }
 /* (Centred in the figure above the controls' pill: top and bottom set, its own height, auto margins.) */
 .pz.stack .pz-panel { top: 8px; bottom: calc(64px + var(--pz-sb)); height: fit-content; margin-block: auto; translate: -50% 0; width: calc(100% - 16px); max-height: calc(100% - 72px - var(--pz-sb)); padding: 16px; gap: 12px; }
+/* (A tall card with its deck's tab starts 13 px down, not 8: the tab's name stays clear of the preview badge, Where is the resistance 15.) */
+.pz.stack .pz-panel.tabbed { top: 13px; max-height: calc(100% - 77px - var(--pz-sb)); }
 /* An upright tablet uses the phone layout, its cards 70% of the width and centred (the phone's own sizes are untouched). */
 .pz-shade.stack.tab { left: 15%; right: 15%; }
 .pz.stack.tab .pz-text { left: calc(15% + 13px); right: calc(15% + 13px); }
