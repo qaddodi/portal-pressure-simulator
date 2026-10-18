@@ -5242,6 +5242,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* (A folded ladder card with nothing else in it: its name and Show in the teaching card's foot (presenter.js footFold), the card itself
    out of view until it is opened, and then without a chip of its own: the foot's button reads Hide. Critique A7, 17 Oct.) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds.pz-footfold:not(.tool-open) { opacity: 0 !important; pointer-events: none; }
+.pz-data.pz-folds.pz-foldstrip:not(.tool-open) > :is(.pz-strip, .pz-ladder, .pz-lg) { display: none; }   /* (its strip too small to read beside a folded instrument: Show opens both, presenter.js layout) */
 .pz:not(.stack):not(.low) .pz-data.pz-folds.pz-footfold .pz-dh > .pz-fold { display: none; }
 .pz:not(.stack):not(.low) .pz-data.pz-folds.pz-footfold .pz-dh { padding-inline: 0; }
 .pz-tfold { display: none; }

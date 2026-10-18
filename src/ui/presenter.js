@@ -2405,8 +2405,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const [x, y] = dockVec();
     ui.data.style.translate = dock.lvl ? `${(x * dock.lvl).toFixed(1)}px ${(y * dock.lvl).toFixed(1)}px` : '';
     ui.data.classList.toggle('docked', dock.to === 1);
+    dockFade(dock.to === 1);
     placeLip();
   };
+  // A closed card shows only its glass edge and handle: its contents fade out as it goes and back in as it comes out (the sliver
+  // had shown the cut-off foot of its readings, under the preview badge too). By the Web Animations API, over the parts' own
+  // transitions; a part that arrives while the card is closed (the next slide's) is faded at once.
+  const DOCK_FADE = { duration: 320, easing: 'cubic-bezier(.2, .8, .2, 1)', fill: 'forwards' };
+  function dockFade(shut) {
+    for (const c of ui.data.children) {
+      if (c.classList.contains('pz-grip') || !c.animate) continue;
+      if (shut && !c._dockFade) c._dockFade = c.animate([{ opacity: 1 }, { opacity: 0 }], { ...DOCK_FADE, duration: dock.lvl > 0.5 ? 0 : DOCK_FADE.duration });
+      else if (!shut && c._dockFade) { c._dockFade.cancel(); c._dockFade = null; c.animate([{ opacity: 0 }, { opacity: 1 }], { ...DOCK_FADE, fill: 'none' }); }
+    }
+  }
   // The sheet's edge is the card's sibling, not its child: inside the card, the card's glass clipped it away on an iPhone (802e093,
   // no edge and no handle under Doppler 7). It stands at the card's foot at the card's width, and moves with the card's own drag.
   function placeLip() {
@@ -2824,7 +2836,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (And leaves the figure its share: FIG_MIN between the two cards.)
     // (Partly open, its sheet's edge (LIP) stands below it in that room too. A card that came in closed (phoneShut) leaves the figure
     // its share only while closed: brought back by the reader it may cover the figure, never the words.)
-    if (p && t) { const cs = getComputedStyle(dd); const room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8 - (lipOn(dd) ? LIP : 0) - (phoneCap != null && !phoneShut && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? FIG_MIN(H) / k : 0));
+    // (The sheet's edge comes out of the figure's share, not the card's: taken from the card, it shrank the instrument and tiles to
+    // 90-99 %, Endoscopy 4 on an iPhone. And 2 px more: the card's border and rounding had left it 99.6 %.)
+    if (p && t) { const cs = getComputedStyle(dd), lip = lipOn(dd) ? LIP : 0, fig = phoneCap != null && !phoneShut && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? Math.max(0, FIG_MIN(H) / k - lip - 2) : 0;
+      const room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - 16 - 8 - lip - fig);
       if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
     if (!p && !below && ui.fk.dataset.empty == null && !ui.bar.hidden) {
@@ -2843,6 +2858,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-folds') && (!lock || !shown) && (({ v, h }) => v > 1 || h > 1)(overflowOf(dd))) { ladderFold = foldKey; textLock = null; layout(); return; }
     // (Locked, it still folds until the slide is shown: its strip, lettered again as the cards came in, had overflowed and stayed
     // under 12 px, Recompensation 2 at 200 %.)
+    // (A folded instrument card whose pressure strip fits only zoomed down, under 12 px at 200 % (Where is the resistance 10): the strip
+    // folds in with the instrument, and Show opens both. Kept while the card stays folded.)
+    if (!dd.classList.contains('pz-folds') || dd.classList.contains('tool-open')) dd.classList.remove('pz-foldstrip');
+    else if (dd.classList.contains('has-tool') && !dd.classList.contains('pz-foldstrip') && (parseFloat(dd.style.getPropertyValue('--pz-fit')) || 1) < 1) { dd.classList.add('pz-foldstrip'); fitDone.delete(dd); fitCards(dd); }
     // The stacked pair shorter than the screen is centred top to bottom as one (equal room above and below, never closer than one margin
     // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
     let shift = 0;
