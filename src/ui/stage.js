@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=297b77ad88';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=8374d8e213';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=0be9571e14';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
@@ -5867,9 +5867,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { runs, color: velColorOf(f, bestK, store.get().healthy) };
   }
 
-  // Where a label has no room with its value, it first drops the unit and change badge (keeping "Azygos 6.7"), then
-  // keeps the name alone (see placeMulti and the overlap pass). it.short: 1 trimmed, 2 the name alone.
-  function shortenItem(it) {
+  // A vessel's name read as its abbreviation ("Right portal vein" → "RPV"): false where it has none or already reads it.
+  function abbrevName(it) {
+    const a = !it.abbr && it.node && ABBR[it.node], r = a && it.lines[0][0], full = SHORT[it.node];
+    if (!r || !r.t.startsWith(full)) return false;
+    it.lines = [[{ ...r, t: a + r.t.slice(full.length) }, ...it.lines[0].slice(1)], ...it.lines.slice(1)];
+    it.w = Math.max(...it.lines.map(lineW)); it.abbr = true;
+    return true;
+  }
+  // Where a label has no room with its value, a vessel first takes its abbreviation (abbr: "RPV 9.8 mmHg"), then drops the unit
+  // and change badge (keeping "Azygos 6.7"), then keeps the name alone (see placeMulti and the overlap pass). it.short: 1 trimmed,
+  // 2 the name alone. (abbr false: the trimming steps only, as the circuit's one unit rule takes them.)
+  function shortenItem(it, abbr = true) {
+    if (abbr && abbrevName(it)) return true;
     if (it.short === 2 || (it.lines.length < 2 && it.lines[0].length < 2)) return false;
     const val = !it.short && it.lines.length === 2 ? it.lines[1].filter((r) => r.cls === 'lb-val') : [];
     if (val.length && val.length < it.lines[1].length) {
@@ -5879,7 +5889,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     it.lines = [[it.lines[0][0]]]; it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); it.short = 2;
     return true;
   }
-  const shortenTo = (it, lvl) => { while ((it.short || 0) < lvl && shortenItem(it)); };
+  const shortenTo = (it, lvl, abbr = false) => { if (abbr) abbrevName(it); while ((it.short || 0) < lvl && shortenItem(it, false)); };
   // A Circuit reading set on one line, its name then its value (a rescued reading where two lines have no room: layoutLabels).
   function oneLine(it) {
     if (it.lines.length !== 2) return;
@@ -6170,7 +6180,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const it of labelShown) {
       const [kind, id, mode, compact] = it.src;
       const n = kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
-      if (it.short) shortenTo(n, it.short);
+      if (it.short || it.abbr) shortenTo(n, it.short || 0, it.abbr);
       if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;
       for (let i = 0; i < n.lines.length; i++) {
         const a = n.lines[i], o = it.lines[i];
@@ -6444,7 +6454,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // Carry: the label goes where it was put, relative to the figure point it names.
         if (!prev) { stale = true; return false; }
         if (prev.drop) return false;
-        if (prev.short && it.canShort) shortenTo(it, +prev.short);
+        if ((prev.short || prev.abbr) && it.canShort) shortenTo(it, +prev.short || 0, prev.abbr);
         if (prev.one) oneLine(it);
         if (it.w > prev.w + 0.5 || it.h > prev.h + 0.5) { stale = true; return false; }
         const [ax, ay] = worldToLocal(prev.wx, prev.wy);
@@ -6558,7 +6568,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const lead = gapPx > 18 || (!!prev?.lead && gapPx >= 10);
       it.leader = !!best.leader || lead;
       const [wx, wy] = localToWorld(it.ax, it.ay);
-      nextSol.set(it.key, { wx, wy, dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0 });
+      nextSol.set(it.key, { wx, wy, dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0, abbr: !!it.abbr });
       it._r = best.r; placed.push(best.r); out.push(it);
       return true;
     };
@@ -6787,7 +6797,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       rings = plan.map(({ it }) => it);
       // As they were (v2): each beside its station, shortened, or given up, where there is no room.
       for (const { it, dirs, passes, half } of plan) {
-        it._full = { lines: it.lines, w: it.w, h: it.h, short: it.short };   // (its whole form, for the rescue below)
+        it._full = { lines: it.lines, w: it.w, h: it.h, short: it.short, abbr: it.abbr };   // (its whole form, for the rescue below)
         if (!placeMulti(it, dirs, passes, 0, 3) && it.sel) place(it, dirs, 40 + half, true);
       }
       // Then a reading that sits on a vessel moves to the nearest clear spot, the others staying where they are: beside its
@@ -6827,7 +6837,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // (And one outside the free space, which the pull below would set down on whatever is there.)
         const atRisk = shown && it._r && (!within(it._r, view) || obstacles.some((o) => !o.zone && hits(it._r, o)) || rings.some((o) => o.ax > it._r.x0 - 7 && o.ax < it._r.x1 + 7 && o.ay > it._r.y0 - 7 && o.ay < it._r.y1 + 7));
         if (it.sel || (shown && (it.short || 0) < 2 && !atRisk) || !it._full || (it._full.short || 0) >= 2) continue;
-        const was = { lines: it.lines, w: it.w, h: it.h, short: it.short, x: it.x, y: it.y, dir: it.dir, leader: it.leader, _r: it._r, sol: nextSol.get(it.key) };
+        const was = { lines: it.lines, w: it.w, h: it.h, short: it.short, abbr: it.abbr, x: it.x, y: it.y, dir: it.dir, leader: it.leader, _r: it._r, sol: nextSol.get(it.key) };
         const early = shown && (it.short || 0) >= 2;   // (a name without its value: off its spot from the start)
         if (early) { out.splice(out.indexOf(it), 1); placed.splice(placed.indexOf(it._r), 1); }
         rescueOf.push({ e, was, shown, early });
@@ -6840,19 +6850,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const far = [...passes.slice(3), ...outer.map((gap) => ({ gap, dirs: RING_DIRS, ring: 'clean', clear: true, inView: true })), ...outer.map((gap) => ({ gap, dirs: RING_DIRS, ring: 'any', clear: true, inView: true }))].map((ps) => ({ ...ps, callGap: 12, resc: true }));
         const near = [...passes.slice(0, 3), { gap: passes[2].gap + 10 }, { gap: passes[2].gap + 18 }].map((ps) => ({ ...ps, clear: false, strict: true, inView: true, callGap: 12, resc: true }));
         const ok = [far, near, near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
-          Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, one: false });   // (whole again for each try)
+          Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, abbr: it._full.abbr, one: false });   // (whole again for each try)
           return placeMulti(it, dirs, R, 0, R.length, false, 1);
         }) || [0, 1].some((sh) => [far, near, far.map((ps) => ({ ...ps, overZones: true })), near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
           // (Else on one line, name then value (then without its units): a station at the top of the free space, RA under a phone's
           // data card, has room beside it only for a reading one line tall.)
-          Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, one: false });
-          if (sh && !((it.short || 0) < 1 && shortenItem(it) && it.short === 1)) return false;
+          Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, abbr: it._full.abbr, one: false });
+          if (sh && !((it.short || 0) < 1 && shortenItem(it, false) && it.short === 1)) return false;
           oneLine(it);
           return it.one && placeMulti(it, [...dirs, 'EL', 'WL'], R, 0, R.length, false, it.short || 0);
         }));
         // (Its slot is not one of the usual passes': marked so the next layout does not take it for one held there.)
         if (ok) { it.onVessel = lineHits(it._r, 2) > 0; const sol = nextSol.get(it.key); if (sol) { sol.onv = it.onVessel; sol.pi = -1; sol.one = !!it.one; } continue; }
-        Object.assign(it, { lines: was.lines, w: was.w, h: was.h, short: was.short, x: was.x, y: was.y, dir: was.dir, leader: was.leader, _r: was._r, one: false });
+        Object.assign(it, { lines: was.lines, w: was.w, h: was.h, short: was.short, abbr: was.abbr, x: was.x, y: was.y, dir: was.dir, leader: was.leader, _r: was._r, one: false });
         if (was.sol) nextSol.set(it.key, was.sol);
         if (shown && (!early || free(was._r))) { out.push(it); placed.push(was._r); } else if (shown) nextSol.set(it.key, { drop: true });
       }
@@ -6868,7 +6878,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (it.short) continue;
           const w0 = it.w;
           if (it.one && bare(it.lines[0])) { it.lines = [it.lines[0].filter((r, i) => !i || r.cls === 'lb-val')]; it.w = lineW(it.lines[0]); it.short = 1; }
-          else if (!it.one && it.lines.length === 2 && bare([it.lines[0][0], ...it.lines[1]])) shortenItem(it);
+          else if (!it.one && it.lines.length === 2 && bare([it.lines[0][0], ...it.lines[1]])) shortenItem(it, false);
           else continue;
           const dw = w0 - it.w;
           it.x += it.dir?.includes('W') ? dw : it.dir?.includes('E') ? 0 : dw / 2;
