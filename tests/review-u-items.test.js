@@ -1,5 +1,5 @@
-// Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch): undo on touch, a way out
-// of the collapse banner, "Why?" sentences that read aloud, Why? for Hb, failures in learner words, the shunt hint,
+// Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch): undo on touch, a way out of
+// the collapse banner (banner removed 18 Oct), "Why?" sentences that read aloud, Why? for Hb, failures in learner words, the shunt hint,
 // "colored by" instead of "lens", one platelet unit, and the toast policy. The UI modules need a DOM, so they are read as text.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,16 +39,12 @@ test('U9: hemoglobin has a Why? of its own, and a bleed explains it', () => {
   assert.match(r.sentence, /below healthy\. Most of that is the blood loss/, r.sentence);
 });
 
-test('U2 and U4: Undo is reachable on touch, and the collapse banner offers Undo and Restart', () => {
+test('U2: Undo is reachable on touch, and no collapse banner covers the figure (removed 18 Oct)', () => {
   const tl = read('../src/ui/timeline.js'), main = read('../src/ui/main.js'), css = read('../styles/app.css');
   assert.match(tl, /\.\.\.\(canUndo\(\) \? \[menuBtn\('Undo the last change', \(\) => undo\(\)\)\] : \[\]\),\n\s+h\('div', \{ class: 'menu-title' \}, 'Jump ahead'\)/);
   assert.match(tl, /undo, canUndo, lastChangeLabel, redo/);
-  assert.match(main, /h\('button', \{ class: 'btn sm cb-undo', onclick: \(\) => doUndo\(\) \}, 'Undo last change'\)/);
-  assert.match(main, /h\('button', \{ class: 'btn sm', onclick: \(\) => restartPatient\(\) \}, 'Restart patient'\)/);
-  assert.match(main, /Last change: \$\{tippedBy\}\./);
-  // The banner ignores the pointer (the figure stays usable) except its buttons, and only while it shows.
-  assert.match(css, /\.collapse-banner \{[^}]*pointer-events: none;/);
-  assert.match(css, /\.collapse-banner\.on \.cb-acts \{ pointer-events: auto; \}/);
+  assert.doesNotMatch(main, /would not survive|collapse-banner|syncCollapse/);
+  assert.doesNotMatch(css, /\.collapse-banner/);
 });
 
 test('U10: failures are said in learner words', () => {

@@ -40,7 +40,7 @@ test('healthy: the ATLS classes at 500, 1000, 1500, 2000 and 2500 mL', () => {
   for (const [a, b] of [[500, 1000], [1000, 1500], [1500, 2000], [2000, 2500]]) assert.ok(at[b].map < at[a].map && at[b].hr >= at[a].hr, `${msg(a)} → ${msg(b)}`);
 });
 
-test('a 500 mL bleed is not shock: no collapse banner, pressure within a few mmHg', () => {
+test('a 500 mL bleed is not shock: no circulatory collapse, pressure within a few mmHg', () => {
   for (const p of ['healthy', 'cirr-comp', 'csph', 'cirr-decomp', 'cirr-hepatofugal', 'gastric-varix']) {
     const r = after(p, 500);
     assert.ok(r.map0 - r.map < 7 && r.co > 3, `${p}: MAP ${r.map0.toFixed(0)} → ${r.map.toFixed(0)}, CO ${r.co.toFixed(1)}`);

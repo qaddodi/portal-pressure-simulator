@@ -346,29 +346,6 @@ function syncScanProbe() {
   if (store.get().mode !== 'explore') { scanOwned = false; return; }
   if (want !== scanOwned) { scanOwned = want; stage?.setScanProbe(want); }
 }
-// Settings no patient could live through (circulatory collapse): a plain warning over the figure, so nobody
-// reads numbers off an impossible patient. Hysteresis keeps it from flickering at the edge.
-const COLLAPSE = { on: (m) => m.map < 45 || m.co < 1.5, off: (m) => m.map > 50 && m.co > 1.8 };
-let collapseEl = null, collapsed = false, tippedBy = null;
-function syncCollapse(m) {
-  if (!m || !Number.isFinite(m.map) || !Number.isFinite(m.co)) return;
-  // Present (any deck) never shows it: the warning belongs to Patients, where the settings are the viewer's own.
-  const next = !store.get().presenting && (collapsed ? !COLLAPSE.off(m) : COLLAPSE.on(m));
-  if (!collapseEl) {
-    // A way out: undo the change that tipped it, or start this patient again.
-    const undoBtn = h('button', { class: 'btn sm cb-undo', onclick: () => doUndo() }, 'Undo last change');
-    collapseEl = h('div', { class: 'collapse-banner', role: 'status', 'aria-live': 'polite' }, h('b', {}, 'This patient would not survive these settings'), h('span', { class: 'cb-msg' }),
-      h('span', { class: 'cb-acts' }, undoBtn, h('button', { class: 'btn sm', onclick: () => restartPatient() }, 'Restart patient')));
-    document.getElementById('stageWrap')?.append(collapseEl);
-  }
-  if (next && !collapsed) tippedBy = timeline?.lastChangeLabel?.() || null;
-  if (next) {
-    const why = `Blood pressure ${fmt(m.map, 0)} mmHg and cardiac output ${fmt(m.co, 1)} L/min: the circulation has collapsed.`;
-    collapseEl.querySelector('.cb-msg').textContent = tippedBy ? `${why} Last change: ${tippedBy}.` : why;
-    collapseEl.querySelector('.cb-undo').hidden = !timeline?.canUndo?.();
-  }
-  if (next !== collapsed) { collapsed = next; collapseEl.classList.toggle('on', next); }
-}
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
@@ -380,7 +357,6 @@ function onFrame(f) {
   const st0 = store.get();
   store.set({ frame: f, ...(st0.running !== f.running ? { running: f.running } : {}), ...(st0.clock !== f.clock ? { clock: f.clock } : {}), ...(f.clock === 'hemo' && st0.lapse ? { lapse: 0, speed: f.speed } : {}) });
   stage.update(viewFrame(f));
-  syncCollapse(f.metrics);
   card.update(f);
   dock.update(f);
   syncDoppler(f);

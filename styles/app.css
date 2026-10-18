@@ -294,11 +294,6 @@ svg { flex: none; }
    (the lobule included) and is never covered by it or by a card: it rides above the dock, a docked card or sheet
    (--sheet-h), a phone's chart sheet (--panel-h) and a stacked presenter card. Only a full-screen menu, popover or dialog
    passes over it while open. Decorative and non-interactive. */
-.collapse-banner { position: absolute; left: 50%; top: calc(var(--top-safe) + 8px); z-index: var(--z-hud); display: flex; flex-direction: column; gap: 2px; width: max-content; max-width: min(460px, calc(100% - 32px)); padding: 10px 16px; border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-2), inset 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent); font-size: var(--fs-12); line-height: 1.4; color: var(--text-2); text-align: center; pointer-events: none; opacity: 0; visibility: hidden; transform: translate(-50%, -6px); transition: opacity .35s var(--ease), transform .35s var(--ease), visibility 0s linear .35s; }
-.collapse-banner b { font: 650 var(--fs-14) var(--font-ui); color: var(--danger); }
-.collapse-banner .cb-acts { display: flex; justify-content: center; gap: 8px; margin-top: 6px; }
-.collapse-banner.on .cb-acts { pointer-events: auto; }
-.collapse-banner.on { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity .35s var(--ease), transform .35s var(--ease), visibility 0s; }
 .stage-credit { position: absolute; left: 0; top: 0; translate: var(--cx, 24px) var(--cy, 24px); z-index: var(--z-figure); font-size: var(--fs-12); font-weight: 500; line-height: 1.4; letter-spacing: .01em; white-space: nowrap; color: color-mix(in srgb, var(--text) 45%, transparent); pointer-events: none; user-select: none; }
 
 /* ── Readouts: the live monitor under the figure ─────
