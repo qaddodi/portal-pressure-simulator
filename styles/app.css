@@ -3353,6 +3353,10 @@ button.finding { cursor: pointer; }
 .umenu[data-tab="present"] .um-col[data-col="patients"], .umenu[data-tab="patients"] .um-col[data-col="present"] { display: none; }
 .um-col { flex: 1 1 auto; }
 .um-col.um-in { animation: umTabIn .18s var(--ease); }
+/* A sideways swipe pages between the two lists (menu.js swipeTabs): the other list shows beside the open one, over the part in
+   view, and the lists slide inside the panel without making it scroll sideways. */
+.um-cols { position: relative; overflow-x: clip; }
+.umenu[data-tab] .um-col[data-col].um-peer { display: block; position: absolute; left: 0; right: 0; overflow: hidden; animation: none; }
 @keyframes umTabIn { from { opacity: 0; transform: translateY(4px); } }
 .um-empty .um-other { display: inline-flex; margin-top: 6px; color: var(--accent-ink); }
 .um-empty .um-other[hidden] { display: none; }
@@ -3432,6 +3436,8 @@ button.finding { cursor: pointer; }
 .umenu.sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; height: calc(88dvh / var(--vz)); max-height: none; border-radius: var(--r-sheet) var(--r-sheet) 0 0; animation: sheetUp .28s var(--ease); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .umenu.sheet.still { animation: none; }
 .umenu.sheet.out { animation: sheetDown .28s var(--ease) forwards; }
+/* Upright (over the thumb dock) the shared sheet swipe moves it by --sink (util.js swipeSheet): it follows the finger down. */
+html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 .umenu.sheet .um-grab { display: block; flex: none; height: 16px; position: relative; touch-action: none; }
 .umenu.sheet .um-grab::before { content: ''; position: absolute; left: 50%; top: 6px; width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
 .umenu.sheet .um-top { padding: 2px 10px 10px 14px; touch-action: none; }

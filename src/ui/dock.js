@@ -10,7 +10,7 @@ import { createPressureTime } from './pressure-time.js?v=42a128a1d4';
 import { createFibroScan } from './fibroscan.js?v=223eb21a05';
 import { createHvpgProcedure } from './hvpg-proc.js?v=121f5b727e';
 import { createDoppler } from './doppler.js?v=fa65509530';
-import { ownsSideways } from './swipe.js?v=75b95b59cf';
+import { ownsSideways, pageGo } from './swipe.js?v=60b2fc909b';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=5177900e56';
 import { createReadoutsPane } from './readouts-pane.js?v=d0198598dc';
 import { frameFor } from './frame.js?v=67ca200c87';
@@ -420,7 +420,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const endSwipe = () => {
     const s = sw; sw = null;
     if (!s?.on) return;
-    const ms = performance.now() - s.t, go = s.nb && (Math.abs(s.dx) > s.w * 0.35 || (Math.abs(s.dx) > 40 && Math.abs(s.dx) / ms > 0.4));
+    const ms = performance.now() - s.t, go = !!s.nb && pageGo(s.dx, ms, s.w);
     const d = s.dx < 0 ? 1 : -1, ease = 'transform .24s var(--ease)';
     s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
     s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';

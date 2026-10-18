@@ -15,7 +15,7 @@
 import { store, replaceParams } from './store.js?v=31ee79b6ab';
 import { download } from './download.js?v=3564e5bf8c';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=203ece360c';
-import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
+import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=60b2fc909b';
 import { sinusoidSupported } from './sinusoid-view.js?v=d95817cc4b';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
