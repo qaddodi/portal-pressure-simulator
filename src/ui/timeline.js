@@ -12,8 +12,8 @@
 
 import { store, replaceParams, onParamChange } from './store.js?v=31ee79b6ab';
 import { host } from './host.js?v=25be84943e';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText } from './util.js?v=244eb49cc1';
-import { activeInterventions } from './inspector.js?v=8807d8052f';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText } from './util.js?v=efc61b5b21';
+import { activeInterventions } from './inspector.js?v=b8f6597dd6';
 import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('timeline');
 
@@ -283,13 +283,24 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       speedBtn.textContent = lp ? (lap ? lap[1] : `${lp} d/s`) : `${st.speed}×`;
       for (const el of [playBtn, speedBtn, playBtn.parentElement]) el?.classList.toggle('lapse', !!lp);
       // A new icon grows in from the old one's place (.18 s) rather than swapping in one frame (motion review P14); with
-      // Reduce Motion it only fades.
+      // Reduce Motion it only fades. The old icon stays in the same grid cell and fades out under it, so the button is never
+      // empty for a frame (round 2 review, RF7).
       const ic = f.running ? 'pause' : (lp ? 'playlapse' : 'play');
       if (ic !== lastIcon) {
         lastIcon = ic;
-        const nu = icon(ic);
-        playBtn.replaceChildren(nu);
-        nu.animate?.(matchMedia('(prefers-reduced-motion: reduce)').matches ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+        const nu = icon(ic), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const old = [...playBtn.children];
+        if (!nu.animate || !playBtn.isConnected) playBtn.replaceChildren(nu);
+        else {
+          playBtn.append(nu);
+          for (const o of old) {
+            if (o.dataset.going) continue;
+            o.dataset.going = '1';
+            const a = o.animate(still ? [{ opacity: 0 }] : [{ opacity: 0, transform: 'scale(.6)' }], { duration: 120, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+            a.finished.then(() => o.remove(), () => o.remove());
+          }
+          nu.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+        }
       }
       playBtn.title = lp ? 'Play / pause (Space): time-lapse' : 'Play / pause (Space)';
     }

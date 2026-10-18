@@ -61,3 +61,10 @@ test('P10: the composite fragment shader is compiled once per context, and every
   // All five started before the first status read.
   assert.ok(gl.indexOf("line: startProgram(gl, LINE_VS, LINE_FS)") < gl.indexOf('prog = finishProgram(gl, started.prog)'));
 });
+
+test('round 2 pops: the legend key names only what it shows (NP8); the Over time axis glides (τ 0.15 s) and a paused chart draws on until it lands', () => {
+  const main = read('src/ui/main.js'), pt = read('src/ui/pressure-time.js');
+  assert.match(main, /key = m === 'heat' \|\| m === 'delta' \? `\$\{m\}\|\$\{ref\}` : m, same = key === legendKey;/);
+  assert.match(pt, /const k = -Math\.expm1\(-Math\.min\(0\.1, \(now - ysAt\[key\]\) \/ 1000\) \/ 0\.15\)/);
+  assert.match(pt, /if \(gliding && !glideReq && !\(ticking && live\(\)\)\) \{ glideReq = true; nextFrame\(/);
+});

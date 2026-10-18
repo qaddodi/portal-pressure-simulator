@@ -688,6 +688,23 @@ export function createEaser(tau = 0.3) {
 /** A rounded axis top just above `max` (multiples of 5 mmHg, at least `min`). */
 export const axisTop = (max, min = 10) => Math.max(min, Math.ceil((max + 2) / 5) * 5);
 
+// The horizontal shift (layout px) an element's transform is on its way to: the end of a transform transition still under
+// way, else the shift it has now. (The zoom pill glides aside with a side card by a transform; a fit read mid-glide had the
+// circuit map dip and rise; round 2 review, RF2.)
+export function transformEndX(el) {
+  const now = getComputedStyle(el).transform;
+  let t = now;
+  const tr = el.getAnimations?.().find((a) => a.transitionProperty === 'transform');
+  if (tr) t = tr.effect?.getKeyframes?.().at(-1)?.transform ?? now;
+  try { return t && t !== 'none' ? new DOMMatrixReadOnly(t).e : 0; } catch { return 0; }
+}
+// An element's box with its horizontal transform at its end (see transformEndX).
+export function settledBox(el, q = el.getBoundingClientRect()) {
+  const t = getComputedStyle(el).transform, cur = t && t !== 'none' ? new DOMMatrixReadOnly(t).e : 0, end = transformEndX(el);
+  if (end === cur) return q;
+  const z = el.offsetWidth ? q.width / el.offsetWidth : 1;
+  return new DOMRect(q.x + (end - cur) * z, q.y, q.width, q.height);
+}
 // An element's box without its own transform (a card's entrance offset): where it rests.
 export function restBox(el, q = el.getBoundingClientRect()) {
   const t = getComputedStyle(el).transform;

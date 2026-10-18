@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const css = read('styles/app.css'), tokens = read('styles/tokens.css'), util = read('src/ui/util.js');
-const card = read('src/ui/card.js'), dock = read('src/ui/dock.js');
+const card = read('src/ui/card.js'), dock = read('src/ui/dock.js'), stageSrc = read('src/ui/stage.js');
 
 test('there is one exit curve, gentle at its start', () => {
   assert.match(tokens, /--ease-in: cubic-bezier\(\.4, 0, 1, 1\); --t-out: \.2s;/);
@@ -30,14 +30,24 @@ test('the desktop vessel card fades in and out, and a new vessel fades its conte
   assert.match(css, /animation: acIn \.24s var\(--ease\)/);
   assert.match(css, /\.action-card\.ac-leaving:not\(\.docked\) \{ pointer-events: none; animation: acOut var\(--t-out\) var\(--ease-in\) forwards; \}/);
   assert.doesNotMatch(card, /if \(isDocked\(\) && !matchMedia/);   // (an undocked card leaves too, not only the phone's sheet)
-  assert.match(card, /const swap = !el\.hidden && !same;/);
-  assert.match(card, /if \(swap\) for \(const c of el\.children\) c\.animate\?\.\(/);
+  assert.match(card, /const swap = !el\.hidden && !same && !!el\.animate;/);
+  assert.match(card, /for \(const c of el\.children\) c\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/);
+  // RF7: the old contents fade out over the new from a layer that takes no taps, and the card glides to its new place.
+  assert.match(card, /const ghost = h\('div', \{ class: 'ac-ghost', 'aria-hidden': 'true', inert: '' \}, \.\.\.was\);/);
+  assert.match(css, /\.action-card > \.ac-ghost \{ position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; \}/);
+  assert.match(css, /\.action-card:not\(\.docked\) \{ transition: opacity \.25s var\(--ease\), left \.18s var\(--ease\), top \.18s var\(--ease\); \}/);
 });
 
-test('the zoom pill glides aside with a side card', () => {
-  const at = css.indexOf('.zoom-pill { position: absolute;');
-  assert.match(css.slice(at, css.indexOf('}', at)), /transition: [^;]*right \.3s var\(--ease\)/);
-  assert.match(css, /\.app\.figure-focus \.zoom-pill \{ transition: [^;]*right \.3s var\(--ease\)/);
+test('the zoom pill glides aside with a side card, by a transform (round 2 review, RF2)', () => {
+  const at = css.indexOf('.zoom-pill { position: absolute;'), rule = css.slice(at, css.indexOf('}', at));
+  assert.match(rule, /transform: translateX\(calc\(-1 \* var\(--right-occ, 0px\)\)\)/);
+  assert.match(rule, /transition: [^;]*transform \.3s var\(--ease\)/);
+  assert.doesNotMatch(rule, /right \.3s|var\(--right-occ, 0px\)\); bottom/);
+  assert.match(css, /\.app\.figure-focus \.zoom-pill \{ transition: [^;]*transform \.3s var\(--ease\)/);
+  // (The phone's pill never stood aside for a card.)
+  assert.match(css, /\.zoom-pill \{ flex-direction: row; right: calc\(env\(safe-area-inset-right\) \+ 8px\); transform: none; \}/);
+  // Fits read where the pill is going, not where it is mid-glide.
+  assert.match(stageSrc, /const p = settledBox\(pill\), wr = wrap\.getBoundingClientRect\(\);/);
 });
 
 test('a Tests pane swiped into place does not play its entrance again', () => {
@@ -75,7 +85,10 @@ test('a label under the open menu fades rather than blinking', () => {
 
 test('the play and pause icon grows in, only when it changes', () => {
   assert.match(timeline, /if \(ic !== lastIcon\) \{/);
-  assert.match(timeline, /nu\.animate\?\.\(/);
+  assert.match(timeline, /nu\.animate\(still \? \[\{ opacity: 0 \}, \{ opacity: 1 \}\] : \[\{ opacity: 0, transform: 'scale\(\.6\)' \}/);
+  // RF7: the old icon fades out in the same grid cell, so the button is never empty for a frame.
+  assert.match(timeline, /playBtn\.append\(nu\);/);
+  assert.match(css, /\.ib\.play > svg \{ grid-area: 1 \/ 1; \}/);
 });
 
 test('ending a talk fades its cards out, then the app\'s bars in; a new talk ends the old one at once', () => {

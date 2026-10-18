@@ -256,6 +256,8 @@ svg { flex: none; }
 .transport .play { width: 36px; height: 36px; border-radius: var(--r-card); background: var(--text); color: var(--stage-bg); flex: none; }
 @media (hover: hover) { .transport .play:hover { background: var(--text); color: var(--stage-bg); opacity: .88; } }
 .transport .play svg { width: var(--ic-s); height: var(--ic-s); }
+/* (Both icons share one cell while the old fades out under the new: RF7.) */
+.ib.play > svg { grid-area: 1 / 1; }
 
 /* Tools: Select plus three named groups; a group opens a tray listing its tools by name */
 .toolbar { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: var(--r-sheet); background: var(--surface); box-shadow: var(--shadow-1), inset 0 0 0 1px var(--hairline); justify-self: center; }
@@ -980,6 +982,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 @media (min-width: 1024px) { .action-card:not(.docked) { height: min(600px, calc(calc(100vh / var(--vz)) - 260px)); } }
 .action-card[data-card=organ], .action-card[data-card=lobule] { height: min(570px, calc(calc(100vh / var(--vz)) - 150px)); }
 .action-card.docked { height: min(46%, 400px); max-height: min(46%, 400px); }
+/* The last vessel's contents fading out over the new ones (card.js, RF7): laid out as the card is, taking no taps. */
+.action-card > .ac-ghost { position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; }
 /* The same three parts on a desktop and on a phone: the top (title, reading) and the foot stay put, the controls scroll. */
 .ac-top { flex: none; padding: 12px 16px 0; }
 .ac-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px; }
@@ -3224,7 +3228,9 @@ button.finding { cursor: pointer; }
 .tc-body > .section { margin-top: 12px; border-top: 1px solid var(--hairline); }
 
 /* Focus: while the figure is dragged, pinched or scrolled, the floating pieces step back. */
-.float-ui, .stage-fit, .stage-rotate, .action-card:not(.docked) { transition: opacity .25s var(--ease); }
+.float-ui, .stage-fit, .stage-rotate { transition: opacity .25s var(--ease); }
+/* (The desktop card keeps its left/top glide with the fade: a new vessel moved it 23 px in one frame; round 2 review, RF7.) */
+.action-card:not(.docked) { transition: opacity .25s var(--ease), left .18s var(--ease), top .18s var(--ease); }
 .app.stage-busy .float-ui:not(:hover):not(:focus-within), .app.stage-busy .stage-fit, .app.stage-busy .stage-rotate { opacity: .28; }
 @media (prefers-reduced-motion: reduce) { .app.stage-busy .float-ui { opacity: 1; } }
 
@@ -3473,7 +3479,7 @@ button.finding { cursor: pointer; }
 
 /* Zoom: one small pill on the right, clear of the dock and of any card on the right. */
 .zoom-pill { position: absolute; z-index: var(--z-hud); display: flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
-  right: calc(env(safe-area-inset-right) + var(--gap) + var(--right-occ, 0px)); bottom: calc(var(--bot-occ, 120px) + 8px); transition: opacity .25s var(--ease), translate .2s var(--ease), right .3s var(--ease); translate: 0 calc(-1 * var(--sheet-h, 0px)); }   /* (right: it glides aside with a side card, as the figure does, instead of jumping by the card's width) */
+  right: calc(env(safe-area-inset-right) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); transform: translateX(calc(-1 * var(--right-occ, 0px))); transition: opacity .25s var(--ease), translate .2s var(--ease), transform .3s var(--ease); translate: 0 calc(-1 * var(--sheet-h, 0px)); }   /* (transform: it glides aside with a side card, as the figure does, instead of jumping by the card's width; a transform, not right, so the glide runs off the main thread and lays nothing out: round 2 review, RF2) */
 .zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { position: static; translate: none; width: 36px; height: 36px; min-width: 0; min-height: 0; box-shadow: none; background: transparent; right: auto; bottom: auto; }
 @media (hover: hover) { .zoom-pill .ib:hover { background: var(--surface-3); } }
 .zoom-pill .stage-rotate { display: none; }
@@ -3529,7 +3535,7 @@ button.finding { cursor: pointer; }
   .app { --pill-h: 42px; --ctl-h: 36px; }
   .menu-btn { padding: 0 4px 0 3px; gap: 4px; }
   .topbar .sb-right { padding: 0 2px; }
-  .zoom-pill { flex-direction: row; right: calc(env(safe-area-inset-right) + 8px); }
+  .zoom-pill { flex-direction: row; right: calc(env(safe-area-inset-right) + 8px); transform: none; }
   .zoom-pill .ib { width: 36px; height: 36px; }
 }
 /* A phone in landscape keeps a slim row of the four readouts beside the play bar. */
@@ -4106,7 +4112,7 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .vdock.mini { grid-template-columns: auto; grid-template-areas: "tl"; right: auto; width: max-content; }   /* a small pill in the lower-left corner: the lower-right is the zoom controls' */
 .vdock.mini .readouts { display: none; }
 .vdock.mini .stage-bar.bottom { height: 54px; min-height: 54px; padding: 0 12px 0 4px; }
-.app.figure-focus .zoom-pill { transition: opacity .25s var(--ease), translate .2s var(--ease), bottom .2s var(--ease), right .3s var(--ease), font-size .3s var(--ease); }
+.app.figure-focus .zoom-pill { transition: opacity .25s var(--ease), translate .2s var(--ease), bottom .2s var(--ease), transform .3s var(--ease), font-size .3s var(--ease); }
 /* The credit is never animated: no glide, no fade, no scale ease. When it must move it vanishes at once, stays hidden until the
    cards and camera settle, and appears at once at its new spot (src/ui/credit.js). */
 .stage-credit { transition: none; }

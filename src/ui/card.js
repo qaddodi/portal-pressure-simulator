@@ -4,8 +4,8 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText } from './util.js?v=244eb49cc1';
-import { cardFor, normalizeSel } from './actions.js?v=b86c1c1bfc';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX } from './util.js?v=efc61b5b21';
+import { cardFor, normalizeSel } from './actions.js?v=b52b5fa5da';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -164,10 +164,21 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     wireSheet(top);
     const scroller = h('div', { class: 'ac-scroll' }, body);
     scroller.addEventListener('scroll', syncMore, { passive: true });
-    const swap = !el.hidden && !same;
+    const swap = !el.hidden && !same && !!el.animate;
+    const was = swap ? [...el.children].filter((c) => !c.classList.contains('ac-ghost')) : [];
+    el.querySelector(':scope > .ac-ghost')?.remove();
     el.replaceChildren(top, scroller, foot);
-    // Another vessel picked while the card is open: its contents fade in, rather than the words changing in one frame.
-    if (swap) for (const c of el.children) c.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+    // Another vessel picked while the card is open: its contents fade in, rather than the words changing in one frame, and
+    // the old ones fade out over them from a layer on top that takes no taps, instead of vanishing first (round 2 review, RF7).
+    if (swap) {
+      for (const c of el.children) c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+      if (was.length) {
+        const ghost = h('div', { class: 'ac-ghost', 'aria-hidden': 'true', inert: '' }, ...was);
+        el.append(ghost);
+        const a = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+        a.finished.then(() => ghost.remove(), () => ghost.remove());
+      }
+    }
     el.setAttribute('aria-label', `${m.title}: actions`);
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
@@ -363,7 +374,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     el.style.maxHeight = '';
     const pill = view.querySelector('.zoom-pill'), box = el.offsetParent;
     if (el.hidden || el.classList.contains('docked') || !box || !pill || pill.offsetParent !== box || !pill.offsetHeight) return;
-    const pt = pill.offsetTop, pl = pill.offsetLeft, top = el.offsetTop;
+    const pt = pill.offsetTop, pl = pill.offsetLeft + transformEndX(pill), top = el.offsetTop;   // (its glide aside is a transform: RF2)
     if (el.offsetLeft < pl + pill.offsetWidth && el.offsetLeft + el.offsetWidth > pl && top + el.offsetHeight > pt - 8) el.style.maxHeight = Math.max(200, pt - 8 - top) + 'px';
   }
   function position() {

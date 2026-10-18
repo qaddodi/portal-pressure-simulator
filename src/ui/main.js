@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=25be84943e';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=b10e59268d';
+import { createStage } from './stage.js?v=d1e0451778';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
-import { sinusoidSupported } from './sinusoid-view.js?v=b474752ca9';
-import { createInspector } from './inspector.js?v=8807d8052f';
-import { createDock, CUTOFFS } from './dock.js?v=ede74e98be';
-import { setHvpgStage } from './hvpg-proc.js?v=e732d5e9aa';
-import { createWhy } from './why.js?v=abb7332242';
-import { createTimeline, LAPSES } from './timeline.js?v=bb2338587c';
-import { createCompare } from './compare.js?v=3f5d19567e';
-import { createCard } from './card.js?v=18bb9bc1cf';
-import { createChart } from './chart.js?v=e671fc9959';
-import { createMenu } from './menu.js?v=0f73636caf';
-import { caption } from './a11y.js?v=75178c33a2';
+import { sinusoidSupported } from './sinusoid-view.js?v=92e220dc98';
+import { createInspector } from './inspector.js?v=b8f6597dd6';
+import { createDock, CUTOFFS } from './dock.js?v=97b130addb';
+import { setHvpgStage } from './hvpg-proc.js?v=7af6328add';
+import { createWhy } from './why.js?v=f470d34217';
+import { createTimeline, LAPSES } from './timeline.js?v=5012254859';
+import { createCompare } from './compare.js?v=5ecf08c913';
+import { createCard } from './card.js?v=7da8a2fee8';
+import { createChart } from './chart.js?v=148d8c05c0';
+import { createMenu } from './menu.js?v=8a6a890d68';
+import { caption } from './a11y.js?v=a1ba50956e';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=b86c1c1bfc';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=37fe65fd87';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=b52b5fa5da';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=de3c2eeb11';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=244eb49cc1';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=efc61b5b21';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=6c24a09815';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=5348d228c7';
 import { initTopbarMotion } from './topbar-motion.js?v=bd8d17727e';
 import { ORIGINS } from './blood.js?v=8e7372337f';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=978c733dab'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=5c1332b166'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -174,7 +174,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=038cb104f7'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=d408cd7977'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -574,7 +574,9 @@ function legendModel() {
 let legendKey = null;
 function renderLegend() {
   const { m, ref } = legendModel();
-  const el = $('#legend'), key = `${m}|${ref}|${!!st().compareSnap}`, same = key === legendKey;
+  // (The key names only what the legend shows: the reference appears in the Congestion and Change keys alone, so turning
+  // Compare on or off no longer fades an unchanged key out and in; round 2 review, NP8.)
+  const el = $('#legend'), key = m === 'heat' || m === 'delta' ? `${m}|${ref}` : m, same = key === legendKey;
   legendKey = key;
   const put = (...kids) => swapFade(el, () => el.replaceChildren(...kids), { instant: same });
   // (Every number is centred on its tick; the scale stands in from its neighbours by half its end numbers' width (ch: a digit,
