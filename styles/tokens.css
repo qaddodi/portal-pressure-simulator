@@ -95,7 +95,9 @@
 
   /* lens ramps (both themes): "#colour position" stops, interpolated in OKLab by colormap.js.
      Pressure positions are mmHg; the others run 0 to 1 along their scale. */
-  --ramp-pressure: #DCEBF7 0, #7CC4E4 5, #6A7FD8 10, #8E4FC4 12, #C0307A 20, #6E0B3A 30;
+  /* (pressure: lightness falls at every stop, so 12 and 20 mmHg differ on a projector or a printout as well as in hue;
+     they had the same OKLab lightness, .556 and .553. Round 2 review A7, Mohammad 18 Oct) */
+  --ramp-pressure: #DCEBF7 0, #99C2ED 5, #718EDF 10, #8671CF 12, #9B2B6A 20, #661030 30;
   --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #1B366A 1;
   /* velocity against each vessel's normal: sand below it, teal within it, violet above it (thirds of the scale) */
   --ramp-velocity: #C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #4A2A8C 1;

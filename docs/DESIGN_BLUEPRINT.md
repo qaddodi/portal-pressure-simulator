@@ -273,16 +273,17 @@ and animated with flowing cells. There are two themes:
 ### 5.3 The pressure colormap (venous and portal vessels only)
 
 A **perceptually uniform sequential map** interpolated in **OKLCH**, with lightness decreasing
-steadily as pressure rises so it still reads in grayscale. Anchor stops:
+steadily as pressure rises so it still reads in grayscale (OKLab lightness .93, .80, .66, .61, .48, .34 at the stops;
+before 18 Oct 12 and 20 mmHg shared .55). Anchor stops:
 
 | mmHg | Meaning | Color (approx.) |
 |------|---------|-----------------|
 | 0 | RA / collapse | `#DCEBF7` pale ice |
-| 5 | normal portal / HVPG upper normal | `#7CC4E4` sky |
-| 10 | **CSPH** threshold | `#6A7FD8` periwinkle |
-| 12 | **variceal bleeding threshold** | `#8E4FC4` violet |
-| 20 | high-risk bleeding | `#C0307A` magenta |
-| 30+ | extreme | `#6E0B3A` deep wine |
+| 5 | normal portal / HVPG upper normal | `#99C2ED` sky |
+| 10 | **CSPH** threshold | `#718EDF` cornflower |
+| 12 | **variceal bleeding threshold** | `#8671CF` violet |
+| 20 | high-risk bleeding | `#9B2B6A` carmine |
+| 30+ | extreme | `#661030` deep wine |
 
 - The legend is a slim vertical bar with **tick marks at 5, 10, 12, and 20**, each labeled with its
   clinical meaning on hover.

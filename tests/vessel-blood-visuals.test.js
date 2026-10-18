@@ -121,3 +121,19 @@ test('G17: with reduced motion the chevrons stand still, spaced by flow', () => 
   assert.match(STAGE, /still: reduceMotion\.matches, chev:/);
   assert.match(GL, /if \(still == 1\) lv = max\(lv, texelFetch\(flow, ivec2\(3, id\), 0\)\.y\);/);
 });
+
+test('A7: the pressure ramp gets darker at every stop, so 12 and 20 mmHg differ in lightness, not only in hue', () => {
+  // (Mohammad, 18 Oct: round 2 review A7.)
+  const m = src('styles/tokens.css').match(/--ramp-pressure: ([^;]+);/)[1];
+  const stops = m.split(',').map((x) => x.trim().split(/\s+/));
+  assert.deepEqual(stops.map((x) => +x[1]), [0, 5, 10, 12, 20, 30]);
+  const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const L = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => lin(parseInt(hex.slice(i, i + 2), 16) / 255));
+    const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), mm = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return 0.2104542553 * l + 0.793617785 * mm - 0.0040720468 * s;
+  };
+  const Ls = stops.map((x) => L(x[0]));
+  for (let i = 1; i < Ls.length; i++) assert.ok(Ls[i] < Ls[i - 1] - 0.03, `stop ${stops[i][1]} mmHg is not darker than ${stops[i - 1][1]}: ${Ls.map((v) => v.toFixed(3))}`);
+  assert.ok(Ls[3] - Ls[4] > 0.1, '12 and 20 mmHg differ clearly in lightness');
+});
