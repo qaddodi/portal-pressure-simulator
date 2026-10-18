@@ -301,6 +301,7 @@ export function fadeWhileMore(el) {
   return sync;
 }
 // One swap at a time per element: its newest content goes in when the old has faded.
+const fadeIns = new WeakMap();   // (swapFade: each element's fade-in, cancelled when the next swap lands)
 const swaps = new WeakMap();
 /** Changes what an element shows without a one-frame jump: the old content fades out (exit curve), fill() puts the new
  *  in, and it fades in. instant: fill now (the content reads the same), unless a swap is still under way, which then
@@ -311,11 +312,12 @@ export function swapFade(el, fill, { instant = false, out = 120, inn = 180 } = {
   if (instant || !el.animate || !el.isConnected || !el.firstChild || !el.getClientRects().length) { fill(); return; }
   const me = { fill };
   swaps.set(el, me);
-  const a = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: out, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+  // (From wherever the element is now: a fade-in still under way included, so a quick second swap never jumps to full.)
+  const a = el.animate([{ opacity: 0 }], { duration: out, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
   const done = () => {
     if (swaps.get(el) !== me) return;
-    swaps.delete(el); me.fill(); a.cancel();
-    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: inn, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+    swaps.delete(el);
+    try { me.fill(); } finally { fadeIns.get(el)?.cancel(); a.cancel(); fadeIns.set(el, el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: inn, easing: 'cubic-bezier(.2, .8, .2, 1)' })); }
   };
   a.finished.then(done, done);
 }

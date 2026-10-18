@@ -17,7 +17,8 @@
 
 // Display speed, world units per second, for a mean velocity in cm/s.
 export const SPEED_K = 9.5;
-export const displaySpeed = (v) => (Math.abs(v) < 0.25 ? 0 : Math.sign(v) * SPEED_K * Math.sqrt(Math.abs(v)));
+// (Below 0.25 cm/s it stands; up to 0.6 it rises from 0, so the blood and the chevrons' fade start from rest, never in a jump.)
+export const displaySpeed = (v) => { const a = Math.abs(v); return a < 0.25 ? 0 : Math.sign(v) * SPEED_K * Math.sqrt(a) * smoothstep(0.25, 0.6, a); };
 // Parcels per display second per mL/s of flow.
 export const KAPPA = 0.4;
 // Slot spacing along a lane (world units); the shader doubles it (×2, ×4) when zoomed out so

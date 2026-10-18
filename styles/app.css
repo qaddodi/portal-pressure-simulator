@@ -273,7 +273,7 @@ svg { flex: none; }
 .tool-card.leaving { pointer-events: none; animation: fadeOut var(--t-out) var(--ease-in) forwards; }
 .tool-card .tc-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: var(--fs-14); color: var(--text); margin-bottom: 2px; }
 .tool-card .tc-title svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.tool-card .tc-title .sp { flex: 1; }
+.tool-card .tc-title .tc-sp { flex: 1; }
 .tool-card .tc-title .ib { width: 26px; height: 26px; margin: -4px -8px -4px 0; }
 .tool-card .tc-title .ib svg { width: var(--ic-s); height: var(--ic-s); }
 .tool-card kbd { font: 500 var(--fs-12) var(--font-mono); color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; background: var(--surface); }
@@ -2788,7 +2788,7 @@ button.finding { cursor: pointer; }
 .cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
 /* While the catheter is in, the figure's own readouts are hidden so its labels read clearly. */
 .stage-view #labels { transition: opacity .4s var(--ease); }
-.cath-on #labels { opacity: 0; visibility: hidden; }
+.cath-on #labels { opacity: 0; visibility: hidden; transition: opacity .25s var(--ease-in), visibility 0s linear .25s; }
 .cath-labels { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 .cath-labels[hidden] { display: none; }
 .cath-label { position: absolute; left: 0; top: 0; isolation: isolate; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border: 2px solid transparent; border-radius: 14px; white-space: nowrap;
