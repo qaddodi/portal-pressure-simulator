@@ -3415,6 +3415,12 @@ button.finding { cursor: pointer; }
 @media (pointer: coarse) {
   .um-row { min-height: 44px; }
   .um-info { display: inline-flex; }
+  /* The ⓘ shares its row's highlight, so a highlighted row sits evenly inside the menu: one band, the column's 8 px either side. */
+  .um-row:has(+ .um-info) { border-radius: var(--r-control) 0 0 var(--r-control); }
+  .um-g li > .um-info { align-self: stretch; height: auto; min-height: 36px; border-radius: 0 var(--r-control) var(--r-control) 0; }
+  @media (hover: hover) { .um-row:hover + .um-info { background: var(--surface-2); } }
+  .um-row.pv-on + .um-info { background: var(--surface-2); }
+  .um-row[aria-current="true"] + .um-info, .um-g li.um-new > .um-row + .um-info { background: var(--accent-soft); }
   .um-kb { display: none; }
 }
 /* Phone: the same content as a bottom sheet, one column, the column headings sticking. */
@@ -3442,7 +3448,8 @@ button.finding { cursor: pointer; }
 /* The top row: menu + patient · view · blood and legend · Findings, Treat, Measure, Search. */
 .topbar { gap: 8px; }
 .topbar .float-pill, .topbar #viewSeg, .topbar .sb-right > .chip-btn, .topbar .lens-btn { height: var(--pill-h); }
-.tb-id { padding: 3px 6px 3px 3px; }
+/* The patient button's highlight sits the same 3 px inside the pill on every side (pill 46 = 40 + 2 × 3; 42 = 36 + 2 × 3). */
+.tb-id { padding: 3px; }
 /* The patient pill's glass is its own face (as the view pill's .vp-face), so a shorter name glides the pill narrower
    instead of snapping (topbar-motion.js); a longer one is revealed from the old width. */
 .topbar .tb-id { position: relative; isolation: isolate; background: transparent; box-shadow: none; }
@@ -4005,7 +4012,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
    every end, so hover, pressed and selected fills sit evenly inside their container. */
 .zoom-pill { --inset: 3px; }
 .float-pill, .toolbar { --inset: 4px; }
-.top-right.float-pill { --inset: 3px; }
+.top-right.float-pill, .tb-id.float-pill { --inset: 3px; }
 .zoom-pill > *, .float-pill > .ib, .float-pill > .tb-act, .float-pill > .menu-btn, .float-pill > .pal-btn, .toolbar > .ib { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset, 4px))); }
 .topbar .float-pill > .menu-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset, 4px))); }
 .zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { border-radius: calc(var(--r-sheet) - 3px); }
