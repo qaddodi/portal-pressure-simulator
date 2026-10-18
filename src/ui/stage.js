@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=9cff6e63a6';
-import { createLobuleZoom } from './lobule-zoom.js?v=70ecdc3517';
+import { createLobuleZoom } from './lobule-zoom.js?v=18cb212ff5';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -22,7 +22,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=ff60faf575';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=cc823ce10d';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=8e7372337f';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
@@ -210,7 +210,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const STRAIGHT_COLL = new Set(['C9']);
   // Veins that fade into the vessel they sink into: a linear mask [x1, y1, x2, y2, offset], from
   // solid at the offset to 30 % at the end (the caudate vein into the IVC, C5 into the renal vein).
-  const FADE_IN = { RHV_IVC: [604, 226, 616, 204, 0, 0], MHV_IVC: [604, 246, 615, 228, 0, 0], LHV_IVC: [638, 220, 624, 211, 0, 0], LRV_IVC: [642, 625, 624, 625, 0, 0], RRV_IVC: [602, 660, 615, 673, 0, 0], CAUD: [566, 326, 620, 350, 0.45], C5: [852, 520, 862, 618, 0.6] };
+  const FADE_IN = { RHV_IVC: [604, 226, 616, 204, 0, 0.5], MHV_IVC: [604, 246, 615, 228, 0, 0.5], LHV_IVC: [638, 220, 624, 211, 0, 0.5], LRV_IVC: [642, 625, 624, 625, 0, 0.5 / 0.6], RRV_IVC: [602, 660, 615, 673, 0, 0], CAUD: [566, 326, 620, 350, 0.45], C5: [852, 520, 862, 618, 0.6] };
   // The sinusoids lie inside the liver: faded along their course, most in the middle of the lobe, clearing as
   // they gather into the central and hepatic veins. Linear from the portal end to the venous end, [offset of
   // the faintest point, alpha at the start, there, mode 3] (the end is solid).
@@ -2443,7 +2443,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const key = ids.join();
       if (key !== vh.selKey) {
         vh.selKey = key; vh.sel = new Set(ids);
-        setGlowSrc('sel', ids.map((id) => (SIN_EDGES.has(id) ? { id, col: null, amt: 1.5, wide: 1.2, dur: 450 } : { id, col: null, amt: 1.5, wide: 1.3, dur: SEL_FADE * 1000 })));
+        setGlowSrc('sel', ids.map((id) => (SIN_EDGES.has(id) ? { id, col: null, amt: 1.5, wide: 1.2, dur: 450 } : { id, col: null, amt: 1.5, wide: 0.6, dur: SEL_FADE * 1000 })));
         if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
       }
     }
@@ -7265,7 +7265,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function bloodLook() {
     const st = store.get(), b = st.blood || {};
-    return { on: bloodOn(), still: reduceMotion.matches, chev: chevOn() && !cath.st, look: b.look, origin: originOn(), clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), noChev: noChevBoxes, holes: chevHoles, ...bloodColors() };
+    return { on: bloodOn(), still: reduceMotion.matches, chev: chevOn() && !cath.st, look: b.look, origin: originOn(), clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
   }
 
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null, lastAnim = true;
@@ -7437,7 +7437,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const on = id && store.get().tool === 'select' && !shunt ? id : null;
     if (on === vh.id) return;
     vh.id = on;
-    setGlowSrc('hover', on ? vhEdges(on).map((id) => ({ id, col: null, amt: 1.35, wide: 1.1, dur: 280 })) : []);
+    setGlowSrc('hover', on ? vhEdges(on).map((id) => ({ id, col: null, amt: 1.0, wide: 0.5, dur: 280 })) : []);
     if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
   }
   function vhStep(now) {

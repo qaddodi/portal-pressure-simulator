@@ -361,7 +361,7 @@ void main() {
         int lt = int(stier[s] + 0.5);
         if (tierGroup[lt] == 2) continue;
         float shown = tierAlpha[lt] * (tierGroup[lt] == 0 ? 1.0 - occl : 1.0);
-        float aC = sa[s] * jf[j] * sa[t] * min(tierAlpha[ti], shown), aO = sa[s] * shown;
+        float aC = sa[s] * jf[j] * min(tierAlpha[ti], shown), aO = sa[s] * shown;
         if (aO > 1e-4) keep[s] = min(keep[s], clamp((1.0 - aC / aO) / max(1.0 - aC, 1e-4), 0.0, 1.0));
       }
     }
@@ -421,21 +421,20 @@ void main() {
     float pres[MAXS];
     int mem = 0;
     for (int s = 0; s < MAXS; s++) { pres[s] = 0.0; if (s < n && stier[s] == tt) { mem |= 1 << s; pres[s] = keep[s]; } }
-    // A copy is drawn as translucent as the vessel it copies shows in its own tier, and no
-    // more solid than this tier's own vessels are at the junction (one that fades into it).
+    // A copy is drawn as translucent as the vessel it copies shows in its own tier (a back vessel's copy into the
+    // network divided by the network's own dimming, which the tier applies again), never capped by the fade of the
+    // vessel joining it: a fading hepatic or renal vein must not thin the cava's lumen where it joins it.
     int base = mem;
     if (grp != 2) for (int j = 0; j < MAXJ; j++) {
       int own = jm[j] & base;
       if (j >= jn || own == 0 || jf[j] <= 0.0) continue;
-      float up = 0.0;
-      for (int s = 0; s < MAXS; s++) if ((own & (1 << s)) != 0) up = max(up, sa[s]);
       for (int s = 0; s < MAXS; s++) {
         if (s >= n || (jm[j] & (1 << s)) == 0 || stier[s] >= tt) continue;
         int lt = int(stier[s] + 0.5);
         if (tierGroup[lt] == 2) continue;
         mem |= 1 << s;
         float shown = tierAlpha[lt] * (tierGroup[lt] == 0 ? 1.0 - occl : 1.0);
-        pres[s] = max(pres[s], jf[j] * up * min(1.0, shown / max(tierAlpha[ti], 1e-3)));
+        pres[s] = max(pres[s], jf[j] * min(1.0, shown / max(tierAlpha[ti], 1e-3)) / (grp == 1 && tierGroup[lt] == 0 ? max(netAlpha, 1e-3) : 1.0));
       }
     }
     // The tier's shape: plain union, filleted between vessels that share a junction.
@@ -761,6 +760,7 @@ uniform int blood;                     // 1: draw the blood
 uniform int chev;                      // 1: flow chevrons on top (dark; orange where flow is reversed)
 uniform int still;                     // 1: reduced motion (the chevrons stand still, spaced by flow)
 uniform vec3 chevInk;
+uniform float cssPx;                   // canvas px per CSS px (stage.js vdpr, at most 2)
 uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
 uniform int look;                      // 0 parcels, 1 shimmer
 uniform int origin;                    // 1: color parcels by where their blood came from
@@ -846,8 +846,8 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   vec3 vc = mix(texelFetch(tube, ivec2(0, id), 0).rgb, texelFetch(tube, ivec2(1, id), 0).rgb, clamp(s / len, 0.0, 1.0));
   float pale = origin == 0 ? smoothstep(0.58, 0.66, dot(vc, vec3(0.299, 0.587, 0.114))) : 0.0;   // the origin streams always take light ink
   // Parcels read as bright beads with a soft glow on a dark lumen, deep beads on a pale one.
-  vec3 core = mix(mix(col, inkLight, 0.86), mix(col, inkDark, 0.62), pale);
-  vec3 halo = mix(mix(col, inkLight, 0.45), mix(col, inkDark, 0.3), pale);
+  vec3 core = mix(mix(col, inkLight, 0.62), mix(col, inkDark, 0.45), pale);
+  vec3 halo = mix(mix(col, inkLight, 0.3), mix(col, inkDark, 0.2), pale);
   // Flow running backwards: the moving blood warms to orange (not over the origin streams, whose
   // amber it would be lost in).
   float rev = origin == 1 ? 0.0 : f1.w;
@@ -950,6 +950,11 @@ vec3 originAt(int id, float y, float R) {
   return c;
 }
 ${CHEV_GLSL}
+float radAt(int id, float s, float len) {
+  float ui = clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0;
+  int i0 = min(int(ui), ${N_SAMPLES - 2});
+  return max(mix(texelFetch(rad, ivec2(i0, id), 0).r, texelFetch(rad, ivec2(i0 + 1, id), 0).r, ui - float(i0)), 0.3);
+}
 // Flow arrowheads along the axis, pointing and moving with the mean flow: a slim filled head with
 // a notched back. Returns its coverage (x) and a soft rim just outside it (y).
 vec2 chevAt(int id, float s, float y) {
@@ -971,14 +976,15 @@ vec2 chevAt(int id, float s, float y) {
   float n = floor(lv), fr = lv - n;
   float P = 28.0 * exp2(n), Pc = 28.0 * exp2(lv);
   float x = mod(s - f0.x + 0.5 * P, P) - 0.5 * P, u = x * dir;
-  float Rs = max(texelFetch(rad, ivec2(clamp(int(clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, N_LAST), id), 0).r, 0.3);
-  float ay = abs(y) * Rs;
   float sc = s - x;
   float odd = mod(floor((sc - f0.x) / P + 0.5), 2.0);
   float keep = odd > 0.5 ? 1.0 - smoothstep(0.15, 0.85, fr) : 1.0;
-  // Sized to the lumen where the head sits, so none overhangs a narrowing vessel.
-  float Rl = max(texelFetch(rad, ivec2(clamp(int(clamp(sc / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, N_LAST), id), 0).r, 0.3);
-  float hw = min(0.86 * R, 0.2 * Pc), L = 1.6 * hw;            // half width, length: one fixed shape per vessel, never stretched
+  float hw = min(0.8 * R, clamp(0.5 * R, 4.0 * cssPx * pxW, 8.0 * cssPx * pxW)), L = 1.6 * hw;            // half width, length: one fixed shape per vessel, never stretched
+  // Past the head and its soft rim along the course (|u| > 0.55 L + 0.19 hw + 3.4 px reaches nothing): no more reads.
+  if (abs(x) > 0.6 * L + 0.15 * hw + 4.0 * pxW) return vec2(0.0);
+  // Across, and the lumen where the head sits (so none overhangs a narrowing vessel), between the radius samples.
+  float ay = abs(y) * radAt(id, s, len);
+  float Rl = radAt(id, sc, len);
   // Toward either end a head fades out (and the next vessel's fade in), never cut by a join.
   float e = min(sc, len - sc);
   if (e < 0.6 * L) return vec2(0.0);
@@ -1091,8 +1097,13 @@ void main() {
       if (c.x + c.y > 0.0) {
         float rv = texelFetch(flow, ivec2(1, id1), 0).w;
         // A faint light rim lifts the head off the lumen; the head itself dark, or orange if reversed.
+        // The head keeps its dark core, tinted at most a fifth toward a deep shade of the vessel's own colour (more loses
+        // contrast on the faded cava and dark lumens), with the light rim as before.
+        float ln1 = max(texelFetch(tube, ivec2(5, id1), 0).z, 1.0);
+        vec3 vc = mix(texelFetch(tube, ivec2(0, id1), 0).rgb, texelFetch(tube, ivec2(1, id1), 0).rgb, clamp(s1 / ln1, 0.0, 1.0));
+        vec3 ink = mix(chevInk, vc * 0.3, 0.2);
         col = mix(col, inkLight, c.y * 0.75 * vis * flowA);
-        col = mix(col, mix(chevInk, revCol, rv), c.x * vis * flowA);
+        col = mix(col, mix(ink, revCol, rv), c.x * vis * flowA);
       }
     }
     v = vec4(col * v.a, v.a);
@@ -1779,6 +1790,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform1i(U.still, blood.still ? 1 : 0);
       gl.uniform1f(U.flowA, blood.alpha ?? 1);
       gl.uniform3f(U.chevInk, ...(blood.chevInk || [0.08, 0.08, 0.1]));
+      gl.uniform1f(U.cssPx, blood.vdpr || 1);
       gl.uniform1i(U.look, blood.look === 'shimmer' ? 1 : 0);
       gl.uniform1i(U.origin, blood.origin ? 1 : 0);
       gl.uniform1i(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);

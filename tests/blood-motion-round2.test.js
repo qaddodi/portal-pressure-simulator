@@ -25,3 +25,26 @@ test('B9: while the anatomy still shows during the lobule dive, its blood keeps 
   assert.match(block, /stepBlood\(Math\.min\(0\.1, \(now - lastT\) \/ 1000\)\);\n\s*veins\.composite\(vLook, bloodLook\(\), false\);/);
   assert.doesNotMatch(block.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n'), /update\(|refreshCTM|syncVeins/);
 });
+
+test('atlas picks (18 Oct): smaller chevrons with a tinted dark core and softer streaks; vessels stay flat, organs keep their art', () => {
+  const gl = read('src/ui/veins-gl.js');
+  // A1: 4–8 CSS px half-width, never over 0.8 of the lumen; the stage and the lobule both say how many canvas px a CSS px is.
+  assert.match(gl, /float hw = min\(0\.8 \* R, clamp\(0\.5 \* R, 4\.0 \* cssPx \* pxW, 8\.0 \* cssPx \* pxW\)\)/);
+  assert.match(gl, /vec3 ink = mix\(chevInk, vc \* 0\.3, 0\.2\);/);
+  assert.match(stage, /holes: chevHoles, vdpr, \.\.\.bloodColors\(\)/);
+  assert.match(read('src/ui/lobule-zoom.js'), /bleed: \[\], vdpr: k, \.\.\.bloodColors\(\)/);
+  // AL3: the chevrons read the radius between its samples.
+  assert.match(gl, /float radAt\(int id, float s, float len\)/);
+  // A6: softer streak ink.
+  assert.match(gl, /vec3 core = mix\(mix\(col, inkLight, 0\.62\), mix\(col, inkDark, 0\.45\), pale\);/);
+  // Not taken: the lit cylinder (flat vessels) and the offset organ shadow (the organ art stays).
+  assert.doesNotMatch(gl, /vec3 n3 = vec3\(g \* rho/);
+  assert.match(gl, /float aDark = \(1\.0 - smoothstep\(0\.1, 0\.1 \+ soft, abs\(side \+ 0\.62\)\)\) \* thin;/);
+  assert.doesNotMatch(stage, /class: 'org-ao', transform/);
+  assert.doesNotMatch(stage, /band-ao', transform/);
+});
+
+test('A4: hover and selection glows are slim bands', () => {
+  assert.match(stage, /\{ id, col: null, amt: 1\.0, wide: 0\.5, dur: 280 \}/);
+  assert.match(stage, /\{ id, col: null, amt: 1\.5, wide: 0\.6, dur: SEL_FADE \* 1000 \}/);
+});
