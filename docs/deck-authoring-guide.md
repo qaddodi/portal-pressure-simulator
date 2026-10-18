@@ -1,8 +1,8 @@
 # Deck authoring guide: Portal Pressure Simulator presenter decks
 
-Self-contained brief for an AI that writes new presenter decks **without seeing the code**. It was brought up to date with the app's source on the preview branch `claude/settings-topbar-icon-flvft1` on 14 Oct 2026 (files `src/ui/decks.js`, `src/ui/decks/*.js`, `src/ui/presenter.js`, `src/ui/presenter-tools.js`, `src/ui/deck-source.js`, `src/engine/scenario.js`, `src/engine/topology.js`, `src/ui/anatomy.js`). Use only the names listed here; an unknown key is silently ignored, an unknown target is silently dropped.
+Self-contained brief for an AI that writes new presenter decks **without seeing the code**. It was checked against the app's source on the preview branch `claude/settings-topbar-icon-flvft1` on 18 Oct 2026 (files `src/ui/decks.js`, `src/ui/decks/*.js`, `src/ui/presenter.js`, `src/ui/presenter-tools.js`, `src/ui/table-marks.js`, `src/ui/handout.js`, `src/ui/deck-source.js`, `src/ui/doppler.js`, `src/worker-core.js`, `src/engine/engine.js`, `src/engine/scenario.js`, `src/engine/topology.js`, `src/ui/anatomy.js`). Use only the names listed here; an unknown key is silently ignored, an unknown target is silently dropped.
 
-**The code wins.** The slide-field list at the top of `src/ui/decks.js` and the instrument list at the top of `src/ui/presenter-tools.js` are the source of truth; when this guide and the code differ, follow the code and fix the guide. **Layout is not an authoring matter:** card widths, margins, gaps, corner radii and text sizes are set by the app (`styles/app.css`, and the fitting code in `src/ui/presenter.js`) and change as the layout is tuned. A deck never carries a size, a position or a colour for a card; to make words fit, shorten them.
+**The code wins.** The presenter (`src/ui/presenter.js`), its instruments (`src/ui/presenter-tools.js`) and the tile ratings (`src/ui/table-marks.js`) are the source of truth. The slide-field comment at the top of `src/ui/decks.js` is a summary and lags behind them (it leaves out some fields this guide lists). When this guide and the code differ, follow the code and fix the guide. **Layout is not an authoring matter:** card widths, margins, gaps, corner radii and text sizes are set by the app (`styles/app.css`, and the fitting code in `src/ui/presenter.js`) and change as the layout is tuned. A deck never carries a size, a position or a colour for a card; to make words fit, shorten them.
 
 Contents: At a glance · 1 What a deck is · 2 Deck fields · 3 Slide fields · 4 The model state (patient, parameters, actions, time-lapse) · 5 The figure (views, camera, labels, glow, marks, sites, catheter) · 6 The words (live values, cut-offs, term pills) · 7 The data card (ladder, tiles, tools, visuals, compare, what-if) · 8 Catalogue (presets, parameters, stations, vessels, targets, tiles) · 9 Authoring rules · 10 Blank template · 11 Example deck · 12 Adding the deck to the app · 13 Importing in the app · 14 Case cards
 
@@ -11,37 +11,38 @@ Contents: At a glance · 1 What a deck is · 2 Deck fields · 3 Slide fields · 
 ## At a glance: what the system can do
 
 * **A live model, not pictures.** One lumped-parameter hemodynamic model of the portal circulation (gut to heart) computes every pressure, flow, collateral, varix size and ascites volume. A slide only says *which patient and what changed*; the numbers on screen, in the line (`{hvpg}`) and in the tables are read from the model, so they cannot drift from the picture.
-* **Patients.** 16 presets from healthy to Budd–Chiari (section 8.1), changed by a partial parameter patch (section 8.2): cirrhosis severity, clots, stenoses, collaterals, shunts (TIPS, DIPS, surgical), drugs, diuretics, heart failure, and more; plus one-off events such as banding, paracentesis, hemorrhage and rupture (section 8.3). Disease runs on a clock: `days` and `ramp` age the patient, and `lapse` plays that change live.
+* **Patients.** 17 presets from healthy to Budd–Chiari (section 8.1), changed by a partial parameter patch (section 8.2): cirrhosis severity, clots, stenoses, collaterals, shunts (TIPS, DIPS, surgical), drugs, diuretics, heart failure, and more; plus one-off events such as banding, paracentesis, hemorrhage and rupture (section 8.3). Disease runs on a clock: `days` and `ramp` age the patient, and `lapse` plays that change live.
 * **Two views of the figure.** The anatomy plate (with named camera regions and dives into the lobule and the sinusoid) and the electrical-circuit map (resistors, one row of zigzags). Stations, vessels and organs can be labelled, glowed, marked and pointed at from the words (term pills).
 * **The data card** holds the numbers: a pressure ladder, readout tiles, comparison tables, scales, and live instruments (Doppler, endoscopy scope, FibroScan, pressure traces, the abdomen, the varix wall, a flow-over-time chart), or a what-if slider and treatment buttons that act on the live model.
 * **Catheter choreography.** The HVPG measurement can be played step by step (route, free, wedge, result) with the live tracing.
 * **Case cards.** A slide that brings in a new patient can open with a centred frosted card holding a short clinical case (section 14).
-* **Deck furniture the app adds for you:** an Outline and objectives slide in front, the deck's short name in a tab at each slide card's top right corner, site tags above titles in decks that cover more than one level, disease-name pills, the closing quick check (`checks`), speaker notes in the handout, the nav pill, the corner credit.
+* **Deck furniture the app adds for you:** an Outline and objectives slide in front, the deck's short name in a tab at each slide card's top right corner, the level tab in its top left corner in decks that cover more than one level, disease-name pills, the closing quick check (`checks`), the printed handout (Present menu › Print notes), the nav pill, the corner credit.
+* **On screen and in print.** On screen a slide shows its title, line, causes, the figure and the data card. `notes` and `ask` print only in the handout (`src/ui/handout.js`), never on screen; the only questions learners see during a talk are the closing quick check. While a talk plays, the figure is read-only: taps, hover, zoom, pan and keyboard focus on vessels do nothing, so dye, the vessel card and the Explore tools cannot be used without leaving the talk (Esc). A slide must show what it teaches by itself. These are design decisions by the owner, not gaps to fill.
 * **The menu has two tabs:** *Present* (the decks, this guide) and *Patients* (the presets, free exploration). Instructors can also import a deck file in the app (section 13).
 
 ---
 
 ## 1. What a deck is
 
-A deck is a plain JavaScript object (one ES module per deck). The app plays it as a projector-first talk on a **live physiological model**: each slide sets a patient state, frames the figure, and shows one idea (a headline, one sentence, optional causes, and a card of numbers or an instrument). The model state of every slide is computed off screen **in order, each from the slide before**, so forward, back and jump always show the same numbers.
+A deck is a plain JavaScript object (one ES module per deck). The app plays it as a projector-first talk on a **live physiological model**: each slide sets a patient state, frames the figure, and shows one idea (a headline, a short line, optional causes, and a card of numbers or an instrument). The model state of every slide is computed off screen **in order, each from the slide before**, so forward, back and jump always show the same numbers.
 
 Every deck automatically gets an "Outline and objectives" slide in front (built from `objectives` and the slides' `kicker` groups) and, when the deck has `checks`, a quick-check slide at the end. **Never write those slides yourself.** The first real slide keeps the patient of the outline (its model fields move onto the outline), unless that first slide carries a case card, which makes it load its own patient afresh behind the card (section 14).
 
-A slide is **one idea**: a standalone title, a one-sentence line, at most four causes, a figure that shows it.
+A slide is **one idea**: a standalone title, a line of fewer than 45 words (section 9 rule 1), at most four causes, a figure that shows it.
 
 ## 2. Deck fields
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | string | Kebab-case, unique across all decks (existing: `circulation circuit two-inflows hvpg sites prehepatic ncph right-heart outflow lobule doppler stiffness one-year varices endoscopy variceal-bleed ascites tap spleen pvt-cirrhosis recompensation treatment shunts`). |
+| `id` | string | Kebab-case, unique across all decks (existing: `circulation circuit two-inflows hvpg sites prehepatic ncph right-heart outflow lobule where-resistance doppler stiffness one-year varices endoscopy variceal-bleed ascites tap spleen pvt-cirrhosis recompensation encephalopathy pregnancy treatment beta-blockers cause-treated shunts tips-doppler`). |
 | `level` | `'foundation'` \| `'core'` \| `'advanced'` | Shown as Foundation / Core / Advanced. |
 | `title` | string | Full title. |
 | `minutes` | number | Talk length. |
 | `summary` | string | One or two sentences for the picker. |
-| `objectives` | string[] | **3 to 4** short learning objectives (start with a verb: "Explain…", "Name…"). |
+| `objectives` | string[] | **3 to 4** short learning objectives (start with a verb: "Explain…", "Name…"). More than four fails `tests/deck-line-length.test.js`. |
 | `slides` | slide[] | See section 3. |
 | `checks` | `[question, answer][]` | The closing quick check: 3 or 4 questions, added after the last slide over its patient. Each answer starts hidden and eases open when tapped. Do not write the slide itself. |
-| `sections` | `[name, [kickers or slide ids]][]` | Optional. 3 to 5 sections for the outline and the running head. Needed only when the deck has more than 5 distinct `kicker` values, or fewer than 3 (list slide `id`s then, as `circuit` does); with 3 to 5 kicker groups the sections are built from them automatically. A kicker `'Summary'` is left out of the outline. |
+| `sections` | `[name, [kickers or slide ids]][]` | Optional. 3 to 5 sections for the outline (there is no running head on the slides). Needed only when the deck has more than 5 distinct `kicker` values, or fewer than 3 (list slide `id`s then, as `circuit` does); with 3 to 5 kicker groups the sections are built from them automatically. A kicker `'Summary'` is left out of the outline. |
 | `short` | string | **Set by the menu table (`TOPICS` in `src/ui/decks.js`), not in the deck file** (see section 12). Max 32 characters. |
 | `head` | string | The deck's short name, in a tab at the top right corner of every slide's card. **Set by the menu table too**, its third entry. Max 20 characters, one or two words ("Ascites"). |
 | `topic` | string | Set by the menu table too (`foundations causes measuring complications treatment`). |
@@ -55,19 +56,19 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 | Field | Type / allowed values | Default | Meaning |
 |---|---|---|---|
 | `id` | string | none | Unique within the deck. Required if any `of`, `delta`, `vs` or summary row refers to the slide, and handy for notes. |
-| `kicker` | string | `''` | Small heading above the title; slides with the same kicker form one group (outline, running head). Use `'Summary'` for the closing slide. |
-| `site` | `'pre'` `'presin'` `'sin'` `'postsin'` `'post'` `'cardiac'` | none (grey) | Colours the kicker by the level of the resistance (pre-hepatic, presinusoidal, sinusoidal, postsinusoidal, post-hepatic, cardiac). `'pvt'` appears in one deck but has no colour, so avoid it. |
-| `title` | string | `'Step'` is not applied to decks; give one | The headline. **Must stand alone without the kicker.** |
-| `line` | string | none | One sentence under the headline. May use `{live values}`, `{>=5 mmHg}` cut-offs and `[word](target)` term pills (section 6). |
-| `causes` | string[] | none | Up to **4** short bullet items. |
+| `kicker` | string | `''` | A group name. It is **not drawn on the teaching card**. Slides with the same kicker form one group: the outline's sections, the slide list (G) and the row label in summary tables come from it, and an instrument's ghost reading takes the earlier slide's kicker as its label when nothing else names it. Use `'Summary'` for the closing slide. |
+| `site` | `'pre'` `'presin'` `'sin'` `'postsin'` `'post'` `'cardiac'` | none (grey) | The level of the resistance (pre-hepatic, presinusoidal, sinusoidal, postsinusoidal, post-hepatic, cardiac). Shown as a tab in the teaching card's top left corner, in the level's colour (Pre-hepatic, Presinusoidal, …), only in decks whose slides cover more than one level and never on a `visual` slide; a slide with a level `rail` names it on the rail instead. It also colours the slide's row label in summary tables. `'pvt'` is read as Pre-hepatic, but no deck uses it: write `'pre'`. |
+| `title` | string | `'Step'` is not applied to decks; give one | The headline. **Must stand alone:** the kicker is not shown with it. |
+| `line` | string | none | The words under the headline: one idea, **fewer than 45 words** (section 9 rule 1). May use `{live values}`, `{>=5 mmHg}` cut-offs and `[word](target)` term pills (section 6). |
+| `causes` | string[] | none | Up to **4** short items, set as one run-in line after the heading, joined by commas. Items after the first are lower-cased unless they start with an acronym or a name (Budd, Child, Wilson, Doppler…). |
 | `causesHead` | string | `'Causes'` | Heading of the causes list (e.g. `'Who gets it'`). |
-| `bold` | string[] | `[]` | Extra key terms to bold wherever the line names them (at most 3 bold terms a line are applied). |
+| `bold` | string[] | `[]` | Extra key terms to bold at their first mention in the line. Always applied: the three-a-line cap is only for the automatic terms (section 6.2). |
 | `pill` | `false` | auto | `false`: no automatic pill in the line (use it for a plain number such as an anatomical size). Without `{braces}` the first number with a unit becomes an outlined rule pill. |
 | `eq` | `[mathML, legend?]` | none | Equation under the title (MathML string plus an optional legend sentence). See helpers in section 11. |
 | `caveat` | string | none | One short sentence in small print under the line, where the model differs from patients ("The model builds the fluid from pressure and albumin; it does not model the kidneys."). |
 | `vignette` | string | none | A case card: a clinical case shown on a centred card when this slide brings in a new patient. At most 219 characters, and only on a slide with a `preset`. See section 14. |
-| `notes` | string | `''` | Speaker notes. Printed in the handout. Give every slide notes. |
-| `ask` | `[question, expected answer]` | none | Question for the room. Give every content slide one. The handout test requires `ask[0]` to appear. |
+| `notes` | string | `''` | Printed in the handout under the slide, **never shown on screen**. Write them for a learner reading the handout (what the slide shows and why), not as instructions to the presenter ("Give the room a minute"). Give every slide notes. |
+| `ask` | `[question, expected answer]` | none | A question with its answer, **printed only in the handout**, never on screen (a plain string prints the question alone). Give every content slide one. The handout test requires `ask[0]` to appear. |
 | `rail` | `true` \| `'all'` | none | `true`: the six levels with this slide's `site` marked; `'all'`: all six levels named. |
 | `column` | `true` | none | Draws the wedge-pressure column illustration (portal vein, sinusoids, central vein, balloon) in the text panel. |
 | `tick` | string | the slide title | A few words for what happened at this slide's time point, set at 45° over its line on a talk trace (`tool: { kind: 'trace', range: 'talk' }`). Used in the time-line decks (`one-year`, `pvt-cirrhosis`, `recompensation`). |
@@ -83,30 +84,40 @@ Every field is optional unless marked. Fields are grouped by what they do. Unkno
 
 ### 3.4 The data card (section 7)
 
-`data`, `tiles`, `key`, `delta`, `brackets`, `block`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `of`, `scale`), `compare`, `whatIf`.
+`data`, `tiles`, `key`, `delta`, `brackets`, `block`, `fold`, `dataTitle`, `tool`, `visual` (+ `cols`, `asc`, `rowHead`, `note`, `vs`, `foot`, `calm`, `of`, `scale`), `compare`, `whatIf`.
 
 ### Slide order and carry-over
 
-A slide that sets none of `preset`, `params`, `action`, `days` **keeps the previous state**. (`params: {}` counts as setting something: it re-settles the model, and with `delta` shows the change.) Camera, labels, marks and glow do **not** carry over; each slide sets its own.
+A slide that sets none of `preset`, `params`, `action`, `days` **keeps the previous state**. (`params: {}` and `action: []` count as setting something: the model settles again, which runs about 343 s of model time with any open bleed still running, and the tiles show the change from the slide before.) Camera, labels, marks and glow do **not** carry over; each slide sets its own.
 
 ---
 
 ## 4. The model state
 
-Order of application on every slide: **preset → params → action → days** (with `ramp` stepping through the days).
+Order of application on every slide, computed off screen: **preset → params (settled) → action → days → settle** (with `ramp` stepping through the days). The days never start a new rupture, and the last settle runs about 343 s of model time.
 
 | Field | Type | Meaning |
 |---|---|---|
 | `preset` | preset id (section 8.1) | Loads that patient fresh, then applies the rest on top. Omit to continue the same patient. |
 | `presetDays` | number | Extra disease days **added inside the preset load** (on top of the preset's own `days`). Rare. |
 | `params` | object | A **partial** parameter patch **deep-merged** onto the current patient (section 8.2). Example: `{ tips: { on: true } }`, `{ drugs: { carvedilol: true } }`, `{ cirrhosis: 0.5 }`. Only the keys you give change. Values are clamped to their ranges. |
-| `action` | action or action[] | One-off events (section 8.3): `{ kind: 'band' }`, `{ kind: 'paracentesis', mL: 8000 }`, … Several in an array run in order. `[]` is allowed (no-op). |
+| `action` | action or action[] | One-off events (section 8.3): `{ kind: 'band' }`, `{ kind: 'paracentesis', mL: 8000 }`, … Several in an array run in order. `[]` is not a no-op: it counts as a change, so the model settles again (time passes with an open bleed still running, as in Variceal bleed) and the tiles show the change. |
 | `days` | number | Extra disease days **after** the patch (the disease clock: varices, ascites and collaterals develop over days). |
-| `ramp` | `{ param: [from, to] }` | With `days`: eases a top-level numeric parameter from `from` to `to` day by day (`{ cirrhosis: [0.4, 0.6] }`, `{ albumin: [4, 2.8] }`, `{ splanchnicTone: [1, 0.72] }`). |
-| `lapse` | `{ seconds, from?, to? }` | Plays the slide's `days` (and `ramp`) **live on the figure** as a time-lapse of `seconds` length, starting from the previous slide's state. `from` / `to` are words for the start and end in place of a day counter (e.g. `'Fasting'`, `'After a meal'`). **Keep `days` ≥ `seconds`**, or the clock runs sub-day and the ramp is skipped. |
+| `ramp` | `{ param: [from, to] }` | With `days`: moves one or more numeric parameters from `from` to `to` in equal steps, day by day (linear, not eased): `{ cirrhosis: [0.4, 0.6] }`, `{ albumin: [4, 2.8] }`, `{ splanchnicTone: [1, 0.72] }`. A dotted key names a nested parameter: `{ 'fibrosis.R.post': [1, 20] }`. |
+| `lapse` | `{ seconds, from?, to? }` | Plays the slide's `days` (and `ramp`) **live on the figure** as a time-lapse of `seconds` length (default 8), starting from the previous slide's state. `from` / `to` are words for the start and end in place of a day counter (e.g. `'Fasting'`, `'After a meal'`). **Keep `days` ≥ `seconds`**, or the clock runs sub-day and the ramp is skipped. |
 
 Typical time-lapse: `days: 90, ramp: { cirrhosis: [0.5, 0.54] }, lapse: { seconds: 8 }`.
 Typical "meal" lapse (used by several decks): `days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }`.
+
+How a time-lapse behaves:
+
+* **Its own patient needs `params`.** A lapse plays from the previous slide's state. A lapse slide that sets `params` starts instead from its own patient with those params set and settled. So a lapse slide with its own `preset` must also carry `params` (`params: {}` is enough), or it plays from the previous slide's patient.
+* **Its words show the end.** A lapse slide's `{tokens}` read the end state, so word the line as the end point ("Six months on, the HVPG is {hvpg}").
+* **Its data card waits** for the end, unless the slide has a `tool` (the instrument plays the days).
+* **The counter** reads "Day d of n", then "n days later" ("n months later" when n is 60 or more and a multiple of 30); `from`/`to` replace it with "from → to", then `to`.
+* **Next** during a lapse runs the rest in about 0.6 s and stops on its end. A lapse never plays on the first slide or when stepping back (the end shows at once), and never shows a case card.
+
+`params: { respiration: false }` stops breathing on the live figure at once, before an instrument's probe is placed, so a Doppler trace does not record the leaving patient's breathing.
 
 ---
 
@@ -129,17 +140,20 @@ Typical "meal" lapse (used by several decks): `days: 8, ramp: { splanchnicTone: 
 
 ### 5.2 Lens (what the vessel colours show)
 
-`lens` picks what the figure's vessels are colored by on that slide, as the color menu does in Patients. Without it the slide shows pressure. The figure crossfades to the new colours while the old words leave, and a small key sits on the figure, not in the teaching card (src/ui/figure-key.js puts it on bare background, clear of vessels, cards and labels): the lens name ("Velocity", no "Colored by") and the two ends. `visual` slides always show pressure. In learner-facing words say "colored by velocity", never "lens" (Mohammad, 14 Oct).
+`lens` picks what the figure's vessels are colored by on that slide, as the color menu does in Patients. Without it the slide shows pressure. The figure crossfades to the new colours while the old words leave, and a small key sits on the figure, not in the teaching card (src/ui/figure-key.js puts it on bare background, clear of vessels, cards and labels): the lens name ("Velocity", no "Colored by") and its scale. A `visual` slide keeps whatever colours were already showing on the dimmed figure. In learner-facing words say "colored by velocity", never "lens" (Mohammad, 14 Oct).
+
+A line's "colored by <name>" becomes a pill in that lens's colour (it points at nothing on the figure). Names that work: `velocity`, `flow`, `flow volume`, `direction`, `congestion`, `pressure drop`, `change`, `oxygen`, `origin`, `blood origin`.
 
 | `lens` | Colours | Key |
 |---|---|---|
-| `'velocity'` | mean velocity, pale amber (slow) to deep brown (fast) | Slow to Fast |
-| `'flow'` | flow volume, how much blood each vessel carries | Little to Much |
-| `'direction'` | the usual direction in teal, reversed flow in orange | Usual direction, Reversed |
-| `'heat'` | congestion: pressure above healthy | None to Backed up |
-| `'drop'` | pressure drop across each vessel: where the resistance lives | None to Large |
-| `'delta'` | higher or lower than healthy | Lower to Higher |
-| `'origin'` | where each vessel's blood comes from: SMV, IMV, spleen, hepatic artery, the rest systemic, mixed by flow at each junction | the five sources |
+| `'velocity'` | each vessel's mean velocity against its own normal: sand slower, teal normal, violet faster; collaterals stay neutral | swatches: Slow, Fast |
+| `'flow'` | flow volume, how much blood each vessel carries | colour bar |
+| `'direction'` | the usual direction in teal, reversed flow in orange | swatches: Usual, Reversed |
+| `'heat'` | congestion: pressure above healthy | colour bar |
+| `'drop'` | pressure drop across each vessel: where the resistance lives | Low ▬ High |
+| `'delta'` | higher or lower than healthy | colour bar |
+| `'oxygen'` | oxygen saturation: blue low (hepatic venous blood, about 65%) to red high (arterial, 98%) | colour bar |
+| `'origin'` | where each vessel's blood comes from: SMV, IMV, spleen, hepatic artery, the rest systemic, mixed by flow at each junction | swatches: SMV, IMV, Spleen, Artery, Systemic |
 
 A `compare` row can switch lenses instead of treatments: `compare: [{ label: 'Pressure', lens: 'pressure', own: true }, { label: 'Flow', lens: 'flow' }]`. Each button crossfades the figure to its lens and swaps the key (it fades out and the new one in), without touching the model; the key is on the figure, so the card never changes height (Circulation's lens slide).
 
@@ -148,7 +162,7 @@ Use it where the colour is the point of the slide (a reversed branch on `'direct
 ### 5.3 Layers and lobule callouts
 
 * `layers: ['zones']` turns the lobule's zone 1 / 3 bands on for the slide (needed for the `lobule:zone1` / `lobule:zone3` labels); `'lymph'` turns the lymphatics on the same way. Other lobule slides have zones off and lymph as the viewer had it; the viewer's own layers return when the show ends.
-* `callout: { at, label }` on a lobule slide: a red callout in the lobule marking where the resistance sits. `at` values used: `'triad'` (portal tract), `'sin'` (sinusoids), `'cv'` (central veins). Example: `callout: { at: 'cv', label: 'Resistance: central veins' }`.
+* `callout: { at, label, kind? }` on a lobule slide: a callout in the lobule marking where the resistance sits. `at`: `'triad'` (portal tract), `'cv'` (central vein), `'lymph'` (a lymphatic), `'ha'` (the hepatic arteriole), `'bd'` (the bile ductule); anything else, such as `'sin'`, points at a sinusoid. `kind`: `'block'` (default, red), `'treat'` (accent), `'note'` (plain). Example: `callout: { at: 'cv', label: 'Resistance' }`.
 
 ### 5.4 Station labels
 
@@ -161,11 +175,11 @@ On ladder (`data: 'ladder'`) and catheter (`cath`) slides the figure automatical
 * `terms` : words in the line that become coloured pills **and** light the figure (section 6.3).
 * `glow: [...]`: light vessels or organs directly. Items: a target key (`'smv'`, `'liver'`), a vessel/edge id (`'PV_TRUNK'`, `'C5'`), an organ (`'liver'` `'spleen'` `'heart'` `'caudate'`), or `{ id, tone, soft? }` (`soft: true` marks a supporting vein lit softly; a slide with any soft glow makes the camera frame every vessel it lights, so none runs off the edge). Tone defaults to the target's station colour (accent for an unknown edge). Terms glow automatically, so `glow` is for things the line does not name.
 * `glowSeq: 550`: ms between successive `glow` items, so they light in order (e.g. pressure travelling back from the heart). Existing use: `550`.
-* Tones usable in `{ id, tone }`: `pv`, `sv`, `smv`, `wedge`, `hv`, `ivc`, `ra`, `var`, `accent`, or a CSS variable name starting `--` (e.g. `'--danger'`).
+* Tones usable in `{ id, tone }`: `pv`, `sv`, `smv`, `imv`, `wedge`, `hv`, `ivc`, `ra`, `var`, `cav` (the cavernoma), `accent`, or a CSS variable name starting `--` (e.g. `'--danger'`).
 
 ### 5.6 Marks (callouts on a vessel)
 
-`mark: { edges, label, kind }` or `marks: [ … ]` (several). `edges` = vessel ids (section 8.5). Only labelled marks get a callout box.
+`mark: { edges, label, kind, seg?, free? }` or `marks: [ … ]` (several). `edges` = vessel ids (section 8.5). Only labelled marks get a callout box. `free: true` sets the label on its own with no leader line, for one name over several vessels (the three hepatic veins). `seg` on a stent (`'proximal'` | `'mid'` | `'distal'` | `'site'`, the third that holds its narrowing) lights and points at that third only.
 
 | `kind` | Look | Use for |
 |---|---|---|
@@ -190,7 +204,7 @@ On ladder (`data: 'ladder'`) and catheter (`cath`) slides the figure automatical
 | `'rColl'` | collateral resistance (circuit view) |
 | `'rGut'` | gut arteriole resistance (circuit view) |
 
-Pointing at the resistor words `resistance` / `collaterals` / `gut arterioles` with `terms: { resistance: 'rLiver', collaterals: 'rColl' }` also lights those zigzags.
+Pointing at the resistor words `resistance` / `collaterals` / `gut arterioles` with `terms: { resistance: 'rLiver', collaterals: 'rColl' }` also lights those zigzags. A site reading is left out where its station label (`CONF`, `IVCS`, `RA`) is already on the slide: the label carries the reading, in its station colour.
 
 ### 5.8 The HVPG catheter
 
@@ -203,15 +217,15 @@ Pointing at the resistor words `resistance` / `collaterals` / `gut arterioles` w
 
 ### 6.1 Live values: `{token}`
 
-`{pv}` in a `line` is replaced by the model's **live reading for that slide**, in a pill, rounded as the card shows it. Ladder slides (`data: 'ladder'`) round `pv`, `whvp`, `fhvp`, `ivc`, `ra` to whole mmHg. The pill takes the station colour where one exists (`pv`, `whvp`, `sin`, `fhvp`, `ivc`, `ra`); sizes (`spleen`, `varix`, `gv`) take their status colour (amber/red). Prefer a live token over a typed number so it cannot drift.
+`{pv}` in a `line` is replaced by the model's **live reading for that slide**, in a pill, with its tile's decimals (one for pressures). This holds on ladder slides too: the ladder reads whole mmHg and its brackets are the difference of the whole readings, so `{pv}` can read "18.3 mmHg" beside a rung of 18, and `{hvpg}` can differ from the bracket by a little. On a time-lapse slide a token reads the end state (section 4). The pill takes the station colour where one exists (`pv`, `whvp`, `sin`, `fhvp`, `ivc`, `ra`); sizes (`spleen`, `varix`, `gv`) take their status colour (amber/red). Prefer a live token over a typed number so it cannot drift.
 
-Valid tokens (the tile keys, section 8.6): `hvpg ppg pv sin whvp fhvp saag tp asc varix gv spleen plt pvFlow pvVel liver shunt map hr lsm ra salb ivc hb`. `{ppg@before}` reads the value at another slide of the deck (here the slide with `id: 'before'`), for "the PPG falls from {ppg@before} to {ppg}". A typed `{6 to 8 g}` is drawn as an outlined rule pill, never as the patient: for the patient's number use a live token.
+Valid tokens (the tile keys, section 8.6): `hvpg ppg pv sin whvp fhvp saag tp asc varix gv spleen plt pvFlow pvVel liver shunt map hr lsm ra salb ivc hb co bv`. `{ppg@before}` reads the value at another slide of the deck (here the slide with `id: 'before'`), for "the PPG falls from {ppg@before} to {ppg}". A typed `{6 to 8 g}` is drawn as an outlined rule pill, never as the patient: for the patient's number use a live token.
 
 ### 6.2 Cut-off pills: `{>=10 mmHg}`
 
 `{>=10 mmHg}` (also `>`, `<`, `<=`, `≥`, `≤`) renders an **outlined** pill with the comparison symbol dropped, so **write the words around it**: "above {>=5 mmHg}", "below {<12 mmHg}". A filled pill is *the patient*, an outlined pill is *the rule*.
 
-Automatic pills/bold: if a line has no `{braces}`, the first `number + unit` (mmHg, g/dL, mL/min, kPa, cm/s, mm, %) becomes an outlined rule pill (a typed number is a rule or a published figure; only live values are filled). Give `pill: false` when it is neither, such as an anatomical size. Fixed key terms are auto-bold, at most 3 a line, first mention only: CSPH, SAAG, WHVP, FHVP, central vein, portal tracts, fenestrae, space of Disse, basement membrane, capillarization, wedged pressure, free pressure, sinusoidal pressure, caput medusae, gastrorenal shunt, stellate cells, encephalopathy, periportal fibrosis, intrahepatic resistance, hepatopetal, hepatofugal, cavernoma, a wave, pulsatility, reflection coefficient, Laplace, congestion index, gray zone, red wale marks. The slide's `key` tiles' words are bold too.
+Automatic pills/bold: if a line has no `{braces}`, the first `number + unit` (mmHg, g/dL, mL/min, kPa, cm/s, mm, %) becomes an outlined rule pill (a typed number is a rule or a published figure; only live values are filled). Give `pill: false` when it is neither, such as an anatomical size. Fixed key terms are auto-bold, at most 3 a line, first mention only (the cap is for these alone): CSPH, SAAG, WHVP, FHVP, central vein, portal tracts, fenestrae, space of Disse, basement membrane, capillarization, wedged pressure, free pressure, sinusoidal pressure, caput medusae, gastrorenal shunt, stellate cells, encephalopathy, periportal fibrosis, intrahepatic resistance, hepatopetal, hepatofugal, cavernoma, a wave, pulsatility, reflection coefficient, Laplace, congestion index, gray zone, red wale marks. The slide's `key` tiles' words and its `bold` terms are bold too, at their first mention, whatever the count.
 
 ### 6.3 Term pills that point at the figure
 
@@ -230,21 +244,22 @@ A term becomes a pill in its **station colour**; the station's figure label take
 | `sv` (`SV`) | Splenic vein | `SV_CONF`, `SV_MID`, `V_SPL` | sv | splenic vein, splenic |
 | `imv` (`IMV`) | IMV | `V_IMV` | imv | inferior mesenteric vein(s), inferior mesenteric |
 | `smv` (`SMV`) | SMV | `SMV_CONF`, `V_INT` | smv | superior mesenteric vein(s) |
-| `sin` (`SIN_R`) | Sinusoids | liver outlined | wedge | sinusoid(s), sinusoidal pressure |
+| `sin` (`SIN_R`) | Sinusoids | `SIN_RR`, `SIN_LL` | wedge | sinusoid(s), sinusoidal pressure |
 | `whvp` | Sinusoids | liver outlined | wedge | WHVP, wedged pressure |
 | `fhvp` (`RHV`) | RHV | `RHV_IVC` | hv | FHVP, free pressure |
 | `hv` | Right hepatic vein | `RHV_IVC`, `MHV_IVC`, `LHV_IVC` | hv | hepatic vein(s) |
 | `ivc` (`IVCS`) | IVC | `IVCS_RA`, `IVC_IS` | ivc | IVC, inferior vena cava |
-| `ra` (`RA`) | Right atrium | whole heart lit by a soft glow (`heart`; `heart-ra` still names it) | ra | right atrium |
+| `ra` (`RA`) | Right atrium | whole heart lit by a soft glow (`heart`; `heart-ra` still names it) | `--tour-sys` | right atrium |
 | `varix` (`VAR`) | Varices | `C1a`, `C1b` | var | esophageal varices, varices, varix |
 | `gv` (`GV`) | Fundal varices | `C2` | var | gastric varices, fundal varices |
 | `lgv` (`LGV`) | Left gastric vein | `LGV_CONF`, `V_STO` | var | left gastric vein, coronary vein |
+| `cavernoma` | none | `C8` | cav | cavernoma(s). **Automatic:** every line pills it and lights the collaterals, with no `terms` entry |
 | `azy` (`AZY`) | Azygos | `AZY_SVC` | var | azygos (vein) |
 | `lpv` (`LPV`) | Left portal vein | `PVH_L` | pv | left portal vein |
 | `lrv` (`LRV`) | Left renal vein | `LRV_IVC`, `V_KID_L` | ivc | left renal vein |
 | `spleen` | none | spleen outlined | sv | spleen |
 | `liver` | none | liver outlined | wedge | liver |
-| `heart` | none | heart outlined | ra | heart |
+| `heart` | none | heart outlined | `--tour-sys` | heart |
 | `caudate` | none | caudate lobe with its veins draining into the IVC | hv | caudate lobe |
 | `caudateLobe` | none | the caudate lobe alone (a DIPS runs through it) | hv | caudate lobe |
 | `rLiver` | none | circuit: liver resistor zigzag | wedge | resistance |
@@ -285,16 +300,19 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 * `brackets: { hvpg | ppg: 'misleads' | 'works' }`: colours the ladder's bracket red (misleads) or green (works). Used for "the HVPG misses it" / "the PPG finds it".
 * `block: 'pv' | 'whvp' | 'fhvp' | 'ivc' | 'ra'` on a ladder slide marks the station where pressure is lost with the ladder's bold red diagonal hatching on that node (no text). Heart-failure slides use `block: 'ra'`. Leave it off ladders of a healthy or sinusoidal patient.
 * `tiles` and `key` can also accompany `data: 'ladder'` (a slide with `data: 'ladder'` and `tiles` shows both).
+* `dataTitle` renames the tiles or instrument card ("Circulation at 24 weeks"); a ladder card is always "Pressure, portal vein to heart".
+* `fold: false` on a ladder slide: the ladder never folds its plot away behind Show (Sites uses it on its postsinusoidal slide).
+* Each tile has a scale bar coloured by its rating, a ring where it started and a dot where it is now, with "from X" or "No change" when it shows a change. After TIPS the PPG tile reads "Target met" (below 12 mmHg) or "Above target" instead of its usual rating.
 
 ### 7.2 `tool`: an instrument in the card (above the tiles if `data` is also set)
 
-`title?` renames the card on any kind. When `data` is also set, the instrument sits above the tiles; on a phone it folds behind a Show button, and `open: true` keeps the instrument open there and folds the tiles instead.
+`title?` renames the card on any kind (a slide's `dataTitle` wins over it). When `data` is also set, the instrument sits above the tiles. On a phone the readings sit on a sheet tucked under the instrument's card, with a handle to pull them out (no Show button); on a laptop or a tablet on its side the pair folds behind Show only when it would not fit. `open: true` keeps the instrument open on a phone and folds the tiles instead.
 
 | `tool` | Shows |
 |---|---|
-| `{ kind: 'doppler', vessel }` | spectral Doppler in one vessel. `vessel` ∈ `PV_TRUNK` (MPV), `PVH_R`, `PVH_L`, `SMV_CONF`, `V_INT`, `SV_CONF`, `V_SPL`, `RHV_IVC`, `MHV_IVC`, `LHV_IVC`, `IVCS_RA`, `A_HEP`, `TIPS`. `waves: true` names a hepatic vein's a, S, D waves. `delta: '<slideId>'` shows an earlier reading as a ghost. |
+| `{ kind: 'doppler', vessel }` | spectral Doppler in one vessel; the sampled vessel glows the Doppler's green. `vessel` ∈ `PV_TRUNK` (MPV), `PVH_R`, `PVH_L`, `SMV_CONF`, `V_INT`, `SV_CONF`, `V_SPL`, `RHV_IVC`, `MHV_IVC`, `LHV_IVC`, `IVCS_RA`, `A_HEP`, `TIPS`, `DIPS`, `C1b` (varix), `C3` (paraumbilical vein). `waves: true` names a hepatic vein's a, S, v and D waves. On a stent, `gate` (`'proximal'` \| `'mid'` (default) \| `'distal'` \| `'site'`) picks the third it samples and `points: true` calls out the velocity at all three points on the figure. `delta` (`true` or a slide id; else the slide's own `delta`) shows the earlier reading as a ghost, labelled `deltaLabel`, else the lapse's `from`, else that slide's kicker, else "Before". The ghost works only on `PV_TRUNK` and is left out when a `pvVel` tile already shows the change. |
 | `{ kind: 'scope' }` | the esophagus at this slide's varix state (endoscopy; **esophagus only**) |
-| `{ kind: 'fibroscan' }` | liver stiffness, kPa |
+| `{ kind: 'fibroscan' }` | liver stiffness, kPa; shows a ghost reading as the Doppler does (`delta`, `deltaLabel`), left out when an `lsm` tile is on the slide |
 | `{ kind: 'trace', range: 'talk' }` | portal, wedged, free pressure and HVPG at every slide so far (one point per state) |
 | `{ kind: 'trace', range: 'beats' }` | live pressure trace, beat by beat |
 | `{ kind: 'abdomen' }` | the belly with its ascites and collaterals |
@@ -308,24 +326,26 @@ Inside the liver (the view's own label takes the colour with a soft glow; use wi
 |---|---|
 | `'outline'` | **Never write this**; added automatically. |
 | `'ladders'` | `of`: the rows to draw as ladders (slide ids). |
-| `'table'` | `cols` (columns), `asc` (show SAAG and protein columns: `true`/`false`; default true only if `cols` is absent), `rowHead` (first column heading), `note` (heading of a text column, or an array of headings), `vs: 'first'` (arrows against the first row), `foot` (one sentence after the legend), `of` (rows). |
-| `'scale'` | `scale: { key, max, low, marks: [[value, words, shortName?], …], legend?, sub? }`. `key: 'hvpg'` with `legend: true` draws the HVPG cut-off scale; `key: 'lsm'` the stiffness scale (`sub: ['hvpg','plt']` adds sub-readings). |
-| `'quadrant'` | SAAG × protein quadrant (`of`: rows). |
+| `'table'` | `cols` (columns), `asc` (show SAAG and protein columns: `true`/`false`; default true only if `cols` is absent), `rowHead` (first column heading, default `'Level'`), `note` (heading of a text column, or an array of headings), `vs: 'first'` (arrows against the first row), `foot` (one sentence after the legend), `calm: [cols]` (changes in those columns are neither better nor worse: no green or red, as a meal's small PPG rise), `of` (rows). Pressures print in whole mmHg. A tap on a row goes to its slide; a tap on a heading shows its cut-offs. |
+| `'scale'` | `scale: { key, max, low, marks: [[value, words, shortName?], …], sub?, rules? }`. One number on a banded axis, each row a numbered dot. `max` defaults to 20; `low` names the first band and each mark's `shortName` (else its `words`) the band above it. `sub` adds readings under each row (a tile key or a list, `['hvpg', 'plt']`). `rules: [..]` prints each band's rule in words under the axis (Stiffness). |
+| `'quadrant'` | SAAG × protein quadrant (`of`: rows; a row with no ascites is left out). |
 | `'walls'` | the Laplace wall-tension illustration. |
 
-Table column keys (`cols`): `pv whvp fhvp ivc ra hvpg ppg sin varix asc liver shunt saag tp plt lsm spleen map hr pvFlow res`. Default `cols`: `['pv','whvp','fhvp','ivc','ra','hvpg','ppg']`.
+Table column keys (`cols`): `pv whvp fhvp ivc ra hvpg ppg sin varix asc liver shunt saag tp plt lsm spleen map hr hb pvFlow res` (the keys of `COLS` in `src/ui/table-marks.js`). Any other key prints its raw name as the heading with no cut-offs, and `tests/deck-review-bugs.test.js` fails it: give every column a `COLS` heading. Default `cols`: `['pv','whvp','fhvp','ivc','ra','hvpg','ppg']`.
 
-**`of` rows** are slide ids (strings, or `{ id, name?, title?, kicker?, note? }` to rename a row) or patients no slide shows: `{ preset, name | title, kicker?, note?, blank?: [columns], ref?: true }`. `ref: true` marks a reference row (keeps its numbers); a row's `vs: '<slideId>'` compares it with that row instead; `note` is the text column's words (string, or array for several note columns); `blank: [cols]` shows "not measurable" for those columns. Extra patients can also carry `params` and `days`.
+**`of` rows** are slide ids (strings, or `{ id, title?, kicker?, note?, … }` to relabel a row) or patients no slide shows: `{ preset, title, kicker?, note?, blank?: [columns], ref?: true }`. `title` labels a row in tables and ladders; `name` labels it on a scale or quadrant (default: its title). `ref: true` marks a reference row (keeps its numbers); a row's `vs` (a slide id, or another row's `key`) compares it with that row instead; `note` is the text column's words (string, or array for several note columns); `blank: [cols]` shows "not measurable" for those columns; `calm: [cols]` as on the slide, for that row only; `site` colours the row label (default: the slide's); `block` hatches a station on that row's ladder (default: the slide's). Extra patients can also carry `params` and `days`.
 
 Visuals may also carry `cam` (how the dimmed figure is framed).
 
 ### 7.4 `compare` and `whatIf`: acting on the live model
 
-`whatIf: { label, param, min, max, step?, ends?: [low, high], unit? }` puts a slider on the slide that drags one parameter of the live model (`param` is a dotted path: `'cirrhosis'`, `'tips.d'`, `'thrombus.PV_TRUNK'`). The figure, ladder and tiles follow it; it starts at the slide's own value and the slide's computed state returns whenever the slide is shown again. `ends` names the two ends of the slider (`['None', 'Severe']`). Put it on key slides only, where the student can try the change.
+`whatIf: { label, param, min, max, step?, ends?: [low, high], unit? }` puts a slider on the slide that drags one parameter of the live model (`param` is a dotted path: `'cirrhosis'`, `'tips.d'`, `'thrombus.PV_TRUNK'`, or an array of paths moved together, such as both lobes' fibrosis). The figure, ladder and tiles follow it; it starts at the slide's own value (the first path's), a ring marks where it started, and the slide's computed state returns whenever the slide is shown again. `step` defaults to a twentieth of the range. `ends` names the two ends of the slider (`['None', 'Severe']`). The value is printed only when `unit` is set; a label that starts with the unit ("Weeks pregnant", `unit: 'weeks'`) prints the bare number. Put it on key slides only, where the student can try the change.
 
 #### `compare`: live treatment buttons
 
-`compare: [{ label, params, own? }, …]`: buttons switch the live model between treatments in real time. `params`: each option's **full set of the switched keys** (switch off the others: e.g. every drug flag), `own: true` marks the option that is the slide's own state. Use with `data` so the numbers update.
+`compare: [{ label, params, own?, short? }, …]`: buttons switch the live model between treatments in real time. `params`: each option's **full set of the switched keys** (switch off the others: e.g. every drug flag), `own: true` marks the option that is the slide's own state. `short` is a compact label a phone uses where the full names would wrap (`'Prop.'`). Use with `data` so the numbers update.
+
+On a stent Doppler slide, `{ label, gate, own? }` buttons move the Doppler's gate (`'proximal'`, `'mid'`, `'distal'`, `'site'`) without touching the model (TIPS Doppler).
 
 A button can name another patient instead: `compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }]`. The live model eases to that patient (computed with the slide's states), and the `own` button eases back to the slide's exact state. The ladder's station `block` shows only on the slide's own state, unless the patient option names its own `block` (Sites, Right heart failure).
 
@@ -348,11 +368,14 @@ A button can name another patient instead: `compare: [{ label: 'Normal heart', p
 | `cirr-decomp` | Sinusoidal | Decompensated cirrhosis | 540 | cirrhosis 0.85, albumin 2.8, diuretics; large varices, ascites |
 | `cirr-hepatofugal` | Sinusoidal | End-stage cirrhosis, hepatofugal flow | 540 | cirrhosis 0.95, arterioportal shunting, splenorenal shunt |
 | `gastric-varix` | Sinusoidal | Cirrhosis with gastrorenal shunt | 450 | isolated fundal varices (IGV1) fed by the short and posterior gastric veins, draining through the `C5` gastrorenal shunt (BRTO target); no esophageal varices until BRTO closes the shunt |
+| `pregnancy` | Sinusoidal | Cirrhosis in pregnancy | 365 | cirrhosis 0.62 (small varices, HVPG about 12), then `gestation: 24` once the disease days have run; `params: { gestation: 0 }` shows her before pregnancy |
 | `sos` | Postsinusoidal (`postsin`) | Sinusoidal obstruction syndrome | 21 | central-vein resistance |
 | `budd-chiari` | Posthepatic (`post`) | Budd–Chiari | 60 | all three hepatic veins occluded |
 | `ivc-web` | Posthepatic | IVC web | 90 | suprahepatic IVC stenosis |
 | `rhf` | Cardiac (`cardiac`) | Right heart failure + TR | 60 | HVPG stays normal; pulsatile portal vein |
 | `constrictive` | Cardiac | Constrictive pericarditis | 60 | high RA, HVPG normal |
+
+`ivc-web`, `rhf` and `constrictive` also load extra blood volume (800, 1300 and 600 mL) with the patient.
 
 ### 8.2 Parameters (`params`, deep-merged; ranges are clamped)
 
@@ -361,6 +384,7 @@ A button can name another patient instead: `compare: [{ label: 'Normal heart', p
 | `cirrhosis` | 0–1 | macro severity of cirrhosis |
 | `fibrosis` | `{ R: { pre, sin, post }, L: { … } }`, each 1–80 | resistance multipliers by zone and lobe (right, left) |
 | `stenosis` | `{ edgeId: 0–0.95 }` | lumen narrowing (e.g. `{ IVCS_RA: 0.6 }`, a web) |
+| `stenosisSite` | `{ stentId: 'proximal' \| 'mid' \| 'distal' }` | which third of a stent (`TIPS`, `DIPS` or a custom shunt) holds the narrowing that `stenosis` sets (`{ TIPS: 0.6 }`); distal when unset |
 | `thrombus` | `{ edgeId: 0–1 }` | occlusion (e.g. `{ PV_TRUNK: 1 }`, `{ TIPS: 1 }`) |
 | `splenicRx` | 0 \| 1 \| 2 | none / partial splenic artery embolization / splenectomy |
 | `splanchnicTone` | 0.4–2.5 | gut arteriolar resistance multiplier (< 1 = vasodilated, a meal ≈ 0.72) |
@@ -369,13 +393,14 @@ A button can name another patient instead: `compare: [{ label: 'Normal heart', p
 | `tr` | 0–1 | tricuspid regurgitation |
 | `pericardial` | 0–1 | pericardial constriction |
 | `albumin` | 1.5–5 g/dL | serum albumin |
+| `gestation` | 0–40 weeks | pregnancy (0 = not pregnant): blood volume, cardiac output and portal inflow rise; after 20 weeks the uterus also raises the pressure in the abdomen |
 | `habrStrength` | 0–2 | hepatic arterial buffer response |
 | `apShunt` | 0–1 | arterioportal shunting |
 | `respiration`, `pulsatile` | boolean | breathing, pulsatile flow |
 | `respDepth` | 0–3 | breathing depth |
 | `spontaneous` | `{ C5: bool, C6: bool }` | gastrorenal shunt (C5), spontaneous splenorenal shunt (C6) present. C5 is absent by default; fundal varices need it |
 | `isolatedGV` | boolean | isolated fundal varices (IGV1): the coronary vein never forms esophageal varices. Set by the `gastric-varix` preset |
-| `occluded` | `{ C5: true }` | plugged collaterals (BRTO closes `C5`, and its feeder `C2`) |
+| `occluded` | `{ collateralId: true }` | plugged collaterals, any collateral id (BRTO: `{ C5: true }`, which also closes its feeder `C2`; Circuit closes all of them) |
 | `tips` | `{ on: bool, d: 6–12 mm }` | TIPS stent and diameter (default 8) |
 | `dips` | `{ on: bool, d: 6–12 }` | direct intrahepatic portosystemic shunt |
 | `portocaval`, `dsrs`, `mesocaval` | boolean | surgical shunts (portocaval, distal splenorenal, mesocaval) |
@@ -392,10 +417,10 @@ Patch only what you need: `params: { drugs: { carvedilol: true } }`.
 
 | `kind` | Fields | Effect |
 |---|---|---|
-| `band` | none | one banding session on the varices (three in an array = eradication) |
-| `paracentesis` | `mL`, `albumin?` | drain ascites (e.g. `8000`) |
+| `band` | none | one banding session on the esophageal varices, at most 4 counted; each shrinks the varix and narrows the coronary-vein channel, and 4 close it. Bands slough over time (about one session's effect lost every 50 days), so varices can recur. A band also stops an esophageal varix bleed |
+| `paracentesis` | `mL`, `albumin?` | drain ascites (e.g. `8000`). With `albumin: true` serum albumin rises 0.3 g/dL per 5 L drained; without it, draining more than 5 L causes post-paracentesis circulatory dysfunction |
 | `hemorrhage` | `mL` | blood loss (e.g. `1000`) |
-| `infuse` | `fluid`: `'crystalloid'` (1 L), `'prbc'`, `'albumin'`, `'plasma'` | infusion; albumin also raises serum albumin by 0.25 |
+| `infuse` | `fluid`: `'crystalloid'` (1 L), `'prbc'`, `'albumin'`, `'plasma'` | infusion, running over 10 to 15 minutes of model time; albumin also raises serum albumin by 0.25 (to at most 4.5) |
 | `rupture` | `site?` (`'VAR'` default), `tear?` (0–1, default 0.6) | a varix tears and bleeds |
 | `stopBleed` | none | bleeding stops (clot) |
 | `valsalva` | `sec?` (default 10) | a Valsalva strain |
@@ -451,34 +476,38 @@ Edge tones used when you glow an id by hand: portal vessels follow their station
 
 ### 8.6 Tiles (`tiles`, `key`, `{token}`, table `cols`)
 
-| Key | Name | Unit | Rating (colour) |
-|---|---|---|---|
-| `hvpg` | HVPG (wedged − free) | mmHg | **amber ≥ 5 ("Mild"), red ≥ 10 ("CSPH")** |
-| `ppg` | PPG (portal − IVC) | mmHg | **amber ≥ 6 ("High"), red ≥ 12 ("Bleed risk")** |
-| `pv` | Portal vein pressure | mmHg | red > 10 |
-| `sin` | Sinusoidal pressure | mmHg | amber ≥ 9, red ≥ 12 |
-| `whvp` | WHVP (wedged hepatic vein) | mmHg | red > 10 |
-| `fhvp` | FHVP (free hepatic vein) | mmHg | red > 8 |
-| `ra` | Right atrium | mmHg | red > 8 |
-| `ivc` | IVC | mmHg | red > 8 |
-| `saag` | SAAG (serum − ascites albumin) | g/dL | ≥ 1.1 portal hypertension |
-| `tp` | Ascites protein | g/dL | < 1.5 flagged (SBP risk) |
-| `asc` | Ascites volume | L | none < 0.15 L; grade 1 < 1.5 L; grade 2 < 5 L; grade 3 tense |
-| `varix` | Esophageal varix diameter | mm | amber ≥ 2.5, red ≥ 5 |
-| `gv` | Gastric varix diameter | mm | same |
-| `spleen` | Spleen length | cm | red > 13 |
-| `plt` | Platelets | × 10³/µL (88 = 88,000/µL) | amber < 150, red < 100 |
-| `pvFlow` | Portal vein flow | L/min | red if reversed |
-| `pvVel` | Portal vein velocity (Doppler, main portal vein) | cm/s | amber < 15 ("Slow"), red < 9 ("Stasis") or reversed |
-| `liver` | Liver flow, % of normal | % | amber < 80, red < 50 |
-| `shunt` | Portal blood bypassing the liver | % | amber ≥ 20, red ≥ 50 |
-| `map` | Mean arterial pressure | mmHg | red < 65 |
-| `hr` | Heart rate | /min | slow < 60, fast > 100 |
-| `lsm` | Liver stiffness (FibroScan) | kPa | amber ≥ 10 ("cACLD"), 15–25 ("Borderline"), red ≥ 25 ("CSPH") |
-| `salb` | Serum albumin | g/dL | amber < 3.5 |
-| `hb` | Hemoglobin | g/dL | amber < 12, red < 7 |
+The ratings mirror `RATE` in `src/ui/table-marks.js` exactly; each judges the value as its tile prints it (4.98 L shows "5.0 L" and reads Grade 3). Amber and red are the tile's colours; a summary table's ↑ and ↑↑ use the same cut-offs (`CUT`).
 
-Status words read in order: Normal, then High (or Low), then Severe; HVPG, PPG and stiffness use their guideline meaning instead (Mild/CSPH, High/Bleed risk, cACLD/Borderline/CSPH). The spleen is Normal or Large.
+| Key | Name | Unit | Normal | Amber | Red |
+|---|---|---|---|---|---|
+| `hvpg` | HVPG (wedged − free) | mmHg | under 5 | 5 or more "Mild" | 10 or more "CSPH" |
+| `ppg` | PPG (portal − IVC) | mmHg | under 6 | 6 or more "High" | 12 or more "Bleed risk" |
+| `pv` | Portal vein pressure | mmHg | 10 or less | over 10 "High" | 15 or more "Severe" |
+| `sin` | Sinusoidal pressure | mmHg | under 9 | 9 or more "High" | 12 or more "Severe" |
+| `whvp` | WHVP (wedged hepatic vein) | mmHg | unrated | | |
+| `fhvp` | FHVP (free hepatic vein) | mmHg | unrated | | |
+| `ra` | Right atrial pressure | mmHg | 8 or less | | over 8 "High" |
+| `ivc` | IVC pressure | mmHg | 8 or less | | over 8 "High" |
+| `saag` | SAAG (serum − ascites albumin) | g/dL | under 1.1 "Not portal" | | 1.1 or more "Portal HTN" |
+| `tp` | Ascites protein | g/dL | under 2.5 "Low", 2.5 or more "High" (both gray) | under 1.5 "SBP risk" | |
+| `asc` | Ascites volume | L | under 0.15 "None" | under 1.5 "Grade 1" | under 5 "Grade 2", 5 or more "Grade 3" |
+| `varix` | Esophageal varix diameter | mm | under 2.5 "None" | 2.5 or more "Small" | 5 or more "Large" |
+| `gv` | Gastric varix diameter | mm | same as `varix` | | |
+| `spleen` | Spleen length | cm | 13 or less | over 13 "Large" | over 16 "Large" |
+| `plt` | Platelets | × 10³/µL (88 = 88,000/µL) | 150 or more | under 150 "Low" | under 100 "Severe" |
+| `pvFlow` | Portal vein flow | L/min | "Hepatopetal" (uncolored) | | below 0 "Hepatofugal"; 0 "No flow" |
+| `pvVel` | Portal vein velocity (Doppler, main portal vein) | cm/s | 15 or more | under 15 "Slow" | under 9 "Stasis"; below 0 "Reversed" |
+| `liver` | Liver flow, % of normal | % | over 75 | 75 or less "Low" | 55 or less "Severe" |
+| `shunt` | Portal blood bypassing the liver | % | under 10 "Small" | 10 or more "Moderate" | 30 or more "Large" |
+| `map` | Mean arterial pressure | mmHg | 65 or more | | under 65 "Low" |
+| `hr` | Heart rate | /min | 60 to 100; under 60 "Slow" is gray, not a warning | | over 100 "Fast" |
+| `lsm` | Liver stiffness (FibroScan) | kPa | under 10 | 10 or more "cACLD", 15 or more "Borderline" | 25 or more "CSPH" |
+| `salb` | Serum albumin | g/dL | 3.5 or more | under 3.5 "Low" | |
+| `hb` | Hemoglobin | g/dL | 12 or more | under 12 "Low" | under 7 "Severe" |
+| `co` | Cardiac output | L/min | unrated, plain bar | | |
+| `bv` | Blood volume | L | unrated, plain bar | | |
+
+Status words: Normal, then High (or Low), then Severe, except where the table names others (HVPG Mild/CSPH, PPG High/Bleed risk, stiffness cACLD/Borderline/CSPH, varices None/Small/Large, shunt Small/Moderate/Large). The spleen reads Large in amber and in red. SAAG and protein read "No ascites", uncolored, when there is under 0.15 L of ascites.
 
 Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; bleeding risk rises steeply from an HVPG of about 12 (rising risk, not a cut-off: varices can bleed below it); PPG normal ≤ 5; Baveno VIII stiffness: < 10 kPa normal, ≤ 15 with platelets ≥ 150 rules CSPH out, 15–25 gray zone (ANTICIPATE ≥ 75% or spleen stiffness ≥ 55 kPa rules it in), ≥ 25 CSPH.
 
@@ -486,7 +515,7 @@ Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; bleeding risk rises 
 
 ## 9. Authoring rules (the house rules)
 
-1. **One idea per slide.** Title stands alone, one sentence in `line`, ≤ 4 `causes`, one card.
+1. **One idea per slide.** Title stands alone, `line` under 45 words, ≤ 4 `causes`, one card. `tests/deck-line-length.test.js` splits each line on spaces and fails any line of 45 words or more (and any deck with more than four objectives); move the extra sentences to `notes`.
 2. **One name per station.** Use the vocabulary in section 6.3 (portal vein, sinusoids/WHVP, hepatic vein/FHVP, IVC, right atrium/RA). Do not rename a station within a deck.
 3. **No repeated pointer.** Never add a `note` mark or label that names what a station label already names on that slide (e.g. VAR is labelled "Varices", so no "Esophageal varices" pointer). `block` and `treat` marks say something new (Clot, Banded varices), so they stay.
 4. **Definitions are fixed:** **HVPG = WHVP − FHVP**, cut-offs **amber 5, red 10**. **PPG = portal vein − IVC**, cut-offs **amber 6, red 12**. In equations write `HVPG = WHVP − FHVP` and `PPG = P_portal vein − P_IVC`. Never define HVPG as portal minus hepatic or PPG as portal minus RA.
@@ -496,11 +525,18 @@ Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; bleeding risk rises 
 8. **Do not add** a Guidelines tab or slide type; there is none. Do not change the original organ colours or organ art (muted hues and procedural lighting were rejected).
 9. **Point only at what has a target** (section 6.3); everything else stays plain or bold.
 10. **Order the patient deliberately.** First slide: `preset` (usually `healthy` or the disease). Later slides continue the same patient; use `params`/`days`/`action` to change it, `delta: true` or `delta: '<id>'` to show what changed. Switch the previous drug flag off when switching drugs.
-11. **Every content slide has** `id`, `kicker`, `title`, `line`, `notes` (2–4 sentences a lecturer can read aloud) and `ask: [question, answer]`. The last slide is a `visual: 'table'` summary under `kicker: 'Summary'` with `of` rows naming the earlier slides, and the deck ends with `checks` (3 or 4 `[question, answer]` pairs; the app adds the quick-check slide).
+11. **Every content slide has** `id`, `kicker`, `title`, `line`, `notes` (2–4 sentences for a learner reading the handout; never instructions to the presenter such as "Give the room a minute") and `ask: [question, answer]` (printed in the handout only). The last slide is a `visual: 'table'` summary under `kicker: 'Summary'` with `of` rows naming the earlier slides, and the deck ends with `checks` (3 or 4 `[question, answer]` pairs; the app adds the quick-check slide).
 12. **Decks:** 6–12 slides, 3–4 `objectives`, ≥ 3 kicker groups or explicit `sections`, `level` one of foundation/core/advanced.
-13. **Style:** plain sentence case, no emoji, American spelling, numbers with units (`mmHg`, `g/dL`, `kPa`), clinically accurate (Baveno VIII, the latest, never Baveno VII; AASLD where US practice differs; US drug choices such as octreotide). Write for the learner, never the instructor, in full grammatical sentences that read like a clinician-teacher at the bedside (`docs/ai-humanizer.md`). Use proper clinical shorthand ("OCP use", never "on the pill"). Never write "our patient" or "the patient we just measured", and never an ambiguous "this patient": say "in this case, the HVPG is…" or use the case's own description. Say **resistance** (site labels and running prose), not "block" or "obstruction", for where pressure is lost; drug and procedure uses such as "blocks α1 receptors" stay. (The code's `kind: 'block'`, `block:` and `callout` names are fine; only learner-facing text is affected.) Word thresholds as rising risk, not a cliff.
-14. **No new furniture by hand.** The app adds the deck's name tab in the card's corner, the site tag above the title (decks covering more than one `site`), disease-name pills (list in `src/ui/diseases.js`), the Outline slide, the quick check and the corner credit. Do not write them into lines or titles.
+13. **Style:** plain sentence case, no emoji, American spelling, numbers with units (`mmHg`, `g/dL`, `kPa`), clinically accurate (cite Baveno VIII, J Hepatol 2026, never Baveno VII; AASLD 2024 where US practice differs, for a US audience; US drug choices such as octreotide). Write for the learner, never the instructor, in full grammatical sentences that read like a clinician-teacher at the bedside (`docs/ai-humanizer.md`). Use proper clinical shorthand ("OCP use", never "on the pill"). Never write "our patient" or "the patient we just measured", and never an ambiguous "this patient": say "in this case, the HVPG is…" or use the case's own description. Say **resistance** (site labels and running prose), not "block" or "obstruction", for where pressure is lost; drug and procedure uses such as "blocks α1 receptors" stay, and established names keep their wording (sinusoidal obstruction syndrome, hepatic outflow obstruction). (The code's `kind: 'block'`, `block:` and `callout` names are fine; only learner-facing text is affected.) Word thresholds as rising risk, not a cliff.
+14. **No new furniture by hand.** The app adds the deck's name tab in the card's top right corner, the level tab in its top left corner (decks covering more than one `site`), disease-name pills (list in `src/ui/diseases.js`), the Outline slide, the quick check and the corner credit. Do not write them into lines or titles.
 15. Presenter shows pressure unless a slide sets `lens` (section 5.2), and keeps the app's own N, S, L keys off while presenting; there are **no card or test-type fields on slides**: the nearest are `tool.kind` and `visual` (section 7).
+16. **Design rules, not gaps (owner's decisions).** `ask` and `notes` print only in the handout, never on screen. The figure is read-only while a talk plays: no dye, vessel card or Explore tools without leaving the talk. Do not write a slide that asks the room to tap, inject or explore, and do not ask for these to be added.
+17. **Name what you mean (Mohammad, 18 Oct).** Every line names its subject: no bare "both drugs", "it" or "this patient"; name the drug, the vessel, the patient ("propranolol and carvedilol", "the portal vein", "in this case"). No filler "also" or "again". Explain a mechanism once per talk; later slides lead with the new numbers. Follow `docs/ai-humanizer.md`.
+18. **HVPG 12 is not a cut-off.** Say the bleeding risk climbs from about 12 mmHg (varices can bleed below it). The pressure chart's "Can bleed 12" label is deliberate; leave it.
+19. **Respect what the model does at once.** In the model, varix size and liver stiffness follow the pressure gradient within seconds (in patients both change slowly). So a drug or other quick-change slide must not show `varix`, `gv` or `lsm` tiles as its effect; show `map` and `hr` (or the pressures) instead.
+20. **A time-lapse with its own `preset` carries `params`** (`params: {}` is enough), or it plays from the previous slide's patient; word its line as the end point, since its `{tokens}` show the end values (section 4).
+21. **Summary tables:** every `cols` key needs a heading in `COLS` (`src/ui/table-marks.js`); `tests/deck-review-bugs.test.js` checks it.
+22. **New decks need handout figures:** run `node scripts/handout-figures.mjs <id>` (it writes `brand/handout/<id>/<slide id>.webp`); `tests/handout.test.js` fails while a slide has none, or while a figure belongs to no slide (a renamed or removed slide).
 
 ---
 
@@ -540,17 +576,17 @@ export const MYDECK = {
       data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'], // or data: 'ladder', key: ['hvpg', 'ppg']
       // delta: true, tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, step: 0.05, ends: ['None', 'Occluded'] },
       kicker: 'Group name', site: 'pre', title: 'A headline that stands alone',
-      line: 'One sentence with [portal vein](pv) pointing at the figure and the live value {pv}, above {>=10 mmHg} the rule.',
+      line: 'Under 45 words with [portal vein](pv) pointing at the figure and the live value {pv}, above {>=10 mmHg} the rule.',
       // causes: ['…', '…'],
-      notes: 'Two to four sentences of speaker notes.',
-      ask: ['Question for the room?', 'Expected answer.'],
+      notes: 'Two to four sentences for a learner reading the handout (never shown on screen).',
+      ask: ['Question printed in the handout?', 'Expected answer.'],
     },
     // … more slides …
     {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'first', title: 'The patient' }],
       kicker: 'Summary', title: 'What to remember',
-      line: 'One sentence that sums the deck up.',
+      line: 'A short line that sums the deck up.',
       notes: 'Closing notes.',
       ask: ['Closing question?', 'Answer.'],
     },
@@ -614,7 +650,7 @@ export const CLOT_DEMO = {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'plt'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'clot', kicker: 'Portal vein', title: 'Acute thrombosis' }, { id: 'cavernoma', kicker: 'Portal vein', title: 'Cavernoma' }],
       kicker: 'Summary', title: 'A clot before the liver',
-      line: 'The HVPG stays normal in both; the PPG rises when the portal vein itself carries the resistance.',
+      line: 'The HVPG stays normal with an acute clot and with a cavernoma; the PPG rises when the portal vein itself carries the resistance.',
       notes: 'Pre-hepatic resistance raises the pressure upstream of the liver and leaves the sinusoids alone. The HVPG is normal and the liver works.',
       ask: ['Which pressure reading is normal in every case of pre-hepatic resistance?', 'The HVPG.'],
     },
@@ -635,11 +671,11 @@ export const CLOT_DEMO = {
    * Add it to `TOPICS` (the unified menu) under exactly one topic, with a short title of **32 characters or fewer** and a short deck name of **20 or fewer**:
      `['causes', 'Causes', [ …, ['clot-demo', 'A clot in the portal vein', 'Portal vein clot'] ]]`.
      Topics, in order: `foundations`, `causes`, `measuring`, `complications`, `treatment`. A deck missing from `TOPICS` fails the menu test.
-3. **Check it:** `npm run lint && npm test`. Among the tests that guard a deck: every deck is listed once under a topic with a short title and its own short deck name (`menu`); every slide's `ask[0]` appears in the printed handout (`handout`); a term a slide gives is named by its line and no slide loses a pill (`deck-terms`); a line that sets a live HVPG or PPG beside a threshold matches the patient the slide shows (`deck-thresholds`, with a hand-checked exceptions list at its top); site tags and disease pills (`site-tags`, `disease-pills`); every case card is under 220 characters on a slide with a preset (`case-card`).
+3. **Check it:** `npm run lint && npm test`. Among the tests that guard a deck: every deck is listed once under a topic with a short title and its own short deck name (`menu`); every slide's `ask[0]` and `notes` appear in the printed handout, and every slide has its handout figure (`handout`); no line reaches 45 words and no deck has more than four objectives (`deck-line-length`); every table column has a heading (`deck-review-bugs`); a term a slide gives is named by its line and no slide loses a pill (`deck-terms`); a line that sets a live HVPG or PPG beside a threshold matches the patient the slide shows (`deck-thresholds`, with a hand-checked exceptions list at its top); site tags and disease pills (`site-tags`, `disease-pills`); every case card is under 220 characters on a slide with a preset (`case-card`).
 4. **Stamp scripts:** `npm run stamp` rewrites the `?v=` hashes (required whenever a script file changed; a stale stamp fails the unit job and skips the deploy).
-5. **Optional deck-picker stills:** `node scripts/deck-stills.mjs <id>` writes `brand/decks/<id>-light.webp` and `-dark.webp` (200×250); run it after the deck exists.
+5. **Handout figures:** `node scripts/handout-figures.mjs <id>` draws each slide's figure for the printed notes (`brand/handout/<id>/`); run it after the deck exists and again when a slide is renamed, removed or changes its look. (`scripts/deck-stills.mjs` still writes deck-picker stills to `brand/decks/`, but nothing in the app shows them now; skip it.)
 6. **Preview:** follow `AGENTS.md` (the single source of truth for the preview workflow). In short: pushing the integration branch `claude/settings-topbar-icon-flvft1` publishes `/preview/` at https://qaddodi.github.io/portal-pressure-simulator/preview/ . Rebase on the latest preview right before pushing, never force-push, grep for conflict markers, never push to `main` (the owner merges), and check the "Pages (live site + preview)" deploy job succeeded.
-7. **Test on the preview:** Present menu → pick the deck. In the app: ←/→ step, G lists the slides, B blacks the screen, ? opens the Guide with every presenter key.
+7. **Test on the preview:** Present menu → pick the deck (Present, Resume n / N, Copy link, Print notes). In the talk: → Space Enter ↓ Page Down step on, ← ↑ Page Up Backspace step back, a number then Enter jumps, Home and End, G lists the slides, B, W or . blacks the screen, F full screen, Esc ends; ? opens the Guide with every presenter key. A deep link `?script=<id>&slide=<n>` opens a deck at a slide.
 
 **Alternative with no code:** an instructor can capture slides inside the app (stored in the browser as "Yours"); those support only `preset, presetDays, params, action, days, view, cam, kicker, title, line, causes, site, notes, ask, key` and always show the ladder. Full decks need the file route above.
 
@@ -649,7 +685,7 @@ export const CLOT_DEMO = {
 
 **A full deck file (sections 2 to 11) can be imported in the app.** Menu › Present › "Your scripts" › **Import** opens a dialog: choose a file (`.js` deck, or `.json` deck or script) or paste its contents, then "Add to your scripts". The deck keeps every feature (term pills, live values, marks, tools, visuals, time-lapses) and is stored in the browser (`pps.scripts`) on that device only.
 
-The `.js` is **read as data, never run** (`src/ui/deck-source.js`). It accepts what the built-in decks use: `const` declarations, `export const` / `export default`, objects, arrays, strings and template literals, numbers, spreads, `+ - * / %`, comparisons, `&& || ??`, `? :`, arrow functions with an expression body (`(x) => …`, `(d) => ({ … })`), and the array methods `map filter flatMap concat slice join includes some every find`. `mi mo mn sub frac` are built in, so a deck may use them without defining them. Refused, with the line number: `import`, `function` declarations, block-bodied arrows, `new`, `this`, globals (`window`, `document`, `Math`, …), methods other than those listed, and `__proto__ / constructor / prototype`. The deck is the exported object with a `slides` array (else the last such `const`); it needs a `title`, and each slide a `title`. Import adds a copy each time; "Export" writes it back as JSON, which imports again.
+The `.js` is **read as data, never run** (`src/ui/deck-source.js`). It accepts what the built-in decks use: `const` (and `let`, `var`) declarations, `export const` / `export default`, objects, arrays, strings and template literals, numbers, spreads, `+ - * / %`, comparisons, `&& || ??`, `? :`, arrow functions with an expression body (`(x) => …`, `(d) => ({ … })`), the array methods `map filter flatMap concat slice join includes some every find`, `.length` of an array or string, and optional chaining `?.`. `mi mo mn sub frac` are built in, so a deck may use them without defining them. Refused, with the line number: `import`, `function` declarations, block-bodied arrows, `new`, `this`, globals (`window`, `document`, `Math`, …), methods other than those listed, and `__proto__ / constructor / prototype`. The deck is the exported object with a `slides` array (else the last such `const`); it needs a `title`, and each slide a `title`. Import adds a copy each time; "Export" writes it back as JSON, which imports again.
 
 The older **script** format (below) is still accepted, and a shared link `…/#script=<encoded>` adds a script or an imported deck to the recipient's library.
 
@@ -662,7 +698,7 @@ Script file (`*.pps-script.json`):
   "steps": [                                  // required array; each step becomes one slide
     {
       "title": "Slide headline", "kicker": "Group", "line": "One sentence.",
-      "notes": "Speaker notes.", "ask": ["Question?", "Answer."],
+      "notes": "Notes for the handout.", "ask": ["Question?", "Answer."],
       "preset": "cirr-decomp", "presetDays": 0,
       "params": { "drugs": { "carvedilol": true } }, "action": { "kind": "band" }, "days": 30,
       "view": "anatomic", "cam": "portal",
@@ -682,7 +718,7 @@ Script file (`*.pps-script.json`):
 
 ## 14. Case cards
 
-A **case card** opens a new patient with a short clinical case. When the talk moves forward onto a slide that brings in a new patient, a centred frosted-glass card (the same glass as the other cards) covers the figure. It holds a small **Case** pill and the case text, nothing else (no numbers, no site tag). Behind the card the new patient loads and the camera glides, once, straight to the framing of the slide that follows (the lobule included); **Next, a tap on the card or a swipe** lifts the card, and the teaching card and data card come in with no further camera move. A tap, Next or swipe *while the patient is still loading* only lifts the card and lands on that same slide; it never skips ahead.
+A **case card** opens a new patient with a short clinical case. When the talk moves forward onto a slide that brings in a new patient, a centred frosted-glass card (the same glass as the other cards) covers the figure. It holds a small **Case** pill and the case text, nothing else (no numbers, no site tag). Behind the card the camera eases out to the whole patient and holds still while the new patient eases in around the card; **Next, a tap on the card or a swipe** lifts the card, the camera makes one eased zoom to the slide's own framing (the lobule included), and the teaching card and data card come in once it has landed. A tap, Next or swipe *while the patient is still loading* only lifts the card and lands on that same slide; it never skips ahead.
 
 ### Adding one
 
@@ -707,7 +743,7 @@ No new code is needed: the presenter reads `vignette` itself (`caseRun` in `src/
 * **A deck's first slide** can carry one. The app then lets that slide load its own patient afresh behind the card (normally the first slide keeps the patient the Outline slide already shows, and its model fields move onto the Outline). The Outline slide still shows the same patient, so the figure does not change between them. The first slide must have a `preset` and no `lapse` or `ramp`.
 * **A single-patient deck** (for example HVPG) gets one case, at the start.
 * **No case on:** healthy reference slides, comparison tables and ladders (`visual` slides, `of` rows), summaries, the Outline and quick-check slides (the app builds those), and the **Circuit** and **Circulation** decks (the owner's decision: they teach the model itself, not a patient).
-* **Going forward only.** The card shows when the talk moves forward onto the slide (a step or a jump ahead) and the slide loads a new patient. Stepping back onto it shows the slide without the card. A slide with its own `lapse` never shows one, so do not put a case on a time-lapse slide.
+* **Going forward only.** The card shows when the talk moves forward onto the slide (a step or a jump ahead) and the slide loads a new patient. Stepping back onto it shows the slide without the card, and so does the slide a talk starts or resumes on. A slide with its own `lapse` never shows one, so do not put a case on a time-lapse slide.
 * Sites and causes has six cases (one per level); most other decks have one to seven.
 
 ### Writing the case
@@ -721,5 +757,5 @@ No new code is needed: the presenter reads `vignette` itself (`caseRun` in `src/
 ### Checking one
 
 * Count the characters: under 220, spaces included. `tests/case-card.test.js` does it for every deck.
-* Read it against the slide's tiles and figure on the preview: Present menu, pick the deck, step to the slide with Right arrow or Next; the card appears, the figure behind it shows the new patient already at the slide's framing, and Next lifts it.
+* Read it against the slide's tiles and figure on the preview: Present menu, pick the deck, step to the slide with Right arrow or Next; the card appears over the whole new patient, and Next lifts it and zooms to the slide's framing.
 * Stepping back onto the slide must show no card.
