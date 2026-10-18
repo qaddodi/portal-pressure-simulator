@@ -481,8 +481,10 @@ Round-1 items that are still open:
    - **Draw check:** the figure draws vessels. Count non-paper pixels in the figure region on the GPU path, at the home view
      and zoomed.
    - **Equivalence check:** a width step and a full update agree. Freeze the clock, force a full update right after a width
-     step, and assert no DOM or GPU-row difference (the H1 audit's `equiv.mjs`). Also check that a paused figure goes to
-     sleep after a lens switch.
+     step, and assert no DOM or GPU-row difference. Ready to use: `docs/review-round2/width-equiv.mjs` (save it as
+     `tests/e2e/width-equiv.mjs`). It passes on `7664abf` and with `breathing-widths.diff`, and fails, naming the stale
+     vessels, when the width step skips its GPU sync or its stroke writes. Also check that a paused figure goes to sleep
+     after a lens switch.
 
    `tests/width-step.test.js` and `tests/veins-tint.test.js` only read source text. Keep them, but don't rely on them for the
    figure.
