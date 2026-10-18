@@ -632,7 +632,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const win = coarse.filter((x) => x.t >= first.t && x.t < first.t + 1 && x.v.hvpg);
       const now = coarse.filter((x) => x.t >= lastT - 1 && x.v.hvpg);
       const mean = (bs) => bs.reduce((a, b) => a + b.v.hvpg[2] / b.v.hvpg[3], 0) / bs.length;
-      if (win.length && now.length) { d = mean(now) - mean(win); over = lastT - first.t > 100 ? 'in 2 min' : `in ${Math.round(lastT - first.t)} s`; }
+      if (win.length && now.length) { d = mean(now) - mean(win); over = lastT - first.t > 100 ? 'in 2\u00a0min' : `in ${Math.round(lastT - first.t)}\u00a0s`; }   // (a number keeps its unit: never "43" over a lone "s")
     }
     const flat = d == null || Math.abs(d) < 0.4;
     const dt = d == null ? '' : flat ? `Steady ${over}` : `${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d), 1)} ${over}`;

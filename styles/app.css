@@ -4699,6 +4699,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace .pt-chips .pt-chip { height: 24px; padding: 0 7px; gap: 4px; font-size: var(--fs-12); }
   .instrument-workspace .pt-head { row-gap: 4px; }
   .instrument-workspace .pt-head :is(.pt-range, .pt-smooth) { height: 28px; }
+  .instrument-workspace .pt-head .pt-range button { min-height: 0; padding-block: 0; }   /* (the pill fills its 28 px track, centred like the view switch above it; a touch screen's 36 px floor pushed it below) */
 }
 /* Tests card: each picture keeps its own shape (Doppler and HVPG wide, FibroScan square). Its box takes the
    shape's height and gives some back if the card is short; the picture fits inside, centred, never stretched. */
