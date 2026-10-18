@@ -1089,6 +1089,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         // (After a key, first the move has to begin: the old slide's words leave before it, which on a loaded software
         // renderer can hold the view as it was for longer than the stillness looked for below.)
         if (from) for (let t0 = Date.now(); (await viewKey()) === from && Date.now() - t0 < 60000;) await page.waitForTimeout(400);
+        // (A case card holds the slide's own zoom until it is tapped away, as a person does (3c79c6f): tapped once it shows, and the
+        // slide waited for as gotoSlide does.)
+        if (from && !explore) await page.waitForFunction(() => { document.querySelector('.pz-case.on')?.click(); return !window.pps.presenter.busy(); }, null, { timeout: 120000, polling: 100 });
         let last = '', same = 0;
         for (let i = 0; i < 120 && same < 6; i++) {
           await page.waitForTimeout(400);
