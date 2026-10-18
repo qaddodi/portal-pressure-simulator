@@ -21,14 +21,14 @@
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
 import { store } from './store.js?v=31ee79b6ab';
-import { h, fmt, clamp } from './util.js?v=203ece360c';
+import { h, fmt, clamp } from './util.js?v=48e920f20a';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=fa65509530';
-import { createFibroScan } from './fibroscan.js?v=223eb21a05';
-import { createPressureTime } from './pressure-time.js?v=42a128a1d4';
+import { createDoppler } from './doppler.js?v=b221f78b41';
+import { createFibroScan } from './fibroscan.js?v=d5ce96f9e7';
+import { createPressureTime } from './pressure-time.js?v=d3051adb2c';
 import { createFlowTime } from './flow-time.js?v=c72a4a2873';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=5177900e56';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=26fba45221';
 import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('presenter-tools');
 

@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=25be84943e';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=2ab8941fbc';
+import { createStage } from './stage.js?v=50d3451e65';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
-import { sinusoidSupported } from './sinusoid-view.js?v=d95817cc4b';
-import { createInspector } from './inspector.js?v=d8b852287f';
-import { createDock, CUTOFFS } from './dock.js?v=9997330d6d';
-import { setHvpgStage } from './hvpg-proc.js?v=121f5b727e';
-import { createWhy } from './why.js?v=948733bee9';
-import { createTimeline, LAPSES } from './timeline.js?v=b9b311c591';
-import { createCompare } from './compare.js?v=f0458b0046';
-import { createCard } from './card.js?v=328d42e5b1';
-import { createChart } from './chart.js?v=185f8837a7';
-import { createMenu } from './menu.js?v=02cbdf321a';
-import { caption } from './a11y.js?v=8dfe1bb288';
+import { sinusoidSupported } from './sinusoid-view.js?v=4a8028fb90';
+import { createInspector } from './inspector.js?v=d5291b3c48';
+import { createDock, CUTOFFS } from './dock.js?v=2386c7ef30';
+import { setHvpgStage } from './hvpg-proc.js?v=7a0e32244d';
+import { createWhy } from './why.js?v=46127ea964';
+import { createTimeline, LAPSES } from './timeline.js?v=cf39040bc2';
+import { createCompare } from './compare.js?v=eb6e2d4561';
+import { createCard } from './card.js?v=34cad5356d';
+import { createChart } from './chart.js?v=d55648abbe';
+import { createMenu } from './menu.js?v=808b51dc50';
+import { caption } from './a11y.js?v=40c63e2ae4';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=2e80ec5d3d';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=7b176104a2';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=2f3b27b41d';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=497f25528b';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=203ece360c';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=48e920f20a';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=3fc09dc4c6';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=7e4c9edd96';
 import { initTopbarMotion } from './topbar-motion.js?v=9d25839df1';
 import { ORIGINS } from './blood.js?v=b0e8934683';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=332e2ae2f9'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=c651ae6a3d'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -174,7 +174,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=b01c7cc9bf'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=5f8613a164'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1909,7 +1909,8 @@ function showFirstHint() {
 }
 // The feedback ask: after FEEDBACK_ASK_MIN minutes of active use in one visit (the page visible and a touch, click, key or
 // scroll within the last minute), a message card asks for feedback, once per device; "Not now" (or dismissing it) asks once
-// more on a later visit, then never again. It waits out a drag, a talk and projector mode, and never pauses the model.
+// more on a later visit, then never again. Only the person's own answer counts: a card pushed out by newer messages
+// asks again after another FEEDBACK_ASK_MIN active minutes. It waits out a drag, a talk and projector mode, and never pauses the model.
 const FEEDBACK_ASK_MIN = 10;
 const ASK_KEY = 'pps.feedbackAsk';   // (absent: never asked · 'later': asked once, once more on a later visit · 'done')
 function armFeedbackAsk() {
@@ -1934,7 +1935,10 @@ function armFeedbackAsk() {
     const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch { /* storage unavailable */ } };
     toast('Anything look wrong or confusing so far? A short email helps the author fix it.', '', { sticky: true,
       actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
-      onClose: () => { try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch { /* storage unavailable */ } } });
+      onClose: (why) => {
+        if (why === 'pushed') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
+        try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch { /* storage unavailable */ }
+      } });
   };
   timer = setInterval(tick, TICK);
 }

@@ -89,7 +89,8 @@ export function uiScale() {
 
 // Messages show as a card at the top, below the bars, never over the bottom bar.
 // opts: actions, [[label, fn], …] as buttons after the words (a tap runs it and closes the card); sticky, stays until
-// dismissed; onClose, called once when it goes. Returns a function that closes it.
+// dismissed; onClose, called once when it goes, with 'pushed' when newer messages pushed it out (else 'user': the
+// person's own tap, × or swipe, or the caller closing it). Returns a function that closes it.
 // A toast that has played its way out leaves, and the ones below it glide up into its place (they jumped).
 function dropToast(t) {
   const wrap = t.parentElement;
@@ -111,7 +112,7 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   // One message at a time reads calmer than a growing stack. (The oldest leaves through its own close, so it fades out
   // and the one left glides into its place, rather than vanishing mid-exit: P19.)
   const stay = [...wrap.children].filter((c) => !c.classList.contains('leaving'));
-  while (stay.length >= 2) { const o = stay.shift(); if (o._close) o._close(); else o.remove(); }
+  while (stay.length >= 2) { const o = stay.shift(); if (o._close) o._close('pushed'); else o.remove(); }
   // A card slides down from behind the top bars and settles just below them (below every row on a phone).
   const bars = document.getElementById('topbar');
   const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
@@ -122,7 +123,7 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   }
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
   let timer = 0, gone = false;
-  const close = () => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(); t.classList.add('leaving'); setTimeout(() => dropToast(t), 340); };
+  const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); setTimeout(() => dropToast(t), 340); };
   t._close = close;
   if (actions?.length) {
     t.classList.add('has-acts');
@@ -135,13 +136,13 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   const x = h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
   x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
   t.append(x);
-  t.addEventListener('click', close);
+  t.addEventListener('click', () => close());
   // Swipe down (or sideways) to dismiss.
   let sx = 0, sy = 0;
   t.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
   t.addEventListener('pointerup', (e) => { if (Math.abs(e.clientY - sy) > 18 || Math.abs(e.clientX - sx) > 40) close(); });
-  // (A card pushed out by newer ones still counts as closed.)
-  if (onClose) new MutationObserver((_, ob) => { if (!t.isConnected) { ob.disconnect(); if (!gone) { gone = true; clearTimeout(timer); onClose?.(); } } }).observe(wrap, { childList: true });
+  // (A card pushed out by newer ones still counts as closed, as pushed out.)
+  if (onClose) new MutationObserver((_, ob) => { if (!t.isConnected) { ob.disconnect(); if (!gone) { gone = true; clearTimeout(timer); onClose?.('pushed'); } } }).observe(wrap, { childList: true });
   wrap.append(t);
   // Fill the docked card: the largest size that fits, stepping down for longer text, never clipped.
   if (wrap.classList.contains('docked')) {

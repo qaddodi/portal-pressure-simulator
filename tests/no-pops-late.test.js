@@ -39,7 +39,7 @@ test('lists update in place, toasts leave through their own exit (P18, P19)', ()
   assert.match(read('src/ui/chart.js'), /el\.dataset\.row = k/);
   assert.match(read('src/ui/timeline.js'), /'data-row': `\$\{e\.t\}/);
   assert.doesNotMatch(read('src/ui/timeline.js') + read('src/ui/chart.js'), /'data-key'|dataset\.key/);
-  assert.match(util, /while \(stay\.length >= 2\) \{ const o = stay\.shift\(\); if \(o\._close\) o\._close\(\); else o\.remove\(\); \}/);
+  assert.match(util, /while \(stay\.length >= 2\) \{ const o = stay\.shift\(\); if \(o\._close\) o\._close\('pushed'\); else o\.remove\(\); \}/);
 });
 
 test('popovers and figure pieces fade out instead of vanishing (P20, P21, P23)', () => {
