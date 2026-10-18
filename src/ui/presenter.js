@@ -20,11 +20,11 @@ import { sinusoidSupported } from './sinusoid-view.js?v=e697524289';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=a6b2ad6236';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=17a95feee0';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=daf94219c0';
 import { createTools } from './presenter-tools.js?v=4f45ba22ca';
-import { openHandout } from './handout.js?v=95026eb257';
+import { openHandout } from './handout.js?v=d25b4e8d53';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=e25caf9bf9';
@@ -1129,7 +1129,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=80c60be020', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=869d5cb860', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1142,7 +1142,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=2945437dac');
+        const { createCore } = await import('../worker-core.js?v=c0cfc5e1c9');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1309,7 +1309,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // The station this slide frames: the dive lands on it in one move, and (mid-dive) no other station's labels show.
       const part = cam === 'sinusoid' ? 'sinusoid' : cam.split(':')[1] || 'fit', zoom = s.zoom ?? 2.3;
       if (!store.get().lobule) {
-        // Anatomy into the lobule's normal framing first (the same dive every time); the station, or the sinusoid, is gone to from there.
+        // Anatomy straight down to the slide's station (aim: the dive lands on it in one move, its labels laid out only there, never
+        // a stop at the whole lobule first); the sinusoid is gone to from the lobule's normal framing.
+        if (cam !== 'sinusoid') stage.lobuleAim(part, { zoom });
         store.set({ lobule: true });
         // (A first dive also loads the lobule, which a slow tablet can take several seconds over.)
         await until(() => cut() || (stage.lobuleSettled() && stage.lobuleOpen()), 12000);
