@@ -2,14 +2,14 @@
 // varix cross-section, abdomen.
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { pressureColor } from './colormap.js?v=9e13050734';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=8f78c493e2';
+import { pressureColor } from './colormap.js?v=493baf3df2';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon } from './util.js?v=cbadfc09b2';
 import { simTime, isPaused } from './clock.js?v=520596240b';
-import { createEndoGL } from './endo-gl.js?v=45c4cd6885';
-import { renderEndo } from './endo-render.js?v=7368336f70';
+import { createEndoGL } from './endo-gl.js?v=6d01dbb5b8';
+import { renderEndo } from './endo-render.js?v=096283a9ac';
 import { endoGrow } from './endo-size.js?v=824631d0bc';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from './endo-motion.js?v=fdca92fc81';
-import { FONT } from './charts.js?v=6c730aa7db';
+import { FONT } from './charts.js?v=41abfa9bdf';
 import { store, updateParams, varicesPresent } from './store.js?v=31ee79b6ab';
 import { balanceHold } from './balance-hold.js?v=ea4d9121d2';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
@@ -106,8 +106,9 @@ export function createEndoscopy({ onAction }) {
     const now = simTime() * 1000, dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now; // sim clock: frozen while paused
     // The field shows the varix over the beat, not each beat's swell: the model's size and wall stress rise and fall with every
     // heartbeat, and following them redrew the whole shaded field many times a second (a browser without a GPU spent a second on
-    // each redraw and its page stopped answering), while the comment above promises a steady view. Averaged over about a second.
-    const kb = 1 - Math.exp(-dt / 1.2);
+    // each redraw and its page stopped answering), while the comment above promises a steady view. Averaged over about four seconds,
+    // a breath and more: over one second the breath's swell still crossed the field's steps every second or two.
+    const kb = 1 - Math.exp(-dt / 4);
     if (!mv) mv = { d: vx.d, ratio: vx.ratio };
     else { mv.d += (vx.d - mv.d) * kb; mv.ratio += (vx.ratio - mv.ratio) * kb; }
     const gNow = endoGrow(mv.d); // (endo-size.js: a large varix, 5 mm or more, is drawn plainly large)
