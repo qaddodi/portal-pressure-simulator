@@ -3,16 +3,16 @@
 
 import { store, hiddenNow } from './store.js?v=31ee79b6ab';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, swapFade } from './util.js?v=6b731e337e';
-import { lobuleFlows } from './lobule-model.js?v=090e2f7fcb';
-import { createProfile } from './charts.js?v=9426ca6604';
-import { createPressureTime } from './pressure-time.js?v=04e3f4c1ac';
-import { createFibroScan } from './fibroscan.js?v=84905a2856';
-import { createHvpgProcedure } from './hvpg-proc.js?v=32539caf92';
-import { createDoppler } from './doppler.js?v=fecb113043';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, swapFade, scrollBehavior, countTo, swapText } from './util.js?v=2de12f3227';
+import { lobuleFlows } from './lobule-model.js?v=567bf47327';
+import { createProfile } from './charts.js?v=40a6a52235';
+import { createPressureTime } from './pressure-time.js?v=2848be9393';
+import { createFibroScan } from './fibroscan.js?v=40ebeeb930';
+import { createHvpgProcedure } from './hvpg-proc.js?v=09a8365f18';
+import { createDoppler } from './doppler.js?v=f13f60e6c8';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=bb9387ec09';
-import { createReadoutsPane } from './readouts-pane.js?v=5e62c6f260';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=087deef6ba';
+import { createReadoutsPane } from './readouts-pane.js?v=110db0a6eb';
 import { frameFor } from './frame.js?v=67ca200c87';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';
@@ -21,7 +21,6 @@ import { compareRows } from './idle-keys.js?v=27f599b5bc';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
-const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -223,22 +222,23 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const raw = lz ? (st0.imaging ? null : t.v(f, st0)) : readoutValue(t, m, hidden);
       // The beat swings every value a little: the tile shows a running mean (about a second), so the
       // number stays steady; a real step (beyond a tenth of the scale) or a paused model shows at once.
-      let v = raw;
+      let v = raw, eased = false;
       const live = !lz && t.id in gap && raw != null && raw === t.v(m) && gap[t.id] != null;   // (a live gradient, not a measured one)
-      if (live) v = gap[t.id];
-      else if (raw != null && x.sm != null && st0.running && t.scale && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200);
+      const near = (a) => a != null && x.sm != null && st0.running && t.scale && Math.abs(a - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0]);
+      if (live) { v = gap[t.id]; eased = near(v); }
+      else if (near(raw)) { v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200); eased = true; }
       x.sm = v; x.smT = now;
       if (!lz) setShown(t.id, v);
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
-        setText(x.val, '?');
+        countTo(x.val, null);
         s = 'Not measured';
         sev = 'none';
         x.hist.length = 0;
       } else {
-        const txt = fmt(v, t.d);
-        setText(x.val, txt);
+        // (A step the running mean doesn't ease, a paused edit or a treatment, rolls to the new number: P17.)
+        countTo(x.val, v, t.d, { eased });
         const a = lz ? [f, st0] : [m], vs = shownOf(v, t.d);   // (the word judges the number shown: "5.0 L" is Grade 3)
         s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(vs, ...a);
         sev = t.st(vs, ...a);
@@ -248,7 +248,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       }
       el.classList.toggle('hidden-val', v == null);
       const trend = v == null || measured ? '' : trendOf(x, v, now);
-      if (trend !== x.trend) { x.trend = trend; x.tr.textContent = trend === 'up' ? '▲' : trend === 'down' ? '▼' : ''; }
+      if (trend !== x.trend) { x.trend = trend; swapText(x.tr, trend === 'up' ? '▲' : trend === 'down' ? '▼' : ''); }
       // Compare: each tile reports its change from the pinned moment in place of the status word.
       if (A && v != null && !measured) {
         const d = v - (lz ? (st0.compareSnap.frame ? t.v(st0.compareSnap.frame, st0) : v) : t.v(A));
@@ -268,14 +268,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
           el.dataset.sev = sev; x.sev = sev;
         }
       } else x.sevNext = null;
-      if (sev === x.sev && x.st.textContent !== s) { x.st.textContent = s; x.st.classList.toggle('unmeas', v == null); }
+      if (sev === x.sev) { const un = v == null; swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
       const aria = `${t.title || t.k}: ${v == null ? 'not measured' : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; el.setAttribute('aria-label', aria); }
     }
     for (const x of vitEls) {
       const hid = hidden?.has(x.v.hideKey);
       const r = vitalReading(x, m, st0.running, now);
-      setText(x.val, hid ? '?' : fmt(r.v, x.v.d));
+      countTo(x.val, hid ? null : r.v, x.v.d, { eased: st0.running });
       x.el.classList.toggle('bad', !hid && r.bad);
     }
   }
@@ -425,7 +425,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // (The pane that slid in is already in place: it must not play its entrance again once the drag's classes go, a blink.)
       if (go) s.nb?.classList.add('landed');
       clearSwipe([s.cur, s.nb]);
-      if (go) { pick(TABS[s.j]); tabEls[TABS[s.j]].b.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); }
+      if (go) { pick(TABS[s.j]); tabEls[TABS[s.j]].b.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: scrollBehavior() }); }
     };
     const timer = setTimeout(done, 250);
     settle = done;
@@ -602,13 +602,25 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     layout();
     tabs.querySelector(`.instr-tab:not([data-instrument="${tabOf(open[0])}"])`)?.focus();
   }
+  function paneOut(el, top) {
+    for (const a of el.getAnimations()) if (a.id === 'pane-out') a.cancel();
+    el.classList.add('pane-out'); el.scrollTop = top;
+    const a = el.animate([{ opacity: 1 }, { opacity: 0 }], { id: 'pane-out', duration: 150, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+    const done = () => { if (el.getAnimations().includes(a)) a.cancel(); el.classList.remove('pane-out'); };
+    a.finished.then(done, () => el.classList.remove('pane-out'));
+  }
   function pick(id) {
     if (picking && id !== tabOf(open[0])) { open = [open[0], id]; endPick(); layout(); return; }
     endPick();
     // A tab shows that instrument alone (the Pressure tab keeps the view it was on).
+    const was = open.length === 1 ? body.querySelector('.dock-pane.active') : null, top = was?.scrollTop || 0;
     open = [open.find((x) => tabOf(x) === id) || id];
     if (state === 'peek') setState('open');
     layout();
+    // A tapped tab crossfades: the pane it leaves stays where it was and fades out over the new one fading in (P13). A pane
+    // swiped into place (.landed) has already slid the old one away.
+    const now = body.querySelector('.dock-pane.active');
+    if (was && now && now !== was && !was.classList.contains('active') && !now.classList.contains('landed') && was.animate) paneOut(was, top);
     for (const p of workspace.querySelectorAll('.dock-pane.landed:not(.active)')) p.classList.remove('landed');
     workspace.querySelector('.dock-body')?.scrollTo?.(0, 0);
   }

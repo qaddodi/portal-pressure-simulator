@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=a11d7ef88d';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=356ab40ed6';
+import { createStage } from './stage.js?v=bac7cf2b17';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
-import { sinusoidSupported } from './sinusoid-view.js?v=5c2cbca199';
-import { createInspector } from './inspector.js?v=602f3e20f9';
-import { createDock, CUTOFFS } from './dock.js?v=f17fc10ab2';
-import { setHvpgStage } from './hvpg-proc.js?v=32539caf92';
-import { createWhy } from './why.js?v=a7da8ed0da';
-import { createTimeline, LAPSES } from './timeline.js?v=d129207b47';
-import { createCompare } from './compare.js?v=40faca88fa';
-import { createCard } from './card.js?v=4f5e4fec99';
-import { createChart } from './chart.js?v=0fc10aac81';
-import { createMenu } from './menu.js?v=2782ff556a';
-import { caption } from './a11y.js?v=f3710703a7';
+import { sinusoidSupported } from './sinusoid-view.js?v=f3e82adc24';
+import { createInspector } from './inspector.js?v=657021a1db';
+import { createDock, CUTOFFS } from './dock.js?v=2473fe17c4';
+import { setHvpgStage } from './hvpg-proc.js?v=09a8365f18';
+import { createWhy } from './why.js?v=da447b8b5a';
+import { createTimeline, LAPSES } from './timeline.js?v=e2992ba76d';
+import { createCompare } from './compare.js?v=d1409bcaeb';
+import { createCard } from './card.js?v=e801c1363e';
+import { createChart } from './chart.js?v=3bc4fd8f45';
+import { createMenu } from './menu.js?v=432d4833e5';
+import { caption } from './a11y.js?v=ab57400d2e';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=6db13e4063';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=bddbbf7d6a';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=ca6a99d783';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=9d15e31e07';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade } from './util.js?v=6b731e337e';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior } from './util.js?v=2de12f3227';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=a6467c272a';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=d3090d3214';
 import { initTopbarMotion } from './topbar-motion.js?v=b33007f264';
 import { ORIGINS } from './blood.js?v=cc7febbf07';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=7aaecf443b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=4d9daeb993'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -174,7 +174,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=79a5bfdad8'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=250211db97'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -803,7 +803,11 @@ function renderBanner() {
       b.addEventListener('click', () => store.set({ compareView: v }));
       return b;
     })));
-    const tbl = h('button', { class: 'btn sm cmp-table-btn', title: 'Every value, then and now, in a table', onclick: () => { openPanel(); $('.cmp-section')?.scrollIntoView({ block: 'start' }); } }, 'Differences');
+    const tbl = h('button', { class: 'btn sm cmp-table-btn', title: 'Every value, then and now, in a table', onclick: () => {
+      // (The table scrolls into view once the card has come in, not while it is still sliding: P22.)
+      const was = panelShown(); openPanel();
+      setTimeout(() => $('.cmp-section')?.scrollIntoView({ block: 'start', behavior: scrollBehavior() }), was ? 0 : 260);
+    } }, 'Differences');
     kids.push(tbl);
   }
   el.replaceChildren(...kids);
@@ -1003,7 +1007,7 @@ function readLS(k) { try { return localStorage.getItem(k); } catch { return null
 // while the layout already treats it as closed.
 function leave(el) {
   if (el.dataset.swiped) { delete el.dataset.swiped; return; }   // (swiped away: already slid out of sight behind the tab row)
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // (With Reduce Motion it fades where it stands: app.css turns the leaving keyframes into fades.)
   el.classList.remove('card-leaving'); void el.offsetWidth;
   el.classList.add('card-leaving');
   markGone(180);

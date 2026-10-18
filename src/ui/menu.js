@@ -5,9 +5,9 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=6b731e337e';
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ } from './util.js?v=2de12f3227';
 import { SNAPSHOTS } from './snapshots.js?v=f018995b4c';
-import { pressureColor } from './colormap.js?v=bddbbf7d6a';
+import { pressureColor } from './colormap.js?v=9d15e31e07';
 import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('menu');
 
@@ -73,9 +73,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     el = back = null;
     onToggle?.(false);
     if (panel.contains(document.activeElement) || !document.activeElement || document.activeElement === document.body) anchor.focus({ preventScroll: true });
-    if (reduce.matches) { done(); return; }
+    // (With Reduce Motion the same exit only fades: app.css turns the keyframes into fades.)
     scrim?.classList.add('out');
-    if (o.dragged) { panel.style.transition = 'transform .22s var(--ease)'; panel.style.transform = 'translateY(100%)'; } else panel.classList.add('out');
+    if (o.dragged && !reduce.matches) { panel.style.transition = 'transform .22s var(--ease)'; panel.style.transform = 'translateY(100%)'; } else panel.classList.add('out');
     leaveT = setTimeout(done, panel.classList.contains('sheet') ? 280 : 120);
   };
   // Typing while the menu is open (and focus is elsewhere) goes to its search.
@@ -154,7 +154,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       pvKey = key;
       const old = pv.firstElementChild, h0 = pv.offsetHeight;
       const next = make();
-      if (old && pv.classList.contains('on') && !reduce.matches) { old.classList.add('um-pv-old'); setTimeout(() => old.remove(), 130); } else old?.remove();
+      if (old && pv.classList.contains('on')) { old.classList.add('um-pv-old'); setTimeout(() => old.remove(), 130); } else old?.remove();
       pv.append(next);
       if (old && h0 && !reduce.matches) { const h1 = next.offsetHeight; pv.style.height = h0 + 'px'; void pv.offsetHeight; pv.style.height = h1 + 'px'; setTimeout(() => { pv && (pv.style.height = ''); }, 140); }
       $$rows().forEach((r) => r.classList.toggle('pv-on', r === row));
@@ -171,7 +171,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     clearTimeout(hideT); if (!pv) return;
     const p = pv; pv = null; pvKey = null;
     el?.querySelectorAll('.pv-on').forEach((r) => r.classList.remove('pv-on'));
-    if (now || reduce.matches || !p.classList.contains('on')) { p.remove(); return; }
+    if (now || !p.classList.contains('on')) { p.remove(); return; }
     p.classList.remove('on'); setTimeout(() => p.remove(), 140);
   }
   // On touch, the ⓘ opens the preview under its row (one at a time), easing open and shut.

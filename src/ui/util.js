@@ -197,6 +197,8 @@ export function tooltipFor(el, text, side = 'right') {
 /** Floating menu/popover anchored to an element. Closes on outside click, Escape or re-open. */
 let openMenu = null;
 const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
+/** How a scroll the app makes on its own moves: smooth, or at once with Reduce Motion (as the menu's already did). */
+export const scrollBehavior = () => (reduceMotionMQ.matches ? 'auto' : 'smooth');
 // One card or menu at a time over the thumb dock: whatever opens while another is still playing its way out waits
 // until it has gone (--enter-delay, read by the thumb dock's entrance animations), so the two never overlap.
 let goneAt = 0;
@@ -302,6 +304,53 @@ export function swapFade(el, fill, { instant = false, out = 120, inn = 180 } = {
   };
   a.finished.then(done, done);
 }
+/** Text that crossfades when it changes (a status word, an arrow): swapFade, and a fade in from empty, so a word
+ *  that appears doesn't pop either. then: run with the new text in (a class that goes with it). */
+export function swapText(el, txt, then) {
+  const job = swaps.get(el);
+  if (job ? job.txt === txt : el.textContent === txt) return;
+  const fill = () => { el.textContent = txt; then?.(); };
+  if (!job && !el.firstChild && txt && el.animate && el.isConnected && el.getClientRects().length) {
+    fill(); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' }); return;
+  }
+  swapFade(el, fill);
+  const j = swaps.get(el); if (j) j.txt = txt;
+}
+/** A number that rolls to its new value instead of jumping (MOTION_HEAT_REVIEW P17): el shows fmt(v, d). eased: the caller
+ *  already moves this value gently (a running model's mean), so it follows at once, or carries a roll under way on to the
+ *  new value. Otherwise a change of at least the last digit counts from the number shown to v over about a third of a
+ *  second (ease out) and always ends on fmt(v, d). null shows "?" at once. Reduce Motion lands at once. */
+const counts = new WeakMap(), rolling = new Set();
+let rollRaf = 0;
+const COUNT_MS = 320;
+const putNum = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
+function rollStep(now) {
+  rollRaf = 0;
+  for (const el of rolling) {
+    const c = counts.get(el);
+    const u = Math.min(1, (now - c.t0) / COUNT_MS), k = 1 - (1 - u) ** 3;
+    c.shown = u >= 1 ? c.to : c.from + (c.to - c.from) * k;
+    putNum(el, fmt(c.shown, c.d));
+    if (u >= 1 || !el.isConnected) { c.t0 = null; rolling.delete(el); }
+  }
+  if (rolling.size) rollRaf = requestAnimationFrame(rollStep);
+}
+export function countTo(el, v, d = 1, { eased = false } = {}) {
+  let c = counts.get(el);
+  if (!c) counts.set(el, c = { shown: null, from: 0, to: 0, t0: null, d });
+  c.d = d;
+  if (v == null || !Number.isFinite(v)) { rolling.delete(el); c.t0 = null; c.shown = null; putNum(el, '?'); return; }
+  if (c.t0 != null) {   // (a roll under way)
+    if (eased || reduceMotionMQ.matches) { if (reduceMotionMQ.matches) { rolling.delete(el); c.t0 = null; c.shown = v; putNum(el, fmt(v, d)); } else c.to = v; return; }
+    if (Math.abs(v - c.to) < Math.pow(10, -d) * 0.5) return;
+    c.from = c.shown; c.to = v; c.t0 = performance.now(); return;
+  }
+  const same = c.shown != null && fmt(c.shown, d) === fmt(v, d);
+  if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !el.getClientRects().length) { c.shown = v; putNum(el, fmt(v, d)); return; }
+  c.from = c.shown; c.to = v; c.t0 = performance.now();
+  rolling.add(el);
+  if (!rollRaf) rollRaf = requestAnimationFrame(rollStep);
+}
 export const popoverOpen = () => !!openMenu;
 /** Places the open menu again, after something it is anchored to has moved or resized. */
 export function repositionPopover() { if (openMenu) { openMenu.el.style.left = openMenu.el.style.top = '0px'; openMenu.put(); } }
@@ -309,7 +358,7 @@ export function closePopover() {
   if (!openMenu) return;
   // The menu fades out (it is inert at once, so nothing under it waits), then leaves the page.
   const el = openMenu.el;
-  if (reduceMotionMQ.matches || !el.isConnected) el.remove();
+  if (!el.isConnected) el.remove();   // (with Reduce Motion it still fades: app.css turns popOut into a fade)
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
   // (Over the thumb dock it sinks behind the tab row, as the cards do: .2 s.)
   else { const ms = document.documentElement.classList.contains('thumb-ui') && el.classList.contains('from-dock') ? 200 : 120; el.classList.add('leaving'); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => el.remove(), el.dataset.swiped ? 240 : ms + 10); }

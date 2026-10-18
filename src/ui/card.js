@@ -4,11 +4,13 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout } from './util.js?v=6b731e337e';
-import { cardFor, normalizeSel } from './actions.js?v=6db13e4063';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText } from './util.js?v=2de12f3227';
+import { cardFor, normalizeSel } from './actions.js?v=ca6a99d783';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
+// A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number.
+const numOf = (t) => { const s = String(t).replace('−', '-'); return /^-?\d+(\.\d+)?$/.test(s) ? { n: +s, d: (s.split('.')[1] || '').length } : null; };
 
 
 export function createCard({ view, stage, ctx, onWhy, onDetails }) {
@@ -74,10 +76,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; el.style.removeProperty('--sink'); }   // (pulled away: already out of sight behind the tab row)
     if (!el.hidden && !el.classList.contains('ac-leaving')) {
       // (Docked, it sinks away; a desktop card fades out where it stands: it had closed in one frame.)
-      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        el.classList.add('ac-leaving');
-        closeTimer = setTimeout(() => { el.hidden = true; el.classList.remove('ac-leaving'); }, isDocked() ? 180 : 200);
-      } else el.hidden = true;
+      // (With Reduce Motion both only fade: app.css turns the keyframes into fades.)
+      el.classList.add('ac-leaving');
+      closeTimer = setTimeout(() => { el.hidden = true; el.classList.remove('ac-leaving'); }, isDocked() ? 180 : 200);
     }
     model = null; live = []; syncs = []; actionable = [];
     leader.replaceChildren(); placedFor = '';
@@ -111,11 +112,25 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       else {
         const v = m.value(f, lens(), refP());
         const sig = `${v.v}|${v.u}|${v.d || ''}|${v.up ? 1 : 0}`;
-        if (valEl._sig !== sig) { valEl._sig = sig; numEl.replaceChildren(h('b', {}, v.v), h('span', { class: 'unit' }, v.u), v.d ? h('span', { class: 'ac-delta ' + (v.up ? 'up' : 'down') }, v.d) : null); }
+        if (valEl._sig !== sig) {
+          // The same reading with a new number rolls to it, a paused edit or a treatment included (P17); anything else is
+          // drawn afresh.
+          const was = valEl._v, a = numOf(v.v), b = was && numOf(was.v), numB = numEl.firstChild;
+          if (a && b && a.d === b.d && was.u === v.u && !!was.d === !!v.d && numB?.tagName === 'B') {
+            countTo(numB, a.n, a.d, { eased: store.get().running });
+            const dl = numEl.querySelector('.ac-delta');
+            if (dl) { dl.textContent = v.d; dl.className = 'ac-delta ' + (v.up ? 'up' : 'down'); }
+          } else {
+            numEl.replaceChildren(h('b', {}, v.v), h('span', { class: 'unit' }, v.u), v.d ? h('span', { class: 'ac-delta ' + (v.up ? 'up' : 'down') }, v.d) : null);
+            if (a) countTo(numEl.firstChild, a.n, a.d);   // (its starting point for the next roll)
+          }
+          valEl._sig = sig; valEl._v = v;
+        }
       }
+      // The status word crossfades to a new one, its colour easing with it.
       const s = m.status?.(f);
-      if (s) { if (pillEl._s !== s.join()) { pillEl.className = 'ac-state st-word ' + s[0]; pillEl.textContent = s[1]; pillEl._s = s.join(); } }
-      else if (pillEl._s) { pillEl.className = 'ac-state'; pillEl.textContent = ''; pillEl._s = ''; }
+      if (s) { if (pillEl._s !== s.join()) { const cls = 'ac-state st-word ' + s[0]; if (!pillEl._s) pillEl.className = cls; swapText(pillEl, s[1], () => { pillEl.className = cls; }); pillEl._s = s.join(); } }
+      else if (pillEl._s) { swapText(pillEl, '', () => { pillEl.className = 'ac-state'; }); pillEl._s = ''; }
     });
     const body = h('div', { class: 'ac-body' });
     // Readouts that follow one another sit side by side on a phone (a lone one takes the whole row).
