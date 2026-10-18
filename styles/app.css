@@ -1585,6 +1585,12 @@ button.finding { cursor: pointer; }
 .pz-panel > .pz-tabname { zoom: 1; }   /* (the panel's corner clips it to its curve; its fit zoom never shrinks the tab under 12 px) */
 .pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px), calc(var(--pz-tabh) + 10px)); }
 .pz.stack .pz-panel.tabbed { padding-top: calc(var(--pz-tabh) + 10px); }
+/* (A phone on its side: the deck's tab is the teaching card's, its height and 6 px under it (presenter.js padT); a title that ends
+   clear of it stands level with it, so the six site rows of Sites 10 stay whole at 667 x 375: under the table's own tab the last
+   row was cut by 14 px.) */
+.pz.low .pz-panel { --pz-tabh: calc(var(--pz-tabf) * 1.6); }
+.pz.low .pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px), calc(var(--pz-tabh) + 6px)); }
+.pz.low .pz-panel.tabbed.tab-beside { padding-top: clamp(18px, calc(3.4 * var(--pzh) / var(--vz)), 44px); }   /* (its title clear of the tab: level with it, presenter.js tabBeside) */
 .app.pz-hi .pz-tabname { color: var(--text); }
 /* The slide's level (presenter.js wordsIn): the deck tab's mirror in the glass's top left corner, flush with its top and left
    edges, only its bottom right corner rounded, the same height and words, tinted in the level's own colour. */
