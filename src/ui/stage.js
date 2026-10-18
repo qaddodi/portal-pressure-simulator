@@ -4769,8 +4769,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   fibroReading.show = scanShow;
   // (Its body's far corners sit 76 px back from the tip along the probe and 13.8 px either side of it, the stroke included,
   // so the corners bound the rounded body: near the screen's top edge, a phone on its side, the probe lies flatter, down to 10°, so the whole
-  // body stays 4 px or more below the top edge; the left edge wins where both press. Laid flatter, its cable runs on to the
-  // screen's edge, so it does not end in mid-air.)
+  // body stays 4 px or more below the top edge; the left edge wins where both press.)
   // The probe's body (its four corners, 92 px back along it and 13 px either side of the tip's line) turned to deg, stage-local.
   function scanBody(tx, y, deg) {
     const a = deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), xs = [], ys = [];
@@ -4794,7 +4793,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function scanTurn(tx, y = Infinity) {
     const r = (d) => d * Math.PI / 180, left = (d) => tx - 92 * Math.cos(r(d)) - 13 * Math.sin(r(d)) >= SCAN_EDGE, top = (d) => y - 76 * Math.sin(r(d)) - 13.8 * Math.cos(r(d)) >= 4;
-    const bodyLeft = (d) => tx - 76 * Math.cos(r(d)) - 13.8 * Math.sin(r(d)) >= 4;   // (laid flatter, the cable runs off the edge, so only the body must stay on screen)
+    const bodyLeft = (d) => tx - 76 * Math.cos(r(d)) - 13.8 * Math.sin(r(d)) >= 4;   // (only the body must stay on screen; the cable is a short stub)
     let deg = 45;
     while (deg < 80 && !left(deg)) deg += 5;
     if (left(deg)) while (deg > 10 && !top(deg) && bodyLeft(deg - 5)) deg -= 5;
@@ -4808,10 +4807,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (alt.length) deg = alt.sort((a, b) => Math.abs(a - deg) - Math.abs(b - deg) || b - a)[0];
     }
     if (deg !== scan.deg) { scan.deg = deg; scan.el.style.setProperty('--sp-turn', `${deg}deg`); }
-    // (From the tip, the cable starts 74 px back: it runs on until it crosses the top or the left edge, 8 px past it.)
-    const run = Math.min((y + 8) / Math.sin(r(deg)), (tx + 8) / Math.cos(r(deg))) - 74;
-    const cab = deg < 45 ? `M${(-8 - Math.max(18, Math.min(400, run))).toFixed(1)} 48 L-8 48` : 'M-26 48 C-18 48 -14 48 -8 48';
-    const cp = scan.el.querySelector('.sp-cable'); if (cp && cp.getAttribute('d') !== cab) cp.setAttribute('d', cab);
+    // (The cable stays a short stub behind the body at every angle: laid flatter it used to run on to the screen's edge, a long
+    // straight wire across the stage and under the cards, 18 Oct.)
   }
   function scanPaint() {
     if (!scan.el) {
