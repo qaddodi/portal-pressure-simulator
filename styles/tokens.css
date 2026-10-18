@@ -331,7 +331,7 @@
 /* Soft light: warm, low-glare paper with frosted cards and softer ink; organ colours unchanged. */
 :root[data-theme="soft"] {
   --bg: #E8DFD1; --stage-bg: #E8DFD1; --surface: #F6F0E6; --surface-2: #EBE2D4; --surface-3: #DDD2C0;
-  --ascites: #D2A02E; --ascites-a: .5;   /* a deeper amber so the fluid reads against the beige ground */
+  --ascites: #E6D28E; --ascites-a: .34;   /* the same faint pale-straw wash as Light, translucent so the organs read through */
   --glass: rgba(246, 240, 230, .84); --frost: rgba(246, 240, 230, .36); --scrim: rgba(40, 32, 22, .34);
   --hairline: rgba(70, 52, 30, .11); --border: #D4C8B4; --border-strong: #B9AA92;
   --text: #221E18; --text-2: #4A443A; --text-3: #5E574B;
