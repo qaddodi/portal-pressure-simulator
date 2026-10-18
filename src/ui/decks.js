@@ -94,6 +94,7 @@ import { OUTFLOW } from './decks/outflow.js?v=420962f06a';
 import { RECOMPENSATION } from './decks/recompensation.js?v=5d88408232';
 import { WHERE } from './decks/where.js?v=bee116087f';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=0cb3e90f9a';
+import { BETA_BLOCKERS } from './decks/beta-blockers.js?v=afc8d288da';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -156,6 +157,7 @@ DECKS.push(PREHEPATIC, RIGHT_HEART, BLEED);
 DECKS.push(TWO_INFLOWS, PVT_CIRRHOSIS, SPLEEN, NCPH, OUTFLOW, RECOMPENSATION);
 DECKS.push(WHERE);
 DECKS.push(PREGNANCY_DECK);
+DECKS.push(BETA_BLOCKERS);
 
 // The unified menu lists the presentations by topic, in teaching order, under a short title (32 characters or fewer); the
 // third name is the deck's short name in the tab at each slide card's top right corner (presenter.js deckTab; 20 or fewer).
@@ -164,6 +166,6 @@ export const TOPICS = [
   ['causes', 'Causes', [['sites', 'Sites and causes', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH', 'Pre-hepatic PH'], ['ncph', 'Presinusoidal PH', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver', 'Right heart'], ['outflow', 'Hepatic outflow obstruction', 'Outflow obstruction'], ['lobule', 'Inside the lobule', 'Lobule'], ['where-resistance', 'Where is the resistance?', 'Find the resistance']]],
   ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system', 'Doppler'], ['stiffness', 'Stiffness, spleen and platelets', 'Stiffness'], ['one-year', 'A year of compensated cirrhosis', 'One year']]],
   ['complications', 'Complications', [['varices', 'Collaterals and varices', 'Varices'], ['endoscopy', 'Endoscopy and the varix', 'Endoscopy'], ['variceal-bleed', 'Acute variceal bleeding', 'Variceal bleed'], ['ascites', 'How ascites forms', 'Ascites'], ['tap', 'Paracentesis and albumin', 'Paracentesis'], ['spleen', 'The spleen: size and treatment', 'Spleen'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis', 'PVT in cirrhosis'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy']]],
-  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['shunts', 'Spontaneous shunts and TIPS', 'Shunts and TIPS'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler']]],
+  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['beta-blockers', 'Propranolol or carvedilol', 'Beta-blockers'], ['shunts', 'Spontaneous shunts and TIPS', 'Shunts and TIPS'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler']]],
 ];
 for (const [topic, , list] of TOPICS) for (const [id, short, head] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short, head }); }
