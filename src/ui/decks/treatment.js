@@ -30,7 +30,7 @@ export const TREATMENT = {
       id: 'carv', lens: 'drop', params: { drugs: { propranolol: false, carvedilol: true } }, cam: 'liver', glow: ['liver'],
       compare: [{ label: 'Propranolol', params: { drugs: { propranolol: true, carvedilol: false } } }, { label: 'Carvedilol', own: true, params: { drugs: { propranolol: false, carvedilol: true } } }], data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['varix'], delta: 'target',
       kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Carvedilol also lowers resistance in the liver',
-      line: 'It also blocks α1 receptors, relaxing stellate cells and portal venules. HVPG falls further, but blood pressure falls too. Colored by pressure drop, the sinusoids pale a little as their resistance falls.',
+      line: 'It also blocks α1 receptors, relaxing stellate cells in the sinusoids. HVPG falls further, but blood pressure falls too. Colored by pressure drop, the sinusoids pale a little as their resistance falls.',
       notes: 'Carvedilol 6.25 to 12.5 mg a day. Its α1 blockade relaxes the contracted stellate cells and lowers the resistance inside the liver, so it lowers HVPG more than propranolol and brings about half of propranolol non-responders to a protective fall. Baveno VIII recommends a non-selective beta-blocker, preferably carvedilol, in compensated cirrhosis with clinically significant portal hypertension, to prevent decompensation. Watch the blood pressure, especially with ascites.',
       ask: ['Why does carvedilol lower HVPG more than propranolol?', 'Its α1 blockade also lowers the vascular resistance inside the liver.'],
     },
