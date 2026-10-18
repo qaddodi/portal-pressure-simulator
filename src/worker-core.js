@@ -31,12 +31,12 @@ const fingerprint = (m, e) => {
     at: e ? { P: Float32Array.from(e.Pf || e.P), Q: Float32Array.from(e.Qf || e.Q), D: Float32Array.from(e.edges, (ed) => e.diameter(ed.id)) } : null };
 };
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
-// (A dotted key names a nested param: 'fibrosis.R.post'. A third value, a fraction of the days, has it arrive by then and hold.)
-const rampAt = (ramp, d, n) => ramp.reduce((o, [k, [a, b, by = 1]]) => {
+// (A dotted key names a nested param: 'fibrosis.R.post'.)
+const rampAt = (ramp, d, n) => ramp.reduce((o, [k, [a, b]]) => {
   const path = k.split('.'), last = path.pop();
   let at = o;
   for (const p of path) at = at[p] ||= {};
-  at[last] = a + (b - a) * Math.min(1, d / (n * by));
+  at[last] = a + (b - a) * Math.min(1, d / n);
   return o;
 }, {});
 // The presenter's eased change of patient ('morph'): the live state blended from where it is to a slide's state. Numbers ease
