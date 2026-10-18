@@ -3442,6 +3442,10 @@ button.finding { cursor: pointer; }
 .topbar { gap: 8px; }
 .topbar .float-pill, .topbar #viewSeg, .topbar .sb-right > .chip-btn, .topbar .lens-btn { height: var(--pill-h); }
 .tb-id { padding: 3px 6px 3px 3px; }
+/* The patient pill's glass is its own face (as the view pill's .vp-face), so a shorter name glides the pill narrower
+   instead of snapping (topbar-motion.js); a longer one is revealed from the old width. */
+.topbar .tb-id { position: relative; isolation: isolate; background: transparent; box-shadow: none; }
+.tb-id > .tb-face { position: absolute; z-index: -1; left: 0; top: 0; bottom: 0; width: 100%; border-radius: inherit; background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); pointer-events: none; }
 /* The patient's name is never cut off a phone: the bar compacts (data-fit, below) and wraps it instead. */
 .menu-btn .scenario-v { max-width: none; overflow: visible; text-overflow: clip; }
 .topbar .stage-bar.top { justify-content: space-between; }

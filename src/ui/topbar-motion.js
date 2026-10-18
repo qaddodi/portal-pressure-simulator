@@ -76,7 +76,13 @@ export function initTopbarMotion() {
         const frames = [];
         if (Math.abs(dx) >= 1.5 || Math.abs(dy) >= 1.5) frames.push({ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' });
         if (frames.length) { const a = el.animate(frames, { duration: MOVE_MS, easing: EASE }); a.id = 'tbm'; }
-        if (t.dw < -2 && el.matches(GROW)) ghost(el, s, { own, tot, next }, true);
+        if (t.dw < -2 && el.matches(GROW)) {
+          // A pill with its own face (the patient pill) glides its face from the old width to the new; others leave the old,
+          // wider plate fading behind them.
+          const face = el.querySelector(':scope > .tb-face');
+          if (face) face.animate([{ width: `${s.w}px` }, { width: `${n.w}px` }], { duration: MOVE_MS, easing: EASE }).id = 'tbm';
+          else ghost(el, s, { own, tot, next }, true);
+        }
         if (t.dw > 2 && el.matches(GROW)) {
           const a = el.animate([{ clipPath: `inset(-32px ${t.dw}px -32px -32px)` }, { clipPath: 'inset(-32px -32px -32px -32px)' }], { duration: MOVE_MS, easing: EASE });
           a.id = 'tbm';

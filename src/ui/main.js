@@ -34,7 +34,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=5835aa5fb1';
-import { initTopbarMotion } from './topbar-motion.js?v=b33007f264';
+import { initTopbarMotion } from './topbar-motion.js?v=bd8d17727e';
 import { ORIGINS } from './blood.js?v=cc7febbf07';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=1ee7733788';
@@ -259,8 +259,13 @@ async function main() {
   const COMPACT = { 'Acute portal vein thrombosis': 'Acute PVT', 'Schistosomiasis / NCPH': 'Schisto\u00ADsomiasis', 'Cirrhosis with gastrorenal shunt': 'Gastrorenal shunt', 'Sinusoidal obstruction syndrome': 'SOS' };
   const syncScenarioName = () => {
     const st = store.get(), name = presets.find((p) => p.id === st.presetId)?.label || 'Custom', short = shortName(name);
-    $('#scenarioName').replaceChildren(h('span', { class: 'sn-l' }, name), h('span', { class: 'sn-s' }, short), h('span', { class: 'sn-c' }, COMPACT[short] ?? short));
-    fitScenarioName();
+    // The new name crossfades in (it swapped in one frame, P8); the pill glides to its width as it lands (topbar-motion.js).
+    const el = $('#scenarioName');
+    if (el.querySelector('.sn-l')?.textContent === name) return;
+    swapFade(el, () => {
+      el.replaceChildren(h('span', { class: 'sn-l' }, name), h('span', { class: 'sn-s' }, short), h('span', { class: 'sn-c' }, COMPACT[short] ?? short));
+      fitScenarioName();
+    });
   };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);

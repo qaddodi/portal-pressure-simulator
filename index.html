@@ -23,7 +23,7 @@
   <script>try{var t=localStorage.getItem('pps.theme');if(t==='dark'||t==='light'||t==='soft')document.documentElement.setAttribute('data-theme',t);var d=t==='dark'||(t!=='light'&&t!=='soft'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.style.background='#0E1422';document.documentElement.style.colorScheme='dark'}if(localStorage.getItem('pps.noGlass')==='1')document.documentElement.setAttribute('data-noglass','');var z=parseFloat(localStorage.getItem('pps.uiZoom'));if(z>=0.5&&z<=2&&z!==1){document.documentElement.style.zoom=z;document.documentElement.style.setProperty('--ui-zoom',z)}}catch(e){}</script>
   <script>/* Can this browser run the app? ES5 on purpose so even Internet Explorer gets the message. Hard needs stop it with a plain note; soft ones only warn. */(function(){var w=window,why=[];try{if(!('noModule' in document.createElement('script')))why.push('modules');new Function('var a={};a.b??=1;return a?.b');if(typeof w.ResizeObserver!=='function')why.push('ResizeObserver');if(typeof w.structuredClone!=='function')why.push('structuredClone');if(!Array.prototype.at)why.push('Array.at')}catch(e){why.push('syntax')}w.ppsUnsupported=why.length?why:null;var soft=[];try{if(!CSS.supports('selector(:has(a))'))soft.push(':has');if(!CSS.supports('container-type','inline-size'))soft.push('container queries');if(!CSS.supports('color','color-mix(in srgb, red, blue)'))soft.push('color-mix')}catch(e){}w.ppsOldBrowser=soft.length?soft:null;w.ppsBootErrors=[];function note(m){if(w.ppsFigureReady)return;w.ppsBootErrors.push(String(m||'Unknown error').slice(0,300));if(w.ppsBootFail&&/SyntaxError/.test(m))w.ppsBootFail()}w.addEventListener('error',function(e){if(e&&e.message&&!/ResizeObserver loop/.test(e.message))note((e.error&&e.error.name?e.error.name+': ':'')+e.message+(e.filename?' ('+String(e.filename).split('/').pop().split('?')[0]+':'+e.lineno+')':''))});w.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;note('Unhandled: '+(r&&r.message?r.message:r))})})();</script>
   <link rel="stylesheet" href="styles/tokens.css?v=09758343f1" />
-  <link rel="stylesheet" href="styles/app.css?v=7feec06fd3" />
+  <link rel="stylesheet" href="styles/app.css?v=cbcebbc759" />
   <style>
     #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: calc(100vw / var(--ui-zoom, 1)); height: calc(100vh / var(--ui-zoom, 1)); height: calc(100lvh / var(--ui-zoom, 1)); z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity .45s ease, visibility .45s; }
     #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -140,6 +140,7 @@ function wait(){if(ready()){if(w.ppsUnsupported)return;failed=false;setTimeout(h
   <div class="app" id="app" data-mode="explore">
     <header class="topbar float-ui stage-blocker" id="topbar" data-safe="top">
       <div class="float-pill tb-id">
+        <span class="tb-face" aria-hidden="true"></span>
         <button class="menu-btn" id="btnMenu" aria-haspopup="dialog" aria-expanded="false" aria-label="Menu: presentations and patients" title="Presentations and patients">
           <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7.5" class="brand-bg"/><path d="M3.2 11C3.2 6.9 7.4 4.6 13.8 4.6C20.2 4.6 25.9 5.2 29 6.6C29.6 6.9 29.4 7.7 28.8 8.1C26.2 9.9 22.8 11.9 20.2 13.9C18.4 15.3 16.8 16.9 15 17.8C14.2 18.2 13.5 17.6 12.8 17.9C11.6 18.5 11.2 19.4 9.6 19.6C7.4 19.9 5.2 18.8 4.2 16.8C3.5 15.3 3.2 13.3 3.2 11Z" fill="#F4E4E1"/><path d="M13.3 16.2C11.6 14.2 9.2 12.9 6.3 12.5M13.3 16.2C15.4 13.8 18.4 11.6 22 10" stroke="url(#pvGrad)" stroke-width="1.9" stroke-linecap="round" fill="none"/><path d="M17.4 29.3V23.4M28.6 22.3C24.8 23.4 20.8 23.6 17.4 23.4M17.4 23.4C15.8 21 14.6 19 13.3 16.2" stroke="url(#pvGrad)" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
           <span class="scenario-v" id="scenarioName">Healthy</span>
@@ -230,6 +231,6 @@ function wait(){if(ready()){if(w.ppsUnsupported)return;failed=false;setTimeout(h
   <link rel="modulepreload" href="src/ui/instruments.js?v=bf4fb185a5" />
   <link rel="modulepreload" href="src/ui/timeline.js?v=775303a1ee" />
   <link rel="modulepreload" href="src/engine/topology.js?v=4044766e96" />
-  <script type="module" src="src/ui/main.js?v=ea092a5ce9"></script>
+  <script type="module" src="src/ui/main.js?v=3156b32403"></script>
 </body>
 </html>

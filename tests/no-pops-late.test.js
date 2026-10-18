@@ -43,3 +43,10 @@ test('popovers and figure pieces fade out instead of vanishing (P20, P21, P23)',
   assert.match(read('src/ui/stage.js'), /cath\.at = null; cathFadeOut\(\); return;/);
   assert.match(css, /\.mon\.bad \.mv \{ animation: monAlarm 1\.2s ease-in-out infinite; \}/);
 });
+
+test('the patient pill glides to a new name\'s width and the name crossfades (P8)', () => {
+  assert.match(read('index.html'), /<div class="float-pill tb-id">\s*<span class="tb-face" aria-hidden="true"><\/span>/);
+  assert.match(css, /\.topbar \.tb-id \{ position: relative; isolation: isolate; background: transparent; box-shadow: none; \}/);
+  assert.match(read('src/ui/topbar-motion.js'), /if \(face\) face\.animate\(\[\{ width: `\$\{s\.w\}px` \}, \{ width: `\$\{n\.w\}px` \}\]/);
+  assert.match(read('src/ui/main.js'), /swapFade\(el, \(\) => \{\s*el\.replaceChildren\(h\('span', \{ class: 'sn-l' \}, name\)/);
+});
