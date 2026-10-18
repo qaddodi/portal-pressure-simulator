@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=203ece360c';
-import { createLobuleZoom } from './lobule-zoom.js?v=7828f48ee7';
+import { createLobuleZoom } from './lobule-zoom.js?v=c61f59d28b';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -22,9 +22,9 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=fb235a2ad3';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=86e57ea1fc';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
-import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=8e7372337f';
+import { advanceStream, createReversalHold, bleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=b0e8934683';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=e25caf9bf9';
@@ -2300,6 +2300,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (And only while one of them may have moved: layoutWatch.)
     if (!under && (blockersStale || (performance.now() - blockersAt > 100 && watch.due()))) { blockerBoxes = readBlockers(); blockersAt = performance.now(); blockersStale = false; }
     F = f;
+    holdReversals(f);
     lz?.update(f);
     if (under) { followHidden(f); return; }
     // Widths and coils ease toward their targets in time (~0.25 s), not per model update. Shown again after being covered,
@@ -2400,7 +2401,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       let c1, c2;
       if (mode === 'pressure') { c1 = pressureColor(qP(P1)); c2 = pressureColor(qP(P2)); }
       else if (mode === 'drop') { c1 = c2 = dropColor(P1 - P2); }
-      else if (mode === 'direction') { const rev = isReversed(e, f); c1 = c2 = rev ? 'var(--flow-reversed)' : 'var(--flow-normal)'; }
+      else if (mode === 'direction') { const rev = reversedShown(e); c1 = c2 = rev ? 'var(--flow-reversed)' : 'var(--flow-normal)'; }
       else if (mode === 'flow') { c1 = c2 = flowColor(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06); }
       else if (mode === 'velocity') { c1 = c2 = e.kind === 'liver' ? 'var(--lens-neutral)' : velColorOf(f, k, store.get().healthy); }
       else if (mode === 'oxygen') { c1 = oxygenColor(oxy[2 * k]); c2 = oxygenColor(oxy[2 * k + 1]); }
@@ -2426,7 +2427,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         x.opa = isOccluded(p, e.id) ? 0.45 : 0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5));
         setLevel(x, nearestLevel(x.opa));
       }
-      x.rev = REVERSAL_WATCH.has(e.id) && isReversed(e, f);
+      x.rev = REVERSAL_WATCH.has(e.id) && reversedShown(e);
       if (x.rev && (!st.imaging || !!st.found?.has('flow'))) revShown.add(e.id); else revShown.delete(e.id);
       const selOn = (st.selection?.type === 'edge' && st.selection.id === e.id) || (st.selection?.type === 'node' && SIN_EDGES.has(e.id) && LABEL_VESSEL[st.selection.id] === e.id);   // a side's station dot is its sinusoids
       x.sel.classList.toggle('on', selOn);
@@ -3102,8 +3103,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // through the same crossfade as a lens change, instead of in one frame (round 2 review, B6): a frame whose pressures moved
     // by more than JUMP_MMHG anywhere since the last one drawn. The running model's own steps (well under that) are drawn as
     // they come.
-    const jumped = modelJumped(F);
-    if (((lensMode && mode !== lensMode) || jumped) && !reduceMotion.matches) { lensFrom = shownCol; lensT0 = performance.now(); }
+    // (So does a held reversal turning in the Direction lens: B3.)
+    const jumped = modelJumped(F), flipped = revFlip && mode === 'direction';
+    revFlip = false;
+    if (((lensMode && mode !== lensMode) || jumped || flipped) && !reduceMotion.matches) { lensFrom = shownCol; lensT0 = performance.now(); }
     lensMode = mode;
     if (lensFrom && !lensFading()) lensFrom = null;
     shownCol = new Map();
@@ -4150,6 +4153,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setGlowSrc('focus', ids.filter((id) => col(kindOf.get(id))).map((id) => ({ id, col: col(kindOf.get(id)), amt: 1, wide: 0.75, dur: 600, span: spanOf.get(id)[1] - spanOf.get(id)[0] < 1 ? spanOf.get(id) : null })));
   }
 
+  // Reversal as shown (the Direction lens, the moving blood, the watched stations): a vessel's flag changes only once its
+  // new direction has held for a whole breath of model time (respiration is a 4 s cycle), so flow near the cut-off no longer
+  // flips blue and orange with every breath; a jump in the model (a new patient, a time jump, Undo: pressures moved more than
+  // JUMP_MMHG, or the clock went back or leapt) takes the new flags at once (createReversalHold, blood.js). The model's own flags are untouched (round 2
+  // review, B3).
+  const revHolder = createReversalHold(EDGES.length, 4), revHold = revHolder.hold;
+  let revF = null, revH = null, revT = 0, revP = null, revFlip = false;
+  function holdReversals(f) {
+    const H = store.get().healthy;
+    if (!f || (f === revF && H === revH)) return;
+    const P = f.Pf || f.P, t = f.t ?? 0;
+    let jump = !revF || H !== revH || t < revT || t - revT > 1 || !revP || revP.length !== P?.length;
+    if (!jump) for (let i = 0; i < P.length; i++) if (Math.abs(P[i] - revP[i]) > JUMP_MMHG) { jump = true; break; }
+    revF = f; revH = H; revT = t;
+    if (P) { if (!revP || revP.length !== P.length) revP = new Float64Array(P.length); revP.set(P); }
+    if (revHolder.step((k) => (isReversed(EDGES[k], f) ? 1 : 0), t, jump)) revFlip = true;
+  }
+  const reversedShown = (e) => revHold[EI[e.id]] === 1;
   function isReversed(e, f) {
     const q = f.Qf[EI[e.id]];
     const ref = st0Ref(e.id);
@@ -7216,7 +7237,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Facts that change only with a model frame (or the healthy reference), kept per frame instead of worked out every display
   // frame: each vessel's reversed flag and its two velocities. Key chevrons: 1 for a vessel that always keeps them, 2 for one
   // that keeps them while an open collateral runs in its lane (asked each frame), 0 for none (round 2 review, P8).
-  const revK = new Uint8Array(EDGES.length), velQf = new Float64Array(EDGES.length), velQ = new Float64Array(EDGES.length);
+  const velQf = new Float64Array(EDGES.length), velQ = new Float64Array(EDGES.length);
   let perF = null, perH = null;
   const KEY_K = EDGES.map((e) => (keyChevron(e) ? 1 : KEY_CHEV_LANES[e.id] ? 2 : 0));
   let bloodEasing = false;
@@ -7231,7 +7252,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Reversed flow (against the healthy direction, as the Direction lens has it) eases in and out.
     // (Reduced motion: the streams stand still but follow the flow's direction at once, and nothing eases.)
     const still = st.running && reduceMotion.matches;
-    const ease = reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.5), RF = { Qf };
+    const ease = reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.5);
     // (One options object and one key-chevrons answer for the whole loop, not one per vessel per frame: advanceStream reads
     // the options at once and keeps none of them.)
     const so = streamOpts, key = keyOnly();
@@ -7242,11 +7263,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const H = st.healthy;
     if (perF !== F || perH !== H) {
       perF = F; perH = H;
-      for (let k = 0; k < EDGES.length; k++) { revK[k] = isReversed(EDGES[k], RF) ? 1 : 0; velQf[k] = velOf(k, Qf[k]); velQ[k] = velOf(k, F.Q[k]); }
+      holdReversals(F);
+      for (let k = 0; k < EDGES.length; k++) { velQf[k] = velOf(k, Qf[k]); velQ[k] = velOf(k, F.Q[k]); }
     }
     for (let k = 0; k < EDGES.length; k++) {
-      // One signal turns both: the reversed colour and the way the blood and its chevrons run (isReversed).
-      const rt = revK[k];
+      // One signal turns both: the reversed colour and the way the blood and its chevrons run (isReversed, held: B3).
+      const rt = revHold[k];
       so.large = LARGE[k]; so.rev = !!rt;
       const sm = advanceStream(streams[k], velQf[k], velQ[k], moving ? dt : 0, so);
       sm.rev = sm.rev == null ? rt : eased(sm.rev, rt, ease);

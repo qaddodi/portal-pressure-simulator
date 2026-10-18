@@ -75,5 +75,5 @@ test('B6: a jump in the model recolours the vessels through the lens crossfade, 
   assert.match(mj, /if \(!f \|\| f === jumpF\) return false;/);
   assert.match(mj, /Math\.abs\(P\[i\] - jumpP\[i\]\) > JUMP_MMHG/);
   assert.match(mj, /return big && shownCol\.size > 0;/);
-  assert.match(stage, /const jumped = modelJumped\(F\);\n\s*if \(\(\(lensMode && mode !== lensMode\) \|\| jumped\) && !reduceMotion\.matches\) \{ lensFrom = shownCol; lensT0 = performance\.now\(\); \}/);
+  assert.match(stage, /const jumped = modelJumped\(F\), flipped = revFlip && mode === 'direction';\n\s*revFlip = false;\n\s*if \(\(\(lensMode && mode !== lensMode\) \|\| jumped \|\| flipped\) && !reduceMotion\.matches\) \{ lensFrom = shownCol; lensT0 = performance\.now\(\); \}/);
 });

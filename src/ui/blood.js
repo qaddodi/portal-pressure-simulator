@@ -128,6 +128,31 @@ export const REVERSE_HOLD = 0.6, REVERSE_RAMP = 0.5;
 /** Seconds the shown blood takes to slow to a stop when its vessel turns reversed (or back), before that hold. */
 export const REVERSE_SETTLE = 0.6;
 
+/**
+ * Reversal as shown, held for a breath (stage.js holdReversals): `n` flags that change only once a vessel's new direction has
+ * held for `breath` seconds of model time, or at once on a jump. step(raw, t, jump): raw(k) is the model's flag (0 or 1) now,
+ * t the model time; returns whether any shown flag turned. (Round 2 review, B3.)
+ */
+export function createReversalHold(n, breath = 4) {
+  const hold = new Uint8Array(n), pend = new Float64Array(n).fill(NaN);
+  return {
+    hold,
+    step(raw, t, jump) {
+      let flip = false;
+      for (let k = 0; k < n; k++) {
+        const r = raw(k);
+        if (r === hold[k]) { pend[k] = NaN; continue; }
+        if (!jump) {
+          if (!(pend[k] <= t)) pend[k] = t;
+          if (t - pend[k] < breath) continue;
+        }
+        hold[k] = r; pend[k] = NaN; flip = true;
+      }
+      return flip;
+    },
+  };
+}
+
 // Key chevrons only (Blood menu; always while presenting): chevrons keep to the portal story (the portal
 // inflow, the liver's beds, the hepatic veins, any open collateral or shunt); the rest fade.
 const KEY_CHEV_IDS = new Set(['V_INT', 'V_COL', 'V_IMV', 'V_SPL', 'SV_MID', 'V_STO', 'SMV_CONF', 'SV_CONF', 'LGV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_L', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC']);

@@ -48,9 +48,11 @@ test('reduced motion follows the signal at once', () => {
 
 test('the stage passes the colour signal to the stream', () => {
   // (One options object for the whole loop: its rev is set from the same signal just before each vessel's step. The signal
-  // is isReversed, kept per model frame and per healthy reference: round 2 review, P8.)
-  assert.match(STAGE, /revK\[k\] = isReversed\(EDGES\[k\], RF\) \? 1 : 0;/);
-  assert.match(STAGE, /if \(perF !== F \|\| perH !== H\) \{/);
-  assert.match(STAGE, /const rt = revK\[k\];\s*so\.large = LARGE\[k\]; so\.rev = !!rt;\s*const sm = advanceStream\([^;]*, so\);/);
-  assert.match(STAGE, /mode === 'direction'\) \{ const rev = isReversed\(e, f\)/);
+  // is isReversed held for a breath (holdReversals, once per model frame: round 2 review, P8 and B3), and the Direction
+  // lens and the watched stations read the same held flags.)
+  assert.match(STAGE, /revHolder\.step\(\(k\) => \(isReversed\(EDGES\[k\], f\) \? 1 : 0\), t, jump\)/);
+  assert.match(STAGE, /if \(perF !== F \|\| perH !== H\) \{\n\s*perF = F; perH = H;\n\s*holdReversals\(F\);/);
+  assert.match(STAGE, /const rt = revHold\[k\];\s*so\.large = LARGE\[k\]; so\.rev = !!rt;\s*const sm = advanceStream\([^;]*, so\);/);
+  assert.match(STAGE, /mode === 'direction'\) \{ const rev = reversedShown\(e\)/);
+  assert.match(STAGE, /x\.rev = REVERSAL_WATCH\.has\(e\.id\) && reversedShown\(e\);/);
 });
