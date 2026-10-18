@@ -7108,6 +7108,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
   const streamOpts = { phasic: false, speed: 1, large: true, still: false, rev: false };
+  let bloodEasing = false;
+  const eased = (v, to, k) => { if (Math.abs(to - v) <= 0.002) return to; bloodEasing = true; return v + (to - v) * k; };
   function stepBlood(dt) {
     const st = store.get(), b = st.blood || {};
     const moving = st.running && !reduceMotion.matches;
@@ -7122,14 +7124,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // the options at once and keeps none of them.)
     const so = streamOpts, key = keyOnly();
     so.phasic = !!b.phasic; so.speed = speed; so.still = still;
+    // (bloodEasing: a reversed colour or a chevron fade still on its way keeps the figure awake, paused too, so it never stops
+    // part-way until Play; each lands exactly once within 0.002 of its end. Round 2 review, B10.)
+    bloodEasing = false;
     for (let k = 0; k < EDGES.length; k++) {
       // One signal turns both: the reversed colour and the way the blood and its chevrons run (isReversed).
       const rt = isReversed(EDGES[k], RF) ? 1 : 0;
       so.large = LARGE[k]; so.rev = !!rt;
       const sm = advanceStream(streams[k], velOf(k, Qf[k]), velOf(k, F.Q[k]), moving ? dt : 0, so);
-      sm.rev = sm.rev == null ? rt : sm.rev + (rt - sm.rev) * ease;
+      sm.rev = sm.rev == null ? rt : eased(sm.rev, rt, ease);
       const ct = !key || keyChevron(EDGES[k], laneOpen) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
-      sm.chevK = sm.chevK == null ? ct : sm.chevK + (ct - sm.chevK) * ease;
+      sm.chevK = sm.chevK == null ? ct : eased(sm.chevK, ct, ease);
     }
     if (!veins) return;
     const on = bloodOn() || chevOn() || originOn();
@@ -7218,7 +7223,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The blood moves by elapsed time, so speeds and transitions are the same at any frame rate.
     if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; sleep(); return; }
     // The dive magnifies the figure as it stands (a compositor scale): nothing under it is redrawn until it lands.
-    if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw) { lastT = flowGate = now; nextFrame(animate); return; }
+    if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw) {
+      // (The plate holds still through the dive, measured before its zoom, but while the anatomy still shows, its blood keeps
+      // moving: never frozen physiology. No update or refreshCTM here: the box measured under the zoom would be wrong.
+      // Round 2 review, B9.)
+      if (F && veins && !veins.lost && vLook && !diveHid && diveFadeO !== 0 && store.get().running) {
+        stepBlood(Math.min(0.1, (now - lastT) / 1000));
+        veins.composite(vLook, bloodLook(), false);
+      }
+      lastT = flowGate = now; nextFrame(animate); return;
+    }
     // (Only the model's own motion waits its turn there: a pan, zoom, glide or forced draw is drawn in this frame, with the
     // rest of the figure that has already moved, never a frame behind it.)
     if (swYield && !swYield.ready(now, forceDraw || drawOnce || viewVersion !== drawnView)) { nextFrame(animate); return; }
@@ -7246,7 +7260,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active);
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
+    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !bloodEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
