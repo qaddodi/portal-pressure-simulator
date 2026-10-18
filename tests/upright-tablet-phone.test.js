@@ -53,14 +53,14 @@ test('an upright phone\'s or tablet\'s deck instrument card opens its readings o
   assert.doesNotMatch(css, /\.pz\.stack\.tab \.pz-data\.pz-sheet/, 'no rule left for the tablet alone');
   // (Two stacked cards: the instrument's in front, the readings' behind it, its top never seen (Mohammad, 17 Oct: "it's as if they are
   // TWO cards ... should remain attached to the card above it and we never see the top of the tiles card").)
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet \{ --pz-u: 0; --pz-sr: 18px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; \}/);
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet \{ --pz-u: 0; --pz-sr: 18px; --pz-in: 8px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; \}/);
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.tool-open \{ --pz-u: 1; \}/, 'at rest the class says where the readings are');
   assert.match(js, /if \(sheet !== dd0\.classList\.contains\('pz-sheet'\) && p && dd0\.classList\.contains\('pz-hide'\)\) \{/, 'its glass never shows fading between two slides');
   // (The instrument's glass ends where the card ends with the readings tucked, whatever share of them is out.)
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet::before \{ top: -1px; height: calc\(100% \+ 1px - var\(--pz-u\) \* var\(--pz-d, 0px\)\); \}/);
   // (The readings' card behind it, 22 px of its top under the instrument card's foot, its foot 24 px out while tucked; shown only under
   // the instrument card and behind its rounded corners: no gap, no line, no top edge.)
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet::after \{ z-index: -2; bottom: calc\(-1px - 24px \* \(1 - var\(--pz-u\)\)\); height: calc\(var\(--pz-d, 0px\) \+ 23px\); border-top-left-radius: 0; border-top-right-radius: 0;/);
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet::after \{ z-index: -2; left: calc\(var\(--pz-in\) - 1px\); right: calc\(var\(--pz-in\) - 1px\); bottom: calc\(-1px - 24px \* \(1 - var\(--pz-u\)\)\); height: calc\(var\(--pz-d, 0px\) \+ 23px\); border-top-left-radius: 0; border-top-right-radius: 0;/);
   assert.match(css, /--pz-m: calc\(22px - var\(--pz-sr\) \+ \(1 - var\(--pz-u\)\) \* \(var\(--pz-d, 0px\) - 24px\)\);/);
   assert.match(css, /mask: linear-gradient\(#000 0 0\) 0 calc\(var\(--pz-m\) \+ var\(--pz-sr\)\) \/ 100% 100% no-repeat, radial-gradient\(circle at 100% 0,/);
   assert.doesNotMatch(css, /pz-sheet:not\(\.tool-open\):not\(\.pz-sliding\)::after \{ visibility: hidden; \}/, 'tucked, its foot is the edge under the card');
