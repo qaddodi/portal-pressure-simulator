@@ -32,7 +32,7 @@
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
-import { SLOT, DYE_BINS } from './blood.js?v=c5371c237d';
+import { SLOT, DYE_BINS } from './blood.js?v=8e7372337f';
 import { cssRGB } from './util.js?v=9cff6e63a6';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=2bc0d36839';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
@@ -917,7 +917,7 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   // Its scale follows the zoom without steps: the lane width from a continuous lane count, and the
   // cell size cross-fading between the parcel scales (1, 2, 4 slots) over a band of zoom, where the beads switch at once.
   float qy = y * R / max(0.55 * 1.6 * R / clamp(1.7 * R / Lg, 1.0, 7.0), 3.2 * pxW);
-  float drift = stasis * clock * 0.06;
+  float drift = texelFetch(flow, ivec2(3, id), 0).z;   // (added up per stream on the CPU: blood.js drift)
   float lx = clamp(log2(max(pxW, 1e-4) * 8.0 / SLOT), -1.0, 3.0);
   float li = smoothstep(-0.2, 0.2, lx) + smoothstep(0.8, 1.2, lx);   // 0 … 2
   float lb = min(floor(li), 1.0), lf = li - lb;

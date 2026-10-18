@@ -3,22 +3,22 @@
 
 import { startHost, host } from './host.js?v=25be84943e';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=a99c29ef96';
+import { createStage } from './stage.js?v=bfa4fc3d22';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
 import { sinusoidSupported } from './sinusoid-view.js?v=6c54c866f0';
 import { createInspector } from './inspector.js?v=6f5d0ea3b3';
-import { createDock, CUTOFFS } from './dock.js?v=fa8439d906';
+import { createDock, CUTOFFS } from './dock.js?v=48ab9f472b';
 import { setHvpgStage } from './hvpg-proc.js?v=bc4caa00a0';
 import { createWhy } from './why.js?v=b480cd1dec';
 import { createTimeline, LAPSES } from './timeline.js?v=c6f352ed4d';
 import { createCompare } from './compare.js?v=7c78f0f68c';
-import { createCard } from './card.js?v=8e4f501434';
-import { createChart } from './chart.js?v=d408e76932';
+import { createCard } from './card.js?v=be4c1fbfe3';
+import { createChart } from './chart.js?v=30c2b8d71b';
 import { createMenu } from './menu.js?v=1336b576e2';
 import { caption } from './a11y.js?v=7fc9dce40a';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=0d9c03aff0';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=584b918e99';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=0be9571e14';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
@@ -35,7 +35,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=b9ab473155';
 import { initTopbarMotion } from './topbar-motion.js?v=bd8d17727e';
-import { ORIGINS } from './blood.js?v=c5371c237d';
+import { ORIGINS } from './blood.js?v=8e7372337f';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=1ee7733788';
 import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=67ca200c87';

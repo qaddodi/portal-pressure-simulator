@@ -9,8 +9,8 @@ import { store, updateParams, hiddenNow } from './store.js?v=31ee79b6ab';
 import { fmt, fmtFlow, clamp } from './util.js?v=9cff6e63a6';
 import { PREGNANCY_INFO } from '../engine/scenario.js?v=1ee7733788';
 import { aboutVessel, aboutOrgan } from './about.js?v=a6077ba8e2';
-import { lobuleState } from './lobule-model.js?v=bd47857a6f';
-import { oxygenFor } from './blood.js?v=c5371c237d';
+import { lobuleState } from './lobule-model.js?v=7a4fbe5056';
+import { oxygenFor } from './blood.js?v=8e7372337f';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=297b77ad88';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
