@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=48e920f20a';
-import { createLobuleZoom } from './lobule-zoom.js?v=a8801c608a';
+import { createLobuleZoom } from './lobule-zoom.js?v=b1ad723976';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -22,7 +22,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=7373d678d4';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=6dd261f7a2';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=b0e8934683';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
@@ -2784,6 +2784,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const ORIGIN_LUMEN = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];   // the lumen while the blood is colored by origin (the GPU paints the streams on it)
   const binMemo = new Map();
   let binShown = null;
+  // A coiling collateral's cells are tested against its points when the coil began, reaching farther by as much as the coil
+  // still has to go (each point moves toward its coiled place by at most the change in amplitude), so they list it wherever
+  // it draws until the coil settles: every model frame of the coil writes its new points over the last binning (binVeins'
+  // patch) instead of binning every vessel again (round 2 review, G1-3). Settled, or moved past that (a new target), it is
+  // binned on its own points again. (A vessel listed in a cell it does not reach draws nothing there: the 1.25 headroom of a
+  // widening vein, below, lists such cells too.)
+  const binFrom = new Map();
+  function binTube(it, pts) {
+    const reach = vBinReach.get(it.row), g = it.x.e.kind === 'collateral' ? geo[it.x.e.id] : null;   // (its strands and feeders too)
+    if (!g || g.wig === g.wigT) { binFrom.delete(it.row); return { id: it.row, pts, reach }; }
+    let a = binFrom.get(it.row);
+    if (a && a.pts.length === pts.length) {
+      let far = 0;
+      for (let i = 0; i < pts.length && far <= a.m; i++) far = Math.max(far, Math.hypot(pts[i][0] - a.pts[i][0], pts[i][1] - a.pts[i][1]));
+      if (far > a.m) a = null;
+    } else a = null;
+    if (!a) binFrom.set(it.row, a = { pts: pts.map((q) => q.slice()), m: Math.ceil(Math.abs(g.wigT - g.wig) * 2 + 1) / 2 });
+    return { id: it.row, pts, bin: a.pts, reach: reach + a.m };
+  }
   let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
   const veinsRows = new Set();   // vessel rows whose attributes changed since the vessel layer was drawn (only those, while veinsDirty is false)
   let plateDim = null, plateSat = 1, netA = 1;
@@ -3135,8 +3154,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const it of items) if (it.kind === 'v') { it.obj.glPts = smooth.get(it.row) || it.pts; }
       // (Binned against the last binning: a coiling collateral re-tests only its own cells, and when nothing the GPU holds
       // changed (another vessel's coil easing while it is hidden), nothing is uploaded.)
-      const bins = binVeins(items.map((it) => ({ id: it.row, pts: smooth.get(it.row) || it.pts, reach: vBinReach.get(it.row) })), J, binMemo);
-      if (bins !== binShown) { binShown = bins; veins.setGeometry(bins); }
+      const bins = binVeins(items.map((it) => binTube(it, smooth.get(it.row) || it.pts)), J, binMemo);
+      // (Patched in place, only the rows that changed go up again: the cells and every other entry are as uploaded.)
+      if (bins !== binShown) { if (bins.patch && binShown?.ent === bins.ent) veins.patchGeometry(bins); else veins.setGeometry(bins); binShown = bins; }
       tubesNew = true;
     }
     // Attributes, every frame.

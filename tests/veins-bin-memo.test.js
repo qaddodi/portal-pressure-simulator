@@ -48,7 +48,70 @@ test('the geometry is not rebuilt while nothing about it changed', () => {
 test('the figure uploads the vessel geometry only when binning gave a new result', async () => {
   const { readFileSync } = await import('node:fs');
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(stage, /binVeins\([^;]*, binMemo\);\s*\n\s*if \(bins !== binShown\) \{ binShown = bins; veins\.setGeometry\(bins\); \}/);
+  assert.match(stage, /binVeins\([^;]*, binMemo\);\s*\n(?:\s*\/\/.*\n)*\s*if \(bins !== binShown\) \{ if \(bins\.patch && binShown\?\.ent === bins\.ent\) veins\.patchGeometry\(bins\); else veins\.setGeometry\(bins\); binShown = bins; \}/);
+});
+
+// A coil step moves one vessel's points without changing which cells list it: the last result is patched in place, entry for
+// entry what a whole binning gives, and only the rows that changed are marked for upload (round 2 review, G1-3: a whole
+// binning and a 4 MB upload at every model frame of a coil, for 20–35 s after a patient change or a talk start).
+test('a coil step patches the last binning in place, entry for entry a whole binning', () => {
+  const memo = new Map();
+  const a = binVeins(scene(0.5).tubes, scene(0.5).joins, memo);
+  const ent0 = Float32Array.from(a.ent);
+  let last = a, patched = 0;
+  for (const t of [0.5004, 0.5008, 0.5012]) {
+    const { tubes, joins } = scene(t), r = binVeins(tubes, joins, memo);
+    assert.notEqual(r, last, 'the points moved: a new result, so the figure uploads it');
+    same(r, binVeins(tubes, joins));
+    if (r.patch) {
+      patched++;
+      assert.equal(r.ent, a.ent, 'patched in place');
+      assert.equal(r.cells, a.cells, 'the cells are as uploaded');
+      const W = 2048 * 4;
+      for (let i = 0; i < ent0.length; i++) if (!Object.is(ent0[i], r.ent[i])) assert.ok(r.patch.some(([r0, r1]) => i >= r0 * W && i < (r1 + 1) * W), `a changed float (${i}) outside the rows marked for upload`);
+    }
+    ent0.set(r.ent); last = r;
+  }
+  assert.equal(patched, 3, 'each small coil step is a patch');
+  assert.equal(binVeins(scene(0.5012).tubes, scene(0.5012).joins, memo), last, 'nothing changed since: the same result');
+  // A step that moves the vessel into other cells, a join into other cells, or another set of vessels: a whole binning.
+  const far = binVeins(scene(0.9).tubes, scene(0.9).joins, memo);
+  assert.ok(!far.patch && far.ent !== a.ent);
+  same(far, binVeins(scene(0.9).tubes, scene(0.9).joins));
+  const j = scene(0.9);
+  j.joins[0].k = 0.5;
+  const rj = binVeins(j.tubes, j.joins, memo);
+  assert.ok(rj.patch && rj.ent === far.ent, 'a join\'s blend changed, its cells did not: a patch');
+  same(rj, binVeins(j.tubes, j.joins));
+  j.joins[0].reach = 60;
+  const rw = binVeins(j.tubes, j.joins, memo);
+  assert.ok(!rw.patch && rw.ent !== far.ent, 'a join reaching other cells: a whole binning');
+  same(rw, binVeins(j.tubes, j.joins));
+  const fewer = scene(0.9);
+  fewer.tubes.pop();
+  same(binVeins(fewer.tubes, fewer.joins, memo), binVeins(fewer.tubes, fewer.joins));
+});
+
+// A coiling vessel's cells tested against its points when the coil began, reaching farther by as much as it can still
+// move: every step a patch, the cells listing it everywhere a binning of its own points would, and the entries those of a
+// whole binning of the same tubes.
+test('a vessel binned against other points: listed wherever its own points would be, its entries its own', () => {
+  const memo = new Map(), from = coil(0.5), m = 2;
+  const tube = (t) => ({ ...scene(t), tubes: scene(t).tubes.map((x) => (x.id === 2 ? { ...x, bin: from, reach: x.reach + m } : x)) });
+  const first = binVeins(tube(0.5).tubes, tube(0.5).joins, memo);
+  for (const t of [0.55, 0.6, 0.65]) {
+    const { tubes, joins } = tube(t), r = binVeins(tubes, joins, memo);
+    assert.ok(r.patch && r.ent === first.ent, `t ${t}: a patch`);
+    same(r, binVeins(tubes, joins));
+    // Every (cell, segment) a binning of its own points lists is listed here too.
+    const own = binVeins(scene(t).tubes, scene(t).joins), pairs = (b) => {
+      const out = new Set();
+      for (let c = 0; c < b.nCells; c++) for (let e = b.cells[c * 6 + 2], e1 = e + b.cells[c * 6 + 3]; e < e1; e++) if (b.ent[e * 8 + 4] === 2 && b.ent[e * 8 + 5] >= 0) out.add(`${b.cells[c * 6]},${b.cells[c * 6 + 1]},${b.ent[e * 8 + 5]},${b.ent[e * 8]},${b.ent[e * 8 + 1]}`);
+      return out;
+    };
+    const mine = pairs(r);
+    for (const p of pairs(own)) assert.ok(mine.has(p), `t ${t}: segment ${p} missing`);
+  }
 });
 
 test('each cell lists each vessel under a head circle, then in runs of one vessel, each run bounded around its start', async () => {

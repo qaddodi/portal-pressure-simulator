@@ -34,7 +34,7 @@
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { SLOT, DYE_BINS } from './blood.js?v=b0e8934683';
 import { cssRGB } from './util.js?v=48e920f20a';
-import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=0424cb9b35';
+import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=49af20dd7a';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 
 export { binVeins };
@@ -1633,6 +1633,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.bufferData(gl.ARRAY_BUFFER, bins.cells, gl.STATIC_DRAW);
       nCells = bins.nCells;
       cellsCPU = bins.cells; entCPU = bins.ent; rowCells = null; fboOK = false;
+    },
+    /**
+     * Uploads a binning patched in place (binVeins' `patch`: the spans of rows [r0, r1] of the entries that changed; the
+     * cells did not), over the binning last uploaded, which it must be.
+     */
+    patchGeometry(bins) {
+      gl.bindTexture(gl.TEXTURE_2D, entTex);
+      for (const [r0, r1] of bins.patch) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, r0, ENT_W, r1 - r0 + 1, gl.RGBA, gl.FLOAT, bins.ent.subarray(r0 * ENT_W * 4, (r1 + 1) * ENT_W * 4));
+      fboOK = false;
     },
     /** A vessel's lumen radius at each of its N_SAMPLES samples. */
     setRadii(row, r) {
