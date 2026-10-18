@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, putText } from './util.js?v=244eb49cc1';
-import { createLobuleZoom } from './lobule-zoom.js?v=c1589bc833';
+import { createLobuleZoom } from './lobule-zoom.js?v=5b9aaa2fd2';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -22,9 +22,9 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=2bb71e2d3e';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=c93fbf6f48';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
-import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=8e7372337f';
+import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=8e7372337f';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
 import { softwareYield } from './sw-yield.js?v=e580a095b1';
 import { portalSplit } from './table-marks.js?v=e25caf9bf9';
@@ -7162,7 +7162,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const LARGE = EDGES.map((e) => (e.kind === 'vein' || e.kind === 'diode') && (e.d || 0) >= STASIS_MIN_D);
   const bolus = createBolus(EDGES, NODES);
   const net = { Q: new Float32Array(EDGES.length), vd: new Float32Array(EDGES.length), len: new Float32Array(EDGES.length) };
-  let origins = null, originsF = null, bloodClock = 0, dyeShown = false, endsKey = '';
+  let origins = null, originsF = null, bloodClock = 0, dyeShown = false;
   // In the imaging view the flow shows once a Doppler has looked at it (still in neutral colours: pressures stay unmeasured).
   const flowSeen = () => !store.get().imaging || !!store.get().found?.has('flow');
   const bloodOn = () => !!F && flowSeen() && store.get().layers.flow !== false;
@@ -7180,11 +7180,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return EDGES[k].kind === 'liver' ? q * 0.6 : q / (Math.PI * D * D / 4);
   }
   // A drawn end is free when no other drawn vessel ends there: parcels fade in or out at it.
+  // (Versioned: the geometry, the morph to two places and which vessels count, compared in place instead of a list and a
+  // joined key built every frame; round 2 review, P8.)
+  let endsIn = null, endsGeo = -1, endsMorph = '';
   function syncEnds() {
-    const list = EV.filter((x) => x.vis && !x.isArt && !x.g.classList.contains('coll-ghost'));
-    const key = geometryVersion + '|' + morph.toFixed(2) + '|' + list.map((x) => x.e.id).join(',');
-    if (key === endsKey) return;
-    endsKey = key;
+    if (!endsIn || endsIn.length !== EV.length) { endsIn = new Uint8Array(EV.length); endsGeo = -1; }
+    const mk = morph.toFixed(2);
+    let same = endsGeo === geometryVersion && endsMorph === mk;
+    for (let i = 0; i < EV.length; i++) {
+      const x = EV[i], v = x.vis && !x.isArt && !x.g.classList.contains('coll-ghost') ? 1 : 0;
+      if (endsIn[i] !== v) { endsIn[i] = v; same = false; }
+    }
+    if (same) return;
+    endsGeo = geometryVersion; endsMorph = mk;
+    const list = EV.filter((x, i) => endsIn[i]);
     const ends = new Map();
     for (const x of list) {
       const P = geo[x.e.id].cur;
@@ -7201,6 +7210,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
   const streamOpts = { phasic: false, speed: 1, large: true, still: false, rev: false };
+  // Facts that change only with a model frame (or the healthy reference), kept per frame instead of worked out every display
+  // frame: each vessel's reversed flag and its two velocities. Key chevrons: 1 for a vessel that always keeps them, 2 for one
+  // that keeps them while an open collateral runs in its lane (asked each frame), 0 for none (round 2 review, P8).
+  const revK = new Uint8Array(EDGES.length), velQf = new Float64Array(EDGES.length), velQ = new Float64Array(EDGES.length);
+  let perF = null, perH = null;
+  const KEY_K = EDGES.map((e) => (keyChevron(e) ? 1 : KEY_CHEV_LANES[e.id] ? 2 : 0));
   let bloodEasing = false;
   const blendA = { s: null, c: null, o: null };   // shown share of the streaks, the chevrons and the origin colours (stepBlood)
   const eased = (v, to, k) => { if (Math.abs(to - v) <= 0.002) return to; bloodEasing = true; return v + (to - v) * k; };
@@ -7221,13 +7236,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (bloodEasing: a reversed colour or a chevron fade still on its way keeps the figure awake, paused too, so it never stops
     // part-way until Play; each lands exactly once within 0.002 of its end. Round 2 review, B10.)
     bloodEasing = false;
+    const H = st.healthy;
+    if (perF !== F || perH !== H) {
+      perF = F; perH = H;
+      for (let k = 0; k < EDGES.length; k++) { revK[k] = isReversed(EDGES[k], RF) ? 1 : 0; velQf[k] = velOf(k, Qf[k]); velQ[k] = velOf(k, F.Q[k]); }
+    }
     for (let k = 0; k < EDGES.length; k++) {
       // One signal turns both: the reversed colour and the way the blood and its chevrons run (isReversed).
-      const rt = isReversed(EDGES[k], RF) ? 1 : 0;
+      const rt = revK[k];
       so.large = LARGE[k]; so.rev = !!rt;
-      const sm = advanceStream(streams[k], velOf(k, Qf[k]), velOf(k, F.Q[k]), moving ? dt : 0, so);
+      const sm = advanceStream(streams[k], velQf[k], velQ[k], moving ? dt : 0, so);
       sm.rev = sm.rev == null ? rt : eased(sm.rev, rt, ease);
-      const ct = !key || keyChevron(EDGES[k], laneOpen) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
+      const ct = !key || KEY_K[k] === 1 || (KEY_K[k] === 2 && keyChevron(EDGES[k], laneOpen)) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
       sm.chevK = sm.chevK == null ? ct : eased(sm.chevK, ct, ease);
     }
     // The streaks, the chevrons and the origin colours fade in and out (0.15 s) when switched, by their toggles, the catheter

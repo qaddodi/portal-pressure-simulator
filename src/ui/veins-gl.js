@@ -49,7 +49,10 @@ export const ORIGIN_GREY = 0.62;       // the lumen's color while the blood is c
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 // The composite's per-frame uniform arrays, filled in place: it ran six `new Float32Array`s a frame. (Each is uploaded at once,
 // so one set serves every renderer.)
-const SCR = { world: new Float32Array(9), inv: new Float32Array(9), originCol: new Float32Array(15), be: new Float32Array(40), bb: new Float32Array(40), ncv: new Float32Array(48), hb: new Float32Array(64), hr: new Float32Array(16) };
+// The origin colours flattened once per palette (the palette is one object for the page's life), not every frame (P8).
+const OC = new WeakMap();
+const originColOf = (src) => { let a = OC.get(src); if (!a) OC.set(src, a = new Float32Array(src.flat())); return a; };
+const SCR = { world: new Float32Array(9), inv: new Float32Array(9), be: new Float32Array(40), bb: new Float32Array(40), ncv: new Float32Array(48), hb: new Float32Array(64), hr: new Float32Array(16) };
 const ORIGIN_WHITE = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
 const put = (dst, src) => { dst.set(src); return dst; };
 
@@ -1798,7 +1801,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform1i(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);
       gl.uniform1f(U.clock, blood.clock || 0);
       gl.uniform1f(U.rows, nTubes);
-      { const oc = (blood.originCol || ORIGIN_WHITE).flat(); gl.uniform3fv(U.originCol, oc.length === 15 ? put(SCR.originCol, oc) : new Float32Array(oc)); }
+      gl.uniform3fv(U.originCol, originColOf(blood.originCol || ORIGIN_WHITE));
       gl.uniform3f(U.dyeCol, ...(blood.dyeCol || [0.8, 0.95, 0.2]));
       gl.uniform3f(U.revCol, ...(blood.revCol || [1, 0.55, 0.16]));
       gl.uniform3f(U.inkLight, ...(blood.inkLight || [1, 1, 1]));
