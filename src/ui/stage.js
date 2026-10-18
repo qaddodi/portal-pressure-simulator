@@ -2793,7 +2793,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const binFrom = new Map();
   function binTube(it, pts) {
     const reach = vBinReach.get(it.row), g = it.x.e.kind === 'collateral' ? geo[it.x.e.id] : null;   // (its strands and feeders too)
-    if (!g || g.wig === g.wigT) { binFrom.delete(it.row); return { id: it.row, pts, reach }; }
+    // (A collateral that never coils, spontaneous or straight, has no target: wigT stays unset, and a reach of
+    // NaN from it spoilt the whole binning's bounds, so no vessel drew at all: the outflow talk's caval collateral, 18 Oct.)
+    if (!g || g.wigT == null || g.wig === g.wigT) { binFrom.delete(it.row); return { id: it.row, pts, reach }; }
     let a = binFrom.get(it.row);
     if (a && a.pts.length === pts.length) {
       let far = 0;
