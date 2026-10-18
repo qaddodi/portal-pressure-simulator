@@ -4474,7 +4474,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     platePoke();
   }
   // Per animation frame: ease the shown volume and keep the GPU fluid's look current. True when the level moved.
-  function stepFluid(dt, st) {
+  function stepFluid(dt, st, easeDt = dt) {
     if (ascTarget === null) return false;
     let moved = false;
     if (ascShown !== ascTarget) {
@@ -4484,7 +4484,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (held && Math.abs(clamp(ascTarget / 8500, 0, 1) * 34 - bulgeQ) > 3 && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
       // A critically damped spring on the drawn scale (volume^0.6), so the fluid fills in from the pelvis and
       // drains out smoothly, starting and stopping gently, instead of jumping in or out of existence.
-      ({ shown: ascShown, vel: ascVel } = fluidSpring(ascShown, ascVel, ascTarget, dt));
+      ({ shown: ascShown, vel: ascVel } = easeDt > 0.05 ? fluidSpringFor(ascShown, ascVel, ascTarget, easeDt) : fluidSpring(ascShown, ascVel, ascTarget, easeDt));
       drawAscites(); moved = true;   // (its platePoke rasterizes once the fluid is within a step of its volume)
     }
     const run = st.running && !reduceMotion.matches;
@@ -7475,6 +7475,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { nextFrame(animate); return; }
     flowGate = interval ? now - ((now - flowGate) % interval) : now;
     const dt = Math.min(0.1, (now - lastT) / 1000);
+    // (On a software renderer a frame waits its turn for up to 2 s: the fluid's ease catches up on the time that passed, so it
+    // settles when it would on a GPU instead of crawling 50 ms per drawn frame, and a picture taken after it is always the same.)
+    const easeDt = SOFTWARE ? Math.min(2, (now - lastT) / 1000) : dt;
     lastT = now;
     // Fully inside the lobule, the plate is covered (a pending redraw waits for the frame it can show in): the loop sleeps
     // there, and leaving the lobule (a store change) wakes it. While the lobule only covers it on the way in or out, it keeps looking.
@@ -7506,7 +7509,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     stepReveals(now);
     if (F) stepBlood(dt);
-    const fluidMoved = stepFluid(dt, st);
+    const fluidMoved = stepFluid(dt, st, easeDt);
     // The vessel layer is redrawn only when something in it changed; the blood every frame.
     if (glowSync && !syncGlowOnly(easeInOut(morph))) syncVeins(easeInOut(morph));
     olStep(now);
