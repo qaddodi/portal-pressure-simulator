@@ -3,7 +3,7 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
-import { h, svgIcon, toast } from './util.js?v=efc61b5b21';
+import { h, svgIcon, toast, afterExit } from './util.js?v=203ece360c';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { DRUGS } from '../engine/scenario.js?v=1ee7733788';
 import { HIDDEN_EDGES } from './anatomy.js?v=8374d8e213';
@@ -131,7 +131,7 @@ export function createPalette({ ctx }) {
   function close() {
     if (back.hidden || back.classList.contains('leaving')) return;
     back.classList.add('leaving'); clearTimeout(leaveT);
-    leaveT = setTimeout(() => { back.hidden = true; back.classList.remove('leaving'); }, 200);
+    leaveT = afterExit(back, 'leaving', () => { back.hidden = true; back.classList.remove('leaving'); });
     ret?.focus?.({ preventScroll: true });
   }
   input.addEventListener('input', () => { sel = 0; renderList(); });

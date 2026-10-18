@@ -3,16 +3,16 @@
 
 import { store, hiddenNow } from './store.js?v=31ee79b6ab';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, swapFade, scrollBehavior, countTo, swapText } from './util.js?v=efc61b5b21';
-import { lobuleFlows } from './lobule-model.js?v=466d6fe91f';
-import { createProfile } from './charts.js?v=91e016199b';
-import { createPressureTime } from './pressure-time.js?v=914560c49a';
-import { createFibroScan } from './fibroscan.js?v=d19dc1f3ab';
-import { createHvpgProcedure } from './hvpg-proc.js?v=7af6328add';
-import { createDoppler } from './doppler.js?v=f4a2919de8';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, swapFade, scrollBehavior, countTo, swapText, glideOnResize } from './util.js?v=203ece360c';
+import { lobuleFlows } from './lobule-model.js?v=72678209b6';
+import { createProfile } from './charts.js?v=99572f3f4f';
+import { createPressureTime } from './pressure-time.js?v=42a128a1d4';
+import { createFibroScan } from './fibroscan.js?v=223eb21a05';
+import { createHvpgProcedure } from './hvpg-proc.js?v=121f5b727e';
+import { createDoppler } from './doppler.js?v=fa65509530';
 import { ownsSideways } from './swipe.js?v=75b95b59cf';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=c28205d29b';
-import { createReadoutsPane } from './readouts-pane.js?v=fc7b02bd34';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=5177900e56';
+import { createReadoutsPane } from './readouts-pane.js?v=d0198598dc';
 import { frameFor } from './frame.js?v=67ca200c87';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 import { setShown } from './shown.js?v=82ef5e29ec';
@@ -171,7 +171,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
   // Entering or leaving it, the bar's readings crossfade (swapFade) rather than switch groups in one frame (motion review P12).
   const applyLobule = () => { const on = !!store.get().lobule, pri = on ? LOBULE_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
-  const syncLobule = () => swapFade(strip, () => { applyLobule(); resizeSoon(); }, { instant: strip.classList.contains('lob') === !!store.get().lobule });
+  // (The play, clock and Compare beside them glide to wherever the new readings' width puts them: RF4.)
+  const syncLobule = () => {
+    const same = strip.classList.contains('lob') === !!store.get().lobule, tl = document.getElementById('timeline');
+    if (!same && tl) glideOnResize(tl, ':scope > *', { also: [strip, document.getElementById('vdock')] });
+    swapFade(strip, () => { applyLobule(); resizeSoon(); }, { instant: same });
+  };
   // A paused model sends no frames: fill the tiles from the last one at once (no dashes).
   for (const k of ['lobule', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
   // (A measurement, the Always show HVPG switch or a new patient's hidden readouts change what the tiles show: repaint

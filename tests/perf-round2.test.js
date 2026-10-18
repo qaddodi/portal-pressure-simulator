@@ -10,7 +10,7 @@ globalThis.Element ??= class {};
 globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addListener() {} });
 globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty() {} } }, addEventListener() {}, createElement: () => ({ getContext: () => ({}) }) };
 globalThis.addEventListener ??= () => {};
-const { putText } = await import('../src/ui/util.js');
+const { putText, afterExit } = await import('../src/ui/util.js');
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -67,4 +67,51 @@ test('round 2 pops: the legend key names only what it shows (NP8); the Over time
   assert.match(main, /key = m === 'heat' \|\| m === 'delta' \? `\$\{m\}\|\$\{ref\}` : m, same = key === legendKey;/);
   assert.match(pt, /const k = -Math\.expm1\(-Math\.min\(0\.1, \(now - ysAt\[key\]\) \/ 1000\) \/ 0\.15\)/);
   assert.match(pt, /if \(gliding && !glideReq && !\(ticking && live\(\)\)\) \{ glideReq = true; nextFrame\(/);
+});
+
+test('NP11: afterExit hides once the exit animations end, never for an element opened again, and a later exit has its own wait', async () => {
+  let resolve;
+  const finished = new Promise((r) => { resolve = r; });
+  const cls = new Set(['leaving']);
+  const el = { classList: { contains: (c) => cls.has(c) }, getAnimations: () => [{ finished }] };
+  let hidden = 0;
+  afterExit(el, 'leaving', () => hidden++, 5000);
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(hidden, 0, 'waits for the fade');
+  resolve();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(hidden, 1);
+  // Opened again before its fade ended: the leaving class is gone, nothing hides.
+  let r2; const f2 = new Promise((r) => { r2 = r; });
+  el.getAnimations = () => [{ finished: f2 }];
+  const t = afterExit(el, 'leaving', () => hidden++, 5000);
+  cls.delete('leaving'); clearTimeout(t); r2();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(hidden, 1);
+  // No animation at all: it hides at once (next task).
+  cls.add('leaving'); el.getAnimations = () => [];
+  afterExit(el, 'leaving', () => hidden++, 5000);
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(hidden, 2);
+});
+
+test('NP9, NP11, NP12: the Compare badge stands under the desktop top bar; closing pieces wait for their fade; Rotate folds in the zoom pill', () => {
+  const css = read('styles/app.css'), main = read('src/ui/main.js'), card = read('src/ui/card.js'), pal = read('src/ui/palette.js');
+  assert.match(css, /@media \(min-width: 1024px\) \{ \.cmp-badge \{ top: calc\(var\(--top-safe, 0px\) \+ 6px \+ var\(--cmp-h, 0px\)\); \} \}/);
+  assert.match(card, /closeTimer = afterExit\(el, 'ac-leaving',/);
+  assert.match(main, /hintT = afterExit\(el, 'leaving',/);
+  assert.match(main, /afterExit\(badge, 'leaving', \(\) => badge\.remove\(\)\)/);
+  assert.match(pal, /leaveT = afterExit\(back, 'leaving',/);
+  assert.match(css, /\.zoom-pill \.stage-rotate\.ib \{ width: 0; height: 0; margin: -1px;/);
+  assert.match(css, /\.cmap \.zoom-pill \.stage-rotate\.ib \{ width: 36px; height: 36px; margin: 0; opacity: 1;/);
+  assert.doesNotMatch(css, /#zoomPill #rotateCircuit, #dock/);
+});
+
+test('RF4 and NP3: the lens key and its name are watched by the top bar glide; Add shunt targets glow and stand out on the GPU figure', () => {
+  const tb = read('src/ui/topbar-motion.js'), stage = read('src/ui/stage.js');
+  assert.match(tb, /for \(const id of \['scenarioName', 'legend', 'colorModeLabel'\]\)/);
+  assert.match(stage, /const GLOW_RANK = \[[^\]]*'shunt'\];/);
+  assert.match(stage, /setGlowSrc\('shunt', \[\.\.\.shunt\.targets\.keys\(\)\]\.map\(\(id\) => \(\{ id, col: 'var\(--accent\)'/);
+  assert.match(stage, /const out = shunt \? new Set\(\[\.\.\.vh\.sel, shunt\.src, \.\.\.shunt\.targets\.keys\(\)\]/);
+  assert.match(stage, /wrap\.classList\.remove\('shunting'\);\n\s*setGlowSrc\('shunt', \[\]\);/);
 });

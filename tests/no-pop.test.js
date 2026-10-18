@@ -75,7 +75,10 @@ test('a new lens crossfades the key and the lens name; nothing else writes the n
 });
 
 test('entering or leaving the lobule crossfades the bar\'s readings', () => {
-  assert.match(dock, /const syncLobule = \(\) => swapFade\(strip, \(\) => \{ applyLobule\(\); resizeSoon\(\); \}, \{ instant: strip\.classList\.contains\('lob'\) === !!store\.get\(\)\.lobule \}\);/);
+  assert.match(dock, /const same = strip\.classList\.contains\('lob'\) === !!store\.get\(\)\.lobule/);
+  assert.match(dock, /swapFade\(strip, \(\) => \{ applyLobule\(\); resizeSoon\(\); \}, \{ instant: same \}\);/);
+  // RF4: the play, clock and Compare glide to where each resize puts them, every step of it.
+  assert.match(dock, /if \(!same && tl\) glideOnResize\(tl, ':scope > \*', \{ also: \[strip, document\.getElementById\('vdock'\)\] \}\);/);
 });
 
 test('a label under the open menu fades rather than blinking', () => {

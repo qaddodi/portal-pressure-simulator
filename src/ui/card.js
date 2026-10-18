@@ -4,8 +4,8 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX } from './util.js?v=efc61b5b21';
-import { cardFor, normalizeSel } from './actions.js?v=b52b5fa5da';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit } from './util.js?v=203ece360c';
+import { cardFor, normalizeSel } from './actions.js?v=c54a9205f2';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 const nextFrame = frameFor('card');
@@ -78,7 +78,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       // (Docked, it sinks away; a desktop card fades out where it stands: it had closed in one frame.)
       // (With Reduce Motion both only fade: app.css turns the keyframes into fades.)
       el.classList.add('ac-leaving');
-      closeTimer = setTimeout(() => { el.hidden = true; el.classList.remove('ac-leaving'); }, isDocked() ? 180 : 200);
+      closeTimer = afterExit(el, 'ac-leaving', () => { el.hidden = true; el.classList.remove('ac-leaving'); });
     }
     model = null; live = []; syncs = []; actionable = [];
     leader.replaceChildren(); placedFor = '';

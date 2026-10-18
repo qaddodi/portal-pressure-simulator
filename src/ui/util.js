@@ -321,6 +321,51 @@ export function swapFade(el, fill, { instant = false, out = 120, inn = 180 } = {
   };
   a.finished.then(done, done);
 }
+/**
+ * For `ms` after a swap starts, the elements `sel` finds in `root` glide to wherever each resize of `root` (or of `also`)
+ * puts them, instead of jumping (FLIP, transform only). A swap can resize a bar more than once (its readings, then a fit a
+ * moment later), so every step is caught, each glide carrying on from where the last one had got to. Reduce Motion: no
+ * glide (the bar's readings still fade). (The play bar jumped 15-20 px sideways entering the lobule; round 2 review, RF4.)
+ */
+export function glideOnResize(root, sel, { ms = 520, dur = 220, also = [] } = {}) {
+  if (!root?.animate || reduceMotionMQ.matches || typeof ResizeObserver !== 'function') return;
+  const pos = (el) => { let x = 0, y = 0; for (let n = el; n && n !== document.body; n = n.offsetParent) { x += n.offsetLeft; y += n.offsetTop; } return [x, y]; };
+  const measure = () => new Map([...root.querySelectorAll(sel)].filter((el) => el.offsetParent).map((el) => [el, pos(el)]));
+  let prev = measure();
+  const ro = new ResizeObserver(() => {
+    const now = measure();
+    for (const [el, [x, y]] of now) {
+      const p = prev.get(el);
+      if (!p) continue;
+      let cx = 0, cy = 0;
+      for (const a of el.getAnimations()) if (a.id === 'glide') { const m = new DOMMatrixReadOnly(getComputedStyle(el).transform); cx = m.m41; cy = m.m42; a.cancel(); break; }
+      const dx = p[0] + cx - x, dy = p[1] + cy - y;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: dur, easing: 'cubic-bezier(.2, .8, .2, 1)' }).id = 'glide';
+    }
+    prev = now;
+  });
+  ro.observe(root);
+  for (const el of also) if (el) ro.observe(el);
+  setTimeout(() => ro.disconnect(), ms);
+}
+/**
+ * Runs `fn` once `el`'s exit has played: when the animations then running on it and inside it end, or at `backstop` ms at
+ * the latest, and only while it still carries `cls` (the leaving class: an element opened again meanwhile keeps it off, and
+ * a later exit starts its own wait). Returns the backstop's timer, for clearTimeout. A fixed timer had hidden closing cards
+ * before their fade ended (round 2 review, NP11).
+ */
+export function afterExit(el, cls, fn, backstop = 450) {
+  const tok = {};
+  el._exitTok = tok;
+  let ran = false;
+  const go = () => { if (ran || el._exitTok !== tok || !el.classList.contains(cls)) return; ran = true; fn(); };
+  const t = setTimeout(go, backstop);
+  const as = el.getAnimations?.({ subtree: true }) || [];
+  if (!as.length) setTimeout(go, 0);
+  else Promise.all(as.map((a) => a.finished.catch(() => {}))).then(go);
+  return t;
+}
 /** Updates a list in place from freshly built rows (MOTION_HEAT_REVIEW P18): a row whose data-row is already shown stays
  *  (replaced where it stands if its data-sig changed), a new row rises in over .22 s, and a row no longer wanted fades and
  *  folds away before it leaves. Rows without a key are simply replaced. The list was rebuilt whole, every row popping. */

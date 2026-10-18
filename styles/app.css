@@ -250,6 +250,9 @@ svg { flex: none; }
 .cmp-seg button b { font-weight: 600; }
 .cmp-badge.leaving { animation: fadeOut var(--t-out) var(--ease-in) forwards; }
 .cmp-badge { animation: fadeIn .2s var(--ease); position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: var(--z-hud); padding: 4px 12px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 600; background: var(--text); color: var(--stage-bg); pointer-events: none; box-shadow: var(--shadow-2); }
+/* On a desktop the top bar floats over the figure: the badge stands under it and under the Compare switch, not hidden behind
+   the bar's centre pill (round 2 review, NP9). */
+@media (min-width: 1024px) { .cmp-badge { top: calc(var(--top-safe, 0px) + 6px + var(--cmp-h, 0px)); } }
 
 /* Transport (bottom-left of the figure) */
 .transport { display: flex; align-items: center; gap: 8px; justify-self: start; min-width: 0; }
@@ -1343,7 +1346,7 @@ button.finding { cursor: pointer; }
 .sv-region-hep { color: var(--sv-hepatocyte); }
 /* The sinusoid view is a focused mode: only the way back to the lobule and the pressure legend stay (no lens to pick). The zoom pill keeps its place at the bottom right: its minus and fit step back out to the lobule, its plus rests (there is nothing closer to go to). */
 #zoomPill .ib:disabled { opacity: .35; pointer-events: none; }
-#app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #zoomPill #rotateCircuit, #dock, #panel, #treatCard, #stageCenter) { display: none !important; }
+#app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #dock, #panel, #treatCard, #stageCenter) { display: none !important; }
 /* (The dock too, once it has slid away: main.js sinMotion keeps it shown, out of the framing and out of reach, while it slides
    down off the screen with the zoom into the sinusoid (vd-out), and slides it back up with the zoom out. Its views pill has moved
    to the sinusoid view's own home meanwhile.) */
@@ -3489,8 +3492,7 @@ button.finding { cursor: pointer; }
   right: calc(env(safe-area-inset-right) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); transform: translateX(calc(-1 * var(--right-occ, 0px))); transition: opacity .25s var(--ease), translate .2s var(--ease), transform .3s var(--ease); translate: 0 calc(-1 * var(--sheet-h, 0px)); }   /* (transform: it glides aside with a side card, as the figure does, instead of jumping by the card's width; a transform, not right, so the glide runs off the main thread and lays nothing out: round 2 review, RF2) */
 .zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { position: static; translate: none; width: 36px; height: 36px; min-width: 0; min-height: 0; box-shadow: none; background: transparent; right: auto; bottom: auto; }
 @media (hover: hover) { .zoom-pill .ib:hover { background: var(--surface-3); } }
-.zoom-pill .stage-rotate { display: none; }
-.cmap .zoom-pill .stage-rotate { display: inline-grid; }
+.zoom-pill .stage-rotate { display: inline-grid; }
 .app.stage-busy .zoom-pill { opacity: .28; }
 .zoom-pill.no-room { visibility: hidden; }
 
@@ -3649,6 +3651,16 @@ button.finding { cursor: pointer; }
 @media (max-width: 720px) {
   .stage-view.in-lobule .zoom-pill #zoomIn, .stage-view.in-lobule .zoom-pill #zoomOut { display: inline-grid; }
 }
+/* The circuit's turn upright opens and folds in the zoom pill (its size and a fade, .2 s) instead of appearing in one frame, so
+   the pill grows rather than jumping (round 2 review, NP12). Folded it takes no room: no size, and margins that take back the
+   pill's 2 px gap. (After the phone rules, which size every button in the pill.) */
+.zoom-pill .stage-rotate.ib { width: 0; height: 0; margin: -1px; overflow: hidden; opacity: 0; visibility: hidden; pointer-events: none;
+  transition: width .2s var(--ease), height .2s var(--ease), margin .2s var(--ease), opacity .2s var(--ease), visibility 0s linear .2s; }
+.cmap .zoom-pill .stage-rotate.ib { width: 36px; height: 36px; margin: 0; opacity: 1; visibility: visible; pointer-events: auto;
+  transition: width .2s var(--ease), height .2s var(--ease), margin .2s var(--ease), opacity .2s var(--ease), visibility 0s; }
+.app.stage-busy .cmap .zoom-pill .stage-rotate.ib { opacity: .28; }
+#app.sin-focus .zoom-pill .stage-rotate.ib { width: 0; height: 0; margin: -1px; opacity: 0; visibility: hidden; pointer-events: none;
+  transition: width .2s var(--ease), height .2s var(--ease), margin .2s var(--ease), opacity .2s var(--ease), visibility 0s linear .2s; }
 /* In the tall Instruments card the trace chips wrap instead of scrolling sideways. */
 .instrument-workspace.side .pt-chips { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; padding-right: 0; }
 

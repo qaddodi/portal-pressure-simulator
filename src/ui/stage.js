@@ -3,12 +3,12 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=8374d8e213';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=de3c2eeb11';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=7b176104a2';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=efc61b5b21';
-import { createLobuleZoom } from './lobule-zoom.js?v=aceb1d034e';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=203ece360c';
+import { createLobuleZoom } from './lobule-zoom.js?v=7828f48ee7';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -22,7 +22,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=eb8d9c2085';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=fb235a2ad3';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=8e7372337f';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
@@ -1081,7 +1081,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the vessels (veins-gl.js, tube rows 10 and 11). It follows every move and pulse for free: no blur, no mask, no
   // outline to rebuild. Each source asks for vessels in a colour (null: the vessel's own); a vessel several sources
   // light takes the colour of the last in GLOW_RANK. Each eases in and out on its own, so a change cross-fades.
-  const GLOW_RANK = ['sel', 'hover', 'flash', 'delta', 'dop', 'slide', 'focus'];
+  const GLOW_RANK = ['sel', 'hover', 'flash', 'delta', 'dop', 'slide', 'focus', 'shunt'];
   const glow = { src: new Map(), lit: new Map(), raf: 0, t: 0 };
   // The glow and hover eases step at the display's rate, but the vessels are redrawn at the paced rate (animate): an
   // ease only marks the tubes stale, and the paced frame rebuilds and uploads them once.
@@ -3496,7 +3496,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The plate's dim and grey (a lens or a selection) and the network's dim ease toward their targets
   // (stepPlateEase, each frame), so a lens switch or a selection never changes the figure in one frame.
   const plateTargets = () => {
-    const dataLayer = wrap.classList.contains('data-layer'), sel = wrap.classList.contains('has-sel');
+    const dataLayer = wrap.classList.contains('data-layer'), sel = wrap.classList.contains('has-sel') || wrap.classList.contains('shunting');
     return [(sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, sel ? 0.42 : 1];
   };
   function syncPlateLook() {
@@ -7521,9 +7521,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (nv <= 0 && !to) vh.amt.delete(id); else vh.amt.set(id, nv);
       if (nv !== to) moving = true;
     }
-    for (const id of vh.sel) if (!vh.selA.has(id)) vh.selA.set(id, 0);
+    // (While a shunt is being made, its source and every vessel it can join stand out of the dimmed network too: NP3.)
+    const out = shunt ? new Set([...vh.sel, shunt.src, ...shunt.targets.keys()].filter((id) => E[id]?.vis)) : vh.sel;
+    for (const id of out) if (!vh.selA.has(id)) vh.selA.set(id, 0);
     for (const [id, v] of vh.selA) {
-      const to = vh.sel.has(id) ? 1 : 0, k = reduceMotion.matches ? 1 : dt / SEL_FADE, nv = to > v ? Math.min(1, v + k) : Math.max(0, v - k);
+      const to = out.has(id) ? 1 : 0, k = reduceMotion.matches ? 1 : dt / SEL_FADE, nv = to > v ? Math.min(1, v + k) : Math.max(0, v - k);
       if (nv <= 0 && !to) vh.selA.delete(id); else vh.selA.set(id, nv);
       if (nv !== to) moving = true;
     }
@@ -7996,6 +7998,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cls(E[src], 'shunt-src', true);
     wrap.classList.add('shunting');
     setHover(null);
+    // On the GPU figure the targets glow and stand out of the dimmed network, as the SVG's do (the hint says "a glowing
+    // vein"; they had shown nothing until hovered, and nothing on touch; round 2 review, NP3).
+    shuntGlow(null);
+    if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
+    syncPlateLook(); stageWake();
     store.set({ shunting: { src, only: only || null } });
     return true;
   }
@@ -8006,12 +8013,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     shunt = null;
     gGuides.innerHTML = '';
     wrap.classList.remove('shunting');
+    setGlowSrc('shunt', []);
+    if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
+    syncPlateLook(); stageWake();
     if (!silent) store.set({ shunting: null });
+  }
+  // The shunt's targets in the accent, the one under the pointer stronger and wider.
+  function shuntGlow(on) {
+    if (!shunt) return;
+    setGlowSrc('shunt', [...shunt.targets.keys()].map((id) => ({ id, col: 'var(--accent)', amt: id === on ? 1.4 : 0.9, wide: id === on ? 0.9 : 0.6, dur: 300 })));
   }
   function shuntMove(ev) {
     const [wx, wy] = clientToWorld(ev.clientX, ev.clientY);
     const tgt = edgeFromEvent(ev);
     const ok = tgt && shunt.targets.has(tgt);
+    if ((ok ? tgt : null) !== shunt.hover) shuntGlow(ok ? tgt : null);
     shunt.hover = ok ? tgt : null;
     gGuides.innerHTML = '';
     gGuides.append(s('path', { class: 'stent-guide' + (tgt && !ok && tgt !== shunt.src ? ' invalid' : ''), d: `M${shunt.wx} ${shunt.wy} L ${wx} ${wy}` }));
