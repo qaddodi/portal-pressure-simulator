@@ -2426,7 +2426,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!l || d.hidden || !d.classList.contains('pz-sheet')) return;
     const px = (v) => `${v.toFixed(1)}px`;
     const split = splitSheet(d), open = d.classList.contains('tool-open'), sliding = d.classList.contains('pz-sliding');
-    if (split && !sliding && !dock.lvl) measureUnder(d);   // (read before the writes below; it never changes while the card docks)
+    // (Read before the writes below, with the card at rest, open or closed: it never changes while the card docks. Skipped while
+    // closed, a slide that came in with its card closed kept its readings in the card's flow and the whole card shrank to fit them,
+    // to 74 % on Varices 3 at 375 x 667, until it was opened.)
+    if (split && !sliding && dock.lvl === dock.to) measureUnder(d);
     const u = sliding ? parseFloat(d.style.getPropertyValue('--pz-u')) || 0 : 0;
     // (Sliding, at the readings' card's foot to the fraction of a px: the card's own box height is whole px.)
     l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(d.offsetTop + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : d.offsetHeight));
