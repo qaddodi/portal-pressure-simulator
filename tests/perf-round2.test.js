@@ -52,3 +52,12 @@ test('P8: stepBlood keeps per-frame facts per model frame, syncEnds compares in 
   assert.doesNotMatch(stage, /list\.map\(\(x\) => x\.e\.id\)\.join/);
   assert.match(gl, /gl\.uniform3fv\(U\.originCol, originColOf\(/);
 });
+
+test('P10: the composite fragment shader is compiled once per context, and every program starts before any is waited on', () => {
+  const gl = read('src/ui/veins-gl.js');
+  assert.equal((gl.match(/COMP_FS\(\)/g) || []).length, 1);
+  assert.match(gl, /gl\.getExtension\('KHR_parallel_shader_compile'\);/);
+  assert.match(gl, /comp: startProgram\(gl, COMP_VS, compFS\), compCell: startProgram\(gl, COMP_CELL_VS, compFS\)/);
+  // All five started before the first status read.
+  assert.ok(gl.indexOf("line: startProgram(gl, LINE_VS, LINE_FS)") < gl.indexOf('prog = finishProgram(gl, started.prog)'));
+});

@@ -1177,17 +1177,25 @@ void main() {
   o = vec4(col.rgb * a, a);
 }`;
 
-function compile(gl, vs, fs) {
+// A program is started (its shaders compiled and linked) and finished (its status read) apart: every program of a context is
+// started first, then each is finished, so with KHR_parallel_shader_compile the driver compiles them side by side instead of
+// one wait each; a shader object can be shared (the composite's fragment shader serves both of its programs, compiled once).
+// (The lobule's prewarm compile was a 2.4–3.6 s task; round 2 review, P10.)
+function shader(gl, type, src) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  return sh;
+}
+function startProgram(gl, vs, fs) {
+  const sh = [typeof vs === 'string' ? shader(gl, gl.VERTEX_SHADER, vs) : vs, typeof fs === 'string' ? shader(gl, gl.FRAGMENT_SHADER, fs) : fs];
   const p = gl.createProgram();
-  for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
-    const sh = gl.createShader(type);
-    gl.shaderSource(sh, src);
-    gl.compileShader(sh);
-    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
-    gl.attachShader(p, sh);
-    gl.deleteShader(sh);   // freed with the program
-  }
+  for (const x of sh) gl.attachShader(p, x);
   gl.linkProgram(p);
+  return { p, sh };
+}
+function finishProgram(gl, { p, sh }) {
+  for (const x of sh) if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x));
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
   const u = {};
   const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
@@ -1209,14 +1217,22 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
+  gl.getExtension('KHR_parallel_shader_compile');
+  let started;
+  try {
+    const compFS = shader(gl, gl.FRAGMENT_SHADER, COMP_FS());
+    started = { prog: startProgram(gl, VS, FS), comp: startProgram(gl, COMP_VS, compFS), compCell: startProgram(gl, COMP_CELL_VS, compFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS) };
+  } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
+  // (Shaders are freed with the programs that hold them.)
+  const freeShaders = () => { for (const x of new Set(Object.values(started).flatMap((st) => st.sh))) gl.deleteShader(x); };
   let prog;
-  try { prog = compile(gl, VS, FS); } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
+  try { prog = finishProgram(gl, started.prog); } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); freeShaders(); return null; }
   const { p, u } = prog;
   let comp, compCell;
-  try { comp = compile(gl, COMP_VS, COMP_FS()); compCell = compile(gl, COMP_CELL_VS, COMP_FS()); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); return null; }
+  try { comp = finishProgram(gl, started.comp); compCell = finishProgram(gl, started.compCell); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); freeShaders(); return null; }
   const plates = [null, null];   // [whole plate, sharp view] : { tex, rect }
   let cathP = null;
-  try { cathP = compile(gl, CATH_VS, CATH_FS); } catch (e) { console.warn('Veins renderer: catheter shader failed.', e); }
+  try { cathP = finishProgram(gl, started.cath); } catch (e) { console.warn('Veins renderer: catheter shader failed.', e); }
   const cathBuf = gl.createBuffer(), cathVAO = gl.createVertexArray();
   gl.bindVertexArray(cathVAO);
   gl.bindBuffer(gl.ARRAY_BUFFER, cathBuf);
@@ -1224,7 +1240,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindVertexArray(null);
   let cath = null, cathWas = false, cathCap = 0;   // cathCap: bytes the catheter's buffer holds (refilled in place while it fits)
   let lineP = null;
-  try { lineP = compile(gl, LINE_VS, LINE_FS); } catch (e) { console.warn('Veins renderer: outline shader failed.', e); }
+  try { lineP = finishProgram(gl, started.line); } catch (e) { console.warn('Veins renderer: outline shader failed.', e); }
+  freeShaders();
   const lineBuf = gl.createBuffer(), lineVAO = gl.createVertexArray();
   gl.bindVertexArray(lineVAO);
   gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
