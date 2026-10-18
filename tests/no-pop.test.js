@@ -80,7 +80,10 @@ test('the play and pause icon grows in, only when it changes', () => {
 
 test('ending a talk fades its cards out, then the app\'s bars in; a new talk ends the old one at once', () => {
   const stop = presenter.slice(presenter.indexOf('  function stop(restore = true) {'), presenter.indexOf('  function stopNow('));
-  assert.match(stop, /if \(reduce\.matches \|\| !els\.length\) \{ stopNow\(restore\); chromeIn\(\); return; \}/);
+  assert.match(stop, /if \(!els\.length\) \{ stopNow\(restore\); chromeIn\(\); return; \}/);
+  // (Reduce Motion keeps these fades: they move nothing.)
+  const chromeIn = presenter.slice(presenter.indexOf('  function chromeIn() {'), presenter.indexOf('  function stopNow('));
+  assert.doesNotMatch(stop + chromeIn, /reduce\.matches/);
   assert.match(stop, /el\.animate\(\[\{ opacity: 0 \}\], \{ duration: 200, easing: 'cubic-bezier\(\.4, 0, 1, 1\)', fill: 'forwards' \}\)/);
   assert.match(stop, /if \(leaving !== me\) return; stopNow\(restore\); chromeIn\(\);/);
   assert.match(presenter, /if \(deck\) stopNow\(false\);/);
@@ -88,9 +91,33 @@ test('ending a talk fades its cards out, then the app\'s bars in; a new talk end
   assert.match(presenter, /function go\(i\) \{\n\s*if \(!deck \|\| leaving\) return;/);
 });
 
+test('a talk started while one is ending, or while the app returns to healthy, takes over cleanly', () => {
+  const start = presenter.slice(presenter.indexOf('  async function start('), presenter.indexOf('const up = Promise.all([coverUp()'));
+  // Before its first await: the old talk's fade can no longer run its restore under the new talk.
+  assert.match(start, /leaving = null; healthyGen\+\+;/);
+  assert.doesNotMatch(start, /await/);
+  const put = presenter.slice(presenter.indexOf('  async function putHealthy(b) {'), presenter.indexOf('// ── Library'));
+  // Each step's wait is followed by the check (dim, sinusoid, lobule, view, preset), and a stopped return lets the figure ease
+  // back to full (its transition kept).
+  assert.equal((put.match(/if \(gone\(\)\) return;/g) || []).length, 5);
+  assert.match(put, /await loadPreset\?\.\('healthy'\);\n\s*if \(gone\(\)\) return;/);
+  assert.match(put, /gone = \(\) => me !== healthyGen && \(view\.style\.opacity = '', true\)/);
+  assert.match(put, /if \(me === healthyGen\) view\.style\.transition = '';/);
+});
+
 test('a theme chosen in the app crossfades the page; loading applies it at once', () => {
-  assert.match(main, /document\.startViewTransition\(\(\) => applyTheme\(t, clear\)\);/);
+  assert.match(main, /crossfade\(\(\) => applyTheme\(t, clear\)\);/);
+  assert.match(main, /const vt = pageFade = document\.startViewTransition\(fn\);/);
   assert.match(main, /switchTheme\(v === 'system' \? null : v, v === 'system'\)/);
   assert.match(main, /applyTheme\(\['dark', 'light', 'soft'\]\.includes\(savedTheme\)/);
   assert.match(css, /::view-transition-old\(root\), ::view-transition-new\(root\) \{ animation-duration: \.45s;/);
+});
+
+test('a tap during the page crossfade ends it and reaches what is under it, never closing Settings', () => {
+  // Added at startup (top level of main.js), so it runs before any popover's outside-tap listener at window capture.
+  assert.match(main, /^addEventListener\('pointerdown', \(e\) => \{\n {2}const vt = pageFade;/m);
+  const h = main.slice(main.indexOf("addEventListener('pointerdown', (e) => {\n  const vt = pageFade;"));
+  assert.match(h, /e\.stopImmediatePropagation\(\); e\.preventDefault\(\);/);
+  assert.match(h, /vt\.skipTransition\(\);\n {2}vt\.finished\.finally\(\(\) => document\.elementFromPoint\(x, y\)\?\.dispatchEvent\(new MouseEvent\('click'/);
+  assert.equal((main.match(/document\.startViewTransition\(/g) || []).length, 1, 'theme and projector both go through crossfade()');
 });

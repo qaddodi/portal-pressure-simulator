@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=a5484ad5e4'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=14b36eb441'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -980,8 +980,25 @@ function setSpeed(v, lapse = false) {
 // (motion review P1). Page load and a change of the device's own theme apply at once.
 function switchTheme(t, clear) {
   if (!document.startViewTransition || document.hidden) { applyTheme(t, clear); return; }
-  document.startViewTransition(() => applyTheme(t, clear));
+  crossfade(() => applyTheme(t, clear));
 }
+// While a crossfade plays, its pictures cover the page, so a tap would land on <html>: lost, and taken as a tap outside the
+// open Settings, which closed. Such a tap ends the crossfade and goes to whatever is under it once the live page shows again.
+// (A window capture listener added at startup runs before the popovers' own outside-tap listeners; motion review round 2, RF1.)
+let pageFade = null;
+function crossfade(fn) {
+  const vt = pageFade = document.startViewTransition(fn);
+  vt.finished.finally(() => { if (pageFade === vt) pageFade = null; });
+}
+addEventListener('pointerdown', (e) => {
+  const vt = pageFade;
+  if (!vt) return;
+  pageFade = null;
+  e.stopImmediatePropagation(); e.preventDefault();
+  const { clientX: x, clientY: y } = e;
+  vt.skipTransition();
+  vt.finished.finally(() => document.elementFromPoint(x, y)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, view: window })));
+}, true);
 function applyTheme(t, clear) {
   if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
   try { if (t) localStorage.setItem('pps.theme', t); else if (clear) localStorage.removeItem('pps.theme'); } catch { /* storage unavailable */ }
@@ -1739,7 +1756,7 @@ let projector = false, bigEl = null, exitEl = null;
 function toggleProjector() {
   const want = !projector, go = () => { if (projector !== want) flipProjector(); };   // (asked twice before it ran: once)
   if (!document.startViewTransition || document.hidden) { go(); return; }
-  document.startViewTransition(go);
+  crossfade(go);
 }
 function flipProjector() {
   projector = !projector;

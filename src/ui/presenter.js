@@ -3741,6 +3741,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The slide a start lands on never plays its case card: it was skipped only while the start's cover was up, and the cover
     // gives up after 12 s, so on a slow machine a deep link sat on a case card waiting for a tap no one knew to give.)
     noCase = true;
+    // (A talk still fading out is ended by this start, not by its own fade's end, which would otherwise run its restore under
+    // the new talk; a return to healthy still under way stops where it is: motion review round 2, RF5.)
+    leaving = null; healthyGen++;
     const want0 = Math.max(0, (parseInt(at, 10) || 0));
     const d = typeof id === 'object' ? id : all().find((x) => x.id === (ALIAS[id] || id));
     if (!d?.slides?.length) { toast('That presentation could not be found.', 'bad'); return; }
@@ -3784,13 +3787,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function stop(restore = true) {
     if (!deck || leaving) return;
     const els = ui ? [ui.root, ui.shade].filter((el) => el?.animate) : [];
-    if (reduce.matches || !els.length) { stopNow(restore); chromeIn(); return; }
+    if (!els.length) { stopNow(restore); chromeIn(); return; }   // (Reduce Motion too: these are fades only, which it keeps)
     for (const el of els) el.inert = true;
     const me = leaving = Promise.all(els.map((el) => el.animate([{ opacity: 0 }], { duration: 200, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }).finished.catch(() => {})));
     me.then(() => { if (leaving !== me) return; stopNow(restore); chromeIn(); });
   }
   function chromeIn() {
-    if (reduce.matches) return;
     for (const el of app.querySelectorAll('.topbar, .vdock, .stage-bar, #zoomPill, .toolbar')) {
       if (el.getClientRects().length) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: 'cubic-bezier(.2, .8, .2, 1)' });
     }
@@ -3828,19 +3830,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // When the show ends, the app returns to the healthy patient from the start (not to where the viewer was): healthy preset, anatomy view
   // framed to fit, tools and cards closed, nothing from the last slide left on. The viewer's own settings (theme, label size, the
   // lobule layers they chose) stay as they were. The figure dims softly while the patient changes, as between slides, so nothing pops.
+  // (A talk started meanwhile takes over: healthyGen moves on, and this return stops at its next step, the figure easing back
+  // to full rather than staying dimmed or turning healthy under the new talk; motion review round 2, RF5.)
+  let healthyGen = 0;
   async function putHealthy(b) {
     const ms = reduce.matches ? 0 : 380;
-    if (ms) { view.style.transition = `opacity ${ms}ms var(--ease)`; view.style.opacity = '.22'; await wait(ms); }
+    const me = ++healthyGen, gone = () => me !== healthyGen && (view.style.opacity = '', true);
+    if (ms) { view.style.transition = `opacity ${ms}ms var(--ease)`; view.style.opacity = '.22'; await wait(ms); if (gone()) return; }
     const st = store.get();
     store.set({ mode: 'explore', colorMode: 'pressure', selection: null, details: null, compareSnap: null, compareView: 'B', hvpgMeasured: false, lastHVPG: null, lapse: 0, speed: 1 });
-    if (st.sinusoid) { store.set({ sinusoid: false }); await wait(reduce.matches ? 0 : 1000); }
-    if (st.lobule) { store.set({ lobule: false }); await until(() => stage.lobuleSettled(), 2600); await wait(80); }
+    if (st.sinusoid) { store.set({ sinusoid: false }); await wait(reduce.matches ? 0 : 1000); if (gone()) return; }
+    if (st.lobule) { store.set({ lobule: false }); await until(() => stage.lobuleSettled(), 2600); await wait(80); if (gone()) return; }
     if (b.lobuleLayers) store.set({ lobuleLayers: b.lobuleLayers });
-    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(reduce.matches ? 0 : 700); }
+    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(reduce.matches ? 0 : 700); if (gone()) return; }
     host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
     await loadPreset?.('healthy');
+    if (gone()) return;
     stage.fitSlow(reduce.matches ? 0 : 700);
-    if (ms) { await wait(260); view.style.opacity = ''; await wait(ms + 60); view.style.transition = ''; }
+    if (ms) { await wait(260); view.style.opacity = ''; await wait(ms + 60); if (me === healthyGen) view.style.transition = ''; }
   }
 
   // ── Library (the menu's Present column) ──
