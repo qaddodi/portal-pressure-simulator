@@ -337,10 +337,10 @@ const svCovered = async (page) => {
   return r;
 };
 
-// Every deck's id (the presenter's library), for the per-deck checks below.
+// Every deck's id (the presenter's library, [id, title, short name]), for the per-deck checks below.
 const CHART_SLIDES = new Map();   // (chart-type check name -> its slides, for weighing the shares)
 const STRIP_SLIDES = new Map();   // (check name -> its weight in slides, for weighing the shares)
-const DECK_IDS = [...readFileSync(new URL('../../src/ui/decks.js', import.meta.url), 'utf8').matchAll(/\['([a-z0-9-]+)', '(?:[^'\\]|\\.)*'\]/g)].map((m) => m[1]);
+const DECK_IDS = [...readFileSync(new URL('../../src/ui/decks.js', import.meta.url), 'utf8').matchAll(/\['([a-z0-9-]+)', '(?:[^'\\]|\\.)*'(?:, '(?:[^'\\]|\\.)*')?\]/g)].map((m) => m[1]);
 if (DECK_IDS.length < 15) throw new Error(`only ${DECK_IDS.length} deck ids read from decks.js`);
 // Waits for the slide to settle (up to 10 s) and returns the last reading.
 const barSettle = async (page) => {
