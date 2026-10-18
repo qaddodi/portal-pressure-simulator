@@ -24,10 +24,10 @@ import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=9c37eeb7dc';
 import { createTools } from './presenter-tools.js?v=cebbb7884d';
-import { openHandout } from './handout.js?v=16ff6c680f';
+import { openHandout } from './handout.js?v=71f42299a1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown } from './table-marks.js?v=e25caf9bf9';
+import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, liveSettled, shownSig } from './table-marks.js?v=535ead8fe4';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { createFigureKey } from './figure-key.js?v=96997852c4';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
@@ -1527,10 +1527,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     replaceParams(merge(structuredClone(store.get().params), patch));
     host.send({ type: 'setParams', params: store.get().params, settle: false, ease: 1200 });
     host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
-    for (const t0 = performance.now(); performance.now() - t0 < 7000 && mine();) {
+    const keys = [...new Set([...tileKeys(s), ...(s.key || []), ...(s.data === 'ladder' ? ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'] : [])])];
+    let sig = null, still = performance.now();
+    for (const t0 = performance.now(); mine();) {
       await wait(150);
-      const fr = store.get().frame;
-      if (fr?.metrics && mine()) dataTo(s, liveFp(fr), ref, 280);
+      const fr = store.get().frame, now = performance.now();
+      if (fr?.metrics && mine()) {
+        const f = liveFp(fr), k = shownSig(f, keys);
+        dataTo(s, f, ref, 280);
+        if (k !== sig) { sig = k; still = now; }
+      }
+      if (liveSettled(now - t0, now - still)) break;
     }
     if (mine()) abSlow();
   }

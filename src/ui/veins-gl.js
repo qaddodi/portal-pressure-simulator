@@ -32,7 +32,7 @@
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
-import { SLOT, DYE_BINS } from './blood.js?v=b0e8934683';
+import { SLOT, DYE_BINS } from './blood.js?v=e668d01823';
 import { cssRGB } from './util.js?v=cbadfc09b2';
 import { CELL, ENT_W, binVeins, splitRows } from './veins-bin.js?v=49af20dd7a';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';

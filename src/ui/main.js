@@ -3,22 +3,22 @@
 
 import { startHost, host } from './host.js?v=25be84943e';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=0fe5de289a';
+import { createStage } from './stage.js?v=1b461e49a3';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
 import { sinusoidSupported } from './sinusoid-view.js?v=5ed05c2ec4';
 import { createInspector } from './inspector.js?v=1e661083c1';
-import { createDock, CUTOFFS } from './dock.js?v=ca5e01ec65';
+import { createDock, CUTOFFS } from './dock.js?v=ae2bc2707d';
 import { setHvpgStage } from './hvpg-proc.js?v=9c37eeb7dc';
 import { createWhy } from './why.js?v=9bfb829f51';
 import { createTimeline, LAPSES } from './timeline.js?v=bfc1b503cf';
 import { createCompare } from './compare.js?v=b458062664';
-import { createCard } from './card.js?v=5d829cbdff';
-import { createChart } from './chart.js?v=0a9132aa1a';
+import { createCard } from './card.js?v=c85afc6ed5';
+import { createChart } from './chart.js?v=c6fd057bc6';
 import { createMenu } from './menu.js?v=407b2aa02d';
 import { caption } from './a11y.js?v=45f8dcb16d';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=1780b701fa';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=1e5c05d99b';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=493baf3df2';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
@@ -35,7 +35,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=e6bfed27cc';
 import { initTopbarMotion } from './topbar-motion.js?v=9d25839df1';
-import { ORIGINS } from './blood.js?v=b0e8934683';
+import { ORIGINS } from './blood.js?v=e668d01823';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=1ee7733788';
 import { frameFor, cancelFrame, perf as framePerf } from './frame.js?v=67ca200c87';
@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=afb0cac5de'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=63c97fb647'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
