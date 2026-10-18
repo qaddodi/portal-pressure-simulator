@@ -12,8 +12,8 @@
 
 import { store, replaceParams, onParamChange } from './store.js?v=31ee79b6ab';
 import { host } from './host.js?v=25be84943e';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=9cff6e63a6';
-import { activeInterventions } from './inspector.js?v=6f5d0ea3b3';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText } from './util.js?v=244eb49cc1';
+import { activeInterventions } from './inspector.js?v=8807d8052f';
 import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('timeline');
 
@@ -273,7 +273,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
   function update(f) {
     if (!jumping) {
       const t = fmtClock(f.t, f.day);
-      if (t !== lastTime) { lastTime = t; timeLong.textContent = t; timeShort.textContent = f.day > 0 ? `Day ${f.day}` : t; }
+      if (t !== lastTime) { lastTime = t; putText(timeLong, t); putText(timeShort, f.day > 0 ? `Day ${f.day}` : t); }
     }
     if (f.running !== lastRun) { lastRun = f.running; playBtn.setAttribute('aria-label', f.running ? 'Pause' : 'Play'); }
     const st = store.get(), lp = st.lapse || 0, sp = lp ? `L${lp}` : st.speed;

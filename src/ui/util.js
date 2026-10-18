@@ -375,7 +375,10 @@ export function swapText(el, txt, then) {
 const counts = new WeakMap(), rolling = new Set();
 let rollRaf = 0;
 const COUNT_MS = 320;
-const putNum = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
+// Text that changes rewrites its text node in place: setting textContent replaces the node, which re-checks styles for the
+// element and, through :has() in the phone and iPad layouts, ~85 others a model frame (round 2 review, P7).
+export const putText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
+const putNum = putText;
 function rollStep(now) {
   rollRaf = 0;
   for (const el of rolling) {

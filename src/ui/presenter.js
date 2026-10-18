@@ -14,16 +14,16 @@
 
 import { store, replaceParams } from './store.js?v=31ee79b6ab';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=9cff6e63a6';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=244eb49cc1';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=6c54c866f0';
+import { sinusoidSupported } from './sinusoid-view.js?v=b474752ca9';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=17a95feee0';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=8f961abe45';
-import { createTools } from './presenter-tools.js?v=e6c7e613cc';
+import { createHvpgMonitor } from './hvpg-proc.js?v=e732d5e9aa';
+import { createTools } from './presenter-tools.js?v=2578e79566';
 import { openHandout } from './handout.js?v=d25b4e8d53';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -31,7 +31,7 @@ import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, di
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { createFigureKey } from './figure-key.js?v=96997852c4';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=0be9571e14';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=37fe65fd87';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';

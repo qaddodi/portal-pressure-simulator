@@ -6,8 +6,8 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=31ee79b6ab';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=9cff6e63a6';
-import { FONT as FONT0, FONT } from './charts.js?v=7083ff0ed6';
+import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp } from './util.js?v=244eb49cc1';
+import { FONT as FONT0, FONT } from './charts.js?v=ad39818fd8';
 import { frameFor } from './frame.js?v=67ca200c87';
 import { tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
@@ -625,7 +625,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
   }
 
   function update(f) { ingest(f); redraw(); }
-  function redraw() { if (!frame) return; updateHero(); if (ticking && live()) return; draw(); }   // (scrolling: its own loop draws the next frame)
+  // (Scrolling: its own loop draws the next frame. The canvas is drawn before the hero's text is written: setting a canvas
+  // font after a DOM write forced a style pass in the middle of the model's frame, 4–5 ms; round 2 review, P5.)
+  function redraw() { if (!frame) return; if (!(ticking && live())) draw(); updateHero(); }
   const offs = ['hiddenReadouts', 'hvpgMeasured', 'showHvpg'].map((k) => store.on(k, () => { yr.pressure = yr.hvpg = null; }));
   // A new patient (or the same one restarted) starts with empty traces.
   function clear() { clearHemo(); days = []; redraw(); }

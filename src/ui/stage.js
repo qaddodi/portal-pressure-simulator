@@ -3,12 +3,12 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=8374d8e213';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=0be9571e14';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=37fe65fd87';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=9cff6e63a6';
-import { createLobuleZoom } from './lobule-zoom.js?v=867b3fb4cd';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, putText } from './util.js?v=244eb49cc1';
+import { createLobuleZoom } from './lobule-zoom.js?v=c1589bc833';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -22,7 +22,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=0f8382bdf9';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=2bb71e2d3e';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=8e7372337f';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
@@ -3057,9 +3057,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (glRadDirty) for (const it of items) {
       const o = it.obj, R = eased.get(o) || o.glR0;
       if (R === o.glR) continue;   // (the very array last sent)
-      const k = R.join(',');
-      if (o.glRSent === k) continue;
-      o.glRSent = k; o.glR = R; o.glMaxR = Math.max(...R);
+      // (Compared with a copy of the radii last sent, element by element, and copied only when they change: a joined string
+      // per vessel per sync was megabytes a second of garbage; round 2 review, P6.)
+      const sent = o.glRSent;
+      if (sent && sent.length === R.length) { let j = 0; while (j < R.length && sent[j] === R[j]) j++; if (j === R.length) continue; }
+      let mx = -Infinity;
+      for (let j = 0; j < R.length; j++) if (R[j] > mx) mx = R[j];
+      o.glRSent = Float64Array.from(R); o.glR = R; o.glMaxR = mx;
       // (A vessel's new radii change only its own cells: drawn again as a colour change is, see drawVeins.)
       veins.setRadii(it.row, R); veinsRows.add(it.row);
     }
@@ -3213,7 +3217,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (sa > 0) tubeData.set(kind === 'v' ? [easeInOut(sa), selEnd(id, x.e.from), selEnd(id, x.e.to), 0] : [easeInOut(sa), 0, 0, 0], o + 48);
     }
     // (Uploaded only when some vessel's attributes changed: most model frames in a steady state change none.)
-    const tubesChanged = !tubesShown || tubesShown.length !== tubeData.length || tubeData.some((v, i) => v !== tubesShown[i]);
+    let tubesChanged = !tubesShown || tubesShown.length !== tubeData.length;
+    if (!tubesChanged) for (let i = 0; i < tubeData.length; i++) if (tubeData[i] !== tubesShown[i]) { tubesChanged = true; break; }
     if (tubesChanged) veins.setTubes(tubeData);
     vLook = {
       shOff: [1.4, 2.8], light: LIGHT, reach: heat ? 40 : glow.lit.size ? 20 : 11, heat, organs: 1 - T0,
@@ -4718,7 +4723,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (A new number counts there, as the data card's tiles do, never jumps: siteCount.)
       const n = d.split ? null : d.res ? (ratio == null ? null : siteCount(el, ratio, 0.15)) : siteCount(el, siteLive(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : pinned()?.at?.P[NI[d.node]], (F.Pf || F.P)[NI[d.node]], breath(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : (F.Pf || F.P)[NI[d.node]])), 0.5);
       const b = el.querySelector('b'), v = d.split ? null : d.res ? (n == null ? '' : '×' + fmt(n, n < 10 ? 1 : 0)) : fmt(n, 1);
-      if (v != null && b.textContent !== v) b.textContent = v;
+      if (v != null) putText(b, v);
       const ra = d.res ? resAt() : null;
       if (ra) { el.classList.toggle('low', ra.up); el.classList.toggle('keyed', k === resKeyed); }
       const [x, y] = ra ? [ra.x, ra.y + resDy] : worldToLocal(...nodePos(d.node, t));
@@ -4842,7 +4847,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const card = fibroReading.cv, live = () => card?.isConnected && card.offsetParent !== null && fibroReading.txt != null;
     const k = scan.k, txt = cardTxt ?? (live() ? fibroReading.txt : k == null ? '--' : k.toFixed(1));
     const sv = scan.el.querySelector('.sp-val');
-    if (sv.textContent !== txt) sv.textContent = txt;
+    putText(sv, txt);
   }
   fibroReading.show = scanShow;
   // (Its body's far corners sit 76 px back from the tip along the probe and 13.8 px either side of it, the stroke included,
@@ -5708,7 +5713,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let i = 0;
     for (const line of it.lines) for (const r of line) {
       const sp = b.spans[i++];
-      if (sp.textContent !== r.t) sp.textContent = r.t;
+      putText(sp, r.t);
       if (sp.getAttribute('class') !== (r.cls || '')) sp.setAttribute('class', r.cls || '');
       if ((sp._fill || '') !== (r.fill || '')) { sp._fill = r.fill || ''; sp.style.fill = sp._fill; }
     }
