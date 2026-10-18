@@ -6,10 +6,10 @@
 //   Advanced physiology                  side panel, from Settings
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, toast, reconcile } from './util.js?v=9e2498d6fc';
+import { h, icon, svgIcon, toast, reconcile } from './util.js?v=aa3b8ecd8a';
 import { DRUGS } from '../engine/scenario.js?v=1ee7733788';
-import { activeInterventions } from './inspector.js?v=6193649a23';
-import { DRUG_NOTE } from './actions.js?v=e914309cde';
+import { activeInterventions } from './inspector.js?v=ea73e3ce22';
+import { DRUG_NOTE } from './actions.js?v=8e8a18ee6d';
 import { factTarget } from './fact-target.js?v=b7631940ce';
 
 
@@ -70,7 +70,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       // What the patient came with is a fact about them, not a change to undo.
       const about = active.filter((a) => baseLabels.has(a.label)), mine = active.filter((a) => !baseLabels.has(a.label));
       // (Updated in place: a new change rises in, an undone one folds away, the rest stay put: P18.)
-      const keyed = (el, k) => { el.dataset.key = k; return el; };
+      const keyed = (el, k) => { el.dataset.row = k; return el; };
       reconcile(list, [
         ...(about.length ? [keyed(h('div', { class: 'chg-sub' }, 'About this patient'), 'sub:about'), ...about.map((a) => keyed(row(a, false), `about:${a.label}`)), keyed(h('div', { class: 'chg-sub' }, 'Your changes'), 'sub:mine')] : []),
         ...mine.map((a) => keyed(row(a, true), `mine:${a.label}`))]);

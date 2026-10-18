@@ -12,8 +12,8 @@
 
 import { store, replaceParams, onParamChange } from './store.js?v=31ee79b6ab';
 import { host } from './host.js?v=a11d7ef88d';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=9e2498d6fc';
-import { activeInterventions } from './inspector.js?v=6193649a23';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=aa3b8ecd8a';
+import { activeInterventions } from './inspector.js?v=ea73e3ce22';
 import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('timeline');
 
@@ -264,7 +264,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       if (e.frame) act('Compare with now', svgIcon('camera', 'mi-ic'), 2, () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Comparing with ${fmtClock(e.t, e.day)}: ${e.label}.`); });
       const future = cursor >= 0 && i > cursor;
       // (key and sig: the History card updates its list in place, main.js reconcile.)
-      return h('div', { class: `tl-pop-row${future ? ' future' : ''}`, 'data-key': `${e.t}|${e.day || 0}|${e.kind}|${e.label}`, 'data-sig': `${future}|${acts.map((b) => b.title).join(',')}|${e.detail || ''}` },
+      return h('div', { class: `tl-pop-row${future ? ' future' : ''}`, 'data-row': `${e.t}|${e.day || 0}|${e.kind}|${e.label}`, 'data-sig': `${future}|${acts.map((b) => b.title).join(',')}|${e.detail || ''}` },
         h('div', { class: 'tl-pop-head' }, h('i', { class: `tl-dot ${e.kind}`, style: { background: e.kind === 'event' ? SEV[e.sev] || SEV.info : '' } }), h('b', {}, e.kind === 'start' ? `Patient: ${e.label}` : e.label), h('span', { class: 'when' }, e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day)), h('span', { class: 'tl-pop-acts' }, acts)),
         e.detail ? h('div', { class: 'tl-pop-d' }, e.detail) : null);
     });

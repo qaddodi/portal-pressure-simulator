@@ -319,18 +319,18 @@ export function swapFade(el, fill, { instant = false, out = 120, inn = 180 } = {
   };
   a.finished.then(done, done);
 }
-/** Updates a list in place from freshly built rows (MOTION_HEAT_REVIEW P18): a row whose data-key is already shown stays
+/** Updates a list in place from freshly built rows (MOTION_HEAT_REVIEW P18): a row whose data-row is already shown stays
  *  (replaced where it stands if its data-sig changed), a new row rises in over .22 s, and a row no longer wanted fades and
  *  folds away before it leaves. Rows without a key are simply replaced. The list was rebuilt whole, every row popping. */
 export function reconcile(list, rows) {
   const old = new Map();
-  for (const c of list.children) if (c.dataset.key && !c.classList.contains('rc-out')) old.set(c.dataset.key, c);
+  for (const c of list.children) if (c.dataset.row && !c.classList.contains('rc-out')) old.set(c.dataset.row, c);
   const shown = !!list.isConnected && list.getClientRects().length > 0 && !!list.animate, still = reduceMotionMQ.matches;
   const want = [], fresh = new Set();
   for (const r of rows) {
-    const o = r.dataset.key ? old.get(r.dataset.key) : null;
-    if (o && o.dataset.sig === r.dataset.sig) { want.push(o); old.delete(r.dataset.key); }
-    else { want.push(r); if (o) { o.replaceWith(r); old.delete(r.dataset.key); } else fresh.add(r); }
+    const o = r.dataset.row ? old.get(r.dataset.row) : null;
+    if (o && o.dataset.sig === r.dataset.sig) { want.push(o); old.delete(r.dataset.row); }
+    else { want.push(r); if (o) { o.replaceWith(r); old.delete(r.dataset.row); } else fresh.add(r); }
   }
   const keep = new Set(want);
   const going = [...list.children].filter((c) => !keep.has(c) && !c.classList.contains('rc-out'));
@@ -341,7 +341,7 @@ export function reconcile(list, rows) {
     list.insertBefore(e, cur);
   }
   for (const g of going) {
-    if (!shown || !g.dataset.key) { g.remove(); continue; }
+    if (!shown || !g.dataset.row) { g.remove(); continue; }
     g.classList.add('rc-out'); g.inert = true;
     const cs = getComputedStyle(g), h0 = g.offsetHeight;
     g.style.overflow = 'hidden';
@@ -351,7 +351,7 @@ export function reconcile(list, rows) {
     a.finished.then(() => g.remove(), () => g.remove());
   }
   if (shown) {
-    for (const r of fresh) if (r.dataset.key) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.2, .8, .2, 1)', delay: going.length ? 80 : 0, fill: 'backwards' });
+    for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.2, .8, .2, 1)', delay: going.length ? 80 : 0, fill: 'backwards' });
   }
 }
 /** Text that crossfades when it changes (a status word, an arrow): swapFade, and a fade in from empty, so a word
