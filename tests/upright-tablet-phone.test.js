@@ -131,3 +131,15 @@ test('an upright tablet\'s bottom bar and cards take the deck cards\' 70 % of th
   assert.match(main, /THUMB = \[0\.62, 1\], TABLET = \[0\.45, 0\.62\];/, 'Half an iPhone\'s 45 % of the screen, Full 62 %');
   assert.match(main, /const stops = \(\) => \(!thumb\(\) \? SIZES : tabletMQ\.matches \? TABLET\.map\(\(s\) => Math\.min\(1, \(s \* app\.clientHeight\) \/ \(room\(\) \|\| app\.clientHeight\)\)\) : THUMB\);/, 'as shares of the room, as the phone\'s');
 });
+
+// Liver inflow 2 on an upright iPad (18 Oct): a deck started after one whose readings' card travelled as far had no --pz-d on its new
+// card, so the readings' card stood out unpulled, a blank panel under the Doppler. Turned on its side, a card closed upright stood off
+// the screen's left edge, and Safari's late size after a turn left the cards placed for the upright height (Stiffness 3).
+test('the readings\' travel is set on every new card, and a turn lays the cards out for the size the stage settles to', () => {
+  assert.match(js, /\|\| !d\.style\.getPropertyValue\('--pz-d'\)\) \{ slip\.d = h1 - h0; d\.style\.setProperty\('--pz-d'/);
+  assert.match(js, /cancelFrame\(slip\.raf\); slip\.d = null; slip\.h0 = null;/, 'forgotten when the deck stops');
+  assert.match(js, /new ResizeObserver\(\(\) => \{ if \(ui && sizeNow\(\) !== sizeSeen\) onResize\(\{ type: 'resize' \}\); \}\)/);
+  assert.match(js, /wrapRO\?\.observe\(wrap\);/);
+  assert.match(js, /wrapRO\?\.disconnect\(\);/);
+  assert.match(js, /phone\(\) !== ui\.root\.classList\.contains\('stack'\) && dock\.to === 1 && !dock\.auto\) \{ cancelFrame\(dock\.raf\); dock\.to = 0; dock\.lvl = 0;/);
+});

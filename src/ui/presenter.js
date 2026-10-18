@@ -2389,7 +2389,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     parts.forEach((c, i) => { c.style.cssText = was[i]; });
     d.style.maxHeight = cap; ui.lipMO?.takeRecords();
     slip.h0 = h0;
-    if (Math.abs((slip.d ?? -1) - (h1 - h0)) > 0.05) { slip.d = h1 - h0; d.style.setProperty('--pz-d', `${slip.d.toFixed(2)}px`); }
+    // (Judged against the card's own --pz-d, never only the last measure: a deck started again builds a new card, and one whose
+    // readings travel as far as the last deck's had none, so its readings' card stood out unpulled: Liver inflow 2, 18 Oct.)
+    if (Math.abs((slip.d ?? -1) - (h1 - h0)) > 0.05 || !d.style.getPropertyValue('--pz-d')) { slip.d = h1 - h0; d.style.setProperty('--pz-d', `${slip.d.toFixed(2)}px`); }
     if (parts[1] && parts[1].style.getPropertyValue('--pz-o') !== `${o.toFixed(2)}px`) parts[1].style.setProperty('--pz-o', `${o.toFixed(2)}px`);
   }
   const dockVec = () => {
@@ -3093,8 +3095,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (The cards follow at once; the camera frames once, when the size has held for 250 ms: a turn fires several resizes, and a
   // glide after each moved the camera two or three times.)
   let reframeT = 0, turnT = 0;
+  // (The screen's size as the last resize laid the cards out for: wrapRO lays them out again when the stage settles to another size
+  // after the event. Turned on an iPad, Safari's one resize came while the stage still had its upright height: the pair was centred
+  // for that height, the data card pushed below the screen until the slide was reloaded (Stiffness 3, 18 Oct).)
+  let sizeSeen = '', wrapRO = null;
+  const sizeNow = () => { const r = wrap.getBoundingClientRect(); return `${innerWidth}x${innerHeight}:${Math.round(r.width)}x${Math.round(r.height)}`; };
   const onResize = (e) => {
     if (!ui) return;
+    if (e?.type === 'resize') sizeSeen = sizeNow();
+    // (Turned between upright (a phone's or tablet's stacked cards) and a wider layout: a data card closed in the one comes in open in
+    // the other, at once with everything else. Kept closed, an iPad's card turned on its side stood off the screen's left edge.)
+    if (e?.type === 'resize' && phone() !== ui.root.classList.contains('stack') && dock.to === 1 && !dock.auto) { cancelFrame(dock.raf); dock.to = 0; dock.lvl = 0; dock.down = -1; dockPaint(); }
     clearTimeout(restrip); restrip = setTimeout(reStrip, 250);
     if (ui.data.hasAttribute('data-sin-tiles')) ui.data.classList.toggle('under', !shortSide.matches && phone());   // (turned on or off its side)
     // (For 0.8 s after a resize or a turn the data card takes each new place at once, with no fade or glide: the words' card
@@ -3760,6 +3771,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     setLabels();
     prepare();
     addEventListener('resize', onResize);
+    sizeSeen = sizeNow();
+    wrapRO ||= typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (ui && sizeNow() !== sizeSeen) onResize({ type: 'resize' }); }) : null;
+    wrapRO?.observe(wrap);
     document.fonts?.addEventListener('loadingdone', onFonts);   // (a font arriving late changes the words' size: the cards are fitted again)
     go(Math.min(want0, slides.length - 1));
     wake();
@@ -3790,10 +3804,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);
+    wrapRO?.disconnect();
     document.fonts?.removeEventListener('loadingdone', onFonts);
     fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelFrame(fitRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
+    cancelFrame(slip.raf); slip.d = null; slip.h0 = null;
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
     pillW = 0; ui?.tools.dispose(); ui?.figKey.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
