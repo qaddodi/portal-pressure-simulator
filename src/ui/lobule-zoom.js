@@ -895,7 +895,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     noteLens(model.mode);
     cancelFrame(easeRaf);
     if (eased.moving) easeRaf = nextFrame(glideP);
-    const hs = getComputedStyle(host), cv = (n, d) => hs.getPropertyValue(n).trim() || d;
+    const hs = styles(), cv = (n, d) => hs.getPropertyValue(n).trim() || d;
     model.inks = { normal: cv('--flow-normal'), reversed: cv('--flow-reversed'), portal: cv('--vein-portal'), systemic: cv('--vein-systemic') };
     if (originOn() && originsF !== f) { origins = originFractions(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P); originsF = f; }
     panel();
@@ -920,13 +920,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (eased.moving) easeRaf = nextFrame(glideP);
   }
 
+  let tissueSaid = '';
   function panel() {
     const m = model;
     // On a slide, once settled the sinusoids read the slide's own value, as its tile does (lobule and sinusoid labels agree with it).
     { const st = store.get(), fs = st.presenting && st.presentFp?.sin; if (Number.isFinite(fs) && Math.abs(m.P2 - fs) < 0.6) m.P2 = fs; }
-    tissue.setAttribute('aria-label', m.hide ? 'Liver lobule. Pressures not measured.'
+    // (Written only when its words change: the glide reaches here every frame.)
+    const said = m.hide ? 'Liver lobule. Pressures not measured.'
       : m.mode === 'oxygen' && m.oxy ? `Liver lobule: oxygen saturation in the portal venule ${fmt(m.oxy[0] * 100, 0)}, sinusoids ${fmt(m.oxy[1] * 100, 0)}, central vein ${fmt(m.oxy[2] * 100, 0)} percent.`
-      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`);
+      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`;
+    if (said !== tissueSaid) { tissueSaid = said; tissue.setAttribute('aria-label', said); }
     // Station cards on the figure.
     // Labels as in the anatomy: the station, its pressure, and the change from healthy once it reaches
     // 5 mmHg; while comparing, every change from the pinned moment (shown at 1, dropped below 0.7).
@@ -1586,16 +1589,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const scaled = diveScaled || sinU > 0;   // the dive, or the zoom on into a sinusoid
     if (scaled && diveDrawn && flowA <= 0) return false;   // magnified by the compositor: nothing is redrawn once the marks have faded
     diveDrawn = scaled;
-    const rect = host.getBoundingClientRect();
-    const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+    const [W, H] = hostSize();
     ensureGeo(W, H);
     const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1);   // (Battery saver: one pixel per CSS pixel)
-    const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    const dark = isDark();
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion, flowA.toFixed(2)].join('|');
     if (dt === 0 && idleKey === idleDrawn) return false;
     idleDrawn = dt === 0 ? idleKey : '';
-    const cs = getComputedStyle(host);
+    const cs = styles();   // (the stage's kept copy of its styles, read again when a class, theme or system setting changes)
     const g = ensureGL();
     paintTissue(W, H, dpr, dark, cs, !g);
     snapNext = false;
@@ -1627,7 +1629,22 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     V.k = k; V.x = (f.l + f.r) / 2 - wx * k; V.y = (f.t + f.b) / 2 - wy * k;
     clampV();
   }
-  const isDark = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+  // The lobule's size, kept and read again only when it may have changed: read on every frame, it laid the page out mid-frame.
+  // A size change that lands after this frame's draw (a panel opening, the phone's toolbar) is drawn at once, before the screen shows it.
+  let hostWH = null;
+  function hostSize() {
+    if (!hostWH) { const r = host.getBoundingClientRect(); hostWH = [Math.max(1, Math.round(r.width)), Math.max(1, Math.round(r.height))]; }
+    return hostWH;
+  }
+  new ResizeObserver(() => {
+    const was = hostWH; hostWH = null;
+    if (!was || fade <= 0 || !model) return;
+    const [W, H] = hostSize();
+    if (W !== was[0] || H !== was[1]) { idleDrawn = ''; draw(0); }
+  }).observe(host, { box: 'border-box' });
+  addEventListener('resize', () => { hostWH = null; });
+  const darkMQ = matchMedia('(prefers-color-scheme: dark)');   // (one query kept, not a new one each frame)
+  const isDark = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && darkMQ.matches);
 
   // ── The dive's field ──
   // A flat-topped hexagonal tiling with the lobule view's own spacing (so the lobule it settles on, and
