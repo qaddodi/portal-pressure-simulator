@@ -225,9 +225,9 @@ function organCard(sel, ctx) {
         sl('contractility', 'contractility', 'Contractility', 0.15, 1.6, 1, 'Right-ventricular pump strength (Frank–Starling).'),
         sl('tr', 'tr', 'Tricuspid regurgitation', 0, 1, 0, 'Systolic backflow into the right atrium: large v-waves reach the liver.'),
         sl('pericardial', 'pericardial', 'Pericardial constraint', 0, 1, 0, 'Constrictive pericarditis limits filling.'),
-        // Only for a pregnant patient (or the pregnancy patient moved back to 0 weeks): every other heart card is as before.
+        // On every patient's heart card; it starts at Not pregnant (0 weeks), so no patient changes until it is moved.
         { type: 'slider', id: 'gestation', key: 'gestation', label: 'Pregnancy', min: 0, max: 40, step: 1, def: 0, format: weeks, get: (p) => p.gestation || 0, set: (p, v) => { p.gestation = v; }, hist: 'Pregnancy',
-          showIf: (p) => p.gestation > 0 || store.get().presetId === 'pregnancy', info: PREGNANCY_INFO },
+          info: PREGNANCY_INFO },
         stat('Cardiac output', (f) => `${fmt(f.metrics.co, 1)} L/min`),
       ],
     };
