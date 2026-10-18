@@ -6,7 +6,7 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=17a95feee0';
+import { LEVELS, withOverview } from './decks.js?v=db8dbf0fe3';
 import { TILE } from './table-marks.js?v=e25caf9bf9';
 import { plateletText } from './glue.js?v=5a0f63226b';
 

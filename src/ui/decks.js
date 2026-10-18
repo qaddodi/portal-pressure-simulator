@@ -40,7 +40,7 @@
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
 //   tick                     a few words for what happened at this slide's time point, over its line, at 45°, on a talk trace (else its title)
 //   when                     the time point under that line, in words, when the days so far would repeat the one before (a drug started at the same visit)
-//   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them; a dotted param names a nested one, 'fibrosis.R.post') play on the
+//   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them; a dotted param names a nested one, 'fibrosis.R.post'; a third value, a fraction of the days, has it arrive by then and hold) play on the
 //                            live figure as a time-lapse, from the slide before's state (from/to: words for the
 //                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
 //                            days at least the seconds, or the live clock runs sub-day and skips the ramp)
@@ -90,7 +90,7 @@ import { TWO_INFLOWS } from './decks/two-inflows.js?v=fe46038695';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=43096341d6';
 import { SPLEEN } from './decks/spleen.js?v=d17310ff56';
 import { NCPH } from './decks/ncph.js?v=6888d8cd3c';
-import { OUTFLOW } from './decks/outflow.js?v=420962f06a';
+import { OUTFLOW } from './decks/outflow.js?v=69d325d86b';
 import { RECOMPENSATION } from './decks/recompensation.js?v=5d88408232';
 import { WHERE } from './decks/where.js?v=bee116087f';
 import { PREGNANCY_DECK } from './decks/pregnancy.js?v=0cb3e90f9a';
