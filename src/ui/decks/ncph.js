@@ -59,8 +59,8 @@ export const NCPH = {
     {
       id: 'nsbb', params: { drugs: { propranolol: true } }, cam: 'portal', terms: ['pv'], data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
       kicker: 'Treatment', site: 'presin', title: 'A beta-blocker works here too',
-      line: 'Propranolol cuts gut inflow: portal vein pressure falls to {pv}. EASL 2025 and Baveno VIII see no case for carvedilol with presinusoidal resistance.',
-      caveat: 'In the model, carvedilol\'s extra effect is sinusoidal, so here it mostly lowers blood pressure.',
+      line: 'Propranolol cuts gut inflow: portal vein pressure falls to {pv}. EASL 2025 and Baveno VIII see no proven advantage for carvedilol when resistance is presinusoidal.',
+      caveat: 'In the model, its extra effect is sinusoidal; here it mostly lowers blood pressure.',
       notes: 'Bleeding prophylaxis in non-cirrhotic portal hypertension follows the rules for cirrhosis: a non-selective beta-blocker or banding for large varices, and both after a bleed. In schistosomiasis, praziquantel treats the infection, but established portal hypertension still needs its own treatment.',
       ask: ['Is variceal prophylaxis any different here from cirrhosis?', 'No: a non-selective beta-blocker or banding, as in cirrhosis, because the varices come from the same high portal pressure.'],
     },
