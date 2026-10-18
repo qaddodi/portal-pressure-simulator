@@ -2,6 +2,13 @@
 
 ## October 2026
 
+- **Start here, and Send feedback.** A short tour, "How to use the simulator" (six slides), heads the Present menu
+  under Start here: what the figure shows, changing the model with buttons and a slider, the four ways to color the
+  vessels, Present and Patients, and how to send feedback. The first-visit hint offers it with a Start here button.
+  Settings has a new Send feedback item at its top (in talks too): it opens a draft in the viewer's own email app,
+  addressed to the author, with the build, device, screen size and a link back to the exact view; the app sends nothing
+  itself (Privacy says so). After ten minutes of active use in one visit, a message card asks once for feedback (Send
+  feedback or Not now; Not now asks once more on a later visit), never during a drag, a talk or projector mode.
 - **Pregnancy, and a Cirrhosis in pregnancy patient.** A new setting, the weeks of pregnancy (0 to 40), changes the
   circulation as pregnancy does: blood volume up about a third (most of it plasma, so the hemoglobin falls to about 12),
   cardiac output up about half, the heart about 15 beats a minute faster, splanchnic and systemic vasodilation, and from

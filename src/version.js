@@ -8,6 +8,8 @@ export const CONTENT_UPDATED = 'October\u00a02026';
 // Creator, and the page that lists all of their teaching tools.
 export const AUTHOR = 'Mohammad Almeqdadi, MD';
 export const AUTHOR_URL = 'https://qaddodi.github.io/#tools';
+// Where Help › Send feedback addresses its email (the item is left out while this is empty).
+export const FEEDBACK_EMAIL = 'mohammad.almeqdadi@gmail.com';
 
 // The model's validation targets: each is an automated test in tests/acceptance.test.js.
 export const VALIDATION = [

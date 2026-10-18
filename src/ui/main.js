@@ -17,7 +17,7 @@ import { createChart } from './chart.js?v=84c9ac5172';
 import { createMenu } from './menu.js?v=13ccc9d7ea';
 import { caption } from './a11y.js?v=ba49dde219';
 import { startLMS } from './lms.js?v=284ef81e94';
-import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
+import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=1767318315';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=8e8a18ee6d';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=416cbb42ce';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=03236bbc51'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=0e78251eea'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -284,6 +284,7 @@ async function main() {
   inspector.render();
   const deep = await openDeepLink();
   if (!deep) firstRun();
+  armFeedbackAsk();
   // The default patient starts without loadPreset, so record what it came with: Treat > Changes then lists its
   // settings under About this patient, not as changes nobody made, and Clear all keeps them (review #18).
   if (!shared && !store.get().presetParams) store.set({ presetParams: { id: store.get().presetId, params: structuredClone(store.get().params) } });
@@ -851,12 +852,14 @@ function wireTopbar() {
 // use it, what it is, and who made it).
 function openSettings(anchor, withSearch = false) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
-  // While presenting, only what changes how the talk looks: appearance, full screen, text size, interface zoom.
+  // While presenting, only what changes how the talk looks (appearance, full screen, text size, interface zoom), and Send feedback.
   const talk = presenter.active();
   popover(anchor, [
     // (From the thumb dock's Settings tab, Search and Help head the sheet: the dock has no More menu, and a touch keyboard has no ?.)
     ...(withSearch ? [menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } }),
       menuItem('Help', { icon: 'help', onClick: () => { closePopover(); openHelpMenu(anchor, { place: 'above', align: 'end', cls: 'app-menu' }); } })] : []),
+    // (Send feedback heads the sheet in every mode, talks included, so a tester reaches it in one tap from any Settings button.)
+    ...(FEEDBACK_EMAIL ? [menuItem('Send feedback', { icon: 'mail', onClick: () => { closePopover(); sendFeedback(); } })] : []),
     h('div', { class: 'menu-title' }, 'Appearance'),
     h('div', { class: 'seg full menu-seg' }, [['light', 'Light'], ['dark', 'Dark'], ['soft', 'Soft'], ['system', 'System']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { switchTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     fullscreenControl(),
@@ -972,6 +975,18 @@ function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
     h('a', { class: 'menu-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener', onclick: () => closePopover() },
       h('span', {}, 'Created by ', h('b', {}, AUTHOR)), h('span', { class: 'mc-link' }, 'All my tools ', icon('chev-right'))),
   ], at);
+}
+// Send feedback: a draft in the viewer's own email app, addressed to the author, with what a bug report needs underneath
+// (the build from the preview pill, the device, the screen and a link back to this exact view). The app itself sends
+// nothing, so the Privacy page stays true.
+function sendFeedback() {
+  try { localStorage.setItem(ASK_KEY, 'done'); } catch { /* storage unavailable */ }   // (sent once: the timed ask never comes)
+  const build = document.getElementById('preview-badge')?.textContent.trim() || 'Live site';
+  const theme = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const body = ['What happened, and what did you expect to happen?', '', '', '',
+    'Please keep these details:', `Build: ${build}`, `Device: ${navigator.userAgent}`,
+    `Screen: ${innerWidth} × ${innerHeight} at ${devicePixelRatio}×, ${theme} theme`, `View: ${resumeUrl()}`].join('\n');
+  location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Portal Pressure Simulator feedback')}&body=${encodeURIComponent(body)}`;
 }
 function doUndo() { timeline.undo(); }
 function doRedo() { timeline.redo(); }
@@ -1868,6 +1883,7 @@ function openPrivacy() {
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
     h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
+    FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));
@@ -1879,6 +1895,7 @@ function firstRun() {
 }
 // The first-run hint: once per device, in the message card under the top bars (never over the bottom bar), until the
 // first vessel or organ is picked or the card is dismissed. Its own key, so devices that opened the app before see it once.
+// Its Start here button plays the short tour (decks/start-here.js).
 // (Not under automation: the browser checks and visual references start from a fresh browser every time.)
 const HINT_KEY = 'pps.hint';
 function showFirstHint() {
@@ -1891,9 +1908,40 @@ function showFirstHint() {
     const verb = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Click' : 'Tap';
     let off = null;
     const done = () => { off?.(); off = null; try { localStorage.setItem(HINT_KEY, '1'); } catch { /* storage unavailable */ } };
-    const close = toast(`${verb} a vessel or the liver to change it.`, '', { sticky: true, onClose: done });
+    const close = toast(`${verb} a vessel or the liver to change it, or take the short tour.`, '', { sticky: true, onClose: done, actions: [['Start here', () => presenter.start('start-here')]] });
     off = store.on('selection', (sel) => { if (sel) close(); });
   };
   if (window.ppsFigureReady) setTimeout(show, 600); else addEventListener('pps:figure-ready', () => setTimeout(show, 600), { once: true });
+}
+// The feedback ask: after FEEDBACK_ASK_MIN minutes of active use in one visit (the page visible and a touch, click, key or
+// scroll within the last minute), a message card asks for feedback, once per device; "Not now" (or dismissing it) asks once
+// more on a later visit, then never again. It waits out a drag, a talk and projector mode, and never pauses the model.
+const FEEDBACK_ASK_MIN = 10;
+const ASK_KEY = 'pps.feedbackAsk';   // (absent: never asked · 'later': asked once, once more on a later visit · 'done')
+function armFeedbackAsk() {
+  if (!FEEDBACK_EMAIL || navigator.webdriver) return;
+  let was = null;
+  try { was = localStorage.getItem(ASK_KEY); } catch { return; }   // (no storage: it could not remember, so it never asks)
+  if (was === 'done') return;
+  const TICK = 5000, IDLE = 60000;
+  let active = 0, lastInput = 0, last = performance.now(), down = 0, timer = 0;
+  const input = () => { lastInput = performance.now(); };
+  const press = () => { down++; input(); }, lift = () => { down = Math.max(0, down - 1); input(); };
+  for (const t of ['keydown', 'wheel', 'pointermove']) addEventListener(t, input, { capture: true, passive: true });
+  addEventListener('pointerdown', press, { capture: true, passive: true });
+  for (const t of ['pointerup', 'pointercancel']) addEventListener(t, lift, { capture: true, passive: true });
+  const tick = () => {
+    const now = performance.now(), dt = Math.min(now - last, TICK * 2);   // (a sleeping tab's gap is not counted)
+    last = now;
+    if (document.visibilityState === 'visible' && now - lastInput < IDLE) active += dt;
+    if (now - lastInput > 5000) down = 0;   // (a lift the page never heard, outside the window, does not hold the ask forever)
+    if (active < FEEDBACK_ASK_MIN * 60000 || down || presenter.active() || projector || document.getElementById('modalBack')?.classList.contains('show')) return;
+    clearInterval(timer);
+    const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch { /* storage unavailable */ } };
+    toast('Anything look wrong or confusing so far? A short email helps the author fix it.', '', { sticky: true,
+      actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
+      onClose: () => { try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch { /* storage unavailable */ } } });
+  };
+  timer = setInterval(tick, TICK);
 }
 main().catch((err) => { console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });
