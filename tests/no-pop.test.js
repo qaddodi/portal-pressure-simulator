@@ -45,3 +45,52 @@ test('a Tests pane swiped into place does not play its entrance again', () => {
   assert.match(css, /\.instrument-workspace \.dock-pane\.active\.landed \{ animation: none; \}/);
   assert.match(dock, /querySelectorAll\('\.dock-pane\.landed:not\(\.active\)'\)/);
 });
+
+const main = read('src/ui/main.js'), timeline = read('src/ui/timeline.js'), presenter = read('src/ui/presenter.js');
+
+test('swapFade fades the old content out, fills, and fades the new in; a hidden or unchanged one fills at once', () => {
+  const f = util.slice(util.indexOf('export function swapFade'), util.indexOf('export const popoverOpen'));
+  assert.match(f, /if \(job\) \{ job\.fill = fill; return; \}/);
+  assert.match(f, /if \(instant \|\| !el\.animate \|\| !el\.isConnected \|\| !el\.firstChild \|\| !el\.getClientRects\(\)\.length\) \{ fill\(\); return; \}/);
+  assert.match(f, /easing: 'cubic-bezier\(\.4, 0, 1, 1\)', fill: 'forwards'/);
+  assert.match(f, /a\.finished\.then\(done, done\);/);
+});
+
+test('a new lens crossfades the key and the lens name; nothing else writes the name', () => {
+  assert.match(main, /const put = \(\.\.\.kids\) => swapFade\(el, \(\) => el\.replaceChildren\(\.\.\.kids\), \{ instant: same \}\);/);
+  const legend = main.slice(main.indexOf('function renderLegend()'), main.indexOf('const st = () => store.get();'));
+  assert.doesNotMatch(legend, /^\s+el\.replaceChildren\(/m);
+  assert.match(legend, /swapFade\(lab, \(\) => \{ lab\.textContent = name; \}, \{ instant: lab\.textContent === name \}\);/);
+  assert.equal(main.match(/#colorModeLabel'\)\.textContent =/g), null);
+});
+
+test('entering or leaving the lobule crossfades the bar\'s readings', () => {
+  assert.match(dock, /const syncLobule = \(\) => swapFade\(strip, \(\) => \{ applyLobule\(\); resizeSoon\(\); \}, \{ instant: strip\.classList\.contains\('lob'\) === !!store\.get\(\)\.lobule \}\);/);
+});
+
+test('a label under the open menu fades rather than blinking', () => {
+  assert.match(css, /#labels \.lb\.under-menu \{ opacity: 0; pointer-events: none; transition-duration: \.16s; \}/);
+  assert.doesNotMatch(css, /under-menu \{ visibility: hidden/);
+});
+
+test('the play and pause icon grows in, only when it changes', () => {
+  assert.match(timeline, /if \(ic !== lastIcon\) \{/);
+  assert.match(timeline, /nu\.animate\?\.\(/);
+});
+
+test('ending a talk fades its cards out, then the app\'s bars in; a new talk ends the old one at once', () => {
+  const stop = presenter.slice(presenter.indexOf('  function stop(restore = true) {'), presenter.indexOf('  function stopNow('));
+  assert.match(stop, /if \(reduce\.matches \|\| !els\.length\) \{ stopNow\(restore\); chromeIn\(\); return; \}/);
+  assert.match(stop, /el\.animate\(\[\{ opacity: 0 \}\], \{ duration: 200, easing: 'cubic-bezier\(\.4, 0, 1, 1\)', fill: 'forwards' \}\)/);
+  assert.match(stop, /if \(leaving !== me\) return; stopNow\(restore\); chromeIn\(\);/);
+  assert.match(presenter, /if \(deck\) stopNow\(false\);/);
+  assert.match(presenter, /function stopNow\(restore = true\) \{\n\s*leaving = null;/);
+  assert.match(presenter, /function go\(i\) \{\n\s*if \(!deck \|\| leaving\) return;/);
+});
+
+test('a theme chosen in the app crossfades the page; loading applies it at once', () => {
+  assert.match(main, /document\.startViewTransition\(\(\) => applyTheme\(t, clear\)\);/);
+  assert.match(main, /switchTheme\(v === 'system' \? null : v, v === 'system'\)/);
+  assert.match(main, /applyTheme\(\['dark', 'light', 'soft'\]\.includes\(savedTheme\)/);
+  assert.match(css, /::view-transition-old\(root\), ::view-transition-new\(root\) \{ animation-duration: \.45s;/);
+});

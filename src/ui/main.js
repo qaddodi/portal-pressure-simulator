@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=a11d7ef88d';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=25c641328a';
+import { createStage } from './stage.js?v=8d6ccbf061';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
-import { sinusoidSupported } from './sinusoid-view.js?v=5beb8cab62';
-import { createInspector } from './inspector.js?v=cec9d20ead';
-import { createDock, CUTOFFS } from './dock.js?v=9297534b42';
-import { setHvpgStage } from './hvpg-proc.js?v=0bd39f8de9';
-import { createWhy } from './why.js?v=3cfb9bdae6';
-import { createTimeline, LAPSES } from './timeline.js?v=093bbdd053';
-import { createCompare } from './compare.js?v=2f2ecb93ac';
-import { createCard } from './card.js?v=3fec416ddd';
-import { createChart } from './chart.js?v=1eb41e3581';
-import { createMenu } from './menu.js?v=4e4527cbf1';
-import { caption } from './a11y.js?v=1de7ea5c8a';
+import { sinusoidSupported } from './sinusoid-view.js?v=5c2cbca199';
+import { createInspector } from './inspector.js?v=602f3e20f9';
+import { createDock, CUTOFFS } from './dock.js?v=f17fc10ab2';
+import { setHvpgStage } from './hvpg-proc.js?v=32539caf92';
+import { createWhy } from './why.js?v=a7da8ed0da';
+import { createTimeline, LAPSES } from './timeline.js?v=d129207b47';
+import { createCompare } from './compare.js?v=40faca88fa';
+import { createCard } from './card.js?v=4f5e4fec99';
+import { createChart } from './chart.js?v=0fc10aac81';
+import { createMenu } from './menu.js?v=2782ff556a';
+import { caption } from './a11y.js?v=f3710703a7';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=1fc7f1e75a';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=1e7da78bb3';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=6db13e4063';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=bddbbf7d6a';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink } from './util.js?v=0d25d9306b';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade } from './util.js?v=6b731e337e';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=12c027539f';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=a6467c272a';
 import { initTopbarMotion } from './topbar-motion.js?v=b33007f264';
 import { ORIGINS } from './blood.js?v=cc7febbf07';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=32345cb01b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=7aaecf443b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -174,7 +174,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=9db681d9f6'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=79a5bfdad8'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -556,7 +556,6 @@ function buildHud() {
   store.on('lobule', (on) => { $('#btnLobuleLayers').hidden = !on; if (!on) closePopover(); });
   syncBloodBtn();
   renderLegend();
-  store.on('colorMode', () => { $('#colorModeLabel').textContent = COLOR_MODES[store.get().colorMode]; });
   enhanceRanges();
   tipEl = h('div', { class: 'hover-tip', 'aria-hidden': 'true' });
   view.append(tipEl);
@@ -585,9 +584,14 @@ function legendModel() {
   const ref = cmp ? st.compareSnap.when : 'healthy';
   return { m, ref, imaging };
 }
+// A new lens or reference crossfades the key and the lens name (swapFade) with the vessels' own .3 s crossfade, rather than
+// swapping them in one frame (motion review P11); the same key built again simply replaces itself.
+let legendKey = null;
 function renderLegend() {
   const { m, ref } = legendModel();
-  const el = $('#legend');
+  const el = $('#legend'), key = `${m}|${ref}|${!!st().compareSnap}`, same = key === legendKey;
+  legendKey = key;
+  const put = (...kids) => swapFade(el, () => el.replaceChildren(...kids), { instant: same });
   // (Every number is centred on its tick; the scale stands in from its neighbours by half its end numbers' width (ch: a digit,
   // the scale's own font being the numbers'), so the first and last are never pulled in off their ticks: "30" had sat 7.5 px left of its tick.)
   const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale', style: { marginLeft: `${String(nums[0]?.[1] ?? '').length / 2}ch`, marginRight: `${String(nums.at(-1)?.[1] ?? '').length / 2}ch` } }, h('div', { class: 'lg-bar', style: { background: grad } }),
@@ -597,46 +601,47 @@ function renderLegend() {
   const cap = (k, u) => h('div', { class: 'lg-cap', 'aria-hidden': 'true' }, k, h('small', {}, u));
   if (m === 'pressure' || m === 'drop') {
     const max = 30, at = (p) => (p / max) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')), cap(m === 'pressure' ? 'Pressure' : 'Drop', 'mmHg'),
+    put(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')), cap(m === 'pressure' ? 'Pressure' : 'Drop', 'mmHg'),
       m === 'pressure' ? scale(gradientCss('to right', max), PRESSURE_TICKS.map((p) => [at(p), String(p)]), PRESSURE_TICKS.map(at))
         : scale(dropCss('to right'), [[0, '0'], [100, '12+']]));
     el.setAttribute('aria-label', m === 'pressure' ? 'Legend: mean venous pressure at each vessel, 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury, pale to deep green');
   } else if (m === 'flow') {
     const at = (v) => flowPos(v) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')), cap('Flow', 'L/min'),
+    put(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')), cap('Flow', 'L/min'),
       scale(flowCss('to right'), [[at(0.02), '0.02'], [at(0.5), '0.5'], [at(5), '5']], [at(0.5)]));
     el.setAttribute('aria-label', 'Legend: flow volume from 0.02 to 6 liters per minute on a log scale, pale mint to deep blue; line width grows with flow');
   } else if (m === 'velocity') {
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Velocity', h('small', {}, 'vs normal')), cap('Velocity', 'vs normal'),
+    put(h('div', { class: 'lg-title' }, 'Velocity', h('small', {}, 'vs normal')), cap('Velocity', 'vs normal'),
       scale(velocityCss('to right'), [[0, 'Slow'], [100, 'Fast']], [33.3, 66.7]));
     el.setAttribute('aria-label', 'Legend: each vessel\'s mean velocity against its normal range: a continuous scale from sand (slower than normal) through teal (normal) to violet (faster), stronger the further from normal; collaterals stay grey');
   } else if (m === 'heat') {
     const at = (v) => (v / HEAT_MAX) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),
+    put(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),
       scale(heatCss('to right'), [[at(0), '0'], [at(5), '5'], [at(10), '10', 1], [at(15), '15+']], []));
     el.setAttribute('aria-label', `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, grey to yellow to deep red, with a glow where congestion is highest`);
   } else if (m === 'oxygen') {
     const at = (p) => ((p / 100 - OXY_MIN) / (1 - OXY_MIN)) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Oxygen saturation', h('small', {}, '%')), cap('Oxygen', '%'),
+    put(h('div', { class: 'lg-title' }, 'Oxygen saturation', h('small', {}, '%')), cap('Oxygen', '%'),
       scale(oxygenCss('to right'), [[at(60), '60'], [at(80), '80'], [at(100), '100']], [at(80)]));
     el.setAttribute('aria-label', 'Legend: oxygen saturation of the blood in each vessel, 60 to 100 percent, blue (hepatic venous blood, about 65) to red (arterial, 98); portal blood is about 85');
   } else if (m === 'direction') {
-    el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), 'Reversed')));
+    put(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), 'Reversed')));
     el.setAttribute('aria-label', 'Legend: teal is physiological flow direction, orange is reversed');
   } else if (m === 'origin') {
     // Dots and the short names (SMV, IMV, SV, Sys, HA), so the key always fits in the top bar.
-    el.replaceChildren(h('div', { class: 'lg-cats lg-dots' }, ...[0, 1, 2, 4, 3].map((i) => h('span', { title: ORIGINS[i][3] }, h('i', { style: { background: ORIGIN_CSS[i] } }), h('b', {}, ORIGINS[i][2])))));
+    put(h('div', { class: 'lg-cats lg-dots' }, ...[0, 1, 2, 4, 3].map((i) => h('span', { title: ORIGINS[i][3] }, h('i', { style: { background: ORIGIN_CSS[i] } }), h('b', {}, ORIGINS[i][2])))));
     el.setAttribute('aria-label', 'Legend: blood colored by where it comes from, as streams side by side: amber SMV (with the coronary vein), teal IMV, violet SV (splenic vein), slate blue Sys (systemic), crimson HA (hepatic artery)');
   } else if (m === 'neutral') {
-    el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--vein-portal)' } }), 'Portal veins'), h('span', {}, h('i', { style: { background: 'var(--vein-systemic)' } }), 'Systemic veins'),
+    put(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--vein-portal)' } }), 'Portal veins'), h('span', {}, h('i', { style: { background: 'var(--vein-systemic)' } }), 'Systemic veins'),
       h('span', { class: 'lg-note' }, svgIcon('info'), 'Pressures unmeasured')));
     el.setAttribute('aria-label', 'Legend: violet portal veins, blue systemic veins. Pressures are unmeasured in this case: investigate with the tools.');
   } else {
-    el.replaceChildren(h('div', { class: 'lg-title' }, `Change from ${ref}`, h('small', {}, 'mmHg')), cap('Change', 'mmHg'),
+    put(h('div', { class: 'lg-title' }, `Change from ${ref}`, h('small', {}, 'mmHg')), cap('Change', 'mmHg'),
       scale('linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', [[0, '−12'], [50, '0'], [100, '+12']], [50]));
     el.setAttribute('aria-label', `Legend: change in pressure from ${ref}, blue lower, red higher, up to 12 millimeters of mercury`);
   }
-  $('#colorModeLabel').textContent = m === 'neutral' ? 'Anatomy' : m === 'delta' && st().compareSnap ? 'Change since then' : COLOR_MODES[m];
+  const lab = $('#colorModeLabel'), name = m === 'neutral' ? 'Anatomy' : m === 'delta' && st().compareSnap ? 'Change since then' : COLOR_MODES[m];
+  swapFade(lab, () => { lab.textContent = name; }, { instant: lab.textContent === name });
 }
 const st = () => store.get();
 // ── Moving blood ─────────────────────────────────────
@@ -834,7 +839,7 @@ function openSettings(anchor, withSearch = false) {
     ...(withSearch ? [menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } }),
       menuItem('Help', { icon: 'help', onClick: () => { closePopover(); openHelpMenu(anchor, { place: 'above', align: 'end', cls: 'app-menu' }); } })] : []),
     h('div', { class: 'menu-title' }, 'Appearance'),
-    h('div', { class: 'seg full menu-seg' }, [['light', 'Light'], ['dark', 'Dark'], ['soft', 'Soft'], ['system', 'System']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
+    h('div', { class: 'seg full menu-seg' }, [['light', 'Light'], ['dark', 'Dark'], ['soft', 'Soft'], ['system', 'System']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { switchTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     fullscreenControl(),
     ...(talk ? presenterSettings() : []),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
@@ -953,12 +958,19 @@ function doUndo() { timeline.undo(); }
 function doRedo() { timeline.redo(); }
 function toggleTheme() {
   const cur = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  applyTheme(cur === 'dark' ? 'light' : 'dark');
+  switchTheme(cur === 'dark' ? 'light' : 'dark');
 }
 function settle() { host.send({ type: 'settle' }); toast('Settled to equilibrium.'); }
 function setSpeed(v, lapse = false) {
   if (lapse) { store.set({ lapse: v }); host.send({ type: 'run', speed: v, clock: 'disease' }); }
   else { store.set({ speed: v, lapse: 0 }); host.send({ type: 'run', speed: v, clock: 'hemo' }); }
+}
+// A theme chosen in the app crossfades the whole page (.45 s): the old look is held as a still picture at full resolution and
+// fades over the live new one (View Transitions, styles/app.css). Where that is not supported it changes at once, as before
+// (motion review P1). Page load and a change of the device's own theme apply at once.
+function switchTheme(t, clear) {
+  if (!document.startViewTransition || document.hidden) { applyTheme(t, clear); return; }
+  document.startViewTransition(() => applyTheme(t, clear));
 }
 function applyTheme(t, clear) {
   if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');

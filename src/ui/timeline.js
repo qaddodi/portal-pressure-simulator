@@ -12,8 +12,8 @@
 
 import { store, replaceParams, onParamChange } from './store.js?v=31ee79b6ab';
 import { host } from './host.js?v=a11d7ef88d';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=0d25d9306b';
-import { activeInterventions } from './inspector.js?v=cec9d20ead';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=6b731e337e';
+import { activeInterventions } from './inspector.js?v=602f3e20f9';
 import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('timeline');
 
@@ -268,7 +268,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
         e.detail ? h('div', { class: 'tl-pop-d' }, e.detail) : null);
     });
   }
-  let lastTime = '', lastRun = null, lastRunMode = null, lastSpeed = null;
+  let lastTime = '', lastRun = null, lastRunMode = null, lastSpeed = null, lastIcon = 'pause';
   function update(f) {
     if (!jumping) {
       const t = fmtClock(f.t, f.day);
@@ -281,7 +281,15 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       const lap = LAPSES.find((l) => l[0] === lp);
       speedBtn.textContent = lp ? (lap ? lap[1] : `${lp} d/s`) : `${st.speed}×`;
       for (const el of [playBtn, speedBtn, playBtn.parentElement]) el?.classList.toggle('lapse', !!lp);
-      playBtn.replaceChildren(icon(f.running ? 'pause' : (lp ? 'playlapse' : 'play')));
+      // A new icon grows in from the old one's place (.18 s) rather than swapping in one frame (motion review P14); with
+      // Reduce Motion it only fades.
+      const ic = f.running ? 'pause' : (lp ? 'playlapse' : 'play');
+      if (ic !== lastIcon) {
+        lastIcon = ic;
+        const nu = icon(ic);
+        playBtn.replaceChildren(nu);
+        nu.animate?.(matchMedia('(prefers-reduced-motion: reduce)').matches ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+      }
       playBtn.title = lp ? 'Play / pause (Space): time-lapse' : 'Play / pause (Space)';
     }
     render();

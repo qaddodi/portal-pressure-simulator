@@ -283,6 +283,25 @@ export function fadeWhileMore(el) {
   sync();
   return sync;
 }
+// One swap at a time per element: its newest content goes in when the old has faded.
+const swaps = new WeakMap();
+/** Changes what an element shows without a one-frame jump: the old content fades out (exit curve), fill() puts the new
+ *  in, and it fades in. instant: fill now (the content reads the same), unless a swap is still under way, which then
+ *  takes this fill instead. A hidden or empty element simply fills. */
+export function swapFade(el, fill, { instant = false, out = 120, inn = 180 } = {}) {
+  const job = swaps.get(el);
+  if (job) { job.fill = fill; return; }
+  if (instant || !el.animate || !el.isConnected || !el.firstChild || !el.getClientRects().length) { fill(); return; }
+  const me = { fill };
+  swaps.set(el, me);
+  const a = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: out, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+  const done = () => {
+    if (swaps.get(el) !== me) return;
+    swaps.delete(el); me.fill(); a.cancel();
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: inn, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+  };
+  a.finished.then(done, done);
+}
 export const popoverOpen = () => !!openMenu;
 /** Places the open menu again, after something it is anchored to has moved or resized. */
 export function repositionPopover() { if (openMenu) { openMenu.el.style.left = openMenu.el.style.top = '0px'; openMenu.put(); } }

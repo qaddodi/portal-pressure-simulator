@@ -814,6 +814,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .modal-back.leaving { display: grid; pointer-events: none; animation: fadeOut var(--t-out) var(--ease-in) forwards; }
 .modal-back.leaving .modal { animation: popOut var(--t-out) var(--ease-in) forwards; }
 @keyframes fadeOut { to { opacity: 0; } }
+/* A theme chosen in the app (main.js switchTheme): the old page, held as a still, fades over the new one. */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .45s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
 @keyframes fade { from { opacity: 0; } }
 .modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(calc(88dvh / var(--vz)), 900px); overflow: auto; animation: pop .22s var(--ease); }
 .modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); }
@@ -5982,8 +5984,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric .v { font-size: var(--fs-20); }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .ro-group + .ro-group::before { display: none; }
 }
-/* A figure label under the open menu is hidden while it is open (main.js labelsUnderMenu): no sliver beside the menu's edge. */
-#labels .lb.under-menu { visibility: hidden; }
+/* A figure label under the open menu is hidden while it is open (main.js labelsUnderMenu): no sliver beside the menu's edge.
+   It fades out with the menu and back after it (.16 s), rather than blinking (motion review P9). */
+#labels .lb.under-menu { opacity: 0; pointer-events: none; transition-duration: .16s; }
 /* A disabled button with words reads clearly (sweep batches 02–03: "No fluid" white on pale blue at 1.9:1, "Band a column" at
    2.5:1, the small "A" at 1.7:1): flat, on the quiet surface, its words in the third ink (at least 4.5:1 on it in every theme),
    never faded. Only its look says it is off: no fill colour, no shadow, the not-allowed cursor. */

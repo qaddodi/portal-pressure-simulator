@@ -14,16 +14,16 @@
 
 import { store, replaceParams } from './store.js?v=31ee79b6ab';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar } from './util.js?v=0d25d9306b';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar } from './util.js?v=6b731e337e';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=5beb8cab62';
+import { sinusoidSupported } from './sinusoid-view.js?v=5c2cbca199';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=a6b2ad6236';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=0bd39f8de9';
-import { createTools } from './presenter-tools.js?v=8ff9698c06';
+import { createHvpgMonitor } from './hvpg-proc.js?v=32539caf92';
+import { createTools } from './presenter-tools.js?v=9636178011';
 import { openHandout } from './handout.js?v=95026eb257';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -31,7 +31,7 @@ import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, di
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { createFigureKey } from './figure-key.js?v=96997852c4';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=1e7da78bb3';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=bddbbf7d6a';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1727,7 +1727,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
 
   // ── Slides ──
   function go(i) {
-    if (!deck) return;
+    if (!deck || leaving) return;
     want = clamp(i, 0, slides.length - 1);
     noteResume(deck.id, want, slides.length);   // (the Present menu offers to resume here; the first or last slide forgets it)
     paintChrome();
@@ -3388,6 +3388,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // ── Keys ──
   function onKey(e) {
     if (!deck || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (leaving) { e.preventDefault(); e.stopImmediatePropagation(); return; }   // (the talk is fading out: no key starts anything in it)
     // (A dialog over the talk, such as the Guide that ? opens, keeps its keys: Esc closes it rather than ending the talk.)
     if (isModalOpen()) return;
     if (ui && !ui.jump.hidden) { jumpKey(e); return; }
@@ -3665,7 +3666,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // Starting another deck while one runs keeps the state from before the first.
     const before = deck ? saved : await capture();
     await up;
-    if (deck) stop(false);
+    if (deck) stopNow(false);
     lastAt = -1;
     saved = before;
     if (saved && !saved.cards) saved.cards = stashCards?.();
@@ -3690,7 +3691,25 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     go(Math.min(want0, slides.length - 1));
     wake();
   }
+  // Ending a talk, the slide's cards fade out first (the exit curve, .2 s), then the app's own bars and zoom pill fade back in,
+  // rather than everything swapping in one frame (motion review P2). A new talk started meanwhile ends this one at once.
+  let leaving = null;
   function stop(restore = true) {
+    if (!deck || leaving) return;
+    const els = ui ? [ui.root, ui.shade].filter((el) => el?.animate) : [];
+    if (reduce.matches || !els.length) { stopNow(restore); chromeIn(); return; }
+    for (const el of els) el.inert = true;
+    const me = leaving = Promise.all(els.map((el) => el.animate([{ opacity: 0 }], { duration: 200, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }).finished.catch(() => {})));
+    me.then(() => { if (leaving !== me) return; stopNow(restore); chromeIn(); });
+  }
+  function chromeIn() {
+    if (reduce.matches) return;
+    for (const el of app.querySelectorAll('.topbar, .vdock, .stage-bar, #zoomPill, .toolbar')) {
+      if (el.getClientRects().length) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+    }
+  }
+  function stopNow(restore = true) {
+    leaving = null;
     if (!deck) return;
     if (cover) coverDown(true);
     stopLapse(); cathStop(); abSlow(); liveOff = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)

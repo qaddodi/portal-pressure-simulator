@@ -69,7 +69,8 @@ test('the navel ring follows the caput medusae and is part of the organ picture\
 
 test('a figure label under the open menu is hidden, not left as a sliver', () => {
   assert.match(main, /function labelsUnderMenu\(on\)/);
-  assert.match(css, /#labels \.lb\.under-menu \{ visibility: hidden; \}/);
+  // (It fades out over .16 s rather than blinking, motion review P9; still unseen and untouchable once faded.)
+  assert.match(css, /#labels \.lb\.under-menu \{ opacity: 0; pointer-events: none; transition-duration: \.16s; \}/);
 });
 
 test('a Pressure chart too short for its plot shows the compact strip, and the full chart where it has room', () => {
