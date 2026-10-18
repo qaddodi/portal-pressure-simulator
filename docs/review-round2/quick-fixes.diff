@@ -1,0 +1,126 @@
+diff --git a/src/ui/blood.js b/src/ui/blood.js
+index 08c3f698..34e30bd6 100644
+--- a/src/ui/blood.js
++++ b/src/ui/blood.js
+@@ -17,7 +17,8 @@
+ 
+ // Display speed, world units per second, for a mean velocity in cm/s.
+ export const SPEED_K = 9.5;
+-export const displaySpeed = (v) => (Math.abs(v) < 0.25 ? 0 : Math.sign(v) * SPEED_K * Math.sqrt(Math.abs(v)));
++// (Below 0.25 cm/s it stands; up to 0.6 it rises from 0, so the blood and the chevrons' fade start from rest, never in a jump.)
++export const displaySpeed = (v) => { const a = Math.abs(v); return a < 0.25 ? 0 : Math.sign(v) * SPEED_K * Math.sqrt(a) * smoothstep(0.25, 0.6, a); };
+ // Parcels per display second per mL/s of flow.
+ export const KAPPA = 0.4;
+ // Slot spacing along a lane (world units); the shader doubles it (×2, ×4) when zoomed out so
+diff --git a/src/ui/charts.js b/src/ui/charts.js
+index 427fdd63..911b9ca7 100644
+--- a/src/ui/charts.js
++++ b/src/ui/charts.js
+@@ -71,7 +71,7 @@ export function createProfile() {
+   function ease() {
+     if (!Fraw) return;
+     const src = Fraw.Pf || Fraw.P;
+-    const { v: shown, moving: mP } = easeP.step(src);
++    const { v: shownP, moving: mP } = easeP.step(src);
+     const path = curPath();
+     const st = store.get();
+     let top = 0;
+@@ -85,7 +85,7 @@ export function createProfile() {
+     // first does: those are already smooth, and the eased copy is drawn only before them. Its easing never settled while the
+     // model ran, so it repainted the same picture on every display frame; only what the picture shows keeps the glide going.)
+     const moving = glideMoving(!!Fraw.Pf, mP, mA);
+-    F = { ...Fraw, P: shown };
++    F = { ...Fraw, P: shownP };
+     draw();
+     cancelFrame(easeRaf);
+     // Model frames arrive about ten times a second; the glide runs between them on every frame the screen offers
+diff --git a/src/ui/main.js b/src/ui/main.js
+index d69f401c..4d728133 100644
+--- a/src/ui/main.js
++++ b/src/ui/main.js
+@@ -522,7 +522,7 @@ function renderPaintHint() {
+   if (st.shunting) {
+     const only = st.shunting.only;
+     el.hidden = false;
+-    el.replaceChildren(h('div', { class: 'tc-title' }, icon('stent'), only === 'tips' ? 'Place the TIPS' : 'Make a shunt', h('span', { class: 'sp' }), done('Cancel', () => stage.cancelShunt())),
++    el.replaceChildren(h('div', { class: 'tc-title' }, icon('stent'), only === 'tips' ? 'Place the TIPS' : 'Make a shunt', h('span', { class: 'tc-sp' }), done('Cancel', () => stage.cancelShunt())),
+       ...shuntHint(only));
+     redraw();
+     return;
+diff --git a/src/ui/pressure-time.js b/src/ui/pressure-time.js
+index 4816c4e0..8c441b3e 100644
+--- a/src/ui/pressure-time.js
++++ b/src/ui/pressure-time.js
+@@ -625,7 +625,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
+   }
+ 
+   function update(f) { ingest(f); redraw(); }
+-  function redraw() { if (!frame) return; updateHero(); draw(); }
++  function redraw() { if (!frame) return; updateHero(); if (ticking && live()) return; draw(); }   // (scrolling: its own loop draws the next frame)
+   const offs = ['hiddenReadouts', 'hvpgMeasured', 'showHvpg'].map((k) => store.on(k, () => { yr.pressure = yr.hvpg = null; }));
+   // A new patient (or the same one restarted) starts with empty traces.
+   function clear() { clearHemo(); days = []; redraw(); }
+diff --git a/src/ui/stage.js b/src/ui/stage.js
+index 5e735cde..1b998adf 100644
+--- a/src/ui/stage.js
++++ b/src/ui/stage.js
+@@ -3513,7 +3513,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo,
+   const PLATE_FADE = LENS_FADE;
+   let plateFrom = null, plateTo = null, plateT0 = 0;
+   function stepPlateEase() {
+-    if (lensFrom) veinsDirty = true;
++    if (lensFrom) { veinsDirty = true; glowSync = true; }   // (each frame of the crossfade syncs the vessels, paused too, so it runs to its end)
+     if (!plateEasing()) { plateFrom = null; return; }
+     const to = plateTargets(), now = performance.now();
+     if (!plateFrom || to.some((v, i) => v !== plateTo[i])) { plateFrom = [plateDim, plateSat, netA]; plateTo = to; plateT0 = lensFrom && now - lensT0 < 60 ? lensT0 : now; }
+diff --git a/src/ui/util.js b/src/ui/util.js
+index 5fb8d646..d8a3c7ee 100644
+--- a/src/ui/util.js
++++ b/src/ui/util.js
+@@ -284,6 +284,7 @@ export function fadeWhileMore(el) {
+   return sync;
+ }
+ // One swap at a time per element: its newest content goes in when the old has faded.
++const fadeIns = new WeakMap();   // (swapFade: each element's fade-in, cancelled when the next swap lands)
+ const swaps = new WeakMap();
+ /** Changes what an element shows without a one-frame jump: the old content fades out (exit curve), fill() puts the new
+  *  in, and it fades in. instant: fill now (the content reads the same), unless a swap is still under way, which then
+@@ -294,11 +295,12 @@ export function swapFade(el, fill, { instant = false, out = 120, inn = 180 } = {
+   if (instant || !el.animate || !el.isConnected || !el.firstChild || !el.getClientRects().length) { fill(); return; }
+   const me = { fill };
+   swaps.set(el, me);
+-  const a = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: out, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
++  // (From wherever the element is now: a fade-in still under way included, so a quick second swap never jumps to full.)
++  const a = el.animate([{ opacity: 0 }], { duration: out, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+   const done = () => {
+     if (swaps.get(el) !== me) return;
+-    swaps.delete(el); me.fill(); a.cancel();
+-    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: inn, easing: 'cubic-bezier(.2, .8, .2, 1)' });
++    swaps.delete(el);
++    try { me.fill(); } finally { fadeIns.get(el)?.cancel(); a.cancel(); fadeIns.set(el, el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: inn, easing: 'cubic-bezier(.2, .8, .2, 1)' })); }
+   };
+   a.finished.then(done, done);
+ }
+diff --git a/styles/app.css b/styles/app.css
+index e6b4a1cd..7ce39067 100644
+--- a/styles/app.css
++++ b/styles/app.css
+@@ -271,7 +271,7 @@ svg { flex: none; }
+ }
+ .tool-card .tc-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: var(--fs-14); color: var(--text); margin-bottom: 2px; }
+ .tool-card .tc-title svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+-.tool-card .tc-title .sp { flex: 1; }
++.tool-card .tc-title .tc-sp { flex: 1; }
+ .tool-card .tc-title .ib { width: 26px; height: 26px; margin: -4px -8px -4px 0; }
+ .tool-card .tc-title .ib svg { width: var(--ic-s); height: var(--ic-s); }
+ .tool-card kbd { font: 500 var(--fs-12) var(--font-mono); color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; background: var(--surface); }
+@@ -2772,7 +2772,7 @@ button.finding { cursor: pointer; }
+ .cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
+ /* While the catheter is in, the figure's own readouts are hidden so its labels read clearly. */
+ .stage-view #labels { transition: opacity .4s var(--ease); }
+-.cath-on #labels { opacity: 0; visibility: hidden; }
++.cath-on #labels { opacity: 0; visibility: hidden; transition: opacity .25s var(--ease-in), visibility 0s linear .25s; }
+ .cath-labels { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+ .cath-labels[hidden] { display: none; }
+ .cath-label { position: absolute; left: 0; top: 0; isolation: isolate; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border: 2px solid transparent; border-radius: 14px; white-space: nowrap;
+
