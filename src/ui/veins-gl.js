@@ -1084,11 +1084,16 @@ void main() {
       float inLumen = 1.0 - smoothstep(0.6, 0.85, abs(y1));
       col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * max(smoothstep(0.0, 0.2, vis), inLumen));
     }
-    bool hole = false;
-    for (int i = 0; i < 12; i++) { if (i >= noChevN) break; if (all(greaterThanEqual(w, noChev[i].xy)) && all(lessThanEqual(w, noChev[i].zw))) { hole = true; break; } }
-    if (chev == 1 && !hole) {
+    if (chev == 1) {
       vec2 c = chevAt(id1, s1, y1);
       c *= 1.0 - smoothstep(0.02, 0.25, b);   // none where another vessel joins
+      // None under a figure reading on its vessel (stage.js noChevBoxes): cut along the box's edge with a pixel of antialiasing,
+      // as the stent points' holes are, instead of a hard unantialiased edge through a head (round 2 review, B8).
+      for (int i = 0; i < 12; i++) {
+        if (i >= noChevN) break;
+        vec2 q = abs(w - (noChev[i].xy + noChev[i].zw) * 0.5) - (noChev[i].zw - noChev[i].xy) * 0.5;
+        c *= smoothstep(-pxW, pxW, length(max(q, 0.0)) + min(max(q.x, q.y), 0.0));
+      }
       // (none under a stent point's callout or round its dot: stage.js chevHoles)
       for (int i = 0; i < 16; i++) {
         if (i >= chevHoleN) break;

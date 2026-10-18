@@ -115,3 +115,23 @@ test('RF4 and NP3: the lens key and its name are watched by the top bar glide; A
   assert.match(stage, /const out = shunt \? new Set\(\[\.\.\.vh\.sel, shunt\.src, \.\.\.shunt\.targets\.keys\(\)\]/);
   assert.match(stage, /wrap\.classList\.remove\('shunting'\);\n\s*setGlowSrc\('shunt', \[\]\);/);
 });
+
+test('B7: vessel colour bins hold until the value is 0.4 mmHg from the bin shown (no flicker with the breath)', () => {
+  const stage = read('src/ui/stage.js');
+  const def = stage.slice(stage.indexOf('  const qHold = '), stage.indexOf('  };', stage.indexOf('  const qHold = ')) + 4);
+  assert.match(def, /if \(!\(Math\.abs\(v - was\) < 0\.4\)\) a\[i\] = qP\(v\);/);
+  // The logic itself, on a value breathing across the 12.25 edge between the 12.0 and 12.5 bins.
+  const qP = (v) => Math.round(v * 2) / 2, EDGES = [{}];
+  const qHold = new Function('qP', 'EDGES', `const colourBins = new Map();\n${def}\nreturn qHold;`)(qP, EDGES);
+  const shown = [12.2, 12.3, 12.2, 12.3, 12.35, 12.2].map((v) => qHold('pressure', 0, 0, v));
+  assert.deepEqual(shown, [12, 12, 12, 12, 12, 12]);
+  assert.equal(qHold('pressure', 0, 0, 12.45), 12.5);   // 0.45 from the bin shown: it moves on
+  assert.equal(qHold('pressure', 0, 0, 12.2), 12.5);    // and holds there in turn
+});
+
+test('B8: label keep-out boxes are taken after the glide, and cut the arrowheads with a pixel of antialiasing', () => {
+  const stage = read('src/ui/stage.js'), gl = read('src/ui/veins-gl.js');
+  assert.ok(stage.indexOf('    labelGlide(out);\n') < stage.indexOf('    noChevBoxes = out.filter('));
+  assert.match(gl, /c \*= smoothstep\(-pxW, pxW, length\(max\(q, 0\.0\)\) \+ min\(max\(q\.x, q\.y\), 0\.0\)\);/);
+  assert.doesNotMatch(gl, /bool hole/);
+});

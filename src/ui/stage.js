@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=203ece360c';
-import { createLobuleZoom } from './lobule-zoom.js?v=c61f59d28b';
+import { createLobuleZoom } from './lobule-zoom.js?v=20e31adf29';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -22,7 +22,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=86e57ea1fc';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=d06e821b42';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=b0e8934683';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
@@ -1007,6 +1007,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // 0.5 mmHg steps, so a vessel's gradient is not rewritten on every heartbeat; widths move in
   // 0.5 px steps once settled (below, with hysteresis), so tubes are not rebuilt either.
   const qP = (v) => Math.round(v * 2) / 2;
+  // A vessel end's colour bin (0.5 mmHg) with hysteresis: it moves to a new bin only once the value is 0.4 mmHg from the one
+  // shown, so a value breathing across a bin's edge no longer flickers the colour with every breath (round 2 review, B7).
+  const colourBins = new Map();
+  const qHold = (lens, k, end, v) => {
+    let a = colourBins.get(lens);
+    if (!a) { a = new Float64Array(EDGES.length * 2).fill(NaN); colourBins.set(lens, a); }
+    const i = 2 * k + end, was = a[i];
+    if (!(Math.abs(v - was) < 0.4)) a[i] = qP(v);
+    return a[i];
+  };
 
   // Nodes (circuit view)
   const nodeEls = {};
@@ -2399,15 +2409,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       widthWrites(x, w, t, f, k);
       if (x.isArt) continue;
       let c1, c2;
-      if (mode === 'pressure') { c1 = pressureColor(qP(P1)); c2 = pressureColor(qP(P2)); }
+      if (mode === 'pressure') { c1 = pressureColor(qHold(mode, k, 0, P1)); c2 = pressureColor(qHold(mode, k, 1, P2)); }
       else if (mode === 'drop') { c1 = c2 = dropColor(P1 - P2); }
       else if (mode === 'direction') { const rev = reversedShown(e); c1 = c2 = rev ? 'var(--flow-reversed)' : 'var(--flow-normal)'; }
       else if (mode === 'flow') { c1 = c2 = flowColor(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06); }
       else if (mode === 'velocity') { c1 = c2 = e.kind === 'liver' ? 'var(--lens-neutral)' : velColorOf(f, k, store.get().healthy); }
       else if (mode === 'oxygen') { c1 = oxygenColor(oxy[2 * k]); c2 = oxygenColor(oxy[2 * k + 1]); }
-      else if (mode === 'heat') { c1 = heatColor(ref ? qP(P1 - ref[NI[e.from]]) : 0); c2 = heatColor(ref ? qP(P2 - ref[NI[e.to]]) : 0); }
+      else if (mode === 'heat') { c1 = heatColor(ref ? qHold(mode, k, 0, P1 - ref[NI[e.from]]) : 0); c2 = heatColor(ref ? qHold(mode, k, 1, P2 - ref[NI[e.to]]) : 0); }
       else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }
-      else { c1 = deltaColor(ref ? qP(P1 - ref[NI[e.from]]) : 0); c2 = deltaColor(ref ? qP(P2 - ref[NI[e.to]]) : 0); }
+      else { c1 = deltaColor(ref ? qHold(mode, k, 0, P1 - ref[NI[e.from]]) : 0); c2 = deltaColor(ref ? qHold(mode, k, 1, P2 - ref[NI[e.to]]) : 0); }
       setA(x.st0, 'stop-color', c1); setA(x.st1, 'stop-color', c2);
       x.col = [c1, c2];
       if (x.feeders) for (const fd of x.feeders) {
@@ -7073,15 +7083,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       if (spot !== null) z._zr = at(spot); else { at(c); z.hide = true; }
     }
-    // No flow arrowhead runs under a reading that has to sit on its vessel (veins-gl.js noChev; world boxes, 3 px of air: its halo's reach).
-    noChevBoxes = out.filter((it) => it.onVessel).slice(0, 12).map((it) => {
-      const r = rectOf(it), c = [[r.x0 - 3, r.y0 - 3], [r.x1 + 3, r.y0 - 3], [r.x0 - 3, r.y1 + 3], [r.x1 + 3, r.y1 + 3]].map(([x, y]) => localToWorld(x, y));
-      return [Math.min(...c.map((p) => p[0])), Math.min(...c.map((p) => p[1])), Math.max(...c.map((p) => p[0])), Math.max(...c.map((p) => p[1]))];
-    });
     // Leader lines and anchor dots, for the labels showing. (Every line goes down before any dot, so no leader runs over a dot.)
     // (A stent's point: its dot sits on a solid disc of the stage's colour, and every leader that ends there, its own or the slide's
     // mark's, stops 2 px outside the disc; one left shorter than 4 px is not drawn: Review 15 Oct.)
     labelGlide(out);
+    // No flow arrowhead runs under a reading that has to sit on its vessel (veins-gl.js noChev; world boxes, 3 px of air: its halo's reach).
+    // (Taken where the label is drawn this frame, after its glide, not where it is going: the boxes ran ahead of a gliding
+    // label; round 2 review, B8.)
+    noChevBoxes = out.filter((it) => it.onVessel && !it.hide).slice(0, 12).map((it) => {
+      const r = rectOf(it), c = [[r.x0 - 3, r.y0 - 3], [r.x1 + 3, r.y0 - 3], [r.x0 - 3, r.y1 + 3], [r.x1 + 3, r.y1 + 3]].map(([x, y]) => localToWorld(x, y));
+      return [Math.min(...c.map((p) => p[0])), Math.min(...c.map((p) => p[1])), Math.max(...c.map((p) => p[0])), Math.max(...c.map((p) => p[1]))];
+    });
     const DISC = 5, pts = out.filter((it) => it.point && !it.hide);
     const dots = [];
     const lineFrom = (it, le) => {
