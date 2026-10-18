@@ -974,6 +974,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     if (!L) {
       L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), line: s('line', { class: 'leader', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), dotEl: s('circle', { class: 'leader-dot', r: 3, 'data-target': `lobule:${LZ_TARGET[key] || key}` }) };
       L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); if (L.el.classList.contains('edge')) centreOn(q); else select(hitKind(key), [q[0], q[1]]); });
+      // (Hidden until it is first placed, where it fades in: a label its slide does not name never shows at all.)
+      L.el.hidden = true;
       labels.append(L.el); leaders.append(L.line, L.dotEl);
     }
     const txt = `${name}|${v}|${u}|${d}|${col}`;
@@ -982,7 +984,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // only when it takes more or fewer characters (the label is rebuilt only when its make-up changes). The same holds for
     // a figure inside the unit ('Protein 48%', which moves with the pulse): its digits are tabular, so a new figure with
     // as many digits leaves the label's size as it was.
-    const uk = u.replace(/\d/g, '0'), frame = `${name}|${short}|${uk}|${col}|${v === ''}|${!!d}`;
+    // (Its colour is only a style on the label: a new one, which the pressure glide brings every frame, rebuilds nothing.)
+    if (col !== L.col) { L.col = col; L.el.style.setProperty('--sw', col || 'var(--border-strong)'); }
+    const uk = u.replace(/\d/g, '0'), frame = `${name}|${short}|${uk}|${v === ''}|${!!d}`;
     if (L.frame === frame && L.b) {
       if (String(v).length !== L.b.textContent.length || (d && d.length !== L.dEl.textContent.length)) layoutKey = '';
       L.b.textContent = v;
@@ -990,7 +994,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       if (u !== L.u) { const [a, ...rest] = u.split(' · '); if (rest.length) { L.uEls[0].textContent = a; L.uEls[1].lastChild.textContent = rest.join(' · '); } else if (u) L.uEls[0].textContent = u; }
     } else {
       L.frame = frame;
-      L.el.style.setProperty('--sw', col || 'var(--border-strong)');
       L.b = v === '' ? null : h('b', {}, v);
       L.dEl = d ? h('span', { class: 'd' }, d) : null;
       L.uEls = unitParts(u);
@@ -1159,8 +1162,24 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // once and only moved: re-making them at every layout (a value easing, a glide) restarted their lit pill each time,
   // which showed as a flash. Returns each name's box on screen (its pill included), for the other labels to keep clear of.
   const zoneEls = [];
+  // A label or zone name that goes fades out where it stands (app.css .lz-off, as the anatomy's labels do) and is hidden, taking no
+  // room and no taps, only once the fade is over; one that comes back fades in (app.css lz-in) or, caught mid-fade, turns back from
+  // where it is. Its leader and dot fade with it (.ld-gone). They used to cut out and pop in (P15).
+  const OFF_MS = 300;
+  function fadeOut(el, done) {
+    if (el.hidden) { done?.(); return; }
+    if (el.classList.contains('lz-off')) return;
+    const end = () => { el._lzOff = 0; el.hidden = true; el.classList.remove('lz-off', 'edge'); done?.(); };
+    if (reduce.matches) { end(); return; }
+    el.classList.add('lz-off');
+    clearTimeout(el._lzOff); el._lzOff = setTimeout(() => { if (el.classList.contains('lz-off')) end(); }, OFF_MS);
+  }
+  function fadeIn(el) { clearTimeout(el._lzOff); el._lzOff = 0; el.classList.remove('lz-off'); el.hidden = false; }
+  const gone = (el) => el.hidden || el.classList.contains('lz-off');
+  const leadOff = (L) => { L.line.classList.add('ld-gone'); L.dotEl.classList.add('ld-gone'); };
+  const leadOn = (L) => { L.line.classList.remove('ld-gone'); L.dotEl.classList.remove('ld-gone'); };
   function placeZones(fr0, hx, hy, lesion = null) {
-    if (!zonesOn) { while (zoneEls.length) zoneEls.pop().remove(); return []; }
+    if (!zonesOn) { while (zoneEls.length) { const z = zoneEls.pop(); fadeOut(z, () => z.remove()); } return []; }
     const { R, cx, cy } = geo, a = Math.PI / 2, ap = R * 0.866, boxes = [];
     [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
       let z = zoneEls[i];
@@ -1184,8 +1203,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       // A zone's name never sits on the slide's lesion ring (the ring is what the slide points at): it takes another
       // spot on its band, or leaves the view for that slide.
       const at = tries.find((p) => !ringDepth(lesion, boxAt(p)));
-      z.hidden = !at;
-      if (!at) return;
+      if (!at) { fadeOut(z); return; }
+      fadeIn(z);
       z.style.left = `${at[0]}px`; z.style.top = `${at[1]}px`;
       // (A zone the slide's words leave unlit fades out: its spot is free for the labels.)
       if (!faded(`lobule:zone${i + 1}`)) boxes.push(boxAt(at));
@@ -1296,9 +1315,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     for (const k of ['cv', 'sin', 'triad', 'lymph', 'ha', 'bd']) {
       const L = labs[k];
       if (!L) continue;
-      if ((k === 'lymph' && !lymphOn) || ((k === 'ha' || k === 'bd') && !named(k))) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
-      if (faded(`lobule:${LZ_TARGET[k] || k}`)) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
-      L.el.hidden = false;
+      if ((k === 'lymph' && !lymphOn) || ((k === 'ha' || k === 'bd') && !named(k))) { fadeOut(L.el); leadOff(L); continue; }
+      if (faded(`lobule:${LZ_TARGET[k] || k}`)) { fadeOut(L.el); leadOff(L); continue; }
+      // (Shown to be measured; one that was hidden and stays out is hidden again before anything is drawn.)
+      L.peek = L.el.hidden; L.el.hidden = false;
       shown.push([k, L]);
     }
     // Too wide for the free space (large text, a narrow screen): the label stacks its second reading.
@@ -1306,7 +1326,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     // the theme, the window, the fonts): each read lays the page out, and two of them on every frame of a pinch were most
     // of what placing the lobule's labels cost. Otherwise the sizes last read are used, which are the same numbers.
     const env = sizeEnv(), fw = (fr.r - fr.l) * 0.32;
-    const keys = shown.map(([, L]) => `${env}|${L.el.className.replace(/(^| )stack( |$)/, '$1')}|${L.el.innerHTML}`);
+    const keys = shown.map(([, L]) => `${env}|${L.el.className.replace(/(^| )(stack|lz-off)(?= |$)/g, '')}|${L.el.innerHTML}`);
     let stack, sizes;
     if (shown.every(([, L], i) => L.sz?.key === keys[i] && (L.sz.w0 > fw && L.sz.u2 ? L.sz.s1 : L.sz.s0))) {
       stack = shown.map(([, L]) => L.sz.w0 > fw && L.sz.u2);
@@ -1332,9 +1352,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       const outside = k === 'lymph' ? a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H : a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 4 || a[1] > fr.b + 4;
       // What it names has left the screen: the label waits at the free space's edge, pointing the way (a tap brings it back into view).
       const chip = outside && k !== 'lymph';
-      L.el.hidden = (outside && !chip) || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
-      L.el.classList.toggle('edge', chip && !L.el.hidden);
-      if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
+      const off = (outside && !chip) || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
+      if (off) { if (L.peek) { L.el.hidden = true; L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
+      L.el.classList.toggle('edge', chip);
       let edge = null;
       if (chip) {
         const mx = (fr.l + fr.r) / 2, my = (fr.t + fr.b) / 2, dx = a[0] - mx, dy = a[1] - my, pad = 10;
@@ -1484,11 +1504,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     for (const { k, x, y, out } of sol.res) {
       const { L, w, hh, a, edge } = items.find((it) => it.k === k);
       L.el.dataset.at = `${r1(a[0])},${r1(a[1])}`;
-      if (out) { L.el.hidden = true; L.el.classList.remove('edge'); L.line.style.display = L.dotEl.style.display = 'none'; continue; }
+      if (out) { if (L.peek) { L.el.hidden = true; L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
+      fadeIn(L.el);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
       L.el.classList.remove('left');
-      if (edge) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
-      L.line.style.display = L.dotEl.style.display = '';
+      if (edge) { leadOff(L); continue; }
+      leadOn(L);
       L.a = a;
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]);
       leadTo(L, lettersOf(L, x - w / 2, y - hh / 2, w, hh), inks);
@@ -1513,7 +1534,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // it (one gliding past), the leader is hidden, and eases back once clear: a leader never runs across a label.
   function leadTo(L, ink, inks) {
     const e = leaderEnd(ink, L.a[0], L.a[1]);
-    if (!e) { L.line.style.display = 'none'; return; }
+    if (!e) { L.line.classList.add('ld-gone'); return; }
     L.line.setAttribute('x2', e.x); L.line.setAttribute('y2', e.y);
     L.line.classList.toggle('lz-hid', inks.some((o) => o.L !== L && runInside(L.a, [e.x, e.y], o) > 0.5));
   }
@@ -1528,10 +1549,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
   // Each leader's end set from where its label is seen now (part way through a glide, or landed). True while one glides.
   function syncLeaders() {
     let moving = false;
-    const on = Object.values(labs).filter((L) => !L.el.hidden && L.el.offsetParent), inks = on.map((L) => lettersOf(L, L.el.offsetLeft, L.el.offsetTop, L.el.offsetWidth, L.el.offsetHeight));
+    const on = Object.values(labs).filter((L) => !gone(L.el) && L.el.offsetParent), inks = on.map((L) => lettersOf(L, L.el.offsetLeft, L.el.offsetTop, L.el.offsetWidth, L.el.offsetHeight));
     on.forEach((L, i) => {
-      if (!L.a || L.el.classList.contains('edge') || L.dotEl.style.display === 'none') return;
-      L.line.style.display = '';
+      if (!L.a || L.el.classList.contains('edge') || L.dotEl.classList.contains('ld-gone')) return;
+      L.line.classList.remove('ld-gone');
       leadTo(L, inks[i], inks);
       moving ||= L.el.getAnimations().some((an) => an.playState === 'running');
     });

@@ -105,19 +105,22 @@ const stationRoom = (page, fault = null) => page.evaluate((fault) => {
   const host = lay.getBoundingClientRect(), labs = [...lay.querySelectorAll('.lz-lab')];
   const rel = (r) => ({ l: r.left - host.left, t: r.top - host.top, r: r.right - host.left, b: r.bottom - host.top });
   const ly = labs.find((l) => l.dataset.target === 'lobule:lymph');
-  if (fault === 'drop' && ly && !ly.hidden) ly.hidden = true;
+  // (A label fading out, .lz-off, has already left: it is hidden once its fade ends. Its leader fades with it, .ld-gone.)
+  const out = (l) => !!l && (l.hidden || l.classList.contains('lz-off'));
+  if (fault === 'drop' && ly && !out(ly)) ly.hidden = true;
   const lines = [...document.querySelectorAll('.lz.on .lz-leaders line.leader')];
-  if (fault === 'long') { const l = lines.find((q) => q.style.display !== 'none' && q.getAttribute('x2') != null); const [x, y] = [+l.getAttribute('x1'), +l.getAttribute('y1')]; l.setAttribute('x2', x + 150); l.setAttribute('y2', y); }
-  for (const k of ['central', 'sinusoid', 'triad']) if (labs.find((l) => l.dataset.target === `lobule:${k}`)?.hidden) bad.push(`the ${k} label is left out`);
-  const shown = labs.filter((l) => !l.hidden && l.offsetWidth);
-  const segs = lines.filter((l) => l.style.display !== 'none' && l.getAttribute('x2') != null && !l.closest('[hidden]') && labs.find((q) => q.dataset.target === l.dataset.target && !q.hidden))
+  if (fault === 'long') { const l = lines.find((q) => q.style.display !== 'none' && !q.classList.contains('ld-gone') && q.getAttribute('x2') != null); const [x, y] = [+l.getAttribute('x1'), +l.getAttribute('y1')]; l.setAttribute('x2', x + 150); l.setAttribute('y2', y); }
+  for (const k of ['central', 'sinusoid', 'triad']) if (out(labs.find((l) => l.dataset.target === `lobule:${k}`))) bad.push(`the ${k} label is left out`);
+  const shown = labs.filter((l) => !out(l) && l.offsetWidth);
+  const segs = lines.filter((l) => l.style.display !== 'none' && !l.classList.contains('ld-gone') && l.getAttribute('x2') != null && !l.closest('[hidden]') && labs.find((q) => q.dataset.target === l.dataset.target && !out(q)))
     .map((l) => ({ k: l.dataset.target, p: [+l.getAttribute('x1'), +l.getAttribute('y1')], q: [+l.getAttribute('x2'), +l.getAttribute('y2')] }));
   for (const g of segs) { const n = Math.hypot(g.q[0] - g.p[0], g.q[1] - g.p[1]); if (n > room.lead + 1) bad.push(`the ${g.k} leader is ${n.toFixed(0)} px (over ${room.lead})`); }
-  if (ly?.hidden) {
+  if (out(ly)) {
     // Its size as it would be drawn.
+    const was = ly.hidden;
     ly.hidden = false; ly.style.visibility = 'hidden';
     const w = ly.offsetWidth, h = ly.offsetHeight;
-    ly.hidden = true; ly.style.visibility = '';
+    ly.hidden = was; ly.style.visibility = '';
     const [ax, ay] = (ly.dataset.at || '').split(',').map(Number);
     const boxes = shown.map((l) => rel(l.getBoundingClientRect()));
     const big = (b) => ({ l: b.l - room.hx, r: b.r + room.hx, t: b.t - room.hy, b: b.b + room.hy });
@@ -200,12 +203,12 @@ const leaderFrames = (page, ms) => page.evaluate((ms) => new Promise((done) => {
     const t = Math.round(performance.now() - t0), labs = [];
     for (const el of document.querySelectorAll('.lz-lab, .lz-call.on, #labels g.lb')) {
       // (One fading in counts as its leader's label; only those seen count as labels a leader must not cross.)
-      if (el.hidden || el.matches('.lb-off, .organ')) continue;
+      if (el.hidden || el.matches('.lb-off, .lz-off, .organ')) continue;
       const b = ink(el);
       if (b) labs.push({ k: el.matches('.lz-call') ? 'lesion' : el.dataset.target || el.dataset.key, n: el.textContent.trim().slice(0, 20), o: op(el), ...b });
     }
     for (const ln of document.querySelectorAll('.lz-leaders line.leader, .lz-call-l.on, #labels path.leader:not(.scan, .ld-gone)')) {
-      if (ln.style.display === 'none' || op(ln) < 0.05) continue;
+      if (ln.style.display === 'none' || ln.classList.contains('ld-gone') || op(ln) < 0.05) continue;
       const m = ln.getScreenCTM(); if (!m) continue;
       const at = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
       const n = ln.tagName === 'line' ? ['x1', 'y1', 'x2', 'y2'].map((a) => +ln.getAttribute(a)) : ln.getAttribute('d').match(/-?[\d.]+/g).map(Number);
@@ -639,10 +642,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
     await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
     await page.evaluate(() => { const a = document.querySelector('#app'); a.classList.add('presenting'); a.dataset.lit = 'lobule:sinusoid'; });
-    await page.waitForFunction(() => [...document.querySelectorAll('.lz-lab')].some((e) => e.dataset.target === 'lobule:sinusoid' && !e.hidden && e.offsetParent), null, { timeout: 30000 });
+    await page.waitForFunction(() => [...document.querySelectorAll('.lz-lab')].some((e) => e.dataset.target === 'lobule:sinusoid' && !e.hidden && !e.classList.contains('lz-off') && e.offsetParent), null, { timeout: 30000 });
     // Time is stepped by hand (a software renderer would otherwise sample too few frames): at each step the pill is exactly as faded as its text.
     const rows = await page.evaluate(() => {
-      const lab = [...document.querySelectorAll('.lz-lab')].find((e) => e.dataset.target === 'lobule:sinusoid' && !e.hidden && e.offsetParent);
+      const lab = [...document.querySelectorAll('.lz-lab')].find((e) => e.dataset.target === 'lobule:sinusoid' && !e.hidden && !e.classList.contains('lz-off') && e.offsetParent);
       const read = () => ({ pill: +getComputedStyle(lab, '::before').opacity, text: +getComputedStyle(lab.firstElementChild).opacity });
       document.getAnimations().forEach((a) => { try { a.finish(); } catch { /* (already done) */ } });
       const start = read();
@@ -665,10 +668,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
     await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
     await page.evaluate(() => { const a = document.querySelector('#app'); a.classList.add('presenting'); a.dataset.lit = 'lobule:sinusoid'; });
-    await page.waitForFunction(() => [...document.querySelectorAll('.lz-lab')].some((e) => e.dataset.target === 'lobule:sinusoid' && !e.hidden && e.offsetParent), null, { timeout: 30000 });
+    await page.waitForFunction(() => [...document.querySelectorAll('.lz-lab')].some((e) => e.dataset.target === 'lobule:sinusoid' && !e.hidden && !e.classList.contains('lz-off') && e.offsetParent), null, { timeout: 30000 });
     // Time is stepped by hand (a software renderer would otherwise sample too few frames).
     const rows = await page.evaluate(() => {
-      const lab = [...document.querySelectorAll('.lz-lab')].find((e) => e.dataset.target === 'lobule:sinusoid' && !e.hidden && e.offsetParent);
+      const lab = [...document.querySelectorAll('.lz-lab')].find((e) => e.dataset.target === 'lobule:sinusoid' && !e.hidden && !e.classList.contains('lz-off') && e.offsetParent);
       const read = () => ({ pill: +getComputedStyle(lab, '::before').opacity, text: +getComputedStyle(lab.firstElementChild).opacity });
       const done = () => document.getAnimations().forEach((a) => { try { a.finish(); } catch { /* (already done) */ } });
       const stepped = (change) => {
@@ -698,7 +701,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const shown = (e) => { const st = getComputedStyle(e); if (st.display === 'none' || st.visibility === 'hidden' || !e.getBoundingClientRect().width) return false; for (let p = e; p && p.nodeType === 1; p = p.parentElement) if (+getComputedStyle(p).opacity < 0.05) return false; return true; };
       let n = 0;
       for (const p of document.querySelectorAll(':is(.lz, .sv) :is(.lz-lab, .lz-zone, .sv-region)')) {
-        if (p.hidden || !shown(p)) continue;
+        if (p.hidden || p.classList.contains('lz-off') || !shown(p)) continue;
         const parts = [], w = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
         for (let t; (t = w.nextNode());) if (t.textContent.trim() && shown(t.parentElement)) parts.push([t.parentElement, t.textContent.trim(), parseFloat(getComputedStyle(t.parentElement).fontSize)]);
         if (!parts.length) continue; n++;
@@ -2627,7 +2630,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
             if (gap < 3) hits.push(`"${a.n}" and "${c.n}" (gap ${gap.toFixed(1)} px)`);
           }
           // Leaders on screen: each runs from the spot it names to the middle of its own label.
-          const segs = [...document.querySelectorAll('.lz.on:not(.lz-cam) .lz-leaders line.leader')].filter((l) => l.style.display !== 'none').map((l) => {
+          const segs = [...document.querySelectorAll('.lz.on:not(.lz-cam) .lz-leaders line.leader')].filter((l) => l.style.display !== 'none' && !l.classList.contains('ld-gone')).map((l) => {
             const m = l.getScreenCTM(), at = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
             return { n: l.dataset.target, p: at(+l.getAttribute('x1'), +l.getAttribute('y1')), q: at(+l.getAttribute('x2'), +l.getAttribute('y2')) };
           });
@@ -2692,7 +2695,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         const cx = +ring.getAttribute('cx'), cy = +ring.getAttribute('cy'), rr = +ring.getAttribute('r'), host = ring.ownerSVGElement.getBoundingClientRect();
         const start = Math.hypot(+line.getAttribute('x1') - cx, +line.getAttribute('y1') - cy);
         const near = (b) => Math.hypot(Math.max(b.left - host.left - cx, 0, cx - (b.right - host.left)), Math.max(b.top - host.top - cy, 0, cy - (b.bottom - host.top)));
-        const boxes = [...document.querySelectorAll('.lz-lab, .lz-call, .lz-zone')].filter((e) => e.offsetWidth && !e.hidden && +getComputedStyle(e).opacity > 0.5);
+        const boxes = [...document.querySelectorAll('.lz-lab, .lz-call, .lz-zone')].filter((e) => e.offsetWidth && !e.hidden && !e.classList.contains('lz-off') && +getComputedStyle(e).opacity > 0.5);
         return { rr, start, closest: Math.min(...boxes.map((e) => near(e.getBoundingClientRect()))) };
       });
       if (!r) continue;
@@ -2819,7 +2822,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     for (let i = 0; i < 12 && lit < 300; i++) { if (i) await page.waitForTimeout(500); lit = await page.evaluate(vesselPixels); }
     if (lit < 300) throw new Error(`the lobule's vessel layer is nearly empty (${lit} px)`);
     // The four stations carry cards; the arteriole and ductule labels exist but stay hidden until a slide's term names them.
-    const stations = await page.evaluate(() => [...document.querySelectorAll('.lz-lab')].map((l) => `${l.dataset.target}${l.hidden ? ':hidden' : ''}`).sort().join());
+    const stations = await page.evaluate(() => [...document.querySelectorAll('.lz-lab')].map((l) => `${l.dataset.target}${l.hidden || l.classList.contains('lz-off') ? ':hidden' : ''}`).sort().join());
     // (The Lymph label may be left out, never stacked, but only where no clear spot lies within a short leader of its node.)
     const full = 'lobule:arteriole:hidden,lobule:central,lobule:ductule:hidden,lobule:lymph,lobule:sinusoid,lobule:triad';
     if (stations !== full && stations !== full.replace('lobule:lymph,', 'lobule:lymph:hidden,')) throw new Error(`station cards missing (${stations})`);
@@ -2842,7 +2845,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Framed in the free space: the lobule's bottom corner is above the vitals dock (every readout is in Tests > Readouts).
     {
       const clear = await page.waitForFunction(() => {
-        const dock = document.querySelector('#vdock').getBoundingClientRect().top, labs = [...document.querySelectorAll('.lz-lab:not([hidden])')];
+        const dock = document.querySelector('#vdock').getBoundingClientRect().top, labs = [...document.querySelectorAll('.lz-lab:not([hidden], .lz-off)')];
         return labs.every((l) => l.getBoundingClientRect().bottom <= dock + 1);
       }, null, { timeout: 15000 }).then(() => true, () => false);
       if (!clear) throw new Error('a lobule label sits under the dock');
@@ -2887,7 +2890,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
     await shot(page, `${device}-lobule`);
     // Leaving the lobule closes its card.
-    await page.evaluate(() => document.querySelector('.lz-lab:not([hidden])').click());   // its value updates live, so it never holds still for a pointer click
+    await page.evaluate(() => document.querySelector('.lz-lab:not([hidden], .lz-off)').click());   // its value updates live, so it never holds still for a pointer click
     await page.waitForSelector('.action-card:not([hidden])');
     if (await page.evaluate(() => document.querySelector('#app').classList.contains('thumb'))) {
       // A phone's docked card hides the view pill under it (the play bar steps aside), so its user pulls the card away first,
@@ -4684,7 +4687,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // At rest no leader is hidden for a label passing over it: a label's own pill once hid its leader (it counted
     // the pill's square corner as another label).
     await page.waitForTimeout(800);
-    const hid = await page.evaluate(() => [...document.querySelectorAll('.lz-leaders line.leader.lz-hid')].filter((l) => l.style.display !== 'none').map((l) => l.dataset.target));
+    const hid = await page.evaluate(() => [...document.querySelectorAll('.lz-leaders line.leader.lz-hid')].filter((l) => l.style.display !== 'none' && !l.classList.contains('ld-gone')).map((l) => l.dataset.target));
     if (hid.length) bad.push(`at rest, 200 % text: the ${hid.join(', ')} leader is hidden`);
     await page.evaluate(() => window.pps.stage.setLabelScale(1));
     if (bad.length) throw new Error(bad.slice(0, 8).join('; '));

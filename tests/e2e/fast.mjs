@@ -94,6 +94,6 @@ export function keyIssues() {
     if (!shown(g)) continue;
     if ([...g.querySelectorAll('text')].some((t) => t.textContent.trim() && near(t.getBoundingClientRect()))) { out.push(`label "${g.textContent.trim().slice(0, 20)}" under the key or pill`); break; }
   }
-  for (const e of document.querySelectorAll('.cath-labels .cath-label, .lz-lab, .lz-zone, .lz-call, .sv-region')) if (shown(e) && near(e.getBoundingClientRect())) { out.push(`"${e.textContent.trim().slice(0, 20)}" under the key or pill`); break; }
+  for (const e of document.querySelectorAll('.cath-labels .cath-label, .lz-lab:not(.lz-off), .lz-zone:not(.lz-off), .lz-call, .sv-region')) if (shown(e) && near(e.getBoundingClientRect())) { out.push(`"${e.textContent.trim().slice(0, 20)}" under the key or pill`); break; }
   return out;
 }

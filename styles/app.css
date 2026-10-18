@@ -1359,15 +1359,22 @@ button.finding { cursor: pointer; }
 @property --lab-o { syntax: '<number>'; inherits: true; initial-value: 1; }
 @property --lit-o { syntax: '<number>'; inherits: true; initial-value: 1; }
 @property --sv-in { syntax: '<number>'; inherits: true; initial-value: 1; }
+@property --off-o { syntax: '<number>'; inherits: true; initial-value: 1; }
 @property --pill-o { syntax: '<number>'; inherits: false; initial-value: 0; }
-.lz-lab, .lz-zone { transition: --lit-o .5s var(--ease); }
-.lz-labels > * > * { opacity: calc(var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
-.lz-leaders .leader { stroke: color-mix(in srgb, var(--text) 55%, transparent); transition: opacity .2s var(--ease); } .lz-leaders .leader.lz-hid { opacity: 0; transition: none; }/* The presenter's camera gliding in the lobule: its labels ease out, and back in at their new places (lobule-zoom.js focusOn). */
+/* A lobule label or zone name fades in where it comes and out where it goes (lobule-zoom.js fadeIn, fadeOut), never pops (P15). */
+.lz-lab, .lz-zone { transition: --lit-o .5s var(--ease), --off-o .3s var(--ease); animation: lz-in .3s var(--ease); }
+@keyframes lz-in { from { --off-o: 0; } }
+.lz-labels .lz-off { --off-o: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .lz-lab, .lz-zone { animation: none; } }
+.lz-labels > * > * { opacity: calc(var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); }
+.lz-leaders .leader { stroke: color-mix(in srgb, var(--text) 55%, transparent); transition: opacity .2s var(--ease); } .lz-leaders .leader.lz-hid { opacity: 0; transition: none; }
+.lz-leaders .leader-dot { transition: opacity .3s var(--ease); } .lz-leaders .ld-gone { opacity: 0; transition: opacity .3s var(--ease); }   /* (a leader and dot leave with their label) */
+/* The presenter's camera gliding in the lobule: its labels ease out, and back in at their new places (lobule-zoom.js focusOn). */
 .lz.lz-cam .lz-leaders { opacity: 0; transition: opacity .2s var(--ease); } .lz.lz-cam .lz-labels { --lab-o: 0; transition: --lab-o .2s var(--ease); }
 .lz.lz-cam-in .lz-leaders { transition: opacity .35s var(--ease); } .lz.lz-cam-in .lz-labels { transition: --lab-o .35s var(--ease); }
 .lz-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .lz-labels { position: absolute; inset: 0; pointer-events: none; }
-.lz-labels.lz-ease .lz-lab { transition: left .4s var(--ease), top .4s var(--ease), box-shadow .5s var(--ease), background-color .5s var(--ease), --lit-o .5s var(--ease); }
+.lz-labels.lz-ease .lz-lab { transition: left .4s var(--ease), top .4s var(--ease), box-shadow .5s var(--ease), background-color .5s var(--ease), --lit-o .5s var(--ease), --off-o .3s var(--ease); }
 @media (prefers-reduced-motion: reduce) { .lz-labels.lz-ease .lz-lab { transition: none; } }
 /* Station cards: the anatomy's label style, as buttons that open the station's card */
 .lz-call { position: absolute; padding: 4px 10px 5px; border-radius: 999px; font: 600 14px/1.2 var(--font-ui); width: max-content; text-wrap: balance; color: var(--on-status); background: var(--danger); box-shadow: var(--shadow-1); pointer-events: none; opacity: 0; transform: scale(.94); transition: opacity .5s var(--ease), transform .5s var(--ease); }
@@ -1390,7 +1397,7 @@ button.finding { cursor: pointer; }
   --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
   -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 :root[data-theme="dark"] .lz-zone b { font-weight: 700; }
-.lz-zone span { font-size: calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: calc(.8 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
+.lz-zone span { font-size: calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: calc(.8 * var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); }
 .lz-zone.z1 { --zc: var(--zone-1); } .lz-zone.z2 { --zc: var(--zone-2); } .lz-zone.z3 { --zc: var(--zone-3); }
 .stage-view.in-lobule #labels, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
 /* Phone: snugger cards (labels keep the one size every screen uses) */
@@ -3607,10 +3614,10 @@ button.finding { cursor: pointer; }
 }
 /* Dark lobule labels: white names, values, units and zones on the anatomy's dark outline. */
 :root[data-theme="dark"] .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: var(--white); }
-:root[data-theme="dark"] .lz-zone span { opacity: calc(var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
+:root[data-theme="dark"] .lz-zone span { opacity: calc(var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="soft"]) .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: var(--white); }
-  :root:not([data-theme="light"]):not([data-theme="soft"]) .lz-zone span { opacity: calc(var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1)); }
+  :root:not([data-theme="light"]):not([data-theme="soft"]) .lz-zone span { opacity: calc(var(--lab-o, 1) * var(--lit-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); }
 }
 /* Phone: the lobule keeps the zoom controls where the anatomy view has them. */
 @media (max-width: 720px) {
@@ -4711,7 +4718,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    It fades in over .7s, also when the label is first drawn during a dive. */
 .lz-lab, .lz-zone, .sv-region { isolation: isolate; --pill-y: calc(3px * var(--label-k, 1) + var(--hw, 1px) * 2); --pill-x: calc(6px * var(--label-k, 1) + var(--hw, 1px) * 2); }
 .lz-lab { --pill-y: calc(5px * var(--label-k, 1)); --pill-x: calc(4px * var(--label-k, 1)); }   /* on top of its own padding */
-:is(.lz-lab, .lz-zone, .sv-region)::before { content: ""; position: absolute; z-index: -1; inset: calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x)); border-radius: 12px; background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, color-mix(in srgb, var(--surface) 35%, transparent)); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)); opacity: calc(min(var(--pill-o), var(--lit-o, 1)) * var(--lab-o, 1) * var(--sv-in, 1)); transition: --pill-o .5s var(--ease), background-color .5s var(--ease), box-shadow .5s var(--ease); pointer-events: none; }
+:is(.lz-lab, .lz-zone, .sv-region)::before { content: ""; position: absolute; z-index: -1; inset: calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x)); border-radius: 12px; background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, color-mix(in srgb, var(--surface) 35%, transparent)); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)); opacity: calc(min(var(--pill-o), var(--lit-o, 1)) * var(--lab-o, 1) * var(--sv-in, 1) * var(--off-o, 1)); transition: --pill-o .5s var(--ease), background-color .5s var(--ease), box-shadow .5s var(--ease); pointer-events: none; }
 .lz-zone::before { inset: calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x)) calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x) + .12em); }   /* the trailing letter-spacing would make it lopsided */
 .sv-region::before { right: calc(-1 * var(--pill-x) + .12em); }
 :is(.lz-lab, .lz-zone, .sv-region):is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])::before { --pill-o: 1; background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, color-mix(in srgb, var(--surface) 35%, transparent)); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)); animation: pill-in .5s var(--ease); }
