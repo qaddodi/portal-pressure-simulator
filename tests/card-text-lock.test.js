@@ -121,3 +121,12 @@ test('a time-lapse keeps the words where they came in: the phone\'s cap and the 
   // (Declared before the layout that reads them.)
   assert.ok(js.indexOf('const readingsOnly') < js.indexOf('function layout()'));
 });
+
+test('a time-lapse slide in view never lays its cards out again as its readings change: only the data card refits in its own room', () => {
+  // (Every reading that measured the data card a hair different ran the whole layout again, many times a second while the days ran,
+  // and on an iPhone the teaching card vibrated: Endoscopy 3, 18 Oct.)
+  assert.match(js, /const lapseStill = \(\) => !!shown && shown\.i === want && !!slides\[want\]\?\.lapse && !!ui && !ui\.root\.classList\.contains\('pz-prep'\);/);
+  assert.match(js, /clearRO \|\|= new ResizeObserver\(\(\) => \{ cancelFrame\(paneRaf\); paneRaf = nextFrame\(\(\) => \{ if \(!ui\) return; if \(lapseStill\(\)\) fitCards\(ui\.data\); else layout\(\); \}\); soon\(\); \}\);/);
+  assert.match(js, /fitRaf = nextFrame\(\(\) => \{ if \(ui && lapseStill\(\)\) \{ fitCards\(ui\.data\); return; \}/);
+  assert.ok(js.indexOf('const lapseStill') < js.indexOf('function layout()'));
+});
