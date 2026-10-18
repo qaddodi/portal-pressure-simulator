@@ -1503,6 +1503,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
       // (A line never drawn has no ends to put back: setting "null" logged an error per end on a small phone.)
       ['x1', 'y1', 'x2', 'y2'].forEach((k, i) => (c.line[i] == null ? callLine.removeAttribute(k) : callLine.setAttribute(k, c.line[i])));
     }
+    // A label waiting at the edge (what it names is off screen) never lies across another label's leader: its place is
+    // set by the way it points, so it gives way (at 200 % text on a phone the Central vein's chip covered the Sinusoids' node).
+    const itOf = (k) => items.find((it) => it.k === k);
+    const crossed = new Set(sol.res.filter((r) => !r.out && itOf(r.k).edge).filter((r) => {
+      const c = itOf(r.k), box = lettersOf(c.L, r.x - c.w / 2, r.y - c.hh / 2, c.w, c.hh);
+      return sol.res.some((o) => o !== r && !o.out && !itOf(o.k).edge && runInside(itOf(o.k).a, [o.x, o.y], box) > 0.5);
+    }).map((r) => r.k));
+    if (crossed.size) sol = { ...sol, res: sol.res.map((r) => (crossed.has(r.k) ? { ...r, out: true } : r)) };
     // (Every label's letters where it lands, for the leaders to keep off.)
     const inks = sol.res.filter((r) => !r.out).map(({ k, x, y }) => { const { L, w, hh } = items.find((it) => it.k === k); return lettersOf(L, x - w / 2, y - hh / 2, w, hh); });
     for (const { k, x, y, out } of sol.res) {
