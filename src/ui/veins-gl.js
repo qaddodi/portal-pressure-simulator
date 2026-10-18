@@ -1002,7 +1002,8 @@ vec2 chevAt(int id, float s, float y) {
 float dyeAt(int id, float s, float y) {
   float vd = texelFetch(flow, ivec2(0, id), 0).y;
   float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
-  float R = max(texelFetch(rad, ivec2(clamp(int(clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, ${N_SAMPLES - 1}), id), 0).r, 0.3);
+  // (The caliber between its samples, as the chevrons take it: the nearest sample stepped the front's bullet at each one; B11.)
+  float R = radAt(id, s, len);
   float dir = vd < 0.0 ? -1.0 : 1.0;
   float sp = s - dir * (2.0 * (1.0 - y * y) - 1.0) * 1.4 * R;
   float u = clamp(sp / len, 0.0, 1.0);

@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=203ece360c';
-import { createLobuleZoom } from './lobule-zoom.js?v=20e31adf29';
+import { createLobuleZoom } from './lobule-zoom.js?v=5dc9d6c8d7';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -22,7 +22,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=d06e821b42';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=9e2dd75956';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=b0e8934683';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
@@ -4373,7 +4373,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let ascTarget = null, ascShown = 0, ascVel = 0, fluidMaskB = null, fluidMaskOf = null, fluidMaskOfB = null, fluidBandH = -1, fluidH = 0, fluidAmp = 0, fluidInkRGBA = [0.9, 0.75, 0.28, 0.4];
   const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false };
   const abdomenClipEl = defs.querySelector('#abdomenClip path');
-  const fluidPhase = () => (performance.now() / 1100) % (20 * Math.PI);   // both ripple terms are periodic over 20π
+  // (The ripple's phase advances with the running model's frames, so it carries on from where it stood after a pause instead of
+  // jumping to the wall clock's; round 2 review, B11.)
+  let fluidPh = 0;
+  const fluidPhase = () => fluidPh;   // both ripple terms are periodic over 20π
   const fluidSurfAt = (x, ph) => { const c = (x - 712) / 400; return ABDOMEN_FLOOR + 5 - fluidH * (0.8 + 0.2 * c * c) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp; };
   // No pool while the readout grades the belly "None"; past that it fades in as it fills and out as it drains, so it never pops.
   const fluidFade = () => poolFade(ascShown);
@@ -4443,6 +4446,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       drawAscites(); moved = true;   // (its platePoke rasterizes once the fluid is within a step of its volume)
     }
     const run = st.running && !reduceMotion.matches;
+    if (run) fluidPh = (fluidPh + dt / 1.1) % (20 * Math.PI);
     const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? SEL_DIM : 1);
     fluidLook.s = [ABDOMEN_FLOOR + 5, fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
     fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidInkRGBA[3] * k * fluidFade()];
@@ -7362,15 +7366,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // in the same four stages, while paused or with reduced motion), and pools in the stomach, the pool growing with the
   // square root of what has been lost. Each: [x0, y0, x1, y1, r0, r1, alpha, kind] (veins-gl.js): a jet (kind 1) from
   // its base (x0, y0; radius r0) to its tip (x1, y1; r1), or the pool (kind 0), an ellipse at (x0, y0) with radii x1, y1.
-  function bleedSpray(moving) {
+  function bleedSpray() {
     if (!F?.bleed?.active || morph >= 0.5) return [];
-    return bleedShapes(F.bleed, F.metrics.bleeding?.rate, moving ? performance.now() / 1000 : 0, SITES);
+    // (On the blood's own clock, which stands still while paused, so the jets hold where they are and carry on from there;
+    // the wall clock made them jump on pause and play. Reduce Motion keeps the still four stages: B11.)
+    return bleedShapes(F.bleed, F.metrics.bleeding?.rate, reduceMotion.matches ? 0 : bloodClock, SITES);
   }
   function bloodLook() {
     const st = store.get(), b = st.blood || {};
     // (Each drawn while it shows at all, by its eased share: stepBlood's blendA; its own switch before the first step.)
     const sA = blendA.s ?? (bloodOn() ? 1 : 0), cA = blendA.c ?? (chevOn() && !cath.st ? 1 : 0), oA = blendA.o ?? (originOn() ? 1 : 0);
-    return { on: sA > 0, still: reduceMotion.matches, chev: cA > 0, look: b.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA, clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
+    return { on: sA > 0, still: reduceMotion.matches, chev: cA > 0, look: b.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA, clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
   }
 
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null, lastAnim = true;

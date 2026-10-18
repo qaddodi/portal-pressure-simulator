@@ -135,3 +135,12 @@ test('B8: label keep-out boxes are taken after the glide, and cut the arrowheads
   assert.match(gl, /c \*= smoothstep\(-pxW, pxW, length\(max\(q, 0\.0\)\) \+ min\(max\(q\.x, q\.y\), 0\.0\)\);/);
   assert.doesNotMatch(gl, /bool hole/);
 });
+
+test('B11: bleed jets and the ascites ripple run on clocks that stand still while paused; the dye front reads the caliber between samples', () => {
+  const stage = read('src/ui/stage.js'), gl = read('src/ui/veins-gl.js');
+  assert.match(stage, /return bleedShapes\(F\.bleed, F\.metrics\.bleeding\?\.rate, reduceMotion\.matches \? 0 : bloodClock, SITES\);/);
+  assert.match(stage, /if \(run\) fluidPh = \(fluidPh \+ dt \/ 1\.1\) % \(20 \* Math\.PI\);/);
+  assert.doesNotMatch(stage.replace(/^\s*\/\/.*$/gm, ''), /performance\.now\(\) \/ 1100/);
+  const dye = gl.slice(gl.indexOf('float dyeAt('), gl.indexOf('void main()', gl.indexOf('float dyeAt(')));
+  assert.match(dye, /float R = radAt\(id, s, len\);/);
+});
