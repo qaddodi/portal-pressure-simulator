@@ -14,16 +14,16 @@
 
 import { store, replaceParams } from './store.js?v=31ee79b6ab';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=203ece360c';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=b6a40567da';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=60b2fc909b';
-import { sinusoidSupported } from './sinusoid-view.js?v=d95817cc4b';
+import { sinusoidSupported } from './sinusoid-view.js?v=93a2dc5de0';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=17a95feee0';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=121f5b727e';
-import { createTools } from './presenter-tools.js?v=fa94064391';
+import { createHvpgMonitor } from './hvpg-proc.js?v=ca6b23e252';
+import { createTools } from './presenter-tools.js?v=0001d8c0ca';
 import { openHandout } from './handout.js?v=d25b4e8d53';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -31,7 +31,7 @@ import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, di
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { createFigureKey } from './figure-key.js?v=96997852c4';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=7b176104a2';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=dc071e3659';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1030,7 +1030,7 @@ function quadrantVisual(rows) {
     const t = fs.cap, a = fs.cap, nm = fs.lab, n = fs.val;
     T = Math.max(24, 0.75 * t + 6);   // (room above for the top tick)
     const ax = 2 + a;   // (the rotated name's baseline: its letters rise to the left of it)
-    L = ax + 0.3 * a + 8 + est('2.5', t) + 14;
+    L = ax + 0.3 * a + 8 + est('2.5', t) + 14 + 0.3 * t;   // (the y ticks stand 0.3 letter further out, so the two 0s at the corner never touch at 200 %)
     // (The rotated axis name never stretches the plot to fit long words: in a height-capped box that shrinks the whole chart,
     // which grows the lettering again and never settles. A name too long for the plot drops to its short form.)
     const yName = est('Ascites protein, g/dL', a) + 24 <= 524 ? 'Ascites protein, g/dL' : 'Protein, g/dL';
@@ -1042,12 +1042,12 @@ function quadrantVisual(rows) {
     for (const { q, rect, n: el } of quads) {
       const [x0, y0, x1, y1] = box[(q.y ? 0 : 2) + q.x];
       at(rect, { x: x0, y: y0, width: x1 - x0, height: y1 - y0 });
-      at(el, { x: x0 + 16, y: q.y ? y0 + 0.8 * n + 12 : y1 - 18 }); fsOf(el, n);
+      at(el, { x: x0 + 16, y: q.y ? y0 + 0.8 * n + 12 : y1 - 18 - 0.25 * n }); fsOf(el, n);   // (a lower number's foot clear of the axis's ticks)
     }
     at(cuts[0], { x1: xs, x2: xs, y1: T, y2: B }); at(cuts[1], { x1: L, x2: R, y1: ys, y2: ys });
     at(axes[0], { x1: L, x2: R, y1: B, y2: B }); at(axes[1], { x1: L, x2: L, y1: T, y2: B });
     for (const { v, el } of xt) { at(el, { x: X(v), y: B + 10 + 0.8 * t }); fsOf(el, t); }
-    for (const { v, el } of yt) { at(el, { x: L - 14, y: Y(v) + 0.36 * t }); fsOf(el, t); }
+    for (const { v, el } of yt) { at(el, { x: L - 14 - 0.3 * t, y: Y(v) + 0.36 * t }); fsOf(el, t); }
     at(axX, { x: (L + R) / 2, y: B + 20 + t + 12 + 0.75 * a }); fsOf(axX, a);
     axY.setAttribute('transform', `translate(${ax.toFixed(1)} ${((T + B) / 2).toFixed(1)}) rotate(-90)`); fsOf(axY, a);
     for (const { p, circle, names } of dots) {
@@ -2840,7 +2840,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Not while the leaving slide's card is still out, its charts lettered for the old size: only the new card, being fitted unseen
     // (pz-prep) or in view.)
     if (below && ladderFold !== foldKey && slides[want]?.fold !== false && (ui.root.classList.contains('pz-prep') || !dd.classList.contains('pz-hide')) && !dd.classList.contains('has-tool') && !dd.classList.contains('tiles-only') && !dd.classList.contains('tool-only')
-      && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-folds') && !lock && (({ v, h }) => v > 1 || h > 1)(overflowOf(dd))) { ladderFold = foldKey; textLock = null; layout(); return; }
+      && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-folds') && (!lock || !shown) && (({ v, h }) => v > 1 || h > 1)(overflowOf(dd))) { ladderFold = foldKey; textLock = null; layout(); return; }
+    // (Locked, it still folds until the slide is shown: its strip, lettered again as the cards came in, had overflowed and stayed
+    // under 12 px, Recompensation 2 at 200 %.)
     // The stacked pair shorter than the screen is centred top to bottom as one (equal room above and below, never closer than one margin
     // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
     let shift = 0;

@@ -107,5 +107,7 @@ test('the teaching card keeps the size it came in at: the lock starts with the l
   assert.match(js, /if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
   assert.match(js, /shown = null; entering = null;\n/, 'a new slide starts unlocked');
   assert.match(js, /if \(bare\) \{ bare = false; layout\(\); cardsIn\(\); \}/, 'a cut transition never locks the next slide early');
-  assert.match(js, /!dd\.classList\.contains\('pz-folds'\) && !lock && \(\(\{ v, h \}\) => v > 1 \|\| h > 1\)\(overflowOf\(dd\)\)\) \{ ladderFold = foldKey;/, 'a ladder never folds once its slide\'s sizes are locked');
+  // (Until the slide is shown it may still fold: its strip, lettered again as the cards came in, overflowed by 40 px and stayed
+  // squeezed under 12 px, Recompensation 2 at 200 %.)
+  assert.match(js, /!dd\.classList\.contains\('pz-folds'\) && \(!lock \|\| !shown\) && \(\(\{ v, h \}\) => v > 1 \|\| h > 1\)\(overflowOf\(dd\)\)\) \{ ladderFold = foldKey;/, 'a ladder never folds once its slide is shown');
 });

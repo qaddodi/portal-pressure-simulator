@@ -428,7 +428,9 @@ function rollStep(now) {
   rollRaf = 0;
   for (const el of rolling) {
     const c = counts.get(el);
-    const u = Math.min(1, (now - c.t0) / COUNT_MS), k = 1 - (1 - u) ** 3;
+    // (A frame's time is when it began, which can be before the roll was asked for: below 0 the curve ran backwards, far past the
+    // number it started from, and a patient load showed an HVPG of -50 for a moment.)
+    const u = Math.max(0, Math.min(1, (now - c.t0) / COUNT_MS)), k = 1 - (1 - u) ** 3;
     c.shown = u >= 1 ? c.to : c.from + (c.to - c.from) * k;
     putNum(el, fmt(c.shown, c.d));
     if (u >= 1 || !el.isConnected) { c.t0 = null; rolling.delete(el); }

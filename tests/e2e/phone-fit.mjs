@@ -21,9 +21,12 @@ export const fitIssues = () => {
   // (Judged also while the card is held back: a card with no room under the words had waited off screen, never shown.)
   const held = data?.classList.contains('pz-hide') ? 16 : 1;
   // (a held card is judged where it will show: without the small slide its hiding adds, 18 px up on a phone)
-  const rest = (el) => { const t = el.style.transform, tr = el.style.transition; el.style.transition = 'none'; el.style.transform = 'none'; const r = el.getBoundingClientRect(); el.style.transform = t; el.style.transition = tr; return r; };
-  const db = data && !data.hidden && !('gone' in data.dataset) && (held > 1 ? rest(data) : data.getBoundingClientRect());
+  // (A card the layout closed, 802e093, its handle showing at the screen's edge, is judged where it opens to, and its handle must show.)
+  const docked = !!data?.classList.contains('docked');
+  const rest = (el) => { const t = el.style.transform, tr = el.style.transition, tl = el.style.translate; el.style.transition = 'none'; el.style.transform = 'none'; el.style.translate = 'none'; const r = el.getBoundingClientRect(); el.style.transform = t; el.style.transition = tr; el.style.translate = tl; return r; };
+  const db = data && !data.hidden && !('gone' in data.dataset) && (held > 1 || docked ? rest(data) : data.getBoundingClientRect());
   if (db && db.width && (db.left < -1 || db.top < -1 || db.right > innerWidth + 1 || db.bottom > innerHeight + held)) out.push(`numbers card off screen (${Math.round(db.left)},${Math.round(db.top)},${Math.round(db.right)},${Math.round(db.bottom)})`);
+  if (db && db.width && docked) { const g = data.getBoundingClientRect(); if (Math.min(g.right, innerWidth) - Math.max(g.left, 0) < 8 || Math.min(g.bottom, innerHeight) - Math.max(g.top, 0) < 8) out.push(`closed numbers card shows no handle (${Math.round(g.left)},${Math.round(g.top)},${Math.round(g.right)},${Math.round(g.bottom)})`); }
   if (dr && !data.classList.contains('pz-hide')) {
     if (text && Math.min(dr.right, text.right) - Math.max(dr.left, text.left) > 4 && Math.min(dr.bottom, text.bottom) - Math.max(dr.top, text.top) > 4) out.push('numbers card over the slide words');
     if (text && dr.height < 60 && !data.classList.contains('tool-only')) out.push(`numbers card squeezed to ${Math.round(dr.height)} px`);

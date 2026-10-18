@@ -4,7 +4,7 @@
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js?v=31ee79b6ab';
-import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=203ece360c';
+import { h, fmt, clamp, shownOf, countTo, swapText } from './util.js?v=b6a40567da';
 import { vitalReading } from './vital-read.js?v=e902fb66cd';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
