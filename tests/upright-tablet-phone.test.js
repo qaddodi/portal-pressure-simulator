@@ -51,29 +51,32 @@ test('an upright phone\'s or tablet\'s deck instrument card opens its readings o
   assert.match(js, /const splitSheet = \(d\) => !!ui\?\.root\.classList\.contains\('stack'\) && d\.classList\.contains\('pz-sheet'\);/, 'every upright phone and tablet');
   assert.doesNotMatch(js, /tabSheet\(/);
   assert.doesNotMatch(css, /\.pz\.stack\.tab \.pz-data\.pz-sheet/, 'no rule left for the tablet alone');
-  // (The glass in two pieces: the instrument's, and the readings' 8 px under it, one solid piece that slides out from behind it.)
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet \{ --pz-u: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; \}/);
+  // (Two stacked cards: the instrument's in front, the readings' behind it, its top never seen (Mohammad, 17 Oct: "it's as if they are
+  // TWO cards ... should remain attached to the card above it and we never see the top of the tiles card").)
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet \{ --pz-u: 0; --pz-sr: 18px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; \}/);
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.tool-open \{ --pz-u: 1; \}/, 'at rest the class says where the readings are');
   assert.match(js, /if \(sheet !== dd0\.classList\.contains\('pz-sheet'\) && p && dd0\.classList\.contains\('pz-hide'\)\) \{/, 'its glass never shows fading between two slides');
   // (The instrument's glass ends where the card ends with the readings tucked, whatever share of them is out.)
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet::before \{ top: -1px; height: calc\(100% \+ 1px - var\(--pz-u\) \* var\(--pz-d, 0px\)\); \}/);
-  // (The readings' glass at its full height on the card's foot, cut away at the instrument card's foot while it is still behind it:
-  // never a strip that grows, nor a line left when tucked (Mohammad, 17 Oct: "There is also like a line").)
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet::after \{ bottom: -1px; height: calc\(var\(--pz-d, 0px\) - 8px \+ 1px\);/);
-  assert.match(css, /--pz-cut: max\(0px, calc\(\(1 - var\(--pz-u\)\) \* var\(--pz-d, 0px\) - 8px\)\); \}/);
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet:not\(\.tool-open\):not\(\.pz-sliding\)::after \{ visibility: hidden; \}/);
-  // (The readings keep their size and are drawn up behind the instrument card by what is still tucked; the card shortens with them.)
-  assert.match(css, /> \.pz-strip, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.tiles-only > \.pz-tiles \{ margin-top: calc\(22px - \(1 - var\(--pz-u\)\) \* var\(--pz-d, 0px\) \/ var\(--pz-fit, 1\)\); \}/);
-  assert.match(css, /--pz-cut: calc\(\(1 - var\(--pz-u\)\) \* var\(--pz-d, 0px\) \/ var\(--pz-fit, 1\) - 22px \+ \(10px - var\(--pz-gap, 6px\)\) \/ var\(--pz-fit, 1\) - var\(--pz-o, 0px\)\);/, 'cut at the instrument card\'s foot');
+  // (The readings' card behind it, 22 px of its top under the instrument card's foot, its foot 24 px out while tucked; shown only under
+  // the instrument card and behind its rounded corners: no gap, no line, no top edge.)
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet::after \{ z-index: -2; bottom: calc\(-1px - 24px \* \(1 - var\(--pz-u\)\)\); height: calc\(var\(--pz-d, 0px\) \+ 23px\); border-top-left-radius: 0; border-top-right-radius: 0;/);
+  assert.match(css, /--pz-m: calc\(22px - var\(--pz-sr\) \+ \(1 - var\(--pz-u\)\) \* \(var\(--pz-d, 0px\) - 24px\)\);/);
+  assert.match(css, /mask: linear-gradient\(#000 0 0\) 0 calc\(var\(--pz-m\) \+ var\(--pz-sr\)\) \/ 100% 100% no-repeat, radial-gradient\(circle at 100% 0,/);
+  assert.doesNotMatch(css, /pz-sheet:not\(\.tool-open\):not\(\.pz-sliding\)::after \{ visibility: hidden; \}/, 'tucked, its foot is the edge under the card');
+  assert.match(css, /\.pz\.stack \.pz-data\.pz-sheet \+ \.pz-lip::before \{ content: none; \}/, 'the handle\'s button draws only the handle');
+  // (The readings move with their card and are cut at the instrument card's foot while behind it.)
+  assert.match(css, /> \.pz-strip, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.tiles-only > \.pz-tiles \{ margin-top: calc\(14px - \(1 - var\(--pz-u\)\) \* var\(--pz-d, 0px\) \/ var\(--pz-fit, 1\)\); \}/);
+  assert.match(css, /translate: 0 calc\(24px \* \(1 - var\(--pz-u\)\) \/ var\(--pz-fit, 1\)\);/);
+  assert.match(css, /--pz-cut: calc\(\(\(1 - var\(--pz-u\)\) \* \(var\(--pz-d, 0px\) - 24px\) \+ 10px - var\(--pz-gap, 6px\)\) \/ var\(--pz-fit, 1\) - 14px - var\(--pz-o, 0px\)\);/, 'cut at the instrument card\'s foot');
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.tool-open \{ padding-bottom: 10px; \}/, 'the padding never changes');
   // (Measured in the card's own px, without its height cap; frame by frame, never a CSS transition: the card is frosted glass.)
-  assert.match(js, /d\.style\.maxHeight = 'none';\n\s*parts\[0\]\.style\.marginTop = '22px';/);
+  assert.match(js, /d\.style\.maxHeight = 'none';\n\s*parts\[0\]\.style\.marginTop = '14px';/);
   assert.match(js, /d\.style\.maxHeight = cap; ui\.lipMO\?\.takeRecords\(\);/, 'its own measure never sets it measuring again');
   assert.match(js, /if \(t < 1\) \{ d\.style\.setProperty\('--pz-u', \(from \+ \(to - from\) \* \(1 - \(1 - t\) \*\* 3\)\)\.toFixed\(4\)\); slip\.raf = nextFrame\(step\); \}/);
   assert.doesNotMatch(css + js, /--pz-top|sheetTop|tabMargins/, 'no measure of the instrument\'s own box');
-  // (The handle's edge gives way to the readings as they come out, its handle in their card's foot.)
+  // (The handle rides in the readings' card's foot.)
   assert.match(css, /\.pz\.stack \.pz-data\.pz-sheet\.pz-sliding \+ \.pz-lip \{ margin-top: calc\(-24px \* var\(--pz-u, 0\)\);/);
-  assert.match(css, /opacity: calc\(1 - 2 \* var\(--pz-u, 0\)\); transition: none; \}/);
   assert.match(js, /l\.style\.top = px\(d\.offsetTop \+ \(sliding && slip\.h0 != null \? slip\.h0 \+ u \* slip\.d : d\.offsetHeight\)\);/);
   // A glass piece inside a fading card loses its blur: the card stays opaque and its parts fade.
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide \{ opacity: 1; visibility: hidden; transition: transform \.32s var\(--ease\), visibility 0s linear \.32s; \}/);
