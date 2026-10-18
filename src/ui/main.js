@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=0e78251eea'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=03236bbc51'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -1895,7 +1895,6 @@ function firstRun() {
 }
 // The first-run hint: once per device, in the message card under the top bars (never over the bottom bar), until the
 // first vessel or organ is picked or the card is dismissed. Its own key, so devices that opened the app before see it once.
-// Its Start here button plays the short tour (decks/start-here.js).
 // (Not under automation: the browser checks and visual references start from a fresh browser every time.)
 const HINT_KEY = 'pps.hint';
 function showFirstHint() {
@@ -1908,7 +1907,7 @@ function showFirstHint() {
     const verb = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Click' : 'Tap';
     let off = null;
     const done = () => { off?.(); off = null; try { localStorage.setItem(HINT_KEY, '1'); } catch { /* storage unavailable */ } };
-    const close = toast(`${verb} a vessel or the liver to change it, or take the short tour.`, '', { sticky: true, onClose: done, actions: [['Start here', () => presenter.start('start-here')]] });
+    const close = toast(`${verb} a vessel or the liver to change it.`, '', { sticky: true, onClose: done });
     off = store.on('selection', (sel) => { if (sel) close(); });
   };
   if (window.ppsFigureReady) setTimeout(show, 600); else addEventListener('pps:figure-ready', () => setTimeout(show, 600), { once: true });

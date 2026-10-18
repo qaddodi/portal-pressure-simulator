@@ -33,7 +33,7 @@ A slide is **one idea**: a standalone title, a one-sentence line, at most four c
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | string | Kebab-case, unique across all decks (existing: `start-here circulation circuit two-inflows hvpg sites prehepatic ncph right-heart outflow lobule doppler stiffness one-year varices endoscopy variceal-bleed ascites tap spleen pvt-cirrhosis recompensation treatment shunts`). |
+| `id` | string | Kebab-case, unique across all decks (existing: `circulation circuit two-inflows hvpg sites prehepatic ncph right-heart outflow lobule doppler stiffness one-year varices endoscopy variceal-bleed ascites tap spleen pvt-cirrhosis recompensation treatment shunts`). |
 | `level` | `'foundation'` \| `'core'` \| `'advanced'` | Shown as Foundation / Core / Advanced. |
 | `title` | string | Full title. |
 | `minutes` | number | Talk length. |
@@ -634,7 +634,7 @@ export const CLOT_DEMO = {
      `DECKS.push(CLOT_DEMO);`
    * Add it to `TOPICS` (the unified menu) under exactly one topic, with a short title of **32 characters or fewer** and a short deck name of **20 or fewer**:
      `['causes', 'Causes', [ …, ['clot-demo', 'A clot in the portal vein', 'Portal vein clot'] ]]`.
-     Topics, in order: `start` (the Start here tour alone), `foundations`, `causes`, `measuring`, `complications`, `treatment`. A deck missing from `TOPICS` fails the menu test.
+     Topics, in order: `foundations`, `causes`, `measuring`, `complications`, `treatment`. A deck missing from `TOPICS` fails the menu test.
 3. **Check it:** `npm run lint && npm test`. Among the tests that guard a deck: every deck is listed once under a topic with a short title and its own short deck name (`menu`); every slide's `ask[0]` appears in the printed handout (`handout`); a term a slide gives is named by its line and no slide loses a pill (`deck-terms`); a line that sets a live HVPG or PPG beside a threshold matches the patient the slide shows (`deck-thresholds`, with a hand-checked exceptions list at its top); site tags and disease pills (`site-tags`, `disease-pills`); every case card is under 220 characters on a slide with a preset (`case-card`).
 4. **Stamp scripts:** `npm run stamp` rewrites the `?v=` hashes (required whenever a script file changed; a stale stamp fails the unit job and skips the deploy).
 5. **Optional deck-picker stills:** `node scripts/deck-stills.mjs <id>` writes `brand/decks/<id>-light.webp` and `-dark.webp` (200×250); run it after the deck exists.

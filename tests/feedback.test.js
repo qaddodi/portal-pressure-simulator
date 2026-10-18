@@ -1,11 +1,10 @@
 // Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one
 // FEEDBACK_EMAIL constant; a timed ask comes after FEEDBACK_ASK_MIN minutes of active use, at most twice per device,
-// never during a drag, a talk or projector mode; and the Start here tour heads the Present menu and the first-run hint.
+// never during a drag, a talk or projector mode.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { FEEDBACK_EMAIL } from '../src/version.js';
-import { DECKS, TOPICS } from '../src/ui/decks.js';
 
 const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
 const between = (a, b) => main.slice(main.indexOf(a), main.indexOf(b, main.indexOf(a)));
@@ -33,11 +32,4 @@ test('the timed ask counts active, visible time, waits out drags, talks and proj
   assert.match(ask, /answer\(was === 'later' \? 'done' : 'later'\)/);
   assert.match(ask, /actions: \[\['Send feedback', \(\) => sendFeedback\(\)\], \['Not now', \(\) => \{\}\]\]/);
   assert.match(main, /if \(!deep\) firstRun\(\);\n\s*armFeedbackAsk\(\);/);
-});
-
-test('Start here leads the Present menu, and its feedback slide points at Settings', () => {
-  assert.deepEqual(TOPICS[0], ['start', 'Start here', [['start-here', 'How to use the simulator', 'Start here']]]);
-  const d = DECKS.find((x) => x.id === 'start-here');
-  assert.match(d.slides.find((s) => s.id === 'feedback').line, /open Settings \(the gear\) and choose Send feedback/);
-  for (const s of d.slides) assert.ok(s.line.split(/\s+/).length <= 40, `${s.id} line`);
 });
