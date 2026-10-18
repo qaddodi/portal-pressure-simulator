@@ -48,3 +48,23 @@ test('A4: hover and selection glows are slim bands', () => {
   assert.match(stage, /\{ id, col: null, amt: 1\.0, wide: 0\.5, dur: 280 \}/);
   assert.match(stage, /\{ id, col: null, amt: 1\.5, wide: 0\.6, dur: SEL_FADE \* 1000 \}/);
 });
+
+test('B4: the streaks, chevrons and origin colours fade when switched, and a vessel drawing on carries its blood with it', () => {
+  const gl = read('src/ui/veins-gl.js');
+  assert.match(gl, /uniform vec3 blendA;/);
+  assert.match(gl, /col = mix\(col, oc, vis \* blendA\.z\);/);
+  assert.match(gl, /clamp\(a \* vis \* flowA \* blendA\.x, 0\.0, 1\.0\)/);
+  assert.equal((gl.match(/vis \* flowA \* blendA\.y\)/g) || []).length, 2, 'the chevron head and its rim');
+  assert.match(gl, /gl\.uniform3f\(U\.blendA, blood\.streakA \?\? 1, blood\.chevA \?\? 1, blood\.originA \?\? 1\);/);
+  const blood = fn(stage, '  function stepBlood(dt) {');
+  // Eased from their switches (the catheter hides the chevrons), kept awake while on the way (bloodEasing); Reduce Motion fades too.
+  assert.match(blood, /const kF = -Math\.expm1\(-dt \/ 0\.15\), tS = bloodOn\(\) \? 1 : 0, tC = chevOn\(\) && !cath\.st \? 1 : 0, tO = originOn\(\) \? 1 : 0;/);
+  assert.match(blood, /blendA\.c = blendA\.c == null \? tC : eased\(blendA\.c, tC, kF\);/);
+  assert.match(blood, /const on = blendA\.s > 0 \|\| blendA\.c > 0 \|\| blendA\.o > 0;/);
+  // Reveals and strands: blood strength follows the stroke and the strand's share; nothing waits for 0.5 or the reveal's end.
+  assert.doesNotMatch(blood, /x\.reveal \|\|/);
+  assert.doesNotMatch(blood, /live \?\? 1\) >= 0\.5/);
+  assert.match(blood, /put\(x\.row, k, q \/ area, x\.freeFrom, x\.freeTo, rs\);/);
+  const look = fn(stage, '  function bloodLook() {');
+  assert.match(look, /on: sA > 0, still: reduceMotion\.matches, chev: cA > 0, look: b\.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA,/);
+});

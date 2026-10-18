@@ -762,6 +762,7 @@ uniform int still;                     // 1: reduced motion (the chevrons stand 
 uniform vec3 chevInk;
 uniform float cssPx;                   // canvas px per CSS px (stage.js vdpr, at most 2)
 uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
+uniform vec3 blendA;                   // 0..1 each: the streaks, the chevrons and the origin colours fading in or out (switched on or off)
 uniform int look;                      // 0 parcels, 1 shimmer
 uniform int origin;                    // 1: color parcels by where their blood came from
 uniform int dyeOn;
@@ -1064,13 +1065,13 @@ void main() {
       // A vessel that carries no blood (origin fractions marked −1, e.g. a lymphatic) keeps its own color.
       vec3 oc = texelFetch(flow, ivec2(2, id1), 0).x < -0.5 ? col : min(originAt(id1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3)) * shade, vec3(1.0));
       if (b > 0.004) oc = mix(oc, texelFetch(flow, ivec2(2, id2), 0).x < -0.5 ? col : min(originAt(id2, y2, max(texelFetch(rad, ivec2(N_LAST / 2, id2), 0).r, 0.3)) * shade, vec3(1.0)), b);
-      col = mix(col, oc, vis);
+      col = mix(col, oc, vis * blendA.z);
     }
     if (blood == 1) {
       // One streak field (the dominant lumen's), eased down toward the join, so two patterns never ghost over each other.
       vec4 A = bloodAt(id1, s1, y1, col);
       float a = A.a * (1.0 - 0.6 * smoothstep(0.02, 0.5, b));
-      if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA, 0.0, 1.0));
+      if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA * blendA.x, 0.0, 1.0));
     }
     if (dyeOn == 1) {
       float c = dyeAt(id1, s1, y1) * (1.0 - b) + (b > 0.004 ? dyeAt(id2, s2, y2) * b : 0.0);
@@ -1102,8 +1103,8 @@ void main() {
         float ln1 = max(texelFetch(tube, ivec2(5, id1), 0).z, 1.0);
         vec3 vc = mix(texelFetch(tube, ivec2(0, id1), 0).rgb, texelFetch(tube, ivec2(1, id1), 0).rgb, clamp(s1 / ln1, 0.0, 1.0));
         vec3 ink = mix(chevInk, vc * 0.3, 0.2);
-        col = mix(col, inkLight, c.y * 0.75 * vis * flowA);
-        col = mix(col, mix(ink, revCol, rv), c.x * vis * flowA);
+        col = mix(col, inkLight, c.y * 0.75 * vis * flowA * blendA.y);
+        col = mix(col, mix(ink, revCol, rv), c.x * vis * flowA * blendA.y);
       }
     }
     v = vec4(col * v.a, v.a);
@@ -1789,6 +1790,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform1i(U.chev, blood.chev ? 1 : 0);
       gl.uniform1i(U.still, blood.still ? 1 : 0);
       gl.uniform1f(U.flowA, blood.alpha ?? 1);
+      gl.uniform3f(U.blendA, blood.streakA ?? 1, blood.chevA ?? 1, blood.originA ?? 1);
       gl.uniform3f(U.chevInk, ...(blood.chevInk || [0.08, 0.08, 0.1]));
       gl.uniform1f(U.cssPx, blood.vdpr || 1);
       gl.uniform1i(U.look, blood.look === 'shimmer' ? 1 : 0);

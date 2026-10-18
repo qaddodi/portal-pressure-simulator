@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=9cff6e63a6';
-import { createLobuleZoom } from './lobule-zoom.js?v=3a9175812f';
+import { createLobuleZoom } from './lobule-zoom.js?v=867b3fb4cd';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -22,7 +22,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=87b4e73a4f';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=0f8382bdf9';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=8e7372337f';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
@@ -7169,6 +7169,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const streamOpts = { phasic: false, speed: 1, large: true, still: false, rev: false };
   let bloodEasing = false;
+  const blendA = { s: null, c: null, o: null };   // shown share of the streaks, the chevrons and the origin colours (stepBlood)
   const eased = (v, to, k) => { if (Math.abs(to - v) <= 0.002) return to; bloodEasing = true; return v + (to - v) * k; };
   function stepBlood(dt) {
     const st = store.get(), b = st.blood || {};
@@ -7196,9 +7197,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const ct = !key || keyChevron(EDGES[k], laneOpen) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
       sm.chevK = sm.chevK == null ? ct : eased(sm.chevK, ct, ease);
     }
+    // The streaks, the chevrons and the origin colours fade in and out (0.15 s) when switched, by their toggles, the catheter
+    // (which hides the chevrons while it is in) or the lens, instead of in one frame; Reduce Motion keeps fades (round 2
+    // review, B4).
+    const kF = -Math.expm1(-dt / 0.15), tS = bloodOn() ? 1 : 0, tC = chevOn() && !cath.st ? 1 : 0, tO = originOn() ? 1 : 0;
+    blendA.s = blendA.s == null ? tS : eased(blendA.s, tS, kF);
+    blendA.c = blendA.c == null ? tC : eased(blendA.c, tC, kF);
+    blendA.o = blendA.o == null ? tO : eased(blendA.o, tO, kF);
     if (!veins) return;
-    const on = bloodOn() || chevOn() || originOn();
-    if (originOn() && originsF !== F) { origins = originFractions(EDGES, NODES, Qf, F.Pf || F.P); originsF = F; }
+    const on = blendA.s > 0 || blendA.c > 0 || blendA.o > 0;
+    if (blendA.o > 0 && originsF !== F) { origins = originFractions(EDGES, NODES, Qf, F.Pf || F.P); originsF = F; }
     syncEnds();
     flowData.fill(0);
     const put = (row, k, q, f0, f1, strength) => {
@@ -7212,18 +7220,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       flowData[o + 13] = chevFlowLevel(q);
       flowData[o + 14] = sm.drift || 0;
     };
+    // A vessel drawing on (a TIPS, a new collateral) or retracting carries its blood in step with its stroke, and a strand or a
+    // tributary as it comes and goes: a strength that follows them, instead of no blood until the end and then all of it in
+    // one frame (round 2 review, B4).
+    const tR = performance.now();
     if (on) for (const x of EV) {
-      if (!x.vis || x.isArt || x.reveal || x.g.classList.contains('coll-ghost')) continue;
+      if (!x.vis || x.isArt || x.g.classList.contains('coll-ghost')) continue;
+      const r = x.reveal, rs = r ? (r.out ? 1 - easeInOut(clamp((tR - r.t0) / r.dur, 0, 1)) : easeInOut(clamp((tR - r.t0) / r.dur, 0, 1))) : 1;
       const k = EI[x.e.id], q = Qf[k];
-      // A braided collateral's channels share its flow by cross-section.
-      const strands = morph < 0.5 ? (x.strands || []).filter((sd) => (sd.live ?? 1) >= 0.5) : [];
-      const area = 1 + strands.reduce((a, sd) => a + sd.k * sd.k, 0);
-      put(x.row, k, q / area, x.freeFrom, x.freeTo, 1);
-      for (const sd of strands) put(sd.row, k, q * sd.k * sd.k / area, true, true, 1);
+      // A braided collateral's channels share its flow by cross-section (a channel still coming in, by its share of it).
+      const strands = morph < 0.5 ? (x.strands || []).filter((sd) => (sd.live ?? 1) > 0) : [];
+      const area = 1 + strands.reduce((a, sd) => a + sd.k * sd.k * (sd.live ?? 1), 0);
+      put(x.row, k, q / area, x.freeFrom, x.freeTo, rs);
+      for (const sd of strands) put(sd.row, k, q * sd.k * sd.k / area, true, true, rs * (sd.live ?? 1));
       // Tributaries drawn into a trunk: a share of its flow by caliber.
-      if (morph < 0.5) for (const fd of x.feeders || []) if ((fd.live ?? 1) >= 0.5 && fd.w) put(fd.row, k, q * 0.5 * (fd.w / Math.max(1, x.width)) ** 2, true, false, 1);
+      if (morph < 0.5) for (const fd of x.feeders || []) if ((fd.live ?? 1) > 0 && fd.w) put(fd.row, k, q * 0.5 * (fd.w / Math.max(1, x.width)) ** 2, true, false, rs * (fd.live ?? 1));
       // The liver's branches in the circuit: a share of the vessel's flow by caliber.
-      if (morph >= 0.5) for (const cb of x.cbr || []) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, 1);
+      if (morph >= 0.5) for (const cb of x.cbr || []) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, rs);
     }
     veins.setFlow(flowData);
     // The dye bolus, through every vessel (hidden ones take a second each).
@@ -7265,7 +7278,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function bloodLook() {
     const st = store.get(), b = st.blood || {};
-    return { on: bloodOn(), still: reduceMotion.matches, chev: chevOn() && !cath.st, look: b.look, origin: originOn(), clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
+    // (Each drawn while it shows at all, by its eased share: stepBlood's blendA; its own switch before the first step.)
+    const sA = blendA.s ?? (bloodOn() ? 1 : 0), cA = blendA.c ?? (chevOn() && !cath.st ? 1 : 0), oA = blendA.o ?? (originOn() ? 1 : 0);
+    return { on: sA > 0, still: reduceMotion.matches, chev: cA > 0, look: b.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA, clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
   }
 
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null, lastAnim = true;
