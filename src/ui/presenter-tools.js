@@ -28,7 +28,7 @@ import { createDoppler } from './doppler.js?v=dcfa233e5b';
 import { createFibroScan } from './fibroscan.js?v=66879ab8eb';
 import { createPressureTime } from './pressure-time.js?v=f3e4db248d';
 import { createFlowTime } from './flow-time.js?v=c72a4a2873';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=8bbffc1ecc';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=b71db572dd';
 import { frameFor } from './frame.js?v=67ca200c87';
 const nextFrame = frameFor('presenter-tools');
 

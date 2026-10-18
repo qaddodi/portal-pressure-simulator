@@ -7,7 +7,7 @@ import { createStage } from './stage.js?v=1b461e49a3';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
 import { sinusoidSupported } from './sinusoid-view.js?v=5ed05c2ec4';
 import { createInspector } from './inspector.js?v=1e661083c1';
-import { createDock, CUTOFFS } from './dock.js?v=ae2bc2707d';
+import { createDock, CUTOFFS } from './dock.js?v=734e239495';
 import { setHvpgStage } from './hvpg-proc.js?v=9c37eeb7dc';
 import { createWhy } from './why.js?v=9bfb829f51';
 import { createTimeline, LAPSES } from './timeline.js?v=bfc1b503cf';
@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=5f85f6f034'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=db843f4ed3'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -1854,7 +1854,7 @@ function openAbout(section) {
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c) => h('td', {}, c))))))),
     h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥ 10 mmHg is clinically significant portal hypertension in cirrhosis. HVPG ≥ 20 mmHg matters as a prognostic finding when measured during an acute variceal bleed. 12 mmHg is not a bleeding threshold: varices can bleed below it, and it is only a usual post-TIPS target for the direct gradient.'),
     h('h3', {}, 'Reference review'),
-    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (more than 6 months, Child–Pugh A), the gray zone for stiffness (ANTICIPATE probability of 75% or more, or spleen stiffness of 55 kPa or more), the window for pre-emptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),
+    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (more than 6 months, Child–Pugh A), the gray zone for stiffness (ANTICIPATE probability of 75% or more, or spleen stiffness above 55 kPa on the 100 Hz probe), the window for pre-emptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),
     h('h3', {}, 'Clinical review'),
     h('p', {}, 'Presentation and patient content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off will be listed here.'),
     h('h3', { 'data-sec': 'refs' }, 'References'),

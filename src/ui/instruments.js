@@ -220,7 +220,7 @@ export function createEndoscopy({ onAction }) {
 // ── Varix wall cross-section (L3) ───────────────────
 // Scope's Wall mechanics tab: a cross-section of the esophagus with the varix in its wall, and Laplace's
 // law as readings in the same tiles and meter as the scope view.
-const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near tear', critical: 'Past tear' };
+const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near tear', critical: 'Rupture risk' };
 // A name's ink as drawn (centred, baseline middle), one span per quarter-pixel row: [top, bottom, left, right] round its
 // anchor. A name's box has empty corners ("muscle" curves away from a ring's edge under its round letters), so names are
 // placed by the ink itself.
@@ -291,7 +291,7 @@ export function createVarixWall() {
   function update(f) {
     const v = f.metrics.varix;
     set(ptm.v, fmt(v.ptm, 1)); set(rad.v, fmt(v.r, 1)); set(wal.v, fmt(v.w, 1)); set(idx.v, fmt(v.T, 0));
-    set(stressTxt, v.ratio >= 1 ? 'past the tear point' : `${Math.round(v.ratio * 100)} % of the tear point`);
+    set(stressTxt, v.ratio >= 1 ? 'above the tear point' : `${Math.round(v.ratio * 100)} % of the tear point`);
     const sev = v.ratio > 1 ? 'critical' : v.ratio > 0.7 ? 'danger' : v.ratio > 0.4 ? 'caution' : 'ok';
     if (stressBar.dataset.sev !== sev) stressBar.dataset.sev = sev;
     // (The stress swings with each beat and each breath: the number is its mean over the last several breaths, a plain

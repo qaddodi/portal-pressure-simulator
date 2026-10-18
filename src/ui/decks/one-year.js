@@ -36,8 +36,8 @@ export const ONE_YEAR = {
       id: 'd90', tick: 'FibroScan', days: 90, ramp: ramp(0.5, 0.54), cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'd0',
       kicker: 'Day 90', site: 'sin', title: 'Stiffness and platelets make CSPH likely',
       line: 'Stiffness is {lsm} with platelets of {plt}, below 150. In this part of the gray zone, the pair makes CSPH likely without a catheter.',
-      notes: 'Between 15 and 25 kPa the stiffness alone does not decide. Baveno VIII calls CSPH present when a validated model (ANTICIPATE, built on the stiffness and the platelets) puts its probability at 75% or more, or when the spleen stiffness is above 55 kPa. The model agrees: the HVPG has just passed 10 mmHg. With CSPH likely, Baveno VIII would start carvedilol here. Stiffness and platelets are cheap and repeatable, which is why they are used to follow patients between endoscopies.',
-      ask: ['Stiffness 21 kPa and platelets 115. How likely is CSPH?', 'Likely: in the gray zone, a stiffness over 20 kPa with low platelets gives ANTICIPATE a high probability of CSPH. A spleen stiffness above 55 kPa would settle it.'],
+      notes: 'Between 15 and 25 kPa the stiffness alone does not decide. Baveno VIII calls CSPH present when a validated model (ANTICIPATE-NASH in obese MASLD, built on the stiffness, the platelets and the BMI) puts its probability at 75% or more, or when the spleen stiffness on the 100 Hz probe is above 55 kPa. The model agrees: the HVPG has just passed 10 mmHg. With CSPH likely, Baveno VIII would start carvedilol here. Stiffness and platelets are cheap and repeatable, which is why they are used to follow patients between endoscopies.',
+      ask: ['Stiffness 21 kPa and platelets 115. How likely is CSPH?', 'Likely: in the gray zone, a stiffness over 20 kPa with low platelets gives ANTICIPATE a high probability of CSPH. A spleen stiffness above 55 kPa on the 100 Hz probe would settle it.'],
     },
     {
       id: 'd180', terms: ['varix'], tick: 'Endoscopy', days: 90, ramp: ramp(0.54, 0.58), cam: 'varices', tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'd0',
@@ -69,7 +69,7 @@ export const ONE_YEAR = {
       ask: ['How is grade 1 ascites detected?', 'On ultrasound only; it cannot be found by examination.'],
     },
     {
-      id: 'carv', tick: 'Carvedilol started', when: 'On carvedilol', params: { drugs: { carvedilol: true } }, cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['varix'], delta: true,
+      id: 'carv', tick: 'Carvedilol started', when: 'On carvedilol', params: { drugs: { carvedilol: true } }, cam: 'liver', data: 'ladder', key: ['hvpg'], tiles: ['map', 'hr'], delta: true,
       kicker: 'Day 365', site: 'sin', title: 'Carvedilol lowers the gradient',
       line: 'Baveno VIII recommends a non-selective beta-blocker, preferably carvedilol, before a first bleed or decompensation. It lowers the gradient by about a fifth, and in most patients it replaces screening endoscopy. Check the blood pressure.',
       notes: 'Baveno VIII: in compensated cirrhosis with CSPH, a non-selective beta-blocker, preferably carvedilol (6.25 mg, then 12.5 mg a day), to prevent decompensation, as in the PREDESCI trial. It replaces screening endoscopy for most patients who take it. A fall in HVPG of 10% or more on drugs predicts benefit in compensated patients. Watch the blood pressure.',

@@ -5,7 +5,7 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 export const HVPG = {
   id: 'hvpg', level: 'core', title: 'Measuring HVPG and PPG', minutes: 15,
   summary: 'How the HVPG is measured and what it means. Then where it misleads, and how the PPG helps.',
-  objectives: ['Describe how free and wedged hepatic pressures are recorded', 'Calculate the HVPG and state its 5, 10 and 12 mmHg cut-offs', 'Recognize when the HVPG misleads', 'Use the portal pressure gradient when it does'],
+  objectives: ['Describe how free and wedged hepatic pressures are recorded', 'Calculate the HVPG, state its 5 and 10 mmHg cut-offs, and say where the bleeding risk climbs', 'Recognize when the HVPG misleads', 'Use the portal pressure gradient when it does'],
   checks: [
     ['How is the HVPG calculated?', 'Wedged hepatic vein pressure minus free hepatic vein pressure (WHVP − FHVP).'],
     ['At which HVPG levels does the risk rise?', 'Above 5 mmHg is portal hypertension, 10 mmHg or more is CSPH, and from about 12 mmHg the risk of a variceal bleed rises steeply.'],
@@ -51,7 +51,7 @@ export const HVPG = {
       kicker: 'Thresholds', title: 'Four patients on the HVPG scale',
       line: 'A healthy liver, compensated cirrhosis, this case and decompensated cirrhosis, each placed by its HVPG.',
       notes: 'HVPG 1 to 5 mmHg is normal. 6 to 9: portal hypertension, still subclinical. 10 or more: clinically significant portal hypertension, where varices, ascites and decompensation become possible, and the risk rises with the gradient; Baveno VIII advises a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. From about 12, the risk of a variceal bleed rises steeply, although size, red signs and liver function decide how likely a bleed is; 12 is not a cut-off, and varices can bleed below it. Higher values carry a worse outlook; in an acute bleed an HVPG of 20 or more predicts failure to control it.',
-      ask: ['At what HVPG can varices bleed?', '12 mmHg or more.'],
+      ask: ['At what HVPG can varices bleed?', 'The risk climbs steeply from about 12 mmHg, though varices can bleed below it.'],
     },
     {
       id: 'presin', lens: 'drop', terms: ['lobule:triad', 'lobule:sinusoid'], preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, data: 'ladder', key: ['pv', 'whvp', 'hvpg'], brackets: { hvpg: 'misleads', ppg: 'works' },
@@ -88,7 +88,7 @@ export const HVPG = {
         { id: 'ppg', title: 'Portal vein thrombosis', note: 'Normal despite the resistance' }, { id: 'heart', title: 'Right heart failure', note: 'Normal, all pressures high' }, { id: 'bc', title: 'Budd–Chiari', note: 'Cannot be measured', blank: ['whvp', 'fhvp', 'hvpg'] }],
       kicker: 'Summary', title: 'When HVPG is reliable',
       line: 'HVPG tracks the portal pressure gradient only when the resistance lies between the wedge and the free hepatic vein: in the sinusoids or the small central veins. Elsewhere, read the PPG and the absolute pressures.',
-      notes: 'HVPG is reliable when the resistance lies between the wedge and the free hepatic vein: in the sinusoids, as in cirrhosis, the commonest cause, or in the small central veins, as in sinusoidal obstruction syndrome, where above 10 mmHg supports the diagnosis. In cirrhosis it is the standard for diagnosis, prognosis and following treatment. It is normal with pre-hepatic and presinusoidal resistance, and near zero when the pressures behind the hepatic veins rise together (post-hepatic, cardiac). The PPG and the absolute pressures complete the picture. The model\'s pressures for Budd–Chiari are those behind the resistance.',
+      notes: 'HVPG is reliable when the resistance lies between the wedge and the free hepatic vein: in the sinusoids, as in cirrhosis, the commonest cause, or in the small central veins, as in sinusoidal obstruction syndrome, where 10 mmHg or more supports the diagnosis. In cirrhosis it is the standard for diagnosis, prognosis and following treatment. It is normal with pre-hepatic and presinusoidal resistance, and near zero when the pressures behind the hepatic veins rise together (post-hepatic, cardiac). The PPG and the absolute pressures complete the picture. The model\'s pressures for Budd–Chiari are those behind the resistance.',
       ask: ['Which numbers would you read to find the level of resistance?', 'The HVPG with the free hepatic and right atrial pressures, and the PPG when it can be measured.'],
     },
   ],

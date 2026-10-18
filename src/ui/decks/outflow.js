@@ -66,8 +66,8 @@ export const OUTFLOW = {
     {
       id: 'soswedge', cath: 'result', data: 'ladder', key: ['whvp', 'hvpg'], brackets: { hvpg: 'works' },
       kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'In sinusoidal obstruction the HVPG can be measured',
-      line: 'The hepatic veins are open, and the resistance sits upstream of the free reading, so the wedged pressure rises: the HVPG is {hvpg}. After a transplant, a gradient above 10 mmHg strongly supports the diagnosis.',
-      notes: 'In sinusoidal obstruction a transjugular catheter can enter the hepatic veins and wedge, and the resistance lies between the wedged and the free readings, so the HVPG rises. After a stem cell transplant an HVPG above 10 mmHg strongly supports the diagnosis. A transjugular liver biopsy can be taken at the same time, without crossing the liver capsule, which matters with low platelets and ascites.',
+      line: 'The hepatic veins are open, and the resistance sits upstream of the free reading, so the wedged pressure rises: the HVPG is {hvpg}. After a transplant, a gradient of 10 mmHg or more strongly supports the diagnosis.',
+      notes: 'In sinusoidal obstruction a transjugular catheter can enter the hepatic veins and wedge, and the resistance lies between the wedged and the free readings, so the HVPG rises. After a stem cell transplant an HVPG of 10 mmHg or more strongly supports the diagnosis. A transjugular liver biopsy can be taken at the same time, without crossing the liver capsule, which matters with low platelets and ascites.',
       ask: ['Why can the wedge be read here but not when the hepatic veins are clotted?', 'Here the veins are open, so the catheter can wedge, and the resistance lies between the wedge and the free reading.'],
     },
     {

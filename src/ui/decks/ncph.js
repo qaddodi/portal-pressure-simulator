@@ -57,7 +57,7 @@ export const NCPH = {
       ask: ['How is porto-sinusoidal vascular disorder diagnosed?', 'An adequate liver biopsy without cirrhosis, plus a specific sign of portal hypertension (varices, collaterals), or a specific lesion (obliterative portal venopathy, nodular regenerative hyperplasia, incomplete septal cirrhosis), or one non-specific sign with one non-specific lesion.'],
     },
     {
-      id: 'nsbb', params: { drugs: { propranolol: true } }, cam: 'portal', terms: ['pv'], data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
+      id: 'nsbb', params: { drugs: { propranolol: true } }, cam: 'portal', terms: ['pv'], data: 'tiles', tiles: ['pv', 'hr'], key: ['pv'],
       kicker: 'Treatment', site: 'presin', title: 'A beta-blocker works here too',
       line: 'Propranolol cuts gut inflow: portal vein pressure falls to {pv}. EASL 2025 and Baveno VIII see no proven advantage for carvedilol when resistance is presinusoidal.',
       caveat: 'In the model, its extra effect is sinusoidal; here it mostly lowers blood pressure.',

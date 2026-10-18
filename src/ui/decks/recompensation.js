@@ -46,7 +46,7 @@ export const RECOMPENSATION = {
       compare: [{ label: 'No beta-blocker', params: { drugs: OFF } }, { label: 'Carvedilol', own: true, params: { drugs: { carvedilol: true } } }],
       kicker: 'Decompensation', site: 'sin', title: 'Carvedilol once ascites is present',
       line: 'Carvedilol lowers the HVPG to {hvpg}. With ascites, lower the dose or stop it if the blood pressure stays low or the kidneys fail.',
-      notes: 'With ascites, a beta-blocker is given for varices: high-risk ones, or after a bleed. Whether it prevents other decompensation is still open, and the margin narrows as the disease advances. Baveno VIII advises reducing the dose or stopping it when the systolic pressure stays below 90 mmHg (or the mean below 65 mmHg) or acute kidney injury develops, and restarting it when these resolve.',
+      notes: 'With ascites and varices, Baveno VIII recommends a beta-blocker, carvedilol preferred, to prevent a first bleed and to lower the risk of ascites complications. Baveno VIII advises reducing the dose or stopping it when the systolic pressure stays below 90 mmHg (or the mean below 65 mmHg) or acute kidney injury develops, and restarting it when these resolve.',
       ask: ['When is the beta-blocker reduced or stopped in a patient with ascites?', 'When the blood pressure stays low (systolic below 90 mmHg) or acute kidney injury develops.'],
     },
     {

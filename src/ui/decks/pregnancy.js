@@ -57,9 +57,9 @@ export const PREGNANCY_DECK = {
     {
       id: 'propranolol', params: ON, cam: 'gej', labels: ['VAR'],
       compare: [{ label: 'No beta-blocker', params: OFF }, { label: 'Propranolol', params: ON, own: true }],
-      data: 'tiles', tiles: ['hvpg', 'varix', 'hr'], key: ['varix'], delta: true,
+      data: 'tiles', tiles: ['hvpg', 'hr'], key: ['hvpg'], delta: true,
       kicker: 'Management', site: 'sin', title: 'Propranolol is the beta-blocker in pregnancy',
-      line: 'It lowers the HVPG to {hvpg} and the varix to {varix}. Band ligation is the choice when it cannot be taken.',
+      line: 'Propranolol lowers the HVPG to {hvpg} and the heart rate to {hr}. Band ligation is the choice when propranolol cannot be taken.',
       causesHead: 'Watch for', causes: ['Fetal growth restriction', 'Neonatal bradycardia', 'Neonatal hypoglycemia'],
       notes: 'Propranolol has the longest record in pregnancy, and carvedilol much less, so propranolol is used, titrated to a resting heart rate of 55 to 60. Fetal growth is followed on ultrasound, and the newborn is watched for a slow heart rate and low glucose. Band ligation is safe in pregnancy and is used when a beta-blocker is not tolerated or does not suffice.',
       ask: ['What is watched in the baby when the mother takes propranolol?', 'Fetal growth before birth, and bradycardia and hypoglycemia after it.'],

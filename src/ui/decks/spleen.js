@@ -25,7 +25,7 @@ export const SPLEEN = {
       ask: ['What share of the body\'s platelets sits in a normal spleen?', 'About a third.'],
     },
     {
-      id: 'grown', days: 730, ramp: { cirrhosis: [0, 0.6] }, lapse: { seconds: 10 }, cam: 'splenic', terms: ['spleen'], data: 'tiles', tiles: ['pv', 'spleen', 'plt'], key: ['spleen'], delta: 'normal',
+      id: 'grown', days: 730, ramp: { cirrhosis: [0, 0.6] }, lapse: { seconds: 10, from: 'MASLD', to: 'Cirrhosis' }, cam: 'splenic', terms: ['spleen'], data: 'tiles', tiles: ['pv', 'spleen', 'plt'], key: ['spleen'], delta: 'normal',
       kicker: 'A growing spleen', site: 'sin', title: 'The spleen grows with the portal pressure',
       line: 'After two years of cirrhosis, portal pressure is {pv}, the spleen is {spleen} and platelets are {plt}.',
       notes: 'The spleen enlarges partly from congestion, as the high portal pressure backs up into the splenic vein, and partly because its pulp grows, with more splenic arterial flow. Splenomegaly is one of the commonest signs of portal hypertension, but its size follows the pressure only loosely.',
@@ -43,7 +43,7 @@ export const SPLEEN = {
       id: 'screen', cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm', 'plt'],
       kicker: 'The platelets', site: 'sin', title: 'Platelets and stiffness: who needs the scope',
       line: 'Stiffness below 20 kPa with platelets of 150 or more spares the screening endoscopy. Here they are {lsm} and {plt}: CSPH is likely, so carvedilol starts and no scope is needed.',
-      notes: 'These are the Baveno criteria for sparing a screening endoscopy in compensated advanced chronic liver disease; patients who meet them repeat the stiffness and the platelet count every year. The patient meets neither: a stiffness this high with platelets this low means clinically significant portal hypertension (the model\'s HVPG is above 10 mmHg). A patient with CSPH who can take a non-selective beta-blocker starts carvedilol and needs no screening endoscopy; only those who cannot take one, or in whom CSPH is uncertain (the gray zone), are scoped.',
+      notes: 'These are the Baveno criteria for sparing a screening endoscopy in compensated advanced chronic liver disease; patients who meet them repeat the stiffness and the platelet count every year. The patient meets neither: a stiffness this high with platelets this low means clinically significant portal hypertension (the model\'s HVPG is above 10 mmHg). A patient with CSPH who can take a non-selective beta-blocker starts carvedilol and needs no screening endoscopy; only those who cannot take one, or in whom CSPH is uncertain (the gray zone), are scoped, unless a spleen stiffness under 40 kPa spares them.',
       ask: ['Stiffness 14 kPa and platelets 190. Does this patient need a screening endoscopy?', 'No: below 20 kPa with platelets of 150 or more, repeat both tests in a year.'],
     },
     {

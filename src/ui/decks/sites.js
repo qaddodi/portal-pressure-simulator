@@ -63,7 +63,7 @@ export const SITES = {
       vignette: 'A 45-year-old woman, 21 days after myeloablative conditioning for allogeneic HSCT, has tender hepatomegaly, a 4% weight gain and new ascites. Her bilirubin is 2.1 mg/dL.',
       line: 'Damaged endothelium raises resistance in the sinusoids and small central veins, upstream of the catheter tip, so the wedged pressure and HVPG rise. Colored by pressure drop, the large drop sits at the central veins.',
       causes: ['Conditioning for stem cell transplant', 'Oxaliplatin', 'Pyrrolizidine alkaloids (bush teas)'],
-      notes: 'Formerly veno-occlusive disease. Toxic injury sheds sinusoidal endothelial cells, which raise resistance in the sinusoids and the terminal hepatic venules. It presents within weeks of myeloablative conditioning with tender hepatomegaly, weight gain, ascites and jaundice. An HVPG above 10 mmHg, measured with a transjugular biopsy, strongly supports the diagnosis. The model shows an earlier stage, with an HVPG of about 9 mmHg: raised, but under 10.',
+      notes: 'Formerly veno-occlusive disease. Toxic injury sheds sinusoidal endothelial cells, which raise resistance in the sinusoids and the terminal hepatic venules. It presents within weeks of myeloablative conditioning with tender hepatomegaly, weight gain, ascites and jaundice. An HVPG of 10 mmHg or more, measured with a transjugular biopsy, strongly supports the diagnosis. The model shows an earlier stage, with an HVPG of about 9 mmHg: raised, but under 10.',
       ask: ['Why does HVPG rise here but not in schistosomiasis?', 'Here the resistance is in the sinusoids and central veins the wedge reads; in schistosomiasis it is in the portal tracts, upstream of them.'],
     },
     {

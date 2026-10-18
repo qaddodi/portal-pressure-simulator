@@ -20,7 +20,7 @@ export const TREATMENT = {
       ask: ['Name a treatment that cuts the inflow and one that lowers the resistance.', 'Inflow: propranolol, octreotide, terlipressin. Resistance: carvedilol, treating the cause; TIPS goes around it.'],
     },
     {
-      id: 'prop', lens: 'flow', params: { drugs: { propranolol: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv', 'hvpg'], tiles: ['varix'], delta: 'target',
+      id: 'prop', lens: 'flow', params: { drugs: { propranolol: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv', 'hvpg'], tiles: ['hr'], delta: 'target',
       kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Propranolol lowers portal inflow',
       line: 'β1 blockade lowers cardiac output. β2 blockade removes the gut arterioles\' dilating tone, so they constrict. Portal inflow falls to {pvFlow}, and HVPG falls with it. Colored by flow, the gut veins and the portal vein thin.',
       notes: 'Propranolol (or nadolol) is titrated to a resting heart rate of 55 to 60 a minute, keeping systolic pressure above 90 mmHg. It prevents a first bleed from large varices and, with banding, a second one. About a third to a half of patients reach a protective fall in HVPG. In refractory ascites with low blood pressure or kidney injury the dose is reduced or stopped. The model shows a modest fall.',
@@ -28,7 +28,7 @@ export const TREATMENT = {
     },
     {
       id: 'carv', lens: 'drop', params: { drugs: { propranolol: false, carvedilol: true } }, cam: 'liver', glow: ['liver'],
-      compare: [{ label: 'Propranolol', params: { drugs: { propranolol: true, carvedilol: false } } }, { label: 'Carvedilol', own: true, params: { drugs: { propranolol: false, carvedilol: true } } }], data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['varix'], delta: 'target',
+      compare: [{ label: 'Propranolol', params: { drugs: { propranolol: true, carvedilol: false } } }, { label: 'Carvedilol', own: true, params: { drugs: { propranolol: false, carvedilol: true } } }], data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['map'], delta: 'target',
       kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Carvedilol also lowers resistance in the liver',
       line: 'It also blocks α1 receptors, relaxing stellate cells in the sinusoids. HVPG falls further, but blood pressure falls too. Colored by pressure drop, the sinusoids pale a little as their resistance falls.',
       notes: 'Carvedilol 6.25 to 12.5 mg a day. Its α1 blockade relaxes the contracted stellate cells and lowers the resistance inside the liver, so it lowers HVPG more than propranolol and brings about half of propranolol non-responders to a protective fall. Baveno VIII recommends a non-selective beta-blocker, preferably carvedilol, in compensated cirrhosis with clinically significant portal hypertension, to prevent decompensation. Watch the blood pressure, especially with ascites.',
