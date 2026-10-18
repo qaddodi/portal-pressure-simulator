@@ -5766,6 +5766,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* Too wide for the room beside the nav pill: its own row just above the pill's row, never under it (presenter.js fitKey), one line where
    it fits, else wrapped to the card's width (never shrunk: shrunk, its words had gone under 12 px). */
 .pz.stack.fk-up .pz-fk { bottom: calc(65px + var(--pz-sb)); }
+/* A phone held sideways: a key too long for the room beside the teaching card wraps there, its name over its swatches (presenter.js lowKey). */
+.pz.low.fk-side .pz-fk:not(.grad) { bottom: calc(max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) + 44px + 4px); max-width: var(--pz-fk-room, 280px); flex-wrap: wrap; row-gap: 0; column-gap: .55em; padding-block: .22em .26em; }
+.pz.low.fk-side .pz-fk:not(.grad) .pz-lens-items { flex-wrap: wrap; row-gap: 0; column-gap: .45em; flex-basis: 100%; }
 .pz.stack.fk-up.fk-wrap .pz-fk:not(.grad) { max-width: var(--pz-fk-room, 280px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; padding-block: .3em .34em; }
 /* Two lines beside the pill: as tall as its row, bottoms level (presenter.js fitKey). */
 .pz.stack.fk-two .pz-fk:not(.grad) { max-width: var(--pz-fk-room, 200px); flex-wrap: wrap; row-gap: .1em; column-gap: .55em; }   /* (its height, bottom and corners: the pill's, above) */

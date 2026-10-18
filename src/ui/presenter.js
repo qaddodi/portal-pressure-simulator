@@ -2729,15 +2729,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // top padding tall enough for the deck's tab beside the title (padT), one margin from the foot. The words' room is set before
     // they are fitted, the same room the card is given below, so they are fitted once to the room they keep.
     const vm = LOW_M * k;
-    let padT = 0;
+    let padT = 0, pad0 = 0;
     if (cardOn && low) {
-      const pad0 = (ui.text.offsetLeft - ui.shade.offsetLeft) * k, tab = ui.shade.querySelector('.pz-tabname') || ui.shade.querySelector('.pz-sitetab:not([hidden])');
+      pad0 = (ui.text.offsetLeft - ui.shade.offsetLeft) * k; const tab = ui.shade.querySelector('.pz-tabname') || ui.shade.querySelector('.pz-sitetab:not([hidden])');
       padT = Math.max(pad0, tab?.offsetHeight ? (tab.offsetHeight + 6) * k : 0);
       const top = off(ui.data) ? vm : r(ui.data).top - wr.top;
       ui.text.style.maxHeight = `${Math.max(0, (H - top - padT - pad0 - vm) / k).toFixed(1)}px`;
     }
     fitCards(ui.text);
     let t = r(ui.text);
+    if (cardOn && low && t && lowKey(t, r(ui.data), padT, pad0, vm, wr, H, k)) { fitDone.delete(ui.text); fitCards(ui.text); t = r(ui.text); }
     const sl = ui.shade.offsetLeft * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style;
     if (!(cardOn && low)) padT = pad;
     // On a laptop or tablet the data card always stacks under the words' card, at its width, a gap below it (0.6 of the margin),
@@ -3278,6 +3279,36 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     fk.hidden = was;
     ui.text.style.setProperty('--pz-fkrow', `${row}px`);
+  }
+  // A phone held sideways: the colour key stands on the nav pill at the lower right, beside the teaching card. A key too long for
+  // the room beside the card wraps there to two lines at its own size, its name over its swatches, 4 px above the pill (not 8:
+  // the room under the data card), where that clears the card and the data card; else the words end above it, fitted a little smaller (Mohammad, 18 Oct, "wrap first": Pre-hepatic 6 and TIPS
+  // Doppler 3 at 667 x 375 ran the key under the words). True when the words' room was cut, so they are fitted again.
+  function lowKey(t, d, padT, pad0, vm, wr, H, k) {
+    const fk = ui.fk, root = ui.root, plain = () => { root.classList.remove('fk-side'); fk.style.removeProperty('--pz-fk-room'); };
+    plain();
+    if (fk.dataset.empty != null) return false;
+    const was = fk.hidden; fk.hidden = false;
+    const card = { left: t.left - pad0, right: t.right + pad0, top: t.top - padT, bottom: t.bottom + pad0 };
+    const hits = (q, a, g) => !!a && Math.min(q.right, a.right) - Math.max(q.left, a.left) > -g && Math.min(q.bottom, a.bottom) - Math.max(q.top, a.top) > -g;
+    let q = fk.getBoundingClientRect(), cut = false;
+    if (hits(q, card, 6)) {
+      const room = Math.floor((q.right - card.right - 8) / k);
+      root.classList.add('fk-side'); fk.style.setProperty('--pz-fk-room', `${room}px`);
+      q = fk.getBoundingClientRect();
+      const lines = new Set([...fk.querySelectorAll(':scope > b, .pz-lens-k')].map((e) => Math.round(e.getBoundingClientRect().top))).size;
+      if (room > 0 && lines <= 2 && fk.scrollWidth <= fk.clientWidth + .5 && !hits(q, card, 6) && !hits(q, d, 4)) balanceKey(fk, room);
+      else {
+        plain(); q = fk.getBoundingClientRect();
+        // (The words end 4 px above the key, wherever the card stands: level with the data card, or centred top to bottom. The key
+        // may stand on the card's glass below them, as an upright phone's stands inside its card.)
+        const foot = q.top - wr.top - 4, top = d ? d.top - wr.top + padT : vm + padT;
+        const h = d ? foot - top : Math.min(foot - top, 2 * (foot + pad0) - H + pad0 - padT);
+        ui.text.style.maxHeight = `${Math.max(0, h / k).toFixed(1)}px`; cut = true;
+      }
+    }
+    fk.hidden = was;
+    return cut;
   }
   function paintChrome() {
     if (!ui) return;
