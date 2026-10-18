@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=a11d7ef88d';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=31ee79b6ab';
-import { createStage } from './stage.js?v=bac7cf2b17';
+import { createStage } from './stage.js?v=0b56803c98';
 import { createCreditPlacer } from './credit.js?v=6c9e659d24';
-import { sinusoidSupported } from './sinusoid-view.js?v=f3e82adc24';
-import { createInspector } from './inspector.js?v=657021a1db';
-import { createDock, CUTOFFS } from './dock.js?v=2473fe17c4';
-import { setHvpgStage } from './hvpg-proc.js?v=09a8365f18';
-import { createWhy } from './why.js?v=da447b8b5a';
-import { createTimeline, LAPSES } from './timeline.js?v=e2992ba76d';
-import { createCompare } from './compare.js?v=d1409bcaeb';
-import { createCard } from './card.js?v=e801c1363e';
-import { createChart } from './chart.js?v=3bc4fd8f45';
-import { createMenu } from './menu.js?v=432d4833e5';
-import { caption } from './a11y.js?v=ab57400d2e';
+import { sinusoidSupported } from './sinusoid-view.js?v=cc5f23a8ab';
+import { createInspector } from './inspector.js?v=6193649a23';
+import { createDock, CUTOFFS } from './dock.js?v=d08c72be82';
+import { setHvpgStage } from './hvpg-proc.js?v=0a63f4545c';
+import { createWhy } from './why.js?v=52b668c8e6';
+import { createTimeline, LAPSES } from './timeline.js?v=775303a1ee';
+import { createCompare } from './compare.js?v=1ebfb1d63b';
+import { createCard } from './card.js?v=af7486697e';
+import { createChart } from './chart.js?v=d562610f63';
+import { createMenu } from './menu.js?v=e0b2d48ce7';
+import { caption } from './a11y.js?v=6f88b7901e';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=6886ed4265';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=ca6a99d783';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=9d15e31e07';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=3c83ad582d';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=5eb9992215';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=181dda5594';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior } from './util.js?v=2de12f3227';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, repositionPopover, menuItem, svgIcon, uiScale, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, sinkTo, stopSink, swapFade, scrollBehavior, reconcile } from './util.js?v=9e2498d6fc';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=d3090d3214';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=5835aa5fb1';
 import { initTopbarMotion } from './topbar-motion.js?v=b33007f264';
 import { ORIGINS } from './blood.js?v=cc7febbf07';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -166,7 +166,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=4d9daeb993'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=2342ce1bd8'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -174,7 +174,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=250211db97'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=3537179dee'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -521,15 +521,18 @@ function renderPaintHint() {
   const done = (label, fn) => { const b = h('button', { class: 'btn sm' }, label); b.addEventListener('click', fn); return b; };
   if (st.shunting) {
     const only = st.shunting.only;
+    clearTimeout(hintT); el.classList.remove('leaving');
     el.hidden = false;
     el.replaceChildren(h('div', { class: 'tc-title' }, icon('stent'), only === 'tips' ? 'Place the TIPS' : 'Make a shunt', h('span', { class: 'sp' }), done('Cancel', () => stage.cancelShunt())),
       ...shuntHint(only));
     redraw();
     return;
   }
-  el.hidden = true;
+  // (It fades out where it stands, as it came in, rather than vanishing: P20.)
+  if (!el.hidden && !el.classList.contains('leaving')) { el.classList.add('leaving'); hintT = setTimeout(() => { el.hidden = true; el.classList.remove('leaving'); }, 200); }
   redraw();
 }
+let hintT = 0;
 // The Lobule view: a view of its own beside Anatomy and Circuit.
 function zoomLobule() { store.set({ lobule: true, sinusoid: false }); }
 
@@ -810,12 +813,19 @@ function renderBanner() {
     } }, 'Differences');
     kids.push(tbl);
   }
-  el.replaceChildren(...kids);
+  // The switch fades in when a moment is pinned and out when it is let go (it popped: P20).
+  const had = !!el.firstChild;
+  if (had && !kids.length) swapFade(el, () => el.replaceChildren());
+  else { swapFade(el, () => el.replaceChildren(...kids), { instant: true }); if (!had && kids.length) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' }); }
   app.classList.toggle('cmp-on', !!s0.compareSnap);
   // The switch's height, for views that place their own controls under it (the lobule's).
   app.style.setProperty('--cmp-h', s0.compareSnap ? `${$('#stageCenter').offsetHeight + 8}px` : '0px');
-  view.querySelector('.cmp-badge')?.remove();
-  if (s0.compareSnap && s0.compareView === 'A') view.append(h('div', { class: 'cmp-badge stage-blocker' }, `Showing ${s0.compareSnap.when}`));
+  // "Showing <then>" fades in and out (styles: .cmp-badge) instead of popping.
+  const badge = view.querySelector('.cmp-badge:not(.leaving)');
+  if (s0.compareSnap && s0.compareView === 'A') {
+    const t = `Showing ${s0.compareSnap.when}`;
+    if (badge) { if (badge.textContent !== t) badge.textContent = t; } else view.append(h('div', { class: 'cmp-badge stage-blocker' }, t));
+  } else if (badge) { badge.classList.add('leaving'); setTimeout(() => badge.remove(), 200); }
   redraw();
 }
 
@@ -1621,7 +1631,11 @@ function openHistory() {
   closeTreat(); closePopover();
   const el = $('#historyCard');
   const body = h('div', { class: 'tc-body' });
-  const paint = () => { const top = body.scrollTop; body.replaceChildren(timeline.historyBody()); body.scrollTop = top; };
+  // (The list is updated in place: a new entry rises in at the top, the rest stay put, P18.)
+  const paint = () => {
+    const next = timeline.historyBody(), cur = body.firstElementChild;
+    if (cur?.classList.contains('tl-history')) reconcile(cur, [...next.children]); else body.replaceChildren(next);
+  };
   el.replaceChildren(h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, h('span', {}, 'History')),
     h('button', { class: 'ib card-close', 'aria-label': 'Close History', title: 'Close (Esc)', onclick: () => closeHistory({ focus: true }) }, icon('close'))), body);
   paint();
@@ -1724,7 +1738,14 @@ function wireKeyboard() {
 
 // ── Projector look while presenting (§4.4) ──────────
 let projector = false, bigEl = null, exitEl = null;
+// The switch crossfades the whole page, as a theme change does (the bars and cards came and went in one frame: P20);
+// where View Transitions are missing it switches at once.
 function toggleProjector() {
+  const want = !projector, go = () => { if (projector !== want) flipProjector(); };   // (asked twice before it ran: once)
+  if (!document.startViewTransition || document.hidden) { go(); return; }
+  document.startViewTransition(go);
+}
+function flipProjector() {
   projector = !projector;
   app.classList.toggle('projector', projector);
   if (projector) {

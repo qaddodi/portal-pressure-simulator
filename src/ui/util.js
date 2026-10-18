@@ -90,14 +90,28 @@ export function uiScale() {
 // Messages show as a card at the top, below the bars, never over the bottom bar.
 // opts: actions, [[label, fn], …] as buttons after the words (a tap runs it and closes the card); sticky, stays until
 // dismissed; onClose, called once when it goes. Returns a function that closes it.
+// A toast that has played its way out leaves, and the ones below it glide up into its place (they jumped).
+function dropToast(t) {
+  const wrap = t.parentElement;
+  if (!wrap) return;
+  const others = [...wrap.children].filter((c) => c !== t), tops = others.map((c) => c.getBoundingClientRect().top);
+  t.remove();
+  if (wrap.classList.contains('docked') || reduceMotionMQ.matches) return;
+  others.forEach((c, i) => {
+    const dy = tops[i] - c.getBoundingClientRect().top;
+    if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: 240, easing: 'cubic-bezier(.65, 0, .35, 1)' });
+  });
+}
 export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = {}) {
   if (!msg) return () => {};
   // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
   // (present: a link copied, a slide number typed) show.
   if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return () => {};
   const wrap = document.getElementById('toasts');
-  // One message at a time reads calmer than a growing stack.
-  while (wrap.children.length >= 2) wrap.firstChild.remove();
+  // One message at a time reads calmer than a growing stack. (The oldest leaves through its own close, so it fades out
+  // and the one left glides into its place, rather than vanishing mid-exit: P19.)
+  const stay = [...wrap.children].filter((c) => !c.classList.contains('leaving'));
+  while (stay.length >= 2) { const o = stay.shift(); if (o._close) o._close(); else o.remove(); }
   // A card slides down from behind the top bars and settles just below them (below every row on a phone).
   const bars = document.getElementById('topbar');
   const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
@@ -108,7 +122,8 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   }
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
   let timer = 0, gone = false;
-  const close = () => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(); t.classList.add('leaving'); setTimeout(() => t.remove(), 340); };
+  const close = () => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(); t.classList.add('leaving'); setTimeout(() => dropToast(t), 340); };
+  t._close = close;
   if (actions?.length) {
     t.classList.add('has-acts');
     t.append(h('span', { class: 'toast-acts' }, ...actions.map(([label, fn]) => {
@@ -303,6 +318,41 @@ export function swapFade(el, fill, { instant = false, out = 120, inn = 180 } = {
     el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: inn, easing: 'cubic-bezier(.2, .8, .2, 1)' });
   };
   a.finished.then(done, done);
+}
+/** Updates a list in place from freshly built rows (MOTION_HEAT_REVIEW P18): a row whose data-key is already shown stays
+ *  (replaced where it stands if its data-sig changed), a new row rises in over .22 s, and a row no longer wanted fades and
+ *  folds away before it leaves. Rows without a key are simply replaced. The list was rebuilt whole, every row popping. */
+export function reconcile(list, rows) {
+  const old = new Map();
+  for (const c of list.children) if (c.dataset.key && !c.classList.contains('rc-out')) old.set(c.dataset.key, c);
+  const shown = !!list.isConnected && list.getClientRects().length > 0 && !!list.animate, still = reduceMotionMQ.matches;
+  const want = [], fresh = new Set();
+  for (const r of rows) {
+    const o = r.dataset.key ? old.get(r.dataset.key) : null;
+    if (o && o.dataset.sig === r.dataset.sig) { want.push(o); old.delete(r.dataset.key); }
+    else { want.push(r); if (o) { o.replaceWith(r); old.delete(r.dataset.key); } else fresh.add(r); }
+  }
+  const keep = new Set(want);
+  const going = [...list.children].filter((c) => !keep.has(c) && !c.classList.contains('rc-out'));
+  let cur = list.firstChild;
+  for (const e of want) {
+    while (cur && cur !== e && (going.includes(cur) || cur.classList?.contains('rc-out'))) cur = cur.nextSibling;
+    if (cur === e) { cur = cur.nextSibling; continue; }
+    list.insertBefore(e, cur);
+  }
+  for (const g of going) {
+    if (!shown || !g.dataset.key) { g.remove(); continue; }
+    g.classList.add('rc-out'); g.inert = true;
+    const cs = getComputedStyle(g), h0 = g.offsetHeight;
+    g.style.overflow = 'hidden';
+    const a = g.animate([{ opacity: 1, height: `${h0}px`, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, marginTop: cs.marginTop, marginBottom: cs.marginBottom },
+      { opacity: 0, height: '0px', paddingTop: '0px', paddingBottom: '0px', marginTop: '0px', marginBottom: '0px' }],
+    { duration: still ? 160 : 200, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+    a.finished.then(() => g.remove(), () => g.remove());
+  }
+  if (shown) {
+    for (const r of fresh) if (r.dataset.key) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.2, .8, .2, 1)', delay: going.length ? 80 : 0, fill: 'backwards' });
+  }
 }
 /** Text that crossfades when it changes (a status word, an arrow): swapFade, and a fade in from empty, so a word
  *  that appears doesn't pop either. then: run with the new text in (a class that goes with it). */

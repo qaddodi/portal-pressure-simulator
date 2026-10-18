@@ -58,8 +58,10 @@ test('search lists the presentations and starts one', () => {
 });
 
 test('an upright tablet\'s pill has back and next around the count; a phone\'s keeps the count alone', () => {
-  assert.match(presenter, /ui\.bar\.replaceChildren\(\.\.\.\(tab \? \[prevBtn\(\), countBtn, nextBtn\(\)\] : \[countBtn\]\), gear\(\)/);
-  assert.match(presenter, /const tab = tabUp\(\);/);
+  assert.match(presenter, /const kids = tab \? \[prevBtn\(\), countBtn, nextBtn\(\)\] : \[countBtn\];\s*ui\.bar\.replaceChildren\(\.\.\.kids, gear\(\)/);
+  assert.match(presenter, /const tab = ph && tabUp\(\), sig = `\$\{ph\}\|\$\{tab\}\|\$\{!!openSettings\}`/);
+  // From slide to slide the same pill is updated in place (P16); a new layout (phone, tablet turned) builds it afresh.
+  assert.match(presenter, /if \(k && k\.sig === sig && k\.count\.isConnected\) \{/);
   // Turning the tablet rebuilds the pill before the words are fitted around it.
   assert.match(presenter, /if \(ui\.bar\.dataset\.kind !== pillKind\(\)\) paintChrome\(\);\s*(\/\/[^\n]*\n\s*)?layout\(\);/);
 });

@@ -90,5 +90,7 @@ test('a patient compare button eases the live model to its computed patient and 
 
 test('the slide count is not left grey (as if the list were open) on a slide picked from the slide list', () => {
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src, /'aria-expanded': String\(!ui\.jump\.hidden && !ui\.jump\.classList\.contains\('pz-leave'\)\)/);
+  assert.match(src, /listOpen = String\(!ui\.jump\.hidden && !ui\.jump\.classList\.contains\('pz-leave'\)\)/);
+  assert.match(src, /'aria-expanded': listOpen/);
+  assert.match(src, /k\.count\.setAttribute\('aria-expanded', listOpen\)/);   // (the pill updated in place, P16)
 });

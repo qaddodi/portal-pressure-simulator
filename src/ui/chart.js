@@ -6,10 +6,10 @@
 //   Advanced physiology                  side panel, from Settings
 
 import { store, updateParams } from './store.js?v=31ee79b6ab';
-import { h, icon, svgIcon, toast } from './util.js?v=2de12f3227';
+import { h, icon, svgIcon, toast, reconcile } from './util.js?v=9e2498d6fc';
 import { DRUGS } from '../engine/scenario.js?v=1ee7733788';
-import { activeInterventions } from './inspector.js?v=657021a1db';
-import { DRUG_NOTE } from './actions.js?v=ca6a99d783';
+import { activeInterventions } from './inspector.js?v=6193649a23';
+import { DRUG_NOTE } from './actions.js?v=3c83ad582d';
 import { factTarget } from './fact-target.js?v=435867f75d';
 
 
@@ -69,9 +69,11 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       key = k;
       // What the patient came with is a fact about them, not a change to undo.
       const about = active.filter((a) => baseLabels.has(a.label)), mine = active.filter((a) => !baseLabels.has(a.label));
-      list.replaceChildren(
-        ...(about.length ? [h('div', { class: 'chg-sub' }, 'About this patient'), ...about.map((a) => row(a, false)), h('div', { class: 'chg-sub' }, 'Your changes')] : []),
-        ...mine.map((a) => row(a, true)));
+      // (Updated in place: a new change rises in, an undone one folds away, the rest stay put: P18.)
+      const keyed = (el, k) => { el.dataset.key = k; return el; };
+      reconcile(list, [
+        ...(about.length ? [keyed(h('div', { class: 'chg-sub' }, 'About this patient'), 'sub:about'), ...about.map((a) => keyed(row(a, false), `about:${a.label}`)), keyed(h('div', { class: 'chg-sub' }, 'Your changes'), 'sub:mine')] : []),
+        ...mine.map((a) => keyed(row(a, true), `mine:${a.label}`))]);
       empty.hidden = mine.length > 0; clear.hidden = !mine.length;
       if (count) { count.textContent = mine.length; count.hidden = !mine.length; }
     };

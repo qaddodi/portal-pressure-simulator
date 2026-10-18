@@ -3,12 +3,12 @@
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=297b77ad88';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=9d15e31e07';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=5eb9992215';
 import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=2de12f3227';
-import { createLobuleZoom } from './lobule-zoom.js?v=7672545171';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox } from './util.js?v=9e2498d6fc';
+import { createLobuleZoom } from './lobule-zoom.js?v=7adcad1cac';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -22,7 +22,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=a02e9b3c44';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=adf6455096';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, bleedShapes, chevFlowLevel, keyChevron, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=cc7febbf07';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
@@ -4078,7 +4078,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (morph < 0.02) return;
     for (const n of NODES) {
       if (!nodeEls[n.id]) continue;
-      nodeEls[n.id].c.style.display = nodeVisible(n.id) ? '' : 'none';
+      // (A junction dot fades with the vessels that come and go through it, as the figure's views fade: it popped. P21)
+      const ne = nodeEls[n.id], off = !nodeVisible(n.id);
+      if (ne.off !== off) { ne.off = off; ne.c.classList.toggle('off', off); }
     }
     for (const [id, r] of Object.entries(liverR)) {
       const k = EI[id];
@@ -4948,6 +4950,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const gpu = !!r && glWanted() && veins.canCath;
     cath.g.style.display = r && !gpu ? '' : 'none';
     cath.labels.hidden = !r;
+    if (!gpu) cathLast = null;   // (its fade-out only redraws what the GPU last drew)
     if (!r) { if (veins?.canCath) veins.setCath(null); return; }
     cathLive(r);
     if (!CTM) refreshCTM();
@@ -5030,9 +5033,36 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (cathV.length < V.length) cathV = new Float32Array(V.length * 2);
     cathV.set(V);
-    veins.setCath({ verts: cathV.subarray(0, V.length), draws, light: LIGHT });
+    veins.setCath(cathLast = { verts: cathV.subarray(0, V.length), draws, light: LIGHT });
   }
-  let cathV = new Float32Array(0);   // the catheter's vertices, reused frame to frame
+  let cathV = new Float32Array(0), cathLast = null;
+  // When the procedure ends or is cancelled the catheter, its balloon and its labels fade out over .22 s instead of vanishing
+  // in one frame (MOTION_HEAT_REVIEW P21). A new catheter meanwhile ends the fade at once.
+  let cathFade = null;
+  function cathFadeOut() {
+    const gs = veins?.canCath ? cathLast : null, anims = [];
+    for (const el of [cath.labels, cath.g]) if (!el.hidden && el.style.display !== 'none' && el.animate) anims.push(el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }));
+    const me = { raf: 0, done: null }, t0 = performance.now();
+    me.done = () => {
+      if (cathFade !== me) return;
+      cathFade = null; cancelAnimationFrame(me.raf);
+      for (const a of anims) a.cancel();
+      if (veins?.canCath) veins.setCath(null);
+      cathVer++; stageWake();
+      cath.g.style.display = 'none'; cath.labels.hidden = true;
+      for (const el of cath.made?.values() || []) el._glass?.dispose();
+      cath.labels.replaceChildren(); cath.made?.clear();
+    };
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / 220);
+      if (k >= 1) { me.done(); return; }
+      if (gs && veins?.canCath) { const a = (1 - k) * (1 - k); veins.setCath({ ...gs, draws: gs.draws.map((d) => ({ ...d, alpha: d.alpha * a })) }); cathVer++; stageWake(); }
+      me.raf = requestAnimationFrame(step);
+    };
+    cathFade = me;
+    me.raf = requestAnimationFrame(step);
+    setTimeout(me.done, 400);   // (frames stalled in a background tab: it still ends)
+  }   // the catheter's vertices, reused frame to frame
   const rFree = (r) => cathAt(r, r.free).r;
   // Without WebGL: the same catheter in SVG.
   function cathSVG(st, r, tipD, cw, wHV) {
@@ -7939,7 +7969,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelEff: () => labelScale * deskK(),   // what the figure shows outside a presentation (a desktop's baseline included)
     /** The HVPG catheter: null removes it; else { u (0..1 of the way in), balloon, column (0..1), columnColor, ring, pulse,
      *  opacity, labels: [{ key, at: 'tip' | 'ahead', kicker, text, unit, cls }] }. */
-    setCatheter(st) { cath.st = st; wrap.classList.toggle('cath-on', !!st); if (!st) { cath.rc = 0; cath.route = null; if (veins?.canCath) veins.setCath(null); cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.g.style.display = 'none'; cath.labels.hidden = true; for (const el of cath.made?.values() || []) el._glass?.dispose(); cath.labels.replaceChildren(); cath.made?.clear(); cath.at = null; return; } cathPaint(); },
+    setCatheter(st) {
+      if (st) cathFade?.done();
+      else if (cathFade || !cath.st) { cath.st = null; return; }
+      cath.st = st; wrap.classList.toggle('cath-on', !!st);
+      if (!st) { cath.rc = 0; cath.route = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
+      cathPaint();
+    },
     /** A presenter slide's measuring sites, e.g. ['pv', 'ivc'] (see SITE_DEF), read from fp (the slide's numbers, so they
      *  match its ladder and tiles) or else the live figure; null removes them. */
     // A presenter slide's glows: vessels ([{ id, tone }], eased, in the station's colour) and organs (outlined, held).

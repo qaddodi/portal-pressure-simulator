@@ -5,10 +5,10 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=2de12f3227';
-import { FONT } from './charts.js?v=40a6a52235';
+import { h, fmt, fitCanvas, clamp, icon, cssVar, cssAlpha } from './util.js?v=9e2498d6fc';
+import { FONT } from './charts.js?v=d6f4e69c06';
 import { logAction, shownVel, store } from './store.js?v=31ee79b6ab';
-import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=b3dc2f8a19';
+import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=4beeb777a1';
 import { frameFor, noteDraw, paceMs } from './frame.js?v=67ca200c87';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
@@ -128,6 +128,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const patternEl = h('div', { class: 'dop-pattern' });
   const noteEl = h('p', { class: 'dop-note' });
   const statEls = {};
+  // A row that comes with the new vessel (the congestion index, a stent's three segments) fades in rather than popping (P23).
+  const showStat = (wrap, on) => {
+    if (wrap.hidden !== on) return;
+    wrap.hidden = !on;
+    if (on && wrap.isConnected && wrap.getClientRects().length) wrap.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+  };
   const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI', 'Proximal', 'Mid', 'Distal'].map((k) => {
     const dd = h('dd', {}, '—');
     const seg = SEGS.find(([, name]) => name === k)?.[0];
@@ -434,7 +440,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     setStat(statEls.Pulsatility.dd, fmt(it.pi, 2));
     // Congestion index (portal vein): cross-sectional area / mean velocity, about 0.07 cm·s in health, over 0.1 suggests portal hypertension
     const isPV = probe === 'PV_TRUNK';
-    statEls.CI.wrap.hidden = !isPV;
+    showStat(statEls.CI.wrap, isPV);
     if (isPV && frame) {
       const D = Math.max(0.5, frame.D[EI[probe]]) / 10, area = Math.PI * D * D / 4;
       const vm = Math.abs(r.mean) / dopplerK(EDGES[EI[probe]]);   // Moriyasu's index uses the mean across the lumen
@@ -442,8 +448,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
     // A stent: velocity at its portal end, middle and hepatic vein end, in place of trough and pulsatility.
     const isStent = p.kind === 'tips';
-    statEls.Trough.wrap.hidden = statEls.Pulsatility.wrap.hidden = isStent;
-    for (const k of ['Proximal', 'Mid', 'Distal']) statEls[k].wrap.hidden = !isStent;
+    showStat(statEls.Trough.wrap, !isStent); showStat(statEls.Pulsatility.wrap, !isStent);
+    for (const k of ['Proximal', 'Mid', 'Distal']) showStat(statEls[k].wrap, isStent);
     if (isStent) {
       // Each segment against the usual 90–190 cm/s, the gated one marked.
       const at = gateOf();

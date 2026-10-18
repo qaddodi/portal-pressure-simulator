@@ -14,16 +14,16 @@
 
 import { store, replaceParams } from './store.js?v=31ee79b6ab';
 import { download } from './download.js?v=3564e5bf8c';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar } from './util.js?v=2de12f3227';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, restBox, paintRange, cssVar, swapText } from './util.js?v=9e2498d6fc';
 import { swipeDir, ownsSideways, caseFling, caseFlight } from './swipe.js?v=75b95b59cf';
-import { sinusoidSupported } from './sinusoid-view.js?v=f3e82adc24';
+import { sinusoidSupported } from './sinusoid-view.js?v=cc5f23a8ab';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=a6b2ad6236';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
-import { createHvpgMonitor } from './hvpg-proc.js?v=09a8365f18';
-import { createTools } from './presenter-tools.js?v=79105aa70a';
+import { createHvpgMonitor } from './hvpg-proc.js?v=0a63f4545c';
+import { createTools } from './presenter-tools.js?v=e645d3fe4e';
 import { openHandout } from './handout.js?v=95026eb257';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -31,7 +31,7 @@ import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, di
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { createFigureKey } from './figure-key.js?v=96997852c4';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=9d15e31e07';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=5eb9992215';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -3214,30 +3214,47 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const ph = phone(), skip = lapseOn && lapseLeft > 0, last = i === n - 1 && !skip;
     // The count opens the slide list (G).
     // (A list still fading out after a pick counts as closed: the count must not stay grey, as if the list were open, on the slide picked.)
-    const countBtn = h('button', { class: 'pzb-n', 'aria-label': `Slide ${i + 1} of ${n}: list the slides`, title: 'Slide list (G)', 'aria-expanded': String(!ui.jump.hidden && !ui.jump.classList.contains('pz-leave')), onclick: () => toggleJump() }, `${i + 1} / ${n}`);
+    const countLabel = `Slide ${i + 1} of ${n}: list the slides`, listOpen = String(!ui.jump.hidden && !ui.jump.classList.contains('pz-leave'));
     ui.bar.classList.toggle('phone', ph); ui.bar.classList.toggle('pzb-pill', !ph);
     ui.bar.dataset.kind = pillKind();
+    const nextLabel = skip ? 'Run the time-lapse to its end' : 'Next slide', nextTitle = skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)';
+    if (ph) ui.bar.classList.remove('idle');
+    // The same pill from slide to slide is updated in place, its count crossfading to the new number; it was rebuilt on
+    // every slide, its buttons popping out and back (MOTION_HEAT_REVIEW P16). A new layout builds it afresh.
+    const tab = ph && tabUp(), sig = `${ph}|${tab}|${!!openSettings}`, k = ui.bar._pill;
+    if (k && k.sig === sig && k.count.isConnected) {
+      // (The pill's width is measured again once the new count is in: 9 to 10 widens it.)
+      swapText(k.count, `${i + 1} / ${n}`, () => { if (ui?.bar._pill === k) placeBar(); });
+      k.count.setAttribute('aria-label', countLabel); k.count.setAttribute('aria-expanded', listOpen);
+      if (k.prev) k.prev.disabled = i === 0;
+      if (k.next) { k.next.disabled = last; k.next.classList.toggle('skipping', skip); k.next.setAttribute('aria-label', nextLabel); k.next.title = nextTitle; }
+      placeBar();
+      return;
+    }
+    const countBtn = h('button', { class: 'pzb-n', 'aria-label': countLabel, title: 'Slide list (G)', 'aria-expanded': listOpen, onclick: () => toggleJump() }, `${i + 1} / ${n}`);
     const prevBtn = () => h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0, onclick: prev }, icon('chev-left'));
-    const nextBtn = () => h('button', { class: `ib pzb-next${skip ? ' skipping' : ''}`, 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', title: skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)', disabled: last, onclick: next }, icon('chev-right'));
+    const nextBtn = () => h('button', { class: `ib pzb-next${skip ? ' skipping' : ''}`, 'aria-label': nextLabel, title: nextTitle, disabled: last, onclick: next }, icon('chev-right'));
     if (ph) {
       // A phone's pill: the count (it opens the slide list), settings, exit. Slides change by swiping. An upright tablet's
       // pill has back and next around the count too, as a wide screen's: an iPad mirrored to a projector is often driven
       // by tapping, and a swipe there competes with the card fold and the figure pan (review U5).
-      ui.bar.classList.remove('idle');
-      const tab = tabUp();
-      ui.bar.replaceChildren(...(tab ? [prevBtn(), countBtn, nextBtn()] : [countBtn]), gear(),
+      const kids = tab ? [prevBtn(), countBtn, nextBtn()] : [countBtn];
+      ui.bar.replaceChildren(...kids, gear(),
         h('button', { class: 'ib', 'aria-label': 'Exit the presentation', title: 'Exit', onclick: stop }, icon('close')));
+      ui.bar._pill = { sig, count: countBtn, prev: tab ? kids[0] : null, next: tab ? kids[2] : null };
       placeBar();
       return;
     }
     // A wide screen's pill, as on a phone at the lower right (Mohammad): back, the count (it opens the slide list), next,
     // settings, exit. (No ask-the-room buttons: he asks the room by voice; full screen is in Settings and on F.)
+    const pb = prevBtn(), nxb = nextBtn();
     ui.bar.replaceChildren(
-      prevBtn(),
+      pb,
       countBtn,
-      nextBtn(),
+      nxb,
       gear(),
       h('button', { class: 'ib', 'aria-label': 'Stop presenting', title: 'Stop (Esc)', onclick: stop }, icon('close')));
+    ui.bar._pill = { sig, count: countBtn, prev: pb, next: nxb };
     placeBar();
   }
   // Settings while presenting (appearance, text size, interface zoom, full screen): the app's own sheet, opened from the bar.
