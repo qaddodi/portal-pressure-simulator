@@ -5,12 +5,16 @@ export const CELL = 16;                       // cell size, world units
 export const ENT_W = 2048;                    // texels per row of the entry texture
 export const RUN = 4;                         // segments of one vessel per run (see the runs below)
 
-// Distance from point (px, py) to segment a→b.
-function segDist(px, py, ax, ay, bx, by) {
+// Squared distance from point (px, py) to segment a→b. (Squared throughout the binning, with one square root per run at
+// the end: Math.hypot was most of a re-bin's time, 13–21 ms a call while a collateral coils after a patient change or a
+// talk start; round 2 review, P3.)
+function segDist2(px, py, ax, ay, bx, by) {
   const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1e-9;
   const h = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2));
-  return Math.hypot(ax + dx * h - px, ay + dy * h - py);
+  const ex = ax + dx * h - px, ey = ay + dy * h - py;
+  return ex * ex + ey * ey;
 }
+const d2 = (x, y) => x * x + y * y;
 
 /**
  * Bins vessels into cells. `tubes`: [{ id (row), pts: [[x, y]] × N_SAMPLES, reach }] where reach
@@ -48,12 +52,13 @@ export function binVeins(tubes, joins, memo = null) {
     }
     const from = nSeg;
     fresh++;
+    const lim2 = (reach + HALF) ** 2;
     for (let i = 0; i < pts.length - 1; i++) {
       const ax = pts[i][0], ay = pts[i][1], bx = pts[i + 1][0], by = pts[i + 1][1];
       const cx0 = Math.max(0, Math.floor((Math.min(ax, bx) - reach - x0) / CELL)), cx1 = Math.min(nx - 1, Math.floor((Math.max(ax, bx) + reach - x0) / CELL));
       const cy0 = Math.max(0, Math.floor((Math.min(ay, by) - reach - y0) / CELL)), cy1 = Math.min(ny - 1, Math.floor((Math.max(ay, by) + reach - y0) / CELL));
       for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
-        if (segDist(x0 + (cx + 0.5) * CELL, y0 + (cy + 0.5) * CELL, ax, ay, bx, by) > reach + HALF) continue;
+        if (segDist2(x0 + (cx + 0.5) * CELL, y0 + (cy + 0.5) * CELL, ax, ay, bx, by) > lim2) continue;
         push(cy * nx + cx, ti, i);
       }
     }
@@ -67,8 +72,9 @@ export function binVeins(tubes, joins, memo = null) {
   joins.forEach((j, ji) => {
     const cx0 = Math.max(0, Math.floor((j.x - j.reach - x0) / CELL)), cx1 = Math.min(nx - 1, Math.floor((j.x + j.reach - x0) / CELL));
     const cy0 = Math.max(0, Math.floor((j.y - j.reach - y0) / CELL)), cy1 = Math.min(ny - 1, Math.floor((j.y + j.reach - y0) / CELL));
+    const lim2 = (j.reach + HALF) ** 2;
     for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
-      if (Math.hypot(x0 + (cx + 0.5) * CELL - j.x, y0 + (cy + 0.5) * CELL - j.y) > j.reach + HALF) continue;
+      if (d2(x0 + (cx + 0.5) * CELL - j.x, y0 + (cy + 0.5) * CELL - j.y) > lim2) continue;
       jCell.push(cy * nx + cx, ji);
     }
   });
@@ -117,20 +123,20 @@ export function binVeins(tubes, joins, memo = null) {
           by0 = Math.min(by0, ent[q + 1], ent[q + 3]); by1 = Math.max(by1, ent[q + 1], ent[q + 3]);
         }
         const cx = Math.fround((bx0 + bx1) / 2), cy = Math.fround((by0 + by1) / 2);
-        let R = 0;
-        for (let f = e + 1; f < g; f++) { const q = f * 8; R = Math.max(R, Math.hypot(ent[q] - cx, ent[q + 1] - cy), Math.hypot(ent[q + 2] - cx, ent[q + 3] - cy)); }
-        ent[h] = cx; ent[h + 1] = cy; ent[h + 2] = up(R); ent[h + 7] = g - e - 1;
+        let R2 = 0;
+        for (let f = e + 1; f < g; f++) { const q = f * 8; R2 = Math.max(R2, d2(ent[q] - cx, ent[q + 1] - cy), d2(ent[q + 2] - cx, ent[q + 3] - cy)); }
+        ent[h] = cx; ent[h + 1] = cy; ent[h + 2] = up(Math.sqrt(R2)); ent[h + 7] = g - e - 1;
         e++;
         continue;
       }
       const q0 = e * 8, id = ent[q0 + 4], ax = ent[q0], ay = ent[q0 + 1];
-      let n = 0, rho = 0;
+      let n = 0, rho2 = 0;
       while (n < RUN && e + n < e1 && ent[(e + n) * 8 + 4] === id && ent[(e + n) * 8 + 5] !== -1) {
         const q = (e + n) * 8;
-        rho = Math.max(rho, Math.hypot(ent[q] - ax, ent[q + 1] - ay), Math.hypot(ent[q + 2] - ax, ent[q + 3] - ay));
+        rho2 = Math.max(rho2, d2(ent[q] - ax, ent[q + 1] - ay), d2(ent[q + 2] - ax, ent[q + 3] - ay));
         n++;
       }
-      ent[q0 + 6] = up(rho); ent[q0 + 7] = n;
+      ent[q0 + 6] = up(Math.sqrt(rho2)); ent[q0 + 7] = n;
       e += n;
     }
   }
