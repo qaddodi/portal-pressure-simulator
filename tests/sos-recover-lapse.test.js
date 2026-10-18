@@ -6,7 +6,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createCore } from '../src/worker-core.js';
 import { OUTFLOW } from '../src/ui/decks/outflow.js';
+import { deckStates } from './deck-states.js';
 
+const fmt = (v) => v.toFixed(1);
 const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 
 test('the recovery slide eases the central veins over its days instead of setting them before the counter starts', () => {
@@ -29,6 +31,16 @@ test('a dotted ramp key eases that nested param day by day', async () => {
   assert.equal(seen[1].fibrosis.L.post, 1);
   assert.equal(seen[1]['fibrosis.R.post'], undefined, 'no literal dotted key left in the params');
   assert.ok(seen[1].fibrosis.R.pre != null && seen[1].fibrosis.R.pre === seen[0].fibrosis.R.pre, 'the rest of the lobe untouched');
+});
+
+// (Healed over the whole month, the Recovered row reads PV 8.5 and FHVP 4.7, up from 8.0 and 4.3 when the veins healed
+// before the days: Mohammad kept the new numbers, 18 Oct.)
+test('the Recovered row: PV 8.5, FHVP 4.7, HVPG 2.5, no ascites', async () => {
+  const fps = await deckStates(OUTFLOW), f = fps[OUTFLOW.slides.findIndex((x) => x.id === 'recover')];
+  assert.equal(fmt(f.pv), '8.5');
+  assert.equal(fmt(f.fhvp), '4.7');
+  assert.equal(fmt(f.hvpg), '2.5');
+  assert.ok(f.asc < 0.5, `ascites ${f.asc}`);
 });
 
 test('a slide diving from the anatomy aims the lobule at its station before the dive starts', () => {
