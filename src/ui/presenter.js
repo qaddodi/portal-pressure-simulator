@@ -2639,6 +2639,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
   }
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
+  // A slide whose data card changes only its readings while it shows: a what-if slider or compare button driving the live model
+  // (liveOff), or a time-lapse slide (its days running, or run). Its cards keep the plan made as the slide came in.
+  const readingsOnly = () => liveOff || lapseOn || (!!shown && shown.i === want && !!slides[want]?.lapse);
+  let shiftLock = null;   // (the stacked pair's centring, keyed as the words' lock: layout)
   let textLock = null, ladderFold = null, foldHeld = null;   // (foldHeld: the foldKey the data card was last folded for, layout)
   let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0, fitKids = [], clearFor = null;
   const fitWatch = () => {
@@ -2871,6 +2875,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // moved the card, which fitted it again to another height, and an opened strip card at 200 % never came to rest.)
       const stackH = t.height + 2 * pad + gap + (dd.classList.contains('pz-folds') && !dd.classList.contains('has-tool') ? Math.min(keepH, foot - y) : dd.offsetHeight * k);
       shift = Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
+      // (Centred once per slide: while only the data card's readings change (a time-lapse, a what-if slider), the pair keeps the place
+      // it came in at, so the words never ride up and down with a reading that measured a pixel taller.)
+      if (lockKey && shiftLock?.key === lockKey && readingsOnly()) shift = shiftLock.v; else if (lockKey) shiftLock = { key: lockKey, v: shift };
       if (shift > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = `${((foot - y - shift) / k).toFixed(1)}px`; } else shift = 0;
     }
     fitWatch();
@@ -2954,7 +2961,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Also while a what-if slider or a compare button drives the live model (liveOff): its data card changes only its numbers,
     // and re-planned on every live reading that measured a pixel taller, the words' cap stepped and the teaching card shook
     // under the finger on a phone, Sites 4's clot slider. The plan made as the slide came in holds until the next slide.)
-    if (held && (held.shut || gone || liveOff)) { phoneShut = held.shut; return held.cap; }
+    // (And through a time-lapse, while it plays and once it has ended: its data card changes only its readings as the days run, a
+    // varix appearing on the scope, and re-planned whenever one measured a pixel taller, the words' cap stepped and the teaching card
+    // bounced as the days passed, Endoscopy 3 on an iPhone, 18 Oct.)
+    if (held && (held.shut || gone || readingsOnly())) { phoneShut = held.shut; return held.cap; }
     phoneShut = false;
     const natural = (el, st) => {   // (as it stands unfitted and uncapped)
       const sv = [st.maxHeight, st.getPropertyValue('--pz-fit'), st.getPropertyValue('--pz-z')];

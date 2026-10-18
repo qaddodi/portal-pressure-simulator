@@ -64,7 +64,8 @@ test('a ladder card folds its plot only when its own fit fails, and shown it swa
 
 test('a phone keeps the words\' height cap while a what-if slider or compare button drives the live model', () => {
   // (Re-planned on each live reading, the cap stepped as the data card's numbers changed and the teaching card shook under the finger.)
-  assert.match(js, /if \(held && \(held\.shut \|\| gone \|\| liveOff\)\) \{ phoneShut = held\.shut; return held\.cap; \}/);
+  assert.match(js, /if \(held && \(held\.shut \|\| gone \|\| readingsOnly\(\)\)\) \{ phoneShut = held\.shut; return held\.cap; \}/);
+  assert.match(js, /const readingsOnly = \(\) => liveOff \|\| /);
   assert.match(js, /async function liveSet\(s, i, patch\) \{[^}]*liveOff = true;/);
   assert.match(js, /async function livePatient\(s, i, o\) \{[\s\S]{0,250}liveOff = true;/);
 });
@@ -110,4 +111,13 @@ test('the teaching card keeps the size it came in at: the lock starts with the l
   // (Until the slide is shown it may still fold: its strip, lettered again as the cards came in, overflowed by 40 px and stayed
   // squeezed under 12 px, Recompensation 2 at 200 %.)
   assert.match(js, /!dd\.classList\.contains\('pz-folds'\) && \(!lock \|\| !shown\) && \(\(\{ v, h \}\) => v > 1 \|\| h > 1\)\(overflowOf\(dd\)\)\) \{ ladderFold = foldKey;/, 'a ladder never folds once its slide is shown');
+});
+
+test('a time-lapse keeps the words where they came in: the phone\'s cap and the stacked pair\'s centring hold while its days run and after', () => {
+  // (Re-planned as the data card's readings changed with the days, a varix appearing on the scope, the words' cap stepped and the
+  // teaching card bounced as the days passed: Endoscopy 3 on an iPhone, 18 Oct.)
+  assert.match(js, /const readingsOnly = \(\) => liveOff \|\| lapseOn \|\| \(!!shown && shown\.i === want && !!slides\[want\]\?\.lapse\);/);
+  assert.match(js, /if \(lockKey && shiftLock\?\.key === lockKey && readingsOnly\(\)\) shift = shiftLock\.v; else if \(lockKey\) shiftLock = \{ key: lockKey, v: shift \};\n\s*if \(shift > 0\.5\)/);
+  // (Declared before the layout that reads them.)
+  assert.ok(js.indexOf('const readingsOnly') < js.indexOf('function layout()'));
 });
