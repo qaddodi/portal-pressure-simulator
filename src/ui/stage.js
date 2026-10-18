@@ -2778,6 +2778,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let plateDim = null, plateSat = 1, netA = 1;
   // A lens switch crossfades every vessel from the colors it showed to the new lens's (no one-frame recolor).
   let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
+  const JUMP_MMHG = 2;
+  let jumpP = null, jumpF = null;
+  function modelJumped(f) {
+    if (!f || f === jumpF) return false;
+    jumpF = f;
+    const P = f.Pf || f.P;
+    if (!P) return false;
+    let big = false;
+    if (jumpP && jumpP.length === P.length) for (let i = 0; i < P.length; i++) if (Math.abs(P[i] - jumpP[i]) > JUMP_MMHG) { big = true; break; }
+    if (!jumpP || jumpP.length !== P.length) jumpP = new Float64Array(P.length);
+    jumpP.set(P);
+    return big && shownCol.size > 0;
+  }
   const LENS_FADE = 300;
   const lensFading = () => !!lensFrom && performance.now() - lensT0 < LENS_FADE + 20;
   const colorCtx = veins ? document.createElement('canvas').getContext('2d') : null;
@@ -3081,7 +3094,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const items = glItems();
     const cs = wrapCS();
     const mode = layerMode(), heat = mode === 'heat';
-    if (lensMode && mode !== lensMode && !reduceMotion.matches) { lensFrom = shownCol; lensT0 = performance.now(); }
+    // A jump in the model (a new patient, Undo or History, a time jump, Compare's Then and Now, Settle) recolours the vessels
+    // through the same crossfade as a lens change, instead of in one frame (round 2 review, B6): a frame whose pressures moved
+    // by more than JUMP_MMHG anywhere since the last one drawn. The running model's own steps (well under that) are drawn as
+    // they come.
+    const jumped = modelJumped(F);
+    if (((lensMode && mode !== lensMode) || jumped) && !reduceMotion.matches) { lensFrom = shownCol; lensT0 = performance.now(); }
     lensMode = mode;
     if (lensFrom && !lensFading()) lensFrom = null;
     shownCol = new Map();
