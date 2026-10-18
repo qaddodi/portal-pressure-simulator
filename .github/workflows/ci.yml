@@ -205,6 +205,8 @@ jobs:
         run: npm run smoke:widths
         env:
           N: 10
+      - name: The figure draws its vessels (home and zoomed), and a paused figure sleeps after a lens switch
+        run: npm run smoke:draws
 
   # Pan and pinch: the figure and the lobule follow the hand, and the moving picture is never undrawn or softer than a
   # whole draw of the same view.
