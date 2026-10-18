@@ -592,9 +592,9 @@ div.vital { cursor: default; }
 .stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; stroke-opacity: var(--stent-alpha, 1); }
 .ligature { fill: none; stroke: var(--text); stroke-width: 2.6; stroke-linecap: round; }
 .suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; }
-.clamp { fill: var(--text); fill-opacity: .82; }
-.clamp-label, .guide-label { font: 600 var(--fs-12) var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
-.clamp-label { font-size: var(--clamp-fs, var(--fs-12)); }   /* (12 px on screen at any zoom: stage.js syncView) */
+.clamp, .clamp-out { fill: var(--text); fill-opacity: .82; }
+.clamp-label, .clamp-label-out, .guide-label { font: 600 var(--fs-12) var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
+.clamp-label, .clamp-label-out { font-size: var(--clamp-fs, var(--fs-12)); }   /* (12 px on screen at any zoom: stage.js syncView) */
 /* Soft clot: three translucent layers of one red build toward the thick middle and fade at the edges. */
 .thrombus-halo { fill: var(--thrombus); fill-opacity: .4; }
 .thrombus { fill: var(--thrombus); fill-opacity: .55; }

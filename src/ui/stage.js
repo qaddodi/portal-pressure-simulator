@@ -8,7 +8,7 @@ import { STATION_VESSEL, meanVel, velNormal } from './velNormal.js?v=181dda5594'
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=31ee79b6ab';
 import { fibroReading } from './clock.js?v=520596240b';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors, restBox, settledBox, putText } from './util.js?v=203ece360c';
-import { createLobuleZoom } from './lobule-zoom.js?v=5dc9d6c8d7';
+import { createLobuleZoom } from './lobule-zoom.js?v=dcd97f22a1';
 import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
@@ -22,7 +22,7 @@ import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe } from './gpu-probe.js?v=d4aeccea90';
 import { plateStrips, premultiply } from './plate-upload.js?v=2dd6db2a18';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=9e2dd75956';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=8aa6bf62a1';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { advanceStream, createReversalHold, bleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=b0e8934683';
 import { frameFor, cancelFrame, noteDraw, setSaver as setFrameSaver, paceMs } from './frame.js?v=67ca200c87';
@@ -1032,7 +1032,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // Overlays
   const ov = {
-    clamps: s('g'), thrombi: s('g'), stents: s('g'), plugs: s('g'), varices: s('g'), gvarices: s('g'),
+    clamps: s('g'), clampsOut: s('g'), thrombi: s('g'), stents: s('g'), plugs: s('g'), varices: s('g'), gvarices: s('g'),
     balloons: s('g'), bands: s('g'),
   };
   Object.values(ov).forEach((g) => gOver.append(g));
@@ -1262,7 +1262,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrapRect = b;
     // (A narrowing's "60 %" is drawn in the figure: its size there is 12 px on screen at any zoom, sweep batch 03 at 6–7 px.)
     const cfs = sk > 0 ? (12 / sk).toFixed(1) : '';
-    if (cfs && cfs !== clampFs) { clampFs = cfs; ov.clamps.style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }
+    if (cfs && cfs !== clampFs) { clampFs = cfs; for (const g of [ov.clamps, ov.clampsOut]) g.style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }
   }
   function worldToLocal(x, y) {
     if (!CTM) refreshCTM();
@@ -3764,6 +3764,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return c;
   }
   const OL_FADE = 160;   // ms
+  // A narrowing's clamp and its "60 %" fade in and out with the narrowing (they had popped): each narrowing's shown amount
+  // (0 … 1), stepped in olStep. A narrowing that goes keeps its marks, moved to ov.clampsOut, until they have faded.
+  // (The arrows are drawn on the GPU, so their fade is the draw's alpha; the label, and the arrows without the GPU, take opacity.)
+  const CLAMP_FADE = 250;   // ms
+  const clampA = new Map();   // id → { a, on }
+  let clampLast = 0;
+  const clampFading = () => { for (const c of clampA.values()) if (c.a !== (c.on ? 1 : 0)) return true; return false; };
+  const clampEase = (id) => { const a = clampA.get(id)?.a ?? 1; return a * a * (3 - 2 * a); };
+  function clampShade(id) {
+    const e = clampEase(id), op = e < 1 ? e.toFixed(3) : '';
+    for (const g of [ov.clamps, ov.clampsOut]) for (const el of g.querySelectorAll(`[data-id="${id}"]`)) if (el.tagName === 'text' || !glLines) el.style.opacity = op;
+  }
   // The heart a slide points at (the right atrium, the heart itself) is lit whole by a soft glow, not a line: one band
   // easing out from its edge (the GPU shades the falloff smoothly, behind the organs): reach in world units, peak opacity.
   const HEART_GLOW = { reach: 46, alpha: 0.34 };
@@ -3817,8 +3829,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Eases each outline toward shown or gone and hands them to the GPU; true while anything is changing.
   function olStep(now) {
+    const cdu = Math.min(1, (now - clampLast) / CLAMP_FADE);
+    clampLast = now;
+    let clampMoved = false;
+    for (const [id, c] of clampA) {
+      const t = c.on ? 1 : 0;
+      if (c.a !== t) { c.a = t > c.a ? Math.min(1, c.a + cdu) : Math.max(0, c.a - cdu); clampMoved = true; clampShade(id); }
+      if (!c.on && c.a === 0) { for (const el of ov.clampsOut.querySelectorAll(`[data-id="${id}"]`)) el.remove(); clampA.delete(id); mk.ver++; }
+    }
     if (glLines && marksKey() !== mk.key) marksBuild();
-    if (!glLines || (!olDirty && !olList.length && !mk.dirty)) return false;
+    if (!glLines || (!olDirty && !olList.length && !mk.dirty && !clampMoved)) return false;
     const du = Math.min(1, (now - olLast) / OL_FADE);
     olLast = now;
     let moving = false;
@@ -3867,7 +3887,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       mk.all = all; mk.dirty = false;
     }
     const off = mk.verts.length / 6;
-    const list = [...mk.draws, ...draws.map((d) => ({ ...d, first: d.first + off }))];
+    const list = [...mk.draws.map((d) => (d.fade ? { ...d, alpha: d.alpha * clampEase(d.fade) } : d)), ...draws.map((d) => ({ ...d, first: d.first + off }))];
     veins.setLines(list.length ? { verts: mk.all, draws: list } : null);
     olDirty = false;
     return moving || !!V;
@@ -3968,7 +3988,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     mk.key = marksKey();
     const V = [], draws = [];
     let first = 0;
-    const push = (col, count, tri) => { if (count) { draws.push({ first, count, col: col.slice(0, 3), alpha: col[3], tri }); first += count; } };
+    let fade;   // (a narrowing's clamp: its id, whose fade olStep lays on the draw's alpha)
+    const push = (col, count, tri) => { if (count) { draws.push({ first, count, col: col.slice(0, 3), alpha: col[3], tri, fade }); first += count; } };
     // A stroke as a strip of mitred joins (as SVG, limit 4); open ends with square or round caps.
     const stroke = (pts, closed, h, cap) => {
       const n = pts.length;
@@ -4007,6 +4028,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
         const rings = ok ? shapeRings(el) : null;
         if (!rings) continue;
+        fade = el.classList.contains('clamp') || el.classList.contains('clamp-out') ? el.dataset.id : undefined;
         if (M) for (const r of rings) r.pts = r.pts.map(([x, y]) => [M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]]);
         for (const r of rings) r.pts = r.pts.filter((p, i, a) => !i || Math.hypot(p[0] - a[i - 1][0], p[1] - a[i - 1][1]) > 1e-3);
         const fill = paintOf(cs.fill, op * Number(cs.fillOpacity)), sk = paintOf(cs.stroke, op * Number(cs.strokeOpacity));
@@ -5471,14 +5493,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     overlayKey = key;
     const anat = t < 0.5;
     // stenosis clamps & thrombi
-    ov.clamps.innerHTML = ''; ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
     const hideDx = store.get().found ? findingHidden('clot') : isImaging();
+    // (A narrowing that goes leaves its clamp and "60 %" to fade out in ov.clampsOut, under other classes so the label
+    // layout never counts them; one that comes, or comes back, fades in from where it stands.)
+    const want = new Set(Object.entries(p.stenosis).filter(([id, v]) => !hideDx && v > 0 && E[id]?.vis).map(([id]) => id));
+    if (!clampFading()) clampLast = performance.now();
+    for (const el of [...ov.clamps.children]) {
+      const id = el.dataset.id;
+      if (want.has(id)) continue;
+      const c = clampA.get(id);
+      if (!c) { el.remove(); continue; }
+      c.on = false;
+      el.classList.replace('clamp', 'clamp-out'); el.classList.replace('clamp-label', 'clamp-label-out');
+      ov.clampsOut.append(el);
+    }
+    for (const id of want) {
+      const c = clampA.get(id);
+      if (!c) clampA.set(id, { a: 0, on: true });
+      else if (!c.on) { c.on = true; for (const el of ov.clampsOut.querySelectorAll(`[data-id="${id}"]`)) el.remove(); }
+    }
+    ov.clamps.innerHTML = ''; ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
     // Clots keep their own key: growing varices (the disease clock) rebuild the rest, not them.
     const tk = JSON.stringify([t.toFixed(3), hideDx, p.thrombus, Object.keys(p.thrombus).map((id) => (E[id] ? [E[id].vis, held[`w${id}`]] : 0))]);
     const clots = tk !== thrombiKey;
     if (clots) { thrombiKey = tk; ov.thrombi.innerHTML = ''; }
     for (const [id, v] of Object.entries(p.stenosis)) {
-      if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
+      if (!want.has(id)) continue;
       const [x, y, dx, dy] = pointAt(geo[id].cur, stenosisAt(id, p));
       const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
       const off = (E[id].width / 2) * (1 - v) + 3;
@@ -5488,10 +5528,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const ux = dx / n * 4.5, uy = dy / n * 4.5;
         ov.clamps.append(s('path', { class: 'clamp', 'data-id': id, d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
       }
-      const lab = s('text', { class: 'clamp-label' }, document.createTextNode(`${Math.round(v * 100)}%`));
+      const lab = s('text', { class: 'clamp-label', 'data-id': id }, document.createTextNode(`${Math.round(v * 100)}%`));
       lab.setAttribute('data-at', [x, y, nx, ny, off + 8].map((q) => q.toFixed(2)).join(' '));
       lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
       ov.clamps.append(lab);
+      clampShade(id);
     }
     placeClampLabels();
     // Thrombus: a lumpy clot lying against one wall of the lumen, drawn as soft stacked layers of one
@@ -7431,7 +7472,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active);
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !bloodEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
+    if (still && !veinsDirty && !glowSync && !olDirty && (!glLines || marksKey() === mk.key) && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !clampFading() && !widthEasing && !bloodEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && fSame && CTM === lastDrawCTM && !EV.some((x) => x.reveal)) { sleep(); return; }
     stepPlateEase();
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);

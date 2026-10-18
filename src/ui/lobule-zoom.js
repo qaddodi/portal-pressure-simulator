@@ -28,7 +28,7 @@ import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blur
 import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=203ece360c';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=7b176104a2';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=9e2dd75956';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=8aa6bf62a1';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=b0e8934683';
 import { createSinusoidView } from './sinusoid-view.js?v=d95817cc4b';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=67ca200c87';
@@ -2236,12 +2236,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host) }
     const st = store.get(), b = st.blood || {};
     const bloodOn = !m.hide && st.layers?.flow !== false, chev = !m.hide && !!b.chevrons;
     const pxW = 1 / (k * V.k), s0 = SLOT * (pxW * 8 > SLOT * 2 ? 4 : pxW * 8 > SLOT ? 2 : 1);
-    const sumK = (R) => {
-      const n = clamp(Math.floor((1.7 * R) / Math.max(2.6, 5 * pxW)), 1, 7);
-      let sk = 0;
-      for (let i = 0; i < n; i++) { const yl = n === 1 ? 0 : (((i + 0.5) / n) * 2 - 1) * 0.8; sk += n === 1 ? 1 : Math.max(2, Math.floor(16 * (1 - yl * yl) + 0.5)) / 8; }
-      return sk;
-    };
+    const sumK = (R) => laneSum(R, pxW);   // (the shader's density divisor, read the same way: veins-gl.js LANE_K)
     const ease = -Math.expm1(-dt / 0.5);
     const fr = Math.max(0, m.flow), pr = m.portal, ar = Math.max(0, m.art);
     const vS = 15 * Math.sqrt(fr);

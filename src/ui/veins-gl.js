@@ -46,6 +46,21 @@ export const TUBE_TEXELS = 13;         // texels of per-vessel attributes (see t
 export const MAX_TIERS = 20;
 const S_OFF = 96;                      // arc length is stored offset by this, so it can run on past a vessel's start
 export const ORIGIN_GREY = 0.62;       // the lumen's color while the blood is colored by origin
+// The streaks' density divisor: the lanes' weights summed, for each whole lane count 1 … 7 (lane i of n stands at
+// yl = ((i + 0.5) / n · 2 − 1) · 0.8 and weighs max(2, round(16 (1 − yl²))) / 8). The shader and the lobule read it between
+// the counts, from the same continuous count as the lane width, so the density never steps as the count moves with
+// zoom, a taper or the breath (round 2 review, BM9).
+export const LANE_K = Array.from({ length: 7 }, (_, j) => {
+  const n = j + 1;
+  let k = 0;
+  for (let i = 0; i < n; i++) { const yl = n === 1 ? 0 : (((i + 0.5) / n) * 2 - 1) * 0.8; k += n === 1 ? 1 : Math.max(2, Math.floor(16 * (1 - yl * yl) + 0.5)) / 8; }
+  return k;
+});
+// (R: the lumen's radius, pxW: world units per device pixel; as bloodAt's sumK in the shader.)
+export function laneSum(R, pxW) {
+  const x = Math.min(Math.max((1.7 * R) / Math.max(2.6, 5 * pxW), 1), 7) - 1, i = Math.min(Math.floor(x), 5);
+  return LANE_K[i] + (LANE_K[i + 1] - LANE_K[i]) * (x - i);
+}
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 // The composite's per-frame uniform arrays, filled in place: it ran six `new Float32Array`s a frame. (Each is uploaded at once,
 // so one set serves every renderer.)
@@ -794,6 +809,7 @@ const float BINS = ${DYE_BINS}.0;
 const float S_OFF = ${S_OFF}.0;
 const float ORIGIN_GREY = ${ORIGIN_GREY};
 const int N_LAST = ${N_SAMPLES - 1};
+const float LANE_K[7] = float[7](${LANE_K.map((k) => k.toFixed(4)).join(', ')});
 
 uint hsh(uint x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16; return x; }
 float h01(uint x) { return float(hsh(x) & 0xffffffu) / 16777216.0; }
@@ -840,8 +856,9 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   float Lg = max(2.6, 5.0 * pxW);
   int n = clamp(int(1.7 * R / Lg), 1, 7);
   float s0 = SLOT * (pxW * 8.0 > SLOT * 2.0 ? 4.0 : pxW * 8.0 > SLOT ? 2.0 : 1.0);
-  float sumK = 0.0;
-  for (int i = 0; i < 7; i++) { if (i >= n) break; float yl = n == 1 ? 0.0 : ((float(i) + 0.5) / float(n) * 2.0 - 1.0) * 0.8; sumK += n == 1 ? 1.0 : max(2.0, floor(16.0 * (1.0 - yl * yl) + 0.5)) / 8.0; }
+  float lc = clamp(1.7 * R / Lg, 1.0, 7.0) - 1.0;   // (the continuous lane count, less one: LANE_K, laneSum)
+  int lk = min(int(lc), 5);
+  float sumK = mix(LANE_K[lk], LANE_K[lk + 1], lc - float(lk));
   float p = min(1.0, flux * s0 / (max(abs(vd), 2.0) * sumK));
   p = max(p, 0.45 * stasis);
   float ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * s0, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * s0, len - s) : 1.0);
