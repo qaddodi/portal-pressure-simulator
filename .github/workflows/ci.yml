@@ -49,7 +49,8 @@ jobs:
   browser-checks:
     name: browser-checks (${{ matrix.site }}, ${{ matrix.device }} ${{ matrix.shard }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 40   # (as checks.yml: a share is about 24 minutes by measured times, and a runner under load takes longer)
+    timeout-minutes: 60   # (as checks.yml: a desktop share is about 32 minutes by measured times, and a runner under load takes longer;
+                          # at 40 minutes, thirteen shares of PR #60's run were cut off mid-check and left their checks without a result)
     strategy:
       fail-fast: false
       matrix:

@@ -29,9 +29,10 @@ jobs:
   # (tests/e2e/check-times.json), one check at a time per runner: a runner is too small to run several browsers at once.
   browser-checks:
     runs-on: ubuntu-24.04
-    # Covers the install (capped at 4 minutes below) plus the checks: about 24 minutes a share (below), so a slow runner still
-    # finishes. (The old 25-minute limit cut almost every share off mid-check and every run ended red without a result.)
-    timeout-minutes: 40
+    # Covers the install (capped at 4 minutes below) plus the checks: about 32 minutes a desktop share by measured times, so a
+    # slow runner still finishes. (The old 25-minute limit cut almost every share off mid-check and every run ended red without a
+    # result; 40 minutes did the same to a third of the desktop shares once the checks grew.)
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       # 14 shards + 2 visual + 1 WebKit = 17 of the account's ~20 runners, so pages.yml's lint and deploy always find one.
