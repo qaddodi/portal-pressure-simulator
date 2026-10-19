@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { COLS, CUT, effOf, dirAbs, liveSettled, shownSig, LIVE_MIN, LIVE_STEADY, LIVE_MAX } from '../src/ui/table-marks.js';
 import { stepBleedFade, fadeBleedShapes, BLEED_FADE, bleedShapes } from '../src/ui/blood.js';
+import './dom-shim.js';
+import { EXT } from '../src/ui/slide-ext.js';
 
 
 // Three bugs from the external deck review (18 Oct): what-if tiles froze 7 s after a tap, a bleed's jets vanished in one
@@ -52,7 +54,8 @@ test('every summary-table column has a heading, and hemoglobin reads as higher-i
   const dir = new URL('../src/ui/decks/', import.meta.url);
   for (const f of readdirSync(dir)) {
     const d = Object.values(await import(new URL(f, dir))).find((v) => Array.isArray(v?.slides));
-    for (const s of d.slides) for (const k of (s.visual === 'table' && s.cols) || []) assert.ok(COLS[k], `${d.id}/${s.id}: column "${k}" has no heading`);
+    // (a column a deck visuals package registers, slide-ext.js, brings its own heading: one heading a column, never both)
+    for (const s of d.slides) for (const k of (s.visual === 'table' && s.cols) || []) assert.ok(!!COLS[k] !== !!EXT.columns[k]?.heading, `${d.id}/${s.id}: column "${k}" has no heading, or two`);
   }
   assert.equal(COLS.hb, 'Hb');
   assert.match(CUT.hb, /under 12.*under 7 g\/dL/);

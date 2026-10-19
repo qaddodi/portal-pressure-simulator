@@ -25,7 +25,7 @@ test('the chart leaves room for the longest label at its last column', () => {
 });
 
 test('the chart draws its labels at 45° on top, and the one-year deck has no two states on the same label', () => {
-  const src = readFileSync(new URL('../src/ui/presenter-tools.js', import.meta.url), 'utf8');
+  const src = readFileSync(new URL('../src/ui/talk-trace.js', import.meta.url), 'utf8');
   assert.match(src, /'text-anchor': 'start', transform: `rotate\(-45 /);
   assert.doesNotMatch(src, /rotate\(-90/);
   const d = DECKS.find((x) => x.id === 'one-year' || x.id === 'oneyear') || DECKS.find((x) => x.slides.some((s) => s.id === 'd365'));

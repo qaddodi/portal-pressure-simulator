@@ -6150,3 +6150,34 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   @keyframes sp-tap { }
   @keyframes shimmer { }
 }
+
+/* ── Deck visuals packages (review/deck-visuals-recs.md §9): one block each, at the end. A package writes its rules only
+   between its own two lines, so packages built side by side never change the same lines. ── */
+
+/* ── Package A, figure highlights: start ── */
+
+/* ── Package A: end ── */
+
+/* ── Package B, charts from the slide's numbers: start ── */
+
+/* ── Package B: end ── */
+
+/* ── Package C, model charts: start ── */
+
+/* ── Package C: end ── */
+
+/* ── Package D, teaching card and tables: start ── */
+
+/* ── Package D: end ── */
+
+/* ── Package E, panels and table columns: start ── */
+
+/* ── Package E: end ── */
+
+/* ── Package F, figure callouts: start ── */
+
+/* ── Package F: end ── */
+
+/* ── Package G, instruments: start ── */
+
+/* ── Package G: end ── */

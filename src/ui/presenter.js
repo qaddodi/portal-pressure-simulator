@@ -23,7 +23,7 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=0ae7bd76a1';
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d8438f1d1f';
-import { createTools } from './presenter-tools.js?v=52f1c06592';
+import { createTools } from './presenter-tools.js?v=a38b089dcb';
 import { openHandout } from './handout.js?v=94c277831f';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -32,6 +32,7 @@ import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { createFigureKey } from './figure-key.js?v=96997852c4';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=b2067d6101';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=287d39b855';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -81,6 +82,9 @@ const LENS_KEY = {
   oxygen: ['oxygen', () => oxygenCss('to right'), 'Low', 'High'],
   origin: ['origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen'], ['--origin-artery', 'Artery'], ['--origin-systemic', 'Systemic']]],
 };
+// (A deck visuals package's lenses (slide-ext.js) after the app's own; a key whose words depend on the slide is a function of it.)
+for (const [k, v] of Object.entries(EXT.lenses)) if (!LENS_KEY[k]) LENS_KEY[k] = v;
+const lensSpec = (k, s) => { const v = LENS_KEY[k]; return typeof v === 'function' ? safe(() => v(s), null, `lenses.${k}`) : v; };
 export const slideLens = (s) => (!s?.visual && LENS_KEY[s?.lens] ? s.lens : 'pressure');
 // Pressure's key shows only on a slide with lens buttons (the default needs none).
 const PRESSURE_KEY = ['pressure', () => gradientCss('to right', 30), 'Low', 'High'];
@@ -90,8 +94,8 @@ const gateButtons = (s) => !!s.compare?.some((o) => o.gate);
 // (The pressure-drop key also names its ends, "Low ▬▬ High", as the velocity key does: a bare green bar did not say which end was
 // which (17 Oct design review). The other scales keep the bar alone.)
 const KEY_ENDS = new Set(['drop']);
-function keyNodes(k) {
-  const [name, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY;
+function keyNodes(k, s) {
+  const [name, bar, lo, hi] = lensSpec(k, s) || PRESSURE_KEY;
   const sw = (v) => h('i', { class: 'pz-lens-sw', style: { background: `var(${v})` } });
   // (Each swatch stays on one line with its words: "Low ▬▬ High" as one piece, a short stroke with its name.)
   const scale = () => h('i', { class: 'pz-lens-bar', style: { background: bar() } });
@@ -167,9 +171,11 @@ const TARGETS = {
   'sinusoid:lumen': { lit: true, tone: 'wedge', words: 'sinusoids?' },
 };
 const toneVar = (t) => (t === 'accent' ? 'var(--accent)' : t.startsWith('--') ? `var(${t})` : `var(--tr-${t})`);
+// (A deck visuals package's targets (slide-ext.js) after the app's own, before the node names and the station tones.)
+for (const [k, t] of Object.entries(EXT.targets)) if (!TARGETS[k]) TARGETS[k] = t;
 // Node ids name their target too ([portal vein](CONF) is [portal vein](pv)).
 for (const [k, t] of Object.entries(TARGETS)) if (t.node && !TARGETS[t.node]) TARGETS[t.node] = TARGETS[k];
-const ORGANS = new Set(['liver', 'caudate', 'caudate-lobe', 'spleen', 'heart', 'heart-ra']);
+const ORGANS = new Set(['liver', 'caudate', 'caudate-lobe', 'spleen', 'heart', 'heart-ra', ...EXT.organs]);
 // A vessel's station colour, for a glow written by hand (glow: ['PV_TRUNK']).
 const EDGE_TONE = {};
 for (const t of Object.values(TARGETS)) for (const e of t.edges || []) EDGE_TONE[e] ||= t.tone;
@@ -217,7 +223,7 @@ export function slideTargets(s, line = s.line || '') {
   for (const k of s.tint || []) { const t = TARGETS[k]; if (t?.node) terms[t.node] = t.tone; }   // (a label the line does not name, in its colour all the same)
   // glowSeq (ms): the glow field lights in its order, one step apart (pressure passing back from the heart, D6).
   const at = new Map();
-  (s.glow || []).forEach((g, i) => {
+  expandIds(s.glow || []).forEach((g, i) => {   // ('@name': a deck visuals package's named set, slide-ext.js)
     const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone, ms = s.glowSeq ? i * s.glowSeq : 0;
     // { id, soft: true }: a supporting vessel, lit more gently than the one the slide is about.
     const add = (e, tn) => { glow.delete(e); glow.set(e, tn); if (ms) at.set(e, ms); if (g.soft) soft.add(e); else soft.delete(e); };
@@ -1133,7 +1139,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=869d5cb860', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=de7d03b876', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1146,7 +1152,7 @@ function makeCalc() {
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
       try {
-        const { createCore } = await import('../worker-core.js?v=c0cfc5e1c9');
+        const { createCore } = await import('../worker-core.js?v=7b5357568f');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -1198,7 +1204,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // ── Slide states ──
   // stateOf[i]: the slide whose model state slide i shows (itself, or the last one before it that changed the model).
   const changes = (s) => !!(s.preset || s.params || s.action || s.days);
-  const stepOf = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && (s.tool.lines || true) } : {});
+  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && (s.tool.lines || true) } : {});
+  // (With the extra work a deck visuals package asks for at the slide's state, kept with it as st.extra: slide-ext.js stepExtra.)
+  const stepOf = (s) => { const x = stepExtra(s); return x ? { ...modelStep(s), ...x } : modelStep(s); };
   function prepare() {
     const key = deck.mine ? null : deck.id;
     stateOf = []; let last = 0;
@@ -1222,6 +1230,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const end = await c.sequence(steps, first, (m) => {
         const st = { snap: m.snap, params: m.params, fp: m.fp, trail: m.trail, presetId: presetAt[m.i] };
         if (m.start) st.start = { ...m.start, presetId: presetAt[m.i] };
+        if (m.extra) st.extra = m.extra;
         mine[m.i] = st;
         if (states !== mine) return;   // a newer presentation has started
         for (const w of waiters.filter((x) => x.i === m.i)) w.res(st);
@@ -1245,7 +1254,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!st) {
       st = [];
       const first = sl[0]?.preset ? null : (await host.request('snapshot')).snap;
-      await getCalc().sequence(sl.map(stepOf), first, (m) => { st[m.i] = { fp: m.fp }; });
+      await getCalc().sequence(sl.map(modelStep), first, (m) => { st[m.i] = { fp: m.fp }; });
     }
     return sl.map((_, i) => st[own[i]]?.fp ?? null);
   }
@@ -1473,7 +1482,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function abPick(s, i, k) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     ui?.text.querySelectorAll('.pz-abb').forEach((b, j) => b.setAttribute('aria-pressed', String(j === k)));
-    if (s.compare[k].lens) { lensPick(s.compare[k].lens); return; }
+    if (s.compare[k].lens) { lensPick(s.compare[k].lens, s); return; }
     // A gate button ({ label, gate }): the Doppler samples that third of the stent; the model is untouched.
     if (s.compare[k].gate) { store.set({ dopGate: s.compare[k].gate }); return; }
     // A patient button ({ label, preset, block? }): the live model eases to that patient, computed with the slide's states,
@@ -1506,23 +1515,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (done && mine()) { dataTo(s, st.fp, ref, 280); abSlow(); }
   }
   // The slide's colour key on the figure (null: none); another lens fades the old key out, the new one in.
-  function paintKey(k) {
+  function paintKey(k, s = null) {
     if (!ui) return;
     ui.text.classList.toggle('pz-keyed', !!k);
     ui.figKey.set(!!k, () => {
-      ui.fk.replaceChildren(...(k ? keyNodes(k) : []));
+      ui.fk.replaceChildren(...(k ? keyNodes(k, s) : []));
       // (The key's words can arrive after the fit below, once the old key has faded: fitted again for its own words, not the old ones.)
       queueMicrotask(() => { if (ui) clearPill(); });
-      ui.fk.classList.toggle('grad', !!k && typeof (LENS_KEY[k] || PRESSURE_KEY)[1] === 'function');
-      { const [nm, bar, lo, hi] = LENS_KEY[k] || PRESSURE_KEY; ui.fk.setAttribute('aria-label', `Vessels colored by ${nm}${typeof bar === 'function' ? `, ${lo} to ${hi}` : ''}`); }
+      ui.fk.classList.toggle('grad', !!k && typeof (lensSpec(k, s) || PRESSURE_KEY)[1] === 'function');
+      { const [nm, bar, lo, hi] = lensSpec(k, s) || PRESSURE_KEY; ui.fk.setAttribute('aria-label', `Vessels colored by ${nm}${typeof bar === 'function' ? `, ${lo} to ${hi}` : ''}`); }
     });
     clearPill();   // (the words make room for the docked key's row, or give it back)
   }
   // A lens button ({ label, lens }): the figure crossfades to that lens and the key under the line follows; the model is untouched.
-  function lensPick(l) {
+  function lensPick(l, s = null) {
     const lens = slideLens({ lens: l });
     if (store.get().colorMode !== lens) store.set({ colorMode: lens });
-    paintKey(lens);
+    paintKey(lens, s);
   }
   async function liveSet(s, i, patch) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
@@ -1597,6 +1606,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
     ui.tools.pin(f);   // (an instrument's reading is the tiles' number)
     stage.siteFp?.(f);   // (and a callout's)
+    figureHooks('update', f, s);   // (and a deck visuals package's, slide-ext.js)
   }
   async function playLapse(s, to, cut) {
     const end = await stateReady(stateOf[to]);
@@ -1821,6 +1831,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (outMs) { await painted(); await painted(); }
     // Words out, and the marks: they belong to the slide that is leaving.
     store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    figureHooks('clear');   // (and what a deck visuals package put on the figure: slide-ext.js)
     // The slide's lens: the figure crossfades to its colours (stage.js) while the old words leave. A question, or a
     // visual over the figure, keeps the colours already showing: they change only when a slide's lens does.
     if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
@@ -1928,8 +1939,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (!s.visual) {
       // The slide's marks, labels, the stations its terms name (in their colours) and its glows (see slideTargets).
-      const tg = slideTargets(s);
-      let marks = (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block', free: !!m.free, ...(m.seg ? { seg: m.seg } : {}) }));
+      const tg = slideTargets(s), xc = ctxOf(s, to);
+      // (A mark's edges may name a package's set, '@name', and its label goes through the packages' label hooks: slide-ext.js.)
+      let marks = (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...expandIds(m.edges)], label: markLabel(m.label, m, xc), kind: m.kind || 'block', free: !!m.free, ...(m.seg ? { seg: m.seg } : {}) }));
       // A note mark is a pointer: its vessel glows in its station's colour. Where a station label on the slide already
       // names that vessel, the pointer would only repeat it, so it goes (the glow stays).
       if (tg) {
@@ -1944,6 +1956,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
       if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
       app.dataset.lit = tg?.lit.join(' ') || '';
+      figureHooks('show', xc);   // (a deck visuals package's own marks on the figure: slide-ext.js)
     }
     // A site whose station label is already on the slide is not called out twice: the label carries the one reading,
     // in its station's colour, and the pill stays only where no label stands.
@@ -2050,16 +2063,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // hyphen never breaks, on any screen: a non-breaking one. Critique I7, 17 Oct.)
   const cardTitle = (s) => {
     const t = fullTitle(s), small = phone() || (innerWidth > innerHeight && innerHeight <= 500);
-    return (small && t.length > 20 ? SHORT_TITLE[t] || t.replace(/ over the (days|year|talk)$/, '').replace(/,.*$/, '') : t).replace(/-/g, '\u2011');
+    return (small && t.length > 20 ? SHORT_TITLE[t] || (s?.tool && ui.tools.short(s.tool, t)) || t.replace(/ over the (days|year|talk)$/, '').replace(/,.*$/, '') : t).replace(/-/g, '\u2011');
   };
   // The talk so far, for a pressure trace: every state up to slide i, once each.
-  // Each carries its time point (the deck's days so far) and what happened there (the first tick among its slides, else its title).
+  // Each carries its time point (the deck's days so far) and what happened there (the first tick among its slides, else its title),
+  // and its slide's id and its state's params (for a deck visuals package's chart).
   const whenOf = (k) => {
     const d = slides.slice(0, k + 1).reduce((a, s) => a + (s.days || 0), 0);
     return d && d % 365 === 0 ? `Year ${d / 365}` : d <= 200 ? `Day ${d}` : `Month ${Math.round(d / 30.4)}`;
   };
   // (A state on the same day as the one before it, as a drug started at that visit, says so instead of repeating the day; a slide's `when` words it.)
-  const chainTo = (i) => { let before = null; return [...new Set(stateOf.slice(0, i + 1))].filter((k) => slides[k]?.visual !== 'outline').map((k) => { const w = whenOf(k), p = { n: k + 1, title: slides[k].title, tick: slides.find((x, j) => stateOf[j] === k && x.tick)?.tick || slides[k].title, when: traceWhen(slides[k].when, w, before), fp: states[k]?.fp }; before = w; return p; }); };
+  const chainTo = (i) => { let before = null; return [...new Set(stateOf.slice(0, i + 1))].filter((k) => slides[k]?.visual !== 'outline').map((k) => { const w = whenOf(k), p = { n: k + 1, title: slides[k].title, tick: slides.find((x, j) => stateOf[j] === k && x.tick)?.tick || slides[k].title, when: traceWhen(slides[k].when, w, before), fp: states[k]?.fp, id: slides[k].id, params: states[k]?.params }; before = w; return p; }); };
   // The deck's short name in a tab at the card's top right corner (decks.js TOPICS; your own deck, its title when short):
   // a darker patch of the card's own glass, flush with its top and right edges, only its bottom left corner rounded. It sits in
   // the card's top padding, so it never meets the title. (Not read out on every slide: the outline and the slide list name the talk.)
@@ -2101,7 +2115,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const tab = s.visual !== 'outline' && deckTab();   // (the outline names the talk in full instead)
       panel.classList.toggle('tabbed', !!tab);
       panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null),
-        VISUALS[s.visual](s));
+        visualOf(s, i));
       if (!ui.root.classList.contains('pz-prep')) panel.classList.remove('pz-leave');   // (else once fitted: settle)
       ui.veil.classList.add('on');
     } else {
@@ -2116,7 +2130,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
-      paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null);
+      paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
@@ -2141,7 +2155,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       ui.dhT.textContent = cardTitle(s);
       ui.dhL.hidden = !lad;
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
-      if (s.tool) ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1 }); else ui.tools.hide();
+      if (s.tool) ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i) }); else ui.tools.hide();
       if (s.tool) ui.tools.ghost(toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them. So
       // too while the new cards wait, unseen, for the camera to land (bare): their count ran unseen beside the glide, a frame's
@@ -2175,6 +2189,26 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   const fpOf = (id) => { const i = slides.findIndex((x) => x.id === id); return i >= 0 ? states[stateOf[i]]?.fp : null; };
   fpAt = fpOf;   // (for {key@slide} in the words: see liveVal)
+  // What a deck visuals package's instrument, visual, column or figure hook gets for slide i (slide-ext.js): the slide, its
+  // model state (snapshot, params, fingerprint), its extra work (st.extra, see stepOf), the live params (with any what-if slider
+  // or compare button), other slides' fingerprints by id, the healthy fingerprint, and requests to the presenter's own
+  // calculation worker (never the live model). P0.md in review/deck-visuals-build has the full list.
+  function ctxOf(s, i) {
+    const st = states[stateOf[i]] || null, d = deck;
+    return {
+      slide: s, index: i, deck: d, stage, store, app,
+      state: st, snap: st?.snap ?? null, params: st?.params ?? null, fp: st?.fp ?? null,
+      extra: states[i]?.extra ?? null,
+      whenExtra: () => stateReady(i).then((x) => x?.extra ?? null),
+      liveParams: () => store.get().params,
+      fpOf, healthy: () => base,
+      shown: () => deck === d && shown?.i === i,
+      request: (type, payload = {}) => getCalc().request(type, payload),
+      // (steps as stepOf makes them; from: the snapshot the first starts from, the slide's own by default. Resolves with each
+      // step's { snap, params, fp, extra? }, or null when the worker failed.)
+      run: (steps, from = st?.snap ?? null) => { const out = []; return getCalc().sequence(steps, from, (m) => { out[m.i] = { snap: m.snap, params: m.params, fp: m.fp, extra: m.extra }; }).then((end) => (end?.type === 'error' ? null : out)); },
+    };
+  }
   // A visual's rows: the deck's slides by id ('pvt', or { id, name } to name it), or { preset, name } patients that
   // no slide shows, computed after the slides.
   const rowAt = (o) => { const id = typeof o === 'string' ? o : o.id, i = id ? slides.findIndex((x) => x.id === id) : -1; return [i, i >= 0 ? stateOf[i] : extraOf.get(xKey(o))]; };
@@ -2235,6 +2269,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const unitOf = (k) => (k === 'varix' ? ' mm' : k === 'asc' ? ' L' : k === 'liver' || k === 'shunt' ? '%' : k === 'hr' ? '/min' : k === 'res' ? ' mmHg per L/min' : PRESS.has(k) ? ' mmHg' : TILE[k]?.u ? ` ${TILE[k].u}` : '');
   const UNIT_WORDS = { press: 'pressures in mmHg', varix: 'varix in mm', asc: 'ascites in liters', liver: 'liver blood flow in % of normal', shunt: 'shunted blood in %', plt: 'platelets × 10³/µL',
     lsm: 'stiffness in kPa', hr: 'heart rate in beats/min', pvFlow: 'portal flow in L/min', res: 'liver resistance in mmHg per L/min', spleen: 'spleen in cm' };
+  const colExt = (k) => (!COLS[k] && Object.hasOwn(EXT.columns, k) ? EXT.columns[k] : null);
   function summaryTable(s, arrived = -1) {
     const cols = s.cols || ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], ascCols = s.asc ?? !s.cols, rows = rowsOf(s);
     const perRow = rows.some((r) => r.vs), rel = s.vs === 'first' || perRow;
@@ -2262,6 +2297,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : ''), 'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: v },
         arrowEl(d), h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}`));
     };
+    // A column a deck visuals package registers (slide-ext.js columns) for a key the table does not know: its heading, cut-off note,
+    // unit words and cells are its own; a row not yet computed waits, and a row's blank columns show the ring, as the others do.
+    const extCell = (k, r, n) => {
+      if (r.blank.includes(k)) return h('td', { class: 'num blank', title: 'Not measurable' }, noneEl(), h('span', { class: 'sr-only' }, 'not measurable'));
+      if (!r.f) return h('td', { class: 'num pend' }, '…');
+      const c = safe(() => colExt(k).cell({ ...r, state: states[r.k] ?? null, ref: refOfRow(r) ?? null, isRef: isRef(r, n) }, ctxOf(s, slides.indexOf(s))), null, `columns.${k}`);
+      return c?.tagName === 'TD' ? c : h('td', { class: 'num' }, c ?? '—');
+    };
     // Ascites as two columns, SAAG and protein, one arrow each; "None" spans both when there is no fluid.
     const ascCells = (r, n) => {
       if (!r.f) return [h('td', { class: 'num pend' }, '…'), h('td', { class: 'num pend' }, '…')];
@@ -2273,6 +2316,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     };
     // One legend, built from the table itself: what the arrows compare with, the reference row's units, the ring.
     const units = [...new Set(cols.map((k) => (PRESS.has(k) ? 'press' : k)).filter((k) => UNIT_WORDS[k]))].map((k) => UNIT_WORDS[k]);
+    for (const k of cols) if (colExt(k)?.unit) units.push(colExt(k).unit);
     if (ascCols) units.push('SAAG and protein in g/dL');
     const refTitle = first ? lc(rows[0].title) : 'the baseline';
     const key = rel
@@ -2282,25 +2326,27 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       .filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ') + '.';
     // A heading's cut-offs: its tooltip on hover, and a line under the legend on a tap (a touch screen shows no tooltip).
     const cutLine = h('span', { class: 'pz-cutl', 'aria-live': 'polite' });
-    const showCut = (k) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); e.stopPropagation?.(); cutLine.replaceChildren(h('b', {}, `${COLS[k] || k}: `), ...withArrows(CUT[k] + '.')); } };
+    const showCut = (k) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); e.stopPropagation?.(); cutLine.replaceChildren(h('b', {}, `${COLS[k] || colExt(k)?.heading || k}: `), ...withArrows((CUT[k] ?? colExt(k)?.cut) + '.')); } };
     const cutTh = (k, label, cut) => h('th', { class: 'num', title: cut || null, ...(cut ? { tabindex: '0', onclick: showCut(k), onkeydown: showCut(k) } : {}) }, label);
     const go1 = (r) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); go(r.i); } };
     // (long: seven rows or more; a class, not :has(), which made every table cell part of each restyle the page did)
     // (notecols: few enough columns that an upright tablet keeps each note in a column of its own under its heading, as on its side)
     const noteCols = notes.length && cols.length + (ascCols ? 2 : 0) + notes.length <= 4;
     return h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
-      h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => cutTh(k, COLS[k] || k, CUT[k])),
+      h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => cutTh(k, COLS[k] || colExt(k)?.heading || k, CUT[k] ?? colExt(k)?.cut)),
         ascCols ? [cutTh('saag', h('abbr', { title: 'Serum−ascites albumin gradient' }, 'SAAG'), CUT.saag), cutTh('tp', h('abbr', { title: 'Ascites protein' }, 'Prot.'), CUT.tp)] : null,
         notes.map((x) => h('th', { class: 'nh' }, x)))),
       h('tbody', {}, rows.map((r, n) => h('tr', { ...(r.i >= 0 ? { tabindex: '0', onclick: go1(r), onkeydown: go1(r), 'aria-label': `${r.title}: go to this slide` } : { class: 'static' }),
           'data-arrived': r.k === arrived || (rel && n > 0 && (r.vs ? vsRow(r)?.k : rows[0].k) === arrived) ? '' : null },
         h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, r.kicker.replace('Intrahepatic · ', '')), h('span', { class: 'tw' }, h('span', { class: 'tn' }, nb(r.title)),
           r.vs ? h('span', { class: 'vs' }, `vs ${vsName(r)}`) : null)),
-        cols.map((k) => cell(k, r, n)),
+        cols.map((k) => (colExt(k) ? extCell(k, r, n) : cell(k, r, n))),
         ascCols ? ascCells(r, n) : null,
         notes.map((_, j) => h('td', { class: 'note' }, [r.note].flat()[j] || '')))))),
     h('p', { class: 'pz-foot' }, withArrows(legend), cutLine));
   }
+  // (A visual a deck visuals package registers (slide-ext.js visuals) is called with the slide and its context; the app's own win.)
+  const visualOf = (s, i) => (VISUALS[s.visual] ? VISUALS[s.visual](s) : safe(() => EXT.visuals[s.visual](s, ctxOf(s, i)), null, `visuals.${s.visual}`));
   const VISUALS = {
     table: summaryTable,
     ladders: laddersGrid,
@@ -3908,6 +3954,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     document.fonts?.removeEventListener('loadingdone', onFonts);
     fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelFrame(fitRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
+    figureHooks('clear');
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null;
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';

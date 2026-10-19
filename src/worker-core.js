@@ -13,6 +13,8 @@ const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', '
 // A state's fingerprint for the ladder, the presenter's data and tables: the pressures from the portal vein to the
 // heart, the gradients, the ascites (volume, SAAG, protein, albumin) and the lymph that makes it, the sinusoidal and
 // central vein pressures, varices, spleen, flow and shunting.
+// The fluid balance (engine.js starling, mL/min): lymphCap, what the lymphatics can carry; lymphOver, the lymph made beyond
+// it, which becomes ascites; lymphBack, what the peritoneum takes back; lymphNet, the ascites made (overflow less take-back).
 // rih: the resistance inside the liver (mmHg per L/min): each lobe's venules, sinusoids and outflow in series, the
 // two lobes in parallel, as the circuit view's liver resistor reads it. (PPG ÷ portal flow also counts the collaterals.)
 const LOBES = [['PRE_R', 'SIN_RR', 'POST_R_RHV'], ['PRE_L', 'SIN_LL', 'POST_L_LHV']];
@@ -22,11 +24,12 @@ function liverRes(e) {
   return 1 / LOBES.reduce((g, ids) => g + 1 / Math.max(1e-6, ids.reduce((s, id) => s + r(id), 0)), 0);
 }
 const fingerprint = (m, e) => {
-  const P = e ? e.Pf || e.P : null, a = m.ascites;
+  const P = e ? e.Pf || e.P : null, a = m.ascites, fl = e ? e.starling() : null;
   return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg),
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
     sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, wall: e ? e.varix('VAR', e.Pf || e.P).ratio : m.varix.ratio, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
     pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, pvVel: m.pvVelMean, map: m.map, hr: m.hr, hb: m.blood.hb, co: m.co, bv: m.blood.volume, rih: e ? liverRes(e) : null,
+    lymphCap: a.lymphCap, lymphOver: fl ? fl.excess : null, lymphBack: fl ? fl.bulk + fl.water : null, lymphNet: fl ? fl.net : null,
     // (the whole network as it stood, so a slide's callouts and figure labels read its numbers as the tiles do: the same on every screen)
     at: e ? { P: Float32Array.from(e.Pf || e.P), Q: Float32Array.from(e.Qf || e.Q), D: Float32Array.from(e.edges, (ed) => e.diameter(ed.id)) } : null };
 };
@@ -57,6 +60,38 @@ function mix(a, b, k) {
 }
 const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });
 const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
+
+// A slide's extra work, asked for by a deck visuals package (slide-ext.js steps), on scratch engines so the chain is untouched:
+// explain: a metric id or a list (engine/explain.js METRICS), the Why? contributions at the slide's state;
+// wave: a vessel id, { vessel, secs } or a list of them, the Doppler velocity (cm/s, signed) over secs (default 3) of beats
+// from the slide's state, a point every 20 ms after a second's run-in: { t: [s], v: [cm/s] }.
+const WAVE_DT = 0.004, WAVE_EVERY = 5, WAVE_RUNIN = 1;
+function* waveAt(snap, vessel, secs = 3) {
+  const w = new Engine();
+  w.restore(snap);
+  w.beat = true;
+  const t = [], v = [], n = Math.round((WAVE_RUNIN + secs) / WAVE_DT), n0 = Math.round(WAVE_RUNIN / WAVE_DT);
+  for (let i = 0; i <= n; i++) {
+    if (i >= n0 && (i - n0) % WAVE_EVERY === 0) { t.push(+((i - n0) * WAVE_DT).toFixed(3)); v.push(w.dopplerVelocity(vessel)); }
+    if (i < n) w.step(WAVE_DT);
+    if (i % 100 === 99) yield;
+  }
+  return { t, v };
+}
+function* stepExtras(e, st) {
+  if (st.explain == null && st.wave == null) return null;
+  const out = {};
+  if (st.explain != null) { out.explain = {}; for (const id of [st.explain].flat()) { out.explain[id] = explain(e, id); yield; } }
+  if (st.wave != null) {
+    out.wave = {};
+    const snap = e.snapshot();
+    for (const w of [st.wave].flat()) {
+      const id = typeof w === 'string' ? w : w?.vessel;
+      if (id && e.ei[id] != null) out.wave[id] = yield* waveAt(snap, id, typeof w === 'object' && w.secs > 0 ? Math.min(10, w.secs) : 3);
+    }
+  }
+  return out;
+}
 
 // The bedside clock's step (seconds): 4 ms with the pulse on, 20 ms without. At 4× and 8× the pulse takes 8 ms steps, half
 // as many a tick, so a phone keeps up; the beat-averaged readings move by about 0.01 mmHg (MAP and heart rate by 0.15 at
@@ -352,7 +387,8 @@ export function createCore(post) {
         if (st.preset || st.params || st.action || st.days) e.settle();
         const m = computeMetrics(e);
         if (trail) trail.push(at(st.days, m));
-        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start });
+        const extra = yield* stepExtras(e, st);
+        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start, ...(extra ? { extra } : {}) });
         yield;
       }
       post({ type: 'sequence', reqId });
