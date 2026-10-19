@@ -1,0 +1,253 @@
+diff --git a/src/ui/stage.js b/src/ui/stage.js
+index 5e735cde..0ee0d4e6 100644
+--- a/src/ui/stage.js
++++ b/src/ui/stage.js
+@@ -2376,12 +2376,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo,
+       // The caudate vein hypertrophies when it becomes the liver's outflow (Budd–Chiari).
+       if (e.id === 'CAUD' && t < 1) { const ref = store.get().healthy?.Q?.[k]; if (ref) w *= 0.8 * clamp(Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) / Math.abs(ref)), 1, 1.8); }
+       // A vessel leaving keeps its width. While the views morph, the width follows the morph frame by frame.
+-      // Otherwise a change of half a pixel or more (smaller wobble from the pulse and breath is ignored)
+-      // sets a new target, and the drawn width eases to it over a few frames instead of stepping.
+-      if (x.reveal?.out && x.width != null) x.wT = x.width;
+-      else if (x.width == null || (t > 0 && t < 1)) x.wT = x.width = w;
+-      else if (x.wMode !== mode || x.wT == null || Math.abs(w - x.wT) >= 0.5) x.wT = w;
+-      if (x.width !== x.wT) { const d = x.wT - x.width; x.width = Math.abs(d) < 0.02 ? x.wT : x.width + d * kW; if (x.width !== x.wT) widthEasing = true; }
++      // Otherwise the model's width is the target on every model frame (no dead-band: the breath never stops and
++      // starts), and the drawn width follows it on every display frame (followWidth).
++      if (x.reveal?.out && x.width != null) x.wT = x.w1 = x.width;
++      else if (x.width == null || (t > 0 && t < 1)) x.wT = x.w1 = x.width = w;
++      else { followWidth(x, dtW); x.wT = w; }   // (up to now under the target it had, then the new one: the same curve at any frame rate)
++      if (widthMoving(x)) widthEasing = true;
+       w = x.width;
+       x.wMode = mode;
+       // The liver's own small vessels (portal venules, central veins) are the liver to the pointer in the anatomy:
+@@ -2477,6 +2477,50 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo,
+     widthF = f; widthVer = storeVer; widthCTM = CTM;
+   }
+ 
++  // A vessel's drawn width follows the model's through two exponential eases in series (tau 0.2 s each: critically damped).
++  // Each step is the exact solution for the time elapsed (the lag behind the target decays as (e2 + e1 t/tau) e^(-t/tau)),
++  // and a new target is taken only after stepping up to its arrival, so the width and its speed change continuously and
++  // trace the same curve at 60 or 120 Hz; a model frame's new target (10 a second) bends the speed instead of jumping it.
++  const W_TAU = 0.2;
++  function followWidth(x, dt) {
++    if (x.w1 == null) x.w1 = x.width;
++    if (x.wT == null || x.width == null) return false;   // (no target yet: the caller sets the first one after this)
++    if (x.width === x.wT && x.w1 === x.wT) return false;
++    const u = Math.max(0, dt) / W_TAU, a = Math.exp(-u), e1 = x.w1 - x.wT, e2 = x.width - x.wT;
++    x.w1 = x.wT + e1 * a; x.width = x.wT + (e2 + e1 * u) * a;
++    if (Math.abs(x.wT - x.w1) < 0.005 && Math.abs(x.w1 - x.width) < 0.005) x.w1 = x.width = x.wT;
++    return true;
++  }
++  function widthMoving(x) { return x.width !== x.wT || x.w1 !== x.wT; }
++  // How far a lumen edge moves (canvas px) before the vessel layer draws it again: each width and radius the tubes are keyed on
++  // is kept until what it follows has moved that far. A tenth of a canvas pixel (a twentieth of a CSS pixel) at any zoom: the
++  // edge glides in sub-pixel steps, and the model's sub-pixel wobble redraws nothing.
++  const EDGE_STEP = 0.1;
++  function edgeQ() { const cpx = CTM ? vdpr * Math.hypot(CTM.a, CTM.b) : 0; return cpx > 0 ? EDGE_STEP / cpx : 0.01; }
++  // (o[k] is kept until v has moved by q from it; a zoom that makes q less than half the step it was kept at takes it exact,
++  // and so does q = 0, which the callers pass once the vessel's width is at rest: a settled figure is drawn exactly.)
++  function keep(o, k, v, q) { const was = o[k]; if (was == null || Math.abs(v - was) >= q || q < o[k + 'Q'] / 2) { o[k] = v; o[k + 'Q'] = q; } return o[k]; }
++  // The width step's vessel-layer sync: the radii alone. It stands in for syncVeins only when nothing else the whole sync
++  // writes can differ from what it last wrote (the glow-only sync's own test, glowOnlyOk, with no glow or plate ease under
++  // way and no vessel crossing the sheen's 3.4 width); a vessel outgrowing its binned reach takes the whole sync (it re-bins).
++  function syncRadiiOnly(t) {
++    return gpuProbe.time(null, 'radius sync (script)', () => {
++      if (glowSync || plateEasing() || !glowOnlyOk(t)) return false;
++      const m = glowMemo, items = m.items, heat = m.mode === 'heat';
++      for (let i = 0; i < items.length; i++) if ((items[i].x.width >= 3.4) !== m.wide[i]) return false;
++      sendRadii(items);
++      for (const it of items) if (Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18 + (heat ? 30 : 0)) / 2) * 2 > (vBinReach.get(it.row) || 0)) return false;
++      // (A ligated vein's divided stretch is as long as the vein is wide (divideLen): its drawn start, tube texel 5, follows the width.)
++      let lig = false;
++      for (const it of items) {
++        if (it.kind !== 'v' || !LIGATED.some((l) => l[1] === it.x.e.id)) continue;
++        const o = it.row * TUBE_TEXELS * 4 + 20, lo = Math.fround(Math.max(0, divideLen(it.x.e.id) / (it.len || geo[it.x.e.id].len || 1)));
++        if (tubeData[o] !== lo) { tubeData[o] = lo; tubesShown[o] = lo; veinsRows.add(it.row); lig = true; }
++      }
++      if (lig) veins.setTubes(tubeData);
++      return true;
++    });
++  }
+   // Between the model's frames, while only vessel widths are still easing (the breath moves the cava's and the hepatic veins'
+   // targets by half a pixel or more on every breath, so they seldom rest), each display frame steps the widths and writes only
+   // what follows from them: the strokes, the tubes and their joins, the vessel layer's radii, the bridges, the narrowings'
+@@ -2499,16 +2543,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo,
+     return true;
+   }
+   function stepWidthsInner(f) {
+-    const nowW = performance.now();
+-    const kW = -Math.expm1(-Math.min(0.1, (nowW - (wAt || nowW)) / 1000) / 0.25);
++    const nowW = performance.now(), dt = Math.min(0.1, (nowW - (wAt || nowW)) / 1000);
+     wAt = nowW; widthEasing = false;
++    lvAt = nowW;   // (the liver's ease clock: a full update after width steps eases from this frame, not from the last full update)
+     const t = easeInOut(morph), mode = layerMode();
+     let moved = false, labels = !!sites.list || scan.on || !!camMove || !!E.TIPS?.vis || !!E.DIPS?.vis;
+     for (const x of EV) {
+-      if (!x.vis || x.width === x.wT) continue;
+-      const d = x.wT - x.width;
+-      x.width = Math.abs(d) < 0.02 ? x.wT : x.width + d * kW;
+-      if (x.width !== x.wT) widthEasing = true;
++      if (!x.vis || !followWidth(x, dt)) continue;
++      if (widthMoving(x)) widthEasing = true;
+       moved = true;
+       const w = x.width;
+       widthWrites(x, w, t, f, EI[x.e.id]);
+@@ -2529,7 +2571,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo,
+     const p = f.viewParams || store.get().params;
+     for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J);
+     if (glWanted(t)) clearJoins(); else updateJoins(t);
+-    syncVeins(t);
++    if (!syncRadiiOnly(t)) syncVeins(t);
+     updateOverlays(f, p, lerp(1, 0.8, t), t);
+     updateBridges(t);
+     if (labels) updateLabels(f);
+@@ -2558,7 +2600,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo,
+     // end stays inside the vein instead of bulging out of the far wall.
+     const hostW = (i) => { const hs = SIDE_HOSTS[id]?.[i].filter((h) => E[h]?.vis).map((h) => E[h].width); return hs?.length ? clamp(Math.max(...hs), w * 0.4, w) : null; };
+     const a = (!stroked && hostW(0)) || endW(x.e.from), b = (!stroked && hostW(1)) || endW(x.e.to);
+-    const key = `${w.toFixed(1)},${a.toFixed(1)},${b.toFixed(1)}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + stenosisAt(id, p) : ''}|${lastMorph}|${stroked}|${gpu}`;
++    const qw = widthMoving(x) ? 2 * edgeQ() : 0;
++    keep(x, 'kw', w, qw); keep(x, 'ka', a, qw); keep(x, 'kb', b, qw);
++    const key = `${x.kw},${x.ka},${x.kb}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + stenosisAt(id, p) : ''}|${lastMorph}|${stroked}|${gpu}`;
+     if (key === x.shadeKey) return;
+     x.shadeKey = key;
+     const f = sten ? waist(id, v, g.len, w, p) : null;
+@@ -2805,10 +2849,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo,
+     const r = kind === 'v' ? Math.max(0.5, x.width / 2) : kind === 's' ? Math.max(1.6, x.width * it.obj.k) / 2 : it.obj.w / 2;
+     // (A varix strand beaded by the varix's size: varix-bead.js.)
+     const b = kind === 's' ? it.obj.bead || 0 : 0, o = it.obj;
+-    if (b > 0) return [`${r.toFixed(2)}|${b}|${Math.round(o.len || 0)}`, (i) => beadRadius(r, b, i / (N_SAMPLES - 1), o.len || 1, o.ph * 1.7, o.u0 || 0)];
++    keep(o, 'kr', r, widthMoving(x) ? edgeQ() : 0);
++    const rk = String(o.kr);
++    if (b > 0) return [`${rk}|${b}|${Math.round(o.len || 0)}`, (i) => beadRadius(r, b, i / (N_SAMPLES - 1), o.len || 1, o.ph * 1.7, o.u0 || 0)];
+     // (A sinusoid strand narrows across its stretch: sin-perfusion.js.)
+     if (kind === 's' && SIN_EDGES.has(x.e.id)) { const w = x.width; return [`${r.toFixed(2)}|${w.toFixed(2)}|sin`, (i) => sinStrandRadius(r, w, i / (N_SAMPLES - 1), o.span)]; }
+-    return [r.toFixed(2), () => r];
++    return [rk, () => r];
+   }
+   // Vessels that run on into each other (from veinJoins): their calibers are eased to meet at the join.
+   let glStraight = [], glRadDirty = true;
+@@ -2957,40 +3003,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo,
+     return true;
+   }
+   // (Timed, binning included, for the debug overlay's GPU readout: gpu-probe.js.)
+-  function syncVeins(t) { return gpuProbe.time(null, 'vessel sync (script)', () => syncVeinsNow(t)); }
+-  function syncVeinsNow(t) {
+-    if (!veins || veins.lost) return;
+-    glowSync = false;
+-    const on = glWanted(t);
+-    wrap.classList.toggle('gl-on', on);
+-    if (!on) { tubesHidden = false; if (tubesHeld.size) flushTubes(); }
+-    if (!on && tubesStale) { tubesStale = false; updateGeometry(true); }
+-    const plateWas = plateOn();
+-    wrap.classList.toggle('gl-plate', on && veins.hasPlate(0));
+-    syncOrganDim();
+-    if (!on) { if (vLook) { veins.clear(); vLook = null; vBinKey = ''; binShown = null; } return; }
+-    if (!glOrgans) {
+-      // The organ covers, rasterized once in world space (1.5 px per unit): tiers behind them fade.
+-      const k = 1.5, c = document.createElement('canvas');
+-      c.width = VIEW.w * k; c.height = VIEW.h * k;
+-      const mc = c.getContext('2d');
+-      mc.setTransform(k, 0, 0, k, 0, 0);
+-      mc.lineCap = 'round'; mc.lineJoin = 'round';
+-      mc.fillStyle = mc.strokeStyle = '#000';   // colour-exempt: a mask
+-      const solid = new Path2D();
+-      for (const { p, w } of getOrganCovers()) { if (w) { mc.lineWidth = w; mc.stroke(p); } else solid.addPath(p); }
+-      mc.fill(solid);
+-      veins.setOrgans(c, [0, 0, VIEW.w, VIEW.h]);
+-      glOrgans = true; tubesNew = true;
+-    }
+-    const items = glItems();
+-    const cs = wrapCS();
+-    const mode = layerMode(), heat = mode === 'heat';
+-    if (lensMode && mode !== lensMode && !reduceMotion.matches) { lensFrom = shownCol; lensT0 = performance.now(); }
+-    lensMode = mode;
+-    if (lensFrom && !lensFading()) lensFrom = null;
+-    shownCol = new Map();
+-    // Radii: re-sent only when a tube changed.
++  // Radii: re-sent only when a tube changed.
++  let easedMemo = null;
++  function sendRadii(items) {
+     for (const it of items) {
+       const [key, rOf] = itemRadii(it), o = it.obj;
+       if (o.glRadKey === key && o.glR0) continue;
+@@ -2999,8 +3014,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo,
+     }
+     // Where one vessel runs on into the next, both ends ease to the same caliber, so the tube is one
+     // smooth course (no step and no swelling at the join).
+-    const eased = new Map();
++    // (Kept while the radii they start from are the same arrays: the same eases, and those rows are then skipped below.)
++    let eased = new Map(), refs = null;
+     if (glRadDirty && glStraight.length) {
++      const objOf = new Map(items.map((it) => [it.row, it.obj]));
++      refs = glStraight.flatMap(({ a, b }) => [objOf.get(a)?.glR0, objOf.get(b)?.glR0]);
++      if (easedMemo?.pairs === glStraight && refs.every((r, i) => r === easedMemo.refs[i])) { eased = easedMemo.map; refs = null; }
++    }
++    if (refs) {
+       const byRow = new Map(items.map((it) => [it.row, it.obj])), itOf = new Map(items.map((it) => [it.row, it]));
+       for (const { a, ia, b, ib } of glStraight) {
+         const A = byRow.get(a), B = byRow.get(b);
+@@ -3019,14 +3040,52 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo,
+         }
+       }
+     }
++    if (refs) easedMemo = { pairs: glStraight, refs, map: eased };
+     if (glRadDirty) for (const it of items) {
+-      const o = it.obj, R = eased.get(o) || o.glR0, k = R.join(',');
++      const o = it.obj, R = eased.get(o) || o.glR0;
++      if (R === o.glR) continue;   // (the very array last sent)
++      const k = R.join(',');
+       if (o.glRSent === k) continue;
+       o.glRSent = k; o.glR = R; o.glMaxR = Math.max(...R);
+       // (A vessel's new radii change only its own cells: drawn again as a colour change is, see drawVeins.)
+       veins.setRadii(it.row, R); veinsRows.add(it.row);
+     }
+     glRadDirty = false;
++  }
++  function syncVeins(t) { return gpuProbe.time(null, 'vessel sync (script)', () => syncVeinsNow(t)); }
++  function syncVeinsNow(t) {
++    if (!veins || veins.lost) return;
++    glowSync = false;
++    const on = glWanted(t);
++    wrap.classList.toggle('gl-on', on);
++    if (!on) { tubesHidden = false; if (tubesHeld.size) flushTubes(); }
++    if (!on && tubesStale) { tubesStale = false; updateGeometry(true); }
++    const plateWas = plateOn();
++    wrap.classList.toggle('gl-plate', on && veins.hasPlate(0));
++    syncOrganDim();
++    if (!on) { if (vLook) { veins.clear(); vLook = null; vBinKey = ''; binShown = null; } return; }
++    if (!glOrgans) {
++      // The organ covers, rasterized once in world space (1.5 px per unit): tiers behind them fade.
++      const k = 1.5, c = document.createElement('canvas');
++      c.width = VIEW.w * k; c.height = VIEW.h * k;
++      const mc = c.getContext('2d');
++      mc.setTransform(k, 0, 0, k, 0, 0);
++      mc.lineCap = 'round'; mc.lineJoin = 'round';
++      mc.fillStyle = mc.strokeStyle = '#000';   // colour-exempt: a mask
++      const solid = new Path2D();
++      for (const { p, w } of getOrganCovers()) { if (w) { mc.lineWidth = w; mc.stroke(p); } else solid.addPath(p); }
++      mc.fill(solid);
++      veins.setOrgans(c, [0, 0, VIEW.w, VIEW.h]);
++      glOrgans = true; tubesNew = true;
++    }
++    const items = glItems();
++    const cs = wrapCS();
++    const mode = layerMode(), heat = mode === 'heat';
++    if (lensMode && mode !== lensMode && !reduceMotion.matches) { lensFrom = shownCol; lensT0 = performance.now(); }
++    lensMode = mode;
++    if (lensFrom && !lensFading()) lensFrom = null;
++    shownCol = new Map();
++    sendRadii(items);
+     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.
+     const reachOf = (it) => Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 18 + (heat ? 30 : 0)) / 2) * 2;
+     const key = `${geometryVersion}|${heat}|` + items.map((it) => it.row).join(',');
+@@ -3167,6 +3226,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo,
+     tubesNew = false;
+     glowMemo = { items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins.hasPlate(0), cls: wrap.className, bits: glowBits(items), reach: vLook.reach };
+     glowMemo.selK = selAKey();   // (the selection's ease sets the vessels' alpha, which the glow-only sync does not write)
++    glowMemo.wide = items.map((it) => it.x.width >= 3.4);   // (the sheen's width: syncRadiiOnly)
+     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
+     if (!plateWas && plateOn()) drawVeins();
+   }
+
