@@ -6196,17 +6196,20 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pfl-key text .v { font-weight: 700; fill: var(--text); font-variant-numeric: tabular-nums; }
 /* Treatment bands on the over-time charts (rx-bands.js). On the talk trace a soft band in the treatment's colour, its name in a
    deeper shade over the lines with a halo; the chart grows by the names' rows (talk-trace.js sets --band-room). On a flowtime
-   chart a bar per treatment under the clock. The bands are stronger on a dark card, where a faint tint disappears. */
+   chart the treatments' names on a row under the clock and a thin bar each, the chart taller by them (flow-time.js sets
+   --band-room). The bands are stronger on a dark card, where a faint tint disappears. */
 .pz-talk.has-bands { height: calc((var(--talk-h, 280px) + var(--band-room, 0px)) * var(--pz-fit, 1)); }
 .ptk-band rect { fill: var(--rx); opacity: .12; }
-.pft-band rect { fill: var(--rx); opacity: .72; }
-:is(.ptk-band-n, .pft-band text) { font: 600 1em var(--font-ui); fill: color-mix(in oklab, var(--rx) 62%, var(--text)); }
+.pft-band { fill: var(--rx); opacity: .8; }
+.pz-flowtime.has-bands { height: calc((var(--ft-h, max(60cqi, 15em)) + var(--band-room, 0em)) * var(--pz-fit, 1)); }
+@media (max-height: 960px) { .pz.stack .pz-flowtime.has-bands svg { max-height: calc(160px + var(--band-room, 0em)); } }   /* (a phone's cap, by as much) */
+:is(.ptk-band-n, .pft-band-n tspan) { font: 600 1em var(--font-ui); fill: color-mix(in oklab, var(--rx) 62%, var(--text)); }
 .ptk-band-n { paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 :root[data-theme="dark"] .ptk-band rect { opacity: .24; }
-:root[data-theme="dark"] :is(.ptk-band-n, .pft-band text) { fill: color-mix(in oklab, var(--rx) 72%, var(--text)); }
+:root[data-theme="dark"] :is(.ptk-band-n, .pft-band-n tspan) { fill: color-mix(in oklab, var(--rx) 72%, var(--text)); }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="soft"]) .ptk-band rect { opacity: .24; }
-  :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.ptk-band-n, .pft-band text) { fill: color-mix(in oklab, var(--rx) 72%, var(--text)); }
+  :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.ptk-band-n, .pft-band-n tspan) { fill: color-mix(in oklab, var(--rx) 72%, var(--text)); }
 }
 /* ── Package B: end ── */
 

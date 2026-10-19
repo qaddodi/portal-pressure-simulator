@@ -71,12 +71,12 @@ export function curveRuns(lines) {
   });
 }
 
-/** A placer for labels: boxes [x0, x1, y0, y1] inside [top, bottom], 5 px clear of every box placed before and of the
- *  given obstacles (hard), and as clear as can be of the lines (runs: polylines, each with its weight: the slide's own line
- *  counts most). free(b): nothing in the way; cost(b): the weight of the lines it touches, Infinity where it may not go. */
-export function labelPlacer(runs, obstacles, top, bottom, weights = []) {
+/** A placer for labels: boxes [x0, x1, y0, y1] inside [top, bottom], [gx, gy] clear of every box placed before and clear
+ *  of the given obstacles (hard), and as clear as can be of the lines (runs: polylines, each with its weight: the slide's
+ *  own line counts most). free(b): nothing in the way; cost(b): the weight of the lines it touches, Infinity where it may not go. */
+export function labelPlacer(runs, obstacles, top, bottom, weights = [], [gx, gy] = [9, 6]) {
   const segs = runs.flatMap((l, k) => l.slice(1).map((p, i) => [l[i], p, weights[k] ?? 1]));
-  const boxes = obstacles.slice();
+  const boxes = [];
   const lineCost = (b) => {
     let c = 0;
     const hit = new Set();
@@ -90,19 +90,25 @@ export function labelPlacer(runs, obstacles, top, bottom, weights = []) {
     }
     return c;
   };
-  const near = (b) => boxes.some((o) => b[0] < o[1] + 5 && o[0] < b[1] + 5 && b[2] < o[3] + 3 && o[2] < b[3] + 3);
+  // (Values gx apart side by side and gy over each other, as each one's halo is drawn outside its box; the dots and marks
+  // 2 px.)
+  const near = (b) => boxes.some((o) => b[0] < o[1] + gx && o[0] < b[1] + gx && b[2] < o[3] + gy && o[2] < b[3] + gy)
+    || obstacles.some((o) => b[0] < o[1] + 2 && o[0] < b[1] + 2 && b[2] < o[3] + 2 && o[2] < b[3] + 2);
   const cost = (b) => (b[2] < top || b[3] > bottom || near(b) ? Infinity : lineCost(b));
-  return { boxes, cost, free: (b) => cost(b) === 0, take(b) { boxes.push(b); } };
+  // (Where no place may be had: how much it overlaps, counting the gaps, so the least crowded one can be taken.)
+  const ov = (b, o, g, h) => Math.max(0, Math.min(b[1], o[1]) - Math.max(b[0], o[0]) + g) * Math.max(0, Math.min(b[3], o[3]) - Math.max(b[2], o[2]) + h);
+  const crowd = (b) => (b[2] < top || b[3] > bottom ? 1e9 : 0) + boxes.reduce((a, o) => a + ov(b, o, gx, gy), 0) + obstacles.reduce((a, o) => a + ov(b, o, 2, 2), 0);
+  return { boxes, cost, crowd, free: (b) => cost(b) === 0, take(b) { boxes.push(b); } };
 }
 
 /** Where each value goes: above its point, or under it, or a little to either side, where nothing is in the way (the lines
  *  as drawn, the dots, the other values, the axis); where no place is clear of every line, the one that touches the least
  *  of them (never the slide's own line if it can help it; the value's halo masks a reference line under it). pts: [[x, y]]
  *  of the line, others: other lines' points, extra: [[x, y]] points off the line with a value (labels follows pts then
- *  extra), dots: [x, y, r]. → [{ s: -1 above | 1 under | 0 beside, dx }] */
-export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity, left = -Infinity, right = Infinity, extra = [], dots = [], dotR = 0.36 * f } = {}) {
+ *  extra), dots: [x, y, r], obstacles: more boxes to keep clear of. → [{ s: -1 above | 1 under | 0 beside, dx }] */
+export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity, left = -Infinity, right = Infinity, extra = [], dots = [], dotR = 0.36 * f, obstacles = [] } = {}) {
   const P = curveRuns([pts, ...others]);
-  const place = labelPlacer(P, dots.map(([x, y, r]) => [x - r + 1.5, x + r - 1.5, y - r + 1.5, y + r - 1.5]), top, bottom, [4, ...others.map(() => 1)]);
+  const place = labelPlacer(P, [...dots.map(([x, y, r]) => [x - r + 1.5, x + r - 1.5, y - r + 1.5, y + r - 1.5]), ...obstacles], top, bottom, [4, ...others.map(() => 1)], [0.6 * f, 0.4 * f]);   // (in type sizes: the card's zoom shrinks the chart's px)
   const sides = [...pts, ...extra].map(([x, y], i) => {
     const wd = tw(labels[i]) / 2, sd = dotR + 5 + wd;
     const box = (s, dx) => (s < 0 ? [x + dx - wd, x + dx + wd, y - 1.55 * f, y - 0.6 * f] : s > 0 ? [x + dx - wd, x + dx + wd, y + 0.6 * f, y + 1.55 * f]
@@ -112,6 +118,7 @@ export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity,
     const tries = [[-1, 0], [1, 0], ...[0.45, 0.9].flatMap((k) => [[-1, k * wd], [-1, -k * wd], [1, k * wd], [1, -k * wd]]), [0, sd], [0, -sd]];
     let best = tries[0], bc = Infinity;
     for (const t of tries) { const c = fits(box(...t)) ? place.cost(box(...t)) : Infinity; if (c < bc) { bc = c; best = t; } if (c === 0) break; }
+    if (bc === Infinity) best = tries.filter((t) => fits(box(...t))).reduce((a, t) => (place.crowd(box(...t)) < place.crowd(box(...a)) ? t : a), tries[0]);
     const [s, dx] = best;
     place.take(box(s, dx));
     return { s, dx };
@@ -191,7 +198,7 @@ export function createProfileTool() {
     if (!sides) {
       const pg = ptsG(goal);
       sides = valueSides(pg, [hl, bf].filter(Boolean).map(ptsG), [...goal.v.map(one), ...(hasW ? [one(goal.w)] : [])], f, (t) => tw(t), G.T - 0.2 * f,
-        { bottom: G.B - 3, left: G.L + 2, right: G.R + 8, dotR, extra: hasW ? [[hx, yg(goal.w)]] : [], dots: [...pg.map(([x, yy]) => [x, yy, dotR + 1]), ...(hasW ? [[hx, yg(goal.w), dotR + 2.5]] : [])] });
+        { bottom: G.B - 3, left: G.L + 2, right: G.R + 8, dotR, obstacles: hasW ? [[hx + dotR + 1, hx + dotR + 8, Math.min(yg(goal.w), pg[hv][1]) - 2, Math.max(yg(goal.w), pg[hv][1]) + 2]] : [], extra: hasW ? [[hx, yg(goal.w)]] : [], dots: [...pg.map(([x, yy]) => [x, yy, dotR + 1]), ...(hasW ? [[hx, yg(goal.w), dotR + 2.5]] : [])] });
       sides.hvpgAt = null;
       if (hasW) {
         // (The HVPG's own label: beside its bracket, right then left, at its middle or a little up or down; else in the

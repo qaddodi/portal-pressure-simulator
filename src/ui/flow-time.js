@@ -91,6 +91,9 @@ export function createFlowTime() {
   const Yof = (band, sc) => (v) => band[1] - (band[1] - band[0]) * clamp((v - sc.min) / (sc.max - sc.min), 0, 1);
   const val = (arr, m) => { const j = clamp(Math.floor(m - ax().from), 0, arr.length - 2); return arr[j] + (arr[j + 1] - arr[j]) * clamp(m - ax().from - j, 0, 1); };
   let G = null;
+  // (The treatments under the clock: their names on one row, then a thin bar each. The chart is that much taller
+  // (styles/app.css .pz-flowtime.has-bands sets the same room, in em), so the plot keeps the height it has without them.)
+  const bandRoom = (f) => (rx.length ? (0.95 + 0.32 * rx.length) * f : 0);
   // The geometry for a chart w × h px in type f px.
   function geo(w, h, f) {
     const meal = clock !== 'days', keysL = LINES.map(([, , , c, name, unit]) => ({ c, name, unit, w: 22 + cw(name, f, 1) + 6 + cw(unit, f) }));
@@ -99,7 +102,7 @@ export function createFlowTime() {
     // (Right of the plot: the upper line's numbers, and the clock's unit in capitals after half its last number.)
     const half = cw(`+${ax().end}`, f) / 2 + 6, L = Math.ceil(tw(ser.pScale) + 8), R = Math.floor(w - Math.max(tw(ser.fScale) + 8, half + (meal ? 3 : 4) * f * 0.78 + 4));
     // (Room over the plot for the "Fasting" and "Meal" row, else for the upper line's value over its head.)
-    const T = legH + (meal ? 1.9 * f : 1.9 * f), B = h - 1.7 * f - rx.length * 1.35 * f, ph = Math.max(4 * f, B - T);
+    const T = legH + (meal ? 1.9 * f : 1.9 * f), B = h - 1.7 * f - bandRoom(f), ph = Math.max(4 * f, B - T);
     return { w, h, f, half, meal, keysL, oneRow, rowH, L, R, T, B, FB: [T, T + 0.36 * ph], PB: [T + 0.62 * ph, T + ph] };
   }
   const X = (m) => G.L + (G.R - G.L) * (m - ax().from) / (ax().end - ax().from);
@@ -136,14 +139,12 @@ export function createFlowTime() {
     // (The upper band's numbers shown in the right margin, as boxes a line's value keeps clear of.)
     const showF = shows(ser.fScale, lf.Y);
     const boxes = ser.fScale.ticks.flatMap((v, j) => (showF(j) ? [[R + 6, R + 6 + cw(fmt(v, dec(ser.fScale)), f), lf.Y(v) - 0.45 * f, lf.Y(v) + 0.55 * f]] : []));
-    // Each treatment on through the whole time-lapse: a row of its own under the clock, its name and then a bar in its colour
-    // over the whole time (the time-lapse runs on the slide's own params), so no line, value or number can run into it.
-    const bandEls = rx.map((k, j) => {
-      const y0 = B + 1.75 * f + j * 1.35 * f, nw = cw(RX[k][0], f, true) + 0.6 * f;
-      return sv('g', { class: 'pft-band', 'data-rx': k, style: `--rx: var(${RX[k][2]})` },
-        sv('text', { x: L, y: y0 + 0.95 * f }, RX[k][0]),
-        sv('rect', { x: L + nw, width: Math.max(2, R - L - nw), y: y0 + 0.42 * f, height: 0.42 * f, rx: 0.21 * f }));
-    });
+    // Each treatment on through the whole time-lapse (it runs on the slide's own params): its name in its colour on one row
+    // under the clock, then a thin bar each in the same order and colour, over the plot's whole time, so every bar starts
+    // where the treatment does and no line, value or number can run into them.
+    const bandEls = rx.length ? sv('g', { class: 'pft-bands' },
+      sv('text', { class: 'pft-band-n', x: L, y: B + 2.3 * f }, rx.map((k, j) => sv('tspan', { style: `--rx: var(${RX[k][2]})` }, (j ? '  ·  ' : '') + RX[k][0]))),
+      rx.map((k, j) => sv('rect', { class: 'pft-band', 'data-rx': k, style: `--rx: var(${RX[k][2]})`, x: L, width: Math.max(2, R - L), y: B + 2.55 * f + j * 0.32 * f, height: 0.2 * f, rx: 0.1 * f }))) : null;
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${G.f.toFixed(2)}px` },
       bandEls, grid(ser.fScale, lf.Y, R + 6, 'start', lf.c), grid(ser.pScale, lp.Y, L - 6, 'end', lp.c), legend,
       sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
@@ -230,7 +231,11 @@ export function createFlowTime() {
     },
     /** The slide's tool and context (presenter-tools.js show): bands names the treatments to draw, each shown when the
      *  slide's state has it on (its time-lapse runs on the slide's own params). */
-    configure(t, ctx) { rx = bandKeys(t).filter((k) => RX[k][1](ctx?.params)); },
+    configure(t, ctx) {
+      rx = bandKeys(t).filter((k) => RX[k][1](ctx?.params));
+      el.classList.toggle('has-bands', rx.length > 0);
+      el.style.setProperty('--band-room', `${rx.length ? 0.95 + 0.32 * rx.length : 0}em`);
+    },
     update() {}, clear() {},
   };
 }

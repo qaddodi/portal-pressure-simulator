@@ -28,11 +28,11 @@ import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { createDoppler } from './doppler.js?v=91db8880d8';
 import { createFibroScan } from './fibroscan.js?v=81ca55ce21';
 import { createPressureTime } from './pressure-time.js?v=2a0658ccaf';
-import { createFlowTime } from './flow-time.js?v=7745b69c5b';
+import { createFlowTime } from './flow-time.js?v=f33396750b';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=bc16074767';
 import { frameFor } from './frame.js?v=67ca200c87';
 import { talkTrace } from './talk-trace.js?v=00e86cfb36';
-import { EXT, guard, safe } from './slide-ext.js?v=25cf089f0e';
+import { EXT, guard, safe } from './slide-ext.js?v=f7e268f373';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
