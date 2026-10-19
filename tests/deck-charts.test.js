@@ -8,7 +8,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
-import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel, BRACE_NAME, SPANS, placeBrackets, bracketBox, BR_PAD } from '../src/ui/tool-profile.js';
+import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel, bracketFit, BR_CLEAR, BR_MIN, BRACE_NAME, SPANS, placeBrackets, bracketBox, BR_PAD } from '../src/ui/tool-profile.js';
 import { flowParts, routeFlows, wholeShares, flowView, MAX_ROUTES, flowLayout, LABEL_GAP } from '../src/ui/tool-flows.js';
 import { milePlaces } from '../src/ui/talk-trace.js';
 import { RX, bandKeys, bandRuns, bandSpan, namePlaces } from '../src/ui/rx-bands.js';
@@ -145,9 +145,12 @@ test('a bracket\'s label stays between its two ends, clear of the other labels, 
     assert.ok(f >= 12);
     const boxes = SPANS.map(([, name, a, b], r) => {
       const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), yy = G.brY(r);
-      return ['2.4', '14.8', '23.7', '00.0'].map((val) => {
-        const lb = bracketLabel(x0, x1, tw(`${name} ${val}`, 700), [tw(name, 600), tw(val, 700)]);
-        const stack = G.brMode[r] === 'stack', wd = stack ? Math.max(tw(name, 600), tw(val, 700)) : tw(`${name} ${val}`, 700);
+      return ['2', '15', '24', '00'].map((val) => {
+        // (On one line at the bracket's own type size, never under 12 px: Mohammad, 19 Oct.)
+        const fs = G.brFs[r], z = fs / f;
+        assert.ok(fs >= 12 && fs <= f, `${w}x${h} at ${f} px: ${name} at ${fs} px`);
+        const lb = bracketLabel(x0, x1, z * tw(`${name} ${val}`, 700), [z * tw(name, 600), z * tw(val, 700)]);
+        const stack = G.brMode[r] === 'stack', wd = stack ? Math.max(tw(name, 600), tw(val, 700)) : z * tw(`${name} ${val}`, 700);
         if (stack) stacked++; else if (G.brMode[r] === 'tight') tight++;
         const box = [lb.x - wd / 2, lb.x + wd / 2, stack ? yy - 0.19 * f - cap : yy + 0.36 * f - cap, stack ? yy + 0.91 * f : yy + 0.36 * f];
         assert.ok(box[0] >= x0 + 3 && box[1] <= x1 - 3, `${w}x${h} at ${f} px: ${name} ${val} between its ends (${box[0].toFixed(1)}–${box[1].toFixed(1)} in ${x0.toFixed(1)}–${x1.toFixed(1)})`);
@@ -165,6 +168,41 @@ test('a bracket\'s label stays between its two ends, clear of the other labels, 
   assert.ok(stacked > 0 && tight > 0, `narrow cards stack or tighten the label (stacked ${stacked}, tight ${tight})`);
   // (A Mac card's full width, as on Sites 5 under the words: the label on one line with the bar each side of it.)
   assert.deepEqual(profileGeo(600, 200, 12, wide(12)).brMode, ['gap', 'gap']);
+});
+
+test('the HVPG label goes on one line in smaller type before it stacks its name over its value', () => {
+  // (Mohammad, 19 Oct, on a Mac: "HVPG can fit in one line inside the bracket, can make it smaller text".)
+  const wide = (f) => (t, wt = 600) => [...t].reduce((a, c) => a + (/[A-Z]/.test(c) ? 0.8 : /[0-9]/.test(c) ? 0.62 : 0.32) * f * (wt >= 700 ? 1.04 : 1), 0);
+  const tw = wide(15), wd = tw('HVPG 00', 700);
+  assert.deepEqual(bracketFit(wd + 2 * BR_CLEAR + 1, 'HVPG', tw, 15), { mode: 'tight', fs: 15 });
+  const small = bracketFit(0.97 * wd, 'HVPG', tw, 15);
+  assert.equal(small.mode, 'tight');
+  assert.ok(small.fs < 15 && small.fs >= BR_MIN && wd * small.fs / 15 <= 0.97 * wd - 2 * BR_CLEAR + 1e-9, `${small.fs} px fits`);
+  // (Never under 12 px: a span too short even then stacks, at the chart's size.)
+  assert.deepEqual(bracketFit(0.5 * wd, 'HVPG', tw, 15), { mode: 'stack', fs: 15 });
+  // (A Mac card beside its tiles, 12 px type: one line, not stacked.)
+  for (const [w, f] of [[335, 12], [352, 13.8], [552, 15.6]]) assert.notEqual(profileGeo(w, 260, f, wide(f)).brMode[0], 'stack', `${w} px at ${f}: HVPG on one line`);
+});
+
+test('a new state keeps each bracket on its row while that row stays clear, and moves it to the nearest clear row', async () => {
+  // (Mohammad, 19 Oct: "HVPG and PPG keep jumping up and down".)
+  const [hl, csph, comp] = (await runSteps([{ preset: 'healthy' }, { preset: 'csph' }, { preset: 'cirr-comp' }])).map(profileOf);
+  const f = 12, w = 335, h = 300, tw = approxW(f), G = profileGeo(w, h, f, tw, true);
+  const goalOf = (g) => ({ ...g, top: axisTop(g, hl, null) }), sides = (goal) => goal.v.map((v, i) => ({ box: [G.x(i) - 8, G.x(i) + 8, 0, 0] }));
+  const a = goalOf(csph), brk = placeBrackets(G, tw, a, hl, null, sides(a));
+  assert.ok(brk);
+  // (The same state again, from where they stand: unchanged.)
+  assert.deepEqual(placeBrackets(G, tw, a, hl, null, sides(a), brk), brk);
+  // (A nudged state, the numbers a hair different: still unchanged.)
+  const nudged = goalOf({ ...csph, v: csph.v.map((v) => v + 0.05) });
+  assert.deepEqual(placeBrackets(G, tw, nudged, hl, null, sides(nudged), brk), brk);
+  // (Another state: wherever they go, each row is clear, and a row that stays clear is kept.)
+  const b = goalOf(comp), fresh = placeBrackets(G, tw, b, hl, null, sides(b)), moved = placeBrackets(G, tw, b, hl, null, sides(b), brk);
+  if (fresh) {
+    assert.ok(moved);
+    const clear = placeBrackets(G, tw, b, hl, null, sides(b), moved);
+    assert.deepEqual(clear, moved, 'the rows it moved to are clear rows');
+  }
 });
 
 test('on the resistance profiles no value touches a line or a word, and each is clearly its own dot\'s', async () => {
