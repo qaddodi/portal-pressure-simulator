@@ -6347,6 +6347,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-plot.pze-incard { height: clamp(200px, calc(30 * var(--pzh)), 360px); min-height: 0; font-size: var(--ch-cap, var(--s-cap)); }
 .pz.stack .pze-plot.pze-incard { height: 168px; aspect-ratio: auto; }
 .pz.low .pze-plot.pze-incard { height: 132px; }
+.pze-plot.pze-incard.pze-ownwords { height: calc(clamp(200px, calc(30 * var(--pzh)), 360px) + 1.3em + 6px); }   /* (a plane whose zones name themselves has no key under it in the card: the plot takes the key's room) */
+.pz.stack .pze-plot.pze-incard.pze-ownwords { height: calc(168px + 1.3em + 6px); }
+.pz.low .pze-plot.pze-incard.pze-ownwords { height: calc(132px + 1.3em + 6px); }
 .pze-plot svg { position: absolute; inset: 0; display: block; overflow: visible; }
 .pze-zone { fill: var(--surface-2); }
 .pze-zone[data-tone="ok"] { fill: var(--pze-ok); }
@@ -6368,7 +6371,12 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-pt text { fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .pze-lead { stroke: var(--text-2); stroke-width: 1; opacity: .7; }
 .pze-ring { transition: transform .7s var(--ease), opacity .4s var(--ease); }
-.pze-ring circle { fill: none; stroke: var(--text); stroke-width: 3; }
+.pze-ring .pze-halo { fill: var(--surface); }   /* (the clear gap around the case's dot, in the card's own colour) */
+.pze-ring .pze-dot { fill: var(--text); }
+.pze-cwords .pze-zt { transition: opacity .15s var(--ease); }
+.pze-zt.pze-onl[data-tone="ok"] { paint-order: stroke; stroke: var(--pze-ok); stroke-width: 6px; stroke-linejoin: round; }   /* (words that must sit across a line inside their zone hide it) */
+.pze-zt.pze-onl[data-tone="mid"] { paint-order: stroke; stroke: var(--pze-mid); stroke-width: 6px; stroke-linejoin: round; }
+.pze-zt.pze-onl[data-tone="hi"] { paint-order: stroke; stroke: var(--pze-hi); stroke-width: 6px; stroke-linejoin: round; }
 .pze-ckey { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 12px; margin: 6px 0 0; padding: 0; list-style: none; font-size: var(--ch-cap, var(--s-cap)); color: var(--text-2); }
 .pze-ckey li { display: inline-flex; align-items: center; gap: .35em; white-space: nowrap; }
 .pze-ckey i { width: .8em; height: .8em; border-radius: 2px; background: var(--surface-3); }

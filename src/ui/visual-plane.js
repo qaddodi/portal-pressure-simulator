@@ -10,7 +10,8 @@
 // `when` lists conditions [key, op, value] (op one of < <= > >=) that all hold; the first zone whose conditions hold names a
 // point's zone, and one with no `when` is the rest of the plane. A box is an outlined zone drawn over the others (a deck's
 // own; the CSPH plane's "no screening scope" box was taken out at Mohammad's word, 19 Oct). cuts: the cut-off lines, { x: [..], y: [..] }. key: false leaves the zones' key off the summary, the
-// plot taking its width, where the zones' own words say it all (HVPG against PPG, Mohammad 19 Oct); every zone is then named. Zone words are the guideline's, checked against
+// plot taking its width, where the zones' own words say it all (HVPG against PPG, Mohammad 19 Oct); every zone is then named.
+// key: 'never' leaves it off everywhere, the data card and an iPhone too (the CSPH plane, whose zones are wide enough to name themselves). Zone words are the guideline's, checked against
 // /mnt/project-files/guidelines/baveno8-aasld.md before a deck uses them.
 //
 // Everything that decides a place or a size is a pure function here (tests/panels-e.test.js); the drawing is at the
@@ -45,13 +46,17 @@ export const PLANES = {
   csph: {
     x: { key: 'lsm', min: 0, max: 40, ticks: [0, 10, 15, 20, 25, 40], name: 'Liver stiffness, kPa', short: 'Stiffness, kPa' },
     y: { key: 'plt', min: 0, max: 300, ticks: [0, 100, 150, 300], name: 'Platelets, ×10³/µL', short: 'Platelets' },
+    // (Mohammad's three words, 19 Oct: "No CSPH", "CSPH" and "Indeterminate", each on its own zone and no key. at: the middle of
+    // the zone's largest open part, the amber L's lower band; edges: its cut-offs only where zones meet.)
     zones: [
-      { when: [['lsm', '>=', 25]], t: 'CSPH ruled in', short: 'Ruled in', tone: 'hi', note: '25 kPa or more (not in obese MASLD)' },
-      { when: [['lsm', '<=', 15], ['plt', '>=', 150]], t: 'CSPH ruled out', short: 'Ruled out', tone: 'ok', note: '15 kPa or less with platelets 150 or more' },
-      { t: 'Gray zone', short: 'Gray zone', tone: 'mid', at: [8, 50], note: 'A model or spleen stiffness decides' },
+      { when: [['lsm', '>=', 25]], t: 'CSPH', tone: 'hi', at: [32.5, 225], note: '25 kPa or more (not in obese MASLD)' },
+      { when: [['lsm', '<=', 15], ['plt', '>=', 150]], t: 'No CSPH', tone: 'ok', at: [7.5, 225], note: '15 kPa or less with platelets 150 or more' },
+      { t: 'Indeterminate', tone: 'mid', at: [12.5, 75], note: 'A model or spleen stiffness decides' },
     ],
     cuts: { x: [15, 25], y: [150] },
     source: 'Baveno VIII 1.15, 1.16',
+    key: 'never',
+    edges: true,
   },
   'hvpg-ppg': {
     x: { key: 'hvpg', min: 0, max: 30, ticks: [0, 5, 10, 20, 30], name: 'HVPG, mmHg', short: 'HVPG' },
@@ -121,12 +126,37 @@ export function crosses(ax, ay, bx, by, o) {
   for (let i = 0; i <= n; i++) { const x = ax + (bx - ax) * i / n, y = ay + (by - ay) * i / n; if (x > o[0] && x < o[2] && y > o[1] && y < o[3]) return true; }
   return false;
 }
+/** The cut-off lines in px, { x1, y1, x2, y2 }: across the whole plot, or with edges: true only where two zones meet, so a zone
+ *  reads as one shape (the CSPH plane's amber L, Mohammad 19 Oct: one "Indeterminate" zone, its words with room). */
+export function cutSegs(pl, X, Y, fr) {
+  const out = [], x0 = pl.x.min ?? 0, y0 = pl.y.min ?? 0;
+  const seg = (along, lo, hi, differ, mk) => {
+    // (Sampled at 1/400 of the axis: a run of samples where the zones either side differ is one segment.)
+    const n = 400, st = (hi - lo) / n;
+    let from = null;
+    for (let i = 0; i <= n; i++) {
+      const t = lo + i * st, d = i < n && differ(t + st / 2);
+      if (d && from == null) from = t;
+      if (!d && from != null) { out.push(mk(from, t)); from = null; }
+    }
+  };
+  for (const v of pl.cuts?.x || []) {
+    if (!pl.edges) { out.push({ x1: X(v), x2: X(v), y1: fr.T, y2: fr.B }); continue; }
+    const e = (pl.x.max - x0) / 1000;
+    seg('y', y0, pl.y.max, (y) => zoneOf(pl, { [pl.x.key]: v - e, [pl.y.key]: y }) !== zoneOf(pl, { [pl.x.key]: v + e, [pl.y.key]: y }), (a, b) => ({ x1: X(v), x2: X(v), y1: Y(a), y2: Y(b) }));
+  }
+  for (const v of pl.cuts?.y || []) {
+    if (!pl.edges) { out.push({ x1: fr.L, x2: fr.R, y1: Y(v), y2: Y(v) }); continue; }
+    const e = (pl.y.max - y0) / 1000;
+    seg('x', x0, pl.x.max, (x) => zoneOf(pl, { [pl.x.key]: x, [pl.y.key]: v - e }) !== zoneOf(pl, { [pl.x.key]: x, [pl.y.key]: v + e }), (a, b) => ({ x1: X(a), x2: X(b), y1: Y(v), y2: Y(v) }));
+  }
+  return out;
+}
 /** The plane's lines as thin boxes words keep clear of: the cut-offs and the outlined boxes' edges. */
 export function lineBoxes(pl, X, Y, fr) {
   const out = [];
   // (4 px either side, so a word never sits against a line either.)
-  for (const v of pl.cuts?.x || []) out.push([X(v) - 4, fr.T, X(v) + 4, fr.B]);
-  for (const v of pl.cuts?.y || []) out.push([fr.L, Y(v) - 4, fr.R, Y(v) + 4]);
+  for (const c of cutSegs(pl, X, Y, fr)) out.push([Math.min(c.x1, c.x2) - 4, Math.min(c.y1, c.y2) - 4, Math.max(c.x1, c.x2) + 4, Math.max(c.y1, c.y2) + 4]);
   for (const b of pl.boxes || []) {
     const [x0, x1, y0, y1] = zoneRect(pl, b), L = X(x0), R = X(x1), T = Y(y1), B = Y(y0);
     out.push([L - 2, T, L + 2, B], [R - 2, T, R + 2, B], [L, T - 2, R, T + 2], [L, B - 2, R, B + 2]);
@@ -242,7 +272,7 @@ export const zoneRect = (pl, z) => {
  *  used: boxes already taken (names, lines); dots: the points' boxes. Words with no clear place are left out where the key
  *  names them; with no key (pl.key === false, the summary) they search the whole zone, so every zone keeps its words. */
 export function placeZoneWords(pl, fr, X, Y, fs, used, dots, card = false, only = null, choose = null) {
-  const out = [], taken = [...used], lh = fs * 1.2, noKey = pl.key === false && !card;
+  const out = [], taken = [...used], lh = fs * 1.2, noKey = (pl.key === false || pl.key === 'never') && !card;
   const words = (z, cls) => {
     const [x0, x1, y0, y1] = zoneRect(pl, z), wpx = Math.min(X(x1), fr.R) - Math.max(X(x0), fr.L) - 12;
     // (A zone listed earlier lies over this one's rectangle, so its words keep out of it.)
@@ -306,7 +336,7 @@ export function layoutPlane(pl, fr, X, Y, fs, at, card = false) {
   const rules = lineBoxes(pl, X, Y, fr), dots = at.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]);
   const boxesOf = (ns) => ns.filter(Boolean).map((n) => n.box);
   let names = placeNames(at, fr, fs, 8, rules), words = placeZoneWords(pl, fr, X, Y, fs, [...boxesOf(names), ...rules], dots, card);
-  const missing = pl.key === false && !card ? pl.zones.filter((z) => !words.some((w) => w.z === z)) : [];
+  const missing = (pl.key === false || pl.key === 'never') && !card ? pl.zones.filter((z) => !words.some((w) => w.z === z)) : [];
   if (missing.length) {
     // (Each of them where it leaves the names best placed: all of them named, the fewest out on a line, then the nearest.)
     const score = (ns) => [ns.filter((n) => !n).length, ns.filter((n) => n?.lead).length, ns.reduce((s, n, i) => s + (n ? Math.hypot(Math.max(n.box[0] - at[i].x, 0, at[i].x - n.box[2]), Math.max(n.box[1] - at[i].y, 0, at[i].y - n.box[3])) : 0), 0)];
@@ -328,6 +358,63 @@ export function layoutPlane(pl, fr, X, Y, fs, at, card = false) {
   return { rules, names, words, dots };
 }
 
+/** The data card's dot for the slide's case, in proportion to the plot: its radius r and the clear gap g around it, px. */
+export function dotSize(fr) {
+  const m = Math.min(fr.R - fr.L, fr.B - fr.T), r = clamp(m * 0.025, 4, 6.5);
+  return { r, g: clamp(r * 0.6, 2.5, 4) };
+}
+/** The circles [x, y, radius] the zones' words keep out of for the card's dot: the dot and its gap plus 4 px, where it stands
+ *  and, when it moves, all along its way from where it was (at, from: { x, y } in px; R: the dot's radius with its gap). */
+export function dotBoxes(at, from, R) {
+  if (!at) return [];
+  const k = R + 4, box = (x, y) => [x, y, k];
+  if (!from || (Math.abs(from.x - at.x) < 0.5 && Math.abs(from.y - at.y) < 0.5)) return [box(at.x, at.y)];
+  const n = Math.max(1, Math.ceil(Math.hypot(at.x - from.x, at.y - from.y) / 4)), out = [];
+  for (let i = 0; i <= n; i++) out.push(box(from.x + (at.x - from.x) * i / n, from.y + (at.y - from.y) * i / n));
+  return out;
+}
+/** Every zone's words in the data card, each in its own zone, nearest the zone's point (`at`, else its middle): [{ z, x, y, lines,
+ *  fs, box, onLine }], x the words' middle and y the first line's baseline. They keep clear of the dot (avoid: dotBoxes), of
+ *  each other and of the cut-off lines; at the card's caption size first, then smaller down to 12 px (never below, never cut
+ *  short). Only where a zone has no room between its lines do its words sit across one inside it (onLine: the line hides
+ *  behind them). */
+export function placeCardWords(pl, fr, X, Y, fs, avoid = []) {
+  // (o: a box [x0, y0, x1, y1], or a circle [x, y, r] the box must keep out of.)
+  const rules = lineBoxes(pl, X, Y, fr), out = [];
+  const hit = (b, o) => (o.length === 3 ? Math.hypot(Math.max(b[0] - o[0], 0, o[0] - b[2]), Math.max(b[1] - o[1], 0, o[1] - b[3])) < o[2] : b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
+  const sizes = [fs, ...[fs - 1, fs - 2, 12].filter((v, i, a) => v >= 12 && v < fs && a.indexOf(v) === i)];
+  for (const z of pl.zones) {
+    const [x0, x1, y0, y1] = zoneRect(pl, z), i = pl.zones.indexOf(z);
+    const zl = Math.max(X(x0), fr.L) + 4, zr = Math.min(X(x1), fr.R) - 4, zt = Math.max(Y(y1), fr.T) + 4, zb = Math.min(Y(y0), fr.B) - 4;
+    // (A zone listed earlier lies over this one's rectangle, so its words keep 4 px out of it.)
+    const over = pl.zones.slice(0, i).map((o) => { const [a0, a1, b0, b1] = zoneRect(pl, o); return [X(a0) - 4, Y(b1) - 4, X(a1) + 4, Y(b0) + 4]; });
+    const [cx, cy] = z.at ? [X(z.at[0]), Y(z.at[1])] : [(zl + zr) / 2, (zt + zb) / 2];
+    let done = null;
+    for (const strict of [true, false]) {
+      for (const px of sizes) {
+        // (On one line, else on two, so the words can sit beside the dot where it stands in a small zone's middle.)
+        const lh = px * 1.2, sp = [...z.t.matchAll(/ /g)].map((m) => [z.t.slice(0, m.index), z.t.slice(m.index + 1)])
+          .sort((a, b) => Math.max(...a.map((l) => l.length)) - Math.max(...b.map((l) => l.length)))[0];
+        const forms = [[z.t], sp].filter((ls) => ls && Math.max(...ls.map((l) => est(l, px, 0.62))) <= zr - zl);
+        for (const lines of forms) {
+          const w = Math.max(...lines.map((l) => est(l, px, 0.62))), up = px * 0.85, hgt = up + (lines.length - 1) * lh + px * 0.25;
+          let best = null, bd = Infinity;
+          for (let top = zt; top + hgt <= zb; top += 2) for (let left = zl; left + w <= zr; left += 2) {
+            const b = [left, top, left + w, top + hgt], d = Math.hypot(left + w / 2 - cx, top + hgt / 2 - cy);
+            if (d >= bd || over.some((o) => hit(b, o)) || avoid.some((o) => hit(b, o)) || out.some((o) => hit(b, o.box)) || (strict && rules.some((o) => hit(b, o)))) continue;
+            best = b, bd = d;
+          }
+          if (best) { done = { z, x: (best[0] + best[2]) / 2, y: best[1] + up, lines, fs: px, box: best, onLine: !strict && rules.some((o) => hit(best, o)) }; break; }
+        }
+        if (done) break;
+      }
+      if (done) break;
+    }
+    if (done) out.push(done);
+  }
+  return out;
+}
+
 // ── Drawing ──
 const SVGNS = 'http://www.w3.org/2000/svg';
 const sv = (tag, attrs = {}, ...kids) => {
@@ -342,11 +429,15 @@ const unitOf = (k) => TILE[k]?.u || '';
 /** The plot itself: an element whose CSS gives it a size; draw(points, ring) redraws it at that size.
  *  points: [{ f, name, site }]; ring: the case's fingerprint or null. */
 export function planePlot(pl, { card = false } = {}) {
-  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : ''), role: 'img' });
+  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : ''), role: 'img' });
   const svg = sv('svg', { class: 'pze-plane', 'aria-hidden': 'true' });
-  const ringG = sv('g', { class: 'pze-ring' }, sv('circle', { r: 9 }));
+  // (The drawing redraws in base; the card's zone words and its dot stay the same elements, so they ease from where they were.)
+  const halo = sv('circle', { class: 'pze-halo' }), dot = sv('circle', { class: 'pze-dot' });
+  const base = sv('g'), wordsG = sv('g', { class: 'pze-cwords' }), ringG = sv('g', { class: 'pze-ring' }, halo, dot);
+  svg.append(base, wordsG, ringG);
   el.append(svg);
-  let pts = [], ring = null, size = '';
+  const cardWords = new Map();   // (zone → its text element in the card)
+  let pts = [], ring = null, size = '', was = null, sizeWas = '';
   const draw = () => {
     const W = el.clientWidth, H = el.clientHeight;
     if (!W || !H) return;
@@ -367,7 +458,7 @@ export function planePlot(pl, { card = false } = {}) {
     const at = pts.filter((p) => Number.isFinite(p.f?.[pl.x.key]) && Number.isFinite(p.f?.[pl.y.key])).map((p) => ({ ...p, x: X(p.f[pl.x.key]), y: Y(p.f[pl.y.key]) }));
     // (No words ever sit on a line. Each zone's words in its corner, the rest of the plane at its own point, only where they
     // fit whole.)
-    const { names, words } = layoutPlane(pl, fr, X, Y, fs, at, card);
+    const { names, words } = card ? { names: [], words: [] } : layoutPlane(pl, fr, X, Y, fs, at, card);
     for (const b of pl.boxes || []) {
       const [x0, x1, y0, y1] = zoneRect(pl, b);
       kids.push(sv('rect', { class: 'pze-box', x: X(x0), y: Y(y1), width: X(x1) - X(x0), height: Y(y0) - Y(y1) }));
@@ -376,8 +467,7 @@ export function planePlot(pl, { card = false } = {}) {
       kids.push(sv('text', { class: 'pze-zt ' + w.cls, 'data-tone': w.z.tone || 'none', x: w.x, y: w.y, 'text-anchor': w.anchor, style: `font-size:${fs}px` }, w.lines.map((l, i) => sv('tspan', { x: w.x, dy: i ? fs * 1.2 : null }, l))));
     }
     // The cut-off lines, the axes and their ticks.
-    for (const v of pl.cuts?.x || []) kids.push(sv('line', { class: 'pze-cut', x1: X(v), x2: X(v), y1: fr.T, y2: fr.B }));
-    for (const v of pl.cuts?.y || []) kids.push(sv('line', { class: 'pze-cut', x1: fr.L, x2: fr.R, y1: Y(v), y2: Y(v) }));
+    for (const c of cutSegs(pl, X, Y, fr)) kids.push(sv('line', { class: 'pze-cut', ...c }));
     kids.push(sv('line', { class: 'pze-axis', x1: fr.L, x2: fr.R, y1: fr.B, y2: fr.B }), sv('line', { class: 'pze-axis', x1: fr.L, x2: fr.L, y1: fr.T, y2: fr.B }));
     const on = (a, v) => (pl.cuts?.[a] || []).includes(v);
     // (x ticks that would touch drop out, the cut-offs kept first)
@@ -394,13 +484,45 @@ export function planePlot(pl, { card = false } = {}) {
       kids.push(sv('g', { class: 'pze-pt', 'data-site': p.site || 'none', style: `--i:${i}` }, n?.lead ? sv('line', { class: 'pze-lead', x1: p.x, y1: p.y, x2: n.lead[0], y2: n.lead[1] }) : null, sv('circle', { cx: p.x, cy: p.y, r: 8 }),
         n ? sv('text', { x: n.x, y: n.y, 'text-anchor': n.anchor, style: `font-size:${fs}px` }, n.lines.map((l, j) => sv('tspan', { x: n.x, dy: j ? fs * 1.2 : null }, l))) : null));
     });
-    // The slide's case: a ring that eases from where it was (a transform, so Safari eases it too).
-    if (ring && Number.isFinite(ring[pl.x.key]) && Number.isFinite(ring[pl.y.key])) {
-      ringG.style.transform = `translate(${X(ring[pl.x.key]).toFixed(1)}px, ${Y(ring[pl.y.key]).toFixed(1)}px)`;
+    // The slide's case: a dot in proportion to the plot, a gap in the card's colour around it, that eases from where it was (a
+    // transform, so Safari eases it too).
+    const { r, g } = dotSize(fr), has = ring && Number.isFinite(ring[pl.x.key]) && Number.isFinite(ring[pl.y.key]);
+    const now = has ? { x: X(ring[pl.x.key]), y: Y(ring[pl.y.key]) } : null;
+    halo.setAttribute('r', (r + g).toFixed(1)); dot.setAttribute('r', r.toFixed(1));
+    if (now) {
+      ringG.style.transform = `translate(${now.x.toFixed(1)}px, ${now.y.toFixed(1)}px)`;
       ringG.style.opacity = '1';
     } else ringG.style.opacity = '0';
-    kids.push(ringG);
-    svg.replaceChildren(...kids);
+    // The card's zones name themselves, clear of the dot where it stands and all along its way there.
+    if (card) {
+      // (Where the dot's whole way leaves a zone no room, its words keep clear of where the dot ends.)
+      let cw = placeCardWords(pl, fr, X, Y, fs, dotBoxes(now, sizeWas === size ? was : null, r + g));
+      if (cw.length < pl.zones.length) { const end = placeCardWords(pl, fr, X, Y, fs, dotBoxes(now, null, r + g)); if (end.length > cw.length) cw = end; }
+      for (const [z, t] of cardWords) if (!cw.some((w) => w.z === z)) t.remove(), cardWords.delete(z);
+      for (const w of cw) {
+        let t = cardWords.get(w.z);
+        const pos = `translate(${w.x.toFixed(1)}px, ${w.y.toFixed(1)}px)`, body = w.lines.join('\n') + '|' + w.fs;
+        if (!t) {
+          t = sv('text', { class: 'pze-zt pze-zw', 'data-tone': w.z.tone || 'none', 'text-anchor': 'middle' });
+          t.style.transform = pos; t.dataset.pos = pos;
+          cardWords.set(w.z, t); wordsG.append(t);
+        } else if (t.dataset.pos !== pos) {
+          t.dataset.pos = pos;
+          // (Moving out of the dot's way: out quickly before the dot gets there, back in at its new place.)
+          t.style.opacity = '0';
+          clearTimeout(t._mv);
+          t._mv = setTimeout(() => { t.style.transform = pos; t.style.opacity = ''; }, 150);
+        }
+        if (t.dataset.body !== body) {
+          t.dataset.body = body;
+          t.style.fontSize = `${w.fs}px`;
+          t.replaceChildren(...w.lines.map((l, j) => sv('tspan', { x: 0, dy: j ? w.fs * 1.2 : null }, l)));
+        }
+        t.classList.toggle('pze-onl', w.onLine);
+      }
+    }
+    was = now; sizeWas = size;
+    base.replaceChildren(...kids);
     el.setAttribute('aria-label', `${pl.y.name} against ${pl.x.name}` + (at.length ? ': ' + at.map((p) => `${p.name}, ${valOf(pl.x.key, p.f[pl.x.key])} and ${valOf(pl.y.key, p.f[pl.y.key])}, ${zoneOf(pl, p.f)?.t || ''}`).join('; ') : '')
       + (ring ? `; this patient ${valOf(pl.x.key, ring[pl.x.key])} ${unitOf(pl.x.key)} and ${valOf(pl.y.key, ring[pl.y.key])} ${unitOf(pl.y.key)}, ${zoneOf(pl, ring)?.t || ''}` : ''));
   };
@@ -438,13 +560,15 @@ export function planeVisual(s, ctx, rowsFp) {
   const pl = planeOf(s.plane);
   if (!pl) return null;
   const plot = planePlot(pl);
-  const wrap = h('div', { class: 'pz-visual pze-planewrap' + (pl.key === false ? ' pze-nokey' : '') }, plot.el, planeKey(pl));   // (key: false hides it but on an iPhone, app.css)
+  // (key: false hides it but on an iPhone, app.css; key: 'never' leaves only the source line under the plot.)
+  const wrap = h('div', { class: 'pz-visual pze-planewrap' + (pl.key === false || pl.key === 'never' ? ' pze-nokey' : '') }, plot.el,
+    pl.key === 'never' ? (pl.source ? h('p', { class: 'pze-src' }, pl.source) : null) : planeKey(pl));
   rowsFp(s, ctx, (rows) => plot.set(rows.map((r) => ({ f: r.f, name: r.name, short: r.short, site: r.site }))));
   return wrap;
 }
 /** A tool's plane: its plane field, its own x, y and zones, or the CSPH plane. */
 export const toolPlane = (t) => planeOf(t?.plane ?? (t?.x || t?.y || t?.zones ? { x: t.x, y: t.y, zones: t.zones, base: t.base } : 'csph'));
-/** The data card's instrument: the slide's case as a ring on the plane, its reading under it. */
+/** The data card's instrument: the slide's case as a dot on the plane, its reading under it. */
 export function createPlaneTool() {
   const el = h('div', { class: 'pze-tool' }), read = h('p', { class: 'pze-read', 'aria-live': 'polite' });
   let pl = null, plot = null, sig = '', last = null;
@@ -457,7 +581,7 @@ export function createPlaneTool() {
       sig = k; pl = p;
       if (!pl) { el.replaceChildren(); plot = null; return; }
       plot = planePlot(pl, { card: true });
-      el.replaceChildren(plot.el, planeCardKey(pl), read);
+      el.replaceChildren(...[plot.el, pl.key === 'never' ? null : planeCardKey(pl), read].filter(Boolean));
       if (last) this.pin(last);
     },
     pin(fp) {

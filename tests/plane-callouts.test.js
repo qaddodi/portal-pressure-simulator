@@ -24,7 +24,7 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
     [fp('postsin'), 'Sinusoidal obstruction', 'SOS'], [fp('post'), 'Budd–Chiari'], [fp('cardiac'), 'Heart failure']];
   const pl = planeOf('hvpg-ppg');
   assert.equal(pl.key, false, 'the zones name themselves: no key beside the plot');
-  assert.equal(planeOf('csph').key, undefined, 'the stiffness plane keeps its key');
+  assert.equal(planeOf('csph').key, 'never', 'the stiffness plane names its zones on the drawing everywhere, no key');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.pze-planewrap\.pze-nokey > \.pze-key \{ display: none; \}/, 'no key beside the plot');
   assert.match(css, /\.pz\.stack \.pze-planewrap\.pze-nokey > \.pze-key \{ display: block; \}/, 'an iPhone keeps the key under it');

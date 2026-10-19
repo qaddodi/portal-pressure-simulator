@@ -44,11 +44,11 @@ test('conditions hold only when every one does, at their edges as written', () =
 test('the CSPH plane follows Baveno VIII: 15 and 150 rule out, 25 rules in, under 20 with 150 spares the scope', () => {
   const pl = planeOf('csph');
   const z = (lsm, plt) => zoneOf(pl, { lsm, plt })?.t;
-  assert.equal(z(13, 180), 'CSPH ruled out');
-  assert.equal(z(15, 150), 'CSPH ruled out');
-  assert.equal(z(15, 149), 'Gray zone');
-  assert.equal(z(25, 250), 'CSPH ruled in');
-  assert.equal(z(24.9, 90), 'Gray zone');
+  assert.equal(z(13, 180), 'No CSPH');
+  assert.equal(z(15, 150), 'No CSPH');
+  assert.equal(z(15, 149), 'Indeterminate');
+  assert.equal(z(25, 250), 'CSPH');
+  assert.equal(z(24.9, 90), 'Indeterminate');
   assert.equal(pl.source, 'Baveno VIII 1.15, 1.16');
   assert.ok(!/Baveno VII\b/.test(JSON.stringify(PLANES)), 'never Baveno VII');
   // (No "no screening scope" box and no 20 kPa line: Mohammad, 19 Oct.)
@@ -65,10 +65,10 @@ test('the CSPH plane follows Baveno VIII: 15 and 150 rule out, 25 rules in, unde
 test('the model\'s compensated patients fall where the stiffness deck says', async () => {
   const [healthy, comp, csph, csph2] = await runSteps([{ preset: 'healthy' }, { preset: 'cirr-comp' }, { preset: 'csph' }, { preset: 'csph', params: { cirrhosis: 0.75 } }]);
   const pl = planeOf('csph');
-  assert.equal(zoneOf(pl, healthy).t, 'CSPH ruled out');
-  assert.equal(zoneOf(pl, comp).t, 'CSPH ruled out');
-  assert.equal(zoneOf(pl, csph).t, 'Gray zone', 'the deck: "the third case falls between"');
-  assert.equal(zoneOf(pl, csph2).t, 'CSPH ruled in');
+  assert.equal(zoneOf(pl, healthy).t, 'No CSPH');
+  assert.equal(zoneOf(pl, comp).t, 'No CSPH');
+  assert.equal(zoneOf(pl, csph).t, 'Indeterminate', 'the deck: "the third case falls between"');
+  assert.equal(zoneOf(pl, csph2).t, 'CSPH');
   // HVPG against PPG: presinusoidal resistance raises the PPG alone, cirrhosis both.
   const [schisto, cirr] = await runSteps([{ preset: 'schisto' }, { preset: 'cirr-decomp' }]);
   assert.equal(zoneOf(planeOf('hvpg-ppg'), schisto).t, 'PPG raised, HVPG normal');
