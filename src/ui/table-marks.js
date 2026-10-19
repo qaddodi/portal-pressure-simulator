@@ -65,6 +65,9 @@ export const TILE = {
   co: { t: 'Cardiac output', n: 'Output', s: 'Heart', u: 'L/min' },
   bv: { t: 'Blood volume', n: 'Volume', s: 'Whole blood', u: 'L', x: 0.001 },
 };
+// After TIPS the PPG is read against its target (below 12 mmHg): its tile, and the pill that prints it, never say "High" under a
+// line that says the target is reached.
+export const tipsGoal = (v) => (v < 12 ? ['ok', 'Target met'] : ['hi', 'Above target']);
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
 // A value as its tile prints it (the tile's scale and decimals), back in the model's units: a tile's word judges the number it
 // shows, so "5.0 L" is Grade 3 and "2.5 mm" Small, never the unrounded 4.98 L or 2.49 mm behind them.

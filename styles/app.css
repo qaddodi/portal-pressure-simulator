@@ -1654,6 +1654,10 @@ button.finding { cursor: pointer; }
 .app.pz-hi .pz-val { background: color-mix(in srgb, var(--text) 12%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 55%, transparent); }
 /* A pill in a station's colour (--tone): a live value ({pv}) or a term that points at the figure ([portal vein](pv)). */
 .pz-val.tone, .pz-term { background: color-mix(in srgb, var(--tone) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 50%, transparent); color: color-mix(in srgb, var(--tone) 72%, var(--text)); }
+.pz-val.tone { transition: background-color .4s var(--ease), box-shadow .4s var(--ease), color .4s var(--ease); }
+/* A filled pill rated as its tile is (data-rate: ok, mid, hi) is tinted in its tile bar's colour, the number a little deeper so it
+   reads on both themes. */
+.pz-val.tone[data-rate] { color: color-mix(in srgb, var(--tone) 82%, var(--text)); }
 .pz-term { border-radius: var(--r-pill); font-weight: 650; white-space: nowrap; }
 /* A word that points at the figure ([portal vein](pv)) is not a pill: coloured text in its station's colour, no underline
    (Mohammad, 17 Oct: "Underline terms", then "Remove the underlining please"). Pills stay for numbers and view names; disease

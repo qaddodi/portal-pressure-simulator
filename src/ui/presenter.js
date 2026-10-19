@@ -24,10 +24,10 @@ import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d8438f1d1f';
 import { createTools } from './presenter-tools.js?v=4a5e4de73a';
-import { openHandout } from './handout.js?v=a6bb9489ac';
+import { openHandout } from './handout.js?v=3b8dcb751c';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
-import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, liveSettled, shownSig } from './table-marks.js?v=535ead8fe4';
+import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=810c0a1575';
 import { frameFor, cancelFrame } from './frame.js?v=67ca200c87';
 import { createFigureKey } from './figure-key.js?v=96997852c4';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
@@ -183,7 +183,11 @@ const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc'
 // shows it, on its pill and on its organ's outline; neutral while it is normal.
 const BY_RATE = new Set(['spleen', 'varix', 'gv']), RATE_TONE = { hi: '--danger', mid: '--caution' };
 const rateTone = (k, fp) => RATE_TONE[rateShown(k, fp)[0]] || null;   // (judged as its pill prints it)
-const valTone = (k, fp) => (BY_RATE.has(k) ? rateTone(k, fp) : VAL_TONE[k]);
+// A filled pill (the patient) takes its tile's rating colour, as the tile's bar shows it: green, amber or red (Mohammad,
+// 19 Oct). A value its tile does not rate (WHVP, FHVP) or rates only as information keeps its station's colour, or none.
+const PILL_TONE = { ok: '--ok', mid: '--caution', hi: '--danger' };
+const pillRate = (k, fp, tips = false) => (fp?.[k] == null ? null : tips && k === 'ppg' ? tipsGoal(tileShown(k, fp[k]))[0] : rateShown(k, fp)[0]);   // (after TIPS the PPG is read against its target, as its tile reads it)
+const valTone = (k, fp, tips) => PILL_TONE[pillRate(k, fp, tips)] || (BY_RATE.has(k) ? null : VAL_TONE[k]);
 // A slide's terms: { words: target } (terms: ['pv', 'ra'] takes each target's own words). A word every slide uses the
 // same way needs no listing: the cavernoma is always a pill that lights its collaterals.
 const AUTO_TERMS = ['cavernoma'];
@@ -256,15 +260,15 @@ export const LENS_WORDS = { 'pressure drop': 'drop', 'blood origin': 'origin', o
   flow: 'flow', direction: 'direction', congestion: 'heat', change: 'delta', oxygen: 'oxygen' };
 export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direction: '--flow-reversed', heat: '--lens-heat', drop: '--lens-drop', delta: '--delta-high', origin: '--origin-spleen', oxygen: '--lens-oxygen' };
 const LENS_RE = String.raw`\b([Cc]olou?red by )(${Object.keys(LENS_WORDS).sort((a, b) => b.length - a.length).join('|')})\b`;
-function rich(t, s = {}, fp = null) {
+function rich(t, s = {}, fp = null, tips = false) {
   const { re, tl } = lineRe(s);
   const marked = /\{[^}]+\}/.test(t);
   const out = [], seen = new Set(), seenT = new Set(); let at = 0, bold = 0, pills = 0, m;
   t = nb(t);
   // A pill keeps the word before it and the stop after it on its line (a no-break space, one unbreakable span).
   const glue = () => { const prev = out[out.length - 1]; if (typeof prev === 'string') out[out.length - 1] = prev.replace(/ $/, '\u00a0'); };
-  const pill = (v, stop, cls = '', tone = null) => { glue();
-    pills++; return h('span', { class: stop ? 'pz-nw pz-stop' : 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, style: tone ? `--tone: ${toneVar(tone)}` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
+  const pill = (v, stop, cls = '', tone = null, rate = null) => { glue();
+    pills++; return h('span', { class: stop ? 'pz-nw pz-stop' : 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, 'data-rate': PILL_TONE[rate] ? rate : null, style: tone ? `--tone: ${toneVar(tone)}` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
   const termPill = (w, k) => { const tone = TARGETS[k].organ === 'spleen' ? (fp && rateTone('spleen', fp)) || '--text-2' : TARGETS[k].tone;   // (the spleen's word, as its outline)
     return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: ${toneVar(tone)}` }, w); };
   while ((m = re.exec(t))) {
@@ -278,8 +282,8 @@ function rich(t, s = {}, fp = null) {
     if (lensW) out.push(lensBy.replace(/ $/, '\u00a0'), h('span', { class: 'pz-term pz-lens-t', style: `--tone: ${toneVar(LENS_TONE[LENS_WORDS[lensW]])}` }, lensW));
     else if (lw) out.push(TARGETS[lk] ? termPill(lw, lk) : lw);
     else if (tword) { seenT.add(tk); out.push(termPill(tword, tk)); }
-    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp)));
-    else if (mk && atRe.test(mk) && TILE[mk.match(atRe)[1]]) { const [, k, id] = mk.match(atRe), f = fpAt(id); out.push(pill(liveVal(k, s, f), mkStop, '', valTone(k, f))); }
+    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp, tips), pillRate(mk, fp, tips)));
+    else if (mk && atRe.test(mk) && TILE[mk.match(atRe)[1]]) { const [, k, id] = mk.match(atRe), f = fpAt(id); out.push(pill(liveVal(k, s, f), mkStop, '', valTone(k, f), pillRate(k, f))); }
     else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(mk.replace(/^(?:>=|<=|[<>≥≤])\s*/, ''), mkStop, ' cut'));
     else if (mk) out.push(pill(mk, mkStop, ' cut'));   // (a number typed in braces, {6 to 8 g}: a rule, outlined; only a live value is the patient)
     else if (val) out.push(pill(val, valStop, ' cut'));   // (a typed number is a rule or a figure from the literature, not the patient: outlined)
@@ -821,7 +825,7 @@ function bigTiles() {
   let sig = '', parts = [], draw = null, goal = false;
   // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "High" under a line that
   // says the target is reached.
-  const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? (f.ppg < 12 ? ['ok', 'Target met'] : ['hi', 'Above target']) : rateOf(k, f));
+  const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? tipsGoal(f.ppg) : rateOf(k, f));
   // (A tile's word judges the number it prints: 4.98 L shows "5.0 L", so it reads Grade 3.)
   const ratedShown = (k, f) => (f[k] != null ? rated(k, { ...f, [k]: tileShown(k, f[k]) }) : rated(k, f));
   // Where a value sits on its tile's bar, 0 to 100 (shown units, held inside the bar).
@@ -2096,7 +2100,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       panel.dataset.visual = s.visual;
       const tab = s.visual !== 'outline' && deckTab();   // (the outline names the talk in full instead)
       panel.classList.toggle('tabbed', !!tab);
-      panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null),
+      panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null),
         VISUALS[s.visual](s));
       if (!ui.root.classList.contains('pz-prep')) panel.classList.remove('pz-leave');   // (else once fitted: settle)
       ui.veil.classList.add('on');
@@ -2104,7 +2108,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); ui.veil.classList.remove('on');
       text.hidden = false;
       text.replaceChildren(...[h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
-          s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
+          s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,
