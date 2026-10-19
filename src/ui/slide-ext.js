@@ -22,7 +22,7 @@ import charts from './ext-charts.js?v=0ac65fcac5';
 import model from './ext-model.js?v=05b728a36c';
 import panels from './ext-panels.js?v=78c748a1ed';
 import callouts from './ext-callouts.js?v=55a1778ced';
-import instruments from './ext-instruments.js?v=f8335c3ca0';
+import instruments from './ext-instruments.js?v=3087abae16';
 
 export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments };
 const NAMED = ['targets', 'lenses', 'sets', 'tools', 'visuals', 'columns'];
