@@ -133,7 +133,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareDeck(d) }, svgIcon('share', 'mi-ic'), 'Copy link'),
       h('button', { class: 'btn ghost sm', title: 'Speaker notes and questions for the room, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
   const scriptPreview = (s, lib) => h('div', { class: 'um-pv-in' },
-    h('span', { class: 'um-pv-meta' }, `${s.deck ? 'Your deck' : 'Your script'} · ${(s.steps || s.deck.slides).length} slides`),
+    h('span', { class: 'um-pv-meta' }, `${s.test ? 'Test deck, preview only' : s.deck ? 'Your deck' : 'Your script'} · ${(s.steps || s.deck.slides).length} slides`),
     h('h3', {}, s.title), h('p', {}, s.summary || ''),
     h('div', { class: 'um-acts' },
       h('button', { class: 'btn sm primary', onclick: () => { close(); lib.start(s.id); } }, svgIcon('play', 'mi-ic'), 'Present'),
@@ -141,7 +141,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareScript(s) }, 'Share link'),
       h('button', { class: 'btn ghost sm', onclick: () => lib.exportScript(s) }, 'Export'),
       h('button', { class: 'btn ghost sm', onclick: () => lib.scriptNotes(s) }, 'Print notes'),
-      h('button', { class: 'btn ghost sm', onclick: () => lib.remove(s.id) }, 'Delete')));
+      s.test ? null : h('button', { class: 'btn ghost sm', onclick: () => lib.remove(s.id) }, 'Delete')));
 
   // ── Preview beside the panel (mouse) ──
   function hoverable(row, make, col) {
@@ -213,6 +213,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
           h('div', { class: 'um-gl', id: 'umt-' + k }, h('b', {}, name)),
           h('ul', { 'aria-labelledby': 'umt-' + k }, list.map(([id]) => lib.decks.find((d) => d.id === id)).filter(Boolean).map((d) => deckRow(d, lib)))),
         ),
+        lib.testing?.length ? h('div', { class: 'um-g' },
+          h('div', { class: 'um-gl', id: 'umt-testing' }, h('b', {}, 'Testing')),
+          h('ul', { 'aria-labelledby': 'umt-testing' }, lib.testing.map((s) => deckRow(s, lib, true)))) : null,
         h('div', { class: 'um-g scripts' },
           h('div', { class: 'um-gl', id: 'umt-mine' }, h('b', {}, 'Your scripts'),
             h('span', { class: 'um-gacts' },

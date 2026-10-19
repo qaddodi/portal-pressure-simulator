@@ -34,11 +34,16 @@ import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=b2067d6101';
 import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=e32b7eaad1';
 import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
+import { DEMO_ALL } from './test-decks/demo-all-new-visuals.js?v=d6784f4cd4';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
 // Only well-formed scripts: a damaged saved value is ignored rather than stopping the library.
 const readMine = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v.filter((x) => x && typeof x === 'object' && x.id) : []; } catch { return []; } };
+// Test decks: on the /preview/ copy only (never the live site), listed under "Testing" in Present. Each plays exactly as
+// if imported (an "Outline and objectives" slide in front, so its slide numbers match the imported file's).
+const PREVIEW = typeof location !== 'undefined' && /\/preview\//.test(location.pathname);
+const TESTING = PREVIEW ? [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })) : [];
 const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* storage unavailable */ } };
 const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
@@ -1219,7 +1224,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const PW = 'pps.pzWidth', PW_K = { narrow: 0.8, medium: 1, wide: 1.3 };
   let pzWidth = 'medium';   // (fixed for now: no control offers it; a saved choice is ignored)
 
-  const all = () => [...DECKS, ...readMine().map(fromScript)];
+  const all = () => [...DECKS, ...[...TESTING, ...readMine()].map(fromScript)];
   // An instructor's script (captured model states) as slides: its own titles and notes, the ladder beside.
   // An imported deck file (s.deck: the full deck format, read without running it by deck-source.js) keeps every feature.
   function fromScript(s) {
@@ -4121,7 +4126,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
 
   // What the unified menu (menu.js) lists and does: the presentations, this device's scripts and their actions.
-  const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), start, shareDeck, notes: (d) => openHandout(d, deckNumbers(d)),
+  const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), testing: TESTING, start, shareDeck, notes: (d) => openHandout(d, deckNumbers(d)),
     scriptNotes: (s) => { const d = fromScript(s); openHandout(d, deckNumbers(d)); }, newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null,
     resumeAt: (d) => resumeFor(d.id, (d.mine ? d.slides : withOverview(d).slides).length) });
 
