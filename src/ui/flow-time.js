@@ -72,6 +72,13 @@ const sv = (tag, attrs = {}, ...kids) => {
 const cw = (t, f, b) => t.length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: the chart is laid out before it is drawn)
 const linesOf = (keys) => keys.map((key, j) => { const [name, unit, d, c] = LINE[key]; return j ? ['flow', 'fScale', null, c, name, unit, d] : ['pv', 'pScale', null, c, name, unit, d]; });
 const dec = (sc) => (sc.ticks.some((v) => Math.abs(v * 10 - Math.round(v * 10)) > 1e-6) ? 2 : sc.ticks.some((v) => v % 1) ? 1 : 0);
+/** Whether a line's value goes left of its head: when, drawn right of it (its baseline 0.7 f over the head, in type 1.1 f),
+ *  it would run off the chart (width w) or onto one of the numbers in the right margin (boxes: [x0, x1, y0, y1], the upper
+ *  band's gridline numbers), as the ascites ending at 1.2 L ran onto the "1.5" of its own scale. */
+export function headLeft(hx, hy, tw, f, w, boxes = []) {
+  const x0 = hx + 0.6 * f, x1 = x0 + tw, y1 = hy - 0.7 * f + 0.25 * f, y0 = y1 - 1.1 * f;
+  return x1 > w || boxes.some(([a, b, c, d]) => x0 < b && a < x1 && y0 < d && c < y1);
+}
 
 export function createFlowTime() {
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');   // (one query, read each frame: a new one was made every frame)
@@ -107,9 +114,12 @@ export function createFlowTime() {
     const [lp, lf] = lines;
     // Each band's gridlines, numbered on its own side in its line's colour: every line when they are 1.3 lines of type
     // apart or more, else the ends only (else the top alone).
-    const grid = (sc, Y, x, anchor, c) => {
+    const shows = (sc, Y) => {
       const gap = Math.abs(Y(sc.ticks[0]) - Y(sc.ticks.at(-1))) / Math.max(1, sc.ticks.length - 1);
-      const show = (j) => gap >= 1.3 * f || j === sc.ticks.length - 1 || (j === 0 && gap * (sc.ticks.length - 1) >= 1.3 * f);
+      return (j) => gap >= 1.3 * f || j === sc.ticks.length - 1 || (j === 0 && gap * (sc.ticks.length - 1) >= 1.3 * f);
+    };
+    const grid = (sc, Y, x, anchor, c) => {
+      const show = shows(sc, Y);
       return sc.ticks.map((v, j) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: L, x2: R, y1: Y(v), y2: Y(v) }),
         show(j) ? sv('text', { x, y: Y(v) + 0.35 * f, 'text-anchor': anchor, style: `fill: var(${c})` }, fmt(v, dec(sc))) : null));
     };
@@ -121,6 +131,9 @@ export function createFlowTime() {
           right ? [sv('tspan', { class: 'pft-u' }, `${k.unit} `), sv('tspan', {}, k.name)] : [sv('tspan', {}, k.name), sv('tspan', { class: 'pft-u' }, ` ${k.unit}`)])); });
     const mins = [], step = meal ? 10 : niceStep(ax().end / Math.max(2, Math.min(4, Math.floor((R - L) / (4 * f)))));
     for (let m = ax().from; m <= ax().end + 1e-9; m += step) mins.push(m);
+    // (The upper band's numbers shown in the right margin, as boxes a line's value keeps clear of.)
+    const showF = shows(ser.fScale, lf.Y);
+    const boxes = ser.fScale.ticks.flatMap((v, j) => (showF(j) ? [[R + 6, R + 6 + cw(fmt(v, dec(ser.fScale)), f), lf.Y(v) - 0.45 * f, lf.Y(v) + 0.55 * f]] : []));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${G.f.toFixed(2)}px` },
       grid(ser.fScale, lf.Y, R + 6, 'start', lf.c), grid(ser.pScale, lp.Y, L - 6, 'end', lp.c), legend,
       sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
@@ -131,7 +144,7 @@ export function createFlowTime() {
         sv('line', { class: 'pft-meal', x1: X(0), x2: X(0), y1: T - 1.5 * f, y2: B }),
         sv('text', { class: 'pft-t meal', x: X(0) + 6, y: T - 0.6 * f }, 'Meal')] : null,
       lines.map((l) => l.path), start, lines.map((l) => [l.dot, l.val]));
-    return { svg, lines };
+    return { svg, lines, boxes };
   }
   // Draw the lines up to minute m, each line's value over its head (flipped left near the right edge).
   function paint(m) {
@@ -140,7 +153,7 @@ export function createFlowTime() {
       const arr = ser[l.k], p = ser.min.filter((x) => x < m).map((x, j) => [X(x), l.Y(arr[j])]);
       p.push([X(m), l.Y(val(arr, m))]);
       l.path.setAttribute('d', p.map(([x, y], j) => `${j ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''));
-      const [hx, hy] = p.at(-1), v = val(arr, m), txt = `${fmt(v, l.d)} ${l.unit}`, left = hx + 0.6 * G.f + cw(txt, G.f * 1.1, 1) > G.w;
+      const [hx, hy] = p.at(-1), v = val(arr, m), txt = `${fmt(v, l.d)} ${l.unit}`, left = headLeft(hx, hy, cw(txt, G.f * 1.1, 1), G.f, G.w, parts.boxes);
       l.dot.setAttribute('cx', hx.toFixed(1)); l.dot.setAttribute('cy', hy.toFixed(1));
       l.val.setAttribute('x', (hx + (left ? -0.6 : 0.6) * G.f).toFixed(1)); l.val.setAttribute('y', (hy - 0.7 * G.f).toFixed(1));
       l.val.setAttribute('text-anchor', left ? 'end' : 'start');
