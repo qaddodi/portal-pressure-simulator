@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { createCore } from '../src/worker-core.js';
-import { lumenOf, lumenShape, lumenWords, lumenFacts, clotPath, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
+import { lumenOf, lumenShape, lumenWords, lumenFacts, lumenLabel, clotPath, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
 import { fluidOf, fluidBars, fluidWords, sinusoidForces, pinnedForces } from '../src/ui/tool-fluid.js';
 import { pulsatility, caliperPick, caliperFrame, caliperGlide, CAL_GLIDE, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
 import ext from '../src/ui/ext-instruments.js';
@@ -215,5 +215,27 @@ test('V19: "occluded" sits under the % as one block, fades with it, and is never
     const fs = Math.max(9, Math.min(12, 12 / u));
     assert.ok(fs * u >= 12 - 1e-9 || fs === 9, `${u} px per unit: the word is 12 px on screen unless the picture is large`);
     assert.ok(fs * 4.7 + 2 <= 2 * Math.sqrt((LUMEN_R - LUMEN_WALL) ** 2 - (yw + 4.5 - 50) ** 2) - 6, `the word clears the wall at ${u} px per unit`);
+  }
+});
+
+test('V19: the vessel\'s name sits above the % in the circle, stays at 0 %, fits inside the lumen, and a deck may set its own', () => {
+  const src = readFileSync(new URL('../src/ui/tool-lumen.js', import.meta.url), 'utf8');
+  const y = (re) => +src.match(re)[1];
+  const ya = y(/inName = sv\('text'[^)]*y: (\d+)/), yn = y(/inNum = sv\('text'[^)]*y: (\d+)/), yw = y(/inWord = sv\('text'[^)]*y: (\d+)/);
+  assert.ok(ya < yn - 12, 'the name is above the number');
+  assert.ok(Math.abs((ya + yw) / 2 - 50) <= 1, 'name, number and word are one block centred on the vessel');
+  assert.match(src, /inName = sv\('text', \{ class: 'gl-in gl-word gl-name'/, 'the name is the size of "occluded", so it keeps the 12 px floor');
+  assert.doesNotMatch(src, /inName\.style\.opacity/, 'the name never fades: the circle always says what it is');
+  assert.equal(lumenLabel('PV_TRUNK'), 'Portal vein');
+  assert.equal(lumenLabel('TIPS'), 'TIPS stent');
+  assert.equal(lumenLabel('PV_TRUNK', 'Superior MV'), 'Superior MV');
+  assert.equal(lumenLabel('PV_TRUNK', '  '), 'Portal vein');
+  // Every built-in name fits inside the inner wall, 2 units clear each side, at the word's font (9 to 10 units from 1.2 px per
+  // unit up). Inter 600 widths, roughly: narrow letters 0.3 em, capitals 0.68 em, the rest 0.58 em; the outline adds 2 units.
+  const em = (t) => [...t].reduce((a, c) => a + (/[iljtfr ]/.test(c) ? 0.3 : /[A-Z]/.test(c) ? 0.68 : 0.58), 0);
+  const ids = ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SV_CONF', 'SMV_CONF', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA', 'TIPS', 'DIPS'];
+  for (const fs of [9, 10]) for (const id of ids) {
+    const t = lumenLabel(id), top = ya - fs / 2, chord = 2 * Math.sqrt((LUMEN_R - LUMEN_WALL) ** 2 - (top - 50) ** 2);
+    assert.ok(em(t) * fs + 2 <= chord - 4, `"${t}" fits the circle at ${fs} units: ${(em(t) * fs + 2).toFixed(1)} of ${chord.toFixed(1)}`);
   }
 });
