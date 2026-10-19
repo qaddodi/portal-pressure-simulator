@@ -6241,6 +6241,44 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* ── Package C: end ── */
 
 /* ── Package D, teaching card and tables: start ── */
+/* V22: an equation's numbers ({key} in its MathML); a result in its rating's colour. */
+.pz-eq .eq-v { font-variant-numeric: tabular-nums; transition: color .4s var(--ease); }
+.pz-eq .eq-v[data-rate="ok"] { color: var(--ok); }
+.pz-eq .eq-v[data-rate="mid"] { color: var(--caution); }
+.pz-eq .eq-v[data-rate="hi"] { color: var(--danger); }
+/* V23: a source line under the words, the caveat's small print. */
+.pz-cite { margin: .4em 0 0; font: 400 var(--s-cap)/1.4 var(--font-ui); color: var(--text-3); text-wrap: pretty; }
+.pz:is(.stack, .low) .pz-text .pz-cite { font-size: max(12px, calc(var(--s-lab) * .8)); }
+/* V24: the ladder's earlier state, a faint solid line behind the patient's (the healthy line is dashed), named "Before". */
+.pzl-from { fill: none; stroke: var(--text-2); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .38; transition: opacity .4s var(--ease); }
+.pz-lg-from { display: inline-flex; align-items: center; gap: .45em; }
+.pz-lg-from[hidden] { display: none; }
+.pz-lg i.from { width: 1.4em; height: 3px; border-radius: 2px; margin-left: .5em; background: color-mix(in srgb, var(--text-2) 38%, transparent); }
+/* V15: a summary table's numbers (cells: 'values' | 'change'), bars behind them, one row in focus. */
+.pz-table td.vals { color: var(--text); white-space: nowrap; }
+.pz-table td.vals[data-rate="hi"] { color: var(--danger); }
+.pz-table td.vals[data-rate="mid"] { color: var(--caution); }
+.pz-table td.vals .pz-arr { margin-left: .25em; color: var(--text-3); }
+.pz-table td.vals .pz-arr svg { height: .8em; width: .6em; }
+.pz-table td.vals .pz-arr.two svg { width: .95em; }
+.pz-table td.vals[data-rate] .pz-arr { color: inherit; }
+.pz-table td.vals[data-eff="good"] :is(.pz-arr, .pzv-to) { color: var(--ok); }
+.pz-table td.vals[data-eff="bad"] :is(.pz-arr, .pzv-to) { color: var(--danger); }
+.pz-table td.vals.zero .pz-arr { opacity: .5; }
+.pz-table td.chg .pzv-a { color: var(--text-3); }
+.pz-table td.chg .pzv-to { margin: 0 .25em; color: var(--text-3); font-weight: 600; }
+.pz-table td.chg .pzv-b { font-weight: 600; }
+.pz-table td.bar { background: linear-gradient(color-mix(in srgb, var(--text) 9%, transparent), color-mix(in srgb, var(--text) 9%, transparent)) no-repeat .25em 50% / calc(var(--bar, 0) * (100% - .5em)) 72%; }
+.pz-table.focused tbody tr { transition: opacity .35s var(--ease), background-color .2s var(--ease); }
+.pz-table.focused tbody tr:not(.focus) { opacity: .45; }
+.pz-table.focused tbody tr.focus { background: var(--accent-soft); }
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  /* (A phone's narrow column: a change stacks its two numbers rather than run past the cell; no number is cut.) */
+  .pz-table td.chg { white-space: normal; line-height: 1.15; }
+  .pz-table td.chg .pzv-a { display: block; font-size: max(12px, .8em); }
+  .pz-table td.chg .pzv-to { margin: 0 .15em 0 0; }
+  .pz-table td.vals .pz-arr { margin-left: .12em; }
+}
 
 /* ── Package D: end ── */
 
