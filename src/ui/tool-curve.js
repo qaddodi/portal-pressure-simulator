@@ -11,8 +11,8 @@
 // Optional: label and unit (the x axis's words, for a setting PARAM does not know), and also (params every point carries).
 // against: { label: 'Carvedilol', params: { drugs: { carvedilol: true } }, own: 'No drug' } draws the first reading twice on one
 // scale: the slide's own line (named `own`) and the same sweep with those params too (named `label`), each name on its line, no
-// key. A dot marks where each line first crosses the reading's top cut-off (PPG 12, HVPG 10), with a dotted drop to the axis and
-// the setting there ("58 %"), and the case has a ring on both lines (the second read from its curve).
+// key (a key at the top only when the card is too small for them), and the case has a ring on both lines (the second read from
+// its curve). No marks where the lines cross a cut-off (Mohammad, 19 Oct: the dotted drop lines taken out).
 
 import { TILE, SCALE, RATE } from './table-marks.js?v=1dc429fe31';
 import { frameFor } from './frame.js?v=67ca200c87';
@@ -78,16 +78,6 @@ export function drawnLines(t) {
   if (!ag) return ls;
   const l = ls[0];
   return [{ ...l, name: ag.own }, { ...l, name: ag.label, c: l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv' }];
-}
-/** Where each line first rises across the value v (shown units): the setting there, read between its two points, or null. */
-export function crossings(ser, v) {
-  return ser.ys.map((ys) => {
-    for (let i = 1; i < ys.length; i++) {
-      const a = ys[i - 1], b = ys[i];
-      if (Number.isFinite(a) && Number.isFinite(b) && a < v && b >= v) return ser.xs[i - 1] + (ser.xs[i] - ser.xs[i - 1]) * ((v - a) / (b - a));
-    }
-    return null;
-  });
 }
 /** A reading's name, unit, decimals, scale and colour (from its tile). */
 export function lineMeta(k, j = 0) {
@@ -346,23 +336,13 @@ export function createCurve() {
         // (With against each line is named on the drawing, placed on every paint clear of the rings and the values.)
         name: G.ag ? sv('text', { class: 'pcv-name', style: `fill: var(${l.c})` }, l.name) : null };
     });
-    // (With against: where each line first crosses the top cut-off, a dot on it and a dotted drop to the axis, the setting
-    // named over the axis in the line's colour.)
-    const top = G.ag && ser ? cutVs.at(-1) : null;
-    const cross = top ? crossings(ser, top.v).map((x, j) => (x == null ? null : { x, j, cx: X(x), cy: YL(top.v), txt: `${fmt(x, ax.d)}${ax.unit === '%' ? ' %' : ax.unit ? ` ${ax.unit}` : ''}` })).filter(Boolean) : [];
-    const crossEls = cross.map((c) => {
-      c.el = sv('text', { class: 'pcv-x', style: `fill: var(${ls[c.j].c})` }, c.txt);
-      return sv('g', { class: 'pcv-cross' }, sv('line', { x1: c.cx, x2: c.cx, y1: c.cy, y2: B, style: `stroke: var(${ls[c.j].c})` }),
-        sv('circle', { cx: c.cx, cy: c.cy, r: Math.max(3.5, 0.3 * f), style: `fill: var(${ls[c.j].c})` }), c.el);
-    });
     const at = sv('line', { class: 'pcv-at', y1: T - 0.4 * f, y2: B });
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },
-      grid, cuts, legend, alt, axis, crossEls, at, lines.map((x) => x.path), lines.map((x) => [x.ring, x.val, x.name]));
+      grid, cuts, legend, alt, axis, at, lines.map((x) => x.path), lines.map((x) => [x.ring, x.val, x.name]));
     svg.dataset.points = ser ? String(ser.xs.length) : '0';   // (the browser checks read it: 0 until the curve is ready)
     // (What a ring's value keeps clear of: the cut-offs and their names, the x axis, the data lines. A value on a cut-off
     // line reads as that line's name, so it would sooner cross a data line or another word.)
-    for (const c of cross) segs.push(Object.assign([c.cx, c.cy, c.cx, B], { w: 1 }));   // (a drop line counts for the words, lightly)
-    const obstacles = { segs, cutLabs, cross, cutBounds: [L, T - 1.2 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.map((c) => ({ y: YL(c.v), x0: L, x1: R, w: 5 })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f] };
+    const obstacles = { segs, cutLabs, cutBounds: [L, T - 1.2 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.map((c) => ({ y: YL(c.v), x0: L, x1: R, w: 5 })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f] };
     return { svg, lines, at, obstacles, alt };
   }
   // The rings at r: each on its line at the case's setting, its value beside it (left of it near the right edge, and the
@@ -378,21 +358,6 @@ export function createCurve() {
     // (Each value takes the first spot beside its ring that lands on nothing: the data lines, the cut-off lines, the x axis,
     // the dashed line through the rings, both rings and the other value; the side away from the nearer edge first.)
     const ob = parts.obstacles, boxes = [...cys.filter((y) => y != null).map((y) => [cx - rr, y - rr, cx + rr, y + rr]), ...(ok ? [[cx - 1.5, G.T - 0.4 * f, cx + 1.5, G.B]] : [])];
-    // (The crossings' settings first, just over the axis by their drop lines: beside it, the side away from the other.)
-    // (A short chart, a phone held sideways, has no room for them beside the values and the lines' names: the dots and drops
-    // stay, the settings go.)
-    const roomy = G.B - G.T >= 8 * f;
-    for (const c of ob.cross) {
-      c.el.classList.toggle('off', !roomy);
-      if (!roomy) continue;
-      // (Its box ends 3 px over the axis line, which it must not touch.)
-      const tw = 1.12 * cw(c.txt, f, true), y = G.B - 0.75 * f, other = ob.cross.find((o) => o !== c), away = other && other.cx > c.cx ? -1 : 1;
-      const cands = [0, 1.2, 2.4, 3.6].flatMap((up) => [{ x: c.cx + away * 0.4 * f, y: y - up * f, anchor: away < 0 ? 'end' : 'start' },
-        { x: c.cx - away * 0.4 * f, y: y - up * f, anchor: away < 0 ? 'start' : 'end' }]);
-      const pl = placeWord(cands, tw, f, { segs: ob.segs.filter((sg) => sg[0] !== c.cx || sg[2] !== c.cx), boxes, lines: ob.lines, bounds: [G.L, G.T, G.R, G.B + 3 * f] });
-      boxes.push(pl.box);
-      c.el.setAttribute('x', pl.x.toFixed(1)); c.el.setAttribute('y', pl.y.toFixed(1)); c.el.setAttribute('text-anchor', pl.anchor);
-    }
     // (With against the upper ring's value is placed first, level with its ring or over it, and the lower one's under the
     // first value, so the two read in the same order as their rings.)
     let upperY = null;

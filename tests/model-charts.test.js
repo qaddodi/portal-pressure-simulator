@@ -10,7 +10,7 @@ import { Engine } from '../src/engine/engine.js';
 import { explain } from '../src/engine/explain.js';
 import { DRUGS } from '../src/engine/scenario.js';
 import { EXT, PACKAGES, stepExtra } from '../src/ui/slide-ext.js';
-import { curveSteps, curveSeries, curveXs, patchOf, getAt, leftScale, rightScale, cutsOf, xTicks, ringAt, placeWord, segHits, onCurve, curveAt, againstOf, mergeOf, curveLines, drawnLines, crossings } from '../src/ui/tool-curve.js';
+import { curveSteps, curveSeries, curveXs, patchOf, getAt, leftScale, rightScale, cutsOf, xTicks, ringAt, placeWord, segHits, onCurve, curveAt, againstOf, mergeOf, curveLines, drawnLines } from '../src/ui/tool-curve.js';
 import { causeBars, groupOf, GROUPS, wrapLabel, MOST, OTHER, steps, domainOf, layout, fitBars, shownText, GAP } from '../src/ui/tool-causes.js';
 import { tileShown, RATE } from '../src/ui/table-marks.js';
 
@@ -59,7 +59,7 @@ test('the curve\'s point at the slide\'s own setting is the slide\'s state', asy
   for (let i = 1; i < ser.xs.length; i++) assert.ok(ser.ys[0][i] < ser.ys[0][i - 1] && ser.ys[1][i] < ser.ys[1][i - 1], `${ser.xs[i]} mm`);
 });
 
-test('a curve against a drug: the second sweep carries the drug, one reading drawn twice, each crossing of its top cut-off', () => {
+test('a curve against a drug: the second sweep carries the drug, one reading drawn twice', () => {
   const t = { kind: 'curve', param: 'cirrhosis', from: 0, to: 0.4, step: 0.2, lines: ['ppg', 'liver'], also: { drugs: { propranolol: false } },
     against: { label: 'Carvedilol', params: { drugs: { carvedilol: true } }, own: 'No drug' } };
   assert.deepEqual(againstOf(t), { label: 'Carvedilol', params: { drugs: { carvedilol: true } }, own: 'No drug' });
@@ -79,8 +79,6 @@ test('a curve against a drug: the second sweep carries the drug, one reading dra
   const ser = curveSeries(t, [fp(5), fp(9), fp(13), fp(4), fp(7), fp(11)]);
   assert.deepEqual(ser, { xs: [0, 20, 40], ys: [[5, 9, 13], [4, 7, 11]] });
   assert.equal(curveSeries(t, [fp(5), fp(9), fp(13)]), null, 'both sweeps or nothing');
-  assert.deepEqual(crossings(ser, 12), [35, null]);
-  assert.deepEqual(crossings({ xs: [0, 1], ys: [[13, 14]] }, 12), [null], 'already over it at the start: no crossing');
   assert.deepEqual(ringAt(t, { cirrhosis: 0.3 }, { ppg: 11 }), { x: 30, ys: [11, null] });
 });
 
@@ -92,7 +90,8 @@ test('carvedilol lowers the whole PPG curve of decompensated cirrhosis and moves
   const j = ser.xs.findIndex((x) => Math.abs(x - 85) < 1e-6);
   assert.ok(Math.abs(ser.ys[0][j] - slide.fp.ppg) < 0.05, `the own line at 85 % is the slide: ${ser.ys[0][j]} vs ${slide.fp.ppg}`);
   for (let i = 0; i < ser.xs.length; i++) assert.ok(ser.ys[1][i] < ser.ys[0][i], `carvedilol lower at ${ser.xs[i]} %`);
-  const [a, b] = crossings(ser, 12);
+  // (Where each line first reaches 12, read between its points.)
+  const [a, b] = ser.ys.map((ys) => { const i = ys.findIndex((y) => y >= 12); return i > 0 ? ser.xs[i - 1] + (ser.xs[i] - ser.xs[i - 1]) * ((12 - ys[i - 1]) / (ys[i] - ys[i - 1])) : null; });
   assert.ok(a > 40 && b > a, `crosses 12 at ${a} % without the drug and ${b} % with it`);
 });
 

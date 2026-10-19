@@ -6266,13 +6266,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pcv-ring { fill: var(--surface); stroke-width: 3; transition: opacity .3s var(--ease); }
 .pcv-v { font: 700 1.1em var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; transition: opacity .3s var(--ease); }
 :is(.pcv-at, .pcv-ring, .pcv-v).off { opacity: 0; }
-/* (A curve with `against`: each line's name on the drawing, and where each line first crosses the top cut-off.) */
+/* (A curve with `against`: each line's name on the drawing, or a key at the top on a small card.) */
 .pcv-name { font: 700 1em var(--font-ui); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; transition: opacity .3s var(--ease); }
-:is(.pcv-name, .pcv-x, .pcv-alt).off { opacity: 0; }
+:is(.pcv-name, .pcv-alt).off { opacity: 0; }
 .pcv-alt { transition: opacity .3s var(--ease); }
-.pcv-x { font: 700 1em var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; transition: opacity .3s var(--ease); }
-.pcv-cross line { stroke-width: 1.5; stroke-dasharray: 2 3; }
-.pcv-cross circle { stroke: var(--surface); stroke-width: 1.5; }
 /* (The amber cut-off line a little darker than the shared amber, so it keeps 3:1 against the card in the light theme.) */
 .pz-curve .ptk-grid[data-rate="mid"] line { stroke: color-mix(in srgb, var(--caution) 85%, var(--text)); }
 .pz-curve .pcv-cut { font: 600 1em var(--font-ui); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }

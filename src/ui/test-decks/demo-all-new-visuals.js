@@ -834,7 +834,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Drug curve",
       "title": "Carvedilol lowers the whole PPG curve",
-      "line": "Each line shows the PPG in the model as the scarring rises, without a drug and with carvedilol. The rings mark this case at 60 % scarring, with a PPG of {ppg}. A dot marks where each line crosses 12."
+      "line": "Each line shows the PPG in the model as the scarring rises, without a drug and with carvedilol. The rings mark this case at 60 % scarring, with a PPG of {ppg}."
     },
     {
       "id": "drug",
