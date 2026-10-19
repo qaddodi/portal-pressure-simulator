@@ -19,11 +19,12 @@ export const STATIONS = PATH.nodes;
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // Short names where the full ones do not fit, then the shortest where those do not (a phone's or a Mac's card): clinical
 // short forms, never an ellipsis or a full stop.
-// The liver's three stations are named Pre, Intra and Post on every card, one curly brace under them named Sinusoidal, so they
-// read as pre-, intra- and postsinusoidal (Mohammad, 19 Oct: "curly bracket underneath sinusoid and each x axis label is Pre
-// Intra Post"); the Intra station still shows the wedged pressure (WHVP).
-const LIVER_NAMES = { RPV: 'Pre', SIN_R: 'Intra', CV_R: 'Post' };
-export const BRACE_NAME = 'Sinusoidal';
+// The liver's three stations are named Pre-, Intra- and Post- on every card, one curly brace under them named sinusoidal, so they
+// read as pre-, intra- and postsinusoidal and never as three sinusoidal stations (Mohammad, 19 Oct: "curly bracket underneath
+// sinusoid and each x axis label is Pre Intra Post"; the hyphens and lower case, his pick the same day); the Intra- station still
+// shows the wedged pressure (WHVP).
+const LIVER_NAMES = { RPV: 'Pre-', SIN_R: 'Intra-', CV_R: 'Post-' };
+export const BRACE_NAME = 'sinusoidal';
 export const FULL_NAMES = { ...PATH.names, ...LIVER_NAMES };
 export const SHORT_NAMES = { INT: 'Gut', CONF: 'PV', ...LIVER_NAMES, RHV: 'HV', IVCS: 'IVC', RA: 'RA' };
 export const TIGHT_NAMES = SHORT_NAMES;
@@ -306,6 +307,38 @@ export function placeValues(G, tw, goal, hl, bf) {
     { bottom: G.Z, axis: G.Z, left: G.L + 2, right: G.R + 8, dotR, obstacles: overWords, dots: pg.map(([x, yy]) => [x, yy, dotR + 1]) });
 }
 
+/** The healthy and earlier lines named on the drawing, not in a key (Mohammad, 19 Oct): each name just over or under its own
+ *  line, nearest the line's right end, BR_PAD px clear of every line, dot, value, bracket and the liver's name.
+ *  → [{ t, c, x, y }] (x the middle, y the baseline), or null where one has no such place (the key then shows). */
+export function placeLineNames(G, tw, goal, hl, bf, sides, brk) {
+  const named = [[hl, 'Healthy', 'hl'], [bf, 'Before', 'bf']].filter(([p]) => p);
+  if (!named.length) return [];
+  const { f } = G, dotR = Math.max(4, 0.36 * f), cap = 0.72 * f;
+  const yg = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top, ptsG = (p) => p.v.map((v, i) => [G.x(i), yg(v)]);
+  const pg = ptsG(goal), runs = curveRuns([pg, ...named.map(([p]) => ptsG(p))]);
+  const place = labelPlacer(runs, [], G.T, G.Z - BR_PAD, [], [BR_PAD, BR_PAD], BR_PAD);
+  for (const [x, y] of pg) place.take([x - dotR - 1, x + dotR + 1, y - dotR - 1, y + dotR + 1]);
+  for (const v of sides || []) if (v?.box) place.take(v.box);
+  for (const r of [0, 1]) place.take(bracketBox(G, r, brk ? brk[r] : G.brY(r)));
+  const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
+  if (i0 >= 0) { const m = (G.x(i0) + G.x(i1)) / 2, lw = (tw('LIVER', 600) + 0.3 * f) / 2; place.take([m - lw - 2, m + lw + 2, G.T - 0.35 * f - cap - 2, G.T - 0.35 * f + 2]); }
+  const out = [];
+  for (const [, t, c] of named) {
+    const run = runs[1 + out.length], w = tw(t, 500);
+    let got = null;
+    for (let q = run.length - 1; q >= 0 && !got; q--) {
+      const [x, y] = run[q], cx = Math.max(G.L + w / 2 + 2, Math.min(G.R - w / 2, x));
+      for (const base of [y - BR_PAD - 1.5, y + BR_PAD + 1.5 + cap]) {
+        const b = [cx - w / 2, cx + w / 2, base - cap, base + 0.2 * f];
+        if (place.cost(b) === 0) { got = { t, c, x: cx, y: base }; place.take(b); break; }
+      }
+    }
+    if (!got) return null;
+    out.push(got);
+  }
+  return out;
+}
+
 /** A bracket's box, its bar at yy (G a profileGeo, r its row): the ticks and the label, a pixel round. */
 export function bracketBox(G, r, yy) {
   const [, , a, b] = SPANS[r], { f } = G, x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b));
@@ -380,7 +413,7 @@ export function createProfileTool() {
       let g = profileGeo(w, hh, f, tw, true), s = placeValues(g, tw, goal, hl, bf);
       const brk = placeBrackets(g, tw, goal, hl, bf, s);
       if (!brk) { g = profileGeo(w, hh, f, tw); s = placeValues(g, tw, goal, hl, bf); }   // (the band at the plot's foot)
-      plan = { inside: !!brk, sides: s, brk };
+      plan = { inside: !!brk, sides: s, brk, names: placeLineNames(g, tw, goal, hl, bf, s, brk) };
     }
     const G = profileGeo(w, hh, f, tw, plan.inside), sides = plan.sides;
     // (A box shorter than the chart at its smallest with the band (a bracket's name over its value takes a taller row) asks for that
@@ -412,7 +445,8 @@ export function createProfileTool() {
         sv('text', { x: G.L - 6, y: y(k * every) + 0.35 * f, 'text-anchor': 'end' }, String(k * every)))),
       // (The unit at the top left, on the key's row; over the axis's numbers when the key needs the row.)
       sv('text', { class: 'ptk-unit', x: 0, y: unitOnKey ? 0.75 * f + 0.36 * f : G.T - 0.95 * f }, 'mmHg'),
-      keyEls,
+      // (The lines named on the drawing; the key only where a name finds no clear place.)
+      plan.names ? null : keyEls,
       hl ? sv('path', { class: 'ppf-hl', d: smoothD(pts(hl)) }) : null,
       bf ? sv('path', { class: 'ppf-bf', d: smoothD(pts(bf)) }) : null,
       sv('path', { class: 'ppf-fill', d: `${smoothD(now)}L${G.x(STATIONS.length - 1).toFixed(1)} ${G.Z}L${G.x(0).toFixed(1)} ${G.Z}Z`, style: `fill: url(#${gid})` }),
@@ -420,6 +454,7 @@ export function createProfileTool() {
       sv('path', { class: 'ppf-line', d: smoothD(now), style: `stroke: url(#${gid})` }),
       now.map(([cx, cy], i) => sv('circle', { class: 'ppf-dot', cx, cy, r: dotR, style: `fill: ${col(shown.v[i])}` })),
       now.map(([cx, cy], i) => sv('text', { class: 'ppf-v', x: cx + sides[i].dx, y: valY(cy, i), 'text-anchor': 'middle' }, labels[i])),
+      (plan.names || []).map((n) => sv('text', { class: `ppf-lname ${n.c}`, x: n.x, y: n.y, 'text-anchor': 'middle' }, n.t)),
       STATIONS.map((n, i) => sv('text', { class: 'ppf-name', x: G.nameX(i), y: G.nameY(i), 'text-anchor': 'middle' }, G.fit.names[i])),
       // (One brace under Pre, Intra and Post, inside the liver's band, named Sinusoidal under its tip.)
       i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { d: braceD(G.x(i0) - 0.42 * G.slot, G.x(i1) + 0.42 * G.slot, G.braceY, 0.55 * f) }),

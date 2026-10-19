@@ -6188,6 +6188,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .ppf-key.now line { stroke: var(--text); }
 .ppf-key.hl line, .ppf-hl { stroke: var(--text-3); stroke-dasharray: 4 5; }
 .ppf-key.bf line, .ppf-bf { stroke: var(--text-2); stroke-dasharray: 1.5 4.5; }
+.ppf-lname { font: 500 1em var(--font-ui); fill: var(--text-2); }
 .ppf-hl, .ppf-bf { fill: none; stroke-width: 1.75; stroke-linecap: round; }
 .ppf-fill { opacity: .16; }
 .ppf-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }

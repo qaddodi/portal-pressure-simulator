@@ -59,20 +59,20 @@ test('the station names fit their slots on one row: full where there is room, el
   const f = 12, tw = approxW(f);
   assert.equal(nameFit(120, tw).rows, 1);
   assert.equal(nameFit(120, tw).names[1], 'Portal vein');
-  // The liver's stations are Pre, Intra and Post on every card (Mohammad, 19 Oct), a brace under them named Sinusoidal.
+  // The liver's stations are Pre-, Intra- and Post- on every card (Mohammad, 19 Oct), a brace under them named sinusoidal.
   const si = STATIONS.indexOf('SIN_R');
   for (const ff of [12, 12.02, 13.8, 15.6, 18]) for (let slot = 10; slot <= 200; slot += 0.5) {
     const F = nameFit(slot, approxW(ff));
-    assert.deepEqual(F.names.slice(si - 1, si + 2), ['Pre', 'Intra', 'Post'], `${ff} px, slot ${slot}`);
+    assert.deepEqual(F.names.slice(si - 1, si + 2), ['Pre-', 'Intra-', 'Post-'], `${ff} px, slot ${slot}`);
   }
-  assert.equal(BRACE_NAME, 'Sinusoidal');
+  assert.equal(BRACE_NAME, 'sinusoidal');
   // (Wide capitals, as a real font draws 'WHVP': eased apart on one row, else that name alone on a second row, else staggered;
   // on every row no two names closer than the gap, none more than a quarter slot off its dot.)
   const wide = (t) => [...t].reduce((a, c) => a + (/[A-Z]/.test(c) ? 0.8 : 0.55) * 12, 0);
   let eased = 0, lifted = 0;
   for (let slot = 20; slot <= 60; slot += 0.25) {
     const F = nameFit(slot, wide), X = (i) => slot * i + F.dx[i];
-    assert.equal(F.names[si], 'Intra');
+    assert.equal(F.names[si], 'Intra-');
     if (F.rows === 1 && F.dx.some((d) => d)) eased++;
     if (F.low.filter(Boolean).length === 1) { assert.ok(F.low[si]); lifted++; }
     for (const row of [false, true]) {
