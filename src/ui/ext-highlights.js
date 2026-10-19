@@ -1,7 +1,7 @@
 // Deck visuals, package A. Figure highlights: V3, V2, V18, V6, V11, V7 (review/deck-visuals-recs.md §9).
 // What this package adds to slides, registered for slide-ext.js (see its header for each part's shape). A deck that sets none
 // of its fields is unchanged:
-//   terms / glow: 'stomach', 'esophagus', 'bowel', 'colon', 'duodenum', 'kidney'   outline and name more organs (V3)
+//   terms / glow: 'bowel', 'colon', 'duodenum', 'kidney'   outline and name more organs (V3)
 //   '@portal', '@collaterals', …   named sets of vessels, in glow, spot and a mark's edges (V2; highlight-math.js SETS)
 //   spot: ['@collaterals', 'spleen']   the rest of the network and the organs step back; the named vessels stay, the organs are outlined (V2)
 //   normalOutline: ['spleen']          the normal-sized spleen's outline inside an enlarged one (V18)
@@ -10,7 +10,7 @@
 //   lens: 'system'                     portal veins, systemic veins and the collaterals between them in three colours (V7)
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { withOverview } from './decks.js?v=df7cf75f8c';
-import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, stateIndex, sinceWords } from './highlight-math.js?v=86a89dcb9e';
+import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, stateIndex, sinceWords } from './highlight-math.js?v=25f30508f6';
 
 const VESSEL = new Set(EDGES.map((e) => e.id));
 const expand = (list) => (Array.isArray(list) ? list : [list]).flatMap((g) => (typeof g === 'string' && g[0] === '@' ? SETS[g.slice(1)] || [] : [g]));
@@ -74,7 +74,7 @@ export default {
   sets: SETS,
   lenses: {
     // (Named swatches, as Blood origin's key: the three systems in their station colours.)
-    system: ['vein system', [['--tr-pv', 'Portal'], ['--tr-ivc', 'Systemic'], ['--tr-var', 'Collaterals and shunts']]],
+    system: ['vein system', [['--tr-pv', 'Portal'], ['--tr-ivc', 'Systemic'], ['--tr-var', 'Shunts']]],
     since: (s) => [sinceWords(s), DELTA_BAR, 'Lower', 'Higher'],
   },
   figure: [figure],

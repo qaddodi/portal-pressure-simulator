@@ -19,14 +19,12 @@ export const SETS = {
 // for every theme): an organ's own deep tone vanished into the line the figure already draws round it. The figure draws each one
 // (anatomy.js ORGANS).
 export const ORGAN_TARGETS = {
-  stomach: { organ: 'stomach', tone: '--text-2', words: 'stomach' },
-  esophagus: { organ: 'esophagus', tone: '--text-2', words: 'esophagus|oesophagus' },
   bowel: { organ: 'bowel', tone: '--text-2', words: 'small bowel|small intestine|bowel' },
   colon: { organ: 'colon', tone: '--text-2', words: 'colon|large bowel' },
   duodenum: { organ: 'duodenum', tone: '--text-2', words: 'duodenum' },
   kidney: { organ: 'kidney-l', tone: '--text-2', words: 'left kidney|kidney' },
 };
-export const NEW_ORGANS = ['stomach', 'esophagus', 'bowel', 'colon', 'duodenum', 'kidney-l'];
+export const NEW_ORGANS = ['bowel', 'colon', 'duodenum', 'kidney-l'];
 // The organs the presenter already outlines, with the colour their target gives them (presenter.js TARGETS).
 const OLD_ORGANS = { liver: 'wedge', caudate: 'hv', 'caudate-lobe': 'hv', spleen: 'sv', heart: '--tour-sys', 'heart-ra': '--tour-sys' };
 
@@ -40,7 +38,7 @@ export function spotOf(list, vessel) {
     seen.add(id);
     const t = ORGAN_TARGETS[id];
     if (t) organs.push({ id: t.organ, tone: t.tone });
-    else if (NEW_ORGANS.includes(id)) organs.push({ id, tone: ORGAN_TARGETS.stomach.tone });
+    else if (NEW_ORGANS.includes(id)) organs.push({ id, tone: ORGAN_TARGETS.bowel.tone });
     else if (OLD_ORGANS[id]) organs.push({ id, tone: OLD_ORGANS[id] });
     else if (vessel(id)) edges.push(id);
   }
@@ -71,16 +69,31 @@ export function bandRing(line, half) {
   ring.push([...ring[0]]);
   return ring;
 }
-/** Rings cut where they run above y (the esophagus fades out up into the chest: its outline stops where its picture does). */
-export function ringsBelow(rings, yMin) {
+/** Rings drawn as a dashed line: runs of on units with gaps of off between them, measured along each ring (the normal spleen's
+ *  outline, V18, so it reads as a reference and not as a second organ). */
+export function dashRings(rings, on, off) {
   const out = [];
+  if (!(on > 0) || !(off >= 0)) return out;
   for (const r of rings) {
-    let cur = [];
-    for (const p of r) {
-      if (p[1] >= yMin) cur.push(p);
-      else { if (cur.length > 1) out.push(cur); cur = []; }
+    let cur = null, at = 0;   // at: how far along the current dash or gap this point is
+    let inDash = true;
+    for (let i = 0; i < r.length; i++) {
+      const p = r[i];
+      if (i === 0) { cur = [[...p]]; continue; }
+      const a = r[i - 1];
+      let len = Math.hypot(p[0] - a[0], p[1] - a[1]), done = 0;
+      while (len - done > 1e-9) {
+        const left = (inDash ? on : off) - at, step = Math.min(left, len - done);
+        done += step; at += step;
+        const t = done / len, q = [a[0] + (p[0] - a[0]) * t, a[1] + (p[1] - a[1]) * t];
+        if (inDash) cur.push(q);
+        if (at >= (inDash ? on : off) - 1e-9) {
+          if (inDash) { if (cur.length > 1) out.push(cur); cur = null; } else cur = [q];
+          inDash = !inDash; at = 0;
+        }
+      }
     }
-    if (cur.length > 1) out.push(cur);
+    if (inDash && cur?.length > 1) out.push(cur);
   }
   return out;
 }
@@ -130,7 +143,7 @@ export function stateIndex(slides) {
 }
 /** The key's words for a "change since" slide (V11): what it compares with. */
 export function sinceWords(s) {
-  if (s?.sinceLabel) return `change since ${s.sinceLabel}`;
+  if (s?.sinceLabel) return `change vs ${s.sinceLabel}`;
   if (s?.lapse) return 'change over these days';
-  return typeof s?.since === 'string' ? 'change since earlier' : 'change since the last slide';
+  return typeof s?.since === 'string' ? 'change vs earlier' : 'change vs last slide';
 }
