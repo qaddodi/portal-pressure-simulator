@@ -1,4 +1,4 @@
-// Deck visuals, package E (review/deck-visuals-recs.md §9): the plane's zones (V28), where the gradient is spent (V30) and the
+// Deck visuals, package E (review/deck-visuals-recs.md §9): the plane's zones (V28) and the
 // small Doppler traces (V16). The drawing needs a browser; what decides
 // a zone, a branch, a place, a size or a part is pure and checked here, with the model's own numbers.
 import './dom-shim.js';
@@ -8,9 +8,8 @@ import { readFileSync } from 'node:fs';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
 import { holds, rangeOf, planeOf, zoneOf, zoneRect, PLANES, fitWords, placeNames, est, frame, scaler, lineBoxes, crosses } from '../src/ui/visual-plane.js';
-import { spentOf, spentScale, PARTS, TOP_MIN } from '../src/ui/col-spent.js';
 import { wavePath, waveVessel } from '../src/ui/col-wave.js';
-import { deckStates, runSteps } from './deck-states.js';
+import { runSteps } from './deck-states.js';
 import { createCore } from '../src/worker-core.js';
 
 test('package E registers its visuals, instruments and columns', () => {
@@ -18,7 +17,7 @@ test('package E registers its visuals, instruments and columns', () => {
   assert.equal(EXT.owner.tools.plane, 'E');
   // (The chain and the guideline flowchart were taken out at Mohammad's word, 19 Oct.)
   for (const k of ['chain', 'flowchart']) assert.ok(!(k in EXT.owner.visuals) && !(k in EXT.owner.tools), k);
-  for (const c of ['spent', 'wave']) assert.equal(EXT.owner.columns[c], 'E', `column ${c}`);
+  for (const c of ['wave']) assert.equal(EXT.owner.columns[c], 'E', `column ${c}`);
   assert.equal(EXT.tools.plane.title({ kind: 'plane' }), 'Stiffness and platelets');
   assert.equal(EXT.tools.plane.title({ kind: 'plane', plane: 'hvpg-ppg' }), 'HVPG and PPG');
 });
@@ -27,7 +26,7 @@ test('no built-in deck uses the new fields, so every talk is unchanged', () => {
   for (const d of DECKS) for (const s of d.slides) {
     for (const k of ['plane', 'chain', 'flow', 'case', 'wave', 'waveMax']) assert.ok(!(k in s), `${d.id}/${s.id} sets ${k}`);
     assert.ok(!['plane', 'chain', 'flowchart'].includes(s.visual) && !['plane', 'chain', 'flowchart'].includes(s.tool?.kind), `${d.id}/${s.id}`);
-    assert.ok(!(s.cols || []).some((c) => c === 'spent' || c === 'wave'), `${d.id}/${s.id} cols`);
+    assert.ok(!(s.cols || []).some((c) => c === 'wave'), `${d.id}/${s.id} cols`);
   }
 });
 
@@ -104,27 +103,6 @@ test('words fit whole or not at all, and names never overlap one another or leav
     for (const p of pts) assert.ok(!(a[0] < p.x + 10 && a[2] > p.x - 10 && a[1] < p.y + 10 && a[3] > p.y - 10), 'no name covers a point');
   }
   assert.ok(est('abc', 10) > 0);
-});
-
-test('where the gradient is spent: the parts add up, and on each level of Sites and causes the longest names it', async () => {
-  const d = DECKS.find((x) => x.id === 'sites'), st = await deckStates(d);
-  const LEVEL = { pre: 'Portal vein', presin: 'Portal venules', sin: 'Sinusoids', postsin: 'Central veins', post: 'Hepatic veins' };
-  let n = 0;
-  d.slides.forEach((s, i) => {
-    const sp = spentOf(st[i]);
-    assert.ok(sp, `${s.id} has the network's pressures`);
-    const sum = sp.parts.reduce((a, p) => a + p.d, 0);
-    assert.ok(Math.abs(sum - sp.total) < 1e-3, `${s.id}: the parts add to the portal vein less the right atrium`);
-    assert.ok(Math.abs(sp.total - (st[i].pv - st[i].ra)) < 0.2, `${s.id}: the same as the tiles' PV − RA`);
-    if (LEVEL[s.site]) { n++; assert.equal(sp.parts[sp.top]?.name, LEVEL[s.site], `${s.id}: the longest part names its level`); }
-    if (s.site === 'cardiac') assert.equal(sp.top, -1, 'heart failure: no large fall anywhere');
-  });
-  assert.equal(n, 5);
-  assert.equal(spentOf(st[1]).top, -1, 'healthy: no part falls ' + TOP_MIN + ' mmHg');
-  assert.deepEqual(PARTS.map((p) => p[2]), ['Portal vein', 'Portal venules', 'Sinusoids', 'Central veins', 'Hepatic veins', 'IVC']);
-  assert.equal(spentScale([4.8, 15.4, 18.4]), 20, 'a healthy row stays short: never under 20 mmHg across');
-  assert.equal(spentScale([22.8]), 25);
-  assert.equal(spentOf({ pv: 10 }), null);
 });
 
 test('the Doppler traces: forward hepatic vein flow below the line, a clotted portal vein flat', async () => {

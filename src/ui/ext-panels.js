@@ -1,12 +1,11 @@
-// Deck visuals, package E. Panels and table columns: V28, V30, V16 (review/deck-visuals-recs.md §9; V31 and V17 taken out).
+// Deck visuals, package E. Panels and table columns: V28, V16 (review/deck-visuals-recs.md §9; V31 and V17 taken out).
 // What this package adds to slides, registered for slide-ext.js (see its header for each part's shape). A deck that sets none
 // of its fields is unchanged.
 //   visual: 'plane'      two readings on one plane with a guideline's zones (visual-plane.js), plane: 'csph' | 'hvpg-ppg' | {…}
 //   tool kind 'plane'    the same in the data card, read from the slide's case
-//   table columns 'spent' (col-spent.js) and 'wave' (col-wave.js)
+//   table column 'wave' (col-wave.js)
 
 import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=6e2e7487d1';
-import { spentColumn } from './col-spent.js?v=ac454d9e0a';
 import { waveColumn } from './col-wave.js?v=cf308a37e9';
 
 // A plane's rows: the slide's `of`, as a table's (a slide id, { id, name }, or { preset, params?, days?, name } for a patient no
@@ -62,5 +61,5 @@ export default {
   tools: {
     plane: { make: () => createPlaneTool(), title: (t) => planeTitle(toolPlane(t)), short: () => 'Two readings' },
   },
-  columns: { spent: spentColumn, wave: waveColumn },
+  columns: { wave: waveColumn },
 };

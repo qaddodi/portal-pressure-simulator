@@ -6361,27 +6361,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-src { margin: 8px 0 0; font-size: var(--s-cap); color: var(--text-3); }
 .pz.stack .pze-key li { padding: .35em .7em; }
 
-/* V30 and V16, the table columns (col-spent.js, col-wave.js). */
-.pz-table td.pze-spent { min-width: 6em; padding-block: .25em; text-align: left; vertical-align: middle; }
-.pz-table thead th.pze-sp-th { white-space: normal; }
-@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) { .pz-table.pze-sp-table :is(th, td) { padding-inline: .45em; } .pz-table td.pze-spent { min-width: 5em; } }   /* (a phone: the bars' table keeps to the card's width) */
-.pze-sp-row { display: block; margin-bottom: .25em; }
-.pze-bar { display: flex; height: .8em; width: calc(100% * var(--f, 0)); min-width: 8px; border-radius: 3px; overflow: hidden; transition: width .6s var(--ease); }
-.pze-bar > span { min-width: 0; }
-.pze-bar > span + span { box-shadow: inset 1px 0 var(--surface); }   /* (the parts' seams drawn inside them, so a short bar keeps its colour) */
-.pze-sp-top b { font-weight: 700; color: var(--text-2); font-variant-numeric: tabular-nums; }
-.pze-sp-top { display: block; font-size: var(--s-cap); font-weight: 600; line-height: 1.2; color: var(--text-3); }
-:is(.pze-bar > span, .pze-spent-key i)[data-tone="pv"] { background: var(--tr-pv); }
-:is(.pze-bar > span, .pze-spent-key i)[data-tone="venule"] { background: color-mix(in srgb, var(--tr-pv) 55%, var(--tr-wedge)); }
-:is(.pze-bar > span, .pze-spent-key i)[data-tone="sin"] { background: var(--tr-wedge); }
-:is(.pze-bar > span, .pze-spent-key i)[data-tone="cv"] { background: color-mix(in srgb, var(--tr-wedge) 45%, var(--tr-hv)); }
-:is(.pze-bar > span, .pze-spent-key i)[data-tone="hv"] { background: var(--tr-hv); }
-:is(.pze-bar > span, .pze-spent-key i)[data-tone="ivc"] { background: var(--tr-ivc); }
-.pze-sp-top[data-tone="pv"] { color: var(--tr-pv); } .pze-sp-top[data-tone="venule"] { color: color-mix(in srgb, var(--tr-pv) 55%, var(--tr-wedge)); } .pze-sp-top[data-tone="sin"] { color: var(--tr-wedge); }
-.pze-sp-top[data-tone="cv"] { color: color-mix(in srgb, var(--tr-wedge) 45%, var(--tr-hv)); } .pze-sp-top[data-tone="hv"] { color: var(--tr-hv); } .pze-sp-top[data-tone="ivc"] { color: var(--tr-ivc); }
-.pze-spent-key { display: inline; }
-.pze-spent-key .pze-k { display: inline-flex; align-items: center; gap: .3em; margin-inline-end: .5em; white-space: nowrap; }
-.pze-spent-key i { display: inline-block; width: .8em; height: .8em; border-radius: 2px; }
+/* V16, the table column (col-wave.js). */
 .pz-table td.pze-wcell { padding-block: .2em; vertical-align: middle; }
 .pze-wbox { display: block; width: 6.5em; max-width: 100%; min-width: 4em; height: 2.2em; margin-inline: auto; }
 .pze-wbox.pze-in { animation: pz-fade .5s var(--ease) both; }

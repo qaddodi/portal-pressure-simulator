@@ -66,7 +66,7 @@
 //                            steps (with glowSeq), span, zone, mark { organ } and {tokens} in a mark's label, '@sets' in glow/spot/edges;
 //                            words: cite; card: ladderFrom, ladderFromLabel, tool kinds 'profile', 'flows', 'curve', 'causes',
 //                            'plane', 'lumen', 'fluid', Doppler mode/calipers/pair, bands on trace and flowtime;
-//                            panels: visual 'plane', table cols 'spent' and 'wave', focusRow
+//                            panels: visual 'plane', table col 'wave', focusRow
 //
 // Deck fields: id, level, title, minutes, summary, objectives (3 to 4 short learning objectives), slides, and sections
 // ([name, [kickers]], three to five) when its kicker groups are more than five, and checks ([[question, answer]], three
