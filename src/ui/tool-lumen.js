@@ -42,6 +42,14 @@ export function lumenWords({ thrombus, stenosis, occlusion, stent }) {
   if (stenosis >= 0.05) return stent ? 'Stent narrowed' : 'Narrowed';
   return 'Open';
 }
+/** The one line under the open share: what the words above leave out. Clot and narrowing are named only when both are
+ *  there (one alone is just 100 minus the open share), and a stent gives its diameter. */
+export function lumenFacts({ thrombus = 0, stenosis = 0 }, stentD = null) {
+  const out = [];
+  if (stentD != null) out.push(`${stentD} mm stent`);
+  if (thrombus >= 0.005 && stenosis >= 0.005) out.push(`Clot ${pct(thrombus)} %`, `narrowing ${pct(stenosis)} %`);
+  return out.join(' · ');
+}
 const pct = (x) => `${Math.round(clamp(x, 0, 1) * 100)}`;
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -56,11 +64,11 @@ export function createLumen() {
   const pic = sv('svg', { class: 'gl-pic', viewBox: '0 0 100 100', role: 'img' });
   pic.append(wall, lumen, chan, ring);
   const big = h('b'), state = h('span', { class: 'gl-state' });
-  // (the readings in the instruments' own tiles, as the varix wall's: endo-read, styles/app.css)
-  const tile = (name, unit) => { const v = h('span'); const d = h('div', { class: 'endo-tile gl-tile' }, h('dt', {}, name), h('dd', { class: 'endo-num' }, v, h('small', {}, unit))); d.v = v; return d; };
-  const clotT = tile('Clot', '%'), narT = tile('Narrowing', '%'), stentT = tile('Stent', 'mm'), stentV = stentT.v;
-  const read = h('dl', { class: 'endo-read gl-read' },
-    h('div', { class: 'gl-big' }, h('dt', {}, 'Open lumen'), h('dd', {}, big, h('small', {}, '%')), state), clotT, narT, stentT);
+  // One reading: the open share and what closes it, with a line of facts the words leave out (lumenFacts).
+  const facts = h('span', { class: 'gl-facts' });
+  const read = h('dl', { class: 'gl-read' },
+    h('div', { class: 'gl-big' }, h('dt', {}, 'Open lumen'), h('dd', {}, big, h('small', {}, '%')), state, facts));
+  let stentD = null;
   const el = h('div', { class: 'gl' }, h('div', { class: 'gl-stage' }, pic), read);
   const set = (n, t) => { if (n.textContent !== t) n.textContent = t; };
   const reduce = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -72,7 +80,7 @@ export function createLumen() {
     chan.setAttribute('r', g.ro.toFixed(2)); chan.setAttribute('cy', g.oy.toFixed(2));
     chan.style.opacity = g.ro < 0.4 ? '0' : '';
     set(big, pct(1 - L.occlusion)); set(state, lumenWords(L));
-    set(clotT.v, pct(x.thrombus)); set(narT.v, pct(x.stenosis));
+    set(facts, lumenFacts(x, STENTS.has(id) ? stentD : null) || '\u00a0');
     pic.setAttribute('aria-label', `${lumenName(id)} in cross-section: ${pct(1 - L.occlusion)}% of the lumen open, clot ${pct(x.thrombus)}%, narrowing ${pct(x.stenosis)}%`);
   }
   function tick(now) {
@@ -88,7 +96,8 @@ export function createLumen() {
   function update() {
     const prm = store.get().params, L = lumenOf(prm, id);
     goal = { stenosis: L.stenosis, thrombus: L.thrombus };
-    if (L.stent) set(stentV, String(Math.round((prm?.tips?.d ?? 10) * 10) / 10));
+    stentD = L.stent ? Math.round((prm?.tips?.d ?? 10) * 10) / 10 : null;
+    if (shown && !raf && goal.stenosis === shown.stenosis && goal.thrombus === shown.thrombus) paint(shown);
     if (!shown || reduce?.matches || !el.isConnected) { shown = { ...goal }; paint(shown); return; }
     if ((goal.stenosis !== shown.stenosis || goal.thrombus !== shown.thrombus) && !raf) raf = nextFrame(tick);
   }
@@ -98,7 +107,6 @@ export function createLumen() {
     if (v !== id || !shown) { id = v; shown = null; }
     el.dataset.vessel = SYSTEMIC.has(id) ? 'systemic' : id.startsWith('A_') ? 'artery' : 'portal';
     ring.style.display = STENTS.has(id) ? '' : 'none';
-    stentT.hidden = !STENTS.has(id);
     update();
   }
   return { el, update, configure };

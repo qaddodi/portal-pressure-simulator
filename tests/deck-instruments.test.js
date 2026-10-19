@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { createCore } from '../src/worker-core.js';
-import { lumenOf, lumenShape, lumenWords, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
+import { lumenOf, lumenShape, lumenWords, lumenFacts, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
 import { fluidOf, fluidBars, fluidWords, sinusoidForces, pinnedForces } from '../src/ui/tool-fluid.js';
 import { pulsatility, caliperPick, caliperFrame, caliperGlide, CAL_GLIDE, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
 import ext from '../src/ui/ext-instruments.js';
@@ -56,6 +56,10 @@ test('V19: the open lumen is 1 minus the engine\'s occlusion, and the picture\'s
   assert.equal(lumenWords(lumenOf({ stenosis: { TIPS: 0.6 } }, 'TIPS')), 'Stent narrowed');
   assert.equal(lumenWords(lumenOf({}, 'PV_TRUNK')), 'Open');
   assert.equal(lumenOf({}, 'TIPS').stent, true);
+  // One reading: a single cause is not repeated beside the open share; both causes, or a stent's size, are.
+  assert.equal(lumenFacts(lumenOf({ thrombus: { PV_TRUNK: 0.6 } }, 'PV_TRUNK')), '');
+  assert.equal(lumenFacts(lumenOf({ stenosis: { TIPS: 0.6 } }, 'TIPS'), 9), '9 mm stent');
+  assert.equal(lumenFacts(lumenOf({ thrombus: { PV_TRUNK: 0.5 }, stenosis: { PV_TRUNK: 0.2 } }, 'PV_TRUNK')), 'Clot 50 % · narrowing 20 %');
 });
 
 test('V27: made minus drained is the ascites made, from the fingerprint and from a live frame alike', async () => {
