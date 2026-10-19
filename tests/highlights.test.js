@@ -10,7 +10,7 @@ import { ORGANS } from '../src/ui/anatomy.js';
 import { DECKS, withOverview } from '../src/ui/decks.js';
 import { EXT, expandIds } from '../src/ui/slide-ext.js';
 import A from '../src/ui/ext-highlights.js';
-import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, bandRing, ringsBelow, normalShown, NORMAL_ON, NORMAL_OFF, rippleList, RIPPLE_MAX, systemOf, SYSTEM_COLOR, stateIndex, sinceWords } from '../src/ui/highlight-math.js';
+import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, bandRing, dashRings, normalShown, NORMAL_ON, NORMAL_OFF, rippleList, RIPPLE_MAX, systemOf, SYSTEM_COLOR, stateIndex, sinceWords } from '../src/ui/highlight-math.js';
 import { Engine } from '../src/engine/engine.js';
 import { deepMerge } from '../src/engine/scenario.js';
 
@@ -42,13 +42,13 @@ test('every named set names real vessels, and a set expands the same way in a gl
 });
 
 test('a spot list sorts its vessels from its organs, each organ in its own colour', () => {
-  const sp = spotOf(['PV_TRUNK', 'spleen', 'stomach', 'kidney', 'kidney-l', 'liver', 'nonsense', 'PV_TRUNK'], (id) => VESSELS.has(id));
+  const sp = spotOf(['PV_TRUNK', 'spleen', 'bowel', 'stomach', 'esophagus', 'kidney', 'kidney-l', 'liver', 'nonsense', 'PV_TRUNK'], (id) => VESSELS.has(id));
   assert.deepEqual(sp.edges, ['PV_TRUNK']);
-  assert.deepEqual(sp.organs, [{ id: 'spleen', tone: 'sv' }, { id: 'stomach', tone: '--text-2' }, { id: 'kidney-l', tone: '--text-2' }, { id: 'kidney-l', tone: '--text-2' }, { id: 'liver', tone: 'wedge' }]);
+  assert.deepEqual(sp.organs, [{ id: 'spleen', tone: 'sv' }, { id: 'bowel', tone: '--text-2' }, { id: 'kidney-l', tone: '--text-2' }, { id: 'kidney-l', tone: '--text-2' }, { id: 'liver', tone: 'wedge' }]);
   assert.deepEqual(spotOf(null, () => true), { edges: [], organs: [] });
 });
 
-test('a tube is outlined along both its edges, closed round its ends; the esophagus stops where it fades', () => {
+test('a tube is outlined along both its edges, closed round its ends', () => {
   const line = [[0, 0], [50, 0], [100, 0]], r = bandRing(line, 10);
   assert.deepEqual(r[0], r.at(-1), 'closed');
   const ys = r.map((p) => p[1]), xs = r.map((p) => p[0]);
@@ -56,7 +56,28 @@ test('a tube is outlined along both its edges, closed round its ends; the esopha
   assert.ok(Math.max(...xs) <= 110 + 1e-9 && Math.max(...xs) > 108 && Math.min(...xs) < -8, 'the caps round the two ends');
   for (const p of r) assert.ok(Math.min(Math.abs(Math.abs(p[1]) - 10), Math.abs(Math.hypot(p[0] - (p[0] > 50 ? 100 : 0), p[1]) - 10)) < 1e-6, `${p} on the outline`);
   assert.deepEqual(bandRing([[0, 0]], 10), []);
-  assert.deepEqual(ringsBelow([[[0, -20], [0, 0], [0, 20], [0, 30], [0, -5], [1, 15], [2, 16]]], 10), [[[0, 20], [0, 30]], [[1, 15], [2, 16]]]);
+});
+
+test('the stomach and the esophagus are not highlighted (Mohammad, 19 Oct)', () => {
+  for (const id of ['stomach', 'esophagus']) {
+    assert.equal(ORGAN_TARGETS[id], undefined, `${id}: no target`);
+    assert.ok(!NEW_ORGANS.includes(id), `${id}: not outlined`);
+  }
+});
+
+test('the normal spleen\'s outline is dashed: runs of on, gaps of off, along the ring', () => {
+  const sq = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]];
+  const d = dashRings([sq], 3, 2);
+  assert.equal(d.length, 8, 'a 40-unit ring: eight 3-unit dashes');
+  const len = (r) => r.slice(1).reduce((t, p, i) => t + Math.hypot(p[0] - r[i][0], p[1] - r[i][1]), 0);
+  for (const r of d) assert.ok(Math.abs(len(r) - 3) < 1e-9, `dash ${JSON.stringify(r)} is 3 long`);
+  assert.deepEqual(d[0], [[0, 0], [3, 0]]);
+  assert.deepEqual(d[1], [[5, 0], [8, 0]]);
+  assert.deepEqual(d[2], [[10, 0], [10, 3]], 'a dash that starts on a corner');
+  assert.deepEqual(d[4], [[10, 10], [7, 10]]);
+  assert.deepEqual(dashRings([[[0, 0], [10, 0]]], 4, 2), [[[0, 0], [4, 0]], [[6, 0], [10, 0]]]);
+  assert.equal(dashRings([[[0, 0], [10, 0]]], 4, 2)[1].length, 2, 'the last dash is cut where the line ends');
+  assert.deepEqual(dashRings([sq], 0, 2), []);
 });
 
 test('the normal spleen\'s outline shows once the spleen is clearly enlarged, without blinking at the threshold', () => {
@@ -109,12 +130,12 @@ test('"the slide before" is the state the presenter shows for it, and the key na
   assert.match(pres, /const changes = \(s\) => !!\(s\.preset \|\| s\.params \|\| s\.action \|\| s\.days\);/);
   assert.match(pres, /slides = d\.mine \? d\.slides : withOverview\(d\)\.slides/);
   for (const d of DECKS.slice(0, 3)) assert.equal(stateIndex(withOverview(d).slides).length, withOverview(d).slides.length);
-  assert.equal(sinceWords({}), 'change since the last slide');
-  assert.equal(sinceWords({ since: 'pre' }), 'change since earlier');
-  assert.equal(sinceWords({ since: 'pre', sinceLabel: 'before TIPS' }), 'change since before TIPS');
+  assert.equal(sinceWords({}), 'change vs last slide');
+  assert.equal(sinceWords({ since: 'pre' }), 'change vs earlier');
+  assert.equal(sinceWords({ since: 'pre', sinceLabel: 'pre-TIPS' }), 'change vs pre-TIPS');
   assert.equal(sinceWords({ lapse: {} }), 'change over these days');
   const [name, bar, lo, hi] = EXT.lenses.since({ sinceLabel: 'the bleed' });
-  assert.equal(name, 'change since the bleed'); assert.equal(typeof bar, 'function'); assert.deepEqual([lo, hi], ['Lower', 'Higher']);
+  assert.equal(name, 'change vs the bleed'); assert.equal(typeof bar, 'function'); assert.deepEqual([lo, hi], ['Lower', 'Higher']);
   assert.equal(EXT.lenses.system[0], 'vein system');
 });
 

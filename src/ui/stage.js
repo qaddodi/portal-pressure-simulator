@@ -38,7 +38,7 @@ import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd'
 import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
-import { bandRing, ringsBelow, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=86a89dcb9e';
+import { bandRing, dashRings, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=25f30508f6';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, outward } from './callout-math.js?v=859835037f';
 const nextFrame = frameFor('stage');
 
@@ -3828,17 +3828,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const HEART_GLOW = { reach: 46, alpha: 0.34 };
   let olPath = null;   // sampled in <defs>: the organ itself is hidden while the GPU draws the plate
   // A tube (the bowel, colon, duodenum: a stroke along a centre line) is outlined along both its edges (bandRing), at the
-  // width its edge is stroked; the esophagus only below where it fades into the chest. bare: the organ's own path at its
-  // normal size, not as the figure now scales it (the normal spleen, V18).
+  // width its edge is stroked. bare: the organ's own path at its normal size, not as the figure now scales it (the normal
+  // spleen, V18).
   const BAND_IDS = new Set(ORGANS.filter((o) => o.band).map((o) => o.id));
-  const ESO_TOP = 10;
   function olRings(id, bare = false) {
     const rings = olRingsRaw(id, bare);
     if (BAND_IDS.has(id)) {
       const edge = organG[id].querySelector('.band-edge'), w = edge ? parseFloat(getComputedStyle(edge).strokeWidth) : 0;
       return w > 0 ? rings.map((r) => bandRing(r, w / 2)).filter((r) => r.length) : rings;
     }
-    return id === 'esophagus' ? ringsBelow(rings, ESO_TOP) : rings;
+    return rings;
   }
   function olRingsRaw(id, bare) {
     const m = bare ? null : organG[id].transform.baseVal.consolidate()?.matrix;
@@ -3896,7 +3895,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The normal spleen's outline (V18): wanted by a slide, shown while the spleen is enlarged (normalSync, each frame the spleen
   // is drawn), in the spleen's own deep tone. It keeps the organ's normal size and place as the spleen grows round it.
+  // Dashed (on, off in world units), so it reads as where the spleen would be and not as a second organ.
   const normal = { want: false, shown: false, sc: 1 };
+  const NORMAL_DASH = [7, 5];
   function normalSync(sc = normal.sc) {
     normal.sc = sc;
     const p = store.get().params;
@@ -3905,7 +3906,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     normal.shown = on;
     const o = olList.find((x) => x.kind === 'normal');
     if (o) o.on = on;
-    else if (on) olList.push({ kind: 'normal', id: 'spleen', key: '', rings: olRings('spleen', true), a: 0, on: true, col: orgTone('spleen') });
+    else if (on) olList.push({ kind: 'normal', id: 'spleen', key: '', rings: dashRings(olRings('spleen', true), NORMAL_DASH[0], NORMAL_DASH[1]), a: 0, on: true, col: orgTone('spleen') });
     olDirty = true; olLast = performance.now(); stageWake();
   }
   // Deck visuals, package F (ext-callouts.js): a slide's figure callouts, or null. live: an edge mark's words by
