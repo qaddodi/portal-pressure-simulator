@@ -100,7 +100,8 @@ export function createFlowTime() {
     const oneRow = keysL[0].w + keysL[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow ? 1 : 2) * rowH;
     const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmt(v, dec(sc)), f)));
     // (Right of the plot: the upper line's numbers, and the clock's unit in capitals after half its last number.)
-    const half = cw(`+${ax().end}`, f) / 2 + 6, L = Math.ceil(tw(ser.pScale) + 8), R = Math.floor(w - Math.max(tw(ser.fScale) + 8, half + (meal ? 3 : 4) * f * 0.78 + 4));
+    // (On a slide with treatment bars the left numbers stand clear of the start ring too.)
+    const half = cw(`+${ax().end}`, f) / 2 + 6, L = Math.ceil(tw(ser.pScale) + 8 + (rx.length ? Math.max(3, f * 0.3) + 2 : 0)), R = Math.floor(w - Math.max(tw(ser.fScale) + 8, half + (meal ? 3 : 4) * f * 0.78 + 4));
     // (Room over the plot for the "Fasting" and "Meal" row, else for the upper line's value over its head.)
     const T = legH + (meal ? 1.9 * f : 1.9 * f), B = h - 1.7 * f - bandRoom(f), ph = Math.max(4 * f, B - T);
     return { w, h, f, half, meal, keysL, oneRow, rowH, L, R, T, B, FB: [T, T + 0.36 * ph], PB: [T + 0.62 * ph, T + ph] };
@@ -146,7 +147,7 @@ export function createFlowTime() {
       sv('text', { class: 'pft-band-n', x: L, y: B + 2.3 * f }, rx.map((k, j) => sv('tspan', { style: `--rx: var(${RX[k][2]})` }, (j ? '  ·  ' : '') + RX[k][0]))),
       rx.map((k, j) => sv('rect', { class: 'pft-band', 'data-rx': k, style: `--rx: var(${RX[k][2]})`, x: L, width: Math.max(2, R - L), y: B + 2.55 * f + j * 0.32 * f, height: 0.2 * f, rx: 0.1 * f }))) : null;
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${G.f.toFixed(2)}px` },
-      bandEls, grid(ser.fScale, lf.Y, R + 6, 'start', lf.c), grid(ser.pScale, lp.Y, L - 6, 'end', lp.c), legend,
+      bandEls, grid(ser.fScale, lf.Y, R + 6, 'start', lf.c), grid(ser.pScale, lp.Y, L - 6 - (rx.length ? Math.max(3, f * 0.3) + 2 : 0), 'end', lp.c), legend,
       sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
       mins.map((m) => sv('text', { class: 'pft-tk', x: X(m), y: B + 1.25 * f, 'text-anchor': 'middle' }, m > 0 ? `+${m}` : m < 0 ? `−${-m}` : '0')),
       sv('text', { class: 'ptk-ax', x: R + G.half, y: B + 1.25 * f }, meal ? 'min' : 'days'),

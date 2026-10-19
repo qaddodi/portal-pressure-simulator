@@ -32,9 +32,10 @@ export function profileOf(fp) {
   return { v, hvpg: fp.hvpg, ppg: fp.ppg, w: Number.isFinite(fp.whvp) ? +fp.whvp : null };
 }
 
-/** The axis's top: the highest point of the lines drawn, up to the next 5 (10 over 40), at least 15. */
+/** The axis's top: the highest point of the lines drawn and 2 mmHg over it (room for its value above it, as the app's
+ *  charts keep), up to the next 5 (10 over 40), at least 15. */
 export const axisTop = (...lines) => {
-  const top = Math.max(15, ...lines.filter(Boolean).flatMap((l) => l.v));
+  const hi = Math.max(...lines.filter(Boolean).flatMap((l) => l.v)), top = Math.max(15, hi + 2);
   const step = top > 40 ? 10 : 5;
   return Math.ceil(top / step - 1e-9) * step;
 };
@@ -82,11 +83,11 @@ export function labelPlacer(runs, obstacles, top, bottom, weights = [], [gx, gy]
     const hit = new Set();
     for (const [[x0, y0], [x1, y1], wt] of segs) {
       if (hit.has(wt) || Math.max(x0, x1) < b[0] - 3 || Math.min(x0, x1) > b[1] + 3) continue;
+      // (The piece of the segment inside the box's x span, padded, against its y span: a steep drop counts too.)
       const xa = Math.max(Math.min(x0, x1), b[0] - 3), xb = Math.min(Math.max(x0, x1), b[1] + 3);
-      for (let s = 0; s <= 4; s++) {
-        const x = xa + (xb - xa) * s / 4, y = x1 === x0 ? y0 : y0 + (y1 - y0) * (x - x0) / (x1 - x0);
-        if (y > b[2] - 4 && y < b[3] + 4) { hit.add(wt); c += wt; break; }
-      }
+      const yAt = (x) => (x1 === x0 ? y0 : y0 + (y1 - y0) * (x - x0) / (x1 - x0));
+      const ya = x1 === x0 ? Math.min(y0, y1) : Math.min(yAt(xa), yAt(xb)), yb = x1 === x0 ? Math.max(y0, y1) : Math.max(yAt(xa), yAt(xb));
+      if (yb > b[2] - 3 && ya < b[3] + 3) { hit.add(wt); c += wt; }
     }
     return c;
   };
@@ -98,7 +99,7 @@ export function labelPlacer(runs, obstacles, top, bottom, weights = [], [gx, gy]
   // (Where no place may be had: how much it overlaps, counting the gaps, so the least crowded one can be taken.)
   const ov = (b, o, g, h) => Math.max(0, Math.min(b[1], o[1]) - Math.max(b[0], o[0]) + g) * Math.max(0, Math.min(b[3], o[3]) - Math.max(b[2], o[2]) + h);
   const crowd = (b) => (b[2] < top || b[3] > bottom ? 1e9 : 0) + boxes.reduce((a, o) => a + ov(b, o, gx, gy), 0) + obstacles.reduce((a, o) => a + ov(b, o, 2, 2), 0);
-  return { boxes, cost, crowd, free: (b) => cost(b) === 0, take(b) { boxes.push(b); } };
+  return { boxes, cost, crowd, lineCost, free: (b) => cost(b) === 0, take(b) { boxes.push(b); } };
 }
 
 /** Where each value goes: above its point, or under it, or a little to either side, where nothing is in the way (the lines
@@ -109,19 +110,30 @@ export function labelPlacer(runs, obstacles, top, bottom, weights = [], [gx, gy]
 export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity, left = -Infinity, right = Infinity, extra = [], dots = [], dotR = 0.36 * f, obstacles = [] } = {}) {
   const P = curveRuns([pts, ...others]);
   const place = labelPlacer(P, [...dots.map(([x, y, r]) => [x - r + 1.5, x + r - 1.5, y - r + 1.5, y + r - 1.5]), ...obstacles], top, bottom, [4, ...others.map(() => 1)], [0.6 * f, 0.4 * f]);   // (in type sizes: the card's zoom shrinks the chart's px)
-  const sides = [...pts, ...extra].map(([x, y], i) => {
+  const all = [...pts, ...extra];
+  const sides = all.map(([x, y], i) => {
     const wd = tw(labels[i]) / 2, sd = dotR + 5 + wd;
-    const box = (s, dx) => (s < 0 ? [x + dx - wd, x + dx + wd, y - 1.55 * f, y - 0.6 * f] : s > 0 ? [x + dx - wd, x + dx + wd, y + 0.6 * f, y + 1.55 * f]
-      : [x + dx - wd, x + dx + wd, y - 0.5 * f, y + 0.45 * f]);
-    const fits = (b) => b[0] >= left && b[1] <= right;
-    // (s 0: beside its dot, at its height, left or right.)
-    const tries = [[-1, 0], [1, 0], ...[0.45, 0.9].flatMap((k) => [[-1, k * wd], [-1, -k * wd], [1, k * wd], [1, -k * wd]]), [0, sd], [0, -sd]];
+    const box = (s, dx, dy = 0) => (s < 0 ? [x + dx - wd, x + dx + wd, y + dy - 1.55 * f, y + dy - 0.6 * f] : s > 0 ? [x + dx - wd, x + dx + wd, y + dy + dotR + 2, y + dy + dotR + 2 + 0.95 * f]
+      : [x + dx - wd, x + dx + wd, y + dy - 0.42 * f, y + dy + 0.42 * f]);
+    // (A value reads as its own dot's: its middle nearer that dot than any other.)
+    const mine = (b) => { const cx = (b[0] + b[1]) / 2, cy = (b[2] + b[3]) / 2, d = Math.hypot(cx - x, cy - y);
+      return all.every(([ox, oy], j) => j === i || Math.hypot(cx - ox, cy - oy) > d); };
+    const fits = (b) => b[0] >= left && b[1] <= right && mine(b);
+    // (s 0: beside its dot, at its height, left or right; then a little up or down beside it, past a mark beside it (the
+    // HVPG's bracket), or a line further off.)
+    const tries = [[-1, 0], [1, 0], ...[0.45, 0.9].flatMap((k) => [[-1, k * wd], [-1, -k * wd], [1, k * wd], [1, -k * wd]]), [0, sd], [0, -sd],
+      ...[-0.7, 0.7].flatMap((k) => [[0, sd, k * f], [0, -sd, k * f]]), [0, sd + 5, -0.7 * f], [0, -sd - 5, -0.7 * f], [-1, 0, -0.8 * f], [1, 0, 0.8 * f], [-1, 0.9 * wd, -0.8 * f], [-1, -0.9 * wd, -0.8 * f], [1, 0.9 * wd, 0.8 * f], [1, -0.9 * wd, 0.8 * f]];
     let best = tries[0], bc = Infinity;
     for (const t of tries) { const c = fits(box(...t)) ? place.cost(box(...t)) : Infinity; if (c < bc) { bc = c; best = t; } if (c === 0) break; }
-    if (bc === Infinity) best = tries.filter((t) => fits(box(...t))).reduce((a, t) => (place.crowd(box(...t)) < place.crowd(box(...a)) ? t : a), tries[0]);
-    const [s, dx] = best;
-    place.take(box(s, dx));
-    return { s, dx };
+    // (Nowhere clear: the least crowded place, never on its own line where another place will do.)
+    if (bc === Infinity) {
+      const inX = (b) => b[0] >= left && b[1] <= right, ok = tries.filter((t) => inX(box(...t))), pool = ok.length ? ok : tries;
+      const score = (t) => { const b = box(...t); return place.crowd(b) + (place.lineCost(b) >= 4 ? 1e8 : 0) + (mine(b) ? 0 : 1e7); };
+      best = pool.reduce((a, t) => (score(t) < score(a) ? t : a), pool[0]);
+    }
+    const [s, dx, dy = 0] = best;
+    place.take(box(s, dx, dy));
+    return { s, dx, dy };
   });
   sides.place = place;   // (for more labels to keep clear of these)
   return sides;
@@ -198,7 +210,7 @@ export function createProfileTool() {
     if (!sides) {
       const pg = ptsG(goal);
       sides = valueSides(pg, [hl, bf].filter(Boolean).map(ptsG), [...goal.v.map(one), ...(hasW ? [one(goal.w)] : [])], f, (t) => tw(t), G.T - 0.2 * f,
-        { bottom: G.B - 3, left: G.L + 2, right: G.R + 8, dotR, obstacles: hasW ? [[hx + dotR + 1, hx + dotR + 8, Math.min(yg(goal.w), pg[hv][1]) - 2, Math.max(yg(goal.w), pg[hv][1]) + 2]] : [], extra: hasW ? [[hx, yg(goal.w)]] : [], dots: [...pg.map(([x, yy]) => [x, yy, dotR + 1]), ...(hasW ? [[hx, yg(goal.w), dotR + 2.5]] : [])] });
+        { bottom: G.B - 1, left: G.L + 2, right: G.R + 8, dotR, obstacles: hasW ? [[hx + dotR + 1, hx + dotR + 8, Math.min(yg(goal.w), pg[hv][1]) - 2, Math.max(yg(goal.w), pg[hv][1]) + 2]] : [], extra: hasW ? [[hx, yg(goal.w)]] : [], dots: [...pg.map(([x, yy]) => [x, yy, dotR + 1]), ...(hasW ? [[hx, yg(goal.w), dotR + 2.5]] : [])] });
       sides.hvpgAt = null;
       if (hasW) {
         // (The HVPG's own label: beside its bracket, right then left, at its middle or a little up or down; else in the
@@ -221,7 +233,7 @@ export function createProfileTool() {
     const keyEls = key.slice().reverse().map(([t, c]) => { const tx = kx, gx = tx - tw(t, 500) - 6; kx -= tw(t, 500) + 30; return sv('g', { class: `ppf-key ${c}` },
       c === 'w' ? sv('circle', { cx: gx - 6, cy: 0.75 * f, r: dotR }) : sv('line', { x1: gx - 18, x2: gx, y1: 0.75 * f, y2: 0.75 * f }),
       sv('text', { x: tx, y: 0.75 * f + 0.36 * f, 'text-anchor': 'end' }, t)); });
-    const valY = (cy, k) => (sides[k].s < 0 ? cy - 0.75 * f : sides[k].s > 0 ? cy + 1.45 * f : cy + 0.36 * f);
+    const valY = (cy, k) => (sides[k].dy || 0) + (sides[k].s < 0 ? cy - 0.75 * f : sides[k].s > 0 ? cy + dotR + 2 + 0.85 * f : cy + 0.36 * f);
     const yw = hasW ? y(shown.w) : 0, yf = now[hv]?.[1], bx = hx + dotR + 6, hvRate = RATE.hvpg(shown.hvpg)[0];
     const hvpgTxt = (x, yy, anchor) => sv('text', { x, y: yy, 'text-anchor': anchor }, sv('tspan', { class: 'k' }, 'HVPG '), one(shown.hvpg));
     const vert = hasW ? sv('g', { class: 'ppf-br', 'data-rate': hvRate, 'data-k': 'hvpg' },
