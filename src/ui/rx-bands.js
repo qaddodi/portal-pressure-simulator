@@ -40,15 +40,21 @@ export function bandSpan(run, n, X, L, R) {
   return [Math.max(L, Math.min(x0, x1)), Math.min(R, Math.max(x0, x1))];
 }
 
-/** Where the bands' names go: each starts 6 px into its band, or ends at maxX where it would run past it (the chart's own
- *  labels sit beyond); a name that would touch the one before it on its row goes to the next row; rows: how many there
- *  are room for (a name that fits on none goes just after the name on the row that ends first). widthOf: a name's width in px; ends0: where each row is
- *  already taken up to (another label on it). Returns [{ x, row }] in the runs' order. */
+/** Where the bands' names go: each starts 6 px into its band, or ends at its row's maxX (a number, or one per row) where it
+ *  would run past it; of the rows where it does not touch the name before it, the one where it starts nearest its band
+ *  (a name that fits on none goes just after the name on the row that ends first). rows: how many there are room for;
+ *  widthOf: a name's width in px; ends0: where each row is already taken up to (another label on it).
+ *  Returns [{ x, row }] in the runs' order. */
 export function namePlaces(spans, names, widthOf, { rows = 2, gap = 8, ends0 = [], maxX = Infinity } = {}) {
   const ends = Array.from({ length: rows }, (_, r) => ends0[r] ?? -Infinity), out = [];
-  const xs = spans.map((sp, i) => Math.min(sp[0] + 6, maxX - widthOf(names[i])));
-  for (const i of spans.map((_, k) => k).sort((a, b) => xs[a] - xs[b])) {
-    let r = ends.findIndex((e) => xs[i] >= e + gap), x = xs[i];
+  const maxOf = (r) => (Array.isArray(maxX) ? maxX[r] ?? Infinity : maxX);
+  for (const i of spans.map((_, k) => k).sort((a, b) => spans[a][0] - spans[b][0] || a - b)) {
+    // (On the row where it starts nearest its band: at the band's start, or as near as that row's right edge allows.)
+    let r = -1, x = -Infinity;
+    for (let q = 0; q < rows; q++) {
+      const xq = Math.min(spans[i][0] + 6, maxOf(q) - widthOf(names[i]));
+      if (xq >= ends[q] + gap && xq > x + 0.5) { r = q; x = xq; }
+    }
     // (No row free where it starts: on the row that frees first, just after the name there, never on top of it.)
     if (r < 0) { r = ends.indexOf(Math.min(...ends)); x = ends[r] + gap; }
     ends[r] = x + widthOf(names[i]);

@@ -8,7 +8,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
-import { profileOf, STATIONS, axisTop, nameFit, profileGeo, valueSides, bracketLabel } from '../src/ui/tool-profile.js';
+import { profileOf, STATIONS, axisTop, nameFit, profileGeo, valueSides, curveRuns, bracketLabel } from '../src/ui/tool-profile.js';
 import { flowParts, routeFlows, wholeShares, keyGrid, MAX_ROUTES } from '../src/ui/tool-flows.js';
 import { RX, bandKeys, bandRuns, bandSpan, namePlaces } from '../src/ui/rx-bands.js';
 import { deckStates, runSteps } from './deck-states.js';
@@ -36,6 +36,9 @@ test('the profile reads the tiles\' numbers and the network\'s own pressures', a
     assert.deepEqual([p.v[1], p.v[3], p.v[4], p.v[5], p.v[6], p.v[7]], [fp.pv, fp.sin, fp.cv, fp.fhvp, fp.ivc, fp.ra]);
     assert.ok(near(p.v[0], fp.int) && near(p.v[2], fp.at.P[NI.RPV], 1e-4));
     assert.equal(p.hvpg, fp.hvpg); assert.equal(p.ppg, fp.ppg);
+    // The HVPG's bracket stands on the wedged ring and the hepatic vein's dot: its number is their difference as written.
+    assert.equal(p.w, fp.whvp);
+    assert.equal(+(Math.round(p.w * 10) / 10 - Math.round(p.v[5] * 10) / 10).toFixed(1), +fp.hvpg.toFixed(1), 'HVPG = wedged − hepatic vein, as written');
     for (const v of p.v) assert.ok(Number.isFinite(v) && v >= -1 && v < 80, String(v));
   }
   // The healthy line falls gently; cirrhosis loses its pressure in the sinusoids, schistosomiasis before them.
@@ -68,9 +71,19 @@ test('the station names fit their slots: full where there is room, the short nam
 test('a value goes under its dot only where the line is in the way above', () => {
   const f = 12, tw = approxW(f);
   // A flat line: every value above. A steep drop into a point: its value under it when the line before covers the top.
-  assert.deepEqual(valueSides([[0, 100], [40, 100], [80, 100]], [], ['5.0', '5.0', '5.0'], f, tw, 20), [-1, -1, -1]);
+  assert.deepEqual(valueSides([[0, 100], [40, 100], [80, 100]], [], ['5.0', '5.0', '5.0'], f, tw, 20).map((v) => v.s), [-1, -1, -1]);
   const s = valueSides([[0, 30], [20, 110], [60, 112]], [], ['30.0', '10.0', '9.0'], f, tw, 20);
-  assert.equal(s[1], 1);
+  assert.equal(s[1].s, 1);
+  // Never on the axis: a low point's value goes above it, or beside, never under the axis line.
+  const low = valueSides([[0, 60], [40, 118], [80, 119]], [], ['8.0', '0.3', '0.2'], f, tw, 20, { bottom: 117 });
+  for (const v of low.slice(1)) assert.equal(v.s, -1);
+  // Two values side by side never touch: the second moves.
+  const pair = valueSides([[0, 80], [30, 80]], [], ['13.0', '12.7'], f, tw, 20);
+  assert.ok(pair[1].s !== pair[0].s || Math.abs(pair[1].dx - pair[0].dx) > 0);
+  // The curve, not its chord: a label clear of the straight line but on the curve's bulge moves.
+  const P = [[0, 20], [40, 30], [80, 120], [120, 122]];
+  const runs = curveRuns([P])[0];
+  assert.ok(runs.length > P.length, 'the curve is sampled finely');
   const lb = bracketLabel(100, 300, 70, 400, 30);
   assert.equal(lb.anchor, 'middle');
   assert.ok(lb.gap[0] > 100 && lb.gap[1] < 300);

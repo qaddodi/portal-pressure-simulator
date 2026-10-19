@@ -1,7 +1,8 @@
 // The pressure profile on a slide (deck visuals V1, package B): tool { kind: 'profile' } draws the slide's pressure from gut
 // to heart through the Patients chart's eight stations (anatomy.js PROFILE_PATHS), the healthy line dashed beneath it, the
-// liver's stations on a soft band and the HVPG and PPG as brackets under the names. Where the line drops steeply is where
-// the resistance is, so presinusoidal, sinusoidal and postsinusoidal resistance look different on one chart.
+// liver's stations on a soft band, the PPG as a bracket under the names and the HVPG where it is measured: the wedged
+// hepatic vein pressure as a ring over the hepatic vein's own (free) dot, a bracket between them with its value. Where the
+// line drops steeply is where the resistance is, so presinusoidal, sinusoidal and postsinusoidal resistance look different.
 // tool: { kind: 'profile', from: true } adds the state before this slide's as a faint dotted line ('slide id' for another).
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
@@ -21,14 +22,14 @@ export const SHORT_NAMES = { INT: 'Gut', CONF: 'PV', RPV: 'Venule', SIN_R: 'Sinu
 const AT_FP = { INT: 'int', CONF: 'pv', SIN_R: 'sin', CV_R: 'cv', RHV: 'fhvp', IVCS: 'ivc', RA: 'ra' };
 export const SPANS = [['hvpg', 'HVPG', 'SIN_R', 'RHV'], ['ppg', 'PPG', 'CONF', 'IVCS']];
 
-/** A fingerprint's profile: the eight stations' pressures (mmHg) in order, and its HVPG and PPG as the tiles give them;
- *  null without a fingerprint. */
+/** A fingerprint's profile: the eight stations' pressures (mmHg) in order, its HVPG and PPG as the tiles give them and the
+ *  wedged hepatic vein pressure (w) the HVPG is measured from; null without a fingerprint. */
 export function profileOf(fp) {
   if (!fp) return null;
   const P = fp.at?.P;
   const v = STATIONS.map((n) => { const k = AT_FP[n], x = k && Number.isFinite(fp[k]) ? fp[k] : P ? P[NI[n]] : NaN; return Number.isFinite(x) ? +x : NaN; });
   if (v.some((x) => !Number.isFinite(x))) return null;
-  return { v, hvpg: fp.hvpg, ppg: fp.ppg };
+  return { v, hvpg: fp.hvpg, ppg: fp.ppg, w: Number.isFinite(fp.whvp) ? +fp.whvp : null };
 }
 
 /** The axis's top: the highest point of the lines drawn, up to the next 5 (10 over 40), at least 15. */
@@ -56,24 +57,66 @@ export function profileGeo(w, h, f, tw) {
   return { w, h, f, L, R, T, B, slot, x, fit, keyH, nameY: (i) => B + 1.05 * f + (fit.rows > 1 && i % 2 ? 1.25 * f : 0), brY: (k) => B + nameH + brH * (k + 0.55) };
 }
 
-/** Where each station's value goes: above its dot, or under it where the line or a value already there is in the way
- *  (the lines as straight runs between their stations: the monotone curve keeps within them). pts: [[x, y]] of the line,
- *  others: other lines' points, tw: width; returns -1 (above) or 1 (under) per station. */
-export function valueSides(pts, others, labels, f, tw, top) {
-  const boxes = [], sides = [];
-  const segs = [pts, ...others].flatMap((l) => l.slice(1).map((p, i) => [l[i], p]));
-  const hits = (b) => segs.some(([[x0, y0], [x1, y1]]) => {
-    if (x1 < b[0] || x0 > b[1]) return false;
-    for (let s = 0; s <= 8; s++) { const x = b[0] + (b[1] - b[0]) * s / 8; if (x < x0 || x > x1) continue; const y = y0 + (y1 - y0) * (x - x0) / Math.max(1e-6, x1 - x0); if (y > b[2] - 2 && y < b[3] + 2) return true; }
-    return false;
+/** The lines as fine polylines (the smooth curves drawn, not their chords), for the labels to keep clear of. */
+export function curveRuns(lines) {
+  return lines.map((pts) => {
+    const segs = monotoneSegs(pts);
+    if (!segs) return pts;
+    const out = [pts[0]];
+    for (const [x0, y0, ax, ay, bx, by, x1, y1] of segs) for (let k = 1; k <= 10; k++) {
+      const t = k / 10, u = 1 - t;
+      out.push([u * u * u * x0 + 3 * u * u * t * ax + 3 * u * t * t * bx + t * t * t * x1, u * u * u * y0 + 3 * u * u * t * ay + 3 * u * t * t * by + t * t * t * y1]);
+    }
+    return out;
   });
-  const near = (b) => boxes.some((o) => b[0] < o[1] + 2 && o[0] < b[1] + 2 && b[2] < o[3] + 2 && o[2] < b[3] + 2);
-  pts.forEach(([x, y], i) => {
-    const wd = tw(labels[i]) / 2, box = (s) => (s < 0 ? [x - wd, x + wd, y - 1.55 * f, y - 0.6 * f] : [x - wd, x + wd, y + 0.6 * f, y + 1.55 * f]);
-    const fits = (s) => !hits(box(s)) && !near(box(s)) && (s > 0 || box(s)[2] >= top);
-    const s = fits(-1) ? -1 : fits(1) ? 1 : -1;
-    sides.push(s); boxes.push(box(s));
+}
+
+/** A placer for labels: boxes [x0, x1, y0, y1] inside [top, bottom], 5 px clear of every box placed before and of the
+ *  given obstacles (hard), and as clear as can be of the lines (runs: polylines, each with its weight: the slide's own line
+ *  counts most). free(b): nothing in the way; cost(b): the weight of the lines it touches, Infinity where it may not go. */
+export function labelPlacer(runs, obstacles, top, bottom, weights = []) {
+  const segs = runs.flatMap((l, k) => l.slice(1).map((p, i) => [l[i], p, weights[k] ?? 1]));
+  const boxes = obstacles.slice();
+  const lineCost = (b) => {
+    let c = 0;
+    const hit = new Set();
+    for (const [[x0, y0], [x1, y1], wt] of segs) {
+      if (hit.has(wt) || Math.max(x0, x1) < b[0] - 3 || Math.min(x0, x1) > b[1] + 3) continue;
+      const xa = Math.max(Math.min(x0, x1), b[0] - 3), xb = Math.min(Math.max(x0, x1), b[1] + 3);
+      for (let s = 0; s <= 4; s++) {
+        const x = xa + (xb - xa) * s / 4, y = x1 === x0 ? y0 : y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+        if (y > b[2] - 4 && y < b[3] + 4) { hit.add(wt); c += wt; break; }
+      }
+    }
+    return c;
+  };
+  const near = (b) => boxes.some((o) => b[0] < o[1] + 5 && o[0] < b[1] + 5 && b[2] < o[3] + 3 && o[2] < b[3] + 3);
+  const cost = (b) => (b[2] < top || b[3] > bottom || near(b) ? Infinity : lineCost(b));
+  return { boxes, cost, free: (b) => cost(b) === 0, take(b) { boxes.push(b); } };
+}
+
+/** Where each value goes: above its point, or under it, or a little to either side, where nothing is in the way (the lines
+ *  as drawn, the dots, the other values, the axis); where no place is clear of every line, the one that touches the least
+ *  of them (never the slide's own line if it can help it; the value's halo masks a reference line under it). pts: [[x, y]]
+ *  of the line, others: other lines' points, extra: [[x, y]] points off the line with a value (labels follows pts then
+ *  extra), dots: [x, y, r]. → [{ s: -1 above | 1 under | 0 beside, dx }] */
+export function valueSides(pts, others, labels, f, tw, top, { bottom = Infinity, left = -Infinity, right = Infinity, extra = [], dots = [], dotR = 0.36 * f } = {}) {
+  const P = curveRuns([pts, ...others]);
+  const place = labelPlacer(P, dots.map(([x, y, r]) => [x - r + 1.5, x + r - 1.5, y - r + 1.5, y + r - 1.5]), top, bottom, [4, ...others.map(() => 1)]);
+  const sides = [...pts, ...extra].map(([x, y], i) => {
+    const wd = tw(labels[i]) / 2, sd = dotR + 5 + wd;
+    const box = (s, dx) => (s < 0 ? [x + dx - wd, x + dx + wd, y - 1.55 * f, y - 0.6 * f] : s > 0 ? [x + dx - wd, x + dx + wd, y + 0.6 * f, y + 1.55 * f]
+      : [x + dx - wd, x + dx + wd, y - 0.5 * f, y + 0.45 * f]);
+    const fits = (b) => b[0] >= left && b[1] <= right;
+    // (s 0: beside its dot, at its height, left or right.)
+    const tries = [[-1, 0], [1, 0], ...[0.45, 0.9].flatMap((k) => [[-1, k * wd], [-1, -k * wd], [1, k * wd], [1, -k * wd]]), [0, sd], [0, -sd]];
+    let best = tries[0], bc = Infinity;
+    for (const t of tries) { const c = fits(box(...t)) ? place.cost(box(...t)) : Infinity; if (c < bc) { bc = c; best = t; } if (c === 0) break; }
+    const [s, dx] = best;
+    place.take(box(s, dx));
+    return { s, dx };
   });
+  sides.place = place;   // (for more labels to keep clear of these)
   return sides;
 }
 
@@ -139,20 +182,46 @@ export function createProfileTool() {
     const G = profileGeo(w, hh, f, tw), hl = healthy(), bf = ref;
     const top = shown.top, y = (v) => G.B - (G.B - G.T) * Math.max(0, Math.min(v, top)) / top;
     const pts = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
-    const now = pts(shown), labels = shown.v.map(one);
-    // (Each value's side is settled once per state, from where the lines will end up, so it never flips while they glide.)
+    const now = pts(shown), labels = shown.v.map(one), dotR = Math.max(4, 0.36 * f);
+    // The HVPG is measured in the hepatic vein: the wedged pressure (a ring) over the free one (the vein's own dot), the
+    // gradient a bracket between the two, so its number is the difference of the two values written beside them.
+    const hv = STATIONS.indexOf('RHV'), hasW = Number.isFinite(goal.w) && Number.isFinite(shown.w), hx = G.x(hv);
+    // (Each value's place is settled once per state, from where the lines will end up, so it never flips while they glide.)
     const yg = (v) => G.B - (G.B - G.T) * Math.max(0, Math.min(v, goal.top)) / goal.top, ptsG = (p) => p.v.map((v, i) => [G.x(i), yg(v)]);
-    if (!sides) sides = valueSides(ptsG(goal), [hl, bf].filter(Boolean).map(ptsG), goal.v.map(one), f, (t) => tw(t), G.T);
+    if (!sides) {
+      const pg = ptsG(goal);
+      sides = valueSides(pg, [hl, bf].filter(Boolean).map(ptsG), [...goal.v.map(one), ...(hasW ? [one(goal.w)] : [])], f, (t) => tw(t), G.T - 0.2 * f,
+        { bottom: G.B - 3, left: G.L + 2, right: G.R + 8, dotR, extra: hasW ? [[hx, yg(goal.w)]] : [], dots: [...pg.map(([x, yy]) => [x, yy, dotR + 1]), ...(hasW ? [[hx, yg(goal.w), dotR + 2.5]] : [])] });
+      sides.hvpgAt = null;
+      if (hasW) {
+        // (The HVPG's own label: beside its bracket, right then left, at its middle or a little up or down; else in the
+        // bracket row under the hepatic vein.)
+        const txt = `HVPG ${one(goal.hvpg)}`, wd = tw(txt, 700), bx = hx + dotR + 6, ym = (yg(goal.w) + yg(goal.v[hv])) / 2;
+        for (const dy of [0, -0.6, 0.6, -1.2, 1.2, -1.8].map((k) => k * f)) {
+          const r = [bx + 5, bx + 5 + wd, ym + dy - 0.55 * f, ym + dy + 0.45 * f], l = [hx - dotR - 6 - wd, hx - dotR - 6, r[2], r[3]];
+          const hit = r[1] <= G.R + 8 && sides.place.free(r) ? [r, 'start'] : l[0] >= G.L && sides.place.free(l) ? [l, 'end'] : null;
+          if (hit) { sides.place.take(hit[0]); sides.hvpgAt = { dy, anchor: hit[1] }; break; }
+        }
+      }
+    }
     const step = top > 40 ? 10 : 5, every = (G.B - G.T) / (top / step) < 1.3 * f ? 2 * step : step;
     const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
     const col = (v) => pressureColor(v);
     const gid = `pzpg-${Math.random().toString(36).slice(2, 8)}`;
-    const key = [['Now', 'now'], ['Healthy', 'hl'], ...(bf ? [['Before', 'bf']] : [])];
+    const key = [['Now', 'now'], ['Healthy', 'hl'], ...(bf ? [['Before', 'bf']] : []), ...(hasW ? [['Wedged', 'w']] : [])];
     let kx = G.R;
-    const keyEls = key.slice().reverse().map(([t, c]) => { const tx = kx; kx -= tw(t, 500) + 30; return sv('g', { class: `ppf-key ${c}` },
-      sv('line', { x1: tx - tw(t, 500) - 24, x2: tx - tw(t, 500) - 6, y1: 0.75 * f, y2: 0.75 * f }), sv('text', { x: tx, y: 0.75 * f + 0.36 * f, 'text-anchor': 'end' }, t)); });
+    const keyW = key.reduce((a, [t]) => a + tw(t, 500) + 30, 0), unitOnKey = G.R - keyW >= tw('mmHg', 500) + 6;
+    const keyEls = key.slice().reverse().map(([t, c]) => { const tx = kx, gx = tx - tw(t, 500) - 6; kx -= tw(t, 500) + 30; return sv('g', { class: `ppf-key ${c}` },
+      c === 'w' ? sv('circle', { cx: gx - 6, cy: 0.75 * f, r: dotR }) : sv('line', { x1: gx - 18, x2: gx, y1: 0.75 * f, y2: 0.75 * f }),
+      sv('text', { x: tx, y: 0.75 * f + 0.36 * f, 'text-anchor': 'end' }, t)); });
+    const valY = (cy, k) => (sides[k].s < 0 ? cy - 0.75 * f : sides[k].s > 0 ? cy + 1.45 * f : cy + 0.36 * f);
+    const yw = hasW ? y(shown.w) : 0, yf = now[hv]?.[1], bx = hx + dotR + 6, hvRate = RATE.hvpg(shown.hvpg)[0];
+    const hvpgTxt = (x, yy, anchor) => sv('text', { x, y: yy, 'text-anchor': anchor }, sv('tspan', { class: 'k' }, 'HVPG '), one(shown.hvpg));
+    const vert = hasW ? sv('g', { class: 'ppf-br', 'data-rate': hvRate, 'data-k': 'hvpg' },
+      sv('path', { d: `M${bx - 3} ${yw}H${bx}V${yf}H${bx - 3}` }),
+      sides.hvpgAt ? hvpgTxt(sides.hvpgAt.anchor === 'start' ? bx + 5 : hx - dotR - 6, (yw + yf) / 2 + sides.hvpgAt.dy + 0.36 * f, sides.hvpgAt.anchor) : null) : null;
     const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
-      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${PATH.names[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${one(shown.hvpg)}, PPG ${one(shown.ppg)}.` },
+      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${PATH.names[n]} ${labels[i]}`).join(', ')} mmHg.${hasW ? ` Wedged hepatic vein ${one(shown.w)}.` : ''} HVPG ${one(shown.hvpg)}, PPG ${one(shown.ppg)}.` },
       sv('defs', {}, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
         shown.v.map((v, i) => sv('stop', { offset: (i / (STATIONS.length - 1)).toFixed(3), 'stop-color': col(v) })))),
       // The liver's stations on a soft band, named over the plot.
@@ -160,21 +229,33 @@ export function createProfileTool() {
         sv('text', { x: (G.x(i0) + G.x(i1)) / 2, y: G.T - 0.35 * f, 'text-anchor': 'middle' }, 'LIVER')) : null,
       Array.from({ length: Math.floor(top / every) + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: G.L, x2: G.R, y1: y(k * every), y2: y(k * every) }),
         sv('text', { x: G.L - 6, y: y(k * every) + 0.35 * f, 'text-anchor': 'end' }, String(k * every)))),
-      sv('text', { class: 'ptk-unit', x: 0, y: 0.75 * f + 0.36 * f }, 'mmHg'),   // (the unit at the top left, on the key's row)
+      // (The unit at the top left, on the key's row; over the axis's numbers when the key needs the row.)
+      sv('text', { class: 'ptk-unit', x: 0, y: unitOnKey ? 0.75 * f + 0.36 * f : G.T - 0.95 * f }, 'mmHg'),
       keyEls,
       hl ? sv('path', { class: 'ppf-hl', d: smoothD(pts(hl)) }) : null,
       bf ? sv('path', { class: 'ppf-bf', d: smoothD(pts(bf)) }) : null,
       sv('path', { class: 'ppf-fill', d: `${smoothD(now)}L${G.x(STATIONS.length - 1).toFixed(1)} ${G.B}L${G.x(0).toFixed(1)} ${G.B}Z`, style: `fill: url(#${gid})` }),
-      sv('path', { class: 'ppf-line', d: smoothD(now), style: `stroke: url(#${gid})` }),
-      now.map(([cx, cy], i) => sv('circle', { class: 'ppf-dot', cx, cy, r: Math.max(4, 0.36 * f), style: `fill: ${col(shown.v[i])}` })),
-      now.map(([cx, cy], i) => sv('text', { class: 'ppf-v', x: cx, y: sides[i] < 0 ? cy - 0.75 * f : cy + 1.45 * f, 'text-anchor': 'middle' }, labels[i])),
       sv('line', { class: 'ppf-axis', x1: G.L, x2: G.R, y1: G.B, y2: G.B }),
+      sv('path', { class: 'ppf-line', d: smoothD(now), style: `stroke: url(#${gid})` }),
+      vert,
+      hasW ? sv('circle', { class: 'ppf-w', cx: hx, cy: yw, r: dotR + 1 }) : null,
+      now.map(([cx, cy], i) => sv('circle', { class: 'ppf-dot', cx, cy, r: dotR, style: `fill: ${col(shown.v[i])}` })),
+      now.map(([cx, cy], i) => sv('text', { class: 'ppf-v', x: cx + sides[i].dx, y: valY(cy, i), 'text-anchor': 'middle' }, labels[i])),
+      hasW ? sv('text', { class: 'ppf-v w', x: hx + sides[now.length].dx, y: valY(yw, now.length), 'text-anchor': 'middle' }, one(shown.w)) : null,
       STATIONS.map((n, i) => sv('text', { class: 'ppf-name', x: G.x(i), y: G.nameY(i), 'text-anchor': 'middle' }, G.fit.names[i])),
-      // The HVPG (wedged − free hepatic vein) and PPG (portal vein − IVC) as brackets, in their cut-off colours.
+      // The PPG (portal vein − IVC) as a bracket under the names, in its cut-off colours; the HVPG's too when it has no
+      // wedged reading to stand on, or its label no room beside its own bracket.
       SPANS.map(([k, name, a, b], r) => {
-        const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), yy = G.brY(r), v = shown[k], txt = `${name} ${one(v)}`;
+        const v = shown[k], rate = RATE[k](v)[0];
+        if (hasW) r = k === 'ppg' ? 0 : 1;   // (the PPG takes the first row when the HVPG has its own bracket)
+        if (k === 'hvpg' && hasW) {
+          if (sides.hvpgAt) return null;
+          const yy = G.brY(r);
+          return sv('g', { class: 'ppf-br', 'data-rate': rate, 'data-k': k }, hvpgTxt(hx, yy + 0.36 * f, 'middle'));
+        }
+        const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), yy = G.brY(r), txt = `${name} ${one(v)}`;
         const lb = bracketLabel(x0, x1, tw(txt, 700), G.R, G.L), bar = lb.gap ? `M${x0} ${yy}H${lb.gap[0]}M${lb.gap[1]} ${yy}H${x1}` : `M${x0} ${yy}H${x1}`;
-        return sv('g', { class: 'ppf-br', 'data-rate': RATE[k](v)[0], 'data-k': k },
+        return sv('g', { class: 'ppf-br', 'data-rate': rate, 'data-k': k },
           sv('path', { d: `M${x0} ${yy - 0.3 * f}V${yy + 0.3 * f}M${x1} ${yy - 0.3 * f}V${yy + 0.3 * f}${bar}` }),
           sv('text', { x: lb.x, y: yy + 0.36 * f, 'text-anchor': lb.anchor }, sv('tspan', { class: 'k' }, `${name} `), one(v)));
       }));
@@ -185,7 +266,8 @@ export function createProfileTool() {
     if (!goal) return;
     const k = reduceMQ.matches || !shown ? 1 : 0.2;
     const mix = (a, b) => lerp(a, b, k);
-    shown = shown ? { v: shown.v.map((x, i) => mix(x, goal.v[i])), hvpg: mix(shown.hvpg, goal.hvpg), ppg: mix(shown.ppg, goal.ppg), top: mix(shown.top, goal.top) } : { ...goal };
+    shown = shown ? { v: shown.v.map((x, i) => mix(x, goal.v[i])), hvpg: mix(shown.hvpg, goal.hvpg), ppg: mix(shown.ppg, goal.ppg), top: mix(shown.top, goal.top),
+      w: Number.isFinite(goal.w) ? mix(Number.isFinite(shown.w) ? shown.w : goal.w, goal.w) : null } : { ...goal };
     const done = shown.v.every((x, i) => Math.abs(x - goal.v[i]) < 0.02) && Math.abs(shown.top - goal.top) < 0.05;
     if (done) shown = { ...goal, v: goal.v.slice() };
     if (el.isConnected || !done) draw();
