@@ -219,8 +219,21 @@ const PLACED = new Map();
 
 /** The whole card's layout for parts at width w, height hh, font size f: segments [{ id, name, pct, a, b }] in bar order,
  *  the bracket and where its words centre, the Healthy bar's segments (hParts: the healthy model's parts, or null before
- *  they arrive), the names' places, and the top offset that centres it all in the card. measure(text, f, weight) → px. */
+ *  they arrive), the names' places, and the top offset that centres it all in the card. measure(text, f, weight) → px.
+ *  When the names cannot keep the label rule in the rows the card holds (a narrow card, a large text size), the smallest
+ *  route joins Other, then the next, until they can (one named route at least): parts is what the bar then shows. */
 export function flowLayout(parts, of, w, hh, f, measure, hParts = null) {
+  let use = parts, lay = layOnce(use, of, w, hh, f, measure, hParts);
+  while (!lay.ok && of !== 'inflow') {
+    const routes = barOrder(use, of).filter((p) => p.id !== 'liver' && p.id !== 'other');
+    if (routes.length < 2) break;
+    const small = routes.at(-1), o = use.find((p) => p.id === 'other');
+    use = [...use.filter((p) => p !== small && p !== o), { id: OTHER[0], name: OTHER[1], tone: OTHER[2], pct: (o?.pct || 0) + small.pct }];
+    lay = layOnce(use, of, w, hh, f, measure, hParts);
+  }
+  return { ...lay, parts: use };
+}
+function layOnce(parts, of, w, hh, f, measure, hParts) {
   const geo = flowGeo(f, of), { bar, bracket } = flowView(parts, of);
   const spans = (list) => { let acc = 0; return list.map((p) => { const a = (acc / 100) * w; acc += p.pct; return { id: p.id, name: p.name, pct: p.pct, a, b: (acc / 100) * w }; }); };
   const segs = spans(bar), hsegs = hParts ? spans(healthyOrder(hParts, bar, of)) : [];

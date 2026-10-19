@@ -289,13 +289,15 @@ test('a TIPS shows as its own part; the inflow turns arterial after it', async (
   assert.equal(vi.bar.reduce((s, p) => s + p.pct, 0), 100);
 });
 
-// The label rule on every deck slide's bar, at every card width from a narrow phone card (260 px) to a Mac's widest: each
+// The label rule on every deck slide's bar, at every card width from the narrowest real one (240 px: a 320 px Mac or iPad
+// card less its widest padding, 2 × 40 px; a phone's is 280 px or more) to a Mac's widest: each
 // name 12 px or more, inside the card, under its own segment or on a leader, ≥ 4 px from every other name, every other name's
 // leader, the bar and the bracket's line, and the rows inside the card's height. The Healthy caption fits on its row, and
 // the bracket's words keep clear of the word "Now".
 const boxOf = (lay, l) => { const t = lay.top + lay.geo.head + lay.geo.barH + lay.geo.band + l.row * lay.geo.step; return { x0: l.L, x1: l.L + l.lw, y0: t, y1: t + lay.geo.lab }; };
 function checkRule(parts, of, w, hh, f, at, hParts = null) {
   const lay = flowLayout(parts, of, w, hh, f, (t, ff) => t.length * ff * 0.58, hParts), g = lay.geo.g;
+  assert.equal(lay.parts.reduce((a, p) => a + p.pct, 0), 100, `${at}: the bar is still all the blood`);
   assert.ok(lay.capW <= w, `${at}: the Healthy caption fits its row`);
   if (lay.bracket) {
     assert.ok(lay.brX - lay.brW / 2 >= lay.nowW + g - 1e-9 && lay.brX + lay.brW / 2 <= w + 1e-9, `${at}: the bracket's words clear of Now, inside the card`);
@@ -328,7 +330,7 @@ function checkRule(parts, of, w, hh, f, at, hParts = null) {
 }
 
 test('the portal blood bar: names keep the label rule on every deck slide and card width', async () => {
-  const f = 12, H = { portal: 13.75 * f, inflow: 10 * f };
+  const f = 12, H = { portal: 13.75 * f, inflow: 13.75 * f };
   const [healthy] = await runSteps([{ preset: 'healthy' }]);
   const hp = { portal: flowParts(healthy, 'portal'), inflow: flowParts(healthy, 'inflow') };
   assert.ok(hp.portal.find((p) => p.id === 'liver').pct > 80, 'healthy: most portal blood reaches the liver');
@@ -339,7 +341,7 @@ test('the portal blood bar: names keep the label rule on every deck slide and ca
       if (!fps[i]?.at) return;
       for (const of of ['portal', 'inflow']) {
         const parts = flowParts(fps[i], of);
-        for (const w of [260, 280, 340, 420, 560, 720]) {
+        for (const w of [240, 260, 280, 340, 420, 560, 720]) {
           const lay = checkRule(parts, of, w, H[of], f, `${d.id}/${s.id} ${of} ${w}px`, hp[of]);
           leads += lay.labels.filter((l) => l.lead).length; n++;
         }
@@ -354,6 +356,15 @@ test('the portal blood bar: names keep the label rule on every deck slide and ca
   const six = [{ id: 'liver', name: 'Liver', pct: 20 }, { id: 'ret', name: 'Retroperitoneal', pct: 18 }, { id: 'pum', name: 'Paraumbilical', pct: 17 },
     { id: 'grs', name: 'Gastrorenal', pct: 16 }, { id: 'srs', name: 'Splenorenal', pct: 15 }, { id: 'other', name: 'Other', pct: 14 }];
   for (const w of [300, 400, 500]) checkRule(six, 'portal', w, H.portal, f, `six ${w}px`);
+  // Narrower still (a large text size): the smallest routes join Other until the names keep the rule, the liver's share and
+  // the bracket unchanged, one route still named.
+  for (const w of [200, 220]) {
+    const lay = checkRule(six, 'portal', w, H.portal, f, `six ${w}px`);
+    assert.ok(lay.parts.length < six.length, `six ${w}px: some routes joined Other`);
+    assert.equal(lay.parts.find((p) => p.id === 'liver').pct, 20);
+    assert.ok(lay.parts.some((p) => !['liver', 'other'].includes(p.id)), 'a route still named');
+  }
+  for (const w of [300, 400]) assert.equal(flowLayout(six, 'portal', w, H.portal, f, approxW(f)).parts, six, `six ${w}px: nothing merged where the names fit`);
 });
 
 test('the year chart\'s milestone names: level, inside the chart, never touching each other', () => {
