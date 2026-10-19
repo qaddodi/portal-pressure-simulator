@@ -11,7 +11,7 @@ import { computeMetrics } from '../src/engine/metrics.js';
 import { createCore } from '../src/worker-core.js';
 import { lumenOf, lumenShape, lumenWords, lumenFacts, lumenLabel, lumenSite, lumenBlock, LUMEN_NAME_Y, LUMEN_NUM_Y, LUMEN_WORD_Y, clotPath, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
 import { fluidOf, fluidBars, fluidWords, sinusoidForces, pinnedForces } from '../src/ui/tool-fluid.js';
-import { pulsatility, caliperPick, caliperFrame, caliperWindow, caliperEase, caliperLevel, caliperX, CAL_FADE, CAL_KEEP, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
+import { pulsatility, caliperPick, caliperFrame, caliperEase, caliperLevel, caliperX, CAL_FADE, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
 import ext from '../src/ui/ext-instruments.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
@@ -132,8 +132,8 @@ test('V21: the calipers read the window\'s extremes, on their own samples, with 
       assert.equal(f.pi, pulsatility(f.hi[1], f.lo[1]), 'the index from the same pick');
     }
   }
-  // Nothing jumps (Mohammad, 19 Oct): a new pick fades its mark in on its own sample while the old one fades out in place,
-  // and the upright's level eases there, in and out, never overshooting, landing exactly at the end and staying.
+  // Nothing jumps (Mohammad, 19 Oct): when the peak or trough changes, its dashed line and the upright's end tick ease to the
+  // new level, in and out, never overshooting, landing exactly at the end and staying.
   assert.equal(caliperEase(0), 0); assert.equal(caliperEase(CAL_FADE), 1); assert.equal(caliperEase(5), 1); assert.equal(caliperEase(-1), 0);
   let last = -Infinity;
   for (let s = 0; s <= CAL_FADE + 1e-9; s += CAL_FADE / 30) {
@@ -145,14 +145,15 @@ test('V21: the calipers read the window\'s extremes, on their own samples, with 
   assert.ok(caliperLevel(20, 30, CAL_FADE / 10) - 20 < 0.5, 'starts gently');
   assert.equal(caliperLevel(20, 30, CAL_FADE), 30, 'on the new level at the end');
   assert.ok(CAL_FADE >= 0.25 && CAL_FADE <= 0.5, 'a calm, short change');
-  // The upright stays in one place: fixed at the trace's newest end, its ticks whole inside the trace, and no mark's window
-  // reaches it (each new mark ends at least the gap short of it).
-  for (const [padL, W, sweep] of [[12, 300, 3], [12, 640, 6], [16, 1100, 6]]) {
-    const xc = caliperX(padL, W, 4), [, t1] = caliperWindow(10, sweep, W, 16, CAL_KEEP(4, 8));
-    assert.ok(xc + 4 <= padL + W && xc - 4 > padL + W - 20, `fixed at the newest end, ${W} px`);
-    const xMark = padL + W - (10 - t1) * W / sweep;   // (the newest sample a mark can sit on, at its scrolled place)
-    assert.ok(xMark + 8 + 8 <= xc + 1, `a mark ends a gap short of the upright, ${W} px`);
-  }
+  // The upright stays in one place, at the trace's left end, its ticks whole inside the trace, whatever the trace's width.
+  for (const padL of [8, 12, 16]) { const xc = caliperX(padL, 4); assert.ok(xc - 4 >= padL && xc - 4 <= padL + 3, `at the left end from ${padL} px`); }
+  // No flat marks: the dashed levels run from the upright to the trace's right end, where the Doppler stops.
+  const CAL = DOP.slice(DOP.indexOf('function drawCalipers'), DOP.indexOf('const calText'));
+  assert.doesNotMatch(CAL, /fillRect/, 'no solid marks');
+  assert.match(CAL, /x1 = padL \+ W/);
+  // Always visible over the trace and the baseline: drawn after both, each line on a dark edge wider than itself.
+  assert.ok(DOP.indexOf('drawCalipers(ctx,') > DOP.indexOf('// Baseline') && DOP.indexOf('drawCalipers(ctx,') > DOP.indexOf('ring(ctx, off, dx, dy)'), 'drawn over the trace');
+  assert.equal((CAL.match(/'--black', 0\.85\); ctx\.lineWidth = 3\.5; ctx\.stroke\(\)/g) || []).length, 2, 'levels and upright on a dark edge'); assert.match(CAL, /ctx\.moveTo\(xc, y\); ctx\.lineTo\(x1, y\)/);
   // The reading's own formula (doppler.js interpret), read from its source.
   assert.match(DOP, /const pi = big > 0\.5 \? swing \/ big : 0;/);
 });
