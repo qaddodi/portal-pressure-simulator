@@ -275,11 +275,22 @@ export function bracketFit(span, name, tw, f) {
   // horizontal lines should show for HVPG, if not make it a bit smaller"); else between the ends with the bar left out. Each the
   // largest size, to a tenth of a px, that does it.)
   const size = (room) => Math.min(f, Math.floor(10 * f * room / wd) / 10);
-  for (const [room, mode] of [[span - 26, 'gap'], [span - 2 * BR_CLEAR, 'tight']]) {
-    const fs = size(room);
-    if (fs >= BR_MIN && at(fs) === mode) return { mode, fs };
-  }
+  const fs = size(span - 26);
+  if (fs >= BR_MIN && at(fs) === 'gap') return { mode: 'gap', fs };
+  // (Too short for 8 px of bar each side of the widest value even at BR_MIN px: the size that keeps BAR_MIN px each side of it, or
+  // BR_MIN px, the smallest, so the bar still shows each side of the values that leave it room (oneLineGap; Mohammad, 19 Oct, on
+  // 8ebf324: "still no bracket on HVPG").)
+  const small = Math.max(BR_MIN, size(span - 2 * (LABEL_PAD + BAR_MIN)));
+  if (at(small) !== 'stack') return { mode: 'tight', fs: small };
   return { mode: 'stack', fs: f };
+}
+
+/** Where the bar of a bracket from x0 to x1 breaks round a one-line label lw px wide, centred: LABEL_PAD px each side of it, the bar
+ *  drawn where BAR_MIN px of it or more shows each side; else [x0, x1] (no bar, the ends only). */
+export const LABEL_PAD = 5, BAR_MIN = 4;
+export function oneLineGap(x0, x1, lw) {
+  const m = (x0 + x1) / 2;
+  return (x1 - x0 - lw) / 2 - LABEL_PAD >= BAR_MIN ? [m - lw / 2 - LABEL_PAD, m + lw / 2 + LABEL_PAD] : [x0, x1];
 }
 
 /** A curly brace from xa to xb, its back at y0 and its tip d under it at the middle. */
@@ -535,11 +546,11 @@ export function createProfileTool() {
         const v = shown[k], rate = RATE[k](v)[0];
         const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), val = whole(v);
         // (Laid out as the geometry planned the row: one line, at its own type size where the chart's would not fit, or the name over
-        // the value. On one line, the gap in the bar follows the label's own width; the bar is left out only where the widest value
-        // would not keep it.)
+        // the value. On one line, the gap in the bar follows the label's own width; the bar is left out only where this value leaves
+        // under BAR_MIN px of it each side.)
         const fs = G.brFs[r], z = fs / f, stack = G.brMode[r] === 'stack';
         const lb = bracketLabel(x0, x1, z * tw(`${name} ${val}`, 700), [z * tw(name, 600), z * tw(val, 700)]);
-        const gap = stack ? bracketLabel(x0, x1, Infinity, [tw(name, 600), tw(val, 700)]).gap : G.brMode[r] === 'tight' ? [x0, x1] : lb.gap;
+        const gap = stack ? bracketLabel(x0, x1, Infinity, [tw(name, 600), tw(val, 700)]).gap : oneLineGap(x0, x1, z * tw(`${name} ${val}`, 700));
         const brk1 = (yy, op) => {
           const bar = gap[1] - gap[0] >= x1 - x0 - 0.5 ? '' : `M${x0} ${yy}H${gap[0]}M${gap[1]} ${yy}H${x1}`;
           return sv('g', { class: 'ppf-br', 'data-rate': rate, 'data-k': k, 'data-mode': G.brMode[r], opacity: op < 1 ? op.toFixed(3) : null,

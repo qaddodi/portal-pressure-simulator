@@ -8,7 +8,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { NODES } from '../src/engine/topology.js';
 import { portalSplit } from '../src/ui/table-marks.js';
-import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel, bracketFit, BR_CLEAR, BR_MIN, BRACE_NAME, SPANS, placeBrackets, bracketBox, BR_PAD } from '../src/ui/tool-profile.js';
+import { profileOf, STATIONS, TIGHT_NAMES, NAME_GAP, axisTop, nameFit, profileGeo, valueSides, placeValues, curveRuns, labelPlacer, bracketLabel, bracketFit, oneLineGap, LABEL_PAD, BAR_MIN, BR_CLEAR, BR_MIN, BRACE_NAME, SPANS, placeBrackets, bracketBox, BR_PAD } from '../src/ui/tool-profile.js';
 import { flowParts, routeFlows, wholeShares, flowView, MAX_ROUTES, flowLayout, LABEL_GAP } from '../src/ui/tool-flows.js';
 import { milePlaces } from '../src/ui/talk-trace.js';
 import { RX, bandKeys, bandRuns, bandSpan, namePlaces } from '../src/ui/rx-bands.js';
@@ -179,7 +179,9 @@ test('the HVPG label goes on one line in smaller type before it stacks its name 
   const g = bracketFit(0.9 * wd + 26, 'HVPG', tw, 15);
   assert.equal(g.mode, 'gap');
   assert.ok(g.fs < 15 && g.fs >= BR_MIN && wd * g.fs / 15 <= 0.9 * wd + 1e-9, `${g.fs} px keeps the bar`);
-  assert.deepEqual(bracketFit(wd + 2 * BR_CLEAR + 1, 'HVPG', tw, 15), { mode: 'tight', fs: 15 });
+  // (Too short for 8 px of bar: smaller type, so a bar still shows each side where it can, never under 12 px.)
+  const t = bracketFit(wd + 2 * BR_CLEAR + 1, 'HVPG', tw, 15);
+  assert.ok(t.mode === 'tight' && t.fs < 15 && t.fs >= BR_MIN && wd * t.fs / 15 <= wd + 2 * (BR_CLEAR + 1) - 2 * (LABEL_PAD + BAR_MIN) + 1e-9, `${t.fs} px`);
   const small = bracketFit(0.97 * wd, 'HVPG', tw, 15);
   assert.equal(small.mode, 'tight');
   assert.ok(small.fs < 15 && small.fs >= BR_MIN && wd * small.fs / 15 <= 0.97 * wd - 2 * BR_CLEAR + 1e-9, `${small.fs} px fits`);
@@ -187,6 +189,25 @@ test('the HVPG label goes on one line in smaller type before it stacks its name 
   assert.deepEqual(bracketFit(0.5 * wd, 'HVPG', tw, 15), { mode: 'stack', fs: 15 });
   // (A Mac card beside its tiles, 12 px type: one line, not stacked.)
   for (const [w, f] of [[335, 12], [352, 13.8], [552, 15.6]]) assert.notEqual(profileGeo(w, 260, f, wide(f)).brMode[0], 'stack', `${w} px at ${f}: HVPG on one line`);
+});
+
+test('the HVPG bracket shows its bar each side of its label where there is room, as on the Mac on slides 19 to 23', () => {
+  // (Mohammad, 19 Oct, on 8ebf324: "19-23 still no bracket on HVPG": a Mac card 335 px wide, 12 px type, "HVPG 2" with some 10 px
+  // free each side and the bar left out, judged from the widest value with 8 px of bar. Widths as Inter Bold draws them.)
+  const EM = { H: 0.74, V: 0.7, P: 0.66, G: 0.77, ' ': 0.26 };
+  const inter = (f) => (t) => [...t].reduce((a, c) => a + (EM[c] ?? (/[0-9]/.test(c) ? 0.63 : 0.6)) * f, 0);
+  for (const [w, f, vals] of [[335, 12, ['2', '6', '12']], [300, 12, ['2', '6']], [352, 13.8, ['2', '6', '12']], [390, 13.8, ['2', '6', '12']], [552, 15.6, ['2', '6', '12']]]) for (const val of vals) {
+    const tw = inter(f), G = profileGeo(w, 260, f, tw, true), [, name, a, b] = SPANS[0];
+    const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), fs = G.brFs[0], lw = tw(`${name} ${val}`) * fs / f;
+    assert.notEqual(G.brMode[0], 'stack', `${w} px at ${f}: on one line`);
+    assert.ok(fs >= BR_MIN && fs <= f, `${w} px at ${f}: ${fs} px type`);
+    const [g0, g1] = oneLineGap(x0, x1, lw);
+    // (The bar each side: BAR_MIN px of it at least, LABEL_PAD px clear of the label; the label between the ends.)
+    assert.ok(g0 - x0 >= BAR_MIN && x1 - g1 >= BAR_MIN, `${w} px at ${f}: HVPG ${val}'s bar shows each side (${(g0 - x0).toFixed(1)}, ${(x1 - g1).toFixed(1)} px of ${(x1 - x0).toFixed(1)})`);
+    assert.ok(Math.abs((g1 - g0) - (lw + 2 * LABEL_PAD)) < 1e-9 && LABEL_PAD >= BR_CLEAR);
+  }
+  // (No room: the ends alone.)
+  assert.deepEqual(oneLineGap(0, 40, 30), [0, 40]);
 });
 
 test('a new state keeps each bracket on its row while that row stays clear, and moves it to the nearest clear row', async () => {
