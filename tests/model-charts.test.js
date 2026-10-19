@@ -73,6 +73,7 @@ test('scales: a pressure from zero up to a close cut-off, the second line on the
   assert.equal(l.min, 0); assert.ok(l.max >= 12.5);
   const l3 = leftScale('hvpg', [2.4, 22.2]);
   assert.ok(l3.max < 30 && l3.max >= 22.2, `an HVPG of 22 reaches ${l3.max}, not 30`);
+  for (const most of [3, 4, 5]) assert.ok(leftScale('hvpg', [2.4, 22.2], most).ticks.length <= most, `a short chart: at most ${most} numbers`);
   const l2 = leftScale('hvpg', [2.4, 8.7]);
   assert.ok(l2.max >= 10, 'the red cut-off at 10 shows above 8.7');
   const r = rightScale([22.7, 40.9], l.ticks.length);

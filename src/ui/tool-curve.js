@@ -86,7 +86,7 @@ export function cutsOf(k) {
 const PRESSURE = new Set(['ppg', 'pv', 'hvpg', 'whvp', 'fhvp', 'sin', 'ivc', 'ra']);
 /** The first line's scale: a pressure from zero (so a rise keeps its true size), up to a cut-off that lies close above its
  *  values (so its band shows); any other reading on a tight scale around its values. About four steps. */
-export function leftScale(k, vals) {
+export function leftScale(k, vals, most = 7) {
   const v = vals.filter(Number.isFinite);
   if (!v.length) return { min: 0, max: 1, ticks: [0, 1] };
   let a = Math.min(...v), b = Math.max(...v);
@@ -95,16 +95,21 @@ export function leftScale(k, vals) {
     for (const c of cutsOf(k)) if (c.v > b && c.v <= b * 1.6) b = c.v;
   }
   if (b - a < 1e-6) { b = a + Math.max(1, Math.abs(a) * 0.2); }
-  // (Of the nice steps giving three to six gaps and at most seven numbers, the one whose top wastes least above the values
+  // (Of the nice steps giving three to six gaps and at most `most` numbers (seven, fewer on a short chart), the one whose top wastes least above the values
   // while leaving a little room over them for a cut-off's name: 0 to 25 for an HVPG of 22, not 0 to 30. Whole numbers win
   // over halves when the range is wide.)
   let best = null;
   for (const gaps of [3, 4, 5, 6]) {
     const bh = b + 0.06 * (b - a), step = niceStep((b - a) / gaps), lo = Math.floor(a / step + 1e-9) * step, n = Math.max(2, Math.ceil((bh - lo) / step - 1e-9) + 1);
     const top = lo + step * (n - 1), waste = (top - b) / (b - a);
-    if (n > 7) continue;
+    if (n > most) continue;
     const score = waste + (b - a >= 4 && step % 1 ? 0.5 : 0);
     if (!best || score < best.score + 1e-9) best = { score, ticks: ticksOf(lo, step, n) };   // (a tie goes to more numbers)
+  }
+  // (A chart too short for any of them: the next nice steps up, until the numbers fit.)
+  for (let step = niceStep((b - a) / 2); !best; step = niceStep(step * 1.01)) {
+    const lo = Math.floor(a / step + 1e-9) * step, n = Math.max(2, Math.ceil((b + 0.06 * (b - a) - lo) / step - 1e-9) + 1);
+    if (n <= Math.max(2, most)) best = { ticks: ticksOf(lo, step, n) };
   }
   return { min: best.ticks[0], max: best.ticks.at(-1), ticks: best.ticks };
 }
@@ -143,14 +148,14 @@ export function segHits([x1, y1, x2, y2], [bx0, by0, bx1, by1]) {
   }
   return true;
 }
-/** How many things a box [x0, y0, x1, y1] lands on: horizontal lines ({ y, x0, x1 }), segments, other boxes; outside the
- *  bounds counts most. */
+/** How badly a box [x0, y0, x1, y1] lands: on a horizontal line ({ y, x0, x1 }) 1, on a data line's segment 2, on other
+ *  words 3, outside the bounds 10. */
 export function boxScore(b, { lines = [], segs = [], boxes = [], bounds = null }) {
   let n = 0;
   if (bounds && (b[0] < bounds[0] || b[1] < bounds[1] || b[2] > bounds[2] || b[3] > bounds[3])) n += 10;
-  for (const l of lines) if (l.y > b[1] && l.y < b[3] && l.x0 < b[2] && b[0] < l.x1) n++;
-  for (const sg of segs) if (segHits(sg, b)) n++;
-  for (const o of boxes) if (hitBox(b, o)) n++;
+  for (const l of lines) if (l.y > b[1] - 3 && l.y < b[3] + 3 && l.x0 < b[2] && b[0] < l.x1) n++;   // (and 3 px clear of a line)
+  for (const sg of segs) if (segHits(sg, b)) n += 2;
+  for (const o of boxes) if (hitBox(b, o)) n += 3;
   return n;
 }
 /** A word's place: of the candidates ({ x, y, anchor }, in order of liking), the first that lands on the fewest things.
@@ -159,7 +164,7 @@ export function placeWord(cands, w, fs, obstacles) {
   let best = null;
   for (const c of cands) {
     const x0 = c.anchor === 'end' ? c.x - w : c.anchor === 'middle' ? c.x - w / 2 : c.x;
-    const box = [x0 - 2, c.y - 0.82 * fs, x0 + w + 2, c.y + 0.22 * fs];
+    const box = [x0 - 3, c.y - 0.85 * fs - 1, x0 + w + 3, c.y + 0.3 * fs + 1];   // (with room for a line's stroke and a g's tail)
     const n = boxScore(box, obstacles);
     if (!best || n < best.n) best = { ...c, box, n };
     if (n === 0) break;
@@ -222,7 +227,10 @@ export function createCurve() {
   function geo(w, h, f) {
     const ls = curveLines(t).map(lineMeta), ax = axisMeta(t), xs = curveXs(t).map((x) => x * ax.x);
     const vals = ls.map((l, j) => (ser ? ser.ys[j] : [(ring || goal)?.ys[j]]).filter(Number.isFinite));
-    const sL = leftScale(ls[0].k, vals[0]), sR = ls[1] ? rightScale(vals[1], sL.ticks.length) : null;
+    const keys0 = ls.length < 2 || ls.reduce((a, l) => a + 22 + cw(l.name, f, 1) + 6 + cw(l.unit, f), 0) + 2 * f <= w;
+    // (No more numbers up the side than fit a line and a half of type apart.)
+    const plotH = h - 2.9 * f - ((keys0 ? 1 : 2) * 1.5 * f + 1.6 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
+    const sL = leftScale(ls[0].k, vals[0], most), sR = ls[1] ? rightScale(vals[1], sL.ticks.length) : null;
     const keys = ls.map((l) => ({ ...l, w: 22 + cw(l.name, f, 1) + 6 + cw(l.unit, f) }));
     const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow ? 1 : 2) * rowH;
     const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmt(v, dec(sc)), f)));
@@ -256,7 +264,9 @@ export function createCurve() {
       const y = YL(c.v), txt = `${ls[0].name} ${fmt(c.v, Number.isInteger(c.v) ? 0 : 1)}`;
       const el = sv('text', { class: 'pcv-cut' }, txt);
       cutLabs.push({ el, tw: 1.12 * cw(txt, f, true), lines: cutVs.filter((o) => o !== c).map((o) => ({ y: YL(o.v), x0: L, x1: R })),
+        // (Over the line; else on it, the dashes stopping round the words (a short chart's cut-offs stand close); else under.)
         cands: [{ x: R - 3, y: y - 0.35 * f, anchor: 'end' }, { x: L + 3, y: y - 0.35 * f, anchor: 'start' },
+          { x: R - 3, y: y + 0.35 * f, anchor: 'end', on: true }, { x: L + 3, y: y + 0.35 * f, anchor: 'start', on: true },
           { x: R - 3, y: y + 1.05 * f, anchor: 'end' }, { x: L + 3, y: y + 1.05 * f, anchor: 'start' }] });
       return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, sv('line', { x1: L, x2: R, y1: y, y2: y }), el);
     });
@@ -294,14 +304,9 @@ export function createCurve() {
     parts.svg.dataset.ring = ok ? [r.x, ...r.ys.map((v) => (Number.isFinite(v) ? v.toFixed(2) : ''))].join(' ') + (goal?.on ? ' curve' : ' live') : '';   // (the browser checks read it)
     const left = cx > (G.L + G.R) / 2, fs = 1.1 * f, rr = Math.max(5, f * 0.45) + 2;
     const cys = parts.lines.map((p, j) => (ok && Number.isFinite(r.ys[j]) ? p.Y(r.ys[j]) : null));
-    // (Each value takes the first spot beside its ring that lands on nothing: the data lines, the cut-offs and their names, the
-    // x axis, the dashed line through the rings, both rings and the other value; the side away from the nearer edge first.)
+    // (Each value takes the first spot beside its ring that lands on nothing: the data lines, the cut-off lines, the x axis,
+    // the dashed line through the rings, both rings and the other value; the side away from the nearer edge first.)
     const ob = parts.obstacles, boxes = [...cys.filter((y) => y != null).map((y) => [cx - rr, y - rr, cx + rr, y + rr]), ...(ok ? [[cx - 1.5, G.T - 0.4 * f, cx + 1.5, G.B]] : [])];
-    for (const c of ob.cutLabs) {
-      const p = placeWord(c.cands, c.tw, f, { segs: ob.segs, boxes, bounds: ob.cutBounds, lines: c.lines });
-      boxes.push(p.box);
-      c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
-    }
     parts.lines.forEach((p, j) => {
       const v = r.ys[j], on = cys[j] != null, cy = on ? cys[j] : G.B;
       p.ring.setAttribute('cx', cx.toFixed(1)); p.ring.setAttribute('cy', cy.toFixed(1));
@@ -309,12 +314,27 @@ export function createCurve() {
       const txt = on ? `${fmt(v, p.l.d)} ${p.l.unit}` : '';
       if (p.val.textContent !== txt) p.val.textContent = txt;
       if (!on) return;
-      const d = 0.8 * f, sides = left ? [['end', -d], ['start', d]] : [['start', d], ['end', -d]], cands = [];
-      for (const dy of [-0.6 * f, 1.45 * f, -1.7 * f, 2.55 * f, -2.8 * f, 3.65 * f]) for (const [anchor, dx] of sides) cands.push({ x: cx + dx, y: cy + dy, anchor });
-      const pl = placeWord(cands, cw(txt, fs, true), fs, { ...ob, boxes });
+      const cands = [];
+      // (Near the ring first: beside it, then further along, then above and below.)
+      for (const d of [rr + 4, 2.6 * f]) {   // (clear of the ring itself, its box padded 3 px)
+        const sides = left ? [['end', -d], ['start', d]] : [['start', d], ['end', -d]];
+        for (const dy of [-0.6 * f, 1.45 * f, -1.7 * f, 2.55 * f, -2.8 * f, 3.65 * f]) for (const [anchor, dx] of sides) cands.push({ x: cx + dx, y: cy + dy, anchor });
+      }
+      for (const dy of [-1.2 * f, 2.1 * f]) cands.push({ x: cx, y: cy + dy, anchor: 'middle' });
+      const pl = placeWord(cands, 1.12 * cw(txt, fs, true), fs, { ...ob, boxes });   // (measured wide, as the cut-offs' names)
       boxes.push(pl.box);
       p.val.setAttribute('x', pl.x.toFixed(1)); p.val.setAttribute('y', pl.y.toFixed(1)); p.val.setAttribute('text-anchor', pl.anchor);
+      p.val.classList.toggle('on', pl.n > 0);   // (no clear spot on a cramped chart: the lines stop round the words)
     });
+    // (The cut-offs' names after the values: a value belongs by its ring, a name can go to either end or onto its line.)
+    for (const c of ob.cutLabs) {
+      // (If both ends are taken, beside the dashed line: just left of it, or just right.)
+      const near = ok ? c.cands.filter((q) => q.anchor === 'end').flatMap((q) => [{ ...q, x: cx - 0.5 * f, anchor: 'end' }, { ...q, x: cx + 0.5 * f, anchor: 'start' }]) : [];
+      const p = placeWord([...c.cands, ...near], c.tw, f, { segs: ob.segs, boxes, bounds: ob.cutBounds, lines: c.lines });
+      boxes.push(p.box);
+      c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
+      c.el.classList.toggle('on', !!p.on);
+    }
     const ax = G.ax;
     parts.svg.setAttribute('aria-label', `${parts.lines.map((p) => p.l.name).join(' and ')} against ${ax.name.toLowerCase()}, ${fmt(G.xs[0], ax.d)} to ${fmt(G.xs.at(-1), ax.d)} ${ax.unit}`
       + (ok ? `; this case at ${fmt(r.x, ax.d)} ${ax.unit}: ${parts.lines.map((p, j) => (Number.isFinite(r.ys[j]) ? `${p.l.name} ${fmt(r.ys[j], p.l.d)} ${p.l.unit}` : '')).filter(Boolean).join(', ')}` : ''));

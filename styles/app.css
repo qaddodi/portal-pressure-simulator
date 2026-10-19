@@ -6227,6 +6227,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   .pz.stack .pz-cbars { --cs-h: min(46cqi, 290px); }
 }
 .pz.low .pz-data.has-tool :is(.pz-curve, .pz-cbars) { --cv-h: min(48cqi, 150px); --cs-h: min(50cqi, 160px); min-height: 0; }
+/* (On a phone held sideways with no tiles beside them, the bars take the height a tile would: six causes and a key of two rows.) */
+.pz.low .pz-data.tool-only .pz-cbars { --cs-h: min(62cqi, 212px); }
 .pz:not(.stack) .pz-data.has-tool:has(.pz-tool:is([data-kind="curve"], [data-kind="causes"])) { width: clamp(340px, 44vw, 480px); }
 .pz-curve svg, .pz-cbars svg { grid-area: 1 / 1; width: 100%; height: 100%; overflow: visible; transition: opacity .42s var(--ease); }
 .pz-curve svg.in { opacity: 0; }
@@ -6238,7 +6240,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pcv-ring { fill: var(--surface); stroke-width: 3; transition: opacity .3s var(--ease); }
 .pcv-v { font: 700 1.1em var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; transition: opacity .3s var(--ease); }
 :is(.pcv-at, .pcv-ring, .pcv-v).off { opacity: 0; }
+/* (The amber cut-off line a little darker than the shared amber, so it keeps 3:1 against the card in the light theme.) */
+.pz-curve .ptk-grid[data-rate="mid"] line { stroke: color-mix(in srgb, var(--caution) 85%, var(--text)); }
 .pz-curve .pcv-cut { font: 600 1em var(--font-ui); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.pz-curve :is(.pcv-cut, .pcv-v).on { stroke-width: 8px; }   /* (on its own line: the dashes stop round the words) */
 .ptk-grid[data-rate="mid"] .pcv-cut { fill: color-mix(in oklab, var(--caution) 70%, var(--text)); }
 .ptk-grid[data-rate="hi"] .pcv-cut { fill: color-mix(in oklab, var(--danger) 80%, var(--text)); }
 .pcs-h { font: 600 1em var(--font-ui); fill: var(--text-2); }

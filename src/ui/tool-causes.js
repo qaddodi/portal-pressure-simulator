@@ -116,7 +116,7 @@ export function createCauses({ host } = {}) {
     // (The rows share the height between them, at most 2.8 lines of type apart: fewer causes stand further apart, so a cause's
     // words that take two lines on a narrow card keep clear of the next.)
     const n = Math.max(3, (data?.bars.length ?? MOST) + 1);
-    const T = 2.1 * f, B = h - keyH - 0.6 * f, pitch = Math.min(2.8 * f, Math.max(1.5 * f, (B - T) / n));
+    const T = 2.1 * f, B = h - keyH - 0.6 * f, pitch = Math.min(2.8 * f, Math.max(1.2 * f, (B - T) / n));   // (never past the key)
     const labs = [...rows.values()].map((r) => r.label).concat(OTHER, (data?.bars || []).map((b) => b.label));
     // (The words take at most what leaves the bars three tenths of a narrow card (beside a tile) and a quarter of a wider one, so a
     // small bar still shows.)
