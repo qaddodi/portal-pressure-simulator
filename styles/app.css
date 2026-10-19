@@ -6199,6 +6199,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .ppf-v { font: 700 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 .ppf-axis { stroke: var(--axis); stroke-width: 1; }
 .ppf-name { font: 500 1em var(--font-ui); fill: var(--text-2); }
+.ppf-name.liv { font-style: italic; }   /* Pre-, Intra-, Post-: the liver's three stations */
 .ppf-brace path { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .ppf-brace text { font: 500 1em var(--font-ui); fill: var(--text-2); }
 .ppf-br path { fill: none; stroke: var(--text-3); stroke-width: 1.5; }
