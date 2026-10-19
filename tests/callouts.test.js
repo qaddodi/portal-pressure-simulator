@@ -7,7 +7,7 @@ import { EDGES } from '../src/engine/topology.js';
 import { NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES } from '../src/ui/anatomy.js';
 import { DECKS } from '../src/ui/decks.js';
 import { parseLive, liveRuns, valueText, valueTone, widest, widestRuns, runsText, ORGAN_ANCHOR, ORGAN_MARKS, organAnchor, spleenCaliper, SPLEEN_AXIS,
-  acrossVessel, caliperOf, caliperText, stepPlan, stepGroups, zoneIndex, zoneBand, spanOf, spanPath, SPAN_Y } from '../src/ui/callout-math.js';
+  acrossVessel, caliperOf, caliperText, stepPlan, stepGroups, zoneIndex, zoneBand, spanOf, spanPath, SPAN_Y, insideBy, clearOf, outward } from '../src/ui/callout-math.js';
 import F from '../src/ui/ext-callouts.js';
 import { expandIds } from '../src/ui/slide-ext.js';
 
@@ -130,4 +130,17 @@ test('the figure hook hands the stage a slide\'s callouts, fills them as the mod
   assert.equal(got.at(-1), null);
   F.figure[0].show({ ...ctx, slide: { title: 'Plain' } });
   assert.equal(got.at(-1), null, 'a slide with none of the fields asks for nothing');
+});
+
+test('a reading\'s pill stands 12 px inside the stage, clear of drawn shapes by its gap, and faces out past a caliper\'s end', () => {
+  const V = { x0: 0, y0: 0, x1: 390, y1: 844 };
+  assert.ok(insideBy({ x0: 12, y0: 12, x1: 378, y1: 40 }, V, 12));
+  assert.ok(!insideBy({ x0: 300, y0: 100, x1: 384, y1: 130 }, V, 12), '6 px from the edge is too close');
+  const spleen = { x0: 100, y0: 100, x1: 160, y1: 220 };
+  assert.ok(!clearOf({ x0: 162, y0: 150, x1: 210, y1: 170 }, [spleen], 4), '2 px off the organ touches it');
+  assert.ok(clearOf({ x0: 165, y0: 150, x1: 210, y1: 170 }, [spleen], 4));
+  assert.ok(clearOf({ x0: 0, y0: 0, x1: 1, y1: 1 }, undefined, 4));
+  assert.deepEqual(outward([100, 100], [100, 140]).slice(0, 3), ['S', 'SW', 'SE'], 'a line running down: below its lower end first');
+  assert.equal(outward([100, 100], [140, 100])[0], 'E');
+  assert.equal(new Set(outward([0, 0], [1, 1])).size, 8, 'every direction, once');
 });

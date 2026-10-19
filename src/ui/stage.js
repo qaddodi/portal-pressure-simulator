@@ -39,7 +39,7 @@ import { wavePacks, paintWave } from './scan-waves.js?v=066db7aa38';
 import { organDimMatrix } from './organ-dim.js?v=7888276613';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=e41d68222c';
 import { bandRing, ringsBelow, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=86a89dcb9e';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK } from './callout-math.js?v=e245215104';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, outward } from './callout-math.js?v=859835037f';
 const nextFrame = frameFor('stage');
 
 const N_SAMPLES = 64;
@@ -3961,7 +3961,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const x = E[c.edge], cur = geo[c.edge]?.cur;
     if (!x?.vis || x.g.classList.contains('coll-ghost') || !(cur?.length > 1)) return null;
     // (Wall to wall and a little past, and never shorter than 30 px on screen, so a narrow stent on a phone still reads as a caliper.)
-    const [wx, wy, tx, ty] = arcMid(cur), [a, b] = acrossVessel(wx, wy, tx, ty, Math.max((x.width || 4) / 2 + 3, 15 / fxK()));
+    // (A varix at its middle, where the tile measures it; any other vessel a third along, off its station's dot at the middle.)
+    const [wx, wy, tx, ty] = c.key === 'varix' ? arcMid(cur) : pointAt(cur, 0.32), [a, b] = acrossVessel(wx, wy, tx, ty, Math.max((x.width || 4) / 2 + 3, 15 / fxK()));
     return { a, b };
   }
   // A caliper's line and its end ticks (5 px either side, square to it), in world units.
@@ -6623,10 +6624,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           placed.push({ x0: Math.min(xa, xb) - pad, y0: Math.min(ya, yb) - pad, x1: Math.max(xa, xb) + pad, y1: Math.max(ya, yb) + pad, dot: true });
         }
       };
-      if (!circuit) for (const c of fx.calipers) { const g = caliperSegs(c, f); if (g) for (const [p, q] of g.segs) segBoxes(p, q, 3); }
+      if (!circuit) for (const c of fx.calipers) { const g = caliperSegs(c, f); if (g) for (const [p, q] of g.segs) segBoxes(p, q, 5); }
       if (circuit) for (const sp of fx.spans) {
         const at = spanOf(sp.from, sp.to, fxK());
-        if (at) for (const [p, q] of [[[at.x0, at.y], [at.x1, at.y]], [[at.x0, at.y - SPAN_TICK], [at.x0, at.y]], [[at.x1, at.y - SPAN_TICK], [at.x1, at.y]]]) segBoxes(p, q, 3);
+        if (at) for (const [p, q] of [[[at.x0, at.y], [at.x1, at.y]], [[at.x0, at.y - SPAN_TICK], [at.x0, at.y]], [[at.x1, at.y - SPAN_TICK], [at.x1, at.y]]]) segBoxes(p, q, 5);
       }
     }
     // (The corner credit, where it shows: a stent's column and the slide's mark beside it keep off it where they can, so it holds its
@@ -6811,6 +6812,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // (The mark moves with the point sampled, so it holds its spot only while its dot stays put.)
         const moved = dop.all && /^focus/.test(it.key) && prev && Math.hypot(...worldToLocal(prev.wx, prev.wy).map((v, j) => v - (j ? it.ay : it.ax))) > 2;
         const V = viewOf(it), inside = within(r, V), held = !moved && !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, V));
+        // (edge: px inside the stage it keeps; avoid: drawn shapes (an organ, a lit outline) it keeps off, by pad px.)
+        if ((ps.edge && !insideBy(r, V, ps.edge)) || (ps.avoid && !clearOf(r, ps.avoid, ps.pad ?? 0))) return;
         const om = ps.strict ? 10 : 0;
         if ((ps.inView && !inside) || ((ps.inView || ps.strict) && obstacles.some((o) => !(o.zone && ps.strict) && hits(r, { x0: o.x0 - om, y0: o.y0 - om, x1: o.x1 + om, y1: o.y1 + om })))) return;   // (in the free space: inside the stage, 10 px from any card, the margin a hidden label needs to show again)
         let onLine = 0;
@@ -6819,7 +6822,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           // vessel as drawn (3 with a pixel to spare; a point's callout 4, its halo included), and its leader 2 px off every vessel but
           // its stent: Review 15-16 Oct.)
           const mk = dop.all && /^focus/.test(it.key);
-          if (ps.clear) { if (mk ? lineHits(r, 3, true) : it.point ? lineHits(r, 4, true) : held ? lineHits(r, 0, true) : lineHits(r, 3, true)) return; } else onLine = lineHits(r, 0);
+          if (ps.clear) { if (ps.pad != null ? lineHits(r, ps.pad, true) : mk ? lineHits(r, 3, true) : it.point ? lineHits(r, 4, true) : held ? lineHits(r, 0, true) : lineHits(r, 3, true)) return; } else onLine = lineHits(r, 0);
           if (mk && dop.id && lineHits(r, 3, { only: dop.id })) return;   // (and in any pass, 2 px off its own stent as drawn)
           // (A reading out on a ring is joined to its station by a leader: one that would cross a vessel or a label is no use.)
           // A reading moving off its vessel or rescued (passes from 3 on, and the rescue's: strict) keeps 4 px from every other
@@ -7249,7 +7252,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (A mark with live readings (package F) keeps its side as its numbers and the vessels under it change: its side first, a little
       // farther out if need be, before it tries another.)
       const side = lv && !dop.all && prevSol.get(it.key);
-      let marked = dop.all ? placeMulti(it, FAR_DIRS, passes) : (side && !side.drop && place(it, [side.dir], [gap, gap + 16, gap + 32], true)) || place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], gap, true);
+      // (Its pill also touches nothing drawn: 6 px clear of every vessel, a varix's strands and glow included, and 12 px inside the stage.)
+      const tidy = lv && !dop.all ? [gap, gap + 14, gap + 30, gap + 50].map((g) => ({ gap: g, leader: true, clear: true, inView: true, pad: 6, edge: 12 })) : null;
+      if (tidy) buildLines();
+      let marked = dop.all ? placeMulti(it, FAR_DIRS, passes) : (tidy && ((side && !side.drop && placeMulti(it, [side.dir], tidy)) || placeMulti(it, ['E', 'W', 'NE', 'SE', 'N', 'S', 'NW', 'SW'], tidy))) || (side && !side.drop && place(it, [side.dir], [gap, gap + 16, gap + 32], true)) || place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], gap, true);
       // (A mark that found no spot off the vessels, where the column's "60 %" blocks its way: the "60 %" tries its next spots off the
       // vessels, nearest first, and keeps the first that lets the mark stand clear; failing all, both stay as they were: Review 16 Oct.)
       if (marked && dop.all && clampAlts.length && clampAlts[0].el._box && placed.includes(clampAlts[0].el._box) && !passes[nextSol.get(it.key)?.pi]?.clear) {
@@ -7282,6 +7288,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Each set of spots first in the free space only, inside the stage and off the cards, then anywhere.)
       const k = CTM.sc, roomy = (passes) => [...passes.map((ps) => ({ ...ps, inView: true })), ...passes];
       const nearFar = (near) => roomy([{ gap: near, leader: false, clear: true }, { gap: near + 16, leader: true, clear: true }, { gap: near, leader: false }, { gap: near + 16, leader: true }]);
+      // A reading's pill touches nothing drawn: 5 px clear of every vessel as drawn (and the lines' boxes), of `avoid` (an organ),
+      // and 12 px inside the stage, nearest first, on a short leader once it stands off; only where no such spot is left, the old
+      // passes (it never vanishes).
+      const clean = (near, avoid, rest) => [...[0, 10, 22, 36, 54, 78].map((d) => ({ gap: near + d, leader: d > 0, clear: true, inView: true, pad: 5, edge: 12, avoid })), ...rest];
+      const organBox = (id) => { const a = organAnchor(id, (f.slow?.spleen ?? 11) / 11); if (!a) return null; const [x0, y0] = worldToLocal(a.at[0] - a.half[0], a.at[1] - a.half[1]), [x1, y1] = worldToLocal(a.at[0] + a.half[0], a.at[1] + a.half[1]); return { x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1) }; };
       if (!circuit) fx.organs.forEach((m, i) => {
         // A mark on an organ: off the organ's box, on a leader to its middle (the spleen's box grows with it).
         const a = organAnchor(m.organ, (f.slow?.spleen ?? 11) / 11);
@@ -7291,8 +7302,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         Object.assign(it, { mk: m.kind, ax, ay, src: ['fx', key] });
         fxBuild.set(key, () => fx?.organs?.[i] && fxPill(key, fx.organs[i], cls, m.kind === 'note'));
         const passes = roomy([true, false].flatMap((clear) => [0, 24, 56].flatMap((d) => [{ dirs: ['E', 'W'], gap: gx + d, leader: true, clear }, { dirs: ['N', 'S'], gap: gy + d, leader: true, clear }, { dirs: ['NE', 'SE', 'NW', 'SW'], gap: gd + d, leader: true, clear }])));
+        const ob = m.organ !== 'ascites' && organBox(m.organ), av = ob ? [ob] : undefined;
+        const tidy = [0, 24, 56].flatMap((d) => [{ dirs: ['E', 'W'], gap: gx + d, leader: true, clear: true, inView: true, pad: 5, edge: 12, avoid: av }, { dirs: ['N', 'S'], gap: gy + d, leader: true, clear: true, inView: true, pad: 5, edge: 12, avoid: av }, { dirs: ['NE', 'SE', 'NW', 'SW'], gap: gd + d, leader: true, clear: true, inView: true, pad: 5, edge: 12, avoid: av }]);
         buildLines();
-        if (placeMulti(it, [], passes)) it.focusLeader = true;
+        if (placeMulti(it, [], [...tidy, ...passes])) it.focusLeader = true;
       });
       if (!circuit) fx.calipers.forEach((c) => {
         // A caliper's reading, past the line's lower (or right-hand) end, clear of its end tick (the line's boxes keep it and every
@@ -7304,8 +7317,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         Object.assign(it, { ax: end[0], ay: end[1], src: ['fx', key] });
         fxBuild.set(key, () => { const n = fx?.calipers?.find((x) => x.id === c.id); return n && fxPill(key, n, 'fx-cal', true); });
         buildLines();
-        const RING = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'], o = (Math.round(Math.atan2(end[1] - from[1], end[0] - from[0]) / (Math.PI / 4)) + 8) % 8;
-        placeMulti(it, [0, 1, -1, 2, -2, 3, -3, 4].map((d) => RING[(o + d + 8) % 8]), nearFar(9));
+        const ob = c.organ && organBox(c.organ);
+        placeMulti(it, outward(from, end), clean(9, ob ? [ob] : undefined, nearFar(9)));
       });
       if (fx.steps) for (const g of stepGroups(slideGlow.filter((x) => E[x.id]?.vis), fx.steps)) {
         // A step's number by the middle of its vessel (the first of its group drawn), or on its organ, lit as its glow lights (V10).
@@ -7337,10 +7350,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         buildLines();
         fxBuild.set(key, () => fx?.spans?.[i] && fxPill(key, fx.spans[i], 'fx-span', true, split));
         // Under the bracket on a leader, kept inside the stage 12 px from its edges and off every vessel; then beside it.
-        const edge = { x0: 12, y0: 12, x1: W - 12, y1: H - 12 }, ok = (r) => within(r, edge);
-        const passes = [18, 28, 40].map((gap) => ({ gap, leader: true, clear: true, inView: true, dirs: [D('S')] }));
-        const fits = (ps) => { const [dx, dy] = offset(D('S'), it, ps.gap); return ok(rectOf({ ...it, x: it.ax + dx, y: it.ay + dy })); };
-        placeMulti(it, [D('S'), D('SE'), D('SW'), D('E'), D('W')], [...passes.filter(fits), ...roomy([{ gap: 18, leader: true, clear: true }, { gap: 40, leader: true, clear: true }, { gap: 18, leader: true }])]);
+        // (Turned upright there is no room beside the bracket: the reading stands past its lower end instead, on a leader.)
+        if (turned) { const [ex, ey] = worldToLocal(at.x0, at.y); it.ax = ex; it.ay = ey; }
+        const order = turned ? ['S', 'SW', 'SE', 'W', 'E'] : [D('S'), D('SE'), D('SW'), D('E'), D('W')];
+        placeMulti(it, order, clean(18, undefined, roomy([{ gap: 18, leader: true, clear: true }, { gap: 40, leader: true, clear: true }, { gap: 18, leader: true }])));
       });
     }
     // A stent's other two points, where they fit around the sampled point's callout and the slide's mark: off the vessels if they can.
