@@ -82,9 +82,17 @@ export const zoneOf = (pl, f) => pl.zones.find((z) => holds(z.when, f)) || null;
 
 // ── Layout ──
 /** The plot's frame in the element's pixels: its margins follow the lettering (fs: the caption size, px). */
+/** The y axis's name as one rotated line, or the short name over its unit in two lines where the plot is too low for one. */
+export function yLabel(pl, H, fs) {
+  const unit = pl.y.name.includes(',') ? pl.y.name.split(',').slice(1).join(',').trim() : '', fit = (t) => t && est(t, fs) <= H - 8;
+  const one = [pl.y.name, pl.y.short && unit ? `${pl.y.short}, ${unit}` : null].find(fit);
+  if (one) return [one];
+  const sh = pl.y.short || pl.y.key;
+  return unit && fit(unit) ? [sh, unit] : [sh];
+}
 export function frame(W, H, fs, pl) {
   const tw = Math.max(...(pl.y.ticks || [pl.y.min ?? 0, pl.y.max]).map((t) => est(String(t), fs)));
-  const L = Math.ceil(fs * 1.25 + 10 + tw + 8), B = Math.floor(H - (fs * 1.25 + 8 + fs + 8)), T = Math.ceil(fs * 0.6 + 4), R = Math.floor(W - Math.max(10, est(String(pl.x.max), fs) / 2 + 2));
+  const L = Math.ceil(fs * 1.25 * yLabel(pl, H, fs).length + 10 + tw + 8), B = Math.floor(H - (fs * 1.25 + 8 + fs + 8)), T = Math.ceil(fs * 0.6 + 4), R = Math.floor(W - Math.max(10, est(String(pl.x.max), fs) / 2 + 2));
   return { L, R, T, B };
 }
 export const est = (t, px, w = 0.6) => String(t).length * px * w;   // (a run's width: Inter averages about 0.6 em a character)
@@ -114,8 +122,9 @@ export function crosses(ax, ay, bx, by, o) {
 /** The plane's lines as thin boxes words keep clear of: the cut-offs and the outlined boxes' edges. */
 export function lineBoxes(pl, X, Y, fr) {
   const out = [];
-  for (const v of pl.cuts?.x || []) out.push([X(v) - 2, fr.T, X(v) + 2, fr.B]);
-  for (const v of pl.cuts?.y || []) out.push([fr.L, Y(v) - 2, fr.R, Y(v) + 2]);
+  // (4 px either side, so a word never sits against a line either.)
+  for (const v of pl.cuts?.x || []) out.push([X(v) - 4, fr.T, X(v) + 4, fr.B]);
+  for (const v of pl.cuts?.y || []) out.push([fr.L, Y(v) - 4, fr.R, Y(v) + 4]);
   for (const b of pl.boxes || []) {
     const [x0, x1, y0, y1] = zoneRect(pl, b), L = X(x0), R = X(x1), T = Y(y1), B = Y(y0);
     out.push([L - 2, T, L + 2, B], [R - 2, T, R + 2, B], [L, T - 2, R, T + 2], [L, B - 2, R, B + 2]);
@@ -123,52 +132,86 @@ export function lineBoxes(pl, X, Y, fr) {
   return out;
 }
 /** Each point's name placed beside it, clear of the other points and names and inside the plot: [{ x, y, anchor, lines }]
- *  (lines: the name, broken if it must be) or null for a name with nowhere to go. pts: [{ x, y, name }] in px; avoid: other
+ *  (lines: the name, broken if it must be) or null for a name with nowhere to go. pts: [{ x, y, name, short? }] in px (short: a shorter name for when the full one has no room beside the point); avoid: other
  *  boxes [x0, y0, x1, y1] the names keep clear of (the zones' words). */
 export function placeNames(pts, fr, fs, r = 8, avoid = []) {
+  // (When a round leaves a name out, others are tried: the round that names the most wins, then the one whose names sit
+  // closest to their points.)
+  const score = (res) => [res.filter((o) => !o).length, res.reduce((s, o, i) => s + (o ? Math.hypot(...near2(o.box, pts[i])) : 0), 0)];
+  const better = (a, b) => a[0] < b[0] || (a[0] === b[0] && a[1] < b[1] - 0.5);
+  let best = placeOnce(pts, fr, fs, r, avoid, null), bs = score(best), order = null;
+  for (let round = 0; bs[0] && round < 3; round++) {
+    // (A name left without a place goes first in the next round.)
+    const prev = order || pts.map((_, i) => i), res = round ? placeOnce(pts, fr, fs, r, avoid, prev) : best;
+    order = [...prev.filter((i) => !res[i]), ...prev.filter((i) => res[i])];
+    const next = placeOnce(pts, fr, fs, r, avoid, order), sc = score(next);
+    if (better(sc, bs)) best = next, bs = sc;
+  }
+  return best;
+}
+/** How far a name's box is from its point, across and down. */
+const near2 = (b, p) => [Math.max(b[0] - p.x, 0, p.x - b[2]), Math.max(b[1] - p.y, 0, p.y - b[3])];
+function placeOnce(pts, fr, fs, r, avoid, first) {
   const boxes = [...pts.map((p) => [p.x - r - 2, p.y - r - 2, p.x + r + 2, p.y + r + 2]), ...avoid];
   const lh = fs * 1.2, gap = r + 6;
   const hit = (b) => boxes.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
   const inside = (b) => b[0] >= fr.L + 2 && b[2] <= fr.R - 2 && b[1] >= fr.T && b[3] <= fr.B - 2;
   // (The most crowded points choose first, so a point with little room is not hemmed in by its neighbours' names.)
   const near = (p) => pts.filter((q) => q !== p && Math.hypot(q.x - p.x, q.y - p.y) < 8 * fs).length;
-  const order = pts.map((p, i) => [p, i, near(p)]).sort((a, b) => b[2] - a[2] || a[1] - b[1]);
+  const order = first ? first.map((i) => [pts[i], i]) : pts.map((p, i) => [p, i, near(p)]).sort((a, b) => b[2] - a[2] || a[1] - b[1]);
   const out = new Array(pts.length).fill(null), named = [];
   for (const [p, i] of order) {
-    let done = null;
-    for (const lines of [[p.name], fitWords(p.name, Math.max(60, (fr.R - fr.L) / 3), fs, 2), fitWords(p.name, 8 * fs, fs, 3)].filter(Boolean)) {
-      const w = Math.max(...lines.map((l) => est(l, fs, 0.62))), hgt = lines.length * lh;
-      // (Right of the point, left of it, above, below, then the four corners.)
-      const tries = [['start', p.x + gap, p.y - hgt / 2], ['end', p.x - gap, p.y - hgt / 2], ['middle', p.x, p.y - gap - hgt], ['middle', p.x, p.y + gap],
-        ['start', p.x + gap * 0.7, p.y - gap * 0.7 - hgt], ['end', p.x - gap * 0.7, p.y - gap * 0.7 - hgt], ['start', p.x + gap * 0.7, p.y + gap * 0.7], ['end', p.x - gap * 0.7, p.y + gap * 0.7]];
-      for (let [anchor, x, top] of tries) {
-        // (A name centred over or under its point slides along to stay inside the plot.)
-        if (anchor === 'middle') x = Math.min(Math.max(x, fr.L + 4 + w / 2), fr.R - 4 - w / 2);
-        // (and one beside a point near the top or bottom edge slides up or down to stay inside.)
-        else top = clamp(top, fr.T, fr.B - 2 - hgt);
-        const x0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2, b = [x0, top, x0 + w, top + hgt];
-        if (inside(b) && !hit(b)) { done = { x, y: top + fs * 0.85, anchor, lines, box: b }; break; }
+    const full = [[p.name], fitWords(p.name, Math.max(60, (fr.R - fr.L) / 3), fs, 2), fitWords(p.name, 8 * fs, fs, 3)].filter(Boolean);
+    const beside = (forms) => {
+      let done = null;
+      for (const lines of forms) {
+        const w = Math.max(...lines.map((l) => est(l, fs, 0.62))), hgt = lines.length * lh;
+        // (Right of the point, left of it, above, below, then the four corners.)
+        // (A name beside its point may sit a little high or low to clear a cut-off line.)
+        const tries = [['start', p.x + gap, p.y - hgt / 2], ['end', p.x - gap, p.y - hgt / 2], ...[-0.45, 0.45].flatMap((k) => [['start', p.x + gap, p.y - hgt / 2 + k * fs], ['end', p.x - gap, p.y - hgt / 2 + k * fs]]),
+          ['middle', p.x, p.y - gap - hgt], ['middle', p.x, p.y + gap],
+          ['start', p.x + gap * 0.7, p.y - gap * 0.7 - hgt], ['end', p.x - gap * 0.7, p.y - gap * 0.7 - hgt], ['start', p.x + gap * 0.7, p.y + gap * 0.7], ['end', p.x - gap * 0.7, p.y + gap * 0.7]];
+        for (let [anchor, x, top] of tries) {
+          // (A name centred over or under its point slides along to stay inside the plot.)
+          if (anchor === 'middle') x = Math.min(Math.max(x, fr.L + 4 + w / 2), fr.R - 4 - w / 2);
+          // (and one beside a point near the top or bottom edge slides up or down to stay inside.)
+          else top = clamp(top, fr.T, fr.B - 2 - hgt);
+          const x0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2, b = [x0, top, x0 + w, top + hgt];
+          if (inside(b) && !hit(b)) { done = { x, y: top + fs * 0.85, anchor, lines, box: b }; break; }
+        }
+        if (done) break;
       }
-      if (done) break;
-    }
+      return done;
+    };
     // (No room beside it: the name at the nearest clear place in the plot, joined to its point by a thin line that crosses no
     // other point or name.)
-    if (!done) {
+    const away = (forms) => {
       let best = null;
-      for (const ls of [[p.name], fitWords(p.name, 8 * fs, fs, 3)].filter(Boolean)) {
+      for (const ls of forms) {
         const w = Math.max(...ls.map((l) => est(l, fs, 0.62))), hgt = ls.length * lh;
         for (let x0 = fr.L + 4; x0 + w <= fr.R - 2; x0 += 6) {
-          for (let top = fr.T; top + hgt <= fr.B - 2; top += 4) {
+          for (let top = fr.T; top + hgt <= fr.B; top += 2) {
             const b = [x0, top, x0 + w, top + hgt];
             const lx = clamp(p.x, b[0], b[2]), ly = clamp(p.y, b[1], b[3]), d = Math.hypot(lx - p.x, ly - p.y) + ls.length * 6;
             if ((best && d >= best.d) || hit(b)) continue;
             if (pts.some((q) => q !== p && crosses(p.x, p.y, lx, ly, [q.x - r - 2, q.y - r - 2, q.x + r + 2, q.y + r + 2]))) continue;
             if (named.some((o) => crosses(p.x, p.y, lx, ly, o))) continue;
-            best = { d, x: x0, y: top + fs * 0.85, anchor: 'start', lines: ls, box: b, lead: [lx, ly] };
+            // (A leader across a level cut-off counts against it, so a name stays on its point's side of the line if it can.)
+            const dd = d + 2 * fs * avoid.filter((o) => o[2] - o[0] > o[3] - o[1] && crosses(p.x, p.y, lx, ly, o)).length;
+            if (best && dd >= best.d) continue;
+            best = { d: dd, x: x0, y: top + fs * 0.85, anchor: 'start', lines: ls, box: b, lead: [lx, ly] };
           }
         }
       }
-      done = best;
+      return best;
+    };
+    // (The full name beside the point; else the full name a little way out on a thin line when that is close; else the short
+    // name beside it; else the full name or the short one further out, whichever lands much nearer.)
+    let done = beside(full);
+    if (!done) {
+      const sh = p.short ? beside([[p.short]]) : null, far = away(full);
+      const shFar = !sh && p.short ? away([[p.short]]) : null;
+      done = sh && (!far || far.d > fs) ? sh : shFar && (!far || shFar.d + 2 * fs < far.d) ? shFar : far || shFar;
     }
     if (done) boxes.push(done.box), named.push(done.box);
     out[i] = done;
@@ -266,9 +309,9 @@ export function planePlot(pl, { card = false } = {}) {
     for (const v of xt) { const x = X(v), w = est(String(v), fs) + 6; if (xs.every((o) => Math.abs(o - x) >= w)) xs.push(x), kids.push(sv('text', { class: 'pze-t' + (on('x', v) ? ' on' : ''), x, y: fr.B + 6 + fs * 0.9, 'text-anchor': 'middle', style: `font-size:${fs}px` }, String(v))); }
     const ys = [];   // (y ticks that would touch drop out, the cut-offs kept first)
     for (const v of [...(pl.y.ticks || [pl.y.min ?? 0, pl.y.max])].sort((a, b) => on('y', b) - on('y', a))) { const y = Y(v); if (ys.every((o) => Math.abs(o - y) >= fs * 1.1)) ys.push(y), kids.push(sv('text', { class: 'pze-t' + (on('y', v) ? ' on' : ''), x: fr.L - 6, y: y + fs * 0.35, 'text-anchor': 'end', style: `font-size:${fs}px` }, String(v))); }
-    const xName = est(pl.x.name, fs) <= fr.R - fr.L ? pl.x.name : pl.x.short || pl.x.key, yName = [pl.y.name, pl.y.short && pl.y.name.includes(',') ? `${pl.y.short},${pl.y.name.split(',').slice(1).join(',')}` : null, pl.y.short || pl.y.key].find((t) => t && est(t, fs) <= H - 8);   // (the name runs the plot's full height; a short name keeps the unit)
+    const xName = est(pl.x.name, fs) <= fr.R - fr.L ? pl.x.name : pl.x.short || pl.x.key, yNames = yLabel(pl, H, fs);   // (the name runs the plot's full height; a short name keeps the unit, on a second line if it must)
     kids.push(sv('text', { class: 'pze-ax', x: (fr.L + fr.R) / 2, y: H - 4, 'text-anchor': 'middle', style: `font-size:${fs}px` }, xName));
-    kids.push(sv('text', { class: 'pze-ax', transform: `translate(${(fs * 0.95).toFixed(1)} ${clamp((fr.T + fr.B) / 2, est(yName, fs) / 2 + 4, H - est(yName, fs) / 2 - 4).toFixed(1)}) rotate(-90)`, 'text-anchor': 'middle', style: `font-size:${fs}px` }, yName));
+    yNames.forEach((t, k) => kids.push(sv('text', { class: 'pze-ax', transform: `translate(${(fs * (0.95 + 1.25 * k)).toFixed(1)} ${clamp((fr.T + fr.B) / 2, est(t, fs) / 2 + 4, H - est(t, fs) / 2 - 4).toFixed(1)}) rotate(-90)`, 'text-anchor': 'middle', style: `font-size:${fs}px` }, t)));
     // The patients: a point each, its name beside it.
     at.forEach((p, i) => {
       const n = names[i];
@@ -319,7 +362,7 @@ export function planeVisual(s, ctx, rowsFp) {
   if (!pl) return null;
   const plot = planePlot(pl);
   const wrap = h('div', { class: 'pz-visual pze-planewrap' }, plot.el, planeKey(pl));
-  rowsFp(s, ctx, (rows) => plot.set(rows.map((r) => ({ f: r.f, name: r.name, site: r.site }))));
+  rowsFp(s, ctx, (rows) => plot.set(rows.map((r) => ({ f: r.f, name: r.name, short: r.short, site: r.site }))));
   return wrap;
 }
 /** A tool's plane: its plane field, its own x, y and zones, or the CSPH plane. */

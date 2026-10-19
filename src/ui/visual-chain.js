@@ -17,7 +17,7 @@
 
 import { h, fmt } from './util.js?v=8813192ea2';
 import { TILE, rateOf, dirAbs } from './table-marks.js?v=810c0a1575';
-import { holds } from './visual-plane.js?v=2f94fa77a5';
+import { holds } from './visual-plane.js?v=5c4d32a3df';
 
 // ── V31: the chain ──
 /** The chain's steps as { t, key }: from [words, key?], { t, key } or plain words; at most six, empty ones left out. */

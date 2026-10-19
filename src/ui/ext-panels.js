@@ -7,8 +7,8 @@
 //   tool kinds 'plane', 'chain', 'flowchart'  the same in the data card, read from the slide's case
 //   table columns 'spent' (col-spent.js) and 'wave' (col-wave.js)
 
-import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=2f94fa77a5';
-import { chainVisual, createChainTool, flowVisual, createFlowTool, flowOf } from './visual-chain.js?v=90b85fd5e0';
+import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js?v=5c4d32a3df';
+import { chainVisual, createChainTool, flowVisual, createFlowTool, flowOf } from './visual-chain.js?v=e486c0f858';
 import { spentColumn } from './col-spent.js?v=3614f7fe6c';
 import { waveColumn } from './col-wave.js?v=cf308a37e9';
 
@@ -24,7 +24,7 @@ export function rowsFp(s, ctx, done) {
     const x = typeof o === 'string' ? { id: o } : o && typeof o === 'object' ? o : null;
     if (!x) return null;
     const sl = x.id ? slideOf(x.id) : null;
-    return { x, name: x.name || x.title || sl?.title || '', site: x.site ?? sl?.site, f: null };
+    return { x, name: x.name || x.title || sl?.title || '', short: x.short || '', site: x.site ?? sl?.site, f: null };
   }).filter(Boolean);
   const fill = () => {
     let missing = 0;
