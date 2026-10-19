@@ -192,12 +192,19 @@ export function boxScore(b, { lines = [], segs = [], boxes = [], bounds = null }
 }
 /** A word's place: of the candidates ({ x, y, anchor }, in order of liking), the first that lands on the fewest things.
  *  w: its width, fs: its type size. With near ({ x, y, k }) a spot also costs k for each unit of its box's distance from
- *  that point, so a word strays from what it names only to get clear of something that counts more. Returns the candidate
- *  with its box and n, what it lands on. */
+ *  that point, so a word strays from what it names only to get clear of something that counts more. With obstacles.inside
+ *  ([x0, y0, x1, y1], the drawing's own edges) no word ever leaves it: a spot that would is slid back in before it is
+ *  weighed, so it lands on what is there instead. Returns the candidate with its box and n, what it lands on. */
 export function placeWord(cands, w, fs, obstacles, near = null) {
   let best = null;
-  for (const c of cands) {
-    const x0 = c.anchor === 'end' ? c.x - w : c.anchor === 'middle' ? c.x - w / 2 : c.x;
+  const lim = obstacles.inside;
+  for (let c of cands) {
+    let x0 = c.anchor === 'end' ? c.x - w : c.anchor === 'middle' ? c.x - w / 2 : c.x;
+    if (lim) {
+      const dx = clamp(x0 - 3, lim[0], Math.max(lim[0], lim[2] - w - 6)) - (x0 - 3);
+      const dy = clamp(c.y - 0.85 * fs - 1, lim[1], Math.max(lim[1], lim[3] - 1.15 * fs - 2)) - (c.y - 0.85 * fs - 1);
+      if (dx || dy) { c = { ...c, x: c.x + dx, y: c.y + dy }; x0 += dx; }
+    }
     const box = [x0 - 3, c.y - 0.85 * fs - 1, x0 + w + 3, c.y + 0.3 * fs + 1];   // (with room for a line's stroke and a g's tail)
     const n = boxScore(box, obstacles);
     const cost = n + (near ? near.k * Math.hypot(Math.max(0, box[0] - near.x, near.x - box[2]), Math.max(0, box[1] - near.y, near.y - box[3])) : 0);
@@ -342,7 +349,7 @@ export function createCurve() {
     svg.dataset.points = ser ? String(ser.xs.length) : '0';   // (the browser checks read it: 0 until the curve is ready)
     // (What a ring's value keeps clear of: the cut-offs and their names, the x axis, the data lines. A value on a cut-off
     // line reads as that line's name, so it would sooner cross a data line or another word.)
-    const obstacles = { segs, cutLabs, cutBounds: [L, T - 1.2 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.map((c) => ({ y: YL(c.v), x0: L, x1: R, w: 5 })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f] };
+    const obstacles = { segs, cutLabs, cutBounds: [L, T - 1.2 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.map((c) => ({ y: YL(c.v), x0: L, x1: R, w: 5 })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f], inside: [0, 0, G.w, G.h] };
     return { svg, lines, at, obstacles, alt };
   }
   // The rings at r: each on its line at the case's setting, its value beside it (left of it near the right edge, and the
@@ -430,7 +437,7 @@ export function createCurve() {
     for (const c of ob.cutLabs) {
       // (If both ends are taken, beside the dashed line: just left of it, or just right.)
       const near = ok ? c.cands.filter((q) => q.anchor === 'end').flatMap((q) => [{ ...q, x: cx - 0.5 * f, anchor: 'end' }, { ...q, x: cx + 0.5 * f, anchor: 'start' }]) : [];
-      const p = placeWord([...c.cands, ...near], c.tw, f, { segs: ob.segs, boxes, bounds: ob.cutBounds, lines: c.lines });
+      const p = placeWord([...c.cands, ...near], c.tw, f, { segs: ob.segs, boxes, bounds: ob.cutBounds, lines: c.lines, inside: ob.inside });
       boxes.push(p.box);
       c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
       c.el.classList.toggle('on', !!p.on);

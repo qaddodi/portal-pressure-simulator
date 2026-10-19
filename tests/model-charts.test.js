@@ -247,6 +247,16 @@ test('a word beside a ring takes the first place clear of the lines, the cut-off
   // (A value stays on its ring's side of a cut-off: its ring at y 70 is under the line at 50.)
   const u = placeWord([{ x: 100, y: 35, anchor: 'start' }, { x: 100, y: 99, anchor: 'start' }], 40, 12, { lines: [{ ...cut, w: 5, side: 70 }], bounds: [0, 0, 200, 100] });
   assert.equal(u.y, 99);
+  // (With inside, no spot ever leaves the drawing, even when every spot in it costs more than leaving would.)
+  const inside = [0, 0, 200, 100];
+  for (const [x, anchor] of [[190, 'start'], [215, 'start'], [5, 'end'], [-20, 'middle']]) {
+    const v = placeWord([{ x, y: 35, anchor }], 40, 12, { lines: [{ ...cut, w: 5, side: 70 }], bounds: [20, 0, 180, 100], inside });
+    assert.ok(v.box[0] >= 0 && v.box[2] <= 200, `${x} ${anchor}: ${v.box[0]}–${v.box[2]} inside 0–200`);
+  }
+  const top = placeWord([{ x: 100, y: 2, anchor: 'start' }, { x: 100, y: 120, anchor: 'start' }], 40, 12, { inside });
+  assert.ok(top.box[1] >= 0 && top.box[3] <= 100, 'inside from top to bottom too');
+  const w = placeWord([{ x: 195, y: 35, anchor: 'start' }, { x: 150, y: 35, anchor: 'end' }], 40, 12, { boxes: [[160, 20, 200, 40]], inside });
+  assert.equal(w.anchor, 'end', 'a spot slid back onto something loses to a clear one');
 });
 
 test('with only the curve\'s setting moved, the case sits on the curve, read between its points', () => {
