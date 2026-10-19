@@ -218,13 +218,13 @@ Pointing at the resistor words `resistance` / `collaterals` / `gut arterioles` w
 
 All figure-only (no `visual`). Organ outlines, the normal spleen, organ marks, calipers and step numbers show on the anatomy view; `span` and `zone` only on the circuit view; nothing here shows in the lobule or sinusoid views. Code: `src/ui/ext-highlights.js`, `highlight-math.js`, `ext-callouts.js`, `callout-math.js`.
 
-* **More organs** for `terms`, `glow` and `[words](key)`: `stomach`, `esophagus`, `bowel` (small bowel), `colon`, `duodenum`, `kidney` (left). Outlined in the neutral ink `--text-2`.
+* **More organs** for `terms`, `glow` and `[words](key)`: `bowel` (small bowel), `colon`, `duodenum`, `kidney` (left). The stomach and esophagus are not highlighted. Outlined in the neutral ink `--text-2`.
 * **Named vessel sets** (`'@name'`) in `glow`, `spot` and a mark's `edges`: see section 8.5. `{ id: '@name', soft: true }` gives each vessel the same options.
 * **`spot: [ids]`**: a spotlight. The named vessels, `@sets` and organs stay at full strength and glow softly; the rest of the network eases back and the organ picture dims. Compare buttons and sliders keep it. Without WebGL only the organs dim.
-* **`normalOutline: ['spleen']`**: a thin line at the normal spleen's size inside an enlarged one; it shows once the spleen is 8% over normal and grows into view through a time-lapse.
+* **`normalOutline: ['spleen']`**: a thin dashed line at the normal spleen's size inside an enlarged one; it shows once the spleen is 8% over normal and grows into view through a time-lapse.
 * **`ripple: true | '<slide id>'`**: as the slide lands, vessels whose pressure moved 2 mmHg or more glow warm (up) or cool (down) for about 1.6 s. Forward only; none with reduce motion.
-* **`lens: 'system'`**: portal veins, systemic veins, and collaterals with shunts in three colours (also a compare button: `{ label: 'Vein system', lens: 'system' }`). Not in Explore.
-* **`lens: 'since'`**: the Change colours against the slide before, or `since: '<slide id>'`; `sinceLabel: 'No Rx'` names the reference in the key ("Change since No Rx"). Compare buttons keep the reference, so two treatments read on one scale.
+* **`lens: 'system'`**: portal veins, systemic veins and shunts (collaterals included) in three colours, keyed Portal, Systemic, Shunts (also a compare button: `{ label: 'Vein system', lens: 'system' }`). Not in Explore.
+* **`lens: 'since'`**: the Change colours against the slide before, or `since: '<slide id>'`; `sinceLabel: 'no Rx'` names the reference in the key ("Change vs no Rx"; else "Change vs last slide" or "Change vs earlier"). Compare buttons keep the reference, so two treatments read on one scale.
 * **Live readings in a mark**: a mark's `label` may hold any tile `{token}` (`'Varix {varix}'`), printed as its tile prints it and in its rating colour on a plain pill; it follows sliders, buttons and time-lapses without jumping. Do not repeat a reading a station label already shows.
 * **Marks on organs**: `mark: { organ: 'spleen', label: 'Spleen {spleen}' }`; organs `liver spleen heart stomach esophagus bowel colon duodenum kidney ascites`. `kind` defaults to `note`.
 * **`calipers: ['spleen' | 'varix' | 'TIPS' | <vessel id>]`**: a dimension line with its reading (spleen length, varix diameter, stent width in whole mm, any other vessel's modelled diameter).
