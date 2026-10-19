@@ -6268,13 +6268,28 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-curve :is(.pcv-cut, .pcv-v).on { stroke-width: 8px; }   /* (on its own line: the dashes stop round the words) */
 .ptk-grid[data-rate="mid"] .pcv-cut { fill: color-mix(in oklab, var(--caution) 70%, var(--text)); }
 .ptk-grid[data-rate="hi"] .pcv-cut { fill: color-mix(in oklab, var(--danger) 80%, var(--text)); }
-.pcs-h { font: 600 1em var(--font-ui); fill: var(--text-2); }
-.pcs-t { font: 700 1.1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; }
 .pcs-l { font: 500 1em var(--font-ui); fill: var(--text); }
 .pcs-row.other .pcs-l { fill: var(--text-2); }
-.pcs-v { font: 700 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; }
-.pcs-z { stroke: var(--text-3); stroke-width: 1.5; }
-.pcs-key text { font: 500 1em var(--font-ui); fill: var(--text-2); }
+.pcs-row.total .pcs-l { font-weight: 650; }
+/* (A step's number stops the cut-off lines round it, as the curve's cut-off names do.) */
+.pcs-v { font: 700 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 8px; stroke-linejoin: round; }
+.pcs-row.total .pcs-b { fill: var(--text-3); }
+.pcs-row.total[data-rate="ok"] .pcs-b { fill: var(--ok); }
+.pcs-row.total[data-rate="mid"] .pcs-b { fill: var(--caution); }
+.pcs-row.total[data-rate="hi"] .pcs-b { fill: var(--danger); }
+.pcs-row.now[data-rate="ok"] .pcs-v { fill: var(--ok); }
+.pcs-row.now[data-rate="mid"] .pcs-v { fill: color-mix(in oklab, var(--caution) 70%, var(--text)); }
+.pcs-row.now[data-rate="hi"] .pcs-v { fill: color-mix(in oklab, var(--danger) 80%, var(--text)); }
+.pcs-c { fill: none; stroke: var(--text-3); stroke-width: 1; stroke-dasharray: 2 3; }
+.pcs-cut line { stroke-width: 1.5; stroke-dasharray: 4 5; }
+.pcs-cut[data-rate="mid"] line { stroke: color-mix(in srgb, var(--caution) 85%, var(--text)); }
+.pcs-cut[data-rate="hi"] line { stroke: var(--danger); }
+.pcs-ax text { font: 600 1em var(--font-ui); font-variant-numeric: tabular-nums; }
+.pcs-ax .pcs-u { font-weight: 500; fill: var(--text-3); }
+.pcs-ax [data-rate="mid"] text { fill: color-mix(in oklab, var(--caution) 70%, var(--text)); }
+.pcs-ax [data-rate="hi"] text { fill: color-mix(in oklab, var(--danger) 80%, var(--text)); }
+.pcs-cut, .pcs-ax .pcs-cut { transition: opacity .3s var(--ease); }
+.pcs-cut.off { opacity: 0; }
 
 /* ── Package C: end ── */
 

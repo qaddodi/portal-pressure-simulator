@@ -4,10 +4,10 @@
 //
 //   tool: { kind: 'curve', param: 'tips.d', from: 6, to: 12, step: 1, lines: ['ppg', 'liver'] }   a setting across its range
 //         against one or two readings, the case's ring on each line (tool-curve.js)
-//   tool: { kind: 'causes', metric: 'ppg' }   what raises the reading from healthy, a bar per cause (tool-causes.js)
+//   tool: { kind: 'causes', metric: 'ppg' }   what raises the reading from healthy, a waterfall with a step per cause (tool-causes.js)
 
 import { createCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js?v=8933b3d096';
-import { createCauses, metricOf } from './tool-causes.js?v=d2eb4b5ac6';
+import { createCauses, metricOf } from './tool-causes.js?v=06e2fd22e7';
 import { TILE } from './table-marks.js?v=810c0a1575';
 
 const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
