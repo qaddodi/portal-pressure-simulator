@@ -289,39 +289,53 @@ test('a TIPS shows as its own part; the inflow turns arterial after it', async (
   assert.equal(vi.bar.reduce((s, p) => s + p.pct, 0), 100);
 });
 
-// The label rule on every deck slide's bar, at every card width from the narrowest real one (240 px: a 320 px Mac or iPad
-// card less its widest padding, 2 × 40 px; a phone's is 280 px or more) to a Mac's widest: each
-// name 12 px or more, inside the card, under its own segment or on a leader, ≥ 4 px from every other name, every other name's
-// leader, the bar and the bracket's line, and the rows inside the card's height. The Healthy caption fits on its row, and
-// the bracket's words keep clear of the word "Now".
-const boxOf = (lay, l) => { const t = lay.top + lay.geo.head + lay.geo.barH + lay.geo.band + l.row * lay.geo.step; return { x0: l.L, x1: l.L + l.lw, y0: t, y1: t + lay.geo.lab }; };
+// The label rule on every deck slide's bars, at every card width from the narrowest real one (240 px: a 320 px Mac or iPad
+// card less its widest padding, 2 × 40 px; a phone's is 280 px or more) to a Mac's widest: the rows' names ("Healthy",
+// "Now") in the gutter at the bars' left; each name 12 px or more, inside the card; a name on its own segment g clear of the
+// segment's edges and inside the bar's height, else under the bar on a leader, ≥ 4 px from every other name, every other
+// name's leader and the bar; the rows inside the card's height. The Healthy bar's words sit on their own segments too.
 function checkRule(parts, of, w, hh, f, at, hParts = null) {
-  const lay = flowLayout(parts, of, w, hh, f, (t, ff) => t.length * ff * 0.58, hParts), g = lay.geo.g;
+  const m = (t, ff) => t.length * ff * 0.58;
+  const lay = flowLayout(parts, of, w, hh, f, m, hParts), geo = lay.geo, g = geo.g;
   assert.equal(lay.parts.reduce((a, p) => a + p.pct, 0), 100, `${at}: the bar is still all the blood`);
-  assert.ok(lay.capW <= w, `${at}: the Healthy caption fits its row`);
-  if (lay.bracket) {
-    assert.ok(lay.brX - lay.brW / 2 >= lay.nowW + g - 1e-9 && lay.brX + lay.brW / 2 <= w + 1e-9, `${at}: the bracket's words clear of Now, inside the card`);
-  }
-  if (hParts) assert.deepEqual(lay.hsegs.map((h) => h.id).filter((id) => lay.segs.some((q) => q.id === id)), lay.segs.map((q) => q.id).filter((id) => lay.hsegs.some((h) => h.id === id)), `${at}: Healthy in the Now bar's order`);
   assert.ok(f >= 12 && g >= LABEL_GAP);
   assert.ok(lay.ok, `${at}: the names fit in ${lay.rows} rows`);
-  assert.ok(lay.top + lay.geo.head + lay.geo.barH + lay.rows * lay.geo.step <= hh + 1e-6, `${at}: inside the card's height`);
-  const barB = lay.top + lay.geo.head + lay.geo.barH, boxes = lay.labels.map((l) => boxOf(lay, l));
-  const brY = lay.top + lay.geo.brY;
+  // The rows' names clear of the bars, the two bars close, as tall as each other.
+  assert.ok(Math.max(m('Healthy', f), m('Now', f)) + g <= lay.gut + 1e-9 && lay.gut < w / 2, `${at}: Healthy and Now beside their bars`);
+  assert.ok(lay.segs[0].a === lay.gut && Math.abs(lay.segs.at(-1).b - w) < 1e-6, `${at}: the bar runs from the gutter to the card's edge`);
+  assert.ok(geo.head - geo.barH <= Math.max(g, 0.5 * f) + 1e-9, `${at}: the bars sit close`);
+  assert.ok(lay.top >= 0 && lay.top + geo.head + geo.barH + lay.rows * geo.step <= hh + 1e-6, `${at}: inside the card's height`);
+  // Two lines on a bar: inside it, a line's height apart.
+  assert.ok(geo.n1 - 0.75 * f >= 0.3 * f && geo.n2 <= geo.barH - 0.3 * f && geo.n2 - geo.n1 >= 1.1 * f, `${at}: two lines fit on a bar`);
+  if (hParts) {
+    assert.deepEqual(lay.hsegs.map((h) => h.id).filter((id) => lay.segs.some((q) => q.id === id)), lay.segs.map((q) => q.id).filter((id) => lay.hsegs.some((h) => h.id === id)), `${at}: Healthy in the Now bar's order`);
+    lay.hsegs.forEach((h, i) => {
+      const room = h.b - h.a - 2 * g, mode = lay.hmode[i];
+      if (mode === 'both') assert.ok(Math.max(m(h.name, f), m(`${h.pct}%`, f)) <= room + 1e-9, `${at}: Healthy ${h.name} fits its segment`);
+      if (mode === 'pct') assert.ok(m(`${h.pct}%`, f) <= room + 1e-9, `${at}: Healthy ${h.pct}% fits its segment`);
+    });
+  }
+  const barB = lay.top + geo.head + geo.barH;
+  const boxOf = (l) => { const t = barB + geo.band + l.row * geo.step; return { x0: l.L, x1: l.L + l.lw, y0: t, y1: t + geo.lab }; };
   lay.labels.forEach((l, i) => {
-    const b = boxes[i], s = lay.segs[i];
+    const s = lay.segs[i];
+    if (!l.lead) {
+      assert.equal(l.row, -1, `${at}: ${s.name} on its segment`);
+      assert.ok(l.L >= s.a + g - 1e-9 && l.L + l.lw <= s.b - g + 1e-9, `${at}: ${s.name} on its own segment, clear of its edges`);
+      return;
+    }
+    const b = boxOf(l);
+    assert.ok(l.row >= 0 && l.row < lay.rows, `${at}: ${s.name} in a row under the bar`);
     assert.ok(b.x0 >= -1e-9 && b.x1 <= w + 1e-9, `${at}: ${s.name} inside the card`);
     assert.ok(b.y0 - barB >= g - 1e-9, `${at}: ${s.name} clear of the bar`);
-    if (of !== 'inflow') assert.ok(b.y0 - brY > g, `${at}: ${s.name} clear of the bracket`);
-    if (!l.lead) assert.ok(b.x0 >= s.a - 1e-9 && b.x1 <= s.b + 1e-9, `${at}: ${s.name} without a leader sits under its own segment`);
-    lay.labels.forEach((m, j) => {
-      if (j === i) return;
-      const o = boxes[j];
-      if (m.row === l.row) assert.ok(Math.max(o.x0 - b.x1, b.x0 - o.x1) >= g - 1e-9, `${at}: ${s.name} clear of ${lay.segs[j].name}`);
+    assert.ok(l.ex >= b.x0 && l.ex <= b.x1, `${at}: ${s.name}'s leader ends over it`);
+    lay.labels.forEach((n, j) => {
+      if (j === i || !n.lead) return;
+      const o = boxOf(n);
+      if (n.row === l.row) assert.ok(Math.max(o.x0 - b.x1, b.x0 - o.x1) >= g - 1e-9, `${at}: ${s.name} clear of ${lay.segs[j].name}`);
       // Another name's leader drops straight down through the rows above that name: never within g of this one.
-      if (m.lead && m.row > l.row) assert.ok(m.ex <= b.x0 - g + 1e-9 || m.ex >= b.x1 + g - 1e-9, `${at}: ${lay.segs[j].name}'s leader clear of ${s.name}`);
+      if (n.row > l.row) assert.ok(n.ex <= b.x0 - g + 1e-9 || n.ex >= b.x1 + g - 1e-9, `${at}: ${lay.segs[j].name}'s leader clear of ${s.name}`);
     });
-    if (l.lead) assert.ok(l.ex >= b.x0 && l.ex <= b.x1, `${at}: ${s.name}'s leader ends over it`);
   });
   // The slants keep the bar's order, so no two leaders cross.
   const ex = lay.labels.filter((l) => l.lead).map((l) => l.ex);
@@ -330,7 +344,7 @@ function checkRule(parts, of, w, hh, f, at, hParts = null) {
 }
 
 test('the portal blood bar: names keep the label rule on every deck slide and card width', async () => {
-  const f = 12, H = { portal: 13.75 * f, inflow: 13.75 * f };
+  const f = 12, H = { portal: 9.25 * f, inflow: 9.25 * f };
   const [healthy] = await runSteps([{ preset: 'healthy' }]);
   const hp = { portal: flowParts(healthy, 'portal'), inflow: flowParts(healthy, 'inflow') };
   assert.ok(hp.portal.find((p) => p.id === 'liver').pct > 80, 'healthy: most portal blood reaches the liver');
@@ -355,16 +369,16 @@ test('the portal blood bar: names keep the label rule on every deck slide and ca
   for (const w of [260, 300, 400]) checkRule(crumbs, 'portal', w, H.portal, f, `crumbs ${w}px`);
   const six = [{ id: 'liver', name: 'Liver', pct: 20 }, { id: 'ret', name: 'Retroperitoneal', pct: 18 }, { id: 'pum', name: 'Paraumbilical', pct: 17 },
     { id: 'grs', name: 'Gastrorenal', pct: 16 }, { id: 'srs', name: 'Splenorenal', pct: 15 }, { id: 'other', name: 'Other', pct: 14 }];
-  for (const w of [300, 400, 500]) checkRule(six, 'portal', w, H.portal, f, `six ${w}px`);
-  // Narrower still (a large text size): the smallest routes join Other until the names keep the rule, the liver's share and
-  // the bracket unchanged, one route still named.
+  for (const w of [440, 500, 600]) checkRule(six, 'portal', w, H.portal, f, `six ${w}px`);
+  // Narrower still (a large text size): the smallest routes join Other until the names keep the rule, the liver's share
+  // unchanged, one route still named.
   for (const w of [200, 220]) {
     const lay = checkRule(six, 'portal', w, H.portal, f, `six ${w}px`);
     assert.ok(lay.parts.length < six.length, `six ${w}px: some routes joined Other`);
     assert.equal(lay.parts.find((p) => p.id === 'liver').pct, 20);
     assert.ok(lay.parts.some((p) => !['liver', 'other'].includes(p.id)), 'a route still named');
   }
-  for (const w of [300, 400]) assert.equal(flowLayout(six, 'portal', w, H.portal, f, approxW(f)).parts, six, `six ${w}px: nothing merged where the names fit`);
+  for (const w of [440, 500]) assert.equal(flowLayout(six, 'portal', w, H.portal, f, approxW(f)).parts, six, `six ${w}px: nothing merged where the names fit`);
 });
 
 test('the year chart\'s milestone names: level, inside the chart, never touching each other', () => {
