@@ -9,7 +9,7 @@ import { download } from './download.js?v=3564e5bf8c';
 import { LEVELS, withOverview } from './decks.js?v=0ae7bd76a1';
 import { TILE } from './table-marks.js?v=810c0a1575';
 import { plateletText } from './glue.js?v=5a0f63226b';
-import { fillEq, eqFilled, citeText } from './teach-extras.js?v=6065168294';
+import { citeText } from './teach-extras.js?v=d8224d9bb5';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -106,7 +106,7 @@ function slideBlock(d, base, s, i, fp, at) {
     <p class="cap"><span class="n">${i + 1}</span>${s.kicker ? ` · ${esc(s.kicker)}` : ''}</p>
     <h2>${esc(s.title || 'Slide')}</h2>
     ${s.line ? `<p class="line">${esc(lineText(s.line, fp, at))}</p>` : ''}
-    ${ml ? `<div class="eq"><math display="block">${eqFilled(ml) ? fillEq(ml, fp, at, true) : ml}</math>${legend ? `<small>${esc(legend)}</small>` : ''}</div>` : ''}
+    ${ml ? `<div class="eq"><math display="block">${ml}</math>${legend ? `<small>${esc(legend)}</small>` : ''}</div>` : ''}
     ${citeText(s.cite) ? `<p class="cite">${esc(citeText(s.cite))}</p>` : ''}
     ${s.notes ? `<div class="notes"><p class="cap">Notes</p><p>${esc(s.notes)}</p></div>` : ''}
     ${s.checks ? `<ol class="checks">${s.checks.map(([cq, ca]) => `<li><p>${esc(cq)}</p><p class="a"><b>Answer:</b> ${esc(ca)}</p></li>`).join('')}</ol>` : ''}

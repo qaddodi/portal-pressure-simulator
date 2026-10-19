@@ -24,7 +24,7 @@ import { DECKS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from
 import { wholeGap, tenthGap } from '../engine/gap.js?v=3a5947c552';
 import { createHvpgMonitor } from './hvpg-proc.js?v=d8438f1d1f';
 import { createTools } from './presenter-tools.js?v=bde8a1a419';
-import { openHandout } from './handout.js?v=e08dcbe15a';
+import { openHandout } from './handout.js?v=97ba9daec0';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig } from './table-marks.js?v=810c0a1575';
@@ -33,7 +33,7 @@ import { createFigureKey } from './figure-key.js?v=96997852c4';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=b2067d6101';
 import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=9b84b1912e';
-import { fillEq, eqFilled, eqText, eqRate, citeText, cellsMode, barsOn, barShares, focusOf, ladderFromOf } from './teach-extras.js?v=6065168294';
+import { citeText, focusOf, ladderFromOf, ladderFromName } from './teach-extras.js?v=d8224d9bb5';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -64,32 +64,11 @@ const LOBULE_CAM = /^(lobule|sinusoid)/;
 // ── Numbers ────────────────────────────────────────
 const RUNGS = [['pv', 'PV'], ['whvp', 'WHVP'], ['fhvp', 'FHVP'], ['ivc', 'IVC'], ['ra', 'RA']];
 // A slide's equation (decks.js eq: [MathML, legend]): typeset by the browser's own MathML, the legend under it.
-// A {key} token in the MathML is a reading (V22): {key@slide} another slide's, filled here; {key} the slide's own, filled and
-// kept live by eqTo.
 function equation([ml, legend]) {
   const box = h('div', { class: 'pz-eq' });
-  box.innerHTML = `<math>${eqFilled(ml) ? fillEq(ml, null, fpAt) : ml}</math>`;   // (the decks' own constant markup, never user text; a token is a number)
+  box.innerHTML = `<math>${ml}</math>`;   // (the decks' own constant markup, never user text)
   if (legend) box.append(h('p', { class: 'pz-eqk' }, legend));
   return box;
-}
-// An equation's numbers follow the model as a what-if slider, a compare button or a time-lapse moves it (V22).
-function eqTo(root, f, tips = false) {
-  for (const n of root?.querySelectorAll('.pz-eq .eq-v:not([data-at])') || []) {
-    const k = n.dataset.k, t = eqText(k, f), r = eqRate(k, f, tips);
-    if (n.textContent !== t) n.textContent = t;
-    if ((n.dataset.rate || null) !== r) { if (r) n.dataset.rate = r; else delete n.dataset.rate; }
-  }
-}
-// On a slide whose equation carries the case's numbers, the line's own live values follow the model with it, so the words
-// and the equation always read one state (V22): the same text, tone and rating as rich() gives them.
-function lineTo(root, s, f, tips = false) {
-  for (const n of root?.querySelectorAll('.pz-line .pz-val[data-k]') || []) {
-    const k = n.dataset.k, t = liveVal(k, s, f).replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0'), r = pillRate(k, f, tips), tone = valTone(k, f, tips);
-    if (n.textContent !== t) n.textContent = t;
-    if (PILL_TONE[r]) n.dataset.rate = r; else delete n.dataset.rate;
-    n.classList.toggle('tone', !!tone);
-    if (tone) n.style.setProperty('--tone', toneVar(tone)); else n.style.removeProperty('--tone');
-  }
 }
 // A source line under the words (V23): cite: 'Baveno VIII 1.15, 1.16', in the caveat's small print.
 const citeEl = (s) => (citeText(s.cite) ? h('p', { class: 'pz-cite' }, citeText(s.cite)) : null);
@@ -312,7 +291,7 @@ function rich(t, s = {}, fp = null, tips = false) {
     if (lensW) out.push(lensBy.replace(/ $/, '\u00a0'), h('span', { class: 'pz-term pz-lens-t', style: `--tone: ${toneVar(LENS_TONE[LENS_WORDS[lensW]])}` }, lensW));
     else if (lw) out.push(TARGETS[lk] ? termPill(lw, lk) : lw);
     else if (tword) { seenT.add(tk); out.push(termPill(tword, tk)); }
-    else if (mk && TILE[mk]) { const pl = pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp, tips), pillRate(mk, fp, tips)); pl.firstChild.dataset.k = mk; out.push(pl); }   // (its key, for lineTo)
+    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp, tips), pillRate(mk, fp, tips)));
     else if (mk && atRe.test(mk) && TILE[mk.match(atRe)[1]]) { const [, k, id] = mk.match(atRe), f = fpAt(id); out.push(pill(liveVal(k, s, f), mkStop, '', valTone(k, f), pillRate(k, f))); }
     else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(mk.replace(/^(?:>=|<=|[<>≥≤])\s*/, ''), mkStop, ' cut'));
     else if (mk) out.push(pill(mk, mkStop, ' cut'));   // (a number typed in braces, {6 to 8 g}: a rule, outlined; only a live value is the patient)
@@ -1639,7 +1618,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets, block: blockOf(s) });
     if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
     ui.tools.pin(f);   // (an instrument's reading is the tiles' number)
-    if (eqFilled(s.eq?.[0])) { const tp = !!store.get().params?.tips?.on; eqTo(ui.text, f, tp); lineTo(ui.text, s, f, tp); }   // (and an equation's, with the line's)
     stage.siteFp?.(f);   // (and a callout's)
     figureHooks('update', f, s);   // (and a deck visuals package's, slide-ext.js)
   }
@@ -2151,7 +2129,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       panel.classList.toggle('tabbed', !!tab);
       panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s)),
         visualOf(s, i));
-      if (eqFilled(s.eq?.[0])) eqTo(panel, st?.fp, !!st?.params?.tips?.on);
       if (!ui.root.classList.contains('pz-prep')) panel.classList.remove('pz-leave');   // (else once fitted: settle)
       ui.veil.classList.add('on');
     } else {
@@ -2166,7 +2143,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
-      if (eqFilled(s.eq?.[0])) { eqTo(text, now?.fp, !!now?.params?.tips?.on); lineTo(text, s, now?.fp, !!now?.params?.tips?.on); }   // (the numbers the card starts on: a time-lapse's start)
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
@@ -2215,11 +2191,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     layout();
   }
   // A ladder slide's earlier state (ladderFrom, V24): true for the slide before, or a slide's id. Its readings are a faint line
-  // behind the patient's, named "Before" in the card's legend; every other ladder slide clears it.
+  // behind the patient's, named in the card's legend ("Before", or the slide's ladderFromLabel such as "No Rx"); every other
+  // ladder slide clears it.
   function ladderFromTo(s, i) {
     const w = ladderFromOf(s), at = !w ? -1 : w.prev ? i - 1 : slides.findIndex((x) => x.id === w.id), k = at >= 0 ? stateOf[at] : -1;
     const key = ui.dhL.querySelector('.pz-lg-from');
-    const put = (fp) => { ui.ladder.setFrom(fp); key.hidden = !fp; };
+    const put = (fp) => { ui.ladder.setFrom(fp); key.hidden = !fp; key.lastChild.textContent = ladderFromName(s); };
     if (k == null || k < 0) { put(null); return; }
     if (states[k]) { put(states[k].fp); return; }
     put(null);
@@ -2334,33 +2311,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const vsName = (r) => { const t = vsRow(r); return lc(t?.title || slides.find((x) => x.id === r.vs)?.title || ''); };
     // The reference row (the healthy patient, or the baseline) keeps its numbers, the anchor for the arrows.
     const isRef = (r, n) => !!r.ref || (rel && !r.vs && n === 0);
-    // Opt-in cells (V15): cells 'values' prints each number with its small arrow, 'change' prints "18 → 10" against the row's
-    // reference; bars puts a faint bar behind each number, its share of the column's largest; focusRow lights one row.
-    const mode = cellsMode(s), focus = focusOf(s);
-    const share = barsOn(s) ? Object.fromEntries(cols.filter((k) => !colExt(k)).map((k) => [k, barShares(rows.map((r) => (r.f && !r.blank.includes(k) ? fpv(k, r.f) ?? NaN : NaN)))])) : null;
-    const barOf = (k, n) => (share?.[k] ? { class: ' pzv-bar', style: { '--bar': share[k][n].toFixed(3) } } : { class: '', style: null });
-    // (Printed numbers keep one decimal, as everywhere but the ladder's brackets; after a TIPS the PPG is judged against its target, below 12.)
-    const valN = (k, f) => { const v = fpv(k, f); return mode && v != null && PRESS.has(k) ? fmt(v, 1) : val(k, f); };
-    const rateN = (k, r, d) => (k === 'ppg' && states[r.k]?.params?.tips?.on && fpv(k, r.f) != null ? (tipsGoal(tileShown(k, fpv(k, r.f)))[0] === 'ok' ? 'ok' : 'hi') : rateAbs(k, d));
+    // focusRow (V15, opt-in): lights one row; the others recede.
+    const focus = focusOf(s);
     const cell = (k, r, n) => {
       if (r.blank.includes(k)) return h('td', { class: 'num blank', title: 'Not measurable' }, noneEl(), h('span', { class: 'sr-only' }, 'not measurable'));
       if (!r.f || (rel && !isRef(r, n) && !refOfRow(r))) return h('td', { class: 'num pend' }, '…');
       if (k === 'spleen' && !(fpv(k, r.f) > 0)) return h('td', { class: 'num none' }, 'Removed');
-      const b = barOf(k, n);
-      if (isRef(r, n)) return h('td', { class: 'num ref' + b.class, style: b.style, 'data-rate': rel ? null : mode ? rateN(k, r, dirAbs(k, r.f)) : rateAbs(k, dirAbs(k, r.f)) }, valN(k, r.f));
+      if (isRef(r, n)) return h('td', { class: 'num ref', 'data-rate': rel ? null : rateAbs(k, dirAbs(k, r.f)) }, val(k, r.f));
       const ref = refOfRow(r), d = rel ? (ref ? dirRel(k, r.f, ref) : 0) : dirAbs(k, r.f), v = val(k, r.f) + unitOf(k);
       // Against normal, the colour follows the arrows (amber above, red well above); against a baseline, better or worse,
       // except where a change is neither ('calm': a meal's small PPG rise, the HVPG's dip as a clot diverts portal flow).
       const calm = (s.calm || []).includes(k) || r.calm.includes(k);
-      if (mode) {
-        // (Numbers in the text's colour against a reference, the arrow taking the change's; against normal the number takes its rating, as the top row's.)
-        const from = mode === 'change' && rel && ref ? valN(k, ref) : null, vn = valN(k, r.f) + unitOf(k), rate = rel ? null : rateN(k, r, d);
-        return h('td', { class: 'num dir pzv-vals' + (d ? '' : ' zero') + (rel ? ' rel' : '') + (from != null ? ' pzv-chg' : '') + b.class, style: b.style,
-          'data-rate': rate, 'data-eff': rel && !calm ? effOf(k, d) : null, title: from != null ? `${from} → ${vn}` : vn },
-        ...(from != null ? [h('span', { class: 'pzv-a' }, from), h('span', { class: 'pzv-to', 'aria-hidden': 'true' }, '→'), h('span', { class: 'pzv-b' }, valN(k, r.f))]
-          : [h('span', { class: 'pzv-b' }, valN(k, r.f)), arrowEl(d)]),
-        h('span', { class: 'sr-only' }, from != null ? `${WORDREL[d]}, from ${from} to ${vn}` : `${rel ? WORDREL[d] : WORD[d]}, ${vn}${rate === 'ok' ? ', target met' : ''}`));
-      }
       return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : ''), 'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: v },
         arrowEl(d), h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}`));
     };
@@ -2386,26 +2347,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     for (const k of cols) if (colExt(k)?.unit) units.push(colExt(k).unit);
     if (ascCols) units.push('SAAG and protein in g/dL');
     const refTitle = first ? lc(rows[0].title) : 'the baseline';
-    // (What a change cell reads from: the first row, the row each names, or both where only some rows name one.)
-    const changeFrom = () => { const own = rows.filter((r, n) => !isRef(r, n)), all = own.length && own.every((r) => r.vs), some = own.some((r) => r.vs);
-      return all ? 'the row named under it' : some ? `${refTitle}, or the row named under it` : refTitle; };
-    const key = mode === 'change' && rel
-      ? `Each cell: ${changeFrom()} → this row${cols.some((k) => k !== 'pvFlow') ? '. Green better, red worse' : ''}`
-      : rel
+    const key = rel
       ? `↑ higher, ↓ lower than ${perRow ? 'the row named under each' : refTitle}; ↑↑ ↓↓ by 40% or more; • unchanged${cols.some((k) => k !== 'pvFlow') ? '. Green better, red worse' : ''}`
       : `↑ above normal, ↓ below; ↑↑ ↓↓ past the red cut-off of that column (tap a heading for it); • within normal`;
-    const legend = [key, rows.some((r) => r.blank.length) ? '○ not measurable' : '', units.length && (mode || rows.some((r, n) => isRef(r, n))) ? `${mode ? 'Numbers' : 'Top row'}: ${units.join(', ')}` : '', s.foot || '']
+    const legend = [key, rows.some((r) => r.blank.length) ? '○ not measurable' : '', units.length && rows.some((r, n) => isRef(r, n)) ? `Top row: ${units.join(', ')}` : '', s.foot || '']
       .filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ') + '.';
     // A heading's cut-offs: its tooltip on hover, and a line under the legend on a tap (a touch screen shows no tooltip).
     const cutLine = h('span', { class: 'pz-cutl', 'aria-live': 'polite' });
     const showCut = (k) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); e.stopPropagation?.(); cutLine.replaceChildren(h('b', {}, `${COLS[k] || colExt(k)?.heading || k}: `), ...withArrows((CUT[k] ?? colExt(k)?.cut) + '.')); } };
     const cutTh = (k, label, cut) => h('th', { class: 'num', title: cut || null, ...(cut ? { tabindex: '0', onclick: showCut(k), onkeydown: showCut(k) } : {}) }, label);
-    // (A table with opt-in cells says so on its own element, so its phone headings keep the 12 px floor: pzv-cells.)
     const go1 = (r) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); go(r.i); } };
     // (long: seven rows or more; a class, not :has(), which made every table cell part of each restyle the page did)
     // (notecols: few enough columns that an upright tablet keeps each note in a column of its own under its heading, as on its side)
     const noteCols = notes.length && cols.length + (ascCols ? 2 : 0) + notes.length <= 4;
-    return h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') + (mode ? ` pzv-cells pzv-${mode}` : '') + (focus ? ' pzv-focused' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
+    return h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') + (focus ? ' pzv-focused' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
       h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => cutTh(k, COLS[k] || colExt(k)?.heading || k, CUT[k] ?? colExt(k)?.cut)),
         ascCols ? [cutTh('saag', h('abbr', { title: 'Serum−ascites albumin gradient' }, 'SAAG'), CUT.saag), cutTh('tp', h('abbr', { title: 'Ascites protein' }, 'Prot.'), CUT.tp)] : null,
         notes.map((x) => h('th', { class: 'nh' }, x)))),
@@ -3826,7 +3781,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function build() {
     const ladder = bigLadder(), tiles = bigTiles();
     const text = h('section', { class: 'pz-text stage-blocker', 'aria-live': 'polite' });
-    const dhT = h('span', {}, 'Pressure, portal vein to heart'), dhL = h('span', { class: 'pz-lg' }, h('i', { class: 'now' }), 'Patient', h('i', { class: 'base' }), 'Healthy', h('span', { class: 'pz-lg-from', hidden: true }, h('i', { class: 'from' }), 'Before'));
+    const dhT = h('span', {}, 'Pressure, portal vein to heart'), dhL = h('span', { class: 'pz-lg' }, h('i', { class: 'now' }), 'Patient', h('i', { class: 'base' }), 'Healthy', h('span', { class: 'pz-lg-from', hidden: true }, h('i', { class: 'from' }), h('span', {}, 'Before')));
     const tools = createTools({ host, stage });
     // On a phone an instrument above tiles folds away (the tiles keep the reading), so the figure is not a strip between
     // two cards; the button opens it, and it stays open for the rest of the talk.
