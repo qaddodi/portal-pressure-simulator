@@ -13,6 +13,7 @@ import { runFlick, FLICK } from './flick.js?v=3da45febf2';
 import { inlineStyles } from './svg-inline.js?v=fc17cb73fe';
 import { fluidTarget, poolFade } from './fluid-step.js?v=2742314765';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
+import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { subpathsIn, foldOpacity, dropInvisible, mergeClipRuns } from './plate-copy.js?v=8a7456e9fc';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
 import { glassCallout } from './callout.js?v=d5524b6a11';
@@ -800,6 +801,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The liver's state eases toward the model's (a new patient or a slider never makes it jump).
   let lvC = null, lvG = 0, lvT = 0, lvGT = null, lvTT = null, lvAt = 0, lvMoving = false, lvCT = null, lvGTo = null, lvStillAt = 0, caudK = null;
+  // The spleen growing through a time-lapse shows on the live drawing, at its size each frame, as the liver's ease does (spleen-motion.js).
+  const spleenMv = spleenMotion();
+  const spleenMoving = () => spleenMv.moving(performance.now());
+  let spleenTimer = 0;
   // Abdominal wall (anterior): a soft skin tint that appears only with caput medusae, under its veins.
   const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
@@ -3470,6 +3475,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // as it goes, and the plate is drawn again once it settles: held, the organs inside it stood still while their outlines
     // moved, then jumped to the new shape at the end (Ascites deck slide 5, 17 Oct).
     if (lvMoving || fluidEasing()) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); return; }
+    // (A growing spleen: no new size may come once it stops, so a later poke rasterizes it once it has settled.)
+    if (spleenMoving()) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); clearTimeout(spleenTimer); spleenTimer = setTimeout(platePoke, 320); return; }
     const stale = plateStale; plateStale = false;
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
@@ -3486,10 +3493,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (plateBusy) { plateAgain = true; return; }
     // (A liver that just settled may be pausing mid time-lapse: give it a moment.)
-    const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), 400 - (performance.now() - lvStillAt));
+    const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), 400 - (performance.now() - lvStillAt), 400 - (performance.now() - spleenMv.stillAt()));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
-      if (figureHidden() || lvMoving || fluidEasing() || (lobuleOn && !lz?.isOpen())) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
+      if (figureHidden() || lvMoving || fluidEasing() || spleenMoving() || (lobuleOn && !lz?.isOpen())) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
       const k = plateStateKey();
       if (k === plateKey && veins?.hasPlate(0)) return;   // it changed and changed back
       plateBusy = true; plateLast = performance.now();
@@ -3501,7 +3508,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           // the softer whole plate for a beat: the textures would blur, then sharpen).
           plateView = null; plateViewKey = '';
           veinsDirty = true;
-          if (!plateOn() && glWanted(easeInOut(morph)) && !lvMoving) {
+          if (!plateOn() && glWanted(easeInOut(morph)) && !lvMoving && !spleenMoving()) {
             // The raster lands outside an animation frame (and the next frames may be paced out):
             // hide the SVG organs only together with a GPU draw that shows the plate, or a frame
             // would show neither (a flash of the dark stage through the organs).
@@ -4533,6 +4540,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const sc = f.slow.spleen / 11;
     normalSync(sc);
+    // Growing, the plate (a picture of the organs at one size) gives way to the live drawing, which follows this size each frame.
+    if (spleenMv.see(sc, performance.now()) && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
     putA(organG.spleen, 'transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
     if (organG.spleen.style.opacity !== (p.splenicRx === 2 ? '0.14' : '')) organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
     liftDiaphragm(shrink, sc);
