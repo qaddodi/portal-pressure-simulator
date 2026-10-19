@@ -157,7 +157,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     for (const e of es) { const w = e.borderBoxSize?.[0]?.inlineSize ?? e.contentRect.width; if (e.target === report) repW = w; else cvW = w; }
   }) : null;
   ro?.observe(report, { box: 'border-box' }); ro?.observe(cv, { box: 'border-box' });
-  const STEPS = [[1, false, false], [0.9, false, false], [1, false, true], [0.9, false, true], [0.8, false, true], [0.9, true, true], [0.8, true, true]];
+  const STEPS = [[1, false, false], [0.9, false, false], [0.8, false, false], [1, false, true], [0.9, false, true], [0.8, false, true], [0.9, true, true], [0.8, true, true]];
   const SHORT_DIR = { 'Portal → hepatic vein': 'PV → HV', 'Portal → IVC': 'PV → IVC', 'Portal → systemic': 'PV → systemic', 'Systemic → portal': 'Systemic → PV', 'Toward the heart': 'To the heart', 'Not available during time lapse': 'Paused in time lapse' };
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
     h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
@@ -634,12 +634,28 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
   }
 
-  // The top strip fits its words by fixed steps, never by cutting or dropping one: the type at full size, then at 0.9 (the gaps
-  // and type scale together, --dop-k), then the pattern ("High velocity") on a line of its own under the reading, whole, and only
+  // The top strip fits its words by fixed steps, never by cutting or dropping one: the type at full size, then at 0.9 and 0.8 (the gaps
+  // and type scale together, --dop-k; one line in smaller type before two, Mohammad 19 Oct), then the pattern ("High velocity") on a line of its own under the reading, whole, and only
   // when even that does not fit the direction's short form (clinical shorthand, "PV → HV"): the direction is read in full
   // wherever a second line makes room for it (Review 16 Oct: "PV → HV · Patent" on a Mac slide). The card and monitor keep their size; the trace starts under
-  // the strip. Measured only when its words or width change; a bigger step is taken back only with room to spare, so a reading
-  // that changes by a digit does not move the strip (and the trace under it) back and forth.
+  // the strip. The step is chosen once per width and vessel for the widest words that vessel can show (its longest reading,
+  // direction and pattern), so the strip holds still while they change: "Phasic" turning "Monophasic" moved the whole line
+  // (Mohammad, 19 Oct). The number keeps a slot as wide as its widest reading, so a changing value never shoves the words.
+  // Only words wider than all of those (a time-lapse notice) take a smaller step, and only while they show.
+  // (The words each kind of vessel can show, as interpret() writes them; "No flow · No signal" for any of them.)
+  const STRIP_WORDS = {
+    portal: [['Hepatopetal', 'Hepatofugal', 'Stasis', 'To-and-fro'], ['Pulsatile', 'Phasic', 'Monophasic'], 2],
+    hepatic: [['Toward the heart', 'Reversed'], ['Large reversal', 'Triphasic', 'Biphasic', 'Monophasic'], 2],
+    ivc: [['Toward the heart', 'Reversed'], ['Phasic, with reversal', 'Phasic', 'Continuous'], 2],
+    artery: [['Antegrade', 'Reversed'], ['Resistive index 0.00'], 3],
+    tips: [['Portal → hepatic vein', 'Portal → IVC', 'Reversed'], ['Occluded', 'Low velocity, jet', 'Low velocity', 'High velocity', 'Patent'], 3],
+    collateral: [['Portal → systemic', 'Systemic → portal'], ['Closed', 'Open collateral'], 2],
+  };
+  function stripWords() {
+    const [dirs, pats, digits] = STRIP_WORDS[meta().kind] || STRIP_WORDS.portal;
+    // (the reading in tabular digits: "−00", and "−0.0" under 10; a stent or the artery reads up to "000", reversed only slowly)
+    return { dirs: [...dirs, 'No flow'], pats: [...pats, 'No signal'], vels: [MINUS + '0.0', MINUS + '00', ...(digits > 2 ? ['000'] : [])] };
+  }
   function setDir(t) {
     dirFull = t;
     const s = STEPS[stripStep][1] ? SHORT_DIR[t] || t : t;
@@ -663,22 +679,54 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const w = Math.max(...line.map((q) => q.right)) - Math.min(...line.map((q) => q.left)) + (p && !wrap ? 14 : 0);
     return w + spare <= have && (!wrap || !p || p.width + 14 + spare <= have);
   }
+  // Puts the widest of some words in an element (measured at the current step) and gives back that word.
+  function widest(e, words, map = (t) => t) {
+    let best = '', bw = -1;
+    for (const t of words) { e.textContent = map(t); rng.selectNodeContents(e); const q = rng.getBoundingClientRect().width; if (q > bw) { bw = q; best = map(t); } }
+    e.textContent = best;
+    return { text: best, width: bw };
+  }
+  // (stripFit: the width, type sizes and vessel kind the base step was chosen for; stripKey, read by draw(), changes with the step.)
+  let stripFit = '', stripFull = 0, stripBase = 0, stripHave = 0, stripSc = 1, stripWordsKey = '';
   function fitStrip() {
-    const key = `${ro ? repW : report.clientWidth}|${ro ? cvW : cv.clientWidth}|${stripType}|${dirFull}|${velEl.hidden ? '' : velEl.textContent}|${patternEl.textContent}`;
-    if (key === stripKey) return;
-    stripKey = key;
-    // (the room is the monitor picture's, 12 px in from its right edge, where the report is wider than it: a phone held sideways)
-    const cs = getComputedStyle(report), rr = report.getBoundingClientRect(), br = cv.getBoundingClientRect();
-    const sc = rr.width / (report.offsetWidth || 1) || 1;   // (screen px per layout px: a card still easing in is scaled)
-    const have = Math.min(report.clientWidth - parseFloat(cs.paddingRight), (br.right - rr.left) / sc - 12) - parseFloat(cs.paddingLeft);
-    rng ||= document.createRange();
-    if (have <= 0) return;
-    if (patternEl.hidden) patternEl.hidden = false;
-    const was = stripStep;
-    for (let i = 0; i < STEPS.length; i++) {
-      stripStepSet(i);
-      if (stripFits(i, have * sc, i < was ? 6 : 0)) return;   // (the words are measured on screen)
+    const velB = velEl.firstChild;
+    const key = `${ro ? repW : report.clientWidth}|${ro ? cvW : cv.clientWidth}|${stripType}|${meta().kind}`;
+    if (key !== stripFit) {
+      // (the room is the monitor picture's, 12 px in from its right edge, where the report is wider than it: a phone held sideways)
+      const cs = getComputedStyle(report), rr = report.getBoundingClientRect(), br = cv.getBoundingClientRect();
+      const sc = rr.width / (report.offsetWidth || 1) || 1;   // (screen px per layout px: a card still easing in is scaled)
+      const have = Math.min(report.clientWidth - parseFloat(cs.paddingRight), (br.right - rr.left) / sc - 12) - parseFloat(cs.paddingLeft);
+      rng ||= document.createRange();
+      if (have <= 0) return;
+      stripFit = key;
+      // The first step that holds the widest words, measured in place; the shown words are put back after.
+      const was = { v: velB.textContent, p: patternEl.textContent, vh: velEl.hidden, ph: patternEl.hidden }, words = stripWords();
+      velEl.hidden = false; patternEl.hidden = false; velB.style.minWidth = '';
+      let base = STEPS.length - 1;
+      for (let i = 0; i < STEPS.length; i++) {
+        stripStepSet(i);
+        widest(velB, words.vels); widest(dirEl, words.dirs, (t) => (STEPS[i][1] ? SHORT_DIR[t] || t : t)); widest(patternEl, words.pats);
+        if (stripFits(i, have * sc, 0)) { base = i; break; }
+      }
+      stripStepSet(base);
+      // (and the strip's height with them, which the trace starts under whatever the words: a pattern that comes after "Acquiring…")
+      stripFull = Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4;
+      // (the number's slot, in em of its own type so it scales with any step: as wide as the widest reading)
+      const slot = widest(velB, words.vels).width / sc / (parseFloat(getComputedStyle(velB).fontSize) || 1);
+      velB.style.minWidth = `${Math.ceil(slot * 100) / 100}em`;
+      velB.textContent = was.v; patternEl.textContent = was.p; velEl.hidden = was.vh; patternEl.hidden = was.ph;
+      stripBase = base; stripHave = have; stripSc = sc; stripWordsKey = '';
     }
+    // The words shown now: the base step holds them, unless they are wider than any reading (a notice), which take the
+    // first smaller step that does, and give it back once they are gone.
+    const wk = `${velEl.hidden ? '' : velB.textContent}|${dirFull}|${patternEl.textContent}`;
+    if (wk === stripWordsKey) return;
+    stripWordsKey = wk;
+    if (patternEl.hidden) patternEl.hidden = false;
+    let i = stripBase;
+    for (; i < STEPS.length - 1; i++) { stripStepSet(i); if (stripFits(i, stripHave * stripSc, 0)) break; }
+    stripStepSet(i);
+    stripKey = `${stripFit}#${i}`;
   }
 
   // The strip's own words (the reading, direction and pattern), measured together: a phone's Tests card keeps the gauge and tiles
@@ -714,10 +762,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const k0 = stripKey; fitStrip();
       // (No word of the strip laid out yet gives no bottom: the strip keeps its last height. Taken as is, an infinite height made the
       // trace's image fail to build, a monitor drawn while hidden.)
-      if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4; if (Number.isFinite(t) && (ovKey !== ovLast || t > ovTop || t < ovTop - 4)) ovTop = t; }
+      if (ovKey !== ovLast || stripKey !== k0) { rng ||= document.createRange(); const t = Math.max(Math.ceil(stripRect().bottom - cv.getBoundingClientRect().top) + 4, stripStep === stripBase ? stripFull : 0); if (Number.isFinite(t) && (ovKey !== ovLast || t > ovTop || t < ovTop - 4)) ovTop = t; }
     } else {
       ovTop = 26;
-      if (stripStep) { stripStepSet(0); stripKey = ''; }   // (off the strip the words are always whole and full size)
+      if (stripFit) { stripStepSet(0); stripKey = stripFit = stripWordsKey = ''; velEl.firstChild.style.minWidth = ''; }   // (off the strip the words are always whole and full size, the number its own width)
     }
     ovLast = ovKey;
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
