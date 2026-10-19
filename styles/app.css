@@ -6293,6 +6293,9 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    of the rating colours; the box (Baveno VIII's no screening scope) is a dashed outline; the case in the card is a ring that eases. */
 .pze-planewrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: clamp(16px, calc(3vw / var(--vz)), 48px); align-items: center; width: 100%; }
 .pz.stack .pze-planewrap { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.pze-planewrap.pze-nokey { grid-template-columns: minmax(0, 1fr); }   /* (a plane whose zones name themselves: the plot takes the key's width too) */
+.pze-planewrap.pze-nokey > .pze-key { display: none; }
+.pz.stack .pze-planewrap.pze-nokey > .pze-key { display: block; }   /* (an iPhone's plot is too narrow for every zone's words: the key stays under it) */
 .pze-plot { position: relative; width: 100%; height: calc(52 * var(--pzh) / var(--vz)); min-height: 240px; font-size: var(--s-cap); }
 .pz.stack .pze-plot { height: auto; aspect-ratio: 1.15; min-height: 0; }
 .pze-plot.pze-incard { height: clamp(200px, calc(30 * var(--pzh)), 360px); min-height: 0; font-size: var(--ch-cap, var(--s-cap)); }
