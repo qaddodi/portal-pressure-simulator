@@ -12,7 +12,7 @@ import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './doppl
 import { frameFor, noteDraw, paceMs } from './frame.js?v=67ca200c87';
 import { windowIndexFor, scaleFor } from './dopplerWindow.js?v=2067b803a2';
 import { velNormal, dopplerVel } from './velNormal.js?v=181dda5594';
-import { caliperFrame, caliperGlide, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=ae115f112c';
+import { caliperFrame, caliperEase, caliperLevel, caliperX, CAL_FADE, CAL_KEEP, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=d2245a459d';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -950,52 +950,61 @@ export function createDoppler({ onProbe, pickGate = true }) {
 
   // ── A slide's calipers (V21): a flat mark at the highest and at the lowest velocity of the last 3 s on the trace, a thin
   // line between them and the pulsatility index in the strip, the number the pattern is named from. Each frame takes one pick
-  // (caliperFrame) for the marks and the index alike: a mark rides its sample as the trace sweeps and moves to the new one the
-  // moment a new extreme arrives or its sample leaves the window, gliding there (an ease-out of CAL_GLIDE) and aiming each
-  // frame at the new sample's scrolled place, so it lands on it exactly. The index changes at once. ──
+  // (caliperFrame) for the marks and the index alike. Nothing jumps (Mohammad, 19 Oct): the upright caliper stays fixed at the
+  // trace's newest end; a mark rides its sample as the trace sweeps, and when a new extreme arrives or its sample leaves the
+  // window it fades out where it is while the new mark fades in on the new sample (CAL_FADE); the upright's end ticks ease to
+  // the new level over the same time. The index changes at once. ──
   let calip = false, cal = null, calMk = {};
-  const CAL_W = 16;
+  const CAL_W = 16, CAL_GAP = 8, CAL_TICK = 4;
   function calNow(tNow, W) {
-    cal = calip && tNow != null && probe ? caliperFrame(buf, tNow, sweepSeconds, W, CAL_W) : null;
+    cal = calip && tNow != null && probe ? caliperFrame(buf, tNow, sweepSeconds, W, CAL_W, CAL_KEEP(CAL_TICK, CAL_GAP)) : null;
     if (cal) cal.gf = gateFactor(); else calMk = {};
   }
   function drawCalipers(ctx, { now, sgn, k, pxPerV, baseY, padT, padL, W, H, xAt }) {
     if (!cal) return;
     // (each mark on the spectrum's outline, where the reading's peak is read: the mean across the lumen times dopplerK; the
-    // window keeps every mark a whole mark inside the trace, so nothing is clamped to an edge)
-    const at = ([t, v], g) => [xAt(t), clamp(padT + baseY - sgn * v * k * g * pxPerV, padT, padT + H)];
-    const mark = ([x, y], A) => {
-      ctx.fillStyle = cssAlpha('--black', 0.8 * A); ctx.fillRect(Math.round(x - CAL_W / 2) - 1, Math.round(y) - 2, CAL_W + 2, 4);
-      ctx.fillStyle = cssAlpha('--doppler', A); ctx.fillRect(Math.round(x - CAL_W / 2), Math.round(y) - 1, CAL_W, 2);
+    // window keeps every new mark a whole mark inside the trace and clear of the upright)
+    const yOf = (v) => clamp(padT + baseY - sgn * v * k * cal.gf * pxPerV, padT, padT + H);
+    const half = CAL_W / 2, xc = caliperX(padL, W, CAL_TICK), secs = (t) => (now - t) / 1000;
+    const mark = (x, y, A) => {
+      ctx.fillStyle = cssAlpha('--black', 0.8 * A); ctx.fillRect(Math.round(x - half) - 1, Math.round(y) - 2, CAL_W + 2, 4);
+      ctx.fillStyle = cssAlpha('--doppler', A); ctx.fillRect(Math.round(x - half), Math.round(y) - 1, CAL_W, 2);
     };
     ctx.save();
-    // (a mark on a new sample starts from where it was drawn last frame, its offset from the new target easing to nothing)
-    const place = (w) => {
-      const p = at(cal[w], cal.gf), m = calMk[w];
-      if (m && m.t !== cal[w][0]) calMk[w] = { t: cal[w][0], off: [m.last[0] - p[0], m.last[1] - p[1]], from: now };
-      else if (!m) calMk[w] = { t: cal[w][0], off: [0, 0], from: now };
-      const c = calMk[w], [dx, dy] = caliperGlide(c.off, (now - c.from) / 1000);
-      if (dx || dy) labBusy = true;
-      return (c.last = [p[0] + dx, p[1] + dy]);
-    };
-    const h = place('hi'), l = place('lo');
-    // What the index measures is the gap in speed between the two marks, not the slant between them: each mark runs a dashed
-    // extension level to one shared x past the later mark (before the earlier one when that would leave the trace), and one
-    // upright caliper with end ticks spans the two extensions.
-    const GAP = 8, TICK = 4, half = CAL_W / 2;
-    let xc = Math.max(h[0], l[0]) + half + GAP;
-    if (xc > padL + W - TICK - 1) xc = Math.min(h[0], l[0]) - half - GAP;
-    xc = Math.round(xc) + 0.5;
-    ctx.strokeStyle = cssAlpha('--doppler', 0.6); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-    ctx.beginPath();
-    for (const [x, y] of [h, l]) { const yy = Math.round(y) + 0.5, from = xc > x ? x + half : x - half; ctx.moveTo(from, yy); ctx.lineTo(xc, yy); }
-    ctx.stroke(); ctx.setLineDash([]);
-    const y0 = Math.round(h[1]) + 0.5, y1 = Math.round(l[1]) + 0.5;
+    // (a mark fading out may ride its sample out of the window, so the marks are kept to the trace)
+    ctx.beginPath(); ctx.rect(padL, padT, W, H); ctx.clip();
+    const lv = {};
+    for (const w of ['hi', 'lo']) {
+      const [t, v] = cal[w], m = (calMk[w] ||= { marks: [], lvl: null });
+      const cur = m.marks[m.marks.length - 1];
+      if (!cur || cur.t !== t) {
+        if (cur) cur.gone = now;
+        m.marks.push({ t, v, born: now });
+        m.lvl = m.lvl ? { from: caliperLevel(m.lvl.from, m.lvl.to, secs(m.lvl.at)), to: v, at: now } : { from: v, to: v, at: now };
+      }
+      m.marks = m.marks.filter((q) => q.gone == null || secs(q.gone) < CAL_FADE);
+      lv[w] = yOf(caliperLevel(m.lvl.from, m.lvl.to, secs(m.lvl.at)));
+      if (secs(m.lvl.at) < CAL_FADE) labBusy = true;
+      // What the index measures is the gap in speed between the two marks, not the slant between them: each mark runs a
+      // dashed extension level to the upright, fading with its mark.
+      for (const q of m.marks) {
+        const A = caliperEase(secs(q.born)) * (q.gone == null ? 1 : 1 - caliperEase(secs(q.gone)));
+        if (A <= 0) continue;
+        const x = xAt(q.t), y = yOf(q.v), yy = Math.round(y) + 0.5;
+        if (x + half < xc) {
+          ctx.strokeStyle = cssAlpha('--doppler', 0.6 * A); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+          ctx.beginPath(); ctx.moveTo(x + half, yy); ctx.lineTo(xc, yy); ctx.stroke(); ctx.setLineDash([]);
+        }
+        q.x = x; q.y = y; q.A = A;
+      }
+    }
+    // One upright caliper with end ticks, fixed at the newest end, spans the two levels.
+    const y0 = Math.round(lv.hi) + 0.5, y1 = Math.round(lv.lo) + 0.5, T = CAL_TICK;
     ctx.strokeStyle = cssAlpha('--black', 0.8); ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(xc, y0); ctx.lineTo(xc, y1); ctx.moveTo(xc - TICK, y0); ctx.lineTo(xc + TICK, y0); ctx.moveTo(xc - TICK, y1); ctx.lineTo(xc + TICK, y1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(xc, y0); ctx.lineTo(xc, y1); ctx.moveTo(xc - T, y0); ctx.lineTo(xc + T, y0); ctx.moveTo(xc - T, y1); ctx.lineTo(xc + T, y1); ctx.stroke();
     ctx.strokeStyle = cssAlpha('--doppler', 0.95); ctx.lineWidth = 1;
     ctx.stroke();
-    mark(h, 1); mark(l, 1);
+    for (const w of ['hi', 'lo']) for (const q of calMk[w].marks) if (q.A > 0) mark(q.x, q.y, q.A);
     ctx.restore();
   }
   // (The index is read in the bottom strip, first after the probe's name, in the marks' colour: off the spectrum, always whole.)

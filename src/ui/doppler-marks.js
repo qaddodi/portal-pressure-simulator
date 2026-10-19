@@ -29,26 +29,33 @@ export function caliperPick(buf, t0, t1) {
 }
 
 /** The seconds the calipers read at tNow: the last 3 s, as the reading does, cut to the part of a sweep (seconds across W px)
- *  where a whole mark (markPx wide, centred on its sample) fits on the trace, so a mark is never pinned to an edge. */
-export function caliperWindow(tNow, sweep, W, markPx) {
-  const half = (markPx / 2 + 1) * sweep / Math.max(1, W);
-  return [Math.max(tNow - CAL_SECS, tNow - sweep + half), tNow - half];
+ *  where a whole mark (markPx wide, centred on its sample) fits on the trace, so a mark is never pinned to an edge, and,
+ *  with keepPx, that much more at the newest end, so a mark never reaches the upright caliper fixed there. */
+export function caliperWindow(tNow, sweep, W, markPx, keepPx = 0) {
+  const s = sweep / Math.max(1, W), half = (markPx / 2 + 1) * s;
+  return [Math.max(tNow - CAL_SECS, tNow - sweep + half), tNow - half - keepPx * s];
 }
 
 /** One frame's calipers: the marks, the index the strip shows beside them and the window they come from, all from one pick. */
-export function caliperFrame(buf, tNow, sweep, W, markPx) {
-  const [t0, t1] = caliperWindow(tNow, sweep, W, markPx);
+export function caliperFrame(buf, tNow, sweep, W, markPx, keepPx = 0) {
+  const [t0, t1] = caliperWindow(tNow, sweep, W, markPx, keepPx);
   const c = t1 > t0 ? caliperPick(buf, t0, t1) : null;
   return c && { ...c, t0, t1 };
 }
 
-/** How long a caliper mark takes to glide to a new pick, in seconds, and how far from its target ([dx, dy] px) it is drawn
- *  `since` seconds after the glide began from `off`: an ease-out (cubic) that lands exactly on the target at CAL_GLIDE. */
-export const CAL_GLIDE = 0.15;
-export function caliperGlide(off, since, dur = CAL_GLIDE) {
-  const u = Math.min(1, Math.max(0, since / dur)), left = (1 - u) ** 3;
-  return [off[0] * left, off[1] * left];
-}
+/** How the calipers change without jumping (Mohammad, 19 Oct: "the vertical part should be in one place ... the horizontal
+ *  parts move but gracefully or fade in place"): the upright caliper stays fixed at the trace's newest end; a flat mark whose
+ *  sample is no longer the extreme fades out where it is while the new one fades in on its own sample, and the upright's end
+ *  ticks ease to the new level. Both take CAL_FADE seconds, eased in and out (smoothstep). */
+export const CAL_FADE = 0.35;
+export const caliperEase = (since, dur = CAL_FADE) => { const u = Math.min(1, Math.max(0, since / dur)); return u * u * (3 - 2 * u); };
+/** A level (a velocity) `since` seconds after it began easing from `from` to `to`. */
+export const caliperLevel = (from, to, since, dur = CAL_FADE) => from + (to - from) * caliperEase(since, dur);
+/** The upright caliper's fixed x, px: at the newest end of a trace W px wide from padL, its end ticks (tick px each side)
+ *  whole inside it, clear of the scale numbers on the right margin. */
+export const caliperX = (padL, W, tick) => Math.round(padL + W - tick - 2) + 0.5;
+/** The px kept free of marks at the newest end for the upright and its gap (caliperWindow keepPx). */
+export const CAL_KEEP = (tick, gap) => tick + 2 + gap;
 
 /** The vessel the paired trace shows: the right hepatic vein under a portal vein or anything else, the main portal vein under
  *  a hepatic vein or the IVC. (The worker samples only these two beside the probe.) */

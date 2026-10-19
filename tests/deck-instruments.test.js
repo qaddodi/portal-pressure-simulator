@@ -11,7 +11,7 @@ import { computeMetrics } from '../src/engine/metrics.js';
 import { createCore } from '../src/worker-core.js';
 import { lumenOf, lumenShape, lumenWords, lumenFacts, lumenLabel, lumenSite, lumenBlock, LUMEN_NAME_Y, LUMEN_NUM_Y, LUMEN_WORD_Y, clotPath, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
 import { fluidOf, fluidBars, fluidWords, sinusoidForces, pinnedForces } from '../src/ui/tool-fluid.js';
-import { pulsatility, caliperPick, caliperFrame, caliperGlide, CAL_GLIDE, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
+import { pulsatility, caliperPick, caliperFrame, caliperWindow, caliperEase, caliperLevel, caliperX, CAL_FADE, CAL_KEEP, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
 import ext from '../src/ui/ext-instruments.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
@@ -132,20 +132,27 @@ test('V21: the calipers read the window\'s extremes, on their own samples, with 
       assert.equal(f.pi, pulsatility(f.hi[1], f.lo[1]), 'the index from the same pick');
     }
   }
-  // A mark moving to a new pick glides there: it starts where it was drawn, eases out (never further than it started, and
-  // never overshooting), and lands exactly on its target by the end of the glide.
-  const off = [-120, 35];
-  near(caliperGlide(off, 0)[0], -120, 1e-12, 'starts where it was'); near(caliperGlide(off, 0)[1], 35, 1e-12, 'starts where it was');
-  let last = Infinity;
-  for (let s = 0; s <= CAL_GLIDE + 1e-9; s += CAL_GLIDE / 30) {
-    const [dx, dy] = caliperGlide(off, s), d = Math.hypot(dx, dy);
-    assert.ok(d <= last + 1e-12 && Math.sign(dx) !== 1 && Math.sign(dy) !== -1, 'closing in, never past the target');
-    last = d;
+  // Nothing jumps (Mohammad, 19 Oct): a new pick fades its mark in on its own sample while the old one fades out in place,
+  // and the upright's level eases there, in and out, never overshooting, landing exactly at the end and staying.
+  assert.equal(caliperEase(0), 0); assert.equal(caliperEase(CAL_FADE), 1); assert.equal(caliperEase(5), 1); assert.equal(caliperEase(-1), 0);
+  let last = -Infinity;
+  for (let s = 0; s <= CAL_FADE + 1e-9; s += CAL_FADE / 30) {
+    const y = caliperLevel(20, 30, s);
+    assert.ok(y >= last - 1e-12 && y >= 20 - 1e-12 && y <= 30 + 1e-12, 'easing toward the new level, never past it');
+    last = y;
   }
-  assert.ok(Math.hypot(...caliperGlide(off, CAL_GLIDE / 2)) < 0.15 * Math.hypot(...off), 'eased out: most of the way in half the time');
-  assert.deepEqual(caliperGlide(off, CAL_GLIDE).map(Math.abs), [0, 0], 'on its target at the end of the glide');
-  assert.deepEqual(caliperGlide(off, 5).map(Math.abs), [0, 0], 'and stays there');
-  assert.ok(CAL_GLIDE >= 0.12 && CAL_GLIDE <= 0.18, 'a short glide');
+  near(caliperLevel(20, 30, CAL_FADE / 2), 25, 1e-9, 'halfway at half time (eased in and out)');
+  assert.ok(caliperLevel(20, 30, CAL_FADE / 10) - 20 < 0.5, 'starts gently');
+  assert.equal(caliperLevel(20, 30, CAL_FADE), 30, 'on the new level at the end');
+  assert.ok(CAL_FADE >= 0.25 && CAL_FADE <= 0.5, 'a calm, short change');
+  // The upright stays in one place: fixed at the trace's newest end, its ticks whole inside the trace, and no mark's window
+  // reaches it (each new mark ends at least the gap short of it).
+  for (const [padL, W, sweep] of [[12, 300, 3], [12, 640, 6], [16, 1100, 6]]) {
+    const xc = caliperX(padL, W, 4), [, t1] = caliperWindow(10, sweep, W, 16, CAL_KEEP(4, 8));
+    assert.ok(xc + 4 <= padL + W && xc - 4 > padL + W - 20, `fixed at the newest end, ${W} px`);
+    const xMark = padL + W - (10 - t1) * W / sweep;   // (the newest sample a mark can sit on, at its scrolled place)
+    assert.ok(xMark + 8 + 8 <= xc + 1, `a mark ends a gap short of the upright, ${W} px`);
+  }
   // The reading's own formula (doppler.js interpret), read from its source.
   assert.match(DOP, /const pi = big > 0\.5 \? swing \/ big : 0;/);
 });
